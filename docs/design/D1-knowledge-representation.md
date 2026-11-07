@@ -25,6 +25,15 @@ never changes those meanings. Scoped table/formula/declaration contributions ret
 endpoints independently of a complete record. The [WCE coordinator](../plans/witnessed-corpus-enrichment_2026-11-05.md)
 owns final native/consumer assessment and remaining quality gaps.
 
+**Implemented, 2026-11-07.** Typed threshold intervals require a located common basis.
+Literal revision succession requires the older declaration and a directed newer cue in
+nonoverlapping passages of the same original source, each with the same located clause
+lineage. The provisional dossier root is one exact retained definition component. Usage
+must bind that component through its applicability reading. A scoped contribution can
+qualify through its direct target endpoint. A matching span elsewhere in the relationship
+closure supplies citation context only. Comparison sides carry clause fields and currently
+have no root-qualified sense endpoint.
+
 ## Progressive enrichment target
 
 **Implemented private foundation; bounded Tested, 2026-11-05.** Independent

@@ -28,6 +28,22 @@ def threshold_inputs(left, right, scope="scope"):
     return value.model_copy(update=dict(passages=passages))
 
 
+def revision_inputs(left, right, *, same_source=True):
+    inputs = threshold_inputs(left, right)
+    older, newer = inputs.passages
+    older = older.model_copy(update={"parent": "rule", "effective_version": "R1"})
+    newer = newer.model_copy(
+        update={
+            "parent": "rule",
+            "effective_version": "R2",
+            "source_ref": older.source_ref if same_source else newer.source_ref,
+            "start": older.end + 1,
+            "end": older.end + 1 + len(newer.text),
+        }
+    )
+    return inputs.model_copy(update={"passages": (newer, older)})
+
+
 @pytest.mark.parametrize(
     "left,right,removed,added",
     [
@@ -74,18 +90,38 @@ def test_missing_unit_and_ambiguous_fields_withhold_typed_conclusion():
 
 
 def test_succession_keeps_the_source_direction_when_comparison_is_reversed():
-    inputs = threshold_inputs("x > 2 kg", "x > 5 kg\nRevision R2 supersedes revision R1.")
-    older, newer = tuple(
-        p.model_copy(update={"parent": "rule", "effective_version": version})
-        for p, version in zip(inputs.passages, ("R1", "R2"), strict=True)
+    inputs = revision_inputs(
+        "Clause rule.\nRevision R1.\nx > 2 kg",
+        "Clause rule.\nRevision R2 supersedes revision R1.\nx > 5 kg",
     )
-    inputs = inputs.model_copy(update={"passages": (older, newer)})
+    newer, older = inputs.passages
     result = compare_clauses(inputs, left=read_clause(newer), right=read_clause(older)).comparison
     assert result is not None and result.applicability == "successive_revisions"
     assert result.left_id == newer.passage_id
     assert result.succession is not None
     assert (result.succession.older_id, result.succession.newer_id) == ("a", "b")
     assert result.succession.evidence.text == "Revision R2 supersedes revision R1."
+    assert result.succession.older_evidence.text == "Revision R1."
+
+
+@pytest.mark.parametrize(
+    "left,same_source",
+    [
+        ("x > 2 kg", True),
+        ("Clause other.\nRevision R1.\nx > 2 kg", True),
+        ("Clause rule.\nRevision R1.\nx > 2 kg", False),
+    ],
+)
+def test_caller_labels_cannot_substitute_for_succession_endpoints(left, same_source):
+    inputs = revision_inputs(
+        left,
+        "Clause rule.\nRevision R2 supersedes revision R1.\nx > 5 kg",
+        same_source=same_source,
+    )
+    newer, older = inputs.passages
+    result = compare_clauses(inputs, left=read_clause(newer), right=read_clause(older)).comparison
+    assert result is not None and result.applicability == "unestablished"
+    assert result.succession is None
 
 
 def members():

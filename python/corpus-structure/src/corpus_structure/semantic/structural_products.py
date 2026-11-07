@@ -406,6 +406,7 @@ class RevisionSuccession(StructuralValue):
     older_id: Nonempty
     newer_id: Nonempty
     evidence: LocatedDefinitionSpan
+    older_evidence: LocatedDefinitionSpan
 
 
 class ComparisonProduct(StructuralValue):
@@ -427,6 +428,7 @@ class ComparisonProduct(StructuralValue):
         if self.succession and (
             {self.succession.older_id, self.succession.newer_id} != {self.left_id, self.right_id}
             or self.succession.evidence.passage_id != self.succession.newer_id
+            or self.succession.older_evidence.passage_id != self.succession.older_id
         ):
             raise ValueError("succession witness differs from compared revisions")
         return self
@@ -663,7 +665,11 @@ class StructuralProductReport(StructuralValue):
                 if reading.component_ref.product_id not in self.inputs.dependencies:
                     raise ValueError("applicability component is not a declared dependency")
         if self.comparison:
-            from .structural_parsing import REVISION_SUCCESSION
+            from .structural_parsing import (
+                REVISION_DECLARATION,
+                REVISION_LINEAGE,
+                REVISION_SUCCESSION,
+            )
 
             by_id = {p.passage_id: p for p in self.inputs.passages}
 
@@ -680,16 +686,27 @@ class StructuralProductReport(StructuralValue):
             if succession := self.comparison.succession:
                 older, newer = by_id.get(succession.older_id), by_id.get(succession.newer_id)
                 match = REVISION_SUCCESSION.fullmatch(succession.evidence.text)
+                old_match = REVISION_DECLARATION.fullmatch(succession.older_evidence.text)
                 if (
                     older is None
                     or newer is None
                     or not older.parent
                     or older.parent != newer.parent
                     or older.scope != newer.scope
+                    or older.source_ref != newer.source_ref
+                    or not (older.end <= newer.start or newer.end <= older.start)
+                    or any(
+                        REVISION_LINEAGE.findall(passage.text) != [older.parent]
+                        for passage in (older, newer)
+                    )
                     or older.effective_version == newer.effective_version
+                    or old_match is None
+                    or old_match[1] != older.effective_version
+                    or REVISION_DECLARATION.findall(older.text) != [older.effective_version]
                     or match is None
                     or match.groups() != (newer.effective_version, older.effective_version)
                     or not exact(succession.evidence)
+                    or not exact(succession.older_evidence)
                 ):
                     raise ValueError("succession differs from its exact original source")
             if tuple(d.dimension for d in self.comparison.dimensions) != DIMENSIONS:

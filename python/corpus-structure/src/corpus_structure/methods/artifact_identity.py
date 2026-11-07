@@ -17,6 +17,7 @@ from corpus_structure.semantic.artifact_identity import (
     ArtifactScoringPolicy,
     SourceArtifactOccurrence,
     native_alias_candidates,
+    normalized_code,
     pair_candidates,
     score_pairs,
 )
@@ -29,7 +30,7 @@ from corpus_structure.semantic.structural_products import (
     StructuralValue,
 )
 
-from .scoped_relations import SourceWorkBinding
+from .scoped_relations import ARTIFACT_REFERENCE_CUE, SourceWorkBinding
 
 
 class ArtifactIdentityConfig(StructuralValue):
@@ -134,7 +135,8 @@ def retained_artifact_nomination(inputs, records, reference, payload) -> Artifac
     if len(endpoints) != 2 or {e["role"] for e in endpoints} != {"attachment", "target"}:
         raise ValueError("artifact nomination requires two role-bound endpoints")
     input_sources = {s.source_view_id: s for s in inputs.sources}
-    ids = {}
+    matched = {}
+    source_views = {view["source_view_id"]: view for view in payload["sources"]}
     for endpoint in endpoints:
         row = rows.get(endpoint["contribution_id"])
         if row is None or not row["anchors"]:
@@ -165,7 +167,7 @@ def retained_artifact_nomination(inputs, records, reference, payload) -> Artifac
             raise ValueError("artifact nomination endpoint lies outside selected sources")
         expected_role = "reference" if endpoint["role"] == "attachment" else "caption"
         matches = [
-            record.contribution_id
+            record
             for record in records
             if record.occurrence_id == row["occurrence_id"]
             and record.artifact.occurrence_role == expected_role
@@ -181,10 +183,42 @@ def retained_artifact_nomination(inputs, records, reference, payload) -> Artifac
         ]
         if len(matches) != 1:
             raise ValueError("artifact nomination endpoint lacks exactly one selected artifact")
-        ids[endpoint["role"]] = matches[0]
-    left, right = sorted(ids.values())
-    if left == right:
-        raise ValueError("artifact nomination cannot reference its own occurrence")
+        if expected_role == "reference":
+            projection = source_views[source.source_view_id]["projection"]
+            if not any(
+                ARTIFACT_REFERENCE_CUE.search(
+                    projection["text"][piece["start"] : piece["start"] + anchor["start"]]
+                )
+                for anchor in row["anchors"]
+                if anchor.get("space") == "native" and anchor.get("precision") == "exact"
+                for piece in projection["pieces"]
+                if piece.get("kind") == "native_text"
+                and piece.get("cell_index") is None
+                and piece["item_ref"] == anchor["pointer"]
+            ):
+                raise ValueError("artifact reference lacks the exact local cross-reference cue")
+        matched[endpoint["role"]] = (matches[0], source.identity)
+    mention, mention_source = matched["attachment"]
+    caption, caption_source = matched["target"]
+    kind = mention.artifact.artifact_kind
+    code = normalized_code(mention.artifact.controlled_code)
+    if (
+        mention_source != caption_source
+        or kind not in {"figure", "table"}
+        or caption.artifact.artifact_kind != kind
+        or code is None
+        or normalized_code(caption.artifact.controlled_code) != code
+        or sum(
+            record.artifact.occurrence_role == "caption"
+            and record.artifact.artifact_kind == kind
+            and normalized_code(record.artifact.controlled_code) == code
+            and any(citation.source_ref == mention_source for citation in record.citations)
+            for record in records
+        )
+        != 1
+    ):
+        raise ValueError("artifact reference does not identify one exact same-view caption")
+    left, right = sorted((mention.contribution_id, caption.contribution_id))
     return ArtifactNomination(left=left, right=right, relationship=reference)
 
 

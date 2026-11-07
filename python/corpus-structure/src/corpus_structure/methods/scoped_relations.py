@@ -59,6 +59,9 @@ class ScopedRelationsConfig(StructuralValue):
         return self
 
 
+ARTIFACT_REFERENCE_CUE = re.compile(r"\b(?:in|see|from)\s+$", re.I)
+
+
 def artifact_spans(text):
     """Locate numbered mentions; never copy nearby captions into references."""
     pattern = re.compile(r"\b(Table|Figure|Theorem|Section)\s+([A-Z]?\d[\w./-]*)", re.IGNORECASE)
@@ -213,7 +216,7 @@ def discover_relations(
         if hasattr(frame, "native_product")
         else "native:" + str(pin["native_product_task_id"])
     )
-    op = operation_identity("structure.scoped_relations", "2", pin)
+    op = operation_identity("structure.scoped_relations", ScopedRelationsMethod.version, pin)
     products, coordinates, participants = [], {}, {}
     formula_diagnostics = []
     annotation_dependencies = tuple("annotation:" + a.dependency_digest for a in annotations)
@@ -441,9 +444,7 @@ def discover_relations(
                 expected_parent = "table" if found["artifact_kind"] == "table" else "picture"
                 if caption and items.get(parent, {}).get("label") == expected_parent:
                     artifact_captions.setdefault(key, []).append(item)
-                elif not caption and re.search(
-                    r"\b(?:in|see|from)\s+$", text[: found["start"]], re.I
-                ):
+                elif not caption and ARTIFACT_REFERENCE_CUE.search(text[: found["start"]]):
                     artifact_mentions.append((key, item, pointer))
 
     # Contextual nominations add source roles and explicit local caption custody.
@@ -858,7 +859,7 @@ def discover_relations(
 
 class ScopedRelationsMethod:
     name = "structure.scoped_relations"
-    version = "2"
+    version = "3"
     family = MethodFamily.RESOLVE
     tier = MethodTier.DETERMINISTIC
     unit_type = TaskUnitType.SOURCE_VIEW

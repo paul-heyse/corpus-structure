@@ -13,7 +13,12 @@ from pydantic import Field, model_validator
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.semantic.retained_contributions import RetainedContributionRef
-from corpus_structure.semantic.structural_parsing import COMPARISON_BASIS, REVISION_SUCCESSION
+from corpus_structure.semantic.structural_parsing import (
+    COMPARISON_BASIS,
+    REVISION_DECLARATION,
+    REVISION_LINEAGE,
+    REVISION_SUCCESSION,
+)
 from corpus_structure.semantic.structural_products import (
     DIMENSIONS,
     MANDATORY_ROLES,
@@ -49,10 +54,17 @@ def _succession(left, right) -> RevisionSuccession | None:
         left.effective_version == right.effective_version
         or not left.parent
         or left.parent != right.parent
+        or left.source_ref != right.source_ref
+        or not (left.end <= right.start or right.end <= left.start)
+        or any(REVISION_LINEAGE.findall(passage.text) != [left.parent] for passage in (left, right))
     ):
         return None
     witnesses = []
     for newer, older in ((left, right), (right, left)):
+        declarations = tuple(REVISION_DECLARATION.finditer(older.text))
+        if len(declarations) != 1 or declarations[0][1] != older.effective_version:
+            continue
+        old_declaration = declarations[0]
         for match in REVISION_SUCCESSION.finditer(newer.text):
             if match.groups() != (newer.effective_version, older.effective_version):
                 continue
@@ -61,6 +73,7 @@ def _succession(left, right) -> RevisionSuccession | None:
                     older_id=older.passage_id,
                     newer_id=newer.passage_id,
                     evidence=_located(newer, match[0], match.start()),
+                    older_evidence=_located(older, old_declaration[0], old_declaration.start()),
                 )
             )
     return witnesses[0] if len(witnesses) == 1 else None
@@ -475,13 +488,8 @@ def derive_dossier_members(inputs, retained, *, root=None):
                     )
                 )
         if report.comparison:
-            if root is not None and not any(
-                span in (root.term, root.content)
-                for dimension in report.comparison.dimensions
-                for side in (dimension.left, dimension.right)
-                if side is not None
-                for span in (side.span, side.typed.span if side.typed else None)
-            ):
+            # Comparison sides carry clause fields and no definition-sense endpoint.
+            if root is not None:
                 continue
             for d in report.comparison.dimensions:
                 for side in (d.left, d.right):

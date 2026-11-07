@@ -15,6 +15,8 @@ COMPARISON_BASIS = re.compile(r"^Comparison basis:[ \t]*([^\n\r.]+?)[ \t]*\.?[ \
 REVISION_SUCCESSION = re.compile(
     r"^Revision ([A-Za-z0-9_-]+) supersedes revision ([A-Za-z0-9_-]+)\.[ \t]*$", re.M
 )
+REVISION_DECLARATION = re.compile(r"^Revision ([A-Za-z0-9_-]+)\.[ \t]*$", re.M)
+REVISION_LINEAGE = re.compile(r"^Clause ([A-Za-z0-9_-]+)\.[ \t]*$", re.M)
 
 
 class ParsedThreshold(TypedDict):

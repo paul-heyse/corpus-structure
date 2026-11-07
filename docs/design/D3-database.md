@@ -83,6 +83,14 @@ cannot overwrite the selected structural session. The file capture reuses prepar
 readers within the same export while each retained reference still passes the owned validator.
 **Tested2026-11-06:**79 focused cases, actual both-dossier full portable replay and the applicable WCE11/12 union. The original native interpreter GC fault remains an unreproduced qualification limit; no causal fix is claimed.
 
+**Implemented, 2026-11-07.** The forward lineage migration retires the rootless batch
+membership function. The current function resolves the original closure and includes only
+scoped relationships with a direct target at the qualified root. The native table-note
+guard reads the full original note and checks a data-cell endpoint and its declared row or
+band. The current table request also binds registered mode and scale. Independently
+reconstructing every conditioned factor from source geometry remains an open verification
+obligation in the [WCE plan](../plans/witnessed-corpus-enrichment_2026-11-05.md#completion-audit).
+
 ## Semantic releases and runtime custody
 
 **Implemented; bounded native and preservation controls Tested,2026-11-05.** A semantic

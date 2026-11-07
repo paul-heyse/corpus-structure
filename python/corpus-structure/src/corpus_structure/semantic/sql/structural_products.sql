@@ -291,6 +291,7 @@ REVOKE ALL ON FUNCTION ops.structural_clause_fields(jsonb) FROM PUBLIC;
 CREATE OR REPLACE FUNCTION ops.structural_comparison(inputs jsonb,left_id text,right_id text)
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 DECLARE a jsonb;b jsonb;x jsonb;y jsonb;xf jsonb;yf jsonb;p jsonb;q jsonb;d text;dimensions jsonb:='[]';entry jsonb;typed text;reason text;removed jsonb;added jsonb;interval_ jsonb;lo jsonb;hi jsonb;av numeric;bv numeric;lower_side boolean;is_removed boolean;applicability text;why text;newer jsonb;older jsonb;w record;succession jsonb;witnesses integer:=0;start_ integer;end_ integer;pattern_ text:='^Revision ([A-Za-z0-9_-]+) supersedes revision ([A-Za-z0-9_-]+)\.[ \t]*$';
+ old_pattern text:='^Revision ([A-Za-z0-9_-]+)\.[ \t]*$'; lineage_pattern text:='^Clause ([A-Za-z0-9_-]+)\.[ \t]*$'; old_start integer;old_end integer;
 BEGIN
  SELECT v INTO STRICT a FROM jsonb_array_elements(inputs->'passages')v WHERE v->>'passage_id'=left_id;
  SELECT v INTO STRICT b FROM jsonb_array_elements(inputs->'passages')v WHERE v->>'passage_id'=right_id;
@@ -329,15 +330,25 @@ BEGIN
   END IF;
   dimensions:=dimensions||jsonb_build_array(entry);
  END LOOP;
- IF a->>'scope'=b->>'scope' AND nullif(a->>'parent','') IS NOT NULL AND a->>'parent'=b->>'parent' AND a->>'effective_version'<>b->>'effective_version' THEN
+ IF a->>'scope'=b->>'scope' AND a->>'source_ref'=b->>'source_ref'
+  AND ((a->>'end')::integer<=(b->>'start')::integer OR (b->>'end')::integer<=(a->>'start')::integer)
+  AND nullif(a->>'parent','') IS NOT NULL AND a->>'parent'=b->>'parent'
+  AND (SELECT array_agg(m[1]) FROM regexp_matches(a->>'text',lineage_pattern,'gn') m)=ARRAY[a->>'parent']
+  AND (SELECT array_agg(m[1]) FROM regexp_matches(b->>'text',lineage_pattern,'gn') m)=ARRAY[a->>'parent']
+  AND a->>'effective_version'<>b->>'effective_version' THEN
   FOR newer,older IN SELECT a,b UNION ALL SELECT b,a LOOP
+   IF (SELECT array_agg(m[1]) FROM regexp_matches(older->>'text',old_pattern,'gn') m)
+    IS DISTINCT FROM ARRAY[older->>'effective_version'] THEN CONTINUE; END IF;
+   old_start:=regexp_instr(older->>'text',old_pattern,1,1,0,'n')-1;
+   old_end:=regexp_instr(older->>'text',old_pattern,1,1,1,'n')-1;
    FOR w IN SELECT m,n::integer FROM regexp_matches(newer->>'text',pattern_,'gn') WITH ORDINALITY x(m,n) LOOP
     IF w.m[1]=newer->>'effective_version' AND w.m[2]=older->>'effective_version' THEN
      witnesses:=witnesses+1;
      start_:=regexp_instr(newer->>'text',pattern_,1,w.n,0,'n')-1;
      end_:=regexp_instr(newer->>'text',pattern_,1,w.n,1,'n')-1;
      succession:=jsonb_build_object('older_id',older->>'passage_id','newer_id',newer->>'passage_id',
-      'evidence',jsonb_build_object('passage_id',newer->>'passage_id','start',(newer->>'start')::integer+start_,'end',(newer->>'start')::integer+end_,'text',substring(newer->>'text' FROM start_+1 FOR end_-start_)));
+      'evidence',jsonb_build_object('passage_id',newer->>'passage_id','start',(newer->>'start')::integer+start_,'end',(newer->>'start')::integer+end_,'text',substring(newer->>'text' FROM start_+1 FOR end_-start_)),
+      'older_evidence',jsonb_build_object('passage_id',older->>'passage_id','start',(older->>'start')::integer+old_start,'end',(older->>'start')::integer+old_end,'text',substring(older->>'text' FROM old_start+1 FOR old_end-old_start)));
     END IF;
    END LOOP;
   END LOOP;
@@ -356,7 +367,7 @@ REVOKE ALL ON FUNCTION ops.structural_comparison(jsonb,text,text) FROM PUBLIC;
 -- Display selection has no authority to create a member or a supported facet.
 CREATE OR REPLACE FUNCTION ops.structural_dossier(inputs jsonb,config jsonb)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE reference jsonb;retained jsonb;report jsonb;roles jsonb;role_ jsonb;c jsonb;r jsonb;d jsonb;side jsonb;span_ jsonb;p jsonb;assertion_ jsonb;expected_statement jsonb;assessment text;key_ text;member_ jsonb;members jsonb:='[]';facets jsonb:='[]';seen jsonb:='{}';selected jsonb:='[]';omitted jsonb;represented jsonb;missing jsonb;sections jsonb;budget integer:=(config->>'member_budget')::integer;mandatory integer;candidate record;membership_digest text;facet_digest text;representation jsonb; root_ref jsonb:=nullif(config->'root_component','null'); root_ jsonb; sense_ text;
+DECLARE reference jsonb;retained jsonb;report jsonb;roles jsonb;role_ jsonb;c jsonb;r jsonb;span_ jsonb;p jsonb;assertion_ jsonb;expected_statement jsonb;assessment text;key_ text;member_ jsonb;members jsonb:='[]';facets jsonb:='[]';seen jsonb:='{}';selected jsonb:='[]';omitted jsonb;represented jsonb;missing jsonb;sections jsonb;budget integer:=(config->>'member_budget')::integer;mandatory integer;candidate record;membership_digest text;facet_digest text;representation jsonb; root_ref jsonb:=nullif(config->'root_component','null'); root_ jsonb; sense_ text;
 BEGIN
  IF root_ref IS NULL OR NOT COALESCE(config->'predecessors','[]') @> jsonb_build_array(root_ref-ARRAY['component_id','operation_id','operation_version','dependencies']) THEN
   RAISE EXCEPTION 'dossier requires exact root component predecessor' USING ERRCODE='23514';
@@ -378,15 +389,7 @@ BEGIN
    roles:=roles||jsonb_build_array(jsonb_build_object('role','usage','span',p-ARRAY['source_ref','scope','effective_version','parent']));
    FOR r IN SELECT value FROM jsonb_array_elements(report->'definition'->'readings') WHERE value->'component'->>'component_id'=sense_ LOOP roles:=roles||jsonb_build_array(jsonb_build_object('role',CASE WHEN r->>'outcome'='incompatible' THEN 'relationship' WHEN r->>'outcome' IN ('mention','example','applicable_explanation') THEN 'usage' WHEN r->>'outcome'='unresolved' OR r->'component'->>'interpretation'='unresolved' THEN 'unresolved_sense' WHEN r->'component'->>'interpretation'='explanation' THEN 'usage' ELSE 'definition' END,'span',r->'component'->'content','definition_interpretation',r->'component'->>'interpretation','applicability_outcome',r->>'outcome'));END LOOP;
   ELSIF report->>'kind'='qualified_comparison' THEN
-   IF NOT EXISTS(SELECT FROM jsonb_array_elements(report->'comparison'->'dimensions') dim
-    CROSS JOIN LATERAL (SELECT dim->'left' side_ UNION ALL SELECT dim->'right') q
-    WHERE side_->'span' IN (root_->'term',root_->'content') OR side_->'typed'->'span' IN (root_->'term',root_->'content')) THEN CONTINUE;END IF;
-   FOR d IN SELECT value FROM jsonb_array_elements(report->'comparison'->'dimensions') LOOP
-    FOR side IN SELECT d->'left' UNION ALL SELECT d->'right' LOOP span_:=COALESCE(nullif(side->'span','null'),side->'typed'->'span');IF span_ IS NOT NULL AND span_<>'null' THEN roles:=roles||jsonb_build_array(jsonb_build_object('role',CASE WHEN d->>'dimension'='exception' THEN 'exception' ELSE 'variant' END,'span',span_));END IF;END LOOP;
-   END LOOP;
-   IF nullif(report->'comparison'->'succession','null') IS NOT NULL THEN
-    roles:=roles||jsonb_build_array(jsonb_build_object('role','revision','span',report->'comparison'->'succession'->'evidence'));
-   END IF;
+   CONTINUE;
   ELSE RAISE EXCEPTION 'dossier predecessors require finite current semantic products' USING ERRCODE='23514';END IF;
   FOR role_ IN SELECT value FROM jsonb_array_elements(roles) LOOP
    span_:=role_->'span';SELECT value INTO STRICT p FROM jsonb_array_elements(inputs->'passages') WHERE value->>'passage_id'=span_->>'passage_id';
@@ -406,8 +409,7 @@ BEGIN
  SELECT members||COALESCE(jsonb_agg(m||jsonb_build_object('sense',sense_,'member_id',
   encode(sha256(convert_to(data.canonical_json(jsonb_build_object(
    'contribution_ref',m->'contribution_ref','role',m->'role','citations',m->'contribution_citations','scope',m->'scope','sense',sense_)),'UTF8')),'hex'))),'[]') INTO members
- FROM ops.dossier_contribution_members(inputs,COALESCE(config->'contribution_predecessors','[]')) AS source_member(m)
- WHERE m->>'role'='relationship' AND EXISTS(SELECT FROM jsonb_array_elements(m->'contribution_citations') source_citation(item) WHERE item->'span' IN (root_->'term',root_->'content'));
+ FROM ops.dossier_contribution_members(inputs,COALESCE(config->'contribution_predecessors','[]'),root_) AS source_member(m);
  SELECT COALESCE(jsonb_agg(m ORDER BY source_passage.value->>'source_ref',(m->'citation'->>'start')::bigint,(m->'citation'->>'end')::bigint,m->>'member_id'),'[]') INTO members FROM jsonb_array_elements(members)m JOIN jsonb_array_elements(inputs->'passages')source_passage(value) ON source_passage.value->>'passage_id'=m->>'passage_id';
  SELECT COALESCE(jsonb_agg(f ORDER BY f->>'facet_id'),'[]') INTO facets FROM jsonb_array_elements(facets)f;
  SELECT COALESCE(jsonb_agg(m->'member_id' ORDER BY n),'[]'),count(*) INTO selected,mandatory FROM jsonb_array_elements(members) WITH ORDINALITY row_(m,n) WHERE m->>'role' IN ('exception','revision','conflict');
@@ -540,7 +542,7 @@ BEGIN
      data.canonical_json(anchor_||jsonb_build_object('pin',pin-'source_view_id')),'UTF8')),'hex'));
     contribution:=jsonb_build_object('contract','RetainedContributionSemantics','kind','occurrence',
      'semantic_type','structural.artifact','operation_key','contribution-operation:'||encode(sha256(convert_to(
-      data.canonical_json(jsonb_build_array(jsonb_build_array('structure.scoped_relations','2',pin),'{}'::jsonb)),'UTF8')),'hex'),
+      data.canonical_json(jsonb_build_array(jsonb_build_array('structure.scoped_relations','3',pin),'{}'::jsonb)),'UTF8')),'hex'),
      'item_key',pointer_||':artifact_reference:'||global_start::text||':'||global_end::text,
      'pin',pin,'anchors',jsonb_build_array(anchor_),
      'occurrence_id',ops.source_contribution_occurrence(jsonb_build_array(anchor_)),
@@ -587,6 +589,7 @@ CREATE OR REPLACE FUNCTION ops.artifact_external_nominations(inputs jsonb,config
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE held record; relation_ jsonb; endpoint jsonb; endpoint_row jsonb; src jsonb; pin_ jsonb;
  expected_role text; record_id text; ids text[]; output jsonb:='[]';
+ mention_ jsonb; caption_ jsonb; occurrence_ jsonb; raw_ text; source_ text; caption_source text; code_ text;
 BEGIN
  IF (SELECT count(*)<>count(DISTINCT r->>'contribution_id')
      FROM jsonb_array_elements(config->'external_nomination_refs') r) THEN
@@ -603,7 +606,7 @@ BEGIN
     NOT EXISTS(SELECT FROM jsonb_array_elements(relation_->'endpoints') e WHERE e->>'role'='attachment') OR
     NOT EXISTS(SELECT FROM jsonb_array_elements(relation_->'endpoints') e WHERE e->>'role'='target') THEN
    RAISE EXCEPTION 'artifact external nomination requires reference and caption endpoints' USING ERRCODE='23514';END IF;
-  ids:='{}';
+  ids:='{}'; mention_:=NULL;caption_:=NULL;
   FOR endpoint IN SELECT e FROM jsonb_array_elements(relation_->'endpoints') e LOOP
    SELECT r INTO STRICT endpoint_row FROM jsonb_array_elements(held.contributions) r
     WHERE r->>'contribution_id'=endpoint->>'contribution_id'
@@ -618,17 +621,38 @@ BEGIN
      AND s->'projection_digest'=pin_->'projection_digest'
      AND s->'recipe_digest'=pin_->'recipe_digest';
    expected_role:=CASE endpoint->>'role' WHEN 'attachment' THEN 'reference' ELSE 'caption' END;
-   SELECT r->>'contribution_id' INTO STRICT record_id FROM jsonb_array_elements(records) r
+   SELECT r INTO STRICT occurrence_ FROM jsonb_array_elements(records) r
     WHERE r->>'occurrence_id'=endpoint_row->>'occurrence_id'
      AND r->'artifact'->>'occurrence_role'=expected_role
      AND EXISTS (SELECT FROM jsonb_array_elements(r->'citations') c
       CROSS JOIN LATERAL jsonb_array_elements(endpoint_row->'anchors') a
       WHERE c->>'source_ref'=encode(sha256(convert_to(data.canonical_json(src),'UTF8')),'hex')
        AND c->>'source_pointer'=a->>'pointer' AND c->>'text'=a->>'source_piece');
-   ids:=array_append(ids,record_id);
+   IF expected_role='reference' THEN
+    SELECT native_json->>'text' INTO STRICT raw_ FROM ops.read_pdf_published_items(
+     (src->>'native_task_id')::bigint,src->>'native_product_key',src->>'native_content_digest',
+     ARRAY[endpoint_row->'anchors'->0->>'pointer']);
+    IF left(raw_,(endpoint_row->'anchors'->0->>'start')::integer) !~* '\m(?:in|see|from)\s+$' THEN
+     RAISE EXCEPTION 'artifact reference lacks the exact local cross-reference cue' USING ERRCODE='23514';
+    END IF;
+    mention_:=occurrence_;source_:=encode(sha256(convert_to(data.canonical_json(src),'UTF8')),'hex');
+   ELSE
+    caption_:=occurrence_;caption_source:=encode(sha256(convert_to(data.canonical_json(src),'UTF8')),'hex');
+   END IF;
+   ids:=array_append(ids,occurrence_->>'contribution_id');
   END LOOP;
-  IF ids[1]=ids[2] THEN
-   RAISE EXCEPTION 'artifact external nomination cannot reference itself' USING ERRCODE='23514';END IF;
+  code_:=lower(btrim(mention_->'artifact'->>'controlled_code'));
+  IF source_ IS DISTINCT FROM caption_source OR code_ IS NULL
+   OR code_ COLLATE pg_catalog.pg_unicode_fast !~ '^[A-Za-z]?\d+([.\-]\d+)*[A-Za-z]?$'
+   OR mention_->'artifact'->>'artifact_kind' NOT IN ('figure','table')
+   OR mention_->'artifact'->>'artifact_kind' IS DISTINCT FROM caption_->'artifact'->>'artifact_kind'
+   OR code_ IS DISTINCT FROM lower(btrim(caption_->'artifact'->>'controlled_code'))
+   OR (SELECT count(*) FROM jsonb_array_elements(records) r
+     WHERE r->'artifact'->>'occurrence_role'='caption'
+      AND r->'artifact'->>'artifact_kind'=mention_->'artifact'->>'artifact_kind'
+      AND lower(btrim(r->'artifact'->>'controlled_code'))=code_
+      AND EXISTS(SELECT FROM jsonb_array_elements(r->'citations') c WHERE c->>'source_ref'=source_))<>1 THEN
+   RAISE EXCEPTION 'artifact reference does not identify one exact same-view caption' USING ERRCODE='23514';END IF;
   output:=output||jsonb_build_array(jsonb_build_object('left',least(ids[1],ids[2]),
    'right',greatest(ids[1],ids[2]),'relationship',held.reference));
  END LOOP;

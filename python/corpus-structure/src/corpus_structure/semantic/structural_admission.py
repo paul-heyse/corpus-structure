@@ -202,6 +202,7 @@ def structural_statement(
                 "older": citation(value.succession.older_id),
                 "newer": citation(value.succession.newer_id),
                 "evidence": span_citation(value.succession.evidence),
+                "older_evidence": span_citation(value.succession.older_evidence),
             }
     if report.dossier is not None:
         value = report.dossier

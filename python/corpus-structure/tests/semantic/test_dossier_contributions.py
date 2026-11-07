@@ -662,7 +662,7 @@ def test_batch_projection_keeps_endpoint_meaning_and_private_authority(semantic_
             for signature in (
                 "ops.resolve_retained_source_contributions(jsonb)",
                 "ops.dossier_contribution_member_from_retained(jsonb,jsonb,jsonb,jsonb,jsonb)",
-                "ops.dossier_contribution_members(jsonb,jsonb)",
+                "ops.dossier_contribution_members(jsonb,jsonb,jsonb)",
             ):
                 assert not conn.scalar(
                     text("SELECT has_function_privilege(:role,:sig,'EXECUTE')"),

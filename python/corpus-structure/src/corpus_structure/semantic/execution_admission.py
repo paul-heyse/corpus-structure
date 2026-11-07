@@ -203,7 +203,7 @@ def require_archive_fence(connection: Connection) -> None:
 
 # Exact current native body hashes for the installed witnessed deployment.
 # Deployment checks retain ownership, privilege, configuration and body enforcement.
-_DESCRIPTOR_SHA256 = "299d08f4d745f0ebf6b6a47a47b7a1e337f1fc53490e42885e15eadd4134745d"
+_DESCRIPTOR_SHA256 = "b9cc8f6b34d005e99032334ed8e62ec39b2cef8852dc3f4c12eb373a4c7740e3"
 _REQUIRE_SHA256 = "3873fbe400682b2f384a67b50ba603828d5e10420c30376404e0bd5b1726ce64"
 _REFUSAL_SHA256 = "e5dc0f2a81371d4091c1d80a4fe4de6f5c94f519b9d916ffae486e9b75f4e462"
 _GUARD_SHA256 = "225ab497a6a3c33dfa895ba3ca977de9a27f86d7777c84f92e0bc47edbba98a6"

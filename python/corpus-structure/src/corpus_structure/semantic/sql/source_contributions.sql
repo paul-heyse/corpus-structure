@@ -76,7 +76,7 @@ REVOKE ALL ON FUNCTION ops.source_contribution_occurrence(jsonb) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.validate_source_table_note_scope(p_view kb.source_view,p_rows jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE link_ jsonb; subject_ jsonb; note_ jsonb; table_ jsonb; note_text text;
+DECLARE link_ jsonb; subject_ jsonb; note_ jsonb; table_ jsonb; original_note jsonb; note_text text;
  cell_pointer text[]; cell_ jsonb; named text[]; eligible_count integer; matching_count integer;
 BEGIN
  FOR link_ IN
@@ -90,7 +90,9 @@ BEGIN
    WHERE row_->>'contribution_id'=link_->>'target_id';
   cell_pointer:=regexp_match(subject_->'anchors'->0->>'pointer','^(.*)/data/table_cells/([0-9]+)$');
   IF cell_pointer IS NULL OR cell_pointer[1] IS DISTINCT FROM link_->>'region'
-   OR jsonb_array_length(note_->'anchors')<>1 THEN
+   OR jsonb_array_length(subject_->'anchors')<>1 OR jsonb_array_length(note_->'anchors')<>1
+   OR data.record_source_json(subject_->'value')->>'role' IS DISTINCT FROM 'cell'
+   OR data.record_source_json(note_->'value')->>'role' IS DISTINCT FROM 'note' THEN
    RAISE EXCEPTION 'table note lacks exact note and cell endpoints' USING ERRCODE='23514';
   END IF;
   SELECT native_json INTO STRICT table_ FROM ops.read_pdf_published_items(
@@ -106,7 +108,15 @@ BEGIN
    OR COALESCE((cell_->>'row_header')::boolean,false) THEN
    RAISE EXCEPTION 'table note does not apply to a data cell' USING ERRCODE='23514';
   END IF;
-  note_text:=btrim(note_->'anchors'->0->>'source_piece',E' \t\n\r');
+  SELECT native_json INTO STRICT original_note FROM ops.read_pdf_published_items(
+   p_view.native_task_id,p_view.native_product_key,p_view.native_content_digest,
+   ARRAY[note_->'anchors'->0->>'pointer']);
+  IF note_->'anchors'->0->>'source_piece' IS DISTINCT FROM original_note->>'text'
+   OR note_->'anchors'->0->>'start' IS DISTINCT FROM '0'
+   OR (note_->'anchors'->0->>'end')::integer IS DISTINCT FROM length(original_note->>'text') THEN
+   RAISE EXCEPTION 'table note scope requires the whole original note' USING ERRCODE='23514';
+  END IF;
+  note_text:=btrim(original_note->>'text',E' \t\n\r');
   IF note_text ~* '^(?:This note applies to )?all rows[.!]?$' THEN CONTINUE; END IF;
   named:=regexp_match(note_text,'^(?:Only )?the (.+?) (row|column|band)\y','i');
   IF named IS NULL THEN
@@ -140,6 +150,7 @@ DECLARE t ops.task; v kb.source_view; shape json; op jsonb; contribution jsonb; 
  declaration json; role_definition jsonb; retained ops.task; binding jsonb; old_view kb.source_view; new_view kb.source_view; old_descriptor jsonb; new_descriptor jsonb; retained_body jsonb; retained_digests jsonb:='{}'; retained_sources jsonb:='{}';
  operation_map jsonb; identity_map jsonb; output_counts jsonb; schemas jsonb:='{}'; allowed_contracts jsonb;
  local_ jsonb; local_request jsonb; local_result jsonb; selected_ids jsonb; local_inputs jsonb;
+ table_config jsonb; table_mode text; table_policy_id text;
 BEGIN
  SELECT * INTO STRICT t FROM ops.task WHERE id=p_task;
  PERFORM sem.require_execution_operation(t.release_id,'bind_report');
@@ -161,8 +172,16 @@ BEGIN
  IF t.status<>'running' AND NOT EXISTS(SELECT FROM ops.task_result WHERE task_id=t.id AND body=p_envelope) THEN
   RAISE EXCEPTION 'contribution report differs from immutable origin result' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT v FROM kb.source_view WHERE id=t.unit_id;
- IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version'='2' THEN
+ IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version'='3' THEN
   PERFORM ops.validate_source_table_note_scope(v,p_envelope->'contributions');
+  SELECT params INTO STRICT table_config FROM ops.method_config WHERE id=t.method_config_id;
+  table_mode:=table_config->>'interpretation_mode';
+  IF table_mode IS NULL OR table_mode NOT IN ('feasibility','independent','coupled')
+   OR table_config->>'interpretation_weight_scale' IS NULL
+   OR table_config->>'interpretation_weight_scale' NOT IN ('0.5','1','2') THEN
+   RAISE EXCEPTION 'invalid registered table interpretation policy' USING ERRCODE='23514';
+  END IF;
+  table_policy_id:='table-policy:shared-table-band-3:'||table_mode||':'||(table_config->>'interpretation_weight_scale');
  END IF;
  IF p_envelope->>'source' IS NULL OR p_envelope->>'source' NOT IN (t.unit_key,v.key) THEN
   RAISE EXCEPTION 'contribution source differs from selected task/view' USING ERRCODE='23514'; END IF;
@@ -248,6 +267,13 @@ BEGIN
      OR local_->>'result_digest' IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(local_->'result'),'UTF8')),'hex') THEN
      RAISE EXCEPTION 'local interpretation request/result custody differs' USING ERRCODE='23514'; END IF;
     local_request:=data.record_source_json(local_->'request'); local_result:=data.record_source_json(local_->'result');
+    IF table_policy_id IS NOT NULL AND (
+     local_->>'policy_version' IS DISTINCT FROM 'shared-table-band-3'
+     OR local_request->>'policy_dependency_id' IS DISTINCT FROM table_policy_id
+     OR (local_->>'policy_mode' IS DISTINCT FROM table_mode AND NOT (
+      table_mode='coupled' AND local_->>'policy_mode'='independent'))) THEN
+     RAISE EXCEPTION 'table interpretation differs from registered mode or weight scale' USING ERRCODE='23514';
+    END IF;
     IF (local_request ? 'feasibility_control' AND jsonb_typeof(local_request->'feasibility_control') IS DISTINCT FROM 'boolean')
      OR (local_request->'feasibility_control'='true'::jsonb AND (
       jsonb_array_length(local_request->'potentials')=0 OR EXISTS(

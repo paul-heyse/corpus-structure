@@ -9,7 +9,7 @@ from sqlalchemy import text
 from corpus_structure.methods.structural_products import compare_clauses, read_clause
 from corpus_structure.semantic.structural_admission import structural_statement
 
-from .test_typed_structural_composition import threshold_inputs
+from .test_typed_structural_composition import revision_inputs, threshold_inputs
 
 
 @pytest.mark.parametrize(
@@ -21,6 +21,10 @@ from .test_typed_structural_composition import threshold_inputs
             "revenue > 50000 USD\nComparison basis: annual gross revenue.",
         ),
         ("x > 2 kg", "x > 5 kg\nRevision R2 supersedes revision R1."),
+        (
+            "Clause rule.\nRevision R1.\nx > 2 kg",
+            "Clause rule.\nRevision R2 supersedes revision R1.\nx > 5 kg",
+        ),
         ("revenue >= 25000 USD", "revenue > 25000 USD"),
         ("revenue < 50000 USD", "revenue <= 25000 USD"),
         ("x > 2", "x > 5"),
@@ -45,11 +49,7 @@ from .test_typed_structural_composition import threshold_inputs
 def test_native_comparison_replays_same_source_route(semantic_db_engine, left, right):
     inputs = threshold_inputs(left, right)
     if "supersedes" in right:
-        older, newer = tuple(
-            p.model_copy(update={"parent": "rule", "effective_version": version})
-            for p, version in zip(inputs.passages, ("R1", "R2"), strict=True)
-        )
-        inputs = inputs.model_copy(update={"passages": (newer, older)})
+        inputs = revision_inputs(left, right)
     expected = compare_clauses(
         inputs, left=read_clause(inputs.passages[0]), right=read_clause(inputs.passages[1])
     )
@@ -170,7 +170,11 @@ def test_native_dossier_replays_membership_after_reader_boundary(semantic_db_eng
     )
     sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql"
     with semantic_db_engine.connect() as conn, conn.begin():
-        for file in ("structural_products.sql", "structural_publication.sql"):
+        for file in (
+            "dossier_contributions.sql",
+            "structural_products.sql",
+            "structural_publication.sql",
+        ):
             conn.exec_driver_sql(
                 (sql / file).read_text(), execution_options={"no_parameters": True}
             )

@@ -157,11 +157,22 @@ END $$;
 REVOKE ALL ON FUNCTION ops.dossier_contribution_member(jsonb,jsonb) FROM PUBLIC;
 
 -- Dependency membership is indexed once; raw rows remain owned by the batch resolver.
-CREATE OR REPLACE FUNCTION ops.dossier_contribution_members(inputs jsonb,refs jsonb)
+CREATE OR REPLACE FUNCTION ops.dossier_contribution_members(inputs jsonb,refs jsonb,root_component jsonb)
 RETURNS SETOF jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
  WITH dependency_index AS MATERIALIZED (
   SELECT COALESCE(jsonb_object_agg(d,true),'{}') value FROM jsonb_array_elements_text(inputs->'dependencies')d)
- SELECT ops.dossier_contribution_member_from_retained(inputs,r.reference,r.contributions,r.sources,d.value)
+ SELECT member
  FROM ops.resolve_retained_source_contributions(refs)r CROSS JOIN dependency_index d
+ CROSS JOIN LATERAL (SELECT ops.dossier_contribution_member_from_retained(
+  inputs,r.reference,r.contributions,r.sources,d.value) AS member OFFSET 0) resolved
+ WHERE EXISTS(
+  SELECT FROM jsonb_array_elements(r.contributions) relation_
+  CROSS JOIN LATERAL jsonb_array_elements(relation_->'endpoints') endpoint
+  JOIN LATERAL jsonb_array_elements(member->'contribution_citations') citation
+   ON citation->>'contribution_id'=endpoint->>'contribution_id'
+  WHERE relation_->>'contribution_id'=r.reference->>'contribution_id'
+   AND relation_->>'semantic_type'='structural.scoped_attachment'
+   AND endpoint->>'role'='target'
+   AND citation->'span' IN (root_component->'term',root_component->'content'))
 $$;
-REVOKE ALL ON FUNCTION ops.dossier_contribution_members(jsonb,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ops.dossier_contribution_members(jsonb,jsonb,jsonb) FROM PUBLIC;

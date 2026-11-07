@@ -90,7 +90,9 @@ BEGIN
    result:=jsonb_set(result,ARRAY['comparison','succession'],jsonb_build_object(
     'older',data.structural_citation(report,value->'succession'->>'older_id'),
     'newer',data.structural_citation(report,value->'succession'->>'newer_id'),
-    'evidence',data.structural_citation(report,witness->>'passage_id')||(witness-'passage_id')));
+    'evidence',data.structural_citation(report,witness->>'passage_id')||(witness-'passage_id'),
+    'older_evidence',data.structural_citation(report,value->'succession'->'older_evidence'->>'passage_id')||
+     ((value->'succession'->'older_evidence')-'passage_id')));
   END IF;
  ELSIF report->>'kind'='dossier' THEN
   value:=report->'dossier';

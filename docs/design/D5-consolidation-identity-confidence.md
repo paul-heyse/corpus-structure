@@ -15,6 +15,12 @@ facets; query wording is request context and does not define knowledge claim ide
 
 > Decision: [ADR-0067](../adr/0067-witnessed-current-only-cutover.md)
 
+**Implemented, 2026-11-07.** Artifact nomination resolves the selected original
+relationship and both role-bound source occurrences. A local cue must identify a unique
+same-view caption with the same observed figure or table code. Alias state separates
+unobserved aliases, observed aliases and explicitly stated absence. Fixed-model scores
+remain private candidate-relative evidence with candidate recall assessed separately.
+
 ### Table support and completed numerical products
 
 **Implemented; selected integrated qualification Tested,2026-11-06.** `shared-table-band-2` gives each

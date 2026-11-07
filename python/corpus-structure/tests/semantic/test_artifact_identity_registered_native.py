@@ -6,7 +6,6 @@ scoring/source quality remains with the nonempty replay/provider tests.
 
 import json
 from dataclasses import replace
-from pathlib import Path
 
 import pytest
 from sqlalchemy import select
@@ -44,19 +43,9 @@ from .witnessed_scenario_support import completed_metadata
 
 
 def test_registered_artifact_canonical_config_completes_and_policy_forgery_refuses(
-    private_source, semantic_db_engine, tmp_path, monkeypatch
+    private_source, tmp_path, monkeypatch
 ):
     case = private_source
-    # Use current native artifact owners, without overriding source replay or permissions.
-    sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/structural_products.sql"
-    body = sql.read_text()
-    helper = body[
-        body.index("CREATE OR REPLACE FUNCTION ops.artifact_alias_fields") : body.index(
-            "CREATE OR REPLACE FUNCTION ops.validate_structural_product_report"
-        )
-    ]
-    with semantic_db_engine.begin() as conn:
-        conn.exec_driver_sql(helper, execution_options={"no_parameters": True})
     with case.writer.begin() as conn:
         complete_contributions(case, conn, contribution_drafts(case))
     finalize_bound_run(case.writer, case.run, "artifact-abi-native-source")

@@ -133,8 +133,14 @@ def derive_contribution_members(
         )
     )
     if root is not None and (
-        selected["kind"] != "relation"
-        or not any(citation.span in (root.term, root.content) for citation in citations)
+        selected["semantic_type"] != "structural.scoped_attachment"
+        or not any(
+            citation.contribution_id == endpoint["contribution_id"]
+            and citation.span in (root.term, root.content)
+            for endpoint in selected.get("endpoints", ())
+            if endpoint["role"] == "target"
+            for citation in citations
+        )
     ):
         return ()
     meaning = source_python(selected["value"])
