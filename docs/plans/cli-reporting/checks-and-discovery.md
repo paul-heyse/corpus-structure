@@ -1,6 +1,6 @@
 # Repository checks and command discovery
 
-**Status:** Proposed. [Coordinator](../cli-reporting_2026-11-07.md) owns scope and integrated
+**Status:** Implemented on main. [Coordinator](../cli-reporting_2026-11-07.md) owns scope and integrated
 acceptance. This plan consumes [O05](../../functional_reviews/cli-reporting_2026-11-07.md#O05).
 
 <a id="CLIR-05"></a>

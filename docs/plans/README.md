@@ -20,7 +20,7 @@ semantic pivot series was added on 2026-10-29:
 | [First production milestone](first-production-milestone_2026-11-03.md) | Superseded for remaining scope by progressive enrichment; historical M1 package state, five-family targets and receipts retained without claiming completion |
 | [Progressive corpus enrichment](progressive-corpus-enrichment_2026-11-04.md) | Planned PCE-00–PCE-11: independent structural contributions, operation assessment, local qualification, parsing/mathematics, contextual embeddings/linking, cross-document products and review export; progressive-review O01–O10/RC01–08 and transferred M1 obligations; execution stopped |
 | [CLI operations and managed results](cli-operations_2026-11-07.md) | Proposed CLI-00–CLI-08: installed command surface, recipe integration, managed results, tests, controlled model changes, corpus journeys and operational adoption. Owns O01–O07 and improvement review I01–I10, including Typer 0.28.0 and bounded diagnostics. |
-| [CLI reporting](cli-reporting_2026-11-07.md) | Proposed CLIR-01–08 for bounded reports, test evidence, managed model and corpus reads, recipe diagnostics, stream compatibility and file-free caller workflows. Owns reporting review O01–O07. |
+| [CLI reporting](cli-reporting_2026-11-07.md) | Development-qualified CLIR-01–08 for bounded reports, test evidence, managed model and corpus reads, recipe diagnostics, stream compatibility and file-free caller workflows. Owns reporting review O01–O07. |
 | [Next corpus enrichment](next-corpus-enrichment_2026-11-07.md) | Proposed NCE-01–12: caption and role recovery, witnessed links, artifact scoring, rooted navigation, finite interpretation, operation reliability and review O01–O12 dispositions. |
 
 

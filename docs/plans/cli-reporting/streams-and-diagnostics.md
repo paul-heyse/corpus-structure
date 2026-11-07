@@ -1,6 +1,6 @@
 # Stream behavior and diagnostics
 
-**Status:** Proposed. [Coordinator](../cli-reporting_2026-11-07.md) owns scope, the
+**Status:** Implemented on main. [Coordinator](../cli-reporting_2026-11-07.md) owns scope, the
 compatibility decision and integrated acceptance. This plan consumes
 [O06](../../functional_reviews/cli-reporting_2026-11-07.md#O06) and
 [O07](../../functional_reviews/cli-reporting_2026-11-07.md#O07).

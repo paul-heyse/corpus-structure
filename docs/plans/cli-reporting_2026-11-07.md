@@ -1,6 +1,6 @@
 # CLI reporting and file-free composition
 
-**Status:** Implemented and merged into `main`. Main qualification is in progress. **Created:** 2026-11-07.
+**Status:** Development qualification complete on `main`. **Created:** 2026-11-07.
 
 ## Outcome and baseline
 
@@ -99,7 +99,7 @@ as each capability lands. [Pinned Typer test runner](https://github.com/fastapi/
 
 - Reporting started from `5edbd2f0a`. The operator requested integration of the NCE
   pause point `73599a210` and authorized the merge to `main` at `78a21de7a` before full
-  qualification. The remaining campaign runs on main.
+  qualification. The final campaign ran on main.
 - The first broad ordinary attempt `c3d1d17b541943219acf04c99260066c` was interrupted
   during concurrent cluster activity after 2,560 of 5,160 nodes passed. The branch retry
   `dacb2d0f6de24042bd1d5e152a7d1998` was stopped at operator direction after the merge.
@@ -131,3 +131,18 @@ as each capability lands. [Pinned Typer test runner](https://github.com/fastapi/
 | `ci model change preview -` and `ci model change inspect` | `passed` against bound no-effect preview `a72f921cae04458a82de6e556da104d6`. Focused fixtures exercise candidate registration evidence, expiry and substitutions and feed exact diff bytes to Git. |
 | `ci review export -` and `ci review inspect --result` | `passed` for inventory scope, run 205 and cut 283, under result `4e8c7df6081c45d5b9e0d47765f0cb8b`. Focused tests cover detached parity, bounded input, regular-file enforcement and substitution of a self-consistent bundle. |
 | `ci docs commands --stdout \| head -c 0` | `passed` as an early-close control. Pipeline statuses were `74 0`. Focused tests cover child interruption, write and flush closure, and known failures with both output streams closed. |
+
+## Main qualification · 2026-11-07
+
+CLIR-01–08 are complete for development. The conditional diagnostic investigation
+selected owned step and stage facts and recorded revisit conditions above. The
+operator-directed guidance in [AGENTS.md](../../AGENTS.md) and the
+[ci skill](../../.claude/skills/ci/SKILL.md) makes routine report materialization
+an in-scope CLI responsibility.
+
+| Command | Outcome and applicability |
+|---|---|
+| `uv run ci test --json` | Initial main receipt `fce1f0a6a72d4e8cb2f89205484a9cd7` at `18cbaccaf` settled `failed`. Ordinary pytest selected 5,165 nodes with 5,164 passed and one PostgreSQL claim-renewal lock timeout. All eight exclusive fault nodes passed. Rust functional coverage was `not_run` because nextest listed zero tests under rustc 1.101.0-nightly. |
+| `uv run ci test retry fce1f0a6a72d4e8cb2f89205484a9cd7 --lane ordinary --json` | `passed`. Receipt `215a0a7279114003b295702aa418bc7d` selected only `test_six_published_views_keep_current_claims_and_native_dependencies` at `9f4acd541`. Only agent and skill guidance changed between the source commits. |
+| `uv run ci test coverage fce1f0a6a72d4e8cb2f89205484a9cd7 215a0a7279114003b295702aa418bc7d --view unresolved --limit 20 --json` | `passed` as a report. The required Python union is covered at 5,173 of 5,173 with zero unresolved, no missing lanes and settled custody. The original failure, successful retry and source-context difference remain visible. |
+| `uv run ci check --view steps --json`, `uv run ci docs check --json`, `uv run ci doctor --json` | `passed` on main. Repository checks covered the installed step report, lint, types, publication, dependency pins and Clippy. The docs and tool checks passed after the reporting guidance change. |

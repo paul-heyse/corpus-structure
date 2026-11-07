@@ -1,6 +1,6 @@
 # Managed model and corpus reads
 
-**Status:** Proposed. [Coordinator](../cli-reporting_2026-11-07.md) owns scope and integrated
+**Status:** Implemented on main. [Coordinator](../cli-reporting_2026-11-07.md) owns scope and integrated
 acceptance. This plan consumes [O03](../../functional_reviews/cli-reporting_2026-11-07.md#O03)
 and [O04](../../functional_reviews/cli-reporting_2026-11-07.md#O04).
 

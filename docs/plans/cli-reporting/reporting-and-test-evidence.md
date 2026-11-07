@@ -1,6 +1,6 @@
 # Reporting contracts and test evidence
 
-**Status:** Proposed. [Coordinator](../cli-reporting_2026-11-07.md) owns scope and integrated
+**Status:** Implemented on main. [Coordinator](../cli-reporting_2026-11-07.md) owns scope and integrated
 acceptance. This plan consumes [O01](../../functional_reviews/cli-reporting_2026-11-07.md#O01)
 and [O02](../../functional_reviews/cli-reporting_2026-11-07.md#O02).
 
