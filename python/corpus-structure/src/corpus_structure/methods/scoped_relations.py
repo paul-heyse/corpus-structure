@@ -272,6 +272,7 @@ def discover_relations(
     passages=None,
     formula_seconds=0.5,
     max_formula_chars=2048,
+    predicate_version="2",
 ):
     """Return participants and relation candidates against actual detached source pieces.
 
@@ -964,6 +965,7 @@ def discover_relations(
         passages,
         products,
         coordinates,
+        version=predicate_version,
     )
     return dict(
         contributions=tuple(products),
@@ -984,7 +986,7 @@ def discover_relations(
 
 class ScopedRelationsMethod:
     name = "structure.scoped_relations"
-    version = "4"
+    version = "5"
     family = MethodFamily.RESOLVE
     tier = MethodTier.DETERMINISTIC
     unit_type = TaskUnitType.SOURCE_VIEW
@@ -1088,6 +1090,7 @@ class ScopedRelationsMethod:
                 passages=passages,
                 formula_seconds=cfg.formula_seconds,
                 max_formula_chars=cfg.max_formula_chars,
+                predicate_version="3",
             )
             from corpus_structure.methods.table_interpretation import table_policy_operations
 

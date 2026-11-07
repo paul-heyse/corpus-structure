@@ -1,6 +1,7 @@
 """Publish neutral linguistic evidence and separate interpretations on the same source."""
 
 from bisect import bisect_right
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
 
@@ -118,15 +119,20 @@ def publish_predicate_evidence(
     passages,
     products,
     coordinates,
+    *,
+    version="2",
 ):
     """Bind each role to exact native pieces before constructing frame/attachment identities."""
     import json
 
-    from .predicate_frames import PREDICATE_FRAME_VERSION
+    from .predicate_cross_block import CrossBlockTarget, cross_block_qualifiers
 
+    if version not in {"2", "3"}:
+        raise ValueError("unknown predicate contribution recipe")
+    native = json.loads(frame.native_context)
     pieces = tuple(
         piece
-        for piece in json.loads(frame.native_context)["pieces"]
+        for piece in native["pieces"]
         if piece["kind"] == "native_text"
     )
     piece_ends = tuple(piece["end"] for piece in pieces)
@@ -136,7 +142,7 @@ def publish_predicate_evidence(
         else tuple(Passage(p.passage_id, p.start, p.end, p.effective_version) for p in passages)
     )
     questions = ("source_predicate_frames", "source_predicate_interpretation")
-    versions = (PREDICATE_FRAME_VERSION, PREDICATE_FRAME_VERSION)
+    versions = (version, version)
     operations = tuple(
         operation_identity(
             question,
@@ -284,12 +290,13 @@ def publish_predicate_evidence(
             return scope
         return (Passage(annotation.block_id, annotation.block_start, annotation.block_end),)
 
-    def cue_row(annotation, selected, cue, dep, bases):
+    def cue_row(annotation, selected, cue, dep, bases, *, cross_hosts=()):
         kind = {"temporal": "order", "polarity": "negation"}.get(cue.kind, cue.kind)
         if kind not in {
             "condition",
             "assumption",
             "parameterization",
+            "population_inclusion",
             "exception",
             "attribution",
             "modality",
@@ -306,7 +313,11 @@ def publish_predicate_evidence(
             return None
         basis_extents, basis_anchors, basis_tokens = evidence(annotation, selected, cue.basis)
         whole = extents == cue.span.extents and basis_extents == cue.basis.extents
-        host_state = "located" if whole and cue.status == "located" and cue.hosts else "unresolved"
+        host_state = (
+            "located" if whole and cue.status == "located" and (cue.hosts or cross_hosts)
+            else "unresolved"
+        )
+        cross_hosts = cross_hosts if host_state == "located" else ()
         source_text = " ".join(frame.text[a:b] for a, b in extents)
         marker = (
             emit(
@@ -321,7 +332,7 @@ def publish_predicate_evidence(
             if basis_anchors
             else None
         )
-        dependencies = (*bases, marker) if marker is not None else bases
+        dependencies = (*bases, *cross_hosts, *((marker,) if marker is not None else ()))
         key = emit(
             0,
             f"{selected.key}:{dep}:{kind}:{cue.variant}:{tokens}",
@@ -342,6 +353,7 @@ def publish_predicate_evidence(
                 variant=cue.variant,
                 host_state=host_state,
                 candidate_tokens=cue.hosts,
+                **({"cross_block_hosts": cross_hosts} if cross_hosts else {}),
                 token_indices=tokens,
                 extents=tuple(dict(start=a, end=b) for a, b in extents),
                 marker_extents=tuple(dict(start=a, end=b) for a, b in basis_extents),
@@ -359,7 +371,69 @@ def publish_predicate_evidence(
         )
         return key, kind, host_state, source_text, len(extents) == 1
 
+    def attach(selected, located, variant, target, bases, *, witness=None):
+        qualifier, kind, _, source_text, contiguous = located
+        host, reading_id = target.frame, target.reading
+        lowered = _condition(kind, variant, source_text, contiguous=contiguous)
+        details: dict[str, Any] = {}
+        if lowered is not None:
+            details["condition"] = source_value(lowered)
+            modality = {
+                "definition": "defined",
+                "assumption_restriction": "supposed",
+                "described_process": "asserted",
+            }.get(target.interpretation)
+            if modality is not None and target.polarity != "unresolved":
+                details["interpretation_member"] = reading_id
+                details["qualification"] = source_value(
+                    dict(
+                        modality=modality,
+                        polarity=target.polarity == "positive",
+                        scope=dict(extent="statement", locator=host),
+                        condition=lowered,
+                    )
+                )
+        members = (qualifier, host, reading_id) if "qualification" in details else (qualifier, host)
+        predecessor = ()
+        if witness is not None:
+            details["host_witness"] = witness
+            if "parameterization" in witness:
+                predecessor = (witness["parameterization"],)
+        deps = (*bases, *members, *predecessor)
+        emit(
+            1,
+            f"{qualifier}:{host}",
+            "predicate_qualification",
+            deps,
+            kind="relation",
+            members=members,
+            endpoints=(("qualifier", qualifier), ("host", host)),
+            component=component(
+                1,
+                "predicate_qualifier",
+                selected,
+                deps,
+                bases,
+                qualifier_contribution_id=qualifier,
+                host_contribution_id=host,
+                qualifier_kind=kind,
+                **details,
+            ),
+        )
+
+    scoped_hosts = defaultdict(list)
     for annotation, result in results:
+        if version == "3" and result.frames:
+            from corpus_structure.ingest.annotation_views import annotation_view
+
+            from .predicate_frames import _frame_vocabulary
+            from .predicate_qualifier_recipes import local_qualifier_result
+
+            view = annotation_view(
+                annotation, frame.text[annotation.block_start:annotation.block_end],
+                _frame_vocabulary(), required=("DEP", "POS", "SENT_START"),
+            )
+            result = local_qualifier_result(view, result)
         dep = "annotation:" + annotation.dependency_digest
         bases = (dependency, dep)
         for selected in scope_for(annotation):
@@ -490,6 +564,11 @@ def publish_predicate_evidence(
                         polarity=polarity,
                     ),
                 )
+                target = CrossBlockTarget(
+                    host, reading_id, interpretation, polarity, annotation, predicate_token,
+                )
+                if version == "3" and scope is not None:
+                    scoped_hosts[selected].append(target)
                 for cue in candidate.cues:
                     located = cue_row(annotation, selected, cue, dep, bases)
                     if located is None:
@@ -501,50 +580,27 @@ def publish_predicate_evidence(
                         or kind in {"contrast", "example", "quotation"}
                     ):
                         continue
-                    lowered = _condition(kind, cue.variant, source_text, contiguous=contiguous)
-                    details: dict[str, Any] = {}
-                    if lowered is not None:
-                        details["condition"] = source_value(lowered)
-                        modality = {
-                            "definition": "defined",
-                            "assumption_restriction": "supposed",
-                            "described_process": "asserted",
-                        }.get(interpretation)
-                        if modality is not None and polarity != "unresolved":
-                            details["interpretation_member"] = reading_id
-                            details["qualification"] = source_value(
-                                dict(
-                                    modality=modality,
-                                    polarity=polarity == "positive",
-                                    scope=dict(extent="statement", locator=host),
-                                    condition=lowered,
-                                )
-                            )
-                    members = (
-                        (qualifier, host, reading_id)
-                        if "qualification" in details
-                        else (qualifier, host)
-                    )
-                    deps = (*bases, *members)
-                    emit(
-                        1,
-                        f"{qualifier}:{host}",
-                        "predicate_qualification",
-                        deps,
-                        kind="relation",
-                        members=members,
-                        endpoints=(("qualifier", qualifier), ("host", host)),
-                        component=component(
-                            1,
-                            "predicate_qualifier",
-                            selected,
-                            deps,
-                            bases,
-                            qualifier_contribution_id=qualifier,
-                            host_contribution_id=host,
-                            qualifier_kind=kind,
-                            **details,
-                        ),
+                    attach(selected, located, cue.variant, target, bases)
+
+    if version == "3" and scope is not None:
+        for selected in scope:
+            for entry in cross_block_qualifiers(
+                frame, tuple(annotation for annotation, _ in results), selected,
+                scoped_hosts[selected], row_cache, native, pieces,
+            ):
+                dep = "annotation:" + entry.source.dependency_digest
+                bases = (dependency, dep)
+                located = cue_row(
+                    entry.source, selected, entry.cue, dep, bases,
+                    cross_hosts=tuple(target.frame for target in entry.targets),
+                )
+                if located is None or located[2] != "located":
+                    continue
+                for target in entry.targets:
+                    target_dep = "annotation:" + target.annotation.dependency_digest
+                    attach(
+                        selected, located, entry.cue.variant, target,
+                        (*bases, target_dep), witness=entry.witness,
                     )
 
     reason = "; ".join(issues)

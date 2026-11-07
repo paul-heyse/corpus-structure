@@ -1494,6 +1494,14 @@ def _verify_predicate_closure(root, manifest):
             max_chars=max(1, len(view.text)),
             max_pieces=max(1, len(view.pieces)),
         )
+        method_version = row["body"].get("operation_version")
+        version = {"4": "2", "5": "3"}.get(method_version)
+        if version is None or {
+            op["operation_version"]
+            for op in row["body"].get("contribution_operations", ())
+            if op["question"] in {"source_predicate_frames", "source_predicate_interpretation"}
+        } != {version}:
+            raise ValueError("unsupported retained predicate replay version")
         replay = []
         publish_predicate_evidence(
             frame,
@@ -1508,6 +1516,7 @@ def _verify_predicate_closure(root, manifest):
             passages,
             replay,
             {},
+            version=version,
         )
         actual = {
             c["contribution_id"]: canonical_bytes(c)

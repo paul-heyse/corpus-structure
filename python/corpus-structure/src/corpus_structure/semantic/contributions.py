@@ -380,12 +380,34 @@ def _validate_predicate_component(row, component, population):
     elif kind == "predicate_cue":
         marker = component.get("marker_member")
         marked = population[marker] if marker is not None else {}
+        cross = tuple(component.get("cross_block_hosts", ()))
+        local = component.get("candidate_tokens", ())
+        if cross:
+            if (
+                component["question_version"] != "3"
+                or component["host_state"] != "located"
+                or component["variant"] not in {"list_assumption", "parameter_positive"}
+                or component["cue_kind"] != "assumption"
+                or local
+                or component.get("governing_token") is not None
+                or component.get("subordinate_token") is not None
+                or len(cross) != len(set(cross))
+                or not set(cross) <= deps
+            ):
+                raise ValueError("cross-block qualifier cue differs from its proposed hosts")
+            for host_id in cross:
+                target = same_scope(population[host_id], "predicate_frame")
+                if (
+                    target["block"] == component["block"]
+                    or target["annotation"] == component["annotation"]
+                ):
+                    raise ValueError("cross-block qualifier candidate repeats its origin")
         if (
             row["kind"] != "occurrence"
             or not row.get("occurrence_id")
             or (
                 component["host_state"] == "located"
-                and (not component.get("candidate_tokens") or marker is None)
+                and (not (local or cross) or marker is None)
             )
             or members != ((marker,) if marker is not None else ())
             or (
@@ -418,15 +440,48 @@ def _validate_predicate_component(row, component, population):
         expected_members = (qualifier, host, reading) if reading is not None else (qualifier, host)
         cue = same_scope(population[qualifier], "predicate_cue")
         frame = same_scope(population[host], "predicate_frame")
+        witness = component.get("host_witness")
+        if witness is None:
+            host_matches = (
+                cue["annotation"] == frame["annotation"]
+                and cue["block"] == frame["block"]
+                and frame["predicate_token"] in cue.get("candidate_tokens", ())
+                and not cue.get("cross_block_hosts")
+            )
+        else:
+            host_matches = (
+                component["question_version"] == "3"
+                and cue["question_version"] == "3"
+                and frame["question_version"] == "3"
+                and cue["annotation"] != frame["annotation"]
+                and cue["block"] != frame["block"]
+                and host in cue.get("cross_block_hosts", ())
+                and {cue["annotation"], frame["annotation"]} <= deps
+            )
+            if witness["kind"] == "list_intro":
+                host_matches = (
+                    host_matches and cue["variant"] == "list_assumption"
+                    and set(witness) == {"kind", "list_group"} and bool(witness["list_group"])
+                )
+            else:
+                predecessor_id = witness.get("parameterization")
+                predecessor = (
+                    same_scope(population[predecessor_id], "predicate_qualifier")
+                    if predecessor_id in deps else {}
+                )
+                host_matches = (
+                    host_matches and cue["variant"] == "parameter_positive"
+                    and set(witness) == {"kind", "parameterization"}
+                    and predecessor.get("host_contribution_id") == host
+                    and predecessor.get("qualifier_kind") == "parameterization"
+                )
         if (
             members != expected_members
             or not set(expected_members) <= deps
             or (reading is not None) != ("qualification" in component)
             or cue["host_state"] != "located"
-            or cue["annotation"] != frame["annotation"]
-            or cue["block"] != frame["block"]
+            or not host_matches
             or component["qualifier_kind"] != cue["cue_kind"]
-            or frame["predicate_token"] not in cue["candidate_tokens"]
             or ("condition" in component and cue["cue_kind"] not in {"condition", "assumption"})
             or (
                 "qualification" in component

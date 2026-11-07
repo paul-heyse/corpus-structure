@@ -550,10 +550,11 @@ classes:
       kind: {equals_string: predicate_cue}
       annotation: {required: true, pattern: '^annotation:[0-9a-f]{64}$'}
       block: {required: true}
-      cue_kind: {required: true, pattern: '^(condition|assumption|parameterization|exception|attribution|modality|negation|order|dependency|contrast|example|quotation)$'}
+      cue_kind: {required: true, pattern: '^(condition|assumption|parameterization|population_inclusion|exception|attribution|modality|negation|order|dependency|contrast|example|quotation)$'}
       variant: {required: true}
       host_state: {required: true, pattern: '^(located|unresolved)$'}
       candidate_tokens: {range: integer, minimum_value: 0, multivalued: true}
+      cross_block_hosts: {multivalued: true}
       governing_token: {range: integer, minimum_value: 0}
       subordinate_token: {range: integer, minimum_value: 0}
       token_indices: {range: integer, minimum_value: 0, multivalued: true, required: true, minimum_cardinality: 1}
@@ -570,6 +571,12 @@ classes:
       reading: {required: true, pattern: '^(definition|explanation|reference|prescribed_action|described_process|assumption_restriction|example|unresolved)$'}
       voice: {required: true}
       polarity: {required: true, pattern: '^(positive|negative|unresolved)$'}
+  PredicateCrossBlockHostWitness:
+    is_a: SourceRecordProduct
+    attributes:
+      kind: {required: true, pattern: '^(list_intro|parameter_note)$'}
+      list_group: {}
+      parameterization: {}
   PredicateQualifierComponent:
     is_a: WitnessedComponent
     description: Located qualifier with one source-owned predicate host. Logical lowering is optional.
@@ -577,10 +584,11 @@ classes:
       kind: {equals_string: predicate_qualifier}
       qualifier_contribution_id: {required: true}
       host_contribution_id: {required: true}
-      qualifier_kind: {required: true, pattern: '^(condition|assumption|parameterization|exception|attribution|modality|negation|order|dependency)$'}
+      qualifier_kind: {required: true, pattern: '^(condition|assumption|parameterization|population_inclusion|exception|attribution|modality|negation|order|dependency)$'}
       qualification: {range: SourceValue, inlined: true, description: Encoded released Qualification.}
       condition: {range: SourceValue, inlined: true, description: Encoded released Condition.}
       interpretation_member: {}
+      host_witness: {range: PredicateCrossBlockHostWitness, inlined: true}
   TypedComparisonComponent:
     is_a: WitnessedComponent
     attributes:
