@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "id": "nce.constant-density-antecedent",
+  "title": "Exact retained antecedent for constant-density naming",
+  "group": "NCE",
+  "package": "NCE-02",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the exact frozen level-set antecedent be recovered from the original selected annotation?",
+  "answers": [
+    "NCE-02"
+  ],
+  "method": "Bounded deterministic composition over the original retained annotation, compared with an independently frozen source reading and a pinned GLiNER2.5 JointIE probe.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-07_nce-source-linguistics/replay_antecedent.py build/nce-source-linguistics/antecedent-final --release release:d16c5b3f09a4b73c52369a9a999fc31847be91ce4602d4a13d5ade5af215311a",
+    "uv run ci structure list --run 222 --cut 313 --kind definition_components --json",
+    "uv run ci review export build/nce-source-linguistics/antecedent-final/selection.json --exact-closure --json",
+    "uv run ci review verify build/ci/2f8652fa86b047b6880f9c229553cdec/bundle --json",
+    "uv run python docs/design_review/evidence/2026-11-07_nce-source-linguistics/check_antecedent_delivery.py build/nce-source-linguistics/antecedent-final build/ci/2f8652fa86b047b6880f9c229553cdec/bundle",
+    "uv run python docs/design_review/evidence/2026-11-07_nce-source-linguistics/probe_antecedent_model.py build/ci/746abd8fc8294c6ca2cc5a2426acfe87/bundle",
+    "uv run ci test --json -- python/corpus-structure/tests/methods/test_definition_applicability.py python/corpus-structure/tests/ingest/test_definition_rules.py python/corpus-structure/tests/semantic/test_structural_source_annotations.py python/corpus-structure/tests/semantic/test_structural_native_replay.py",
+    "uv run ci check --only types --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "replay_antecedent.py",
+      "role": "native replay and comparison",
+      "sha256": "d86f2db3e7a684905cdf51474125b4c61096ebea75b0f77fbad18eb1a3a1d471"
+    },
+    {
+      "path": "check_antecedent_delivery.py",
+      "role": "CLI, MCP and detached checks",
+      "sha256": "a71d8e7fc41b4f396f8f39298a02a032e3634392060f3a715e4bd7b138fac25a"
+    },
+    {
+      "path": "probe_antecedent_model.py",
+      "role": "pinned model alternative",
+      "sha256": "cf54072a50295782dcebddafd2d7ac4aee64e9aebf4c786834b3aaed1653bdf8"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "antecedent.json",
+      "role": "native component and original source pin",
+      "sha256": "789d8f7f4f4208c1140164f176865bbf2061dddd490a29ce079c63056e5bf6a1"
+    },
+    {
+      "path": "antecedent-delivery.json",
+      "role": "CLI, MCP and detached receipt",
+      "sha256": "60cefbc2d205f28b3d4e4a03fdef920459349f151dee58be4cd1c5090a7fd8ee"
+    },
+    {
+      "path": "gliner2-antecedent-observations.json",
+      "role": "bounded alternative findings",
+      "sha256": "33ca6adefbf68ba9067cd788d0d864b94d8bbe29c91966e012660bc8a06dc8ef"
+    }
+  ],
+  "depends_on": [
+    "nce.predicate-native-replay"
+  ],
+  "results": [
+    {
+      "name": "Frozen exact antecedent",
+      "value": 1,
+      "of": null,
+      "unit": "cases",
+      "note": "Original view 147, annotation task 594 and native block #/texts/3."
+    },
+    {
+      "name": "Affected functional tests passed",
+      "value": 69,
+      "of": null,
+      "unit": "tests",
+      "note": "Managed result 80dab1360371491a9ce83bb5426ecd78."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The private definition product uses the full level-set description and preserves the local demonstrative in the retained named operation. CLI, fresh MCP and detached source closure agree. The tested GLiNER2.5 schema missed the exact relation and returned a spurious reversed relation on the missing-antecedent control. Other qualifier and layout witnesses remain open.",
+  "consumed_by": [
+    "NCE-02"
+  ]
+}

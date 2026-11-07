@@ -1,0 +1,54 @@
+{
+  "recovery-143/completed.json": {
+    "cut_id": 289,
+    "project_id": "wce-gs120-method-development-20261106",
+    "release_id": "release:d16c5b3f09a4b73c52369a9a999fc31847be91ce4602d4a13d5ade5af215311a",
+    "result_revision": 1,
+    "run_id": 208,
+    "runtime_id": "runtime:9062bf6f1349dc89fe898ffd46abe4df1e2dbfba8d02d3ad42ea1c3c9e9c3b66"
+  },
+  "recovery-144/completed.json": {
+    "cut_id": 291,
+    "project_id": "wce-gs120-method-development-20261106",
+    "release_id": "release:d16c5b3f09a4b73c52369a9a999fc31847be91ce4602d4a13d5ade5af215311a",
+    "result_revision": 1,
+    "run_id": 209,
+    "runtime_id": "runtime:9062bf6f1349dc89fe898ffd46abe4df1e2dbfba8d02d3ad42ea1c3c9e9c3b66"
+  },
+  "artifact/completed.json": {
+    "cut_id": 293,
+    "project_id": "wce-gs120-method-development-20261106",
+    "release_id": "release:d16c5b3f09a4b73c52369a9a999fc31847be91ce4602d4a13d5ade5af215311a",
+    "result_revision": 1,
+    "run_id": 210,
+    "runtime_id": "runtime:9062bf6f1349dc89fe898ffd46abe4df1e2dbfba8d02d3ad42ea1c3c9e9c3b66"
+  },
+  "view-118.json": {
+    "added_captions": [
+      "#/texts/65",
+      "#/texts/66"
+    ],
+    "prior_projection": "0acce3b7a8473fa6975037297e1af2499365c8583e693821b776e05f4a662e56",
+    "prior_view": 118,
+    "revised_projection": "cb82bb36ab02abf3728bc54e63e88bb43d3a11841ccf9f76658d9a6de81c2fbb",
+    "revised_view": 157
+  },
+  "view-119.json": {
+    "added_captions": [],
+    "prior_projection": "7fc29e27edde8ca171f2235999c4bd98b8f7c519d6411cb67f2d050187e6b64a",
+    "prior_view": 119,
+    "revised_projection": "7fc29e27edde8ca171f2235999c4bd98b8f7c519d6411cb67f2d050187e6b64a",
+    "revised_view": 158
+  },
+  "view-124.json": {
+    "added_captions": [
+      "#/texts/37",
+      "#/texts/85",
+      "#/texts/131"
+    ],
+    "prior_projection": "e265260c0ca6f7f3f899af43237136c5383f29055212b6d9d504ab18a6b1fa5f",
+    "prior_view": 124,
+    "revised_projection": "41ab278caab8cffa69d787cc9f2f4474731b4a8bb35e3002bb246a094d5bcbb4",
+    "revised_view": 159
+  }
+}

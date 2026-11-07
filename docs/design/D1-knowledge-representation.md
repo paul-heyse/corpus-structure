@@ -2,6 +2,16 @@
 
 ## Witnessed component target
 
+**Implemented; bounded Tested, 2026-11-07.** Private predicate frames retain their annotation
+block, selected passage, governing predicate and distinct exact role occurrences. A clause
+focus has an explicit exact, partial or unavailable state. Deterministic readings and
+qualifier attachments reference those frame identities. A qualifier without a justified host
+retains its source marker, extent and candidate heads. Supported attachments carry the
+released condition or qualification when their premises permit it. A bounded naming rule
+can resolve a sentence-initial demonstrative to the unique matching restricted nominal in
+the preceding sentence within the same selected native piece. The named operation retains
+the original mention and the located antecedent separately. [NCE-02](../plans/next-corpus-enrichment/source-and-linguistic-composition.md#NCE-02)
+
 **Implemented; bounded Tested,2026-11-06.** Located definition components retain named roles, exact source pieces, basis, scope and dependencies. Interpretation, independent assessment and public standing are separate; component support never qualifies a whole report. Domain relationship constraints distinguish compatible selected edges from exclusive alternatives. Logical relationship identity binds source-resolved target meaning and qualifiers; opaque retrieval IDs, evidence-basis IDs and assessment wording remain provenance. Inventory-local semantic groups retain every qualifying origin without establishing global concept identity.
 
 **Accepted target,2026-11-06.** WCE04–WCE05 migrate affected producers, native effects and

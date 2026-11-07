@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-07. CLI audit repairs verified in development. Live production qualification and WCE12 remain open._
+_Updated 2026-11-07. NCE captions, predicate evidence and the constant-density antecedent verified in development. Live production qualification and WCE12 remain open._
 
 ## Current authority
 
@@ -22,7 +22,7 @@ _Updated 2026-11-07. CLI audit repairs verified in development. Live production 
   withheld the unsupported formula X link while keeping its candidate list. The exact
   formula Z occurrence and eligible standard-normal target are still missing.
 - Both table weighting modes selected all nine supported readings at each declared scale.
-  The artifact reference includes 13 supported pairs, three with native-only captions.
+  The WCE artifact reference includes 13 supported pairs, three originally native-only.
 
 ## WCE verification — 2026-11-07
 
@@ -38,22 +38,22 @@ _Updated 2026-11-07. CLI audit repairs verified in development. Live production 
 
 - The [ci skill](.claude/skills/ci/SKILL.md) documents routine routes and repair ownership.
 - The [CLI reporting series](docs/plans/cli-reporting_2026-11-07.md) proposes compact test and leased model reads first. Stream compatibility is open.
-  On 2026-11-07, `uv run ci docs check` failed at a concurrent NCE draft link. Publication passed with that draft excluded.
+  The earlier NCE draft link refusal was resolved and `uv run ci docs check` passed.
 - The [CLI audit disposition](docs/plans/cli-operations_2026-11-07.md#completion-audit) owns the
   verified development repairs and live prerequisite. ADR-0069 governs routing, retention and
   explicit effects. Typer 0.28.0 retains the workspace override for Docling Core's CLI dependency.
-- `uv run ci db migrate --expected-predecessor semantic_wce_lineage_20261107 --json` and
-  `uv run ci db status --maintenance --json` passed against `18/corpus`, port 5434. Development
-  is at operational revision `semantic_cli_run_supervisor` with the same corpus physical model.
+- Operational revision `semantic_cli_run_supervisor` preceded the NCE development migration.
 - The [reconciled CLI qualification](docs/plans/cli-operations_2026-11-07.md#reconciled-functional-and-nonfunctional-results)
   covers 5,119 required nodes with zero unresolved after the affected checks and exact retry.
   Rust was `not_run` with an empty selection. `uv run ci check --json` passed.
 
 ## Next
 
-- The [next corpus enrichment series](docs/plans/next-corpus-enrichment_2026-11-07.md)
-  proposes NCE-01 caption recovery and NCE-02 qualified roles first. `just docs-check`
-  passed on 2026-11-07 for the plans. Package implementation and provider checks are `not_run`.
+- The [next corpus enrichment series](docs/plans/next-corpus-enrichment_2026-11-07.md#selected-execution--2026-11-07)
+  owns NCE-01/02. Native revision `semantic_nce_evidence_guards` is installed in development.
+  Artifact run 210 recovered all three supported caption pairs. Scoped run 217 passed the
+  bounded retained-source, CLI, MCP and detached controls. Definition run 222 recovered the
+  exact constant-density antecedent from the original source. Broader qualifier work remains open.
 - Settle the remaining source opportunities and exact native table factor reconstruction in
   the WCE plan. Authentic table-note and alias examples remain unavailable in their frames.
   Fitting remains `not_run` pending compatible events and protected evaluations.

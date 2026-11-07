@@ -1,0 +1,95 @@
+{
+  "library": "gliner2==2.1.0",
+  "checkpoint": "fastino/gliner2.5-base-v1",
+  "revision": "54785d51df8d86a0d8f2eb212fec15871aad2c4d",
+  "source_view": 147,
+  "raw_sha256": "313c13724d71f4bf8834258367172f308a440b784ce4f6ebfe127c600a91a659",
+  "observations": [
+    {
+      "case": "exact",
+      "threshold": 0.5,
+      "short_references": [
+        "x",
+        "y",
+        "fX",
+        "Y",
+        "x",
+        "y"
+      ],
+      "descriptions": [
+        "set of constant density"
+      ],
+      "relations": []
+    },
+    {
+      "case": "exact",
+      "threshold": 0.2,
+      "short_references": [
+        "x",
+        "y",
+        "fX",
+        "Y",
+        "x",
+        "y"
+      ],
+      "descriptions": [
+        "set of constant density"
+      ],
+      "relations": []
+    },
+    {
+      "case": "competing",
+      "threshold": 0.5,
+      "short_references": [],
+      "descriptions": [
+        "set of points such that x = 0",
+        "set of points such that y = 0"
+      ],
+      "relations": []
+    },
+    {
+      "case": "competing",
+      "threshold": 0.2,
+      "short_references": [],
+      "descriptions": [
+        "set of points such that x = 0",
+        "set of points such that y = 0"
+      ],
+      "relations": []
+    },
+    {
+      "case": "missing",
+      "threshold": 0.5,
+      "short_references": [
+        "line"
+      ],
+      "descriptions": [
+        "boundary"
+      ],
+      "relations": [
+        {
+          "from": "line",
+          "to": "boundary",
+          "confidence": 0.7416609240405737
+        }
+      ]
+    },
+    {
+      "case": "missing",
+      "threshold": 0.2,
+      "short_references": [
+        "line"
+      ],
+      "descriptions": [
+        "boundary"
+      ],
+      "relations": [
+        {
+          "from": "line",
+          "to": "boundary",
+          "confidence": 0.7416609240405737
+        }
+      ]
+    }
+  ]
+}

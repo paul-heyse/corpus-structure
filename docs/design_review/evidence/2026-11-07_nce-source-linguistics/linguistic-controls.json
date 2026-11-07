@@ -1,0 +1,221 @@
+{
+  "replay": {
+    "artifact": {
+      "cut_id": 293,
+      "project_id": "wce-gs120-method-development-20261106",
+      "release_id": "release:d16c5b3f09a4b73c52369a9a999fc31847be91ce4602d4a13d5ade5af215311a",
+      "result_revision": 1,
+      "run_id": 210,
+      "runtime_id": "runtime:9062bf6f1349dc89fe898ffd46abe4df1e2dbfba8d02d3ad42ea1c3c9e9c3b66"
+    },
+    "definition": {
+      "cut_id": 305,
+      "project_id": "wce-gs120-method-development-20261106",
+      "release_id": "release:d16c5b3f09a4b73c52369a9a999fc31847be91ce4602d4a13d5ade5af215311a",
+      "result_revision": 1,
+      "run_id": 218,
+      "runtime_id": "runtime:cb75461d487957fa1e577037dd804c91e2a12b30141e41ceda8734507ec4d6fa"
+    },
+    "recovered_views": {
+      "118": 157,
+      "119": 158,
+      "124": 159
+    },
+    "scoped": {
+      "cut_id": 303,
+      "project_id": "wce-gs120-method-development-20261106",
+      "release_id": "release:d16c5b3f09a4b73c52369a9a999fc31847be91ce4602d4a13d5ade5af215311a",
+      "result_revision": 1,
+      "run_id": 217,
+      "runtime_id": "runtime:cb75461d487957fa1e577037dd804c91e2a12b30141e41ceda8734507ec4d6fa"
+    }
+  },
+  "cases": [
+    {
+      "original_case": "10701a2dec9c4a68f38de709185a24ed667b282bc215f1f506ea94415bcb2846",
+      "view_id": 122,
+      "standing": "exact_probability_subject_and_display",
+      "prior": {
+        "alternatives": [],
+        "basis": "native_geometry",
+        "component_id": "10701a2dec9c4a68f38de709185a24ed667b282bc215f1f506ea94415bcb2846",
+        "content": {
+          "end": 1849,
+          "passage_id": "gs120-recovered-source-122",
+          "start": 1774,
+          "text": "P ( X < Y ) = \\int _ { 0 } ^ { \\infty } f ( x ) ( 1 - G ( x ) ) \\, d x , \\\\"
+        },
+        "effective_version": null,
+        "evidence": [
+          "gs120-recovered-source-122"
+        ],
+        "interpretation": "explanation",
+        "reason": "Named rule explanation/given_following_display following-content cue joined to the adjacent source-owned display element; semantic support unassessed.",
+        "scope": "grinstead-snell-physical191-310",
+        "term": {
+          "end": 1761,
+          "passage_id": "gs120-recovered-source-122",
+          "start": 1760,
+          "text": "Y"
+        }
+      },
+      "actual": [
+        {
+          "term": "the probability that X is less than Y",
+          "content": "P ( X < Y ) = \\int _ { 0 } ^ { \\infty } f ( x ) ( 1 - G ( x ) ) \\, d x , \\\\"
+        }
+      ],
+      "independent_expected": {
+        "content": {
+          "end": 1849,
+          "passage_id": "gs120-recovered-source-122",
+          "start": 1774,
+          "text": "P ( X < Y ) = \\int _ { 0 } ^ { \\infty } f ( x ) ( 1 - G ( x ) ) \\, d x , \\\\"
+        },
+        "content_anchor": "C12-expected-content",
+        "interpretation": "explanation",
+        "reason": "The source explicitly attaches the integral to this probability, requiring a different head than Y.",
+        "speech_act": "exercise_given_formula_and_explanation_request",
+        "state": "supported",
+        "term": {
+          "end": 1761,
+          "passage_id": "gs120-recovered-source-122",
+          "start": 1724,
+          "text": "the probability that X is less than Y"
+        },
+        "term_anchor": "C12-corrected-term"
+      },
+      "scoped_types": {
+        "structural.located_participant": 11,
+        "structural.scoped_attachment": 5,
+        "structural.predicate_member": 15,
+        "structural.predicate_cue": 1,
+        "structural.predicate_frame": 4,
+        "structural.predicate_reading": 4
+      }
+    },
+    {
+      "original_case": "d5715568638f1b1644d6a105bfb3c152946b02ec01d31f601f9ba5797c9b2fe9",
+      "view_id": 135,
+      "standing": "historical_contrast_preserved_definition_withheld",
+      "prior": {
+        "alternatives": [],
+        "basis": "matched_cue",
+        "component_id": "d5715568638f1b1644d6a105bfb3c152946b02ec01d31f601f9ba5797c9b2fe9",
+        "content": {
+          "end": 4403,
+          "passage_id": "gs120-recovered-source-135",
+          "start": 4385,
+          "text": "a weighted average"
+        },
+        "effective_version": null,
+        "evidence": [
+          "gs120-recovered-source-135"
+        ],
+        "interpretation": "definition",
+        "reason": "Named rule defining/active_as binds explicit defined_term/defining_content roles; semantic attachment remains independently unassessed.",
+        "scope": "grinstead-snell-physical191-310",
+        "term": {
+          "end": 4381,
+          "passage_id": "gs120-recovered-source-135",
+          "start": 4363,
+          "text": "the expected value"
+        }
+      },
+      "actual": [],
+      "independent_expected": {
+        "content": {
+          "end": 4524,
+          "passage_id": "gs120-recovered-source-135",
+          "start": 4413,
+          "text": "assumed that the expected value of certain symmetric gambles are known and deduced the other values from these."
+        },
+        "content_anchor": "C21-corrected-content",
+        "interpretation": "historical_method_attribution_in_contrast",
+        "reason": "Positive source attribution concerns Huygens assumptions/deductions; weighted-average defining is a contrasted mention.",
+        "speech_act": "historical_contrast",
+        "state": "supported",
+        "term": {
+          "end": 4412,
+          "passage_id": "gs120-recovered-source-135",
+          "start": 4405,
+          "text": "Huygens"
+        },
+        "term_anchor": "C21-corrected-subject"
+      },
+      "scoped_types": {
+        "structural.located_participant": 57,
+        "structural.scoped_attachment": 40,
+        "structural.predicate_member": 63,
+        "structural.predicate_frame": 18,
+        "structural.predicate_reading": 18,
+        "structural.predicate_cue": 8,
+        "structural.predicate_qualification": 6
+      }
+    },
+    {
+      "original_case": "822bb6359ada0a728f424b525b3f030af958a66907511155283f216f21de7613",
+      "view_id": 147,
+      "standing": "exact_nominal_label_antecedent_unresolved",
+      "prior": {
+        "alternatives": [],
+        "basis": "matched_cue",
+        "component_id": "822bb6359ada0a728f424b525b3f030af958a66907511155283f216f21de7613",
+        "content": {
+          "end": 314,
+          "passage_id": "gs120-recovered-source-147",
+          "start": 296,
+          "text": "This set of points"
+        },
+        "effective_version": null,
+        "evidence": [
+          "gs120-recovered-source-147"
+        ],
+        "interpretation": "explanation",
+        "reason": "Named rule naming/passive_called_term binds explicit defined_term/defining_content roles; semantic attachment remains independently unassessed.",
+        "scope": "grinstead-snell-physical191-310",
+        "term": {
+          "end": 330,
+          "passage_id": "gs120-recovered-source-147",
+          "start": 325,
+          "text": "a set"
+        }
+      },
+      "actual": [
+        {
+          "term": "a set of constant density",
+          "content": "This set of points"
+        }
+      ],
+      "independent_expected": {
+        "content": {
+          "end": 295,
+          "passage_id": "gs120-recovered-source-147",
+          "start": 208,
+          "text": "the set of points (x, y) in the xy-plane such that fX,Y (x, y) = C for some constant C."
+        },
+        "content_anchor": "C31-corrected-content",
+        "interpretation": "explanation",
+        "reason": "Full label and explicit level-set antecedent supply a corrected relation, without crediting the truncated component.",
+        "speech_act": "local_level_set_naming",
+        "state": "supported",
+        "term": {
+          "end": 350,
+          "passage_id": "gs120-recovered-source-147",
+          "start": 325,
+          "text": "a set of constant density"
+        },
+        "term_anchor": "C31-corrected-term"
+      },
+      "scoped_types": {
+        "structural.located_participant": 11,
+        "structural.scoped_attachment": 4,
+        "structural.predicate_member": 38,
+        "structural.predicate_frame": 12,
+        "structural.predicate_reading": 12,
+        "structural.predicate_cue": 2,
+        "structural.predicate_qualification": 2
+      }
+    }
+  ]
+}

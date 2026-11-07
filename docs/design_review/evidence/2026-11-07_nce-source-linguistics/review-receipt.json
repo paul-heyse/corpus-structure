@@ -1,0 +1,24 @@
+{
+  "outcome": "passed",
+  "export_result": "746abd8fc8294c6ca2cc5a2426acfe87",
+  "selection_digest": "cc951cb840a48701c85d6bc1c6fa80c835462e747ee67878e13731afcfc2a58c",
+  "completeness": "selected_source_closure",
+  "scoped_run": 217,
+  "scoped_cut": 303,
+  "definition_run": 218,
+  "definition_cut": 305,
+  "rows": {
+    "assessment_matrix": 333,
+    "capabilities": 27,
+    "contracts": 2,
+    "documents": 4,
+    "gaps": 13,
+    "inventory": 690,
+    "reports": 8,
+    "selections": 3,
+    "source_producers": 4,
+    "sources": 6,
+    "structural_products": 2,
+    "structural_selections": 2
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "id": "nce.caption-native-replay",
+  "title": "Exact native caption projection and artifact candidates",
+  "group": "NCE",
+  "package": "NCE-01",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do archived selected views recover the three missing caption citations and preserve prior native pieces?",
+  "answers": [
+    "NCE-01"
+  ],
+  "method": "Native retained-product replay with frozen independent reference anchors and guard counterfactuals.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-07_nce-source-linguistics/replay.py build/nce-source-linguistics/attempt-01 --release release:d16c5b3f09a4b73c52369a9a999fc31847be91ce4602d4a13d5ade5af215311a",
+    "uv run python docs/design_review/evidence/2026-11-07_nce-source-linguistics/check_caption_admission.py 157 '#/texts/65'",
+    "uv run ci structure list --run 210 --cut 293 --kind artifact_identity --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "replay.py",
+      "role": "execution driver",
+      "sha256": "f4744231f0640ec95a888e1aa856d11c7bae271be0ad20eee1af584416fddc0a"
+    },
+    {
+      "path": "check_caption_admission.py",
+      "role": "native guard control",
+      "sha256": "6b8ec3055c40cb680154c5d262d8958b80149f611d7d2a04e7efed0489a2eccc"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "caption-controls.json",
+      "role": "native receipt",
+      "sha256": "4239cad714ed6da8155b1216b95b64f1ff5f1b6f45421e668ed03a0dc2d2f569"
+    },
+    {
+      "path": "caption-guard.json",
+      "role": "native receipt",
+      "sha256": "982f5782f7c898662d819014a4abff26f1fda74355376fad27e43d376089f053"
+    },
+    {
+      "path": "caption-replay.json",
+      "role": "native receipt",
+      "sha256": "3a7877624270cd3609f9a433d3634161d64bc2220df8c4bcd3994af088d98d7e"
+    }
+  ],
+  "depends_on": [
+    "2026-11-06_wce-completion-repair/wce.repair-source-opportunities"
+  ],
+  "results": [
+    {
+      "name": "Previously native-only supported caption pairs nominated",
+      "value": 3,
+      "of": 3,
+      "unit": "pairs",
+      "note": "Exact-code admission on native run210/cut293."
+    },
+    {
+      "name": "Additional newly projected caption occurrences",
+      "value": 2,
+      "of": null,
+      "unit": "occurrences",
+      "note": "Both in regenerated view159."
+    },
+    {
+      "name": "Invalid projected variants refused",
+      "value": 3,
+      "of": 3,
+      "unit": "variants",
+      "note": "Missing caption, forged cell-index duplicate, and pre-cell placement."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "All three frozen caption cases retain exact source and candidate custody. Prior native text pieces retain their spelling and sequence. The additional captions are source occurrences only. This establishes the bounded development controls.",
+  "consumed_by": [
+    "NCE-01",
+    "NCE-07"
+  ]
+}

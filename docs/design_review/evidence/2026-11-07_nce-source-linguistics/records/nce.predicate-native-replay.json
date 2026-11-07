@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "id": "nce.predicate-native-replay",
+  "title": "Retained clause and definition replay",
+  "group": "NCE",
+  "package": "NCE-02",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do retained annotations support exact predicate, qualifier and definition evidence on the selected frozen cases?",
+  "answers": [
+    "NCE-02"
+  ],
+  "method": "Execute current private producers on original retained annotation cuts, compare independently frozen outcomes, and verify native and portable delivery.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-07_nce-source-linguistics/assess_replay.py build/nce-source-linguistics/attempt-01",
+    "uv run python docs/design_review/evidence/2026-11-07_nce-source-linguistics/check_predicate_admission.py 217",
+    "uv run ci contributions list --run 217 --source-view 122 --method structure.scoped_relations --include-details --include-interpretation --json",
+    "uv run ci review export build/nce-source-linguistics/attempt-01/selection.json --exact-closure --json",
+    "uv run ci review verify <exported bundle path> --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "replay.py",
+      "role": "scope and verification source",
+      "sha256": "f4744231f0640ec95a888e1aa856d11c7bae271be0ad20eee1af584416fddc0a"
+    },
+    {
+      "path": "assess_replay.py",
+      "role": "scope and verification source",
+      "sha256": "e40855523ae20c26662602a943e8486c9178e0d72aa9453c8da1b9186bcc9f42"
+    },
+    {
+      "path": "check_predicate_admission.py",
+      "role": "scope and verification source",
+      "sha256": "8a0576e086891776cd681c2c11763ba4eeb0b061c1e297248b269621aa5e24d4"
+    },
+    {
+      "path": "check_mcp.py",
+      "role": "scope and verification source",
+      "sha256": "140eab27a9e1b97e4ee4460ef1b35cb9f26dea1057fdca1199b4abd14e2032b9"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "linguistic-controls.json",
+      "role": "retained result",
+      "sha256": "97904d47f459e5f5266bab4bb8ba2ecc9c4007884d225a8510d4a9681631ccfc"
+    },
+    {
+      "path": "predicate-guard.json",
+      "role": "retained result",
+      "sha256": "a36083050828162ebaf18de55887b8805a244b45d15bf9957f62feef7ed9f70c"
+    },
+    {
+      "path": "mcp-receipt.json",
+      "role": "retained result",
+      "sha256": "e1c03a184c29f398d5c9bd4bf6ee34948dfc86011fda6a4c897aa302d1872f99"
+    },
+    {
+      "path": "review-receipt.json",
+      "role": "retained result",
+      "sha256": "a799d84b1a7edf54c645066f2b1ddcaf06ec5c2d347c960c1662a6b1b7de5329"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Neutral frames",
+      "value": 34,
+      "of": null,
+      "unit": "frames",
+      "note": "Across three source passages in native run217."
+    },
+    {
+      "name": "Host-qualified components",
+      "value": 8,
+      "of": null,
+      "unit": "attachments",
+      "note": "Across the three selected passages."
+    },
+    {
+      "name": "Independently selected comparison cases",
+      "value": 3,
+      "of": null,
+      "unit": "cases",
+      "note": "Exact probability subject and display, historical contrast, and the nominal label."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The exact probability subject and integral attach; the historical contrast and its assumption are retained without a performed definition; the constant-density label is recovered while its antecedent remains unresolved. Native host refusal and matching CLI, MCP and detached delivery are established. Broader qualifier benefit and explicit cross-block layout inheritance remain open.",
+  "consumed_by": [
+    "NCE-02",
+    "NCE-04"
+  ]
+}
