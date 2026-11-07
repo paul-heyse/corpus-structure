@@ -40,7 +40,8 @@ uv run ci test coverage ORIGINAL_ID RETRY_ID --view unresolved --limit 20 --json
   groups drained. A live or unproven owner remains protected. Resolve custody before
   starting a replacement that could conflict with it.
 - Give `test coverage` the original required selection first. Inspect `missing_lanes`,
-  `lane_selections`, unresolved nodes, source/context differences and native evidence.
+  `lane_selections`, unresolved nodes, source differences, execution-context differences
+  and unknowns, and native evidence. Follow the report's action for the affected attempt.
   The original failure remains visible even when replacements cover every required node.
   A coverage report's successful delivery does not establish qualification by itself.
   Use the owning plan to judge applicability and record omitted or blocked obligations.

@@ -1,8 +1,8 @@
 # Reporting contracts and test evidence
 
-**Status:** Shared delivery and classifier views are present. CLIR-CA01–03 own the open
-corrections. The [coordinator](../cli-reporting_2026-11-07.md#completion-audit) owns scope
-and integrated acceptance. This plan consumes [O01](../../functional_reviews/cli-reporting_2026-11-07.md#O01)
+**Status:** Ordered test views, context and custody verified in the reporting worktree.
+The [coordinator](../cli-reporting_2026-11-07.md#audit-repair-execution) owns main
+integration and qualification. This plan consumes [O01](../../functional_reviews/cli-reporting_2026-11-07.md#O01)
 and [O02](../../functional_reviews/cli-reporting_2026-11-07.md#O02).
 
 <a id="CLIR-01"></a>

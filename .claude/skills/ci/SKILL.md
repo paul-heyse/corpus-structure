@@ -22,7 +22,9 @@ boundaries. Here `ci` is the installed project CLI. Hosted CI is a separate veri
 - Use `uv run ci check` for applicable repository checks at the declared boundary. Use
   `uv run ci check --view steps --json` for ordered, structured outcomes. Select
   `--only types`, `--only lint`, `--only docs`, `--only deps`, `--only rules` or
-  `--only adr` when you need one check. The rules selector runs the scan. Use
+  `--only adr` when you need one check. Read each step's outcome separately from its
+  exit code. An empty rules registry gives `not_run`, and failure excerpts name the
+  step and stream that produced them. Use
   `uv run ci docs check` for publication and `uv run ci format` for intentional formatting.
 - Use the command's defaults when they select the intended scope. Supply the identifiers,
   target, or effect options that change the operation's meaning. For automation, use

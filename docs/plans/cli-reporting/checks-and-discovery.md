@@ -1,8 +1,8 @@
 # Repository checks and command discovery
 
-**Status:** The step channel and reference routes are present. CLIR-CA06 and CLIR-CA10 own
-the open outcome and excerpt corrections. The [coordinator](../cli-reporting_2026-11-07.md#completion-audit)
-owns scope and integrated acceptance. This plan consumes [O05](../../functional_reviews/cli-reporting_2026-11-07.md#O05).
+**Status:** Recipe applicability and failed-step excerpts verified in the reporting worktree.
+The [coordinator](../cli-reporting_2026-11-07.md#audit-repair-execution) owns main
+integration and qualification. This plan consumes [O05](../../functional_reviews/cli-reporting_2026-11-07.md#O05).
 
 <a id="CLIR-05"></a>
 ## CLIR-05 · Report the failed step and make the next route discoverable
