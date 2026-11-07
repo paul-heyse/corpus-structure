@@ -25,7 +25,8 @@ are recovered from Git, never read as a chain (ADR-0001).
 
 ## How
 
-1. `just adr new <slug> --title "Decision stated as a sentence"` or `just adr supersede …`.
+1. `uv run ci adr new <slug> --title "Decision stated as a sentence"` or
+   `just adr supersede ADR-NNNN <slug>`.
 2. Use Context → Options → Decision → Consequences. Identify the expected change, responsible
    components and affected consumer contracts. Include the simplest viable alternative; compare
    coupling, composition, local testing and total integration burden where they distinguish options.
@@ -46,7 +47,8 @@ are recovered from Git, never read as a chain (ADR-0001).
 5. Accepted records are immutable except `status`/`superseded-by`. A factual correction changing
    no decision may be appended as a dated line under `## Amendments`; a decision change needs a
    superseding record. Preserve unrelated decisions when replacing one process or policy clause.
-6. `just turn-end` regenerates the index; `just adr-lint` runs within `just hygiene`. The binding owns current finding disposition:
+6. `just turn-end` regenerates the index. Use `uv run ci adr lint` for a focused check.
+   The binding owns current finding disposition:
    link source review IDs to the active plan; close findings on evidence of the correction,
    not merely acceptance of this record.
 
@@ -57,10 +59,10 @@ and say which clauses are rejected or out of scope. One replacement may consolid
 predecessors by responsibility; it restates decisions already in force and never accepts an
 unapproved target. Mark the predecessors superseded and update every governing reference
 (`rg -n 'ADR-NNNN'` outside `docs/adr/`: AGENTS, binding, skills, STATUS, the plan); then, once the replacement is accepted, delete them. A `supersedes` entry naming a deleted record is provenance; numbering skips every id
-in Git history (`just adr new` refuses a shallow clone). Keep a self-contained record however old;
+in Git history (`uv run ci adr new` refuses a shallow clone). Keep a self-contained record however old;
 keep a proposed record only while its choice is live.
 
-`just adr revisit` executes runnable triggers. Inspect them and use it when relevant; a handoff
+`uv run ci adr revisit` executes runnable triggers. Inspect them and use it when relevant. A handoff
 or process edit does not by itself require running unrelated functional checks.
 
 Start with the architecture map and relevant owner, not the entire collection. A move keeps the

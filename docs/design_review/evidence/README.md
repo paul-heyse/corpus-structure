@@ -12,13 +12,14 @@ collection and the ADRs decide (binding §4).
 - `records/<id>.json`: one record per **finalized** result (ADR-0010): the question, the items it
   informs, method, commands, agents, inputs and outputs with content hashes, headline results,
   outcome, conclusion and consumers. Write the record when a result is accepted (not for every
-  run), then `just evidence finalize <folder> <id>`; a revised result supersedes its record
+  run), then `uv run ci evidence finalize <folder> <id>`. A revised result supersedes its record
   (`supersedes` / `superseded_by`). The schema is `tools/evidence/record.schema.json`;
 - optionally `catalog.sql`: DuckDB tables and views over the folder's own result files, added to
   the catalog under the folder's schema (a Jinja template; `{{ folder }}` is its path).
 
-`just evidence` regenerates the index below and each folder's records block, rebuilds the
-catalog (`build/evidence.duckdb`, never an authority) and checks every record: valid, files
+Use `uv run ci evidence index` to regenerate indexes and `uv run ci evidence check` to check
+records. The combined `just evidence` workflow also rebuilds the catalog
+(`build/evidence.duckdb`, never an authority). Record checks establish validity, files
 present, outputs unchanged since finalization, references resolved. Explore it read-only with
 the DuckDB CLI (`duckdb -agent -readonly build/evidence.duckdb`) or `duckdb.connect(…, read_only=True)`;
 `records_for('OPEN-D1-1')` lists the current records that inform an item. Reports can take their

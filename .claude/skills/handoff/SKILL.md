@@ -16,13 +16,14 @@ keep a dated receipt only while it bounds a current claim, with its original dat
 ## Gather
 
 - `git log --oneline -10` and `git status --porcelain`: landed work and concurrent edits.
-- Outcomes of checks actually run for this scope. Use the repository's acceptance timing: a handoff does not trigger `just check` or `just test-all`. Report omitted checks
+- Outcomes of checks actually run for this scope. Use the repository's acceptance timing. A
+  handoff does not trigger `uv run ci check` or `uv run ci test`. Report omitted checks
   as `not_run` with the reason; never promote another session's receipt to a current result.
   Complete qualification accounts for the declared required functional/provider/nonfunctional
   union of explicitly scoped applicable native results (ADR-0001); preserve original failed or
   interrupted records, bounded scope and final-source/context applicability.
-- Current ADR index and relevant decisions. `just turn-end` regenerates the index; `just adr-lint`
-  is available individually and through `just hygiene`. Inspect relevant revisit
+- Current ADR index and relevant decisions. `just turn-end` regenerates the index.
+  Use `uv run ci adr lint` when a separate check is due. Inspect relevant revisit
   conditions; run commands only when due and within scope.
 - Current plan disposition rows and review conclusions. Distinguish the bounded slice judgment,
   enclosing architectural status and remaining integrated acceptance.

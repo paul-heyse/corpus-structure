@@ -14,6 +14,7 @@ workflow with concrete consumers.
 
 | Skill | Use |
 |---|---|
+| [ci](ci/SKILL.md) | Use installed `ci` for supported operations and repair defects surfaced during assigned work |
 | [`design-principle-audit/`](design-principle-audit/SKILL.md) | Refresh the broad diagnostic account for production or broad system review |
 | [design-principle-audit-tests](design-principle-audit-tests/SKILL.md) | Audit test code, evidence and support in a separate living account |
 | [`design-review-audit/`](design-review-audit/SKILL.md) | Reassess recommendations and omissions, publish net changes and revise the principal review |

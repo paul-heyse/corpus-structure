@@ -26,6 +26,9 @@ establish what exists. Preserve concurrent work and distinguish implemented scop
 decisions and proposals. The following principles guide attention; they are not required stages
 or another plan template.
 
+Use the [ci skill](../ci/SKILL.md) to identify supported routes for the planned work.
+Route defects encountered through those commands to the active plan under AGENTS.md.
+
 The refreshed design principle audit belongs to a new design-review engagement, not routine plan authoring or
 execution. Use the plan's source findings and relevant architectural owners; loading review
 criteria for a consequential question does not start a broad principle audit. Preserve audit/source-review

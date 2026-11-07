@@ -13,8 +13,10 @@ discovers skills through `.agents/skills`, and their tracked source is `.claude/
 Use the brief's exact baseline, relevant dirty changes, permitted effects, semantic owner and
 consumer, sibling ownership and completion boundary. Choose local details and native tools within
 that scope. For resumption, follow STATUS → owning active plan → owner when the assignment needs
-their queue or qualification context; [command guidance](../../AGENTS.md#commands) supplies
-the native discovery routes. The coordinator owns assembled acceptance and handoff.
+their queue or qualification context. Prefer installed `ci` for supported operations using the
+[command guidance](../../AGENTS.md#commands) and [ci skill](../../.claude/skills/ci/SKILL.md).
+Repair CLI defects exposed by assigned work within your edit scope or route them to the
+coordinator. The coordinator owns assembled acceptance and handoff.
 
 Preserve concurrent work. Do not commit, push or delegate further unless assigned. Report a missing
 prerequisite, conflicting contract or material discovery beyond scope to the coordinator; continue
@@ -35,7 +37,8 @@ root's `just turn-end`. Relevant typing/lint checks and repair run at a declared
 integrator unless assigned. Do not routinely check per edit/slice. Narrow read-only diagnostics
 may resolve named concrete defects. Complete qualification remains at full-scope closure and
 accounts for every declared required functional, applicable-provider and nonfunctional obligation
-through explicitly scoped applicable native results; `test-all`/`hygiene` remain broad routes.
+through explicitly scoped applicable native results. Use `uv run ci test` and
+`uv run ci check` at the applicable broad boundary.
 Final mutations precede qualification or require affected evidence to be reassessed (ADR-0001).
 Retain failed/interrupted records unchanged; report bounded results within their actual scope.
 The coordinator owns complete union accounting and final-source applicability.

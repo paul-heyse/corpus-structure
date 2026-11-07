@@ -36,14 +36,15 @@ _Updated 2026-11-07. CLI audit repairs verified in development. Live production 
 
 ## CLI operations — 2026-11-07
 
+- The [ci skill](.claude/skills/ci/SKILL.md) documents routine routes and repair ownership.
+  `uv run ci docs check`, targeted execution, result retrieval and exact retry passed.
 - The [CLI audit disposition](docs/plans/cli-operations_2026-11-07.md#completion-audit) owns the
   verified development repairs and live prerequisite. ADR-0069 governs routing, retention and
   explicit effects. Typer 0.28.0 retains the workspace override for Docling Core's CLI dependency.
 - `uv run ci db migrate --expected-predecessor semantic_wce_lineage_20261107 --json` and
   `uv run ci db status --maintenance --json` passed against `18/corpus`, port 5434. Development
   is at operational revision `semantic_cli_run_supervisor` with the same corpus physical model.
-- `uv run ci test --json` recorded 5,110 ordinary passes, one failure and eight fault passes.
-  The [reconciled coverage](docs/plans/cli-operations_2026-11-07.md#reconciled-functional-and-nonfunctional-results)
+- The [reconciled CLI qualification](docs/plans/cli-operations_2026-11-07.md#reconciled-functional-and-nonfunctional-results)
   covers 5,119 required nodes with zero unresolved after the affected checks and exact retry.
   Rust was `not_run` with an empty selection. `uv run ci check --json` and `just turn-end` passed.
 

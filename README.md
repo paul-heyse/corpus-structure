@@ -14,13 +14,17 @@ Builds a highly structured representation of a set of documents
 
 ## Development
 
+Prefer the installed CLI for supported development and corpus operations. The
+[ci skill](.claude/skills/ci/SKILL.md) explains the command routes, managed results and
+how to handle a defect surfaced during work.
+
 Use `uv run ci doctor` to check the prepared tools and `uv run ci context show` to inspect
 the effective settings. Run `uv run ci test -- PATH` for targeted pytest selection and
 `uv run ci test` for the full applicable functional campaign. Use `uv run ci results show ID`
 to find retained outcomes and `uv run ci test retry ID` to retry unresolved test nodes.
 Run `uv run ci check` for repository checks and `uv run ci format` for explicit formatting.
-The underlying `just` recipes remain available for bootstrap and recovery. `just turn-end`
-formats and regenerates repository metadata at the end of a turn.
+Use direct recipes for bootstrap and documented recovery. `just turn-end` formats and
+regenerates repository metadata at the end of a turn.
 
 After the scaffold lockfiles exist, run `bash scripts/setup-env` to prepare this checkout's
 tools. Installed toolchains follow the pin files; setup

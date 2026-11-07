@@ -1,7 +1,7 @@
 # Publishing documentation
 
-**Implemented** (ADR-0003); verify locally with `just docs-check` and record the dated outcome in
-STATUS. Remote CI results are separate from local verification.
+**Implemented** (ADR-0003). Verify locally with `uv run ci docs check` in a prepared
+checkout and record the dated outcome in STATUS. Hosted CI results are a separate context.
 
 ## Commands and dependencies
 
@@ -11,7 +11,8 @@ the network. Python comes from `.python-version`, pytest from `uv.lock` when pre
 documentation tools from [site.toml](site.toml). No product package or build is needed.
 
 - `just docs`: render, index and check offline links/fragments, then replace `build/docs/site/`.
-- `just docs-check`: ADR and agent checks plus the same complete publication.
+- `uv run ci docs check`: ADR and agent checks plus the same complete publication. The
+  underlying `just docs-check` serves documentation-only environments without installed `ci`.
 - `just docs-test`: focused script regressions through isolated pytest.
 - `just docs-serve`: build, then serve the final artifact at http://127.0.0.1:8000.
 

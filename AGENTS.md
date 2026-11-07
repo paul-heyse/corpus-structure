@@ -64,20 +64,29 @@ permission, concurrent-work and testing constraints, and follow discovered depen
 
 ## Commands
 
-The [CLI operations target](docs/plans/cli-operations_2026-11-07.md) routes routine actions
-through installed `ci` as their adapters land. Repository automation stays owned by `just`.
-Use the underlying recipes for bootstrap and recovery. The plan owns cutover and verification
-status (ADR-0069).
+Prefer installed `uv run ci` over equivalent manual commands or sequences for functionality
+it already provides. Use the [ci skill](.claude/skills/ci/SKILL.md) for command discovery,
+workflows and result handling. Repository automation stays owned by `just`. Use the underlying
+tools for bootstrap, documented recovery, root turn-end maintenance and workflows that have
+only a direct route. [ADR-0069](docs/adr/0069-cli-operations-custody.md) governs the boundaries.
+
+When a `ci` command fails its intended contract in the course of assigned work, diagnosing
+and repairing the defect is an immediate responsibility within that plan. Fix the smallest
+owning layer and verify the command and directly affected behavior. Route issues that cross a
+worker's write authority to the coordinator. A valid refusal, missing prerequisite or product
+test failure is handled by its owner. A bounded fallback can help diagnose or unblock the
+work while the CLI defect stays with the active plan. Use the commands needed for the task.
+This preference adds no CLI audit or exhaustive test requirement.
 
 | When | Run |
 |---|---|
 | During a design/implementation phase | Compile checks and targeted `uv run ci test -- PATH` or probes for the scope just implemented. No integrated gate after a slice or commit. |
-| After all functional scope in the plan is implemented | `uv run ci test` runs applicable functional lanes and returns the managed result ID. `uv run ci check` runs repository checks. `just test-all`, `just test-native-faults` and `just hygiene` are the underlying qualification routes. Account for the same source/context and required union. |
+| After all functional scope in the plan is implemented | `uv run ci test` runs applicable functional lanes and returns the managed result ID. `uv run ci check` runs repository checks. Account for the required union and applicable source and context. |
 | End of a turn that changed files | The root agent runs `just turn-end` (ADR index, formatting with ruff's safe auto-fixes). Subagents don't |
-| After a dependency, toolchain or process-skill change, or an environment-shaped failure | `just ready` (tool check) |
+| After a dependency, toolchain or process-skill change, or an environment-shaped failure | `uv run ci doctor` (tool check) or `just ready` for bootstrap |
 | Dependency policy | `uv run ci check --only deps`: every registry dependency is pinned exactly (`=x.y.z`) and every git dependency by its `rev`; each declared family (`[workspace.metadata.pins]` in `Cargo.toml`) resolves to one version, its members exact; cargo-deny checks bans and sources |
-| Decisions | `just adr new <slug> --title "…"`, `just adr supersede ADR-NNNN <slug>`, `just adr revisit`; `just turn-end` regenerates the index; `just adr-lint` runs within `just hygiene` |
-| Documentation changes | `just docs-test` for publisher/resolver changes; `docs-check` (publication) runs within `just hygiene`. First run: `just bootstrap-docs`; preview: `just docs-serve`. No product gate solely for docs. |
+| Decisions | `uv run ci adr new <slug> --title "…"`, `uv run ci adr revisit` and `uv run ci adr lint`. Use `just adr supersede ADR-NNNN <slug>` for supersession and `just turn-end` for the index. |
+| Documentation changes | `uv run ci docs check` for publication. Use `just docs-test` for publisher/resolver changes, `just bootstrap-docs` for first setup and `just docs-serve` for local preview. |
 | Tools present? | `uv run ci doctor` or the bootstrap `just ready` recipe |
 | PostgreSQL (D3 §13) | `uv run ci host provision` creates or reconciles `18/corpus` (port 5434, sudo, idempotent) from `ops/postgresql/`. Use `ci host up`, `ci host down` and `ci host status` for cluster operations. `ci db status` uses the configured reader, and `--maintenance` reads the private migration revision. The application and database tests use the dedicated cluster unless `CORPUS_DATABASE__URL` names another server. Port 5432 belongs to other projects. |
 | Prepare a checkout | `bash scripts/setup-env` uses existing lockfiles. Review `.envrc`, then `direnv allow` for activation; ignored `.envrc.local` holds personal overrides. Activation performs no installs, builds or service startup. |
@@ -179,9 +188,9 @@ once the available evidence supports the decision.
   may resolve a concrete defect.
 - **Final source before qualification.** The root runs `just turn-end` as the last maintenance
   step of changed turns. At complete scope, applicable native functional/provider/nonfunctional
-  results must cover the declared required union; `just test-all` and `just hygiene` remain broad
-  routes. Account for selected scope and final source/context, not recipe labels or overlapping
-  counts. Preserve failed/interrupted records. Keep unavailable required obligations open, and
+  results must cover the declared required union. Use `uv run ci test` and `uv run ci check`
+  for the applicable broad routes. Account for selected scope and final source and context
+  using test identities and receipts. Preserve failed/interrupted records. Keep unavailable required obligations open, and
   reassess affected evidence after source, harness, environment or shared configuration changes.
   A bounded pass establishes only that scope, not complete qualification.
 - **Validators are shared.** Reuse production invariant validators for enforcement and when
@@ -204,8 +213,10 @@ once the available evidence supports the decision.
   checks only when they break. Skills are welcome.
 - **Probes go to the evidence folder**, `docs/design_review/evidence/<date>_<topic>/` with a
   README, not to a session scratchpad. When a result is accepted, write its record
-  (`records/<id>.json`, ADR-0010) and run `just evidence finalize <folder> <id>` then
-  `just evidence`; reports take figures from `just evidence render` (evidence README).
+  (`records/<id>.json`, ADR-0010) and run `uv run ci evidence finalize <folder> <id>`.
+  Use `uv run ci evidence index` and `uv run ci evidence check` for those operations.
+  Use `just evidence` when the combined workflow needs the DuckDB catalog.
+  Reports take figures from `just evidence render` (evidence README).
 - **Detail over length.** Architecture pages have no line budget: the detail the design needs
   comes before brevity. History belongs in Git, not in the design.
 
@@ -313,7 +324,7 @@ delegated judgment within accepted outcomes and contracts. No fixed role sequenc
 - Commit to `main` in small commits. Each message names the slice and any ADR, and states the
   test outcome. Never push unless asked.
 - Never force-push or `reset --hard`.
-- `.claude/skills/*` is gitignored except the process skills: `adr`, `design-review`, `design-principle-audit`, `design-principle-audit-tests`, `design-review-audit`, `plan-completion-audit`,
+- `.claude/skills/*` is gitignored except the process skills: `adr`, `ci`, `design-review`, `design-principle-audit`, `design-principle-audit-tests`, `design-review-audit`, `plan-completion-audit`,
   `functional-extension-review`, `plan-functional-extension-review`,
   `leverage-codebase-audit`, `leverage-library-assessment`, `leverage-opportunity-review`,
   `design-review-code-intelligence`, `plan-design-review`,

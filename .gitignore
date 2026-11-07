@@ -15,6 +15,7 @@ __pycache__/
 /.claude/skills/*
 !/.claude/skills/README.md
 !/.claude/skills/adr/
+!/.claude/skills/ci/
 !/.claude/skills/plan-design-review/
 !/.claude/skills/functional-extension-review/
 !/.claude/skills/plan-functional-extension-review/

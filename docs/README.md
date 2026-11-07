@@ -12,6 +12,7 @@ contradiction or dependency requires it; the whole corpus is not the default rea
 |---|---|
 | Understand the system | [Architecture map](design/README.md) → relevant owner |
 | Resume work | [STATUS](../STATUS.md) → the relevant active plan in [plans](plans/README.md) (queue, open findings, qualification boundary) |
+| Run supported repository or corpus operations | [ci skill](../.claude/skills/ci/SKILL.md) → the relevant workflow and result handling |
 | Audit design-principle alignment | [Audit skill](../.claude/skills/design-principle-audit/SKILL.md) → [living diagnosis](design_review/audit/README.md) |
 | Audit test design and evidence | [Test audit skill](../.claude/skills/design-principle-audit-tests/SKILL.md) → [separate test account](design_review/test-audit/README.md) |
 | Audit review recommendations | [Recommendation audit](../.claude/skills/design-review-audit/SKILL.md) → design or functional review's companion and revised principal |

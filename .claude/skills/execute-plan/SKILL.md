@@ -66,6 +66,8 @@ or operational requirement; quantitative claims still need measurements and sema
 obligations remain.
 
 Follow `AGENTS.md` for verification scope and timing, generation, formatting and hook ownership.
+Prefer installed `ci` for supported work. Use the [ci skill](../ci/SKILL.md) to select routes and
+handle defects surfaced by the work. The active plan owns those repairs and their affected checks.
 Validate new behavior with relevant compile checks and targeted functional tests or probes;
 perform integrated qualification at the repository's prescribed boundary. Repair failures and
 rerun affected checks, broadening verification when a material change warrants it. Reassess
@@ -96,7 +98,8 @@ Routine typing/lint checks and repair belong at declared substantial-task endpoi
 or turn. Narrow read-only diagnostics may resolve named unresolved defects. Final source mutation
 precedes qualification or requires affected evidence to be reassessed (ADR-0001). At full-scope
 closure, explicitly scoped applicable native results must cover every declared required functional,
-applicable-provider and nonfunctional obligation; `test-all`/`hygiene` remain broad routes.
+applicable-provider and nonfunctional obligation. Use `uv run ci test` and
+`uv run ci check` for the applicable broad routes.
 The owning plan accounts for actual selected scope, reporting health and final-source/context
 applicability. Preserve failed/interrupted records and keep incomplete required obligations open;
 a bounded pass establishes only that scope. Shared changes or uncertain impact require broader
