@@ -266,5 +266,67 @@ def describe(
         emit(describe_database(request, state(ctx).settings()), json=json_)
 
 
+@db_app.command("status")
+def status(
+    ctx: typer.Context,
+    maintenance: Annotated[
+        bool, typer.Option(help="Read the private migration revision as the maintenance principal.")
+    ] = False,
+    json: JsonOpt = False,
+) -> None:
+    """Check database reachability and report the revision if visible."""
+    from sqlalchemy import text
+
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.semantic import migrations
+    from corpus_structure.semantic.runtime import open_runtime_engine
+
+    class DatabaseStatus(BaseModel):
+        database: str
+        principal: str
+        server_version: str
+        revision: str | None
+        head: str | None
+        revision_readable: bool
+
+    with (
+        failure_boundary(json, expected=(ValueError,)),
+        open_runtime_engine(
+            state(ctx).settings(),
+            "ci-db-status",
+            purpose="maintenance" if maintenance else "read",
+            timeout=5,
+        ) as engine,
+        engine.connect() as conn,
+    ):
+        conn.exec_driver_sql("SET TRANSACTION READ ONLY")
+        database, principal, server_version = conn.execute(
+            text("select current_database(), current_user, current_setting('server_version')")
+        ).one()
+        readable = bool(
+            conn.scalar(
+                text(
+                    "select has_table_privilege("
+                    "to_regclass('public.semantic_alembic_version'), 'SELECT')"
+                )
+            )
+        )
+        if maintenance and not readable:
+            raise ValueError(
+                "the configured maintenance principal cannot read the migration revision"
+            )
+        emit(
+            DatabaseStatus(
+                database=database,
+                principal=principal,
+                server_version=server_version,
+                revision=migrations.current_revision(conn) if readable else None,
+                revision_readable=readable,
+                head=migrations.head_revision(),
+            ),
+            json=json,
+        )
+
+
 def register(app: typer.Typer) -> None:
     app.add_typer(db_app, name="db")

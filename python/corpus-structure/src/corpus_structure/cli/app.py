@@ -6,6 +6,8 @@ settings or touch the database. `--json` is a per-command option (`ci status --j
 
 from __future__ import annotations
 
+import sys
+
 import typer
 
 from corpus_structure.cli import REGISTRY
@@ -15,7 +17,7 @@ app = typer.Typer(
     name="ci",
     help="corpus-structure: build and query a structured representation of a corpus.",
     no_args_is_help=True,
-    add_completion=False,
+    add_completion=True,
     pretty_exceptions_show_locals=False,
 )
 
@@ -32,4 +34,9 @@ for register in REGISTRY:
 
 
 def main() -> None:
-    app()
+    arguments = sys.argv[1:]
+    if arguments[:1] == ["test"] and "--" in arguments:
+        boundary = arguments.index("--")
+        app(args=arguments[:boundary], obj=CliState(test_args=tuple(arguments[boundary + 1 :])))
+    else:
+        app()

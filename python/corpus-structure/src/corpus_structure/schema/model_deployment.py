@@ -34,7 +34,9 @@ class Candidate(BaseModel):
         cls, preview: ChangePreview, revision: str | None, release: str, products: dict[str, bytes]
     ) -> Candidate:
         if not preview.target or bool(revision) != bool(preview.request.native_predecessor):
-            raise ModelError(["candidate requires a target and matching native revision/predecessor"])
+            raise ModelError(
+                ["candidate requires a target and matching native revision/predecessor"]
+            )
         return cls(
             workspace=preview.workspace,
             model_revision=preview.revision,
@@ -46,7 +48,10 @@ class Candidate(BaseModel):
             packs=preview.request.packs,
             files={
                 **preview.inputs,
-                **{effect.path: sha256(effect.after.encode()).hexdigest() for effect in preview.files},
+                **{
+                    effect.path: sha256(effect.after.encode()).hexdigest()
+                    for effect in preview.files
+                },
             },
             hashes={name: sha256(content).hexdigest() for name, content in products.items()},
         )
@@ -57,17 +62,26 @@ def target_fingerprint(settings: Settings) -> str:
     from sqlalchemy.engine import make_url
 
     source = make_url(settings.database.url)
-    if source.database in {None, "", "postgres", "template0", "template1", settings.database.template}:
+    if source.database in {
+        None,
+        "",
+        "postgres",
+        "template0",
+        "template1",
+        settings.database.template,
+    }:
         raise ModelError(["model effects require an explicit non-system, non-template database"])
-    query = {key: value for key, value in source.query.items() if key not in {"user", "password", "passfile"}}
+    query = {
+        key: value
+        for key, value in source.query.items()
+        if key not in {"user", "password", "passfile"}
+    }
     data = [source.database, source.host, source.port, query]
     return sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
 
 @contextmanager
-def predecessor_fence(
-    settings: Settings, target: str, predecessor: str
-) -> Generator[None]:
+def predecessor_fence(settings: Settings, target: str, predecessor: str) -> Generator[None]:
     from corpus_structure.semantic.migrations import current_revision, migration_fence
     from corpus_structure.semantic.runtime import open_runtime_engine
 
@@ -101,9 +115,17 @@ def _verify_installed_revision(binding: Candidate) -> None:
     try:
         script = scripts.get_revision(binding.revision)
     except CommandError as error:
-        raise ModelError(["install the registered revision with its frozen candidate artifacts"]) from error
-    if script is None or script.revision != binding.revision or script.down_revision != binding.predecessor:
-        raise ModelError(["installed migration differs from the exact candidate revision and predecessor"])
+        raise ModelError(
+            ["install the registered revision with its frozen candidate artifacts"]
+        ) from error
+    if (
+        script is None
+        or script.revision != binding.revision
+        or script.down_revision != binding.predecessor
+    ):
+        raise ModelError(
+            ["installed migration differs from the exact candidate revision and predecessor"]
+        )
     for kind, product in (
         ("UPGRADE", "native_candidate.py"),
         ("STATE", "native_operations.json"),
@@ -111,7 +133,11 @@ def _verify_installed_revision(binding: Candidate) -> None:
     ):
         name = getattr(script.module, f"NATIVE_{kind}_FILE", None)
         digest = getattr(script.module, f"NATIVE_{kind}_SHA256", None)
-        if not isinstance(name, str) or Path(name).name != name or digest != binding.hashes.get(product):
+        if (
+            not isinstance(name, str)
+            or Path(name).name != name
+            or digest != binding.hashes.get(product)
+        ):
             raise ModelError([f"installed migration does not bind the candidate's {product}"])
         content = Path(script.path).with_name(name).read_bytes()
         if sha256(content).hexdigest() != digest:
@@ -119,11 +145,17 @@ def _verify_installed_revision(binding: Candidate) -> None:
 
 
 def deploy_candidate(
-    root: Path, settings: Settings, binding: Candidate, deployment: tuple,
-    *, report: Callable[[str], None],
+    root: Path,
+    settings: Settings,
+    binding: Candidate,
+    deployment: tuple,
+    *,
+    report: Callable[[str], None],
 ) -> None:
     from corpus_structure.semantic.authored_sql import (
-        admit_archived_sql, analyze_archived_sql, has_authored_sql,
+        admit_archived_sql,
+        analyze_archived_sql,
+        has_authored_sql,
     )
     from corpus_structure.semantic.migrations import current_revision, migration_fence, upgrade
     from corpus_structure.semantic.publication import admit_release

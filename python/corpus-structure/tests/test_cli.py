@@ -14,7 +14,7 @@ from corpus_structure.settings import Settings, SettingsReport
 
 GROUPS = (
     "db", "schema", "ingest", "project", "run", "status", "tasks", "query", "explain", "golden",
-    "eval", "digest", "promote", "experiment", "mcp", "direct", "ack", "veto",
+    "eval", "mcp", "direct", "context", "doctor", "setup", "results", "test", "promote", "model",
 )  # fmt: skip
 
 
@@ -74,11 +74,11 @@ def test_json_is_a_command_option_not_a_root_option(cli) -> None:
     assert cli("--json", "status", settings=lambda: Settings()).exit_code == 2
 
 
-def test_planned_group_names_its_owner_on_stderr(cli) -> None:
+def test_removed_placeholder_is_not_executable(cli) -> None:
     result = cli("experiment", settings=refuse)
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert result.stdout == ""
-    assert "evaluation" in result.stderr
+    assert "experiment" in result.stderr
 
 
 def test_a_mistyped_field_inside_a_section_is_refused(cli) -> None:
@@ -108,7 +108,7 @@ def forbidden_settings():
 result = CliRunner().invoke(
     app, json.loads(sys.argv[1]), obj=CliState(settings_factory=forbidden_settings)
 )
-assert result.exit_code == (1 if sys.argv[1] == '["experiment"]' else 0), result.output
+assert result.exit_code == (2 if sys.argv[1] == '["experiment"]' else 0), result.output
 for name in ("sympy", "scipy", "spacy", "pyarrow", "duckdb", "corpus_structure.semantic.prepare"):
     assert name not in sys.modules, name
 """

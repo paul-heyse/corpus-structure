@@ -18,8 +18,18 @@ def model_checkout(tmp_path):
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
     subprocess.run(
-        ["git", "-C", str(tmp_path), "-c", "user.name=Fixture", "-c",
-         "user.email=fixture@example.test", "commit", "-qm", "model baseline"],
+        [
+            "git",
+            "-C",
+            str(tmp_path),
+            "-c",
+            "user.name=Fixture",
+            "-c",
+            "user.email=fixture@example.test",
+            "commit",
+            "-qm",
+            "model baseline",
+        ],
         check=True,
     )
     return tmp_path, location
@@ -32,9 +42,9 @@ def test_invalid_revision_refuses_before_render_or_write(model_checkout, monkeyp
     newer = str(int(current.label.split(".")[-1]) + 1)
     new_version = current.label.rsplit(".", 1)[0] + "." + newer
     declarations = {
-        name: (location / f"{name}.yaml").read_text().replace(
-            f"version: {current.label}", f"version: {new_version}", 1
-        )
+        name: (location / f"{name}.yaml")
+        .read_text()
+        .replace(f"version: {current.label}", f"version: {new_version}", 1)
         for name in ("core", "system")
     }
 
@@ -54,9 +64,9 @@ def test_exact_patch_resumes_and_refuses_changed_file(model_checkout, monkeypatc
     new_version = current.label.rsplit(".", 1)[0] + ".999"
     names = ("core", "system")
     declarations = {
-        name: (location / f"{name}.yaml").read_text().replace(
-            f"version: {current.label}", f"version: {new_version}", 1
-        )
+        name: (location / f"{name}.yaml")
+        .read_text()
+        .replace(f"version: {current.label}", f"version: {new_version}", 1)
         for name in names
     }
     proposed = root / "proposal"
@@ -67,10 +77,16 @@ def test_exact_patch_resumes_and_refuses_changed_file(model_checkout, monkeypatc
     record = ChangeRecord(
         from_revision=current.content_hash,
         to_revision=revision,
-        changes=(ElementChange(
-            element="core", aspect="version", change="changed",
-            compatibility_class="descriptive", reason="version only", authorized_by="test",
-        ),),
+        changes=(
+            ElementChange(
+                element="core",
+                aspect="version",
+                change="changed",
+                compatibility_class="descriptive",
+                reason="version only",
+                authorized_by="test",
+            ),
+        ),
     )
     monkeypatch.setattr(generate, "render", lambda _: {"core/_model/revision.py": "approved\n"})
     preview = prepare_preview(root, ChangeRequest(**declarations, change=record))

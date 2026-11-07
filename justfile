@@ -1,4 +1,4 @@
-# The only command surface agents need. `just` lists recipes.
+# Owned recipes for installed ci, bootstrap, and direct recovery.
 # Check recipes do not edit source, except `ruff`'s auto-fixes; tests may create their own data.
 # `fmt` and `adr new|supersede|index` edit the working tree. Three bundles, each
 # keeping going after a failure: `turn-end` at the end of a turn that changed files, `ready` after an
@@ -206,6 +206,10 @@ docs:
 # Existing metadata checks plus a complete publication
 docs-check:
     UV_LOCKED=0 uv run --no-project --offline --no-python-downloads python scripts/docs.py check
+
+# Derive the command reference from the installed registry.
+ci-reference:
+    @uv run typer --app app corpus_structure.cli.app utils docs --name ci
 
 # Focused documentation/ADR regressions only
 docs-test:

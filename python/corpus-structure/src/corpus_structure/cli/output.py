@@ -7,6 +7,8 @@ per call, so a test runner's stream swap and its `COLUMNS` reach them.
 
 from __future__ import annotations
 
+import os
+import re
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -27,6 +29,7 @@ class CliState:
     """`ctx.obj`: a settings factory, called at most once, only by a command that needs settings."""
 
     settings_factory: Callable[[], Settings] = Settings
+    test_args: tuple[str, ...] = ()
     _settings: Settings | None = field(default=None, init=False, repr=False)
 
     def settings(self) -> Settings:
@@ -62,3 +65,27 @@ def emit(
         return
     renderable = render(result) if render else Pretty(result.model_dump(mode="json"))
     stdout_console().print(renderable)
+
+
+_TERMINAL = re.compile(r"\x1b(?:\][^\x07\x1b]*(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~])")
+_CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
+_CREDENTIAL = re.compile(
+    r"(://[^:/@\s]+:)[^@/\s]+(?=@)|(?i:(password|token|api[_-]?key)=)([^\s&]+)"
+)
+
+
+def safe_text(value: str) -> str:
+    """Redact credential-shaped values before stripping terminal controls."""
+    for key, secret in os.environ.items():
+        if (
+            key.startswith("CORPUS_")
+            and any(part in key for part in ("PASSWORD", "TOKEN", "API_KEY"))
+            and secret
+        ):
+            value = value.replace(secret, "**********")
+    value = _CREDENTIAL.sub(lambda match: (match[1] or f"{match[2]}=") + "**********", value)
+    return _CONTROL.sub("", _TERMINAL.sub("", value))
+
+
+def diagnostic(value: str) -> None:
+    stderr_console().print(safe_text(value), markup=False, highlight=False)

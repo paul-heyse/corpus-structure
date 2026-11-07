@@ -6,19 +6,17 @@ import json as jsonlib
 from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import asdict
-from typing import Any
 
 import typer
 from pydantic import ValidationError
 
-from corpus_structure.cli.output import stderr_console
+from corpus_structure.cli.output import diagnostic, safe_text
 from corpus_structure.semantic.refusals import (
     DATABASE_ERRORS,
     FailureContext,
     SemanticRefusal,
     database_failure_report,
-    failure_context,
-    semantic_failure_fields,
+    semantic_refusal_report,
 )
 
 
@@ -38,7 +36,7 @@ def failure_boundary(
             typer.echo(jsonlib.dumps({"error": detail}))
         else:
             failure = detail["failure"]
-            stderr_console().print(
+            diagnostic(
                 f"{detail['code']}: database operation failed "
                 f"(phase={failure['phase']}, effects={failure['effects']}, "
                 f"action={detail['remediation']})"
@@ -49,10 +47,10 @@ def failure_boundary(
                 if failure[key] is not None and failure[key] != ()
             }
             if native:
-                stderr_console().print(f"native={native}")
+                diagnostic(f"native={native}")
             if "database" in detail:
                 database = detail["database"]
-                stderr_console().print(
+                diagnostic(
                     f"pool={database['lifecycle']}, stats={database['pool_stats']} "
                     f"(usage_scope={database['usage_scope']})"
                 )
@@ -61,16 +59,10 @@ def failure_boundary(
         from corpus_structure.semantic.types import PreparationError
 
         if json:
-            detail: dict[str, Any] = {
-                "code": type(error).__name__,
-                "message": str(error),
-                **semantic_failure_fields(error),
-            }
+            detail = semantic_refusal_report(error, context=context)
+            detail["message"] = safe_text(detail["message"])
             if getattr(error, "reason", None) is not None:
-                detail["reason"] = error.reason
-            detail["validation"] = (
-                failure_context(error, context).report(error).model_dump(mode="json")
-            )
+                detail["reason"] = safe_text(str(error.reason))
             if isinstance(error, PreparationError):
                 detail["diagnostics"] = [
                     {key: value for key, value in asdict(item).items() if value is not None}
@@ -78,5 +70,5 @@ def failure_boundary(
                 ]
             typer.echo(jsonlib.dumps({"error": detail}))
         else:
-            stderr_console().print(f"refused: {error}")
+            diagnostic(f"refused: {error}")
         raise typer.Exit(1) from None

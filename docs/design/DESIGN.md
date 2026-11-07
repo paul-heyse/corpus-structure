@@ -171,7 +171,13 @@ a moved live section leaves a relocation pointer. One resolver drives ADR refere
 generated section directory. Publication derives navigation and search from sources; it does not
 prove implementation. [Publishing operations](../publishing.md) owns the commands.
 
-> Decision: ADR-0001, ADR-0002, ADR-0003, ADR-0006, ADR-0007, ADR-0008, ADR-0010
+**CLI workflow and custody — Accepted target (2026-11-07).** Installed `ci` exposes routine
+operations through owned recipes and application services. Invocation results have explicit
+settlement and retention. Native deployment, activation and selection require explicit intent.
+[D8 CLI](D8-agent-and-query-interfaces.md#4-cli) and [D9](D9-repository-and-phase0.md#3-conventions)
+own the integration contract.
+
+> Decision: ADR-0001, ADR-0002, ADR-0003, ADR-0006, ADR-0007, ADR-0008, ADR-0010, ADR-0069
 
 
 Product binding decisions follow. Each is `### §Bn <decision stated as a sentence>` with a

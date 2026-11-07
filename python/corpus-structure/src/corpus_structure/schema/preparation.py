@@ -56,7 +56,9 @@ def prepare(
                 if any(entry.get("content_hash") == current.content_hash for entry in log):
                     problems.append("the requested revision already appears in the revision log")
                 if any(entry.get("label") == current.label for entry in log):
-                    problems.append("the requested revision label already appears in the revision log")
+                    problems.append(
+                        "the requested revision label already appears in the revision log"
+                    )
                 problems.extend(change.check(record, before, loaded))
                 log = [
                     *log,
@@ -74,6 +76,9 @@ def prepare(
     if problems:
         raise model.ModelError(problems)
     return {
-        **{(PACKAGE_PATH / path).as_posix(): content for path, content in generate.render(loaded).items()},
+        **{
+            (PACKAGE_PATH / path).as_posix(): content
+            for path, content in generate.render(loaded).items()
+        },
         (MODEL_PATH / "revisions.yaml").as_posix(): model.render_log(log),
     }

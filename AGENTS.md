@@ -64,6 +64,11 @@ permission, concurrent-work and testing constraints, and follow discovered depen
 
 ## Commands
 
+The [CLI operations target](docs/plans/cli-operations_2026-11-07.md) routes routine actions
+through installed `ci` as their adapters land. Repository automation stays owned by `just`.
+Use the underlying recipes for bootstrap and recovery. The plan owns cutover and verification
+status (ADR-0069).
+
 | When | Run |
 |---|---|
 | During a design/implementation phase | Compile checks and targeted tests or probes for the scope just implemented. No integrated gate after a slice or commit. |

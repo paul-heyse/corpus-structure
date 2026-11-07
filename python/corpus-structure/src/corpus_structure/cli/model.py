@@ -64,7 +64,9 @@ def _prepare_release(root, names):
     from corpus_structure.schema.model import ModelError
     from corpus_structure.semantic.regeneration import prepare_packs
 
-    if not names or any(not name or name in {".", ".."} or Path(name).name != name for name in names):
+    if not names or any(
+        not name or name in {".", ".."} or Path(name).name != name for name in names
+    ):
         raise ModelError(["select one or more declared domain pack names"])
     return prepare_packs(tuple(root / "domains" / name for name in names))
 
@@ -72,7 +74,9 @@ def _prepare_release(root, names):
 @changes.command("preview")
 def preview(
     ctx: typer.Context,
-    request: Annotated[str, typer.Argument(help="A change request file, '-' for stdin, or a managed ID.")],
+    request: Annotated[
+        str, typer.Argument(help="A change request file, '-' for stdin, or a managed ID.")
+    ],
     json_: JsonOpt = False,
 ) -> None:
     """Validate and stage an inspectable patch without changing tracked or native state."""
@@ -97,13 +101,19 @@ def preview(
                         _load_artifact(store, request, "model.preview", "preview")
                     ).request
             else:
-                raw = sys.stdin.read() if request == "-" else Path(request).read_text(encoding="utf-8")
+                raw = (
+                    sys.stdin.read()
+                    if request == "-"
+                    else Path(request).read_text(encoding="utf-8")
+                )
                 bound = ChangeRequest.model_validate(yaml.safe_load(raw))
             if bound.archive_release and (bound.core is not None or bound.system is not None):
-                raise ModelError([
-                    "compare an archived release against local pack inputs, "
-                    "then stage declaration edits separately"
-                ])
+                raise ModelError(
+                    [
+                        "compare an archived release against local pack inputs, "
+                        "then stage declaration edits separately"
+                    ]
+                )
             target = None
             if bound.native_predecessor or bound.deployment:
                 settings = state(ctx).settings()
@@ -120,26 +130,38 @@ def preview(
 
                 _, _, _, local = _prepare_release(root, bound.packs)
                 with (
-                    open_runtime_engine(state(ctx).settings(), "ci-model-compare", purpose="read") as engine,
+                    open_runtime_engine(
+                        state(ctx).settings(), "ci-model-compare", purpose="read"
+                    ) as engine,
                     read_snapshot(engine) as connection,
                 ):
                     before = open_release(connection, bound.archive_release)
                     impact = compare_semantic_releases(before, local).model_dump(mode="json")
                 release = local.release_id
             result.stage("validate and stage")
-            staged = prepare_preview(root, bound, target=target, comparison=impact, local_release=release)
+            staged = prepare_preview(
+                root, bound, target=target, comparison=impact, local_release=release
+            )
             artifact = result.directory / "preview.json"
             artifact.write_text(staged.model_dump_json(), encoding="utf-8")
             patch = result.directory / "model.patch"
             patch.write_text(staged.patch, encoding="utf-8")
             result.publish("preview", artifact)
             result.publish("patch", patch)
-            result.settle(sha256=sha256(artifact.read_bytes()).hexdigest(), revision=staged.revision)
-        emit(ModelResult(
-            result_id=result.id, stage="preview", revision=staged.revision,
-            changed=tuple(file.path for file in staged.files), predecessor=bound.native_predecessor,
-            release=release,
-        ), json=json_)
+            result.settle(
+                sha256=sha256(artifact.read_bytes()).hexdigest(), revision=staged.revision
+            )
+        emit(
+            ModelResult(
+                result_id=result.id,
+                stage="preview",
+                revision=staged.revision,
+                changed=tuple(file.path for file in staged.files),
+                predecessor=bound.native_predecessor,
+                release=release,
+            ),
+            json=json_,
+        )
 
 
 @changes.command("apply")
@@ -153,7 +175,10 @@ def apply(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
 
     with refusal(json_, expected=(ModelError, ResultError, OSError)):
         store = result_store(ctx)
-        with store.lease(change), store.operation("model.apply", scope={"preview": change}) as result:
+        with (
+            store.lease(change),
+            store.operation("model.apply", scope={"preview": change}) as result,
+        ):
             staged = ChangePreview.model_validate_json(
                 _load_artifact(store, change, "model.preview", "preview")
             )
@@ -179,10 +204,16 @@ def apply(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                 result.settle(outcome, settled_paths=settled, error_type=type(error).__name__)
                 raise
             result.settle(settled_paths=settled, revision=staged.revision)
-        emit(ModelResult(
-            result_id=result.id, stage="applied", revision=staged.revision, changed=tuple(settled),
-            predecessor=staged.request.native_predecessor,
-        ), json=json_)
+        emit(
+            ModelResult(
+                result_id=result.id,
+                stage="applied",
+                revision=staged.revision,
+                changed=tuple(settled),
+                predecessor=staged.request.native_predecessor,
+            ),
+            json=json_,
+        )
 
 
 @changes.command("candidate")
@@ -198,16 +229,23 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
     from corpus_structure.semantic.native_objects import NativeAuthoringError
     from corpus_structure.semantic.prepared_sql import SQLSyntaxError
 
-    with refusal(json_, expected=(ModelError, ResultError, NativeAuthoringError, SQLSyntaxError, OSError)):
+    with refusal(
+        json_, expected=(ModelError, ResultError, NativeAuthoringError, SQLSyntaxError, OSError)
+    ):
         root = checkout(ctx)
         store = result_store(ctx)
         settings = state(ctx).settings()
-        with store.lease(change), store.operation("model.candidate", scope={"preview": change}) as result:
+        with (
+            store.lease(change),
+            store.operation("model.candidate", scope={"preview": change}) as result,
+        ):
             staged = ChangePreview.model_validate_json(
                 _load_artifact(store, change, "model.preview", "preview")
             )
             record = staged.request.change
-            revision = staged.request.native_revision or (record.alembic_revision if record else None)
+            revision = staged.request.native_revision or (
+                record.alembic_revision if record else None
+            )
             if not staged.target:
                 raise ModelError(["preview does not authorize a target-bound candidate"])
             if target_fingerprint(settings) != staged.target:
@@ -219,13 +257,18 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                 if revision:
                     result.stage("rollback-only authoring")
                     native, products = author_native_candidate(
-                        settings, None, None, expected_predecessor=staged.request.native_predecessor,
+                        settings,
+                        None,
+                        None,
+                        expected_predecessor=staged.request.native_predecessor,
                     )
                     report = publish_native_candidate(result, native, products)
                 else:
                     report = ModelResult(
-                        result_id=result.id, stage="release candidate",
-                        revision=staged.revision, release=prepared.release_id,
+                        result_id=result.id,
+                        stage="release candidate",
+                        revision=staged.revision,
+                        release=prepared.release_id,
                     )
                 binding = Candidate.from_preview(staged, revision, prepared.release_id, products)
             artifact = result.directory / "deployment.json"
@@ -247,10 +290,22 @@ def deploy(ctx: typer.Context, candidate: str, json_: JsonOpt = False) -> None:
     from corpus_structure.semantic.migrations import MigrationPredecessorError
     from corpus_structure.semantic.publication import PublicationConflict
 
-    with refusal(json_, expected=(ModelError, ResultError, SQLAdmissionError, MigrationPredecessorError,
-                                   PublicationConflict, OSError)):
+    with refusal(
+        json_,
+        expected=(
+            ModelError,
+            ResultError,
+            SQLAdmissionError,
+            MigrationPredecessorError,
+            PublicationConflict,
+            OSError,
+        ),
+    ):
         store = result_store(ctx)
-        with store.lease(candidate), store.operation("model.deploy", scope={"candidate": candidate}) as result:
+        with (
+            store.lease(candidate),
+            store.operation("model.deploy", scope={"candidate": candidate}) as result,
+        ):
             binding = Candidate.model_validate_json(
                 _load_artifact(store, candidate, "model.candidate", "deployment")
             )
@@ -264,16 +319,24 @@ def deploy(ctx: typer.Context, candidate: str, json_: JsonOpt = False) -> None:
                     result.stage(effect)
 
                 try:
-                    deploy_candidate(root, state(ctx).settings(), binding, deployment, report=report)
+                    deploy_candidate(
+                        root, state(ctx).settings(), binding, deployment, report=report
+                    )
                 except BaseException as error:
                     outcome = "interrupted" if isinstance(error, KeyboardInterrupt) else "failed"
                     result.settle(outcome, settled_effects=applied, error_type=type(error).__name__)
                     raise
             result.settle(settled_effects=applied, release=binding.release)
-        emit(ModelResult(
-            result_id=result.id, stage="deployed", revision=binding.model_revision,
-            predecessor=binding.predecessor, release=binding.release,
-        ), json=json_)
+        emit(
+            ModelResult(
+                result_id=result.id,
+                stage="deployed",
+                revision=binding.model_revision,
+                predecessor=binding.predecessor,
+                release=binding.release,
+            ),
+            json=json_,
+        )
 
 
 def register(root: typer.Typer) -> None:

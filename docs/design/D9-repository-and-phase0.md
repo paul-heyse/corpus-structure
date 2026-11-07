@@ -156,6 +156,14 @@ in a side environment like vLLM), never by lowering the product's Python version
 
 ## 3. Conventions
 
+**Accepted target (2026-11-07).** The installed CLI dispatches repository automation through
+named `just` recipes anchored to the prepared checkout. Bootstrap and recovery retain direct
+recipes. Product operations call their owning services. The test supervisor owns its lane
+receipts, process groups and coverage policy. Managed result custody supplies identity,
+leases, holds, and one-day success or one-week failed/interrupted retention.
+
+> Decision: ADR-0069
+
 - **Types.** D1 objects are Pydantic models in `core` (frozen, `extra="forbid"`; D2 §6 says why
   they, not LinkML, own the shared shapes); database access is SQLAlchemy Core (no ORM). JSONB is
   validated once at the Pydantic boundary with the compiled per-version models, and

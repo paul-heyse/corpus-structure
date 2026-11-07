@@ -130,8 +130,10 @@ def prepare_preview(
     current = {path: _read(root, path) for path in original}
     if current[log] != original[log]:
         raise model.ModelError(["worktree revision log differs from the requested baseline"])
-    source = {core: request.core if request.core is not None else current[core],
-              system: request.system if request.system is not None else current[system]}
+    source = {
+        core: request.core if request.core is not None else current[core],
+        system: request.system if request.system is not None else current[system],
+    }
     if any(value is None for value in source.values()):
         raise model.ModelError(["both canonical declarations are required"])
     with TemporaryDirectory(prefix="cs-model-preview-") as directory:
@@ -156,7 +158,9 @@ def prepare_preview(
         if request.native_revision and migration and migration != request.native_revision:
             raise model.ModelError(["native revision conflicts with the declared model change"])
         if bool(native) != bool(migration or request.native_revision):
-            raise model.ModelError(["a native change requires an exact predecessor and Alembic revision"])
+            raise model.ModelError(
+                ["a native change requires an exact predecessor and Alembic revision"]
+            )
         if model.revision(old).content_hash == revision.content_hash and request.change is None:
             problems = model.check(new) + model.check_log(
                 revision, model.read_log(before / "revisions.yaml")
@@ -180,7 +184,8 @@ def prepare_preview(
     from corpus_structure.schema.model_discovery import locate_consumers
 
     identifiers = {
-        name for item in changed
+        name
+        for item in changed
         for name in item.element.split(":")[-1].replace("#", ".").split(".")
         if name.isidentifier()
     }
@@ -214,8 +219,11 @@ def check_preview(root: Path, preview: ChangePreview, *, applied: bool = False) 
         raise model.ModelError(["preview belongs to another workspace"])
     if not applied and _ref(root, "HEAD") != preview.head:
         raise model.ModelError(["worktree HEAD changed after preview"])
-    if (model.compilers() != preview.compilers or sys.version != preview.python
-            or generator_fingerprint(root) != preview.generator):
+    if (
+        model.compilers() != preview.compilers
+        or sys.version != preview.python
+        or generator_fingerprint(root) != preview.generator
+    ):
         raise model.ModelError(["model toolchain changed after preview"])
     effects = {file.path: file for file in preview.files}
     for path, before in preview.inputs.items():

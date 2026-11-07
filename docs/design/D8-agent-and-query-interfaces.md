@@ -475,6 +475,17 @@ errors, and to keep rationales to two sentences.
 
 ## 4. CLI
 
+**Accepted target (2026-11-07).** Installed `ci` is the routine entry point. It projects typed
+outcomes and refusals from the owners, with machine output separate from human diagnostics.
+Invocation results carry their own custody and references to native identities. Managed
+publication and expiry follow ADR-0069. Explicit preview/apply and deployment bind effects to
+their exact inputs. Activation and selection stay with their purpose-bound operations.
+The [CLI plan](../plans/cli-operations_2026-11-07.md) owns the current cutover and verification.
+
+> Decision: ADR-0069
+
+The phase 0 command table below describes its original interface.
+
 `ci` (Typer), output through Rich, compact by default and `--json` for scripts:
 
 | Command | Does |

@@ -233,8 +233,11 @@ def _native_candidate_python(upgrade_ops, restore_sql: str) -> str:
 
 
 def author_native_candidate(
-    settings, authoring_database: str | None, predecessor_state: Path | None,
-    *, expected_predecessor: str | None = None,
+    settings,
+    authoring_database: str | None,
+    predecessor_state: Path | None,
+    *,
+    expected_predecessor: str | None = None,
 ) -> tuple[NativeCandidateResult, dict[str, bytes]]:
     """Use the owned rollback-only authoring connection to prepare immutable product bytes."""
     from hashlib import sha256
@@ -295,9 +298,7 @@ def author_native_candidate(
             )
             upgrade_ops = script.upgrade_ops
             if upgrade_ops is None:
-                raise NativeAuthoringError(
-                    "single-connection candidate has no upgrade operations"
-                )
+                raise NativeAuthoringError("single-connection candidate has no upgrade operations")
             native = [item for item in upgrade_ops.ops if isinstance(item, NativeTransitionOp)]
             migration_role = conn.exec_driver_sql("SELECT current_user").scalar_one()
             python_source = _native_candidate_python(

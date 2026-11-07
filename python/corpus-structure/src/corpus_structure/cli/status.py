@@ -14,7 +14,7 @@ from rich.console import Group, RenderableType
 from rich.table import Table
 from rich.text import Text
 
-from corpus_structure.cli.output import JsonOpt, emit, state, stderr_console
+from corpus_structure.cli.output import JsonOpt, diagnostic, emit, state
 from corpus_structure.settings import SettingsReport, settings_report
 
 
@@ -100,7 +100,7 @@ def status(
                 or (settings.runtime.default_project if run_id is None else None),
             )
     except commands.CommandError as error:
-        stderr_console().print(f"refused: {error}")
+        diagnostic(f"refused: {error}")
         raise typer.Exit(code=1) from None
     except (PoolTimeout, OperationalError) as error:  # unreachable: the settings still report
         result = StatusResult(database_error=f"{type(error).__name__}: {error}", settings=report)
