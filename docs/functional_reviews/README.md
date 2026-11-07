@@ -79,3 +79,12 @@ The [CLI functional extension review](typer-cli-target_2026-11-07.md) proposes O
 for a routine development and production command surface, resolved context, managed results,
 test reconciliation, terminal and machine output, controlled model changes and corpus operations.
 The recommendations draw on observed Codex workflows and the eight introspection overviews.
+
+## Next corpus enrichment increment — 2026-11-07
+
+The [next enrichment review](next-corpus-enrichment_2026-11-07.md) reconciles both passes of
+the supplied recommendations and details proposed source recovery, qualified roles, witnessed
+links, artifact scoring, interpretation, attachment fitting and rooted delivery. O09–O12
+develop GLiNER policy and additional library capabilities with explicit adoption conditions.
+The crosswalk records the source recommendation dispositions. The WCE coordinator retains
+execution and qualification status.

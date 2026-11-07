@@ -48,13 +48,13 @@ _Updated 2026-11-07. CLI completion audit confirmed partial delivery. The observ
 - `uv run ci test --json` at `88fd5d108` passed 5,093 ordinary tests and eight serial fault
   controls. Four stdio tests passed on exact retry. `ci test coverage` reported 5,105 covered
   nodes and zero unresolved. The original failure and source-context differences remain recorded.
-- `just docs-check` passed for the 2026-11-07 completion audit.
 
 ## Next
 
+- The [next enrichment review](docs/functional_reviews/next-corpus-enrichment_2026-11-07.md)
+  proposes caption recovery, qualified roles and witnessed links first. `just docs-check`
+  passed on 2026-11-07 for the review. Product and provider verification was `not_run`.
 - Settle the remaining source opportunities and exact native table factor reconstruction in
-  the WCE plan. The authentic table-note and alias examples remain unavailable in their
-  inspected frames. Operation fitting remains `not_run` pending compatible events and
-  protected evaluations.
-- The CLI plan owns repairs to custody, lane coverage, effect and target binding, and the
-  remaining operator journeys. Live production qualification remains blocked on configured authority.
+  the WCE plan. Authentic table-note and alias examples remain unavailable in their frames.
+  Fitting remains `not_run` pending compatible events and protected evaluations.
+- The CLI plan owns the remaining operator journeys and their repairs. Live production qualification remains blocked on configured authority.
