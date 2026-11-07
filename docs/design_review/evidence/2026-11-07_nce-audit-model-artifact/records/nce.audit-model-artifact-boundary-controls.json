@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "id": "nce.audit-model-artifact-boundary-controls",
+  "title": "Exact model and artifact boundary controls",
+  "group": "NCE",
+  "package": "NCE-04-A1 and NCE-07-A1",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do native admission and detached replay reject substituted model bindings and preserve independently witnessed artifact relations?",
+  "answers": [
+    "NCE-04-A1",
+    "NCE-07-A1"
+  ],
+  "method": "Start with the held real bare model receipt and rebuild each substituted request and observation digest before calling both boundary validators. Run the actual registered artifact producer, native read and detached replay on controlled PDF sources with separately authored revision, alias, and cross-work cues.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-07_nce-audit-model-artifact/check_model_substitution.py build/ci/e0c91327f94e4682a55004759610c61e/bundle --run 288",
+    "uv run ci test --lane ordinary --json -- python/corpus-structure/tests/semantic/test_artifact_identity_registered_native.py -k exact-revision"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "check_model_substitution.py",
+      "role": "independent request mutation and boundary comparison",
+      "sha256": "206fdb10aa7aa92f795bd3e255aabc36ecb2d4ba2cc7131d4b45e02cf95fe6c1"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/model-resealed-controls.json",
+      "role": "native and detached refusal reasons for resealed substitutions",
+      "sha256": "846185f1077ed3435df6e76ac4a17e278a09abb41f8a20bca3562468758f5e34"
+    },
+    {
+      "path": "raw/artifact-native-boundary-result.json",
+      "role": "held CI artifact native and detached boundary test receipt",
+      "sha256": "fb125c6b5403e2f8625eb28dc01ab3e682d5237adeb0e8ea5bd66e0725cae4aa"
+    }
+  ],
+  "depends_on": [
+    "nce.audit-registered-model-role-development",
+    "nce.audit-model-artifact-development"
+  ],
+  "results": [
+    {
+      "name": "Native refused resealed model substitutions",
+      "value": 4,
+      "of": 4,
+      "unit": "controls",
+      "note": null
+    },
+    {
+      "name": "Detached refused resealed model substitutions",
+      "value": 4,
+      "of": 4,
+      "unit": "controls",
+      "note": null
+    },
+    {
+      "name": "Registered artifact exact revision, aliases, and cross-work case",
+      "value": 1,
+      "of": 1,
+      "unit": "test",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Both selected model boundaries refused independently resealed ordered schema, overlap, threshold, and shortened same-passage requests. The actual controlled artifact producer and detached verifier retained directed supersession, distinct alias states, and a cross-work citation outside the scorer cohort. Native admission refused the resealed same-lineage substitution.",
+  "consumed_by": [
+    "NCE-04-A1",
+    "NCE-07-A1"
+  ]
+}

@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-07. The NCE-01 through NCE-12 completion audit records partial development delivery and the remaining acceptance. Live qualification and WCE12 remain open._
+_Updated 2026-11-07. The NCE development audit repairs have reached the native, application and detached paths. The owning plan records the remaining qualification. Live qualification and WCE12 remain open._
 
 ## Current authority
 
@@ -47,14 +47,14 @@ _Updated 2026-11-07. The NCE-01 through NCE-12 completion audit records partial 
 
 ## NCE development and next work
 
-- The [NCE completion audit](docs/plans/next-corpus-enrichment_2026-11-07.md#completion-audit)
-  owns the combined disposition. Development remains at `semantic_nce07_12_replay`
-  on port 5434. The retained bundle checks and attachment fit reads passed on
-  2026-11-07. A new product suite was `not_run` under the affected-test scope.
-- `just turn-end` and `uv run ci docs check --json` passed for the audit.
-- Next NCE work starts with source, model and native admission gaps before dependent
-  comparison, linking and detached qualification. The private artifact scorer mechanism
-  is complete. Efficacy awaits protected same-lineage assessment.
+- The [NCE audit gap execution](docs/plans/next-corpus-enrichment_2026-11-07.md#audit-gap-execution)
+  owns current disposition and exact test and corpus receipts. Development is at
+  `semantic_nce_audit_finalize` on PostgreSQL 18/corpus, port 5434.
+- The current qualifier replay, artifact delivery and both table Reader controls
+  passed on 2026-11-07. The seven model provider arms returned real observations.
+  Protected fit 3 and its ordinary parameter and feature reads passed on fresh
+  set 30 and evaluation 35. `uv run ci check --view steps --json` passed.
+- The private artifact scorer mechanism is complete. Efficacy awaits protected same-lineage assessment.
 - Settle the remaining source opportunities and unrelated factor reconstruction in the WCE
   plan. Live CLI qualification needs a configured production target, purpose roles and
   effect authority.

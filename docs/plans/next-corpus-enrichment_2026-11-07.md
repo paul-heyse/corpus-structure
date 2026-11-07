@@ -1,6 +1,6 @@
 # Next corpus enrichment
 
-**Status:** Audited development delivery is partial across the series. The [completion audit](#completion-audit) owns the current package dispositions, qualification limits and remaining work. **Revised:** 2026-11-07. This coordinator owns the series,
+**Status:** Development audit repairs are implemented across the series. The [audit gap execution](#audit-gap-execution) records qualification and remaining obligations. **Revised:** 2026-11-07. This coordinator owns the series,
 its source dispositions and combined completion. The scope comes from the
 [Next corpus enrichment review](../functional_reviews/next-corpus-enrichment_2026-11-07.md)
 at `8277b7445`, including its integrated corrections and conditional opportunities. Existing
@@ -365,8 +365,9 @@ governs current-only cutover. [Cutover decision](../adr/0067-witnessed-current-o
 
 ### Implementation
 
-Development delivery is partial. The table records the current disposition of every
-package. Companion findings own the acceptance still needed.
+Development delivery was partial at the audited baseline. The table preserves that
+assessment. The [audit gap execution](#audit-gap-execution) records subsequent evidence
+and the linked companion findings own any remaining acceptance.
 
 | Package | Established delivery and remaining obligation |
 | --- | --- |
@@ -434,3 +435,44 @@ products. The artifact, table and fitting obligations can advance on their own r
 inputs where those dependencies do not apply. Recheck only affected functional and
 native/provider paths and reconcile their final-source applicability before closing
 the series. Conditional investigations keep their existing triggers.
+
+## Audit gap execution
+
+**2026-11-07.** This execution addressed the 16 companion findings against the
+working development database and exact retained corpus sources. Registered changes
+were limited to the development target on PostgreSQL 18/corpus, port 5434.
+Archived result rows, cuts, release identities and protected judgments retain their
+original meaning. Earlier execution and audit sections preserve their dated receipts.
+
+| Finding | Execution disposition |
+| --- | --- |
+| [NCE-01-A1](next-corpus-enrichment/source-and-linguistic-composition.md#nce-01-audit) | Canonical recipe, source key and caption membership are authenticated at the public writer. Exact replay and forgery controls passed. |
+| [NCE-02-A1–A2](next-corpus-enrichment/source-and-linguistic-composition.md#nce-02-audit) | Native interpretation and condition lowering are reconstructed. Clipped participants remain explicitly unavailable. Native independent reconstruction of the complete clipped-role population remains open. |
+| [NCE-03-A1](next-corpus-enrichment/source-and-linguistic-composition.md#nce-03-audit) | Typed member alignment and unresolved-grouping guards are implemented in native and application comparison. |
+| [NCE-04-A1](next-corpus-enrichment/model-candidates-and-clause-interpretation.md#nce-04-audit) | The selected model request and exact window are authenticated in native and detached replay. All seven real registered arms passed Reader, CLI, fresh MCP and exact detached replay. |
+| [NCE-05-A1](next-corpus-enrichment/model-candidates-and-clause-interpretation.md#nce-05-audit) | Private exact standalone roles and attempted, refused and unobserved window states are implemented. Proposal counts across arms do not establish attachment recovery. |
+| [NCE-06-A1–A3](next-corpus-enrichment/witnessed-links-and-artifact-identity.md#nce-06-audit) | Exact quoted subject binding, named cue completeness, formula edge version, typed procedure relation and portable cue reconstruction are implemented for covered forms. Broader source block availability and additional subject binding forms remain open. |
+| [NCE-07-A1](next-corpus-enrichment/witnessed-links-and-artifact-identity.md#nce-07-audit) | Current real reference replay and registered controlled revision passed. The real frame added zero pair keys and supplied zero score-eligible pairs. |
+| [NCE-09-A1–A2](next-corpus-enrichment/rooted-assembly-and-navigation.md#nce-09-audit) | Exact comparison focus, applicable premise and controlled conflict role are validated. Exact gap bundles rederive pages from original selected sources, reports and support. A positive protected unconnected-comparison control still needs full native-to-detached delivery evidence. |
+| [NCE-10-A1–A2](next-corpus-enrichment/rooted-assembly-and-navigation.md#nce-10-audit) | Native directed ranks and exact reciprocal intersection are retained. Equal-vector ties and coherent membership substitutions are checked. Joined source decisions cover represented and unrepresented source cases on retained task selections. |
+| [NCE-11-A1](next-corpus-enrichment/finite-interpretation.md#nce-11-audit) | Cancellation propagation, explicit unavailable status and source-conditioned detached recomputation are implemented. Both retained table controls pass detached reconstruction. |
+| [NCE-12-A1](next-corpus-enrichment/operation-reliability.md#nce-12-audit) | Runtime feature derivation matches the selected native event. Physical event deduplication retains separate producer appearances. Protected fit 3 and its ordinary read passed on 11 freshly adjudicated events from one development origin. |
+
+NCE-08's protected same-lineage assessment prerequisite remains as recorded above.
+The audit repairs establish neither a new table selection benefit nor fit calibration,
+transfer, policy activation or production qualification.
+
+### Development verification
+
+| Command or route | 2026-11-07 outcome and scope |
+| --- | --- |
+| `uv run ci model change deploy` | `passed` on development for the repaired release `78b9d112…` (managed `8a35518367384b12a7bcbc002650da2a`), `semantic_nce_audit_fit_guard`, release `87b19212…` (managed `4e5d2f37aecc40db9e1e355125638a1b`), and `semantic_nce_audit_finalize` on the same release (managed `eabb43170df1417a8c4556dbc1c6a4eb`). Earlier declaration and stale-preview refusals remain separate attempts. |
+| `uv run ci test --json -- PATH…` | The 291-node affected selection `e82f6faeaa2242c0871d36d8f0aac720` `failed` with six unresolved nodes. It selected the affected record, source, model, structural, table and export paths. |
+| `uv run ci test retry e82f6faeaa2242c0871d36d8f0aac720 --lane ordinary --json` | `6235b0c8277b4f78a927fccb0bf4afc0` resolved five nodes and retained one held-out source-key fixture failure. The exact held-out test subsequently `passed` in `d81055dfadaa46cc91b6d395f68dc25d`. |
+| `uv run ci test coverage` | The original and both scoped attempts cover all 291 nodes with zero unresolved. Managed overall status retains differing source contexts and the original failure. The later checks qualify the specific source changes they exercise. |
+| `uv run ci test --json -- PATH…` | Focused operation assessment, fitting and exact rank controls `passed` 66 nodes in `dc4d76a80e1a4d738ab897f3ac18a875`. Earlier native release, caption, rank, model, comparison and correspondence controls `passed` 18 in `cbc8d4f9e9c24d09b58714611c4de7c8`. These are distinct source contexts and overlapping selections. |
+| `uv run ci test --json -- PATH…` and `uv run ci test retry 5dfd24fff5cd4fefb8ff584ec81e84ef --lane ordinary --json` | The final fitting, contextual and portable selection `failed` in four of 125 nodes because a native result fixture omitted directed ranks. All four `passed` in `25e9a30ba105402ba27cd4eca31dc9ad`. Coverage reports zero unresolved and retains differing source contexts. |
+| `uv run ci review inspect --result ID --json` | `passed` for the exact artifact, standalone model role, retained gap and both current table controls. Their scoped managed IDs are recorded with the companion findings. |
+| `uv run python docs/design_review/evidence/2026-11-07_nce07-12/check_gap_delivery.py` | `passed` for Reader, CLI and fresh MCP on retained mixed and unavailable cases. The development database contains no independently published comparison assertion for a positive protected comparison-gap control. |
+| `uv run ci check --view steps --json` and `just turn-end` | `passed`. Rules scan and rule fixtures were `not_run` because the registry selected no rules. Clippy ran with `rustc 1.101.0-nightly (2d20b42b8 2026-11-04)`. |
+| `uv run ci test --json` | Full product campaign `not_run` under the operator's affected-test scope. |

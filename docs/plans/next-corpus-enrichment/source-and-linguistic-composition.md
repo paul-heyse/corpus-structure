@@ -178,6 +178,8 @@ and does not establish aggregate benefit.
 ## Completion audit follow-up
 
 [Series disposition](../next-corpus-enrichment_2026-11-07.md#completion-audit).
+The finding text records the original audit baseline. The execution notes below
+describe the repaired paths and their acceptance boundary.
 
 <a id="nce-01-audit"></a>
 **NCE-01-A1 · Authenticate the projection recipe at publication.** Both builders emit the
@@ -189,6 +191,15 @@ exact historical reuse. Exercise omitted and duplicate captions, a substituted r
 and an unchanged retry through the public native writer. The historical caption probe
 called the private helper directly. [Native writer](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql#L104) ·
 [Caption probe](../../design_review/evidence/2026-11-07_nce-source-linguistics/check_caption_admission.py).
+
+**2026-11-07 execution.** Both builders and the native publisher authenticate the
+release's canonical recipe and derive the same section key. The public writer accepts
+an unchanged retry and refuses a forged recipe or key and omitted or repeated caption
+membership. Archived recipes are limited to exact reuse of an already selected view.
+The native affected selection `cbc8d4f9e9c24d09b58714611c4de7c8` passed.
+The exact caption replay sealed at run 274/cut 379. The installed CLI, fresh MCP
+and detached review agreed on its 14 pairs and scoped nomination standing
+(`008cc97d354349008efd0f44a2d53cf5`).
 
 <a id="nce-02-audit"></a>
 **NCE-02-A1 · Authenticate interpretation and condition lowering.** The selected
@@ -202,6 +213,17 @@ formal condition and the exact source-backed or escape reading through the ordin
 consumers. [Native predicate guard](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L1088) ·
 [Detached reconstruction](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py#L1968).
 
+**2026-11-07 execution.** The native guard derives predicate form, voice, polarity
+and conditional meaning from the retained annotation and selected rule asset. It
+distinguishes a lowered formal expression from the exact source escape. Scoped
+operation 9 retains historical read behavior for earlier contributions. The native
+corpus retry accounts for SQL and JSON nulls on noncondition qualifiers and admits
+the new cross-block question version. Run 285/cut 389 retained Event F, positive
+variance, positive and nominal parameters, zero-wait inclusion and formula Z.
+The exact scoped result passed Reader, CLI, fresh MCP and detached replay
+(`88b81550dc684ba3a548a706e5baafd2`). Native controls refused forged polarity
+and a schema-valid substitution of a formal condition for ordinary source wording.
+
 **NCE-02-A2 · Preserve clipped role uncertainty into comparison.** A predicate
 frame survives passage selection, but a retained participant whose anchors all fall
 outside the selected passage is dropped. Comparison then reports the dimension as
@@ -209,6 +231,12 @@ absent. Carry the unresolved role without inventing an extent and test an
 action-only passage where the retained annotation supplies a participant outside the
 selection. [Role emission](../../../python/corpus-structure/src/corpus_structure/methods/predicate_contributions.py#L438) ·
 [Comparison group derivation](../../../python/corpus-structure/src/corpus_structure/methods/structural_products.py#L417).
+
+**2026-11-07 execution.** An entirely clipped role is recorded with its retained
+token identity and an unavailable location. Native admission authenticates each
+reported clipped role. Detached reconstruction also checks the complete reported
+population against the exact original annotation. The native guard does not yet
+independently detect deletion of every clipped-role report.
 
 <a id="nce-03-audit"></a>
 **NCE-03-A1 · Compare supported typed members and enforce unresolved grouping.** Run
@@ -220,6 +248,15 @@ declared scope and basis. Exercise changed typed members, conjunction versus dis
 and identical unresolved member lists alongside otherwise comparable singleton thresholds.
 Compare native and application decisions and exact detached delivery. [Application comparison](../../../python/corpus-structure/src/corpus_structure/methods/structural_products.py#L163) ·
 [Native comparison](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L531).
+
+**2026-11-07 execution.** Comparison operation 4 aligns uniquely supported typed
+members, carries conjunction, disjunction and unresolved grouping explicitly, and
+withholds interval consequences when unresolved grouping affects a premise. Exact
+reading focus follows each selected premise into dossier assembly when located.
+The native Event F and positive-variance comparison sealed at run 289/cut 391
+and passed Reader, CLI, fresh MCP and exact detached replay
+(`a1b4b0acf49c472094c31312e609d0ff`). Its unestablished effective versions
+leave grouping and interval consequences unresolved.
 
 ## Owned conditional investigations
 

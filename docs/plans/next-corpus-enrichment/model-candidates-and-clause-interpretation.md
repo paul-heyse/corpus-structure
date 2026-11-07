@@ -126,6 +126,7 @@ combined acceptance.
 ## Completion audit follow-up
 
 [Series disposition](../next-corpus-enrichment_2026-11-07.md#completion-audit).
+The finding text records the original audit baseline.
 
 <a id="nce-04-audit"></a>
 **NCE-04-A1 · Bind the selected model computation and window.** Native validation
@@ -137,6 +138,22 @@ Check a resealed substituted schema, overlap or threshold setting, and a differe
 same-passage window through both admission and detached replay. Preserve deterministic
 interpretation and the actual provider receipts. [Native validation](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L1241) ·
 [Detached model replay](../../../python/corpus-structure/src/corpus_structure/serve/model_observation_replay.py#L68).
+
+**2026-11-07 execution.** Definition operation 9 and clause-classification operation
+2 bind the ordered declaration, exact configured windows, context, threshold,
+overlap policy and effective request identity. Native validation reconstructs the
+request from the released inputs. Detached reconstruction binds the same request
+and retains raw observations independently of their proposal and attachment outcome.
+The bare definition run 269/cut 373 passed exact managed inspection
+(`80b7b072a50041d6b7a2f41517bb5ef1`). The seven authentic provider arms and their
+independent control results are retained in the
+[model and artifact evidence](../../design_review/evidence/2026-11-07_nce-audit-model-artifact/README.md).
+All seven registered arms also passed Reader, installed CLI, fresh MCP and exact
+detached replay (`e0c91327f94e4682a55004759610c61e`). The five definition arms
+returned 17, 20, 17, 21 and 21 distinct located roles respectively. They recovered
+zero independently expected locations or attachments. The exact-focus clause
+arm matched one of four independent expectations and the adjacent-sentence arm
+matched none. Keep bare and flat for the selected development question.
 
 <a id="nce-05-audit"></a>
 **NCE-05-A1 · Deliver exact unattached roles with observed loss accounting.** The
@@ -151,6 +168,18 @@ independently expected term locations, content locations or attachments. The hig
 proposal counts measure returned exact locations across the windows. [Term reader](../../../python/corpus-structure/src/corpus_structure/methods/definition_terms.py) ·
 [Record assembly](../../../python/corpus-structure/src/corpus_structure/methods/record_assembly.py#L735) ·
 [Arm assessment](../../design_review/evidence/2026-11-07_nce-comparison-model-links/model-assessment.json).
+
+**2026-11-07 execution.** The exact-role operation 2 can deliver separately located
+term and content roles through authorized private reads with their original observation
+and source-coordinate custody. The current observation distinguishes a refused attempt
+from a configured window the runtime did not observe. Retained earlier arm results keep
+their original scope and grade. Current native run 278/cut 385 recovered the
+standalone exact private term role at the selected `X` extent. The Reader, CLI,
+fresh MCP and exact detached review agree
+(`d10bbb7c39004b8a931f8c76a51adf95`).
+The repeated-role control at run 293/cut 405 preserved two unattached `Y`
+occurrences at distinct offsets through the same journey
+(`d4d97af78d5b41489c8503c822a90c75`).
 
 ## Owned conditional investigations
 

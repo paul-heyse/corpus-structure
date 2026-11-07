@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "id": "nce.audit-registered-model-role-development",
+  "title": "Registered model arms and standalone role delivery",
+  "group": "NCE",
+  "package": "NCE-04-A1 and NCE-05-A1",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the exact admitted development release reproduce all pinned model arms and independently deliver repeated unattached roles?",
+  "answers": [
+    "NCE-04-A1",
+    "NCE-05-A1"
+  ],
+  "method": "Register each pinned model arm against the final source-matched release. Publish and read separate unattached role occurrences, compare Reader, CLI and fresh MCP, then verify the managed exact detached closures.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-07_nce-audit-model-artifact/replay_model_arms.py --release release:87b19212e2391c5441a1638f68b784036db68cd79a1b8bccaa611310d13c4993 --classification docs/design_review/evidence/2026-11-07_nce-audit-model-artifact/raw/classification-selection.json --workers 3 build/nce-audit-closure/model-final-clean",
+    "uv run python docs/design_review/evidence/2026-11-07_nce-audit-model-artifact/replay_role.py --release release:87b19212e2391c5441a1638f68b784036db68cd79a1b8bccaa611310d13c4993 --definitions build/nce-audit-closure/model-qualification/definition-bare --repeat-text Y build/nce-audit-closure/role-repeat-final",
+    "uv run ci review inspect --result e0c91327f94e4682a55004759610c61e --json",
+    "uv run ci review inspect --result d10bbb7c39004b8a931f8c76a51adf95 --json",
+    "uv run ci review inspect --result d4d97af78d5b41489c8503c822a90c75 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "replay_model_arms.py",
+      "role": "registered model arm driver",
+      "sha256": "03bdaac415bfb1fe6bd87b9be42c60ef38b4f31d05f0350b83dc5a990c985644"
+    },
+    {
+      "path": "replay_role.py",
+      "role": "registered standalone and repeated role driver",
+      "sha256": "7894bc6bf9e499b7a4d83ce821ef87febbee1398b2a48d1241d9b325574f380f"
+    },
+    {
+      "path": "raw/classification-selection.json",
+      "role": "frozen clause source focuses and independent judgments",
+      "sha256": "29b430fec9d921dec17e694aff407433927dcab5a91af0d5e7382e3ed6ad6cca"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/native-current-model-result.json",
+      "role": "current registered model arm, transport, and managed detached receipts",
+      "sha256": "51f6145c09d9f824faa9b976bec97299be8a0ba4bbea8a8afdee97a0093538ce"
+    },
+    {
+      "path": "raw/native-repeated-role-result.json",
+      "role": "distinct repeated role locations and managed detached receipt",
+      "sha256": "29a69369274992b2c1924eaf007de18f204bd7c8b8f832ec97f17f969b0b1e83"
+    },
+    {
+      "path": "raw/native-single-role-run.json",
+      "role": "current standalone private role run",
+      "sha256": "6af3c129ca611b5e33b186d2622fd3a1d83c7a58d2efc9067599975ab156a323"
+    },
+    {
+      "path": "raw/native-single-role-inspection.json",
+      "role": "selected standalone private role and original producer closure",
+      "sha256": "81e6db311ce9a1f27caef6eb9613a05e5d6d22b89abe1b497fb233cd8281ac52"
+    },
+    {
+      "path": "raw/native-repeated-role-reader.json",
+      "role": "exact repeated private role selection from reader",
+      "sha256": "b2eefb8ce9625515487e025ac87c18a0b783cea03fe30daabf43c7fa0db63e40"
+    },
+    {
+      "path": "raw/native-repeated-role-cli.json",
+      "role": "exact repeated private role selection from cli",
+      "sha256": "b2eefb8ce9625515487e025ac87c18a0b783cea03fe30daabf43c7fa0db63e40"
+    },
+    {
+      "path": "raw/native-repeated-role-mcp.json",
+      "role": "exact repeated private role selection from mcp",
+      "sha256": "b2eefb8ce9625515487e025ac87c18a0b783cea03fe30daabf43c7fa0db63e40"
+    }
+  ],
+  "depends_on": [
+    "nce.audit-model-artifact-development"
+  ],
+  "results": [
+    {
+      "name": "Matched registered definition arms",
+      "value": 5,
+      "of": 5,
+      "unit": "arms",
+      "note": null
+    },
+    {
+      "name": "Matched registered clause arms",
+      "value": 2,
+      "of": 2,
+      "unit": "arms",
+      "note": null
+    },
+    {
+      "name": "Repeated unattached role occurrences retained",
+      "value": 2,
+      "of": 2,
+      "unit": "occurrences",
+      "note": null
+    },
+    {
+      "name": "Expected definition attachments recovered",
+      "value": 0,
+      "of": 15,
+      "unit": "judgments across five arms",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "All registered selected arms passed exact Reader, CLI, MCP and managed detached verification. Two equal-text Y roles remained distinct by native coordinates and producer index and retained private proposal standing. Independent judged outcomes matched the provider-only record.",
+  "consumed_by": [
+    "NCE-04-A1",
+    "NCE-05-A1"
+  ]
+}

@@ -220,6 +220,7 @@ standing.
 ## Completion audit follow-up
 
 [Series disposition](../next-corpus-enrichment_2026-11-07.md#completion-audit).
+The finding text records the original audit baseline.
 
 <a id="nce-06-audit"></a>
 **NCE-06-A1 · Qualify cross-view definition targets.** Exact section headings,
@@ -234,6 +235,11 @@ reconstruction. [Candidate route](../../../python/corpus-structure/src/corpus_st
 [Native witness reconstruction](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L2569) ·
 [Detached witness replay](../../../python/corpus-structure/src/corpus_structure/serve/contextual_witness_replay.py#L489).
 
+**2026-11-07 execution.** A named section supports a nomination. Selection requires
+an exact quoted source subject and a unique matching term component in the compatible
+target section. The producer and both validation paths preserve unresolved nominations.
+Additional explicit identifier and alias binding forms remain unqualified.
+
 **NCE-06-A2 · Validate complete source-derived cue groups and version.** Native
 admission checks submitted named-link rows but can omit a genuine cue group, a
 located declaration's target and edge, or the formula operation. Detached replay
@@ -242,6 +248,13 @@ guard and require the exact effective version on a formula recap edge. The recap
 operation retains the version, but the producer and guards omit it from the emitted
 edge. [Native operation checks](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L2971) ·
 [Recap producer](../../../python/corpus-structure/src/corpus_structure/methods/scoped_relations.py#L1118).
+
+**2026-11-07 execution.** Native admission reconstructs the located named cue's
+required roles and edge and requires the formula recap operation and exact effective
+edge version for the covered source block. Broader named-link block availability
+and outcome reconstruction remain open. In a direct native control an empty named
+operation reporting three inspected blocks could be replaced with an unsupported
+operation reporting zero. Detached replay checks both fields.
 
 **NCE-06-A3 · Deliver typed procedure linkage and exact portable cue custody.**
 The Table 6.1 control verifies a mention-to-caption edge. The procedure cue depends
@@ -252,6 +265,11 @@ detached component path looks for literal `Section ` and can skip witnesses for
 valid lowercase or tab-separated cues. Verify both spellings and refuse a substituted
 portable decision. [Procedure projection](../../../python/corpus-structure/src/corpus_structure/methods/scoped_relations.py#L1193) ·
 [Detached cue discovery](../../../python/corpus-structure/src/corpus_structure/serve/contextual_witness_replay.py#L55).
+
+**2026-11-07 execution.** The procedure edge requires an exact retained verbal
+frame sharing the source cue and the authenticated artifact endpoint. Lowercase and
+tab-separated section cues use the same typed discovery and detached decision replay.
+The existing mention-to-caption edge retains its separate meaning.
 
 <a id="nce-07-audit"></a>
 **NCE-07-A1 · Finish the lineage and revision distinction.** The observed artifact
@@ -265,6 +283,17 @@ pairs. Tables 5.8 and 5.9 used unscoped-code nominations. Table 6.1 also had a d
 witness. [Nomination type](../../../python/corpus-structure/src/corpus_structure/semantic/artifact_identity.py#L231) ·
 [Native admission](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L940) ·
 [Retained result](../../design_review/evidence/2026-11-07_nce07-12/raw/artifact-replay-002/result.json).
+
+**2026-11-07 execution.** Artifact operation 4 derives an explicit cross-work
+citation, witnessed same-lineage relationship and directional revision from adjacent
+source cues. It preserves native endpoints and keeps those meanings separate from
+similarity scoring and unknown alias state. Registered native same-work revision
+and resealed-witness refusal passed `b6906f0aa83d4e538615eee2ea973584`. The exact
+real replay 266/371 passed Reader, CLI, fresh MCP and detached inspection
+(`fcd3f71a655147ff8b3bdf285bbb4302`). It adds no pair keys or score-eligible pairs.
+The registered native cross-work citation, distinct revision and observed,
+known-empty and unknown alias controls passed `effd3495db874a7ab932d8ae21bd49c1`.
+The exact controlled detached replay passed `cd94363353e1406ba66a7fcf4cc79077`.
 
 <a id="nce-08-audit"></a>
 **NCE-08 · Bounded mechanism confirmed.** Ten controlled Splink comparisons exercise

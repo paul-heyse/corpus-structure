@@ -178,6 +178,7 @@ when selections differ across releases.
 ## Completion audit follow-up
 
 [Series disposition](../next-corpus-enrichment_2026-11-07.md#completion-audit).
+The finding text records the original audit baseline.
 
 <a id="nce-09-audit"></a>
 **NCE-09-A1 · Bind the exact comparison reading and premise.** Native and application
@@ -188,6 +189,12 @@ has no derivation alongside variant, exception and revision. Check the two-claus
 refusal, supported left-only and dual bindings, and conflict with exact source evidence
 through membership and detached replay. [Application binding](../../../python/corpus-structure/src/corpus_structure/methods/structural_products.py#L638) ·
 [Native binding](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L580).
+
+**2026-11-07 execution.** Dossier operation 3 requires the exact predicate focus,
+source term usage and independently admitted applicability predecessor for each
+side. The bounded explicit contradiction form yields a proposed conflict role
+whose two authored focuses match the selected readings. The native control
+refused a different clause and accepted the exact controlled conflict.
 
 **NCE-09-A2 · Authenticate portable gap evidence and inspected scope.** The gap
 verifier rebuilds pages from the bundle's captured evidence and checks selected IDs.
@@ -200,6 +207,14 @@ unavailable operation, including re-sealed source and support substitution and e
 pagination. [Gap capture](../../../python/corpus-structure/src/corpus_structure/serve/structural_gaps.py#L507) ·
 [Detached gap verification](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py#L1505).
 
+**2026-11-07 execution.** Exact export carries the original reports and views,
+typed selected bindings and authorized assertion support. Detached replay rederives
+pages from those inputs and refuses a consistent captured-input and page substitution
+against the original closure. Live selection rejects conflicting producer scope and
+matches assertion support by exact comparison and side. The retained real export
+`7ad75c469a0f441baa2f53dee2521d94` covers the affine-X and unavailable controls.
+A trusted manifest digest binds the whole bundle when the transport itself is untrusted.
+
 <a id="nce-10-audit"></a>
 **NCE-10-A1 · Verify exact mutual membership at the cutoff.** Native rank order
 breaks distance ties with immutable IDs. Detached replay permits a rank interval around
@@ -209,6 +224,16 @@ one through six and the check accepts an empty edge list. Require exact membersh
 tie-order reconstruction while bounding any tolerance to distance comparison. Exercise
 that exact tie and the existing near-collinear case. [Detached rank verification](../../../python/corpus-structure/src/corpus_structure/serve/contextual_navigation.py#L173).
 
+**2026-11-07 execution.** Contextual operation 9 retains native directed top-five
+ranks and rederives them at admission. Detached verification checks the exact reciprocal
+intersection, frozen-vector distances and immutable-ID ordering for equal vectors.
+The seven-identical-vector control has 15 mutual pairs. For numerical near ties between
+different vectors, exact native ranks are carried by the authenticated result rather
+than inferred from a different floating-point kernel.
+Current Section 5.2 run 294/cut 407 retained 16 mutual edges and the separate witnessed
+relationship. Reader, installed CLI, fresh MCP and exact detached replay agreed
+(`0e58f9ff792b4c9ba7db795c25aee830`).
+
 **NCE-10-A2 · Join the selected source-to-decision journey.** The current diagnosis
 projects one selected task. Preserve its verified Table 6.1 and affine-`X` paths.
 Connect original source opportunities to exact authorized producer results, rule counts
@@ -216,6 +241,14 @@ and route memberships, decision, dossier membership and display. A missing occur
 in one task cannot settle source capture. Verify the distinct stopping points for an
 omitted caption and a represented unsupported candidate across the intended products.
 Broader chain reports retain their conditional triggers. [Current capture](../../../python/corpus-structure/src/corpus_structure/serve/contextual_navigation.py#L263).
+
+**2026-11-07 execution.** `source_decision_journey` connects an authenticated
+original source and typed case selector to the selected authorized task results.
+The distinct outcomes preserve source representation, scoped route membership,
+decision and dossier/display standing. Exact detached controls cover Table 6.1
+(`378a104fe1e54269bfaca5de09bad078`) and omitted Table 5.8 with unsupported
+affine-X (`8235c7629e974abd8db262a1a4cb202b`). Reader, installed CLI and fresh MCP
+returned the same outcomes with the current query contract and original source pins.
 
 ## Conditional and deferred choices
 

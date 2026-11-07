@@ -95,6 +95,7 @@ Factorization is an execution decision for a specific workload. [Current numeric
 ## Completion audit follow-up
 
 [Series disposition](../next-corpus-enrichment_2026-11-07.md#completion-audit).
+The finding text records the original audit baseline.
 
 <a id="nce-11-audit"></a>
 **NCE-11-A1 · Complete operational and portable acceptance.** The installed native
@@ -109,6 +110,18 @@ without partial publication. The controlled ambiguity and exact-header results s
 [Native request reconstruction](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L3002) ·
 [Worker call](../../../python/corpus-structure/src/corpus_structure/methods/scoped_relations.py#L1496) ·
 [Detached dispatch](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py#L2325).
+
+**2026-11-07 execution.** The ordinary finite executor receives the worker lease
+callback and the source producer emits a typed `not_run` report for a table without
+an eligible band. Native and detached replay reconstruct the request and numerical
+result from the authenticated table premises and frozen role candidates. Detached
+verification passed on both the retained and new scoped table replays. Current
+Table 5.2 run 276/cut 381 produced nine successful correspondence operations
+(`b45a62a129d44d4390992b238648cf82`). Table 6.1 run 275/cut 383 produced twenty
+(`bd4744e5fef343fc9a133d9c666255dc`). The focused control also exercises a
+forged factor, no eligible band and lease loss during finite execution.
+The current exact Reader, installed CLI and fresh MCP outputs agree on both cuts
+apart from each independently generated snapshot capture ID.
 
 ## Conditional investigations
 

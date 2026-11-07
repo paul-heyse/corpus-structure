@@ -111,6 +111,7 @@ and repeated optional assessment outside the ordinary read or enrichment path.
 ## Completion audit follow-up
 
 [Series disposition](../next-corpus-enrichment_2026-11-07.md#completion-audit).
+The finding text records the original audit baseline.
 
 <a id="nce-12-audit"></a>
 **NCE-12-A1 · Reconstruct runtime features and preserve independent label grain.**
@@ -128,6 +129,27 @@ frames, forged inputs, denied protected reads and ordinary authorized parameter 
 for the new event. [Feature recipe](../../../python/corpus-structure/src/corpus_structure/semantic/sql/operation_event_fitting.sql#L2) ·
 [Native event frame](../../../python/corpus-structure/src/corpus_structure/semantic/sql/operation_event_fitting.sql#L137) ·
 [Runtime score input](../../../python/corpus-structure/src/corpus_structure/semantic/operation_policy.py#L57).
+
+**2026-11-07 execution.** `ci eval operation-event-features` derives an attachment
+vector from its authorized source occurrence. Runtime and native derivation agreed
+on the exact selected event in run 161, cut 245, task 853. A physical event uses
+canonical source section and version custody, with each producer appearance retained
+separately. At run 161/cut 245, 82 emissions reduce to 74 physical events, with
+seven repeated identities. Across exact completed cuts, 154 emissions reduce to
+the same 74 physical events, including 65 with distinct producer tasks and view
+projections. The new protected rubric records head,
+tail, direction and scope independently and retains the resulting joint judgment.
+Blank frame creation freezes the source opportunities, and pass submission enforces
+complete facet judgments.
+
+Protected set 30 and evaluation 35 used independently authored A/B passes and
+adjudicated C passes on the two fresh source frames. Fit 3 completed on 11 unique
+binary events from one origin, with one supported event and ten unsupported.
+The frame retained all 11 producer sightings and one independent facet disagreement.
+Availability found 74 compatible physical events and zero feature-unavailable
+events in the exact frame. The ordinary parameter-only read and retained-versus-runtime
+feature comparison passed. The fitted diagnostic is `in_sample_development` on a
+purposive same-origin cohort. [Protected rubric and aggregate receipt](../../design_review/evidence/2026-11-07_nce-attachment-v2/README.md)
 
 ## Conditional investigations
 

@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "id": "nce.audit-model-artifact-development",
+  "title": "Pinned model observations and exact artifact nominations",
+  "group": "NCE",
+  "package": "NCE-04-A1, NCE-05-A1 and NCE-07-A1",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What do the repaired model and artifact custody paths preserve on the pinned GS120 cases?",
+  "answers": [
+    "NCE-04-A1",
+    "NCE-05-A1",
+    "NCE-07-A1"
+  ],
+  "method": "Run the exact released model declarations against frozen source judgments and authenticate the selected native definition and artifact products across Reader, CLI, fresh MCP and managed detached verification.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-07_nce-audit-model-artifact/replay_model_arms.py --release release:78b9d112b9f865dbbe8e9f020bce6650bc294d01ce93a451ca11d44db856b1bc --classification docs/design_review/evidence/2026-11-07_nce-audit-model-artifact/raw/classification-selection.json --provider-only --workers 3 build/nce-audit-closure/provider-only",
+    "uv run python docs/design_review/evidence/2026-11-07_nce-audit-model-artifact/replay_model_arms.py --release release:78b9d112b9f865dbbe8e9f020bce6650bc294d01ce93a451ca11d44db856b1bc --classification docs/design_review/evidence/2026-11-07_nce-audit-model-artifact/raw/classification-selection.json --only bare -- build/nce-audit-closure/model-qualification",
+    "uv run python docs/design_review/evidence/2026-11-07_nce07-12/replay_artifact_nominations.py --release release:78b9d112b9f865dbbe8e9f020bce6650bc294d01ce93a451ca11d44db856b1bc build/nce-audit-closure/artifact-qualification",
+    "uv run ci review inspect --result 80b7b072a50041d6b7a2f41517bb5ef1 --json",
+    "uv run ci review inspect --result fcd3f71a655147ff8b3bdf285bbb4302 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "replay_model_arms.py",
+      "role": "exact registered and provider-only model drivers",
+      "sha256": "03bdaac415bfb1fe6bd87b9be42c60ef38b4f31d05f0350b83dc5a990c985644"
+    },
+    {
+      "path": "raw/classification-selection.json",
+      "role": "frozen clause source focuses and independent judgments",
+      "sha256": "29b430fec9d921dec17e694aff407433927dcab5a91af0d5e7382e3ed6ad6cca"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/provider-assessment.json",
+      "role": "independent source judgments assessed against all real provider arms",
+      "sha256": "b46f034e83a0cc8032e21c2493ddf71bc1487c0ced20b1ec9c48d544043dbfd4"
+    },
+    {
+      "path": "raw/native-bare-run.json",
+      "role": "exact completed definition run",
+      "sha256": "87ef56e05ebf83832cc8343118148633920bfb6f8c68c8fbb6d635f28853853c"
+    },
+    {
+      "path": "raw/native-bare-detached.json",
+      "role": "managed definition export and selected digest",
+      "sha256": "6cf330660515dee6f75a9261689bbe7f4a5bc4ac97c8c510e440a5c196adff4c"
+    },
+    {
+      "path": "raw/native-bare-inspection.json",
+      "role": "managed definition bundle custody and exact closure",
+      "sha256": "e4732c50cd78b81e7f547c055d050d036a83dc767e9b4ac95eb243d8519e01fb"
+    },
+    {
+      "path": "raw/native-artifact-result.json",
+      "role": "artifact Reader, CLI and MCP delivery and independent reference census",
+      "sha256": "59c137a494bb17105a5c4afd44d760647f0dae35b4efd2b6b0f989ee7a0c7132"
+    },
+    {
+      "path": "raw/native-artifact-inspection.json",
+      "role": "digest-bound managed artifact closure",
+      "sha256": "aaf320344790e2a6c0402fc9afc7c2af286f6f418d57f3fbc788418b562e01d1"
+    },
+    {
+      "path": "raw/clause-adjacent_sentences-provider.json",
+      "role": "exact raw provider observations and request/effective profiles",
+      "sha256": "95043ec82463704ae1d9a99a06bbbd154af9e02bd9a1a034ff540be89409006c"
+    },
+    {
+      "path": "raw/clause-exact_focus-provider.json",
+      "role": "exact raw provider observations and request/effective profiles",
+      "sha256": "30fb61f450ec0fd9e52ee9680116bf16db6263965c6f265856431371c446fd3c"
+    },
+    {
+      "path": "raw/definition-allow-provider.json",
+      "role": "exact raw provider observations and request/effective profiles",
+      "sha256": "90bbee9db389405a37fd4cf3021154c08abfcc49a73bb793fecddcf48ada3204"
+    },
+    {
+      "path": "raw/definition-bare-provider.json",
+      "role": "exact raw provider observations and request/effective profiles",
+      "sha256": "e2f55296ad7b56c55e5846340531e25d6c3cf3b73eeb6dee19b38e4e0fc95253"
+    },
+    {
+      "path": "raw/definition-described-provider.json",
+      "role": "exact raw provider observations and request/effective profiles",
+      "sha256": "664a40931a60a551cd99578fdd4471ac1a16485734bd62d6753a39ca1c0fb414"
+    },
+    {
+      "path": "raw/definition-flat-provider.json",
+      "role": "exact raw provider observations and request/effective profiles",
+      "sha256": "a9c26d4d1a183c59d7c144a4b01e8bb06afa94d2e7a55a39fc3304da53a917d8"
+    },
+    {
+      "path": "raw/definition-nested-provider.json",
+      "role": "exact raw provider observations and request/effective profiles",
+      "sha256": "91c10e51cc83bb2777d5b9ea641373a13849748868e39b9fb5b471e47c1d2000"
+    }
+  ],
+  "depends_on": [
+    "2026-11-07_nce-comparison-model-links/nce.comparison-model-links-development"
+  ],
+  "results": [
+    {
+      "name": "Definition window replies",
+      "value": 15,
+      "of": 15,
+      "unit": "windows",
+      "note": null
+    },
+    {
+      "name": "Clause request replies",
+      "value": 8,
+      "of": 8,
+      "unit": "focuses across two arms",
+      "note": null
+    },
+    {
+      "name": "Expected definition attachments recovered",
+      "value": 0,
+      "of": 15,
+      "unit": "judgments across five arms",
+      "note": null
+    },
+    {
+      "name": "Exact-focus class agreement",
+      "value": 1,
+      "of": 4,
+      "unit": "focuses",
+      "note": null
+    },
+    {
+      "name": "Adjacent-sentence class agreement",
+      "value": 0,
+      "of": 4,
+      "unit": "focuses",
+      "note": null
+    },
+    {
+      "name": "Artifact pairs with score eligibility",
+      "value": 0,
+      "of": 14,
+      "unit": "pairs",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "All seven pinned model arms returned authentic observations. The bare definition arm and the selected artifact controls completed exact development delivery. The source judgments provide no evidence for adopting a different provider arm. The other six registered model arms and standalone-role delivery are accounted for separately against the source-matched release.",
+  "consumed_by": [
+    "NCE-04-A1",
+    "NCE-05-A1",
+    "NCE-07-A1"
+  ]
+}
