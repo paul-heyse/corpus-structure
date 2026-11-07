@@ -92,15 +92,19 @@ def test_independent_model_edit_changes_ddl_arrow_boundary_and_admission(tmp_pat
     del declarations["enums"]["PdfNativeRecordFamily"]["permissible_values"]["cell"]
     record_path.write_text(yaml.safe_dump(declarations, sort_keys=False))
     changed = compile_metadata(SchemaView(str(copied)), target="semantic")
+    changed_id = physical_model_id(copied)
+    changed.info["physical_model_id"] = changed_id
     ddl = str(CreateTable(changed.tables["kb.pdf_record_membership"]).compile(dialect=dialect()))
     assert "ordinal >= 2" in ddl
-    assert physical_model_id(copied) != PHYSICAL_MODEL_ID
+    assert changed_id != PHYSICAL_MODEL_ID
     before = native_products.current_admission_fields()
     before_arrow = record_arrow_schema("kb.pdf_record_membership")
     for module in (native_products, pdf_record_model, source_view_native):
         monkeypatch.setattr(module, "metadata", changed)
     after = native_products.current_admission_fields()
     assert before["physical_checks_source_digest"] != after["physical_checks_source_digest"]
+    assert before["physical_id"] == PHYSICAL_MODEL_ID
+    assert after["physical_id"] == changed_id
     assert not before_arrow.equals(
         record_arrow_schema("kb.pdf_record_membership"), check_metadata=True
     )
