@@ -300,8 +300,12 @@ BEGIN
   SELECT min(n-1) INTO start_sentence FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n)
    WHERE t->'sentence'=sentence;
   IF NOT coalesce(kind_='condition' AND host=origin AND target->>'dependency'='ROOT'
-   AND first_=marker AND marker+2<=first_pred AND first_pred<conjunction AND subordinate<=last_
-   AND then_<host AND folded[marker+1]='if' AND folded[conjunction+1]='and'
+   AND first_=marker AND marker+2<=first_pred AND first_pred<conjunction AND conjunction<last_
+   AND subordinate<=last_ AND then_<host AND folded[marker+1]='if' AND folded[conjunction+1]='and'
+   AND tokens->first_pred->>'lemma'='be' AND tokens->subordinate->>'lemma'='be'
+   AND words[marker+2]<>words[subordinate]
+   AND (SELECT count(*) FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n)
+    WHERE t->'sentence'=sentence AND folded[n::integer]='then')=1
    AND folded[last_+2:last_+3]=ARRAY[',','then']
    AND (marker=start_sentence OR (marker=start_sentence+2 AND folded[start_sentence+1]='definition'
     AND words[start_sentence+2] ~ '^[[:digit:]]+([.][[:digit:]]+)*$'))
@@ -314,10 +318,7 @@ BEGIN
    AND (conjunction_head IN (first_pred,subordinate) OR (tokens->conjunction_head->>'dependency'='attr'
     AND tokens->conjunction_head->'head'=to_jsonb(first_pred)))
    AND (SELECT count(*) FROM generate_series(first_pred+1,subordinate-1) i
-    WHERE folded[i+1]='and' AND tokens->i->>'dependency'='cc')=1
-   AND (SELECT count(*) FROM generate_series(subordinate+1,host-1) i
-    WHERE folded[i+1]='then' AND words[i]=',' AND tokens->i->>'dependency'='advmod'
-     AND tokens->i->'head'=to_jsonb(host))=1,false)
+    WHERE folded[i+1]='and' AND tokens->i->>'dependency'='cc')=1,false)
   THEN RETURN false; END IF;
   edges:=ARRAY[[0,first_pred-base],[1,first_pred-base],[first_pred-base,subordinate-base],
    [subordinate-base,host-base],[conjunction-base,conjunction_head-base],[then_-base,host-base]];
@@ -338,7 +339,7 @@ BEGIN
    AND target->>'dependency'='ROOT' AND tokens->marker->>'dependency'='ROOT'
    AND (sentence#>>'{}')::integer=(tokens->marker->>'sentence')::integer+1
    AND (marker=0 OR tokens->(marker-1)->'sentence' IS DISTINCT FROM tokens->marker->'sentence'
-    OR (words[marker] ~ '^[[:digit:]]+$' AND (marker=1 OR tokens->(marker-2)->'sentence'
+    OR (rtrim(words[marker],'.') ~ '^[[:digit:]]+$' AND (marker=1 OR tokens->(marker-2)->'sentence'
      IS DISTINCT FROM tokens->marker->'sentence')))
    AND NOT EXISTS(SELECT FROM generate_series(marker,marker+10) i
     WHERE tokens->i->'sentence' IS DISTINCT FROM tokens->marker->'sentence')
@@ -354,6 +355,7 @@ BEGIN
  ELSIF variant='nominal_parameter_pair' THEN
   IF NOT coalesce(kind_='parameterization' AND first_=marker AND marker>0 AND last_=marker+4
    AND origin=host AND host=marker+6 AND subordinate=marker-1
+   AND tokens->subordinate->>'pos' IN ('NOUN','PROPN')
    AND folded[marker+1:marker+10]=ARRAY['with','parameters',lower(words[marker+3]),
     'and',lower(words[marker+5]),'is','defined','as','follows',':']
    AND words[marker+3] ~ '^[[:alpha:]]$' AND words[marker+5] ~ '^[[:alpha:]]$'
