@@ -120,10 +120,16 @@ def _deliver_review(
                 raise
             if received is None:
                 raise
+            if evaluator_capture is not None:
+                next_action = "Submit the selection again with ci review export-evaluated"
+            elif result.manifest.scope.get("source_binding") is None:
+                next_action = "Submit the selection again with ci review export"
+            else:
+                next_action = f"ci review retry {result.id}"
             result.settle(
                 "interrupted",
                 signal=received,
-                next_action=f"ci review retry {result.id}",
+                next_action=next_action,
             )
             if json:
                 emit(
