@@ -122,6 +122,7 @@ include = [
   "docs/design_review/evidence/2026-11-06_wce-gs120/source-recovery/README.md",
   "docs/design_review/evidence/2026-11-06_wce04-located-definitions/fixed-f37/README.md",
   "docs/design_review/evidence/2026-11-08_nce-full-book/review/README.md",
+  "docs/design_review/evidence/2026-11-08_nce-full-book/review/scoped-outputs.md",
 ]
 scope = "Reference"
 [[collections]]
