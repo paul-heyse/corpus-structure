@@ -93,12 +93,18 @@ This paragraph supplies ownership, dataflow, failure behavior, consumer migratio
 behavioral difference. It leaves the local representation and function layout to the implementer.
 Add the context-sensitive details the actual operation needs; no fixed paragraph pattern is required.
 
-When library functionality enables the target, connect its concrete mechanisms to this same
-explanation: the recognizable API or feature names, what their composition supplies, why it was
-chosen, and material conditions or limits. Link the relevant overview
-section or precise primary source. For example, a bulk operation's semantics and transaction
-boundary may be central to the target; saying only "use the library for persistence" loses that
-decision. Keep selected mechanisms distinguishable from candidates and illustrative sketches.
+For a package that hands an existing test build to a managed runner, the pivotal capability
+might be nextest's native listing and its treatment of integration test helpers.
+
+> Use nextest 0.9.146 with `--binaries-metadata` and `--cargo-metadata` to list tests from the
+> existing build. Derive the handoff's executable membership from native binary selection.
+> The runner lists eligible binaries before applying test-name filters and associates integration
+> suites with auxiliary executables exposed through `CARGO_BIN_EXE_*`. Keep the binaries needed
+> for listing and their helpers available through execution. The handoff owner verifies their
+> identity and retains custody through drain. Exercise a suite whose test names are filtered
+> out after listing and an integration suite that launches a helper.
+> [Pinned binary metadata source](https://docs.rs/crate/nextest-runner/0.124.0/source/src/list/binary_list.rs) ·
+> [Pinned listing and helper source](https://docs.rs/crate/nextest-runner/0.124.0/source/src/list/test_list.rs)
 
 A revealing example can sharpen acceptance:
 

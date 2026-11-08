@@ -109,14 +109,24 @@ mechanism and workload or conditions, and consider material integration, lifecyc
 obligations qualitatively. Quantitative benefits need a baseline and measurement route; unmeasured
 benefits remain hypotheses.
 
-Where the target materially depends on library functionality, carry the selected concrete
-mechanisms and precise source references from the review or research into the relevant target
-design and work-package explanation. Preserve recognizable API names, their composition and
-role, the reason for the choice, and material conditions or limits. Give the
-implementer enough local explanation to understand the intended realization; links can supply
-deeper detail. Reconcile changed choices explicitly and distinguish selected mechanisms from
-candidates, examples and unresolved feasibility. This applies across review types. Use prose or
-a compact table as useful, without a separate capability register or a catalog of routine calls.
+Explain each pivotal library capability in the target design or work package that owns its use,
+whether it comes from a review, an existing integration, or new research. A capability is pivotal
+when different library behavior would change the design, the responsibilities the application
+retains, or the acceptance evidence. Name the selected API, feature, or combination of operations.
+Explain what it supplies, why the design uses it, and the conditions or limits that matter to
+integration. Leave routine API choices and local implementation details to the implementer.
+
+Put a direct reference next to the explanation so the implementer can investigate the relied-on
+behavior. A focused section of an overview in `docs/libraries/` can orient the reader. When a
+specific contract matters, link applicable API documentation, maintained source, an upstream test,
+or a retained probe that supports it. Identify the release, revision, or feature selection where it
+affects the contract. Keep the explanation at its owning section and link to it from dependent
+packages.
+
+Distinguish selected mechanisms from candidates. If a pivotal behavior is still uncertain, record
+the question, what evidence would settle it, and which work depends on the answer. When revising a
+plan, reconcile affected mechanisms and references if the selected release or design premise has
+changed.
 
 For material execution choices, qualitatively assess a workload premise grounded in functional intent and a
 credible physical route: access paths, necessary/repeated work, crossings/intermediates, locality,
