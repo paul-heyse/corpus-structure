@@ -34,7 +34,6 @@ from sqlalchemy.dialects.postgresql import JSONB
 from corpus_structure.schema.model import ci_annotations
 from corpus_structure.schema.relational import render_typed_column_class
 
-from .metadata import PHYSICAL_MODEL_ID, metadata, physical_model_id
 from .projection_recipe import (
     Field,
     HelperDefinition,
@@ -68,11 +67,17 @@ PIN_FIELDS = (
 )
 RECIPE_VERSION = "pdf-companion-projection-v3"
 JSON_MATERIALIZATION = {"python": "jsonb-text-v1", "arrow": "jsonb-arrow-json-v1"}
-PROJECTION_ID = (
-    RECIPE_VERSION
-    + ":"
-    + sha256((physical_model_id(MODEL) + PHYSICAL_MODEL_ID).encode()).hexdigest()
-)
+
+
+@lru_cache(maxsize=1)
+def installed_projection_id() -> str:
+    from .metadata import PHYSICAL_MODEL_ID, physical_model_id
+
+    return (
+        RECIPE_VERSION
+        + ":"
+        + sha256((physical_model_id(MODEL) + PHYSICAL_MODEL_ID).encode()).hexdigest()
+    )
 
 
 @dataclass(frozen=True)
@@ -85,7 +90,7 @@ class CompanionProjection:
     arrow_schema: pa.Schema
     keys: tuple[str, ...]
     _physical: MetaData = dataclass_field(repr=False, compare=False)
-    projection_id: str = PROJECTION_ID
+    projection_id: str
 
     @cached_property
     def body_statement(self):
@@ -523,15 +528,9 @@ def _prepare_projection(
 
 
 def prepare_projection(
-    view: SchemaView, family: str, *, projection_id: str, physical: MetaData, physical_id: str
+    view: SchemaView, family: str, *, projection_id: str, physical: MetaData
 ) -> CompanionProjection:
-    """Resolve supplied effective inputs only; the caller owns their archived acquisition.
-
-    The current physical profile is qualified. Another archived profile must refuse rather
-    than silently acquire installed relations or reinterpret its field/OID contracts.
-    """
-    if physical_id != PHYSICAL_MODEL_ID:
-        refuse("companion-projections.physical", "unsupported physical model: " + physical_id)
+    """Resolve supplied effective inputs, including their compiled physical metadata."""
     try:
         return _prepare_projection(view, family, projection_id=projection_id, physical=physical)
     except PreparationError:
@@ -542,12 +541,13 @@ def prepare_projection(
 
 @lru_cache(maxsize=4)
 def projection(family: str) -> CompanionProjection:
+    from .metadata import metadata
+
     return prepare_projection(
         SchemaView(str(MODEL)),
         family,
-        projection_id=PROJECTION_ID,
+        projection_id=installed_projection_id(),
         physical=metadata,
-        physical_id=PHYSICAL_MODEL_ID,
     )
 
 

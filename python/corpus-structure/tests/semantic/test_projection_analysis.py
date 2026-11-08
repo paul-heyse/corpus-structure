@@ -16,22 +16,37 @@ from corpus_structure.semantic.projection_analysis import (
 )
 
 
-def run_recipe():
+def run_recipe(relation="ops.run"):
+    source_fields = (
+        ir.OutputField(
+            "id", ir.Field("r", "id"), f"physical:{relation}.id", "source", BigInteger(), False
+        ),
+        ir.OutputField(
+            "project_id",
+            ir.Field("r", "project_id"),
+            f"physical:{relation}.project_id",
+            "source",
+            Text(),
+            False,
+        ),
+    )
     return ir.ProjectionRecipe(
         family="input",
         projection_id="independent-test-1",
         parameters=(
-            ir.ParameterDefinition("run_id", "p_run", "physical:ops.run.id", BigInteger(), False),
+            ir.ParameterDefinition(
+                "run_id", "p_run", f"physical:{relation}.id", BigInteger(), False
+            ),
         ),
         helpers=(),
-        sources=(ir.SourceDefinition("runs", "ops.run", None),),
+        sources=(ir.SourceDefinition("runs", relation, None, source_fields),),
         source=ir.SourceReference("runs", "r"),
         joins=(),
         fields=(
             ir.OutputField(
                 "project",
                 ir.Field("r", "project_id"),
-                "physical:ops.run.project_id",
+                f"physical:{relation}.project_id",
                 "value",
                 Text(),
                 False,
@@ -55,6 +70,14 @@ def test_qualified_value_lineage_and_types_use_the_model_recipe():
     assert result.projection_id == "independent-test-1"
     assert result.unknowns == ()
     assert analyze_recipe(recipe) is result
+
+
+def test_qualification_uses_a_relation_and_fields_from_the_retained_recipe():
+    relation = "proposed.reviewed_run"
+    result = analyze_recipe(run_recipe(relation))
+    assert result.relational_sources == (relation,)
+    assert result.value_dependencies == (("project", (f"physical:{relation}.project_id",)),)
+    assert dict(result.relational_dependencies)["where"] == (f"physical:{relation}.id",)
 
 
 def test_analysis_does_not_mutate_a_previously_built_tree():
@@ -94,7 +117,21 @@ def test_unused_available_relation_is_not_claimed_as_an_answer_dependency():
             recipe,
             sources=(
                 *recipe.sources,
-                ir.SourceDefinition("unused", "kb.pdf_record_endpoint", None),
+                ir.SourceDefinition(
+                    "unused",
+                    "kb.pdf_record_endpoint",
+                    None,
+                    (
+                        ir.OutputField(
+                            "role",
+                            ir.Field("unused", "role"),
+                            "physical:kb.pdf_record_endpoint.role",
+                            "source",
+                            Text(),
+                            False,
+                        ),
+                    ),
+                ),
             ),
         )
     )

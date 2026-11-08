@@ -71,6 +71,7 @@ class PreviewEffectsReport(EffectGuidance):
     authoring_target: StorageTarget | None
     predecessor: str | None
     release: str | None
+    release_artifacts_sha256: str | None = None
     changed_paths: tuple[str, ...]
     effects: dict[str, JsonValue]
     comparison_status: Literal["available", "unavailable", "not_applicable"]
@@ -112,6 +113,7 @@ class CandidateInspection(EffectGuidance):
     native_revision: str | None
     predecessor: str | None
     release: str
+    release_artifacts_sha256: str | None = None
     target: str
     target_profile: DeploymentProfile
     acquired_target: StorageTarget | None
@@ -266,6 +268,13 @@ def _preview_guidance(
 
     if not dependency_available:
         return EffectGuidance(action_detail="the managed preview is unavailable as a dependency")
+    if staged.effects.admission and not (
+        staged.release_manifest_sha256 and staged.release_artifacts_sha256
+    ):
+        return EffectGuidance(
+            next_command=f"ci model change preview {preview_id}",
+            action_detail="the preview lacks exact release product digests",
+        )
     if not staged.files and not staged.effects.admission:
         return EffectGuidance()
     try:
@@ -281,7 +290,7 @@ def _preview_guidance(
                     return EffectGuidance(
                         action_detail="the candidate requires an exact target binding"
                     )
-                conditions = ["verify the prepared release identity"]
+                conditions = ["verify the prepared release identity and artifacts"]
                 if staged.effects.native:
                     conditions.append("verify the bound development target and native predecessor")
                 return EffectGuidance(
@@ -330,6 +339,7 @@ def _effects_view(report: PreviewEffectsReport) -> Table:
         ("Authoring target", _target_summary(None, report.authoring_target)),
         ("Predecessor", report.predecessor or "not applicable"),
         ("Release", report.release or "unavailable"),
+        ("Prepared artifacts SHA-256", report.release_artifacts_sha256 or "unavailable"),
         ("Changed paths", _path_summary(report.changed_paths)),
         ("Native authoring", "required" if report.effects["native"] else "not required"),
         ("Release admission", "planned" if report.effects["admission"] else "not planned"),
@@ -483,6 +493,7 @@ def inspect_preview(
                 authoring_target=staged.authoring_identity,
                 predecessor=staged.request.native_predecessor,
                 release=staged.local_release,
+                release_artifacts_sha256=staged.release_artifacts_sha256,
                 changed_paths=paths,
                 effects=staged.effects.model_dump(mode="json"),
                 comparison_status="available"
@@ -508,6 +519,7 @@ def _candidate_view(report: CandidateInspection) -> Table:
         ("Target fingerprint", report.target),
         ("Authoring target", _target_summary(None, report.authoring_target)),
         ("Release", report.release),
+        ("Prepared artifacts SHA-256", report.release_artifacts_sha256 or "unavailable"),
         ("Native revision", report.native_revision or "not applicable"),
         ("Predecessor", report.predecessor or "not applicable"),
         ("Registration", report.registration),
@@ -573,6 +585,10 @@ def inspect_candidate(
                         status = "verified"
                     if dependency_available:
                         check_candidate_files(root, binding)
+                        if not (
+                            binding.release_manifest_sha256 and binding.release_artifacts_sha256
+                        ):
+                            raise ModelError(["candidate lacks exact release product digests"])
                         if binding.target_identity is None:
                             raise ModelError(
                                 ["candidate lacks the approved acquired PostgreSQL target"]
@@ -582,7 +598,7 @@ def inspect_candidate(
                             action_conditions=(
                                 "verify the configured and acquired target",
                                 "verify purpose roles and the applicable native predecessor",
-                                "verify the prepared release identity",
+                                "verify the prepared release identity and artifacts",
                             ),
                         )
             except (ModelError, ResultError, OSError, RecipeError) as error:
@@ -603,6 +619,7 @@ def inspect_candidate(
                 native_revision=binding.revision,
                 predecessor=binding.predecessor,
                 release=binding.release,
+                release_artifacts_sha256=binding.release_artifacts_sha256,
                 target=binding.target,
                 target_profile=binding.target_profile,
                 acquired_target=binding.target_identity,
@@ -697,7 +714,7 @@ def preview(
             release = None
             physical_id = None
             if bound.archive_release or target is not None:
-                from corpus_structure.semantic.metadata import physical_sources_id
+                from corpus_structure.schema.physical import physical_sources_id
 
                 physical_sources = physical_release_sources(root, bound.physical)
                 if physical_sources is not None:
@@ -737,6 +754,7 @@ def preview(
                 release_manifest_sha256=sha256(local.manifest).hexdigest()
                 if local is not None
                 else None,
+                release_artifacts_sha256=local.artifacts_sha256 if local is not None else None,
             )
             artifact = result.directory / "preview.json"
             artifact.write_text(staged.model_dump_json(), encoding="utf-8")
@@ -875,13 +893,7 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                 model_stage(result, "verify preview and prepare release")
                 check_preview(root, staged, applied=True)
                 _, _, _, prepared = _prepare_release(root, staged.request.packs)
-                if (
-                    prepared.release_id != staged.local_release
-                    or sha256(prepared.manifest).hexdigest() != staged.release_manifest_sha256
-                ):
-                    raise ModelError(
-                        ["prepared release identity differs from the reviewed preview"]
-                    )
+                staged.verify_release(prepared)
                 products: dict[str, bytes] = {}
                 if staged.effects.native:
                     settings = state(ctx).settings()
@@ -914,7 +926,7 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                         target_profile=staged.target_profile,
                     )
                 model_stage(result, "bind and publish candidate")
-                binding = Candidate.from_preview(staged, revision, prepared.release_id, products)
+                binding = Candidate.from_preview(staged, revision, prepared, products)
                 if revision:
                     wrapper = result.directory / "migration.py"
                     wrapper.write_bytes(migration_wrapper(binding))

@@ -235,7 +235,6 @@ def check_contract(
         ExecutionAdmissionError,
         admit_execution_release,
     )
-    from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.releases import ReleaseConflict, open_release
@@ -268,12 +267,12 @@ def check_contract(
                 if error.args != (release,):
                     raise
                 raise SemanticRefusal(f"unknown semantic release {release}") from error
-            admit_execution_release(prepared, connection=conn)
+            physical_id = admit_execution_release(prepared, connection=conn)
         emit(
             ContractCheck(
                 release_id=prepared.release_id,
                 execution_model_id=prepared.execution_model_id,
-                physical_id=PHYSICAL_MODEL_ID,
+                physical_id=physical_id,
                 target=selected,
                 acquired=acquired,
             ),

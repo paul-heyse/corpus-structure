@@ -1,12 +1,15 @@
 """Retained-source analysis is a product, not a current-code archive substitute."""
 
 import json
+import os
+import shutil
 import subprocess
 import sys
 from dataclasses import replace
 from functools import lru_cache
 
 import pytest
+import yaml
 
 from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.identity import canonical_bytes
@@ -80,14 +83,32 @@ def test_retained_analysis_read_does_not_consult_current_analyzer(monkeypatch):
     }
 
 
-def test_cold_composed_preparation_retains_independent_analysis_contents():
+def test_cold_composed_preparation_uses_proposed_profile_before_and_after_apply(tmp_path):
+    from corpus_structure.schema.model import MODEL_DIR
+    from corpus_structure.schema.physical import PHYSICAL_ROOT, physical_source_closure
+
     from .test_operation_reporting import report_inputs
 
     bundle = report_inputs()[0]
+    package = MODEL_DIR.parent
+    installed = tmp_path / package.name
+    shutil.copytree(package, installed, ignore=shutil.ignore_patterns("__pycache__"))
+    physical = installed / "model" / "semantic"
+    approved = physical_source_closure(
+        PHYSICAL_ROOT, lambda name: physical.joinpath(name).read_bytes()
+    )
+    proposal = yaml.safe_load(approved[PHYSICAL_ROOT])
+    proposal["imports"].append("reviewed-fixture")
+    approved[PHYSICAL_ROOT] = yaml.safe_dump(proposal).encode()
+    approved["reviewed-fixture.yaml"] = (
+        b"id: https://example.org/reviewed-fixture\nname: reviewed-fixture\n"
+    )
     child = """
 import json, sys
 from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic.composed import composed_dependencies
+from corpus_structure.semantic.contracts import trusted_execution_inputs
+from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
 from corpus_structure.semantic.projection_analysis_products import read_projection_analysis
 from corpus_structure.semantic.types import (
     SourceArtifact, SourceBundle, ResolvedDependencies, PreparationProfile,
@@ -96,31 +117,54 @@ payload = json.load(sys.stdin)
 bundle = SourceBundle(
     payload['root'], tuple(SourceArtifact(n, bytes.fromhex(c)) for n,c in payload['sources']),
 )
+sources = payload['physical']
+execution = trusted_execution_inputs(
+    physical_sources={n: bytes.fromhex(c) for n,c in sources.items()} if sources else None,
+)
 prepared = prepare_release(
-    bundle, composed_dependencies(ResolvedDependencies()), PreparationProfile(version='semantic-2'),
+    bundle, composed_dependencies(ResolvedDependencies(), execution),
+    PreparationProfile(version='semantic-2'),
 )
 product = read_projection_analysis(prepared)
 assert product is not None
 relation = next(item.analysis for item in product.projections if item.family == 'relation')
 print(json.dumps({
+    'installed': PHYSICAL_MODEL_ID, 'prepared': product.physical_id,
+    'release': prepared.release_id, 'artifacts': prepared.artifacts_sha256,
     'profile': json.loads(prepared.manifest)['profile']['version'],
     'types': dict(relation.output_types), 'value': dict(relation.value_dependencies),
     'relational': dict(relation.relational_dependencies),
     'libraries': json.loads(prepared.manifest)['libraries'],
 }))
 """
-    result = subprocess.run(
-        [sys.executable, "-c", child],
-        input=json.dumps(
-            {"root": bundle.root, "sources": [(s.name, s.content.hex()) for s in bundle.sources]}
-        ),
-        text=True,
-        capture_output=True,
-        check=False,
-        timeout=60,
-    )
-    assert result.returncode == 0, result.stderr
-    value = json.loads(result.stdout)
+
+    def prepare(physical_sources):
+        result = subprocess.run(
+            [sys.executable, "-c", child],
+            cwd=tmp_path,
+            env={**os.environ, "PYTHONPATH": str(tmp_path)},
+            input=json.dumps(
+                {
+                    "root": bundle.root,
+                    "sources": [(s.name, s.content.hex()) for s in bundle.sources],
+                    "physical": {n: c.hex() for n, c in physical_sources.items()},
+                }
+            ),
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=90,
+        )
+        assert result.returncode == 0, result.stderr
+        return json.loads(result.stdout)
+
+    value = prepare(approved)
+    assert value.pop("installed") != value["prepared"]
+    for name, content in approved.items():
+        physical.joinpath(name).write_bytes(content)
+    applied = prepare({})
+    assert applied.pop("installed") == value["prepared"]
+    assert applied == value
     assert value["profile"] == "semantic-2"
     assert value["types"]["endpoint_role"] == "TEXT"
     assert "physical:kb.pdf_record_endpoint.role" in value["value"]["endpoint_role"]
@@ -173,7 +217,7 @@ def test_absent_or_incompatible_retained_physical_source_does_not_borrow_install
     result = prepare_projection_analysis(missing)
     assert result is not None
     assert json.loads(result.content)["projections"] == []
-    changed = replace(
+    supported_change = replace(
         deps,
         artifacts=tuple(
             SourceArtifact(a.name, a.content + b"\n# different retained profile\n")
@@ -182,11 +226,27 @@ def test_absent_or_incompatible_retained_physical_source_does_not_borrow_install
             for a in deps.artifacts
         ),
     )
+    result = prepare_projection_analysis(supported_change)
+    assert result is not None
+    value = json.loads(result.content)
+    original = json.loads(product().content)
+    assert len(value["projections"]) == 4
+    assert value["physical_id"] != original["physical_id"]
+    assert value["source_id"] != original["source_id"]
+    source = yaml.safe_load(next(a.content for a in deps.artifacts if a.name == path))
+    source["classes"]["pdf_record_endpoint"]["is_a"] = "UnavailableRetainedShape"
+    changed = replace(
+        deps,
+        artifacts=tuple(
+            SourceArtifact(a.name, yaml.safe_dump(source).encode()) if a.name == path else a
+            for a in deps.artifacts
+        ),
+    )
     result = prepare_projection_analysis(changed)
     assert result is not None
     value = json.loads(result.content)
     assert not value["complete"]
-    assert value["unknowns"][0].startswith("Unsupported retained physical profile:")
+    assert value["unknowns"][0].startswith("Unsupported retained")
     before = with_product(prepared(), product())
     after = with_product(replace(before, release_id="release:unsupported-physical"), result)
     report = compare_semantic_releases(before, after).model_dump(mode="json")

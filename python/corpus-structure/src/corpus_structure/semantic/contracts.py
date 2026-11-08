@@ -22,6 +22,12 @@ from cattrs.v import transform_error
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 from pydantic import ValidationError
 
+from corpus_structure.schema.physical import (
+    PHYSICAL_ROOT,
+    linkml_types_source,
+    physical_source_closure,
+)
+
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
@@ -59,6 +65,45 @@ SEMANTIC_IMPLEMENTATION_NAMES = frozenset(
     }
 )
 
+_PHYSICAL_ARTIFACTS = {
+    PHYSICAL_ROOT: "pdf/record-physical.yaml",
+    "pdf-records.yaml": "pdf/record-model.yaml",
+    "pdf-staging.yaml": "pdf/staging-model.yaml",
+}
+_PHYSICAL_IMPORT_PREFIX = "physical/imports/"
+
+
+def _physical_import_artifact(name: str) -> bool:
+    if not name.startswith(_PHYSICAL_IMPORT_PREFIX):
+        return False
+    filename = name.removeprefix(_PHYSICAL_IMPORT_PREFIX)
+    return (
+        filename.endswith(".yaml") and "/" not in filename and filename not in _PHYSICAL_ARTIFACTS
+    )
+
+
+def physical_import_sources(implementations: Mapping[str, bytes]) -> dict[str, bytes]:
+    """Read the additional physical import artifacts by their local filenames."""
+    return {
+        name.removeprefix(_PHYSICAL_IMPORT_PREFIX): content
+        for name, content in implementations.items()
+        if _physical_import_artifact(name)
+    }
+
+
+def retained_physical_sources(implementations: Mapping[str, bytes]) -> dict[str, bytes]:
+    """Resolve the physical closure from archived execution implementation inputs."""
+    sources = {
+        filename: implementations[artifact]
+        for filename, artifact in _PHYSICAL_ARTIFACTS.items()
+        if artifact in implementations
+    }
+    extra = physical_import_sources(implementations)
+    closure = physical_source_closure(PHYSICAL_ROOT, (sources | extra).get)
+    if not extra.keys() <= closure.keys():
+        raise ValueError("unexpected retained physical imports")
+    return closure
+
 
 def semantic_implementation_inputs(
     inputs: tuple[SourceArtifact, ...],
@@ -68,13 +113,18 @@ def semantic_implementation_inputs(
         source.name
         for source in inputs
         if source.name not in SEMANTIC_IMPLEMENTATION_NAMES
+        and not _physical_import_artifact(source.name)
         and not source.name.endswith((".py", ".sql"))
     }
     if unknown:
         raise ValueError(
             "implementation assets lack a declared role: " + ", ".join(sorted(unknown))
         )
-    return tuple(source for source in inputs if source.name in SEMANTIC_IMPLEMENTATION_NAMES)
+    return tuple(
+        source
+        for source in inputs
+        if source.name in SEMANTIC_IMPLEMENTATION_NAMES or _physical_import_artifact(source.name)
+    )
 
 
 POSTGRESQL_IMPLEMENTATION_SOURCES = (
@@ -1036,29 +1086,18 @@ def trusted_execution_inputs(
 ) -> ExecutionModelInputs:
     """Read bundled code-owned definitions once at an explicit application entry boundary."""
     root = files("corpus_structure").joinpath("model", "semantic")
-    physical = physical_sources or {}
-    replacements = {
-        artifact: physical[filename]
-        for filename, artifact in (
-            ("physical.yaml", "pdf/record-physical.yaml"),
-            ("pdf-records.yaml", "pdf/record-model.yaml"),
-            ("pdf-staging.yaml", "pdf/staging-model.yaml"),
-        )
-        if filename in physical
-    }
     return ExecutionModelInputs(
         trusted_execution_schema(),
         SourceArtifact("execution-model.yaml", root.joinpath("execution-model.yaml").read_bytes()),
-        tuple(
-            SourceArtifact(item.name, replacements[item.name])
-            if item.name in replacements
-            else item
-            for item in semantic_implementation_inputs(analysis_implementation_inputs())
+        semantic_implementation_inputs(
+            analysis_implementation_inputs(physical_sources=physical_sources)
         ),
     )
 
 
-def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
+def analysis_implementation_inputs(
+    *, physical_sources: Mapping[str, bytes] | None = None
+) -> tuple[SourceArtifact, ...]:
     """Acquire implementation determinants explicitly; the compiler never reads installed code."""
     from importlib.metadata import version
     from pathlib import Path
@@ -1067,6 +1106,20 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
     root = files("corpus_structure")
     shipped = files("sympy").joinpath("parsing", "latex", "lark", "grammar", "latex.lark")
     from corpus_structure.ingest.pdf import pdf_package_versions
+
+    model_root = root.joinpath("model/semantic")
+    if physical_sources is None:
+        physical_sources = physical_source_closure(
+            PHYSICAL_ROOT, lambda name: model_root.joinpath(name).read_bytes()
+        )
+
+    def model_source(name: str) -> bytes:
+        if name in physical_sources:
+            return physical_sources[name]
+        return model_root.joinpath(name).read_bytes()
+
+    if PHYSICAL_ROOT not in physical_sources:
+        raise ValueError("explicit physical sources lack the root declaration")
 
     captured = (
         *(
@@ -1147,20 +1200,22 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
             "pdf/section-text-recipe.json",
             root.joinpath("model", "semantic", "section-text-recipe.json").read_bytes(),
         ),
-        SourceArtifact(
-            "pdf/record-model.yaml",
-            root.joinpath("model", "semantic", "pdf-records.yaml").read_bytes(),
-        ),
-        SourceArtifact(
-            "unified/linkml-types.yaml",
-            files("linkml_runtime")
-            .joinpath("linkml_model", "model", "schema", "types.yaml")
-            .read_bytes(),
+        SourceArtifact("pdf/record-model.yaml", model_source("pdf-records.yaml")),
+        SourceArtifact("unified/linkml-types.yaml", linkml_types_source()),
+        SourceArtifact("pdf/record-physical.yaml", physical_sources[PHYSICAL_ROOT]),
+        *(
+            SourceArtifact(_PHYSICAL_IMPORT_PREFIX + name, content)
+            for name, content in sorted(physical_sources.items())
+            if name not in _PHYSICAL_ARTIFACTS
         ),
         *(
-            SourceArtifact(name, root.joinpath(*path.split("/")).read_bytes())
+            SourceArtifact(
+                name,
+                model_source("pdf-staging.yaml")
+                if name == "pdf/staging-model.yaml"
+                else root.joinpath(*path.split("/")).read_bytes(),
+            )
             for name, path in (
-                ("pdf/record-physical.yaml", "model/semantic/physical.yaml"),
                 ("pdf/read-projections.yaml", "model/semantic/read-projections.yaml"),
                 ("pdf/record-relational.py", "schema/relational.py"),
                 ("pdf/record-boundaries.py", "semantic/pdf_record_model.py"),
@@ -1245,6 +1300,8 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                         "duckdb",
                         "sqlglot",
                         "sqlalchemy",
+                        "pgvector",
+                        "pyyaml",
                         "linkml-runtime",
                         "adbc-driver-postgresql",
                         "pgpq",
@@ -1796,6 +1853,7 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
             }
         )
     required_implementations.intersection_update(SEMANTIC_IMPLEMENTATION_NAMES)
+    required_implementations.update(name for name in names if _physical_import_artifact(name))
     if set(names) != required_implementations or len(names) != len(set(names)):
         _fail(
             "analysis_implementation_inputs",

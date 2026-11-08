@@ -3213,6 +3213,7 @@ BEGIN
      scope_ jsonb; size_ numeric; retained_ numeric:=1; tables_ jsonb:='[]'; covered_ jsonb:='[]';
      selected_ jsonb; expected_ jsonb:='[]'; events_ jsonb:='[]'; choices_ jsonb; binding_ jsonb;
      seen_ jsonb:='[]'; index_ integer; position_ integer; table_index_ integer; mass_ numeric; positive_ numeric; displayed_ numeric;
+     probability_tolerance_ CONSTANT numeric:=1e-9; undisplayed_mass_ numeric; inconsistent_ text;
     BEGIN
      IF local_result->>'outcome' NOT IN ('completed','invalid_input','infeasible','numerical_failure','resource_limit','cancelled')
       OR local_result->>'omitted_candidate_mass' IS DISTINCT FROM 'unknown'
@@ -3317,7 +3318,7 @@ BEGIN
       END LOOP;
       FOR key_ IN SELECT value FROM jsonb_array_elements_text(selected_) LOOP
        SELECT sum((m->>'probability')::numeric) INTO mass_ FROM jsonb_array_elements(local_result->'marginals') m WHERE m->>'decision'=key_;
-       IF abs(mass_-1)>1e-9 THEN RAISE EXCEPTION 'local interpretation marginal normalization invalid' USING ERRCODE='23514'; END IF;
+       IF abs(mass_-1)>probability_tolerance_ THEN RAISE EXCEPTION 'local interpretation marginal normalization invalid' USING ERRCODE='23514'; END IF;
       END LOOP;
       FOR d_ IN SELECT value FROM jsonb_array_elements(local_request->'events') LOOP
        IF COALESCE(d_->>'key','')='' OR events_ ? (d_->>'key') OR btrim(COALESCE(d_->>'question',''))='' OR jsonb_array_length(d_->'derivations')=0 THEN
@@ -3370,8 +3371,35 @@ BEGIN
       IF jsonb_array_length(local_result->'alternatives')<>least(displayed_,positive_) THEN
        RAISE EXCEPTION 'local interpretation displayed support count invalid' USING ERRCODE='23514'; END IF;
       SELECT COALESCE(sum((a->>'probability')::numeric),0) INTO mass_ FROM jsonb_array_elements(local_result->'alternatives') a;
-      IF mass_>1+1e-9 OR (jsonb_array_length(local_result->'alternatives')=positive_ AND abs(mass_-1)>1e-9) THEN
+      IF mass_>1+probability_tolerance_ OR (jsonb_array_length(local_result->'alternatives')=positive_
+       AND abs(mass_-1)>probability_tolerance_) THEN
        RAISE EXCEPTION 'local interpretation displayed support probability mass invalid' USING ERRCODE='23514'; END IF;
+      undisplayed_mass_:=CASE WHEN jsonb_array_length(local_result->'alternatives')=positive_ THEN 0
+       ELSE greatest(0,1-mass_) END;
+      -- A marginal is a single choice. An event is a union of conjunctions.
+      -- Test membership once per assignment even when several derivations match.
+      WITH support AS MATERIALIZED (
+       SELECT seen_->(n::integer-1) AS binding,(a->>'probability')::numeric AS mass
+       FROM jsonb_array_elements(local_result->'alternatives') WITH ORDINALITY item(a,n)
+      ), claims(kind,probability,derivations) AS (
+       SELECT 'marginal',(m->>'probability')::numeric,jsonb_build_array(jsonb_build_array(m))
+       FROM jsonb_array_elements(local_result->'marginals') m
+       UNION ALL
+       SELECT 'event',(e->>'probability')::numeric,d->'derivations'
+       FROM jsonb_array_elements(local_result->'event_probabilities') e
+       JOIN jsonb_array_elements(local_request->'events') d ON d->'key'=e->'event'
+      )
+      SELECT claim.kind INTO inconsistent_ FROM claims claim
+      CROSS JOIN LATERAL (
+       SELECT coalesce(sum(a.mass),0) AS mass FROM support a
+       WHERE EXISTS(SELECT FROM jsonb_array_elements(claim.derivations) derivation(choices)
+        WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(derivation.choices) choice(c)
+         WHERE a.binding->>(c->>'decision') IS DISTINCT FROM c->>'candidate'))
+      ) matched
+      WHERE claim.probability NOT BETWEEN matched.mass-probability_tolerance_
+       AND matched.mass+undisplayed_mass_+probability_tolerance_ LIMIT 1;
+      IF inconsistent_ IS NOT NULL THEN
+       RAISE EXCEPTION 'local interpretation % probability differs from displayed support',inconsistent_ USING ERRCODE='23514'; END IF;
      END IF;
     END;
    END IF;
@@ -4156,7 +4184,7 @@ BEGIN
   IF contribution->>'score_state'='native' THEN
    IF contribution->'score'->>'kind' NOT IN ('integer','float') THEN
     RAISE EXCEPTION 'native contribution score requires an actual numeric value' USING ERRCODE='23514'; END IF;
-   IF contribution->'score'->>'kind'='float' THEN PERFORM data.record_source_float(contribution->'score'); END IF;
+   PERFORM data.record_source_json(contribution->'score');
   END IF;
   expected:='source-contribution:'||encode(sha256(convert_to(data.canonical_json(contribution-'contribution_id'),'UTF8')),'hex');
   IF contribution->>'contribution_id' IS DISTINCT FROM expected THEN

@@ -10,8 +10,10 @@ import pytest
 from alembic.script import ScriptDirectory
 from sqlalchemy import insert, select
 from sqlalchemy.engine import URL, make_url
+from sqlalchemy.exc import DBAPIError
 from typer.testing import CliRunner
 
+from corpus_structure.schema.model import ModelError
 from corpus_structure.schema.model_change import generator_fingerprint
 from corpus_structure.schema.model_deployment import (
     Candidate,
@@ -22,10 +24,14 @@ from corpus_structure.schema.model_deployment import (
 )
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.composed import composed_dependencies
+from corpus_structure.semantic.execution_admission import (
+    ExecutionAdmissionError,
+    _verify_deployment_functions,
+)
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.migrations import alembic_config, current_revision
+from corpus_structure.semantic.migrations import alembic_config, current_revision, head_revision
 from corpus_structure.semantic.releases import activation_token
-from corpus_structure.semantic.runtime import connection_settings
+from corpus_structure.semantic.runtime import connection_settings, open_runtime_engine
 from corpus_structure.semantic.storage_target import StorageTargetError, acquired_target
 from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
 from corpus_structure.settings import DeploymentDatabaseSettings
@@ -41,8 +47,8 @@ def test_exact_native_deployment_resumes_before_separate_activation(
     from corpus_structure.cli.output import CliState
     from corpus_structure.semantic import migrations
 
-    predecessor = "semantic_wce_gaps_20261106"
-    revision = "semantic_wce_lineage_20261107"
+    predecessor = "semantic_chandra_pdf_ancestry"
+    revision = "semantic_dma_00_04"
     scripts = ScriptDirectory.from_config(alembic_config())
     script = scripts.get_revision(revision)
     assert script is not None
@@ -119,12 +125,6 @@ def test_exact_native_deployment_resumes_before_separate_activation(
         monkeypatch.setattr(migrations, "ALEMBIC_DIR", versions.parent)
         with engine.begin() as conn:
             assert current_revision(conn) == predecessor
-            assert (
-                conn.exec_driver_sql(
-                    "SELECT to_regprocedure('ops.dossier_contribution_members(jsonb,jsonb)')"
-                ).scalar_one()
-                is not None
-            )
             identity = acquired_target(conn, purpose="maintenance")
             conn.execute(insert(project).values(project_id="model-deployment-control"))
         binding = Candidate(
@@ -138,6 +138,8 @@ def test_exact_native_deployment_resumes_before_separate_activation(
             authoring_target=target_fingerprint(settings),
             target_identity=identity,
             release=prepared.release_id,
+            release_manifest_sha256=sha256(prepared.manifest).hexdigest(),
+            release_artifacts_sha256=prepared.artifacts_sha256,
             packs=(),
             files={},
             hashes={name: sha256(content).hexdigest() for name, content in products.items()},
@@ -177,6 +179,77 @@ def test_exact_native_deployment_resumes_before_separate_activation(
         registered = run("register")
         assert registered.exit_code == 0, registered.output
         assert f"migrations/versions/{revision}.py" in json.loads(registered.stdout)["changed"]
+        # Register an unapplied successor whose descriptor genuinely differs.
+        # Neither older reads nor the exact non-head deployment should use it.
+        future_revision = "semantic_dma_test_successor"
+        admission = products["native_admission.sql"]
+        different_admission = admission.replace(
+            b'"physical_id":"physical:', b'"physical_id":"future:'
+        )
+        assert different_admission != admission
+        successor = binding.model_copy(
+            update={
+                "revision": future_revision,
+                "predecessor": revision,
+                "hashes": binding.hashes
+                | {
+                    "native_admission.sql": sha256(different_admission).hexdigest(),
+                },
+            }
+        )
+        (versions / f"{future_revision}.py").write_bytes(migration_wrapper(successor))
+        (versions / f"{future_revision}_admission.sql").write_bytes(different_admission)
+        (versions / f"{future_revision}_native.json").write_bytes(
+            products["native_operations.json"]
+        )
+        (versions / f"{future_revision}_upgrade.txt").write_bytes(products["native_candidate.py"])
+        assert head_revision() == future_revision
+        with (
+            open_runtime_engine(destination, "dma-test-older-read", purpose="read") as reader,
+            reader.connect() as conn,
+        ):
+            assert _verify_deployment_functions(conn).startswith("physical:")
+
+        with engine.connect() as conn:
+            conn.exec_driver_sql(
+                "GRANT EXECUTE ON FUNCTION data.execution_contract_descriptor() TO PUBLIC"
+            )
+            with pytest.raises(
+                ExecutionAdmissionError, match="native execution deployment differs"
+            ):
+                _verify_deployment_functions(conn, revision=predecessor)
+
+        def write_installed_revision(label):
+            with engine.begin() as conn:
+                conn.exec_driver_sql("UPDATE semantic_alembic_version SET version_num=%s", (label,))
+
+        write_installed_revision("semantic_wce_lineage_20261107")
+        try:
+            with pytest.raises(ModelError, match="differs from the approved predecessor"):
+                deploy_candidate(
+                    tmp_path,
+                    settings,
+                    binding,
+                    prepared_input,
+                    report=lambda _: pytest.fail("unexpected effect"),
+                )
+        finally:
+            write_installed_revision(predecessor)
+
+        with engine.begin() as conn:
+            conn.exec_driver_sql("ALTER VIEW data.selected_fact RENAME TO selected_fact_drift")
+        try:
+            with pytest.raises(ExecutionAdmissionError, match="selected-fact view differs"):
+                deploy_candidate(
+                    tmp_path,
+                    settings,
+                    binding,
+                    prepared_input,
+                    report=lambda _: pytest.fail("unexpected effect"),
+                )
+        finally:
+            with engine.begin() as conn:
+                conn.exec_driver_sql("ALTER VIEW data.selected_fact_drift RENAME TO selected_fact")
         installed_wrapper = versions / f"{revision}.py"
         marker = tmp_path / "unapproved-wrapper-executed"
         original = installed_wrapper.read_bytes()
@@ -204,6 +277,22 @@ def test_exact_native_deployment_resumes_before_separate_activation(
                 prepared_input,
                 report=lambda _: pytest.fail("unexpected effect"),
             )
+        wrong_purpose = settings.model_copy(
+            update={
+                "deployment": settings.deployment.model_copy(
+                    update={"admission_url": authentication("read")}
+                ),
+            }
+        )
+        with pytest.raises(DBAPIError, match="mismatched runtime principal for admit") as denied:
+            deploy_candidate(
+                tmp_path,
+                wrong_purpose,
+                binding,
+                prepared_input,
+                report=lambda _: pytest.fail("unexpected effect"),
+            )
+        assert getattr(denied.value.orig, "sqlstate", None) == "42501"
         with engine.begin() as conn:
             assert current_revision(conn) == predecessor
 

@@ -41,7 +41,7 @@ def _source_view(inputs):
     from linkml_runtime.loaders import yaml_loader
     from linkml_runtime.utils.schemaview import SchemaView
 
-    from .contracts import _fail
+    from .contracts import _fail, physical_import_sources
 
     artifacts = {item.name: item.content for item in inputs.implementations}
     names = {
@@ -63,6 +63,12 @@ def _source_view(inputs):
         if artifact not in artifacts:
             _fail("operation_source", artifact, "required source module is unavailable")
         supplied[name] = artifacts[artifact]
+    roots = list(supplied)
+    for filename, content in physical_import_sources(artifacts).items():
+        name = filename.removesuffix(".yaml")
+        if name in supplied or name in aliases:
+            _fail("operation_source", name, "physical import conflicts with a declared module")
+        supplied[name] = content
     schemas = {}
     try:
         for name, content in supplied.items():
@@ -89,7 +95,7 @@ def _source_view(inputs):
             if str(imported) not in schemas:
                 _fail("operation_source", name, "undeclared import " + str(imported))
     root = SchemaDefinition(
-        id="urn:corpus:operation-sources", name="operation_sources", imports=list(schemas)
+        id="urn:corpus:operation-sources", name="operation_sources", imports=roots
     )
     schemas["operation_sources"] = root
     importmap: dict[str, dict[str, Any] | str] = {}

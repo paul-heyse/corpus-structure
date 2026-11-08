@@ -105,6 +105,15 @@ current executable package or alter the old release to populate a missing runtim
 transition changes the forward model/ABI once; incidental later operational repairs do not change
 the meaning or identity of data. Actual acceptance is owned by the PCE coordinator.
 
+**Implemented (2026-11-08), forward deployment.** Model change verifies the acquired
+endpoint, purpose and exact frozen predecessor before migration. It verifies the
+successor's catalog within the migration transaction and checks the reached revision
+again before archive and admission. Read and admission principals identify the frozen
+contract from installed catalog facts using their own connections. Registering a
+successor leaves the acquired revision's contract in force. Activation remains a
+separate operation.
+[Deployment qualification](../plans/domain-model-alignment_2026-11-08.md#dma-00-through-dma-04-execution)
+
 > Decision: [ADR-0063](../adr/0063-semantic-runtime-identity.md)
 
 ## M1 protected reference storage

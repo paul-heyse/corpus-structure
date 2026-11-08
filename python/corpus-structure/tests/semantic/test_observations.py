@@ -5,7 +5,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, JsonValue
 
 from corpus_structure.core.method import ObservationDraft, UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationKind, ObservationOutcome, TaskUnitType
@@ -60,6 +60,64 @@ def test_source_tree_rejects_nonfinite_numbers_nonstring_fields_and_duplicate_na
                 ],
             }
         )
+
+
+def nested_source_detail() -> Mapping[str, JsonValue]:
+    return {"nested": [{"Name": None, "name": False, "é": 1, "e\u0301": 2}]}
+
+
+def malform_source_fields(fields, case):
+    if case == "gap":
+        fields[1]["position"] = len(fields)
+    elif case == "order":
+        fields[0], fields[1] = fields[1], fields[0]
+    elif case == "repeat":
+        # A duplicate with identical meaning would silently collapse in JSON aggregation.
+        fields.append(dict(fields[0], position=len(fields)))
+
+
+def test_source_tree_keeps_exact_field_names_and_explicit_null_false():
+    detail = nested_source_detail()
+    restored = source_python(source_value(detail))["nested"][0]
+    assert list(restored) == ["Name", "name", "é", "e\u0301"]
+    assert restored["Name"] is None and restored["name"] is False
+    assert "absent" not in restored
+
+
+@pytest.mark.parametrize("case", ("gap", "order", "repeat"))
+def test_nested_source_object_refuses_malformed_fields(case):
+    import json
+
+    encoded = json.loads(json.dumps(source_value(nested_source_detail())))
+    fields = encoded["fields"][0]["value"]["items"][0]["fields"]
+    malform_source_fields(fields, case)
+    with pytest.raises(ValueError, match=r"source report.*(ordered|repeated)"):
+        source_python(encoded)
+
+
+@pytest.mark.parametrize("position", (False, 0.0, "0"))
+def test_source_object_position_requires_exact_integer(position):
+    with pytest.raises(ValueError, match="contiguous and ordered"):
+        source_python(
+            {
+                "kind": "object",
+                "fields": [{"position": position, "name": "x", "value": {"kind": "null"}}],
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    "encoded",
+    (
+        {"kind": "integer", "integer": False},
+        {"kind": "integer", "integer": 1.0},
+        {"kind": "boolean", "boolean": 0},
+        {"kind": "float", "hexadecimal": "0x1p+0"},
+    ),
+)
+def test_source_scalar_requires_declared_canonical_type(encoded):
+    with pytest.raises(ValueError, match="source report"):
+        source_python(encoded)
 
 
 class Payload(BaseModel):

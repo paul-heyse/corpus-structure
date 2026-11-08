@@ -61,6 +61,42 @@ def test_native_recordless_completion_reopen_and_zero_output_operations(private_
         assert len({row["occurrence_id"] for row in inventory.contributions}) == 1
 
 
+def test_native_completion_checks_nested_source_detail_before_retention(private_source):
+    from copy import deepcopy
+    from dataclasses import replace
+
+    from corpus_structure.semantic.observations import source_python
+
+    from .test_observations import malform_source_fields, nested_source_detail
+
+    case = private_source
+    detail = nested_source_detail()
+    original = envelope(case, replace(drafts(case), parse_detail=detail))
+    task_result = table("ops.task_result")
+    with case.writer.begin() as conn:
+        for mutation in ("gap", "order", "repeat"):
+            raw = deepcopy(original)
+            fields = raw["parse_detail"]["fields"][0]["value"]["items"][0]["fields"]
+            malform_source_fields(fields, mutation)
+            with (
+                pytest.raises(DBAPIError, match=r"source report.*(ordered|repeated)"),
+                conn.begin_nested(),
+            ):
+                bypass(case, conn, raw)
+        assert (
+            conn.scalar(select(task_result.c.body).where(task_result.c.task_id == case.task))
+            is None
+        )
+        assert not conn.execute(select(table("kb.source_contribution"))).first()
+        bypass(case, conn, original)
+        retained = conn.scalar(select(task_result.c.body).where(task_result.c.task_id == case.task))
+        assert retained["parse_detail"] == original["parse_detail"]
+        restored = source_python(retained["parse_detail"])["nested"][0]
+        assert list(restored) == ["Name", "name", "é", "e\u0301"]
+        assert restored["Name"] is None and restored["name"] is False
+        assert "absent" not in restored
+
+
 def test_native_anchorless_occurrence_spoof_refuses_at_protected_completion(private_source):
     case = private_source
     raw = envelope(case, drafts(case))
@@ -550,6 +586,78 @@ def test_native_local_question_refuses_resealed_invalid_numerical_products(priva
             report["seal"] = _digest({k: v for k, v in report.items() if k != "seal"})
             with pytest.raises(DBAPIError, match="local interpretation"), conn.begin_nested():
                 bypass(case, conn, raw)
+
+
+@pytest.mark.parametrize("displayed", (2, 4))
+def test_native_joint_probabilities_require_consistency_with_displayed_support(
+    private_source, displayed
+):
+    from copy import deepcopy
+    from dataclasses import replace
+
+    from corpus_structure.methods.local_interpretation import local_question_operation
+    from corpus_structure.methods.record_readings import _digest
+    from corpus_structure.semantic.observations import source_python, source_value
+    from corpus_structure.semantic.record_interpretation import CandidateSelection, SearchLimits
+
+    from .test_local_interpretation import local_request
+    from .test_local_interpretation_reports import (
+        assert_joint_probabilities,
+        forge_joint_probability,
+        joint_events,
+    )
+
+    case = private_source
+    result = drafts(case)
+    assert result.contributions is not None and result.contribution_operations is not None
+    arguments = dict(
+        question="joint interpretation with overlapping event derivations",
+        contributions=result.contributions,
+        dependency_ids=("source",),
+    )
+    scope = local_question_operation(**arguments)["operation_key"]
+    request = replace(
+        local_request(),
+        selection=CandidateSelection(scope, ("source",)),
+        events=joint_events(),
+        limits=SearchLimits(displayed_alternatives=displayed),
+    )
+    operation = local_question_operation(**arguments, request=request)
+    result = replace(result, contribution_operations=(*result.contribution_operations, operation))
+    original = envelope(case, result)
+    mutations = (
+        ("zero_event", "overclaimed_event", "marginal")
+        if displayed == 2
+        else ("double_counted_union",)
+    )
+    with case.writer.begin() as conn:
+        for mutation in mutations:
+            raw = deepcopy(original)
+            report = raw["contribution_operations"][-1]["local_interpretation"]
+            output = source_python(report["result"])
+            forge_joint_probability(output, mutation)
+            report["result"] = source_value(output)
+            report["result_digest"] = _digest(report["result"])
+            report["seal"] = _digest({k: v for k, v in report.items() if k != "seal"})
+            claim = "marginal" if mutation == "marginal" else "event"
+            with (
+                pytest.raises(
+                    DBAPIError, match=f"{claim} probability differs from displayed support"
+                ),
+                conn.begin_nested(),
+            ):
+                bypass(case, conn, raw)
+        assert not conn.execute(select(table("kb.source_contribution"))).first()
+        bypass(case, conn, original)
+        inventory = read_source_contributions(
+            conn, prepared=case.prepared, run_id=case.run, include_details=True
+        )
+        (local,) = [
+            op["local_interpretation"]
+            for op in inventory.operations
+            if "local_interpretation" in op
+        ]
+        assert_joint_probabilities(source_python(local["result"]), displayed)
 
 
 def test_native_located_component_custody_and_basis_refusal(private_source):

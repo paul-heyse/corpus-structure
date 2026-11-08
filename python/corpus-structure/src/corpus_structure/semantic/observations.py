@@ -108,31 +108,59 @@ def source_value(value: Any) -> dict[str, Any]:
 
 
 def source_python(value: Mapping[str, Any]) -> Any:
-    """Decode a validated source value without conflating null, absence or false."""
-    kind = value["kind"]
+    """Decode a source value without conflating null, absence or false."""
+    if not isinstance(value, Mapping):
+        raise ValueError("source report value must be an object")
+    kind = value.get("kind")
     if kind == "null":
         return None
     if kind == "boolean":
+        if type(value.get("boolean")) is not bool:
+            raise ValueError("source report boolean must be a Boolean")
         return value["boolean"]
     if kind == "integer":
+        if type(value.get("integer")) is not int:
+            raise ValueError("source report integer must be an integer")
         return value["integer"]
     if kind == "float":
-        result = float.fromhex(value["hexadecimal"])
+        lexical = value.get("hexadecimal")
+        if type(lexical) is not str:
+            raise ValueError("source report float must use hexadecimal text")
+        try:
+            result = float.fromhex(lexical)
+        except (ValueError, OverflowError) as exc:
+            raise ValueError("source report contains an invalid hexadecimal float") from exc
         if not math.isfinite(result):
             raise ValueError("source report contains a nonfinite number")
+        if result.hex() != lexical:
+            raise ValueError("source report contains a noncanonical hexadecimal float")
         return result
     if kind == "text":
+        if type(value.get("text")) is not str:
+            raise ValueError("source report text must be a string")
         return value["text"]
     if kind == "array":
-        return [source_python(item) for item in value.get("items", ())]
+        items = value.get("items", ())
+        if not isinstance(items, (list, tuple)):
+            raise ValueError("source report items must be an array")
+        return [source_python(item) for item in items]
     if kind == "object":
         fields = value.get("fields", ())
-        if [field["position"] for field in fields] != list(range(len(fields))):
-            raise ValueError("source report fields are not contiguous and ordered")
-        names = [field["name"] for field in fields]
-        if len(names) != len(set(names)):
-            raise ValueError("source report contains a repeated field name")
-        return {field["name"]: source_python(field["value"]) for field in fields}
+        if not isinstance(fields, (list, tuple)):
+            raise ValueError("source report fields must be an array")
+        decoded = {}
+        for position, field in enumerate(fields):
+            if not isinstance(field, Mapping) or type(field.get("name")) is not str:
+                raise ValueError("source report field must have a string name")
+            if type(field.get("position")) is not int or field["position"] != position:
+                raise ValueError("source report fields are not contiguous and ordered")
+            name = field["name"]
+            if name in decoded:
+                raise ValueError("source report contains a repeated field name")
+            if "value" not in field:
+                raise ValueError("source report field requires an encoded value")
+            decoded[name] = source_python(field["value"])
+        return decoded
     raise ValueError(f"unknown source report kind {kind}")
 
 

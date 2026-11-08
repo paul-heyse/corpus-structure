@@ -268,6 +268,8 @@ def test_candidate_registration_requires_exact_installed_artifacts(
             purpose="maintenance",
         ),
         release="release",
+        release_manifest_sha256="1" * 64,
+        release_artifacts_sha256="2" * 64,
         packs=(),
         files={},
         hashes={name: sha256(body).hexdigest() for name, body in products.items()},

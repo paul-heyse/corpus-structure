@@ -14,15 +14,22 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import Literal
 
-import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.schema import change, model, preparation
 from corpus_structure.schema.change import ChangeRecord
+from corpus_structure.schema.physical import (
+    PHYSICAL_ROOT,
+    compile_physical,
+    physical_source_closure,
+    physical_sources_id,
+)
 from corpus_structure.semantic.storage_target import StorageTarget
+from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.settings import DeploymentProfile
 
-_PHYSICAL = (preparation.MODEL_PATH / "semantic" / "physical.yaml").as_posix()
+_PHYSICAL_DIR = preparation.MODEL_PATH / "semantic"
+_PHYSICAL = (_PHYSICAL_DIR / PHYSICAL_ROOT).as_posix()
 
 
 class NativeEffect(BaseModel):
@@ -114,7 +121,35 @@ class ChangePreview(BaseModel):
     comparison: dict | None = None
     local_release: str | None = None
     release_manifest_sha256: str | None = None
+    release_artifacts_sha256: str | None = None
     discovery: dict | None = None
+
+    def verify_release(self, prepared: PreparedRelease) -> None:
+        verify_release_products(
+            prepared,
+            release=self.local_release,
+            manifest_sha256=self.release_manifest_sha256,
+            artifacts_sha256=self.release_artifacts_sha256,
+            binding="the reviewed preview",
+        )
+
+
+def verify_release_products(
+    prepared: PreparedRelease,
+    *,
+    release: str | None,
+    manifest_sha256: str | None,
+    artifacts_sha256: str | None,
+    binding: str,
+) -> None:
+    if not artifacts_sha256 or not manifest_sha256:
+        raise model.ModelError(
+            [f"{binding} lacks exact release product digests; prepare a fresh preview"]
+        )
+    if prepared.release_id != release or sha256(prepared.manifest).hexdigest() != manifest_sha256:
+        raise model.ModelError([f"prepared release identity differs from {binding}"])
+    if prepared.artifacts_sha256 != artifacts_sha256:
+        raise model.ModelError([f"prepared release artifacts differ from {binding}"])
 
 
 def _git(root: Path, *args: str) -> str:
@@ -175,70 +210,24 @@ def native_intent(retire: tuple[NativeEffect, ...], recreate: tuple[NativeEffect
     return removed, replaced
 
 
-def _physical_closure(root: Path, content: str, *, baseline: str | None = None) -> dict[str, str]:
-    base = Path(_PHYSICAL).parent
-    sources: dict[str, str] = {}
+def _physical_closure(root: Path, content: str, *, baseline: str | None = None) -> dict[str, bytes]:
+    def read(name: str) -> bytes | None:
+        if name == PHYSICAL_ROOT:
+            return content.encode()
+        relative = (_PHYSICAL_DIR / name).as_posix()
+        value = _git(root, "show", f"{baseline}:{relative}") if baseline else _read(root, relative)
+        return None if value is None else value.encode()
 
-    def visit(path: str, value: str) -> None:
-        if path in sources:
-            return
-        sources[path] = value
-        document = yaml.safe_load(value)
-        if not isinstance(document, dict):
-            raise model.ModelError([f"invalid physical declaration: {path}"])
-        for imported in document.get("imports", ()):
-            if imported == "linkml:types":
-                continue
-            if not isinstance(imported, str) or Path(imported).name != imported or ":" in imported:
-                raise model.ModelError([f"unsupported physical import in {path}"])
-            relative = (base / (imported + ".yaml")).as_posix()
-            source = (
-                _git(root, "show", f"{baseline}:{relative}") if baseline else _read(root, relative)
-            )
-            if source is None:
-                raise model.ModelError([f"missing physical import: {relative}"])
-            visit(relative, source)
-
-    visit(_PHYSICAL, content)
-    return sources
+    return physical_source_closure(PHYSICAL_ROOT, read)
 
 
-def _physical_bytes(sources: dict[str, str]) -> dict[str, bytes]:
-    base = Path(_PHYSICAL).parent
-    return {
-        Path(path).relative_to(base).as_posix(): value.encode() for path, value in sources.items()
-    }
-
-
-def _physical_id(sources: dict[str, str]) -> str:
-    from corpus_structure.semantic.metadata import physical_sources_id
-
-    return physical_sources_id(_physical_bytes(sources))
+def _physical_worktree_files(sources: dict[str, bytes]) -> dict[str, str]:
+    return {(_PHYSICAL_DIR / name).as_posix(): value.decode() for name, value in sources.items()}
 
 
 def physical_release_sources(root: Path, proposed: str | None = None) -> dict[str, bytes] | None:
     content = _read(root, _PHYSICAL) if proposed is None else proposed
-    return None if content is None else _physical_bytes(_physical_closure(root, content))
-
-
-def _compile_physical(sources: dict[str, str]):
-    from linkml_runtime.utils.schemaview import SchemaView
-
-    from corpus_structure.schema.relational import compile_metadata
-
-    with TemporaryDirectory(prefix="cs-physical-preview-") as directory:
-        root = Path(directory)
-        for path, content in sources.items():
-            (root / Path(path).name).write_text(content, encoding="utf-8")
-        try:
-            metadata = compile_metadata(
-                SchemaView(str(root / Path(_PHYSICAL).name)), target="semantic"
-            )
-        except (ValueError, TypeError, KeyError) as error:
-            raise model.ModelError([f"invalid physical declaration: {error}"]) from error
-    metadata.info["physical_model_id"] = _physical_id(sources)
-    metadata.info["physical_sources"] = _physical_bytes(sources)
-    return metadata
+    return None if content is None else _physical_closure(root, content)
 
 
 def approved_physical_metadata(root: Path, preview: ChangePreview):
@@ -246,9 +235,9 @@ def approved_physical_metadata(root: Path, preview: ChangePreview):
     if source is None or preview.effects.physical is None:
         raise model.ModelError(["native candidate lacks the approved physical declaration"])
     sources = _physical_closure(root, source)
-    if _physical_id(sources) != preview.effects.physical[1]:
+    if physical_sources_id(sources) != preview.effects.physical[1]:
         raise model.ModelError(["applied physical inputs differ from the approved preview"])
-    return _compile_physical(sources)
+    return compile_physical(sources)
 
 
 def prepare_preview(
@@ -263,6 +252,7 @@ def prepare_preview(
     comparison: dict | None = None,
     local_release: str | None = None,
     release_manifest_sha256: str | None = None,
+    release_artifacts_sha256: str | None = None,
     expected_physical: str | None = None,
 ) -> ChangePreview:
     root = root.resolve()
@@ -346,18 +336,17 @@ def prepare_preview(
         requested_physical = _physical_closure(
             root, physical_input if request.physical is None else request.physical
         )
-        _compile_physical(requested_physical)
-        physical = (_physical_id(original_physical), _physical_id(requested_physical))
+        compile_physical(requested_physical)
+        physical = (physical_sources_id(original_physical), physical_sources_id(requested_physical))
         if expected_physical is not None and expected_physical != physical[1]:
             raise model.ModelError(["physical release inputs changed during preview"])
-        original.update(original_physical)
+        original_files = _physical_worktree_files(original_physical)
+        requested_files = _physical_worktree_files(requested_physical)
+        original.update(original_files)
         current.update(
-            {
-                path: _read(root, path)
-                for path in original_physical.keys() | requested_physical.keys()
-            }
+            {path: _read(root, path) for path in original_files.keys() | requested_files.keys()}
         )
-        source.update(requested_physical)
+        source.update(requested_files)
         for path in _git(
             root, "ls-files", "-z", "--", str(preparation.PACKAGE_PATH / "semantic")
         ).split("\0"):
@@ -410,7 +399,14 @@ def prepare_preview(
     if native:
         checks.extend(("physical_compilation", "acquired_predecessor", "native_admission"))
     if admission:
-        checks.extend(("prepared_release_identity", "release_admission", "acquired_target"))
+        checks.extend(
+            (
+                "prepared_release_identity",
+                "prepared_release_artifacts",
+                "release_admission",
+                "acquired_target",
+            )
+        )
     return ChangePreview(
         workspace=str(root),
         head=head,
@@ -450,6 +446,7 @@ def prepare_preview(
         comparison=comparison,
         local_release=local_release,
         release_manifest_sha256=release_manifest_sha256,
+        release_artifacts_sha256=release_artifacts_sha256,
         discovery=locate_consumers(root, head, identifiers, comparison=comparison)
         if identifiers or comparison
         else None,

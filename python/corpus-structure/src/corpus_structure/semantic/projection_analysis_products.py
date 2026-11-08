@@ -15,12 +15,16 @@ from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 from pydantic import ConfigDict, TypeAdapter, ValidationError
 from pydantic.dataclasses import dataclass
 
+from corpus_structure.schema.physical import compile_physical
+
+from .contracts import retained_physical_sources
 from .determinants import projection_analysis_runtime
 from .identity import canonical_bytes
-from .metadata import PHYSICAL_MODEL_ID, metadata, physical_sources_id
 from .projection_analysis import ProjectionAnalysis, analyze_recipe
 from .refusals import SemanticRefusal
 from .types import (
+    SEMANTIC_COMPILER_VERSION,
+    PreparationError,
     PreparedArtifact,
     PreparedRelease,
     ResolvedDependencies,
@@ -102,6 +106,15 @@ def _projection_view(bundle: SourceBundle) -> SchemaView:
     return SchemaView(merged)
 
 
+def _unavailable(*unknowns: str) -> PreparedArtifact:
+    return PreparedArtifact(
+        ARTIFACT,
+        canonical_bytes(
+            dict(version="projection-analysis-2", complete=False, unknowns=unknowns, projections=[])
+        ),
+    )
+
+
 def prepare_projection_analysis(dependencies: ResolvedDependencies) -> PreparedArtifact | None:
     from .companion_projection import FAMILIES, prepare_projection
 
@@ -110,69 +123,62 @@ def prepare_projection_analysis(dependencies: ResolvedDependencies) -> PreparedA
     if name not in supplied:
         return None
     # Direct callers must not bypass captured/runtime qualification either.
-    projection_analysis_runtime(dependencies)
+    runtime = projection_analysis_runtime(dependencies)
     required = {
         "companion-projections": name,
         "pdf-products": "execution/schema/pdf_products",
         "pdf-records": _PREFIX + "pdf/record-model.yaml",
         "pdf-staging": _PREFIX + "pdf/staging-model.yaml",
     }
-    missing = sorted(set(required.values()) - supplied.keys())
-    physical_name = _PREFIX + "pdf/record-physical.yaml"
-    if missing or physical_name not in supplied:
-        return PreparedArtifact(
-            ARTIFACT,
-            canonical_bytes(
-                dict(
-                    version="projection-analysis-2",
-                    complete=False,
-                    unknowns=[
-                        "Required retained projection source unavailable: " + item
-                        for item in [*missing, physical_name]
-                        if item not in supplied
-                    ],
-                    projections=[],
-                )
-            ),
-        )
-    physical_id = physical_sources_id(
-        {
-            "physical.yaml": supplied[physical_name],
-            "pdf-records.yaml": supplied[required["pdf-records"]],
-            "pdf-staging.yaml": supplied[required["pdf-staging"]],
-        }
+    types_name = _PREFIX + "unified/linkml-types.yaml"
+    missing = sorted(
+        {*required.values(), _PREFIX + "pdf/record-physical.yaml", types_name} - supplied.keys()
     )
-    if physical_id != PHYSICAL_MODEL_ID:
-        return PreparedArtifact(
-            ARTIFACT,
-            canonical_bytes(
-                dict(
-                    version="projection-analysis-2",
-                    complete=False,
-                    unknowns=["Unsupported retained physical profile: " + physical_id],
-                    projections=[],
-                )
-            ),
+    if missing:
+        return _unavailable(
+            *("Required retained projection source unavailable: " + item for item in missing)
         )
+    linkml_types = supplied[types_name]
+    try:
+        physical = compile_physical(
+            retained_physical_sources(
+                {
+                    name.removeprefix(_PREFIX): content
+                    for name, content in supplied.items()
+                    if name.startswith(_PREFIX)
+                }
+            ),
+            linkml_types=linkml_types,
+        )
+    except ValueError as error:
+        return _unavailable("Unsupported retained physical profile: " + str(error))
+    physical_id = physical.info["physical_model_id"]
     bundle = SourceBundle(
         "companion-projections",
         tuple(SourceArtifact(alias, supplied[path]) for alias, path in required.items()),
     )
     view = _projection_view(bundle)
     source_id = sha256(
-        b"corpus-projection-analysis-sources-1\0"
-        + canonical_bytes({source.name: source.digest for source in bundle.sources})
+        b"corpus-projection-analysis-sources-2\0"
+        + canonical_bytes(
+            {
+                "recipe": {source.name: source.digest for source in bundle.sources},
+                "physical_id": physical_id,
+                "linkml_types_sha256": sha256(linkml_types).hexdigest(),
+                "compiler_version": SEMANTIC_COMPILER_VERSION,
+                "runtime": runtime,
+            }
+        )
     ).hexdigest()
     reports = []
     complete = True
     for family in FAMILIES:
-        prepared = prepare_projection(
-            view,
-            family,
-            projection_id="projection:" + source_id,
-            physical=metadata,
-            physical_id=physical_id,
-        )
+        try:
+            prepared = prepare_projection(
+                view, family, projection_id="projection:" + source_id, physical=physical
+            )
+        except PreparationError as error:
+            return _unavailable("Unsupported retained projection profile: " + str(error))
         analysis = analyze_recipe(prepared.recipe)
         complete = complete and not analysis.unknowns
         reports.append(dict(family=family, analysis=asdict(analysis)))

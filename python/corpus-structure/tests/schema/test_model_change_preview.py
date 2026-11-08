@@ -4,6 +4,8 @@ import json
 import shutil
 import subprocess
 from contextlib import nullcontext
+from dataclasses import replace
+from hashlib import sha256
 
 import pytest
 import yaml
@@ -11,7 +13,12 @@ from typer.testing import CliRunner
 
 from corpus_structure.schema import generate, model, preparation
 from corpus_structure.schema.change import ChangeRecord, ElementChange
-from corpus_structure.schema.model_change import ChangeRequest, apply_preview, prepare_preview
+from corpus_structure.schema.model_change import (
+    ChangePreview,
+    ChangeRequest,
+    apply_preview,
+    prepare_preview,
+)
 from corpus_structure.schema.model_deployment import (
     Candidate,
     deploy_candidate,
@@ -74,16 +81,41 @@ def test_invalid_revision_refuses_before_render_or_write(model_checkout, monkeyp
 
 
 def test_release_candidate_must_match_the_reviewed_release(model_checkout):
+    from corpus_structure.semantic.types import PreparedArtifact, PreparedRelease
+
     root, _ = model_checkout
+    artifacts = (
+        PreparedArtifact("required.json", b'{"meaning":"reviewed"}'),
+        PreparedArtifact("another.json", b"{}"),
+    )
+    prepared = PreparedRelease("reviewed", b"manifest", (), (), (), (), artifacts, (), (), ())
     preview = prepare_preview(
         root,
         ChangeRequest(deployment=True, packs=("fixture",)),
         target="target",
         local_release="reviewed",
+        release_manifest_sha256=sha256(prepared.manifest).hexdigest(),
+        release_artifacts_sha256=prepared.artifacts_sha256,
     )
     with pytest.raises(model.ModelError, match="differs from the reviewed preview"):
-        Candidate.from_preview(preview, None, "different", {})
-    assert Candidate.from_preview(preview, None, "reviewed", {}).release == "reviewed"
+        Candidate.from_preview(preview, None, replace(prepared, release_id="different"), {})
+    with pytest.raises(model.ModelError, match="artifacts differ from the reviewed preview"):
+        Candidate.from_preview(
+            preview,
+            None,
+            replace(prepared, artifacts=(replace(artifacts[0], content=b"changed"), artifacts[1])),
+            {},
+        )
+    accepted = Candidate.from_preview(
+        preview, None, replace(prepared, artifacts=tuple(reversed(artifacts))), {}
+    )
+    assert accepted.release == "reviewed"
+    assert accepted.release_artifacts_sha256 == prepared.artifacts_sha256
+    older = ChangePreview.model_validate_json(
+        preview.model_dump_json(exclude={"release_artifacts_sha256"})
+    )
+    with pytest.raises(model.ModelError, match="lacks exact release product digests"):
+        Candidate.from_preview(older, None, prepared, {})
 
 
 def test_explicit_postgresql_route_refuses_ambient_routing(monkeypatch):
@@ -143,6 +175,7 @@ def test_structural_discovery_qualifies_coordinates_without_claiming_binding(mod
 
 
 def test_deployment_preview_binds_separate_authoring_and_destination(model_checkout, monkeypatch):
+    from corpus_structure.cli import model as commands
     from corpus_structure.cli import recipes, schema
     from corpus_structure.cli.app import app
     from corpus_structure.cli.output import CliState
@@ -279,6 +312,28 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     assert applied.exit_code == 0, applied.output
     assert "reviewed_fixture" in physical_path.read_text()
 
+    acquire = commands._prepare_release
+
+    def altered_release(*args, **kwargs):
+        bundle, dependencies, profile, prepared = acquire(*args, **kwargs)
+        assert prepared.artifacts
+        artifact, *others = prepared.artifacts
+        changed = replace(
+            prepared, artifacts=(replace(artifact, content=artifact.content + b" "), *others)
+        )
+        return bundle, dependencies, profile, changed
+
+    with monkeypatch.context() as altered:
+        altered.setattr(commands, "_prepare_release", altered_release)
+        altered.setattr(
+            schema,
+            "author_native_candidate",
+            lambda *_, **__: pytest.fail("altered release reached native authoring"),
+        )
+        refused = run(["candidate", preview["result_id"]], settings)
+    assert refused.exit_code == 1
+    assert "prepared release artifacts differ from the reviewed preview" in refused.output
+
     refused = run(["candidate", preview["result_id"]], changed_development)
     assert refused.exit_code != 0
     assert "development authoring target differs" in refused.output
@@ -290,12 +345,24 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     )
     assert binding.release == preview["release"]
     assert binding.release_manifest_sha256 is not None
+    assert binding.release_artifacts_sha256 is not None
     assert binding.target_profile == "deployment"
     assert binding.target == destination_id
     assert binding.authoring_target == development
     assert binding.target_identity == destination_identity
     with pytest.raises(model.ModelError, match="deployment target differs"):
         deploy_candidate(root, changed_destination, binding, (), report=lambda _: None)
+    older = Candidate.model_validate_json(
+        binding.model_dump_json(exclude={"release_artifacts_sha256"})
+    )
+    with pytest.raises(model.ModelError, match="lacks exact release product digests"):
+        deploy_candidate(
+            root,
+            settings,
+            older,
+            acquire(root, binding.packs),
+            report=lambda _: pytest.fail("older receipt reached a deployment effect"),
+        )
     registered = run(["register", authored_id], settings)
     assert registered.exit_code == 0, registered.output
     assert migrations.head_revision() == "after"

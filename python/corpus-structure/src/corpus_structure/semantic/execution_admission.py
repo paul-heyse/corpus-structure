@@ -8,6 +8,8 @@ the execution lifecycle contracts cannot activate until their SP-C03 guards exis
 from __future__ import annotations
 
 import ast
+import json
+from dataclasses import dataclass
 from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path
@@ -41,7 +43,7 @@ class ExecutionAdmissionError(SemanticRefusal):
 
 def admit_execution_release(
     prepared: PreparedRelease, *, connection: Connection | None = None
-) -> None:
+) -> str:
     """Check current code compatibility and refuse unavailable required semantics.
 
     Pure compiled products may be reused by the compiler. Database state and permissions
@@ -70,79 +72,137 @@ def admit_execution_release(
             "required native enforcement is unavailable: " + ", ".join(sorted(unavailable))
         )
 
-    if prepared.execution_model_id is not None:
-        if connection is None:
-            raise ExecutionAdmissionError("composed admission requires verified native deployment")
-        from .unicode_identity import require_unicode_identity_release, requires_unicode_identity
+    if connection is None:
+        raise ExecutionAdmissionError("composed admission requires verified native deployment")
+    from .unicode_identity import require_unicode_identity_release, requires_unicode_identity
 
-        if requires_unicode_identity(prepared):
-            require_unicode_identity_release(connection, prepared)
-        require_native_execution(connection, prepared)
+    if requires_unicode_identity(prepared):
+        require_unicode_identity_release(connection, prepared)
+    return require_native_execution(connection, prepared)
 
 
-def _verify_deployment_functions(connection: Connection) -> None:
+_DESCRIPTOR = "data.execution_contract_descriptor"
+_REQUIRED = "data.require_execution_release"
+
+
+@dataclass(frozen=True)
+class NativeExpectation:
+    functions: tuple[str, str]
+    physical_id: str
+    guard_digest: str
+    selected_fact_sql: str
+    state: tuple[Path, str]
+
+
+def _revision_expectation(versions: Path, revision: str) -> NativeExpectation:
+    try:
+        return _expectations(versions)[revision]
+    except KeyError:
+        raise ExecutionAdmissionError(
+            f"native deployment lacks frozen expectations for {revision}"
+        ) from None
+
+
+def require_frozen_native_revision(versions: Path, revision: str) -> None:
+    """Resolve and validate the approved successor before attempting its migration."""
+    from .native_objects import NativeAuthoringError
+
+    expected = _revision_expectation(versions, revision)
+    try:
+        _frozen_functions(*expected.state)
+    except (NativeAuthoringError, OSError, ValueError) as exc:
+        raise ExecutionAdmissionError(f"frozen native state is unavailable: {exc}") from exc
+
+
+def _verify_deployment_functions(
+    connection: Connection, *, revision: str | None = None, versions: Path | None = None
+) -> str:
+    """Compare the acquired catalog with its frozen expectations."""
     from sqlalchemy import text
 
-    for signature, digest, security, language in (
-        ("data.execution_contract_descriptor()", _descriptor_sha256(), False, "sql"),
-        ("data.require_execution_release(text)", _REQUIRE_SHA256, True, "plpgsql"),
-    ):
-        available = (
+    from .migrations import ALEMBIC_DIR
+    from .native_objects import NativeAuthoringError, admit_native
+
+    guard_digest = _realization_fence_digest(connection)
+    if guard_digest is None:
+        raise ExecutionAdmissionError("native execution requires an enforcing realization fence")
+    if versions is None:
+        versions = ALEMBIC_DIR / "versions"
+    if revision is not None:
+        candidates = (_revision_expectation(versions, revision),)
+    else:
+        # Reader and admission principals deliberately cannot read Alembic's private
+        # revision table. A body fingerprint locates a contract, never an Alembic label.
+        bodies = (
             connection.execute(
                 text("""
-          SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')=:digest
-             AND p.prosecdef=:security AND l.lanname=:language
-             AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
-             AND pg_get_userbyid(p.proowner)='corpus_sem_publisher'
-             AND NOT EXISTS(SELECT FROM aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a
-                            WHERE a.grantee=0 AND a.privilege_type='EXECUTE') AS compatible,
-             encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') AS actual_hash,
-             p.proconfig AS configuration, pg_get_userbyid(p.proowner) AS owner,
-             p.prosecdef AS security, l.lanname AS language,
-             EXISTS(SELECT FROM aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a
-                    WHERE a.grantee=0 AND a.privilege_type='EXECUTE') AS public_execute,
-             :digest AS expected_hash
-          FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang
-          WHERE p.oid=to_regprocedure(:signature)
-        """),
-                dict(signature=signature, digest=digest, security=security, language=language),
+                SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')
+                FROM unnest(ARRAY['data.execution_contract_descriptor()',
+                                  'data.require_execution_release(text)'])
+                     WITH ORDINALITY AS target(signature, position)
+                LEFT JOIN pg_catalog.pg_proc p ON p.oid=to_regprocedure(target.signature)
+                ORDER BY target.position
+            """)
             )
-            .mappings()
-            .one_or_none()
+            .scalars()
+            .all()
         )
-        if available is None or available["compatible"] is not True:
-            raise ExecutionAdmissionError(
-                "native execution deployment differs: "
-                + signature
-                + " "
-                + repr(dict(available) if available is not None else None)
+        candidates = tuple(
+            item for item in _expectations(versions).values() if item.functions == tuple(bodies)
+        )
+    candidates = tuple(item for item in candidates if item.guard_digest == guard_digest)
+    if not candidates:
+        raise ExecutionAdmissionError("native execution deployment differs from frozen contracts")
+
+    try:
+        # An unchanged contract may appear in several revisions. Compare the
+        # scoped objects and descriptor semantics, not the containing state file.
+        contracts = {
+            (
+                item.physical_id,
+                item.selected_fact_sql,
+                tuple(
+                    (
+                        obj.identity,
+                        obj.catalog_json,
+                        obj.role_bindings,
+                        obj.catalog_version,
+                        obj.binding_version,
+                    )
+                    for obj in _frozen_functions(*item.state)
+                ),
             )
+            for item in candidates
+        }
+        if len(contracts) != 1:
+            raise ExecutionAdmissionError(
+                "native execution deployment has conflicting expectations"
+            )
+        physical_id, expected_view, _ = contracts.pop()
+        admit_native(connection, _frozen_functions(*candidates[0].state))
+    except (NativeAuthoringError, OSError, ValueError) as exc:
+        raise ExecutionAdmissionError(f"native execution deployment differs: {exc}") from exc
 
     from pglast import parse_sql
     from pglast.stream import RawStream
-    from sqlalchemy.dialects.postgresql import dialect
 
-    from .native_products import selected_fact_query
-
-    actual_view = connection.execute(
-        text("SELECT pg_get_viewdef('data.selected_fact'::regclass,true)")
-    ).scalar_one()
-    expected_view = str(selected_fact_query().compile(dialect=dialect()))
-    actual_statement = parse_sql(actual_view)[0].stmt
-    expected_statement = parse_sql(expected_view)[0].stmt
-    if actual_statement is None or expected_statement is None:
-        raise ExecutionAdmissionError("native selected-fact view has no statement")
-    if RawStream()(actual_statement) != RawStream()(expected_statement):
+    actual_view = connection.scalar(
+        text("SELECT pg_get_viewdef(to_regclass('data.selected_fact'),true)")
+    )
+    if actual_view is None or RawStream()(parse_sql(actual_view)) != RawStream()(
+        parse_sql(expected_view)
+    ):
         raise ExecutionAdmissionError("native selected-fact view differs from its model projection")
+    return physical_id
 
 
-def require_native_execution(connection: Connection, prepared: PreparedRelease) -> None:
+def require_native_execution(connection: Connection, prepared: PreparedRelease) -> str:
     from sqlalchemy.exc import DBAPIError
 
     from ._operation_calls import require_native_execution_release
     from ._operation_ids import ReleaseId
 
-    _verify_deployment_functions(connection)
+    physical_id = _verify_deployment_functions(connection)
     try:
         require_native_execution_release(
             connection,
@@ -159,9 +219,17 @@ def require_native_execution(connection: Connection, prepared: PreparedRelease) 
             "ci schema derive --out <new-directory>"
         ) from exc
 
+    return physical_id
+
 
 def require_archive_fence(connection: Connection) -> None:
     """Archive under either the exact refusal fence or the enforcing deployment."""
+    if _realization_fence_digest(connection) is not None:
+        _verify_deployment_functions(connection)
+
+
+def _realization_fence_digest(connection: Connection) -> str | None:
+    """Read the enforcing trigger body, or recognize the exact archive-only fence."""
     from sqlalchemy import text
 
     row = (
@@ -193,35 +261,58 @@ def require_archive_fence(connection: Connection) -> None:
         and row["owner"] == row["schema_owner"]
         and row["update_columns"] == ["release_id"]
     ):
-        return
+        return None
     if (
-        row["digest"] == _GUARD_SHA256
-        and row["owner"] == "corpus_sem_publisher"
+        row["owner"] == "corpus_sem_publisher"
         and row["prosecdef"] is True
         and row["update_columns"] == []
     ):
-        _verify_deployment_functions(connection)
-        return
+        return row["digest"]
     raise ExecutionAdmissionError("native execution archive fence differs from trusted enforcement")
 
 
 def _descriptor_sha256() -> str:
-    """Read the descriptor body from the installed head's hash-bound admission artifact."""
-    from .migrations import ALEMBIC_DIR
+    """Inspect the authoring head's frozen descriptor for provenance checks."""
+    from .migrations import ALEMBIC_DIR, head_revision
 
-    return _descriptor_for_directory(ALEMBIC_DIR, (ALEMBIC_DIR / "versions").stat().st_mtime_ns)
+    head = head_revision()
+    if head is None:
+        raise ExecutionAdmissionError("authoring head is unavailable")
+    return _expectations(ALEMBIC_DIR / "versions")[head].functions[0]
+
+
+def _expectations(versions: Path) -> dict[str, NativeExpectation]:
+    # Stat identities invalidate only the immutable artifact cache, never a live
+    # catalog observation. Registration adds new trusted inputs to this set.
+    stamps = tuple(
+        (path, stat.st_mtime_ns, stat.st_ctime_ns, stat.st_size)
+        for path in sorted(versions.iterdir())
+        if path.suffix == ".py" or path.name.endswith(("_admission.sql", "_native.json"))
+        for stat in (path.stat(),)
+    )
+    return _frozen_expectations(stamps)
 
 
 @lru_cache(maxsize=4)
-def _descriptor_for_directory(directory: Path, _registration_stamp: int) -> str:
+def _frozen_expectations(stamps) -> dict[str, NativeExpectation]:
+    from pglast import ast as pgast
+    from pglast import parse_sql
+
     from .native_products import function_bodies
 
-    fields = {"revision", "down_revision", "NATIVE_ADMISSION_FILE", "NATIVE_ADMISSION_SHA256"}
+    fields = {
+        "revision",
+        "down_revision",
+        "NATIVE_ADMISSION_FILE",
+        "NATIVE_ADMISSION_SHA256",
+        "NATIVE_STATE_FILE",
+        "NATIVE_STATE_SHA256",
+    }
     revisions = {}
-    predecessors = set()
+    expectations = {}
     try:
-        for path in (directory / "versions").glob("*.py"):
-            if path.name == "__init__.py":
+        for path, *_ in stamps:
+            if path.suffix != ".py" or path.name == "__init__.py":
                 continue
             declared = {
                 target.id: ast.literal_eval(node.value)
@@ -233,38 +324,92 @@ def _descriptor_for_directory(directory: Path, _registration_stamp: int) -> str:
             revision = declared["revision"]
             if not isinstance(revision, str) or revision in revisions:
                 raise ValueError("ambiguous revision")
-            revisions[revision] = declared
-            predecessor = declared.get("down_revision")
-            predecessors.update(predecessor if isinstance(predecessor, tuple) else (predecessor,))
-    except (OSError, SyntaxError, ValueError, KeyError) as error:
-        raise ExecutionAdmissionError("installed revision declarations are unavailable") from error
-    heads = revisions.keys() - predecessors
-    if len(heads) != 1:
-        raise ExecutionAdmissionError("installed head lacks unambiguous native admission")
-    declared = revisions[next(iter(heads))]
-    filename = declared.get("NATIVE_ADMISSION_FILE")
-    digest = declared.get("NATIVE_ADMISSION_SHA256")
-    if not isinstance(filename, str) or Path(filename).name != filename:
-        raise ExecutionAdmissionError("installed head lacks a local native admission artifact")
-    path = directory / "versions" / filename
-    try:
-        content = path.read_bytes()
-    except OSError as error:
-        raise ExecutionAdmissionError(
-            "installed native admission artifact is unavailable"
-        ) from error
-    if sha256(content).hexdigest() != digest:
-        raise ExecutionAdmissionError(
-            "installed native admission artifact differs from its revision"
-        )
-    body = function_bodies(content.decode()).get("data.execution_contract_descriptor")
-    if body is None:
-        raise ExecutionAdmissionError("installed native admission descriptor is unavailable")
-    return sha256(body.encode()).hexdigest()
+            revisions[revision] = declared.get("down_revision")
+            if "NATIVE_ADMISSION_FILE" not in declared:
+                continue
+            filename = declared["NATIVE_ADMISSION_FILE"]
+            state = declared["NATIVE_STATE_FILE"]
+            if Path(filename).name != filename or Path(state).name != state:
+                raise ValueError("unsafe frozen native artifact")
+            sql = path.with_name(filename).read_bytes()
+            if sha256(sql).hexdigest() != declared["NATIVE_ADMISSION_SHA256"]:
+                raise ValueError(f"{filename}: frozen native admission digest differs")
+            bodies = function_bodies(sql.decode())
+            body = bodies[_DESCRIPTOR]
+            # The frozen descriptor is a single literal JSON SELECT. Read the
+            # literal from the trusted SQL rather than execute it on a target.
+            (statement,) = parse_sql(body)
+            query = statement.stmt
+            if not isinstance(query, pgast.SelectStmt) or query.targetList is None:
+                raise ValueError("frozen native descriptor is not a SELECT")
+            (column,) = query.targetList
+            value = column.val if isinstance(column, pgast.ResTarget) else None
+            if (
+                not isinstance(value, pgast.TypeCast)
+                or not isinstance(value.arg, pgast.A_Const)
+                or not isinstance(value.arg.val, pgast.String)
+            ):
+                raise ValueError("frozen native descriptor is not a literal")
+            literal = value.arg.val.sval
+            if literal is None:
+                raise ValueError("frozen native descriptor lacks a literal value")
+            descriptor = json.loads(literal)
+            (view,) = (
+                item["query"]
+                for item in descriptor["views"]
+                if item["relation"] == "data.selected_fact"
+            )
+            (guard,) = (
+                item["body_sha256"]
+                for item in descriptor["functions"]
+                if item["signature"] == "data.guard_execution_admission()"
+            )
+            expectations[revision] = NativeExpectation(
+                (sha256(body.encode()).hexdigest(), sha256(bodies[_REQUIRED].encode()).hexdigest()),
+                descriptor["physical_id"],
+                guard,
+                view,
+                (path.with_name(state), declared["NATIVE_STATE_SHA256"]),
+            )
+
+        def inherited(revision, visiting):
+            if revision in expectations:
+                return expectations[revision]
+            predecessor = revisions.get(revision)
+            if not isinstance(predecessor, str) or predecessor in visiting:
+                return None
+            return inherited(predecessor, visiting | {revision})
+
+        return {
+            revision: expectation
+            for revision in revisions
+            if (expectation := inherited(revision, set())) is not None
+        }
+    except (OSError, SyntaxError, ValueError, KeyError, AttributeError, TypeError) as exc:
+        raise ExecutionAdmissionError(f"frozen native expectations are unavailable: {exc}") from exc
 
 
-# Exact current native body hashes for the installed witnessed deployment.
-# Deployment checks retain ownership, privilege, configuration and body enforcement.
-_REQUIRE_SHA256 = "3873fbe400682b2f384a67b50ba603828d5e10420c30376404e0bd5b1726ce64"
+def _frozen_functions(path: Path, digest: str):
+    stamp = path.stat()
+    return _cached_frozen_functions(path, digest, stamp.st_mtime_ns, stamp.st_ctime_ns)
+
+
+@lru_cache(maxsize=32)
+def _cached_frozen_functions(path: Path, digest: str, _mtime: int, _ctime: int):
+    from .native_candidate import load_native_state
+
+    selected = tuple(
+        item
+        for item in load_native_state(path, digest=digest)
+        if item.identity.kind == "function"
+        and f"{item.identity.schema}.{item.identity.name}" in {_DESCRIPTOR, _REQUIRED}
+    )
+    if len(selected) != 2:
+        raise ValueError(f"{path.name}: required native enforcement functions are unavailable")
+    return tuple(sorted(selected, key=lambda item: item.identity.qualified))
+
+
+# The realization trigger predates frozen native state. Preserve the independent
+# exact refusal and enforcing trigger contracts.
 _REFUSAL_SHA256 = "e5dc0f2a81371d4091c1d80a4fe4de6f5c94f519b9d916ffae486e9b75f4e462"
 _GUARD_SHA256 = "225ab497a6a3c33dfa895ba3ca977de9a27f86d7777c84f92e0bc47edbba98a6"

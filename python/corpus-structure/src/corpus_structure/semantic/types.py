@@ -14,8 +14,8 @@ from pydantic import BaseModel, TypeAdapter
 
 from .refusals import SemanticRefusal
 
-SEMANTIC_COMPILER_VERSION: Literal["17"] = "17"
-READABLE_COMPILER_VERSIONS = frozenset({"14", "15", "16", "17"})
+SEMANTIC_COMPILER_VERSION: Literal["18"] = "18"
+READABLE_COMPILER_VERSIONS = frozenset({"14", "15", "16", "17", SEMANTIC_COMPILER_VERSION})
 BOUNDARY_ABI_VERSION = "12"
 
 
@@ -268,6 +268,15 @@ class PreparedRelease:
     _relational_preparations: dict[str, Any] = field(
         default_factory=dict, repr=False, compare=False, init=False
     )
+
+    @cached_property
+    def artifacts_sha256(self) -> str:
+        """Bind the complete prepared artifact set independently of its input manifest."""
+        from .identity import canonical_bytes
+
+        return sha256(
+            canonical_bytes(sorted((artifact.kind, artifact.digest) for artifact in self.artifacts))
+        ).hexdigest()
 
     def adapter(self, class_name: str) -> TypeAdapter[BaseModel]:
         if self._adapter_loader is None:

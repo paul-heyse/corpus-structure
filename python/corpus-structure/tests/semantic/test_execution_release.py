@@ -77,7 +77,8 @@ def _project(conn, release_id: str | None = None) -> str:
 def test_execution_inputs_and_products_reload_exactly_offline(
     semantic_db_engine: Engine, monkeypatch
 ):
-    from corpus_structure.semantic import contracts
+    from corpus_structure.semantic import contracts, metadata
+    from corpus_structure.semantic.prepare import _prepare_release_cached
 
     with semantic_db_engine.begin() as conn:
         bundle, dependencies, profile, prepared = _stage(conn)
@@ -115,7 +116,12 @@ def test_execution_inputs_and_products_reload_exactly_offline(
             pytest.fail("archive reconstruction must not acquire installed execution inputs")
 
         monkeypatch.setattr(contracts, "trusted_execution_inputs", unavailable)
-        assert releases.load_release(conn, prepared.release_id) == prepared
+        with monkeypatch.context() as different:
+            different.setattr(metadata, "PHYSICAL_MODEL_ID", "physical:different-installed-profile")
+            _prepare_release_cached.cache_clear()
+            verified = releases.load_release(conn, prepared.release_id)
+        assert verified == prepared
+        assert verified.artifacts_sha256 == prepared.artifacts_sha256
         assert (
             releases.persist_release(conn, bundle, dependencies, profile, prepared)
             == prepared.release_id

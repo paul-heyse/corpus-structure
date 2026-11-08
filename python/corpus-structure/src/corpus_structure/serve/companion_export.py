@@ -329,9 +329,11 @@ def _verified(path: Path):
 
 def inventory_companion_export(path: Path) -> dict:
     manifest, files = _verified(path)
-    from corpus_structure.semantic.companion_projection import PROJECTION_ID
+    from corpus_structure.semantic.companion_projection import installed_projection_id
 
-    supported = manifest.projection_id == PROJECTION_ID and manifest.profile_id == PROFILE_ID
+    supported = (
+        manifest.projection_id == installed_projection_id() and manifest.profile_id == PROFILE_ID
+    )
     inventory = {}
     with duckdb.connect() as db:
         for name, file in files.items():
@@ -441,10 +443,10 @@ def _inventory_groups(db, columns: tuple[str, ...]) -> dict:
 def compare_companion_exports(left: Path, right: Path) -> dict:
     lm, lf = _verified(left)
     rm, rf = _verified(right)
-    from corpus_structure.semantic.companion_projection import PROJECTION_ID
+    from corpus_structure.semantic.companion_projection import installed_projection_id
 
     comparable = (
-        lm.projection_id == rm.projection_id == PROJECTION_ID
+        lm.projection_id == rm.projection_id == installed_projection_id()
         and lm.profile_id == rm.profile_id == PROFILE_ID
         and set(lf) == set(rf)
         and lm.pin.project_id == rm.pin.project_id

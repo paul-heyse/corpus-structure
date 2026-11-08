@@ -204,6 +204,15 @@ and semantic facts use different scoped keys; confidence/evidence are support ra
 identity. The [owning plan](../plans/semantic-model-pivot/semantic-model-and-releases.md) retains
 verification scope and support limits.
 
+**Implemented (2026-11-08), compiler 18.** Companion projection preparation compiles
+the retained physical root, its declared import closure and the retained LinkML types
+into the metadata used for projection compilation and analysis. The semantic compiler
+and relevant library identities are part of that preparation input. A model change
+binds the sorted artifact kind and digest pairs alongside the release manifest before
+candidate creation or deployment. Older archives retain their authenticated stored
+products. Full rederivation requires the recorded preparation capability.
+[Release and deployment qualification](../plans/domain-model-alignment_2026-11-08.md#dma-00-through-dma-04-execution)
+
 ## Released domain operation declarations
 
 **Implemented, 2026-10-29; explicit semantic profile.** Domain class/property applicability,

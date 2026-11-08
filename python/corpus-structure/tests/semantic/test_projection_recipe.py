@@ -14,13 +14,13 @@ from sqlalchemy.dialects.postgresql import dialect
 
 from corpus_structure.semantic.companion_projection import (
     MODEL,
-    PROJECTION_ID,
+    installed_projection_id,
     prepare_projection,
     projection,
     render_static_columns,
 )
 from corpus_structure.semantic.companion_projection_native import family_sql
-from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID, metadata
+from corpus_structure.semantic.metadata import metadata
 from corpus_structure.semantic.projection_recipe import (
     Conditional,
     Constant,
@@ -34,13 +34,12 @@ from corpus_structure.semantic.projection_recipe import (
 from corpus_structure.semantic.types import PreparationError
 
 
-def prepared(view, family="coverage", physical_id=PHYSICAL_MODEL_ID):
+def prepared(view, family="coverage"):
     return prepare_projection(
         view,
         family,
         projection_id="independent-mutated-recipe",
         physical=metadata,
-        physical_id=physical_id,
     )
 
 
@@ -88,7 +87,7 @@ def test_four_families_share_resolved_core_native_and_arrow_contract(family, cou
     outputs = {field.name: field for field in spec.recipe.fields}
     assert outputs["selection_release_id"].expression == Parameter("selection_release_id")
     assert outputs["producer_release_id"].expression == InternalBinding("published_release_id")
-    assert spec.projection_id == spec.recipe.projection_id == PROJECTION_ID
+    assert spec.projection_id == spec.recipe.projection_id == installed_projection_id()
     body = str(
         native_statement(spec.body_statement, spec.recipe).compile(
             dialect=dialect(), compile_kwargs={"literal_binds": True}
@@ -204,7 +203,7 @@ def test_invalid_expression_refuses_with_model_field_location(expression):
     assert "PublishedCoverageRow.detail" in diagnostic.location
 
 
-def test_cycle_wrong_alias_and_unsupported_physical_profile_refuse():
+def test_cycle_and_wrong_alias_refuse():
     view = SchemaView(str(MODEL))
     schema = view.schema
     assert schema is not None
@@ -213,8 +212,6 @@ def test_cycle_wrong_alias_and_unsupported_physical_profile_refuse():
     annotation(schema, "cp:sources").value = json.dumps(sources)
     with pytest.raises(PreparationError, match="cycles/forward references"):
         prepared(view)
-    with pytest.raises(PreparationError, match="unsupported physical model"):
-        prepared(SchemaView(str(MODEL)), physical_id="unsupported-archive")
     view = SchemaView(str(MODEL))
     cls = view.get_class("PublishedRelationRow")
     assert cls is not None

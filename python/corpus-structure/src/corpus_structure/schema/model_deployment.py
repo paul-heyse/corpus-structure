@@ -15,7 +15,12 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 from pydantic import BaseModel, ConfigDict
 
 from corpus_structure.schema.model import ModelError
-from corpus_structure.schema.model_change import ChangePreview, checked_path, generator_fingerprint
+from corpus_structure.schema.model_change import (
+    ChangePreview,
+    checked_path,
+    generator_fingerprint,
+    verify_release_products,
+)
 from corpus_structure.semantic.runtime import Purpose
 from corpus_structure.semantic.storage_target import (
     StorageTarget,
@@ -24,6 +29,7 @@ from corpus_structure.semantic.storage_target import (
     verify_declared_route,
     verify_target,
 )
+from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.settings import DeploymentProfile, Settings
 
 _NATIVE_PRODUCTS = (
@@ -48,6 +54,7 @@ class Candidate(BaseModel):
     authoring_identity: StorageTarget | None = None
     release: str
     release_manifest_sha256: str | None = None
+    release_artifacts_sha256: str | None = None
     packs: tuple[str, ...]
     files: dict[str, str | None]
     hashes: dict[str, str]
@@ -55,7 +62,11 @@ class Candidate(BaseModel):
 
     @classmethod
     def from_preview(
-        cls, preview: ChangePreview, revision: str | None, release: str, products: dict[str, bytes]
+        cls,
+        preview: ChangePreview,
+        revision: str | None,
+        prepared: PreparedRelease,
+        products: dict[str, bytes],
     ) -> Candidate:
         if (
             not preview.target
@@ -66,8 +77,7 @@ class Candidate(BaseModel):
             raise ModelError(
                 ["candidate requires a deployment target and matching native authoring binding"]
             )
-        if preview.local_release != release:
-            raise ModelError(["prepared release identity differs from the reviewed preview"])
+        preview.verify_release(prepared)
         binding = cls(
             workspace=preview.workspace,
             model_revision=preview.revision,
@@ -79,8 +89,9 @@ class Candidate(BaseModel):
             authoring_target=preview.authoring_target,
             target_identity=preview.target_identity,
             authoring_identity=preview.authoring_identity,
-            release=release,
+            release=prepared.release_id,
             release_manifest_sha256=preview.release_manifest_sha256,
+            release_artifacts_sha256=preview.release_artifacts_sha256,
             packs=preview.request.packs,
             files={
                 **preview.inputs,
@@ -453,6 +464,10 @@ def deploy_candidate(
         analyze_archived_sql,
         has_authored_sql,
     )
+    from corpus_structure.semantic.execution_admission import (
+        _verify_deployment_functions,
+        require_frozen_native_revision,
+    )
     from corpus_structure.semantic.migrations import current_revision, migration_fence, upgrade
     from corpus_structure.semantic.publication import admit_release
     from corpus_structure.semantic.query import read_snapshot
@@ -464,11 +479,13 @@ def deploy_candidate(
     if target_fingerprint(destination) != binding.target:
         raise ModelError(["configured deployment target differs from the candidate"])
     bundle, deps, profile, prepared = deployment
-    if prepared.release_id != binding.release or (
-        binding.release_manifest_sha256 is not None
-        and sha256(prepared.manifest).hexdigest() != binding.release_manifest_sha256
-    ):
-        raise ModelError(["prepared release identity differs from the candidate"])
+    verify_release_products(
+        prepared,
+        release=binding.release,
+        manifest_sha256=binding.release_manifest_sha256,
+        artifacts_sha256=binding.release_artifacts_sha256,
+        binding="the candidate",
+    )
     if binding.target_identity is None:
         raise ModelError(["candidate lacks the approved acquired PostgreSQL target"])
     assert_explicit_route(destination)
@@ -485,26 +502,39 @@ def deploy_candidate(
         admission.connect() as writer,
         open_runtime_engine(destination, "ci-model-verify", purpose="read") as reader,
     ):
+        versions = None if script_location is None else script_location / "versions"
         # Verify all acquired purpose routes before the first durable effect. Recheck any
         # later borrower before use, including the fresh post-admission reader snapshot.
         with writer.begin(), reader.begin() as check:
             verify(writer, "admit")
             verify(check, "read")
         if binding.revision is not None:
+            assert versions is not None
+            require_frozen_native_revision(versions, binding.revision)
             with conn.begin():
                 verify(conn, "maintenance")
+                migration_fence(conn)
+                actual = current_revision(conn)
+                if actual is None or actual not in {binding.predecessor, binding.revision}:
+                    raise ModelError(["acquired revision differs from the approved predecessor"])
+                _verify_deployment_functions(conn, revision=actual, versions=versions)
                 upgrade(
                     conn,
                     binding.revision,
                     expected_predecessor=binding.predecessor,
                     script_location=script_location,
                 )
+                if current_revision(conn) != binding.revision:
+                    raise ModelError(["migration did not reach the approved revision"])
+                _verify_deployment_functions(conn, revision=binding.revision, versions=versions)
             report("migration")
         with conn.begin():
             verify(conn, "maintenance")
             migration_fence(conn)
-            if binding.revision is not None and current_revision(conn) != binding.revision:
+            actual = current_revision(conn)
+            if actual is None or (binding.revision is not None and actual != binding.revision):
                 raise ModelError(["native revision changed before archive/admission"])
+            _verify_deployment_functions(conn, revision=actual, versions=versions)
             with writer.begin():
                 verify(writer, "admit")
                 persist_release(writer, bundle, deps, profile, prepared)

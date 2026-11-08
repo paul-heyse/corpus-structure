@@ -31,7 +31,7 @@ BYTE_LIBRARIES = (
 )
 BOUNDARY_LIBRARIES = ("python", "pydantic", "pydantic-core", "jsonschema", "cattrs")
 DEPLOYMENT_LIBRARIES = ("sqlalchemy", "psycopg", "pglast", "alembic")
-ANALYSIS_LIBRARIES = ("sqlglot", "sqlalchemy", "linkml-runtime")
+ANALYSIS_LIBRARIES = ("sqlglot", "sqlalchemy", "linkml-runtime", "pyarrow", "pgvector", "pyyaml")
 
 
 def analysis_runtime() -> tuple[tuple[str, str], ...]:

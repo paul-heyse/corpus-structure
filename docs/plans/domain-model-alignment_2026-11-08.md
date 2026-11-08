@@ -1,10 +1,10 @@
 # Domain-model alignment plan series
 
-**Status:** Proposed · 2026-11-08. Owns the proposed corrections and
+**Status:** In progress · 2026-11-08. Owns the corrections and
 investigations arising from the November 8 domain-model alignment review.
 The coordinator owns combined disposition, dependencies, cutover and
 qualification. The supporting plans own their local target and implementation
-contracts. Authorized execution starts at DMA-00.
+contracts. Execution authorization covers DMA-00 through DMA-04.
 
 ## Basis and target
 
@@ -74,11 +74,11 @@ authorization, record progress and actual closure evidence here.
 
 | Source finding and package | Responsible boundary | Proposed order and completion |
 |---|---|---|
-| [DMA-00](#dma-00) | Coordinator | Reconcile committed baseline, review scope, consumed contracts and test evidence before effects. |
-| DA-067 · [DMA-01](domain-model-alignment/release-and-deployment.md#DMA-01) | Release compiler and exact preview | After DMA-00. Same explicit inputs give equal required products across preview, candidate and full archive rederivation. |
-| DA-063 · [DMA-02](domain-model-alignment/release-and-deployment.md#DMA-02) | Native target and migration | Investigation can start after DMA-00. Consume DMA-01's retained physical compilation contract for integration. Verify the actual target and refuse mismatches before effects. |
-| DA-062 · [DMA-03](domain-model-alignment/semantic-admission.md#DMA-03) | Source-value codec | After DMA-00. Prove Python, native and detached agreement before object conversion loses structure. |
-| DA-056 · [DMA-04](domain-model-alignment/semantic-admission.md#DMA-04) | Finite interpretation and admission | Define the result contract alongside DMA-03. Native acceptance consumes verified source values. Demonstrate numeric consistency and preserve scoped assurance and existing regressions. |
+| [DMA-00](#dma-00) | Coordinator | Reconciled the committed baseline, review coverage and acquired development target on 2026-11-08. See [execution evidence](#dma-00-through-dma-04-execution). |
+| DA-067 · [DMA-01](domain-model-alignment/release-and-deployment.md#DMA-01) | Release compiler and exact preview | Implemented and tested on 2026-11-08. Closed inputs produced equal artifacts across different installed profiles and cold archive rederivation. A changed artifact refused exact candidate creation. |
+| DA-063 · [DMA-02](domain-model-alignment/release-and-deployment.md#DMA-02) | Native target and migration | Implemented and tested on 2026-11-08. `semantic_dma_00_04` is registered and qualified in isolation, including older reads, non-head migration, target and catalog refusals, and interrupted deploy recovery. Development runs `semantic_chandra_pdf_ancestry`. |
+| DA-062 · [DMA-03](domain-model-alignment/semantic-admission.md#DMA-03) | Source-value codec | Implemented and tested on 2026-11-08. Python, native completion and detached verification agree on the tested nested source values and reject malformed field sequences. |
+| DA-056 · [DMA-04](domain-model-alignment/semantic-admission.md#DMA-04) | Finite interpretation and admission | Implemented and tested on 2026-11-08. Python and native admission enforce displayed-support bounds, and the scoped table and dossier controls passed. |
 | DA-065 · [DMA-05](domain-model-alignment/semantic-admission.md#DMA-05) | Definition derivation and publication | Define basis-specific witnesses alongside DMA-03 and consume validated source values where used. Require genuine witness closure and preserve independent public admission. |
 | [Review F02](../design_review/reviews/design_review_domain-model-alignment_2026-11-08.md#F02) · [DMA-06](domain-model-alignment/source-projection.md#DMA-06) | Selected source projection | After DMA-00. Set the shared address contract with DMA-07 before native and consumer migration. Reject omitted or repeated required text. |
 | DA-061 · [DMA-07](domain-model-alignment/source-projection.md#DMA-07) | Formula witness and exact read | Share field selection with DMA-06. Demonstrate two independent witnesses and preserved archived p416 after a successor. |
@@ -119,6 +119,63 @@ foundations and the supporting plans.
 [Historical correspondence](audit-closure_2026-11-03.md#7-audit-correspondence-without-disposition-transfer) ·
 [DA-054](../design_review/audit/execution-fit.md#da-054) ·
 [Review dispositions](../design_review/reviews/design_review_domain-model-alignment_2026-11-08.md#inherited-questions-and-historical-corrections)
+
+## DMA-00 through DMA-04 execution
+
+The execution started on committed source `005fb7b6e`. The commits from
+reviewed product source `67cbe680e` through that baseline changed the audit,
+review, plans and checkpoint. The retained WCE, NCE and Chandra evidence keeps
+its original scope. Concurrent Chandra, Docling and visitor work is outside
+this tranche. Reconciliation found the expected PostgreSQL 18.6 development
+target at `corpus_structure_dev`, port 5434, and installed revision
+`semantic_chandra_pdf_ancestry`. The restricted reader cannot read the private
+Alembic revision. Its contract check uses the installed catalog fingerprints.
+
+This tranche authorizes registration and isolated qualification. Persistent
+deployment, project activation and selection belong to a separately authorized
+cutover. Native source values are checked as received by the existing JSONB
+boundary. PostgreSQL normalization before that boundary can discard the original
+numeric spelling.
+
+**Registration passed on 2026-11-08.** The final `statistics` preview
+`43c416b67b64457e994fbfc1d224768a` and apply result
+`1ccc2e1026ea4eab8f6f82de6b2a6519` bind the rollback-only candidate
+`dedec4c00ffd41e2a569128ece710442`. `uv run ci model change register
+dedec4c00ffd41e2a569128ece710442 --json` recorded
+`7f69d4ad3ace4f2281e1323bc551fb6c`. `uv run ci model change inspect-candidate
+dedec4c00ffd41e2a569128ece710442 --json` verified the frozen wrapper and
+products. `uv run ci db status --maintenance --json` still reported
+`semantic_chandra_pdf_ancestry` after registration, with checkout head
+`semantic_dma_00_04`. The restricted reader verified that predecessor's installed
+contract after registration. Earlier managed attempts retained their input-drift
+refusals.
+
+The 2026-11-08 ordinary campaign used `uv run ci test --json --` with the
+affected schema preview, CLI inspection, semantic release, deployment, native
+closure, source report, contribution, correspondence, companion export and
+table interpretation paths. Result `7262347e44554dddafc73d6040fa2a9e` retained
+387 passed and two failed tests. The failures were in the controls for a denied
+admission principal and a resealed correspondence result. The fixture changes
+assert PostgreSQL's actual refusal and provide a JSON wire value, respectively.
+The production and frozen migration bytes are the same across both attempts.
+
+`uv run ci test retry 7262347e44554dddafc73d6040fa2a9e --lane ordinary --json`
+passed both exact nodes in `260de216080b4eabb98b16f8868a1351`.
+`uv run ci test coverage 7262347e44554dddafc73d6040fa2a9e
+260de216080b4eabb98b16f8868a1351 --view unresolved --limit 5 --json`
+reported all 389 selected nodes covered, zero unresolved and a source difference
+from the two changed fixtures. The report also identifies the separate native
+bindings for the isolated attempts. Both test results are held for the
+registered candidate, with the original attempt's failed outcome preserved.
+The development target was
+rechecked after registration and isolated verification. `uv run ci check --only
+types --json`, scoped Ruff checks, `uv run ci docs check` and `just turn-end`
+passed. The exclusive native fault lane, providers and DMA-13 integrated
+qualification were `not_run` for this tranche.
+
+The bounded failure report identifies the node, phase and lane. The native
+refusal and malformed fixture were diagnosed from the original pytest report.
+The missing inline diagnostic belongs with DMA-08's managed outcome work.
 
 <a id="dma-12"></a>
 

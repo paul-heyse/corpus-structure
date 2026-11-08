@@ -8,7 +8,7 @@ _Updated 2026-11-08. The 518-page incumbent comparator and its witnessed project
   owns findings, package states and combined qualification. ADR-0067 governs current-only
   migration. ADR-0070 selects all 518 Grinstead–Snell pages. WCE receipts still cover pages 191–310.
   WCE baseline `07d25b840` retains `semantic_wce_lineage_20261107` and `retrieve.contextual/5`.
-- The [domain-model target review](docs/design_review/reviews/design_review_domain-model-alignment_2026-11-08.md) concludes **Revise** at source `67cbe680e`. The [proposed DMA-00–13 series](docs/plans/domain-model-alignment_2026-11-08.md) turns its corrections and investigations into implementation packages. Documentation checks on 2026-11-08 passed with `uv run ci docs check` and `just turn-end`. Next is DMA-00 baseline reconciliation on execution authorization.
+- [DMA-00–04](docs/plans/domain-model-alignment_2026-11-08.md#dma-00-through-dma-04-execution) registered `semantic_dma_00_04` and covered all 389 targeted tests after exact retry on 2026-11-08. Development runs `semantic_chandra_pdf_ancestry`. DMA-05 is the next implementation package.
 - The [broad design audit](docs/design_review/audit/README.md#baseline) records diagnostic source inspection at `67cbe680e` on 2026-11-08. `uv run ci docs check` and `just turn-end` passed. Product qualification was `not_run`.
 - The [GitHub visitor follow-on](docs/plans/github-visitor-experience_2026-11-08.md#ghv-follow-on-acceptance) is live. On 2026-11-08, the docs workflow and both live browser sizes passed. The corpus index links to 1,409 verified source files in Git LFS. The supplied How it works image passed desktop and mobile preview checks in the local revision.
 

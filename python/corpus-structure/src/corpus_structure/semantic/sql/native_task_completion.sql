@@ -28,6 +28,8 @@ BEGIN
  WHERE operation->>'id'='configure_method' AND domain->>'id'=d->>'outcome_domain';
  IF p_envelope ? 'outcome' AND NOT coalesce(dimensions->(method.name||'/result.outcome') ? (p_envelope->>'outcome'),false) THEN
   RAISE EXCEPTION 'method result outcome is not admitted by its release' USING ERRCODE='23514'; END IF;
+ PERFORM data.record_source_json(NULLIF(p_envelope->'parse_detail','null')),
+  data.record_source_json(NULLIF(p_envelope->'cost','null'));
  IF NULLIF(p_envelope->'structural_product','null'::jsonb) IS NOT NULL THEN
   PERFORM ops.validate_structural_product_report(t.id,p_envelope);
  END IF;
@@ -43,6 +45,8 @@ BEGIN
       OR NOT coalesce(dimensions->(method.name||'/observation.outcome') ? observation_outcome,false) THEN
     RAISE EXCEPTION 'observation family/outcome is not admitted by its method release' USING ERRCODE='23514'; END IF;
    IF item->>'payload_definition'='SourceObservation' THEN
+    PERFORM data.record_source_json(item->'payload'->'payload'),
+     data.record_source_json(NULLIF(item->'payload'->'score','null'));
     IF item->'payload'->>'family' IS DISTINCT FROM item->>'kind'
        OR item->'payload'->>'outcome' IS DISTINCT FROM observation_outcome THEN
      RAISE EXCEPTION 'observation dimensions differ from its bound report' USING ERRCODE='23514'; END IF;

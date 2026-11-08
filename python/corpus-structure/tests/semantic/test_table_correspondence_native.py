@@ -1,5 +1,6 @@
 """Source-conditioned table requests are authored and enforced by the same native policy."""
 
+import json
 from copy import deepcopy
 from dataclasses import asdict, replace
 from math import exp
@@ -179,6 +180,10 @@ def test_native_ambiguous_correspondence_keeps_local_choices_and_counts_event_un
 
 
 def test_native_admission_refuses_resealed_factor_mask_and_missing_policy(private_source):
+    from corpus_structure.methods.record_readings import _digest
+
+    from .test_observations import malform_source_fields
+
     case = private_source
     method = ScopedRelationsMethod()
     config = ScopedRelationsConfig(interpretation_mode="correspondence")
@@ -324,6 +329,47 @@ def test_native_admission_refuses_resealed_factor_mask_and_missing_policy(privat
         dict(body=envelope(prepared), configuration=config.model_dump()), source
     )
     with case.writer.begin() as conn:
+        for mutation in ("gap", "order", "repeat"):
+            malformed = envelope(prepared)
+            report = malformed["contribution_operations"][-1]["local_interpretation"]
+            selection = next(
+                field["value"]
+                for field in report["request"]["fields"]
+                if field["name"] == "selection"
+            )
+            malform_source_fields(selection["fields"], mutation)
+            report["request_digest"] = _digest(report["request"])
+            report["seal"] = _digest({key: value for key, value in report.items() if key != "seal"})
+            with pytest.raises(ValueError, match=r"source report.*(ordered|repeated)"):
+                verify_table_correspondence(
+                    dict(body=malformed, configuration=config.model_dump()), source
+                )
+            with (
+                pytest.raises(DBAPIError, match=r"source report.*(ordered|repeated)"),
+                conn.begin_nested(),
+            ):
+                complete(conn, malformed)
+        malformed = envelope(prepared)
+        report = malformed["contribution_operations"][-1]["local_interpretation"]
+        output = source_python(report["result"])
+        assert {m["candidate"]: m["probability"] for m in output["marginals"]} == {
+            "unresolved": 1,
+            relation["contribution_id"]: 0,
+        }
+        for marginal in output["marginals"]:
+            marginal["probability"] = 1 - marginal["probability"]
+        report["result"] = json.loads(canonical_bytes(source_value(output)))
+        report["result_digest"] = _digest(report["result"])
+        report["seal"] = _digest({key: value for key, value in report.items() if key != "seal"})
+        with pytest.raises(ValueError, match="marginal probability differs from displayed support"):
+            verify_table_correspondence(
+                dict(body=malformed, configuration=config.model_dump()), source
+            )
+        with (
+            pytest.raises(DBAPIError, match="marginal probability differs from displayed support"),
+            conn.begin_nested(),
+        ):
+            complete(conn, malformed)
         for field, subfield, index, value in (
             ("potentials", "values", 0, 0.125),
             ("constraints", "allowed", 1, True),

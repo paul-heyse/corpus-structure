@@ -9,6 +9,8 @@ from typing import Any
 
 from .identity import canonical_bytes
 
+_PROBABILITY_TOLERANCE = 1e-9
+
 
 def _digest(value: Any) -> str:
     return sha256(canonical_bytes(value)).hexdigest()
@@ -177,10 +179,10 @@ def validate_local_interpretation_values(request, result) -> None:
         raise ValueError("local interpretation marginal membership or probability invalid")
     if any(
         not math.isclose(
-            sum(m["probability"] for m in marginals if m["decision"] == key),
+            math.fsum(m["probability"] for m in marginals if m["decision"] == key),
             1,
             rel_tol=0,
-            abs_tol=1e-9,
+            abs_tol=_PROBABILITY_TOLERANCE,
         )
         for key in selected
     ):
@@ -202,11 +204,13 @@ def validate_local_interpretation_values(request, result) -> None:
     keys = [e["key"] for e in events]
     if len(keys) != len(set(keys)) or not all(keys) or (not selected and not events):
         raise ValueError("local interpretation event/question selection invalid")
+    event_derivations = {}
     for event in events:
         if not event["question"].strip() or not event["derivations"]:
             raise ValueError("local interpretation event requires explicit derivations")
-        for derivation in event["derivations"]:
-            choices(derivation)
+        event_derivations[event["key"]] = tuple(
+            frozenset(choices(derivation).items()) for derivation in event["derivations"]
+        )
     actual = result["event_probabilities"]
     if (
         len(actual) != len(keys)
@@ -215,13 +219,13 @@ def validate_local_interpretation_values(request, result) -> None:
     ):
         raise ValueError("local interpretation event membership or probability invalid")
     alternatives = result["alternatives"]
-    seen = set()
+    displayed_support = {}
     for alternative in alternatives:
         binding = choices(alternative["choices"], complete=True)
-        identity = tuple(sorted(binding.items()))
-        if identity in seen or not probability(alternative["probability"]):
+        identity = frozenset(binding.items())
+        if identity in displayed_support or not probability(alternative["probability"]):
             raise ValueError("local interpretation alternatives repeat or have invalid probability")
-        seen.add(identity)
+        displayed_support[identity] = alternative["probability"]
         for constraint in request["constraints"]:
             index = 0
             for key in constraint["scope"]:
@@ -270,12 +274,38 @@ def validate_local_interpretation_values(request, result) -> None:
         or len(alternatives) != min(displayed, search["positive_states"])
     ):
         raise ValueError("local interpretation alternative count differs from declared support")
-    total = sum(a["probability"] for a in alternatives)
-    if total > 1 + 1e-9 or (
-        len(alternatives) == search["positive_states"]
-        and not math.isclose(total, 1, rel_tol=0, abs_tol=1e-9)
+    total = math.fsum(displayed_support.values())
+    complete_display = len(alternatives) == search["positive_states"]
+    if total > 1 + _PROBABILITY_TOLERANCE or (
+        complete_display and not math.isclose(total, 1, rel_tol=0, abs_tol=_PROBABILITY_TOLERANCE)
     ):
         raise ValueError("local interpretation alternative probability mass invalid")
+    undisplayed_mass = 0 if complete_display else max(0, 1 - total)
+
+    def require_displayed_bounds(kind, reported, matching):
+        if not (
+            matching - _PROBABILITY_TOLERANCE
+            <= reported
+            <= matching + undisplayed_mass + _PROBABILITY_TOLERANCE
+        ):
+            raise ValueError(
+                f"local interpretation {kind} probability differs from displayed support"
+            )
+
+    for marginal in marginals:
+        choice = (marginal["decision"], marginal["candidate"])
+        matching = math.fsum(
+            mass for binding, mass in displayed_support.items() if choice in binding
+        )
+        require_displayed_bounds("marginal", marginal["probability"], matching)
+    for event in actual:
+        derivations = event_derivations[event["event"]]
+        matching = math.fsum(
+            mass
+            for binding, mass in displayed_support.items()
+            if any(derivation <= binding for derivation in derivations)
+        )
+        require_displayed_bounds("event", event["probability"], matching)
 
 
 def validate_local_interpretation_report(

@@ -20,7 +20,58 @@ from corpus_structure.semantic.observations import source_python, source_value
 from .test_local_interpretation import local_request
 
 
-def operation(*, limits=None, offset=0, hard_zero=False):
+def joint_events():
+    return (
+        ri.CompositeEvent(
+            "actor-or-first",
+            "actor role or first target",
+            ((ri.Choice("role", "actor"),), (ri.Choice("target", "first"),)),
+        ),
+        ri.CompositeEvent(
+            "object-and-second",
+            "object role and second target",
+            ((ri.Choice("role", "object"), ri.Choice("target", "second")),),
+        ),
+    )
+
+
+def assert_joint_probabilities(result, displayed):
+    # The four fixture weights are 1, 2, 3, and 4.
+    assert {
+        (m["decision"], m["candidate"]): m["probability"] for m in result["marginals"]
+    } == pytest.approx(
+        {
+            ("role", "actor"): 0.3,
+            ("role", "object"): 0.7,
+            ("target", "first"): 0.4,
+            ("target", "second"): 0.6,
+        }
+    )
+    assert {e["event"]: e["probability"] for e in result["event_probabilities"]} == pytest.approx(
+        {"actor-or-first": 0.6, "object-and-second": 0.4}
+    )
+    assert [a["probability"] for a in result["alternatives"]] == pytest.approx(
+        [0.4, 0.3, 0.2, 0.1][:displayed]
+    )
+
+
+def forge_joint_probability(result, case):
+    if case == "marginal":
+        for marginal in result["marginals"]:
+            if marginal["decision"] == "target":
+                marginal["probability"] = 0.65 if marginal["candidate"] == "first" else 0.35
+        return
+    event, probability = {
+        "zero_event": ("object-and-second", 0),
+        "overclaimed_event": ("actor-or-first", 0.8),
+        "double_counted_union": ("actor-or-first", 0.7),
+    }[case]
+    next(e for e in result["event_probabilities"] if e["event"] == event)["probability"] = (
+        probability
+    )
+
+
+def operation(*, limits=None, offset=0, hard_zero=False, events=None):
     rows = (dict(contribution_id="retained", computation_dependencies=("source",)),)
     question = "local numerical control"
     identity = local_constraint_id(question, rows, ("source",))
@@ -38,7 +89,8 @@ def operation(*, limits=None, offset=0, hard_zero=False):
             )
             for p in request.potentials
         ),
-        events=(ri.CompositeEvent("actor", "actor role", ((ri.Choice("role", "actor"),),)),),
+        events=events
+        or (ri.CompositeEvent("actor", "actor role", ((ri.Choice("role", "actor"),),)),),
         limits=limits or request.limits,
     )
     return local_question_operation(
@@ -46,8 +98,8 @@ def operation(*, limits=None, offset=0, hard_zero=False):
     ), rows
 
 
-def forged(change):
-    actual, rows = operation()
+def forged(change, **kwargs):
+    actual, rows = operation(**kwargs)
     actual = deepcopy(actual)
     report = actual["local_interpretation"]
     request, result = source_python(report["request"]), source_python(report["result"])
@@ -138,6 +190,30 @@ def test_valid_negative_logs_and_truncated_display_do_not_require_unit_display_m
     result = source_python(actual["local_interpretation"]["result"])
     assert result["log_partition"] < 0 and result["alternatives"][0]["probability"] < 1
     validate_local_interpretation_report(actual, rows)
+
+
+@pytest.mark.parametrize("displayed", (2, 4))
+def test_joint_probabilities_agree_with_partial_and_complete_display(displayed):
+    actual, rows = operation(
+        limits=ri.SearchLimits(displayed_alternatives=displayed), events=joint_events()
+    )
+    assert_joint_probabilities(source_python(actual["local_interpretation"]["result"]), displayed)
+    validate_local_interpretation_report(actual, rows)
+
+
+@pytest.mark.parametrize(
+    ("case", "displayed"),
+    (("zero_event", 2), ("overclaimed_event", 2), ("marginal", 2), ("double_counted_union", 4)),
+)
+def test_resealed_joint_probabilities_outside_displayed_bounds_refuse(case, displayed):
+    actual, rows = forged(
+        lambda request, result: forge_joint_probability(result, case),
+        limits=ri.SearchLimits(displayed_alternatives=displayed),
+        events=joint_events(),
+    )
+    claim = "marginal" if case == "marginal" else "event"
+    with pytest.raises(ValueError, match=f"{claim} probability differs from displayed support"):
+        validate_local_interpretation_report(actual, rows)
 
 
 def test_limited_result_retains_no_probability_or_exact_support_claim():

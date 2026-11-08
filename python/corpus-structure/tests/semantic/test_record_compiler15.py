@@ -14,7 +14,12 @@ from corpus_structure.semantic.comparison_projection import ARTIFACT as COMPARIS
 from corpus_structure.semantic.comparison_projection import comparison_projection
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.record_projection import ARTIFACT, read_record_projection
-from corpus_structure.semantic.types import PreparationProfile, PreparedArtifact
+from corpus_structure.semantic.types import (
+    SEMANTIC_COMPILER_VERSION,
+    PreparationError,
+    PreparationProfile,
+    PreparedArtifact,
+)
 
 ROOT = Path(__file__).resolve().parents[4]
 FIXTURE = (
@@ -74,17 +79,24 @@ def test_new_record_projection_gets_a_new_compiler_identity_for_identical_source
     _, same_sources, _ = archive()
     old = opened_archive()
     new = prepare_release(same_sources)
-    assert json.loads(new.manifest)["profile"]["compiler_version"] == "17"
+    assert json.loads(new.manifest)["profile"]["compiler_version"] == SEMANTIC_COMPILER_VERSION
     assert new.release_id != old.release_id
     assert not any(artifact.kind == ARTIFACT for artifact in old.artifacts)
     assert len([artifact for artifact in new.artifacts if artifact.kind == ARTIFACT]) == 1
-    assert comparison_projection(new).compiler_version == "17"
+    assert comparison_projection(new).compiler_version == SEMANTIC_COMPILER_VERSION
     assert read_record_projection(new)["abi"] == "source-record-projection-2"
 
 
 def test_old_archive_does_not_acquire_a_projection_from_installed_code():
     with pytest.raises(ValueError, match="projection"):
         read_record_projection(opened_archive())
+
+
+def test_historical_compiler_cannot_rederive_its_readable_products():
+    data, bundle, _ = archive()
+    assert opened_archive().manifest == bytes.fromhex(data["manifest_hex"])
+    with pytest.raises(PreparationError, match="unsupported profile"):
+        prepare_release(bundle, profile=PreparationProfile(**data["profile"]))
 
 
 def test_comparison_artifact_stamp_must_match_its_release():

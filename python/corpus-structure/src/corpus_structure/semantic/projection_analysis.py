@@ -21,7 +21,6 @@ from sqlglot.schema import MappingSchema
 
 from . import projection_recipe as ir
 from .determinants import analysis_runtime
-from .metadata import metadata
 from .refusals import SemanticRefusal
 
 
@@ -272,10 +271,13 @@ def _analyze_recipe_cached(
 ) -> ProjectionAnalysis:
     """Prepare analysis once for a checked immutable projection at its valid lifetime."""
     schema = MappingSchema(dialect="postgres")
+    physical_sources = set()
     for source in recipe.sources:
         if source.relation is not None:
-            relation = metadata.tables[source.relation]
-            schema.add_table(source.relation, {c.name: _dtype(c.type) for c in relation.columns})
+            physical_sources.add(source.relation)
+            schema.add_table(
+                source.relation, {field.name: _dtype(field.sql_type) for field in source.fields}
+            )
     query = recipe_expression(recipe)
     if any(isinstance(node, exp.Command) for node in query.walk()):
         raise ProjectionAnalysisUnavailable("opaque command cannot establish projection analysis")
@@ -387,7 +389,7 @@ def _analyze_recipe_cached(
                 {
                     table.db + "." + table.name
                     for table in qualified.find_all(exp.Table)
-                    if table.db + "." + table.name in metadata.tables
+                    if table.db + "." + table.name in physical_sources
                 }
             )
         ),
