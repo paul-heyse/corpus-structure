@@ -1,12 +1,12 @@
 # Status
 
-_Updated 2026-11-07. The NCE development audit repairs have reached the native, application and detached paths. The owning plan records the remaining qualification. Live qualification and WCE12 remain open._
+_Updated 2026-11-07. The NCE development audit repairs have reached the native, application and detached paths. The owning plan records the remaining qualification. The full-book baseline is in progress. Live qualification and WCE12 remain open._
 
 ## Current authority
 
 - The [WCE repair disposition](docs/plans/witnessed-corpus-enrichment_2026-11-05.md#repair-disposition--2026-11-07)
   owns findings, package states and combined qualification. ADR-0067 governs current-only
-  migration. ADR-0068 selects Grinstead–Snell physical pages 191–310 as the shared frame.
+  migration. ADR-0070 selects all 518 Grinstead–Snell pages. WCE receipts still cover pages 191–310.
 - WCE baseline `07d25b840` includes `semantic_wce_lineage_20261107` and `retrieve.contextual/5`.
   Its original release and contextual repair runtime are retained in the WCE repair account.
 
@@ -54,7 +54,7 @@ _Updated 2026-11-07. The NCE development audit repairs have reached the native, 
   passed on 2026-11-07. The seven model provider arms returned real observations.
   Protected fit 3 and its ordinary parameter and feature reads passed on fresh
   set 30 and evaluation 35. Repository checks and the eight native fault tests passed.
-- The private artifact scorer mechanism is complete. Efficacy awaits protected same-lineage assessment.
+- [Full-book intake](docs/plans/next-corpus-enrichment_2026-11-07.md#full-book-execution) is running on development run 297.
 - Settle the remaining source opportunities and unrelated factor reconstruction in the WCE
   plan. Live CLI qualification needs a configured production target, purpose roles and
   effect authority.

@@ -478,3 +478,18 @@ transfer, policy activation or production qualification.
 | `uv run ci check --view steps --json` and `just turn-end` | `passed`. Rules scan and rule fixtures were `not_run` because the registry selected no rules. Clippy ran with `rustc 1.101.0-nightly (2d20b42b8 2026-11-04)`. |
 | `uv run ci evidence check --json` | `passed` with zero errors and 40 existing warnings. |
 | `uv run ci test --json` | Full product campaign `not_run` under the operator's affected-test scope. |
+
+## Full-book execution
+
+[ADR-0070](../adr/0070-full-book-method-development.md) selects physical pages
+1–518 of the authenticated Grinstead–Snell parent as the shared development
+benchmark. The earlier results cover their exact original 120-page population.
+The full-book run uses the current release first, with source-only selections
+frozen before examining enrichment outputs.
+
+The [full-book evidence route](../design_review/evidence/2026-11-08_nce-full-book/README.md)
+owns the run and page, view, producer and delivery receipts. Whole-book intake
+run 297 was launched on the dedicated development project with one native
+conversion task. Scope expands through the same origin, including cross-chapter
+links. Independent comparison publication and same-lineage scorer eligibility
+retain their separate audit prerequisites.
