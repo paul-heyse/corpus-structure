@@ -1,6 +1,6 @@
 # GitHub visitor experience and Pages implementation
 
-**Status · 2026-11-08. Active.** This coordinator owns GHV-01–06, scheduled findings
+**Status · 2026-11-08. Complete.** This coordinator owns GHV-01–06, scheduled findings
 and combined acceptance. It consumes the [functional review](../functional_reviews/github-visitor-experience_2026-11-08.md)
 at `b8697ab5f` and the two-part ChatGPT Pro proposal named `github_view_improvement.md`,
 identified by Git blob `2ce8a30811ce0d63f41d3296cc8291f62d08e627`. The draft is a
@@ -36,7 +36,7 @@ revealed an ignored source-inventory link. With both workarounds the isolated bu
 prefix build and desktop/mobile browser checks passed. The review also verified the
 Dartmouth PDF hash and recorded the historical Reader query's release-compatibility
 refusal. These receipts establish a feasible static route and two repair obligations.
-Live deployment and the new visitor interface remain `not_run`.
+At review time, live deployment and the new visitor interface were `not_run`.
 [Publication evidence](../functional_reviews/github-visitor-experience_2026-11-08.md#O04) · [Reader and source evidence](../functional_reviews/github-visitor-experience_2026-11-08.md#O02)
 
 Use existing publication selection, link transport, search scopes and last-good
@@ -83,8 +83,8 @@ conditions used when the two differ.
 
 | Item | Component | Consequence and intended correction | Disposition · dependency | Closure check |
 | --- | --- | --- | --- | --- |
-| GHV-F01 · O04 generated READMEs | Publisher selection | The recursive glob treats LFS pointers and generated payloads as authored chapters. Select authored indexes and nested reviews consistently. | Open · GHV-01 | Same intended page inventory under hydrated and LFS-disabled inputs; generated README control remains linkable but unindexed. |
-| GHV-F02 · O04 source inventory | Source-population evidence | A link to an ignored checkout file fails hosted link resolution. Explain the local input and retain the tracked reference. | Open · GHV-01 | The owning page builds in a checkout without the local corpus and its tracked evidence link resolves. |
+| GHV-F01 · O04 generated READMEs | Publisher selection | The recursive glob treats LFS pointers and generated payloads as authored chapters. Select authored indexes and nested reviews consistently. | Closed · GHV-01 | Both fixture forms stay linkable without becoming chapters. The clean hosted build passed. |
+| GHV-F02 · O04 source inventory | Source-population evidence | A link to an ignored checkout file fails hosted link resolution. Explain the local input and retain the tracked reference. | Closed · GHV-01 | The corrected owner and tracked inventory link passed in the clean hosted build. |
 
 The O02 historical Reader refusal is a constraint on GHV-03's optional native
 inspection. The coordinator records the outcome of that investigation separately
@@ -102,10 +102,8 @@ served artifact at desktop and mobile sizes. Confirm live Pages navigation, sear
 scopes, evidence and asset links, hidden paths and About settings separately.
 [Publishing checks and rollout](github-visitor-experience/publication-and-rollout.md#qualification)
 
-The starting work is GHV-01 and GHV-02/03. Review authoring and plan validation
-carry no product qualification. Keep implementation and live checks open until
-their named evidence is recorded here. Update STATUS from this coordinator at
-handoff, with the dated check scope and next executable work.
+The [acceptance record](#GHV-acceptance) distinguishes local, hosted and live checks.
+The current checkpoint links here for package and finding disposition.
 
 **Plan validation · 2026-11-08.** In an isolated LFS-disabled checkout of
 `b8697ab5f` with the authored plan files, the project-prefix `scripts/docs.py check`
@@ -150,3 +148,38 @@ the verified public walkthrough.
 | Mermaid and Mermaid CLI | Deferred. One portable asset serves both surfaces. Revisit for a distinct small GitHub diagram or recurring cross-surface export. |
 | Excalidraw | Deferred until there is a distinct interactive authoring use. |
 | Generated illustration | Deferred. The maintained diagram, labeled policy illustration and social preview cover the identified editorial uses. Revisit for a distinct illustration requirement. |
+
+<a id="GHV-acceptance"></a>
+
+## Acceptance · 2026-11-08
+
+GHV-01–06 closed for the approved visitor and publishing scope. The historical
+Reader check remains `blocked` by the producing release compatibility limit
+documented above. The published static walkthrough reaches the retained
+evidence and original pages.
+
+- `uv run ci doctor`, `uv run ci check --only deps --json`, `actionlint .github/workflows/docs.yml`,
+  and `just turn-end` passed. Turn-end used rustc 1.101.0-nightly (2d20b42b8).
+- `just docs-test` passed 45 tests in a clean shallow checkout with its temporary
+  directory inside the checkout. It exercises both generated README forms and
+  checksum refusal. `uv run --no-sync ci docs check --json` and the clean
+  `scripts/docs.py check --base-url /corpus-structure/` passed with 702 canonical
+  pages. The artifact retained the required hidden paths and contained no
+  symlinks or generated raw evidence payloads.
+- `just docs-visuals` passed with D2 0.9.0 and Playwright 1.64.1. The final SVG
+  renders inside its link in mdBook and GitHub. The uploaded social preview
+  was verified through GitHub's Open Graph URL and matched the committed
+  1280 × 640 PNG byte for byte.
+- The [hosted run for `c3832fae6`](https://github.com/paul-heyse/corpus-structure/actions/runs/42481768331)
+  passed bootstrap, docs checks, both artifact uploads and deployment.
+  Chromium verified the [live project site](https://paul-heyse.github.io/corpus-structure/)
+  at 1280 × 800 and 390 × 844, including the source-linked citation, SVG,
+  Current, Reference and Everything search, and hidden documentation paths.
+  The README diagram and badge were visible on GitHub at both widths. The badge
+  reports passing. The About description, seven selected topics, and homepage
+  were checked through the repository API. Hosted PR execution was `not_run`.
+- The earlier [isolated pytest failure](https://github.com/paul-heyse/corpus-structure/actions/runs/42480850068)
+  and [shallow fixture failure](https://github.com/paul-heyse/corpus-structure/actions/runs/42481002593)
+  remain in the hosted record. The final search waits for Pagefind's first
+  index and filter load after the live browser check exposed an intermittent
+  empty first query.
