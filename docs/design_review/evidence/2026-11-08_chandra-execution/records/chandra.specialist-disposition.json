@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "id": "chandra.specialist-disposition",
+  "title": "Chandra source recovery and specialist dispositions",
+  "group": "chandra-execution",
+  "package": "initial-delivery",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which evidence can support recovery, a typed specialist consumer or wider routing?",
+  "answers": [
+    "CH-04",
+    "CH-05",
+    "CH-06",
+    "CH-07"
+  ],
+  "method": "Trace selected book and authored controls, survey the local natural documents, and compare live candidate Mermaid with independently read NIST PDF arrows.",
+  "commands": [],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "investigations.md",
+      "role": "Case dispositions and unresolved qualification",
+      "sha256": "7c34e452df0f985c4c00d45bc45bfc31ba5549a4e999c796a1a97c24fc44e098"
+    },
+    {
+      "path": "natural_diagram.py",
+      "role": "Runnable live natural diagram probe",
+      "sha256": "3270a5664a9e22cb3de4859bb0fdacabb141afa1841424e4cec13faefb347f90"
+    },
+    {
+      "path": "natural-diagram.json",
+      "role": "Effective request receipts and typed Mermaid alternatives",
+      "sha256": "20f8947dced2af7b30589013129fb142172e395ad3514278f1354c4bd9eb6b6c"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Retain explicit visual evidence. One natural diagram misroutes a return branch and another merges two arrows. Source recovery proposals and specialist promotion remain separately governed.",
+  "consumed_by": [
+    "chandra-2-post-nemotron coordinator"
+  ]
+}

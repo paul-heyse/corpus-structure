@@ -1,0 +1,82 @@
+[
+  {
+    "source_sha256": "05115ac84c0f5cfa1c7a5c686db46cb64d0f3b9ecc8a92c025cf336ad46fc30d",
+    "submitted_png_sha256": "04bdc6ea846a9e22491ce544726b27594dda1758366a9b5c2dd4040339e14f60",
+    "raw_sha256": "ac22a2a149e829994600d699d3913a9be618488e90c2c8754b9a0f7c19877d55",
+    "physical_page": 141,
+    "stop": "unspecified",
+    "parse": "parsed",
+    "issues": [],
+    "device": {
+      "device": "cuda:0",
+      "name": "NVIDIA GeForce RTX 5090",
+      "compute_capability": [
+        12,
+        0
+      ],
+      "torch": "2.15.0+cu132",
+      "cuda": "13.2",
+      "processor": "Qwen3VLProcessor",
+      "image_processor": "Qwen2VLImageProcessor"
+    },
+    "mermaid": [
+      {
+        "occurrence_id": "#/texts/18",
+        "provider_locator": "#/texts/18",
+        "parent_occurrence_id": "#/pictures/1",
+        "source_region": {
+          "left": 99.144,
+          "top": 186.912,
+          "right": 501.228,
+          "bottom": 454.608,
+          "precision": "coarse",
+          "address_space": "pdf_points",
+          "origin": "top_left",
+          "enclosing_occurrence_id": "#/pictures/1"
+        },
+        "kind": "mermaid",
+        "text": "graph TD\n    Start([Look at the data]) --> Q1{Answers to questions obvious?}\n    Q1 -- Yes --> End([Use the results to answer the questions in your experimental objectives])\n    Q1 -- No --> CreateModel[Create the theoretical model]\n    CreateModel --> EstimateModel[Estimate the actual model from the data(simplify if possible)]\n    EstimateModel --> Q2{Are the residuals randomly and Normally distributed around 0?}\n    Q2 -- No --> TransformData[Try transforming the response data]\n    TransformData --> Q2\n    Q2 -- Yes --> Q3{Is there any Lack of Fit?}\n    Q3 -- Yes --> IdentifyLoF[Use graphs to identify the source of the LoF. If feasible, edit the model to correct. If not, redesign or augment this design.]\n    IdentifyLoF --> Q3\n    Q3 -- No --> ExamineANOVA[Examine the ANOVA table]\n    ExamineANOVA --> SimplifyModel{Further simplify the model if appropriate}\n    SimplifyModel -- No --> End\n    SimplifyModel -- Yes --> End\n  "
+      }
+    ]
+  },
+  {
+    "source_sha256": "05115ac84c0f5cfa1c7a5c686db46cb64d0f3b9ecc8a92c025cf336ad46fc30d",
+    "submitted_png_sha256": "8b4565c18ae162147bf3d5186e0be3d21886a235be49736832f41b875301d623",
+    "raw_sha256": "3a518f641afa1b10a228fa15b70ec135dbfc6bff80f36a8a3fc602b3b3e86b72",
+    "physical_page": 206,
+    "stop": "unspecified",
+    "parse": "parsed",
+    "issues": [],
+    "device": {
+      "device": "cuda:0",
+      "name": "NVIDIA GeForce RTX 5090",
+      "compute_capability": [
+        12,
+        0
+      ],
+      "torch": "2.15.0+cu132",
+      "cuda": "13.2",
+      "processor": "Qwen3VLProcessor",
+      "image_processor": "Qwen2VLImageProcessor"
+    },
+    "mermaid": [
+      {
+        "occurrence_id": "#/texts/34",
+        "provider_locator": "#/texts/34",
+        "parent_occurrence_id": "#/pictures/1",
+        "source_region": {
+          "left": 107.1,
+          "top": 510.84,
+          "right": 496.332,
+          "bottom": 594.792,
+          "precision": "coarse",
+          "address_space": "pdf_points",
+          "origin": "top_left",
+          "enclosing_occurrence_id": "#/pictures/1"
+        },
+        "kind": "mermaid",
+        "text": "graph LR\n    A[\"Phase I<br/>Line Searches<br/>First-order model\"] -- \"lack of linear fit detected<br/>or<br/>Quadratic effects detected\" --> B[\"Phase II<br/>Non-linear optimization<br/>Quadratic model\"]\n  "
+      }
+    ]
+  }
+]

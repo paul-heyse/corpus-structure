@@ -1,0 +1,295 @@
+{
+  "source": {
+    "run_id": 309,
+    "task_id": 1389,
+    "product_key": "integrated",
+    "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+  },
+  "page": {
+    "run_id": 339,
+    "task_id": 1545,
+    "cut_id": 468,
+    "status": "source_ready",
+    "source": {
+      "run_id": 309,
+      "task_id": 1389,
+      "product_key": "integrated",
+      "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+    },
+    "raw": {
+      "run_id": 339,
+      "task_id": 1543,
+      "product_key": "chandra-inference:f3cfd7a905e023e37e245b89c09f127e2109b9244371292590a4153fc7ac3e03",
+      "content_digest": "bfd284bdc59f457a66f84055dd781e107d674c94bc8b9ce195fe8160291c47f7"
+    },
+    "mapped": {
+      "run_id": 339,
+      "task_id": 1545,
+      "product_key": "chandra-mapping:586b5900bcae8b7df6f917bed505e6637179b6f765777509cae5bd190252b152",
+      "content_digest": "60bf927b6dfa1c154407fa16cda12bc15982c986348eda5ee71e7889a39b96e6"
+    },
+    "attempt_receipt": "build/recognition/chandra/run-339-task-1543-6099b8dd44e44e330335cd5d7585c52f20deaab2f3f677a37098bf2c560f29bb/attempt-1/receipt.json",
+    "error": null
+  },
+  "crop": {
+    "run_id": 341,
+    "task_id": 1547,
+    "cut_id": 469,
+    "status": "source_ready",
+    "source": {
+      "run_id": 309,
+      "task_id": 1389,
+      "product_key": "integrated",
+      "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+    },
+    "raw": {
+      "run_id": 341,
+      "task_id": 1546,
+      "product_key": "chandra-inference:ca2664c4773d375d9d0883cf48986346e40453f43edd7992c0701b2391dbc73b",
+      "content_digest": "16582ad5f405d2578428c73dce3a663e1fc5291217df8ef71de18f7a00d827b4"
+    },
+    "mapped": {
+      "run_id": 341,
+      "task_id": 1547,
+      "product_key": "chandra-mapping:7c95d54de63bdacc43771eecf3a932f6b048c19fde0a24c965f6b8655a8f8237",
+      "content_digest": "242d086b7b4f7ea708d6559df47264503c5454e5029ce0f7a902876698850c27"
+    },
+    "attempt_receipt": "build/recognition/chandra/run-341-task-1546-4ee052f8d6d0711717421165cf0fcb51ca5de92cfa4f3f8a8400c69a0e5bc0c7/attempt-1/receipt.json",
+    "error": null
+  },
+  "reads": {
+    "151": {
+      "candidate_kinds": {
+        "caption_candidate": 2,
+        "formula": 29,
+        "table": 2
+      },
+      "observation_health": {
+        "mapping_outcome": "coarse",
+        "source_fidelity": "unassessed",
+        "execution_outcome": "unknown",
+        "validation_report": "{\"completion\":\"unknown\",\"issues\":[],\"stage\":\"mapping\",\"status\":\"parsed\"}"
+      },
+      "submitted": {
+        "width": 1224,
+        "height": 1584,
+        "page_no": 151,
+        "encoding": "png",
+        "precision": "coarse",
+        "transform": {
+          "affine": [
+            2.0,
+            0.0,
+            0.0,
+            2.0,
+            0.0,
+            0.0
+          ],
+          "status": "coarse",
+          "crop_top": 0.0,
+          "crop_left": 0.0,
+          "crop_right": 612.0,
+          "page_width": 612.0,
+          "crop_bottom": 792.0,
+          "page_height": 792.0,
+          "source_space": "pdf_points",
+          "target_space": "submitted_pixels",
+          "normalization": "none",
+          "page_rotation": 0
+        },
+        "artifact_digest": "986e72ffcf726103dcb6a5a3631ebecd4ec9d33019fee69618b60b940e6f1ee1"
+      },
+      "finish_reason": "unspecified"
+    },
+    "509": {
+      "candidate_kinds": {
+        "table": 1
+      },
+      "observation_health": {
+        "mapping_outcome": "coarse",
+        "source_fidelity": "unassessed",
+        "execution_outcome": "unknown",
+        "validation_report": "{\"completion\":\"unknown\",\"issues\":[],\"stage\":\"mapping\",\"status\":\"parsed\"}"
+      },
+      "submitted": {
+        "width": 1084,
+        "height": 419,
+        "page_no": 509,
+        "encoding": "png",
+        "precision": "coarse",
+        "transform": {
+          "affine": [
+            0.0,
+            2.0,
+            -2.0,
+            0.0,
+            1371.0,
+            -412.0
+          ],
+          "status": "coarse",
+          "crop_top": 143.5,
+          "crop_left": 206.0,
+          "crop_right": 415.5,
+          "page_width": 612.0,
+          "crop_bottom": 685.5,
+          "page_height": 792.0,
+          "source_space": "pdf_points",
+          "target_space": "submitted_pixels",
+          "normalization": "clipped",
+          "page_rotation": 0
+        },
+        "artifact_digest": "aeb6c4d86b87b5541ce042f97517fe8460f55a3e8384e00b409670853b137711"
+      },
+      "finish_reason": "unspecified"
+    }
+  },
+  "replay": {
+    "run_id": 342,
+    "task_id": 1548,
+    "cut_id": 470,
+    "status": "source_ready",
+    "source": {
+      "run_id": 309,
+      "task_id": 1389,
+      "product_key": "integrated",
+      "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+    },
+    "raw": {
+      "run_id": 339,
+      "task_id": 1543,
+      "product_key": "chandra-inference:f3cfd7a905e023e37e245b89c09f127e2109b9244371292590a4153fc7ac3e03",
+      "content_digest": "bfd284bdc59f457a66f84055dd781e107d674c94bc8b9ce195fe8160291c47f7"
+    },
+    "mapped": {
+      "run_id": 339,
+      "task_id": 1545,
+      "product_key": "chandra-mapping:586b5900bcae8b7df6f917bed505e6637179b6f765777509cae5bd190252b152",
+      "content_digest": "60bf927b6dfa1c154407fa16cda12bc15982c986348eda5ee71e7889a39b96e6"
+    },
+    "attempt_receipt": null,
+    "error": null
+  },
+  "mcp_packet": {
+    "run": 309,
+    "evidence": {
+      "run_id": 339,
+      "task_id": 1545,
+      "product_key": "chandra-mapping:586b5900bcae8b7df6f917bed505e6637179b6f765777509cae5bd190252b152",
+      "content_digest": "60bf927b6dfa1c154407fa16cda12bc15982c986348eda5ee71e7889a39b96e6"
+    },
+    "packet_digest": "19b2f08450ef2cc00aaa937a5d7a3409ffcb48eef524200dd8e5a43a1993915b",
+    "rows": 33,
+    "status": "source_ready"
+  },
+  "image_delivery": {
+    "bytes": 234376,
+    "chunks": 4,
+    "digest": "986e72ffcf726103dcb6a5a3631ebecd4ec9d33019fee69618b60b940e6f1ee1",
+    "media": "image/png"
+  },
+  "native_write_qualification": "a4ec013ee32d4029b883d087c1e7789b",
+  "fresh_standard": {
+    "run_id": 338,
+    "kind": "full",
+    "status": "source_ready",
+    "started_at": null,
+    "cut_at": null,
+    "cut_m19_task_id": null,
+    "finished_at": null,
+    "release_id": "release:5d5a519e7b74695744b08ede9d2144819d316582e400d637e6e61a3baa3da533",
+    "cut_id": 466,
+    "cut_name": "source-ready",
+    "output_realization_id": null,
+    "stages": [
+      {
+        "stage": "ingest",
+        "status": "empty",
+        "reason": null,
+        "count": 1
+      }
+    ],
+    "unresolved_agent_tasks": 0,
+    "readiness": "source_ready",
+    "supervisor": "waiting"
+  },
+  "exact_adoption": {
+    "run_id": 340,
+    "status": "source_ready",
+    "release_id": "release:5d5a519e7b74695744b08ede9d2144819d316582e400d637e6e61a3baa3da533",
+    "realization_id": "source:chandra-standard-control",
+    "cut_id": 467
+  },
+  "typed_controls": [
+    {
+      "case": "p108",
+      "raw": "e0b97036e9b480155e56bae3d3e8a802ef70353085d0b691631343a5a92875e7",
+      "status": "parsed",
+      "kinds": {
+        "picture": 1,
+        "picture_description": 1,
+        "picture_text": 22,
+        "formula": 13,
+        "caption_candidate": 1
+      },
+      "inherited": 36
+    },
+    {
+      "case": "p151",
+      "raw": "104f858cd74fdc08310de36dc05cc0f249db5d6b1ee96229fae76dc20f212d66",
+      "status": "parsed",
+      "kinds": {
+        "caption_candidate": 2,
+        "formula": 29,
+        "table": 2
+      },
+      "inherited": 0
+    },
+    {
+      "case": "p301",
+      "raw": "7fd629e6c3979c181a5887db409fca60f6ccd6619216c7507b98e0e05d337443",
+      "status": "parsed",
+      "kinds": {
+        "caption_candidate": 2,
+        "formula": 6,
+        "picture": 2,
+        "picture_description": 2
+      },
+      "inherited": 3
+    },
+    {
+      "case": "p416",
+      "raw": "81d73d1c6e82ad7d387bca2ee41057bce84575783ea0277a2cfdb8bec5beef04",
+      "status": "parsed",
+      "kinds": {
+        "formula": 6,
+        "caption_candidate": 1
+      },
+      "inherited": 0
+    },
+    {
+      "case": "chart",
+      "raw": "ca6943576e0605d22d5f160c19dcedca119d3ef75c178c160a2dad944f8f7bb7",
+      "status": "parsed",
+      "kinds": {
+        "caption_candidate": 1,
+        "picture": 1,
+        "picture_description": 1,
+        "picture_text": 1,
+        "table": 1
+      },
+      "inherited": 3
+    },
+    {
+      "case": "diagram",
+      "raw": "0be002cc7f7980809de704b03879f13437d35c304020a00bbb55e35d3b16e55b",
+      "status": "parsed",
+      "kinds": {
+        "picture": 1,
+        "picture_description": 1,
+        "mermaid": 1,
+        "picture_text": 1
+      },
+      "inherited": 3
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "id": "chandra.managed-journey",
+  "title": "Managed Chandra visual evidence in development",
+  "group": "chandra-execution",
+  "package": "initial-delivery",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does opt-in Chandra evidence compose with the exact archived book source and current writer?",
+  "answers": [
+    "CH-02",
+    "CH-03"
+  ],
+  "method": "Run the managed original page and rotated crop, read exact typed and raw evidence, verify a fresh MCP packet, and replay from the published raw pin.",
+  "commands": [],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "managed-journey.json",
+      "role": "Source, effect, read and replay pins",
+      "sha256": "219bb75ed665966723f5fbcdfc7e332e27627ea28135faf712bc58a8306fb233"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "The real page and crop reached source-ready cuts, the page packet matched the shared Reader, and raw replay reused both pins. Same-run recovery and live cancellation remain open.",
+  "consumed_by": [
+    "chandra-2-post-nemotron coordinator"
+  ]
+}

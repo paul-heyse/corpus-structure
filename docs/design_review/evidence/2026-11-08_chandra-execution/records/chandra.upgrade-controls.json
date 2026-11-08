@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "id": "chandra.upgrade-controls",
+  "title": "Docling upgrade and retained mapper controls",
+  "group": "chandra-execution",
+  "package": "initial-delivery",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "How does the installed Docling 2.148.0 family affect the incumbent PDF path?",
+  "answers": [
+    "CH-01"
+  ],
+  "method": "Run seven matched Standard controls and replay exact A/B/C payloads and application mapping under both pins. Inspect one archived formula with the installed target.",
+  "commands": [],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "standard_control.py",
+      "role": "Runnable matched Standard control",
+      "sha256": "04994437446402dceb475fb217d75fbef303608d34a605afaf8efdd8e1a8bc02"
+    },
+    {
+      "path": "nemotron_mapper_control.py",
+      "role": "Exact mapper and custody probe",
+      "sha256": "06960c64b2d9bbb00d19465aa45d03a5d4a90b9358c2247528c7be901c4eb8ea"
+    },
+    {
+      "path": "nemotron-mapper-control.md",
+      "role": "Native, projection and archive comparison",
+      "sha256": "9ea57a426cd12988006141d1690a433e5c907ce7ea3307a793ec37af5ef8ce02"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Seven bounded Standard conversions and 27 exact Nemotron requests agree in geometry. The Nemotron replay identifies eight text projection changes and an archived formula response that remains byte-identical.",
+  "consumed_by": [
+    "chandra-2-post-nemotron coordinator"
+  ]
+}
