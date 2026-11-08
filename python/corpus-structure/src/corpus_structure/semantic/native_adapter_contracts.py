@@ -41,7 +41,7 @@ def validate_native_adapters(model: ExecutionModelProducts) -> None:
     profiles = {
         "docling-pdf-source-1": (
             "docling-standard-pdf-v1",
-            "docling-2.145.0/core-2.105.0",
+            "docling-2.148.0/core-2.106.0",
             None,
             "native-normalize-before-identity",
             "explicit-partial",

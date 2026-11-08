@@ -15,6 +15,7 @@ from sqlalchemy import Connection, select
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.semantic.product_reference import ProductReference
+from corpus_structure.serve.pdf_visual_evidence import VisualEvidencePin, VisualEvidenceRead
 
 
 class NativeSourceRequest(BaseModel):
@@ -36,6 +37,7 @@ class NativeSourceRequest(BaseModel):
         "companion",
         "manifest",
         "artifact",
+        "visual_evidence",
     ] = "items"
     section_pointer: str | None = None
     membership: Literal["direct", "descendants"] | None = None
@@ -44,6 +46,9 @@ class NativeSourceRequest(BaseModel):
     occurrence_id: str | None = None
     artifact_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     collection: Literal["inputs", "coverage", "relations", "mapping_reports"] | None = None
+    evidence: VisualEvidencePin | None = Field(default=None, exclude_if=lambda value: value is None)
+    page_no: int | None = Field(default=None, gt=0, exclude_if=lambda value: value is None)
+    region_index: int | None = Field(default=None, ge=0, exclude_if=lambda value: value is None)
     cursor: str | None = None
     limit: int = Field(default=100, ge=1, le=1000)
     max_rows: int = Field(default=10000, strict=True, ge=1, le=10000)
@@ -51,6 +56,30 @@ class NativeSourceRequest(BaseModel):
 
     @model_validator(mode="after")
     def qualified_selection(self):
+        if self.view == "visual_evidence":
+            if (
+                self.evidence is None
+                or (self.page_no is None and self.pointer is None)
+                or (self.region_index is not None and self.pointer is None)
+                or any(
+                    value is not None
+                    for value in (
+                        self.section_pointer,
+                        self.membership,
+                        self.cell_index,
+                        self.occurrence_id,
+                        self.collection,
+                    )
+                )
+            ):
+                raise ValueError(
+                    "visual evidence requires an exact observation pin and page/item scope"
+                )
+            if self.artifact_digest is not None and self.pointer is not None:
+                raise ValueError("visual evidence artifacts require their submitted page scope")
+            return self
+        if any(value is not None for value in (self.evidence, self.page_no, self.region_index)):
+            raise ValueError("evidence, page and region selectors require the visual evidence view")
         if self.view == "artifact":
             if self.artifact_digest is None or any(
                 value is not None
@@ -113,6 +142,9 @@ class NativeSourceResponse(BaseModel):
     next_cursor: str | None = None
     population_complete: bool = True
     companion: dict[str, JsonValue] | None = None
+    visual_evidence: VisualEvidenceRead | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 def _source_cursor(request, after):
@@ -285,6 +317,8 @@ def _published_native_header(reader, origin_run: int, *, runtime: bool):
         content_digest=reader.revision["logical_digest"],
         artifact_digest=reader.revision["source_digest"],
         origin_run=origin_run,
+        page_start=native_health[0].get("page_start"),
+        page_end=native_health[0].get("page_end"),
         health={
             key: value
             for key, value in native_health[0].items()
@@ -319,6 +353,17 @@ def _inspect_native_source(
     projection_context = open_release(conn, run.release_id)
     context = pdf_context_for_release(conn, projection_context)
     context.execution.require_operation("read_native_source")
+    if request.view == "visual_evidence":
+        from corpus_structure.serve.pdf_visual_evidence import inspect_pdf_visual_evidence
+
+        return inspect_pdf_visual_evidence(
+            conn,
+            request,
+            project_id=run.project_id,
+            projection_context=projection_context,
+            cancellation=cancellation,
+            read_budget=read_budget,
+        )
     from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
 
     trusted_pdf_context().boundary.validate_json(
@@ -598,7 +643,9 @@ def _inspect_companion(
         trace_pdf_occurrence,
     )
 
-    products, tasks, runs = map(table, ("ops.pdf_product", "ops.task", "ops.run"))
+    products, tasks, runs, bodies = map(
+        table, ("ops.pdf_product", "ops.task", "ops.run", "ops.pdf_product_body")
+    )
     selected = selected_native_ancestry(request.run_id)
     reachable = (
         select(selected.c.task_id)
@@ -610,9 +657,17 @@ def _inspect_companion(
         .exists()
     )
     row = conn.execute(
-        select(products.c.release_id)
+        select(
+            products.c.release_id,
+            bodies.c.descriptor["observation"]["pass_role"].astext.label("pass_role"),
+        )
         .join(tasks, tasks.c.id == products.c.task_id)
         .join(runs, runs.c.id == tasks.c.run_id)
+        .outerjoin(
+            bodies,
+            (bodies.c.task_id == products.c.task_id)
+            & (bodies.c.product_key == products.c.product_key),
+        )
         .where(
             products.c.task_id == request.task_id,
             products.c.product_key == request.product_key,
@@ -623,6 +678,8 @@ def _inspect_companion(
     ).one_or_none()
     if row is None:
         raise ValueError("PDF companion is not selected by the requested project/run")
+    if row.pass_role in {"chandra_page", "chandra_crop"}:
+        raise ValueError("Chandra observation inspection requires the visual evidence selection")
     after = ""
     if request.cursor is not None:
         after = _source_position(request)

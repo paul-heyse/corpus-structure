@@ -9,7 +9,6 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 from sqlalchemy import select, text
 
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
 from corpus_structure.semantic.query import bind_completed_result
 from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.source_views import load_source_view
@@ -131,6 +130,8 @@ def capture_source_decision_journey(conn, params, *, source_loader=None, budget=
         {"source": ref.model_dump_json()},
     )
     if budget is None:
+        from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
+
         budget = PublishedReadBudget(10000, 32_000_000)
     if source_loader is None:
         view = load_source_view(conn, ref.source_view_id, analysis=False, read_budget=budget)

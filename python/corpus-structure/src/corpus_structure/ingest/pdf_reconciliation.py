@@ -217,6 +217,8 @@ def map_pdf_observation(
     from .pdf_hierarchy import native_nodes
 
     body = observation["observation"]
+    if body["pass_role"] not in {"A", "B", "C"}:
+        raise ValueError("incumbent PDF mapping requires a Nemotron pass role")
     missing_failure_raw = (
         body.get("raw_response_digest") is None
         and body["outcome"] in {"failed", "unknown", "unsupported"}
@@ -615,6 +617,8 @@ def _select_pdf_integration(
     # Rebuild a page index only for each affected page, preserving native document lifetime.
     mapped_inputs = collection("mapped_inputs")
     for pin, observation, raw in observations:
+        if observation["observation"]["pass_role"] not in {"A", "B", "C"}:
+            raise ValueError("incumbent PDF selection requires a Nemotron pass role")
         if observation["artifact_digest"] != native_product["artifact_digest"]:
             raise ValueError("recognition and structural original differ")
         index = len(inputs)

@@ -21,6 +21,7 @@ from threading import Event, Lock
 from typing import Any, Literal
 
 from ..semantic.identity import canonical_bytes
+from .pdf_capacity import pdf_gpu_slot
 
 NEMOTRON_REVISION = "4035ffb1d8f8bafcdb867dfaf6f7514f101464f9"
 NEMOTRON_PACKAGES = {
@@ -238,13 +239,20 @@ def transform_point(affine: Sequence[float], x: float, y: float) -> tuple[float,
     return a * x + c * y + e, b * x + d * y + f
 
 
+def inverse_transform_point(affine: Sequence[float], x: float, y: float) -> tuple[float, float]:
+    a, b, c, d, e, f = affine
+    determinant = a * d - b * c
+    if not determinant:
+        raise ValueError("image transform is singular")
+    return (d * (x - e) - c * (y - f)) / determinant, (-b * (x - e) + a * (y - f)) / determinant
+
+
 def crop_transform(transform: Mapping[str, Any], pixels: Sequence[int]) -> dict[str, Any]:
     """Compose clipping in the already rotated rendered frame, preserving PDF frame custody."""
     left, top, right, bottom = pixels
     a, b, c, d, e, f = transform["affine"]
-    determinant = a * d - b * c
     corners = [
-        ((d * (x - e) - c * (y - f)) / determinant, (-b * (x - e) + a * (y - f)) / determinant)
+        inverse_transform_point(transform["affine"], x, y)
         for x, y in ((left, top), (right, top), (left, bottom), (right, bottom))
     ]
     return {
@@ -391,12 +399,13 @@ class RecognitionWorker:
             )
             worker._physical_page_concurrency = concurrency
             with closing(
-                worker.recognize_pages(
+                worker._recognize_pages(
                     source,
                     recipe,
                     [page_no],
                     check_active=active,
                     reuse=reuse,
+                    concurrency=1,
                     reuse_failures=reuse_failures,
                 )
             ) as results:
@@ -462,6 +471,28 @@ class RecognitionWorker:
         reuse: bool = True,
         concurrency: int = 1,
         reuse_failures: bool = False,
+    ) -> Generator[RecognitionPage]:
+        with pdf_gpu_slot(check_active):
+            yield from self._recognize_pages(
+                source,
+                recipe,
+                page_numbers,
+                check_active=check_active,
+                reuse=reuse,
+                concurrency=concurrency,
+                reuse_failures=reuse_failures,
+            )
+
+    def _recognize_pages(
+        self,
+        source: PreparedRecognitionSource | PreparedRecognitionFile,
+        recipe: NemotronRecipe,
+        page_numbers: Sequence[int],
+        *,
+        check_active: Callable[[], None] | None,
+        reuse: bool,
+        concurrency: int,
+        reuse_failures: bool,
     ) -> Generator[RecognitionPage]:
         import pypdfium2
 

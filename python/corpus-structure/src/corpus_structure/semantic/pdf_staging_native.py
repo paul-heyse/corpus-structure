@@ -67,11 +67,17 @@ DECLARE run ops.run; build ops.pdf_stage_build; id text;
 BEGIN
  run:=ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
  PERFORM sem.require_execution_operation(run.release_id,'begin_pdf_build');
- IF p_source IS NULL OR p_recipe IS NULL OR p_schema IS DISTINCT FROM '{native_schema_sha}'
+ IF p_source IS NULL OR p_recipe IS NULL OR NOT EXISTS(
+ SELECT FROM sem.input WHERE release_id=run.release_id AND input_kind='dependency'
+ AND input_name='execution/implementation/pdf/docling-validation.schema.json'
+ AND content_digest=p_schema AND encode(sha256(content),'hex')=p_schema)
  OR p_key IS NULL OR p_key=''
  OR octet_length(p_key)>1024 OR NOT
  EXISTS(SELECT FROM ops.source_build s WHERE s.task_id=p_task
- AND s.release_id=run.release_id AND s.artifact_digest=p_source AND s.recipe_digest=p_recipe)
+ AND s.release_id=run.release_id AND s.artifact_digest=p_source
+ AND (s.recipe_digest=p_recipe OR EXISTS(SELECT FROM ops.pdf_stage_recipe sr
+ WHERE sr.task_id=p_task AND sr.source_digest=p_source
+ AND sr.root_recipe_digest=s.recipe_digest AND sr.stage_recipe_digest=p_recipe)))
  OR NOT EXISTS(SELECT FROM kb.document d JOIN ops.task t ON t.id=p_task WHERE
  d.project_id=run.project_id
  AND d.content_hash=p_source AND ((t.unit_type='document' AND d.id=t.unit_id) OR
@@ -281,15 +287,11 @@ END $stage$;
             f"REVOKE ALL ON FUNCTION ops.{signature} FROM PUBLIC; "
             f"GRANT EXECUTE ON FUNCTION ops.{signature} TO corpus_sem_writer;\n"
         )
-    from hashlib import sha256
-
-    from .pdf_records import native_schema_bytes
     from .pdf_staging import stage_upload_profile
 
     profile = stage_upload_profile()
     return (
-        sql.replace("{native_schema_sha}", sha256(native_schema_bytes()).hexdigest())
-        .replace("total>65536", "total>" + str(profile["max_rows"]))
+        sql.replace("total>65536", "total>" + str(profile["max_rows"]))
         .replace("total_bytes>67108864", "total_bytes>" + str(profile["max_native_bytes"]))
         .replace(
             "octet_length(p_key)>1024",

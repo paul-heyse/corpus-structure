@@ -725,7 +725,9 @@ class PublishedPdfReader:
                     "retained native schema bytes differ from their digest"
                 )
             try:
-                self._prepared_native_mapping = prepare_native_schema_mapping(schema)
+                self._prepared_native_mapping = prepare_native_schema_mapping(
+                    schema, allow_archived_default=True
+                )
             except (NativeMappingError, json.JSONDecodeError) as error:
                 raise PublishedSchemaUnavailable(
                     "retained native schema has no supported mapping"

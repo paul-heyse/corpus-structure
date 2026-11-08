@@ -13,6 +13,7 @@ from pydantic import BaseModel, JsonValue, RootModel
 from corpus_structure.cli.output import JsonOpt, emit, report_fields, state
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.serve.native_source import NativeExportFormat, NativeSourceRequest
+from corpus_structure.serve.pdf_visual_evidence import VisualEvidencePin
 
 app = typer.Typer(help="Inspect pinned PDF sources and integration custody.", no_args_is_help=True)
 
@@ -58,10 +59,17 @@ def inspect(
         "companion",
         "manifest",
         "artifact",
+        "visual-evidence",
     ] = "items",
     occurrence: str | None = None,
     artifact_digest: str | None = None,
     collection: Literal["inputs", "coverage", "relations", "mapping_reports"] | None = None,
+    evidence_run: int | None = None,
+    evidence_task: int | None = None,
+    evidence_product: str | None = None,
+    evidence_digest: str | None = None,
+    page: int | None = None,
+    region_index: int | None = None,
     cursor: str | None = None,
     limit: int = 100,
     max_rows: int = 10000,
@@ -78,6 +86,41 @@ def inspect(
     if view == "summary" and not coverage:
         raise typer.BadParameter("summary requires --native-view manifest --collection coverage")
     cancellation = BorrowerCancellation()
+    with failure_boundary(json, expected=(ValueError,)):
+        evidence = None
+        if any(
+            part is not None
+            for part in (evidence_run, evidence_task, evidence_product, evidence_digest)
+        ):
+            evidence = VisualEvidencePin.model_validate(
+                dict(
+                    run_id=evidence_run,
+                    task_id=evidence_task,
+                    product_key=evidence_product,
+                    content_digest=evidence_digest,
+                )
+            )
+        request = NativeSourceRequest(
+            run_id=run,
+            task_id=producing_task,
+            product_key=product,
+            content_digest=native_digest,
+            view="visual_evidence" if native_view == "visual-evidence" else native_view,
+            pointer=pointer,
+            section_pointer=section,
+            membership=membership,
+            cell_index=cell,
+            occurrence_id=occurrence,
+            artifact_digest=artifact_digest,
+            collection=collection,
+            evidence=evidence,
+            page_no=page,
+            region_index=region_index,
+            cursor=cursor,
+            limit=limit,
+            max_rows=max_rows,
+            max_bytes=max_bytes,
+        )
     with (
         failure_boundary(json, expected=(ValueError,)),
         open_runtime_engine(
@@ -85,34 +128,13 @@ def inspect(
         ) as engine,
         read_snapshot(engine, cancellation=cancellation) as conn,
     ):
-        response = inspect_native_source(
-            conn,
-            NativeSourceRequest(
-                run_id=run,
-                task_id=producing_task,
-                product_key=product,
-                content_digest=native_digest,
-                view=native_view,
-                pointer=pointer,
-                section_pointer=section,
-                membership=membership,
-                cell_index=cell,
-                occurrence_id=occurrence,
-                artifact_digest=artifact_digest,
-                collection=collection,
-                cursor=cursor,
-                limit=limit,
-                max_rows=max_rows,
-                max_bytes=max_bytes,
-            ),
-            cancellation=cancellation,
-        )
+        response = inspect_native_source(conn, request, cancellation=cancellation)
 
     if not (coverage and (view == "summary" or (view is None and not json))):
         emit(response, json=json)
         return
-    page = response.rows[0] if response.rows else {}
-    rows = page.get("rows")
+    coverage_page = response.rows[0] if response.rows else {}
+    rows = coverage_page.get("rows")
     page_outcomes = (
         Counter(
             str(row.get("outcome", "unavailable")) if isinstance(row, dict) else "unavailable"
@@ -152,6 +174,9 @@ def inspect(
 
 
 def register(root: typer.Typer):
+    from corpus_structure.cli.visual_request import visual_request
+
+    app.command("visual-request")(visual_request)
     root.add_typer(app, name="source")
 
 

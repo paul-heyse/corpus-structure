@@ -467,7 +467,26 @@ def prepare_integrated_pdf_product(
             raise ValueError(
                 "recognition observation requires an observation body without selected content"
             )
+        chandra = observation["pass_role"] in {"chandra_page", "chandra_crop"}
+        if chandra != (observation["binding"]["provider"] == "datalab-chandra-2"):
+            raise ValueError("Chandra observation role differs from its provider")
+        if chandra and sum(pin["role"] == "structural" for pin in inputs) != 1:
+            raise ValueError("Chandra observation requires one exact integrated source input")
+        mapped = observation.get("mapped_evidence_digest")
+        if mapped is not None and (not chandra or mapped not in retained):
+            raise ValueError("mapped Chandra evidence bytes must be retained")
         image = observation["image"]
+        if mapped is not None:
+            from corpus_structure.serve.pdf_visual_evidence import (
+                MAX_VISUAL_EVIDENCE_BYTES,
+                VisualEvidenceArtifact,
+            )
+
+            if len(retained[mapped]) > MAX_VISUAL_EVIDENCE_BYTES:
+                raise ValueError("mapped Chandra evidence exceeds its byte bound")
+            evidence = VisualEvidenceArtifact.model_validate_json(retained[mapped])
+            if evidence.page_no != image["page_no"]:
+                raise ValueError("mapped Chandra evidence differs from its submitted page")
         if image["artifact_digest"] not in retained or (
             "raw_response_digest" in observation
             and observation["raw_response_digest"] not in retained

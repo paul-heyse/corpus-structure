@@ -119,6 +119,74 @@ def test_native_products_json_retains_report_shape(cli, source_runtime, empty, m
     )
 
 
+def test_inspect_cli_delivers_explicit_visual_selection(cli, source_runtime, monkeypatch):
+    from corpus_structure.serve import native_source
+    from corpus_structure.serve.pdf_visual_evidence import VisualEvidenceRead, VisualText
+
+    def inspect(conn, request, *, cancellation):
+        assert conn is source_runtime.connection
+        assert request.view == "visual_evidence" and request.page_no == 3
+        assert request.pointer == "#/pictures/2" and request.region_index == 1
+        assert request.evidence is not None
+        assert request.evidence.model_dump() == {
+            "run_id": 31,
+            "task_id": 42,
+            "product_key": "mapped",
+            "content_digest": "b" * 64,
+        }
+        return native_source.NativeSourceResponse(
+            selection=request,
+            release_id="source-release",
+            health={},
+            rows=[{"text": "incumbent"}],
+            visual_evidence=VisualEvidenceRead(
+                page_no=3,
+                original_artifact_digest="c" * 64,
+                original_regions=[],
+                submitted_region=None,
+                observation_release_id="observation-release",
+                observation={"outcome": "partial"},
+                mapping_availability="available",
+                items=(VisualText(occurrence_id="o1", kind="mermaid", text="graph TD; A-->B"),),
+            ),
+        )
+
+    monkeypatch.setattr(native_source, "inspect_native_source", inspect)
+    result = cli(
+        "source",
+        "inspect",
+        "17",
+        "--producing-task",
+        "23",
+        "--product",
+        "selected",
+        "--native-digest",
+        "a" * 64,
+        "--native-view",
+        "visual-evidence",
+        "--evidence-run",
+        "31",
+        "--evidence-task",
+        "42",
+        "--evidence-product",
+        "mapped",
+        "--evidence-digest",
+        "b" * 64,
+        "--page",
+        "3",
+        "--pointer",
+        "#/pictures/2",
+        "--region-index",
+        "1",
+        "--json",
+    )
+    assert result.exit_code == 0, (result.output, result.exception)
+    data = json.loads(result.stdout)
+    assert data["rows"] == [{"text": "incumbent"}]
+    assert data["visual_evidence"]["items"][0]["kind"] == "mermaid"
+    assert source_runtime.opened == [("ci-source", "read")]
+
+
 @pytest.mark.parametrize("empty", [False, True])
 def test_native_views_json_retains_nested_pins_and_eligibility(
     cli, monkeypatch, source_runtime, empty

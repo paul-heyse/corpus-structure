@@ -690,12 +690,22 @@ def build_semantic_server(
     )
     @tool_refusals(ProposalRefused, OperationConflict, ValueError)
     def inspect_source(ctx: Context, request: NativeSourceRequest) -> ToolResult:
-        """Inspect pinned source products and qualified origins without interpretation."""
+        """Inspect pinned source products and origins, or explicitly pinned visual candidates."""
         from corpus_structure.serve.native_source import inspect_native_source
 
         with source_snapshot(ctx, request.run_id) as conn:
             response = inspect_native_source(conn, request)
         return _bounded_mcp_result(response, request.max_bytes)
+
+    @server.tool(annotations={"readOnlyHint": True})
+    @tool_refusals(ProposalRefused, OperationConflict, ValueError)
+    def visual_evidence_packet(ctx: Context, request: NativeSourceRequest) -> ToolResult:
+        """Prepare an explicit source packet containing attributed visual alternatives."""
+        from corpus_structure.serve.visual_evidence_packet import visual_evidence_packet as pack
+
+        with source_snapshot(ctx, request.run_id) as conn:
+            packet = pack(conn, request)
+        return _bounded_mcp_result(packet, request.max_bytes)
 
     @server.tool(annotations={"readOnlyHint": False})
     @tool_refusals(ProposalRefused, OperationConflict, ValueError)

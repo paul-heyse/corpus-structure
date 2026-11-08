@@ -125,6 +125,8 @@ enums:
       B: {}
       C: {}
       native: {}
+      chandra_page: {}
+      chandra_crop: {}
   PdfObservationOutcome:
     permissible_values:
       succeeded: {}
@@ -199,6 +201,7 @@ enums:
       companion: {}
       manifest: {}
       artifact: {}
+      visual_evidence: {}
   PdfRecognitionUniverse:
     permissible_values: {display: {}, inline: {}, cell: {}}
   PdfRecognitionPolicy:
@@ -663,6 +666,12 @@ classes:
         range: PdfBoolean
         required: true
         slot_uri: pdf:PdfSourceViewPublication_analysis_eligible
+  PdfVisualEvidencePin:
+    attributes:
+      run_id: {range: PdfInteger, required: true, minimum_value: 1, slot_uri: pdf:PdfVisualEvidencePin_run_id}
+      task_id: {range: PdfInteger, required: true, minimum_value: 1, slot_uri: pdf:PdfVisualEvidencePin_task_id}
+      product_key: {range: PdfString, required: true, slot_uri: pdf:PdfVisualEvidencePin_product_key}
+      content_digest: {range: PdfDigest, required: true, slot_uri: pdf:PdfVisualEvidencePin_content_digest}
   PdfNativeReadRequest:
     attributes:
       version:
@@ -722,6 +731,9 @@ classes:
       occurrence_id: {range: PdfString, required: false, slot_uri: pdf:PdfNativeReadRequest_occurrence_id}
       collection: {range: PdfManifestCollection, required: false, slot_uri: pdf:PdfNativeReadRequest_collection}
       artifact_digest: {range: PdfDigest, required: false, slot_uri: pdf:PdfNativeReadRequest_artifact_digest}
+      evidence: {range: PdfVisualEvidencePin, required: false, inlined: true, slot_uri: pdf:PdfNativeReadRequest_evidence}
+      page_no: {range: PdfInteger, required: false, minimum_value: 1, slot_uri: pdf:PdfNativeReadRequest_page_no}
+      region_index: {range: PdfInteger, required: false, minimum_value: 0, slot_uri: pdf:PdfNativeReadRequest_region_index}
       max_rows:
         range: PdfInteger
         required: true
@@ -1334,6 +1346,10 @@ classes:
         range: PdfDigest
         required: false
         slot_uri: pdf:PdfRecognitionObservation_raw_response_digest
+      mapped_evidence_digest:
+        range: PdfDigest
+        required: false
+        slot_uri: pdf:PdfRecognitionObservation_mapped_evidence_digest
       finish_reason:
         range: PdfString
         required: false

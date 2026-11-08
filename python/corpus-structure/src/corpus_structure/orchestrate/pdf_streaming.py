@@ -8,7 +8,7 @@ transactions own database connections; no connection enters native computation.
 from __future__ import annotations
 
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
-from contextlib import AbstractContextManager, ExitStack, contextmanager
+from contextlib import AbstractContextManager, ExitStack, closing, contextmanager, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol
@@ -230,6 +230,7 @@ def run_private_native_pdf_build(
     publication. Source ownership ends after the child has settled; spools retain
     replay/failure evidence for explicit resume or authenticated cleanup.
     """
+    from corpus_structure.ingest.pdf_capacity import pdf_gpu_slot
     from corpus_structure.ingest.pdf_stream_types import OwnedPdfSource
     from corpus_structure.ingest.pdf_worker import PdfWorker
     from corpus_structure.semantic.pdf_staging import (
@@ -413,22 +414,24 @@ def run_private_native_pdf_build(
                     finally:
                         batches.close()
 
-                reply = worker.stream(
-                    owner.reference,
-                    spool_root=replay_root / "pages",
-                    record_root=replay_root / "records",
-                    build_id=build.build_id,
-                    release_id=build.release_id,
-                    payload_schema=payload_schema,
-                    on_replay=adopt_replay,
-                    check_active=check_active,
-                    observation_replay=observation_replay,
-                    structural_pin=structural_pin,
-                    integration_policy=integration_policy,
-                    reconciliation_root=replay_root / "reconciliation"
-                    if observation_replay
-                    else None,
-                )
+                capacity = pdf_gpu_slot(check_active) if recipe.device == "cuda" else nullcontext()
+                with capacity, closing(worker):
+                    reply = worker.stream(
+                        owner.reference,
+                        spool_root=replay_root / "pages",
+                        record_root=replay_root / "records",
+                        build_id=build.build_id,
+                        release_id=build.release_id,
+                        payload_schema=payload_schema,
+                        on_replay=adopt_replay,
+                        check_active=check_active,
+                        observation_replay=observation_replay,
+                        structural_pin=structural_pin,
+                        integration_policy=integration_policy,
+                        reconciliation_root=replay_root / "reconciliation"
+                        if observation_replay
+                        else None,
+                    )
                 if reply.conversion_status != "success":
                     raise RuntimeError(
                         "native streaming conversion did not complete: " + "; ".join(reply.errors)

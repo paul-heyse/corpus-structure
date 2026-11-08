@@ -60,6 +60,7 @@ def _context_definition(connection, sql, *, source):
 # starts owning their semantics. Their predecessor is always the frozen0065 source.
 _PDF_PAYLOAD_FUNCTIONS = frozenset(
     {
+        "begin_pdf_build",
         "adopt_pdf_batch",
         "prepare_pdf_build",
         # Freeze owns the publication fence; source changes must reach the same

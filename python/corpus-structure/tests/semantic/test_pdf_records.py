@@ -604,9 +604,21 @@ def test_native_validation_placements_retain_the_bounded_oracle_limit():
     from corpus_structure.semantic.pdf_records import native_validation_contract
 
     contract = native_validation_contract()
-    assert contract["docling_core_version"] == "2.105.0"
+    assert contract["docling_core_version"] == "2.106.0"
     assert "actual reference and artifact verification" in contract["frozen_union_enforcement"]
     assert "identity-bearing" in contract["opaque_extension_profile"]
+
+
+def test_archived_schema_default_is_supported_only_for_the_same_lowering_shapes():
+    schema = json.loads(native_schema_bytes())
+    schema["properties"]["version"]["default"] = "1.10.0"
+    archived = json.dumps(schema).encode()
+    with pytest.raises(NativeMappingError, match="unsupported native schema change"):
+        prepare_native_schema_mapping(archived)
+    assert prepare_native_schema_mapping(archived, allow_archived_default=True).schema == schema
+    schema["properties"]["name"]["type"] = "integer"
+    with pytest.raises(NativeMappingError, match="unsupported native schema change"):
+        prepare_native_schema_mapping(json.dumps(schema).encode(), allow_archived_default=True)
 
 
 def test_extensions_cannot_inject_declared_native_fields():

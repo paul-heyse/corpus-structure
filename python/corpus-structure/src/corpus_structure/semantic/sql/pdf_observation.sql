@@ -36,7 +36,10 @@ BEGIN
   RETURN digest;
  END IF;
  PERFORM sem.require_execution_operation(run.release_id,'publish_pdf_observation');
- IF run.sealed OR run.status NOT IN ('created','running') OR job.status<>'running' THEN RAISE EXCEPTION 'run/attempt no longer accepts recognition observations' USING ERRCODE='P0004'; END IF;
+ IF run.sealed OR run.status NOT IN ('created','running') OR job.status<>'running'
+ OR job.lease_until IS NULL OR job.lease_until<=clock_timestamp() THEN
+  RAISE EXCEPTION 'run/attempt no longer accepts recognition observations' USING ERRCODE='P0004';
+ END IF;
  -- Resolve EVERY input before inserting the new identity. Immutable edges to extant bodies
  -- make forward references, self references and cycles impossible without a path table.
  FOR input,idx IN SELECT value::jsonb,n-1 FROM json_array_elements(input_rows) WITH ORDINALITY i(value,n) LOOP
@@ -45,18 +48,68 @@ BEGIN
   IF pin.task_id=p_task AND pin.product_key=product->>'product_key' THEN RAISE EXCEPTION 'self PDF input' USING ERRCODE='23514'; END IF;
   IF pin.artifact_digest<>original OR NOT EXISTS(SELECT FROM ops.task t JOIN ops.run r ON r.id=t.run_id WHERE t.id=pin.task_id AND r.project_id=run.project_id) THEN RAISE EXCEPTION 'PDF input outside original/project custody' USING ERRCODE='23514'; END IF;
   IF (input->>'role'='recognition' AND pin.kind<>'recognition_observation') OR (input->>'role'='structural' AND pin.kind NOT IN ('native','integrated')) THEN RAISE EXCEPTION 'PDF input role/kind differs' USING ERRCODE='23514'; END IF;
-  IF NOT EXISTS(SELECT FROM sem.input WHERE release_id=pin.release_id AND input_kind='dependency' AND input_name='execution/schema/pdf_products' AND encode(sha256(content),'hex')=pin.contract_digest) OR
-   (pin.kind IN ('native','integrated') AND NOT EXISTS(SELECT FROM ops.pdf_published_revision b WHERE b.task_id=pin.task_id AND b.product_key=pin.product_key AND b.logical_digest=pin.content_digest)) OR
-   (pin.kind='recognition_observation' AND NOT EXISTS(SELECT FROM ops.pdf_product_body b WHERE b.task_id=pin.task_id AND b.product_key=pin.product_key AND encode(sha256(b.payload),'hex')=pin.content_digest)) THEN RAISE EXCEPTION 'PDF input has no admitted immutable body' USING ERRCODE='23514'; END IF;
+  IF (pin.kind IN ('native','integrated') AND NOT EXISTS(
+    SELECT FROM ops.pdf_published_revision b
+    JOIN ops.pdf_build_validation v ON v.build_id=b.build_id AND v.frozen_digest=b.frozen_digest
+      AND v.logical_digest=b.logical_digest AND v.native_callbacks
+    JOIN sem.input s ON s.release_id=b.release_id AND s.input_kind='dependency'
+      AND s.input_name='execution/implementation/pdf/docling-validation.schema.json'
+      AND s.content_digest=b.schema_digest
+    WHERE b.task_id=pin.task_id AND b.product_key=pin.product_key
+      AND b.release_id=pin.release_id AND b.kind=pin.kind AND b.source_digest=original
+      AND b.logical_digest=pin.content_digest AND v.contract_digest=pin.contract_digest
+   )) OR (pin.kind='recognition_observation' AND NOT EXISTS(
+    SELECT FROM ops.pdf_product_body b JOIN sem.input s ON s.release_id=pin.release_id
+      AND s.input_kind='dependency' AND s.input_name='execution/schema/pdf_products'
+      AND encode(sha256(s.content),'hex')=pin.contract_digest
+    WHERE b.task_id=pin.task_id AND b.product_key=pin.product_key
+      AND encode(sha256(b.payload),'hex')=pin.content_digest
+   )) THEN RAISE EXCEPTION 'PDF input has no admitted immutable body' USING ERRCODE='23514'; END IF;
  END LOOP;
  IF (SELECT count(*) FROM json_array_elements(input_rows))<>(SELECT count(DISTINCT (value->>'role',value->>'task_id',value->>'product_key')) FROM json_array_elements(input_rows)) THEN RAISE EXCEPTION 'duplicate PDF input role/pin' USING ERRCODE='23514'; END IF;
   IF NOT product ? 'observation' OR 'content'=ANY(envelope_fields) THEN RAISE EXCEPTION 'observation body differs' USING ERRCODE='23514'; END IF;
+  IF (product->'observation'->>'pass_role' IN ('chandra_page','chandra_crop')) IS DISTINCT FROM
+   (product->'observation'->'binding'->>'provider'='datalab-chandra-2') THEN
+   RAISE EXCEPTION 'Chandra observation role differs from its provider' USING ERRCODE='23514';
+  END IF;
+  IF product->'observation'->>'pass_role' IN ('chandra_page','chandra_crop') THEN
+   IF (SELECT count(*) FROM json_array_elements(input_rows) i WHERE i->>'role'='structural')<>1 OR NOT EXISTS(
+    SELECT FROM json_array_elements(input_rows) i JOIN ops.pdf_product parent
+      ON parent.task_id=(i->>'task_id')::bigint AND parent.product_key=i->>'product_key'
+      AND parent.content_digest=i->>'content_digest'
+    JOIN ops.task source_task ON source_task.id=parent.task_id
+    WHERE i->>'role'='structural' AND parent.kind='integrated'
+      AND (i::jsonb - 'role')=((run.options->'visual_request'->'source') - 'run_id')
+      AND source_task.run_id=(run.options->'visual_request'->'source'->>'run_id')::bigint
+      AND product->'observation'->'image'->'page_no'=run.options->'visual_request'->'page_no'
+      AND (product->'observation'->>'pass_role'='chandra_crop')=(run.options->'visual_request'->>'pointer' IS NOT NULL)
+   ) THEN RAISE EXCEPTION 'Chandra observation differs from requested source' USING ERRCODE='23514'; END IF;
+   IF (product->'observation' ? 'mapped_evidence_digest'
+      OR EXISTS (SELECT FROM json_array_elements(input_rows) i WHERE i->>'role'='recognition'))
+      AND ((SELECT count(*) FROM json_array_elements(input_rows) i WHERE i->>'role'='recognition')<>1 OR NOT EXISTS(
+    SELECT FROM json_array_elements(input_rows) i JOIN ops.pdf_product_body raw
+      ON raw.task_id=(i->>'task_id')::bigint AND raw.product_key=i->>'product_key'
+    JOIN ops.task raw_task ON raw_task.id=raw.task_id
+    JOIN ops.run raw_run ON raw_run.id=raw_task.run_id
+    WHERE i->>'role'='recognition'
+      AND raw_run.options->'visual_request'=run.options->'visual_request'
+      AND raw.descriptor->'observation'=((product->'observation')-'mapped_evidence_digest')
+      AND EXISTS (SELECT FROM ops.pdf_product_input upstream
+       WHERE upstream.task_id=raw.task_id AND upstream.product_key=raw.product_key
+         AND upstream.role='structural'
+         AND upstream.input_task_id=(run.options->'visual_request'->'source'->>'task_id')::bigint
+         AND upstream.input_product_key=run.options->'visual_request'->'source'->>'product_key'
+         AND upstream.input_content_digest=run.options->'visual_request'->'source'->>'content_digest')
+   )) THEN RAISE EXCEPTION 'mapped Chandra observation differs from its raw input' USING ERRCODE='23514'; END IF;
+  ELSIF product->'observation' ? 'mapped_evidence_digest' THEN
+   RAISE EXCEPTION 'mapped visual evidence requires a Chandra observation' USING ERRCODE='23514';
+  END IF;
   IF product->'observation'->'image'->>'precision' NOT IN ('unknown','coarse') OR (product->'observation'->'image'->'transform'->>'status') NOT IN ('unknown','coarse') OR jsonb_typeof((product->'observation'->'binding'->>'decoding_json')::jsonb) IS DISTINCT FROM 'object' OR (product->'observation' ? 'usage_json' AND jsonb_typeof((product->'observation'->>'usage_json')::jsonb) IS DISTINCT FROM 'object') THEN RAISE EXCEPTION 'unadmitted provider transform/precision/settings' USING ERRCODE='23514'; END IF;
   IF NOT EXISTS(SELECT FROM unnest(p_artifacts) supplied(content) WHERE encode(sha256(supplied.content),'hex')=product->'observation'->'image'->>'artifact_digest' AND octet_length(supplied.content)>=24 AND substring(supplied.content FROM 1 FOR 8)=decode('89504e470d0a1a0a','hex') AND get_byte(supplied.content,16)::bigint*16777216+get_byte(supplied.content,17)::bigint*65536+get_byte(supplied.content,18)::bigint*256+get_byte(supplied.content,19)::bigint=(product->'observation'->'image'->>'width')::bigint AND get_byte(supplied.content,20)::bigint*16777216+get_byte(supplied.content,21)::bigint*65536+get_byte(supplied.content,22)::bigint*256+get_byte(supplied.content,23)::bigint=(product->'observation'->'image'->>'height')::bigint) THEN RAISE EXCEPTION 'submitted PNG dimensions/bytes differ' USING ERRCODE='23514'; END IF;
   IF (product->'observation'->>'outcome' IN ('succeeded','partial') AND NOT product->'observation' ? 'raw_response_digest') OR (product->'observation'->>'outcome' IN ('failed','unknown','unsupported') AND COALESCE(product->'observation'->>'diagnostic','')='') OR product->'health'->>'execution_outcome' IS DISTINCT FROM product->'observation'->>'outcome' OR (product->'observation'->>'usage_availability'='available') IS DISTINCT FROM (product->'observation' ? 'usage_json') THEN RAISE EXCEPTION 'observation response/diagnostic/usage availability differs' USING ERRCODE='23514'; END IF;
   IF product->'observation'->'image'->'transform'->>'status'='unknown' AND product->'observation'->'image'->'transform' ?| ARRAY['page_width','page_height','page_rotation','crop_left','crop_top','crop_right','crop_bottom','affine'] THEN RAISE EXCEPTION 'unknown transform carries fabricated parameters' USING ERRCODE='23514'; END IF;
   IF product->'observation'->'image'->'transform'->>'status'='coarse' AND (NOT product->'observation'->'image'->'transform' ?& ARRAY['page_width','page_height','page_rotation','crop_left','crop_top','crop_right','crop_bottom','affine'] OR jsonb_array_length(product->'observation'->'image'->'transform'->'affine')<>6 OR EXISTS(SELECT FROM jsonb_array_elements(product->'observation'->'image'->'transform'->'affine') WHERE jsonb_typeof(value)<>'number') OR (product->'observation'->'image'->'transform'->>'page_rotation')::bigint NOT IN (0,90,180,270) OR NOT (0<=(product->'observation'->'image'->'transform'->>'crop_left')::numeric AND (product->'observation'->'image'->'transform'->>'crop_left')::numeric<(product->'observation'->'image'->'transform'->>'crop_right')::numeric AND (product->'observation'->'image'->'transform'->>'crop_right')::numeric<=(product->'observation'->'image'->'transform'->>'page_width')::numeric AND 0<=(product->'observation'->'image'->'transform'->>'crop_top')::numeric AND (product->'observation'->'image'->'transform'->>'crop_top')::numeric<(product->'observation'->'image'->'transform'->>'crop_bottom')::numeric AND (product->'observation'->'image'->'transform'->>'crop_bottom')::numeric<=(product->'observation'->'image'->'transform'->>'page_height')::numeric)) THEN RAISE EXCEPTION 'coarse transform requires complete page/crop/rotation witness' USING ERRCODE='23514'; END IF;
-  IF EXISTS(SELECT FROM unnest(ARRAY[product->'observation'->'image'->>'artifact_digest',product->'observation'->>'raw_response_digest']) d WHERE d IS NOT NULL AND NOT EXISTS(SELECT FROM unnest(p_artifacts) content WHERE encode(sha256(content),'hex')=d)) THEN RAISE EXCEPTION 'observation image/raw response bytes are missing' USING ERRCODE='23514'; END IF;
+  IF EXISTS(SELECT FROM unnest(ARRAY[product->'observation'->'image'->>'artifact_digest',product->'observation'->>'raw_response_digest',product->'observation'->>'mapped_evidence_digest']) d WHERE d IS NOT NULL AND NOT EXISTS(SELECT FROM unnest(p_artifacts) content WHERE encode(sha256(content),'hex')=d)) THEN RAISE EXCEPTION 'observation artifact bytes are missing' USING ERRCODE='23514'; END IF;
  IF NOT EXISTS(SELECT FROM unnest(p_artifacts) content WHERE encode(sha256(content),'hex')=product->>'recipe_digest') THEN RAISE EXCEPTION 'PDF recipe bytes are missing' USING ERRCODE='23514'; END IF;
  INSERT INTO kb.source_artifact(artifact_digest,content) SELECT encode(sha256(content),'hex'),content FROM unnest(p_artifacts) content ON CONFLICT DO NOTHING;
  INSERT INTO ops.pdf_product(task_id,product_key,content_digest,kind,artifact_digest,release_id,contract_digest) VALUES(p_task,product->>'product_key',digest,product->>'kind',original,run.release_id,p_contract);

@@ -19,6 +19,11 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.proposals import ProposalIssue
 from corpus_structure.semantic.query import ReadLimit
 from corpus_structure.serve.native_source import NativeSourceRequest, NativeSourceResponse
+from corpus_structure.serve.pdf_visual_evidence import (
+    VisualEvidencePin,
+    VisualEvidenceRead,
+    VisualText,
+)
 from corpus_structure.serve.source_search import (
     SourceSearchHit,
     SourceSearchRequest,
@@ -47,8 +52,10 @@ def _wire(response):
     )
 
 
-@pytest.mark.parametrize("name", ["find", "inspect_source"])
-def test_registered_source_tools_bound_whole_wire_and_preserve_payload(monkeypatch, name):
+@pytest.mark.parametrize(
+    "name,visual", [("find", False), ("inspect_source", False), ("inspect_source", True)]
+)
+def test_registered_source_tools_bound_whole_wire_and_preserve_payload(monkeypatch, name, visual):
     engine = create_engine("sqlite://")
     produced = []
     monkeypatch.setattr(
@@ -56,8 +63,26 @@ def test_registered_source_tools_bound_whole_wire_and_preserve_payload(monkeypat
     )
 
     def inspect(conn, request):
+        candidate = None
+        if visual:
+            assert request.evidence is not None and request.evidence.run_id == 5
+            assert request.view == "visual_evidence" and request.page_no == 3
+            candidate = VisualEvidenceRead(
+                page_no=3,
+                original_artifact_digest="c" * 64,
+                original_regions=[],
+                submitted_region=None,
+                observation_release_id="observation-release",
+                observation={"outcome": "partial"},
+                mapping_availability="available",
+                items=(VisualText(occurrence_id="o1", kind="mermaid", text=PAYLOAD),),
+            )
         result = NativeSourceResponse(
-            selection=request, release_id="fixture-release", health={}, rows=[{"text": PAYLOAD}]
+            selection=request,
+            release_id="fixture-release",
+            health={},
+            rows=[{"text": "incumbent" if visual else PAYLOAD}],
+            visual_evidence=candidate,
         )
         assert len(result.model_dump_json().encode()) < request.max_bytes
         produced.append(result.model_dump(mode="json"))
@@ -87,6 +112,19 @@ def test_registered_source_tools_bound_whole_wire_and_preserve_payload(monkeypat
     def request(budget):
         if name == "find":
             return SourceSearchRequest(run_id=1, text="Unicode", max_bytes=budget)
+        if visual:
+            return NativeSourceRequest(
+                run_id=1,
+                task_id=2,
+                product_key="native",
+                content_digest="a" * 64,
+                max_bytes=budget,
+                view="visual_evidence",
+                evidence=VisualEvidencePin(
+                    run_id=5, task_id=6, product_key="mapped", content_digest="b" * 64
+                ),
+                page_no=3,
+            )
         return _native_request(max_bytes=budget)
 
     async def journey():
@@ -215,10 +253,10 @@ def test_tiny_source_transport_budget_is_control_error(monkeypatch):
 def test_native_queue_ack_refusal_rolls_back_claim_cache_and_events(
     semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
 ):
-    from .agent_scenarios import build_resubmission_case
+    from .test_pdf_native_consumer_journey import native_build_resubmission_case
 
-    _, run, task, _ = build_resubmission_case(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "ack.pdf"
+    _, run, task, _, _ = native_build_resubmission_case(
+        semantic_db_engine, semantic_writer_engine, tmp_path
     )
     session = SemanticAgentSession(semantic_writer_engine, run)
     events = []

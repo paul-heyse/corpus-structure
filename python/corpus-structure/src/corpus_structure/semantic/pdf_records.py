@@ -165,11 +165,20 @@ def _difference(expected: Any, actual: Any, path: str = "#") -> str | None:
 
 
 @lru_cache(maxsize=8)
-def prepare_native_schema_mapping(schema_bytes: bytes | None = None) -> NativeSchemaMapping:
+def prepare_native_schema_mapping(
+    schema_bytes: bytes | None = None, *, allow_archived_default: bool = False
+) -> NativeSchemaMapping:
     """Prepare the pinned schema; drift requires an explicit lowering update."""
     retained = native_schema_bytes() if schema_bytes is None else schema_bytes
     schema = json.loads(retained)
     baseline = json.loads(native_schema_bytes())
+    if (
+        allow_archived_default
+        and schema.get("properties", {}).get("version", {}).get("default") == "1.10.0"
+    ):
+        # Core 2.105.0 and 2.106.0 share all lowering shapes. The only released
+        # schema delta is this root default. Retain the producer's schema bytes.
+        baseline["properties"]["version"]["default"] = "1.10.0"
     changed = _difference(baseline, schema)
     if changed:
         raise NativeMappingError(
@@ -685,8 +694,9 @@ def validate_native_callbacks(document: Mapping[str, Any]) -> DoclingDocument:
 
     from docling_core.types.doc import DoclingDocument
 
-    if version("docling-core") != native_validation_contract()["docling_core_version"]:
-        raise ValueError("native callbacks require exactly docling-core 2.105.0")
+    required_version = native_validation_contract()["docling_core_version"]
+    if version("docling-core") != required_version:
+        raise ValueError(f"native callbacks require exactly docling-core {required_version}")
     _finite_json(document, "#")
     # The input is borrowed immutably; only the validation candidate can be mutated.
     original = document

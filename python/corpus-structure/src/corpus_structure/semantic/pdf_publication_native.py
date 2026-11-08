@@ -1015,6 +1015,12 @@ BEGIN
  run_.project_id IS DISTINCT FROM (SELECT project_id FROM ops.run WHERE id=b.run_id))) THEN
  RAISE EXCEPTION 'PDF input outside exact admitted source/project custody' USING
  ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM kb.pdf_record_companion c JOIN ops.pdf_product_body o
+ ON o.task_id=(c.body->>'task_id')::bigint AND o.product_key=c.body->>'product_key'
+ WHERE c.product_id=p_build AND c.revision_id=p_build AND c.family='input'
+ AND o.descriptor->'observation'->>'pass_role' IN ('chandra_page','chandra_crop')) THEN
+ RAISE EXCEPTION 'visual observation cannot be an input to selected PDF publication' USING
+ ERRCODE='23514'; END IF;
  IF EXISTS({pdf_coverage_support_violation_query}) THEN
  RAISE EXCEPTION 'coverage support differs from exact input coverage scope/family/outcome'
  USING ERRCODE='23514'; END IF;

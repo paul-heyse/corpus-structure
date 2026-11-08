@@ -359,7 +359,7 @@ def test_completion_driven_refill_does_not_wait_for_slow_first_page(tmp_path, mo
 
     first_release = threading.Event()
     third_started = threading.Event()
-    original = RecognitionWorker.recognize_pages
+    original = RecognitionWorker._recognize_pages
 
     def recognize(self, source, recipe, numbers, **kwargs):
         if kwargs.get("concurrency", 1) > 1:
@@ -372,7 +372,7 @@ def test_completion_driven_refill_does_not_wait_for_slow_first_page(tmp_path, mo
             third_started.set()
         yield RecognitionPage(number, tmp_path, {"outcome": "succeeded"}, {})
 
-    monkeypatch.setattr(RecognitionWorker, "recognize_pages", recognize)
+    monkeypatch.setattr(RecognitionWorker, "_recognize_pages", recognize)
     worker = owner(tmp_path, "http://unused")
     pages = worker.recognize_pages(
         PreparedRecognitionSource.prepare(landmark_pdf()),

@@ -2,11 +2,46 @@
 
 from __future__ import annotations
 
+import fcntl
+import os
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
+from contextvars import ContextVar
+from pathlib import Path
+from time import sleep
 from urllib.parse import urlsplit
 
 import httpx
+
+_owns_pdf_gpu: ContextVar[bool] = ContextVar("owns_pdf_gpu", default=False)
+
+
+@contextmanager
+def pdf_gpu_slot(check_active: Callable[[], None] | None = None) -> Generator[None]:
+    """Serialize the local operator's participating PDF GPU work across processes."""
+    if _owns_pdf_gpu.get():
+        yield
+        return
+    path = Path("/tmp") / f"corpus-structure-pdf-gpu-{os.getuid()}.lock"
+    fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+    try:
+        if os.fstat(fd).st_uid != os.getuid():
+            raise PermissionError("PDF GPU slot belongs to another operator")
+        while True:
+            if check_active is not None:
+                check_active()
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                sleep(0.1)
+        token = _owns_pdf_gpu.set(True)
+        try:
+            yield
+        finally:
+            _owns_pdf_gpu.reset(token)
+    finally:
+        os.close(fd)
 
 
 @contextmanager
@@ -37,7 +72,7 @@ def native_before_nemotron(
     base = endpoint.rstrip("/")[:-3]
     primary: BaseException | None = None
     requested = False
-    with httpx.Client(timeout=timeout_seconds) as client:
+    with pdf_gpu_slot(check_active), httpx.Client(timeout=timeout_seconds) as client:
         if check_active is not None:
             check_active()
         try:
