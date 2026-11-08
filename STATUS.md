@@ -8,6 +8,7 @@ _Updated 2026-11-08. Whole-book processing and output review are complete. Chand
   owns findings, package states and combined qualification. ADR-0067 governs current-only
   migration. ADR-0070 selects all 518 Grinstead–Snell pages. WCE receipts still cover pages 191–310.
 - WCE baseline `07d25b840` retains `semantic_wce_lineage_20261107` and `retrieve.contextual/5`.
+- The [GitHub visitor review](docs/functional_reviews/github-visitor-experience_2026-11-08.md) is proposed. On 2026-11-08, `uv run --no-sync ci docs check --json` passed with temporary fixes in an isolated checkout. The review owns both clean-checkout Pages blockers.
 
 ## Delivered and assessed
 
@@ -56,5 +57,4 @@ _Updated 2026-11-08. Whole-book processing and output review are complete. Chand
   cues published. LLM review covers all 518 pages and retained definition and artifact outputs.
 - The [Chandra coordinator](docs/plans/chandra-2-post-nemotron_2026-11-08.md#qualification-and-handoff) owns CH-08–11. Next are incumbent recovery, typed delivery and a dry routing assessment. Automatic activation needs shadow qualification.
   The [verified inspection baseline](docs/plans/chandra-2-post-nemotron_2026-11-08.md#execution-disposition--2026-11-08) remains on `semantic_chandra_input_custody`, with recovery qualification open. The revised docs passed publication with an unrelated untracked draft excluded.
-- Settle the WCE source and factor obligations. Live CLI qualification needs a configured
-  production target, purpose roles and effect authority.
+- Settle the WCE source and factor obligations. Live CLI qualification needs a configured production target, purpose roles and effect authority.

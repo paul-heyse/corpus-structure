@@ -102,3 +102,10 @@ The [Chandra functional review](chandra-2-post-nemotron_2026-11-08.md) evaluates
 post-Nemotron recognition and new figure, chart, diagram and source-inspection
 uses on Docling 2.148.0. It recommends starting with attributed visual evidence
 and a typed read before considering governed promotion into the PDF product.
+
+## GitHub visitor experience — 2026-11-08
+
+The [GitHub visitor review](github-visitor-experience_2026-11-08.md) recommends a
+visitor-first README, a traceable citation example, and a shared functional diagram.
+It records tool and installation choices and the clean-checkout failures to resolve
+before publishing the existing documentation site on GitHub Pages.
