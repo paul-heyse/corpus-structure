@@ -26,7 +26,7 @@ def main() -> None:
     with TemporaryDirectory(dir=ASSETS) as staging:
         svg = Path(staging) / "pipeline.svg"
         png = Path(staging) / "social-preview.png"
-        run(["d2", "--layout=elk", str(SOURCE / "pipeline.d2"), str(svg)], check=True)
+        run(["d2", "--layout=elk", "--scale=1", "--pad=32", str(SOURCE / "pipeline.d2"), str(svg)], check=True)
         with sync_playwright() as playwright, playwright.chromium.launch() as browser:
             page = browser.new_page(viewport={"width": 1280, "height": 640}, device_scale_factor=1)
             page.goto((SOURCE / "social-preview.html").as_uri())
