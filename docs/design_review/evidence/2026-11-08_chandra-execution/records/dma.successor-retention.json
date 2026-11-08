@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "id": "dma.successor-retention",
+  "title": "Exact stopped visual scope custody after the DMA successor",
+  "group": "chandra-execution",
+  "package": "DMA-13",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Did the development successor preserve both exact pins and native mapped lookup for each settled campaign scope?",
+  "answers": [
+    "DA-058",
+    "DA-066",
+    "DMA-13"
+  ],
+  "method": "Match the independent stopped campaign pins to the restricted Reader inventory and verify that each mapped pin has an admitted locator.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-08_chandra-execution/verify_dma_scope_retention.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/book-shadow-377/dma-stopped-scope-pins.json",
+      "role": "Exact stopped group and scope pins",
+      "sha256": "3aa35d60ed9e94bae08d4644fe47ab0e4e97def6e49ff24486f793ea77017c31"
+    },
+    {
+      "path": "verify_dma_scope_retention.py",
+      "role": "Restricted development Reader verification",
+      "sha256": "e4d9ba5132761c35a986daf38bd49c8f01dd49ede32bca8584a83baba2d4d37a"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/book-shadow-377/dma-stopped-scope-verification.json",
+      "role": "Exact match and locator counts",
+      "sha256": "48105a478acab13e40f38843908a0a699f4a49c39565307716d68a96afa97ec1"
+    },
+    {
+      "path": "dma-successor-retention.md",
+      "role": "Scope and managed deployment evidence",
+      "sha256": "7eae78bc7ff9d6f4411e80653d08d7dac637ae458ea530575d38c9f482d5eeb4"
+    }
+  ],
+  "depends_on": [
+    "chandra.repaired-shadow-controls"
+  ],
+  "results": [
+    {
+      "name": "settled scopes with both exact pins and a mapped locator",
+      "value": 68,
+      "of": 68,
+      "unit": "scopes",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The migrated development Reader retains all 136 pins and all 68 mapped locators for the stopped scope. Remaining scopes are unassessed.",
+  "consumed_by": [
+    "DMA-10",
+    "DMA-11",
+    "DMA-13"
+  ]
+}
