@@ -2,11 +2,12 @@
 
 import json
 from hashlib import sha256
+from threading import Event
 
 import psycopg
 import pyarrow as pa
 import pytest
-from docling_core.types.doc import DocItemLabel, DoclingDocument, Size
+from docling_core.types.doc import BoundingBox, DocItemLabel, DoclingDocument, ProvenanceItem, Size
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -21,13 +22,22 @@ from corpus_structure.semantic.pdf_publication import (
 )
 from corpus_structure.semantic.pdf_staging import adopt_pdf_batch
 
+from .pdf_staging_support import create_private_build as create_private_build
 from .pdf_staging_support import private_build as private_build
 
 
-def stage_complete_native(engine, build, directory):
+def stage_complete_native(engine, build, directory, *, cell_coverage="unknown", region=False):
     document = DoclingDocument(name="frozen fixture")
     document.add_page(page_no=1, size=Size(width=200, height=300))
-    document.add_text(label=DocItemLabel.TEXT, text="independent expected text")
+    expected = "independent expected text"
+    provenance = (
+        ProvenanceItem(
+            page_no=1, bbox=BoundingBox(l=1, t=10, r=100, b=20), charspan=(0, len(expected))
+        )
+        if region
+        else None
+    )
+    document.add_text(label=DocItemLabel.TEXT, text=expected, prov=provenance)
     result = StreamingPdfResult(
         document, PdfStreamSpool(directory / "pages"), "success", (), b"{}", ()
     )
@@ -57,7 +67,7 @@ def stage_complete_native(engine, build, directory):
                     "conversion": "success",
                     "display_coverage": "unknown",
                     "inline_coverage": "unknown",
-                    "cell_coverage": "unknown",
+                    "cell_coverage": cell_coverage,
                     "source_scope": "whole_document",
                 }
             ],
@@ -80,6 +90,27 @@ def test_freeze_prepare_validate_seal_and_replay(
         assert published_pdf_revision(conn, build.task_id, "native", "0" * 64) is None
     outcome = validate_pdf_build(semantic_writer_engine, frozen)
     assert len(outcome.logical_digest) == 64
+    with semantic_db_engine.connect() as conn:
+        assert set(
+            conn.scalars(
+                text("SELECT check_name FROM ops.pdf_validation_check WHERE build_id=:build"),
+                {"build": build.build_id},
+            )
+        ) == {"seal", "inventory", "identity", "access", "projection"}
+        assert (
+            conn.scalar(
+                text("SELECT ops.pdf_record_logical_identity(:build,:build)"),
+                {"build": build.build_id},
+            )
+            == outcome.logical_digest
+        )
+        assert (
+            conn.scalar(
+                text("SELECT ops.pdf_projection_contract(:build,:release)"),
+                {"build": build.build_id, "release": build.release_id},
+            )
+            == outcome.contract_digest
+        )
     with semantic_writer_engine.begin() as conn:
         published = seal_pdf_build(conn, frozen, "native")
         assert seal_pdf_build(conn, frozen, "native") == published
@@ -141,6 +172,168 @@ def test_freeze_prepare_validate_seal_and_replay(
         assert (
             published_pdf_revision(conn, build.task_id, "native", published.logical_digest)
             == published
+        )
+
+
+def test_compatible_predecessor_reuses_exact_access_for_changed_companion(
+    create_private_build, semantic_writer_engine, semantic_db_engine, monkeypatch, tmp_path
+):
+    from corpus_structure.semantic import _operation_calls as calls
+    from corpus_structure.semantic._operation_ids import RunId, TaskAttempt, TaskId
+    from corpus_structure.semantic.operations import complete_task, seal_cut
+    from corpus_structure.semantic.releases import load_release
+
+    def publish_fixture(build, directory, cell_coverage):
+        stage_complete_native(
+            semantic_writer_engine, build, directory, cell_coverage=cell_coverage, region=True
+        )
+        with semantic_writer_engine.begin() as conn:
+            frozen = freeze_pdf_build(conn, build, kind="native")
+            prepare_pdf_build(conn, frozen)
+        outcome = validate_pdf_build(semantic_writer_engine, frozen)
+        with semantic_writer_engine.begin() as conn:
+            seal_pdf_build(conn, frozen, "native")
+        return outcome
+
+    predecessor = create_private_build()
+    before = publish_fixture(predecessor, tmp_path / "before", "unknown")
+    with semantic_writer_engine.begin() as conn:
+        run = RunId(
+            conn.execute(
+                text("SELECT run_id FROM ops.task WHERE id=:task"), {"task": predecessor.task_id}
+            ).scalar_one()
+        )
+        complete_task(
+            conn,
+            task_id=TaskId(predecessor.task_id),
+            attempt=TaskAttempt(predecessor.attempt),
+            holder=predecessor.holder,
+            prepared=load_release(conn, predecessor.release_id),
+            observations=[],
+            outcome="empty",
+        )
+        seal_cut(conn, run, "validated-predecessor", final=True)
+    current = create_private_build()
+    after = publish_fixture(current, tmp_path / "after", "partial")
+    assert after.logical_digest != before.logical_digest
+    assert after.contract_digest == before.contract_digest
+    with semantic_db_engine.connect() as conn:
+        reused = set(
+            conn.scalars(
+                text(
+                    "SELECT check_name FROM ops.pdf_validation_check WHERE build_id=:build "
+                    "AND predecessor_build_id=:predecessor"
+                ),
+                {"build": current.build_id, "predecessor": predecessor.build_id},
+            )
+        )
+        assert reused == {"seal", "access", "projection"}
+        assert (
+            conn.scalar(
+                text("SELECT ops.pdf_record_logical_identity(:build,:build)"),
+                {"build": current.build_id},
+            )
+            == after.logical_digest
+        )
+
+    adopt = calls.adopt_pdf_access_batch
+
+    def integer_spelling(conn, *, rows, **scope):
+        for row in rows:
+            if row["family"] == "region":
+                row["body"]["left"] = int(row["body"]["left"])
+        adopt(conn, rows=rows, **scope)
+
+    monkeypatch.setattr(calls, "adopt_pdf_access_batch", integer_spelling)
+    respelled = create_private_build()
+    lexical_delta = publish_fixture(respelled, tmp_path / "respelled", "partial")
+    assert lexical_delta.logical_digest == after.logical_digest
+    assert lexical_delta.contract_digest != after.contract_digest
+    with semantic_db_engine.connect() as conn:
+        assert (
+            conn.scalar(
+                text("SELECT ops.pdf_projection_contract(:build,:release)"),
+                {"build": respelled.build_id, "release": respelled.release_id},
+            )
+            == lexical_delta.contract_digest
+        )
+
+
+def test_missing_validation_check_refuses_publication_and_can_retry(
+    private_build, semantic_writer_engine, monkeypatch, tmp_path
+):
+    from corpus_structure.semantic import _operation_calls as calls
+
+    build = private_build
+    stage_complete_native(semantic_writer_engine, build, tmp_path)
+    with semantic_writer_engine.begin() as conn:
+        frozen = freeze_pdf_build(conn, build, kind="native")
+        prepare_pdf_build(conn, frozen)
+    check = calls.check_pdf_build
+
+    def omit_access(conn, *, check_name, **scope):
+        if check_name != "access":
+            check(conn, check_name=check_name, **scope)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(calls, "check_pdf_build", omit_access)
+        with pytest.raises(DBAPIError, match="incomplete frozen PDF validation checks"):
+            validate_pdf_build(semantic_writer_engine, frozen)
+    outcome = validate_pdf_build(semantic_writer_engine, frozen)
+    with semantic_writer_engine.begin() as conn:
+        assert seal_pdf_build(conn, frozen, "native").logical_digest == outcome.logical_digest
+
+
+def test_validation_cancellation_settles_live_check(
+    private_build, semantic_writer_engine, semantic_db_engine, monkeypatch, tmp_path
+):
+    from corpus_structure.core.db.lifetime import BorrowerCancellation, DatabaseOperationCancelled
+    from corpus_structure.semantic import _operation_calls as calls
+
+    build = private_build
+    stage_complete_native(semantic_writer_engine, build, tmp_path)
+    with semantic_writer_engine.begin() as conn:
+        frozen = freeze_pdf_build(conn, build, kind="native")
+        prepare_pdf_build(conn, frozen)
+    check = calls.check_pdf_build
+    live = Event()
+    pids = []
+    cancellation = BorrowerCancellation()
+
+    def slow_access(conn, *, check_name, **scope):
+        if check_name == "access":
+            pids.append(conn.scalar(text("SELECT pg_backend_pid()")))
+            live.set()
+            conn.execute(text("SELECT pg_sleep(10) /* pdf validation cancellation test */"))
+        check(conn, check_name=check_name, **scope)
+
+    def cancel_live_check():
+        if live.is_set():
+            with semantic_db_engine.connect() as conn:
+                sleeping = conn.scalar(
+                    text("SELECT wait_event='PgSleep' FROM pg_stat_activity WHERE pid=:pid"),
+                    {"pid": pids[0]},
+                )
+            if sleeping:
+                cancellation.request_cancel()
+                cancellation.check_active()
+
+    monkeypatch.setattr(calls, "check_pdf_build", slow_access)
+    with pytest.raises(DatabaseOperationCancelled):
+        validate_pdf_build(
+            semantic_writer_engine, frozen, cancel_live_check, cancellation=cancellation
+        )
+    with semantic_db_engine.connect() as conn:
+        assert (
+            conn.scalar(
+                text("SELECT count(*) FROM ops.pdf_build_validation WHERE build_id=:build"),
+                {"build": build.build_id},
+            )
+            == 0
+        )
+        assert not conn.scalar(
+            text("SELECT EXISTS (SELECT FROM pg_stat_activity WHERE pid=:pid AND state='active')"),
+            {"pid": pids[0]},
         )
 
 

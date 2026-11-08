@@ -6,6 +6,7 @@ from pypdfium2 import PdfDocument, raw
 
 from corpus_structure.ingest.pdf_recognition import crop_transform, render_affine
 from corpus_structure.semantic.visual_routing import (
+    StudyRegion,
     VisualRouteCrop,
     VisualRouteReason,
     _decide,
@@ -76,6 +77,32 @@ def test_unassessed_page_is_unresolved_even_with_no_detected_gap():
     route = _decide(506, _PageSignals([], [], False))
     assert route.action == "unresolved"
     assert route.reasons[0].code == "unassessed"
+
+
+def test_study_presence_only_resolves_the_witnessed_layout_gap():
+    layout = _layout(
+        b"<x_0.2><y_0.2><x_0.8><y_0.4><class_Table>\n<x_0.2><y_0.6><x_0.8><y_0.8><class_Table>"
+    )
+    omitted = VisualRouteReason(code="omitted_crop", inputs=(_PIN,), crop=_REGION)
+    signals = _PageSignals(
+        [_region((40, 120, 160, 160))],
+        [],
+        True,
+        layout=layout,
+        requests=[omitted],
+        study_regions=(StudyRegion("table", (40, 40, 160, 80), _FRAME),),
+    )
+    repaired = _decide(151, signals)
+    assert repaired.reasons == (omitted,)
+    assert repaired.crop == _REGION
+
+    # A study replacement may relocate the archive occurrence, but it cannot
+    # give the now-unmatched provider reading a published crop address.
+    signals.study_regions = (StudyRegion("table", (40, 40, 160, 80), _FRAME, replaces=_REGION),)
+    relocated = _decide(151, signals)
+    assert [reason.code for reason in relocated.reasons] == ["omitted_crop", "missing_structure"]
+    assert relocated.reasons[-1].crop is None
+    assert relocated.crop is None
 
 
 def test_retained_layout_requires_qualified_positions_for_every_block():

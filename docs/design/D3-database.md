@@ -359,6 +359,16 @@ all projections while holding the task fence. Stale unfinished receipts refuse w
 fresh-current-rebuild action. Published replay retains its original producing release and identity.
 Semantic PDF schema identity, projection identity and validation identity remain separate fields.
 
+**Implemented · 2026-11-08.** The writer seals access and region membership after the native
+callback. Independent inventory, access, identity and projection checks read the same immutable
+inputs on separate connections. Each records its result under the live attempt and validation
+contract. Final validation consumes the complete check set under the task and build fence.
+An exact predecessor from a sealed producer run in the same project and release can supply
+validated access and projection premises when their typed inputs match. Artifact verification reuses only streams
+whose descriptors and ordered byte parts match. The original ordered logical fold still binds
+the new product. The [Chandra coordinator](../plans/chandra-2-post-nemotron_2026-11-08.md#comparator-execution-fit-follow-up)
+owns operational qualification.
+
 **Implemented; scoped concurrency controls Tested (2026-11-03).** Companion transport batches
 are decoded and split before checkout; each bounded chunk uses a short caller-owned protected
 append transaction, with stable absolute row ordinals for replay. A large IPC batch no longer

@@ -342,6 +342,40 @@ def _coverage_support_violation_sql() -> str:
     return str(invalid.compile(dialect=dialect(), compile_kwargs={"literal_binds": True}))
 
 
+def _validation_rows_equal_sql(*relations: str) -> str:
+    """Exact equality of protected typed rows within their build-local namespaces."""
+    predicates = []
+    pg = dialect()
+    for relation in relations:
+        table = metadata.tables[relation]
+        fields = []
+        for column in table.c:
+            if column.name in {"product_id", "revision_id"}:
+                continue
+            name = pg.identifier_preparer.quote_identifier(column.name)
+            kind = column.type.compile(dialect=pg)
+            # Projection identity preserves numeric spelling (1 and 1.0 have
+            # different canonical JSON), even where SQL value equality does not.
+            if kind in {"JSON", "JSONB"} or kind.startswith("NUMERIC"):
+                fields.append(f"convert_to({name}::text,'UTF8')")
+            elif kind in {"DOUBLE PRECISION", "FLOAT", "REAL"}:
+                fields.append(f"float8send({name}::double precision)")
+            else:
+                fields.append(name)
+        columns = ",".join(fields)
+        current = (
+            f"SELECT {columns} FROM {relation} WHERE product_id=p_build AND revision_id=p_build"
+        )
+        previous = (
+            f"SELECT {columns} FROM {relation} WHERE product_id=prior_ AND revision_id=prior_"
+        )
+        predicates.append(
+            f"NOT EXISTS(({current} EXCEPT ALL {previous}) UNION ALL "
+            f"({previous} EXCEPT ALL {current}))"
+        )
+    return "\n AND ".join(predicates)
+
+
 def _published_validation_sql() -> str:
     from .native_sql_body import published_validation_statement
 
@@ -819,7 +853,8 @@ BEGIN
  PERFORM 1 FROM ops.pdf_stage_build WHERE build_id=p_build FOR NO KEY UPDATE;
  b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
  IF b.state<>'frozen' THEN RAISE EXCEPTION 'published PDF projection immutable'; END IF;
- IF EXISTS(SELECT FROM ops.pdf_build_validation WHERE build_id=p_build) THEN
+ IF EXISTS(SELECT FROM ops.pdf_build_validation WHERE build_id=p_build)
+ OR EXISTS(SELECT FROM ops.pdf_validation_check WHERE build_id=p_build AND check_name='seal') THEN
  IF (p_family='access' AND EXISTS(SELECT FROM kb.pdf_record_access r WHERE
  r.product_id=p_build AND r.revision_id=p_build AND r.pointer=p_body->>'pointer' AND
  to_jsonb(r)-'product_id'-'revision_id'=p_body)) OR
@@ -873,23 +908,10 @@ DO NOTHING;
 frozen_digest=p_frozen AND contract_digest=contract_ AND passed=p_passed) THEN
  RAISE EXCEPTION 'native callback outcome conflicts for immutable premises'; END IF;
 END $$;
-CREATE OR REPLACE FUNCTION ops.validate_pdf_build(p_build text,p_task bigint,p_attempt
- bigint,p_holder text,p_frozen text)
-RETURNS SETOF ops.pdf_build_validation LANGUAGE plpgsql SECURITY DEFINER SET
- search_path=pg_catalog,pg_temp AS $$
-DECLARE b ops.pdf_stage_build; logical_ text; contract_ text;
- prior_validation ops.pdf_build_validation; bad_owner_ boolean; unreachable_ boolean;
+CREATE OR REPLACE FUNCTION ops.pdf_check_build_inventory(p_build text,p_source text,p_run bigint)
+RETURNS void LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
+DECLARE bad_owner_ boolean; unreachable_ boolean;
 BEGIN
- PERFORM 1 FROM ops.pdf_stage_build WHERE build_id=p_build FOR NO KEY UPDATE;
- b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
- PERFORM sem.require_execution_operation(b.release_id,'validate_pdf_build');
- SELECT * INTO prior_validation FROM ops.lookup_pdf_validation(
- p_build,p_task,p_attempt,p_holder,p_frozen);
- IF FOUND THEN RETURN NEXT prior_validation; RETURN; END IF;
- IF NOT EXISTS(SELECT FROM ops.pdf_native_validation v WHERE v.build_id=p_build AND
- v.frozen_digest=p_frozen AND v.contract_digest=ops.pdf_validation_contract(b.release_id)
- AND v.passed) THEN RAISE EXCEPTION 'native callback conformance outcome missing or stale'
- USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM kb.pdf_record_native n WHERE n.product_id=p_build AND
  n.revision_id=p_build AND
  ops.pdf_native_record_shape(n.native_type,n.scalars_json,n.structure_json->'fields') IS NOT
@@ -913,14 +935,17 @@ BEGIN
  n.revision_id=p_build AND n.scalars_json ? 'self_ref'
  GROUP BY n.scalars_json->>'self_ref' HAVING count(*)<>1) THEN
  RAISE EXCEPTION 'native self-reference is not unique' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM kb.pdf_record_native n LEFT JOIN kb.pdf_record_reference r ON
- r.product_id=p_build AND r.revision_id=p_build AND r.source_id=n.record_id AND
- r.field_name='$ref'
+ IF EXISTS(WITH ref_index AS MATERIALIZED (
+ SELECT reference_id,source_id,native_pointer,native_pointer_stream_id
+ FROM kb.pdf_record_reference WHERE product_id=p_build AND revision_id=p_build AND field_name='$ref'
+ ) SELECT FROM kb.pdf_record_native n LEFT JOIN ref_index r ON r.source_id=n.record_id
  WHERE n.product_id=p_build AND n.revision_id=p_build AND n.native_type IN
  ('RefItem','FineRef') AND
- (r.reference_id IS NULL OR NOT
- ops.pdf_reference_bytes_equal(p_build,p_build,r.native_pointer,r.native_pointer_stream_id,
- n.scalars_json->>'$ref',n.structure_json->'fields'->'$ref'->>'stream_id'))) THEN
+ (r.reference_id IS NULL OR CASE
+ WHEN r.native_pointer_stream_id IS NULL AND n.structure_json->'fields'->'$ref'->>'stream_id' IS NULL
+ THEN (r.native_pointer COLLATE "C" = (n.scalars_json->>'$ref') COLLATE "C") IS NOT TRUE
+ ELSE NOT ops.pdf_reference_bytes_equal(p_build,p_build,r.native_pointer,r.native_pointer_stream_id,
+ n.scalars_json->>'$ref',n.structure_json->'fields'->'$ref'->>'stream_id') END)) THEN
  RAISE EXCEPTION 'native reference index does not correspond to supplied spelling' USING
  ERRCODE='23514'; END IF;
  WITH RECURSIVE owner_edges AS MATERIALIZED (
@@ -1011,8 +1036,8 @@ BEGIN
  LEFT JOIN ops.task task_ ON task_.id=input_.task_id LEFT JOIN ops.run run_ ON
  run_.id=task_.run_id
  WHERE c.product_id=p_build AND c.revision_id=p_build AND c.family='input' AND
- (input_.task_id IS NULL OR input_.artifact_digest IS DISTINCT FROM b.source_digest OR
- run_.project_id IS DISTINCT FROM (SELECT project_id FROM ops.run WHERE id=b.run_id))) THEN
+ (input_.task_id IS NULL OR input_.artifact_digest IS DISTINCT FROM p_source OR
+ run_.project_id IS DISTINCT FROM (SELECT project_id FROM ops.run WHERE id=p_run))) THEN
  RAISE EXCEPTION 'PDF input outside exact admitted source/project custody' USING
  ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM kb.pdf_record_companion c JOIN ops.pdf_product_body o
@@ -1075,10 +1100,123 @@ BEGIN
  a.product_id=p_build AND a.revision_id=p_build
  AND a.pointer=n.scalars_json->>'self_ref')) THEN RAISE EXCEPTION
  'native access inventory incomplete' USING ERRCODE='23514'; END IF;
- PERFORM ops.pdf_check_access_correspondence(p_build);
- logical_:=ops.pdf_record_logical_identity(p_build,p_build);
+END $$;
+CREATE OR REPLACE FUNCTION ops.check_pdf_build(p_build text,p_task bigint,p_attempt bigint,
+ p_holder text,p_frozen text,p_check text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE b ops.pdf_stage_build; contract_ text; result_ text:=''; prior_ text; reused_ text;
+BEGIN
+ IF NOT (current_setting('transaction_isolation')=ANY({pdf_projection_isolation_array})) THEN
+ RAISE EXCEPTION '{pdf_projection_isolation_message}' USING ERRCODE='25000'; END IF;
+ IF p_check='seal' THEN
+  PERFORM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
+  PERFORM 1 FROM ops.pdf_stage_build WHERE build_id=p_build FOR NO KEY UPDATE;
+ END IF;
+ b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
+ PERFORM sem.require_execution_operation(b.release_id,'validate_pdf_build');
+ IF b.state<>'frozen' THEN RAISE EXCEPTION 'PDF check requires a frozen private build'; END IF;
+ contract_:=ops.pdf_validation_contract(b.release_id);
+ IF p_check='seal' THEN
+  IF NOT EXISTS(SELECT FROM ops.pdf_native_validation v WHERE v.build_id=p_build
+   AND v.frozen_digest=p_frozen AND v.contract_digest=contract_ AND v.passed) THEN
+   RAISE EXCEPTION 'native callback conformance outcome missing or stale' USING ERRCODE='23514';
+  END IF;
+  IF EXISTS(SELECT FROM ops.pdf_validation_check v WHERE v.build_id=p_build
+   AND v.attempt=p_attempt AND v.holder=p_holder AND v.frozen_digest=p_frozen
+   AND v.contract_digest=contract_ AND v.check_name='seal') THEN RETURN; END IF;
+  SELECT p.build_id INTO reused_ FROM ops.pdf_published_revision p
+  JOIN ops.pdf_build_validation v ON v.build_id=p.build_id AND v.frozen_digest=p.frozen_digest
+   AND v.logical_digest=p.logical_digest AND v.native_contract_digest=contract_ AND v.native_callbacks
+  JOIN ops.task t ON t.id=p.task_id
+  JOIN ops.run r ON r.id=t.run_id AND r.sealed AND r.status IN ('consolidating','finished')
+  JOIN ops.pdf_frozen_build f ON f.build_id=p_build AND f.kind=p.kind
+  WHERE p.source_digest=b.source_digest AND p.schema_digest=b.schema_digest
+   AND p.recipe_digest=b.recipe_digest AND p.release_id=b.release_id
+   AND r.project_id=(SELECT project_id FROM ops.run WHERE id=b.run_id)
+  ORDER BY t.id DESC LIMIT 1;
+ ELSE
+  SELECT v.predecessor_build_id INTO prior_ FROM ops.pdf_validation_check v WHERE v.build_id=p_build
+   AND v.attempt=p_attempt AND v.holder=p_holder AND v.frozen_digest=p_frozen
+   AND v.contract_digest=contract_ AND v.check_name='seal';
+  IF NOT FOUND THEN
+   RAISE EXCEPTION 'PDF projection seal missing or stale' USING ERRCODE='23514';
+  END IF;
+  IF EXISTS(SELECT FROM ops.pdf_validation_check v WHERE v.build_id=p_build
+   AND v.attempt=p_attempt AND v.holder=p_holder AND v.frozen_digest=p_frozen
+   AND v.contract_digest=contract_ AND v.check_name=p_check) THEN RETURN; END IF;
+  CASE p_check
+   WHEN 'inventory' THEN PERFORM ops.pdf_check_build_inventory(p_build,b.source_digest,b.run_id);
+   WHEN 'access' THEN
+    IF prior_ IS NOT NULL AND {pdf_access_rows_equal} AND {pdf_native_rows_equal}
+     AND NOT EXISTS(SELECT FROM kb.pdf_record_access WHERE product_id=p_build AND revision_id<>p_build)
+     AND NOT EXISTS(SELECT FROM kb.pdf_record_region WHERE product_id=p_build AND revision_id<>p_build)
+    THEN reused_:=prior_;
+    ELSE PERFORM ops.pdf_check_access_correspondence(p_build); END IF;
+   WHEN 'identity' THEN result_:=ops.pdf_record_logical_identity(p_build,p_build,prior_);
+   WHEN 'projection' THEN
+    IF prior_ IS NOT NULL AND {pdf_access_rows_equal} THEN
+     SELECT v.contract_digest INTO STRICT result_ FROM ops.pdf_build_validation v
+     WHERE v.build_id=prior_ AND v.native_contract_digest=contract_;
+     reused_:=prior_;
+    ELSE result_:=ops.pdf_projection_contract(p_build,b.release_id); END IF;
+   ELSE RAISE EXCEPTION 'unknown frozen PDF check' USING ERRCODE='23514';
+  END CASE;
+ END IF;
+ -- The long check uses the immutable native and projection inventories. Settle under the
+ -- live task fence only after the check has returned, with no lock held during the work.
+ IF p_check<>'seal' THEN PERFORM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder); END IF;
  PERFORM ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
- contract_:=ops.pdf_projection_contract(p_build,b.release_id);
+ INSERT INTO ops.pdf_validation_check
+  (build_id,attempt,holder,frozen_digest,contract_digest,check_name,result_digest,predecessor_build_id)
+ VALUES(p_build,p_attempt,p_holder,p_frozen,contract_,p_check,result_,reused_) ON CONFLICT DO NOTHING;
+ IF NOT EXISTS(SELECT FROM ops.pdf_validation_check v WHERE v.build_id=p_build
+  AND v.attempt=p_attempt AND v.holder=p_holder AND v.frozen_digest=p_frozen
+  AND v.contract_digest=contract_ AND v.check_name=p_check AND v.result_digest=result_
+  AND v.predecessor_build_id IS NOT DISTINCT FROM reused_) THEN
+  RAISE EXCEPTION 'PDF check result differs for sealed premises' USING ERRCODE='23514';
+ END IF;
+END $$;
+CREATE OR REPLACE FUNCTION ops.validate_pdf_build(p_build text,p_task bigint,p_attempt
+ bigint,p_holder text,p_frozen text)
+RETURNS SETOF ops.pdf_build_validation LANGUAGE plpgsql SECURITY DEFINER SET
+ search_path=pg_catalog,pg_temp AS $$
+DECLARE b ops.pdf_stage_build; logical_ text; contract_ text;
+ prior_validation ops.pdf_build_validation;
+BEGIN
+ IF NOT (current_setting('transaction_isolation')=ANY({pdf_projection_isolation_array})) THEN
+ RAISE EXCEPTION '{pdf_projection_isolation_message}' USING ERRCODE='25000'; END IF;
+ IF EXISTS(SELECT FROM ops.pdf_validation_check WHERE build_id=p_build AND check_name='seal') THEN
+  PERFORM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
+ END IF;
+ PERFORM 1 FROM ops.pdf_stage_build WHERE build_id=p_build FOR NO KEY UPDATE;
+ b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
+ PERFORM sem.require_execution_operation(b.release_id,'validate_pdf_build');
+ SELECT * INTO prior_validation FROM ops.lookup_pdf_validation(
+ p_build,p_task,p_attempt,p_holder,p_frozen);
+ IF FOUND THEN RETURN NEXT prior_validation; RETURN; END IF;
+ IF NOT EXISTS(SELECT FROM ops.pdf_native_validation v WHERE v.build_id=p_build AND
+ v.frozen_digest=p_frozen AND v.contract_digest=ops.pdf_validation_contract(b.release_id)
+ AND v.passed) THEN RAISE EXCEPTION 'native callback conformance outcome missing or stale'
+ USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM ops.pdf_validation_check WHERE build_id=p_build AND check_name='seal') THEN
+  SELECT max(result_digest) FILTER (WHERE check_name='identity'),
+         max(result_digest) FILTER (WHERE check_name='projection')
+  INTO logical_,contract_ FROM ops.pdf_validation_check
+  WHERE build_id=p_build AND attempt=p_attempt AND holder=p_holder AND frozen_digest=p_frozen
+   AND contract_digest=ops.pdf_validation_contract(b.release_id)
+  HAVING count(*)=5;
+  IF logical_ IS NULL OR contract_ IS NULL THEN
+   RAISE EXCEPTION 'incomplete frozen PDF validation checks' USING ERRCODE='23514';
+  END IF;
+ ELSE
+  -- Single-transaction reference path for existing operation callers. The build lock
+  -- already fences projection membership for the entire reference validation.
+  PERFORM ops.pdf_check_build_inventory(p_build,b.source_digest,b.run_id);
+  PERFORM ops.pdf_check_access_correspondence(p_build);
+  logical_:=ops.pdf_record_logical_identity(p_build,p_build);
+  contract_:=ops.pdf_projection_contract(p_build,b.release_id);
+ END IF;
+ PERFORM ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
  INSERT INTO ops.pdf_build_validation SELECT p_build,p_frozen,logical_,contract_,v.passed,
  v.contract_digest FROM ops.pdf_native_validation v WHERE v.build_id=p_build AND
  v.frozen_digest=p_frozen AND v.passed AND
@@ -1367,7 +1505,9 @@ GRANT EXECUTE ON FUNCTION ops.pdf_record_scope_health(bigint,text,text,text[]) T
 corpus_sem_writer,corpus_sem_reader;
 """
     sql += _published_validation_sql()
+    sql += "REVOKE ALL ON FUNCTION ops.pdf_check_build_inventory(text,text,bigint) FROM PUBLIC;\n"
     signatures = [
+        "check_pdf_build(text,bigint,bigint,text,text,text)",
         "pdf_validation_contract(text)",
         "pdf_projection_contract(text,text)",
         "lookup_pdf_validation(text,bigint,bigint,text,text)",
@@ -1400,6 +1540,19 @@ corpus_sem_reader,corpus_sem_evaluator;\n"
     if sql.count(marker) != 1:
         raise ValueError("PDF validation requires its declared coverage support query")
     sql = sql.replace(marker, _coverage_support_violation_sql())
+    sql = sql.replace(
+        "{pdf_access_rows_equal}",
+        _validation_rows_equal_sql("kb.pdf_record_access", "kb.pdf_record_region"),
+    ).replace(
+        "{pdf_native_rows_equal}",
+        _validation_rows_equal_sql(
+            "ops.pdf_record_document",
+            "kb.pdf_record_native",
+            "kb.pdf_record_membership",
+            "ops.pdf_artifact_stream",
+            "ops.pdf_artifact_part",
+        ),
+    )
     return (
         sql.replace("'{pdf_payload_profile}'", _quote(PROFILE))
         .replace("'{pdf_payload_family}'", _quote(FAMILY))

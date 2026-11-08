@@ -8,7 +8,7 @@ transactions own database connections; no connection enters native computation.
 from __future__ import annotations
 
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
-from contextlib import AbstractContextManager, ExitStack, closing, contextmanager, nullcontext
+from contextlib import AbstractContextManager, ExitStack, closing, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol
@@ -218,6 +218,8 @@ def run_private_native_pdf_build(
     source_digest: str,
     schema_digest: str,
     replay_key: str,
+    nemotron_endpoint: str | None = None,
+    require_nemotron_handoff: bool = False,
     observation_replay: PdfReplayRef | None = None,
     structural_pin: dict[str, Any] | None = None,
     integration_policy: dict[str, Any] | None = None,
@@ -230,7 +232,10 @@ def run_private_native_pdf_build(
     publication. Source ownership ends after the child has settled; spools retain
     replay/failure evidence for explicit resume or authenticated cleanup.
     """
-    from corpus_structure.ingest.pdf_capacity import pdf_gpu_slot
+    from corpus_structure.ingest.pdf_capacity import (
+        native_before_nemotron,
+        suspend_resident_nemotron,
+    )
     from corpus_structure.ingest.pdf_stream_types import OwnedPdfSource
     from corpus_structure.ingest.pdf_worker import PdfWorker
     from corpus_structure.semantic.pdf_staging import (
@@ -414,8 +419,21 @@ def run_private_native_pdf_build(
                     finally:
                         batches.close()
 
-                capacity = pdf_gpu_slot(check_active) if recipe.device == "cuda" else nullcontext()
-                with capacity, closing(worker):
+                with ExitStack() as native_lifetime:
+                    if recipe.device == "cuda" or recipe.ocr_device == "cuda":
+                        if require_nemotron_handoff:
+                            if nemotron_endpoint is None:
+                                raise ValueError("native GPU worker requires a Nemotron endpoint")
+                            native_lifetime.enter_context(
+                                native_before_nemotron(nemotron_endpoint, check_active=check_active)
+                            )
+                        else:
+                            native_lifetime.enter_context(
+                                suspend_resident_nemotron(
+                                    nemotron_endpoint, check_active=check_active
+                                )
+                            )
+                    native_lifetime.enter_context(closing(worker))
                     reply = worker.stream(
                         owner.reference,
                         spool_root=replay_root / "pages",
@@ -500,7 +518,8 @@ def run_private_native_pdf_build(
                 check_active()
             finally:
                 # Stop native borrowers before ending claim maintenance or source custody.
-                worker.close()
+                if not worker.closed or worker.pid is not None:
+                    worker.close()
                 owner.close()
     finally:
         if not entered:
@@ -832,6 +851,8 @@ def produce_published_pdf_records(
         source_digest=sha256(request.original).hexdigest(),
         schema_digest=sha256(request.schema_bytes).hexdigest(),
         replay_key="product:native",
+        nemotron_endpoint=request.nemotron_endpoint,
+        require_nemotron_handoff=request.require_nemotron_handoff,
         cancellation=cancellation,
     )
     check_active()

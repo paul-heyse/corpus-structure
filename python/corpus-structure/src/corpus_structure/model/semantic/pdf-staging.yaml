@@ -343,3 +343,14 @@ classes:
       passed:
         range: boolean
         required: true
+  PdfValidationCheck:
+    description: Protected check result over one sealed projection and live build attempt.
+    attributes:
+      build_id: {required: true}
+      attempt: {range: PdfRecordInteger, required: true}
+      holder: {required: true}
+      frozen_digest: {required: true}
+      contract_digest: {required: true}
+      check_name: {required: true}
+      result_digest: {required: true}
+      predecessor_build_id: {}

@@ -3349,6 +3349,17 @@ classes:
       ph:immutability: immutable
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns": ["build_id"], "target": "ops.pdf_stage_build.build_id"}]'
+  pdf_validation_check:
+    is_a: PdfValidationCheck
+    in_subset: [ops]
+    unique_keys:
+      primary_key: {unique_key_slots: [build_id, attempt, holder, check_name]}
+    annotations:
+      ph:immutability: immutable
+      ph:read_roles: '[]'
+      ph:foreign_keys: '[{"columns":["build_id"],"target":"ops.pdf_stage_build.build_id"},
+        {"columns":["predecessor_build_id"],"target":"ops.pdf_published_revision.build_id"}]'
+      ph:checks: '["check_name IN (''seal'', ''inventory'', ''access'', ''identity'', ''projection'')", "CASE WHEN check_name IN (''identity'', ''projection'') THEN result_digest ~ ''^[0-9a-f]{64}$'' ELSE result_digest = '''' END"]'
   pdf_build_validation:
     is_a: PdfBuildValidation
     in_subset:

@@ -35,6 +35,11 @@ def test_publication_inline_and_key_spelling(semantic_db_engine):
                 text("SELECT ops.pdf_identity_inline(CAST(:v AS jsonb))"), {"v": json.dumps(value)}
             ).scalar_one()
             assert actual == canonical_scalar(value)
+        for value in ("", "β😀\n", "\u03b1" * 32768 + "😀"):
+            actual = conn.execute(
+                text("SELECT ops.pdf_identity_text(:v)"), {"v": value}
+            ).scalar_one()
+            assert actual == canonical_scalar(value)
         actual = conn.execute(
             text("SELECT ops.pdf_identity_inline(CAST(:v AS jsonb))"),
             {"v": json.dumps({"native_float64": struct.pack(">d", -0.0).hex()})},
@@ -99,9 +104,29 @@ def test_actual_record_cursor_matches_independent_logical_fields(
         ),
     )
     expected.add_record(
+        "endpoint",
+        '["r1",0]',
+        (
+            ("relation_id", "r1"),
+            ("ordinal", 0),
+            ("target_task_id", private_build.task_id),
+            ("target_product_key", "native"),
+            ("target_content_digest", "1" * 64),
+            ("occurrence_id", "before"),
+            ("role", "input"),
+        ),
+    )
+    expected.add_record(
         "membership",
         '["n","children",0]',
         (("parent_id", "n"), ("field_name", "children"), ("ordinal", 0), ("value", None)),
+    )
+    map_key = '\u03b1/"'
+    map_key_digest = canonical_scalar(map_key).hex()
+    expected.add_record(
+        "membership",
+        f'["n","named","{map_key_digest}"]',
+        (("parent_id", "n"), ("field_name", "named"), ("member_key", map_key), ("value", True)),
     )
     expected.add_record(
         "native",
@@ -111,6 +136,8 @@ def test_actual_record_cursor_matches_independent_logical_fields(
             ("family", "node"),
             ("children/kind", "array"),
             ("children/length", 1),
+            ("named/kind", "map"),
+            ("named/length", 1),
             ("note/value", -0.0),
             ("text/value", "hello"),
         ),
@@ -167,7 +194,8 @@ def test_actual_record_cursor_matches_independent_logical_fields(
             "native_type,family,native_address,scalars_json,structure_json) VALUES "
             "('p','r','n','TextItem','node','#','{\"text\":\"hello\","
             '"note":{"native_float64":"8000000000000000"}}\','
-            '\'{"fields":{"children":{"kind":"array","length":1}}}\')'
+            '\'{"fields":{"children":{"kind":"array","length":1},'
+            '"named":{"kind":"map","length":1}}}\')'
         )
         execute(
             "INSERT INTO kb.pdf_record_membership(product_id,revision_id,parent_id,"
@@ -214,6 +242,30 @@ def test_actual_record_cursor_matches_independent_logical_fields(
                     "('p','r',%(name)s,0,0,%(size)s,%(body)s,%(sha)s)",
                     params,
                 )
+            payload = map_key.encode()
+            size, root = byte_root((payload,))
+            params = dict(size=size, root=root.hex(), body=payload, sha=sha256(payload).hexdigest())
+            execute(
+                "INSERT INTO ops.pdf_artifact_stream VALUES "
+                "('p','r','map-key',%(size)s,%(sha)s,%(root)s,'pdf-record-scalar-v1:s')",
+                params,
+            )
+            execute(
+                "INSERT INTO ops.pdf_artifact_part VALUES "
+                "('p','r','map-key',0,0,%(size)s,%(body)s,%(sha)s)",
+                params,
+            )
+        execute(
+            "INSERT INTO kb.pdf_record_membership(product_id,revision_id,parent_id,"
+            "field_name,ordinal,member_key,member_key_stream_id,value_kind,scalar_json) "
+            "VALUES ('p','r','n','named',0,%(key)s,%(stream)s,'scalar','true')",
+            {"key": None if segmented else map_key, "stream": "map-key" if segmented else None},
+        )
+        execute(
+            "INSERT INTO kb.pdf_record_endpoint VALUES "
+            "('p','r','r1',0,%(task)s,'native',%(digest)s,'before','input')",
+            {"task": private_build.task_id, "digest": "1" * 64},
+        )
         execute(
             "INSERT INTO kb.pdf_record_companion VALUES "
             "('p','r','relation','r1',%(body)s::jsonb,0)",
@@ -232,7 +284,9 @@ def test_actual_record_cursor_matches_independent_logical_fields(
         assert execute("SELECT ops.pdf_record_logical_identity('p','r')").scalar_one() == actual
 
 
-@pytest.mark.parametrize("defect", [None, "referenced-bytes", "unused-bytes", "unused-order"])
+@pytest.mark.parametrize(
+    "defect", [None, "referenced-bytes", "unused-bytes", "unused-order", "unused-missing"]
+)
 def test_complete_identity_verifies_shared_and_unreferenced_streams(
     semantic_db_engine, private_build, defect
 ):
@@ -280,13 +334,15 @@ def test_complete_identity_verifies_shared_and_unreferenced_streams(
             text("INSERT INTO ops.pdf_frozen_build VALUES (:p,:digest,'native')"),
             params | {"digest": "0" * 64},
         )
-        conn.execute(
-            text(
-                "INSERT INTO ops.pdf_record_document VALUES (:p,:p,:release,:source,"
-                "'pdf-native-records-v1','pdf-native-records-v1',:schema,'root')"
-            ),
-            params,
-        )
+        predecessor = "prior-" + build.build_id
+        for product in (build.build_id, predecessor):
+            conn.execute(
+                text(
+                    "INSERT INTO ops.pdf_record_document VALUES (:p,:p,:release,:source,"
+                    "'pdf-native-records-v1','pdf-native-records-v1',:schema,'root')"
+                ),
+                params | {"p": product},
+            )
         conn.execute(
             text(
                 "INSERT INTO kb.pdf_record_native(product_id,revision_id,record_id,"
@@ -313,46 +369,52 @@ def test_complete_identity_verifies_shared_and_unreferenced_streams(
                 if defect == "unused-bytes" and stream == "unused"
                 else content
             )
-            conn.execute(
-                text(
-                    "INSERT INTO ops.pdf_artifact_stream VALUES "
-                    "(:p,:p,:stream,:size,:sha,:root,'pdf-record-scalar-v1:s')"
-                ),
-                params
-                | dict(
-                    stream=stream,
-                    size=size,
-                    sha=sha256(content).hexdigest(),
-                    root=stream_root.hex(),
-                ),
-            )
-            conn.execute(
-                text(
-                    "INSERT INTO ops.pdf_artifact_part VALUES "
-                    "(:p,:p,:stream,:ordinal,0,:size,:body,:sha)"
-                ),
-                params
-                | dict(
-                    stream=stream,
-                    ordinal=int(defect == "unused-order" and stream == "unused"),
-                    size=size,
-                    body=body,
-                    sha=sha256(body).hexdigest(),
-                ),
-            )
-        with conn.begin_nested() as savepoint:
-            if defect is not None:
-                with pytest.raises(
-                    DBAPIError,
-                    match=(
-                        r"artifact (actual bytes/ordinal/offset/length/digest|"
-                        r"verified inventory/root) differs"
+            for product, original in ((build.build_id, False), (predecessor, True)):
+                conn.execute(
+                    text(
+                        "INSERT INTO ops.pdf_artifact_stream VALUES "
+                        "(:p,:p,:stream,:size,:sha,:root,'pdf-record-scalar-v1:s')"
                     ),
-                ):
-                    conn.execute(text("SELECT ops.pdf_record_logical_identity(:p,:p)"), params)
-                savepoint.rollback()
-            else:
-                actual = conn.execute(
-                    text("SELECT ops.pdf_record_logical_identity(:p,:p)"), params
-                ).scalar_one()
-                assert actual == expected.pin().logical_digest
+                    dict(
+                        p=product,
+                        stream=stream,
+                        size=size,
+                        sha=sha256(content).hexdigest(),
+                        root=stream_root.hex(),
+                    ),
+                )
+                if not original and defect == "unused-missing" and stream == "unused":
+                    continue
+                part = content if original else body
+                conn.execute(
+                    text(
+                        "INSERT INTO ops.pdf_artifact_part VALUES "
+                        "(:p,:p,:stream,:ordinal,0,:size,:body,:sha)"
+                    ),
+                    dict(
+                        p=product,
+                        stream=stream,
+                        ordinal=int(
+                            not original and defect == "unused-order" and stream == "unused"
+                        ),
+                        size=size,
+                        body=part,
+                        sha=sha256(part).hexdigest(),
+                    ),
+                )
+        for arguments in (":p,:p", ":p,:p,:prior"):
+            statement = text(f"SELECT ops.pdf_record_logical_identity({arguments})")
+            with conn.begin_nested() as savepoint:
+                if defect is not None:
+                    with pytest.raises(
+                        DBAPIError,
+                        match=(
+                            r"artifact (actual bytes/ordinal/offset/length/digest|"
+                            r"verified inventory/root) differs"
+                        ),
+                    ):
+                        conn.execute(statement, params | {"prior": predecessor})
+                    savepoint.rollback()
+                else:
+                    actual = conn.execute(statement, params | {"prior": predecessor}).scalar_one()
+                    assert actual == expected.pin().logical_digest

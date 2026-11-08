@@ -169,14 +169,29 @@ def test_ipc_replay_uses_physical_retry_keys_and_preserves_batch_order(tmp_path)
         next(execution.ipc_replay_batches([replay], lambda: None))
 
 
-def test_native_parent_settles_borrowers_before_claim_maintenance_ends(monkeypatch, tmp_path):
-    from corpus_structure.ingest import pdf_stream_types, pdf_worker
+@pytest.mark.parametrize(
+    ("device", "ocr_device", "required", "failure"),
+    [
+        ("cpu", "cpu", True, None),
+        ("cuda", "cpu", False, None),
+        ("cpu", "cuda", True, None),
+        ("cuda", "cuda", True, RuntimeError),
+        ("cuda", "cuda", True, KeyboardInterrupt),
+    ],
+)
+def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
+    monkeypatch, tmp_path, device, ocr_device, required, failure
+):
+    from corpus_structure.ingest import pdf_capacity, pdf_stream_types, pdf_worker
     from corpus_structure.semantic import contracts, pdf_contracts
     from corpus_structure.semantic.pdf_payloads import prepare_payload_family, schema_load
 
     engine = Transactions()
     events = []
     active = [False]
+    sleeping = [False]
+    uses_gpu = device == "cuda" or ocr_device == "cuda"
+    endpoint = "http://127.0.0.1:8035/v1"
     payload_family = prepare_payload_family()
     build = pdf_staging.PdfBuildRef("b", 1, 1, "owner", "r", "a" * 64, "b" * 64, "c" * 64)
 
@@ -197,20 +212,52 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(monkeypat
             events.append("source_closed")
 
     class Worker:
+        pid = None
+        closed = False
+
         def __init__(self, *args, **kwargs):
             pass
 
         def stream(self, *args, **kwargs):
             assert active[0] and engine.active == 0
+            assert sleeping[0] == uses_gpu
             assert schema_load(kwargs["payload_schema"]) == payload_family.json_schema
+            if failure is not None:
+                raise failure("native stopped")
             return pdf_stream_types.PdfStreamReply(
                 "success", (), b"{}", (), (), effective_options=b'{"fixture":"prepared-native"}'
             )
 
         def close(self):
             assert active[0]
+            assert sleeping[0] == uses_gpu
+            assert not self.closed
+            self.closed = True
             events.append("worker_closed")
 
+    @contextmanager
+    def handoff(address, *, check_active, policy):
+        assert address == endpoint and policy == ("required" if required else "resident")
+        assert active[0] and engine.active == 0
+        check_active()
+        sleeping[0] = True
+        events.append("sleep")
+        try:
+            yield
+        finally:
+            sleeping[0] = False
+            events.append("wake")
+
+    monkeypatch.setattr(
+        pdf_capacity,
+        "native_before_nemotron",
+        lambda *a, **kw: handoff(*a, **kw, policy="required"),
+    )
+    monkeypatch.setattr(
+        pdf_capacity,
+        "suspend_resident_nemotron",
+        lambda *a, **kw: handoff(*a, **kw, policy="resident"),
+    )
     monkeypatch.setattr(execution, "maintained_claims", maintained)
     monkeypatch.setattr(pdf_stream_types.OwnedPdfSource, "acquire", lambda *args, **kwargs: Owner())
     monkeypatch.setattr(pdf_worker, "PdfWorker", Worker)
@@ -234,6 +281,7 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(monkeypat
 
     def adopt_health(connection, actual, family, records, *, replay_key, cancellation):
         assert engine.active == 1 and actual is build
+        assert not sleeping[0]
         assert cancellation._driver is engine.driver
         row = next(iter(records))
         if family == "native_metadata":
@@ -251,9 +299,16 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(monkeypat
     monkeypatch.setattr(pdf_publication, "adopt_pdf_companion_batch", adopt_health)
     from corpus_structure.ingest.pdf import PdfRecipe
 
-    recipe = PdfRecipe("a" * 40, "b" * 40, recipe_id="docling-standard-pdf-stream-v1")
-    assert (
-        execution.run_private_native_pdf_build(
+    recipe = PdfRecipe(
+        "a" * 40,
+        "b" * 40,
+        device=device,
+        ocr_device=ocr_device,
+        recipe_id="docling-standard-pdf-stream-v1",
+    )
+
+    def run():
+        return execution.run_private_native_pdf_build(
             cast(Engine, engine),
             claim(),
             "owner",
@@ -264,11 +319,19 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(monkeypat
             source_digest="a" * 64,
             schema_digest="c" * 64,
             replay_key="start",
+            nemotron_endpoint=endpoint,
+            require_nemotron_handoff=required,
         )
-        is build
-    )
-    assert events == ["worker_closed", "source_closed", "claim_closed"]
-    assert adoptions == ["native_metadata", "health"]
+
+    if failure is None:
+        assert run() is build
+        assert adoptions == ["native_metadata", "health"]
+    else:
+        with pytest.raises(failure, match="native stopped"):
+            run()
+        assert not adoptions
+    native_events = ["sleep", "worker_closed", "wake"] if uses_gpu else ["worker_closed"]
+    assert events == [*native_events, "source_closed", "claim_closed"]
 
 
 def test_pdf_transaction_owns_handle_until_commit_and_returns_it_afterward():

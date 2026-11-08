@@ -25,8 +25,7 @@ from corpus_structure.semantic.pdf_staging import (
 from .operation_scenario_support import prepare_operation_scenario
 
 
-@pytest.fixture
-def private_build(semantic_db_engine, semantic_writer_engine, tmp_path, request):
+def _private_build_factory(semantic_db_engine, semantic_writer_engine, tmp_path, request):
     prepared = prepare_operation_scenario(
         semantic_db_engine,
         composed=True,
@@ -42,63 +41,78 @@ def private_build(semantic_db_engine, semantic_writer_engine, tmp_path, request)
     else:
         original = b"%PDF-1.7 private staging fixture"
         path.write_bytes(original)
-    with semantic_writer_engine.begin() as conn:
-        run = create_run(
-            conn,
-            project_id="p",
-            binding=OperationBinding(prepared.release_id, "z", 0, b"{}"),
-            kind="full",
-            options={},
-            code_commit="stage-test",
-        )
-        method = SimpleNamespace(
-            name="pdf.stage.fixture",
-            version="1",
-            family="ingest",
-            tier="deterministic",
-            confidence_source=None,
-            unit_type="document",
-            Config=create_model("PdfStageFixture"),
-        )
-        config = record_method(conn, method, "default", {}, "pdf-stage", prepared=prepared)
-        document = register_document(
-            conn,
-            project_id="p",
-            source_uri="file:pdf-stage",
-            original_path=str(path),
-            original=original,
-            mime="application/pdf",
-        )
-        task = create_task(
-            conn,
-            run_id=run,
-            config_id=config,
-            stage="ingest",
-            unit_type="document",
-            unit_id=document,
-            unit_key="pdf-stage",
-            input_hash=sha256(original).hexdigest(),
-        )
-        claim = claim_tasks(conn, run_id=run, config_id=config, holder="stage-owner")[0]
-        store_pdf_original(
-            conn,
-            task_id=task,
-            attempt=claim.attempt,
-            holder="stage-owner",
-            original=original,
-            recipe_bytes=recipe,
-        )
-        build = begin_pdf_build(
-            conn,
-            task_id=task,
-            attempt=claim.attempt,
-            holder="stage-owner",
-            source_digest=sha256(original).hexdigest(),
-            recipe_digest=sha256(recipe).hexdigest(),
-            schema_digest=sha256(native_schema_bytes()).hexdigest(),
-            replay_key="build-1",
-        )
-    return build
+
+    def create():
+        with semantic_writer_engine.begin() as conn:
+            run = create_run(
+                conn,
+                project_id="p",
+                binding=OperationBinding(prepared.release_id, "z", 0, b"{}"),
+                kind="full",
+                options={},
+                code_commit="stage-test",
+            )
+            method = SimpleNamespace(
+                name="pdf.stage.fixture",
+                version="1",
+                family="ingest",
+                tier="deterministic",
+                confidence_source=None,
+                unit_type="document",
+                Config=create_model("PdfStageFixture"),
+            )
+            config = record_method(conn, method, "default", {}, "pdf-stage", prepared=prepared)
+            document = register_document(
+                conn,
+                project_id="p",
+                source_uri="file:pdf-stage",
+                original_path=str(path),
+                original=original,
+                mime="application/pdf",
+            )
+            task = create_task(
+                conn,
+                run_id=run,
+                config_id=config,
+                stage="ingest",
+                unit_type="document",
+                unit_id=document,
+                unit_key="pdf-stage",
+                input_hash=sha256(original).hexdigest(),
+                fresh=True,
+            )
+            claim = claim_tasks(conn, run_id=run, config_id=config, holder="stage-owner")[0]
+            store_pdf_original(
+                conn,
+                task_id=task,
+                attempt=claim.attempt,
+                holder="stage-owner",
+                original=original,
+                recipe_bytes=recipe,
+            )
+            build = begin_pdf_build(
+                conn,
+                task_id=task,
+                attempt=claim.attempt,
+                holder="stage-owner",
+                source_digest=sha256(original).hexdigest(),
+                recipe_digest=sha256(recipe).hexdigest(),
+                schema_digest=sha256(native_schema_bytes()).hexdigest(),
+                replay_key="build-1",
+            )
+        return build
+
+    return create
+
+
+@pytest.fixture
+def create_private_build(semantic_db_engine, semantic_writer_engine, tmp_path, request):
+    return _private_build_factory(semantic_db_engine, semantic_writer_engine, tmp_path, request)
+
+
+@pytest.fixture
+def private_build(semantic_db_engine, semantic_writer_engine, tmp_path, request):
+    return _private_build_factory(semantic_db_engine, semantic_writer_engine, tmp_path, request)()
 
 
 def native_batch(build, text_value="first"):

@@ -397,19 +397,27 @@ def map_pdf_observation(
     return MappedObservation(result, origins, tuple(dispositions), observation)
 
 
+def _compare_lexical(left: str, right: str, *, edit_trace: bool, context) -> dict[str, Any]:
+    _context(context, "compare_pdf_occurrences")
+    if left == right:
+        result: dict[str, Any] = {"text_equal": True, "text_agreement": 1.0}
+        if edit_trace:
+            result["opcodes"] = [["equal", 0, len(left), 0, len(left)]] if left else []
+        return result
+    from rapidfuzz.distance import Levenshtein
+
+    result = {"text_equal": False, "text_agreement": Levenshtein.normalized_similarity(left, right)}
+    if edit_trace:
+        result["opcodes"] = [list(op) for op in Levenshtein.opcodes(left, right)]
+    return result
+
+
 def compare_pdf_occurrences(
     left: str, right: str, *, mathematical=False, symbolic=False, assumptions=None, context=None
 ) -> dict[str, Any]:
     """Separate text edit alignment, positioned syntax and optional symbolic equivalence."""
-    _context(context, "compare_pdf_occurrences")
-    from rapidfuzz.distance import Levenshtein
-
-    result: dict[str, Any] = {
-        "text_equal": left == right,
-        "text_agreement": Levenshtein.normalized_similarity(left, right),
-        "opcodes": [list(op) for op in Levenshtein.opcodes(left, right)],
-    }
-    if mathematical and left != right:
+    result = _compare_lexical(left, right, edit_trace=True, context=context)
+    if mathematical and not result["text_equal"]:
         from corpus_structure.methods.math import grammar
 
         left_syntax, right_syntax = grammar.syntax(left), grammar.syntax(right)
@@ -742,8 +750,6 @@ def _select_pdf_integration(
             ):
                 witness_inputs["figure"] = (0, pointer)
                 break
-    # Grid buckets bound correspondence to intersecting page regions, not an all-item matrix.
-    # Rebuild a page index only for each affected page, preserving native document lifetime.
     mapped_inputs = collection("mapped_inputs")
     for pin, observation, raw in observations:
         if observation["observation"]["pass_role"] not in {"A", "B", "C"}:
@@ -787,6 +793,17 @@ def _select_pdf_integration(
     # A content first, then specialized C. B remains independently retained layout evidence.
     mapped_inputs.sort(key=lambda row: row[1]["observation"]["pass_role"] == "C")
     by_page = defaultdict(list)
+    candidate_pages = {}
+    page_buckets = {}
+
+    def keys(box):
+        _, left, top, right, bottom = box
+        return (
+            (x, y)
+            for x in range(int(left // 64), int(right // 64) + 1)
+            for y in range(int(top // 64), int(bottom // 64) + 1)
+        )
+
     for n in nodes.values():
         box = _box(n, doc)
         if box is None or str(n.label) in {"section", "list", "unspecified"}:
@@ -799,6 +816,7 @@ def _select_pdf_integration(
         }:
             continue
         by_page[box[0]].append(n)
+        candidate_pages[id(n)] = box[0]
     for index, observation, raw in mapped_inputs:
         frame = observation["observation"]["image"]["transform"]
         page_no = observation["observation"]["image"]["page_no"]
@@ -826,24 +844,24 @@ def _select_pdf_integration(
             d.get("outcome") in {"unsupported", "dropped", "unresolved"}
             for d in mapped.dispositions
         )
+        if not mapped.document.body.children:
+            continue
         image = mapped.observation["observation"]["image"]
         page = image["page_no"]
-        buckets = defaultdict(list)
-
-        def keys(box):
-            _, left, top, right, bottom = box
-            return (
-                (x, y)
-                for x in range(int(left // 64), int(right // 64) + 1)
-                for y in range(int(top // 64), int(bottom // 64) + 1)
-            )
-
-        # Candidate roots exclude organizational containers and descendants already represented
-        # by rich inline/list/table roots.
         candidates = by_page[page]
-        for n in candidates:
-            for key in keys(_box(n, doc)):
-                buckets[key].append(n)
+        # Reuse buckets for unchanged pages and keep active-observation membership current.
+        if page not in page_buckets:
+            buckets = defaultdict(list)
+            for n in candidates:
+                nbox = _box(n, doc)
+                if nbox is not None:
+                    for key in keys(nbox):
+                        buckets[key].append(n)
+            page_buckets[page] = buckets
+        buckets = page_buckets[page]
+        dispositions_by_source = defaultdict(list)
+        for disposition in mapped.dispositions:
+            dispositions_by_source[disposition.get("occurrence_id")].append(disposition)
         for ref in list(mapped.document.body.children):
             incoming_root = ref.resolve(mapped.document)
             incoming = incoming_root
@@ -853,7 +871,8 @@ def _select_pdf_integration(
             if box is None:
                 continue
             source = mapped.origins[incoming.self_ref]
-            seen = {id(n): n for key in keys(box) for n in buckets[key]}
+            family = _family(incoming)
+            seen = {id(n): n for key in keys(box) for n in buckets.get(key, ())}
             overlaps = []
             _, left, top, right, bottom = box
             area = max(0, right - left) * max(0, bottom - top)
@@ -873,9 +892,8 @@ def _select_pdf_integration(
                 )
                 if fraction >= 0.45:
                     overlaps.append((n, fraction))
-            same = [(n, f) for n, f in overlaps if _family(n) == _family(incoming)]
             evidence = {
-                "mapping": [d for d in mapped.dispositions if d.get("occurrence_id") == source],
+                "mapping": dispositions_by_source.get(source, []),
                 "policy": policy,
                 "candidates": [
                     (origins[id(n)].input_index, origins[id(n)].occurrence_id, f)
@@ -892,13 +910,14 @@ def _select_pdf_integration(
                 chosen = None
                 disposition = "added"
                 alternative = []
-                if len(same) == 1 and len(overlaps) == 1:
-                    chosen = same[0][0]
+                if len(overlaps) == 1 and _family(overlaps[0][0]) == family:
+                    chosen = overlaps[0][0]
                     previous = origins[id(chosen)]
-                    comparison = compare_pdf_occurrences(
+                    grid = family in {"table", "chart"}
+                    comparison = _compare_lexical(
                         _text(chosen, doc),
                         _text(incoming, mapped.document),
-                        mathematical=False,
+                        edit_trace=not grid,
                         context=context,
                     )
                     evidence["comparison_requests"] = {
@@ -907,16 +926,13 @@ def _select_pdf_integration(
                         "symbolic": "not_requested",
                     }
                     evidence["comparison"] = comparison
-                    if _family(incoming) in {"table", "chart"}:
-                        evidence["comparison"] = {
-                            k: v for k, v in comparison.items() if k != "opcodes"
-                        }
-                        evidence["comparison"]["alignment_scope"] = (
+                    if grid:
+                        comparison["alignment_scope"] = (
                             "coarse table/chart text; exact edits remain replay"
                             "able from retained readings"
                         )
                         evidence["grid_comparison"] = _grid_comparison(chosen, incoming)
-                    if comparison["text_equal"] and _family(incoming) not in {"table", "chart"}:
+                    if comparison["text_equal"] and not grid:
                         previous.alternatives.append((index, source))
                         previous.evidence.update(evidence)
                         continue
@@ -925,7 +941,7 @@ def _select_pdf_integration(
                         continue
                     if previous.input_index and not (
                         mapped.observation["observation"]["pass_role"] == "C"
-                        and _family(incoming) in {"table", "chart"}
+                        and grid
                         and policy["specialized_crop_precedence"]
                     ):
                         rejected.append((index, source, "unresolved", evidence))
@@ -1044,7 +1060,7 @@ def _select_pdf_integration(
                     }
                 copied_root = parent.children[position].resolve(doc)
                 pairs = _repair_copied_references(incoming, copied_root, mapped.document, doc)
-                copied = [new for old, new in pairs]
+                copied_pointers = {new.self_ref for _, new in pairs}
                 for old, new in pairs:
                     imported_nodes[(index, old.self_ref)] = new
                     for name in ("captions", "references", "footnotes"):
@@ -1052,7 +1068,7 @@ def _select_pdf_integration(
                             deferred_references.append(
                                 (new, name, index, ref.cref, mapped.origins.get(ref.cref))
                             )
-                for n in copied:
+                for _, n in pairs:
                     origins[id(n)] = _Origin(
                         index, source, disposition, list(alternative), evidence
                     )
@@ -1061,15 +1077,26 @@ def _select_pdf_integration(
                 # Maintain sparse local index after replacing; old references are removed.
                 if chosen is not None:
                     candidates[:] = [n for n in candidates if id(n) != id(chosen)]
-                    for key in list(buckets):
+                    candidate_pages.pop(id(chosen), None)
+                    for key in keys(_box(chosen, doc)):
                         buckets[key] = [n for n in buckets[key] if id(n) != id(chosen)]
-                for n in copied:
-                    if n.parent and n.parent.cref not in {c.self_ref for c in copied}:
+                for _, n in pairs:
+                    if n.parent and n.parent.cref not in copied_pointers:
                         nbox = _box(n, doc)
                         if nbox:
                             candidates.append(n)
+                            candidate_pages[id(n)] = page
                             for key in keys(nbox):
                                 buckets[key].append(n)
+                # A retained container can derive its box from descendants. Refresh its
+                # indexed page on the next observation after changing its children.
+                page_buckets.pop(page, None)
+                ancestor = parent
+                while ancestor is not None:
+                    ancestor_page = candidate_pages.get(id(ancestor))
+                    if ancestor_page is not None and not getattr(ancestor, "prov", ()):
+                        page_buckets.pop(ancestor_page, None)
+                    ancestor = ancestor.parent.resolve(doc) if ancestor.parent is not None else None
             finally:
                 # Serialize after comparison/placement has finished enriching this evidence,
                 # including branches that retain or reject a reading via continue.

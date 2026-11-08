@@ -5,7 +5,6 @@ from __future__ import annotations
 import dataclasses
 import json
 from collections.abc import Iterable, Mapping, Sequence
-from contextlib import nullcontext
 from hashlib import sha256
 from importlib.resources import files
 from pathlib import Path
@@ -39,7 +38,6 @@ from .pdf import PdfConversion, PdfRecipe
 from .pdf_assets import PreparedPdfAssets, prepare_pdf_assets
 from .pdf_candidate_source import CandidatePageSource, InMemoryCandidatePageSource
 from .pdf_candidates import CandidatePage, InlineCandidate
-from .pdf_capacity import suspend_resident_nemotron
 from .pdf_enrichment import PdfEnrichmentRequest
 from .pdf_health import FormulaOutcome
 from .pdf_health import error_summary as _error_summary
@@ -111,7 +109,8 @@ class IngestPdf:
     Config = PdfIngestConfig
     resources = Resources(worker="encoder", batch_size=1, max_concurrency=1)
 
-    def __init__(self) -> None:
+    def __init__(self, *, require_nemotron_handoff: bool = False) -> None:
+        self._require_nemotron_handoff = require_nemotron_handoff
         self._prepared: dict[tuple[str, str], tuple[PdfRecipe, PreparedPdfAssets]] = {}
         self._workers: dict[str, PdfWorker] = {}
 
@@ -266,23 +265,17 @@ class IngestPdf:
                     .read_bytes()
                 )
                 original = ctx.reader.original(unit.ref.unit_id)
-                handoff = (
-                    suspend_resident_nemotron(
-                        ctx.settings.nemotron_endpoint, check_active=ctx.check_active
-                    )
-                    if cfg.device == "cuda" or cfg.ocr_device == "cuda"
-                    else nullcontext()
+                raw_ref = ctx.produce_pdf_records(
+                    unit.ref,
+                    PdfRecordProducerRequest(
+                        recipe=recipe,
+                        assets=assets,
+                        original=original,
+                        schema_bytes=schema_bytes,
+                        nemotron_endpoint=ctx.settings.nemotron_endpoint,
+                        require_nemotron_handoff=self._require_nemotron_handoff,
+                    ),
                 )
-                with handoff:
-                    raw_ref = ctx.produce_pdf_records(
-                        unit.ref,
-                        PdfRecordProducerRequest(
-                            recipe=recipe,
-                            assets=assets,
-                            original=original,
-                            schema_bytes=schema_bytes,
-                        ),
-                    )
                 raw = ctx.reader.native_document(raw_ref)
                 conversion = _conversion_from_product(raw, recipe.to_bytes())
                 organization = organize(conversion.native, cfg.section_policy())

@@ -11,6 +11,7 @@ import json
 import multiprocessing
 import tempfile
 from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import contextmanager
 from dataclasses import dataclass, fields
 from pathlib import Path
@@ -824,17 +825,49 @@ def validate_pdf_build(
                 size += len(line.encode())
             if pending:
                 adopt_projection(pending)
-        check_active()
-        with _validation_transaction(engine, frozen, cancellation, check_active) as conn:
-            row = calls.validate_pdf_build(
-                conn,
-                build_id=frozen.build.build_id,
-                task_id=calls.TaskId(frozen.build.task_id),
-                attempt=calls.TaskAttempt(frozen.build.attempt),
-                holder=frozen.build.holder,
-                frozen_digest=frozen.frozen_digest,
-            )
-        return PdfValidationOutcome(row.frozen_digest, row.logical_digest, row.contract_digest)
+    build = frozen.build
+    scope = dict(
+        build_id=build.build_id,
+        task_id=calls.TaskId(build.task_id),
+        attempt=calls.TaskAttempt(build.attempt),
+        holder=build.holder,
+        frozen_digest=frozen.frozen_digest,
+    )
+
+    def run_check(name: str, borrower: BorrowerCancellation) -> None:
+        borrower.check_active()
+        with _validation_transaction(engine, frozen, borrower, check_active) as conn:
+            calls.check_pdf_build(conn, **scope, check_name=name)
+
+    run_check("seal", cancellation)
+    checks = ("inventory", "access", "identity", "projection")
+    borrowers = [BorrowerCancellation(timeout=cancellation.timeout) for _ in checks]
+    store = getattr(engine, "_corpus_store", None)
+    workers = min(len(checks), max(1, store.pool.max_size - 1)) if store else len(checks)
+    try:
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="pdf-validation") as pool:
+            try:
+                pending = {
+                    pool.submit(run_check, name, borrower)
+                    for name, borrower in zip(checks, borrowers, strict=True)
+                }
+                while pending:
+                    check_active()
+                    done, pending = wait(pending, timeout=0.2, return_when=FIRST_COMPLETED)
+                    for result in done:
+                        result.result()
+            except BaseException:
+                for borrower in borrowers:
+                    borrower.request_cancel()
+                raise
+    except BaseException as error:
+        for borrower in borrowers:
+            for failure in borrower.cleanup_failures:
+                error.add_note("PDF check cancellation cleanup failed: " + repr(failure))
+        raise
+    with _validation_transaction(engine, frozen, cancellation, check_active) as conn:
+        row = calls.validate_pdf_build(conn, **scope)
+    return PdfValidationOutcome(row.frozen_digest, row.logical_digest, row.contract_digest)
 
 
 def seal_pdf_build(

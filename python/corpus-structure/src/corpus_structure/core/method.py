@@ -769,6 +769,8 @@ class PdfRecordProducerRequest:
     assets: PreparedPdfAssets
     original: bytes
     schema_bytes: bytes
+    nemotron_endpoint: str | None = None
+    require_nemotron_handoff: bool = False
 
 
 @dataclass(frozen=True, slots=True)

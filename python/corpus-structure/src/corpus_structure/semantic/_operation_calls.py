@@ -6659,6 +6659,97 @@ def record_pdf_native_validation(
     return None
 
 
+CHECK_PDF_BUILD_CONTRACT_DIGEST = "c34dfe255fe150deed01f3af6b88b1a6fa42462c0b7283feba9d07b13aade11d"
+
+
+class _check_pdf_buildRequest(OperationResult):
+    build_id: str
+    task_id: Annotated[
+        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
+    ]
+    attempt: Annotated[
+        TaskAttempt,
+        Field(ge=TaskAttempt(-9223372036854775808), le=TaskAttempt(9223372036854775807)),
+    ]
+    holder: str
+    frozen_digest: str
+    check_name: str
+
+
+_check_pdf_build_function = func.ops.check_pdf_build(
+    bindparam("build_id", type_=Text()),
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("attempt", type_=BigInteger()),
+    bindparam("holder", type_=Text()),
+    bindparam("frozen_digest", type_=Text()),
+    bindparam("check_name", type_=Text()),
+)
+_check_pdf_build_statement = select(_check_pdf_build_function)
+
+
+def prepare_check_pdf_build(
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    frozen_digest: str,
+    check_name: str,
+    projection_context: PreparedRelease | None = None,
+) -> Select[None]:
+    _request = _check_pdf_buildRequest(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        frozen_digest=frozen_digest,
+        check_name=check_name,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "validate_pdf_build",
+            "check_pdf_build",
+            CHECK_PDF_BUILD_CONTRACT_DIGEST,
+        )
+    return _check_pdf_build_statement.params(
+        **{
+            "build_id": _request.build_id,
+            "task_id": _request.task_id,
+            "attempt": _request.attempt,
+            "holder": _request.holder,
+            "frozen_digest": _request.frozen_digest,
+            "check_name": _request.check_name,
+        }
+    )
+
+
+def check_pdf_build(
+    conn: Connection,
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    frozen_digest: str,
+    check_name: str,
+    projection_context: PreparedRelease | None = None,
+) -> None:
+    _statement = prepare_check_pdf_build(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        frozen_digest=frozen_digest,
+        check_name=check_name,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("validate_pdf_build", "check_pdf_build"):
+        _native_result.scalar_one()
+    return None
+
+
 ADOPT_PDF_ACCESS_BATCH_CONTRACT_DIGEST = (
     "38ea95cf1755f4f4a21aaddb02ceac6fa0aff43d38fe3889c3afbc6c827e5007"
 )
@@ -8588,4 +8679,4 @@ def record_direction(
         return materialize_record_direction(row)
 
 
-CALL_CONTRACT_DIGEST = "4f15509f486e28fe1a21828a80f96ddf29a72a131c7a3dd12344e76f657f9ba0"
+CALL_CONTRACT_DIGEST = "a804aba699e279e9f133e480351002cecf297673e27d740fa50f4869a056dea4"

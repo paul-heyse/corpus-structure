@@ -9388,6 +9388,39 @@ operations:
     result_fields: []
     cardinality: none
     ordered: false
+  - id: check_pdf_build
+    symbol: ops.check_pdf_build
+    parameters:
+    - name: build_id
+      source: model:PdfStageBuild.build_id
+      nullable: false
+      native_parameter: p_build
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    - name: frozen_digest
+      source: model:PdfFrozenBuild.frozen_digest
+      nullable: false
+      native_parameter: p_frozen
+    - name: check_name
+      source: model:PdfValidationCheck.check_name
+      nullable: false
+      native_parameter: p_check
+    result_mode: void
+    result_fields: []
+    cardinality: none
+    ordered: false
   - id: adopt_pdf_access_batch
     symbol: ops.adopt_pdf_access_batch
     parameters:

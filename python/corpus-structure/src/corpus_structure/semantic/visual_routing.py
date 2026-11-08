@@ -6,6 +6,7 @@ import json
 import math
 import re
 from collections import Counter, defaultdict
+from collections.abc import Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
 from hashlib import sha256
@@ -84,6 +85,16 @@ class _Region:
 
 
 @dataclass(frozen=True, slots=True)
+class StudyRegion:
+    """Witnessed presence in an evaluation view, with no published crop authority."""
+
+    kind: str
+    box: _Box
+    frame: tuple[float, float]
+    replaces: VisualRouteCrop | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class _Reading:
     kind: str
     box: _Box
@@ -106,6 +117,7 @@ class _PageSignals:
     structural: VisualEvidencePin | None = None
     requests: list[VisualRouteReason] = field(default_factory=list)
     blank: bool = False
+    study_regions: tuple[StudyRegion, ...] = ()
 
 
 def _decide(page_no: int, signals: _PageSignals) -> VisualPageRoute:
@@ -113,19 +125,26 @@ def _decide(page_no: int, signals: _PageSignals) -> VisualPageRoute:
     requests = list(signals.requests)
     unresolved = []
     if (layout := signals.layout) is not None:
+        selected: Sequence[_Region | StudyRegion] = signals.selected
+        if signals.study_regions:
+            replaced = [region.replaces for region in signals.study_regions]
+            selected = (
+                *(region for region in signals.selected if region.crop not in replaced),
+                *signals.study_regions,
+            )
         seen = set()
         for reading in layout.readings:
             kind = _LAYOUT_KINDS.get(reading.kind)
             if kind is None or (kind, reading.box) in seen:
                 continue
             seen.add((kind, reading.box))
-            located = any(region.kind == kind for region in signals.selected)
+            located = any(region.kind == kind for region in selected)
             if located and not _comparable_frame(layout.image):
                 unresolved.append(
                     VisualRouteReason(code="unassessed", kind=kind, inputs=(layout.pin,))
                 )
                 continue
-            if _located(reading.box, layout.image, signals.selected, kind):
+            if _located(reading.box, layout.image, selected, kind):
                 continue
             if signals.structural and _located(reading.box, layout.image, signals.native, kind):
                 repair.append(
@@ -243,7 +262,9 @@ def _matches(left: _Box, right: _Box) -> bool:
     return _overlap(left, right) >= 0.55 * max(_area(left), _area(right))
 
 
-def _located(box: _Box, image: dict, regions: list[_Region], kind: str) -> list[_Region]:
+def _located[Region: _Region | StudyRegion](
+    box: _Box, image: dict, regions: Sequence[Region], kind: str
+) -> list[Region]:
     if not _comparable_frame(image):
         return []
     transform = image["transform"]
@@ -487,7 +508,12 @@ def _omitted_crops(conn, row, selected, settled_crop_rows) -> list[VisualRouteRe
 
 
 def read_visual_routes(
-    conn, source: VisualEvidencePin, *, first: int, limit: int
+    conn,
+    source: VisualEvidencePin,
+    *,
+    first: int,
+    limit: int,
+    study_regions: Mapping[int, tuple[StudyRegion, ...]] | None = None,
 ) -> VisualRouteReport:
     """Assess a bounded physical-page range without rendering or starting recognition."""
     from pypdfium2 import PdfDocument
@@ -593,11 +619,15 @@ def read_visual_routes(
         )
         for page in range(first, last + 1)
     }
+    if study_regions:
+        for page, signals in signals_by_page.items():
+            signals.study_regions = study_regions.get(page, ())
     blank_candidates = [
         page
         for page, signals in signals_by_page.items()
         if signals.layout
         and not signals.selected
+        and not signals.study_regions
         and not signals.requests
         and all(reading.kind in _FURNITURE for reading in signals.layout.readings)
     ]

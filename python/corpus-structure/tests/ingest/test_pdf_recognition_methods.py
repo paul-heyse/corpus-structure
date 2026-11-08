@@ -162,7 +162,6 @@ def test_retained_native_uses_current_selector_without_conversion_or_gpu_transit
         assert draft.companions["input"] == ({**reference.values(), "role": "structural"},)
         return organized
 
-    monkeypatch.setattr(methods, "native_before_nemotron", refuse)
     monkeypatch.setattr(methods, "RecognitionWorker", refuse)
     monkeypatch.setattr(methods, "_consumer_release", lambda ctx: "release")
     monkeypatch.setattr(pdf_methods, "_consumer_release", lambda ctx: "release")

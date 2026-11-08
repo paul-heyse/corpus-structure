@@ -187,6 +187,22 @@ def test_text_syntax_and_symbolic_comparison_are_distinct():
     assert symbolic["equivalent"] is True
 
 
+@pytest.mark.parametrize(("text", "opcodes"), [("", []), ("é\u0301", [["equal", 0, 2, 0, 2]])])
+def test_exact_text_retains_alignment_without_calling_edit_kernel(text, opcodes, monkeypatch):
+    from rapidfuzz.distance import Levenshtein
+
+    def unexpected(*args):
+        pytest.fail("exact text must not run the edit kernel")
+
+    monkeypatch.setattr(Levenshtein, "normalized_similarity", unexpected)
+    monkeypatch.setattr(Levenshtein, "opcodes", unexpected)
+    assert compare_pdf_occurrences(text, text) == {
+        "text_equal": True,
+        "text_agreement": 1.0,
+        "opcodes": opcodes,
+    }
+
+
 @pytest.mark.parametrize(
     ("coords", "image_size", "affine", "expected", "frame"),
     [
@@ -499,7 +515,13 @@ def test_chart_panels_share_one_crop_transform_without_reapplying_it(native_sour
     ]
 
 
-def test_unresolved_reading_stays_attached_after_later_crop_selection(native_source):
+def test_unresolved_reading_stays_attached_after_later_crop_selection(native_source, monkeypatch):
+    from rapidfuzz.distance import Levenshtein
+
+    def unexpected(*args):
+        pytest.fail("coarse table comparison must not compute edit traces")
+
+    monkeypatch.setattr(Levenshtein, "opcodes", unexpected)
     observations = []
     for i, (name, role, spelling) in enumerate(
         (("first", "A", "a"), ("alternative", "A", "b"), ("crop", "C", "c")), start=1
@@ -511,6 +533,10 @@ def test_unresolved_reading_stays_attached_after_later_crop_selection(native_sou
         obs = recognized(native_source, raw, role=role)
         obs["product_key"] = name
         observations.append((pin(i + 1, name, str(i) * 64, "recognition"), obs, raw))
+    layout = b"<x_0.05><y_0.33>layout<x_0.55><y_0.4><class_Table>"
+    layout_observation = recognized(native_source, layout, role="B")
+    layout_observation["product_key"] = "layout"
+    observations.append((pin(5, "layout", "4" * 64, "recognition"), layout_observation, layout))
     result = select_pdf_integration(
         native_source.payload,
         pin(1, "native", "0" * 64, "structural"),
@@ -526,6 +552,11 @@ def test_unresolved_reading_stays_attached_after_later_crop_selection(native_sou
     assert any(
         e.get("input_index") == 2 and e["role"] == "alternative" for e in unresolved["endpoints"]
     )
+    assert any(
+        report.get("reason") == "layout_pass" and report["input_index"] == 4
+        for report in result["mapping_reports"]
+    )
+    assert any(row["coverage_id"] == "input-4-page-1-table" for row in result["coverage"])
     assert [
         c["text"] for c in result["content"]["document"]["tables"][0]["data"]["table_cells"]
     ] == ["c", "c"]

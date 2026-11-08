@@ -31,7 +31,6 @@ from corpus_structure.semantic.pdf_integrated import normalize_pdf_integration_p
 from corpus_structure.semantic.product_reference import ProductReference
 
 from .pdf import native_conversion_health
-from .pdf_capacity import native_before_nemotron
 from .pdf_health import error_summary
 from .pdf_hierarchy import load_snapshot, native_nodes, section_text_policy
 from .pdf_methods import (
@@ -174,7 +173,7 @@ class IngestPdfIntegrated:
     resources = Resources(worker="encoder", batch_size=1, max_concurrency=1)
 
     def __init__(self) -> None:
-        self._selector = IngestPdf()
+        self._selector = IngestPdf(require_nemotron_handoff=True)
 
     def close(self) -> None:
         self._selector.close()
@@ -279,18 +278,10 @@ class IngestPdfIntegrated:
                 # The native selector owns qualification and organization for both retained
                 # and freshly converted inputs. A supplied raw pin therefore follows the
                 # same current hierarchy policy as a new Standard producer observation.
-                native_phase = (
-                    native_before_nemotron(
-                        ctx.settings.nemotron_endpoint, check_active=ctx.check_active
-                    )
-                    if cfg.native_product is None
-                    else nullcontext()
-                )
-                with native_phase:
-                    try:
-                        standard = self._selector.run([unit], cfg, ctx)[0]
-                    finally:
-                        self._selector.close()
+                try:
+                    standard = self._selector.run([unit], cfg, ctx)[0]
+                finally:
+                    self._selector.close()
                 if standard.outcome == ObservationOutcome.FAILED:
                     raise RuntimeError(standard.error or "Standard PDF phase failed")
                 if not standard.source_views:
