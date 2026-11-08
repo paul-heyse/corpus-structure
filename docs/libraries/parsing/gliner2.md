@@ -1087,6 +1087,21 @@ Primary sources:
 
 `https://github.com/fastino-ai/GLiNER2/blob/v2.1.0/gliner2/models/boundary/records.py`
 
+### 1.5 Record anchors in the schema prefix
+
+The boundary processor prepends synthetic categorical choice tokens to the
+encoded sequence. Its character maps address the source text. In v2.1.0,
+natural record formation can accept a prefix span from a literal anchor
+query in the shared candidate pool. The per-record enum formatter then
+subtracts the prefix length and tries to convert the anchor through the
+source-only map. A negative token bound raises before the public
+`include_spans` option is applied. The earlier v2.0.0 formatter used a
+document-level enum fallback. The v2.1.0 change preserves record-level
+assignment while exposing the invalid anchor conversion.
+[Boundary record routing](https://github.com/fastino-ai/GLiNER2/blob/v2.1.0/gliner2/models/boundary/records.py#L443-L496) ·
+[Enum decoder](https://github.com/fastino-ai/GLiNER2/blob/v2.1.0/gliner2/models/boundary/engine.py#L1241-L1319) ·
+[Upstream change](https://github.com/fastino-ai/GLiNER2/pull/158)
+
 ## 2. Advanced boundary-head architecture and decoding controls
 
 The sparse boundary extractor is not limited to independent per-query proposals and a fixed pair reranker. Its configuration exposes alternative candidate-pool organizations, optional representation modules, learned abstention and count signals, and multiple candidate-decoding strategies.

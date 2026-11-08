@@ -394,7 +394,12 @@ run 401 completed all 29 annotation tasks and started candidate extraction
 using the pinned local GLiNER model. An explicit release archive check
 through `uv run ci release check` passed from the corrected checkout.
 The retained report for task 1866 records an out-of-range negative token
-span in the GLiNER 2.1.0 boundary decoder. The next task, 1867, failed with
+span in the GLiNER 2.1.0 boundary decoder. The
+[exact replay](../design_review/evidence/2026-11-08_gliner-assertion-anchor/README.md)
+reproduced it. A natural assertion took its predicate anchor from the
+schema's polarity choice tokens, then tried to project that position into
+the source character map. A process-local source-only anchor control
+returned zero assertions for the same input. The next task, 1867, failed with
 the closed-owner diagnostic. Candidate extraction settled with seven
 `done`, one `failed`, and 21 `cancelled` tasks. The [upstream boundary
 decoder](https://github.com/fastino-ai/GLiNER2/blob/main/gliner2/models/boundary/engine.py)

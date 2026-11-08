@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "id": "gliner.assertion-anchor",
+  "title": "Exact replay of the GLiNER assertion anchor failure",
+  "group": "gliner-assertion-anchor",
+  "package": "DMA-13",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Where did the negative token span in the full-book candidate run originate?",
+  "answers": [
+    "DMA-13"
+  ],
+  "method": "Rebuild the exact retained context, replay the pinned model with a matched definition control, trace the natural anchor and enum formatter, and restrict the anchor query in a process-local counterfactual.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-08_gliner-assertion-anchor/probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "Read-only retained-context reconstruction and local inference probe",
+      "sha256": "a19e109ea364e8929d8d7dee1d7878a46b40bab4cf5ab5640c7e08cb0282dba5"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/replay.json",
+      "role": "Exact decoder coordinates and replay controls",
+      "sha256": "b8b7b0655b3f1fac1cde154446ba7c6d363fae842cae1d44d9b701e37486a0c4"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "The exact assertion request seeds a literal predicate record from a categorical schema-prefix token. The enum formatter projects that token through the source-only map and reproduces the native error. Restricting seed candidates to source positions removes the exception for the reproduced input.",
+  "consumed_by": [
+    "DMA-13"
+  ]
+}
