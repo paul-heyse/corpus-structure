@@ -1,7 +1,8 @@
 # GitHub visitor experience and Pages implementation
 
-**Status · 2026-11-08. Complete and live. Audit gaps closed.** This coordinator owns GHV-01–06, scheduled findings
-and combined acceptance. It consumes the [functional review](../functional_reviews/github-visitor-experience_2026-11-08.md)
+**Status · 2026-11-08. GHV-01–06 complete and live. GHV-07–11 proposed.**
+This coordinator owns the [follow-on increment](#GHV-follow-on), the original
+rollout and the combined acceptance of each increment. It consumes the [functional review](../functional_reviews/github-visitor-experience_2026-11-08.md)
 at `b8697ab5f` and the two-part ChatGPT Pro proposal named `github_view_improvement.md`,
 identified by Git blob `2ce8a30811ce0d63f41d3296cc8291f62d08e627`. The draft is a
 local authoring input. The crosswalk below retains its actionable scope for a clean
@@ -261,3 +262,100 @@ admission. [Public examples](../examples/README.md) · [Comparison record](../de
   scopes and hidden paths. The live receipt links carried the deployed
   revision, the X payload matched its Git LFS hash, and neither raw receipt
   was served from Pages.
+
+<a id="GHV-follow-on"></a>
+
+## Follow-on increment · Show the retained semantic results
+
+**Proposed · 2026-11-08.** The ChatGPT Pro draft
+`github_view_improvement_additional_recommendations.md` (Git blob
+`d00c3774b1d34721ff14649bf143df80c91ed41c`) reviewed `5bddd141b`. It is a
+local authoring input. This crosswalk carries its recommendations into the
+series without requiring the draft in a clean checkout.
+
+The [live release](https://github.com/paul-heyse/corpus-structure/actions/runs/42484094468)
+at `8b694c67b` already exposes the separate X and Z receipts. The original
+site, metadata, social preview and GHV-06 comparisons remain qualified at
+their recorded boundaries. The current homepage and examples still emit
+edit URLs with a staging `src/` prefix. The dossier preflight still labels
+the completed journey pending, the README badge still leads to Actions
+without an opening Pages link, and the architecture map still directs the
+reader to D0 first.
+
+The next visitor should be able to see how the project preserves a condition,
+recovers an antecedent and assembles supported material. The opening explains
+organizational policies, procedures and technical documents as the intended
+application, and the probability textbook as the current development corpus.
+Use the illustrative enterprise policy to explain the target. The operator
+excluded a synthetic corpus run and an interactive result inspector. This
+increment uses retained outputs and static presentations.
+
+### Foundations and boundaries
+
+[ADR-0071](../adr/0071-github-pages-publication.md) remains the publication
+decision. Markdown and retained evidence own the claims. The publisher owns
+selection, navigation and link transport. A small downloadable projection
+can serve the reader without bringing corpus data, Git LFS hydration or
+product services into the build. An additional example should change its
+authored page, excerpt and asset declaration. It should require no change to
+the search integration or product schema.
+
+Use native mdBook hierarchy over the existing page inventory. A new reference
+page should retain its path and search scope and appear under the group of its
+collection. Keep Pagefind index preparation at build time and defer index
+loading until search opens. These boundaries follow FP-01, FP-04, FP-05,
+FP-07 and H12, H16 and H26. They avoid maintaining a second site, a second
+page inventory or a new corpus-serving path.
+[Principles](../design_review/design_principles/core/design-principles.md) · [Efficiency heuristics](../design_review/design_principles/core/efficient-architecture-heuristics.md)
+
+### Package queue and source coverage
+
+| Package | Draft coverage and readiness | Acceptance |
+| --- | --- | --- |
+| [GHV-07 · Correctness and entry routes](github-visitor-experience/publication-and-rollout.md#GHV-07) | §§2A–C, 5 architecture introduction and 9 priority 1. Start from the live publisher and dossier receipt. | Edit actions reach their source, dossier state matches the finalized result, and the opening routes reach Pages and current architecture. |
+| [GHV-08 · Retained exhibits and evaluation](github-visitor-experience/visitor-content-and-evidence.md#GHV-08) | §§3, 6, 7 and 9 priority 2. Authenticate the three retained results and use the corrected dossier evidence route. | Readers can identify what changed, see the corresponding output and assessment, and download the selected fields. The organizational target and measured scope are distinct. |
+| [GHV-09 · Transformation diagram](github-visitor-experience/visuals-and-follow-ons.md#GHV-09) | §§4, 8 visual treatment and 9 priority 3. Consume GHV-08's operation and output names and GHV-07's architecture trace. | The same maintained diagram describes the handoffs on GitHub and Pages, remains legible at mobile width and in both themes, and links to full size. |
+| [GHV-10 · Visitor navigation](github-visitor-experience/site-navigation-and-presentation.md#GHV-10) | §§5, 9 priorities 3–4. Implement against the opening routes from GHV-07 and the examples and evaluation targets from GHV-08. | Five public entry routes precede collapsible references. Existing page URLs, anchors and search scopes continue to work. |
+| [GHV-11 · Identity, sharing and search](github-visitor-experience/site-navigation-and-presentation.md#GHV-11) | §§8 and 9 priority 5. Integrate after navigation and diagram assets are known. | The live metadata and theme agree with the public identity. Search explains a delayed or failed initialization and provides a keyboard-accessible recovery route. |
+
+Draft §1 describes delivered capabilities and conditional tooling decisions.
+The condition exhibit serves a different purpose from the citation card
+compared in GHV-06. Use accessible text and emphasis to show the attachment
+instead of adopting a separate image card. Draft §§6 and 9 priority 6 discuss
+the synthetic run and inspector that the operator excluded.
+
+### Correction dispositions
+
+| Item | Owner and disposition | Closure evidence |
+| --- | --- | --- |
+| GHV-F06 · Draft §2A edit paths | Open · GHV-07 publisher | Root and nested actions use real GitHub paths. The generated directory has no edit action. |
+| GHV-F07 · Draft §2B dossier summary | Open · GHV-07 evidence page | Finalized native and delivery results appear alongside the dated preparation history. |
+| GHV-F08 · Draft §2C live entry link | Open · GHV-07 README | Documentation opens Pages. Docs build opens the workflow. Examples, architecture and evaluation remain directly reachable. |
+| GHV-F09 · Draft §5 architecture introduction | Open · GHV-07 architecture map | Current code trace comes first. The design collection retains its links and the dated D0 target has a separate route. |
+
+### Integration and release
+
+Land GHV-07 first. Establish the GHV-08 exhibits and common labels before
+finalizing GHV-09 and GHV-10, which have independent acceptance checks.
+Integrate GHV-11 after both. Keep edits to the shared publisher and site
+configuration ordered across these packages.
+
+Use the [review cadence](../design_review/design_principles/binding/corpus-structure.md#reviews-in-this-repository).
+Apply the operator's holistic publishing focus to the pre-change design/target
+review of the new evidence and navigation surfaces, and to the assembled
+boundary before release. Use the prior [publishing review](../design_review/reviews/design_review_github-pages-publication_2026-11-08.md)
+where its premises still hold. Review the edit-action repair as a bounded
+change within the existing publisher. The new pre-change review should
+challenge adding a reference page without moving URLs and publishing an
+excerpt without exposing raw evidence. The assembled review should also
+assess failure recovery for search and the deployment sequence.
+
+Use the [follow-on qualification](github-visitor-experience/publication-and-rollout.md#GHV-follow-on-qualification)
+for local, hosted and live acceptance. The implementation checks are
+`not_run` at plan authoring. Record release evidence and finding closures
+here when the work is implemented and verified.
+
+**Plan validation · 2026-11-08.** `just turn-end` and `uv run ci docs check`
+passed on an LFS-disabled export of `8b694c67b` with the seven authoring
+files overlaid. The documentation check rendered 705 canonical pages with
+zero link errors. This checks publication of the plan documents.

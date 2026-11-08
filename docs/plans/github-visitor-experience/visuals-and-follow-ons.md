@@ -1,6 +1,6 @@
 # Shared visuals and follow-on investigations
 
-**Status · 2026-11-08. Complete.** Owns the GHV-04 and GHV-06 designs. The
+**Status · 2026-11-08. GHV-04/06 complete. GHV-09 proposed.** Owns the shared diagram and visual decisions. The
 [coordinator](../github-visitor-experience_2026-11-08.md) owns execution state.
 Consume the visitor wording and exact examples from [GHV-02/03](visitor-content-and-evidence.md).
 Use the visual and tooling findings in the [functional review](../../functional_reviews/github-visitor-experience_2026-11-08.md#O03).
@@ -89,3 +89,39 @@ The required social image and main diagram close through GHV-04.
 The [completed pilot](../../design_review/evidence/2026-11-08_github-visitor-follow-ons/README.md)
 retains the viewport comparisons and exact citation storyboard. The
 [coordinator](../github-visitor-experience_2026-11-08.md#ghv-06-dispositions) owns the resulting decisions.
+
+<a id="GHV-09"></a>
+
+## GHV-09 · Diagram the transformations and partial outputs
+
+**Proposed.** Owns draft §4 and diagram treatment in §8. Consume the operation
+names, examples and architecture trace from GHV-07/08. Maintain the shared
+[D2 source](../../visuals/pipeline.d2) and render through `just docs-visuals`.
+
+| Operation | What to show | Result available for inspection |
+| --- | --- | --- |
+| Extract observations | Locate definitions, predicate roles, conditions and reference cues. | Located observations |
+| Compose local meaning | Attach roles, bind scope and recover a supported antecedent. | Qualified components |
+| Connect related material | Retrieve candidates and select supported typed references or declarations. | Witnessed connections and unresolved candidates |
+| Assemble knowledge | Group supported material around a root and compare qualified readings. | Dossiers, comparisons and gaps |
+
+Label what moves along the handoffs and show useful outputs at intermediate
+stages. The arrows communicate possible dependencies, with evidence and
+assessment shown as shared support across the operations. Keep proposed
+pgmpy and Pyro analyses in the architecture's research discussion, with
+their analytical questions stated separately.
+
+Use a compact vertical diagram and a descriptive full-size link. Generate
+light and dark SVGs from the same D2 source with ELK and D2 theme colors.
+Use a transparent or theme-appropriate background and avoid hard-coded
+styles that defeat the selected theme. Supply meaningful alternate text
+and a short operation/output summary on both surfaces. Use GitHub's
+responsive image markup on the README. Ensure the Pages build ships both
+variants and that the documentation's selected theme displays the correct
+variant even when it differs from the system preference.
+[D2 themes](https://d2lang.com/tour/themes/) · [GitHub responsive images](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/quickstart-for-writing-on-github#adding-an-image-to-suit-your-visitors)
+
+**Closure.** Regenerate the committed outputs through the existing authoring
+command. Check that both variants fit and remain legible at both visitor
+widths, full-size navigation works, and the diagram, text and exhibits use
+the same operation names. The normal site build uses the committed assets.

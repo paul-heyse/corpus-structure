@@ -1,6 +1,6 @@
 # Documentation publication and GitHub rollout
 
-**Status · 2026-11-08. Complete.** Owns the GHV-01 and GHV-05 designs. The
+**Status · 2026-11-08. GHV-01/05 complete. GHV-07 proposed.** Owns publication corrections and release qualification. The
 [coordinator](../github-visitor-experience_2026-11-08.md) owns findings and
 execution status. The [functional review](../../functional_reviews/github-visitor-experience_2026-11-08.md#O04)
 records the inspected failures and the isolated workaround results.
@@ -138,3 +138,72 @@ verified deployment is available.
 The [assembled design/target review](../../design_review/reviews/design_review_github-pages-publication_2026-11-08.md)
 records the missed original pre-activation review and the accepted serialized
 release scope. The [coordinator](../github-visitor-experience_2026-11-08.md#ghv-audit-closure) records deployment.
+
+<a id="GHV-07"></a>
+
+## GHV-07 · Correct edit actions, dossier status and entry routes
+
+**Proposed.** Owns draft §§2A–C and the architecture introduction in §5.
+It supplies the corrected evidence and navigation routes to GHV-08 and GHV-10.
+
+- **Edit actions.** mdBook emits its staged path in the edit link. During
+  publisher annotation, use the original repository-relative `Page.path`
+  and the configured repository and branch to construct an encoded source
+  URL. Scope the replacement to the generated edit control. Omit the control
+  on the generated architecture-section directory, which has no single
+  editable source. The homepage alias uses the README edit destination.
+  Keep receipt links pinned to the build revision through the existing
+  transport. [Publisher](../../../scripts/docs.py) · [mdBook HTML settings](https://rust-lang.github.io/mdBook/format/configuration/renderers.html)
+- **Dossier completion.** Update the [dossier evidence page](../../design_review/evidence/2026-11-06_wce-completion-repair/dossier/README.md)
+  with the November 7 native, Reader, CLI, fresh MCP and portable results for
+  runs 196/cut 261 and 202/cut 273. Keep the November 6 preflight under its
+  own heading and label the limits of the two-member example. Use the
+  [finalized record](../../design_review/evidence/2026-11-06_wce-completion-repair/records/wce.repair-rooted-dossier.json)
+  as authority.
+- **Opening routes.** Add **Documentation** to the README's opening
+  navigation with the live Pages URL. Name the workflow badge **Docs build**.
+  Keep direct example, architecture and evaluation links. Put the current
+  functional pipeline and **Trace a result through the code** near the top
+  of the [architecture map](../../design/README.md). Follow the citation
+  through source capture and view identity, located observations, typed
+  selection and Reader delivery. Describe the responsibility of each linked
+  implementation owner and distinguish dated evidence from the current code
+  route. Place the D-documents under **Design contracts and target architecture**.
+  Keep inbound heading anchors when changing the reading order. D0 remains
+  dated target context.
+
+**Closure.** A focused publisher test asserts the root and nested edit
+destinations and absence of a generated-page edit control. Verify the live
+entry links, dossier statement and current code path during the reader check.
+
+<a id="GHV-follow-on-qualification"></a>
+
+## Follow-on qualification
+
+- At implementation, compare the in-use publication and rendering tools
+  with current stable upstream releases. At plan authoring, mdBook 0.5.4,
+  Pagefind 1.6.0, lychee 0.24.2, D2 0.9.0 and Playwright 1.64.1 matched
+  those releases. Include the matching Chromium, host tooling and Actions
+  pins if they are used and have moved. Update only the affected exact
+  pins, locks, hosted archive checksums and install instructions. Verify an
+  affected dependency or tool change with `uv run ci doctor` and the relevant
+  docs or visual route. Retain the existing shared test and interpreter holds.
+- Run `just docs-test` for the publisher changes and `just docs-visuals`
+  for the diagram. After final maintenance, run `uv run ci docs check` and
+  the hosted-equivalent LFS-disabled project-prefix build from the exact
+  release source. Check that the archive includes the favicon, diagram
+  renders, social image and approved excerpt, and leaves raw evidence
+  and Git internals at the source.
+- Exercise the locally served prefix and live GitHub and Pages at
+  1280 × 800 and 390 × 844. Verify the opening journey, disclosures, diagram
+  contrast, source edit and assessment links, download, hidden paths,
+  canonical and sharing URLs, and the search scenarios in GHV-11. Check the
+  example fields against their retained receipts separately from layout.
+- Use the shared `main` and the [serialized release runbook](../../publishing.md#github-release).
+  Monitor the documentation build, ordinary and Pages uploads and deployment
+  for the authorized revision. Confirm the live source banner and reader
+  paths before recording the release SHA, outcomes and limits in the
+  [coordinator](../github-visitor-experience_2026-11-08.md#GHV-follow-on).
+  If promotion is uncertain, check the live revision and Pages state before
+  retrying the corrected current main. Product and provider test outcomes
+  retain their own qualification scopes.

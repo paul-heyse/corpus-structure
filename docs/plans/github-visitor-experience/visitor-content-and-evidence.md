@@ -1,6 +1,6 @@
 # Visitor content and source-linked evidence
 
-**Status · 2026-11-08. Complete.** Owns the GHV-02 and GHV-03 designs. The
+**Status · 2026-11-08. GHV-02/03 complete. GHV-08 proposed.** Owns the visitor and evidence designs. The
 [coordinator](../github-visitor-experience_2026-11-08.md) owns execution and
 qualification. This companion implements the editorial and evidence routes from
 [O01](../../functional_reviews/github-visitor-experience_2026-11-08.md#O01),
@@ -111,3 +111,73 @@ own verification scopes.
 The [published uncertainty example](../../examples/README.md#candidates-and-selected-relationships)
 shows the rank-one red-ball candidate and separately links the scoped Z replay.
 The [coordinator](../github-visitor-experience_2026-11-08.md#ghv-audit-closure) records live verification.
+
+<a id="GHV-08"></a>
+
+## GHV-08 · Show retained results and how they were assessed
+
+**Proposed.** Owns draft §§3, 6 and 7. Consume the corrected dossier route
+from [GHV-07](publication-and-rollout.md#GHV-07). Supply the operation names
+and example links used by the diagram and visitor navigation.
+
+### Exhibits
+
+Lead the README with the condition example, followed by the compact section
+citation and the link to the richer examples. On the examples page, give
+each exhibit a source, operation, result and separate assessment. Make the
+relevant source phrase and corresponding output easy to find with explicit
+labels and textual emphasis. Put coordinates, identifiers and run details
+under a native `<details>` disclosure titled **Inspect evidence**. Keep the
+assessment and source route visible without opening the disclosure.
+
+| Exhibit | Retained input and presentation |
+| --- | --- |
+| Condition attached to a neighboring definition | Use run 320/cut 441, task 1498, view 177, edge `1407260e0e7e6a`. On physical page 289, show the premise at `#/texts/5253[3:57)` and `defined` at `[89:96)` in the following sentence. Identify the textual `scope_inheritance` result and separately attribute the source review's support for the attachment. [Retained report](../../design_review/evidence/2026-11-08_nce-full-book/raw/review-scoped-reports.jsonl) · [Source assessment](../../design_review/evidence/2026-11-08_nce-full-book/review/scoped-outputs.md#source-checks-on-cut-441) |
+| A local phrase recovers its complete antecedent | Use run 222/cut 313 and the frozen annotation from view 147. Show “This set of points,” the preceding level-set description through its restriction, and the recovered private definition component. Explain that retained token relationships and source boundaries select the supported antecedent, and that a competing or out-of-passage antecedent can leave the local mention in place. [Retained component](../../design_review/evidence/2026-11-07_nce-source-linguistics/antecedent.json) · [Replay and delivery](../../design_review/evidence/2026-11-07_nce-source-linguistics/README.md#antecedent-decision) |
+| An assembled normal-density dossier | Use the exact term and formula content from `required_citations` in the retained preflight, and reconcile them with both policies' final result. Display the independently supported terminology and definition facets and show the unrelated, independently supported `marginal totals` component outside the root. Label the two-member scope and the equal membership across the policies. [Frozen citations](../../design_review/evidence/2026-11-06_wce-completion-repair/dossier/attempt003/frozen-preflight.json) · [Final results](../../design_review/evidence/2026-11-06_wce-completion-repair/dossier/attempt003/result.json) · [Finalized record](../../design_review/evidence/2026-11-06_wce-completion-repair/records/wce.repair-rooted-dossier.json) |
+
+Authenticate the original PDF and applicable quotation terms before copying
+the two adjacent sentences or any source extract. Use short attributed
+wording and exact source links. If attribution, permissions or transcription
+cannot be established, use a clearly labeled paraphrase and the precise
+locator. Check any readable rendering of the normal-density formula against
+the retained exact text. The variance exhibit describes a textual attachment
+and the scope of its source assessment.
+
+Publish one small checked JSON download at
+`docs/examples/data/retained-examples.json` for these three cases. Select
+only the source locators, result fields, producing identities and receipt
+references needed to inspect the exhibits. Verify finalized hashes where
+available and compare each selected value against the retained output and
+independent assessment. Declare the excerpt as an explicit publication asset
+with a download link. Author and validate it against the source records when
+it changes. Routine publication reads the committed excerpt, including in an
+LFS-disabled checkout. Full records remain at their existing revision-bound
+source locations.
+
+### Evaluation and organizational application
+
+Add `docs/evaluation.md` as the public evaluation entry. Each row gives the
+question assessed, a scoped result or limitation, and a direct evidence link.
+
+| Layer | Evidence and claim |
+| --- | --- |
+| Source capture | The page 416 matrix example separates retained native math from the projection that shows only the opener. [Capture review](../../design_review/evidence/2026-11-08_nce-full-book/review/README.md#findings-across-page-ranges) |
+| Extraction | On physical page 47, role record 184 locates the defining occurrence of `probability`. The retained attachment used a later occurrence and omitted the operative formula and condition. Distinguish extraction of the role from selection of the attachment. [Extraction review](../../design_review/evidence/2026-11-08_nce-full-book/review/definition-window-retry.md#semantic-findings) |
+| Attachment and scope | Positive variance stays attached to the neighboring defining predicate in the reviewed occurrence. [Cut 441 checks](../../design_review/evidence/2026-11-08_nce-full-book/review/scoped-outputs.md#source-checks-on-cut-441) |
+| Linking | Section 5.1 leads to the supported heading with an explicit witness. The review checked nine retained decisions. [Citation assessment](../../design_review/evidence/2026-11-08_nce-full-book/review/scoped-outputs.md#contextual-section-citations) |
+| Assembly | Both dossier policies include two supported root-qualified members and exclude the unrelated component. [Dossier record](../../design_review/evidence/2026-11-06_wce-completion-repair/records/wce.repair-rooted-dossier.json) |
+| Coverage gaps | Four additional printed citations did not enter upstream retrieval. Book-wide citation recall remains open. [Source-side misses](../../design_review/evidence/2026-11-08_nce-full-book/review/scoped-outputs.md#source-citations-outside-the-contextual-population) |
+
+Explain the intended organizational knowledge application in the opening.
+Policies, procedures and technical documentation illustrate where typed
+relationships and partial structure could help. The textbook evidence
+demonstrates the current methods. Keep the high-risk purchase rule
+explicitly illustrative and present its actor, action, object, timing,
+scope and exception in a small table. Preserve the X/Z cases and historical
+reproduction compatibility limit.
+
+**Closure.** At both widths, a static reader can identify the source, output,
+and assessment for all three exhibits, reach the evidence and download the
+exact selected fields. Review the exhibit and excerpt against the retained
+inputs and the evaluation rows against their separate assessments.
