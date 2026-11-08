@@ -16,6 +16,7 @@ from corpus_structure.ingest.annotations import AnnotationProfile
 from corpus_structure.ingest.sentences import SentenceConfig, pipeline
 from corpus_structure.methods.annotation_rules import AnnotationRule
 from corpus_structure.methods.gliner import (
+    ASSERTION_LITERAL_PACK,
     WHITESPACE_PROFILE,
     GlinerInput,
     GlinerPack,
@@ -228,6 +229,7 @@ def configured_packs(prepared, cfg):
     """Release-owned roles plus explicit extraction instructions, prepared once per source."""
     from corpus_structure.methods.record_packs import family_pack
 
+    combined = "native-combined-v2" if cfg.policy == POLICY_V6 else "native-combined-v1"
     return {
         family: family_pack(
             prepared,
@@ -235,7 +237,7 @@ def configured_packs(prepared, cfg):
             anchor_role=anchor,
             descriptions=cfg.pack_descriptions.get(family),
             source_inspection=cfg.source_inspection,
-            pack_version="native-combined-v2" if cfg.policy == POLICY_V6 else "native-combined-v1",
+            pack_version=ASSERTION_LITERAL_PACK if family == "assertion" else combined,
         )
         for family, (contract, anchor) in FAMILIES.items()
     }
@@ -261,7 +263,7 @@ def configured_pack_variants(prepared, cfg):
 
 class M1Candidates:
     name = "extract.m1_candidates"
-    version = "9"
+    version = "10"
     family = MethodFamily.EXTRACT
     unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.ENCODER
@@ -328,6 +330,7 @@ class M1Candidates:
     def _source(self, unit, cfg, ctx):
         from threadpoolctl import ThreadpoolController
 
+        from corpus_structure.methods.assertion_qualification import AssertionQualification
         from corpus_structure.methods.record_assembly import (
             AssemblyDiagnostic,
             NativeRecordGroup,
@@ -379,6 +382,9 @@ class M1Candidates:
                 formula_prose=cfg.formula_prose,
                 region_pointers=cfg.region_pointers,
             )
+        assertion_qualification = AssertionQualification(
+            prepared_source.source, prepared_source.annotations, view.pieces, view.items
+        )
         details: dict[str, Any] = dict(
             policy=cfg.policy,
             standing="private_uncalibrated_candidates",
@@ -824,7 +830,13 @@ class M1Candidates:
                     )
                     supplements = {}
                     for group_index, group in enumerate(report.raw.get(family, ())):
-                        if family == "definition":
+                        if family == "assertion" and isinstance(group, dict):
+                            supplement = assertion_qualification.supplement(
+                                context, pack, report, group
+                            )
+                            if supplement is not None:
+                                supplements[group_index] = supplement
+                        elif family == "definition":
                             supplements[group_index] = NativeRecordGroup(
                                 (RoleInput("scope", native_pointer=view.ref.section_pointer),),
                                 "selected native section is the explicit definition scope",

@@ -52,13 +52,25 @@ def release():
     )
 
 
-def view():
-    text = "Mean is average."
+def view(text="Mean is average.", *, heading=None):
     nodes = (
         dict(self_ref="#/groups/1", label="section"),
         dict(self_ref="#/texts/1", label="text", text=text),
     )
     pieces = (dict(kind="native_text", item_ref="#/texts/1", start=0, end=len(text)),)
+    if heading is not None:
+        offset = len(heading) + 1
+        text = heading + "\n" + text
+        nodes = (
+            nodes[0],
+            dict(self_ref="#/texts/0", label="section_header", text=heading),
+            nodes[1],
+        )
+        pieces = (
+            dict(kind="native_text", item_ref="#/texts/0", start=0, end=len(heading)),
+            dict(kind="synthetic_separator", start=len(heading), end=offset),
+            dict(pieces[0], start=offset, end=len(text)),
+        )
     projection = dict(
         text=text, pieces=pieces, items=[n["self_ref"] for n in nodes], ancestors=[], health={}
     )
@@ -688,7 +700,7 @@ def test_witnessed_recipe_is_explicit_versioned_and_rejects_old_writer_config():
     methods = registry(ROOT / "domains/statistics")
     cfg = methods.overlay("extract.m1_candidates", "witnessed")
     assert isinstance(cfg, m1_source.M1Config)
-    assert m1_source.M1Candidates.version == "9"
+    assert m1_source.M1Candidates.version == "10"
     assert len(cfg.annotation_rules) == 15
     assert {(r.rule, r.variant) for r in cfg.annotation_rules} == {
         ("defining", "active_as"),

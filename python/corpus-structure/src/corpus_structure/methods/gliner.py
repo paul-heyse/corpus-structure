@@ -145,6 +145,9 @@ class GlinerProfile:
                 raise GlinerRefused(f"snapshot artifact differs: {name}")
 
 
+ASSERTION_LITERAL_PACK = "native-assertion-literal-v1"
+
+
 @dataclass(frozen=True)
 class GlinerPack:
     release: str
@@ -167,11 +170,19 @@ class GlinerPack:
             "native-combined-v1",
             "native-combined-v2",
             "native-local-v1",
+            ASSERTION_LITERAL_PACK,
         }:
             raise GlinerRefused("pack requires a released identity and supported operation")
         declaration = json.loads(self.declaration_json)
         if not isinstance(declaration, dict):
             raise GlinerRefused("schema declaration must be an object")
+        structures = declaration.get("structures", {})
+        if self.version == ASSERTION_LITERAL_PACK and (
+            set(declaration) != {"structures"}
+            or not isinstance(structures, dict)
+            or set(structures) != {"assertion"}
+        ):
+            raise GlinerRefused("literal assertion packs require exactly one assertion structure")
         if self.version == "native-local-v1" and (
             declaration.get("structures")
             or not (declaration.get("entities") or declaration.get("relations"))
@@ -179,11 +190,20 @@ class GlinerPack:
             raise GlinerRefused(
                 "local packs require entity or relation questions without record structures"
             )
-        for structure in declaration.get("structures", {}).values():
+        for structure in structures.values():
             names = [field["name"] for field in structure.get("fields", [])]
             if len(names) != len(set(names)):
                 raise GlinerRefused("duplicate structure field names are unsupported")
             mode, anchor = structure.get("mode"), structure.get("anchor")
+            if self.version == ASSERTION_LITERAL_PACK and (
+                mode != "natural"
+                or anchor != "predicate"
+                or anchor not in names
+                or any("choices" in field or "__" in field["name"] for field in structure["fields"])
+            ):
+                raise GlinerRefused(
+                    "literal assertion packs require a natural predicate and literal fields"
+                )
             if self.version == "native-combined-v1" and (mode != "natural" or not anchor):
                 raise GlinerRefused("initial packs require an explicit natural occurrence anchor")
             if self.version == "native-combined-v2" and not (

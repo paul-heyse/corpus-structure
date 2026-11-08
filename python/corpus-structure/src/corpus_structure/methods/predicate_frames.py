@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from functools import lru_cache
 from importlib.resources import files
-from typing import Literal
+from typing import Any, Literal
 
 from spacy.lang.en import English
 from spacy.matcher import DependencyMatcher, Matcher, PhraseMatcher
@@ -26,6 +26,43 @@ type FrameLayout = Literal["prose", "example", "policy", "instruction"]
 @lru_cache(maxsize=1)
 def interpretation_recipe():
     return json.loads(files(__package__).joinpath("predicate_interpretation.json").read_text())
+
+
+def source_layout(
+    product: AnnotationProduct,
+    text: str,
+    pieces: Sequence[Mapping[str, Any]],
+    items: Mapping[str, Mapping[str, Any]],
+) -> FrameLayout:
+    """Use only the preceding native heading in the same local structural group."""
+    item = next(
+        (
+            items[piece["item_ref"]]
+            for piece in pieces
+            if piece.get("item_ref") in items
+            and piece["start"] <= product.block_start < piece["end"]
+        ),
+        {},
+    )
+    parent = item.get("parent")
+    for piece in reversed(pieces):
+        if piece["end"] > product.block_start:
+            continue
+        pointer = piece.get("item_ref")
+        candidate = items.get(pointer, {}) if isinstance(pointer, str) else {}
+        if candidate.get("parent") != parent or candidate.get("label") not in {
+            "title",
+            "section_header",
+        }:
+            continue
+        heading = text[piece["start"] : piece["end"]].strip().lower()
+        first = heading.split(maxsplit=1)[0].strip(":") if heading else ""
+        headings = interpretation_recipe()["layout_headings"]
+        for layout in ("example", "policy", "instruction"):
+            if first in headings[layout]:
+                return layout
+        break
+    return "prose"
 
 
 _SUBJECT = tuple(interpretation_recipe()["subject_dependencies"])

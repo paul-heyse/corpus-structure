@@ -17,7 +17,7 @@ from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.source_contexts import ContextRefused, evidence_anchor
 from corpus_structure.semantic.structural_parsing import parse_threshold
 
-from .predicate_frames import interpretation_recipe
+from .predicate_frames import interpretation_recipe, source_layout
 
 
 @dataclass(frozen=True)
@@ -26,36 +26,6 @@ class Passage:
     start: int
     end: int
     version: str | None = None
-
-
-def source_layout(product, frame, pieces, items):
-    """Use only the preceding native heading in the same local structural group."""
-    item = next(
-        (
-            items[piece["item_ref"]]
-            for piece in pieces
-            if piece.get("item_ref") in items
-            and piece["start"] <= product.block_start < piece["end"]
-        ),
-        {},
-    )
-    parent = item.get("parent")
-    for piece in reversed(pieces):
-        if piece["end"] > product.block_start:
-            continue
-        candidate = items.get(piece.get("item_ref"), {})
-        if candidate.get("parent") != parent or candidate.get("label") not in {
-            "title",
-            "section_header",
-        }:
-            continue
-        heading = frame.text[piece["start"] : piece["end"]].strip().lower()
-        first = heading.split(maxsplit=1)[0].strip(":") if heading else ""
-        for layout, headings in interpretation_recipe()["layout_headings"].items():
-            if first in headings:
-                return layout
-        break
-    return "prose"
 
 
 def predicate_results(frame, annotations, source_pieces, items):
@@ -67,7 +37,7 @@ def predicate_results(frame, annotations, source_pieces, items):
             predicate_frames(
                 frame.text,
                 (annotation,),
-                layout=source_layout(annotation, frame, source_pieces, items),
+                layout=source_layout(annotation, frame.text, source_pieces, items),
             ),
         )
         for annotation in annotations

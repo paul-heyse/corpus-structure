@@ -81,35 +81,91 @@ def definition_group():
     }
 
 
-def test_v1_pack_identity_and_policy5_profiles_remain_released(tmp_path):
+def test_historical_pack_identities_and_assertion_frontends_remain_readable():
     old = family_pack(release(), contract="DefinitionRecordFields", anchor_role="term")
     assert old.version == "native-combined-v1"
     assert (
         GlinerPack.from_declaration(release().release_id, json.loads(old.declaration_json)) == old
     )
-    for policy in (prep.POLICY, prep.POLICY_V5):
-        cfg = config(tmp_path, policy=policy)
-        configured = m1_source.configured_packs(release(), cfg)
-        assert configured["definition"].fingerprint == old.fingerprint
-        assert all(p.version == "native-combined-v1" for p in configured.values())
-        assert (
-            json.loads(configured["assertion"].declaration_json)["structures"]["assertion"]["mode"]
-            == "natural"
+    for version, mode, anchor in (
+        ("native-combined-v1", "natural", "predicate"),
+        ("native-combined-v2", "latent", None),
+    ):
+        assertion = family_pack(
+            release(),
+            contract="AssertionRecordFields",
+            anchor_role="predicate",
+            pack_version=version,
         )
-    cfg = config(tmp_path, policy=prep.POLICY_V6, formula_prose=True)
+        declaration = json.loads(assertion.declaration_json)
+        spec = declaration["structures"]["assertion"]
+        assert (spec["mode"], spec.get("anchor")) == (mode, anchor)
+        assert {f["name"] for f in spec["fields"] if f.get("choices")} == {"polarity", "modality"}
+        assert (
+            GlinerPack.from_declaration(release().release_id, declaration, version=version)
+            == assertion
+        )
+
+
+@pytest.mark.parametrize(
+    "policy,sibling_version",
+    [
+        (prep.POLICY, "native-combined-v1"),
+        (prep.POLICY_V5, "native-combined-v1"),
+        (prep.POLICY_V6, "native-combined-v2"),
+    ],
+)
+@pytest.mark.parametrize("inspection", [False, True])
+def test_m1_profiles_use_literal_assertion_pack_and_preserve_sibling_packs(
+    tmp_path, policy, sibling_version, inspection
+):
+    cfg = config(tmp_path, policy=policy, source_inspection=inspection)
     configured = m1_source.configured_pack_variants(release(), cfg)
-    assert all(
-        p.version == "native-combined-v2"
-        for variants in configured.values()
-        for _, _, p in variants
+    ((variant, anchor, assertion),) = configured["assertion"]
+    assert (variant, anchor, assertion.version) == (
+        "default",
+        "predicate",
+        "native-assertion-literal-v1",
     )
-    assert configured["assertion"][0][:2] == ("default", "predicate")
-    spec = json.loads(configured["assertion"][0][2].declaration_json)["structures"]["assertion"]
-    assert spec["mode"] == "latent" and "anchor" not in spec
-    assert [(variant, anchor) for variant, anchor, _ in configured["formula_context"]] == [
-        ("symbol_binding", "symbol"),
-        ("formula_reading", "formula"),
-    ]
+    assert json.loads(assertion.declaration_json) == {
+        "structures": {
+            "assertion": {
+                "mode": "natural",
+                "anchor": "predicate",
+                "fields": [
+                    dict(name=name, dtype="str", cardinality="optional_one")
+                    for name in (
+                        "subject",
+                        "predicate",
+                        "object",
+                        "attribution",
+                        "condition",
+                        "quantification",
+                        "scope",
+                    )
+                ],
+            }
+        }
+    }
+    assert [(variant, anchor) for variant, anchor, _ in configured["formula_context"]] == (
+        [("default", "formula")]
+        if policy == prep.POLICY
+        else [("symbol_binding", "symbol"), ("formula_reading", "formula")]
+    )
+    for family, contract in [
+        ("definition", "DefinitionRecordFields"),
+        ("measurement", "MeasurementRecordFields"),
+        ("table", "TableRecordFields"),
+        ("formula_context", "FormulaRecordFields"),
+    ]:
+        for _, anchor, sibling in configured[family]:
+            assert sibling == family_pack(
+                release(),
+                contract=contract,
+                anchor_role=anchor,
+                source_inspection=inspection,
+                pack_version=sibling_version,
+            )
 
 
 @pytest.mark.parametrize(

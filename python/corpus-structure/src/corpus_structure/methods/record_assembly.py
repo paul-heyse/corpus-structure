@@ -36,7 +36,14 @@ from corpus_structure.semantic.source_contexts import (
 )
 from corpus_structure.semantic.types import PreparedRelease
 
-from .gliner import GlinerPack, GlinerRefused, GlinerReport, map_literal, map_record_field
+from .gliner import (
+    ASSERTION_LITERAL_PACK,
+    GlinerPack,
+    GlinerRefused,
+    GlinerReport,
+    map_literal,
+    map_record_field,
+)
 from .math.pdf import FormulaOccurrence
 from .record_packs import (
     INSPECTION_POLICY,
@@ -399,6 +406,7 @@ def _assemble(
         _digest("structural-input", [index, asdict(group)]) for index, group in supplements.items()
     )
     all_dependencies = set(dependencies)
+    literal_assertion = pack is not None and pack.version == ASSERTION_LITERAL_PACK
     records: list[dict[str, Any]] = []
     unattached_roles = []
     for index, group in enumerate(groups):
@@ -486,7 +494,11 @@ def _assemble(
                 state="unresolved",
                 meaning_changing="MeaningChangingRecordField" in role_type.ancestors,
                 evidence_status="unavailable",
-                reason="decoder field absent; source meaning remains unresolved",
+                reason=(
+                    "no applicable located predicate-frame evidence supports this classification"
+                    if literal_assertion and kind == "classified"
+                    else "decoder field absent; source meaning remains unresolved"
+                ),
             )
             supplied = explicit.get(role.name)
             raw = group.get(role.name)
@@ -895,6 +907,9 @@ def assemble_records(
     family = next(prop.equals_string for prop in definition.properties if prop.name == "family")
     if not family:
         raise GlinerRefused("released family identifier is missing")
+    literal_assertion = pack.version == ASSERTION_LITERAL_PACK
+    if literal_assertion and family != "assertion":
+        raise GlinerRefused("literal assertion pack cannot assemble another family")
     structure = json.loads(pack.declaration_json)["structures"][family]
     natural = structure.get("mode") == "natural" and structure.get("anchor") == anchor_role
     latent = (
@@ -907,10 +922,22 @@ def assemble_records(
     if not (natural or latent):
         raise GlinerRefused("pack grouping anchor differs from the explicit profile")
     declared = {field["name"]: field for field in structure["fields"]}
-    expected = {
-        role.name for role in roles if field_kind(prepared, role) in {"literal", "classified"}
-    }
-    auxiliary = {field["name"]: field for field in inspection_fields(prepared, roles)}
+    classified = {role.name for role in roles if field_kind(prepared, role) == "classified"}
+    expected = {role.name for role in roles if field_kind(prepared, role) == "literal"}
+    if literal_assertion:
+        if any(
+            field.role not in classified or field.state != "present" or not field.cues
+            for group in (supplements or {}).values()
+            for field in group.fields
+        ):
+            raise GlinerRefused("literal assertions accept only located classification supplements")
+    else:
+        expected.update(classified)
+    auxiliary = (
+        {}
+        if literal_assertion
+        else {field["name"]: field for field in inspection_fields(prepared, roles)}
+    )
     inspection = bool(set(declared) & set(auxiliary))
     if inspection and any(declared.get(name) != field for name, field in auxiliary.items()):
         raise GlinerRefused("pack inspection fields differ from the versioned proposal profile")

@@ -7,7 +7,7 @@ from typing import Any
 
 from corpus_structure.semantic.types import ClassDefinition, PreparedRelease, PropertyDefinition
 
-from .gliner import GlinerPack, GlinerRefused
+from .gliner import ASSERTION_LITERAL_PACK, GlinerPack, GlinerRefused
 
 INSPECTION_POLICY = "source-role-inspection-1"
 SOURCE_STATES = ("present", "unstated", "inapplicable", "unresolved")
@@ -105,13 +105,16 @@ def family_pack(
     still identifies the logical occurrence role; latent formation has no fixed seed role.
     """
     definition, roles = family_roles(prepared, contract)
+    literal_assertion = pack_version == ASSERTION_LITERAL_PACK
+    if literal_assertion and (contract != "AssertionRecordFields" or anchor_role != "predicate"):
+        raise GlinerRefused("literal assertion packs require the released predicate role")
     descriptions = descriptions or {}
     if set(descriptions) - {role.name for role in roles}:
         raise GlinerRefused("description names an unreleased family role")
     fields = []
     for role in roles:
         kind = field_kind(prepared, role)
-        if kind not in {"literal", "classified"}:
+        if kind != "literal" and (literal_assertion or kind != "classified"):
             continue
         field: dict[str, Any] = dict(name=role.name, dtype="str", cardinality="optional_one")
         if (
@@ -125,7 +128,7 @@ def family_pack(
         if role.name in descriptions:
             field["description"] = descriptions[role.name]
         fields.append(field)
-    if source_inspection:
+    if source_inspection and not literal_assertion:
         fields.extend(inspection_fields(prepared, roles))
     if anchor_role not in {field["name"] for field in fields} or next(
         field for field in fields if field["name"] == anchor_role
