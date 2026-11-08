@@ -8,6 +8,7 @@ from methods.test_scoped_relations import complete_native_fields, source
 from sqlalchemy import text
 
 from corpus_structure.ingest.annotations import AnnotationProfile
+from corpus_structure.methods.predicate_frames import interpretation_recipe
 from corpus_structure.methods.scoped_relations import discover_relations
 from corpus_structure.methods.source_preparation import prepare_source
 from corpus_structure.semantic.identity import canonical_bytes
@@ -159,8 +160,6 @@ def test_native_clipped_role_population_detects_omitted_roles(semantic_db_engine
     view = complete_native_fields(source(spelling, labels=("text",)))
     prepared = prepare_source(view, profile=AnnotationProfile(), annotations_only=True)
     (annotation,) = prepared.annotations
-    from corpus_structure.methods.predicate_frames import interpretation_recipe
-
     start = spelling.index("records")
     action_only = (start, start + len("records"))
     actor = {
@@ -215,3 +214,49 @@ def test_native_clipped_role_population_detects_omitted_roles(semantic_db_engine
         # A selected extent without mapped native text is distinct from clipping.
         unmappable_object = {**object_, "reason": "unmappable"}
         assert matches([actor, unmappable_object], (start, len(spelling)), "{[12,19)}") is True
+
+
+def test_native_attribution_requires_an_eligible_reporting_governor(semantic_db_engine):
+    spelling = "Suppose we wait."
+    tokens = [
+        dict(start=0, end=7, lemma="suppose", pos="VERB", dependency="ROOT", head=0),
+        dict(start=8, end=10, lemma="we", pos="PRON", dependency="nsubj", head=2),
+        dict(start=11, end=15, lemma="wait", pos="VERB", dependency="ccomp", head=0),
+        dict(start=15, end=16, lemma=".", pos="PUNCT", dependency="punct", head=2),
+    ]
+    check = text("""
+        WITH input AS (
+         SELECT jsonb_build_object('text',CAST(:spelling AS text)) AS projection,
+          CAST(:annotation AS jsonb) AS annotation,CAST(:recipe AS jsonb) AS recipe
+        )
+        SELECT ops.predicate_source_reading(projection,annotation,
+         jsonb_build_object('predicate_token',2,'frame_members',
+          jsonb_build_array(jsonb_build_object('role','actor','head_token',1))),
+         'prose',recipe,EXISTS(
+          SELECT FROM ops.predicate_argument_inventory(projection,annotation->'tokens',recipe,true)
+          WHERE predicate=0 AND role='predicate')) FROM input
+    """)
+    with semantic_db_engine.connect() as conn:
+
+        def reading(pos):
+            return conn.scalar(
+                check,
+                dict(
+                    spelling=spelling,
+                    annotation=json.dumps(
+                        {
+                            "kind": "paragraph",
+                            "tokens": [
+                                dict(token, sentence=0, role="prose")
+                                for token in ({**tokens[0], "pos": pos}, *tokens[1:])
+                            ],
+                        }
+                    ),
+                    recipe=json.dumps(interpretation_recipe()),
+                ),
+            )
+
+        assert reading("VERB")["reading"] == "reference"
+        assert reading("NOUN") == dict(
+            grammar="active", voice="active", polarity="positive", reading="unresolved"
+        )

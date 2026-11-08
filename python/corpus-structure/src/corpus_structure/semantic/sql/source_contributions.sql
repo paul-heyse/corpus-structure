@@ -1020,7 +1020,8 @@ REVOKE ALL ON FUNCTION ops.predicate_unlocated_role_matches(jsonb,jsonb,jsonb,in
 -- The clipped-role population is derived before applying selection. It uses
 -- retained dependency coordinates and the same English argument recipe as the
 -- producer, with no caller-supplied role head, extent or inherited argument.
-CREATE OR REPLACE FUNCTION ops.predicate_argument_inventory(projection jsonb,tokens jsonb,recipe jsonb)
+CREATE OR REPLACE FUNCTION ops.predicate_argument_inventory(
+ projection jsonb,tokens jsonb,recipe jsonb,include_hosts boolean)
 RETURNS TABLE(predicate integer,role text,head integer,token_indices integer[],inherited_from integer)
 LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
  WITH RECURSIVE
@@ -1262,6 +1263,15 @@ LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
  SELECT r.predicate,r.role,r.head,r.token_indices,NULL::integer FROM complete_roles r
  UNION ALL
  SELECT r.predicate,r.role,r.head,r.token_indices,r.inherited_from FROM inherited r WHERE r.choices=1
+ UNION ALL
+ SELECT p.i,'predicate',p.i,ARRAY[p.i],NULL::integer FROM predicates p WHERE include_hosts
+$$;
+REVOKE ALL ON FUNCTION ops.predicate_argument_inventory(jsonb,jsonb,jsonb,boolean) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.predicate_argument_inventory(projection jsonb,tokens jsonb,recipe jsonb)
+RETURNS TABLE(predicate integer,role text,head integer,token_indices integer[],inherited_from integer)
+LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+ SELECT * FROM ops.predicate_argument_inventory(projection,tokens,recipe,false)
 $$;
 REVOKE ALL ON FUNCTION ops.predicate_argument_inventory(jsonb,jsonb,jsonb) FROM PUBLIC;
 
@@ -1342,7 +1352,7 @@ $$;
 REVOKE ALL ON FUNCTION ops.predicate_reading_layout(jsonb,jsonb,jsonb,jsonb) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.predicate_source_reading(
- projection jsonb,annotation jsonb,frame jsonb,layout text,recipe jsonb)
+ projection jsonb,annotation jsonb,frame jsonb,layout text,recipe jsonb,reporting_governor boolean)
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 DECLARE tokens jsonb:=annotation->'tokens'; words text[]; roles jsonb;
  host integer:=(frame->>'predicate_token')::integer; h jsonb; sentence_ jsonb; parent integer;
@@ -1398,7 +1408,7 @@ BEGIN
  END LOOP;
  contrasted:=dep='pcomp' AND lower(words[parent+1])='of' AND lower(words[parent])='instead'
   AND tokens->parent->'sentence'=sentence_ AND tokens->(parent-1)->'sentence'=sentence_;
- attributed:=(dep='ccomp' AND tokens->parent->'sentence'=sentence_
+ attributed:=(dep='ccomp' AND reporting_governor AND tokens->parent->'sentence'=sentence_
   AND recipe->'report_lemmas' ? casefold(coalesce(nullif(tokens->parent->>'lemma',''),words[parent+1]) COLLATE pg_unicode_fast))
   OR EXISTS(SELECT FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n)
    WHERE t->>'dependency'='prep' AND t->'head'=to_jsonb(host) AND t->'sentence'=sentence_
@@ -1449,6 +1459,13 @@ BEGIN
   ELSE 'unresolved' END;
  RETURN jsonb_build_object('grammar',grammar_,'voice',voice_,'polarity',polarity_,'reading',reading_);
 END $$;
+REVOKE ALL ON FUNCTION ops.predicate_source_reading(jsonb,jsonb,jsonb,text,jsonb,boolean) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.predicate_source_reading(
+ projection jsonb,annotation jsonb,frame jsonb,layout text,recipe jsonb)
+RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+ SELECT ops.predicate_source_reading(projection,annotation,frame,layout,recipe,true)
+$$;
 REVOKE ALL ON FUNCTION ops.predicate_source_reading(jsonb,jsonb,jsonb,text,jsonb) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.validate_source_predicates(
@@ -1513,16 +1530,20 @@ BEGIN
   SELECT coalesce(range_agg(int8range((p->>'start')::bigint,(p->>'end')::bigint,'[)')),'{}')
   INTO mapped_role_ranges FROM jsonb_array_elements(p_view.projection->'pieces') p
   WHERE p->>'kind'='native_text' AND coalesce(p->>'source_field','text') IN ('text','orig','cell_text');
-  SELECT jsonb_object_agg(block.key,expected.roles) INTO argument_inventories
+ SELECT jsonb_object_agg(block.key,jsonb_build_object(
+  'roles',expected.roles,'layout',ops.predicate_reading_layout(
+   p_view.projection,source_layout_items,annotation_map->block.key,interpretation_recipe)))
+ INTO argument_inventories
   FROM (
    SELECT DISTINCT value->'component'->>'annotation' AS key FROM jsonb_each(p_population)
    WHERE value->'component'->>'kind'='predicate_frame'
   ) block
   CROSS JOIN LATERAL (
    SELECT jsonb_object_agg(by_predicate.predicate::text,by_predicate.members) roles FROM (
-    SELECT r.predicate,jsonb_agg(to_jsonb(r)-'predicate') members
+    SELECT r.predicate,coalesce(
+     jsonb_agg(to_jsonb(r)-'predicate') FILTER (WHERE r.role<>'predicate'),'[]') members
     FROM ops.predicate_argument_inventory(
-     p_view.projection,annotation_map->block.key->'tokens',interpretation_recipe) r
+     p_view.projection,annotation_map->block.key->'tokens',interpretation_recipe,true) r
     GROUP BY r.predicate
    ) by_predicate
   ) expected;
@@ -1582,7 +1603,7 @@ BEGIN
     END IF;
    END LOOP;
    IF predicate_version='5' AND NOT ops.predicate_clipped_roles_match(mapped_role_ranges,tokens,
-    argument_inventories->(c->>'annotation')->(c->>'predicate_token'),lo,hi,c->'unlocated_roles') THEN
+    argument_inventories->(c->>'annotation')->'roles'->(c->>'predicate_token'),lo,hi,c->'unlocated_roles') THEN
     RAISE EXCEPTION 'predicate frame differs from the complete clipped role population' USING ERRCODE='23514';
    END IF;
    IF (c ? 'unlocated_roles' AND predicate_version NOT IN ('4','5')) OR EXISTS(
@@ -1649,10 +1670,17 @@ BEGIN
     IF predicate_version IN ('4','5') THEN
      host_component:=host->'component';
      host_annotation:=annotation_map->(host_component->>'annotation');
-     expected_reading:=ops.predicate_source_reading(
-      p_view.projection,host_annotation,host_component,
-      ops.predicate_reading_layout(p_view.projection,source_layout_items,host_annotation,interpretation_recipe),
-      interpretation_recipe);
+     IF predicate_version='5' THEN
+      expected_reading:=ops.predicate_source_reading(p_view.projection,host_annotation,host_component,
+       argument_inventories->(host_component->>'annotation')->>'layout',interpretation_recipe,
+       coalesce(argument_inventories->(host_component->>'annotation')->'roles'
+        ? (host_annotation->'tokens'->((host_component->>'predicate_token')::integer)->>'head'),false));
+     ELSE
+      expected_reading:=ops.predicate_source_reading(
+       p_view.projection,host_annotation,host_component,
+       ops.predicate_reading_layout(p_view.projection,source_layout_items,host_annotation,interpretation_recipe),
+       interpretation_recipe);
+     END IF;
      IF host_component->>'grammatical_reading' IS DISTINCT FROM expected_reading->>'grammar'
       OR c->>'voice' IS DISTINCT FROM expected_reading->>'voice'
       OR c->>'polarity' IS DISTINCT FROM expected_reading->>'polarity'

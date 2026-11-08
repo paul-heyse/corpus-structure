@@ -11,7 +11,7 @@ Original health, ancestry and recognition context remain in retained frame input
 from __future__ import annotations
 
 import json
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from collections.abc import Mapping
 from dataclasses import InitVar, asdict, dataclass, field
 from enum import StrEnum
@@ -430,9 +430,17 @@ class PreparedNativeSource:
     pointers: frozenset[str] = field(init=False)
     item_locators: Mapping[tuple[str, int | None], str] = field(init=False)
     dependency_digest: str = field(init=False)
+    _items: Mapping[str, Mapping[str, Any]] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self):
         context = _source_context(self.source)
+        object.__setattr__(
+            self,
+            "_items",
+            MappingProxyType(
+                {item.get("self_ref", item.get("pointer")): item for item in context["items"]}
+            ),
+        )
         object.__setattr__(self, "pin", NativeSourcePin.from_source(self.source))
         object.__setattr__(
             self,
@@ -472,6 +480,28 @@ class PreparedNativeSource:
         while index < len(self.pieces) and self.pieces[index]["start"] < end:
             yield self.pieces[index]
             index += 1
+
+    def native_field(self, pointer: str, piece: NativeSpanEvidence) -> tuple[str, int]:
+        """Find the unchanged native field behind an exact selected projection piece."""
+        matches = [
+            row
+            for row in self.selected_pieces(piece.start, piece.end)
+            if row.get("kind") == "native_text"
+            and row["item_ref"] == pointer
+            and row.get("source_field") == piece.source_field
+            and row.get("cell_index") == piece.cell_index
+            and row["start"] <= piece.start < piece.end <= row["end"]
+        ]
+        node = self._items.get(pointer)
+        if piece.source_field == "cell_text" and node is not None:
+            node = node.get("data", {}).get("table_cells", ())[piece.cell_index]
+        text = node.get("text") if node is not None else None
+        if len(matches) != 1 or not isinstance(text, str):
+            raise ContextRefused("exact native field bridge is unavailable")
+        projection = matches[0]
+        if self.source.text[projection["start"] : projection["end"]] != text:
+            raise ContextRefused("projection is not an unchanged complete native text field")
+        return text, projection["start"]
 
 
 @dataclass(frozen=True)
@@ -557,6 +587,10 @@ class NativeSourceContext:
         init=False
     )
     dependency_digest: str = field(init=False)
+    _native_sources: Mapping[int, PreparedNativeSource] = field(
+        init=False, repr=False, compare=False
+    )
+    _interval_ends: tuple[int, ...] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if self.version not in {1, 2} or (self.version == 2 and self.preparation is None):
@@ -586,6 +620,7 @@ class NativeSourceContext:
             raise ContextRefused("context sources must have distinct source and unit identities")
         preparation = self.preparation or PreparedNativeSources(tuple(sources), self.max_sources)
         contexts = {source.source_view_id: preparation.require(source) for source in sources}
+        object.__setattr__(self, "_native_sources", MappingProxyType(contexts))
         pins = {identity: prepared.pin for identity, prepared in contexts.items()}
         known_pins = dict(pins)
         for pin in (*pins.values(), *candidate_pins):
@@ -736,6 +771,7 @@ class NativeSourceContext:
             raise ContextRefused("each selected source must be consumed with source evidence")
         object.__setattr__(self, "text", "".join(chunks))
         object.__setattr__(self, "intervals", tuple(intervals))
+        object.__setattr__(self, "_interval_ends", tuple(row.model_end for row in intervals))
         identity: dict[str, Any] = {
             "version": self.version,
             "primary": contexts[self.primary.source_view_id].dependency_digest,
@@ -775,6 +811,11 @@ class NativeSourceContext:
                 "captured recognition context is unsupported by this canonical consumer"
             )
 
+    def _overlapping_intervals(self, start: int, end: int):
+        first = bisect_right(self._interval_ends, start)
+        stop = bisect_left(self._interval_ends, end) + 1
+        return self.intervals[first:stop]
+
     def map_span(
         self, start: int, end: int, *, literal: str | None = None, allow_multiple: bool = False
     ) -> tuple[NativeSpanEvidence | CapturedSpanEvidence, ...]:
@@ -788,19 +829,13 @@ class NativeSourceContext:
             raise ContextRefused("model span lies outside the serialized character coordinates")
         if literal is not None and literal != self.text[start:end]:
             raise ContextRefused("literal model span differs from the serialized source context")
-        rows = tuple(
-            row for row in self.intervals if row.model_start < end and row.model_end > start
-        )
+        rows = self._overlapping_intervals(start, end)
         if any(isinstance(row, SyntheticInterval) for row in rows):
             raise ContextRefused("model span intersects synthetic text and cannot become evidence")
         if len(rows) > 1 and not allow_multiple:
             raise ContextRefused(
                 "model span requires explicit permission for multiple source anchors"
             )
-        sources = {
-            source.source_view_id: source
-            for source in (self.primary, *(entry.source for entry in self.related))
-        }
         evidence: list[NativeSpanEvidence | CapturedSpanEvidence] = []
         for row in rows:
             if isinstance(row, CapturedRecognitionInterval):
@@ -823,7 +858,7 @@ class NativeSourceContext:
             left, right = max(start, row.model_start), min(end, row.model_end)
             source_start = row.source_start + left - row.model_start
             source_end = source_start + right - left
-            source = sources[row.source.source_view_id]
+            source = self._native_sources[row.source.source_view_id].source
             evidence.append(
                 NativeSpanEvidence(
                     row.source,
@@ -856,9 +891,7 @@ class NativeSourceContext:
             raise ContextRefused("model span lies outside the serialized character coordinates")
         if literal is not None and literal != self.text[start:end]:
             raise ContextRefused("literal model span differs from the serialized source context")
-        rows = tuple(
-            row for row in self.intervals if row.model_start < end and row.model_end > start
-        )
+        rows = self._overlapping_intervals(start, end)
         if (
             not rows
             or isinstance(rows[0], SyntheticInterval)
@@ -962,14 +995,11 @@ def evidence_anchor(
     """
     from .record_contracts import anchor_identity
 
-    sources = {
-        source.source_view_id: source
-        for source in (context.primary, *(entry.source for entry in context.related))
-    }
-    source = sources.get(piece.source.source_view_id)
-    if source is None or NativeSourcePin.from_source(source) != piece.source:
+    prepared = context._native_sources.get(piece.source.source_view_id)
+    if prepared is None or prepared.pin != piece.source:
         raise ContextRefused("evidence belongs to another source context")
-    relationship = "primary" if source == context.primary else "selected_context"
+    source = prepared.source
+    relationship = "primary" if source is context.primary else "selected_context"
     if isinstance(piece, CapturedSpanEvidence):
         if piece.coordinate not in context.captured_coordinates:
             raise ContextRefused("captured evidence coordinate is outside the context")
@@ -986,7 +1016,8 @@ def evidence_anchor(
         raise ContextRefused("unsupported native source text field")
     if source.text[piece.start : piece.end] != piece.quote:
         raise ContextRefused("evidence quote differs from pinned source")
-    pointer = json.loads(piece.item_locator.removeprefix("pdf:"))["pointer"]
+    item_pointer = json.loads(piece.item_locator.removeprefix("pdf:"))["pointer"]
+    pointer = item_pointer
     if piece.cell_index is not None and piece.source_field == "cell_text":
         pointer += f"/data/table_cells/{piece.cell_index}"
     pin = record_source_pin(source)
@@ -994,31 +1025,8 @@ def evidence_anchor(
     if native:
         # The projection owner emits complete unchanged native fields. Establish that
         # exact bridge before dropping view-relative offsets from physical identity.
-        owner = json.loads(source.native_context)
-        matches = [
-            row
-            for row in owner["pieces"]
-            if row.get("kind") == "native_text"
-            and row["item_ref"] == json.loads(piece.item_locator.removeprefix("pdf:"))["pointer"]
-            and row.get("source_field") == piece.source_field
-            and row.get("cell_index") == piece.cell_index
-            and row["start"] <= piece.start < piece.end <= row["end"]
-        ]
-        items = {item.get("self_ref", item.get("pointer")): item for item in owner["items"]}
-        node = items.get(json.loads(piece.item_locator.removeprefix("pdf:"))["pointer"])
-        if piece.source_field == "cell_text" and node is not None:
-            node = node.get("data", {}).get("table_cells", ())[piece.cell_index]
-        text = node.get("text") if node is not None else None
-        if len(matches) != 1 or not isinstance(text, str):
-            raise ContextRefused("exact native field bridge is unavailable")
-        projection = matches[0]
-        if source.text[projection["start"] : projection["end"]] != text:
-            raise ContextRefused("projection is not an unchanged complete native text field")
-        start, end, space = (
-            piece.start - projection["start"],
-            piece.end - projection["start"],
-            "native",
-        )
+        text, projection_start = prepared.native_field(item_pointer, piece)
+        start, end, space = piece.start - projection_start, piece.end - projection_start, "native"
     anchor = dict(
         pin=pin,
         space=space,
