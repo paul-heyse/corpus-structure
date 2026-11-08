@@ -2212,10 +2212,13 @@ LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
   FROM matches WHERE position+1=jsonb_array_length(rule->'nodes')
  ), located AS (
   SELECT m.*,
-   regexp_match(substring(full_text FROM (designator->>'end')::integer+1
-    FOR (piece->>'end')::integer-(designator->>'end')::integer),
+   regexp_match(CASE WHEN (designator->>'end')::integer BETWEEN
+    (piece->>'start')::integer AND (piece->>'end')::integer
+    THEN substring(full_text FROM (designator->>'end')::integer+1
+     FOR (piece->>'end')::integer-(designator->>'end')::integer) END,
     '^([ 	]+([0-9]+(?:\.[0-9]+)+))(?!\w|\.[0-9])') AS code,
-   regexp_match(substring(full_text FROM cue_hi+1 FOR (piece->>'end')::integer-cue_hi),
+   regexp_match(CASE WHEN cue_hi BETWEEN (piece->>'start')::integer AND (piece->>'end')::integer
+    THEN substring(full_text FROM cue_hi+1 FOR (piece->>'end')::integer-cue_hi) END,
     '^([ 	]+)(ISO(?:/IEC)? [0-9]+(?::[0-9]{4})?|RFC [0-9]+|[A-Z][A-Za-z]+ and [A-Z][A-Za-z]+\.[0-9]+)(?=[. ,;)]|$)') AS citation,
    substring(full_text FROM (abbr->>'start')::integer+1
     FOR (abbr->>'end')::integer-(abbr->>'start')::integer) AS abbreviation,

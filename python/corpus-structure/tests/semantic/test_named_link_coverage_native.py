@@ -41,3 +41,36 @@ def test_native_named_coverage_rule_availability_and_identifier_extent(semantic_
                 )
                 is expected
             )
+
+
+def test_native_named_group_refuses_cue_outside_projection_piece(semantic_db_engine):
+    package = Path(__file__).parents[2] / "src/corpus_structure"
+    recipe = (package / "methods/named_link_rules.json").read_text()
+    spelling = "See Section 6.2."
+    tokens = [
+        dict(start=0, end=3, head=0, sentence=0),
+        dict(start=4, end=11, head=0, sentence=0),
+    ]
+    query = text("""
+        SELECT count(*) FROM ops.named_link_expected_groups(
+         :spelling,CAST(:tokens AS jsonb),
+         jsonb_build_object('start',0,'end',CAST(:piece_end AS integer)),
+         jsonb_build_object('start',0,'end',CAST(:passage_end AS integer)),
+         CAST(:recipe AS jsonb))
+    """)
+    with semantic_db_engine.connect() as conn:
+
+        def groups(piece_end):
+            return conn.scalar(
+                query,
+                dict(
+                    spelling=spelling,
+                    tokens=json.dumps(tokens),
+                    piece_end=piece_end,
+                    passage_end=len(spelling),
+                    recipe=recipe,
+                ),
+            )
+
+        assert groups(len(spelling)) == 1
+        assert groups(2) == 0
