@@ -86,3 +86,37 @@ was not shown to preserve their trust/consistency obligations. New PCE eligibili
 through shared materialized grade/origin/case collections (`semantic/sql/record_publication.sql:979–1037`),
 while routine archived reading retains cached opening (`semantic/archive_reader.py:243–276,391–409`).
 No fresh measurement or universal execution-fit conclusion follows.
+
+<a id="da-058"></a>
+
+## DA-058 — Grouped visual recovery repeats preparation before reusing settled inference
+
+**Implemented source inspected, 2026-11-08.** FP-07/A4, DP-10/19. Group dispatch
+authenticates the Chandra recipe before looking up campaign groups
+(`semantic/visual_dispatch.py:124–152`). Each group opens and authenticates the
+original before the terminal group lookup, and a group with an unsettled mapping
+enters the ordinary inference preparation path. That path prepares the runtime,
+opens and renders the PDF page and hashes the original before recovering the
+settled raw inference pin (`semantic/visual_requests.py:928–994,1264–1302`;
+`semantic/pdf_visual_mapping.py:29–49`). Runtime preparation includes hashing
+the full checkpoint (`ingest/pdf_chandra.py:41,52–69,95–103`).
+
+The singleton resume path authenticates the original and uses the retained PNG
+and raw response for mapping once inference is settled
+(`semantic/visual_requests.py:799–813`). Grouped recovery can therefore redo
+render and runtime preparation for an already settled effect. Whole-page and
+crop requests also reopen and render the same page independently. Exact terminal
+group return, bounded groups, one lazy runtime per group and native task reuse
+still bound inference and GPU use. Releasing the GPU between groups serves
+contention and cancellation, and authentication still protects mutable inputs.
+Fresh raw and mapped settlement also pass the already retained original PDF
+back to PostgreSQL before each observation publication. The original-retention
+function hashes those bytes and establishes per-task custody even when storage
+deduplicates the artifact. Publication then checks the exact structural input
+and original digest (`semantic/visual_requests.py:642–667`;
+`semantic/pdf_contracts.py:614–645`;
+`semantic_0064_reconciliation.sql:694–709` in the migration tree;
+`semantic/sql/pdf_observation.sql:109–137`). The finding concerns repeated work
+around an already retained source, including for the 535-request workload.
+No latency, throughput or memory effect was measured.
+[Campaign scope](../../plans/chandra-2-post-nemotron_2026-11-08.md#repaired-comparator-shadow-execution)

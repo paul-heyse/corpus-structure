@@ -131,6 +131,8 @@ transitions and effects; native guard bodies enforce attempt ownership and termi
 This corrects the earlier suggestion that the execution model is decorative. Not every invariant
 body was independently matched to its declared meaning. That is an explicit assurance limit,
 not an established violation merely because a universal correspondence check was not found.
+The November 8 refresh identifies two bounded manifestations in
+[source-value decoding](#da-062) and [definition attribution](#da-065).
 
 <a id="da-028"></a>
 
@@ -179,3 +181,50 @@ verification retains exact producing determinants (`releases.py:511–600`). Nat
 ABI/effect checks and explicit read-only exceptions (`sql/execution_projection.sql:7–23`).
 Unsupported historical execution is an intentional support limit, not an accidental promise of
 universal compatibility. Current archived query custody remains protected under DA-028.
+
+<a id="da-062"></a>
+
+## DA-062 — Native report decoding discards object-field positions that replay requires
+
+**Implemented source inspected, 2026-11-08.** FP-02/04/05, A2,
+DP-02/03/08, G2/G3/G6. The released source-value shape represents object
+fields as an ordered sequence of named values with nonnegative positions.
+Python requires contiguous positions in array order and unique names.
+Native decoding aggregates the entries by name, dropping their positions
+and collapsing repeats (`model/semantic/observations.yaml:338–347`;
+`semantic/observations.py:110–135`; `semantic/sql/record_publication.sql:20–40`).
+
+For table correspondence, native admission compares the decoded request
+with the authoritative request. Changing one field's position to a
+different nonnegative integer and recomputing the report digests leaves
+that comparison and the decoded numerical checks unchanged. Python
+validation and detached replay would refuse the same encoded request
+(`semantic/sql/source_contributions.sql:3175–3185,4312–4327`;
+`semantic/local_interpretation_reports.py:325–331`;
+`serve/table_correspondence_replay.py:527–530`).
+The ordinary encoder supplies valid positions and names. The established
+mismatch concerns direct native admission of a malformed report and its
+later consumers. No existing malformed retained result was identified.
+
+<a id="da-065"></a>
+
+## DA-065 — Located definition checks authenticate spans without authenticating the claimed derivation
+
+**Implemented source inspected, 2026-11-08.** FP-04/05, A2, DP-03/05/08/21,
+G2/G3, CI-01/02. The producer assigns `matched_cue` after checking a
+supported, unambiguous scoped cue with located roles. It assigns
+`native_geometry` after joining a qualified cue to an adjacent display
+(`methods/definition_applicability.py:516–687`). Native completion
+independently reconstructs the `model_reading` subset. For other bases it
+checks the component hash and the actual spans, scope, effective version
+and evidence passage membership
+(`semantic/sql/structural_products.sql:1929–1965`).
+
+A private component can consequently claim either basis with genuine
+source spans that do not satisfy the named derivation. Adding such a
+component leaves the checked model-reading set unchanged. The detached
+model-observation replay checks that same model-derived subset
+(`serve/model_observation_replay.py:156–233`). Separate public admission
+still requires an exact independent witness, so the gap concerns private
+derivation attribution rather than authority to publish a public assertion
+(`semantic/sql/structural_publication.sql:169–206`).

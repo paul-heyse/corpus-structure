@@ -22,61 +22,76 @@ The [WCE coordinator](../../plans/witnessed-corpus-enrichment_2026-11-05.md) own
 disposition and closure. The [assembled review](../reviews/design_review_wce-assembled_2026-11-06.md)
 owns correction alternatives and its independent judgment. This diagnostic account owns causes.
 
+## Reconciliation at the November 8 baseline
+
+**Implemented source inspected, 2026-11-08.** The observations below use the
+[current committed baseline](README.md#baseline). Earlier diagnosis wording and its
+dated evidence remain in audit publication `86425f72e`. Source paths below are
+relative to `python/corpus-structure/src/corpus_structure/`.
+
 <a id="DA-055"></a>
-## DA-055 — Co-applicable table attachments become exclusive alternatives
 
-Corresponding source-review finding: **WCE-AF01**. FP-04/05, DP-02/07/08/11, A2, G2/G6.
+### DA-055 — The cited table multiplicity premise is corrected
 
-`methods/scoped_relations.py` emits each nested header-path member and several possible note
-attachments. `methods/table_interpretation.py` groups targets by subject/relation and builds
-`Decision(subject, candidates=targets)`. The interpreter selects one candidate per axis, so parent
-and child headers or several notes cannot co-apply. Factors quantify invented competition.
-Private standing prevents truth promotion but does not restore relationship multiplicity.
-
-The corrective binary-applicability route must also explain long-band execution: one binary
-variable per cell can create exponential support. Bounded refusal alone does not establish fit
-for an unrestricted large-table claim. Preserve inspected source edges and explicit unsupported
-inference scope without relabelling a whole band as uniformly applicable.
+The current table interpreter gives notes and units independent switches and
+separates header levels. Exclusivity remains for competing roles within an
+axis. This allows parent and child headers and multiple attachments to co-apply
+(`methods/table_interpretation.py:181–200,235–315`). Exact native reconstruction
+of the older band-3 factors and masks remains a separate assurance boundary
+owned by WCE-R18. Native admission checks registered mode and scale and validates
+shape. The later correspondence policy independently reconstructs its own
+source-conditioned request.
+[WCE repair disposition](../../plans/witnessed-corpus-enrichment_2026-11-05.md#repair-disposition--2026-11-07)
 
 <a id="DA-056"></a>
-## DA-056 — Completed numerical result custody lacks sufficient invariants
 
-Corresponding source-review finding: **WCE-AF02**. FP-04/05, DP-03/08/11/21/23, A2, G3.
+### DA-056 — Published probabilities can contradict the displayed support
 
-`semantic/local_interpretation_reports.py` and the local-report branch of
-`semantic/sql/source_contributions.sql` check digests, dependencies, mode and outcome but do not
-validate completed probability domains, normalization, marginal/assignment membership or factor
-axes against the declared request. Re-encoding probability2 or an unknown decision and recomputing
-digests encounters no appropriate rejection in those branches. Attribution is not validity.
+FP-04/05, A2, DP-03/08/11/21/23, G3. Python and native guards now validate
+probability bounds, normalization, membership, factor shape, hard support,
+and displayed mass. The operation-event fitting branch also checks non-null
+algorithm numerics and status-qualified predictions. Those corrections address
+the original range, shape and nullability examples
+(`semantic/local_interpretation_reports.py:35–278`;
+`semantic/sql/source_contributions.sql:3223–3374`;
+`semantic/sql/operation_event_fitting.sql:408–462`).
 
-The operation-event fitting boundary already rejects omitted parameters through `IS DISTINCT
-FROM` applicability checks. It nevertheless lacks complete native prediction numeric/status
-checks and deliberate rejection of explicitly null numeric algorithm fields. Those are narrower
-related manifestations, not a claim that its frame/label custody is absent.
+The completed exact-interpretation guards still check events, marginals and
+displayed assignments separately. A declared event could report zero probability
+while a displayed assignment that satisfies it has positive mass. Changing only
+that event probability and recomputing custody digests leaves the checked
+bounds, identities, normalization and support checks unchanged. Native
+correspondence compares the independently reconstructed request, including its
+events, while detached verification recomputes the result and would reject this
+substitution. Ordinary Reader detail can expose the retained result before any
+detached verification (`semantic/sql/source_contributions.sql:3310–3374,4312–4327`;
+`semantic/contribution_queries.py:345–356`;
+`serve/table_correspondence_replay.py:527–540`).
 
-Owned result invariants need not replay the solver or its numerical algorithm. Preserve finite
-negative log potentials/normalizers, top-k mass semantics, legitimate limited/failed products and
-the exact protected event/frame guards.
+This is a result-consistency gap visible in the returned data and does not require
+enumerating the joint again to establish. The genuine executor and retained
+controls supply counterevidence to a claim that published values were actually
+corrupted. The NCE execution note groups native and detached reconstruction.
+The inspected implementation reconstructs the request in native admission and
+recomputes the numerical result in detached verification.
+[NCE finite interpretation](../../plans/next-corpus-enrichment/finite-interpretation.md#acceptance-and-handoff)
 
 <a id="DA-057"></a>
-## DA-057 — Dossiers erase predecessor interpretation and applicability
 
-Corresponding source-review finding: **WCE-AF03**. FP-04, DP-02/07/08, A2, G2/G6, CI-02.
+### DA-057 — The cited dossier meaning loss is corrected
 
-`derive_dossier_members` maps every component and applicability reading to member role
-`definition`, ignoring component interpretation and reading outcome. Native `structural_dossier`
-mirrors it. Public projection retains role/sense/qualification while dropping those distinctions;
-supported-facet identity can consequently label supported explanations as definitions.
-
-Actual assessed explanation proposals establish a real input category. Membership-assembly-only
-admission does not restore erased meaning. Preserve original interpretation and applicability
-outcome through member, facet and public identity; a common display section can remain if its
-semantic subtypes remain explicit. Do not discard useful unresolved predecessors.
+Dossier construction and native admission preserve predecessor interpretation
+and applicability outcome in member and facet identity. The Reader's shared
+projection supplies the CLI and MCP, while detached verification rederives
+members and facets in the exact root context
+(`methods/structural_products.py:959–1014`; `semantic/sql/structural_products.sql:824`;
+`serve/structural_products.py:240–274`; `serve/review_bundle.py:1540–1556`).
+The retained rooted-dossier evidence covers a supported member and unrelated
+negative control at its recorded scope.
+[WCE repair evidence](../evidence/2026-11-06_wce-completion-repair/README.md)
 
 ## Evidence boundary
 
-Source/document inspection completed; tests, providers, live adversarial native controls,
-benchmarks and full qualification **not_run by this reviewer**. The separate test-audit account
-was not refreshed. Exact source authentication, endpoint closure, assessed-statement equality,
-private artifact standing and separate membership/display custody constrain broader conclusions.
-Subsequent repairs require scoped reassessment; this baseline records the initial diagnosis.
+The November 8 reconciliation used source inspection and existing receipts.
+Fresh native forgery controls, provider runs, benchmarks and product qualification
+were `not_run`. The separate test-audit account keeps its own baseline.

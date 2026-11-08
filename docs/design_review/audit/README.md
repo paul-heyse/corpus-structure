@@ -8,141 +8,127 @@ reasoning, and implementation plans own scheduled work and closure evidence.
 
 <a id="baseline"></a>
 
-<a id="ghv-follow-on-publication-refresh"></a>
+## Broad refresh · 2026-11-08
 
-## GitHub visitor follow-on publication refresh · 2026-11-08
+**Implemented source inspected.** Audited source
+`67cbe680e7ab2b9860576f2ed650d4ff22e0f990`. The source SHA identifies
+committed `main` at acquisition. This account has its own publication commit.
+Concurrent working-tree edits were excluded, including the uncommitted Chandra
+document adapter, Docling trial, held-out evidence changes and visitor drafts.
 
-Independent inspection by `ghv_target` used source `051b37aa4` and deployed
-baseline `8b694c67b`. The earlier scoped diagnosis still applies to artifact
-custody and serialized release. The live edit action exposes the staging
-prefix. The flat summary derives hierarchy and membership from one loop.
-The search adapter can enable input after initialization fails, and assets
-referenced only in the head have no copy route. These are the affected
-publisher boundaries. Concurrent product work is outside the assessment.
-[Publisher](../../../scripts/docs.py) · [Follow-on owner](../../plans/github-visitor-experience_2026-11-08.md#GHV-follow-on)
+The refresh uses the November 5 broad source `bc2208f9d` and the intervening
+WCE and Pages inspections to direct attention. It follows changes in owners,
+consumers, deployment, dependencies and supported workflows, including unchanged
+code where those changes alter its role. The selected standard is core 3.3,
+efficient-architecture heuristics 1.0, code-intelligence 1.4, the repository
+binding and test-assessment 1.2 for evidence bearing on production claims.
 
-## Documentation publication refresh — 2026-11-08
+The functional target is progressively enriched, attributed source knowledge
+under an executable domain release, with typed delivery to operators and agents.
+The current PDF method-development workload is the 518-page Grinstead–Snell
+book. WCE receipts retain their smaller population, and candidate evidence,
+selected output and independently adjudicated public claims have separate
+authority. The operator's local deployment and serialized documentation
+release supply the operational premises.
+[Functional scope](../../design/DESIGN.md#section-1) · [Full-book decision](../../adr/0070-full-book-method-development.md)
 
-**Implemented source inspected.** This bounded refresh uses
-`248b05cd22c6faa90f03a5f0f4f53c05cfc0afb7`, core 3.3, the efficiency heuristics and the repository
-binding. It covers [publisher selection and link transport](../../../scripts/docs.py),
-[site policy](../../site.toml), the [Documentation workflow](../../../.github/workflows/docs.yml),
-[ADR-0071](../../adr/0071-github-pages-publication.md), and the [example route](../../examples/README.md).
-The inherited product and test accounts retain their own coverage and dates.
+## Diagnostic synthesis
 
-Source inspection found distinct ownership for authored collections, retained
-receipts and derived search. The publisher selects authored evidence explicitly
-and sends omitted tracked files to the build revision on GitHub. The public
-examples expose the candidate decision and the witnessed declaration separately.
-The workflow gates deployment on the checked artifact and gives the build and
-deploy jobs different permissions. An ordinary failed build leaves the
-previous output available. A deploy polling failure can leave promotion
-uncertain, so recovery checks the live revision.
-
-The workflow serializes deploy jobs after independent builds. That does not
-establish source order for overlapping eligible runs. The inspected operator
-route now allows one release at a time and verifies its exact revision before
-the next. The formal [review cadence](../design_principles/binding/corpus-structure.md#reviews-in-this-repository)
-owns the target judgment for that workload. No product runtime, test
-architecture, hosted failure injection or overlap experiment was exercised in
-this diagnostic refresh.
-
-## Current refresh — 2026-11-06
-
-The [assembled WCE account](witnessed-enrichment.md) refreshes changed production boundaries and
-affected consumers at `91feb413bf2e9b2d91de37c80ec0303355774397`, including its explicitly named
-dirty corrections. DA-055–057 establish table multiplicity, numerical-result validity and dossier
-interpretation defects. The WCE coordinator owns their scheduled disposition. This is source
-inspection, not product qualification. The prior broader footprint below retains its original
-date and applicability; it was not re-certified wholesale by this focused intervening-change refresh.
-
-## Inherited broad baseline — 2026-11-05
-
-**Implemented source inspected.** Audited source:
-`bc2208f9d6a12d3ad9cf71575fa1c6df388d885b`, initially clean. The publishing commit is distinct.
-Concurrent changes subsequently appeared under the separate `docs/design_review/test-audit/`
-account; they are excluded from this production source baseline and preserved. Audit/status
-publication changes are the only task-owned tracked edits. Earlier November 3 broad and
-November 4/5 scoped accounts are recoverable from Git at the audited source revision.
-
-Applied standard: core3.3, efficient-architecture heuristics1.0, code-intelligence1.4,
-relevant test-assessment1.2, and the repository binding. All seven foundations inform this
-refresh; additional depth addresses FP-04/05 and A2 model adequacy and authority.
-
-Functional intent came from DESIGN §1, current D-document owners and accepted decisions,
-including progressive enrichment, local admission and cross-source structural custody.
-Completed plan claims guided investigation; they did not establish alignment. A proposed or
-unselected capability is not treated as a defect in a narrower supported contract.
-
-## Broader diagnostic synthesis and current additions
-
-Current WCE additions are diagnosed in DA-055–057 above. The following broader reconciliation
-describes the inherited November5 inspection; its no-new-violation conclusion excludes those later
-changed boundaries.
-
-The old broad account materially understates the current model's authority. Current source
-represents and consumes qualified relationships, operation contracts, finite lifecycle
-transitions, applicability, effects, outcome domains and implementation compatibility.
-Released behavior subsets, rule-value projections, display bindings, provisional identity
-decisions, structured semantic reasons and bounded runtime identity qualification correct
-previously cited gaps. The [model map](domain-model-map.md#current-model) explains these contexts
-and their execution boundaries.
-
-Progressive products can retain useful structure without a complete record. Source-operation
-population survives zero output; source-first omissions and output-first errors have separate
-frames. Local source quotation, independently judged denotation, structural interpretations,
-public assertions, complete records and scientific truth have distinct claims and authority.
-Native publication checks actual origin, policy and source custody, plus independent judgment
-where the admission policy requires it.
-
-Fresh source inspection corrects the cited premises of DA-002/003/005/007/009/011/013/035/036/
-037/039/044/047/051/052/053/054. Their stable anchors retain the correction and decisive sources;
-Git retains the removed diagnoses. This is diagnostic reconciliation, not a completion audit or
-an amendment to owning plans. No new established principle violation was found in the inspected
-representative paths. That conclusion is bounded by the scope below.
-
-Remaining questions concern concrete representation conversion (DA-004), full invariant-body
-correspondence (DA-027), operational declaration correspondence (DA-012), cumulative assurance
-scope (DA-033), and per-result deployment attribution (DA-032). These are unresolved premises,
-not demonstrated violations. A later inquiry should identify a particular lost distinction,
-conflicting accepted value, unmet consumer need or safely avoidable work before promoting one
-to an established diagnosis. DA-046/048 retain their explicit target-scope qualifications.
+- **Semantic results.** [DA-055 and DA-057](witnessed-enrichment.md#reconciliation-at-the-november-8-baseline)
+  retain the source-based corrections for table multiplicity and dossier
+  meaning. [DA-056](witnessed-enrichment.md#DA-056) narrows the numerical
+  diagnosis to cross-result consistency. Native request reconstruction,
+  ordinary result reads and detached numerical replay establish different
+  guarantees. [DA-062](semantic-model-and-authority.md#da-062) and
+  [DA-065](semantic-model-and-authority.md#da-065) identify concrete
+  correspondence gaps in report decoding and located-definition attribution.
+- **Source and delivery.** [DA-058](execution-fit.md#da-058) identifies
+  repeated preparation before grouped reuse. [DA-061](served-claims.md#da-061)
+  identifies archived formula reading's dependence on the installed recipe.
+  [DA-064](served-claims.md#da-064) identifies a dry-routing path from
+  unexamined comparison evidence to an apparent negative decision.
+  [DA-066](served-claims.md#da-066) identifies a mismatch between allowed
+  mapped evidence size and the typed Reader budget. Candidate
+  evidence remains separate from the selected incumbent and governed promotion.
+- **Operations.** [DA-059 and DA-060](boundaries-and-composition.md#da-059)
+  concern what managed results and durable evidence retain about outcome,
+  target and cleanup. [DA-063](native-integrity.md#da-063) locates a separate
+  source of authority in the checkout head that can disagree with a bound
+  deployment target. [DA-067](native-integrity.md#da-067) identifies an installed
+  physical profile that can change release analysis without changing its identity.
+- **Inherited premises.** DA-004's original conversion path and DA-012's
+  broad declaration correspondence remain bounded questions. DA-027 now
+  links the concrete enforcement cases above while retaining its broader
+  coverage limit. The specific need for a per-semantic-result deployment
+  ID (DA-032) and the avoidability of cumulative native assurance work
+  (DA-033) remain unresolved. Recent NCE publication materializes grade,
+  origin, case and operation keys for the staged batch
+  (`semantic/sql/record_publication.sql:1081–1132`). That preparation does
+  not establish that wider trust checks can be dropped. DA-046 and DA-048
+  retain their earlier target-scope qualifications.
 
 <a id="deviations"></a>
 
 ## Inspection footprint and limits
 
-Three read-only contributors examined domain definitions/compilation/consumers, native integrity/
-lifecycle/execution fit, and producers/assessment/serving. The coordinator read decisive sources,
-reviewed library mechanisms and relevant independent test expectations, and reconciled findings.
-A fresh independent contributor challenged the model-adequacy conclusion, including generic
-contribution roles and dispositions; the resulting limit is recorded in the model map.
+Three read-only contributors examined semantic release and consumer
+correspondence, PDF source custody and recovery, and managed operations.
+The coordinator read the decisive source, checked counterexamples and
+reconciled the findings. Scope follows representative operations and credible
+changes, including a new definition basis or formula witness, an interrupted
+visual group, and a registered successor ahead of a bound database.
 
-| Facet | Representative inspection and boundary |
+| Facet | Representative inspection and limits |
 |---|---|
-| Ownership and composition; FP-01/03/06 | Released vocabularies/display/rule behavior, shared proposal producer binding, owned Reader, source operations and consumer boundaries. No exhaustive import graph or every-command survey. |
-| Contracts and library fidelity; FP-02 | Effective LinkML inputs, typed/generated boundaries, bounded conditional rules, conformance-only SHACL, provider assurance and current runtime compatibility. No fresh provider execution. |
-| Model and structure; FP-04/05 | Entities, attributed relations, identity decisions, operations, applicability, transitions, effects, outcomes, invariants and progressive states. No universal ontology or requirement to encode ordinary algorithms as data. |
-| Effects and lifecycle; FP-03/05 | Claim custody through settlement, attempt fences, exact replay, SERIALIZABLE publication, restricted-purpose principals and native admission. Actual deployed catalogs/ACLs and fault behavior were not requalified. |
-| Execution fit; FP-07/A4 | Shared task dependency scope, cached archives, prepared publication eligibility, bounded standing/coverage/explanations/walks and cumulative native checks. No measured speed/capacity claim. |
-| Truthful claims and assurance; CI-01–13 | Source/runtime attribution, preserved uncertainty, source-first/output-first frames, independent literal role/missing-output controls, private reports versus public witnesses, declared population limits. No new scientific or full-corpus quality claim. |
+| Model, invariants and serving | Released source-value and operation contracts, native completion and exact-source guards, witnessed definitions, table probabilities, rooted dossiers and their Reader/CLI/MCP or detached paths. Deployed ACLs, all invariant bodies and every output field remain outside fresh inspection. |
+| Source preparation and selection | p416 archive through incumbent view, search and packet, plus explicit visual inference, mapping, group retry and the dry router. Protected A/B/C-only selection and exact raw receipts bound the custody findings. Retained comparator discrepancies show selected-output errors, with the exact causal replacement decision untraced for the sampled pages. Abrupt parent death and orphan GPU recovery remain unqualified. |
+| Effects and assurance | Exact model preview/apply, frozen registration, acquired deployment, release archive/admission, review selection capture and managed result retention. Existing literal and adverse controls inform the claims at their original revisions. Production endpoint, native fault behavior and general test architecture were outside this refresh. |
+| Documentation publication | Discovery, navigation, edit URLs, source links, search startup and the checked Pages artifact. Reconciled the earlier publisher findings below. Hosted overlap and deployment faults were outside this inspection. |
+| Legacy boundaries | The Rust crate contains only its starter module. The former HTML production interface was retired in the PDF pivot. Source profiles and legacy rendition feature extraction remain distinguishable from the current PDF entry points. Legacy internals and unseen-domain transfer were outside fresh inspection. |
 
-Source paths are representative rather than a file census. Unchanged dependencies were followed
-where relevant. Rust has no newly inspected functional domain implementation; no Rust alignment
-or qualification claim is inferred. Legacy HTML/M19 internals, every invariant body, every
-adapter/export field, managed service startup/artifact custody and unseen-domain transfer remain
-outside fresh verification. Historical corrections retain their explicit dates in topic pages.
-The separate test account retains its own baseline; this engagement does not refresh it.
+The separate [test audit](../test-audit/README.md) keeps its own baseline.
+Product tests, fresh native or provider runs, fault injection, measurements
+and integrated qualification were `not_run`. Source inspection and retained
+receipts were sufficient for these diagnoses. Publication checks are recorded
+in STATUS and the publishing commit.
 
-**Checks:** source/document inspection completed. Product tests, live database/provider checks,
-fresh PDF/OCR/GLiNER/embedding work, benchmarks and integrated qualification **not_run**; they
-were unnecessary for the bounded static diagnoses and are not implied by earlier PCE receipts.
-Publication maintenance/check outcomes are recorded in STATUS and the publishing commit.
+<a id="ghv-follow-on-publication-refresh"></a>
+
+## GitHub visitor follow-on publication refresh · 2026-11-08
+
+The earlier inspection used `051b37aa4` and deployed revision `8b694c67b`.
+At the current audited source, `scripts/docs.py:163–192,345–359` derives
+nested navigation with coverage checks, builds edit URLs from source paths
+and removes the generated page's edit action. Explicit publication assets
+cover head images. The search adapter keeps input gated on readiness and
+offers reload on startup failure, including a stale-opening guard
+(`docs/theme/search.js:48–96`). The owning plan's browser and failure
+controls retain their recorded revision and scope.
+[Pages follow-on acceptance](../../plans/github-visitor-experience_2026-11-08.md#ghv-follow-on-acceptance)
+
+## Documentation publication refresh — 2026-11-08
+
+The earlier bounded inspection used `248b05cd2`. At the current audited source,
+the workflow still uploads the checked site and deploys it with separate
+permissions. Deploy-job serialization follows independent builds. Source
+ordering still depends on the runbook's one-release-at-a-time workload and
+exact live revision verification. Local preview also specifies one
+publishing command at a time.
+[Publication decision](../../adr/0071-github-pages-publication.md) · [Release runbook](../../publishing.md#github-release)
+
+## Inherited audit baselines
+
+The November 5 broad inspection used `bc2208f9d6a12d3ad9cf71575fa1c6df388d885b`
+and was published at `8d4d9e912`. The November 6 WCE inspection used
+`91feb413bf2e9b2d91de37c80ec0303355774397` with its named working-tree
+corrections and was published at `86425f72e`. Topic pages retain the dates
+and limits of observations inherited from those engagements.
 
 ## Reading routes
 
 | Topic | Current use |
 |---|---|
+| [Witnessed enrichment](witnessed-enrichment.md) | WCE repairs and remaining numerical consistency gap |
 | [Domain model map](domain-model-map.md) | Concepts, relationships, actions/states, realizations, library inquiry and limits |
 | [Semantic model and authority](semantic-model-and-authority.md) | Corrected semantic authority diagnoses and remaining representation/assurance questions |
 | [Structure and invariants](structure-and-invariants.md) | Operational domains, typed reasons, applicability, attribution and claim ownership |
