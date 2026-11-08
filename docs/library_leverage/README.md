@@ -1,8 +1,7 @@
 # Library leverage
 
-**Implemented template guidance.** A codebase-first workflow with three distinct
-repository skills and evergreen assessment collections. Benefits to discovery and design quality
-remain Proposed; installation does not establish an assessed codebase or qualified library fit.
+**Implemented guidance.** A codebase-first assessment workflow with an optional library-led
+entry and evergreen collections. Benefits to discovery and design quality remain Proposed.
 
 Start with the [framework](library-leverage-framework.md) for responsibilities, handoffs, collection
 paths and retention. Read the [base opportunity patterns](patterns.md) with additional patterns
@@ -11,6 +10,7 @@ same footing; promotion into base guidance is a manual operator decision.
 
 | Skill | Question it answers | Collection it maintains |
 | --- | --- | --- |
+| [leverage-library-discovery](../../.claude/skills/leverage-library-discovery/SKILL.md) | What can this library family do, what do we use, and what warrants investigation? | [Library-led briefings](libraries/README.md#library-led-briefings) |
 | [leverage-codebase-audit](../../.claude/skills/leverage-codebase-audit/SKILL.md) | Which concrete responsibilities and operations deserve investigation? | [Codebase opportunities](codebase/README.md) |
 | [leverage-library-assessment](../../.claude/skills/leverage-library-assessment/SKILL.md) | Which focused library capabilities could address those opportunities, under what conditions? | [Library assessments](libraries/README.md) |
 | [leverage-opportunity-review](../../.claude/skills/leverage-opportunity-review/SKILL.md) | Which complete option best addresses each opportunity, and why? | [Comparative reviews](reviews/README.md) |
@@ -19,6 +19,8 @@ same footing; promotion into base guidance is a manual operator decision.
 
 Invoke the relevant skill with the intended scope, for example:
 
+- `$leverage-library-discovery` — brief a selected library family against a repository objective
+  and identify research directions. Start here when a library motivates the question.
 - `$leverage-codebase-audit` — identify library-leverage opportunities in a selected operation,
   subsystem or the codebase.
 - `$leverage-library-assessment` — assess selected opportunities against relevant capabilities,
@@ -56,10 +58,10 @@ Record inspected baselines and limits rather than treating empty collections as 
 patterns only when a framing is genuinely missing.
 
 The shared [vocabulary](references/shared-language.md) and
-[collection-writing guidance](references/collection-writing.md) support all three skills. Keep
+[collection-writing guidance](references/collection-writing.md) support the assessment stages. Keep
 reusable library types and useful additional patterns when their originating matches retire.
 The library collection is distinct from the broad [capability overviews](../libraries/README.md):
-its research starts with codebase opportunities and accumulates focused capability knowledge.
+it keeps contextual briefings alongside focused capability knowledge and applicability judgments.
 
 The tracked skill source is `.claude/skills`, exposed to Codex through the existing `.agents/skills`
 symlink and loaded directly by Claude Code. Discovery follows the repository's existing arrangement;

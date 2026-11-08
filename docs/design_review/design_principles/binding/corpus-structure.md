@@ -115,11 +115,13 @@ existing planning and decision routes; a review does not itself approve scope or
 
 ## Library leverage
 
-The [library-leverage framework](../../../library_leverage/README.md) owns three distinct
-skills and their output contracts (ADR-0008): codebase opportunities, focused library capability
+The [library-leverage framework](../../../library_leverage/README.md) owns three assessment
+stages and their output contracts (ADR-0008): codebase opportunities, focused library capability
 applicability, and comparative judgments of complete options. All stages use relevant base
 patterns and additional patterns collected in assessment outputs. Useful library types and
 additional patterns remain after current matches retire; promotion into base guidance is manual.
+An optional library-led discovery entry (ADR-0072) owns contextual briefings and proposed
+research priorities before or alongside the assessment stages.
 
 Use the selected standard for consequential comparisons. Opportunity recognition, principle
 diagnosis, applicability and comparative preference remain distinct. Plans own execution

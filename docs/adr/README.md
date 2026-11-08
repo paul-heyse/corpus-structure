@@ -49,6 +49,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0069](0069-cli-operations-custody.md) | Route routine operations through ci with owned effects and result custody | 2026-11-07 | [§2](../design/DESIGN.md#section-2) | Proposed |  |
 | [ADR-0070](0070-full-book-method-development.md) | Use the whole Grinstead–Snell book for method development | 2026-11-07 | [§B1](../design/DESIGN.md#section-b1), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0068](0068-single-corpus-method-development.md) |
 | [ADR-0071](0071-github-pages-publication.md) | Publish the checked documentation on GitHub Pages | 2026-11-08 | [§2](../design/DESIGN.md#section-2) | Implemented | [ADR-0003](0003-publish-docs-site.md) |
+| [ADR-0072](0072-library-led-discovery.md) | Add optional library-led discovery briefings | 2026-11-08 | [§2](../design/DESIGN.md#section-2) | Implemented |  |
 
 ## Superseded, still in the tree
 

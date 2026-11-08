@@ -157,8 +157,11 @@ focused library applicability and comparative review of complete options. Each h
 evergreen output location. Useful library types and additional output patterns persist after
 current matches retire; all stages use base and output patterns together, and promotion into
 base guidance is manual. Plans retain execution disposition and existing review cadence remains.
-The collection entry pages are unassessed; discovery/design-quality benefits remain Proposed.
+Optional library-led discovery owns contextual usage briefings and proposed research priorities.
+It can start from a library family and repository objective before an opportunity is identified.
+Discovery and design-quality benefits remain Proposed.
 
+> Decision: ADR-0072
 
 **Evidence records — Implemented and Tested** (ADR-0010; `tests/evidence`, 2026-10-28). A finalized result of an investigation gets one
 typed record in its evidence folder (`records/<id>.json`: question, informed items, method,

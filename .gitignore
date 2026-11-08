@@ -20,6 +20,7 @@ __pycache__/
 !/.claude/skills/functional-extension-review/
 !/.claude/skills/plan-functional-extension-review/
 !/.claude/skills/leverage-codebase-audit/
+!/.claude/skills/leverage-library-discovery/
 !/.claude/skills/leverage-library-assessment/
 !/.claude/skills/leverage-opportunity-review/
 !/.claude/skills/plan-creation/

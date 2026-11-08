@@ -24,6 +24,7 @@ workflow with concrete consumers.
 | [`functional-extension-review/`](functional-extension-review/SKILL.md) | Explore valuable product, developer, operator or research capabilities and compare their realization within the operator's scope |
 | [`plan-functional-extension-review/`](plan-functional-extension-review/SKILL.md) | Prepare a capability inquiry without requiring a diagnostic audit or predetermined feature list |
 | [`leverage-codebase-audit/`](leverage-codebase-audit/SKILL.md) | Identify concrete codebase opportunities using base and assessment-discovered patterns |
+| [`leverage-library-discovery/`](leverage-library-discovery/SKILL.md) | Brief a selected library family's capabilities, local usage and promising research directions |
 | [`leverage-library-assessment/`](leverage-library-assessment/SKILL.md) | Research focused library applicability and accumulate reusable capability types |
 | [`leverage-opportunity-review/`](leverage-opportunity-review/SKILL.md) | Compare complete options and recommend bounded target designs |
 | [`design-review/`](design-review/SKILL.md) | Review explicit domain models, ownership, contracts, change scenarios and qualitative workload execution fit against the layered design standard (`docs/design_review/design_principles/standard.toml`); cadence in the corpus-structure binding |
@@ -62,8 +63,8 @@ execution workflow. Recommendation auditing preserves their value lens and publi
 [functional companion](../../docs/functional_reviews/audits/README.md) plus the integrated review,
 without importing the diagnostic audit prerequisite.
 
-Library leverage uses three distinct skills under the
-[codebase-first framework](../../docs/library_leverage/README.md). Identification establishes
+The [library-leverage framework](../../docs/library_leverage/README.md) offers an optional
+library-led briefing alongside its three assessment stages. Identification establishes
 concrete opportunities and constraints; applicability research accumulates reusable library
 types and contextual fit; comparative review judges complete options and bounded targets.
 All stages use base and additional output patterns together. Useful types and patterns survive

@@ -122,6 +122,7 @@ process scripts are stdlib-only and run without a project environment.
 - Optional [library overviews](docs/libraries/README.md) provide repository-agnostic capability
   orientation.
 - Deliberate library-leverage inquiries use the [framework](docs/library_leverage/README.md):
+  `leverage-library-discovery` can begin from a library family and repository objective.
   `leverage-codebase-audit` identifies concrete opportunities, `leverage-library-assessment`
   researches focused applicability, and `leverage-opportunity-review` compares complete options.
   All stages use base and assessment-discovered patterns together. Retain useful library types
@@ -332,7 +333,7 @@ delegated judgment within accepted outcomes and contracts. No fixed role sequenc
 - Never force-push or `reset --hard`.
 - `.claude/skills/*` is gitignored except the process skills: `adr`, `ci`, `design-review`, `design-principle-audit`, `design-principle-audit-tests`, `design-review-audit`, `plan-completion-audit`,
   `functional-extension-review`, `plan-functional-extension-review`,
-  `leverage-codebase-audit`, `leverage-library-assessment`, `leverage-opportunity-review`,
+  `leverage-codebase-audit`, `leverage-library-discovery`, `leverage-library-assessment`, `leverage-opportunity-review`,
   `design-review-code-intelligence`, `plan-design-review`,
   `plan-creation`, `create-plan`, `plan-execution`, `plan-improvement-review`, `execute-plan`, `handoff`, `pin-check`.
 - At the end of a session that changed what's true, run the `handoff` skill.

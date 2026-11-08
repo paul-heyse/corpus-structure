@@ -1,6 +1,6 @@
 # Library applicability assessments
 
-This collection holds focused library capability knowledge that grew out of
+This collection holds contextual briefings and focused library capability knowledge that grew out of
 [codebase opportunities](../codebase/README.md). It is maintained by the
 [library assessment skill](../../../.claude/skills/leverage-library-assessment/SKILL.md) under the
 [framework](../library-leverage-framework.md), using the [base patterns](../patterns.md), the
@@ -16,6 +16,14 @@ Each library's account keeps two kinds of material apart:
 
 Neither is a comparative preference. Choosing between options belongs to
 [comparative reviews](../reviews/README.md).
+
+## Library-led briefings
+
+The optional [discovery skill](../../../.claude/skills/leverage-library-discovery/SKILL.md)
+maintains one briefing per investigated family. A briefing records representative local uses,
+capability territory and proposed research priorities at an inspected baseline. The
+[discovery and evidence guide](../references/discovery-and-evidence.md) defines its evidence
+and output. Add a route here when the operator-selected pilot creates the first briefing.
 
 <a id="baseline"></a>
 
