@@ -8,6 +8,8 @@ a checklist or added proof machinery.
 Start with the task, then read the owning contract and adjacent consumer. Expand scope when a
 contradiction or dependency requires it; the whole corpus is not the default reading context.
 
+[Overview](../README.md) · [Examples](examples/README.md) · [Architecture](design/README.md) · [Evaluation](design_review/evidence/2026-11-08_nce-full-book/review/README.md) · [Running locally](../README.md#run-locally)
+
 | Task | Start here |
 |---|---|
 | Understand the system | [Architecture map](design/README.md) → relevant owner |

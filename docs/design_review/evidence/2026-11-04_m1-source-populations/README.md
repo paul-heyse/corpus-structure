@@ -38,7 +38,7 @@ The source-ready membership is frozen under the producing intake release below; 
 view membership must be frozen under the intended final release before A/B/C authoring. Family
 denominators and useful release support remain unestablished.
 
-The local originals are identified by [SOURCES.tsv](../../../statistics_corpus/SOURCES.tsv) and
+The local originals are identified by the checkout-local `SOURCES.tsv` and
 the prior [available-originals inventory](../2026-11-03_m1-population/available-originals.json).
 Each original was rehashed here. Excerpts are whole documents for intake; their parent-page
 scope is explicitly narrower than the original book. No original was rewritten. Existing

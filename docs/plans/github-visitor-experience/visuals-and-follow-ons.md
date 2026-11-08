@@ -29,9 +29,9 @@ Link the image to its full size and declare it in publication assets to keep the
 full-size link local on the site. GitHub and mdBook consume the committed SVG.
 [Publisher asset transport](../../publishing.md#authoring-and-transport) · [GitHub Markdown renderer](https://github.com/github/markup)
 
-Render with `d2 --layout=elk INPUT.d2 OUTPUT.svg` using D2 `0.7.1`.
-The upstream Linux x86-64 release archive is `d2-v0.7.1-linux-amd64.tar.gz`
-with published SHA-256 `eb172adf59f38d1e5a70ab177591356754ffaf9bebb84e0ca8b767dfb421dad7`.
+Render with `d2 --layout=elk INPUT.d2 OUTPUT.svg` using D2 `0.9.0`.
+The upstream Linux x86-64 release archive is `d2-v0.9.0-linux-amd64.tar.gz`
+with published SHA-256 `5669ddc46b99e942cc96078f4a4e36d5e62103348f4c05179ede27802fdd87a9`.
 Use the existing binary when the version matches, or unpack the checksum-verified
 upstream binary into a user tool directory. Bundled ELK supplies layout without
 another package for this SVG route. Use the main figure as the starting point for
@@ -39,7 +39,7 @@ the deeper architecture explanation. Identify the demonstrated Docling,
 Nemotron Parse 3.5 and GLiNER roles. Put finite interpretation and fitting in
 their implemented scope and pgmpy and Pyro in explicitly labeled research
 extensions. Keep Chandra inspection separate from proposed promotion.
-[Pinned D2 release](https://github.com/d2lang/d2/releases/tag/v0.7.1) · [ELK layout](https://d2lang.com/tour/layouts/) · [Product roles and research boundaries](../../functional_reviews/github-visitor-experience_2026-11-08.md#O03)
+[Pinned D2 release](https://github.com/d2lang/d2/releases/tag/v0.9.0) · [ELK layout](https://d2lang.com/tour/layouts/) · [Product roles and research boundaries](../../functional_reviews/github-visitor-experience_2026-11-08.md#O03)
 
 Commit `docs/visuals/social-preview.html` and `docs/assets/social-preview.png`.
 Use the title, a short tagline and a simplified source-to-structure motif. The
@@ -78,7 +78,7 @@ install command, system prerequisites and local or CI scope when adopting.
 | Rendered example card and Lucide SVGs | Compare an HTML/CSS card or a small icon set with the plain example and SVG at desktop and mobile widths. Adopt when it improves the reader's ability to identify the source, result and witness without losing readable text or duplicating evidence authority. Reuse GHV-04 capture for a card. Vendor only used icons at Lucide `1.70.0`, commit `b826f0c527e1498f5e46f41ca0277ccab144bf31`, with the applicable ISC and Feather MIT notices. [Static usage](https://lucide.dev/guide/static/getting-started) · [Lucide notices](https://lucide.dev/license) |
 | Recorded walkthrough | Compare the static walkthrough with a short storyboard on an exact verified result. Proceed when a visible interaction helps explain source inspection and the evidence can be shared. Export with the inspected FFmpeg `6.1.1`, and include captions, transcript and a static evidence link. [Review of recording tooling](../../functional_reviews/github-visitor-experience_2026-11-08.md#O06) |
 | Vale and Markdownlint | Try Vale `3.26.0` as an advisory release binary only if recurring terminology errors survive editorial review. Limit it to visitor pages, local vocabulary, and JSON feedback. Try pinned `markdownlint-cli2@0.24.0` on Node 22+ only for recurring formatting issues the current build misses. Adopt only when the trial catches the observed issues without disproportionate noise. Keep both out of the routine build for this scope. [Vale release](https://github.com/vale-cli/vale/releases/tag/v3.26.0) · [Markdownlint CLI](https://github.com/DavidAnson/markdownlint-cli2) |
-| Renderer upgrade or extra diagram tooling | Compare D2 `0.9.0` only for a demonstrated need that `0.7.1` cannot meet. Retain one renderer for the shared SVG. Use GitHub-native Mermaid for a focused GitHub diagram when warranted. Evaluate Mermaid CLI `12.2.0` only for a separate recurring export that justifies browser tooling. Consider Excalidraw `0.18.1` for a distinct interactive authoring use. [D2 release](https://github.com/d2lang/d2/releases/tag/v0.9.0) · [GitHub Mermaid](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/creating-diagrams) · [Mermaid CLI](https://github.com/mermaid-js/mermaid-cli/tree/12.2.0) · [Excalidraw](https://github.com/excalidraw/excalidraw/tree/v0.18.1) |
+| Renderer upgrade or extra diagram tooling | The operator selected current stable tooling, so GHV-04 updates D2 to 0.9.0. Retain one renderer for the shared SVG. Use GitHub-native Mermaid for a focused GitHub diagram when warranted. Evaluate Mermaid CLI `12.2.0` only for a separate recurring export that justifies browser tooling. Consider Excalidraw `0.18.1` for a distinct interactive authoring use. [D2 release](https://github.com/d2lang/d2/releases/tag/v0.9.0) · [GitHub Mermaid](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/creating-diagrams) · [Mermaid CLI](https://github.com/mermaid-js/mermaid-cli/tree/12.2.0) · [Excalidraw](https://github.com/excalidraw/excalidraw/tree/v0.18.1) |
 | Generated illustration | Consider only for a distinct editorial purpose the maintained diagram and examples do not serve. Label it as illustrative, and validate its accuracy and readability alongside the evidence-backed content. |
 
 **Closure.** Every row has an adoption or deferral supported by an actual

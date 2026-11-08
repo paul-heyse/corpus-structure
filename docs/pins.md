@@ -28,7 +28,6 @@ A row here is only for a hold. Declare crate families that must resolve to one v
 `[workspace.metadata.pins] families` in `Cargo.toml`; their members are pinned exactly like every
 other dependency.
 
-Documentation binaries are listed in [site.toml](site.toml) (latest releases as checked on
-2026-10-28: mdbook 0.5.4, pagefind 1.5.2, lychee 0.24.2); the versions there are pinned and
-`just bootstrap-docs` installs exactly those. Change them with focused `just docs-test` and
-`just docs-check`.
+Documentation binaries and hosted archive checksums are pinned in [site.toml](site.toml).
+Use the [publishing workflow](publishing.md) for bootstrap and the focused
+`just docs-test` and `just docs-check` routes after a change.

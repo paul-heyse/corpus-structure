@@ -5,14 +5,18 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import platform
 import posixpath
 import re
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import tomllib
+import zipfile
 from dataclasses import dataclass
+from hashlib import file_digest
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import quote, unquote, urlsplit
@@ -391,6 +395,65 @@ def install_command(tool: str, version: str) -> list[str]:
     return ["cargo-binstall", "--no-confirm", "--disable-strategies", "compile", *pin, tool]
 
 
+def install_hosted_tools(settings: dict, destination: Path) -> None:
+    if (platform.system(), platform.machine()) != ("Linux", "x86_64"):
+        raise ValueError("the hosted documentation archives require Linux x86-64")
+    destination.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=destination) as work:
+        staging = Path(work)
+        for tool, version in settings["tools"].items():
+            release = settings["hosted-linux-x64"][tool]
+            url = release["url"].format(version=version)
+            archive = staging / Path(urlsplit(url).path).name
+            run(
+                [
+                    "curl",
+                    "--http1.1",
+                    "--fail",
+                    "--silent",
+                    "--show-error",
+                    "--location",
+                    "--retry",
+                    "3",
+                    "--retry-all-errors",
+                    "--max-time",
+                    "120",
+                    "--output",
+                    str(archive),
+                    url,
+                ]
+            )
+            binary = staging / tool
+            extract_hosted_binary(archive, release["sha256"], release["member"], binary)
+            binary.chmod(0o755)
+        for tool in settings["tools"]:
+            (staging / tool).replace(destination / tool)
+
+
+def extract_hosted_binary(archive: Path, expected: str, member: str, binary: Path) -> None:
+    with archive.open("rb") as stream:
+        digest = file_digest(stream, "sha256").hexdigest()
+    if digest != expected:
+        raise ValueError(f"checksum mismatch for {archive.name}: expected {expected}, got {digest}")
+    if archive.suffix == ".whl":
+        with (
+            zipfile.ZipFile(archive) as wheel,
+            wheel.open(member) as source,
+            binary.open("wb") as out,
+        ):
+            shutil.copyfileobj(source, out)
+    else:
+        with tarfile.open(archive, "r:gz") as release:
+            entry = release.getmember(member)
+            if not entry.isfile():
+                raise ValueError(f"{archive.name}: {member} is not a regular file")
+            source = release.extractfile(entry)
+            if source is None:
+                raise ValueError(f"{archive.name}: missing binary {member}")
+            with source, binary.open("wb") as out:
+                shutil.copyfileobj(source, out)
+
+
 def replace_site(candidate: Path, destination: Path) -> None:
     backup = destination.with_name("previous")
     if backup.exists():
@@ -479,13 +542,17 @@ def main() -> int:
     )
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--base-url")
+    parser.add_argument("--hosted-bin-dir", type=Path)
     args = parser.parse_args()
     settings = config(ROOT)
     if args.base_url:
         settings["site"]["base_url"] = args.base_url
     if args.command == "bootstrap":
-        for tool, version in settings["tools"].items():
-            run(install_command(tool, version))
+        if args.hosted_bin_dir:
+            install_hosted_tools(settings, args.hosted_bin_dir)
+        else:
+            for tool, version in settings["tools"].items():
+                run(install_command(tool, version))
         run(
             isolated(
                 ROOT,

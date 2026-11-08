@@ -62,6 +62,19 @@ interface and domain queries implementing a `serve` interface. Source profiles l
 This table describes intended ownership; it is not a certificate of current architectural
 conformance.
 
+## Trace a result through the code
+
+- [Source capture](../../python/corpus-structure/src/corpus_structure/ingest/pdf_section_views.py) · [Source-view SQL](../../python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql)
+- [GLiNER observations](../../python/corpus-structure/src/corpus_structure/methods/gliner.py) · [Typed contextual links](../../python/corpus-structure/src/corpus_structure/semantic/contextual_links.py)
+- [Reader queries](D8-agent-and-query-interfaces.md) · [MCP](../../python/corpus-structure/src/corpus_structure/cli/mcp.py) · [Operation assessment](../../python/corpus-structure/src/corpus_structure/evaluate/operation_assessment.py)
+
+Docling and the managed Nemotron Parse 3.5 path support the demonstrated PDF intake.
+GLiNER supplies retained extraction observations. Finite interpretation and fitting
+have their own implemented scope. Graphical-model and probabilistic-programming
+extensions using pgmpy and Pyro remain research questions. Chandra has verified
+explicit inspection, with governed promotion a separate proposed step.
+[Scope and model roles](../functional_reviews/github-visitor-experience_2026-11-08.md#O03)
+
 ## Reading and extending
 
 For a change, identify the semantic owner, its consumer contract and the expected extension axis.
@@ -74,9 +87,9 @@ Git ([historical recovery](../README.md#historical-recovery)).
 
 ## Conventions used in the D-documents
 
-- **Labels.** Each document's label applies to all its content unless a line says otherwise. At
-  this stage everything is `Proposed`. A spike result that confirms a library behaviour upgrades
-  the specific claim to `Interface-checked` with the evidence folder cited.
+- **Labels.** Each document's label applies to all its content unless a line says otherwise. A
+  section may carry its own maturity and evidence label. Use the dated checkpoint for
+  current qualification and the owning section for the architectural contract.
 - **Open questions** are marked `OPEN-Dn-k` inline and collected in the active plan's findings
   table, which owns their disposition.
 - **Library proposals** from the library-leverage lane are marked `> Library proposal (L-nn):`

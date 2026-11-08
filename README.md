@@ -1,53 +1,76 @@
-# corpus-structure
+# Corpus Structure
 
-Agent workflows and invocation examples are in the [process skills](.claude/skills/README.md),
-with [shared roles](.agents/roles/README.md) for Codex.
+**From documents to connected, source-grounded knowledge.**
 
-Builds a highly structured representation of a set of documents
+Corpus Structure is a document-intelligence pipeline for finding structure in a collection
+of documents. It locates definitions and predicate roles, attaches conditions, resolves
+references, and assembles related material into views that retain their source evidence.
 
-[STATUS](STATUS.md) owns the current checkpoint. Accepted architecture includes labeled targets.
+The central idea is **progressive enrichment**. A located observation or supported connection
+can be useful while a larger interpretation is still unresolved. The system preserves those
+differences so a reader can inspect what was observed, what was selected, and what has been
+assessed.
 
-- [Documentation and task routes](docs/README.md)
-- [Architecture map](docs/design/README.md)
-- [Development instructions](AGENTS.md)
-- [Decision records (current rationale)](docs/adr/README.md)
+[See an example](docs/examples/README.md) · [Explore the architecture](docs/design/README.md) · [Read the evaluation](docs/design_review/evidence/2026-11-08_nce-full-book/review/README.md) · [Run locally](#run-locally)
 
-## Development
+## How it works
 
-Prefer the installed CLI for supported development and corpus operations. The
-[ci skill](.claude/skills/ci/SKILL.md) explains the command routes, managed results and
-how to handle a defect surfaced during work.
+[![Four operations turn located observations into qualified components, witnessed links, and inspectable views. Source provenance and assessment run across the pipeline.](docs/assets/pipeline.svg)](docs/assets/pipeline.svg)
 
-Use `uv run ci doctor` to check the prepared tools and `uv run ci context show` to inspect
-the effective settings. Run `uv run ci test -- PATH` for targeted pytest selection and
-`uv run ci test` for the full applicable functional campaign. Use `uv run ci results show ID`
-to find retained outcomes and `uv run ci test retry ID` to retry unresolved test nodes.
-Run `uv run ci check` for repository checks and `uv run ci format` for explicit formatting.
-Use direct recipes for bootstrap and documented recovery. `just turn-end` formats and
-regenerates repository metadata at the end of a turn.
+The pipeline locates observations in source material, composes local meaning by attaching
+roles and qualifiers, connects related material through typed links, and assembles
+comparisons and dossiers. Source locations stay attached throughout. Assessment can focus on
+capture, roles, attachments, links, or scope.
 
-After the scaffold lockfiles exist, run `bash scripts/setup-env` to prepare this checkout's
-tools. Installed toolchains follow the pin files; setup
-does not install Rust. If using direnv, review `.envrc` and run `direnv allow` once in each
-checkout. Direnv loads local/native settings without installing, building or activating Python.
-Personal overrides belong in ignored `.envrc.local`.
+## A real result
 
-`uv` selects the workspace's `.venv` and synchronizes declared dependencies automatically.
-Agent commands default to `UV_LOCKED=1`, so
-stale lockfiles fail without changing them. Intentional dependency changes explicitly use
-`UV_LOCKED=0 uv add …` (or the corresponding lock command); exact dependency pins still apply.
-For cross-project work, select the tool working directory or use uv's explicit `--project`/
-`--directory` options. `uv run script.py` discovers from the script, while `uv run python
-script.py` selects from the current workspace. Documentation/process recipes retain their
-explicit dependency-free `--no-project` mode with a local `UV_LOCKED=0` override.
+On physical page 260 of Grinstead and Snell’s *Introduction to Probability*, the text
+refers to **Section 5.1**. The pipeline retained that occurrence and selected a
+`cites-section` edge to **Important Distributions** on physical page 191. The edge carries
+an explicit source-cue witness. The dated output review checked the cue and target
+against the printed book.
 
-## Documentation locally
+[Follow the citation to both source pages and the retained evidence](docs/examples/README.md#a-printed-reference-becomes-a-typed-link).
 
-Run `just bootstrap-docs` once to install the declared documentation tools and cache isolated test
-dependencies. Then `uv run ci docs check` builds and checks the complete static artifact under
-`build/docs/site/`. `just docs-test` runs focused publisher and ADR tests. `just docs-serve` builds
-and serves on http://127.0.0.1:8000. Rebuild after edits; the preview is not a watcher.
-See [publishing operations](docs/publishing.md) for details.
+## What you can inspect
 
-Generated from [project-template](https://github.com/paul-heyse/project-template); `copier update`
-brings template improvements.
+| Capability | Inspectable result |
+| --- | --- |
+| Source capture | Native document items, projected passages, and source locations |
+| Extraction | Defining expressions, predicate roles, conditions, and modality |
+| Contextual linking | A located cue, the selected typed connection, and its witness |
+| Comparison and assembly | Differences between qualified readings and dossiers organized around a selected root |
+| Granular evaluation | Separate assessments of source capture, attachments, links, and applicability |
+
+The development corpus includes all **518 physical pages** of the book, with **29 selected
+source views** for downstream work. The contextual review checked nine retained section
+citations and separately identified four additional printed references that did not enter
+retrieval. Coverage and maturity vary by operation. The [output review](docs/design_review/evidence/2026-11-08_nce-full-book/review/README.md)
+and [current checkpoint](STATUS.md) document the boundaries.
+
+## Engineering approach
+
+- **Preserve local meaning.** A role or condition can remain independently useful before the whole passage is interpreted.
+- **Keep relationships typed.** Similarity, citation, identity, and applicability support different operations.
+- **Retain source evidence.** A result can be followed back to its supporting occurrences and the published source.
+- **Assess the operation being improved.** Capture, interpretation, attachment, and link selection can be examined separately.
+
+The [architecture map](docs/design/README.md) connects these choices to design and code. The
+[examples](docs/examples/README.md) also show a positive-variance condition and what happens
+when a candidate link lacks sufficient support.
+
+## Run locally
+
+Start with the [static examples](docs/examples/README.md) to inspect results directly. The
+[reproduction guide](docs/examples/README.md#reproduce-the-contextual-example) lists the
+source, matching release, and environment needed to rebuild the contextual result.
+
+For a development checkout, see [AGENTS.md](AGENTS.md). Run `bash scripts/setup-env` to prepare
+the checkout, then use `uv run ci doctor` to inspect installed tools. The
+[ci skill](.claude/skills/ci/SKILL.md) documents the supported CLI routes, and the
+[shared agent roles](.agents/roles/README.md) describe contributor workflows.
+
+For a local documentation preview, run `just bootstrap-docs` and then `just docs-serve`.
+See [publishing operations](docs/publishing.md) for checks and authoring.
+
+Built by Paul Heyse as part of an ongoing exploration of structured document intelligence.

@@ -8,15 +8,30 @@ base_url = "/"
 # publication checks them.
 [tools]
 mdbook = "0.5.4"
-pagefind = "1.5.2"
+pagefind = "1.6.0"
 lychee = "0.24.2"
 
+[hosted-linux-x64.mdbook]
+url = "https://github.com/rust-lang/mdBook/releases/download/v{version}/mdbook-v{version}-x86_64-unknown-linux-gnu.tar.gz"
+sha256 = "3f28de05dafca9d0f2eab99c662116b0e37b89b1d96a08f8f430b9eeae958cd7"
+member = "mdbook"
+
+[hosted-linux-x64.pagefind]
+url = "https://files.pythonhosted.org/packages/c8/1a/17c5d1e8d63ee352266ff94726372b6ef2f7f04bd5ec2c376c1c444a6e7e/pagefind_bin-{version}-py3-none-manylinux_2_12_x86_64.manylinux2010_x86_64.musllinux_1_1_x86_64.whl"
+sha256 = "5622ef851ae4cdd65a15cf62657348c6d490acf92417e772ad27e77b21ad301f"
+member = "pagefind_bin/pagefind"
+
+[hosted-linux-x64.lychee]
+url = "https://github.com/lycheeverse/lychee/releases/download/lychee-v{version}/lychee-x86_64-unknown-linux-gnu.tar.gz"
+sha256 = "1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a"
+member = "lychee-x86_64-unknown-linux-gnu/lychee"
+
 [publication]
-entrypoints = ["README.md", "docs/README.md", "docs/design/README.md", "STATUS.md", "AGENTS.md", "docs/publishing.md", "docs/library_leverage/README.md", "docs/library_leverage/library-leverage-framework.md", "docs/library_leverage/patterns.md"]
+entrypoints = ["README.md", "docs/examples/README.md", "docs/README.md", "docs/design/README.md", "STATUS.md", "AGENTS.md", "docs/publishing.md", "docs/library_leverage/README.md", "docs/library_leverage/library-leverage-framework.md", "docs/library_leverage/patterns.md"]
 # The active plan, once written, e.g. ["docs/plans/<topic>_<YYYY-MM-DD>.md"]
 current_work = ["docs/plans/design-phase_2026-10-28.md"]
-exclude = []
-assets = []
+exclude = ["docs/functional_reviews/github_view_improvement.md"]
+assets = ["docs/assets/pipeline.svg"]
 
 [[collections]]
 title = "Start here"
@@ -24,7 +39,7 @@ include = ["README.md", "STATUS.md", "AGENTS.md"]
 scope = "Current"
 [[collections]]
 title = "Documentation"
-include = ["docs/*.md"]
+include = ["docs/*.md", "docs/examples/*.md"]
 scope = "Reference"
 [[collections]]
 title = "Architecture"
@@ -48,7 +63,66 @@ include = ["docs/design_review/reviews/**/*.md", "docs/functional_reviews/**/*.m
 scope = "Reference"
 [[collections]]
 title = "Evidence"
-include = ["docs/design_review/evidence/**/README.md"]
+include = [
+  "docs/design_review/evidence/README.md",
+  "docs/design_review/evidence/*/README.md",
+  "docs/design_review/evidence/2026-10-28_design-spikes/results/mathgrammar/README.md",
+  "docs/design_review/evidence/2026-10-29_sp06-execution-fit/library/README.md",
+  "docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/integration/README.md",
+  "docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/integration/json-publication/README.md",
+  "docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/integration/native-edge-guard/README.md",
+  "docs/design_review/evidence/2026-11-03_ac14-acceptance/automated-source/README.md",
+  "docs/design_review/evidence/2026-11-03_ac14-acceptance/managed-recognition/README.md",
+  "docs/design_review/evidence/2026-11-03_ac14-acceptance/source-knowledge-journey/README.md",
+  "docs/design_review/evidence/2026-11-03_m1-record-references/final-worker-handoff/README.md",
+  "docs/design_review/evidence/2026-11-04_m1-independent-references/author-A-v3/README.md",
+  "docs/design_review/evidence/2026-11-04_m1-independent-references/author-B-v3/README.md",
+  "docs/design_review/evidence/2026-11-04_m1-independent-references/author-C-v3/README.md",
+  "docs/design_review/evidence/2026-11-04_m1-reuse-recovery/cancellation-heading/README.md",
+  "docs/design_review/evidence/2026-11-04_m1-scoped-source-inspection/correction/README.md",
+  "docs/design_review/evidence/2026-11-04_m1-source-preparation/development-authoring/README.md",
+  "docs/design_review/evidence/2026-11-05_pce-local-capabilities/f27-batch-validation/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-completion-repair/artifact/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-completion-repair/composition/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-completion-repair/dossier/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-completion-repair/qualification/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-completion-repair/source-references/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-completion-repair/table/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-definition-refinement/assessment/b/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/artifact-config-abi/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/artifact-custody-repair/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/assessment/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/assessment/benefit-account/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/assessment/final-source-capture/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/assessment/operation-fit-availability/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/assessment/protected-current/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/assessment/protected-current/adjudicator-c/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/assessment/protected-current/author-a/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/assessment/protected-current/native160/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/authors/b/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/authors/c/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/authors/c/source-recovery-assessment/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/authors/current-named-review/a/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/authors/current-named-review/b/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/authors/current-named-review/c/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/authors/output-definition-review/b/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/authors/output-definition-review/c/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/current-contextual-journey/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/current-model-delivery/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/current-structural-journey/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/current-structural-journey/dossier-native-fit/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/final-native-review/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/joint-ie-investigation001/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/portable-custody-review/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/qualification/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/qualification/interpreter-crash/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/qualification/parallel-spawn/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/qualification/scheduler-stall/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/retirement/README.md",
+  "docs/design_review/evidence/2026-11-06_wce-gs120/source-recovery/README.md",
+  "docs/design_review/evidence/2026-11-06_wce04-located-definitions/fixed-f37/README.md",
+  "docs/design_review/evidence/2026-11-08_nce-full-book/review/README.md",
+]
 scope = "Reference"
 [[collections]]
 title = "Process"

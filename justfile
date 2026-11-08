@@ -248,8 +248,8 @@ doctor:
     UV_LOCKED=0 uv run --no-project python scripts/docs.py doctor
 
 # Install declared documentation binaries and isolated test dependencies (network allowed)
-bootstrap-docs:
-    UV_LOCKED=0 uv run --no-project python scripts/docs.py bootstrap
+bootstrap-docs *args:
+    UV_LOCKED=0 uv run --no-project python scripts/docs.py bootstrap {{args}}
 
 # Build Markdown, Pagefind and offline link/fragment checks without product dependencies
 docs:
@@ -270,3 +270,6 @@ docs-test:
 # Build then serve the finished artifact; no watcher or reindex during serving
 docs-serve port="8000":
     UV_LOCKED=0 uv run --no-project --offline --no-python-downloads python scripts/docs.py serve --port {{port}}
+
+docs-visuals:
+    uv run --locked --script docs/visuals/render.py

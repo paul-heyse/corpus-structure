@@ -180,7 +180,7 @@ routes govern adoption.
 - **Reviews are evidence, never authority.** A governed architectural section changes through
   the ADR that responds to a finding, once the operator has confirmed any rule change it carries.
 
-**Documentation boundary (ADR-0003).** Read the architecture map, relevant section owner and
+**Documentation boundary (ADR-0071).** Read the architecture map, relevant section owner and
 adjacent consumers. Stable section IDs survive relocation; one resolver supplies ADR lint and the
 site directory. Derived navigation/search and link checks serve readers; they do not certify
 implementation or historical claims. Documentation tooling uses focused `just docs-test` /

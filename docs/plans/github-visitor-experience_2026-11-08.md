@@ -1,6 +1,6 @@
 # GitHub visitor experience and Pages implementation
 
-**Status · 2026-11-08. Proposed.** This coordinator owns GHV-01–06, scheduled findings
+**Status · 2026-11-08. Active.** This coordinator owns GHV-01–06, scheduled findings
 and combined acceptance. It consumes the [functional review](../functional_reviews/github-visitor-experience_2026-11-08.md)
 at `b8697ab5f` and the two-part ChatGPT Pro proposal named `github_view_improvement.md`,
 identified by Git blob `2ce8a30811ce0d63f41d3296cc8291f62d08e627`. The draft is a
@@ -113,3 +113,40 @@ failed on GHV-F01, then on GHV-F02 after a temporary pointer README exclusion.
 With both temporary workarounds, `uv run --no-sync ci docs check --json` and
 the prefix check passed with 704 canonical pages. These are scoped publication
 checks of the plan documents. GHV-01 still owns the actual repairs.
+
+
+## Execution · 2026-11-08
+
+The operator selected direct pushes and current stable publication, rendering, host
+and Actions tooling. The workspace pytest/xdist hold, language pins and product
+dependencies retain their existing scope. The refresh selects Pagefind 1.6.0,
+D2 0.9.0, just 1.59.0, cargo-binstall 1.26.2, Ruff 0.17.4 and isolated Playwright
+1.64.1 with Chromium 1248. mdBook 0.5.4, lychee 0.24.2, uv 0.13.7 and
+gh 2.103.3 were already current. ADR-0071 governs the publication change.
+Hosted PR execution is `not_run` under the operator's direct-push decision.
+
+The [previous hosted run](https://github.com/paul-heyse/corpus-structure/actions/runs/42477372679)
+failed fetching mdBook through cargo-binstall. GHV-05 now uses verified upstream
+archives on hosted Linux x86-64, retaining the portable local bootstrap. A local
+run of `just bootstrap-docs --hosted-bin-dir DIR` with the destination on PATH
+passed with the same archive inputs and isolated pytest 9.1.1.
+
+GHV-03 retried the [exact retained Reader query](../functional_reviews/github-visitor-experience_2026-11-08.md#O02).
+It was blocked by `incompatible_query` on the producing release. The retained
+run reports support the static example. The available contextual verification
+bundles are for other selections, so the historical live read remains outside
+the verified public walkthrough.
+
+### GHV-06 dispositions
+
+| Candidate | Disposition and revisit condition |
+| --- | --- |
+| Rendered example card | Deferred after comparing the source, edge, witness and receipt in the four-row Markdown example. All four are visible in reading order and their evidence links remain actionable. Revisit when a case benefits from visual correspondence that text cannot convey. |
+| Lucide | Deferred. The numbered operation names and distinct output labels already identify each stage. Revisit if a repeated object needs an icon across several figures. |
+| Recorded walkthrough | Deferred. The exact historical Reader query was refused and the useful public journey consists of static links. Revisit with a verified interactive read that shows a distinct operation. |
+| Vale | Deferred. The editorial pass aligned naming across the README, architecture, examples and assets. Revisit if inconsistent names recur after edits. |
+| Markdownlint | Deferred. The existing publisher and link checks cover the observed Markdown failures. Revisit for recurring formatting defects those checks miss. |
+| D2 upgrade | Adopted in GHV-04 at 0.9.0 under the current-tooling decision. |
+| Mermaid and Mermaid CLI | Deferred. One portable asset serves both surfaces. Revisit for a distinct small GitHub diagram or recurring cross-surface export. |
+| Excalidraw | Deferred until there is a distinct interactive authoring use. |
+| Generated illustration | Deferred. The maintained diagram, labeled policy illustration and social preview cover the identified editorial uses. Revisit for a distinct illustration requirement. |

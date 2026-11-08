@@ -112,6 +112,48 @@ def test_a_scope_without_pages_is_not_offered(root, settings):
     assert docs.scope_options(pages) == ["Current", "Reference", "Everything"]
 
 
+@pytest.mark.parametrize(
+    "generated_body",
+    ["# Progressive corpus review\n", "version https://git-lfs.github.com/spec/v1\n"],
+)
+def test_evidence_inventory_ignores_generated_readme(root, settings, generated_body):
+    evidence = root / "docs/evidence"
+    for name, body in {
+        "study/README.md": "# Study\n",
+        "study/review/README.md": "# Authored review\n",
+        "study/bundle/README.md": generated_body,
+    }.items():
+        path = evidence / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body)
+    settings["collections"].append(
+        {
+            "title": "Evidence",
+            "include": ["docs/evidence/*/README.md", "docs/evidence/study/review/README.md"],
+            "scope": "Reference",
+        }
+    )
+    assert [
+        page.title for page in docs.discover(root, settings) if page.collection == "Evidence"
+    ] == [
+        "Study",
+        "Authored review",
+    ]
+    generated = "docs/evidence/study/bundle/README.md"
+    assert f"/blob/abc123/{generated}" in rewrite(
+        root, settings, '<a href="evidence/study/bundle/README.md">Bundle</a>', [generated]
+    )
+
+
+def test_hosted_archive_rejects_bad_digest_before_extracting(tmp_path):
+    archive = tmp_path / "tool.tar.gz"
+    archive.write_bytes(b"unexpected data")
+    binary = tmp_path / "tool"
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        docs.extract_hosted_binary(archive, "0" * 64, "tool", binary)
+    assert not binary.exists()
+
+
 def rewrite(root, settings, text, tracked=()):
     site = root / "site"
     site.mkdir(exist_ok=True)

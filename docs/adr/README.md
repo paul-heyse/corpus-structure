@@ -9,7 +9,6 @@ The [architecture map](../design/README.md) and its section owners own contracts
 |---|---|---|---|---|---|
 | [ADR-0001](0001-lightweight-process-and-working-set.md) | Keep a light, single-operator process and a current documentation working set | 2026-10-28 | [§2](../design/DESIGN.md#section-2) | Implemented |  |
 | [ADR-0002](0002-review-through-change-scenarios.md) | Review architecture through change scenarios and a repository-owned design standard | 2026-10-28 | [§2](../design/DESIGN.md#section-2) | Implemented |  |
-| [ADR-0003](0003-publish-docs-site.md) | Publish the documentation with derived navigation and search | 2026-10-28 | [§2](../design/DESIGN.md#section-2) | Implemented |  |
 | [ADR-0006](0006-task-sensitive-agent-coordination.md) | Delegate by task and strengthen evidence and review defaults within bounded workflows | 2026-10-28 | [§2](../design/DESIGN.md#section-2) | Implemented | ADR-0005 |
 | [ADR-0007](0007-audit-led-review-and-completion.md) | Separate diagnostic audit, solution review and independent completion assessment | 2026-10-28 | [§2](../design/DESIGN.md#section-2) | Implemented |  |
 | [ADR-0008](0008-codebase-first-library-leverage.md) | Discover library leverage through three evergreen assessment stages | 2026-10-28 | [§2](../design/DESIGN.md#section-2) | Implemented |  |
@@ -49,11 +48,13 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0067](0067-witnessed-current-only-cutover.md) | Cut witnessed enrichment over to current contracts without legacy execution | 2026-11-06 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0066](0066-witnessed-component-policies.md) |
 | [ADR-0069](0069-cli-operations-custody.md) | Route routine operations through ci with owned effects and result custody | 2026-11-07 | [§2](../design/DESIGN.md#section-2) | Proposed |  |
 | [ADR-0070](0070-full-book-method-development.md) | Use the whole Grinstead–Snell book for method development | 2026-11-07 | [§B1](../design/DESIGN.md#section-b1), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0068](0068-single-corpus-method-development.md) |
+| [ADR-0071](0071-github-pages-publication.md) | Publish the checked documentation on GitHub Pages | 2026-11-08 | [§2](../design/DESIGN.md#section-2) | Implemented | [ADR-0003](0003-publish-docs-site.md) |
 
 ## Superseded, still in the tree
 
 | ADR | Title | Date | Governs | Evidence | Replaces |
 |---|---|---|---|---|---|
+| [ADR-0003](0003-publish-docs-site.md) | Publish the documentation with derived navigation and search | 2026-10-28 | [§2](../design/DESIGN.md#section-2) | Implemented |  |
 | [ADR-0009](0009-math-grammar-authority.md) | Read math through one extended Lark grammar; source facts as profile data; offset-preserving quote location | 2026-10-28 |  | Tested |  |
 | [ADR-0012](0012-math-grammar-token-keys.md) | Read math through one extended Lark grammar, key values by the token form, keep source facts as profile data, locate quotes with source offsets | 2026-10-28 |  | Tested | [ADR-0009](0009-math-grammar-authority.md) |
 | [ADR-0013](0013-claim-model.md) | "Every fact is one claim form: subject, predicate, object, typed qualifiers, evidence, supports and status" | 2026-10-28 | [§B1](../design/DESIGN.md#section-b1) | Tested |  |

@@ -167,10 +167,11 @@ supersede. `just evidence` derives the README indexes, a rebuildable DuckDB cata
 per-folder views and report figures from queries; none of these is an authority, and records
 retire with their folder (ADR-0001).
 
-**Documentation publication** (ADR-0003). Focused architecture pages retain stable section IDs;
+**Documentation publication** (ADR-0071). Focused architecture pages retain stable section IDs;
 a moved live section leaves a relocation pointer. One resolver drives ADR references and the
 generated section directory. Publication derives navigation and search from sources; it does not
-prove implementation. [Publishing operations](../publishing.md) owns the commands.
+prove implementation. The docs workflow retains the checked artifact and deploys
+it from eligible main builds to GitHub Pages. [Publishing operations](../publishing.md) owns the commands.
 
 **CLI workflow and custody — Accepted target (2026-11-07).** Installed `ci` exposes routine
 operations through owned recipes and application services. Invocation results have explicit
@@ -178,7 +179,7 @@ settlement and retention. Native deployment, activation and selection require ex
 [D8 CLI](D8-agent-and-query-interfaces.md#4-cli) and [D9](D9-repository-and-phase0.md#3-conventions)
 own the integration contract.
 
-> Decision: ADR-0001, ADR-0002, ADR-0003, ADR-0006, ADR-0007, ADR-0008, ADR-0010, ADR-0069
+> Decision: ADR-0001, ADR-0002, ADR-0071, ADR-0006, ADR-0007, ADR-0008, ADR-0010, ADR-0069
 
 
 Product binding decisions follow. Each is `### §Bn <decision stated as a sentence>` with a

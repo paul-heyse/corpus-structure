@@ -4,6 +4,10 @@
 2026-10-28. From this commit the repository is authoritative; the claude.ai document of the same
 name is a superseded draft.
 
+For the current pipeline, start with the [visitor overview](../../README.md),
+the [source-linked examples](../examples/README.md), and the [architecture map](README.md).
+The dated target below records the design direction at adoption.
+
 ## Bottom line
 
 The domain model is data, and every method is a measured, swappable producer of observations

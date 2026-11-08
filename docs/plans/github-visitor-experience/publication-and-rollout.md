@@ -31,7 +31,7 @@ additional checkout-only inputs, LFS pointers or raw payloads being copied, and
 unresolved links before handing it to GHV-05.
 [Source-population evidence](../../design_review/evidence/2026-11-04_m1-source-populations/README.md) · [Tracked inventory](../../design_review/evidence/2026-11-03_m1-population/available-originals.json) · [Publication and custody](../../publishing.md)
 
-Use the declared mdBook `0.5.4`, Pagefind `1.5.2`, and lychee `0.24.2` pins
+Use the declared mdBook `0.5.4`, Pagefind `1.6.0`, and lychee `0.24.2` pins
 and the existing `just bootstrap-docs` on an unprepared host. Keep this lane
 product-independent and LFS-disabled. Exercise the discovery/link regression
 with an authored nested review, a generated bundle README in both hydrated and
@@ -84,7 +84,7 @@ paths while omitting `.git` and `.github`. Use the deployment output URL for
 verification and homepage configuration.
 [Configure action](https://github.com/actions/configure-pages/blob/45bfe0192ca1faeb007ade9deae92b16b8254a0d/action.yml) · [Upload action](https://github.com/actions/upload-pages-artifact/blob/fc324d3547104276b827a68afc52ff2a11cc49c9/action.yml) · [Deploy action](https://github.com/actions/deploy-pages/blob/368f82528645a54fb793d4d04e342629a3f51346/action.yml)
 
-Use the installed `gh` 2.45.0 where it provides the needed repository edit
+Use the installed `gh` 2.103.3 where it provides the needed repository edit
 flags. Confirm the effective account and repository before effects. Apply the
 About description with the README.
 
@@ -129,8 +129,8 @@ verified deployment is available.
    check the shared SVG and its full-size link, and find architecture,
    evaluation and reproduction. Open Pagefind with Current selected, then
    exercise Reference and Everything. Check actual hidden path retrieval.
-3. **Hosted qualification.** Record the hosted PR build and default-branch
-   deployment separately. Verify the live prefix, working navigation and
+3. **Hosted qualification.** Record the default-branch deployment. The operator selected direct pushes, so a
+   hosted PR run is `not_run`; check the deployment guard locally. Verify the live prefix, working navigation and
    search, evidence and asset links, hidden paths, and the About metadata
    and preview. Record the deployed revision, outcome and URL in the
    coordinator. Local checks establish only the local artifact boundary.

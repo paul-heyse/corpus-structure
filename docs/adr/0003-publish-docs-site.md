@@ -1,10 +1,10 @@
 ---
 id: ADR-0003
 title: Publish the documentation with derived navigation and search
-status: accepted
+status: superseded
 date: 2026-10-28
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0071
 design: [§2]
 evidence: Implemented
 revisit: A meaningful design change requires duplicate architectural statements or publication metadata, section moves break durable citations, or documentation builds require product qualification.
