@@ -109,3 +109,11 @@ The [GitHub visitor review](github-visitor-experience_2026-11-08.md) recommends 
 visitor-first README, a traceable citation example, and a shared functional diagram.
 It records tool and installation choices and the clean-checkout failures to resolve
 before publishing the existing documentation site on GitHub Pages.
+
+## Production milestone two — 2026-11-08
+
+The [M2 functional extension review](production-milestone-two_2026-11-08.md) reconciles
+both passes of the supplied target and recommends exact candidate profiles for HanLP,
+Maverick, Dipo and d1-2B, with source-aligned composition, operation-level assessment,
+and evidence required to enable conditional modes. O01–O09 and the baseline crosswalk
+carry the recommendations into detailed planning.

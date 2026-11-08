@@ -11,13 +11,13 @@ _Updated 2026-11-08. Development runs `semantic_dma_05_13_final`. The 518-page c
 - [DMA-05–13](docs/plans/domain-model-alignment_2026-11-08.md#dma-13) deployed and admitted the successor in `corpus_structure_dev` (`ab020224d7294bceb6c200600dc326a6`). The archived p416 formula and p151 manifest matched at deployment. Run 397 reached source-ready cut 512 with 29 views. Run 401 remains the cutover blocker. The owning plan links the replay and the proposed literal-only assertion request, which returned a located predicate on the failing input. The project is at generation 0 with an empty selection.
 - The [broad design audit](docs/design_review/audit/README.md#baseline) records diagnostic source inspection at `67cbe680e` on 2026-11-08. `uv run ci docs check` and `just turn-end` passed. Product qualification was `not_run`.
 - The [GitHub visitor follow-on](docs/plans/github-visitor-experience_2026-11-08.md#ghv-follow-on-acceptance) is live. On 2026-11-08, the docs workflow and both live browser sizes passed. The corpus index links to 1,409 verified source files in Git LFS. The supplied How it works image passed desktop and mobile preview checks in the local revision.
+- The [M2 functional review](docs/functional_reviews/production-milestone-two_2026-11-08.md#handoff-to-detailed-planning) proposes four model profiles and their qualification routes. On 2026-11-08, `uv run ci docs check` passed and model runs were `not_run`. The next step is detailed planning from selected opportunities.
 
 ## Delivered and assessed
 
 - Scoped dice composition, typed comparison, rooted dossier, seven matched table-policy arms and artifact identity completed natively. The [repair account](docs/design_review/evidence/2026-11-06_wce-completion-repair/README.md) links current Reader, CLI, MCP and detached evidence.
 - The original 97 GLiNER2.5 envelopes supplied the retained model evidence. Native run207 withheld the unsupported formula X link and kept its candidate list. NCE-02 recovered the exact formula Z occurrence and NCE-06 linked it to its declaration.
-- Both table weighting modes selected all nine supported readings at each declared scale.
-  The WCE artifact reference includes 13 supported pairs, three originally native-only.
+- Both table weighting modes selected all nine supported readings at each declared scale. The WCE artifact reference includes 13 supported pairs, three originally native-only.
 
 ## WCE verification — 2026-11-07
 
