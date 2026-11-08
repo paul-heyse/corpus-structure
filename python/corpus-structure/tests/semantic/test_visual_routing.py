@@ -123,10 +123,11 @@ def test_crop_disagreement_needs_same_scope_and_preserves_exact_crop():
     )
     raw = b"<x_0><y_0>7 & 10<x_1><y_1><class_Table>"
     cropped = _Observation(_BASE, image, _readings(raw, image))
-    reasons = _disagreements(whole, cropped, [_region()])
+    reasons, complete = _disagreements(whole, cropped, [_region()])
+    assert complete
     assert [(reason.code, reason.crop) for reason in reasons] == [("located_disagreement", _REGION)]
     assert reasons[0].inputs == (_PIN, _BASE)
-    assert _disagreements(whole, whole, [_region()]) == []
+    assert _disagreements(whole, whole, [_region()]) == ([], True)
     assert _scoped_attempt(image, [_region()]) == _REGION
     assert (
         _scoped_attempt(
@@ -207,14 +208,11 @@ def test_dispatch_coalesces_reasons_and_respects_repair_and_blank():
     ] == [(1, None), (2, None), (3, None)]
 
 
-def test_dispatch_qualifies_one_stable_retry_and_binds_the_provider_recipe(monkeypatch, tmp_path):
-    from contextlib import nullcontext
+def test_dispatch_qualifies_one_stable_retry_and_binds_the_nomination(monkeypatch, tmp_path):
     from functools import partial
-    from types import SimpleNamespace
 
     from sqlalchemy import create_engine
 
-    from corpus_structure.ingest import pdf_chandra
     from corpus_structure.semantic import visual_dispatch
     from corpus_structure.semantic.visual_requests import VisualGroupResult
     from corpus_structure.semantic.visual_routing import VisualPageRoute, VisualRouteReport
@@ -231,14 +229,10 @@ def test_dispatch_qualifies_one_stable_retry_and_binds_the_provider_recipe(monke
             ),
         ),
     )
-    monkeypatch.setattr(visual_dispatch, "read_snapshot", lambda engine: nullcontext(None))
-    monkeypatch.setattr(visual_dispatch, "_require_dispatch_cut", lambda *args: None)
-    monkeypatch.setattr(visual_dispatch, "read_visual_routes", lambda *args, **kwargs: routes)
-    monkeypatch.setattr(visual_dispatch, "open_release", lambda conn, release: release)
-    monkeypatch.setattr(visual_dispatch, "installed_runtime_id", lambda release: "runtime")
-    recipe = {"revision": "first"}
+    nomination = 27
+    selections = visual_dispatch.visual_dispatch_selections(routes, "selective")
     monkeypatch.setattr(
-        pdf_chandra, "ChandraRuntime", lambda artifacts: SimpleNamespace(identity=lambda: recipe)
+        visual_dispatch, "_nominate", lambda *args: (nomination, routes, selections)
     )
     keys = []
 
@@ -269,11 +263,12 @@ def test_dispatch_qualifies_one_stable_retry_and_binds_the_provider_recipe(monke
         retry_failed=True,
     )
     first = dispatch()
+    assert first.nomination_run_id == 27
     assert first.retried_failed_runs == (11,)
     assert first.groups[0].run_id == 12
     assert len(set(keys)) == 2
     repeated = dispatch()
     assert repeated == first and keys[2:] == keys[:2]
-    recipe["revision"] = "second"
+    nomination = 28
     changed = dispatch()
     assert keys[-1] not in keys[:2] and changed.retried_failed_runs == ()

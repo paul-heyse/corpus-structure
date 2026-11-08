@@ -354,7 +354,9 @@ def edit_action(text: str, page: Page, settings: dict) -> str:
             f"{site['repository']}/edit/{site['branch']}/{quote(page.path.as_posix())}",
             quote=True,
         )
-        replacement = re.sub(r'\bhref="[^"]*"', lambda _: f'href="{destination}"', tag, count=1)
+        replacement = re.sub(
+            r'\bhref="[^"]*"', lambda _, href=destination: f'href="{href}"', tag, count=1
+        )
         return text[:offset] + replacement + text[offset + len(tag) :]
     return text
 

@@ -47,8 +47,8 @@ def test_exact_native_deployment_resumes_before_separate_activation(
     from corpus_structure.cli.output import CliState
     from corpus_structure.semantic import migrations
 
-    predecessor = "semantic_chandra_pdf_ancestry"
-    revision = "semantic_dma_00_04"
+    predecessor = "semantic_dma_00_04"
+    revision = "semantic_dma_05_13"
     scripts = ScriptDirectory.from_config(alembic_config())
     script = scripts.get_revision(revision)
     assert script is not None

@@ -91,11 +91,12 @@ _PDF_PAYLOAD_FUNCTIONS = frozenset(
         "read_pdf_record_rows",
         "read_pdf_record_context_rows",
         "publish_source_view",
-        "validate_projected_table_captions",
+        "validate_projected_source_fields",
         "validate_native_frame_source",
         "publish_pdf_region_artifact",
         "pdf_record_scope_health",
         "publish_pdf_observation",
+        "index_pdf_visual_mapping",
     }
 )
 
@@ -860,6 +861,8 @@ def series_native_definitions(connection, *, include_selected=True):
         "validate_definition_window_requests",
         "definition_role_candidates",
         "definition_model_components",
+        "definition_bound_span",
+        "validate_definition_basis",
         "clause_model_axis",
         "validate_clause_classification",
         "validate_structural_product_report",
@@ -1809,6 +1812,18 @@ def prepare_series_candidate(
             ordered.extend((ExecuteSQLOp(publisher), *publisher_work, ExecuteSQLOp(restore)))
         candidate.upgrade_ops.ops[:] = ordered
         _order_physical_retirement(candidate.upgrade_ops)
+        if any(item.schema == "ops" and item.table_name == "pdf_visual_index" for item in created):
+            # Build the derived locator from the exact existing artifact after
+            # installing its protected owner and in the same migration transaction.
+            candidate.upgrade_ops.ops.append(
+                ExecuteSQLOp("""
+                SELECT ops.index_pdf_visual_mapping(
+                    task_id, product_key, descriptor->'observation'->>'mapped_evidence_digest'
+                ) FROM ops.pdf_product_body
+                WHERE descriptor->'observation' ? 'mapped_evidence_digest'
+                ORDER BY task_id, product_key
+            """)
+            )
     return candidate, authoring
 
 

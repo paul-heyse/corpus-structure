@@ -39,6 +39,13 @@ class PreparedPdfOriginal:
 
 
 @dataclass(frozen=True, slots=True)
+class RetainedPdfOriginal:
+    """Reference to an original whose custody is checked at visual publication."""
+
+    digest: str
+
+
+@dataclass(frozen=True, slots=True)
 class PreparedIntegratedPdfProduct:
     payload: bytes
     artifacts: tuple[bytes, ...]
@@ -397,7 +404,7 @@ def validate_pdf_product_meaning(value: Mapping[str, Any]) -> None:
 
 def prepare_integrated_pdf_product(
     payload: Mapping[str, Any],
-    original: bytes | PreparedPdfOriginal,
+    original: bytes | PreparedPdfOriginal | RetainedPdfOriginal,
     recipe_bytes: bytes,
     *,
     artifacts: tuple[bytes, ...] = (),
@@ -412,18 +419,17 @@ def prepare_integrated_pdf_product(
     context = trusted_pdf_context() if context is None else context
     context.execution.require_operation("prepare_integrated_pdf")
     supplied = dict(payload)
-    custody = (
-        original if isinstance(original, PreparedPdfOriginal) else PreparedPdfOriginal(original)
-    )
-    original = custody.content
+    custody = PreparedPdfOriginal(original) if isinstance(original, bytes) else original
     content = supplied.get("content")
     native = None
     if content is not None:
+        if isinstance(custody, RetainedPdfOriginal):
+            raise ValueError("selected PDF content requires original bytes")
         if native_schema is None:
             raise ValueError("integrated Docling content requires its retained native schema")
         native = prepare_pdf_product(
             content,
-            original,
+            custody.content,
             native_schema,
             recipe_bytes,
             context=context,
@@ -445,7 +451,7 @@ def prepare_integrated_pdf_product(
         value["content"]["document"] = native.values()["document"]
     if value["kind"] not in {"recognition_observation", "integrated"}:
         raise ValueError("native products use their preserved native publication contract")
-    if not value["product_key"] or not original.startswith(b"%PDF-"):
+    if not value["product_key"]:
         raise ValueError("product key and PDF original are required")
     if value["artifact_digest"] != custody.digest:
         raise ValueError("original digest differs from retained bytes")
@@ -468,6 +474,8 @@ def prepare_integrated_pdf_product(
                 "recognition observation requires an observation body without selected content"
             )
         chandra = observation["pass_role"] in {"chandra_page", "chandra_crop"}
+        if isinstance(custody, RetainedPdfOriginal) and not chandra:
+            raise ValueError("referenced PDF originals require a protected visual observation")
         if chandra != (observation["binding"]["provider"] == "datalab-chandra-2"):
             raise ValueError("Chandra observation role differs from its provider")
         if chandra and sum(pin["role"] == "structural" for pin in inputs) != 1:

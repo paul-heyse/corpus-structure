@@ -942,7 +942,8 @@ BEGIN
  WHERE n.product_id=p_build AND n.revision_id=p_build AND n.native_type IN
  ('RefItem','FineRef') AND
  (r.reference_id IS NULL OR CASE
- WHEN r.native_pointer_stream_id IS NULL AND n.structure_json->'fields'->'$ref'->>'stream_id' IS NULL
+ WHEN r.native_pointer_stream_id IS NULL
+  AND n.structure_json->'fields'->'$ref'->>'stream_id' IS NULL
  THEN (r.native_pointer COLLATE "C" = (n.scalars_json->>'$ref') COLLATE "C") IS NOT TRUE
  ELSE NOT ops.pdf_reference_bytes_equal(p_build,p_build,r.native_pointer,r.native_pointer_stream_id,
  n.scalars_json->>'$ref',n.structure_json->'fields'->'$ref'->>'stream_id') END)) THEN
@@ -1126,7 +1127,8 @@ BEGIN
    AND v.contract_digest=contract_ AND v.check_name='seal') THEN RETURN; END IF;
   SELECT p.build_id INTO reused_ FROM ops.pdf_published_revision p
   JOIN ops.pdf_build_validation v ON v.build_id=p.build_id AND v.frozen_digest=p.frozen_digest
-   AND v.logical_digest=p.logical_digest AND v.native_contract_digest=contract_ AND v.native_callbacks
+   AND v.logical_digest=p.logical_digest AND v.native_contract_digest=contract_
+   AND v.native_callbacks
   JOIN ops.task t ON t.id=p.task_id
   JOIN ops.run r ON r.id=t.run_id AND r.sealed AND r.status IN ('consolidating','finished')
   JOIN ops.pdf_frozen_build f ON f.build_id=p_build AND f.kind=p.kind
@@ -1148,8 +1150,10 @@ BEGIN
    WHEN 'inventory' THEN PERFORM ops.pdf_check_build_inventory(p_build,b.source_digest,b.run_id);
    WHEN 'access' THEN
     IF prior_ IS NOT NULL AND {pdf_access_rows_equal} AND {pdf_native_rows_equal}
-     AND NOT EXISTS(SELECT FROM kb.pdf_record_access WHERE product_id=p_build AND revision_id<>p_build)
-     AND NOT EXISTS(SELECT FROM kb.pdf_record_region WHERE product_id=p_build AND revision_id<>p_build)
+     AND NOT EXISTS(SELECT FROM kb.pdf_record_access
+                    WHERE product_id=p_build AND revision_id<>p_build)
+     AND NOT EXISTS(SELECT FROM kb.pdf_record_region
+                    WHERE product_id=p_build AND revision_id<>p_build)
     THEN reused_:=prior_;
     ELSE PERFORM ops.pdf_check_access_correspondence(p_build); END IF;
    WHEN 'identity' THEN result_:=ops.pdf_record_logical_identity(p_build,p_build,prior_);
@@ -1168,7 +1172,8 @@ BEGIN
  PERFORM ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
  INSERT INTO ops.pdf_validation_check
   (build_id,attempt,holder,frozen_digest,contract_digest,check_name,result_digest,predecessor_build_id)
- VALUES(p_build,p_attempt,p_holder,p_frozen,contract_,p_check,result_,reused_) ON CONFLICT DO NOTHING;
+ VALUES(p_build,p_attempt,p_holder,p_frozen,contract_,p_check,result_,reused_)
+ ON CONFLICT DO NOTHING;
  IF NOT EXISTS(SELECT FROM ops.pdf_validation_check v WHERE v.build_id=p_build
   AND v.attempt=p_attempt AND v.holder=p_holder AND v.frozen_digest=p_frozen
   AND v.contract_digest=contract_ AND v.check_name=p_check AND v.result_digest=result_

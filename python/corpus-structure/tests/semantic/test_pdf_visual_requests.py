@@ -225,6 +225,41 @@ def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
     assert "mapped_evidence_digest" in descriptor["observation"]
     assert descriptor["health"]["source_fidelity"] == "unassessed"
 
+    from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
+    from corpus_structure.serve.native_source import NativeSourceRequest
+    from corpus_structure.serve.pdf_visual_evidence import (
+        MAX_VISUAL_EVIDENCE_ROWS,
+        VisualEvidenceArtifact,
+        VisualPicture,
+        _read_mapped_locator,
+    )
+
+    near_limit = VisualEvidenceArtifact(
+        page_no=1,
+        rows=tuple(
+            VisualPicture(occurrence_id=f"picture-{n}") for n in range(MAX_VISUAL_EVIDENCE_ROWS)
+        ),
+    )
+    with monkeypatch.context() as patch:
+        patch.setattr(pdf_visual_mapping, "map_visual_result", lambda *args, **kwargs: near_limit)
+        patch.setattr(ControlledChandra, "prompt", "near-limit")
+        large = visual_requests.request_visual_observation(db.writer, artifacts=tmp_path, **args)
+    assert large.mapped is not None
+    mapped_digest = sha256(near_limit.artifact_bytes()).hexdigest()
+    request = NativeSourceRequest(
+        **source.model_dump(),
+        view="visual_evidence",
+        page_no=1,
+        evidence=large.mapped,
+        occurrence_id=f"picture-{MAX_VISUAL_EVIDENCE_ROWS - 1}",
+    )
+    with db.writer.connect() as conn:
+        (item,), following = _read_mapped_locator(
+            conn, large.mapped, mapped_digest, request, (), PublishedReadBudget(2, 1024), 0
+        )
+    assert item.occurrence_id == request.occurrence_id and following is None
+    generation.remove("near-limit")
+
     repeated = visual_requests.request_visual_observation(db.writer, artifacts=tmp_path, **args)
     assert repeated.raw == replay.raw and repeated.mapped == replay.mapped
     assert generation == ["first prompt"]
@@ -491,6 +526,34 @@ def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
     assert raced.status == "cancelled"
     with pytest.raises(OperationConflict, match=f"run {raced.id} was cancelled"):
         visual_requests.request_visual_group(db.writer, **race_args)
+
+    # An inference-only settlement is reusable even when every dependency that
+    # could start a new recognition is deliberately unavailable.
+    fail_rotation = None
+    mapping_recovery = {**failure_args, "campaign_group": "1" * 64}
+    start_task = visual_requests._start_task
+
+    def interrupt_mapping(conn, run_id, prepared, document_id, selection, step, *args, **kwargs):
+        if step == "mapping":
+            raise KeyboardInterrupt
+        return start_task(conn, run_id, prepared, document_id, selection, step, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(visual_requests, "_start_task", interrupt_mapping)
+        with pytest.raises(KeyboardInterrupt):
+            visual_requests.request_visual_group(db.writer, **mapping_recovery)
+
+    def unavailable(*args, **kwargs):
+        pytest.fail("mapping replay tried to acquire recognition inputs")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(pdf_chandra, "ChandraRuntime", unavailable)
+        patch.setattr(pdf_visual_mapping, "render_visual_input", unavailable)
+        patch.setattr(visual_requests, "_read_visual_original", unavailable)
+        recovered_mapping = visual_requests.request_visual_group(db.writer, **mapping_recovery)
+    assert recovered_mapping.status == "source_ready"
+    assert recovered_mapping.members[0].raw is not None
+    assert recovered_mapping.members[0].mapped is not None
 
 
 def test_visual_group_reopens_only_the_lost_worker(tmp_path, monkeypatch):

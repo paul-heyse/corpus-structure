@@ -3050,6 +3050,56 @@ classes:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns":["task_id","product_key"],"target":"ops.pdf_product.task_id,product_key"},{"columns":["artifact_digest"],"target":"kb.source_artifact.artifact_digest"}]'
 
+  pdf_visual_index:
+    in_subset: [ops]
+    attributes:
+      task_id: {range: integer, required: true}
+      product_key: {range: string, required: true}
+      artifact_digest: {range: string, required: true}
+      row_count: {range: integer, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [task_id, product_key, artifact_digest]}
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns":["task_id","product_key","artifact_digest"],"target":"ops.pdf_product_artifact.task_id,product_key,artifact_digest"}]'
+      ph:checks: '["row_count BETWEEN 0 AND 10000"]'
+
+  pdf_visual_locator:
+    in_subset: [kb]
+    attributes:
+      task_id: {range: integer, required: true}
+      product_key: {range: string, required: true}
+      artifact_digest: {range: string, required: true}
+      occurrence_id: {range: string, required: true}
+      ordinal: {range: integer, required: true}
+      kind: {range: string, required: true}
+      parent_id: {range: string}
+      body: {range: json_payload, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [task_id, product_key, artifact_digest, occurrence_id]}
+      unique_0: {unique_key_slots: [task_id, product_key, artifact_digest, ordinal]}
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns":["task_id","product_key","artifact_digest"],"target":"ops.pdf_visual_index.task_id,product_key,artifact_digest"}]'
+      ph:indexes: '[["task_id","product_key","artifact_digest","kind","ordinal"],["task_id","product_key","artifact_digest","parent_id","ordinal"]]'
+      ph:checks: '["ordinal > 0", "occurrence_id <> ''''"]'
+
+  pdf_visual_cell:
+    in_subset: [kb]
+    attributes:
+      task_id: {range: integer, required: true}
+      product_key: {range: string, required: true}
+      artifact_digest: {range: string, required: true}
+      occurrence_id: {range: string, required: true}
+      cell_index: {range: integer, required: true}
+      group_id: {range: string}
+    unique_keys:
+      primary_key: {unique_key_slots: [task_id, product_key, artifact_digest, occurrence_id, cell_index]}
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns":["task_id","product_key","artifact_digest","occurrence_id"],"target":"kb.pdf_visual_locator.task_id,product_key,artifact_digest,occurrence_id"}]'
+      ph:checks: '["cell_index >= 0"]'
+
   pdf_mapping_report:
     in_subset: [kb]
     attributes:

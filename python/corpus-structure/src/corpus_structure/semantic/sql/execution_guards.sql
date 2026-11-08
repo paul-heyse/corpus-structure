@@ -67,7 +67,7 @@ BEGIN
  RETURN NEW;
 END $$;
 CREATE OR REPLACE FUNCTION ops.guard_execution_run() RETURNS trigger LANGUAGE plpgsql SET search_path TO 'pg_catalog', 'pg_temp' AS $$
-DECLARE prior text; result text;
+DECLARE prior text; result text; nomination jsonb; demand jsonb; source jsonb; routes jsonb; expected jsonb;
 BEGIN
  IF NOT EXISTS(SELECT 1 FROM sem.release WHERE release_id=NEW.release_id AND profile='semantic-2') THEN RAISE EXCEPTION 'execution requires a current composed release' USING ERRCODE='23514'; END IF;
  IF TG_OP='INSERT' THEN
@@ -75,6 +75,54 @@ BEGIN
   IF NEW.runtime_id IS NULL THEN
    RAISE EXCEPTION 'new run requires an immutable runtime binding' USING ERRCODE='23514'; END IF;
   PERFORM sem.require_runtime_binding(NEW.release_id,NEW.runtime_id);
+  IF NEW.options ? 'visual_nomination' THEN
+   nomination:=NEW.options->'visual_nomination'; demand:=nomination->'demand';
+   source:=demand->'source'; routes:=nomination->'routes';
+   IF NEW.code_commit IS DISTINCT FROM 'chandra-visual-source-v1'
+    OR NEW.options ?| ARRAY['visual_group','visual_request']
+    OR nomination->>'version' IS DISTINCT FROM 'visual-nomination-v1'
+    OR routes->>'policy' IS DISTINCT FROM 'chandra-dry-routing-v3'
+    OR routes->'source' IS DISTINCT FROM source
+    OR demand->>'release' IS DISTINCT FROM NEW.release_id
+    OR demand->>'realization' IS DISTINCT FROM NEW.input_realization_id
+    OR coalesce(demand->>'mode','') NOT IN ('selective','all-page')
+    OR coalesce((demand->>'limit')::bigint,0) NOT BETWEEN 1 AND 64
+    OR coalesce((demand->>'first')::bigint,0)<1
+    OR jsonb_typeof(routes->'pages') IS DISTINCT FROM 'array'
+    OR NOT EXISTS(SELECT FROM ops.input_cut cut JOIN ops.run origin ON origin.id=cut.run_id
+     JOIN ops.cut_task member ON member.cut_id=cut.id JOIN ops.pdf_product p ON p.task_id=member.task_id
+     WHERE cut.id=(demand->>'source_cut')::bigint AND origin.id=(source->>'run_id')::bigint
+      AND origin.project_id=NEW.project_id AND cut.name='source-ready'
+      AND member.origin_task_id=member.task_id AND p.task_id=(source->>'task_id')::bigint
+      AND p.product_key=source->>'product_key' AND p.content_digest=source->>'content_digest'
+      AND p.kind='integrated') THEN
+    RAISE EXCEPTION 'visual nomination differs from its exact source-ready cut' USING ERRCODE='23514';
+   END IF;
+   IF jsonb_array_length(routes->'pages') IS DISTINCT FROM least((demand->>'limit')::bigint,
+       (routes->>'page_count')::bigint-(demand->>'first')::bigint+1)
+    OR EXISTS(SELECT FROM jsonb_array_elements(routes->'pages') WITH ORDINALITY q(page,n)
+     WHERE page->>'page_no' IS DISTINCT FROM ((demand->>'first')::bigint+n-1)::text
+      OR coalesce(page->>'action','') NOT IN ('recognize','repair','skip','unresolved')
+      OR jsonb_typeof(page->'reasons') IS DISTINCT FROM 'array'
+      OR jsonb_typeof(page->'cues') IS DISTINCT FROM 'array') THEN
+    RAISE EXCEPTION 'visual nomination page coverage differs from its range' USING ERRCODE='23514';
+   END IF;
+   WITH proposed AS (
+    SELECT jsonb_build_object('source',source,'page_no',page->'page_no') ||
+       CASE WHEN demand->>'mode'='selective' THEN coalesce(nullif(reason->'crop','null'),'{}') ELSE '{}' END AS scope,
+       page_pos,reason_pos
+    FROM jsonb_array_elements(routes->'pages') WITH ORDINALITY q(page,page_pos)
+    CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN demand->>'mode'='all-page' THEN '[{}]' ELSE page->'reasons' END)
+     WITH ORDINALITY r(reason,reason_pos)
+    WHERE demand->>'mode'='all-page' OR (page->>'action'='recognize' AND reason->>'code' IN
+     ('missing_structure','incomplete_request','incomplete_ocr_region','located_disagreement','omitted_crop'))
+   ), distinct_scopes AS (
+    SELECT DISTINCT ON(scope) scope,page_pos,reason_pos FROM proposed ORDER BY scope,page_pos,reason_pos
+   ) SELECT coalesce(jsonb_agg(scope ORDER BY page_pos,reason_pos),'[]') INTO expected FROM distinct_scopes;
+   IF nomination->'selections' IS DISTINCT FROM expected THEN
+    RAISE EXCEPTION 'visual nomination selections differ from its recorded routes' USING ERRCODE='23514';
+   END IF;
+  END IF;
   IF NEW.status<>'created' OR NEW.sealed OR NEW.result_realization_id IS NOT NULL THEN
    RAISE EXCEPTION 'invalid initial run combination' USING ERRCODE='23514'; END IF;
   RETURN NEW;
@@ -84,7 +132,7 @@ BEGIN
  IF NEW.result_realization_id IS NOT NULL AND OLD.options->'native_request'->>'demand'='render' THEN
   RAISE EXCEPTION 'native render runs have no evaluated realization' USING ERRCODE='23514'; END IF;
  IF NEW.result_realization_id IS NOT NULL AND OLD.code_commit='chandra-visual-source-v1'
-   AND OLD.options ?| ARRAY['visual_request','visual_group'] THEN
+   AND OLD.options ?| ARRAY['visual_request','visual_group','visual_nomination'] THEN
   RAISE EXCEPTION 'visual evidence runs have no evaluated realization' USING ERRCODE='23514'; END IF;
  prior:=OLD.status || CASE WHEN OLD.status IN ('failed','cancelled') THEN CASE WHEN OLD.sealed THEN '_sealed' ELSE '_open' END ELSE '' END;
  result:=NEW.status || CASE WHEN NEW.status IN ('failed','cancelled') THEN CASE WHEN NEW.sealed THEN '_sealed' ELSE '_open' END ELSE '' END;

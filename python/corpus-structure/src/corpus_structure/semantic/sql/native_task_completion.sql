@@ -28,6 +28,9 @@ BEGIN
  WHERE operation->>'id'='configure_method' AND domain->>'id'=d->>'outcome_domain';
  IF p_envelope ? 'outcome' AND NOT coalesce(dimensions->(method.name||'/result.outcome') ? (p_envelope->>'outcome'),false) THEN
   RAISE EXCEPTION 'method result outcome is not admitted by its release' USING ERRCODE='23514'; END IF;
+ IF p_envelope ? 'outcome' AND p_envelope->>'outcome' IS DISTINCT FROM
+  (CASE p_outcome WHEN 'done' THEN 'produced' ELSE p_outcome END) THEN
+  RAISE EXCEPTION 'method result outcome differs from protected task completion' USING ERRCODE='23514'; END IF;
  PERFORM data.record_source_json(NULLIF(p_envelope->'parse_detail','null')),
   data.record_source_json(NULLIF(p_envelope->'cost','null'));
  IF NULLIF(p_envelope->'structural_product','null'::jsonb) IS NOT NULL THEN

@@ -476,6 +476,7 @@ def release_activate(
     release: str,
     project: str | None = None,
     target: DeploymentProfile | None = None,
+    expected_generation: int | None = None,
     json: JsonOpt = False,
 ) -> None:
     """Explicitly activate an archived release without selecting a run."""
@@ -514,6 +515,8 @@ def release_activate(
                 if error.args != (project,):
                     raise
                 raise ResultError("project is unavailable on the selected target") from error
+            if expected_generation is not None and before.generation != expected_generation:
+                raise ActivationConflict("project generation differs from the approved activation")
             token = activate_release(
                 conn,
                 project,
@@ -539,6 +542,7 @@ def promote(
     run: int,
     project: str | None = None,
     target: DeploymentProfile | None = None,
+    expected_generation: int | None = None,
     json: JsonOpt = False,
 ) -> None:
     """Explicitly select a completed run for the active release."""
@@ -576,6 +580,8 @@ def promote(
                 if error.args != (project,):
                     raise
                 raise ResultError("project is unavailable on the selected target") from error
+            if expected_generation is not None and before.generation != expected_generation:
+                raise ActivationConflict("project generation differs from the approved selection")
             generation = select_completed_result(conn, project, run, before.generation)
         emit(
             SelectionReport(

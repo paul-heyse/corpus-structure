@@ -61,14 +61,18 @@ def visual_dispatch(
     retry_failed: Annotated[
         bool, typer.Option(help="Retry a failed group once after resolving a transient failure.")
     ] = False,
+    nomination_run_id: Annotated[int | None, typer.Option("--nomination-run")] = None,
     json: JsonOpt = False,
 ) -> None:
     """Dispatch candidate-only visual work for a committed source-ready page range."""
+    from corpus_structure.cli.managed import managed_operation, result_store
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.semantic.visual_dispatch import dispatch_visual_work
     from corpus_structure.serve.pdf_visual_evidence import VisualEvidencePin
 
-    with failure_boundary(json, expected=(ValueError, OSError)):
+    with managed_operation(
+        result_store(ctx), "source.visual-dispatch", json=json, expected=(ValueError, OSError)
+    ) as managed:
         source = VisualEvidencePin(
             run_id=run, task_id=producing_task, product_key=product, content_digest=native_digest
         )
@@ -89,8 +93,21 @@ def visual_dispatch(
                 receipts=settings.nemotron.receipts,
                 nemotron_endpoint=settings.nemotron.endpoint,
                 retry_failed=retry_failed,
+                nomination_run_id=nomination_run_id,
+                report_progress=managed.record_routing,
             )
         failed = any(group.status == "failed" for group in result.groups)
-        emit(result, json=json, exit_code=int(failed))
-        if failed:
-            raise typer.Exit(1)
+        managed.settle("failed" if failed else "passed")
+    account = managed.manifest.operation_account
+    emit(
+        result.model_copy(
+            update={
+                "result_id": managed.id,
+                "operation_account": account.model_dump(mode="json") if account else None,
+            }
+        ),
+        json=json,
+        exit_code=int(failed),
+    )
+    if failed:
+        raise typer.Exit(1)

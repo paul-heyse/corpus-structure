@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from contextlib import ExitStack, contextmanager
+from functools import cache
 from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
@@ -32,8 +33,12 @@ from .operations import (
     record_method,
     seal_cut,
 )
-from .pdf_contracts import pdf_context_for_release, store_pdf_original
-from .pdf_integrated import prepare_integrated_pdf_product, store_pdf_observation
+from .pdf_contracts import pdf_context_for_release
+from .pdf_integrated import (
+    RetainedPdfOriginal,
+    prepare_integrated_pdf_product,
+    store_pdf_observation,
+)
 from .product_reference import ProductReference
 from .query import read_snapshot
 from .releases import open_release
@@ -165,7 +170,7 @@ def _load_visual_source(conn, pin: VisualEvidencePin):
     if identity["artifact_digest"] != digest:
         raise ValueError("visual request original differs from the admitted PDF product")
     row = conn.execute(
-        select(artifacts.c.content)
+        select(artifacts.c.artifact_digest)
         .join(builds, builds.c.artifact_digest == artifacts.c.artifact_digest)
         .join(documents, documents.c.content_hash == artifacts.c.artifact_digest)
         .where(
@@ -176,9 +181,28 @@ def _load_visual_source(conn, pin: VisualEvidencePin):
             documents.c.project_id == source.project_id,
         )
     ).one_or_none()
-    if row is None or _digest(original := bytes(row.content)) != digest:
+    if row is None:
         raise ValueError("visual request original differs from the published source")
-    return source.project_id, source.unit_id, original, reader
+    return source.project_id, source.unit_id, RetainedPdfOriginal(digest), reader
+
+
+def _read_visual_original(conn, original: RetainedPdfOriginal) -> bytes:
+    artifacts = table("kb.source_artifact")
+    content = conn.scalar(
+        select(artifacts.c.content).where(artifacts.c.artifact_digest == original.digest)
+    )
+    if content is None or _digest(content) != original.digest:
+        raise ValueError("visual request original differs from the published source")
+    return bytes(content)
+
+
+def _original_loader(engine, original: RetainedPdfOriginal):
+    @cache
+    def load() -> bytes:
+        with engine.connect() as conn:
+            return _read_visual_original(conn, original)
+
+    return load
 
 
 def _selection_region(reader, selection):
@@ -192,7 +216,12 @@ def _selection_region(reader, selection):
 
 def _load_selection(conn, selection: VisualSelection):
     project, document, original, reader = _load_visual_source(conn, selection.source)
-    return project, document, original, _selection_region(reader, selection)
+    return (
+        project,
+        document,
+        _read_visual_original(conn, original),
+        _selection_region(reader, selection),
+    )
 
 
 def _open_observation(conn, pin: VisualEvidencePin, project_id: str, selection: VisualSelection):
@@ -456,7 +485,7 @@ def _recover_attempt_receipt(root, claim, selection, original, recipe, context):
         if (
             payload["product_key"] != claim.unit_key
             or payload["recipe_digest"] != _digest(recipe)
-            or payload["artifact_digest"] != _digest(original)
+            or payload["artifact_digest"] != original.digest
             or payload["inputs"]
             != [{"role": "structural", **_reference(selection.source).values()}]
             or observation["binding"]["provider"] != _PROVIDER
@@ -497,7 +526,7 @@ def _product(
         version=1,
         kind="recognition_observation",
         product_key=key,
-        artifact_digest=_digest(original),
+        artifact_digest=original.digest,
         recipe_digest=_digest(recipe),
         observation=observation,
         inputs=inputs,
@@ -650,14 +679,6 @@ def _settle(
                 )
             ).scalar_one_or_none()
             if published is None:
-                store_pdf_original(
-                    conn,
-                    task_id=claim.task_id,
-                    attempt=claim.attempt,
-                    holder=claim.holder,
-                    original=original,
-                    recipe_bytes=recipe,
-                )
                 digest = store_pdf_observation(
                     conn,
                     task_id=claim.task_id,
@@ -782,10 +803,11 @@ def request_visual_observation(
         _source_supervisor(supervisor, selection.source),
     ):
         with engine.begin() as conn:
-            project_id, document_id, original, region = _load_selection(conn, selection)
+            project_id, document_id, original, reader = _load_visual_source(conn, selection.source)
+            region = _selection_region(reader, selection)
             if replay is not None:
                 raw_body, pixels, raw = _open_observation(conn, replay, project_id, selection)
-                if raw_body["artifact_digest"] != _digest(original):
+                if raw_body["artifact_digest"] != original.digest:
                     raise ValueError("visual replay original differs from the selected PDF")
             run_id, prepared, context, installed = _bind_visual_run(
                 conn,
@@ -808,7 +830,7 @@ def request_visual_observation(
                         raw_body, pixels, raw = _open_observation(
                             conn, replay, project_id, selection
                         )
-                        if raw_body["artifact_digest"] != _digest(original):
+                        if raw_body["artifact_digest"] != original.digest:
                             raise OperationConflict("retained visual response original differs")
                         artifacts = None
             return _execute_visual_request(
@@ -830,6 +852,7 @@ def request_visual_observation(
                 raw_body,
                 pixels,
                 raw,
+                load_original=_original_loader(engine, original),
             )
 
 
@@ -901,6 +924,7 @@ def request_visual_group(
     holder: str = "visual-source-request",
     resume_run_id: int | None = None,
     campaign_group: str | None = None,
+    nomination_run_id: int | None = None,
 ) -> VisualGroupResult:
     """Run a finite group, optionally recovering a retained campaign demand."""
     from corpus_structure.orchestrate.liveness import (
@@ -925,9 +949,15 @@ def request_visual_group(
         if re.fullmatch(r"[0-9a-f]{64}", campaign_group) is None:
             raise ValueError("visual campaign group requires a SHA-256 key")
         options["visual_campaign_group"] = campaign_group
+    if nomination_run_id is not None:
+        options["visual_nomination_run_id"] = nomination_run_id
     with supervisor_connection(engine) as supervisor, _source_supervisor(supervisor, source):
         with engine.begin() as conn:
             project_id, document_id, original, reader = _load_visual_source(conn, source)
+            if nomination_run_id is not None:
+                _require_group_nomination(
+                    conn, nomination_run_id, project_id, semantic_release, realization, scopes
+                )
             if campaign_group is not None:
                 retained_id = _campaign_group_run(conn, project_id, source, campaign_group)
                 if resume_run_id is not None and resume_run_id != retained_id:
@@ -964,11 +994,26 @@ def request_visual_group(
             members = []
             with ExitStack() as lifetime:
                 group = _GroupInference(artifacts, nemotron_endpoint, lifetime)
+                load_original = _original_loader(engine, original)
                 for selection, region in zip(selections, regions, strict=True):
+                    replay = raw_body = pixels = raw = None
                     with engine.connect() as conn:
                         inference = _visual_task(conn, run_id, "inference", selection)
                         mapping = _visual_task(conn, run_id, "mapping", selection)
                         settled = _settled_group_member(conn, run_id, source, inference, mapping)
+                        if (
+                            settled is None
+                            and inference is not None
+                            and inference.status in {"done", "empty", "reused"}
+                        ):
+                            replay = _task_product_pin(
+                                conn, inference.reused_task_id or inference.id, inference.unit_key
+                            )
+                            raw_body, pixels, raw = _open_observation(
+                                conn, replay, project_id, selection
+                            )
+                            if raw_body["artifact_digest"] != original.digest:
+                                raise OperationConflict("retained visual response original differs")
                     if settled is None:
                         settled = _execute_visual_request(
                             engine,
@@ -982,13 +1027,14 @@ def request_visual_group(
                             original,
                             region,
                             receipts,
-                            artifacts,
-                            None,
+                            artifacts if replay is None else None,
+                            replay,
                             nemotron_endpoint,
                             holder,
-                            None,
-                            None,
-                            None,
+                            raw_body,
+                            pixels,
+                            raw,
+                            load_original=load_original,
                             group=group,
                         )
                     members.append(VisualGroupMember(selection=selection, **settled.model_dump()))
@@ -1021,6 +1067,27 @@ def request_visual_group(
                 status="failed" if failed else "source_ready",
                 members=tuple(members),
             )
+
+
+def _require_group_nomination(conn, nomination, project, release, realization, scopes):
+    runs = table("ops.run")
+    options = conn.scalar(
+        select(runs.c.options).where(
+            runs.c.id == nomination,
+            runs.c.project_id == project,
+            runs.c.release_id == release,
+            runs.c.input_realization_id == realization,
+            runs.c.code_commit == VISUAL_REQUEST_CODE_COMMIT,
+            runs.c.sealed,
+        )
+    )
+    retained = options.get("visual_nomination") if options else None
+    if (
+        retained is None
+        or retained.get("version") != "visual-nomination-v1"
+        or any(scope not in retained["selections"] for scope in scopes)
+    ):
+        raise OperationConflict("visual group differs from the frozen nomination")
 
 
 def _campaign_group_run(conn, project_id, source, key):
@@ -1206,6 +1273,7 @@ def resume_visual_observation(
             nemotron_endpoint=nemotron_endpoint,
             resume_run_id=run_id,
             campaign_group=retained.options.get("visual_campaign_group"),
+            nomination_run_id=retained.options.get("visual_nomination_run_id"),
         )
     return request_visual_observation(
         engine,
@@ -1242,6 +1310,7 @@ def _execute_visual_request(
     pixels,
     raw,
     *,
+    load_original,
     group=None,
 ):
     from PIL import Image
@@ -1272,11 +1341,11 @@ def _execute_visual_request(
             try:
                 runtime = ChandraRuntime(artifacts) if group is None else group.runtime()
                 pixels, transform = render_visual_input(
-                    original, selection.page_no, region, selection.rotation or 0
+                    load_original(), selection.page_no, region, selection.rotation or 0
                 )
                 recipe.update(
                     runtime=runtime.identity(),
-                    original_digest=_digest(original),
+                    original_digest=original.digest,
                     submitted_png_digest=_digest(pixels),
                     transform=transform,
                     render_policy=_RENDER_POLICY,

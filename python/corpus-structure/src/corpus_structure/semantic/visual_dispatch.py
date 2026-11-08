@@ -8,17 +8,18 @@ from itertools import batched
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from .identity import canonical_bytes
 from .metadata import table
+from .operations import OperationConflict, seal_cut
 from .query import read_snapshot
-from .releases import open_release
-from .runtime_bindings import installed_runtime_id
 from .visual_requests import (
     MAX_VISUAL_GROUP,
+    VISUAL_REQUEST_CODE_COMMIT,
     VisualGroupResult,
     VisualSelection,
+    _bind_visual_run,
     request_visual_group,
 )
 from .visual_routing import VisualRouteReport, read_visual_routes
@@ -41,11 +42,101 @@ _REQUEST_REASONS = {
 
 
 class VisualDispatchResult(BaseModel):
+    nomination_run_id: int
     source_cut: int
     mode: VisualDispatchMode
     routes: VisualRouteReport
     groups: tuple[VisualGroupResult, ...]
     retried_failed_runs: tuple[int, ...] = ()
+    result_id: str | None = None
+    operation_account: dict | None = None
+
+
+def _nominate(
+    engine,
+    source,
+    source_cut,
+    semantic_release,
+    realization,
+    mode,
+    first,
+    limit,
+    artifacts,
+    nomination_run_id,
+):
+    """Persist the decisions before dispatch, including a decision with no work."""
+    runs = table("ops.run")
+    demand = {
+        "source": source.model_dump(mode="json"),
+        "source_cut": source_cut,
+        "release": semantic_release,
+        "realization": realization,
+        "mode": mode,
+        "first": first,
+        "limit": limit,
+        "artifacts": str(artifacts),
+    }
+    if nomination_run_id is not None:
+        with read_snapshot(engine) as conn:
+            _require_dispatch_cut(conn, source, source_cut, semantic_release, realization)
+            row = conn.execute(
+                select(runs.c.options, runs.c.sealed).where(
+                    runs.c.id == nomination_run_id,
+                    runs.c.code_commit == VISUAL_REQUEST_CODE_COMMIT,
+                )
+            ).one_or_none()
+            retained = row.options.get("visual_nomination") if row and row.sealed else None
+            if (
+                retained is None
+                or retained.get("version") != "visual-nomination-v1"
+                or retained.get("demand") != demand
+            ):
+                raise OperationConflict("visual dispatch differs from its retained nomination")
+            return (
+                nomination_run_id,
+                VisualRouteReport.model_validate(retained["routes"]),
+                tuple(VisualSelection.model_validate(scope) for scope in retained["selections"]),
+            )
+
+    with read_snapshot(engine) as conn:
+        _require_dispatch_cut(conn, source, source_cut, semantic_release, realization)
+        routes = read_visual_routes(conn, source, first=first, limit=limit)
+    selections = visual_dispatch_selections(routes, mode)
+    nomination = {
+        "version": "visual-nomination-v1",
+        "demand": demand,
+        "routes": routes.model_dump(mode="json"),
+        "selections": [selection.scope() for selection in selections],
+    }
+    identity = sha256(canonical_bytes(nomination)).hexdigest()
+    with engine.begin() as conn:
+        _require_dispatch_cut(conn, source, source_cut, semantic_release, realization)
+        # Equal demand and decisions can replay the same run. The advisory lock
+        # covers publication only and is released before any provider work.
+        conn.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))"), {"key": identity}
+        )
+        retained = conn.scalar(
+            select(runs.c.id).where(
+                runs.c.code_commit == VISUAL_REQUEST_CODE_COMMIT,
+                runs.c.options["visual_nomination_id"].as_string() == identity,
+                runs.c.sealed,
+            )
+        )
+        if retained is not None:
+            return retained, routes, selections
+        project_id = conn.scalar(select(runs.c.project_id).where(runs.c.id == source.run_id))
+        run_id, _, _, _ = _bind_visual_run(
+            conn,
+            project_id,
+            semantic_release,
+            realization,
+            recognize=False,
+            options={"visual_nomination": nomination, "visual_nomination_id": identity},
+            resume_run_id=None,
+        )
+        seal_cut(conn, run_id, "visual-nomination", final=True)
+        return run_id, routes, selections
 
 
 def visual_dispatch_selections(
@@ -107,34 +198,36 @@ def dispatch_visual_work(
     receipts: Path,
     nemotron_endpoint: str | None,
     retry_failed: bool = False,
+    nomination_run_id: int | None = None,
+    report_progress=None,
 ) -> VisualDispatchResult:
     """Evaluate one range, then settle its optional work through independent managed runs."""
-    from corpus_structure.ingest.pdf_chandra import ChandraRuntime
-
     if mode not in ("selective", "all-page"):
         raise ValueError("visual dispatch mode must be selective or all-page")
-    with read_snapshot(engine) as conn:
-        _require_dispatch_cut(conn, source, source_cut, semantic_release, realization)
-        routes = read_visual_routes(conn, source, first=first, limit=limit)
-        requested = visual_dispatch_selections(routes, mode)
-        if not requested:
-            return VisualDispatchResult(source_cut=source_cut, mode=mode, routes=routes, groups=())
-        runtime_id = installed_runtime_id(open_release(conn, semantic_release))
-
     artifacts = artifacts.resolve()
-    recipe = ChandraRuntime(artifacts).identity()
+    nomination_run_id, routes, requested = _nominate(
+        engine,
+        source,
+        source_cut,
+        semantic_release,
+        realization,
+        mode,
+        first,
+        limit,
+        artifacts,
+        nomination_run_id,
+    )
+    if report_progress is not None:
+        report_progress(nomination_run_id, ())
     groups = []
     retried = []
+    settled_ids = []
     for selections in batched(requested, MAX_VISUAL_GROUP, strict=False):
         key = sha256(
             canonical_bytes(
                 {
-                    "operation": "visual-postpublication-v2",
-                    "runtime": runtime_id,
-                    "recipe": recipe,
-                    "release": semantic_release,
-                    "realization": realization,
-                    "artifacts": str(artifacts),
+                    "operation": "visual-postpublication-v3",
+                    "nomination_run_id": nomination_run_id,
                     "selections": [selection.scope() for selection in selections],
                 }
             )
@@ -148,14 +241,22 @@ def dispatch_visual_work(
             receipts=receipts,
             artifacts=artifacts,
             nemotron_endpoint=nemotron_endpoint,
+            nomination_run_id=nomination_run_id,
         )
         group = settle_group(campaign_group=key)
+        settled_ids.append(group.run_id)
+        if report_progress is not None:
+            report_progress(nomination_run_id, tuple(settled_ids))
         if retry_failed and group.status == "failed":
             retried.append(group.run_id)
             retry_key = sha256(canonical_bytes({"retry_of": key, "attempt": 2})).hexdigest()
             group = settle_group(campaign_group=retry_key)
+            settled_ids.append(group.run_id)
+            if report_progress is not None:
+                report_progress(nomination_run_id, tuple(settled_ids))
         groups.append(group)
     return VisualDispatchResult(
+        nomination_run_id=nomination_run_id,
         source_cut=source_cut,
         mode=mode,
         routes=routes,

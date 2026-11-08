@@ -207,7 +207,10 @@ def test_automatic_comparison_run_and_released_report_roundtrip():
                     contribution_id=key,
                     pin=pin,
                     component=dict(
-                        kind="predicate_reading", frame="frame", scope=passage.passage_id
+                        kind="predicate_reading",
+                        question_version="4",
+                        frame="frame",
+                        scope=passage.passage_id,
                     ),
                 ),
                 dict(
