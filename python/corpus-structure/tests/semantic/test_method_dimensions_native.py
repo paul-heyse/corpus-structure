@@ -78,7 +78,7 @@ def task(admin, writer):
     return prepared, run, config, identity, claim
 
 
-def complete(conn, claim, *, family="value", outcome="produced", confidence=None):
+def complete(conn, claim, *, family="value", outcome="produced", confidence=None, envelope=None):
     payload = {
         "observation_key": "method-dimension-control",
         "item_key": "control",
@@ -100,9 +100,15 @@ def complete(conn, claim, *, family="value", outcome="produced", confidence=None
     ]
     return conn.scalar(
         text(
-            "SELECT ops.complete_task(:task,:attempt,'owner',CAST(:rows AS jsonb),'done',NULL,NULL)"
+            "SELECT ops.complete_task(:task,:attempt,'owner',CAST(:rows AS jsonb),'done',NULL,"
+            "CAST(:envelope AS jsonb))"
         ),
-        {"task": claim.task_id, "attempt": claim.attempt, "rows": json.dumps(rows)},
+        {
+            "task": claim.task_id,
+            "attempt": claim.attempt,
+            "rows": json.dumps(rows),
+            "envelope": json.dumps(envelope) if envelope is not None else None,
+        },
     )
 
 
@@ -114,6 +120,11 @@ def test_native_report_dimensions_refuse_before_observation_effects(
         ({"family": "mention"}, "family/outcome"),
         ({"outcome": "done"}, "family/outcome"),
         ({"confidence": "agent"}, "confidence provenance"),
+        ({"envelope": {"outcome": "not_recorded"}}, "method result outcome is not admitted"),
+        (
+            {"envelope": {"outcome": "empty"}},
+            "method result outcome differs from protected task completion",
+        ),
     ]:
         with pytest.raises(DBAPIError, match=message), semantic_writer_engine.begin() as conn:
             complete(conn, claim, **values)
@@ -129,8 +140,15 @@ def test_native_report_dimensions_refuse_before_observation_effects(
                 conn.scalar(text("SELECT status FROM ops.task WHERE id=:task"), {"task": identity})
                 == "running"
             )
+            assert (
+                conn.scalar(
+                    text("SELECT count(*) FROM ops.task_result WHERE task_id=:task"),
+                    {"task": identity},
+                )
+                == 0
+            )
     with semantic_writer_engine.begin() as conn:
-        receipt = complete(conn, claim)
+        receipt = complete(conn, claim, envelope={"outcome": "produced"})
         assert receipt["receipt"]["protocol"] == "done"
         assert receipt["receipt"]["task_id"] == identity
     with semantic_db_engine.connect() as conn:
