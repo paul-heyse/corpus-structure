@@ -6,7 +6,7 @@ The page numbers below are physical PDF pages.
 The source is the Dartmouth CHANCE Project edition of Grinstead and Snell’s
 *Introduction to Probability*, dated 4 July 2006. The title page identifies
 distribution under the GNU Free Documentation License.
-[Download the selected retained results as JSON](data/retained-examples.json)
+[Exact source PDF in Git LFS](../statistics_corpus/corpus/grinstead_snell/Introduction_to_probability_grinstead_and_snell.pdf) · [Source corpus and verification](../statistics_corpus/README.md) · [Download the selected retained results as JSON](data/retained-examples.json)
 
 ## A condition stays attached to its predicate
 

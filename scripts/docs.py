@@ -304,6 +304,7 @@ def rewrite_links(
                 attr == "src"
                 and source.suffix.lower() in {".png", ".jpg", ".jpeg", ".svg", ".gif", ".webp"}
                 and "evidence" not in source.parts
+                and not source.is_relative_to("docs/statistics_corpus")
             ):
                 destination = checked(site, source)
                 destination.parent.mkdir(parents=True, exist_ok=True)

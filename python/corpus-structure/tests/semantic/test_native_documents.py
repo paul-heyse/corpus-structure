@@ -92,7 +92,11 @@ def test_pdf_original_and_native_product_need_no_rendition(
         if not source.exists() or not (evidence / "convert.payload.json").exists():
             pytest.skip("actual page85 native capture and retained original are required")
         source_path = source
-        original = source.read_bytes()
+        with source.open("rb") as stream:
+            if stream.readline(128).strip() == b"version https://git-lfs.github.com/spec/v1":
+                pytest.skip("retained page85 PDF requires Git LFS hydration")
+            stream.seek(0)
+            original = stream.read()
         recipe = (evidence / "convert.recipe.json").read_bytes()
         captured = json.loads((evidence / "convert.payload.json").read_bytes())
         assert captured["artifact_digest"] == sha256(original).hexdigest()

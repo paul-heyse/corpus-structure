@@ -19,20 +19,6 @@ assessed.
 
 [Documentation](https://paul-heyse.github.io/corpus-structure/) · [See an example](docs/examples/README.md) · [Explore the architecture](docs/design/README.md) · [Read the evaluation](docs/evaluation.md) · [Run locally](#run-locally)
 
-## How it works
-
-<picture class="pipeline-diagram">
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/pipeline-dark.svg">
-  <img src="docs/assets/pipeline.svg" alt="Four operations produce located observations, qualified components, witnessed connections, and assembled views. Provenance and assessment apply throughout.">
-</picture>
-
-[Full-size diagram](docs/assets/pipeline.svg) · [Full-size dark diagram](docs/assets/pipeline-dark.svg)
-
-The pipeline locates observations in source material, attaches roles and qualifiers,
-connects related material through typed links, and assembles comparisons and dossiers.
-Each operation leaves an inspectable output. Later stages reuse supported structure
-while unresolved material remains visible. Assessment can focus on any stage.
-
 ## A real result
 
 In a correlation exercise, the source establishes positive variance before defining
@@ -49,6 +35,20 @@ an explicit source-cue witness. The dated output review checked the cue and targ
 against the printed book.
 
 [Follow the citation to both source pages and the retained evidence](docs/examples/README.md#a-printed-reference-becomes-a-typed-link).
+
+## How it works
+
+<picture class="pipeline-diagram">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/pipeline-dark.svg">
+  <img src="docs/assets/pipeline.svg" alt="Four operations produce located observations, qualified components, witnessed connections, and assembled views. Provenance and assessment apply throughout.">
+</picture>
+
+[Full-size diagram](docs/assets/pipeline.svg) · [Full-size dark diagram](docs/assets/pipeline-dark.svg)
+
+The pipeline locates observations in source material, attaches roles and qualifiers,
+connects related material through typed links, and assembles comparisons and dossiers.
+Each operation leaves an inspectable output. Later stages reuse supported structure
+while unresolved material remains visible. Assessment can focus on any stage.
 
 ## What you can inspect
 

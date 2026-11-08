@@ -19,5 +19,5 @@
 .local-reference-label { font-size: 0.85em; color: var(--fg); }
 
 .search-startup { display: inline-flex; gap: 0.5rem; align-items: center; }
-.search-status:empty { display: none; }
+.search-status:empty { margin: 0; }
 .search-retry { margin-block-end: 0.5rem; }

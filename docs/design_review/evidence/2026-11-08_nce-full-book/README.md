@@ -8,7 +8,9 @@ source selection, outputs and assessment.
 
 The input is the exact parent `Introduction_to_probability_grinstead_and_snell.pdf`
 with SHA-256 `763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e`.
-Place a verified copy under `WORK/corpus/`. Use a copy within the selected corpus
+Retrieve the [authenticated repository copy](../../../statistics_corpus/corpus/grinstead_snell/Introduction_to_probability_grinstead_and_snell.pdf)
+through Git LFS or use the same local PDF. Place a verified copy under
+`WORK/corpus/`. Use a copy within the selected corpus
 directory so the native original registration's containment check applies.
 
 ```sh

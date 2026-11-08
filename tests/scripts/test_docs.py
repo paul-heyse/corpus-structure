@@ -208,6 +208,15 @@ def test_images_copy_but_evidence_download_stays_remote(root, settings):
     assert not (root / "site/docs/evidence/raw.svg").exists()
 
 
+def test_corpus_image_stays_at_the_source_revision(root, settings):
+    source = "docs/statistics_corpus/corpus/example.gif"
+    (root / source).parent.mkdir(parents=True)
+    (root / source).write_text("version https://git-lfs.github.com/spec/v1\n")
+    result = rewrite(root, settings, '<img src="statistics_corpus/corpus/example.gif">', [source])
+    assert f"/blob/abc123/{source}" in result
+    assert not (root / "site" / source).exists()
+
+
 def test_clean_checkout_inactive_references_do_not_need_skill_installation(root, settings):
     subprocess.run(["git", "init", "-q", str(root)], check=True)
     skill = root / ".claude/skills"

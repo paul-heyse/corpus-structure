@@ -35,7 +35,13 @@ pages. Generated review bundle READMEs remain linked at the repository revision.
 Published Markdown links become local HTML. Omitted tracked files/directories link to GitHub at
 the build revision. A dirty preview says those links show committed content. Optional ignored
 capability indexes are visibly local references. Ordinary linked images are copied; evidence raw
-files are not recursively copied. An evidence download must be an explicit asset selection.
+files are not recursively copied. Declare small published downloads and
+head-only images explicitly in the asset list. The source corpus links to
+Git LFS objects at the build revision.
+
+The navigation declaration orders the existing published page list. It
+does not change page paths or search scopes. Use the configured public
+Pages URL for sharing metadata even in a local prefix preview.
 
 A live section move retains its ID, governing decisions and old heading as a short relocation
 pointer with `<!-- relocated-section -->` immediately after it. The authoritative owner carries

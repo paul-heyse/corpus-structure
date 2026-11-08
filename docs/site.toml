@@ -98,6 +98,7 @@ scope = "Reference"
 title = "Evidence"
 include = [
   "docs/design_review/evidence/README.md",
+  "docs/statistics_corpus/README.md",
   "docs/design_review/evidence/*/README.md",
   "docs/design_review/evidence/2026-10-28_design-spikes/results/mathgrammar/README.md",
   "docs/design_review/evidence/2026-10-29_sp06-execution-fit/library/README.md",

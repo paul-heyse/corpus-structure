@@ -168,9 +168,13 @@ def test_actual_native_backend_recovers_retained_page20_comma_without_inference(
     original = (
         EVIDENCE.parents[4] / "docs/statistics_corpus/corpus/siegrist_random/Full_PDF/Full.pdf"
     )
-    if not original.exists():
+    if not original.is_file():
         pytest.skip("retained Siegrist PDF unavailable")
-    (page,) = rediscover_candidates(original.read_bytes(), (20,), parser_threads=2)
+    with original.open("rb") as stream:
+        if stream.readline(128).strip() == b"version https://git-lfs.github.com/spec/v1":
+            pytest.skip("retained Siegrist PDF requires Git LFS hydration")
+        stream.seek(0)
+        (page,) = rediscover_candidates(stream.read(), (20,), parser_threads=2)
     candidate = next(
         candidate for candidate in page.candidates if candidate.before == "specified set"
     )

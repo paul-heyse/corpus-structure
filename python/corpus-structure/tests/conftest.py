@@ -1,8 +1,8 @@
 """Shared test configuration for the corpus-structure package (D9 §4; coordinator decision 10).
 
 - Hypothesis profiles `ci` and `dev`, chosen by `HYPOTHESIS_PROFILE` (default `dev`).
-- Markers `db`, `gpu` and `corpus`. `corpus` tests skip when `docs/statistics_corpus/` is absent;
-  nothing else skips. Tests using the database fixtures are marked `db` automatically.
+- Markers `db`, `gpu` and `corpus`. `corpus` tests require the prepared local acquisition,
+  including its indexes and hydrated source files. Tests using database fixtures are marked `db`.
 - `cli`: Typer's runner with stdout and stderr apart and a fixed width.
 - Native coordinates come from the original session Settings. Maintenance and restricted
   credentials resolve by purpose before changing only the owned clone's database name.
@@ -100,22 +100,42 @@ def pytest_configure(config: pytest.Config) -> None:
         environment.setenv("PYTEST_DEBUG_TEMPROOT", str(root))
     config.addinivalue_line("markers", "db: uses the PostgreSQL test database")
     config.addinivalue_line("markers", "gpu: needs a GPU")
-    config.addinivalue_line("markers", "corpus: needs docs/statistics_corpus (skipped without it)")
+    config.addinivalue_line("markers", "corpus: needs the prepared local statistics corpus")
+
+
+def _missing_local_corpus(root: Path) -> str | None:
+    # The public archive is a source subset. The full local acquisition supplies its own indexes.
+    for name in (
+        "MANIFEST.sha256",
+        "index/siegrist_sections.tsv",
+        "corpus/siegrist_random/random/special/Pareto.html",
+    ):
+        path = root / name
+        if not path.is_file():
+            return f"prepared local corpus requires {path}"
+        with path.open("rb") as stream:
+            if stream.readline(128).strip() == b"version https://git-lfs.github.com/spec/v1":
+                return f"prepared local corpus requires Git LFS hydration of {path}"
+    return None
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    no_corpus = pytest.mark.skip(reason=f"{CORPUS_DIR.relative_to(REPO)} is absent")
+    missing_corpus = (
+        _missing_local_corpus(CORPUS_DIR)
+        if any(item.get_closest_marker("corpus") for item in items)
+        else None
+    )
     for item in items:
         if DB_FIXTURES & set(getattr(item, "fixturenames", ())):
             item.add_marker(pytest.mark.db)
-        if item.get_closest_marker("corpus") and not CORPUS_DIR.is_dir():
+        if missing_corpus and item.get_closest_marker("corpus"):
             item.user_properties.extend(
                 [
                     ("qualification_prerequisite", "corpus"),
-                    ("qualification_reason", f"{CORPUS_DIR.relative_to(REPO)} is absent"),
+                    ("qualification_reason", missing_corpus),
                 ]
             )
-            item.add_marker(no_corpus)
+            item.add_marker(pytest.mark.skip(reason=missing_corpus))
 
 
 # --- CLI -------------------------------------------------------------------------------------
