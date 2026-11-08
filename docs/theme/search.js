@@ -7,8 +7,6 @@ const { configureInstance, getInstanceManager } = window.PagefindComponents;
 configureInstance('default', {
   bundlePath: bundle.pathname,
   baseUrl: new URL('../', bundle).pathname,
-  // The Pages cold-start check intermittently returned an empty result with the worker.
-  noWorker: true,
 });
 const instance = getInstanceManager().getInstance('default');
 // Set the initial filter when the dialog opens, avoiding index loads on page visits.
@@ -30,11 +28,25 @@ const scopes = document.querySelector('meta[name="doc-scopes"]')?.content.split(
 for (const name of scopes) scope.append(new Option(name, name));
 scope.addEventListener('change', () => instance.triggerFilter('scope', scope.value === 'Everything' ? [] : [scope.value]));
 // Reset scope whenever the library opens a new dialog, including keyboard opens.
+let searchReady;
 new MutationObserver(() => {
   const dialog = modal.querySelector('dialog');
   if (dialog?.open) {
     scope.value = 'Current';
-    instance.triggerFilter('scope', ['Current']);
+    // Wait for the initial index and its filter data before accepting the first query.
+    const input = modal.querySelector('pagefind-input input');
+    input.readOnly = true;
+    scope.disabled = true;
+    searchReady ??= instance.triggerLoad();
+    void searchReady.then(() => {
+      if (dialog.open) instance.triggerFilter('scope', ['Current']);
+    }).catch((error) => {
+      searchReady = undefined;
+      console.error(error);
+    }).finally(() => {
+      input.readOnly = false;
+      scope.disabled = false;
+    });
   }
 }).observe(modal, { subtree: true, attributes: true, attributeFilter: ['open'] });
 const trigger = document.createElement('pagefind-modal-trigger');
