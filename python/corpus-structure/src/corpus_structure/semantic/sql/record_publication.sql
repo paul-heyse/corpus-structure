@@ -786,12 +786,14 @@ BEGIN
     AND selected.status IN ('done','empty','reused')
     AND member.origin_task_id=COALESCE(selected.reused_task_id,selected.id)
   ), reports AS MATERIALIZED (
-   SELECT DISTINCT binding.origin_task_id,result.body
-   FROM bindings binding JOIN ops.task_result result ON result.task_id=binding.origin_task_id
+   SELECT binding.origin_task_id,result.body->>'source' AS source_name,
+    COALESCE(NULLIF(result.body->'contributions','null'),'[]') AS contributions
+   FROM (SELECT DISTINCT origin_task_id FROM bindings) binding
+   JOIN ops.task_result result ON result.task_id=binding.origin_task_id
   ), products AS MATERIALIZED (
-   SELECT report.origin_task_id,entry.contribution,op.operation_version,report.body->>'source' AS source_name
+   SELECT report.origin_task_id,entry.contribution,op.operation_version,report.source_name
    FROM reports report
-   CROSS JOIN LATERAL jsonb_array_elements(COALESCE(NULLIF(report.body->'contributions','null'),'[]'))
+   CROSS JOIN LATERAL jsonb_array_elements(report.contributions)
     WITH ORDINALITY entry(contribution,ordinal)
    JOIN kb.source_contribution product ON product.task_id=report.origin_task_id
     AND product.contribution_id=entry.contribution->>'contribution_id' AND product.position=entry.ordinal-1

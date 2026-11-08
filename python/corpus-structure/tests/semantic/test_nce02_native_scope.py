@@ -281,3 +281,48 @@ def test_native_block_negation_preserves_direct_and_shared_scope(semantic_db_eng
             "4": "unresolved",
         }
         assert conn.scalar(query, dict(tokens=retained, connector="but")) == {"2": "negative"}
+
+
+def test_native_example_cue_uses_one_governor_and_refuses_numbered_reference(semantic_db_engine):
+    query = text("""
+        SELECT ops.predicate_source_reading(
+         CAST(:annotation AS jsonb),CAST(:frame AS jsonb),'prose',CAST(:recipe AS jsonb),
+         false,CAST(:words AS text[]),'none',CAST(:eligible AS jsonb))->>'reading'
+    """)
+    with semantic_db_engine.connect() as conn:
+
+        def reading(words, edges, host, eligible):
+            tokens = [
+                dict(pos=pos, dependency=dep, head=head, sentence=0, role="prose")
+                for pos, dep, head in edges
+            ]
+            return conn.scalar(
+                query,
+                dict(
+                    annotation=json.dumps(dict(tokens=tokens, kind="paragraph")),
+                    frame=json.dumps(dict(predicate_token=host, frame_members=[])),
+                    recipe=json.dumps(interpretation_recipe()),
+                    words=words,
+                    eligible=json.dumps([str(index) for index in eligible]),
+                ),
+            )
+
+        prose = ["For", "example", ",", "permutations", "are"]
+        prose_edges = [
+            ("ADP", "prep", 3),
+            ("NOUN", "pobj", 0),
+            ("PUNCT", "punct", 3),
+            ("NOUN", "nsubj", 4),
+            ("AUX", "ROOT", 4),
+        ]
+        assert reading(prose, prose_edges, 4, (4,)) == "example"
+        assert reading(prose, prose_edges, 4, (3, 4)) == "unresolved"
+        caption = ["Figure", "Tree", "for", "Example", "4.25"]
+        caption_edges = [
+            ("VERB", "ROOT", 0),
+            ("NOUN", "appos", 0),
+            ("ADP", "prep", 1),
+            ("PROPN", "pobj", 2),
+            ("NUM", "nummod", 3),
+        ]
+        assert reading(caption, caption_edges, 0, (0,)) == "unresolved"

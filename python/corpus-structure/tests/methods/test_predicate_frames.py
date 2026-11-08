@@ -145,6 +145,13 @@ def test_fronted_shared_condition_and_independent_local_conditions(profile):
         assert strings(text, condition.span) == (expected,)
 
 
+def test_numbered_example_reference_does_not_act_as_a_discourse_marker(profile):
+    text, product = retained("Figure 4.12: Tree for Example 4.25.", profile)
+    frames = readings(text, predicate_frames(text, (product,)))
+    assert frames["figure"].interpretation == "unresolved"
+    assert not cues(frames["figure"], "example")
+
+
 def test_quoted_marker_historical_contrast_and_attributed_assumption(profile):
     text, product = retained(
         "The word “if” denotes a condition. Instead of defining the value, "

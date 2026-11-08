@@ -834,6 +834,16 @@ class _FrameBlock:
                     )
         for phrase, kind in (("for example", "example"), ("according to", "attribution")):
             for nodes in self.lexical[phrase]:
+                following = nodes[-1] + 1
+                if kind == "example" and following < len(self.doc):
+                    number = self.doc[following]
+                    if (
+                        number.pos_ == "NUM"
+                        and number.dep_ == "nummod"
+                        and number.head.i == nodes[-1]
+                        and self.same_sentence(*nodes, following)
+                    ):
+                        continue
                 first = self.doc[nodes[0]]
                 origin = self.local_predicate(first.head.i) if first.dep_ == "prep" else None
                 if origin is None or not self.same_sentence(origin, *nodes):

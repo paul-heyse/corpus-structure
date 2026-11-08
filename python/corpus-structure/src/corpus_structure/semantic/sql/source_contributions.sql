@@ -1372,13 +1372,14 @@ REVOKE ALL ON FUNCTION ops.predicate_reading_layout(jsonb,jsonb,jsonb,jsonb) FRO
 
 CREATE OR REPLACE FUNCTION ops.predicate_source_reading(
  annotation jsonb,frame jsonb,layout text,recipe jsonb,reporting_governor boolean,
- words text[],negation text)
+ words text[],negation text,eligible_governors jsonb)
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 DECLARE tokens jsonb:=annotation->'tokens'; roles jsonb;
  host integer:=(frame->>'predicate_token')::integer; h jsonb; sentence_ jsonb; parent integer;
  lemma_ text; dep text; voice_ text; grammar_ text; polarity_ text; reading_ text; modal text[];
  actor boolean; object_ boolean; complement boolean; copular boolean; passive boolean;
  probability boolean; contrasted boolean; attributed boolean; exemplified boolean;
+ prepositional_attribution boolean;
  quoted boolean:=false; stack text[]:='{}'; openings integer[]:='{}'; i integer; top integer;
 BEGIN
  h:=tokens->host; sentence_:=h->'sentence'; dep:=h->>'dependency'; parent:=(h->>'head')::integer;
@@ -1426,16 +1427,23 @@ BEGIN
  END LOOP;
  contrasted:=dep='pcomp' AND lower(words[parent+1])='of' AND lower(words[parent])='instead'
   AND tokens->parent->'sentence'=sentence_ AND tokens->(parent-1)->'sentence'=sentence_;
- attributed:=(dep='ccomp' AND reporting_governor AND tokens->parent->'sentence'=sentence_
-  AND recipe->'report_lemmas' ? casefold(coalesce(nullif(tokens->parent->>'lemma',''),words[parent+1]) COLLATE pg_unicode_fast))
-  OR EXISTS(SELECT FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n)
-   WHERE t->>'dependency'='prep' AND t->'head'=to_jsonb(host) AND t->'sentence'=sentence_
-    AND tokens->n::integer->'sentence'=sentence_ AND lower(words[n::integer])='according'
-    AND lower(words[(n+1)::integer])='to');
- exemplified:=EXISTS(SELECT FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n)
-   WHERE t->>'dependency'='prep' AND t->'head'=to_jsonb(host) AND t->'sentence'=sentence_
-    AND tokens->n::integer->'sentence'=sentence_ AND lower(words[n::integer])='for'
-    AND lower(words[(n+1)::integer])='example');
+ SELECT coalesce(bool_or(lower(words[n::integer])='according'
+   AND lower(words[(n+1)::integer])='to'),false),
+  coalesce(bool_or(lower(words[n::integer])='for' AND lower(words[(n+1)::integer])='example'
+   AND NOT coalesce(numbered.value->>'pos'='NUM' AND numbered.value->>'dependency'='nummod'
+    AND numbered.value->'head'=to_jsonb(n::integer) AND numbered.value->'sentence'=sentence_,false)),false)
+ INTO prepositional_attribution,exemplified
+ FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n)
+ CROSS JOIN LATERAL (SELECT tokens->((t->>'head')::integer) AS value) governor
+ CROSS JOIN LATERAL (SELECT tokens->((n+1)::integer) AS value) numbered
+ WHERE t->>'dependency'='prep' AND t->'sentence'=sentence_
+  AND tokens->n::integer->'sentence'=sentence_
+  AND (t->'head'=to_jsonb(host) OR (
+   eligible_governors IS NOT NULL AND NOT (eligible_governors ? (t->>'head'))
+   AND governor.value->'head'=to_jsonb(host) AND governor.value->'sentence'=sentence_));
+ attributed:=prepositional_attribution OR (
+  dep='ccomp' AND reporting_governor AND tokens->parent->'sentence'=sentence_
+  AND recipe->'report_lemmas' ? casefold(coalesce(nullif(tokens->parent->>'lemma',''),words[parent+1]) COLLATE pg_unicode_fast));
  probability:=lemma_='give' AND EXISTS(
   SELECT FROM jsonb_array_elements(roles) r
   CROSS JOIN LATERAL (SELECT (r->>'head_token')::integer AS p) x
@@ -1477,6 +1485,15 @@ BEGIN
   ELSE 'unresolved' END;
  RETURN jsonb_build_object('grammar',grammar_,'voice',voice_,'polarity',polarity_,'reading',reading_);
 END $$;
+REVOKE ALL ON FUNCTION ops.predicate_source_reading(jsonb,jsonb,text,jsonb,boolean,text[],text,jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.predicate_source_reading(
+ annotation jsonb,frame jsonb,layout text,recipe jsonb,reporting_governor boolean,
+ words text[],negation text)
+RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+ SELECT ops.predicate_source_reading(
+  annotation,frame,layout,recipe,reporting_governor,words,negation,NULL::jsonb)
+$$;
 REVOKE ALL ON FUNCTION ops.predicate_source_reading(jsonb,jsonb,text,jsonb,boolean,text[],text) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.predicate_source_reading(
@@ -1722,7 +1739,8 @@ BEGIN
        coalesce(host_inventory->'roles'
         ? (host_annotation->'tokens'->((host_component->>'predicate_token')::integer)->>'head'),false),
        ARRAY(SELECT jsonb_array_elements_text(host_inventory->'words')),
-       coalesce(host_inventory->'negations'->>(host_component->>'predicate_token'),'none'));
+       coalesce(host_inventory->'negations'->>(host_component->>'predicate_token'),'none'),
+       host_inventory->'roles');
      ELSE
       expected_reading:=ops.predicate_source_reading(
        p_view.projection,host_annotation,host_component,
