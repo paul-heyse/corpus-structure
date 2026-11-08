@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from corpus_structure.methods.scoped_relations import discover_relations
+from corpus_structure.methods.scoped_relations import ScopedRelationsMethod, discover_relations
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.proposals import native_source_frame
@@ -98,6 +98,7 @@ def test_formula_uses_only_the_source_declared_symbol():
     body = json.loads(
         canonical_bytes(
             dict(
+                operation_version=ScopedRelationsMethod.version,
                 contribution_operations=(output["operation"], *output["extra_operations"]),
                 contributions=rows,
                 parse_detail=source_value({"formula_syntax": output["formula_diagnostics"]}),

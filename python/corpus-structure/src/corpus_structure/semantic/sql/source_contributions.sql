@@ -2371,32 +2371,43 @@ BEGIN
   END IF;
  END IF;
  IF current_ AND EXISTS(
-  SELECT FROM jsonb_array_elements(data.record_source_json(body->'parse_detail')->'annotations') a
-  JOIN LATERAL jsonb_array_elements(v.projection->'pieces') p ON p->>'item_ref'=a->>'block_id'
-   AND p->>'kind'='native_text' AND NOT p ? 'cell_index' AND coalesce(p->>'source_field','text')='text'
-  CROSS JOIN LATERAL ops.read_pdf_published_items(v.native_task_id,v.native_product_key,
-   v.native_content_digest,ARRAY[p->>'item_ref']) native_piece
-  JOIN LATERAL jsonb_array_elements(config_->'inputs'->'passages') s ON s->>'source_ref'=source_key
-   AND (p->>'start')::integer<(s->>'end')::integer AND (s->>'start')::integer<(p->>'end')::integer
-  CROSS JOIN LATERAL ops.named_link_expected_groups(full_text,a->'tokens',p,s,recipe) expected_group
-  WHERE native_piece.native_json->>'content_layer'='body'
-   AND native_piece.native_json->>'label' IN ('text','paragraph','list_item')
-   AND (NOT coverage_ OR (
-    coverage_blocks ? (a->>'block_id') AND EXISTS(
-     SELECT FROM jsonb_array_elements(recipe->'rules') r
-     WHERE r->>'rule'=expected_group.rule_name AND r->>'variant'=expected_group.variant
-      AND ops.named_link_rule_available(r,coverage_blocks->(a->>'block_id'))
-    )))
-   AND NOT EXISTS(
-    SELECT FROM jsonb_array_elements(population) r
-    CROSS JOIN LATERAL (SELECT data.record_source_json(r->'value') AS val) recovered
-    WHERE r->>'operation_key'=op->>'operation_key' AND r->>'kind'='occurrence'
-     AND recovered.val->>'role'='named_link_subject' AND recovered.val->>'region'=s->>'passage_id'
-     AND recovered.val->'named_cue'->>'annotation'='annotation:'||(a->>'dependency_digest')
-     AND recovered.val->'named_cue'->>'rule'=expected_group.rule_name
-     AND recovered.val->'named_cue'->>'variant'=expected_group.variant
-     AND recovered.val->'named_cue'->'tokens'=expected_group.nodes
+  WITH pieces AS MATERIALIZED (
+   SELECT p,p->>'item_ref' AS pointer FROM jsonb_array_elements(v.projection->'pieces') p
+   WHERE p->>'kind'='native_text' AND NOT p ? 'cell_index' AND coalesce(p->>'source_field','text')='text'
+  ), body_items AS MATERIALIZED (
+   SELECT item.pointer FROM ops.read_pdf_published_items(v.native_task_id,v.native_product_key,
+    v.native_content_digest,ARRAY(SELECT DISTINCT pieces.pointer FROM pieces)) item
+   WHERE item.native_json->>'content_layer'='body'
+    AND item.native_json->>'label' IN ('text','paragraph','list_item')
+  ), contexts AS MATERIALIZED (
+   SELECT a,pieces.p,s FROM pieces JOIN body_items USING(pointer)
+   JOIN jsonb_array_elements(data.record_source_json(body->'parse_detail')->'annotations') a
+    ON a->>'block_id'=pieces.pointer
+   JOIN jsonb_array_elements(config_->'inputs'->'passages') s ON s->>'source_ref'=source_key
+    AND (pieces.p->>'start')::integer<(s->>'end')::integer
+    AND (s->>'start')::integer<(pieces.p->>'end')::integer
+   WHERE NOT coverage_ OR coverage_blocks ? pieces.pointer
+  ), expected AS MATERIALIZED (
+   SELECT 'annotation:'||(ctx.a->>'dependency_digest') AS annotation_id,
+    ctx.s->>'passage_id' AS passage_id,g.rule_name,g.variant,g.nodes
+   FROM contexts ctx
+   CROSS JOIN LATERAL ops.named_link_expected_groups(full_text,ctx.a->'tokens',ctx.p,ctx.s,recipe) g
+   WHERE NOT coverage_ OR EXISTS(
+    SELECT FROM jsonb_array_elements(recipe->'rules') r
+    WHERE r->>'rule'=g.rule_name AND r->>'variant'=g.variant
+     AND ops.named_link_rule_available(r,coverage_blocks->(ctx.a->>'block_id'))
    )
+  ), reported AS MATERIALIZED (
+   SELECT data.record_source_json(r->'value') AS val FROM jsonb_array_elements(population) r
+   WHERE r->>'operation_key'=op->>'operation_key' AND r->>'kind'='occurrence'
+  )
+  SELECT FROM expected e WHERE NOT EXISTS(
+   SELECT FROM reported r
+   WHERE r.val->>'role'='named_link_subject' AND r.val->>'region'=e.passage_id
+    AND r.val->'named_cue'->>'annotation'=e.annotation_id
+    AND r.val->'named_cue'->>'rule'=e.rule_name AND r.val->'named_cue'->>'variant'=e.variant
+    AND r.val->'named_cue'->'tokens'=e.nodes
+  )
  ) THEN RAISE EXCEPTION 'named links omit a selected source cue group' USING ERRCODE='23514'; END IF;
  FOR row_ IN SELECT c FROM jsonb_array_elements(population) c
   WHERE c->>'operation_key'=op->>'operation_key' AND c->>'kind'='occurrence'
