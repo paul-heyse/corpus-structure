@@ -2,6 +2,8 @@
 
 **From documents to connected, source-grounded knowledge.**
 
+[![Documentation](https://github.com/paul-heyse/corpus-structure/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/paul-heyse/corpus-structure/actions/workflows/docs.yml)
+
 Corpus Structure is a document-intelligence pipeline for finding structure in a collection
 of documents. It locates definitions and predicate roles, attaches conditions, resolves
 references, and assembles related material into views that retain their source evidence.

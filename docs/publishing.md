@@ -61,7 +61,7 @@ On a prepared checkout, run `just docs-visuals` to regenerate the shared SVG and
 PNG. Install the matching Chromium if needed:
 
 ```sh
-UV_LOCKED=0 uv run --no-project --with playwright==1.64.1 python -m playwright install chromium
+UV_LOCKED=0 uv run --isolated --no-project --with playwright==1.64.1 python -m playwright install chromium
 ```
 
 The preview uses the local DejaVu Sans font on the Linux authoring host. Inspect the

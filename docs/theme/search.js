@@ -4,7 +4,12 @@
 const bundle = new URL('../pagefind/', import.meta.url);
 await import(new URL('pagefind-component-ui.js', bundle));
 const { configureInstance, getInstanceManager } = window.PagefindComponents;
-configureInstance('default', { bundlePath: bundle.pathname, baseUrl: new URL('../', bundle).pathname });
+configureInstance('default', {
+  bundlePath: bundle.pathname,
+  baseUrl: new URL('../', bundle).pathname,
+  // The Pages cold-start check intermittently returned an empty result with the worker.
+  noWorker: true,
+});
 const instance = getInstanceManager().getInstance('default');
 // Set the initial filter when the dialog opens, avoiding index loads on page visits.
 
