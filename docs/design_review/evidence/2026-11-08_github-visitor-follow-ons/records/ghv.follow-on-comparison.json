@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "id": "ghv.follow-on-comparison",
+  "title": "GitHub visitor card and storyboard comparison",
+  "group": "GHV",
+  "package": "GHV-06",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does a citation card or a recorded walkthrough improve inspection of the verified source, result and witness?",
+  "answers": [
+    "GHV-F04"
+  ],
+  "method": "Compare the same linked citation in the Markdown baseline and an HTML/CSS card at desktop and mobile widths, and compare a three-shot storyboard with the exact static evidence journey.",
+  "commands": [
+    "uv run --no-sync python docs/design_review/evidence/2026-11-08_github-visitor-follow-ons/compare_card.py https://paul-heyse.github.io/corpus-structure/ docs/design_review/evidence/2026-11-08_github-visitor-follow-ons/raw"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "compare_card.py",
+      "role": "Playwright capture and link checks",
+      "sha256": "2c58692065e0d1c176e8af80336231a872a6b1954d7546f7c1f210893f6a0c74"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "Two viewport pairs",
+      "sha256": "6d765210ecc3e42b40090dbec8acc962ede20b5ead85f6a932abe76ea51f45c1"
+    },
+    {
+      "path": "storyboard.md",
+      "role": "Exact citation storyboard and comparison",
+      "sha256": "5f369786cdd3d6adc33dc830f95a92f524785b46333e35a01564dfd7962b4efa"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Viewport pairs preserving the evidence links",
+      "value": 2,
+      "of": 2,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The card compacts the mobile layout without improving access to the source, result or witness. The storyboard repeats the static journey and offers no additional inspection interaction. Defer card, icons and recording.",
+  "consumed_by": [
+    "GHV-06"
+  ]
+}

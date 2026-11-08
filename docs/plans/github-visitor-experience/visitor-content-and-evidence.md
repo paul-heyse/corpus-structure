@@ -1,6 +1,6 @@
 # Visitor content and source-linked evidence
 
-**Status · 2026-11-08. Proposed.** Owns the GHV-02 and GHV-03 designs. The
+**Status · 2026-11-08. Complete.** Owns the GHV-02 and GHV-03 designs. The
 [coordinator](../github-visitor-experience_2026-11-08.md) owns execution and
 qualification. This companion implements the editorial and evidence routes from
 [O01](../../functional_reviews/github-visitor-experience_2026-11-08.md#O01),
@@ -76,7 +76,7 @@ edition. The review matched SHA-256
 `763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e`
 to the PDF. Use short source identifiers and editorial summaries for launch.
 Check the exact source license and terms before adding longer extracts or page crops.
-[Original source](https://math.dartmouth.edu/~prob/prob/prob.pdf) · [ADR-0070](../../adr/0070-full-book-method-development.md) · [Citation evidence](../../design_review/evidence/2026-11-08_nce-full-book/review/scoped-outputs.md#contextual-section-citations) · [Qualifier evidence](../../design_review/evidence/2026-11-08_nce-full-book/review/scoped-outputs.md#source-checks-on-cut-441) · [X/Z outcomes](../../../STATUS.md#delivered-and-assessed)
+[Original source](https://math.dartmouth.edu/~prob/prob/prob.pdf) · [ADR-0070](../../adr/0070-full-book-method-development.md) · [Citation evidence](../../design_review/evidence/2026-11-08_nce-full-book/review/scoped-outputs.md#contextual-section-citations) · [Qualifier evidence](../../design_review/evidence/2026-11-08_nce-full-book/review/scoped-outputs.md#source-checks-on-cut-441) · [Published X and Z examples](../../examples/README.md#candidates-and-selected-relationships)
 
 Separate three levels of use. The static reader follows the documented result and
 original source. A prepared reader can try the exact retained query with a matching
@@ -107,3 +107,7 @@ can reach the independently reviewed evidence and original pages without local
 setup. A prepared reader sees the exact reproduction prerequisites and expected
 result or a dated compatibility limit. Product and hosted outcomes retain their
 own verification scopes.
+
+The [published uncertainty example](../../examples/README.md#candidates-and-selected-relationships)
+shows the rank-one red-ball candidate and separately links the scoped Z replay.
+The [coordinator](../github-visitor-experience_2026-11-08.md#ghv-audit-closure) records live verification.

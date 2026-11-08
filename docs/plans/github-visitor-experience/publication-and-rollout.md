@@ -1,6 +1,6 @@
 # Documentation publication and GitHub rollout
 
-**Status · 2026-11-08. Proposed.** Owns the GHV-01 and GHV-05 designs. The
+**Status · 2026-11-08. Complete.** Owns the GHV-01 and GHV-05 designs. The
 [coordinator](../github-visitor-experience_2026-11-08.md) owns findings and
 execution status. The [functional review](../../functional_reviews/github-visitor-experience_2026-11-08.md#O04)
 records the inspected failures and the isolated workaround results.
@@ -134,3 +134,7 @@ verified deployment is available.
    search, evidence and asset links, hidden paths, and the About metadata
    and preview. Record the deployed revision, outcome and URL in the
    coordinator. Local checks establish only the local artifact boundary.
+
+The [assembled design/target review](../../design_review/reviews/design_review_github-pages-publication_2026-11-08.md)
+records the missed original pre-activation review and the accepted serialized
+release scope. The [coordinator](../github-visitor-experience_2026-11-08.md#ghv-audit-closure) records deployment.

@@ -70,7 +70,13 @@ outputs before committing them. Routine publication uses those committed assets.
 ## GitHub release
 
 Select GitHub Actions as the repository's Pages source. A push to main or a main
-workflow dispatch starts the eligible deployment. Verify the deployed revision,
-prefix navigation, and search before setting the repository homepage. If deployment
-fails, inspect the failed job and retry the corrected main revision. The ordinary
-artifact is available for inspection after a successful build.
+workflow dispatch starts the eligible deployment. Keep one release in flight.
+Wait for the Documentation run to finish and verify the exact revision on the
+live site before starting another push or dispatch that deploys documentation.
+Deploy jobs serialize, but builds can finish out of source order.
+
+If deployment fails, inspect the failed job and verify which revision the site
+still serves. The ordinary artifact remains available after a successful build.
+After correction, run the workflow on the current main revision. Avoid rerunning
+a deployment from a superseded revision. Check prefix navigation and search
+before setting the repository homepage.

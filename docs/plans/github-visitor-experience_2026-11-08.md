@@ -1,6 +1,6 @@
 # GitHub visitor experience and Pages implementation
 
-**Status · 2026-11-08. Live. Completion partially reopened.** This coordinator owns GHV-01–06, scheduled findings
+**Status · 2026-11-08. Complete and live. Audit gaps closed.** This coordinator owns GHV-01–06, scheduled findings
 and combined acceptance. It consumes the [functional review](../functional_reviews/github-visitor-experience_2026-11-08.md)
 at `b8697ab5f` and the two-part ChatGPT Pro proposal named `github_view_improvement.md`,
 identified by Git blob `2ce8a30811ce0d63f41d3296cc8291f62d08e627`. The draft is a
@@ -54,10 +54,10 @@ preparation and limiting repeated work. [Design principles](../design_review/des
 | --- | --- | --- |
 | [GHV-01](github-visitor-experience/publication-and-rollout.md#GHV-01) · Documentation publisher | Committed checkout with LFS disabled and review O04 | Authored evidence and stable links build identically in relevant hydrated and LFS-disabled checkouts. Both publication findings have closure evidence. |
 | [GHV-02](github-visitor-experience/visitor-content-and-evidence.md#GHV-02) · README and documentation owners | Current status, architecture and evidence sources | Visitor-first entry routes, dated capability boundaries and a responsibility-based code map work in GitHub and the built site. |
-| [GHV-03](github-visitor-experience/visitor-content-and-evidence.md#GHV-03) · Examples and evidence | Exact reviewed records and original PDF | Citation, qualifier, illustration and reproduction boundary verified. GHV-F03 remains open for the uncertainty example. |
+| [GHV-03](github-visitor-experience/visitor-content-and-evidence.md#GHV-03) · Examples and evidence | Exact reviewed records and original PDF | Citation, qualifier, X/Z, illustration and reproduction boundary verified. |
 | [GHV-04](github-visitor-experience/visuals-and-follow-ons.md#GHV-04) · Visual sources and assets | Stable output labels from GHV-02/03 and reviewed tooling pins | One diagram source/SVG pair and one social template/PNG pair render reproducibly. Their actual consumers and accessibility are checked. |
-| [GHV-05](github-visitor-experience/publication-and-rollout.md#GHV-05) · Publishing policy, CI and GitHub settings | GHV-01 qualification, initial visitor assets, superseding decision, authorized remote revision and settings access | Deployment and repository settings verified. GHV-F05 remains open for the review obligation. |
-| [GHV-06](github-visitor-experience/visuals-and-follow-ons.md#GHV-06) · Follow-on decisions | Representative core prose, examples and assets | D2 adopted and the remaining evidence-based deferrals stand. GHV-F04 remains open for the visual and recording comparisons. |
+| [GHV-05](github-visitor-experience/publication-and-rollout.md#GHV-05) · Publishing policy, CI and GitHub settings | GHV-01 qualification, initial visitor assets, superseding decision, authorized remote revision and settings access | Deployment and settings verified. The assembled review accepted the serialized release scope. |
+| [GHV-06](github-visitor-experience/visuals-and-follow-ons.md#GHV-06) · Follow-on decisions | Representative core prose, examples and assets | D2 adopted. The completed comparison supports deferring the card, icons and recording. |
 
 GHV-01 and GHV-02/03 can start independently. GHV-04 can prepare its layout and
 rendering path while the content is refined. Integrate the README, primary example
@@ -85,9 +85,9 @@ conditions used when the two differ.
 | --- | --- | --- | --- | --- |
 | GHV-F01 · O04 generated READMEs | Publisher selection | The recursive glob treats LFS pointers and generated payloads as authored chapters. Select authored indexes and nested reviews consistently. | Closed · GHV-01 | Both fixture forms stay linkable without becoming chapters. The clean hosted build passed. |
 | GHV-F02 · O04 source inventory | Source-population evidence | A link to an ignored checkout file fails hosted link resolution. Explain the local input and retain the tracked reference. | Closed · GHV-01 | The corrected owner and tracked inventory link passed in the clean hosted build. |
-| GHV-F03 · O02 uncertainty example | GHV-03 public examples | The page summarizes the X and Z outcomes but shows no retained candidate and links only to STATUS. Show the retained red-ball candidate and withheld selection, then link separate X and Z receipts. | Open · GHV-03 | The public example leads directly to both records and preserves the distinction between candidate retention and witnessed declaration selection. [X control](../design_review/evidence/2026-11-06_wce-completion-repair/composition/native-retained004/false-bridge-control.json) · [Z scoped replay](next-corpus-enrichment_2026-11-07.md#nce-03-through-nce-06-development-execution) |
-| GHV-F04 · O06 follow-on evidence | GHV-06 visual and editorial owners | The Markdown and diagram checks establish the baseline. The dispositions supply no comparison against a rendered card or icon treatment at both widths and no storyboard comparison for the recording. | Open · GHV-06 | Compare one card or icon treatment at both widths and a short storyboard against an exact evidence journey. Record an evidence-based adoption or deferral, then implement any option that meets the accepted criterion. |
-| GHV-F05 · O04 publishing review cadence | GHV-05 publication owner | ADR-0071 and the verification receipts establish the decision and delivery. The audit found no retained target review for the changed publishing boundary before activation or for the assembled delivery. | Open · GHV-05 | Record the missed pre-activation review and complete the scoped assembled design/target review under the existing binding. Keep the original timing visible. |
+| GHV-F03 · O02 uncertainty example | GHV-03 public examples | The original example lacked separate X and Z receipts. | Closed · GHV-03 | The published example shows the rank-one X candidate and zero selected edges, then links the separate witnessed Z replay. The live links and both receipts passed anonymous verification. [X control](../design_review/evidence/2026-11-06_wce-completion-repair/composition/native-retained004/false-bridge-control.json) · [Z scoped replay](../design_review/evidence/2026-11-07_nce06-closeout/development-results.json) |
+| GHV-F04 · O06 follow-on evidence | GHV-06 visual and editorial owners | The original dispositions lacked a visual treatment and storyboard comparison. | Closed · GHV-06 | The two viewport comparisons and exact citation storyboard support deferral. [Pilot and disposition evidence](../design_review/evidence/2026-11-08_github-visitor-follow-ons/README.md) |
+| GHV-F05 · O04 publishing review cadence | GHV-05 publication owner | The original release missed the pre-activation review. | Closed · GHV-05 | The post-launch assembled design/target review accepted the boundary for one release at a time before the corrective rollout. The timing miss remains recorded. [Independent review](../design_review/reviews/design_review_github-pages-publication_2026-11-08.md) |
 
 The O02 historical Reader refusal is a constraint on GHV-03's optional native
 inspection. The coordinator records the outcome of that investigation separately
@@ -140,11 +140,14 @@ the verified public walkthrough.
 
 ### GHV-06 dispositions
 
+The [card and storyboard comparison](../design_review/evidence/2026-11-08_github-visitor-follow-ons/README.md)
+records the tested treatments and evidence journey.
+
 | Candidate | Disposition and revisit condition |
 | --- | --- |
-| Rendered example card | Provisional deferral. The four-row Markdown baseline is readable and its evidence links work. GHV-F04 owns the comparison against a visual treatment. |
-| Lucide | Provisional deferral. The numbered operation names and distinct output labels identify each stage. GHV-F04 owns the bounded visual comparison. |
-| Recorded walkthrough | Provisional deferral. The historical Reader query was refused. GHV-F04 owns the storyboard comparison using an exact verified result and its public evidence route. |
+| Rendered example card | Deferred. The card compacted the mobile layout. Both treatments kept the cue, result, witness and all three links easy to locate. Revisit if a denser example becomes hard to scan. |
+| Lucide | Deferred. The comparison surfaced no stage distinction requiring an icon. Revisit if the shared diagram gains operations that readers cannot distinguish from their names and outputs. |
+| Recorded walkthrough | Deferred. The run 327 storyboard repeated the static cue, target and witness links. Revisit when a verified interaction adds a distinct inspection step. |
 | Vale | Deferred. The editorial pass aligned naming across the README, architecture, examples and assets. Revisit if inconsistent names recur after edits. |
 | Markdownlint | Deferred. The existing publisher and link checks cover the observed Markdown failures. Revisit for recurring formatting defects those checks miss. |
 | D2 upgrade | Adopted in GHV-04 at 0.9.0 under the current-tooling decision. |
@@ -192,8 +195,8 @@ package state and remaining obligations.
 
 ## Completion audit · 2026-11-08
 
-Audited GHV-01–06 as claimed complete at `5bddd141b`. This is the inspected
-source and live Pages revision. The review used the coordinator, all three
+Audited GHV-01–06 as claimed complete at `5bddd141b`, the source
+and live Pages revision at the time of the audit. The review used the coordinator, all three
 supporting plans, the operator's direct-push and conditional-adoption decisions,
 the current publisher, the retained evidence and the real GitHub consumers.
 Concurrent Chandra edits were outside this audit.
@@ -229,5 +232,32 @@ Fresh checks on 2026-11-08 used the exact release source or its hosted outputs.
 
 The checks establish the delivered visitor routes, navigable source evidence for the
 primary cases and repeatable publication. Visitor comprehension and discoverability
-metrics were outside the agreed acceptance. The next work is the X/Z evidence
-correction, the remaining comparison decisions and the scoped publishing review.
+metrics were outside the agreed acceptance. The [closure below](#ghv-audit-closure) records the subsequent corrections.
+
+
+<a id="ghv-audit-closure"></a>
+
+## Audit gap closure · 2026-11-08
+
+The three reopened findings are closed. GHV-F03 shows the retained X
+candidate separately from the witnessed Z declaration. The GHV-F04 pilot
+compared the actual Markdown and card at both widths and storyboarded the
+exact citation journey. The GHV-F05 independent review records the missed
+pre-activation review and accepts the assembled boundary for serialized
+releases. If overlapping eligible releases become necessary, revisit deploy
+admission. [Public examples](../examples/README.md) · [Comparison record](../design_review/evidence/2026-11-08_github-visitor-follow-ons/README.md) · [Independent review](../design_review/reviews/design_review_github-pages-publication_2026-11-08.md) · [Runbook](../publishing.md#github-release)
+
+- `uv run ci evidence finalize 2026-11-08_github-visitor-follow-ons ghv.follow-on-comparison`
+  and the two-viewport Playwright comparison passed. The static walkthrough
+  remains the published route.
+- `just turn-end`, `uv run ci docs check` and the clean LFS-disabled
+  project-prefix build passed for `5a4356d45c`. The two publication checks
+  each rendered 704 canonical pages with zero link errors.
+- The [Documentation run](https://github.com/paul-heyse/corpus-structure/actions/runs/42483802051)
+  passed `just docs-test`, build, both uploads and Pages deployment for
+  `5a4356d45c92467dc1bad9595fe807207f480de8`. Playwright passed at 1280 × 800 and 390 × 844
+  on the local prefix and live site. It checked the example, X and Z
+  assessments and anonymous receipt payloads, diagram, the three search
+  scopes and hidden paths. The live receipt links carried the deployed
+  revision, the X payload matched its Git LFS hash, and neither raw receipt
+  was served from Pages.

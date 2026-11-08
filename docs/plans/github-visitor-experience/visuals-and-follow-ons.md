@@ -1,6 +1,6 @@
 # Shared visuals and follow-on investigations
 
-**Status · 2026-11-08. Proposed.** Owns the GHV-04 and GHV-06 designs. The
+**Status · 2026-11-08. Complete.** Owns the GHV-04 and GHV-06 designs. The
 [coordinator](../github-visitor-experience_2026-11-08.md) owns execution state.
 Consume the visitor wording and exact examples from [GHV-02/03](visitor-content-and-evidence.md).
 Use the visual and tooling findings in the [functional review](../../functional_reviews/github-visitor-experience_2026-11-08.md#O03).
@@ -85,3 +85,7 @@ install command, system prerequisites and local or CI scope when adopting.
 condition or bounded comparison. Regenerate and inspect the affected outputs
 for adopted tools, or exercise the real editorial error for an adopted checker.
 The required social image and main diagram close through GHV-04.
+
+The [completed pilot](../../design_review/evidence/2026-11-08_github-visitor-follow-ons/README.md)
+retains the viewport comparisons and exact citation storyboard. The
+[coordinator](../github-visitor-experience_2026-11-08.md#ghv-06-dispositions) owns the resulting decisions.
