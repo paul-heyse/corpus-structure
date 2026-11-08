@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-08. Original whole-book intake and review are complete. Grouped Chandra and archive rendering are verified in development. The corrected comparator was cancelled during validation. The full-book shadow is pending._
+_Updated 2026-11-08. The 518-page incumbent comparator and its witnessed projection are verified in development. The full-book Chandra shadow is pending._
 
 ## Current authority
 
@@ -48,13 +48,13 @@ _Updated 2026-11-08. Original whole-book intake and review are complete. Grouped
 ## NCE development and next work
 
 - The [NCE audit gap execution](docs/plans/next-corpus-enrichment_2026-11-07.md#audit-gap-execution)
-  owns exact receipts. Development runs `semantic_nce_gs518_discourse` on PostgreSQL 18/corpus, port 5434.
-- On 2026-11-07, qualifier replay, artifact delivery, both table Reader controls and seven
-  real model arms completed. Protected fit 3 passed on set 30 and evaluation 35.
-  Reader, repository and eight native fault checks passed.
+  owns exact receipts for the `semantic_nce_gs518_discourse` development baseline.
+- On 2026-11-07, qualifier replay, artifact delivery, both table Reader controls and seven model arms completed.
+  Protected fit 3 passed on set 30 and evaluation 35. Reader, repository and eight native fault checks passed.
 - [Full-book intake](docs/plans/next-corpus-enrichment_2026-11-07.md#full-book-execution)
   completed Standard cut 413 and combined cut 431. All 29 scoped views and nine contextual
   cues published. LLM review covers all 518 pages and retained definition and artifact outputs.
-- The [Chandra checkpoint](docs/plans/chandra-2-post-nemotron_2026-11-08.md#grouped-development-and-comparator-checkpoint--2026-11-08) owns `semantic_chandra_grouped_fix`, CUDA group 354, source-ready archive rendering and scoped test receipts.
-  Group recovery and the 15-page cohort passed. Comparator run 373 is cancelled with its frozen build retained. The full-book shadow and operating-policy decision remain open.
+- The [Chandra comparator follow-up](docs/plans/chandra-2-post-nemotron_2026-11-08.md#comparator-execution-fit-follow-up)
+  owns `semantic_chandra_pdf_ancestry`, book run 377 at cut 492 and projection adoption 378 at cut 493.
+  The p416 Reader, source search and packet passed. The full-book shadow and operating-policy decision remain open.
 - Settle the WCE source and factor obligations. Live CLI qualification needs a configured production target, purpose roles and effect authority.

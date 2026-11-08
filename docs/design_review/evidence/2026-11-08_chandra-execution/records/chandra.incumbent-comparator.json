@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "id": "chandra.incumbent-comparator",
+  "title": "Protected whole-book incumbent comparator",
+  "group": "chandra-execution",
+  "package": "CH-08",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the optimized protected comparator publish the complete book and deliver the witnessed repairs to ordinary source consumers?",
+  "answers": [
+    "CH-08",
+    "F05"
+  ],
+  "method": "Verify retained source and recognition, run one protected full comparator, then adopt the exact publication for the release-pinned formula projection. Compare Reader, source search and proposal packet results.",
+  "commands": [
+    "uv run ci status 377 --project nce-grinstead-snell-full-book --json",
+    "uv run ci status 378 --project nce-grinstead-snell-full-book --json",
+    "uv run ci source native-products 377 --json",
+    "uv run ci test -- python/corpus-structure/tests/semantic/test_pdf_access_correspondence.py python/corpus-structure/tests/ingest/test_pdf_body_selection.py python/corpus-structure/tests/semantic/test_pdf_native_consumer_journey.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "incumbent-recovery.md",
+      "role": "Exact protected pins, witnessed Reader results, bounded timing and projection consumer receipt",
+      "sha256": "7d08a5f0f8ff99ca987260ca45e48a7104013e144fb27fff847773a2b5ae0f67"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "protected book pages",
+      "value": 518,
+      "of": 518,
+      "unit": "physical pages",
+      "note": "Run 377, cut 492"
+    },
+    {
+      "name": "verified recognition replay",
+      "value": 1246,
+      "of": 1246,
+      "unit": "retained requests",
+      "note": "CPU replay from exact retained source and recipe"
+    },
+    {
+      "name": "adopted source views",
+      "value": 29,
+      "of": 29,
+      "unit": "source views",
+      "note": "Run 378, cut 493"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Run 377 published the full repaired comparator and run 378 adopted its exact pin. The source-witnessed caption, table and formula reached the ordinary Reader. The p416 projection, source search and native proposal packet carried the verified original. Full-book Chandra shadow qualification remains separate.",
+  "consumed_by": [
+    "chandra-2-post-nemotron coordinator"
+  ]
+}

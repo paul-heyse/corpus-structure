@@ -36,7 +36,7 @@ uv run ci source native-export --run 312 --producing-task 1389 \
   labels extend each panel frame without entering the caption or its neighbor.
   A bounded transformation of the archived graph retained the existing two
   picture identities and gave each a reference to the same new caption
-  occurrence. The deployed comparator still needs to exercise this result.
+  occurrence. The protected comparator exercised the same recovery below.
 - **Physical p151.** The rendered original shows a horizontal header rule and
   a vertical divider. Docling Parse `get_shape_lines()` returned no rules for
   this table. `get_bitmap_rects()` locates the single-pixel PDF stencil drawings
@@ -103,3 +103,61 @@ passed as `37fcd156bc8b4130ae2949cfc24009af`. That test checks a shared caption
 without duplication, separate p301 captions, neighboring table preservation
 and precise cell occurrence geometry. It does not exercise a protected
 full-book publication.
+
+## Optimized comparator · 2026-11-08
+
+**Tested.** Run 377, task 1627, reached source-ready cut 492 with selected
+`integrated` digest `35f4384ea386e630448d804621c0767881650937c45cd4294182cb0dd91ce8fb`.
+The frozen build from cancelled run 373 remained read-only. The successor used
+run 356's exact organized product and verified all 1,246 retained recognition
+requests against the original. The protected inventory covered 518 pages and
+53,156 relations. All four checks and the projection seal recorded receipts
+for the live attempt. The book used full validation because it had no
+compatible integrated predecessor.
+
+The ordinary Reader returned p108 pictures `#/pictures/37` and
+`#/pictures/38` with the same single caption `#/texts/24965`. P151
+`#/tables/56` has S spanning two columns, C spanning two rows, and the
+four witnessed fractions. P151 `#/tables/34` matches all 16 typed Table 4.1
+cells, including their offsets, spans and header flags, from archived
+`#/tables/32`. P416 `#/texts/2341` has the exact 515-character original
+spelling with the independently witnessed digest above. These Reader
+requests used an 8 MiB budget.
+
+```sh
+uv run ci status 377 --project nce-grinstead-snell-full-book --json
+uv run ci source native-products 377 --json
+uv run ci source inspect 377 --producing-task 1627 --product integrated \
+  --native-digest 35f4384ea386e630448d804621c0767881650937c45cd4294182cb0dd91ce8fb \
+  --pointer '#/texts/2341' --native-view formula --max-bytes 8388608 --json
+```
+
+**Measured.** Three database workers were active together. Protected
+checks ran from 10:19:31 to 10:23:38 EST. PostgreSQL attributed 244.890 s
+to section ancestry inside access correspondence. The remaining elapsed
+time includes staging and the native callback. A forward correction
+assigns the nearest section once per rooted component and checks the
+result with a set difference. It refuses unreachable cyclic components.
+On the exact sealed input, three rollback-only section checks took
+114.3–120.2 ms and full revised access correspondence took 2.956 s.
+Those readings characterize the check on sealed data. Run 377 remains
+the single whole-book publication.
+
+**Tested.** Projection-only adoption run 378 reached cut 493 and published
+29 views with the same integrated pin. Its formula Reader returned all
+515 witnessed characters from `orig`. Descendant source view 345 under
+`#/groups/614` carries the formula as the attributed piece at offsets
+7293–7808. Source search returned that view and the ordinary native proposal
+packet carried the exact text with digest
+`77aaf0da447e470ba73d364201d4977dfdcb4d09c763edd05402c12881d77a33`.
+The source-ready search used the source search API behind MCP. The generic
+`ci query find` path requires a completed semantic result. The archived
+run 312 formula response retained SHA-256
+`a74c463c98c1f4dc3e6bef4efb6d2ebc548c62e485d080e256a7758df1d34629`.
+
+```sh
+uv run ci status 378 --project nce-grinstead-snell-full-book --json
+uv run ci source inspect 378 --producing-task 1627 --product integrated \
+  --native-digest 35f4384ea386e630448d804621c0767881650937c45cd4294182cb0dd91ce8fb \
+  --pointer '#/texts/2341' --native-view formula --max-bytes 8388608 --json
+```

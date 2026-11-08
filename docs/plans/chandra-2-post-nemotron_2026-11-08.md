@@ -1,8 +1,9 @@
 # Chandra 2 after Nemotron
 
-**Status · 2026-11-08.** Development inspection and grouped CUDA custody verified.
-The repaired incumbent comparator was cancelled during validation. Full-book
-shadow qualification remains open. This coordinator
+**Status · 2026-11-08.** The protected 518-page incumbent comparator and its
+witnessed projection reached development cuts 492 and 493. The archive-overlay
+study and bounded CUDA handoff passed. Full-book shadow qualification remains
+open. This coordinator
 owns CH-01–11 and the combined Chandra target. It consumes the
 [functional review](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md) first
 published at `252a476da` and the dated follow-up integrated with this revision.
@@ -161,10 +162,10 @@ product's authority.
   under both pins.
 - F03 retains same-run recovery of an interrupted unpublished attempt. The retained
   local files carry attempt provenance. Published raw replay and new-run exact reuse are
-  covered. Prompt interruption inside synchronous generation and standalone Standard
-  handoff with a resident Nemotron service remain open.
-- F05 retains source-qualified shared-caption association as a CH-04 decision. p108's
-  detached caption, picture text and formulas survive the typed replay.
+  covered. Standalone Standard handoff with a resident Nemotron service passed in
+  run 376. Prompt interruption inside synchronous generation remains open.
+- F05's source-qualified p108 caption association and p416 readable formula reached
+  the ordinary Reader and affected projection in the comparator follow-up below.
 - Complete integrated functional and nonfunctional qualification remains open until
   the required recovery and handoff paths settle. The existing repository types failure
   remains recorded with its actual scope.
@@ -248,8 +249,8 @@ same publication check passed with that draft excluded in memory.
   1,246 verified A/B/C requests on the CPU. At operator direction,
   `uv run ci run cancel 373 --json` cancelled the ingest task. The active
   validation statement was then cancelled on its exact PostgreSQL backend.
-  The frozen build and observations remain available. The selected publication,
-  exact p416 projection and ordinary consumer checks remain open.
+  The frozen build and observations remain available. The successor and its
+  projection adoption are recorded in the comparator follow-up below.
   [Incumbent recovery evidence](../design_review/evidence/2026-11-08_chandra-execution/incumbent-recovery.md)
 - **CH-05–07 and CH-10.** The v2 evaluator covered all 518 archived pages and
   distinguished verified blank p506, scoped crop disagreements and unknown
@@ -306,6 +307,31 @@ repair resolved its recognition trigger. The p151 disagreement remained
 attributed, p506 stayed verified blank, and the archived formula Reader
 response retained byte parity.
 [Archive study evidence](../design_review/evidence/2026-11-08_chandra-execution/archive-overlay-study.md)
+
+**Tested · 2026-11-08.** Managed deployment
+`5b9dcb1ca72b43549e7c031c6ec81947` installed `semantic_chandra_pdf_exact`. The affected
+selection `8ddc8268af8e466cbdf014bf83b5a2cc` passed 125 checks before the
+exactness correction. Final native selection `14677548ad93430bb5113a43879c9f29`
+and its fixture-only retry `2ec0a0e0f413410791b0b6bb1a8d742c` cover all
+38 selected checks with zero unresolved. The retry exercises a changed
+companion, reuse of unchanged access and projection, and a fresh projection
+digest for a changed numeric spelling. Other controls cover cancellation,
+missing checks, exact ordered identity and native consumers.
+
+The CUDA handoff control reached source-ready run 376, task 1626, cut 491.
+Nemotron woke at 09:58:50 EST. Protected validation began at 09:58:53 and
+both native and organized products published. The book successor run 377
+used the verified retained inputs on CPU. It published all 518 pages in 15m11s
+and settled source-ready cut 492. The ordinary Reader verified the witnessed
+p108 and p151 structures and the exact p416 original.
+
+Development now runs `semantic_chandra_pdf_ancestry` under managed deployment
+`b44c64293f4048b99be9aca96985d524`. Its access-ancestry and projection changes
+passed all 28 selected checks in `3aabe1af498944e5b967189d171dba2a`.
+Projection-only run 378 reached source-ready cut 493 with 29 views pinned to
+the integrated product from run 377. The formula Reader, attributed text,
+source search and proposal packet reproduced the exact p416 witness.
+[Protected comparator evidence](../design_review/evidence/2026-11-08_chandra-execution/incumbent-recovery.md#optimized-comparator--2026-11-08)
 
 Explicit requests remain the operating policy. Selective and all-page behavior
 await the shadow comparison. CH-11 remains conditional on a separately qualified
