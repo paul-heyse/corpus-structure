@@ -64,6 +64,93 @@ def test_visual_scope_requires_exact_crop_and_quarter_turn(crop):
         )
 
 
+def test_visual_nomination_keeps_empty_decision_and_refuses_a_forged_source_cut(
+    pdf13_db, tmp_path, monkeypatch
+):
+    from sqlalchemy.exc import DBAPIError
+
+    from corpus_structure.semantic import visual_dispatch
+    from corpus_structure.semantic.operations import (
+        OperationBinding,
+        complete_task,
+        create_run,
+        seal_cut,
+    )
+    from corpus_structure.semantic.visual_routing import (
+        VisualPageRoute,
+        VisualRouteReason,
+        VisualRouteReport,
+    )
+
+    db = pdf13_db
+    digest = publish(db, prepare(integrated(db.source, db.inputs), db.source))
+    source = VisualEvidencePin(
+        run_id=db.job.run, task_id=db.job.task, product_key="selected", content_digest=digest
+    )
+    with db.writer.begin() as conn:
+        complete_task(
+            conn,
+            task_id=db.job.task,
+            attempt=db.job.attempt,
+            holder=db.job.claim.holder,
+            prepared=db.prepared,
+            observations=(),
+            outcome="empty",
+        )
+        cut = seal_cut(conn, db.job.run, "source-ready")
+    routes = VisualRouteReport(
+        source=source,
+        structural_input=None,
+        page_count=1,
+        pages=(
+            VisualPageRoute(
+                page_no=1, action="unresolved", reasons=(VisualRouteReason(code="unassessed"),)
+            ),
+        ),
+    )
+    monkeypatch.setattr(visual_dispatch, "read_visual_routes", lambda *args, **kwargs: routes)
+    args = dict(
+        source=source,
+        source_cut=cut,
+        semantic_release=db.prepared.release_id,
+        realization="z",
+        mode="selective",
+        first=1,
+        limit=1,
+        artifacts=tmp_path,
+        receipts=tmp_path,
+        nemotron_endpoint=None,
+    )
+    result = visual_dispatch.dispatch_visual_work(db.writer, **args)
+    assert result.groups == ()
+    assert (
+        visual_dispatch.dispatch_visual_work(
+            db.writer, **args, nomination_run_id=result.nomination_run_id
+        )
+        == result
+    )
+    runs = table("ops.run")
+    with db.writer.connect() as conn:
+        options = conn.scalar(select(runs.c.options).where(runs.c.id == result.nomination_run_id))
+    assert options["visual_nomination"]["selections"] == []
+    options["visual_nomination"]["demand"]["source_cut"] = cut + 100000
+    with (
+        pytest.raises(
+            DBAPIError, match="visual nomination differs from its exact source-ready cut"
+        ),
+        db.writer.begin() as conn,
+    ):
+        create_run(
+            conn,
+            project_id="p",
+            binding=OperationBinding(db.prepared.release_id, "z", 0, b"{}"),
+            kind="slice",
+            options=options,
+            code_commit=visual_requests.VISUAL_REQUEST_CODE_COMMIT,
+            prepared=db.prepared,
+        )
+
+
 def test_visual_attempt_receipt_marks_an_interruption_without_response(tmp_path):
     claim = ClaimedTask.model_construct(
         task_id=21, run_id=9, release_id="release-test", invocation_key="invocation", attempt=2

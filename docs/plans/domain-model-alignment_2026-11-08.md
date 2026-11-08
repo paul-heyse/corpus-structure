@@ -4,7 +4,8 @@
 investigations arising from the November 8 domain-model alignment review.
 The coordinator owns combined disposition, dependencies, cutover and
 qualification. The supporting plans own their local target and implementation
-contracts. Execution authorization covers DMA-00 through DMA-04.
+contracts. Execution authorization covers DMA-00 through DMA-13, including
+cutover of the dedicated development target and its full-book project.
 
 ## Basis and target
 
@@ -176,6 +177,21 @@ qualification were `not_run` for this tranche.
 The bounded failure report identifies the node, phase and lane. The native
 refusal and malformed fixture were diagnosed from the original pytest report.
 The missing inline diagnostic belongs with DMA-08's managed outcome work.
+
+## DMA-05 through DMA-13 execution
+
+The implementation started at `f3f2d1ca5`. The stopped Chandra campaign
+retains 68 settled scopes. The operator directed carrying forward compatible
+results, ending shadow collection, and retiring incompatible derived closures
+when the new contracts cannot faithfully accommodate them. Preserve the
+frozen scope manifest and the unassessed status of its remaining scopes.
+
+On 2026-11-08, `uv run ci model change deploy
+dedec4c00ffd41e2a569128ece710442 --json` settled the bridge in
+`1ac0e35a344744329a9899bf7372b9e3`. `uv run ci db status --maintenance --json`
+verified `semantic_dma_00_04` on `corpus_structure_dev`. The archived p416
+formula read and the retained p151 visual manifest matched before and after
+the bridge. This settled the native prerequisite for successor authoring.
 
 <a id="dma-12"></a>
 

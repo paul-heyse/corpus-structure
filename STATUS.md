@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-08. The 518-page incumbent comparator and its witnessed projection are verified in development. The frozen full-book Chandra shadow is running._
+_Updated 2026-11-08. The 518-page incumbent comparator and its witnessed projection are verified in development. The Chandra shadow stopped with 68 settled scopes._
 
 ## Current authority
 
@@ -8,7 +8,7 @@ _Updated 2026-11-08. The 518-page incumbent comparator and its witnessed project
   owns findings, package states and combined qualification. ADR-0067 governs current-only
   migration. ADR-0070 selects all 518 Grinstead–Snell pages. WCE receipts still cover pages 191–310.
   WCE baseline `07d25b840` retains `semantic_wce_lineage_20261107` and `retrieve.contextual/5`.
-- [DMA-00–04](docs/plans/domain-model-alignment_2026-11-08.md#dma-00-through-dma-04-execution) registered `semantic_dma_00_04` and covered all 389 targeted tests after exact retry on 2026-11-08. Development runs `semantic_chandra_pdf_ancestry`. DMA-05 is the next implementation package.
+- [DMA-05–13](docs/plans/domain-model-alignment_2026-11-08.md#dma-05-through-dma-13-execution) deployed the `semantic_dma_00_04` bridge to development and verified retained p416 and p151 reads. The successor is in implementation and qualification.
 - The [broad design audit](docs/design_review/audit/README.md#baseline) records diagnostic source inspection at `67cbe680e` on 2026-11-08. `uv run ci docs check` and `just turn-end` passed. Product qualification was `not_run`.
 - The [GitHub visitor follow-on](docs/plans/github-visitor-experience_2026-11-08.md#ghv-follow-on-acceptance) is live. On 2026-11-08, the docs workflow and both live browser sizes passed. The corpus index links to 1,409 verified source files in Git LFS. The supplied How it works image passed desktop and mobile preview checks in the local revision.
 
@@ -54,7 +54,7 @@ _Updated 2026-11-08. The 518-page incumbent comparator and its witnessed project
 - The [Chandra comparator follow-up](docs/plans/chandra-2-post-nemotron_2026-11-08.md#comparator-execution-fit-follow-up)
   owns `semantic_chandra_pdf_ancestry`, book run 377 at cut 492 and projection adoption 378 at cut 493.
   The p416 Reader, source search and packet passed.
-- The [repaired shadow execution](docs/plans/chandra-2-post-nemotron_2026-11-08.md#repaired-comparator-shadow-execution) owns the running 535-request campaign.
+- The [repaired shadow execution](docs/plans/chandra-2-post-nemotron_2026-11-08.md#repaired-comparator-shadow-execution) owns the 535-request frozen scope and its settled results.
   Run 381 sealed cut 496 with its settled p416 inference. The 63 affected CI checks, retry fixture, types, live dispatch and explicit MCP packet passed.
-  Full comparison, adjudication and activation remain open.
+  The uncollected scopes remain unassessed under the DMA cutover decision.
 - Settle the WCE source and factor obligations. Live CLI qualification needs a configured production target, purpose roles and effect authority.
