@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-08. The 518-page incumbent comparator and its witnessed projection are verified in development. The Chandra shadow stopped with 68 settled scopes._
+_Updated 2026-11-08. Development runs `semantic_dma_05_13_final`. The 518-page comparator remains readable and the Chandra shadow stopped with 68 settled scopes._
 
 ## Current authority
 
@@ -8,7 +8,7 @@ _Updated 2026-11-08. The 518-page incumbent comparator and its witnessed project
   owns findings, package states and combined qualification. ADR-0067 governs current-only
   migration. ADR-0070 selects all 518 Grinstead–Snell pages. WCE receipts still cover pages 191–310.
   WCE baseline `07d25b840` retains `semantic_wce_lineage_20261107` and `retrieve.contextual/5`.
-- [DMA-05–13](docs/plans/domain-model-alignment_2026-11-08.md#dma-05-through-dma-13-execution) deployed the `semantic_dma_00_04` bridge to development and verified retained p416 and p151 reads. The successor is in implementation and qualification.
+- [DMA-05–13](docs/plans/domain-model-alignment_2026-11-08.md#dma-13) deployed and admitted the successor in `corpus_structure_dev` (`ab020224d7294bceb6c200600dc326a6`). The archived p416 formula and p151 manifest matched at deployment. Run 397 reached source-ready cut 512 with 29 views. Run 401's provider span failure blocks the evaluated cutover. The project is at generation 0 with an empty selection. The owning plan tracks qualification and the retained diagnostic.
 - The [broad design audit](docs/design_review/audit/README.md#baseline) records diagnostic source inspection at `67cbe680e` on 2026-11-08. `uv run ci docs check` and `just turn-end` passed. Product qualification was `not_run`.
 - The [GitHub visitor follow-on](docs/plans/github-visitor-experience_2026-11-08.md#ghv-follow-on-acceptance) is live. On 2026-11-08, the docs workflow and both live browser sizes passed. The corpus index links to 1,409 verified source files in Git LFS. The supplied How it works image passed desktop and mobile preview checks in the local revision.
 
