@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "id": "chandra.archive-study",
+  "title": "Archive and witnessed overlay study",
+  "group": "chandra-execution",
+  "package": "CH-10",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can a dry routing and attributed discovery study use the exact archived book with independently witnessed incumbent repairs?",
+  "answers": [
+    "CH-08",
+    "CH-10"
+  ],
+  "method": "Freeze the exact producing pin and original-source overlay, dry-read every physical page, and compare exact retained group observations against the shared study baseline.",
+  "commands": [
+    "uv run ci test -- python/corpus-structure/tests/semantic/test_visual_routing.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/book-dry-routing-v2.json",
+      "role": "Exact producer and pre-overlay routing decisions",
+      "sha256": "8b927a5f6c7716bf2f4efdb1cfc8002dc2c7c14c49aa9c4fa30ebcf932c0751e"
+    },
+    {
+      "path": "group-development.json",
+      "role": "Exact retained blank and quiet controls",
+      "sha256": "5abc4a107c8e52442883ac24cc89edc531b401e591a33dce762062031661e7a0"
+    },
+    {
+      "path": "group-recovery-development.json",
+      "role": "Exact retained p151 observation",
+      "sha256": "4d58b28ab2fc2839061a30a2cd44a3de95e9aa25dd1e2afc27b43c08a3f4810f"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "archive-overlay-study.md",
+      "role": "Reproduction commands, measured scope, comparison dispositions and Reader parity",
+      "sha256": "783196b03e2a5b174cd8eb4d8b27de043165faa1e9ee93e2156e847e9dc817de"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "dry routing coverage",
+      "value": 518,
+      "of": 518,
+      "unit": "physical pages",
+      "note": null
+    },
+    {
+      "name": "retained group controls compared",
+      "value": 3,
+      "of": 3,
+      "unit": "whole-page scopes",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The witnessed archive overlay supports full-book dry routing and bounded retained comparison. P108 no longer requires recognition. P151 retains an independent table disagreement and attributes the witnessed recovery to the incumbent. Repaired selected publication, ordinary consumer qualification and full-book Chandra shadow remain separate.",
+  "consumed_by": [
+    "chandra-2-post-nemotron coordinator"
+  ]
+}

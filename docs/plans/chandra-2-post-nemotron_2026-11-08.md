@@ -292,6 +292,21 @@ index check passed in their recorded scopes.
   checks.
   [CH-10 evaluation scope](chandra-2-post-nemotron/automatic-routing-and-qualification.md#when-a-published-comparator-is-needed)
 
+**Measured · 2026-11-08.** On the retained frozen build from run 373, three
+matched identity-only runs moved the median from 42.0 s to 28.0 s with the
+same logical digest. An exact-stream control skipped all 3,659 artifact
+verifications with the same digest. The revised inventory check completed
+in 4.3 s on that build. These measurements cover individual validation
+stages. The original, organized product from run 356, and all 1,246
+recognition requests passed preflight for the 518-page successor.
+
+**Tested · 2026-11-08.** The archive-overlay study completed a dry pass over
+all 518 pages and compared three retained Chandra mappings. The p108
+repair resolved its recognition trigger. The p151 disagreement remained
+attributed, p506 stayed verified blank, and the archived formula Reader
+response retained byte parity.
+[Archive study evidence](../design_review/evidence/2026-11-08_chandra-execution/archive-overlay-study.md)
+
 Explicit requests remain the operating policy. Selective and all-page behavior
 await the shadow comparison. CH-11 remains conditional on a separately qualified
 Chandra-dependent selected change and authority decision.

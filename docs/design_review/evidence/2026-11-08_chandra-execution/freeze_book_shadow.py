@@ -7,6 +7,8 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
+from archive_study import freeze_overlay, study_regions
+
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.semantic.runtime import open_runtime_engine
@@ -26,9 +28,14 @@ _RECOGNITION = {
 }
 
 
-def _read_routes(directory: Path, source: VisualEvidencePin):
+def _read_routes(directory: Path, source: VisualEvidencePin, overlay):
     for start in range(1, _PAGE_COUNT + 1, 64):
-        report = VisualRouteReport.model_validate_json((directory / f"{start}.json").read_bytes())
+        data = json.loads((directory / f"{start}.json").read_bytes())
+        if overlay:
+            if data.get("study_overlay_digest") != overlay["digest"]:
+                raise ValueError(f"book dry route range {start} differs from the frozen overlay")
+            data = data["report"]
+        report = VisualRouteReport.model_validate(data)
         expected = list(range(start, min(start + 64, _PAGE_COUNT + 1)))
         if (
             report.source != source
@@ -40,16 +47,29 @@ def _read_routes(directory: Path, source: VisualEvidencePin):
         yield report
 
 
-def _capture_routes(directory: Path, source: VisualEvidencePin) -> None:
+def _capture_routes(directory: Path, source: VisualEvidencePin, *, archive_overlay: bool):
     """Run the CLI's bounded owner using one read engine and one source snapshot."""
     directory.mkdir(exist_ok=False)
     with (
         open_runtime_engine(Settings(), "chandra-book-freeze", purpose="read") as engine,
         read_snapshot(engine) as conn,
     ):
+        overlay = freeze_overlay(conn, source) if archive_overlay else None
+        study = study_regions(overlay) if overlay else None
         for start in range(1, _PAGE_COUNT + 1, 64):
-            report = read_visual_routes(conn, source, first=start, limit=64)
-            (directory / f"{start}.json").write_text(report.model_dump_json())
+            report = read_visual_routes(conn, source, first=start, limit=64, study_regions=study)
+            data = (
+                json.dumps(
+                    {
+                        "study_overlay_digest": overlay["digest"],
+                        "report": report.model_dump(mode="json"),
+                    }
+                )
+                if overlay
+                else report.model_dump_json()
+            )
+            (directory / f"{start}.json").write_text(data)
+        return overlay
 
 
 def _sample(pages, prior_controls: set[int]) -> dict[str, list[int]]:
@@ -91,14 +111,20 @@ def main():
     parser.add_argument("artifacts", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--read-live", action="store_true")
+    parser.add_argument(
+        "--archive-overlay",
+        action="store_true",
+        help="Read live and freeze the witnessed, study-only view of the sealed archive.",
+    )
     args = parser.parse_args()
 
     source = VisualEvidencePin.model_validate(
         dict(json.loads(args.pin.read_bytes()), run_id=args.run)
     )
-    if args.read_live:
-        _capture_routes(args.ranges, source)
-    reports = list(_read_routes(args.ranges, source))
+    overlay = None
+    if args.read_live or args.archive_overlay:
+        overlay = _capture_routes(args.ranges, source, archive_overlay=args.archive_overlay)
+    reports = list(_read_routes(args.ranges, source, overlay))
     if any(report.structural_input != reports[0].structural_input for report in reports):
         raise ValueError("the comparator's admitted Standard input changed across routing ranges")
     pages = [page for report in reports for page in report.pages]
@@ -155,6 +181,12 @@ def main():
         "held_out": _sample(pages, controls),
         "selections": _deduplicate(source, all_page + selective + explicit),
     }
+    if overlay:
+        manifest.update(
+            source_release=overlay["source_release"],
+            archive_study=overlay,
+            study_routes=[page.model_dump(mode="json") for page in pages],
+        )
     with args.output.open("x") as output:
         output.write(json.dumps(manifest, indent=2) + "\n")
     print(
