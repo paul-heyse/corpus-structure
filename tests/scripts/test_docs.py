@@ -300,16 +300,34 @@ def test_renderer_annotation_titles_and_duplicate_alias(root, settings):
     site.mkdir()
     (site / "README.html").write_text(
         '<html lang="en"><head></head><body><h1>Book title</h1>'
+        '<a href="https://example.test/repo/edit/main/src/README.md" rel="edit">Edit</a>'
         "<main><h1>Owner</h1></main></body></html>"
+    )
+    (site / "docs").mkdir()
+    (site / "docs/nested page.html").write_text(
+        '<html><head></head><body><a href="https://example.test/repo/edit/main/src/docs/nested%20page.md"'
+        ' rel="edit">Edit</a><main>Nested</main></body></html>'
+    )
+    (site / "architecture-sections.html").write_text(
+        '<html><head></head><body><a href="https://example.test/repo/edit/main/src/architecture-sections.md"'
+        ' rel="edit"><i>Edit</i></a><main>Generated</main></body></html>'
     )
     (site / "404.html").write_text('<html lang="en"><main>Not found</main></html>')
     page = docs.Page(
         Path("README.md"), "Actual page, with comma", "", "Docs", "Current", "accepted"
     )
-    docs.annotate(root, site, [page], settings)
+    nested = docs.Page(Path("docs/nested page.md"), "Nested", "", "Docs", "Reference")
+    generated = docs.Page(
+        Path("architecture-sections.md"), "Generated", "", "Docs", "Current", generated=True
+    )
+    docs.annotate(root, site, [page, nested, generated], settings)
     canonical = (site / "README.html").read_text()
     assert 'data-doc-title="Actual page, with comma"' in canonical
     assert "title[data-doc-title]" in canonical
+    assert '/edit/main/README.md"' in canonical
+    assert '/edit/main/README.md"' in (site / "index.html").read_text()
+    assert '/edit/main/docs/nested%20page.md"' in (site / "docs/nested page.html").read_text()
+    assert 'rel="edit"' not in (site / "architecture-sections.html").read_text()
     assert "data-pagefind-body" not in (site / "index.html").read_text()
     assert 'data-pagefind-ignore="all"' in (site / "404.html").read_text()
 

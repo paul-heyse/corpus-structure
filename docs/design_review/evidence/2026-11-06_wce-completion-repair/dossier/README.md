@@ -38,5 +38,14 @@ with two supported facets. The first diagnostic invocation used dictionary index
 typed member and stopped at the pagination assertion. The corrected invocation passed.
 `ruff check --no-force-exclude` and `python -m compileall -q` passed for the runner.
 
-The registered native, Reader, CLI, MCP, and portable journey remains pending the deployed
-release. The detached preparation check made no database writes.
+The detached preparation check made no database writes.
+
+## Verified native and delivery results · 2026-11-07
+
+Runs 196/cut 261 and 202/cut 273 both retained two members for the exact
+normal-density root, with independently supported terminology and definition
+facets. The independently supported marginal-totals component stayed outside
+the view. The native journey, ordinary Reader, CLI, fresh MCP continuation
+and portable verification passed for both policies. The two-member budget
+case establishes exact membership and delivery within this scope.
+[Finalized evidence record](../records/wce.repair-rooted-dossier.json) · [Retained result](attempt003/result.json)

@@ -2,7 +2,7 @@
 
 **From documents to connected, source-grounded knowledge.**
 
-[![Documentation](https://github.com/paul-heyse/corpus-structure/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/paul-heyse/corpus-structure/actions/workflows/docs.yml)
+[![Docs build](https://github.com/paul-heyse/corpus-structure/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/paul-heyse/corpus-structure/actions/workflows/docs.yml)
 
 Corpus Structure is a document-intelligence pipeline for finding structure in a collection
 of documents. It locates definitions and predicate roles, attaches conditions, resolves
@@ -13,7 +13,7 @@ can be useful while a larger interpretation is still unresolved. The system pres
 differences so a reader can inspect what was observed, what was selected, and what has been
 assessed.
 
-[See an example](docs/examples/README.md) · [Explore the architecture](docs/design/README.md) · [Read the evaluation](docs/design_review/evidence/2026-11-08_nce-full-book/review/README.md) · [Run locally](#run-locally)
+[Documentation](https://paul-heyse.github.io/corpus-structure/) · [See an example](docs/examples/README.md) · [Explore the architecture](docs/design/README.md) · [Read the evaluation](docs/design_review/evidence/2026-11-08_nce-full-book/review/README.md) · [Run locally](#run-locally)
 
 ## How it works
 

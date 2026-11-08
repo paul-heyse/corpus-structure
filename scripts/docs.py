@@ -36,6 +36,7 @@ class Page:
     collection: str
     scope: str
     status: str = ""
+    generated: bool = False
 
 
 def config(root: Path) -> dict:
@@ -155,6 +156,7 @@ def section_directory(root: Path, pages: list[Page]) -> tuple[Page, dict[Path, d
         "\n".join(rows),
         "Architecture",
         "Current",
+        generated=True,
     ), annotations
 
 
@@ -317,6 +319,25 @@ def scope_options(pages: list[Page]) -> list[str]:
     ]
 
 
+def edit_action(text: str, page: Page, settings: dict) -> str:
+    for offset, tag, attributes in Links(text).tags:
+        if not tag.startswith("<a ") or dict(attributes).get("rel") != "edit":
+            continue
+        if page.generated:
+            end = text.index("</a>", offset + len(tag)) + len("</a>")
+            return text[:offset] + text[end:]
+        site = settings["site"]
+        destination = html.escape(
+            f'{site["repository"]}/edit/{site["branch"]}/{quote(page.path.as_posix())}',
+            quote=True,
+        )
+        replacement = re.sub(
+            r'\bhref="[^"]*"', lambda _: f'href="{destination}"', tag, count=1
+        )
+        return text[:offset] + replacement + text[offset + len(tag) :]
+    return text
+
+
 def annotate(root: Path, site: Path, pages: list[Page], settings: dict) -> None:
     revision = run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True).stdout.strip()
     # A scope with no pages (History once retired records leave the tree) is never offered.
@@ -327,7 +348,7 @@ def annotate(root: Path, site: Path, pages: list[Page], settings: dict) -> None:
     errors = []
     for page in pages:
         path = site / page.path.with_suffix(".html")
-        text = path.read_text()
+        text = edit_action(path.read_text(), page, settings)
         try:
             text = rewrite_links(root, site, page, text, published, tracked, settings, revision)
         except ValueError as error:
