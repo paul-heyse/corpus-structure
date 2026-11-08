@@ -252,13 +252,23 @@ class FinalizationResult:
 
 
 class FinalizationConnection:
-    def execute(self, *args, **kwargs):
+    def execute(self, statement):
+        from corpus_structure.semantic.metadata import table
+
+        columns = statement.selected_columns
+        if len(columns) == 8 and any(column is table("ops.run").c.options for column in columns):
+            return NoVisualRunResult()
         return FinalizationResult()
 
     def scalar(self, statement):
         from corpus_structure.semantic.metadata import table
 
         assert list(statement.selected_columns) == [table("data.project").c.active_release_id]
+        return None
+
+
+class NoVisualRunResult:
+    def one_or_none(self):
         return None
 
 
