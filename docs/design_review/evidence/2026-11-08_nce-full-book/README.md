@@ -73,6 +73,27 @@ managed recognition responses and reached correspondence staging. Two complete
 relation envelopes exceeded the native inline representation limit. These attempts
 retain their original status and exact recognition receipts.
 
+Combined run 309 published the integrated native product after segmenting two
+large relation endpoint fields and their two evidence fields. The product
+retains 51,390 relations, 32,338 occurrences and 1,247 input pins. An edit to the
+runtime package during run 309 changed the worker identity before its annotation
+claims, so those claims could not continue. Run 312 adopted the exact published
+product without repeating recognition or reconciliation. The [combined source
+record](records/nce.gs518-integrated-source.json) retains cut 431, 29 completed
+annotated views and 9,975 reports.
+
+All 518 combined pages retain native regions. The page census directly joins
+projection pieces to regions on 515 pages. The table of contents on page 4 and
+the caption on page 119 project inline children whose containing nodes carry
+the page regions. On page 506 the selected item is a running header and has no
+body projection. The organized Standard source retains projected content on
+all 518 pages. The two source products retain distinct output receipts.
+
+To adopt the published combined product and continue annotation without inference,
+pass `--integrated-product TASK KEY SHA256` to `intake.py`, then finalize the
+adoption run and inventory it. Use `--native-product` when creating a new
+combined product from the Standard source.
+
 The [artifact record](records/nce.gs518-artifact-trigger.json) covers all 29
 views at run 300/cut 417. It retained 596 records and nominated 530 pairs,
 including 483 reference-only and 47 with unavailable namespaces. Zero pairs
@@ -93,13 +114,43 @@ Run `enrich.py` on the same pinned input with phases `scoped`, `model`, and
 `artifact`. The scoped phase selects source-conditioned table correspondence.
 The model phase selects the released bare/flat definition arm with the named
 producer enabled. The artifact phase consumes the full eligible source inventory.
-`contextual.py` consumes the exact scoped phase receipts and uses the book's
-complete selected heading inventory for its eligible cue views. It binds the
-original scoped configuration and input realization so the ordinary scheduler
-reuses the exact scoped task. `enrich.py --phase scoped --batch-index INDEX`
+`contextual.py` reads the exact scoped phase receipts and uses the book's
+complete selected heading inventory for eligible cue views. The ordinary
+scheduler includes the selected sources and operation graph in the scoped
+task's immutable reuse key. A standalone scoped run has a different key from
+the contextual graph. The runner checks that prerequisite before scheduling
+and reports a block rather than regenerating the scoped task.
+`enrich.py --phase scoped --batch-index INDEX`
 runs one batch in the same result directory used by the full scoped pass. The
 full pass can resume completed batches from their receipts. Each phase retains
 its actual task scope and independent completion state.
+
+Scoped run 313 reached view 167 with a 50.6 MB report and refused a reading
+after native admission began. The [task and refusal receipt](raw/scoped-predicate-refusal.txt)
+records the terminal state. The read-only `predicate_parity.py` probe compared
+2,082 readings from its exact retained annotation task and isolated one
+[disagreement](raw/scoped-predicate-parity-before.json). The parser had tagged
+“Suppose” as a noun. The SQL reading recognized its reporting lemma without
+checking predicate eligibility. Current native admission uses the independently
+reconstructed eligible hosts and prepares layout once per annotation block.
+A live stack sample during report construction also exposed repeated decoding
+of the same source context for each native anchor. Anchor resolution now uses
+the source preparation's indexed pieces and native items.
+
+On view 167, observed time from task start to native completion submission
+fell from about 50 seconds in run 313 to 13 seconds in run 314. The
+[second timeout](raw/scoped-negation-timeout.txt) occurred during PostgreSQL
+negation reconstruction at the 120-second statement deadline. The validator
+prepares the retained token text, independent negation states and relevant
+native pieces per annotation block so its individual readings can reuse them.
+Run 315 passed predicate validation and reached the named-link candidate
+boundary after 62.2 seconds for the same task. After correcting the substring
+boundary, run 316 reached the 120-second deadline in
+`ops.named_link_expected_groups`. The rest of the book's scoped batches were
+held at that boundary. The
+[scoped capacity record](records/nce.gs518-scoped-capacity.json) retains each
+attempt. The next bounded diagnostic is named-link candidate reconstruction
+on the retained annotations for view 167.
 
 Use the managed installed Reader and exact closure for evidence delivery. Keep
 protected authoring and assessment material separate from source-only packets and
@@ -108,14 +159,16 @@ ordinary review bundles.
 ## Records
 
 <!-- evidence-index:start -->
-Generated by `just evidence index` from `records/`; do not edit by hand. 3 current, 0 superseded.
+Generated by `just evidence index` from `records/`; do not edit by hand. 5 current, 0 superseded.
 
 
 **next-corpus-enrichment**
 
 | Record | Package | Outcome | Informs | Finalized |
 |---|---|---|---|---|
+| [Whole-book scoped admission and execution costs](records/nce.gs518-scoped-capacity.json) | NCE-02 | partial | NCE-02-A2, NCE-06-A2 | 2026-11-08 |
 | [Whole-book artifact nomination and same-lineage eligibility](records/nce.gs518-artifact-trigger.json) | NCE-08 | passed | NCE-08 | 2026-11-08 |
+| [Combined whole-book source and page-projection limits](records/nce.gs518-integrated-source.json) | full-book | partial | ADR-0070 | 2026-11-08 |
 | [Full Grinstead–Snell Nemotron primary recognition](records/nce.gs518-primary-recognition.json) | full-book | passed | ADR-0070 | 2026-11-07 |
 | [Complete Standard full-book source and frozen opportunity inventory](records/nce.gs518-standard-source.json) | full-book | passed | ADR-0070 | 2026-11-08 |
 <!-- evidence-index:end -->

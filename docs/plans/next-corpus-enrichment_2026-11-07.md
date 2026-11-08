@@ -497,6 +497,13 @@ recognition independently passed all 518 pages, including 210 applicable crop
 requests, on 2026-11-07 local time. The combined arm reuses the organized Standard
 product and retains its own reconciliation. Combined run 299 admitted every
 recognition response and exposed an inline relation-size limit during publication.
+Run 309 published the repaired combined native product. Adoption run 312
+finalized it at cut 431 with 29 annotated views and 9,975 reports, using the
+retained result from run 309. The [combined source record](../design_review/evidence/2026-11-08_nce-full-book/records/nce.gs518-integrated-source.json)
+covers 518 pages with native regions, 515 with directly located projection pieces,
+projected inline text on pages 4 and 119, and a retained running header with no
+body projection on page 506. Keep the locator and replacement differences open
+for source assessment.
 Scope expands through the same origin, including cross-chapter links. Independent
 comparison publication and same-lineage scorer eligibility retain their separate
 audit prerequisites.
@@ -507,6 +514,55 @@ revision `semantic_nce_audit_remaining` in managed deployment
 named-link admission, exact identifier and alias binding, indexed anchor lookups
 within native scoped validation, and segmented custody for large PDF relations.
 The full-book replay and affected tests determine verification standing.
+
+On 2026-11-08, scoped runs 310 and 311 stopped during native admission. The
+first exposed missing deployed helper functions. The second exposed an ambiguous
+SQL reference in the role inventory. Managed deployment
+`209332d38f7641c49f33d8b8c9a55b75` installed the correction at
+`semantic_nce_audit_role_binding` on the same release.
+`uv run ci test --json --` passed all 54 affected tests in managed result
+`80fcc46ab8e24fda8b66a3e7412640f0`, including the current native comparison
+fixture. The book retry starts with the batch containing the timed-out source
+view. Its completed receipt can be reused in the rest of the scoped phase.
+
+Run 313 advanced past the earlier indexed-lookup bottleneck and refused an
+inconsistent predicate reading on view 167. The
+[scoped parity probe](../design_review/evidence/2026-11-08_nce-full-book/README.md)
+isolated a reporting governor that the retained parser tagged as a noun.
+Current native reconstruction checks governor eligibility and prepares layout
+once per annotation block. The Python source-context owner reuses its native
+item and piece indexes across anchors. Book-scale admission and contextual
+reuse retain separate verification.
+
+Managed deployment `ed2c623c7b5c451fbb2b55971f90bf45` installed native
+revision `semantic_nce_audit_governors` on 2026-11-08. The affected
+`uv run ci test --json --` selection `2f36ef9fc2bc4f079a5dcd7d856b5531`
+passed 184 nodes and failed one new fixture due to SQL parameter syntax.
+`uv run ci test retry 2f36ef9fc2bc4f079a5dcd7d856b5531 --lane ordinary`
+passed that node in `07780766a7f541fd89ed29688811f538`. Managed coverage
+reports 185 nodes with zero unresolved and records the intervening fixture-only
+source difference. The product source was identical for both test invocations.
+
+Run 314 exposed repeated native negation reconstruction at the statement
+deadline. Managed deployment `74f08439309e40e8927f47308022ebdf` installed
+`semantic_nce_audit_blocks` on 2026-11-08. The validator prepares token text,
+negation and relevant pieces once per annotation block. All 49 affected tests
+passed in managed result `d5cd345bb6094bf198e28f7b74e2a1cd`. The
+[scoped capacity record](../design_review/evidence/2026-11-08_nce-full-book/records/nce.gs518-scoped-capacity.json)
+retains the predicate, deadline and named-link failures. The contextual runner
+checks whether an exact scoped predecessor is reusable before spending compute.
+
+Managed deployment `98a226f00b1a440192f12764c7396ed5` installed
+`semantic_nce_audit_named_piece` on 2026-11-08. Named-cue reconstruction
+checks token ends against the actual piece before reading a suffix.
+`uv run ci test --json --` passed all 30 affected tests in
+`7021c4e6192f42019a96142c27fa255f`, including the out-of-piece cue and the
+current native comparison fixture. Run 316 passed the earlier predicate and
+substring failure points, then hit the 120-second native deadline in
+`ops.named_link_expected_groups`. Named-link capacity on view 167 gates the
+remaining scoped batches. The standalone scoped graph's immutable dependency
+key differs from the contextual graph. Exact contextual qualification is
+pending a shared execution or a native retained-input route.
 
 The [authentic protected comparison](../design_review/evidence/2026-11-08_nce-comparison-publication/README.md)
 graded run 307/cut 427 against independent source-first passes on pages 151 and

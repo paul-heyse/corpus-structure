@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "id": "nce.gs518-scoped-capacity",
+  "title": "Whole-book scoped admission and execution costs",
+  "group": "next-corpus-enrichment",
+  "package": "NCE-02",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What delays native scoped admission on the largest retained book views, and which failures must be resolved before contextual replay?",
+  "answers": [
+    "NCE-02-A2",
+    "NCE-06-A2"
+  ],
+  "method": "Use only the first scoped batch on the sealed Standard source during diagnosis. Compare the exact Python and native reading populations from retained annotation task 1347. Sample the active Python stack and PostgreSQL statement, and retain the relevant run and validator dispositions.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-08_nce-full-book/enrich.py 297 build/nce-full-book/repaired-standard --release release:845ac25166e63bae9177a19771fece4324453204a080fded91921eec5135e7e1 --phase scoped --repaired --batch-index 0",
+    "uv run python docs/design_review/evidence/2026-11-08_nce-full-book/predicate_parity.py build/nce-full-book/repaired-standard/scoped-000/configuration.json 167 --release release:845ac25166e63bae9177a19771fece4324453204a080fded91921eec5135e7e1 --legacy-governors"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/scoped-predicate-refusal.txt",
+      "role": "Run 313 task states and native predicate mismatch",
+      "sha256": "eca799813ec4622a68ba06fe7e1e23de519ce6077089ed2634435854492af4a3"
+    },
+    {
+      "path": "raw/scoped-predicate-parity-before.json",
+      "role": "Exact reading disagreement before checking reporting governor eligibility",
+      "sha256": "7d77e02f9cb523161065cf50d1d9fba744a09aff630f492c2d5332541f58f3ea"
+    },
+    {
+      "path": "raw/scoped-negation-timeout.txt",
+      "role": "Run 314 task states and PostgreSQL negation timeout",
+      "sha256": "d6a9ddf6616fb575563e685f4410d9feb589c1dd7d5c4c3bf8fa6c35281a33f0"
+    },
+    {
+      "path": "raw/scoped-named-piece-refusal.txt",
+      "role": "Run 315 named-link refusal after predicate validation",
+      "sha256": "01f23b1b0994872f36351faa28e43f8cb7cae4b7e1636cf02e76920bdc835e1b"
+    },
+    {
+      "path": "raw/scoped-named-capacity-timeout.txt",
+      "role": "Run 316 PostgreSQL deadline during named-link candidate reconstruction",
+      "sha256": "cf270004c61b14609619a16b0cb43c767897097ae28357bc42d913daa73105bc"
+    }
+  ],
+  "depends_on": [
+    "nce.gs518-standard-source"
+  ],
+  "results": [
+    {
+      "name": "Readings compared for view 167",
+      "value": 2082,
+      "of": null,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "Reading disagreements before governor eligibility check",
+      "value": 1,
+      "of": 2082,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "Time to native completion submission before anchor preparation",
+      "value": 50,
+      "of": null,
+      "unit": "seconds",
+      "note": "Approximate live sample in run 313."
+    },
+    {
+      "name": "Time to native completion submission with prepared anchors",
+      "value": 13,
+      "of": null,
+      "unit": "seconds",
+      "note": "Approximate live sample in run 314."
+    },
+    {
+      "name": "Time from task start to named-link refusal after preparing predicate blocks",
+      "value": 62.2,
+      "of": null,
+      "unit": "seconds",
+      "note": "View 167 in run 315 reached the later native validator."
+    },
+    {
+      "name": "Native statement deadline reached by named-link reconstruction",
+      "value": 120,
+      "of": null,
+      "unit": "seconds",
+      "note": "Run 316 advanced through the corrected substring boundary."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Reusing prepared native anchor indexes shortened report construction. Reconstructing predicate layout, text and negation at block scope let view 167 reach named-link admission within the existing database deadline. Run 316 hit that deadline in named-link candidate reconstruction. The remaining scoped batches and contextual replay stayed unscheduled.",
+  "consumed_by": [
+    "next-corpus-enrichment plan",
+    "NCE-02-A2",
+    "NCE-06-A2"
+  ]
+}

@@ -18,6 +18,7 @@ from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
 from corpus_structure.orchestrate.runner import Graph, Step
 from corpus_structure.orchestrate.semantic import run_source_methods
 from corpus_structure.schema.pack import DOMAINS
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.operations import OperationBinding
 from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.semantic.releases import open_release
@@ -91,6 +92,20 @@ def run_case(settings, prepared, headings, source, upstream, output, *, repaired
         run_id = json.loads(ready.read_bytes())["run_id"]
         return journey.finish_source_stage(settings, run_id, output)
 
+    manifest = json.loads(bytes(upstream["dependencies"]))
+    operations = manifest["operations"]
+    if (
+        set(operations) != {scoped.name, contextual.name}
+        or manifest["selected_sources"] != [source.model_dump(mode="json")]
+        or operations[contextual.name]["configuration_hash"]
+        != registry.resolve(contextual.name, "book").config_hash
+    ):
+        return dict(
+            status="blocked",
+            origin_task_id=upstream["origin_task_id"],
+            reason="The retained scoped task belongs to a different immutable operation graph.",
+        )
+
     with open_runtime_engine(settings, "nce-full-book-contextual", purpose="write") as engine:
         result = run_source_methods(
             engine,
@@ -100,7 +115,7 @@ def run_case(settings, prepared, headings, source, upstream, output, *, repaired
                 prepared.release_id,
                 upstream["input_realization_id"],
                 upstream["input_revision"],
-                bytes(upstream["dependencies"]),
+                canonical_bytes(manifest["parent"]),
             ),
             registry=registry,
             graph=Graph(

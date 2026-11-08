@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-08. The owning NCE plan records current development and remaining qualification. The full-book Standard source has finalized. Live qualification and WCE12 remain open._
+_Updated 2026-11-08. Standard and combined whole-book sources have finalized. The owning NCE plan records remaining qualification. Live qualification and WCE12 remain open._
 
 ## Current authority
 
@@ -48,13 +48,13 @@ _Updated 2026-11-08. The owning NCE plan records current development and remaini
 
 - The [NCE audit gap execution](docs/plans/next-corpus-enrichment_2026-11-07.md#audit-gap-execution)
   owns current disposition and exact test and corpus receipts. Development is at
-  `semantic_nce_audit_remaining` on PostgreSQL 18/corpus, port 5434.
+  `semantic_nce_audit_named_piece` on PostgreSQL 18/corpus, port 5434.
 - The current qualifier replay, artifact delivery and both table Reader controls
   passed on 2026-11-07. The seven model provider arms returned real observations.
   Protected fit 3 and its ordinary parameter and feature reads passed on fresh
   set 30 and evaluation 35. Repository checks and the eight native fault tests passed.
 - [Full-book intake](docs/plans/next-corpus-enrichment_2026-11-07.md#full-book-execution)
-  completed Standard run 297/cut 413 and Nemotron primary recognition across all
-  518 pages. Artifact and model passes finished. Combined publication and scoped replay are running.
+  completed Standard cut 413 and adopted combined cut 431 after Nemotron processed all 518 pages.
+  Artifact and model producers finished. Scoped run 316 hit the named-link deadline. Contextual reuse remains open.
 - Settle the WCE source and factor obligations. Live CLI qualification needs a configured
   production target, purpose roles and effect authority.

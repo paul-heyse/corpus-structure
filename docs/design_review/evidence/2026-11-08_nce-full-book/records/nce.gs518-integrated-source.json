@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "id": "nce.gs518-integrated-source",
+  "title": "Combined whole-book source and page-projection limits",
+  "group": "next-corpus-enrichment",
+  "package": "full-book",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the combined recognition and Standard product publish one native whole-book source and project located text across the full page inventory?",
+  "answers": [
+    "ADR-0070"
+  ],
+  "method": "Publish the combined native product using the exact Standard source and retained managed recognition responses. Adopt the published product after the first annotation attempt encountered a runtime pin mismatch. Finalize the adopted cut, census exact native and directly projected page coverage, and inspect the native and projection pointers on the three pages without a direct join.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-08_nce-full-book/intake.py build/nce-full-book --release release:845ac25166e63bae9177a19771fece4324453204a080fded91921eec5135e7e1 --realization nce-gs518-source-integrated-adopted --integrated-product 1389 integrated a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2",
+    "uv run ci run finalize 312 --output-realization nce-gs518-integrated-source-result:312 --json",
+    "uv run python docs/design_review/evidence/2026-11-08_nce-full-book/enrich.py 312 build/nce-full-book/integrated-baseline --release release:845ac25166e63bae9177a19771fece4324453204a080fded91921eec5135e7e1 --phase inventory"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/integrated-finalize.json",
+      "role": "Completed combined run and cut",
+      "sha256": "4ab6f52747e363c85b589b175efc4d05b22024d33da8687e30f2f92bfc7d3a76"
+    },
+    {
+      "path": "raw/integrated-inventory.json",
+      "role": "Exact native page, direct projection and annotation inventory",
+      "sha256": "02bb5e7eb68a43232328d1b0baea92a9025b73562288d7327940703e07f2195e"
+    },
+    {
+      "path": "raw/integrated-source-sample.json",
+      "role": "Combined source-only sample",
+      "sha256": "1e752f7aeba2b3bbe28616e361402512357144b002f353e901eeaf6b3e95d537"
+    },
+    {
+      "path": "raw/integrated-projection-locators.txt",
+      "role": "Native and projected inline locator census for pages 4, 119 and 506",
+      "sha256": "eddb9e2d02b6813192e00497579397859c62c2f7f7ab683f77fe529fd57e8e6d"
+    }
+  ],
+  "depends_on": [
+    "nce.gs518-standard-source",
+    "nce.gs518-primary-recognition"
+  ],
+  "results": [
+    {
+      "name": "Exact native pages",
+      "value": 518,
+      "of": 518,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "Pages with directly located native projection pieces",
+      "value": 515,
+      "of": 518,
+      "unit": "pages",
+      "note": "Projected inline text on pages 4 and 119 has regions on the containing nodes."
+    },
+    {
+      "name": "Completed annotated source views",
+      "value": 29,
+      "of": 29,
+      "unit": "views",
+      "note": null
+    },
+    {
+      "name": "Finalized source reports",
+      "value": 9975,
+      "of": null,
+      "unit": "reports",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Run 312/cut 431 finalized the adopted combined product and its 29 annotated views without fresh recognition or reconciliation. All 518 pages have native regions. Pages 4 and 119 have projected inline children whose regions reside on their containers. Page 506 retains a selected page header and no body projection. Direct page locators and the effect of replacement on source coverage remain assessment findings.",
+  "consumed_by": [
+    "next-corpus-enrichment plan",
+    "full-book development baseline"
+  ]
+}
