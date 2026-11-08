@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 from enrich import SCOPE, journey, structural_inputs
-from intake import PARENT, PROJECT
+from intake import PROJECT
 from sqlalchemy import text
 
 from corpus_structure.core.method import MethodSettings
@@ -18,34 +18,43 @@ from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
 from corpus_structure.orchestrate.runner import Graph, Step
 from corpus_structure.orchestrate.semantic import run_source_methods
 from corpus_structure.schema.pack import DOMAINS
-from corpus_structure.semantic._operation_calls import initialize_source_project
-from corpus_structure.semantic._operation_ids import ProjectId, RealizationId, ReleaseId
-from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.operations import OperationBinding
 from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.runtime import open_runtime_engine
+from corpus_structure.semantic.runtime_bindings import installed_runtime_id
 from corpus_structure.settings import Settings
 
 
-def cue_views(conn, scoped):
-    rows = conn.execute(
-        text("""
-        SELECT DISTINCT t.unit_id
+def cue_inputs(conn, scoped):
+    rows = (
+        conn.execute(
+            text("""
+        SELECT t.unit_id, ct.origin_task_id, m.version, cfg.params, job.release_id,
+               job.runtime_id, job.input_realization_id, job.input_revision, job.dependencies
         FROM ops.cut_task ct JOIN ops.task t ON t.id=ct.task_id
+        JOIN ops.run job ON job.id=t.run_id
+        JOIN ops.method_config cfg ON cfg.id=t.method_config_id
+        JOIN ops.method m ON m.id=cfg.method_id
         JOIN ops.task_result r ON r.task_id=ct.origin_task_id
-        WHERE ct.cut_id=ANY(:cuts)
+        WHERE ct.cut_id=ANY(:cuts) AND m.name='structure.scoped_relations'
           AND jsonb_path_exists(r.body,
             '$.contributions[*].value.fields[*] ? (
                 @.name == "role" && @.value.text == "named_link_subject")')
         ORDER BY t.unit_id
     """),
-        {"cuts": [run["cut_id"] for run in scoped]},
+            {"cuts": [run["cut_id"] for run in scoped]},
+        )
+        .mappings()
+        .all()
     )
-    return frozenset(rows.scalars())
+    selected = {row["unit_id"]: row for row in rows}
+    if len(selected) != len(rows):
+        raise ValueError("one exact completed scoped origin is required for each cue view")
+    return selected
 
 
-def run_case(settings, prepared, headings, inputs, output, attempt, *, repaired):
+def run_case(settings, prepared, headings, source, upstream, output, *, repaired):
     scoped, contextual = ScopedRelationsMethod(), ContextualCandidatesWithNeighborhood()
     if repaired:
         from corpus_structure.methods.contextual_candidates import (
@@ -55,22 +64,10 @@ def run_case(settings, prepared, headings, inputs, output, attempt, *, repaired)
 
         scoped = ScopedRelationsWithRoleClosure()
         contextual = ContextualCandidatesWithNamedBindings()
-    (source,) = inputs.sources
+    if upstream["version"] != scoped.version:
+        raise ValueError("selected scoped task belongs to a different producer version")
     configs = {
-        scoped.name: {
-            "book": dict(
-                inputs=inputs.model_dump(mode="json"),
-                structural_input_digest=inputs.identity,
-                interpretation_mode="feasibility",
-                work_bindings=[
-                    dict(
-                        native_content_digest=source.native_content_digest,
-                        source_work=PARENT,
-                        provenance="Exact whole-book source and selected native projection",
-                    )
-                ],
-            )
-        },
+        scoped.name: {"current": upstream["params"]},
         contextual.name: {
             "book": dict(
                 profile="e5",
@@ -94,38 +91,16 @@ def run_case(settings, prepared, headings, inputs, output, attempt, *, repaired)
         run_id = json.loads(ready.read_bytes())["run_id"]
         return journey.finish_source_stage(settings, run_id, output)
 
-    realization = f"nce-gs518-contextual:{attempt}:{source.source_view_id}:{prepared.release_id}"
     with open_runtime_engine(settings, "nce-full-book-contextual", purpose="write") as engine:
-        with engine.begin() as conn:
-            initialize_source_project(
-                conn,
-                project_id=ProjectId(PROJECT),
-                release_id=ReleaseId(prepared.release_id),
-                realization_id=RealizationId(realization),
-                projection_context=prepared,
-            )
-        with read_snapshot(engine) as conn:
-            revision = conn.scalar(
-                text("""
-                SELECT data_revision FROM data.realization WHERE realization_id=:realization
-            """),
-                {"realization": realization},
-            )
         result = run_source_methods(
             engine,
             project_id=PROJECT,
             prepared=prepared,
             binding=OperationBinding(
                 prepared.release_id,
-                realization,
-                revision,
-                canonical_bytes(
-                    {
-                        "parent_sha256": PARENT,
-                        "scoped_inputs": inputs.identity,
-                        "heading_sources": [ref.identity for ref in headings],
-                    }
-                ),
+                upstream["input_realization_id"],
+                upstream["input_revision"],
+                bytes(upstream["dependencies"]),
             ),
             registry=registry,
             graph=Graph(
@@ -133,7 +108,7 @@ def run_case(settings, prepared, headings, inputs, output, attempt, *, repaired)
                     (
                         Stage.SCOPE,
                         (
-                            Step(scoped.name + "/book"),
+                            Step(scoped.name + "/current"),
                             Step(contextual.name + "/book", upstream=(scoped.name,)),
                         ),
                     ),
@@ -146,8 +121,20 @@ def run_case(settings, prepared, headings, inputs, output, attempt, *, repaired)
             guideline=(DOMAINS / "statistics/m1-guideline.md").read_text(),
             policy_source=None,
             kind="full",
-            selected_sources=inputs.sources,
+            selected_sources=(source,),
         )
+        with read_snapshot(engine) as conn:
+            reused = conn.execute(
+                text("""
+                SELECT t.status, t.reused_task_id
+                FROM ops.task t JOIN ops.method_config c ON c.id=t.method_config_id
+                JOIN ops.method m ON m.id=c.method_id
+                WHERE t.run_id=:run AND t.unit_id=:view AND m.name=:method
+                """),
+                dict(run=result.run_id, view=source.source_view_id, method=scoped.name),
+            ).one()
+        if (reused.status, reused.reused_task_id) != ("reused", upstream["origin_task_id"]):
+            raise ValueError("contextual producer did not reuse its exact scoped predecessor")
     journey.retain(ready, result.model_dump(mode="json"))
     if result.status != "source_ready":
         raise ValueError("book citation task did not reach source readiness")
@@ -170,7 +157,13 @@ def main():
     ) as reader:
         with read_snapshot(reader) as conn:
             prepared = open_release(conn, args.release)
-            candidates = cue_views(conn, scoped)
+            candidates = cue_inputs(conn, scoped)
+        runtime = installed_runtime_id(prepared)
+        if any(
+            (row["release_id"], row["runtime_id"]) != (prepared.release_id, runtime)
+            for row in candidates.values()
+        ):
+            raise ValueError("scoped cue inputs differ from the installed release/runtime")
         atlas = structural_inputs(reader, source_run, views, "heading-atlas")
         if len(atlas.sources) > 256:
             raise ValueError("complete heading inventory exceeds the contextual source bound")
@@ -179,14 +172,14 @@ def main():
                 settings,
                 prepared,
                 atlas.sources,
-                structural_inputs(reader, source_run, (view,), f"citation-{view['id']}"),
-                args.output / f"contextual-{view['id']}",
-                args.output.name,
+                source,
+                candidates[source.source_view_id],
+                args.output / f"contextual-{source.source_view_id}",
                 repaired=args.repaired,
             )
-            | {"source_view_id": view["id"]}
-            for view in views
-            if view["id"] in candidates
+            | {"source_view_id": source.source_view_id}
+            for source in atlas.sources
+            if source.source_view_id in candidates
         ]
     journey.retain(
         args.output / "contextual-summary.json",

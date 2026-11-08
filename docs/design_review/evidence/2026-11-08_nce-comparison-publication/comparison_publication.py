@@ -20,6 +20,7 @@ from corpus_structure.evaluate.structural_assessment import (
     StructuralEvaluationFrame,
     create_structural_reference_set,
     record_structural_reference_pass,
+    score_structural_reference,
 )
 from corpus_structure.methods.scoped_relations import ScopedRelationsConfig, ScopedRelationsMethod
 from corpus_structure.methods.structural_products import (
@@ -74,8 +75,9 @@ def cli(*args, stdin=None):
         [str(CLI), *map(str, args)], input=stdin, capture_output=True, check=False
     )
     if result.returncode:
-        # CI emits its own scoped diagnostic. The driver never passes protected bytes to CI.
-        raise RuntimeError(result.stderr.decode() or result.stdout.decode())
+        # Preserve CI's structured failure when provider warnings also reach stderr.
+        diagnostic = (result.stdout or result.stderr).decode().strip()
+        raise RuntimeError(f"ci returned {result.returncode}: {diagnostic}")
     return json.loads(result.stdout), result.stderr.decode()
 
 
@@ -409,6 +411,48 @@ def run(args):
     retain(output / "completed.json", receipt)
 
 
+def assess(args):
+    """Score the exact candidate after independent C, reporting custody and outcomes only."""
+    spec, candidate, c = data(args.spec), data(args.candidate), data(args.c_receipt)
+    frame = StructuralEvaluationFrame.model_validate(spec["frame"])
+    body = args.adjudication.read_bytes()
+    reference = StructuralAuthoredReference.model_validate_json(body)
+    if (
+        c["kind"] != "C"
+        or c["content_digest"] != sha256(body).hexdigest()
+        or c["frame_digest"] != frame.identity
+        or candidate["project_id"] != spec["project_id"]
+        or candidate["release_id"] != spec["release_id"]
+    ):
+        raise ValueError("assessment requires the exact native candidate and C receipt")
+    page, _ = cli(
+        "structure", "list", "--run", candidate["run_id"], "--cut", candidate["cut_id"],
+        "--kind", "qualified_comparison", "--after-task", candidate["selected_task_id"] - 1,
+        "--limit", 1, "--json",
+    )
+    (raw,) = page["reports"]
+    report = StructuralProductReport.model_validate(raw)
+    if (
+        page["task_ids"] != [candidate["selected_task_id"]]
+        or page["release_id"] != candidate["release_id"]
+        or report.product_id != candidate["product_id"]
+    ):
+        raise ValueError("ordinary reader differs from exact completed candidate custody")
+    assessment = score_structural_reference(frame, reference, raw)
+    cases = [
+        {key: case[key] for key in ("case_id", "facet", "judgment", "outcome", "found")}
+        for case in assessment["cases"]
+    ]
+    print(json.dumps({
+        "candidate": candidate, "adjudication": c, "cases": cases,
+        "supported_exact_statement": any(
+            case["facet"] == "public_statement" and case["judgment"] == "supported"
+            and case["outcome"] == "match"
+            for case in cases
+        ),
+    }))
+
+
 async def mcp_call(run_id, tool, request):
     from fastmcp import Client
     from fastmcp.client.transports import StdioTransport
@@ -551,7 +595,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     for name in (
-        "locate", "prepare-scope", "readings", "freeze", "packet", "submit", "run", "verify",
+        "locate", "prepare-scope", "readings", "freeze", "packet", "submit", "run", "assess",
+        "verify",
     ):
         sub = commands.add_parser(name)
         sub.set_defaults(action=globals()[name.replace("-", "_")])
@@ -562,13 +607,13 @@ def main():
         if name == "readings":
             sub.add_argument("run_id", type=int)
             sub.add_argument("passage")
-        if name in {"prepare-scope", "freeze", "packet", "run"}:
+        if name in {"prepare-scope", "freeze", "packet", "run", "assess"}:
             sub.add_argument("spec", type=Path)
         if name in {"packet", "submit"}:
             sub.add_argument("freeze_receipt", type=Path)
         if name in {"freeze", "submit"}:
             sub.add_argument("receipt", type=Path)
-        if name in {"prepare-scope", "packet", "run"}:
+        if name in {"prepare-scope", "packet"}:
             sub.add_argument("destination", type=Path)
         if name == "submit":
             sub.add_argument("kind", choices=("A", "B", "C"))
@@ -577,9 +622,14 @@ def main():
             sub.add_argument("--parents", type=Path, nargs=2, default=())
         if name == "run":
             sub.add_argument("phase", choices=("scope", "candidate", "publish", "dossier"))
+            sub.add_argument("destination", type=Path)
             sub.add_argument("--freeze-receipt", type=Path)
             sub.add_argument("--c-receipt", type=Path)
             sub.add_argument("--product-id")
+        if name == "assess":
+            sub.add_argument("candidate", type=Path)
+            sub.add_argument("c_receipt", type=Path)
+            sub.add_argument("adjudication", type=Path)
         if name == "verify":
             sub.add_argument("request", type=Path)
             sub.add_argument("product_id")

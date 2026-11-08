@@ -269,6 +269,7 @@ def main():
     parser.add_argument("output", type=Path)
     parser.add_argument("--release", required=True)
     parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--batch-index", type=int)
     parser.add_argument("--repaired", action="store_true")
     parser.add_argument(
         "--phase", choices=("inventory", "scoped", "model", "artifact"), required=True
@@ -276,6 +277,8 @@ def main():
     args = parser.parse_args()
     if not 1 <= args.batch_size <= 32:
         parser.error("batch size must be between 1 and 32 selected source views")
+    if args.batch_index is not None and (args.phase != "scoped" or args.batch_index < 0):
+        parser.error("batch index requires a nonnegative scoped batch number")
     args.output.mkdir(parents=True, exist_ok=True)
     journey.PROJECT = PROJECT
     settings = Settings()
@@ -319,6 +322,8 @@ def main():
                 for key in ("snapshot", "checkpoint", "revision", "artifact_hashes", "threads")
             }
         for index, group in enumerate(groups):
+            if args.batch_index is not None and index != args.batch_index:
+                continue
             root = args.output / f"{args.phase}-{index:03}"
             inputs = structural_inputs(reader, args.source_run, group, root.name)
             bindings = [
@@ -356,6 +361,10 @@ def main():
             summary = execute(settings, prepared, method, config, inputs, root, args.output.name)
             results.append(summary)
             print(json.dumps(summary), flush=True)
+        if args.batch_index is not None:
+            if not results:
+                raise ValueError("selected scoped batch does not exist")
+            return
         if {v["id"] for v in views} != {v for result in results for v in result["source_views"]}:
             raise ValueError("phase results do not cover the exact eligible view population")
         journey.retain(args.output / f"{args.phase}-summary.json", results)

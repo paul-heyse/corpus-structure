@@ -500,3 +500,16 @@ recognition response and exposed an inline relation-size limit during publicatio
 Scope expands through the same origin, including cross-chapter links. Independent
 comparison publication and same-lineage scorer eligibility retain their separate
 audit prerequisites.
+
+On 2026-11-08 the development database admitted release `845ac251…` at native
+revision `semantic_nce_audit_remaining` in managed deployment
+`87d2ab1e330e47d4b137e2bda494debf`. This successor adds complete clipped-role and
+named-link admission, exact identifier and alias binding, indexed anchor lookups
+within native scoped validation, and segmented custody for large PDF relations.
+The full-book replay and affected tests determine verification standing.
+
+The [authentic protected comparison](../design_review/evidence/2026-11-08_nce-comparison-publication/README.md)
+graded run 307/cut 427 against independent source-first passes on pages 151 and
+173. Native publication refused the mismatch in run 308. The controlled positive
+still qualifies its fixture scope, and authentic actionable gap delivery remains
+open under NCE-09-A2.

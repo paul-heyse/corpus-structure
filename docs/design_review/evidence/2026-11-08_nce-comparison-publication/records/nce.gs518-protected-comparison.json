@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "id": "nce.gs518-protected-comparison",
+  "title": "Whole-book source-first comparison and publication refusal",
+  "group": "next-corpus-enrichment",
+  "package": "NCE-09",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do independently assessed occurrences of the same naming convention on physical pages 151 and 173 support the exact retained comparison and an actionable unconnected gap?",
+  "answers": [
+    "NCE-09-A2",
+    "NCE-10-A2"
+  ],
+  "method": "Select exact occurrences from sealed Standard run 297, retain the focused readings through scoped run 303 and freeze source-first development frame 14. Independent authors A and B used the source packet and released shape. A separate adjudicator used the same source packet and the exact A/B bodies. Record A, B and C before producing run 307. Compare the ordinary Reader result with the exact C reference and attempt ordinary native publication once. Diagnose disagreements from the canonical projection and exact retained M1 dependency columns.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-08_nce-comparison-publication/comparison_publication.py locate 297 151 'mutually independent'",
+    "uv run python docs/design_review/evidence/2026-11-08_nce-comparison-publication/comparison_publication.py locate 297 173 'mutually independent'",
+    "uv run python comparison_publication.py prepare-scope selections.json scoped.json",
+    "uv run python comparison_publication.py run scoped.json scope scoped-attempt",
+    "uv run python comparison_publication.py freeze comparison.json frozen.json",
+    "uv run python comparison_publication.py packet comparison.json frozen.json source-only.json",
+    "uv run python comparison_publication.py submit frozen.json a-receipt.json A gs518-author-a a.json",
+    "uv run python comparison_publication.py submit frozen.json b-receipt.json B gs518-author-b b.json",
+    "uv run python comparison_publication.py submit frozen.json c-receipt.json C gs518-author-c c.json --parents a-receipt.json b-receipt.json",
+    "uv run python comparison_publication.py run comparison.json candidate candidate-attempt --freeze-receipt frozen.json",
+    "uv run python comparison_publication.py assess comparison.json candidate-attempt/completed.json c-receipt.json c.json",
+    "uv run python comparison_publication.py run comparison.json publish publication-attempt --freeze-receipt frozen.json --c-receipt c-receipt.json --product-id structural:00963153247ce7393a53414e3aa6bc1951ecd80c76f8dcad5452867d55ab646c"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/whole-book-comparison-summary.json",
+      "role": "Source, retained reading, independent assessment and refusal custody with bounded whole-statement diagnostics",
+      "sha256": "df0a6ea8f2e8156921e3cc5edeb4cebdc0029cfa389d41b9272561d8b54cdfbd"
+    }
+  ],
+  "depends_on": [
+    "nce.protected-comparison-controlled",
+    "2026-11-08_nce-full-book/nce.gs518-standard-source"
+  ],
+  "results": [
+    {
+      "name": "Exact source capture and distinct independent A/B/C custody",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": "Standard run 297/cut 413/view 173, scoped run 303/cut 415/task 1383 and frame 14 with passes 46/47/48."
+    },
+    {
+      "name": "Supported exact C whole-statement match",
+      "value": "failed",
+      "of": null,
+      "unit": null,
+      "note": "Run 307/cut 427/task 1387 matched source citations and local applicability. Both condition and reported content were missing. The supported C whole statement differed in representation as well."
+    },
+    {
+      "name": "Protected scorer public subfacet routing",
+      "value": "failed",
+      "of": null,
+      "unit": null,
+      "note": "All 63 nested public-statement subfacet paths were absent from the scorer's selected root. The scorer separately found and compared the whole-statement path."
+    },
+    {
+      "name": "Native publication refusal and absence of assertion",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": "Run 308 reached source-ready cut 428 and final cut 429. The authenticated writer refused the exact witness and the run has zero completed results."
+    },
+    {
+      "name": "Authentic actionable gap and Reader, CLI, MCP and detached delivery",
+      "value": "not_run",
+      "of": null,
+      "unit": null,
+      "note": "The selected candidate lacks an exact independently supported published comparison."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The whole-book case supplies source capture, independent development assessment and an exact native refusal. It exposes two retained linguistic gaps and public assessment wire and path issues. The controlled native positive remains a separate qualification. Authentic actionable gap and same-case delivery remain open.",
+  "consumed_by": [
+    "NCE-09-A2",
+    "NCE-10-A2",
+    "next-corpus-enrichment plan"
+  ]
+}

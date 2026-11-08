@@ -94,7 +94,11 @@ Run `enrich.py` on the same pinned input with phases `scoped`, `model`, and
 The model phase selects the released bare/flat definition arm with the named
 producer enabled. The artifact phase consumes the full eligible source inventory.
 `contextual.py` consumes the exact scoped phase receipts and uses the book's
-complete selected heading inventory for its eligible cue views. Each phase retains
+complete selected heading inventory for its eligible cue views. It binds the
+original scoped configuration and input realization so the ordinary scheduler
+reuses the exact scoped task. `enrich.py --phase scoped --batch-index INDEX`
+runs one batch in the same result directory used by the full scoped pass. The
+full pass can resume completed batches from their receipts. Each phase retains
 its actual task scope and independent completion state.
 
 Use the managed installed Reader and exact closure for evidence delivery. Keep
