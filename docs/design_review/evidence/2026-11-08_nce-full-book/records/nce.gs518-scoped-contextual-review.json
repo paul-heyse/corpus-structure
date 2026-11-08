@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "id": "nce.gs518-scoped-contextual-review",
+  "title": "Independent review of published whole-book scoped and contextual outputs",
+  "group": "next-corpus-enrichment",
+  "package": "NCE-06",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What did the whole-book scoped and contextual reports preserve, misread or omit?",
+  "answers": [
+    "NCE-02-A2",
+    "NCE-06-A2",
+    "ADR-0070"
+  ],
+  "method": "Read all exact completed whole-view reports at report and category level. Review a bounded, native-anchored set of contribution chains against the original source. Independently check all six contextual reports, all nine output edges and selected printed citations that did not enter the scoped cue population.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-08_nce-full-book/review_scoped.py build/nce-full-book/repaired-standard-current build/nce-full-book/review/pages.jsonl build/nce-full-book/review/scoped-current"
+  ],
+  "agents": [
+    {
+      "role": "scoped and contextual output reviewer",
+      "model": "Codex, inherited model",
+      "brief": null,
+      "separation": "Assess the published outputs independently from the executing agent."
+    }
+  ],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/review-scoped-reports.jsonl",
+      "role": "All 29 scoped report census rows and sampled exact chains",
+      "sha256": "d89e3eda31e40d905db2b1d800a7b2c01de9a48d561b94798714494f07b7c961"
+    },
+    {
+      "path": "raw/review-contextual-reports.jsonl",
+      "role": "All six contextual reports and nine relationship inputs and outputs",
+      "sha256": "3ab980553b24044eae79a356cf142c8772c446f9a69d873b493b782a8a7c90e6"
+    },
+    {
+      "path": "raw/review-scoped-contextual-summary.json",
+      "role": "Exact native cut custody and report populations",
+      "sha256": "d887770f274654fc1119eb02baeb596e0cb04797ff77e79db793983777b2fe11"
+    },
+    {
+      "path": "review/scoped-outputs.md",
+      "role": "Independent LLM dispositions and source-grounded examples",
+      "sha256": "844c717cd993bb61e819db0fc648edfcc22eeede9d8853874142523adf79f452"
+    }
+  ],
+  "depends_on": [
+    "nce.gs518-scoped-complete",
+    "nce.gs518-contextual-complete",
+    "nce.gs518-page-review"
+  ],
+  "results": [
+    {
+      "name": "Scoped views independently assessed at report level",
+      "value": 29,
+      "of": 29,
+      "unit": "views",
+      "note": null
+    },
+    {
+      "name": "Sampled scoped contribution chains",
+      "value": 1441,
+      "of": null,
+      "unit": "chains",
+      "note": null
+    },
+    {
+      "name": "Contextual reports independently assessed",
+      "value": 6,
+      "of": 6,
+      "unit": "reports",
+      "note": null
+    },
+    {
+      "name": "Contextual proposals matching both source citation and target heading",
+      "value": 9,
+      "of": 9,
+      "unit": "proposals",
+      "note": null
+    },
+    {
+      "name": "Independently confirmed source citations missing from the contextual input",
+      "value": 4,
+      "of": null,
+      "unit": "citations",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The report census and sampled source checks distinguish correct native locations from semantic errors, including lost qualifier scope and unsupported procedure links. All nine emitted contextual proposals agree with the source and heading. Four independently checked printed citations never entered contextual retrieval because the scoped producer did not emit their cues.",
+  "consumed_by": [
+    "next-corpus-enrichment plan",
+    "whole-book development baseline"
+  ]
+}

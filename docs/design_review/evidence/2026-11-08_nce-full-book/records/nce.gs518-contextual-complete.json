@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "id": "nce.gs518-contextual-complete",
+  "title": "Whole-book contextual retrieval for all nine retained section cues",
+  "group": "next-corpus-enrichment",
+  "package": "NCE-06",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the native contextual graph consume every retained eligible section cue against the full book heading inventory?",
+  "answers": [
+    "NCE-06-A2",
+    "ADR-0070"
+  ],
+  "method": "Select every retained scoped named subject that requires a heading target. Build native scoped predecessors on their complete exact source pieces and verify the physical cue bijection against the full-view reports. Run the released contextual producer against all selected heading sources and publish each exact run.",
+  "commands": [
+    "CORPUS_DATABASE__COMPLETION_STATEMENT_TIMEOUT_SECONDS=900 uv run python docs/design_review/evidence/2026-11-08_nce-full-book/contextual.py build/nce-full-book/repaired-standard-current --release release:845ac25166e63bae9177a19771fece4324453204a080fded91921eec5135e7e1 --repaired --rebuild-scoped --cue-pieces"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/contextual-cue-pieces-summary.json",
+      "role": "Exact six completed contextual runs and source inventory count",
+      "sha256": "c74901e4fd818dc0e1ab2182f486d382948c729f5b7b1f4b6437094dcbcae9ac"
+    },
+    {
+      "path": "raw/contextual-cue-predecessors.json",
+      "role": "Original and rebuilt task identities and a bijection of exact physical cue proofs",
+      "sha256": "e0096acc8f780d5b8d97faa29f6caa92fad4c26eea0e0365190b4a8d27869a8f"
+    },
+    {
+      "path": "raw/contextual-first-configuration-refusal.txt",
+      "role": "Initial evidence runner refusal of the stored numeric configuration",
+      "sha256": "d313aeb97aa9afe1d6f615895dcdd0bb8b2d16a853a2d12b1434845ddb614131"
+    },
+    {
+      "path": "raw/contextual-first-configuration-retry.txt",
+      "role": "Immutability refusal when the corrected configuration met an earlier receipt",
+      "sha256": "55d29672b6c5e2a203d954f0122e6a41c047433b52eb711c68d18a0119b878b5"
+    },
+    {
+      "path": "raw/contextual-first-launch-refusal.txt",
+      "role": "Interrupted one-off run 324 when the worker could not spawn from standard input",
+      "sha256": "06db90e48d387bed76e35ad2bd5ac3f08e04c658888d7902face90a39351230a"
+    }
+  ],
+  "depends_on": [
+    "nce.gs518-scoped-complete"
+  ],
+  "results": [
+    {
+      "name": "Published contextual views",
+      "value": 6,
+      "of": 6,
+      "unit": "views",
+      "note": null
+    },
+    {
+      "name": "Exact cue proofs reconstructed",
+      "value": 9,
+      "of": 9,
+      "unit": "cues",
+      "note": null
+    },
+    {
+      "name": "Heading source views",
+      "value": 29,
+      "of": 29,
+      "unit": "views",
+      "note": null
+    },
+    {
+      "name": "Native contextual relationship proposals",
+      "value": 9,
+      "of": null,
+      "unit": "proposals",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Runs 325 through 330 published cuts 443 through 453 with nine native relationship proposals. The predecessor checks found no missing or extra cue proofs across the six views. The selected universe is the set of eligible cues emitted by the scoped producer. Coverage of citations present only in the original is assessed separately.",
+  "consumed_by": [
+    "next-corpus-enrichment plan",
+    "whole-book development baseline"
+  ]
+}

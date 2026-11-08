@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "id": "nce.gs518-page-review",
+  "title": "Independent LLM review of all 518 physical pages",
+  "group": "next-corpus-enrichment",
+  "package": "full-book",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What source-to-output issues and useful recoveries are visible across every physical page of the full book?",
+  "answers": [
+    "ADR-0070"
+  ],
+  "method": "Prepare comparable original text and the two retained native projections for all physical pages. Three separate LLM reviewers inspect disjoint ranges and use the original PDF and exact native objects to resolve selected flagged layout, formula, caption and table cases. Verify the union of their dated page dispositions.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-08_nce-full-book/review_packets.py docs/statistics_corpus/corpus/grinstead_snell/Introduction_to_probability_grinstead_and_snell.pdf build/nce-full-book/review"
+  ],
+  "agents": [
+    {
+      "role": "front-page reviewer",
+      "model": "Codex, inherited model",
+      "brief": null,
+      "separation": "Physical pages 1–173"
+    },
+    {
+      "role": "middle-page reviewer",
+      "model": "Codex, inherited model",
+      "brief": null,
+      "separation": "Physical pages 174–346"
+    },
+    {
+      "role": "back-page reviewer",
+      "model": "Codex, inherited model",
+      "brief": null,
+      "separation": "Physical pages 347–518"
+    }
+  ],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/review-source-manifest.json",
+      "role": "Parent and exact native product pins",
+      "sha256": "160b3d7369917b1fbdc6dfee91b84234c60b0404db96d1289395cd3ab83ddfeb"
+    },
+    {
+      "path": "raw/review-comparison.jsonl",
+      "role": "Ordered comparison packet covering all 518 pages",
+      "sha256": "5dc1d5fcfb23d07b1b2967e62976296d75b30a9b6f5bb9610dea947c44c7f95f"
+    },
+    {
+      "path": "review/pages-001-173.md",
+      "role": "Front of book page dispositions and findings",
+      "sha256": "90b313e515b022f780f76f44877055df1812a7000618e6b0f3c20a6863ecc791"
+    },
+    {
+      "path": "review/pages-174-346.md",
+      "role": "Middle of book page dispositions and findings",
+      "sha256": "b12feb4f212054b1e5d3c0d9ca02e29c757839d0066dddca7e426509b954b056"
+    },
+    {
+      "path": "review/pages-347-518.md",
+      "role": "Back of book page dispositions and findings",
+      "sha256": "df9d13be993ecd045702cb2ebbadad7427768ca20ad6fb56817ad88a2622de78"
+    }
+  ],
+  "depends_on": [
+    "nce.gs518-standard-source",
+    "nce.gs518-integrated-source"
+  ],
+  "results": [
+    {
+      "name": "Physical pages assessed by an independent LLM reviewer",
+      "value": 518,
+      "of": 518,
+      "unit": "pages",
+      "note": "All pages have one disposition comparing both intake projections. Reviewers checked exact fields and renderings for selected flags."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The complete page census identifies recurring loss of shared captions, matrix projection truncation and table representation errors, along with successful exact controls. The all-page review establishes review coverage and concrete findings. Detailed semantic judgments for downstream outputs have their own scopes.",
+  "consumed_by": [
+    "next-corpus-enrichment plan",
+    "whole-book development baseline"
+  ]
+}

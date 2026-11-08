@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "id": "nce.gs518-proposal-review",
+  "title": "Independent review of retained definitions and artifact nominations",
+  "group": "next-corpus-enrichment",
+  "package": "full-book",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which retained definition attachments and artifact nominations from the whole-book benchmark are source-supported?",
+  "answers": [
+    "ADR-0070",
+    "NCE-05",
+    "NCE-08"
+  ],
+  "method": "Read exact model report components and artifact nominations from the retained Standard book runs. Compare each retained definition attachment with its exact source context. Census the complete artifact output and independently assess all lexical-title nominations and selected unscoped-code pairs.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-08_nce-full-book/review_proposals.py build/nce-full-book/review"
+  ],
+  "agents": [
+    {
+      "role": "definition-attachment reviewer",
+      "model": "Codex, inherited model",
+      "brief": null,
+      "separation": "All retained attachment components from runs 301, 304, 305 and 306."
+    },
+    {
+      "role": "artifact nomination reviewer",
+      "model": "Codex, inherited model",
+      "brief": null,
+      "separation": "Run 300, all lexical-title nominations and 20 selected unscoped-code pairs."
+    }
+  ],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/review-definition-attachments.jsonl",
+      "role": "Exact source and retained components from the four model runs",
+      "sha256": "d9ff9f1d1f6c1f91d32d27adeab9e401476a947fdc3c95c1349bc63bd6c8b124"
+    },
+    {
+      "path": "raw/review-artifact-pairs.jsonl",
+      "role": "Complete artifact pair census with endpoint custody and citation text",
+      "sha256": "5402efc1c3e02fb006e2eb999fc1bf5dee1997c06460ad7320caa242ccc75627"
+    },
+    {
+      "path": "review/definition-attachments.md",
+      "role": "Independent source assessment of every retained definition attachment",
+      "sha256": "cfab35f7f1a93ec99ad8e1b8c5e3973d438dcb7e6e0598003b5fcfe99204b3a3"
+    },
+    {
+      "path": "review/artifact-nominations.md",
+      "role": "Artifact nomination census and bounded semantic judgments",
+      "sha256": "ad3949d71d567adbf1eacf94750afc05df41ab271b28bbf8d30078fd9b899ee3"
+    }
+  ],
+  "depends_on": [
+    "nce.gs518-standard-source",
+    "nce.gs518-artifact-trigger",
+    "nce.gs518-page-review"
+  ],
+  "results": [
+    {
+      "name": "Retained definition attachments reviewed",
+      "value": 160,
+      "of": 160,
+      "unit": "attachments",
+      "note": null
+    },
+    {
+      "name": "Materially incomplete or unsupported definition attachments",
+      "value": 112,
+      "of": 160,
+      "unit": "attachments",
+      "note": null
+    },
+    {
+      "name": "Artifact nominations counted",
+      "value": 530,
+      "of": 530,
+      "unit": "pairs",
+      "note": null
+    },
+    {
+      "name": "Artifact nominations independently judged",
+      "value": 67,
+      "of": 530,
+      "unit": "pairs",
+      "note": null
+    },
+    {
+      "name": "Same-lineage score-eligible nominations",
+      "value": 0,
+      "of": 530,
+      "unit": "pairs",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The definition review covers every retained attachment. The artifact review establishes examples of supported navigation, ambiguity and misleading lexical similarity within its selected comparison set. Unattached model roles, missed source opportunities and the unreviewed unscoped-code nominations retain separate standing.",
+  "consumed_by": [
+    "next-corpus-enrichment plan",
+    "whole-book development baseline"
+  ]
+}

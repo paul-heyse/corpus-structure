@@ -94,8 +94,15 @@ def main():
         reading = (
             "ops.predicate_source_reading(v.projection,a,host,layout,recipe.value)"
             if args.legacy_governors
-            else """ops.predicate_source_reading(v.projection,a,host,layout,recipe.value,
-                     eligible ? (a->'tokens'->((host->>'predicate_token')::integer)->>'head'))"""
+            else """ops.predicate_source_reading(a,host,layout,recipe.value,
+                     coalesce(eligible ?
+                      (a->'tokens'->((host->>'predicate_token')::integer)->>'head'),false),
+                     words,coalesce(negations->>(host->>'predicate_token'),'none'),eligible)"""
+        )
+        negations = (
+            "'{}'::jsonb"
+            if args.legacy_governors
+            else "ops.predicate_source_negations(a->'tokens',words)"
         )
         mismatches = (
             conn.execute(
@@ -118,10 +125,14 @@ def main():
              SELECT convert_from(content,'UTF8')::jsonb AS value FROM sem.input
              WHERE release_id=:release AND input_kind='dependency'
               AND input_name='execution/implementation/operations/predicate-interpretation.json'
+            ), annotation_words AS MATERIALIZED (
+             SELECT annotations.id,a,ops.predicate_token_texts(v.projection,a->'tokens') AS words
+             FROM annotations CROSS JOIN view_ v
             ), prepared_annotations AS MATERIALIZED (
-             SELECT id,a,ops.predicate_reading_layout(v.projection,items,a,recipe.value) AS layout,
-              {inventory} AS eligible
-             FROM annotations CROSS JOIN view_ v CROSS JOIN layout_items CROSS JOIN recipe
+             SELECT annotation_words.id,a,words,
+              ops.predicate_reading_layout(v.projection,items,a,recipe.value) AS layout,
+              {inventory} AS eligible,{negations} AS negations
+             FROM annotation_words CROSS JOIN view_ v CROSS JOIN layout_items CROSS JOIN recipe
             ), outcomes AS MATERIALIZED (
              SELECT host->>'block' AS block,host->>'predicate_token' AS token,expected,
               substring(v.projection->>'text' FROM (a->>'block_start')::integer+1

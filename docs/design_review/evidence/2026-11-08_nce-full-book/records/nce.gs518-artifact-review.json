@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "id": "nce.gs518-artifact-review",
+  "title": "Completed independent review of all artifact nominations",
+  "group": "next-corpus-enrichment",
+  "package": "NCE-08",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What source standing do the remaining unscoped-code nominations have, and does every whole-book nomination have a review disposition?",
+  "answers": [
+    "ADR-0070",
+    "NCE-07",
+    "NCE-08"
+  ],
+  "method": "Read the exact anchored source context for the 514 distinct endpoints in the 463 remaining unscoped-code nominations. Assess the nominations in source groups and check that the pair indices form a disjoint union with the initial 67-pair review.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-08_nce-full-book/review_proposals.py build/nce-full-book/review"
+  ],
+  "agents": [
+    {
+      "role": "artifact nomination reviewer",
+      "model": "Codex, inherited model",
+      "brief": null,
+      "separation": "Exact run 300 endpoints and source context for the remaining 463 unscoped-code pairs."
+    }
+  ],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "review/artifact-unscoped-remainder.md",
+      "role": "Exact 463-pair follow-up and full nomination review coverage",
+      "sha256": "ef197e7600a81306d21720ec76a5fbaba9389bcc0df871ac6f10697785d5e7ba"
+    }
+  ],
+  "depends_on": [
+    "nce.gs518-proposal-review",
+    "nce.gs518-artifact-trigger"
+  ],
+  "results": [
+    {
+      "name": "Unique nominations with independent dispositions",
+      "value": 530,
+      "of": 530,
+      "unit": "pairs",
+      "note": null
+    },
+    {
+      "name": "Wrong-target nominations in the follow-up",
+      "value": 2,
+      "of": 463,
+      "unit": "pairs",
+      "note": null
+    },
+    {
+      "name": "Same-lineage scorer eligibility",
+      "value": 0,
+      "of": 530,
+      "unit": "pairs",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Every nomination has a source review disposition. The complete unscoped-code set has 284 navigation links, 192 co-references, four ambiguous references, one duplicate and two wrong targets. Both wrong targets trace to the Standard reading of Figure 2.13 as Figure 2.1 on physical page 70. The review supplies source navigation standing and leaves same-lineage eligibility at zero.",
+  "consumed_by": [
+    "next-corpus-enrichment plan",
+    "whole-book development baseline"
+  ]
+}

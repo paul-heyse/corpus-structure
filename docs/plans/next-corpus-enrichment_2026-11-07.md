@@ -504,6 +504,11 @@ covers 518 pages with native regions, 515 with directly located projection piece
 projected inline text on pages 4 and 119, and a retained running header with no
 body projection on page 506. Keep the locator and replacement differences open
 for source assessment.
+The [whole-book output review](../design_review/evidence/2026-11-08_nce-full-book/review/README.md)
+records an independent LLM disposition for every physical page across both
+intake outputs and separate assessments of all 160 retained definition
+attachments and 530 artifact nominations. It confirms that page 506 has no body
+content in the original.
 Scope expands through the same origin, including cross-chapter links. Independent
 comparison publication and same-lineage scorer eligibility retain their separate
 audit prerequisites.
@@ -559,10 +564,46 @@ checks token ends against the actual piece before reading a suffix.
 `7021c4e6192f42019a96142c27fa255f`, including the out-of-piece cue and the
 current native comparison fixture. Run 316 passed the earlier predicate and
 substring failure points, then hit the 120-second native deadline in
-`ops.named_link_expected_groups`. Named-link capacity on view 167 gates the
-remaining scoped batches. The standalone scoped graph's immutable dependency
-key differs from the contextual graph. Exact contextual qualification is
-pending a shared execution or a native retained-input route.
+`ops.named_link_expected_groups`.
+
+On 2026-11-08, managed deployment `e87c1991fd754cf4bfe9ab5d38755612`
+installed `semantic_nce_gs518_named_sets`. Native admission prepares the named
+evidence and expected groups once. The affected test selection and its exact
+fixture retry, `2ba979d10c8f40afbf8c3d535fa9b12c` and
+`468ec5b135d347d783ef466e4c13e7fc`, cover 38 nodes with zero unresolved.
+Run 318 sealed cut 433. Its publication was interrupted while the native
+validator repeatedly extracted source keys from the same reports.
+
+Managed deployment `7fff4df364fb452a8f9b3619223fbfb7` installed
+`semantic_nce_gs518_discourse` on the same release. Native publication extracts
+the source key once per report. Independent native reconstruction and the Python
+producer agree on the corrected handling of numbered examples and example
+discourse. All 49 affected tests passed in managed result
+`baed14b5d64e4357a8ec8c0f90ec06fb`. The
+[scoped recovery record](../design_review/evidence/2026-11-08_nce-full-book/records/nce.gs518-scoped-recovery.json)
+retains the interrupted attempts, timing probes and the first published
+replacement batch.
+
+The [completed scoped run record](../design_review/evidence/2026-11-08_nce-full-book/records/nce.gs518-scoped-complete.json)
+binds Standard run 297 to four published cuts, 435, 441, 439 and 437. On
+2026-11-08, all 29 selected views completed, with 17 produced and 12 empty.
+Native publication admitted 182,930 scoped contributions and 508 contribution
+operations. The output review examines the published results separately.
+
+The [completed contextual record](../design_review/evidence/2026-11-08_nce-full-book/records/nce.gs518-contextual-complete.json)
+binds runs 325–330 and cuts 443–453 to the nine exact retained section cues.
+The producer published one relationship proposal per cue against the book's 29
+heading source views. Each contextual graph used a scoped predecessor rebuilt on
+the complete native text pieces carrying those cues. Every rebuilt physical cue
+proof matched its original scoped proof. Upstream citation omissions still
+affect recall.
+
+The [scoped and contextual review](../design_review/evidence/2026-11-08_nce-full-book/review/scoped-outputs.md)
+assessed every published report, sampled 1,441 scoped contribution chains, and
+confirmed all nine selected section targets against the original. Four other
+printed citations were absent from the scoped cue population. The review also
+records a misattached condition spanning pages 36–37 and spurious procedure
+roles attached to figure and table references.
 
 The [authentic protected comparison](../design_review/evidence/2026-11-08_nce-comparison-publication/README.md)
 graded run 307/cut 427 against independent source-first passes on pages 151 and

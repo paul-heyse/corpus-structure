@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "id": "nce.gs518-scoped-complete",
+  "title": "Native scoped enrichment for all 29 whole-book views",
+  "group": "next-corpus-enrichment",
+  "package": "NCE-02",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Did all scoped views complete and publish on the current native and Python runtime?",
+  "answers": [
+    "NCE-02-A2",
+    "NCE-06-A2",
+    "ADR-0070"
+  ],
+  "method": "Run the current scoped producer against all source views of Standard run 297. Seal each batch, finish its native publication and match the union to the pinned source inventory.",
+  "commands": [
+    "CORPUS_DATABASE__COMPLETION_STATEMENT_TIMEOUT_SECONDS=900 uv run python docs/design_review/evidence/2026-11-08_nce-full-book/enrich.py 297 build/nce-full-book/repaired-standard-current --release release:845ac25166e63bae9177a19771fece4324453204a080fded91921eec5135e7e1 --phase scoped --repaired"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/scoped-current-summary.json",
+      "role": "Completed source revisions, exact selected views, native task and contribution counts",
+      "sha256": "2cc328010bf7856f264a78137125be535e957d3f91747ef5be8f89f9255deae8"
+    }
+  ],
+  "depends_on": [
+    "nce.gs518-standard-source",
+    "nce.gs518-scoped-recovery"
+  ],
+  "results": [
+    {
+      "name": "Published scoped cuts",
+      "value": 4,
+      "of": 4,
+      "unit": "cuts",
+      "note": null
+    },
+    {
+      "name": "Terminal views in completed cuts",
+      "value": 29,
+      "of": 29,
+      "unit": "views",
+      "note": null
+    },
+    {
+      "name": "Views with a scoped report",
+      "value": 17,
+      "of": 29,
+      "unit": "views",
+      "note": null
+    },
+    {
+      "name": "Views completed empty",
+      "value": 12,
+      "of": 29,
+      "unit": "views",
+      "note": null
+    },
+    {
+      "name": "Admitted scoped contributions",
+      "value": 182930,
+      "of": null,
+      "unit": "contributions",
+      "note": null
+    },
+    {
+      "name": "Contribution operations",
+      "value": 508,
+      "of": null,
+      "unit": "operations",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Runs 321, 320, 323 and 322 published cuts 435, 441, 439 and 437 with exactly one scoped task for every selected view. Seventeen views produced reports and twelve completed empty. Semantic assessment of the published results has a separate record.",
+  "consumed_by": [
+    "next-corpus-enrichment plan",
+    "whole-book development baseline"
+  ]
+}

@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "id": "nce.gs518-scoped-recovery",
+  "title": "Measured recovery of whole-book scoped validation and publication",
+  "group": "next-corpus-enrichment",
+  "package": "NCE-02",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the scoped book work progress through native named-link admission and publication without repeatedly scanning the same retained reports?",
+  "answers": [
+    "NCE-02-A2",
+    "NCE-06-A2",
+    "ADR-0070"
+  ],
+  "method": "Observe the active native completion and use PostgreSQL statement counters. Time bounded read-only queries against the same retained annotation and report. Materialize expected and reported named cues separately, and extract source keys once per publication input. Compare retained Python and independent native readings, then measure the first completed replacement batch.",
+  "commands": [
+    "CORPUS_DATABASE__COMPLETION_STATEMENT_TIMEOUT_SECONDS=900 uv run python docs/design_review/evidence/2026-11-08_nce-full-book/enrich.py 297 build/nce-full-book/repaired-standard-current --release release:845ac25166e63bae9177a19771fece4324453204a080fded91921eec5135e7e1 --phase scoped --repaired --batch-index 0",
+    "uv run ci model change deploy 3748ff2131da4183aed1c8991a2c63c4 --json",
+    "uv run ci model change deploy 911ea44adece4477b417d3115ef0f84a --json"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/scoped-named-live-amplification.txt",
+      "role": "Live matcher counters and controlled cancellation of run 317",
+      "sha256": "bd93412b7fdd64360c08955f7c11006c1f9d197cfff84cf67928f40366ab7e78"
+    },
+    {
+      "path": "raw/scoped-named-materialized-probe.txt",
+      "role": "Independent materialized query plan and matcher input count",
+      "sha256": "090203d86c912f2636006eb526ee5e731d43c6d70bc35f6befabdef74e3d8240"
+    },
+    {
+      "path": "raw/scoped-discourse-parity-before.json",
+      "role": "Four independently reconstructed discourse mismatches across twelve views",
+      "sha256": "d1a601b56a64318672f3464f0b2a3ea56600d8e066888b1ea217297d15a01800"
+    },
+    {
+      "path": "raw/scoped-finalize-interruption.txt",
+      "role": "Interrupted publication of sealed cut 433",
+      "sha256": "21ee1048945327e807dbd2d48e8e652d362585ee32830484a4f155307c973cf4"
+    },
+    {
+      "path": "raw/scoped-finalize-native-stack.txt",
+      "role": "Live decompression stack during cut 433 validation",
+      "sha256": "f2fed45afce989084745855a30392b14175c1f86d4edb77ef6fea75cb797c055"
+    },
+    {
+      "path": "raw/scoped-finalize-source-key-probe.txt",
+      "role": "Same source-key aggregate with repeated and once-per-report extraction",
+      "sha256": "0d7bd29d102f1f5d58b1a46d17fd6a501756db1f9159b27468c7cf0c95eac11b"
+    },
+    {
+      "path": "raw/scoped-first-batch-performance.json",
+      "role": "Completed replacement cut 435 and elapsed time from seal to receipt",
+      "sha256": "5a45a1fb585b40f96f2a4d5007a80f3a5f967ab55eb4b286cea855871274c1a6"
+    }
+  ],
+  "depends_on": [
+    "nce.gs518-scoped-capacity"
+  ],
+  "results": [
+    {
+      "name": "Actual eligible contexts in the materialized view 167 probe",
+      "value": 442,
+      "of": null,
+      "unit": "contexts",
+      "note": null
+    },
+    {
+      "name": "Time for the materialized view 167 matcher probe",
+      "value": 7.3,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "Pre-repair discourse readings compared",
+      "value": 17419,
+      "of": null,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "Pre-repair discourse disagreements",
+      "value": 4,
+      "of": 17419,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "Repeated source key lookup probe",
+      "value": 6313,
+      "of": null,
+      "unit": "milliseconds",
+      "note": null
+    },
+    {
+      "name": "Once-per-report source key lookup probe",
+      "value": 32.3,
+      "of": null,
+      "unit": "milliseconds",
+      "note": null
+    },
+    {
+      "name": "Replacement batch seal to completed receipt",
+      "value": 24.0,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The materialized named-cue check cleared the earlier bottleneck while preserving independent reconstruction. Independent predicate checks distinguish genuine example discourse from numbered references. Reading publication keys before expanding contributions allowed the replacement batch to publish. Run 321/cut 435 contains eight exact source views and 30,437 admitted contributions.",
+  "consumed_by": [
+    "next-corpus-enrichment plan",
+    "whole-book development baseline"
+  ]
+}
