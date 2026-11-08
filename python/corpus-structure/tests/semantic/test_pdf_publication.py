@@ -328,7 +328,7 @@ def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
         }
         for body, fields, reason in (
             (
-                header | {"endpoints": relation["endpoints"]},
+                header | {"endpoints": relation["endpoints"][:1]},
                 streams,
                 "invalid companion external field",
             ),

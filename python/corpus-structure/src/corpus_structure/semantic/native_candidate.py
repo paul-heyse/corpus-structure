@@ -899,9 +899,12 @@ def series_native_definitions(connection, *, include_selected=True):
         "predicate_source_negation",
         "predicate_reading_layout",
         "predicate_source_reading",
+        "predicate_argument_inventory",
+        "predicate_clipped_roles_match",
         "validate_source_predicates",
         "validate_witnessed_formula_links",
         "source_formula_recaps",
+        "named_link_rule_available",
         "validate_named_source_links",
         "named_link_nominal",
         "named_link_initial_words",
@@ -915,6 +918,7 @@ def series_native_definitions(connection, *, include_selected=True):
         "contextual_identity_value",
         "contextual_nullable_value",
         "contextual_component_section",
+        "contextual_definition_alias",
         "contextual_section_headings",
         "contextual_mutual_neighbors",
         "validate_contextual_selection",
@@ -931,6 +935,7 @@ def series_native_definitions(connection, *, include_selected=True):
                 if name
                 in {
                     "contextual_component_section",
+                    "contextual_definition_alias",
                     "contextual_section_headings",
                     "contextual_mutual_neighbors",
                     "prepare_table_correspondence",

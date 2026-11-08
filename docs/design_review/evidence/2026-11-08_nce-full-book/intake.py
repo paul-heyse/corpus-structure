@@ -40,24 +40,28 @@ def main():
     parser.add_argument("--release", required=True)
     parser.add_argument("--realization", default="nce-gs518-source-baseline")
     parser.add_argument("--device", choices=("cuda", "cpu"), default="cuda")
-    parser.add_argument("--native-product", nargs=3, metavar=("TASK", "KEY", "SHA256"))
+    retained = parser.add_mutually_exclusive_group()
+    retained.add_argument("--native-product", nargs=3, metavar=("TASK", "KEY", "SHA256"))
+    retained.add_argument("--integrated-product", nargs=3, metavar=("TASK", "KEY", "SHA256"))
     args = parser.parse_args()
     source = args.work / "corpus" / PDF
     if sha256(source.read_bytes()).hexdigest() != PARENT:
         raise ValueError("source differs from the frozen benchmark parent")
-    native = None
-    if args.native_product:
-        task, key, digest = args.native_product
-        native = ProductReference(int(task), key, digest)
+    supplied = args.native_product or args.integrated_product
+    reference = None
+    if supplied:
+        task, key, digest = supplied
+        reference = ProductReference(int(task), key, digest)
         if args.realization == "nce-gs518-source-baseline":
             parser.error("select a distinct --realization for the integrated source")
-    output = args.work / ("integrated-source" if native else "source")
+    output = args.work / ("integrated-source" if reference else "source")
     output.mkdir(exist_ok=True)
     selection = dict(parent_sha256=PARENT, physical_pages=list(range(1, 519)))
-    method = IngestPdfIntegrated() if native else IngestPdf()
+    method = IngestPdfIntegrated() if reference else IngestPdf()
     config = {"originals": [PDF], "membership": "descendants", "device": args.device}
-    if native:
-        config["native_product"] = native.values()
+    if reference:
+        input_role = "native_product" if args.native_product else "integrated_product"
+        config[input_role] = reference.values()
     registry = MethodRegistry(
         (method, M1Annotations()),
         MethodsFile(
