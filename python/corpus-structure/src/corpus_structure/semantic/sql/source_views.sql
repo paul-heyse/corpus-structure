@@ -56,7 +56,7 @@ BEGIN
   FROM walk w JOIN selected r USING(pointer)
   WHERE r.native_json->'data'->'table_cells' IS NULL AND r.native_json->>'text' IS NOT NULL
  ), fields AS (
-  SELECT path||ARRAY[0::bigint,2],pointer,cell_index,
+  SELECT path||ARRAY[0::bigint,2] AS path,pointer,cell_index,
    CASE WHEN use_original THEN 'orig' ELSE 'text' END AS field,separate
   FROM node_text WHERE use_original OR native_json->>'text'<>''
   UNION ALL
