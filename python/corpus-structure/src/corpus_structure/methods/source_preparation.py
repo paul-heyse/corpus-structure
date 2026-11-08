@@ -26,6 +26,7 @@ from corpus_structure.ingest.pdf_hierarchy import (
     ProjectedPiece,
     TextProjection,
     project_section_nodes,
+    retained_formula_originals,
 )
 from corpus_structure.ingest.sentences import Block, pipeline, prepare_layout
 from corpus_structure.semantic.identity import canonical_bytes
@@ -58,7 +59,9 @@ class NativeTableTarget:
     header_path: tuple[int, ...]
 
 
-def native_table_cell_projection(node, index, nodes) -> TextProjection:
+def native_table_cell_projection(
+    node, index, nodes, *, retained_originals: frozenset[str] = frozenset()
+) -> TextProjection:
     """Use the canonical projector for rich-cell text and its exact child addresses.
 
     The cell's summary ``text`` is not its rich subtree projection. Child literals
@@ -72,7 +75,12 @@ def native_table_cell_projection(node, index, nodes) -> TextProjection:
         if not isinstance(pointer, str) or pointer not in nodes:
             raise ValueError("rich cell native subtree is unavailable")
         projection = project_section_nodes(
-            nodes, "", pointer, "descendant", section_refs=frozenset((pointer,))
+            nodes,
+            "",
+            pointer,
+            "descendant",
+            section_refs=frozenset((pointer,)),
+            retained_originals=retained_originals,
         )
         if any(p.cell_index is not None for p in projection.pieces):
             raise ValueError("nested tabular rich cell requires its own structural scope")
@@ -104,11 +112,13 @@ class _PreparedTableCells:
     piece_indices: tuple[int, ...]
 
 
-def _prepare_table_cells(view, node, nodes, piece_lookup):
+def _prepare_table_cells(view, node, nodes, piece_lookup, retained_originals):
     projections, ranges, members = [], [], set()
     for index in range(len(node["data"]["table_cells"])):
         try:
-            projection = native_table_cell_projection(node, index, nodes)
+            projection = native_table_cell_projection(
+                node, index, nodes, retained_originals=retained_originals
+            )
         except ValueError:
             projections.append(None)
             ranges.append(None)
@@ -500,8 +510,11 @@ def prepare_source(
         if piece["kind"] == "native_text":
             key = (piece["item_ref"], piece.get("cell_index"), piece.get("source_field"))
             piece_lookup.setdefault(key, []).append(index)
+    retained_originals = retained_formula_originals(view.pieces)
     prepared_tables = {
-        node["self_ref"]: _prepare_table_cells(view, node, by_pointer, piece_lookup)
+        node["self_ref"]: _prepare_table_cells(
+            view, node, by_pointer, piece_lookup, retained_originals
+        )
         for node in view.items
         if "table_cells" in node.get("data", {})
         and (region_pointers is None or node["self_ref"] in region_pointers)
@@ -1029,6 +1042,7 @@ def _widen_contexts(
             local.setdefault(piece["item_ref"], []).append(piece)
     related = {}
     reads = {}
+    retained_originals = retained_formula_originals(view.pieces)
     widened = []
     piece_starts = tuple(piece["start"] for piece in view.pieces)
     piece_ends = tuple(piece["end"] for piece in view.pieces)
@@ -1125,7 +1139,9 @@ def _widen_contexts(
         for request in requests:
             check_active()
             if request.relationship == ContextRelationship.ANCESTOR:
-                enclosure = _primary_formula_enclosure(view, nodes, selection, local)
+                enclosure = _primary_formula_enclosure(
+                    view, nodes, selection, local, retained_originals
+                )
                 if enclosure is not None:
                     pointer, span, outcome, reason = enclosure
                     if span is not None:
@@ -1331,7 +1347,7 @@ def _widen_contexts(
     return widened, tuple(related.values())
 
 
-def _primary_formula_enclosure(view, nodes, selection, local):
+def _primary_formula_enclosure(view, nodes, selection, local, retained_originals):
     """Find one complete actual enclosure, never nearby prose or a cropped ancestor.
 
     Inline wrappers belong to the enclosing paragraph. Stop at its first genuine
@@ -1372,7 +1388,12 @@ def _primary_formula_enclosure(view, nodes, selection, local):
     span = None
     try:
         projection = project_section_nodes(
-            nodes, "", pointer, "descendant", section_refs=frozenset((pointer,))
+            nodes,
+            "",
+            pointer,
+            "descendant",
+            section_refs=frozenset((pointer,)),
+            retained_originals=retained_originals,
         )
         native = tuple(p for p in projection.pieces if p.kind == "native_text")
         required = {(p.item_ref, p.source_field) for p in native}

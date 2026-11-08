@@ -60,3 +60,46 @@ def test_current_review_replays_selected_prose_and_qualified_exclusions():
     del value["projection_inputs"]
     with pytest.raises(ValueError, match="replay inputs are missing"):
         verify_source_projection(value)
+
+
+def test_downstream_enclosure_and_rich_cell_reuse_the_selected_formula_field():
+    from types import SimpleNamespace
+
+    from corpus_structure.ingest.pdf_hierarchy import retained_formula_originals
+    from corpus_structure.methods.source_preparation import (
+        _primary_formula_enclosure,
+        native_table_cell_projection,
+    )
+
+    enclosing, formula = "#/texts/0", "#/texts/1"
+    nodes = {
+        enclosing: dict(
+            self_ref=enclosing,
+            label="text",
+            text="Before",
+            children=[{"$ref": formula}],
+        ),
+        formula: dict(
+            self_ref=formula,
+            label="formula",
+            text="r",
+            orig="x+y",
+            parent={"$ref": enclosing},
+        ),
+    }
+    before = dict(item_ref=enclosing, kind="native_text", source_field="text", start=0, end=6)
+    display = dict(item_ref=formula, kind="native_text", source_field="orig", start=7, end=10)
+    view = SimpleNamespace(text="Before\nx+y", pieces=(before, display))
+    selected = retained_formula_originals(view.pieces)
+    selection = SimpleNamespace(region=formula, start=7, end=10)
+    result = _primary_formula_enclosure(
+        view, nodes, selection, {enclosing: [before], formula: [display]}, selected
+    )
+    assert result is not None
+    assert result[:2] == (enclosing, (0, 10))
+
+    table = dict(self_ref="#/tables/0", data=dict(table_cells=[{"ref": {"$ref": enclosing}}]))
+    cell = native_table_cell_projection(table, 0, nodes, retained_originals=selected)
+    assert cell.text == "Before\nx+y"
+    assert cell.pieces[-1].source_field == "orig"
+    assert cell.pieces[-1].cell_index == 0

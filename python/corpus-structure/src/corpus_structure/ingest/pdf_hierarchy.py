@@ -409,6 +409,15 @@ def project_section(
     )
 
 
+def retained_formula_originals(pieces: Iterable[Mapping[str, Any]]) -> frozenset[str]:
+    """Reuse field choices already qualified by an immutable source view."""
+    return frozenset(
+        piece["item_ref"]
+        for piece in pieces
+        if piece.get("kind") == "native_text" and piece.get("source_field") == "orig"
+    )
+
+
 def project_section_nodes(
     nodes: Mapping[str, Any],
     document_digest: str,
@@ -419,6 +428,7 @@ def project_section_nodes(
     selected_items: Iterable[str] = (),
     projection_policy: bytes | None = None,
     original_digest: str | None = None,
+    retained_originals: frozenset[str] = frozenset(),
 ) -> TextProjection:
     """Project an admitted selected closure without fabricating a partial document.
 
@@ -537,11 +547,18 @@ def project_section_nodes(
                 append(field(cell, "text"), pointer, index, "chart_cell_text")
         value = field(node, "text")
         if value is not None:
-            original = (
-                readable_formula_original(policy, document_digest, original_digest, pointer, node)
-                if field(node, "label") == "formula"
-                else None
-            )
+            original = None
+            if field(node, "label") == "formula":
+                if pointer in retained_originals:
+                    original = field(node, "orig")
+                    if not original:
+                        raise ValueError(
+                            "selected readable original is missing from its native occurrence"
+                        )
+                else:
+                    original = readable_formula_original(
+                        policy, document_digest, original_digest, pointer, node
+                    )
             append(
                 original if original is not None else value,
                 pointer,

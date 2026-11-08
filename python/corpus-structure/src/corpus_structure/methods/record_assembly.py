@@ -1078,8 +1078,11 @@ def native_table_groups(
         raise GlinerRefused("selected native table cell structure is unavailable")
     native_cells = table["data"]["table_cells"]
     nodes = {item["self_ref"]: item for item in (*native["items"], *native["ancestors"])}
+    from corpus_structure.ingest.pdf_hierarchy import retained_formula_originals
+
     from .source_preparation import native_table_cell_projection
 
+    retained_originals = retained_formula_originals(native.get("pieces", ()))
     projections = {}
     inherited = inherited or {}
     groups = []
@@ -1113,7 +1116,9 @@ def native_table_groups(
                 )
             try:
                 if index not in projections:
-                    projections[index] = native_table_cell_projection(table, index, nodes)
+                    projections[index] = native_table_cell_projection(
+                        table, index, nodes, retained_originals=retained_originals
+                    )
                 located = _item_spans(
                     context, table_pointer, cell_index=index, cell_projection=projections[index]
                 )
