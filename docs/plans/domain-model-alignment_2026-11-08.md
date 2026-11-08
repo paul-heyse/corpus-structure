@@ -1,0 +1,188 @@
+# Domain-model alignment plan series
+
+**Status:** Proposed · 2026-11-08. Owns the proposed corrections and
+investigations arising from the November 8 domain-model alignment review.
+The coordinator owns combined disposition, dependencies, cutover and
+qualification. The supporting plans own their local target and implementation
+contracts. Authorized execution starts at DMA-00.
+
+## Basis and target
+
+Consume the [November 8 design review](../design_review/reviews/design_review_domain-model-alignment_2026-11-08.md)
+at `d7e1de586081419aa9743a8e7fcd9c0d1302f46b`, with its **Revise** verdict,
+audited product source `67cbe680e7ab2b9860576f2ed650d4ff22e0f990`, and audit
+publication `0cab8033595e004e19387736b0c5ec829652eaf4`. Committed differences
+from the product source through the review are documentation and handoff.
+Working-tree Chandra and Docling experiments and unrelated drafts are excluded.
+Existing source observations and receipts retain their dates and scope.
+Changes below are **Proposed**. Product tests, provider runs, live effects
+and measurements for this series were `not_run` during authoring.
+
+The target is progressive, attributed knowledge with typed delivery to
+operators and agents. Keep separate the identities of source occurrences,
+candidate evidence, selected structure, independently supported assertions,
+releases, acquired native revisions and managed invocations. Make the existing
+domain owners govern construction, native admission, result reads and
+recovery. Preserve the useful incomplete result while communicating exactly
+what was assessed, established, published or left unknown. The workload uses
+the authenticated 518-page parent, overlapping visual scopes, a shared local
+GPU, PostgreSQL purpose roles and exact retained source products. Existing WCE
+receipts retain their smaller population.
+
+No rule changes are proposed. §B1–§B6, ADR-0067, ADR-0069 and ADR-0070
+continue to govern the target. Supported archived PDF reads retain their
+meaning within current-only execution. Chandra remains an explicit
+candidate-evidence route. Promoting it into selected source, automatic
+default dispatch, general historical execution and new production-domain
+qualification need separate scope decisions. If a package reveals a genuine
+rule change, hold its dependent design for operator confirmation and route
+the accepted change through its architectural owner. Other packages can
+continue on the agreed boundary.
+[Design scope and decisions](../design/DESIGN.md#section-1) ·
+[Current-only migration](../adr/0067-witnessed-current-only-cutover.md) ·
+[Operational custody](../adr/0069-cli-operations-custody.md) ·
+[Workload](../adr/0070-full-book-method-development.md)
+
+## Foundations and execution choices
+
+Authoring used the core 3.3, heuristics 1.0 and code-intelligence 1.4
+standard, with test-assessment 1.2 for production evidence. The focused
+source read identified the owner and affected consumers for each
+proposal. The review's original gate judgments supply the baseline.
+
+| Foundation | Inspected fit and consequence for this series |
+|---|---|
+| Released LinkML, domain functions and PostgreSQL | The existing closed compiler and approved operation bindings can own stable meaning. Extend them where structure, validity or provenance currently disappears. Keep the specialized numerical executor, exact custody and independent publication controls. |
+| Model change and native catalog verification | The preview already compiles closed physical inputs, and exact deploy already binds frozen candidate bytes and purpose roles. Preparation and target verification each need the correct explicit context. Keep Alembic lineage and catalog inspection instead of introducing a second deployment authority. |
+| Native PDF and visual evidence | Exact selected membership, retained source pins, singleton raw recovery and native record access are usable foundations. Derive required projection addresses and mapped locators from those authorities. Resolve settlement before expensive work and reuse authentication only within its valid scope. |
+| Managed results and evidence | Existing atomic manifests, holds and leases protect ownership and bytes. Add missing typed outcome and custody facts within that mechanism. Native routing decisions need their own persistent input because managed receipts can expire before native work. |
+
+Prepare once per useful scope, carry exact determinants through reuse and
+compare required inputs before effects. Keep rendering and solving outside
+long transaction lifetimes. Use scoped address inventories and indexed
+candidate access so a small response also bounds examined work. Repeat
+assurance only where a distinct trust boundary or required invariant warrants
+it. Retain the proven strengths in the review. The proposed mechanisms use
+existing dependencies, with no quantitative benefit claim.
+
+## Execution queue and disposition
+
+This is the series' single disposition table. The links give the owning
+package and its full closure cases. References to earlier receipts provide
+evidence rather than changing another plan's obligations. On execution
+authorization, record progress and actual closure evidence here.
+
+| Source finding and package | Responsible boundary | Proposed order and completion |
+|---|---|---|
+| [DMA-00](#dma-00) | Coordinator | Reconcile committed baseline, review scope, consumed contracts and test evidence before effects. |
+| DA-067 · [DMA-01](domain-model-alignment/release-and-deployment.md#DMA-01) | Release compiler and exact preview | After DMA-00. Same explicit inputs give equal required products across preview, candidate and full archive rederivation. |
+| DA-063 · [DMA-02](domain-model-alignment/release-and-deployment.md#DMA-02) | Native target and migration | Investigation can start after DMA-00. Consume DMA-01's retained physical compilation contract for integration. Verify the actual target and refuse mismatches before effects. |
+| DA-062 · [DMA-03](domain-model-alignment/semantic-admission.md#DMA-03) | Source-value codec | After DMA-00. Prove Python, native and detached agreement before object conversion loses structure. |
+| DA-056 · [DMA-04](domain-model-alignment/semantic-admission.md#DMA-04) | Finite interpretation and admission | Define the result contract alongside DMA-03. Native acceptance consumes verified source values. Demonstrate numeric consistency and preserve scoped assurance and existing regressions. |
+| DA-065 · [DMA-05](domain-model-alignment/semantic-admission.md#DMA-05) | Definition derivation and publication | Define basis-specific witnesses alongside DMA-03 and consume validated source values where used. Require genuine witness closure and preserve independent public admission. |
+| [Review F02](../design_review/reviews/design_review_domain-model-alignment_2026-11-08.md#F02) · [DMA-06](domain-model-alignment/source-projection.md#DMA-06) | Selected source projection | After DMA-00. Set the shared address contract with DMA-07 before native and consumer migration. Reject omitted or repeated required text. |
+| DA-061 · [DMA-07](domain-model-alignment/source-projection.md#DMA-07) | Formula witness and exact read | Share field selection with DMA-06. Demonstrate two independent witnesses and preserved archived p416 after a successor. |
+| DA-059/060 · [DMA-08](domain-model-alignment/operational-custody.md#DMA-08) | Managed outcomes and evidence | Define receipt shape independently. Populate deployment facts from the verified target in DMA-02. Establish effect and custody parity across immediate, by-ID and retained forms. |
+| DA-064 and [review F01](../design_review/reviews/design_review_domain-model-alignment_2026-11-08.md#F01) · [DMA-09](domain-model-alignment/visual-evidence.md#DMA-09) | Routing and native decision custody | Define native nomination before dispatch. Use DMA-08 for by-ID projection. Verify cue coverage, stable raw reuse and exact continuation after interruption. |
+| DA-058 · [DMA-10](domain-model-alignment/visual-evidence.md#DMA-10) | Group recovery and original custody | Use agreed source, scope, observation and attempt identities. The explicit recovery repair can proceed before routine nomination reporting. Prove bounded replay and no redundant original upload. |
+| DA-066 · [DMA-11](domain-model-alignment/visual-evidence.md#DMA-11) | Typed visual Reader | Use agreed mapped artifact and source identity. Independent of policy routing. Demonstrate bounded exact and paged reads through the supported consumers. |
+| [DMA-12](#dma-12) | Coordinator and affected authorities | Start investigation after DMA-00 in parallel with corrective work. Material new gaps constrain their affected package or integrated acceptance. |
+| [DMA-13](#dma-13) | Native migration and assembled acceptance | Prepare adoption alongside the packages. Complete after all affected producers and consumers converge and the required evidence is reconciled. |
+
+Source-view coverage, source-value validity, numerical consistency, derivation
+and target identity have priority by consequence. Start the release compiler
+early because it unlocks exact preview and native verification. Move the
+outcome contract early enough for visual dispatch reporting without waiting
+on all deployment consumers. Serialize forward migration and shared generated
+products through the coordinator even when independent behavior can be
+implemented in parallel.
+
+<a id="dma-00"></a>
+
+## DMA-00 · Reconcile the baseline and review coverage
+
+At execution start compare current committed source and standard with this
+baseline. Recheck relevant owner and consumer assumptions, evidence scope and
+the suitability of the frozen target. Preserve concurrent edits. A changed
+premise that affects selection, migration or acceptance must be resolved at
+its owner before dependent work proceeds.
+
+The queue maps all live review corrections, including the narrowed DA-056
+finding. DMA-04 preserves the corrected DA-055 and DA-057 meanings and
+their original assurance limits. Use the prior correspondence for historical
+DA-001–053 and the audit for DA-054. The specific inherited questions in
+DMA-12 carry the November 8 review's qualifications. The earlier WCE-R18 band-3 request
+reconstruction question bounds the review’s assurance claim. Its historical
+evidence informs the numerical package at its original scope. The review's preserving mechanisms,
+alternatives and rejected architecture choices are reflected in the
+foundations and the supporting plans.
+[Historical correspondence](audit-closure_2026-11-03.md#7-audit-correspondence-without-disposition-transfer) ·
+[DA-054](../design_review/audit/execution-fit.md#da-054) ·
+[Review dispositions](../design_review/reviews/design_review_domain-model-alignment_2026-11-08.md#inherited-questions-and-historical-corrections)
+
+<a id="dma-12"></a>
+
+## DMA-12 · Settle material questions within the reviewed scope
+
+Use source and retained independent evidence first. A focused probe is
+appropriate when it determines a package decision or gate verdict. Preserve
+accepted probe evidence through the existing evidence collection. A question
+with inadequate evidence remains unresolved for its stated scope.
+
+| Question | Settling evidence and consequence |
+|---|---|
+| DA-004, DA-012, DA-027 · Representation, vocabulary and actual enforcement | Trace a pack-defined qualifier, typed reference or condition through encode, archival and native use, and a released outcome member through operation binding and completion. Trace the affected invariants from declaration to executing guard and negative case. Reopen the earlier batch or vocabulary diagnosis only for a concrete loss, conflicting member or independent decision. Wider correspondence claims need wider evidence. |
+| DA-032 · Deployment attribution | Start from the operational receipt and existing exact semantic run/runtime/release and deployment lineage. Require a concrete consumer unable to recover a material fact before adding a deployment pin to semantic results. Otherwise close the inquiry at the established scope and retain the existing lineage. |
+| DA-033 · Repeated assurance and wider work bounds | Trace each candidate check to the invariant, mutable inputs and trust boundary it protects. Remove general cumulative checks only with a preservation argument and a failure control. Use near-limit mapped reads for DA-066. Reopen wider admission or high-degree traversal work for a demonstrated access-path or work-bound problem in a supported query. Record the trigger where evidence does not support a change. |
+| DA-046 and DA-048 · Scoped transfer | Use a second-pack fixture for qualified ownership, same-name identities, a compound exception and a contextual quantity with unit and note. Trace declaration, compile, admissibility and delivery against independent expectations. Identify any needed general contract change. A production transfer claim needs its own actual qualifying journey. Concurrent multi-pack operation needs a supported product scenario. |
+| CI-G3 · Evaluation independence | Trace role, configuration, replay and dependency custody for source-first, output-first, fitting and research-overlay routes. Establish which references production preparation can reach and verify research exposure is retained. Where source is insufficient, exercise a protected-reference access refusal and an independent held-out control. A found production path to reference data requires correction before enclosing acceptance. |
+| Queue selection discoverability | Use two pending runs to compare the project queue inventory, implicit next-run selection and explicit run override. Record the stable default if sufficient. Change the report only if an operator cannot identify the actual selection scope needed for a supported action. |
+
+<a id="dma-13"></a>
+
+## DMA-13 · Adopt current contracts and qualify the assembled system
+
+Freeze the new contracts and reviewed native expectations before effectful
+cutover. Change meanings and generated/native representations together.
+For affected records, distinguish safe faithful conversion from derived
+closures that require regeneration. Validate conversions from authenticated
+premises and use new versioned identity when meaning changes. Retain raw
+originals, exact supported archived PDF products, receipts and independent
+evidence. Avoid guessed witnesses, inferred legacy receipt facts or altered
+exposure. Retire obsolete interpretation and consumer paths as their
+replacement is ready under current-only execution.
+
+Stage and verify a forward native revision against the acquired target.
+Keep registration, migration, archive, admission, publication and
+activation separately observable. Prepare replacement derived products
+privately and verify migrated Readers and portable consumers before making
+them visible. Interruption keeps the previously qualified selection and
+completed effect facts available. Resume against the exact predecessor or
+reached revision and retained dependency identities. Record the actual
+durable boundary if a migration already committed. Reject incompatible
+effects before proceeding. Run native work on the dedicated development
+target or in an isolated test context when isolation is needed. A live
+production effect requires its configured target, purpose roles and effect
+authority.
+
+Each package runs focused compile or functional checks and the independent
+positive and refusal cases it owns. Follow the binding's target review
+cadence for substantial boundary changes, bounded changes and the assembled
+increment. The integrated review rechecks A1–A4, G1–G8 and CI-G1–CI-G3
+independently. Use the original cross-process release and deployment cases,
+resealed semantic and source mutations, exact p416 and visual recovery,
+typed delivery, retained custody and reference isolation. Preserve the
+coherent distinctions in the review, including candidate standing and
+independent public eligibility.
+
+At complete scope run the applicable `uv run ci test` and `uv run ci check`
+routes on the final source and context. Reconcile the required functional,
+native/provider and repository evidence by selected identities and managed
+receipts, with applicable Rust and fault lanes. Record actual commands, dates,
+scope and `passed`, `failed`, `blocked` or `not_run` outcomes. A mock or
+historical receipt only establishes its recorded scope. An in-scope unresolved
+or violated MUST or gate prevents an enclosing acceptance claim. Keep the
+next decision and settling evidence here. Quantitative benefit claims require
+separate measurements.
+[Review acceptance basis](../design_review/reviews/design_review_domain-model-alignment_2026-11-08.md#12-architectural-judgment-and-priorities) ·
+[Review cadence](../design_review/design_principles/binding/corpus-structure.md#reviews-in-this-repository)
