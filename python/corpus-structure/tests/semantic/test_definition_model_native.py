@@ -206,8 +206,8 @@ def test_genuine_definition_spans_require_named_cue_custody(semantic_db_engine):
         check = text("""
             SELECT ops.validate_definition_basis(
               CAST(:component AS jsonb),
-              '{"passage_id":"p","text":"term means content","start":0,"end":18}',
-              '{}', '{"use_named_candidates":true}', '{}')
+              jsonb_build_object('passage_id','p','text','term means content','start',0,'end',18),
+              '{}', jsonb_build_object('use_named_candidates',true), '{}')
             """)
         with (
             pytest.raises(DBAPIError, match="exact retained annotation witness"),
