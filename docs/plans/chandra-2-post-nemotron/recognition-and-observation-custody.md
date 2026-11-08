@@ -1,6 +1,6 @@
 # Recognition and observation custody
 
-**Proposed · 2026-11-08.** Companion to the [Chandra coordinator](../chandra-2-post-nemotron_2026-11-08.md). Owns O01's production boundary and O09's first local reference runtime.
+**Development path verified, recovery qualification open · 2026-11-08.** Companion to the [Chandra coordinator](../chandra-2-post-nemotron_2026-11-08.md). Owns O01's production boundary and O09's first local reference runtime.
 
 <a id="CH-02"></a>
 ## CH-02 · Make a source-bound visual observation
@@ -18,6 +18,17 @@ Reuse the existing run/task attempt fence, request artifact retention and exact 
 - Retain the raw response before interpreting it. Replay through the exact `parse_chandra_html(..., normalize_heading_levels=False)` binding, with page or crop coordinates mapped through the recorded frame. Reuse existing document-wide hierarchy ownership when an assembled view actually needs normalization. Treat raw HTML and Mermaid as untrusted data for display. Chandra's `parse_layout` and `parse_chunks` are useful comparison views. Their malformed-box fallback and removal of nested geometry make raw custody necessary. [Tagged parser](https://github.com/docling-project/docling/blob/v2.148.0/docling/utils/chandra_utils.py) · [Native output transforms](https://github.com/datalab-to/chandra/blob/v0.2.0/chandra/output.py)
 - Keep inference completion, parseability, coverage, and fidelity separate. Preserve unspecified stop reason as unknown completion evidence even when parsing succeeds. Distinguish a blank source from missing output, truncation, repetition, filtered output, and error. Retain failed or interrupted attempts and resume exact pending work. A changed pixel or recipe invalidates inference reuse. A parser change can reuse raw bytes and must produce its own mapping identity. Use existing scheduler and cancellation semantics with one local GPU owner and release buffers outside publication locks. The native Chandra vLLM client returns a final retry result, so any future route must provide attempt-level custody independently. [Docling status handling](https://github.com/docling-project/docling/blob/v2.148.0/docling/pipeline/vlm_pipeline.py) · [Native retry behavior](https://github.com/datalab-to/chandra/blob/v0.2.0/chandra/model/vllm.py)
 
+The raw payload is the exact text returned by the adapter after engine decoding and
+stop-string handling. The submitted PNG is the render input to the checkpoint processor.
+Neither records an independently resolved terminal token or the processor’s final grid.
+Treat processor evidence as a scoped prerequisite where a higher-detail recipe needs it.
+[Engine result conversion](https://github.com/docling-project/docling/blob/v2.148.0/docling/models/stages/vlm_convert/vlm_convert_model.py#L56-L82) ·
+[Transformers completion handling](https://github.com/docling-project/docling/blob/v2.148.0/docling/models/inference_engines/vlm/transformers_engine.py#L575-L643)
+
 ### Completion
 
 Consume CH-01's qualified version and a real published source. Run a real bounded page and rotated crop. Check inverse coordinates against independently located source regions. Verify exact replay without model load, pinned-source mismatch and stale attempt refusal, reuse versus changed recipe, interruption and resume, valid blank, invalid boxes, malformed HTML, missing output, explicit length stop and unmarked repetition. Match the probe's raw and parsed standing separately. Demonstrate that an admitted observation is available to CH-03 and retains its raw evidence even if interpretation fails.
+
+The coordinator retains F01 and F03 as open. [CH-10](automatic-routing-and-qualification.md#CH-10)
+consumes the same fences and schedules the applicable recovery and handoff prerequisites
+before automatic runtime qualification.

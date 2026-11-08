@@ -1,26 +1,46 @@
 # Chandra 2 after Nemotron
 
-**Status: Development inspection verified, qualification open · 2026-11-08.** This coordinator owns CH-01–07, source dispositions and combined qualification. It consumes the [functional review](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md) at `252a476da`. Foundation inspected at `1de432570`. The PDF, CLI and corpus-enrichment series retain ownership of their current work and acceptance.
+**Status · 2026-11-08.** Development inspection verified. Structural enrichment and
+automatic routing are proposed. The initial qualification remains open. This coordinator
+owns CH-01–11 and the combined Chandra target. It consumes the
+[functional review](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md) first
+published at `252a476da` and the dated follow-up integrated with this revision.
+The follow-up assessed source at `10f67f9fb`. The PDF, CLI and corpus-enrichment plans
+retain their own scope and qualification.
 
 ## Outcome and boundary
 
-An operator inspecting a published PDF can request a Chandra reading of an exact page or region after the current Nemotron A/B/C passes. A bounded read returns the original region, incumbent evidence, and attributed Chandra alternatives for figures, captions, tables and formulas. An explicit evidence-packet view offers the same grounded material to an agent. Both consume a selected source identity and produce review evidence. The current integrated product continues to govern ordinary sections, search, and knowledge claims.
+The current release supports explicit Chandra requests against an exact published PDF
+page or crop, with attributed results in Reader, CLI, MCP and an evidence packet.
+The proposed target also repairs independently witnessed losses in the selected document
+and makes useful visual structures available through typed evidence access. An automatic
+post-Nemotron stage evaluates the published pages for unresolved content and structural
+needs, even when incumbent text agrees. Qualification starts in shadow with selective
+and all-page arms. Explicit inference remains the operating policy until an automatic
+mode qualifies.
 
-The operator selected two planning boundaries on 2026-11-08. This series owns the Docling 2.148.0 upgrade and qualification. Its first proposed delivery is opt-in inspection. Governed promotion, specialist products and broader runtime activation each require their own decision and evidence under CH-04–07.
+Routing, attributed interpretation and source selection have separate authority.
+An approved automatic route can produce and deliver useful visual enrichment without
+changing ordinary section text, search or claims. CH-08 can repair ordinary source
+structures using qualified original and incumbent evidence. CH-11 is the conditional
+route for an independently verified change that genuinely depends on Chandra.
 
 ## Inspected foundations
 
 | Foundation | Consequence for the target |
 | --- | --- |
-| [Native PDF and recognition authority](../adr/0040-forward-pdf-only-contracts.md) retains immutable originals, exact input pins and a single selected document. The current [recognition model](../../python/corpus-structure/src/corpus_structure/model/semantic/pdf-products.yaml) exposes A/B/C/native, and the [mapper and selector](../../python/corpus-structure/src/corpus_structure/ingest/pdf_reconciliation.py) depend on Nemotron roles and picture-as-chart routing. | Reuse the fenced custody, geometry and publication boundaries. Give Chandra an additive evidence role with its own provider binding and parser. Keep it outside incumbent candidate selection until a separately qualified decision. |
-| [Published PDF reader](../../python/corpus-structure/src/corpus_structure/semantic/pdf_record_reader.py) and [native source API](../../python/corpus-structure/src/corpus_structure/serve/native_source.py) already scope reads to exact products, pointers, artifacts and budgets. [Section projection](../../python/corpus-structure/src/corpus_structure/ingest/pdf_hierarchy.py) traverses picture children. [Packet handles](../../python/corpus-structure/src/corpus_structure/semantic/proposals.py) derive from admitted native text pieces. | Deliver one explicit visual evidence read through the existing interface owners. Keep candidate content and inherited region references separate from ordinary section spans and claims. |
-| The checkout uses Docling 2.145.0 and Core 2.105.0. [Probe evidence](../design_review/evidence/2026-11-08_chandra-post-nemotron/README.md) used an isolated 2.148.0 and 2.106.0 overlay. Twenty live requests returned, 21 retained Nemotron response summaries matched between parsers, and the panel found useful outputs as well as regressions. | CH-01 owns actual upgrade qualification. Use the retained cases as controls, not as a qualification of fresh Standard conversion, publication or protected gain. All live stops were unspecified, the first run did not capture actual submitted engine rasters, and the supplemental cases are authored fixtures. |
+| [Native PDF authority](../adr/0040-forward-pdf-only-contracts.md) retains immutable originals, exact inputs and one selected document. The incumbent selector and protected publication reject Chandra input roles. | Use the existing authority for source-derived repair. Keep attributed alternatives addressable in typed evidence. Direct Chandra promotion needs its own protected release path and a specific decision. |
+| [Observation custody](chandra-2-post-nemotron/recognition-and-observation-custody.md#CH-02) binds one exact published source and page/crop per visual request. The current GPU lease and run/task/attempt fences are in use. | Reuse custody and execution ownership. Group work only after per-task source selection, homogeneous recipes and recovery are qualified. A failed intake with no published baseline belongs to incumbent recovery. |
+| [Published Reader and projection](../design/D8-agent-and-query-interfaces.md) preserve exact content and source locators. The application projection traverses picture children. | Extend the evidence read for typed figure discovery and rich candidates. Keep provider descriptions, chart estimates and generated graphs distinct from selected pieces. Preserve shared caption references without duplicating the caption. |
+| Docling and Slim 2.148.0 and Core 2.106.0 are installed and locked in the inspected tree. The old probe overlay and the subsequent [upgrade receipts](../design_review/evidence/2026-11-08_chandra-execution/README.md) have different claims. | Hold the installed versions and checkpoint fixed for qualification. Compare incumbent-only repair with enrichment so existing information and upgrade effects are not counted as Chandra gains. |
 
-### Shared decisions
-
-- **Identity and authority.** Original bytes, selected source, provider observation, parser result, and source-fidelity judgment have distinct identities and authorities. Preserve raw attempts and content digests. An enclosing block supports coarse evidence. An exact cell, glyph, edge or field requires its own witness. Unsupported, invalid, partial and unknown outcomes remain explicit.
-- **Execution fit.** The ordinary workload is one or a few requested pages or crops. Reuse incumbent receipts and exact prior recognition before rendering or inferring again. Release images and model state outside publication locks, use one shared GPU owner, and scope review reads to the selected source and evidence. Compare all-page work only against demonstrated need. Keep semantic roles independent of task or transaction granularity. [Design principles](../design_review/design_principles/core/design-principles.md) · [Efficient architecture heuristics](../design_review/design_principles/core/efficient-architecture-heuristics.md)
-- **Rule impacts.** The first milestone proposes evidence-only delivery under the current PDF authority. There is no accepted rule change from the review. Assess any additive role against the governing contract during CH-02 target review. If a binding revision is needed, record the exact impact and seek an explicit operator decision before the dependent design is fixed. CH-04 owns the possible change to selected-product authority. [Review and rule cadence](../design_review/design_principles/binding/corpus-structure.md#reviews-in-this-repository)
+Preserve original bytes, request frame, raw result, typed observation and fidelity
+judgment under their respective identities. Locate an exact cell, glyph, edge or field
+with its own witness. Prepare outside publication locks and reuse exact observations
+before rendering or inferring. Keep published source availability separate from optional
+GPU work. The design draws on scoped authority, typed distinctions and execution fit in
+the [design standard](../design_review/design_principles/core/design-principles.md)
+and [efficient architecture heuristics](../design_review/design_principles/core/efficient-architecture-heuristics.md).
 
 ## Packages and readiness
 
@@ -28,33 +48,55 @@ The operator selected two planning boundaries on 2026-11-08. This series owns th
 | --- | --- | --- |
 | [CH-01](chandra-2-post-nemotron/docling-upgrade-and-baseline.md#CH-01) · Upgrade | Exact pins and retained baseline inputs | Qualified workspace pin and upgrade-only Standard, Nemotron mapper and Reader receipts. |
 | [CH-02](chandra-2-post-nemotron/recognition-and-observation-custody.md#CH-02) · Observation custody | CH-01 usable release bindings | Exact local request, replayable raw result, bounded mapped evidence and recoverable failure. |
-| [CH-03](chandra-2-post-nemotron/visual-evidence-and-delivery.md#CH-03) · Inspection | CH-02 admitted evidence and published source pins | Same qualified output via Reader, CLI, MCP and explicit packet context. Initial delivery ends here. |
-| [CH-04](chandra-2-post-nemotron/source-recovery-and-governed-selection.md#CH-04) · Recovery and promotion | CH-01 upgrade-only comparison and CH-03 inspection | Source-specific recommendation and any separately authorized future promotion route. |
-| [CH-05](chandra-2-post-nemotron/specialist-extensions-and-scale.md#CH-05) · Charts and diagrams | CH-03 typed picture ancestry and bounded evidence delivery | Evidence-backed disposition for each proposed consumer. |
-| [CH-06](chandra-2-post-nemotron/specialist-extensions-and-scale.md#CH-06) · Forms, chemistry and navigation | CH-03 and representative natural sources | Per-capability fitness judgment and identified consumer contract or reopen trigger. |
-| [CH-07](chandra-2-post-nemotron/specialist-extensions-and-scale.md#CH-07) · Routing and scale | CH-02 exact runtime receipts, CH-03 real demand and affected investigations | Chosen operating policy for a stated workload or a reason to retain explicit requests. |
+| [CH-03](chandra-2-post-nemotron/visual-evidence-and-delivery.md#CH-03) · Inspection | CH-02 admitted evidence and published source pins | Same qualified output via Reader, CLI, MCP and explicit packet context. |
+| [CH-04](chandra-2-post-nemotron/source-recovery-and-governed-selection.md#CH-04) · Recovery investigation | CH-01 controls and CH-03 inspection | Source-specific dispositions recorded below. CH-08 and CH-11 own resulting implementation scope. |
+| [CH-05](chandra-2-post-nemotron/specialist-extensions-and-scale.md#CH-05) · Charts and diagrams | Typed picture ancestry and bounded evidence delivery | Attributed candidates can enter CH-09. Typed numeric and edge authority retain their separate evidence gates. |
+| [CH-06](chandra-2-post-nemotron/specialist-extensions-and-scale.md#CH-06) · Forms, chemistry and navigation | Exact typed evidence and representative natural sources | Per-capability fitness judgment and identified consumer contract or reopen trigger. |
+| [CH-07](chandra-2-post-nemotron/specialist-extensions-and-scale.md#CH-07) · Operating investigation | CH-02 runtime receipts and CH-03 demand | Explicit operating policy supported for the original workload. CH-10 owns automatic qualification. |
+| [CH-08](chandra-2-post-nemotron/source-recovery-and-governed-selection.md#CH-08) · Incumbent recovery | Qualified originals, archived inputs and CH-04 findings | Source-derived caption, table and readable formula recoveries through affected ordinary consumers. Unresolved fields retain their original standing. |
+| [CH-09](chandra-2-post-nemotron/visual-evidence-and-delivery.md#CH-09) · Typed visual delivery | CH-03 bounded read and exact observations | Figure discovery and rich-cell and formula alternatives reach the typed Reader and packet. Integrate CH-10 manifest access when available. |
+| [CH-10](chandra-2-post-nemotron/automatic-routing-and-qualification.md#CH-10) · Routing and shadow qualification | Archived baseline and typed inputs for dry decisions. Resolve relevant CH-02 recovery and handoff before automatic execution. | Managed shadow covers the book and mixed cohort. Select one operating policy for qualified scope with a separate activation decision. |
+| [CH-11](chandra-2-post-nemotron/source-recovery-and-governed-selection.md#CH-11) · Direct promotion | CH-08 and CH-09 reveal a verified Chandra-dependent selected gain. Specific authority decision and target review. | Conditional protected effect for one qualified structure type, with independent witness, dependency closure and ordinary-consumer verification. |
 
-CH-04–07 are investigations. Each can close its stated question with a supported adopt, retain, defer or unavailable disposition. Any implementation arising from those conclusions enters its governing decision and execution route.
+CH-08 and CH-09 can begin from the verified development surfaces. Use CH-08 to freeze
+the incumbent-only comparator for final CH-10 scoring, and CH-09 to check actual
+consumable gains. A dry routing assessment can begin from the archived baseline.
+Keep qualification for the original release scope separate from qualification of each
+new consumer and runtime effect. Direct promotion is outside the activation prerequisite.
 
 ## Review coverage and disposition
 
-| Review opportunity | Owner and disposition |
+| Opportunity | Owner and disposition |
 | --- | --- |
-| [O01](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O01) Independent source reading | CH-02 and CH-03, first delivery. CH-07 compares routing after explicit requests are usable. |
-| [O02](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O02) Figure evidence and search | CH-03 inspection. CH-04 investigates caption promotion. CH-06 owns any broader discovery policy. |
-| [O03](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O03) Chart precision | CH-05. Reopen product delivery when the visual source distinguishes printed and inferred values and a typed consumer uses the distinction. |
-| [O04](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O04) Tables and formulas | CH-03 comparison reads. CH-04 selects the layer and evidence for recovery. Reopen admission when field-level checks, consumer support and authority are ready. |
-| [O05](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O05) Diagram edges | CH-05. Reopen product delivery with source-qualified directions, labels and multiplicity on a representative graph and a concrete query. |
-| [O06](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O06) Visual forms and molecules | CH-06. Reopen each separately with representative original PDFs and the corresponding independent witness and reader. |
-| [O07](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O07) Complex layout and scripts | CH-06. Reopen navigation changes when natural-document checks demonstrate hierarchy, literal accuracy and retrieval together. |
-| [O08](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O08) Typed evidence and projection | CH-03, first delivery. Alternate serializers remain explicit inspection views. |
-| [O09](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O09) Runtime fit | CH-01 and CH-02 establish the version and local reference. CH-07 investigates expansion when demand or resource constraints justify it. |
+| [O01](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O01) Independent source reading | CH-02 and CH-03 verified on bounded development journeys. CH-10 expands candidate acquisition after qualification. |
+| [O02](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O02) Figure evidence and search | CH-08 source-qualified shared caption and CH-09 attributed figure discovery. |
+| [O03](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O03) Chart precision | CH-09 attributed typed candidates. CH-05 owns any further numeric delivery. |
+| [O04](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O04) Tables and formulas | CH-08 incumbent recovery, CH-09 richer alternatives, and CH-11 only for a separately qualified selected change. |
+| [O05](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O05) Diagram edges | CH-09 attributed generated code. CH-05 retains the witnessed edge and query gate. |
+| [O06](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O06) Visual forms and molecules | CH-06 retains separate natural-source, witness and consumer gates. |
+| [O07](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O07) Complex layout and scripts | CH-09 preserves relevant raw labels and exact depths. CH-06 owns any wider navigation change. |
+| [O08](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O08) Typed evidence and projection | CH-03 bounded inspection. CH-09 adds structured discovery and child access with projection guards. |
+| [O09](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O09) Runtime fit | CH-02 exact local reference. CH-07 retains engine comparison triggers. CH-10 qualifies managed grouped work. |
+| [O10](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O10) Automatic structural routing | CH-10 dry evaluation, shadow comparison and qualified policy. |
+| [O11](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md#O11) Native witnesses | CH-08 bounded source geometry for positioned bindings. CH-05 retains more general connector and scale investigations. |
 
 ## Qualification and handoff
 
-Before the first substantial stage and any changed authority, obtain the applicable target review under the binding. Use focused change review for bounded slices and one assembled review at the initial milestone. Use affected `uv run ci test -- PATH` selections as packages land. At integrated completion, account for the applicable functional and repository check union on the final source and configuration. Exercise one real local recognition journey, repeat it from retained evidence, and cover a failure and wrong-source refusal. Mocked provider checks support contract tests. Provider qualification needs the real provider.
+The next work is CH-08 incumbent recovery, CH-09 typed delivery and a dry CH-10
+routing assessment. Apply the [target review cadence](../design_review/design_principles/binding/corpus-structure.md#reviews-in-this-repository)
+before substantial contract changes and at the assembled stage. CH-08 through CH-10
+are designed within the current PDF authority. CH-11 needs confirmation of the specific
+change to selected-input authority and a recorded ADR before dependent scope proceeds.
+No authority change has been approved by this revision.
 
-CH-03 can close when the opt-in journey works across the named consumers and ordinary source behavior is preserved. A protected quality or throughput claim needs separate representative evidence. The execution disposition below records the live scope and remaining obligations.
+Use affected `uv run ci test -- PATH…` and managed live journeys during implementation.
+At the combined boundary, account for the actual final-source functional, provider,
+recovery and repository results through the applicable `uv run ci` routes. Include
+protected clean controls, exact predecessor reads and normal versus typed evidence
+consumers. Shadow inference is CH-10's first activation qualification, with all 518
+book pages and a mixed cohort. Evidence can support explicit operation, selective
+inference or all-page inference. If neither automatic mode qualifies, retain explicit
+operation and record the missing prerequisite or material counterexample.
 
 ## Execution disposition · 2026-11-08
 

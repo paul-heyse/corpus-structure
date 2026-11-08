@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-08. Whole-book processing and output review are complete. Chandra opt-in inspection has a verified development journey. The owning plans retain open qualification._
+_Updated 2026-11-08. Whole-book processing and output review are complete. Chandra inspection is verified in development. The revised Chandra target is proposed._
 
 ## Current authority
 
@@ -54,7 +54,7 @@ _Updated 2026-11-08. Whole-book processing and output review are complete. Chand
 - [Full-book intake](docs/plans/next-corpus-enrichment_2026-11-07.md#full-book-execution)
   completed Standard cut 413 and combined cut 431. All 29 scoped views and nine contextual
   cues published. LLM review covers all 518 pages and retained definition and artifact outputs.
-- The [Chandra execution disposition](docs/plans/chandra-2-post-nemotron_2026-11-08.md#execution-disposition--2026-11-08) records the Docling 2.148.0 upgrade,
-  live page and crop custody, and exact replay. Development head is `semantic_chandra_input_custody`.
+- The [Chandra coordinator](docs/plans/chandra-2-post-nemotron_2026-11-08.md#qualification-and-handoff) owns CH-08–11. Next are incumbent recovery, typed delivery and a dry routing assessment. Automatic activation needs shadow qualification.
+  The [verified inspection baseline](docs/plans/chandra-2-post-nemotron_2026-11-08.md#execution-disposition--2026-11-08) remains on `semantic_chandra_input_custody`, with recovery qualification open. The revised docs passed publication with an unrelated untracked draft excluded.
 - Settle the WCE source and factor obligations. Live CLI qualification needs a configured
   production target, purpose roles and effect authority.
