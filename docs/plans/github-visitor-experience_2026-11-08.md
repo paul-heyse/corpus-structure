@@ -1,6 +1,6 @@
 # GitHub visitor experience and Pages implementation
 
-**Status · 2026-11-08. GHV-01–06 complete and live. GHV-07–11 proposed.**
+**Status · 2026-11-08. GHV-01–11 complete and live.**
 This coordinator owns the [follow-on increment](#GHV-follow-on), the original
 rollout and the combined acceptance of each increment. It consumes the [functional review](../functional_reviews/github-visitor-experience_2026-11-08.md)
 at `b8697ab5f` and the two-part ChatGPT Pro proposal named `github_view_improvement.md`,
@@ -267,7 +267,7 @@ admission. [Public examples](../examples/README.md) · [Comparison record](../de
 
 ## Follow-on increment · Show the retained semantic results
 
-**Proposed · 2026-11-08.** The ChatGPT Pro draft
+**Delivered · 2026-11-08.** The ChatGPT Pro draft
 `github_view_improvement_additional_recommendations.md` (Git blob
 `d00c3774b1d34721ff14649bf143df80c91ed41c`) reviewed `5bddd141b`. It is a
 local authoring input. This crosswalk carries its recommendations into the
@@ -276,11 +276,9 @@ series without requiring the draft in a clean checkout.
 The [live release](https://github.com/paul-heyse/corpus-structure/actions/runs/42484094468)
 at `8b694c67b` already exposes the separate X and Z receipts. The original
 site, metadata, social preview and GHV-06 comparisons remain qualified at
-their recorded boundaries. The current homepage and examples still emit
-edit URLs with a staging `src/` prefix. The dossier preflight still labels
-the completed journey pending, the README badge still leads to Actions
-without an opening Pages link, and the architecture map still directs the
-reader to D0 first.
+their recorded boundaries. That baseline emitted edit URLs with a staging `src/` prefix. The dossier
+preflight still labeled the completed journey pending, the README lacked an
+opening Pages link, and the architecture map led readers to D0 first.
 
 The next visitor should be able to see how the project preserves a condition,
 recovers an antecedent and assembles supported material. The opening explains
@@ -328,10 +326,10 @@ the synthetic run and inspector that the operator excluded.
 
 | Item | Owner and disposition | Closure evidence |
 | --- | --- | --- |
-| GHV-F06 · Draft §2A edit paths | Open · GHV-07 publisher | Root and nested actions use real GitHub paths. The generated directory has no edit action. |
-| GHV-F07 · Draft §2B dossier summary | Open · GHV-07 evidence page | Finalized native and delivery results appear alongside the dated preparation history. |
-| GHV-F08 · Draft §2C live entry link | Open · GHV-07 README | Documentation opens Pages. Docs build opens the workflow. Examples, architecture and evaluation remain directly reachable. |
-| GHV-F09 · Draft §5 architecture introduction | Open · GHV-07 architecture map | Current code trace comes first. The design collection retains its links and the dated D0 target has a separate route. |
+| GHV-F06 · Draft §2A edit paths | Closed · GHV-07 publisher | Root and nested actions use real GitHub paths. The generated directory has no edit action. |
+| GHV-F07 · Draft §2B dossier summary | Closed · GHV-07 evidence page | Finalized native and delivery results appear alongside the dated preparation history. |
+| GHV-F08 · Draft §2C live entry link | Closed · GHV-07 README | Documentation opens Pages. Docs build opens the workflow. Examples, architecture and evaluation remain directly reachable. |
+| GHV-F09 · Draft §5 architecture introduction | Closed · GHV-07 architecture map | Current code trace comes first. The design collection retains its links and the dated D0 target has a separate route. |
 
 ### Integration and release
 
@@ -351,9 +349,7 @@ excerpt without exposing raw evidence. The assembled review should also
 assess failure recovery for search and the deployment sequence.
 
 Use the [follow-on qualification](github-visitor-experience/publication-and-rollout.md#GHV-follow-on-qualification)
-for local, hosted and live acceptance. The implementation checks are
-`not_run` at plan authoring. Record release evidence and finding closures
-here when the work is implemented and verified.
+for local, hosted and live acceptance. The release evidence below records the checks for the implemented increment.
 
 **Plan validation · 2026-11-08.** `just turn-end` and `uv run ci docs check`
 passed on an LFS-disabled export of `8b694c67b` with the seven authoring
@@ -370,3 +366,39 @@ index and the small retained-examples JSON. The archive records the
 sources that require separate access and the upstream routes. The
 prepared local acquisition remains the prerequisite for corpus-marked
 tests. [Corpus index](../statistics_corpus/README.md) · [Assembled review](../design_review/reviews/design_review_ghv-follow-on-publication-assembled_2026-11-08.md)
+
+
+<a id="ghv-follow-on-acceptance"></a>
+
+### Follow-on acceptance · 2026-11-08
+
+The [Documentation run](https://github.com/paul-heyse/corpus-structure/actions/runs/42487583114)
+passed both uploads and deployed `e0095a4ada2b2e179448e8a65673a70ac539bbc1` from shared `main`.
+The [assembled review](../design_review/reviews/design_review_ghv-follow-on-publication-assembled_2026-11-08.md)
+accepted serialized releases and static reader journeys. GHV-07–11 and
+GHV-F06–09 closed after the live checks.
+
+- `just turn-end`, `just docs-test` (49 tests), `just docs-visuals`,
+  `uv run ci docs check` and the LFS-disabled project-prefix build passed.
+  The site rendered 711 canonical pages with zero link errors. The
+  published baseline's 705 page paths and search scopes were retained.
+  The six added pages are the evaluation, developer and corpus entries
+  plus the three independent review documents.
+- Playwright passed the reader journeys at 1280 × 800 and 390 × 844.
+  It checked edit destinations, sidebar, evidence disclosures, the three
+  downloadable cases, light and dark diagram selection, preserved links,
+  canonical metadata, and Current, Reference and Everything search.
+  Local failure injection passed for delayed initialization and reopen,
+  UI bundle failure, index module failure and index metadata failure,
+  including keyboard reload and successful first search.
+- `sha256sum -c PUBLIC-MANIFEST.sha256 --quiet` passed for all 1,409 source
+  files. The Pages artifact includes the index and declared JSON and
+  image assets. Raw evidence and source corpus payloads remain outside
+  it. Anonymous Git LFS retrieval of the exact textbook matched
+  `763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e`.
+- The scoped corpus manifest and hydrated PDF alignment tests passed in
+  managed result `7e5f01ed1f504a419c324cd73b2fbef6`. The separately run
+  page-85 native scenario failed in `b068750e07ea4105b8ce16eb20ec78cb`
+  after source digest validation. The failure was a native mapping
+  `#/version` mismatch. This is an outstanding product test result
+  outside the static publication qualification.

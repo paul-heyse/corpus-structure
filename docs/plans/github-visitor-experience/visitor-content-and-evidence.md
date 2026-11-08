@@ -1,6 +1,6 @@
 # Visitor content and source-linked evidence
 
-**Status · 2026-11-08. GHV-02/03 complete. GHV-08 proposed.** Owns the visitor and evidence designs. The
+**Status · 2026-11-08. GHV-02/03 complete. GHV-08 complete.** Owns the visitor and evidence designs. The
 [coordinator](../github-visitor-experience_2026-11-08.md) owns execution and
 qualification. This companion implements the editorial and evidence routes from
 [O01](../../functional_reviews/github-visitor-experience_2026-11-08.md#O01),
@@ -116,7 +116,7 @@ The [coordinator](../github-visitor-experience_2026-11-08.md#ghv-audit-closure) 
 
 ## GHV-08 · Show retained results and how they were assessed
 
-**Proposed.** Owns draft §§3, 6 and 7. Consume the corrected dossier route
+**Complete.** Owns draft §§3, 6 and 7. Consume the corrected dossier route
 from [GHV-07](publication-and-rollout.md#GHV-07). Supply the operation names
 and example links used by the diagram and visitor navigation.
 

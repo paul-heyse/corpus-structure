@@ -1,6 +1,6 @@
 # Visitor navigation and site presentation
 
-**Status · 2026-11-08. Proposed.** Develops GHV-10 and GHV-11. The
+**Status · 2026-11-08. Complete.** Develops GHV-10 and GHV-11. The
 [coordinator](../github-visitor-experience_2026-11-08.md#GHV-follow-on)
 owns disposition and combined acceptance. Consume the corrected entry
 routes from [GHV-07](publication-and-rollout.md#GHV-07), the exhibit and

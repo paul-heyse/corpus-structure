@@ -1,6 +1,6 @@
 # Shared visuals and follow-on investigations
 
-**Status · 2026-11-08. GHV-04/06 complete. GHV-09 proposed.** Owns the shared diagram and visual decisions. The
+**Status · 2026-11-08. GHV-04/06 complete. GHV-09 complete.** Owns the shared diagram and visual decisions. The
 [coordinator](../github-visitor-experience_2026-11-08.md) owns execution state.
 Consume the visitor wording and exact examples from [GHV-02/03](visitor-content-and-evidence.md).
 Use the visual and tooling findings in the [functional review](../../functional_reviews/github-visitor-experience_2026-11-08.md#O03).
@@ -94,7 +94,7 @@ retains the viewport comparisons and exact citation storyboard. The
 
 ## GHV-09 · Diagram the transformations and partial outputs
 
-**Proposed.** Owns draft §4 and diagram treatment in §8. Consume the operation
+**Complete.** Owns draft §4 and diagram treatment in §8. Consume the operation
 names, examples and architecture trace from GHV-07/08. Maintain the shared
 [D2 source](../../visuals/pipeline.d2) and render through `just docs-visuals`.
 

@@ -1,6 +1,6 @@
 # Documentation publication and GitHub rollout
 
-**Status · 2026-11-08. GHV-01/05 complete. GHV-07 proposed.** Owns publication corrections and release qualification. The
+**Status · 2026-11-08. GHV-01/05 complete. GHV-07 complete.** Owns publication corrections and release qualification. The
 [coordinator](../github-visitor-experience_2026-11-08.md) owns findings and
 execution status. The [functional review](../../functional_reviews/github-visitor-experience_2026-11-08.md#O04)
 records the inspected failures and the isolated workaround results.
@@ -143,7 +143,7 @@ release scope. The [coordinator](../github-visitor-experience_2026-11-08.md#ghv-
 
 ## GHV-07 · Correct edit actions, dossier status and entry routes
 
-**Proposed.** Owns draft §§2A–C and the architecture introduction in §5.
+**Complete.** Owns draft §§2A–C and the architecture introduction in §5.
 It supplies the corrected evidence and navigation routes to GHV-08 and GHV-10.
 
 - **Edit actions.** mdBook emits its staged path in the edit link. During

@@ -8,7 +8,7 @@ _Updated 2026-11-08. Original whole-book intake and review are complete. Grouped
   owns findings, package states and combined qualification. ADR-0067 governs current-only
   migration. ADR-0070 selects all 518 Grinstead–Snell pages. WCE receipts still cover pages 191–310.
 - WCE baseline `07d25b840` retains `semantic_wce_lineage_20261107` and `retrieve.contextual/5`.
-- The [GitHub visitor rollout](docs/plans/github-visitor-experience_2026-11-08.md#ghv-audit-closure) is live and verified. The [proposed follow-on](docs/plans/github-visitor-experience_2026-11-08.md#GHV-follow-on) starts with publisher and entry-route corrections. The plan publication check passed on 2026-11-08.
+- The [GitHub visitor follow-on](docs/plans/github-visitor-experience_2026-11-08.md#ghv-follow-on-acceptance) is live. On 2026-11-08, the docs workflow and both live browser sizes passed. The corpus index links to 1,409 verified source files in Git LFS.
 
 ## Delivered and assessed
 
