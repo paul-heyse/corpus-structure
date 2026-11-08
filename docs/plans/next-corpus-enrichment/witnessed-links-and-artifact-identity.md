@@ -307,6 +307,11 @@ the ordered comparison levels and exact-title term frequency. Same-lineage effic
 and native adoption await the protected eligible cohort and parity required above.
 Reference-to-caption judgments retain their original meaning. [Mechanism result](../../design_review/evidence/2026-11-07_nce07-12/raw/artifact-scorer-mechanism.json).
 
+**2026-11-08 whole-book trigger check.** Standard run 300/cut 417 retained 596
+records and nominated 530 pairs across all 29 annotated views. Zero pairs
+qualified for scoring. The protected same-lineage cohort remains the prerequisite.
+[Exact book result and delivery](../../design_review/evidence/2026-11-08_nce-full-book/records/nce.gs518-artifact-trigger.json).
+
 ## Conditional and deferred choices
 
 | ID | Candidate and revisit condition |

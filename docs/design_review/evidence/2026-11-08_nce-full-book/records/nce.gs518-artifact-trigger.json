@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "id": "nce.gs518-artifact-trigger",
+  "title": "Whole-book artifact nomination and same-lineage eligibility",
+  "group": "next-corpus-enrichment",
+  "package": "NCE-08",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the full authentic Standard book supply score-eligible pairs for the same-lineage scorer?",
+  "answers": [
+    "NCE-08"
+  ],
+  "method": "Run the released artifact producer on all 29 exact views of Standard run 297. Count score dispositions over the completed book-wide report. Export the exact managed closure and independently verify its manifest digest.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-08_nce-full-book/enrich.py 297 build/nce-full-book/baseline --release release:87b19212e2391c5441a1638f68b784036db68cd79a1b8bccaa611310d13c4993 --phase artifact",
+    "uv run python docs/design_review/evidence/2026-11-08_nce-full-book/deliver.py build/nce-full-book/baseline artifact"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/standard-artifact-census.json",
+      "role": "Exact artifact inventory, nomination routes and score dispositions",
+      "sha256": "8a86fdbb8ce80c0aded5a870464a190f76b06e45f73a844385782432b62ecb69"
+    },
+    {
+      "path": "raw/standard-artifact-delivery.json",
+      "role": "Managed held result and verified detached manifest",
+      "sha256": "b7a6305ce29f8fcd51f1e3189c420da86ad8c76fbd33e3f99d98271c8bebaacb"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Retained artifact records",
+      "value": 596,
+      "of": null,
+      "unit": "records",
+      "note": null
+    },
+    {
+      "name": "Nominated pairs",
+      "value": 530,
+      "of": null,
+      "unit": "pairs",
+      "note": null
+    },
+    {
+      "name": "Score-eligible pairs",
+      "value": 0,
+      "of": 530,
+      "unit": "pairs",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The whole-book Standard artifact report establishes zero score-eligible pairs. The 483 reference-only and 47 namespace-unavailable nominations retain their actual dispositions. The authentic same-lineage assessment trigger remains unsatisfied.",
+  "consumed_by": [
+    "NCE-08",
+    "next-corpus-enrichment plan"
+  ]
+}
