@@ -22,6 +22,7 @@ semantic pivot series was added on 2026-10-29:
 | [CLI operations and managed results](cli-operations_2026-11-07.md) | Proposed CLI-00–CLI-08: installed command surface, recipe integration, managed results, tests, controlled model changes, corpus journeys and operational adoption. Owns O01–O07 and improvement review I01–I10, including Typer 0.28.0 and bounded diagnostics. |
 | [CLI reporting](cli-reporting_2026-11-07.md) | Audit repairs verified on main with targeted functional and native checks. CLIR-01–08 cover bounded reports, test evidence, managed model and corpus reads, recipe diagnostics, stream behavior and file-free workflows. Owns reporting review O01–O07. |
 | [Next corpus enrichment](next-corpus-enrichment_2026-11-07.md) | Proposed NCE-01–12: caption and role recovery, witnessed links, artifact scoring, rooted navigation, finite interpretation, operation reliability and review O01–O12 dispositions. |
+| [Chandra 2 after Nemotron](chandra-2-post-nemotron_2026-11-08.md) | Proposed CH-01–07: Docling upgrade, opt-in visual evidence, and gated recovery, specialist consumer and runtime investigations. Owns the Chandra review O01–O09 dispositions. |
 
 
 [Witnessed corpus enrichment](witnessed-corpus-enrichment_2026-11-05.md) is the new Proposed series
