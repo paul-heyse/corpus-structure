@@ -38,12 +38,7 @@ against the printed book.
 
 ## How it works
 
-<picture class="pipeline-diagram">
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/pipeline-dark.svg">
-  <img src="docs/assets/pipeline.svg" alt="Four operations produce located observations, qualified components, witnessed connections, and assembled views. Provenance and assessment apply throughout.">
-</picture>
-
-[Full-size diagram](docs/assets/pipeline.svg) · [Full-size dark diagram](docs/assets/pipeline-dark.svg)
+[![Corpus Structure functional architecture, from source capture through extraction, local composition, linking and assembly, with provenance and assessment throughout.](docs/assets/From%20documents%20to%20connected%20knowledge.png)](docs/assets/From%20documents%20to%20connected%20knowledge.png)
 
 The pipeline locates observations in source material, attaches roles and qualifiers,
 connects related material through typed links, and assembles comparisons and dossiers.

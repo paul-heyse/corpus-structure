@@ -7,11 +7,3 @@
 }
 .content details { margin-block: 1rem; }
 .content summary { cursor: pointer; }
-.pipeline-diagram img {
-    content: url("../docs/assets/pipeline.svg");
-    width: min(100%, 32rem);
-    height: auto;
-}
-:is(.coal, .navy, .ayu) .pipeline-diagram img {
-    content: url("../docs/assets/pipeline-dark.svg");
-}

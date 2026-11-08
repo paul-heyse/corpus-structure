@@ -36,6 +36,7 @@ exclude = [
   "docs/functional_reviews/github_view_improvement_additional_recommendations.md",
 ]
 assets = [
+  "docs/assets/From documents to connected knowledge.png",
   "docs/assets/pipeline.svg",
   "docs/assets/pipeline-dark.svg",
   "docs/assets/favicon.svg",
