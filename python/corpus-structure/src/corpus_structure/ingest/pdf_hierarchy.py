@@ -243,14 +243,47 @@ def _section_text_policy_bytes() -> bytes:
     )
 
 
-def section_text_policy(prepared: PreparedRelease) -> bytes:
-    policy = _section_text_policy_bytes()
-    digest = dict(json.loads(prepared.manifest)["dependencies"]).get(
+def _section_text_policy_digest(prepared: PreparedRelease) -> str | None:
+    return dict(json.loads(prepared.manifest)["dependencies"]).get(
         "execution/implementation/pdf/section-text-recipe.json"
     )
-    if digest != sha256(policy).hexdigest():
-        raise ValueError("section text recipe differs from the selected release")
-    return policy
+
+
+def section_text_policy(prepared: PreparedRelease) -> bytes:
+    policy = _section_text_policy_bytes()
+    digest = _section_text_policy_digest(prepared)
+    if digest == sha256(policy).hexdigest():
+        return policy
+    previous = b'{"content_layers":["body"],"recipe":"native-section-text-v8"}\n'
+    if digest == sha256(previous).hexdigest():
+        return previous
+    raise ValueError("section text recipe differs from the selected release")
+
+
+def section_formula_witness(prepared: PreparedRelease) -> Mapping[str, str] | None:
+    """Older read contracts retain their original response shape."""
+    policy = _section_text_policy_bytes()
+    if _section_text_policy_digest(prepared) == sha256(policy).hexdigest():
+        return json.loads(policy).get("readable_formula_original")
+    return None
+
+
+def readable_formula_original(
+    witness: Mapping[str, str] | None,
+    document_digest: str,
+    pointer: str,
+    original: str | None,
+) -> str | None:
+    """Select only an original spelling with a source-checked witness in the release."""
+    if (
+        original
+        and witness
+        and witness["content_digest"] == document_digest
+        and witness["pointer"] == pointer
+        and witness["orig_digest"] == sha256(original.encode()).hexdigest()
+    ):
+        return original
+    return None
 
 
 def section_text_recipe(
@@ -299,6 +332,7 @@ def project_section(
     section_refs: frozenset[str],
     node_index: dict[str, Any] | None = None,
     selected_items: Iterable[str] = (),
+    projection_policy: bytes | None = None,
 ) -> TextProjection:
     """One explicit section view, retaining tables/cells and synthetic separators."""
     nodes = native_nodes(document) if node_index is None else node_index
@@ -309,6 +343,7 @@ def project_section(
         membership,
         section_refs=section_refs,
         selected_items=selected_items,
+        projection_policy=projection_policy,
     )
 
 
@@ -320,6 +355,7 @@ def project_section_nodes(
     *,
     section_refs: frozenset[str],
     selected_items: Iterable[str] = (),
+    projection_policy: bytes | None = None,
 ) -> TextProjection:
     """Project an admitted selected closure without fabricating a partial document.
 
@@ -336,6 +372,11 @@ def project_section_nodes(
     position = 0
     selected = frozenset(selected_items)
     emitted_captions: set[str] = set()
+    formula_witness = (
+        json.loads(projection_policy).get("readable_formula_original")
+        if projection_policy is not None
+        else None
+    )
 
     def append(
         value: str,
@@ -435,8 +476,22 @@ def project_section_nodes(
                 append(field(chart, "title"), pointer, source_field="chart_title")
             for index, cell in enumerate(field(field(chart, "chart_data"), "table_cells")):
                 append(field(cell, "text"), pointer, index, "chart_cell_text")
-        if field(node, "text") is not None:
-            append(field(node, "text"), pointer, cell_index, separator=separator)
+        value = field(node, "text")
+        if value is not None:
+            original = (
+                readable_formula_original(
+                    formula_witness, document_digest, pointer, field(node, "orig")
+                )
+                if field(node, "label") == "formula"
+                else None
+            )
+            append(
+                original if original is not None else value,
+                pointer,
+                cell_index,
+                source_field="orig" if original is not None else "text",
+                separator=separator,
+            )
         for index, child in enumerate(field(node, "children", ())):
             target = reference(child)
             if target not in nodes:

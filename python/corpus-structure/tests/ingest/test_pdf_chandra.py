@@ -1,7 +1,10 @@
 """CPU controls for the pinned Chandra adapter and native Docling replay."""
 
 from hashlib import sha256
+from io import BytesIO
+from multiprocessing import active_children, get_context
 from pathlib import Path
+from time import sleep
 from types import SimpleNamespace
 
 import pytest
@@ -17,6 +20,7 @@ from corpus_structure.ingest.pdf_chandra import (
     ChandraParseStatus,
     ChandraRuntime,
     parse_chandra_response,
+    recognize_supervised,
 )
 
 
@@ -183,3 +187,45 @@ def test_native_stage_boundary_keeps_rgb_raster_and_raw_prediction(
     runtime.close()
     runtime.close()
     assert cleanup == [True]
+
+
+class _BlockingChandra(ChandraRuntime):
+    def __init__(self, active):
+        self.active = active
+        self.effective_device = {"device": "control"}
+
+    def recognize(self, image, *, before_submit=None):
+        assert before_submit is not None
+        before_submit()
+        self.active.set()
+        sleep(60)
+        raise AssertionError("supervisor did not stop the blocked provider")
+
+    def close(self):
+        pass
+
+
+def test_supervised_chandra_drains_active_provider_on_cancellation():
+    with BytesIO() as png:
+        Image.new("RGB", (4, 6)).save(png, format="PNG")
+        pixels = png.getvalue()
+    active = {child.pid for child in active_children()}
+    in_generation = get_context("spawn").Event()
+    submitted = False
+
+    def mark_submission():
+        nonlocal submitted
+        submitted = True
+
+    def check_active():
+        if in_generation.is_set():
+            raise InterruptedError("cancelled active Chandra request")
+
+    runtime = _BlockingChandra(in_generation)
+    with pytest.raises(InterruptedError, match="cancelled active Chandra request"):
+        recognize_supervised(
+            runtime, pixels, check_active=check_active, before_submit=mark_submission
+        )
+    assert submitted
+    assert runtime.effective_device == {"device": "control"}
+    assert {child.pid for child in active_children()} <= active

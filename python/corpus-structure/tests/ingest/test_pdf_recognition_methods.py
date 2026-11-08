@@ -300,6 +300,7 @@ def test_live_integration_retains_typed_candidates_and_distinct_valid_health_row
     monkeypatch.setattr(methods, "_consumer_release", lambda ctx: "release")
     monkeypatch.setattr(pdf_methods, "_consumer_release", lambda ctx: "release")
     monkeypatch.setattr(methods, "_drafts", lambda *args, **kwargs: ())
+    monkeypatch.setattr(methods, "section_text_policy", lambda prepared: b"{}")
     cfg = methods.PdfIntegratedIngestConfig(native_product=reference)
     settings = SimpleNamespace(
         nemotron_python="unused",
@@ -310,6 +311,7 @@ def test_live_integration_retains_typed_candidates_and_distinct_valid_health_row
     )
     ctx: Any = SimpleNamespace(
         reader=SimpleNamespace(
+            prepared=None,
             native_section_drafts=lambda *args, **kwargs: (
                 SimpleNamespace(native_product=reference),
             ),

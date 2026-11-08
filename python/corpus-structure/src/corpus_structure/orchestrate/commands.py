@@ -418,6 +418,7 @@ def _finalize_bound_run(
     from corpus_structure.semantic.domain_operations import DomainOperationRefused, consolidate_cut
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.operations import seal_cut
+    from corpus_structure.semantic.visual_requests import VISUAL_REQUEST_CODE_COMMIT
 
     t = table("ops.task")
     with engine.begin() as conn:
@@ -428,6 +429,8 @@ def _finalize_bound_run(
         row = lock_finalization_run(conn, run_id=owned_run_id).decoded_json_fields(
             operation="evaluate"
         )
+        if row["code_commit"] == VISUAL_REQUEST_CODE_COMMIT and "visual_request" in row["options"]:
+            raise DomainOperationRefused("visual evidence runs have no evaluated realization")
         if row["status"] in ("cancelled", "failed"):
             raise DomainOperationRefused("cancelled or failed run cannot finalize")
         unfinished = row["result_realization_id"] is None
@@ -459,6 +462,10 @@ def bound_status(
 
     from corpus_structure.orchestrate.liveness import observe_supervisor
     from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.visual_requests import (
+        VISUAL_REQUEST_CODE_COMMIT,
+        VISUAL_REQUEST_CUT,
+    )
 
     run = _bound_run_id(conn, run_id, project_id)
     if run is None:
@@ -468,7 +475,7 @@ def bound_status(
     )
     row = conn.execute(select(r).where(r.c.id == run)).mappings().one()
     latest_cut = conn.execute(
-        select(cut.c.id, cut.c.name)
+        select(cut.c.id, cut.c.name, cut.c.final)
         .where(cut.c.run_id == run)
         .order_by(cut.c.final.desc(), cut.c.id.desc())
         .limit(1)
@@ -491,8 +498,18 @@ def bound_status(
         )
     ).scalar_one()
     status = row["status"]
-    source_ready = run_source_ready(conn, run)
-    if status == "running":
+    visual_ready = (
+        row["code_commit"] == VISUAL_REQUEST_CODE_COMMIT
+        and "visual_request" in row["options"]
+        and row["sealed"]
+        and latest_cut is not None
+        and latest_cut.final
+        and latest_cut.name == VISUAL_REQUEST_CUT
+    )
+    source_ready = visual_ready or run_source_ready(conn, run)
+    if visual_ready:
+        status = "source_ready"
+    elif status == "running":
         if unresolved:
             status = "awaiting_agent"
         elif source_ready:
@@ -505,7 +522,7 @@ def bound_status(
         active, waiting = observe_supervisor(conn, run)
         if active:
             supervisor = "active"
-        elif waiting is True and row["status"] == "running":
+        elif visual_ready or (waiting is True and row["status"] == "running"):
             supervisor = "waiting"
         elif waiting is not None:
             supervisor = "orphaned"

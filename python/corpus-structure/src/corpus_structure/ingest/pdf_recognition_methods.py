@@ -33,7 +33,7 @@ from corpus_structure.semantic.product_reference import ProductReference
 from .pdf import native_conversion_health
 from .pdf_capacity import native_before_nemotron
 from .pdf_health import error_summary
-from .pdf_hierarchy import load_snapshot, native_nodes
+from .pdf_hierarchy import load_snapshot, native_nodes, section_text_policy
 from .pdf_methods import (
     IngestPdf,
     PdfIngestConfig,
@@ -425,6 +425,7 @@ class IngestPdfIntegrated:
                         consumer_release,
                         document=selected.document,
                         node_index=nodes,
+                        projection_policy=section_text_policy(ctx.reader.prepared),
                     )
                     outputs.append(
                         UnitResult(

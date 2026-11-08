@@ -1,0 +1,1391 @@
+{
+  "policy": "chandra-dry-routing-v1",
+  "source": {
+    "run_id": 309,
+    "task_id": 1389,
+    "product_key": "integrated",
+    "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+  },
+  "structural_input": {
+    "run_id": 297,
+    "task_id": 1342,
+    "product_key": "organized",
+    "content_digest": "5686b3b70c1039a4d90dda05f6376868268998b8d0ea705c1db10755faffb561"
+  },
+  "actions": {
+    "skip": 466,
+    "recognize": 48,
+    "repair": 3,
+    "unresolved": 1
+  },
+  "nominated": [
+    {
+      "page_no": 24,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "caption",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:24:attempt-00001:request:1",
+              "content_digest": "a37095f2dd2a03ec866bbf49738860bdcea83b61e2eede55cd99fa5529cc041c"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 33,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "table",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:33:attempt-00001:request:1",
+              "content_digest": "bae1a36f27532e37f62f6280ca2b4750eeb8ac8a0cec0a43eb309aad7a7cab90"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 35,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "caption",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:35:attempt-00001:request:1",
+              "content_digest": "64f5b4c626684ab32abb284434f19a7883af4a43738d0eadada57500059ba595"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 43,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "formula",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:43:attempt-00001:request:1",
+              "content_digest": "43d4a214531645001556d3fa7fb894746f151784dd584a3d8f0eb0f3bcaf0573"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 66,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "picture",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:66:attempt-00001:request:1",
+              "content_digest": "cef6c75548002f083275ef2e268b8554ce01721757312069b7dbb6e1edd6d013"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 71,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "formula",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:71:attempt-00001:request:1",
+              "content_digest": "2074e1e366e029860767a652d53aed54ad10df58015f50f6d5dc55cb9ecb6500"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 87,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "formula",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:87:attempt-00001:request:1",
+              "content_digest": "f94a17c163a091c80c7ce7d0dc11ec40e6791e8cc00cc451abb1a7929840599d"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 92,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "formula",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:92:attempt-00001:request:1",
+              "content_digest": "8c3c1516e6df777578fe7e36103639911f1312d3b31ca934b84dcdbcc735a1fb"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 96,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "formula",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:96:attempt-00001:request:1",
+              "content_digest": "2f6ac74b0f155cbc87cb324da53d1a46029c95ef106351c4256ae6d7fb9d173e"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 102,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "table",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:102:attempt-00001:request:1",
+              "content_digest": "2825323b92405296c65dbdf71a35591f3c6d97d009e599b8d0178b9f264765e4"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 105,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "formula",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:105:attempt-00001:request:1",
+              "content_digest": "c187750d97cc61ee679679a81bff1ab3dcb51ee6003e11259da29af37c4be254"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 108,
+      "action": "repair",
+      "reasons": [
+        {
+          "code": "incumbent_structure",
+          "kind": "caption",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:108:attempt-00001:request:1",
+              "content_digest": "fb79cc0fd31aacc44ce60ccee97cb3d88a70a71f25c45063e8413acffc430350"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 116,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "formula",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:116:attempt-00001:request:1",
+              "content_digest": "5c9427ef8d7979d8a47505374a50be42b1a7c81b3fe02a445f4908fec7141e05"
+            }
+          ]
+        },
+        {
+          "code": "missing_structure",
+          "kind": "table",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:116:attempt-00001:request:1",
+              "content_digest": "5c9427ef8d7979d8a47505374a50be42b1a7c81b3fe02a445f4908fec7141e05"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 121,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "formula",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:121:attempt-00001:request:1",
+              "content_digest": "31b23e729b5dcfe2b9d633da4d41674c1956860b35b722687083b7be5048331b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 126,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "incomplete_ocr_region",
+          "kind": null,
+          "inputs": []
+        }
+      ]
+    },
+    {
+      "page_no": 130,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "formula",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:130:attempt-00001:request:1",
+              "content_digest": "2e430b4bbe1d5af864192d7dccd3d28113fa2d41ee15713ed564c71466d10e04"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 133,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "formula",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:133:attempt-00001:request:1",
+              "content_digest": "464898b0c66fa5bf93ceef80698c8a8ad81d1e74827e1bf30eccd012307c62d1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 143,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "table",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:143:attempt-00001:request:1",
+              "content_digest": "818cd85c6caf20f701efb8362c1a8dd94850c6cb2ee2de3d8a991eea7c89b0cd"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 144,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "table",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:144:attempt-00001:request:1",
+              "content_digest": "a9ee329caefd912c4a77dfffb09bb7467abd9db32f4b5932975c12d74fd641f9"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 146,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "table",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:146:attempt-00001:request:1",
+              "content_digest": "4affaeb51d007bde0fe179aec341922a3fc7fe4a80224402aa3000a75471d503"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 151,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "table",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:151:attempt-00001:request:1",
+              "content_digest": "d51ef9adbf401386a89e4143ab57f54e9b0dd61241ab7445798ab84362cc8ade"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 167,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "formula",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:167:attempt-00001:request:1",
+              "content_digest": "50253cfd56ad08fc78cbcb083df0ed334101f78697c20ebb25a2eba887bdb632"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 172,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "incomplete_ocr_region",
+          "kind": null,
+          "inputs": []
+        }
+      ]
+    },
+    {
+      "page_no": 184,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "table",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:184:attempt-00001:request:1",
+              "content_digest": "d514a0e3ed2aa05eeb8732c8fed934b8ce435665b14275b6e8ba16866a55334e"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 185,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "table",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:185:attempt-00001:request:1",
+              "content_digest": "70d281ad3b25952f1a69a3b8666c66cda9967872566735c325dffda967b3c4dd"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 191,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "caption",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:191:attempt-00001:request:1",
+              "content_digest": "e5791acce2821edae2256b10e0a861a6619ac3de872855db0e5842e5d9f05786"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 217,
+      "action": "repair",
+      "reasons": [
+        {
+          "code": "incumbent_structure",
+          "kind": "caption",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:217:attempt-00001:request:1",
+              "content_digest": "dd69ca5685cde2f66e71fe57688b27da77d91973175e0e1fefffcab51ab31d2c"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 222,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "incomplete_ocr_region",
+          "kind": null,
+          "inputs": []
+        }
+      ]
+    },
+    {
+      "page_no": 233,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "incomplete_ocr_region",
+          "kind": null,
+          "inputs": []
+        }
+      ]
+    },
+    {
+      "page_no": 254,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "caption",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:254:attempt-00001:request:1",
+              "content_digest": "4e3e06b6b66bdd2d8a530a8a6b712ca2c302f5a2721e4161df5e2751f815b841"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 299,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "picture",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:299:attempt-00001:request:1",
+              "content_digest": "20c3f1a5c786c384049945c7ff86464f2b9f648ca8a4d13eb5e151c29846e4fe"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 303,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "incomplete_ocr_region",
+          "kind": null,
+          "inputs": []
+        }
+      ]
+    },
+    {
+      "page_no": 315,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "picture",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:315:attempt-00001:request:1",
+              "content_digest": "5bff8629fa47b28683c733d45f29a43c89a49babb43176603444abd5e7d9ef96"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 334,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "incomplete_ocr_region",
+          "kind": null,
+          "inputs": []
+        }
+      ]
+    },
+    {
+      "page_no": 342,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "formula",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:342:attempt-00001:request:1",
+              "content_digest": "91b8404bde00c3ddcf73b218440b4c5bab1f96a58e2084a8b69bbe44c4b5b093"
+            }
+          ]
+        },
+        {
+          "code": "incomplete_ocr_region",
+          "kind": null,
+          "inputs": []
+        }
+      ]
+    },
+    {
+      "page_no": 353,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "caption",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:353:attempt-00001:request:1",
+              "content_digest": "60c79578ec9f2533ba36bedf2f2f1cd9f5565b46881581a8c02c5498e5b2e030"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 354,
+      "action": "repair",
+      "reasons": [
+        {
+          "code": "incumbent_structure",
+          "kind": "caption",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:354:attempt-00001:request:1",
+              "content_digest": "f741b728d68992fde935656fd7e855f97c353bb7711d6871ea7f0f2f4dffb46f"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 367,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "incomplete_ocr_region",
+          "kind": null,
+          "inputs": []
+        }
+      ]
+    },
+    {
+      "page_no": 371,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "formula",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:371:attempt-00001:request:1",
+              "content_digest": "0283e19e8e9d6068919ee7613950292063db041285986f677faec86206c56a40"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 390,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "formula",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:390:attempt-00001:request:1",
+              "content_digest": "a2df46c94172125dc3a31e11bc601e7d3748673b58a643c49650c395768d5664"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 406,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "incomplete_ocr_region",
+          "kind": null,
+          "inputs": []
+        }
+      ]
+    },
+    {
+      "page_no": 407,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "incomplete_ocr_region",
+          "kind": null,
+          "inputs": []
+        }
+      ]
+    },
+    {
+      "page_no": 416,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "formula",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:416:attempt-00001:request:1",
+              "content_digest": "6e0acf333af408b06492bd2af640370293a8d281996f1987934e9eab221a85b3"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 420,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "formula",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:420:attempt-00001:request:1",
+              "content_digest": "4742e7d0ad3e7c9601d2966b55140f31f3b82b65180c9170fa5c33cbf1d18a41"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 439,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "formula",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:439:attempt-00001:request:1",
+              "content_digest": "5f1559bd2ea9e59e5ef58ce54ce09cacd5317e2310b935e60a69fe93c0d2f1a7"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 445,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "picture",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:445:attempt-00001:request:1",
+              "content_digest": "1b3ce9bc00379beb3d32fcbde3e0c54668171e20d9d2a55b96b9af5faf248ac0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 461,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "table",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:461:attempt-00001:request:1",
+              "content_digest": "3590035104b0713352297744e5e5e2c59e251d4f27ddb3bcf2b970f2c56a0103"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 464,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "picture",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:464:attempt-00001:request:1",
+              "content_digest": "7b498f4e38ef947bff66e156e1461b11175c33152346a32ef30e5ff369b3dded"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 468,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "table",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:468:attempt-00001:request:1",
+              "content_digest": "8178b11d6bb2f7aab0e670539d0bccf5d27ad67ca463071333ea5f2c3259df3c"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 470,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "incumbent_structure",
+          "kind": "caption",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:470:attempt-00001:request:1",
+              "content_digest": "0efc7791c789a6fb25188fe6b7f8cc653aa7fabf6f61c5e1bbb9d9d49bb5eec7"
+            }
+          ]
+        },
+        {
+          "code": "missing_structure",
+          "kind": "picture",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:470:attempt-00001:request:1",
+              "content_digest": "0efc7791c789a6fb25188fe6b7f8cc653aa7fabf6f61c5e1bbb9d9d49bb5eec7"
+            }
+          ]
+        },
+        {
+          "code": "incomplete_ocr_region",
+          "kind": null,
+          "inputs": []
+        }
+      ]
+    },
+    {
+      "page_no": 477,
+      "action": "recognize",
+      "reasons": [
+        {
+          "code": "missing_structure",
+          "kind": "table",
+          "inputs": [
+            {
+              "run_id": 309,
+              "task_id": 1389,
+              "product_key": "nemotron:763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e:918bc3f313f04dc91a1d0a68b8472009681450f196d54e6b4bded4c1fd30b6b9:page:477:attempt-00001:request:1",
+              "content_digest": "41ee7728cd8a4df60072300516283e5fd76c2eb2027c118ffd70fda3a5ad2d86"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page_no": 506,
+      "action": "unresolved",
+      "reasons": [
+        {
+          "code": "unassessed",
+          "kind": null,
+          "inputs": []
+        }
+      ]
+    }
+  ],
+  "skipped_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    34,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    67,
+    68,
+    69,
+    70,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    88,
+    89,
+    90,
+    91,
+    93,
+    94,
+    95,
+    97,
+    98,
+    99,
+    100,
+    101,
+    103,
+    104,
+    106,
+    107,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    117,
+    118,
+    119,
+    120,
+    122,
+    123,
+    124,
+    125,
+    127,
+    128,
+    129,
+    131,
+    132,
+    134,
+    135,
+    136,
+    137,
+    138,
+    139,
+    140,
+    141,
+    142,
+    145,
+    147,
+    148,
+    149,
+    150,
+    152,
+    153,
+    154,
+    155,
+    156,
+    157,
+    158,
+    159,
+    160,
+    161,
+    162,
+    163,
+    164,
+    165,
+    166,
+    168,
+    169,
+    170,
+    171,
+    173,
+    174,
+    175,
+    176,
+    177,
+    178,
+    179,
+    180,
+    181,
+    182,
+    183,
+    186,
+    187,
+    188,
+    189,
+    190,
+    192,
+    193,
+    194,
+    195,
+    196,
+    197,
+    198,
+    199,
+    200,
+    201,
+    202,
+    203,
+    204,
+    205,
+    206,
+    207,
+    208,
+    209,
+    210,
+    211,
+    212,
+    213,
+    214,
+    215,
+    216,
+    218,
+    219,
+    220,
+    221,
+    223,
+    224,
+    225,
+    226,
+    227,
+    228,
+    229,
+    230,
+    231,
+    232,
+    234,
+    235,
+    236,
+    237,
+    238,
+    239,
+    240,
+    241,
+    242,
+    243,
+    244,
+    245,
+    246,
+    247,
+    248,
+    249,
+    250,
+    251,
+    252,
+    253,
+    255,
+    256,
+    257,
+    258,
+    259,
+    260,
+    261,
+    262,
+    263,
+    264,
+    265,
+    266,
+    267,
+    268,
+    269,
+    270,
+    271,
+    272,
+    273,
+    274,
+    275,
+    276,
+    277,
+    278,
+    279,
+    280,
+    281,
+    282,
+    283,
+    284,
+    285,
+    286,
+    287,
+    288,
+    289,
+    290,
+    291,
+    292,
+    293,
+    294,
+    295,
+    296,
+    297,
+    298,
+    300,
+    301,
+    302,
+    304,
+    305,
+    306,
+    307,
+    308,
+    309,
+    310,
+    311,
+    312,
+    313,
+    314,
+    316,
+    317,
+    318,
+    319,
+    320,
+    321,
+    322,
+    323,
+    324,
+    325,
+    326,
+    327,
+    328,
+    329,
+    330,
+    331,
+    332,
+    333,
+    335,
+    336,
+    337,
+    338,
+    339,
+    340,
+    341,
+    343,
+    344,
+    345,
+    346,
+    347,
+    348,
+    349,
+    350,
+    351,
+    352,
+    355,
+    356,
+    357,
+    358,
+    359,
+    360,
+    361,
+    362,
+    363,
+    364,
+    365,
+    366,
+    368,
+    369,
+    370,
+    372,
+    373,
+    374,
+    375,
+    376,
+    377,
+    378,
+    379,
+    380,
+    381,
+    382,
+    383,
+    384,
+    385,
+    386,
+    387,
+    388,
+    389,
+    391,
+    392,
+    393,
+    394,
+    395,
+    396,
+    397,
+    398,
+    399,
+    400,
+    401,
+    402,
+    403,
+    404,
+    405,
+    408,
+    409,
+    410,
+    411,
+    412,
+    413,
+    414,
+    415,
+    417,
+    418,
+    419,
+    421,
+    422,
+    423,
+    424,
+    425,
+    426,
+    427,
+    428,
+    429,
+    430,
+    431,
+    432,
+    433,
+    434,
+    435,
+    436,
+    437,
+    438,
+    440,
+    441,
+    442,
+    443,
+    444,
+    446,
+    447,
+    448,
+    449,
+    450,
+    451,
+    452,
+    453,
+    454,
+    455,
+    456,
+    457,
+    458,
+    459,
+    460,
+    462,
+    463,
+    465,
+    466,
+    467,
+    469,
+    471,
+    472,
+    473,
+    474,
+    475,
+    476,
+    478,
+    479,
+    480,
+    481,
+    482,
+    483,
+    484,
+    485,
+    486,
+    487,
+    488,
+    489,
+    490,
+    491,
+    492,
+    493,
+    494,
+    495,
+    496,
+    497,
+    498,
+    499,
+    500,
+    501,
+    502,
+    503,
+    504,
+    505,
+    507,
+    508,
+    509,
+    510,
+    511,
+    512,
+    513,
+    514,
+    515,
+    516,
+    517,
+    518
+  ]
+}

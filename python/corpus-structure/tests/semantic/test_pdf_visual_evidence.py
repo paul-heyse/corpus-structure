@@ -20,6 +20,7 @@ from corpus_structure.serve.native_source import (
 from corpus_structure.serve.pdf_visual_evidence import (
     VisualCaption,
     VisualCaptionCandidate,
+    VisualCellGroup,
     VisualEvidenceArtifact,
     VisualEvidencePin,
     VisualPicture,
@@ -45,6 +46,8 @@ def test_visual_request_binds_both_pins_and_scope_to_cursor():
         {"evidence": EVIDENCE.model_copy(update={"content_digest": "c" * 64})},
         {"page_no": 4},
         {"artifact_digest": "c" * 64},
+        {"occurrence_id": "#/pictures/0"},
+        {"visual_kind": "picture", "visual_query": "distribution"},
     ):
         with pytest.raises(InvalidContinuation):
             _source_position(request.model_copy(update={"cursor": cursor, **changes}))
@@ -58,6 +61,88 @@ def test_visual_request_binds_both_pins_and_scope_to_cursor():
             pointer="#/pictures/0",
             artifact_digest="c" * 64,
         )
+
+
+def test_visual_discovery_and_rich_cell_reads_keep_exact_candidate_scope():
+    from corpus_structure.ingest.pdf_chandra import parse_chandra_response
+    from corpus_structure.semantic.pdf_visual_mapping import map_visual_result
+
+    parsed = parse_chandra_response(
+        '<div data-label="Figure" data-bbox="10 10 350 400">'
+        '<img alt="First histogram"/><figcaption>Shared distributions</figcaption></div>'
+        '<div data-label="Figure" data-bbox="400 10 700 400"><img alt="Second histogram"/></div>'
+        '<div data-label="Caption" data-bbox="400 420 700 450">Unrelated note</div>'
+        '<div data-label="Table" data-bbox="10 500 700 900"><table>'
+        "<thead><tr><th>Reading</th><th>Value</th></tr></thead>"
+        "<tbody>"
+        '<tr><td rowspan="2"><p>Two terms</p><p><math>x^2</math></p></td><td>1</td></tr>'
+        "<tr><td>2</td></tr></tbody></table></div>",
+        page_no=1,
+        image_size=(100, 100),
+    )
+    document = parsed.document
+    assert document is not None
+    first, second = document.pictures
+    (caption_ref,) = first.captions
+    second.captions.append(caption_ref)
+    artifact = map_visual_result(
+        document,
+        page_no=1,
+        image_size=(100, 100),
+        transform=dict(
+            status="coarse",
+            affine=(1, 0, 0, 1, 0, 0),
+            page_width=100,
+            page_height=100,
+        ),
+    )
+    content = artifact.artifact_bytes()
+    frame = VisualSourceRegion(left=0, top=0, right=100, bottom=100)
+
+    def read(*, regions=(), **selectors):
+        rows, continuation = _mapped_page(
+            content,
+            page_no=1,
+            submitted=frame,
+            regions=regions,
+            budget=PublishedReadBudget(100, 16384),
+            after=0,
+            limit=100,
+            **selectors,
+        )
+        assert continuation is None
+        return rows
+
+    shared = [row for row in read() if isinstance(row, VisualCaption)]
+    assert len(shared) == 1
+    assert shared[0].parent_occurrence_id == first.self_ref
+    assert shared[0].parser_attachment_occurrence_ids == (first.self_ref, second.self_ref)
+    matches = read(kind="picture", figure_query="SHARED distributions")
+    assert [row.occurrence_id for row in matches] == [first.self_ref, second.self_ref]
+    assert read(kind="picture", figure_query="Unrelated note") == ()
+    left_scope = VisualSourceRegion(left=0, top=0, right=37, bottom=42)
+    assert [
+        row.occurrence_id
+        for row in read(regions=(left_scope,), kind="picture", figure_query="Shared distributions")
+    ] == [first.self_ref]
+
+    (table,) = read(kind="table")
+    assert isinstance(table, VisualTable)
+    assert len(table.cells) == 5
+    rich = table.cells[2]
+    assert (rich.start_row_offset_idx, rich.end_row_offset_idx) == (1, 3)
+    assert rich.column_header_path == (0,)
+    group, prose, formula = read(occurrence_id=table.occurrence_id, cell_index=2)
+    assert isinstance(group, VisualCellGroup)
+    assert rich.content_occurrence_id == group.occurrence_id
+    assert group.provider_locator == group.occurrence_id
+    assert isinstance(prose, VisualText) and (prose.kind, prose.text) == ("cell_text", "Two terms")
+    assert isinstance(formula, VisualText) and (formula.kind, formula.text) == ("formula", "x^2")
+    assert formula.parent_occurrence_id == group.occurrence_id
+    with pytest.raises(ValueError, match="outside the submitted scope"):
+        read(regions=(left_scope,), occurrence_id=table.occurrence_id, cell_index=2)
+    with pytest.raises(ValueError, match="no retained rich content"):
+        read(occurrence_id=table.occurrence_id, cell_index=1)
 
 
 def test_ordinary_v4_digest_preserves_the_prior_request_shape():

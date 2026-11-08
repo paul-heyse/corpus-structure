@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import fcntl
 import os
+import socket
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -14,6 +15,7 @@ from urllib.parse import urlsplit
 import httpx
 
 _owns_pdf_gpu: ContextVar[bool] = ContextVar("owns_pdf_gpu", default=False)
+_nemotron_asleep: ContextVar[str | None] = ContextVar("nemotron_asleep", default=None)
 
 
 @contextmanager
@@ -69,7 +71,13 @@ def native_before_nemotron(
         raise ValueError("GPU handoff requires the dedicated local Nemotron /v1 endpoint")
     if not 0 < timeout_seconds <= 60:
         raise ValueError("GPU handoff timeout must be positive and at most sixty seconds")
-    base = endpoint.rstrip("/")[:-3]
+    endpoint = endpoint.rstrip("/")
+    if _nemotron_asleep.get() == endpoint:
+        yield
+        return
+    if _nemotron_asleep.get() is not None:
+        raise ValueError("nested GPU handoff requires the same dedicated endpoint")
+    base = endpoint[:-3]
     primary: BaseException | None = None
     requested = False
     with pdf_gpu_slot(check_active), httpx.Client(timeout=timeout_seconds) as client:
@@ -90,7 +98,11 @@ def native_before_nemotron(
                 raise RuntimeError("Nemotron did not acknowledge GPU release")
             if check_active is not None:
                 check_active()
-            yield
+            token = _nemotron_asleep.set(endpoint)
+            try:
+                yield
+            finally:
+                _nemotron_asleep.reset(token)
         except BaseException as error:
             primary = error
             if isinstance(error, httpx.HTTPError):
@@ -112,3 +124,36 @@ def native_before_nemotron(
                     if primary is None:
                         raise
                     primary.add_note("Nemotron GPU restoration failed: " + str(cleanup)[:1800])
+
+
+@contextmanager
+def suspend_resident_nemotron(
+    endpoint: str | None, *, check_active: Callable[[], None] | None = None
+) -> Generator[None]:
+    """Hold local capacity and hand off the configured service when it is resident."""
+    with pdf_gpu_slot(check_active):
+        if endpoint is not None:
+            address = urlsplit(endpoint)
+            if (
+                address.scheme != "http"
+                or address.hostname not in {"127.0.0.1", "localhost", "::1"}
+                or address.path.rstrip("/") != "/v1"
+                or address.username is not None
+                or address.password is not None
+                or address.query
+                or address.fragment
+            ):
+                raise ValueError("GPU handoff requires the configured local Nemotron endpoint")
+            try:
+                with socket.create_connection(
+                    (address.hostname, address.port or 80), timeout=3, all_errors=True
+                ):
+                    pass
+            except ExceptionGroup as exc:
+                if any(not isinstance(error, ConnectionRefusedError) for error in exc.exceptions):
+                    raise
+            else:
+                with native_before_nemotron(endpoint, check_active=check_active):
+                    yield
+                return
+        yield

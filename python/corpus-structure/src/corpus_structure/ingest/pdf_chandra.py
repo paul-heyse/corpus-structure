@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import multiprocessing
+import os
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
@@ -11,6 +13,7 @@ from hashlib import file_digest
 from html.parser import HTMLParser
 from importlib.metadata import version
 from importlib.util import find_spec
+from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -19,6 +22,8 @@ from docling.utils.stop_reason import normalize_stop_reason
 from docling_core.types.doc import DoclingDocument, Size
 
 if TYPE_CHECKING:
+    from multiprocessing.connection import Connection
+
     from docling.datamodel.base_models import VlmPrediction
     from docling.models.stages.vlm_convert.vlm_convert_model import VlmConvertModel
     from PIL.Image import Image
@@ -206,6 +211,80 @@ class ChandraRuntime:
         if self._model is not None:
             model, self._model = self._model, None
             model.engine.cleanup()
+
+
+def _chandra_child(connection: Connection, runtime: ChandraRuntime, pixels: bytes) -> None:
+    from PIL import Image
+
+    os.dup2(2, 1)
+    try:
+
+        def submitted() -> None:
+            connection.send(("submitted", runtime.effective_device))
+            if connection.recv() is not True:
+                raise InterruptedError("Chandra submission was not acknowledged")
+
+        try:
+            with Image.open(BytesIO(pixels)) as image:
+                prediction = runtime.recognize(image, before_submit=submitted)
+        finally:
+            runtime.close()
+        connection.send(("prediction", prediction))
+    except Exception as error:
+        connection.send(("failed", str(error)[:1800] or type(error).__name__))
+    finally:
+        connection.close()
+
+
+def recognize_supervised(
+    runtime: ChandraRuntime,
+    pixels: bytes,
+    *,
+    check_active: Callable[[], None],
+    before_submit: Callable[[], None],
+) -> VlmPrediction:
+    """Contain native inference and drain the child before the GPU lease can end."""
+    context = multiprocessing.get_context("spawn")
+    parent, child = context.Pipe(duplex=True)
+    process = context.Process(
+        target=_chandra_child, args=(child, runtime, pixels), name="chandra-pdf", daemon=True
+    )
+    result = None
+    try:
+        check_active()
+        process.start()
+        child.close()
+        while result is None:
+            check_active()
+            if not parent.poll(0.2):
+                if process.is_alive():
+                    continue
+                raise RuntimeError(f"Chandra child exited with code {process.exitcode}")
+            state, payload = parent.recv()
+            if state == "submitted":
+                runtime.effective_device = payload
+                before_submit()
+                parent.send(True)
+            elif state == "prediction":
+                result = payload
+            else:
+                raise RuntimeError(f"Chandra child failed: {payload}")
+        return result
+    finally:
+        parent.close()
+        child.close()
+        if process.pid is not None:
+            if result is not None:
+                process.join(timeout=2)
+            if process.is_alive():
+                process.terminate()
+                process.join(timeout=2)
+            if process.is_alive():
+                process.kill()
+                process.join(timeout=5)
+            if process.is_alive():
+                raise RuntimeError(f"Chandra child {process.pid} did not exit after termination")
+            process.close()
 
 
 class ChandraParseStatus(StrEnum):

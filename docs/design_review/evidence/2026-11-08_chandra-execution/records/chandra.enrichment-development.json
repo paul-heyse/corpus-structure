@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "id": "chandra.enrichment-development",
+  "title": "Forward Chandra development checks",
+  "group": "chandra-execution",
+  "package": "follow-up",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the forward effects recognize, render, recover and release GPU capacity in development?",
+  "answers": [
+    "CH-02",
+    "CH-03",
+    "CH-09",
+    "F01",
+    "F03",
+    "F04"
+  ],
+  "method": "Deploy the reviewed candidate, exercise live Standard and Chandra under a resident Nemotron service, cancel a bound active request, and read fresh typed and archived outputs.",
+  "commands": [],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "enrichment-follow-up.json",
+      "role": "Exact development deployment, runs and targeted test receipts",
+      "sha256": "2d2e5439a425ce15ffc42e1fa583dd74fbff16bd11c785efad7171cd067cb345"
+    },
+    {
+      "path": "handoff_standard.py",
+      "role": "Runnable standalone Standard control",
+      "sha256": "bf8a48f14d84d3c867a348e2236139c8ccb6a6288a431279ef656c7f54d4ecf3"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Live standalone handoff, completed-archive rendering, fresh Chandra recognition and typed reading passed. Cancelling a live request drained its child and restored the service. Controlled same-run receipt recovery passed; source-ready cross-release rendering and full grouped qualification remain open.",
+  "consumed_by": [
+    "chandra-2-post-nemotron coordinator"
+  ]
+}

@@ -717,6 +717,8 @@ def build_semantic_server(
         region_index: int = 0,
         scale: float = 2,
         max_bytes: Annotated[int, Field(ge=1024, le=8 * 1024 * 1024)] = 1024 * 1024,
+        writer_release: str | None = None,
+        writer_realization: str | None = None,
     ) -> ToolResult:
         """Retain a source-qualified region and deliver inline imagery within max_bytes."""
         from corpus_structure.semantic.native_requests import request_source_view
@@ -731,6 +733,8 @@ def build_semantic_server(
             region_index=region_index,
             scale=scale,
             code_commit="native-source-mcp-v4",
+            writer_release=writer_release,
+            writer_realization=writer_realization,
         )
         if result.status == "failed":
             raise ValueError(result.error or "native region render failed")

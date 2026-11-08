@@ -3,15 +3,19 @@
 import json
 from contextlib import nullcontext
 from hashlib import sha256
+from io import BytesIO
 from pathlib import Path
 
 import pytest
 from docling.datamodel.base_models import VlmPrediction, VlmStopReason
+from PIL import Image
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from corpus_structure.ingest import pdf_capacity, pdf_chandra
+from corpus_structure.orchestrate import commands
 from corpus_structure.semantic import pdf_visual_mapping, visual_requests
+from corpus_structure.semantic.domain_operations import DomainOperationRefused
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operation_results import ClaimedTask
 from corpus_structure.serve.pdf_visual_evidence import VisualEvidencePin
@@ -84,6 +88,11 @@ def test_visual_attempt_receipt_marks_an_interruption_without_response(tmp_path)
         "recipe.json",
         "submitted.png",
     ]
+    (marker.parent / "submitted.png").write_bytes(b"changed")
+    with pytest.raises(visual_requests.OperationConflict, match="differs from its hash"):
+        visual_requests._recover_attempt_receipt(
+            tmp_path, claim.model_copy(update={"attempt": 3}), None, b"", b'{"recipe":"test"}', None
+        )
 
 
 def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
@@ -169,8 +178,15 @@ def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
             raise ValueError("controlled mapping failure")
         return original_map(*args, **kwargs)
 
-    monkeypatch.setattr(pdf_capacity, "pdf_gpu_slot", lambda **_: nullcontext())
+    monkeypatch.setattr(pdf_capacity, "pdf_gpu_slot", lambda check_active=None: nullcontext())
     monkeypatch.setattr(pdf_chandra, "ChandraRuntime", ControlledChandra)
+
+    def recognize_controlled(runtime, pixels, *, check_active, before_submit):
+        check_active()
+        with Image.open(BytesIO(pixels)) as image:
+            return runtime.recognize(image, before_submit=before_submit)
+
+    monkeypatch.setattr(pdf_chandra, "recognize_supervised", recognize_controlled)
     monkeypatch.setattr(pdf_visual_mapping, "render_visual_input", render)
     monkeypatch.setattr(pdf_visual_mapping, "map_visual_result", map_with_committed_raw)
 
@@ -217,6 +233,63 @@ def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
     changed = visual_requests.request_visual_observation(db.writer, artifacts=tmp_path, **args)
     assert changed.raw != first.raw and changed.mapped != replay.mapped
     assert generation == ["first prompt", "changed prompt"]
+
+    # Interrupt after response custody and before publication, then recover the
+    # originating receipt under a new claim on exactly the same task and run.
+    ControlledChandra.prompt = "response before interruption"
+    settle = visual_requests._settle
+    interrupted = []
+
+    def interrupt_once(*values, **options):
+        if not interrupted:
+            interrupted.append(values[2])
+            raise KeyboardInterrupt
+        return settle(*values, **options)
+
+    monkeypatch.setattr(visual_requests, "_settle", interrupt_once)
+    with pytest.raises(KeyboardInterrupt):
+        visual_requests.request_visual_observation(db.writer, artifacts=tmp_path, **args)
+    claim = interrupted[0]
+    with db.admin.begin() as conn:
+        conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+        conn.execute(
+            text(
+                "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' WHERE id=:id"
+            ),
+            {"id": claim.task_id},
+        )
+    recovered = visual_requests.resume_visual_observation(
+        db.writer,
+        claim.run_id,
+        project="p",
+        receipts=args["receipts"],
+        nemotron_endpoint=None,
+        prepare_only=False,
+        select_result=False,
+        activate_release=False,
+    )
+    assert recovered is not None and recovered.status == "source_ready"
+    assert recovered.run_id == claim.run_id
+    assert recovered.raw is not None and recovered.raw.task_id == claim.task_id
+    assert recovered.mapped is not None
+    assert generation == ["first prompt", "changed prompt", "response before interruption"]
+    with db.writer.connect() as conn:
+        progress = commands.bound_status(conn, recovered.run_id, project_id="p").run
+        assert progress is not None and progress.readiness == "source_ready"
+        assert progress.supervisor == "waiting"
+        retained = conn.scalar(
+            select(bodies.c.descriptor).where(
+                bodies.c.task_id == claim.task_id, bodies.c.product_key == recovered.raw.product_key
+            )
+        )
+    assert (
+        json.loads(retained["observation"]["binding"]["decoding_json"])["provider_attempt"][
+            "attempt"
+        ]
+        == claim.attempt
+    )
+    with pytest.raises(DomainOperationRefused, match="no evaluated realization"):
+        commands.finalize_bound_run(db.writer, recovered.run_id, "wrong-effect")
 
     other_source = source.model_copy(
         update={

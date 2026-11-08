@@ -209,6 +209,7 @@ def approved_implementations() -> Mapping[str, Any]:
     from corpus_structure.evaluate import semantic as references
     from corpus_structure.ingest import pdf_reconciliation
     from corpus_structure.ingest.pdf import PdfConverter
+    from corpus_structure.ingest.pdf_chandra import ChandraRuntime
     from corpus_structure.ingest.pdf_hierarchy import organize, project_section
     from corpus_structure.ingest.pdf_methods import EnrichPdfMath
     from corpus_structure.ingest.pdf_recognition import RecognitionWorker
@@ -292,6 +293,7 @@ def approved_implementations() -> Mapping[str, Any]:
             "abandon_pdf_build": pdf_staging.abandon_pdf_build,
             "prepare_native_document": pdf_contracts.prepare_pdf_product,
             "recognize_pdf_observation": RecognitionWorker.recognize_pages,
+            "recognize_chandra_observation": ChandraRuntime.recognize,
             "map_pdf_observation": pdf_reconciliation.map_pdf_observation,
             "compare_pdf_occurrences": pdf_reconciliation.compare_pdf_occurrences,
             "select_pdf_integration": pdf_reconciliation.select_pdf_integration,

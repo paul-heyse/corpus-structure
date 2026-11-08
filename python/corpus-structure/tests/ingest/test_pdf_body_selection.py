@@ -1,6 +1,7 @@
 """A root-body source is a residual scope, not a fabricated organizational section."""
 
 import json
+from hashlib import sha256
 
 import pytest
 from docling_core.types.doc import (
@@ -14,7 +15,7 @@ from docling_core.types.doc import (
     TableData,
 )
 
-from corpus_structure.ingest.pdf_hierarchy import native_nodes, snapshot
+from corpus_structure.ingest.pdf_hierarchy import native_nodes, project_section, snapshot
 from corpus_structure.ingest.pdf_methods import PdfIngestConfig, _drafts, _select_sections
 from corpus_structure.ingest.pdf_section_views import published_section_drafts
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
@@ -75,6 +76,49 @@ def test_no_heading_graph_can_project_original_body_directly():
         and draft.membership == "direct"
         and draft.text == "all original body"
     )
+
+
+def test_original_formula_projection_requires_the_exact_release_witness():
+    document = DoclingDocument(name="witnessed")
+    original = "P1 = ⎛⎝ Rain Nice Snow .500 .250 .250 ⎞⎠"
+    latex = r"\begin{array} {"
+    formula = document.add_formula(text=latex, orig=original)
+    second = document.add_formula(text=latex, orig=original)
+    digest = snapshot(document).digest
+    old_policy = b'{"content_layers":["body"],"recipe":"native-section-text-v8"}'
+    witness = {
+        "content_digest": digest,
+        "orig_digest": sha256(original.encode()).hexdigest(),
+        "pointer": formula.self_ref,
+    }
+    new_policy = json.dumps(
+        {
+            "content_layers": ["body"],
+            "readable_formula_original": witness,
+            "recipe": "native-section-text-v9",
+        }
+    ).encode()
+
+    def projection(doc_digest, policy):
+        return project_section(
+            document,
+            doc_digest,
+            "#/body",
+            "direct",
+            section_refs=frozenset({"#/body"}),
+            projection_policy=policy,
+        )
+
+    old = projection(digest, old_policy)
+    new = projection(digest, new_policy)
+    assert old.text == latex + "\n" + latex
+    assert projection("0" * 64, new_policy).text == old.text
+    assert new.text == original + "\n" + latex
+    assert [(p.item_ref, p.source_field) for p in new.pieces if p.item_ref] == [
+        (formula.self_ref, "orig"),
+        (second.self_ref, "text"),
+    ]
+    assert formula.text == latex
 
 
 @pytest.mark.parametrize(
@@ -257,12 +301,11 @@ def test_live_and_retained_views_project_selected_table_captions(
         "\nAfter the table\nOrdinary position"
     )
     for draft in live:
-        assert json.loads(draft.recipe_bytes) == dict(
-            recipe="native-section-text-v8",
-            content_layers=["body"],
-            analysis_eligible=True,
-            organization_owner=reference.values(),
-        )
+        recipe = json.loads(draft.recipe_bytes)
+        assert recipe["recipe"] == "native-section-text-v9"
+        assert recipe["content_layers"] == ["body"]
+        assert recipe["analysis_eligible"] is True
+        assert recipe["organization_owner"] == reference.values()
         if draft.section_pointer == inner.self_ref:
             expected, expected_text = [inner_piece], "Nested caption"
         elif membership == "descendants":

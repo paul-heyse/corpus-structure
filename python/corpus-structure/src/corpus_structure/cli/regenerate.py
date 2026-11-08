@@ -196,6 +196,25 @@ def regenerate(
                     admit_release(prepared, connection=admission_conn)
         purpose = "read" if resume_run is not None and not automated else "write"
         with open_runtime_engine(settings, "ci-regenerate", purpose=purpose) as engine:
+            if resume_run is not None:
+                from corpus_structure.semantic.visual_requests import resume_visual_observation
+
+                visual = resume_visual_observation(
+                    engine,
+                    resume_run,
+                    project=project,
+                    receipts=settings.nemotron.receipts,
+                    nemotron_endpoint=settings.nemotron.endpoint,
+                    prepare_only=not automated,
+                    select_result=select_result,
+                    activate_release=activate,
+                )
+                if visual is not None:
+                    failed = visual.status == "failed"
+                    emit(visual, json=json, exit_code=int(failed))
+                    if failed:
+                        raise typer.Exit(1)
+                    return
             if resume_run is None:
                 assert prepared is not None and source_id is not None
                 assert domain is not None and corpus is not None

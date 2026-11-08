@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import socket
-from contextlib import contextmanager
+import json
 from hashlib import sha256
 from io import BytesIO
+from pathlib import Path
+from time import monotonic
 from typing import TYPE_CHECKING, Any, Literal
-from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select
@@ -20,6 +20,7 @@ from .identity import canonical_bytes
 from .metadata import table
 from .operations import (
     OperationBinding,
+    OperationConflict,
     OperationDescriptor,
     claim_tasks,
     create_run,
@@ -36,8 +37,6 @@ from .query import read_snapshot
 from .releases import open_release
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from sqlalchemy import Engine
 
     from .operation_results import ClaimedTask
@@ -46,6 +45,8 @@ _PROVIDER = "datalab-chandra-2"
 _RENDER_POLICY = "pdfium-cropbox-media-top-left-scale-2-v1"
 _CROP_POLICY = "qualified-pdf-region-enclosing-pixels-quarter-turn-v1"
 _MAX_REPLAY_BYTES = 8 * 1024 * 1024
+VISUAL_REQUEST_CUT = "visual-request-source"
+VISUAL_REQUEST_CODE_COMMIT = "chandra-visual-source-v1"
 
 
 class VisualSelection(BaseModel):
@@ -233,37 +234,6 @@ def _open_observation(conn, pin: VisualEvidencePin, project_id: str, selection: 
     return body, content(obs["image"]["artifact_digest"]), content(raw_digest)
 
 
-@contextmanager
-def _nemotron_handoff(endpoint, owner):
-    from corpus_structure.ingest.pdf_capacity import native_before_nemotron
-
-    if endpoint is not None:
-        address = urlsplit(endpoint)
-        if (
-            address.scheme != "http"
-            or address.hostname not in {"127.0.0.1", "localhost", "::1"}
-            or address.path.rstrip("/") != "/v1"
-            or address.username is not None
-            or address.password is not None
-            or address.query
-            or address.fragment
-        ):
-            raise ValueError("Chandra GPU handoff requires the configured local Nemotron endpoint")
-        try:
-            with socket.create_connection(
-                (address.hostname, address.port or 80), timeout=3, all_errors=True
-            ):
-                pass
-        except ExceptionGroup as exc:
-            if any(not isinstance(error, ConnectionRefusedError) for error in exc.exceptions):
-                raise
-        else:
-            with native_before_nemotron(endpoint, check_active=owner):
-                yield
-            return
-    yield
-
-
 def _prediction_details(
     prediction, runtime, recipe, claim, invocation_error: str | None
 ) -> tuple[dict[str, Any], bytes | None]:
@@ -348,13 +318,7 @@ def _retain_attempt_receipt(
     """Publish the local receipt marker only after its attempt-owned bytes are durable."""
     from corpus_structure.ingest.pdf_streaming import _atomic_bytes
 
-    invocation = _digest(claim.invocation_key.encode())
-    directory = (
-        root
-        / "chandra"
-        / f"run-{claim.run_id}-task-{claim.task_id}-{invocation}"
-        / f"attempt-{claim.attempt}"
-    )
+    directory = _attempt_directory(root, claim, claim.attempt)
     directory.mkdir(parents=True, mode=0o700)
     values = {
         "recipe.json": recipe,
@@ -383,6 +347,92 @@ def _retain_attempt_receipt(
     marker = directory / "receipt.json"
     _atomic_bytes(marker, manifest, "chandra-attempt")
     return marker, manifest
+
+
+def _attempt_directory(root: Path, claim: ClaimedTask, attempt: int) -> Path:
+    invocation = _digest(claim.invocation_key.encode())
+    return (
+        root
+        / "chandra"
+        / f"run-{claim.run_id}-task-{claim.task_id}-{invocation}"
+        / (f"attempt-{attempt}")
+    )
+
+
+def _recover_attempt_receipt(root, claim, selection, original, recipe, context):
+    """Read a complete prior response, retaining its actual provider attempt."""
+    for attempt in range(claim.attempt - 1, 0, -1):
+        directory = _attempt_directory(root, claim, attempt)
+        marker = directory / "receipt.json"
+        if not marker.exists():
+            continue
+        if marker.is_symlink() or marker.stat().st_size > 8192:
+            raise OperationConflict("invalid visual attempt receipt marker")
+        manifest = marker.read_bytes()
+        body = json.loads(manifest)
+        provenance = {
+            "run_id": claim.run_id,
+            "task_id": claim.task_id,
+            "invocation_key": claim.invocation_key,
+            "attempt": attempt,
+        }
+        if any(body.get(key) != value for key, value in provenance.items()) or (
+            body.get("release_id") != claim.release_id
+            or body.get("version") != "chandra-attempt-receipt-v1"
+        ):
+            raise OperationConflict("visual attempt receipt belongs to another claim")
+        files = body.get("files")
+        required = {"observation.json", "recipe.json", "submitted.png"}
+        if not isinstance(files, dict) or set(files) not in (
+            required,
+            required | {"response.html"},
+        ):
+            raise OperationConflict("visual attempt receipt file inventory differs")
+        recovered = {}
+        for name, expected in files.items():
+            path = directory / name
+            limit = 96 * 1024 * 1024 if name == "submitted.png" else _MAX_REPLAY_BYTES
+            if path.is_symlink() or path.stat().st_size > limit:
+                raise OperationConflict("invalid retained visual attempt artifact")
+            data = path.read_bytes()
+            if expected != {"sha256": _digest(data), "byte_length": len(data)}:
+                raise OperationConflict("visual attempt receipt artifact differs from its hash")
+            recovered[name] = data
+        if recovered["recipe.json"] != recipe:
+            raise OperationConflict(
+                "visual attempt receipt recipe differs from the claimed request"
+            )
+        raw = recovered.get("response.html")
+        if raw is None:
+            continue
+        payload = context.boundary.validate_json(
+            "PdfObservationProduct", recovered["observation.json"]
+        ).model_dump(mode="json", exclude_none=True)
+        pixels = recovered["submitted.png"]
+        observation = payload["observation"]
+        image = observation["image"]
+        settings = json.loads(recipe)
+        decoding = json.loads(observation["binding"]["decoding_json"])
+        if (
+            payload["product_key"] != claim.unit_key
+            or payload["recipe_digest"] != _digest(recipe)
+            or payload["artifact_digest"] != _digest(original)
+            or payload["inputs"]
+            != [{"role": "structural", **_reference(selection.source).values()}]
+            or observation["binding"]["provider"] != _PROVIDER
+            or observation["pass_role"] != ("chandra_crop" if selection.pointer else "chandra_page")
+            or "mapped_evidence_digest" in observation
+            or observation.get("raw_response_digest") != _digest(raw)
+            or image["page_no"] != selection.page_no
+            or image["artifact_digest"] != _digest(pixels)
+            or image["artifact_digest"] != settings["submitted_png_digest"]
+            or image["transform"] != settings["transform"]
+            or decoding.get("inference_recipe_digest") != _digest(recipe)
+            or decoding.get("provider_attempt") != provenance
+        ):
+            raise OperationConflict("retained visual attempt differs from its source or recipe")
+        return marker, manifest, payload, pixels, raw
+    return None
 
 
 def _product(
@@ -438,41 +488,63 @@ def _start_task(conn, run_id, prepared, document_id, selection, step, recipe, ho
     configuration = _digest(canonical_bytes(values))
     config_id = record_method(conn, _METHOD, step, values, configuration, prepared=prepared)
     key = f"chandra-{step}:{params.recipe_digest}"
-    task_id = create_task(
-        conn,
-        run_id=run_id,
-        config_id=config_id,
-        stage="parsing",
-        unit_type="document",
-        unit_id=document_id,
-        unit_key=key,
-        input_hash=params.recipe_digest,
-    )
     tasks = table("ops.task")
-    reused = conn.execute(select(tasks.c.reused_task_id).where(tasks.c.id == task_id)).scalar_one()
-    if reused is not None:
-        products = table("ops.pdf_product")
-        row = conn.execute(
-            select(tasks.c.run_id, products.c.content_digest)
-            .join(products, products.c.task_id == tasks.c.id)
-            .where(tasks.c.id == reused, products.c.product_key == key)
-        ).one()
+    retained = _visual_task(conn, run_id, step)
+    if retained is None:
+        task_id = create_task(
+            conn,
+            run_id=run_id,
+            config_id=config_id,
+            stage="parsing",
+            unit_type="document",
+            unit_id=document_id,
+            unit_key=key,
+            input_hash=params.recipe_digest,
+        )
+    else:
+        if retained.unit_key != key or retained.method_config_id != config_id:
+            raise OperationConflict("visual resume differs from the retained task recipe")
+        task_id = retained.id
+    task = conn.execute(
+        select(tasks.c.status, tasks.c.reused_task_id).where(tasks.c.id == task_id)
+    ).one()
+    if task.status in {"done", "empty", "reused"}:
         return (
             task_id,
             key,
             configuration,
             None,
-            VisualEvidencePin(
-                run_id=row.run_id,
-                task_id=reused,
-                product_key=key,
-                content_digest=row.content_digest,
-            ),
+            _task_product_pin(conn, task.reused_task_id or task_id, key),
         )
-    (claim,) = claim_tasks(
-        conn, run_id=run_id, config_id=config_id, holder=holder, prepared=prepared
+    claims = claim_tasks(conn, run_id=run_id, config_id=config_id, holder=holder, prepared=prepared)
+    if len(claims) != 1 or claims[0].task_id != task_id:
+        raise OperationConflict("visual task is terminal or its previous claim has not expired")
+    return task_id, key, configuration, claims[0], None
+
+
+def _visual_task(conn, run_id, step):
+    tasks = table("ops.task")
+    return conn.execute(
+        select(
+            tasks.c.id,
+            tasks.c.status,
+            tasks.c.unit_key,
+            tasks.c.method_config_id,
+            tasks.c.reused_task_id,
+        ).where(tasks.c.run_id == run_id, tasks.c.unit_key.startswith(f"chandra-{step}:"))
+    ).one_or_none()
+
+
+def _task_product_pin(conn, task_id, key):
+    tasks, products = map(table, ("ops.task", "ops.pdf_product"))
+    row = conn.execute(
+        select(tasks.c.run_id, products.c.content_digest)
+        .join(products, products.c.task_id == tasks.c.id)
+        .where(tasks.c.id == task_id, products.c.product_key == key)
+    ).one()
+    return VisualEvidencePin(
+        run_id=row.run_id, task_id=task_id, product_key=key, content_digest=row.content_digest
     )
-    return task_id, key, configuration, claim, None
 
 
 def _settle(
@@ -565,18 +637,14 @@ def request_visual_observation(
     replay: VisualEvidencePin | None = None,
     nemotron_endpoint: str | None = None,
     holder: str = "visual-source-request",
+    resume_run_id: int | None = None,
 ) -> VisualRequestResult:
-    from PIL import Image
-
-    from corpus_structure.ingest.pdf_capacity import pdf_gpu_slot
-    from corpus_structure.ingest.pdf_chandra import (
-        ChandraRuntime,
-        chandra_parser_identity,
-        parse_chandra_response,
+    from corpus_structure.orchestrate.liveness import (
+        record_supervisor,
+        run_supervisor,
+        supervisor_connection,
     )
 
-    from .claim_lifetime import ClaimSettlementUncertain, maintained_claims
-    from .pdf_visual_mapping import map_visual_result, render_visual_input
     from .runtime_bindings import require_installed_runtime
 
     if not semantic_release or not realization:
@@ -604,26 +672,174 @@ def request_visual_observation(
         prepared = open_release(conn, semantic_release)
         context = pdf_context_for_release(conn, prepared)
         context.execution.require_operation("publish_pdf_observation")
+        if artifacts is not None:
+            context.execution.require_operation("recognize_chandra_observation")
         installed = require_installed_runtime(prepared)
         if replay is not None:
             raw_body, pixels, raw = _open_observation(conn, replay, project_id, selection)
             if raw_body["artifact_digest"] != _digest(original):
                 raise ValueError("visual replay original differs from the selected PDF")
-        run_id = create_run(
-            conn,
-            project_id=project_id,
-            binding=OperationBinding(
-                semantic_release,
-                realization,
-                revision,
-                canonical_bytes({"visual_request": "chandra-observation-v1"}),
-            ),
-            kind="slice",
-            options={"visual_request": selection.scope()},
-            code_commit="chandra-visual-source-v1",
-            prepared=prepared,
-            runtime_binding=installed,
+        recovery = {
+            "artifacts": str(artifacts.resolve()) if artifacts is not None else None,
+            "replay": replay.model_dump(mode="json") if replay is not None else None,
+        }
+        options = {"visual_request": selection.scope(), "visual_recovery": recovery}
+        if resume_run_id is None:
+            run_id = create_run(
+                conn,
+                project_id=project_id,
+                binding=OperationBinding(
+                    semantic_release,
+                    realization,
+                    revision,
+                    canonical_bytes({"visual_request": "chandra-observation-v1"}),
+                ),
+                kind="slice",
+                options=options,
+                code_commit=VISUAL_REQUEST_CODE_COMMIT,
+                prepared=prepared,
+                runtime_binding=installed,
+            )
+        else:
+            run_id = resume_run_id
+            retained = _visual_run(conn, run_id)
+            if (
+                retained is None
+                or retained.project_id != project_id
+                or retained.release_id != semantic_release
+                or retained.runtime_id != installed.runtime_id
+                or retained.input_realization_id != realization
+                or retained.input_revision != revision
+                or retained.options != options
+            ):
+                raise OperationConflict("visual resume differs from its retained run binding")
+
+    with supervisor_connection(engine) as supervisor, run_supervisor(supervisor, run_id):
+        runs = table("ops.run")
+        with engine.connect() as conn:
+            current = conn.execute(
+                select(runs.c.status, runs.c.sealed).where(runs.c.id == run_id)
+            ).one()
+        if current.sealed or current.status not in {"created", "running"}:
+            raise OperationConflict("visual request run is terminal")
+        record_supervisor(supervisor, run_id, waiting=False)
+        supervisor.commit()
+        if resume_run_id is not None and artifacts is not None:
+            with engine.connect() as conn:
+                task = _visual_task(conn, run_id, "inference")
+                if task is not None and task.status in {"done", "empty", "reused"}:
+                    replay = _task_product_pin(conn, task.reused_task_id or task.id, task.unit_key)
+                    raw_body, pixels, raw = _open_observation(conn, replay, project_id, selection)
+                    if raw_body["artifact_digest"] != _digest(original):
+                        raise OperationConflict("retained visual response original differs")
+                    artifacts = None
+        return _execute_visual_request(
+            engine,
+            run_id,
+            selection,
+            prepared,
+            installed,
+            context,
+            project_id,
+            document_id,
+            original,
+            region,
+            receipts,
+            artifacts,
+            replay,
+            nemotron_endpoint,
+            holder,
+            raw_body,
+            pixels,
+            raw,
         )
+
+
+def _visual_run(conn, run_id: int):
+    runs = table("ops.run")
+    row = conn.execute(
+        select(
+            runs.c.project_id,
+            runs.c.release_id,
+            runs.c.runtime_id,
+            runs.c.input_realization_id,
+            runs.c.input_revision,
+            runs.c.options,
+        ).where(runs.c.id == run_id, runs.c.code_commit == VISUAL_REQUEST_CODE_COMMIT)
+    ).one_or_none()
+    return row if row is not None and "visual_request" in row.options else None
+
+
+def resume_visual_observation(
+    engine: Engine,
+    run_id: int,
+    *,
+    project: str,
+    receipts: Path,
+    nemotron_endpoint: str | None,
+    prepare_only: bool,
+    select_result: bool,
+    activate_release: bool,
+) -> VisualRequestResult | None:
+    """Dispatch only runs owned by the explicit visual request operation."""
+    with engine.connect() as conn:
+        retained = _visual_run(conn, run_id)
+    if retained is None:
+        return None
+    if retained.project_id != project:
+        raise OperationConflict("resume run has another project")
+    if prepare_only or select_result or activate_release:
+        raise OperationConflict("visual resume accepts only the retained recognition effect")
+    recovery = retained.options.get("visual_recovery")
+    if recovery is None:
+        raise OperationConflict("legacy visual run has no retained recovery binding")
+    return request_visual_observation(
+        engine,
+        selection=VisualSelection.model_validate(retained.options["visual_request"]),
+        semantic_release=retained.release_id,
+        realization=retained.input_realization_id,
+        receipts=receipts,
+        artifacts=Path(recovery["artifacts"]) if recovery["artifacts"] is not None else None,
+        replay=VisualEvidencePin.model_validate(recovery["replay"])
+        if recovery["replay"] is not None
+        else None,
+        nemotron_endpoint=nemotron_endpoint,
+        resume_run_id=run_id,
+    )
+
+
+def _execute_visual_request(
+    engine,
+    run_id,
+    selection,
+    prepared,
+    installed,
+    context,
+    project_id,
+    document_id,
+    original,
+    region,
+    receipts,
+    artifacts,
+    replay,
+    nemotron_endpoint,
+    holder,
+    raw_body,
+    pixels,
+    raw,
+):
+    from PIL import Image
+
+    from corpus_structure.ingest.pdf_capacity import pdf_gpu_slot, suspend_resident_nemotron
+    from corpus_structure.ingest.pdf_chandra import (
+        ChandraRuntime,
+        chandra_parser_identity,
+        parse_chandra_response,
+        recognize_supervised,
+    )
+
+    from .claim_lifetime import maintained_claims
+    from .pdf_visual_mapping import map_visual_result, render_visual_input
 
     raw_pin = replay
     mapped_pin = None
@@ -664,33 +880,59 @@ def request_visual_observation(
                 with maintained_claims(engine, (claim,), holder) as owner:
                     payload, retained = None, ()
                     detail: dict[str, Any] = {"stage": "inference"}
-                    if error is None:
+                    recovered = _recover_attempt_receipt(
+                        receipts, claim, selection, original, inference, context
+                    )
+                    if recovered is not None:
+                        marker, manifest, payload, pixels, raw = recovered
+                        observation = payload["observation"]
+                        attempt_receipt = str(marker)
+                        detail["attempt_receipt_digest"] = _digest(manifest)
+                        raw_body, retained = payload, (pixels, manifest, raw)
+                        if observation["outcome"] == "failed":
+                            error = observation["diagnostic"]
+                    elif error is None:
                         assert pixels is not None and transform is not None and runtime is not None
                         prediction = None
                         submitted = False
                         interruption = None
                         image_size = None
+                        next_check = 0.0
+
+                        def active():
+                            nonlocal next_check
+                            owner()
+                            if monotonic() >= next_check:
+                                runs = table("ops.run")
+                                with engine.connect() as conn:
+                                    status = conn.scalar(
+                                        select(runs.c.status).where(runs.c.id == run_id)
+                                    )
+                                if status not in {"created", "running"}:
+                                    raise OperationConflict(
+                                        "visual inference run is no longer active"
+                                    )
+                                next_check = monotonic() + 1
 
                         def mark_submission():
                             nonlocal submitted
-                            owner()
+                            active()
                             submitted = True
 
                         try:
                             with Image.open(BytesIO(pixels)) as image:
                                 image_size = image.size
-                                with (
-                                    pdf_gpu_slot(check_active=owner),
-                                    _nemotron_handoff(nemotron_endpoint, owner),
-                                ):
-                                    try:
-                                        owner()
-                                        prediction = runtime.recognize(
-                                            image, before_submit=mark_submission
-                                        )
-                                    finally:
-                                        runtime.close()
-                        except KeyboardInterrupt as exc:
+                            with (
+                                pdf_gpu_slot(check_active=active),
+                                suspend_resident_nemotron(nemotron_endpoint, check_active=active),
+                            ):
+                                prediction = recognize_supervised(
+                                    runtime,
+                                    pixels,
+                                    check_active=active,
+                                    before_submit=mark_submission,
+                                )
+                        except (KeyboardInterrupt, OperationConflict) as exc:
                             interruption = exc
                             error = "Chandra request interrupted"
                         except Exception as exc:
@@ -779,7 +1021,7 @@ def request_visual_observation(
         )
         mapping = canonical_bytes(
             {
-                "version": "chandra-mapping-v1",
+                "version": "chandra-mapping-v2",
                 "selection": selection.scope(),
                 "raw": raw_pin.model_dump(mode="json"),
                 "parser": chandra_parser_identity(),
@@ -864,7 +1106,7 @@ def request_visual_observation(
         with engine.begin() as conn:
             cut_id = None
             if error is None:
-                cut_id = seal_cut(conn, run_id, "visual-request-source", final=True)
+                cut_id = seal_cut(conn, run_id, VISUAL_REQUEST_CUT, final=True)
             else:
                 end_source_run(conn, run_id, failure={"message": error}, prepared=prepared)
         return VisualRequestResult(
@@ -878,21 +1120,8 @@ def request_visual_observation(
             attempt_receipt=attempt_receipt,
             error=error,
         )
-    except ClaimSettlementUncertain:
-        raise
     except BaseException as exc:
-        failure = {"message": str(exc)[:1800], "exception": type(exc).__name__}
         if attempt_receipt is not None:
             exc.add_note(f"visual provider receipt retained at {attempt_receipt}")
-            failure["attempt_receipt"] = attempt_receipt
-        try:
-            with engine.begin() as conn:
-                end_source_run(
-                    conn,
-                    run_id,
-                    prepared=prepared,
-                    failure=None if isinstance(exc, KeyboardInterrupt) else failure,
-                )
-        except BaseException as cleanup:
-            exc.add_note(f"visual request failure settlement failed: {cleanup!r}")
+        exc.add_note(f"inspect visual run {run_id} before resuming or cancelling it")
         raise

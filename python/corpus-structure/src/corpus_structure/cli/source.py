@@ -13,7 +13,7 @@ from pydantic import BaseModel, JsonValue, RootModel
 from corpus_structure.cli.output import JsonOpt, emit, report_fields, state
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.serve.native_source import NativeExportFormat, NativeSourceRequest
-from corpus_structure.serve.pdf_visual_evidence import VisualEvidencePin
+from corpus_structure.serve.pdf_visual_evidence import VisualEvidenceKind, VisualEvidencePin
 
 app = typer.Typer(help="Inspect pinned PDF sources and integration custody.", no_args_is_help=True)
 
@@ -70,6 +70,8 @@ def inspect(
     evidence_digest: str | None = None,
     page: int | None = None,
     region_index: int | None = None,
+    visual_kind: VisualEvidenceKind | None = None,
+    visual_query: str | None = None,
     cursor: str | None = None,
     limit: int = 100,
     max_rows: int = 10000,
@@ -116,6 +118,8 @@ def inspect(
             evidence=evidence,
             page_no=page,
             region_index=region_index,
+            visual_kind=visual_kind,
+            visual_query=visual_query,
             cursor=cursor,
             limit=limit,
             max_rows=max_rows,
@@ -175,9 +179,47 @@ def inspect(
 
 def register(root: typer.Typer):
     from corpus_structure.cli.visual_request import visual_request
+    from corpus_structure.cli.visual_route import visual_route
 
     app.command("visual-request")(visual_request)
+    app.command("visual-route")(visual_route)
     root.add_typer(app, name="source")
+
+
+@app.command("visual-observations")
+def visual_observations(
+    ctx: typer.Context,
+    run: int,
+    producing_task: Annotated[int, typer.Option()],
+    product: Annotated[str, typer.Option()],
+    native_digest: Annotated[str, typer.Option()],
+    page: int | None = None,
+    after_task: int = 0,
+    limit: int = 100,
+    json: JsonOpt = False,
+):
+    """List settled visual observations directly bound to one exact published PDF."""
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.serve.pdf_visual_evidence import visual_observation_manifest
+
+    with (
+        failure_boundary(json, expected=(ValueError,)),
+        open_runtime_engine(
+            state(ctx).settings(), application_name="ci-visual-observations", purpose="read"
+        ) as engine,
+        read_snapshot(engine) as conn,
+    ):
+        source = VisualEvidencePin(
+            run_id=run, task_id=producing_task, product_key=product, content_digest=native_digest
+        )
+        emit(
+            visual_observation_manifest(
+                conn, source, page_no=page, after_task=after_task, limit=limit
+            ),
+            json=json,
+        )
 
 
 @app.command("native-export")
@@ -368,6 +410,8 @@ def native_request(
     predicate: str | None = None,
     seconds: float = 2,
     output: Path | None = None,
+    writer_release: str | None = None,
+    writer_realization: str | None = None,
     json: JsonOpt = False,
 ):
     """Execute an explicit native demand through the existing source-ready task lifecycle."""
@@ -399,6 +443,8 @@ def native_request(
             predicate=predicate,
             seconds=seconds,
             code_commit="native-source-cli-v2",
+            writer_release=writer_release,
+            writer_realization=writer_realization,
         )
         if result.status == "failed":
             emit(RootModel(result), json=json, exit_code=1)

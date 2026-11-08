@@ -2602,6 +2602,22 @@ concepts:
   attributes:
   - {name: page_no, range: integer, required: true, multivalued: false}
   relationships: []
+- id: ChandraSubmittedFrame
+  family: source
+  scope: run
+  meaning: Opaque RGB raster prepared for one source-qualified Chandra recognition request
+  identity: Original digest, physical page or crop, submitted frame digest and exact runtime recipe
+  attributes:
+  - {name: digest, range: text, required: true, multivalued: false}
+  relationships: []
+- id: ChandraNativePrediction
+  family: source
+  scope: run
+  meaning: Adapter-returned prediction and provider completion standing for one submitted frame
+  identity: Submitted frame, exact runtime recipe and producing attempt
+  attributes:
+  - {name: text, range: text, required: true, multivalued: false}
+  relationships: []
 - id: PdfIntegratedProduct
   family: interpretation
   scope: run
@@ -9076,6 +9092,31 @@ operations:
   projections: []
   implementation: recognize_pdf_observation
 
+- id: recognize_chandra_observation
+  inputs:
+  - ChandraSubmittedFrame
+  results:
+  - ChandraNativePrediction
+  applicability: []
+  universe: One qualified original PDF frame and the exact local Chandra model and decoding recipe
+  effects:
+  - external_model_requests
+  outcomes:
+  - complete
+  - partial
+  - unknown
+  - failed
+  outcome_domain: source_coverage
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Native text and completion evidence belong to the submitted frame; source fidelity is separate
+  transitions: []
+  projections: []
+  implementation: recognize_chandra_observation
+
 - id: map_pdf_observation
   inputs:
   - PdfIntegratedProduct
@@ -11492,6 +11533,21 @@ implementations:
   effects:
   - external_model_requests
   - retain_recognition_artifacts
+  required_capabilities: []
+- id: recognize_chandra_observation
+  owner: ingest.pdf_chandra
+  symbol: ChandraRuntime.recognize
+  version: '1'
+  placement: core
+  input_concepts:
+  - ChandraSubmittedFrame
+  result_concepts:
+  - ChandraNativePrediction
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - external_model_requests
   required_capabilities: []
 - id: freeze_pdf_build
   owner: semantic.pdf_publication

@@ -77,6 +77,9 @@ class VisualCaption(_VisualOccurrence):
     kind: Literal["caption"] = "caption"
     parent_occurrence_id: str = Field(min_length=1)
     text: str
+    parser_attachment_occurrence_ids: tuple[str, ...] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
 
 
 class VisualCaptionCandidate(_VisualOccurrence):
@@ -86,11 +89,22 @@ class VisualCaptionCandidate(_VisualOccurrence):
     parent_occurrence_id: None = None
     text: str
     associated_picture_occurrence_ids: tuple[str, ...] = ()
+    parser_attachment_occurrence_ids: tuple[str, ...] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
 
 
 class VisualText(_VisualOccurrence):
-    kind: Literal["picture_description", "picture_text", "formula", "mermaid"]
+    kind: Literal["picture_description", "picture_text", "formula", "mermaid", "cell_text"]
     text: str
+    native_label: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    original_text: str | None = Field(default=None, exclude_if=lambda value: value is None)
+
+
+class VisualCellGroup(_VisualOccurrence):
+    kind: Literal["cell_group"] = "cell_group"
+    parent_occurrence_id: str = Field(min_length=1)
+    native_label: str
 
 
 class VisualTableCell(_VisualModel):
@@ -101,6 +115,11 @@ class VisualTableCell(_VisualModel):
     end_col_offset_idx: int = Field(gt=0)
     column_header: bool = False
     row_header: bool = False
+    content_occurrence_id: str | None = Field(
+        default=None, min_length=1, exclude_if=lambda value: value is None
+    )
+    column_header_path: tuple[int, ...] = Field(default=(), exclude_if=lambda value: not value)
+    row_header_path: tuple[int, ...] = Field(default=(), exclude_if=lambda value: not value)
 
     @model_validator(mode="after")
     def ordered(self):
@@ -125,12 +144,40 @@ class VisualTable(_VisualOccurrence):
             for cell in self.cells
         ):
             raise ValueError("visual table cell exceeds table dimensions")
+        for cell in self.cells:
+            for path, axis in (
+                (cell.column_header_path, "column_header"),
+                (cell.row_header_path, "row_header"),
+            ):
+                if len(path) != len(set(path)) or any(
+                    index < 0 or index >= len(self.cells) or not getattr(self.cells[index], axis)
+                    for index in path
+                ):
+                    raise ValueError("visual header paths require distinct header cell indices")
         return self
 
 
 VisualEvidenceRow = Annotated[
-    VisualPicture | VisualCaption | VisualCaptionCandidate | VisualText | VisualTable,
+    VisualPicture
+    | VisualCaption
+    | VisualCaptionCandidate
+    | VisualText
+    | VisualTable
+    | VisualCellGroup,
     Field(discriminator="kind"),
+]
+
+VisualEvidenceKind = Literal[
+    "picture",
+    "caption",
+    "caption_candidate",
+    "picture_description",
+    "picture_text",
+    "formula",
+    "mermaid",
+    "table",
+    "cell_group",
+    "cell_text",
 ]
 
 
@@ -171,6 +218,22 @@ class VisualEvidenceArtifact(_VisualModel):
                     raise ValueError("visual evidence inherits only its parent's qualified region")
             seen[row.occurrence_id] = row
         for row in self.rows:
+            if isinstance(row, VisualTable):
+                for cell in row.cells:
+                    if cell.content_occurrence_id is None:
+                        continue
+                    group = seen.get(cell.content_occurrence_id)
+                    if not isinstance(group, VisualCellGroup) or (
+                        group.parent_occurrence_id != row.occurrence_id
+                    ):
+                        raise ValueError("rich visual cells require their exact table-owned group")
+            if isinstance(row, (VisualCaption, VisualCaptionCandidate)):
+                attachments = row.parser_attachment_occurrence_ids
+                if len(attachments) != len(set(attachments)) or any(
+                    not isinstance(seen.get(target), (VisualPicture, VisualTable))
+                    for target in attachments
+                ):
+                    raise ValueError("parser attachments require distinct picture or table targets")
             if isinstance(row, VisualCaptionCandidate) and row.associated_picture_occurrence_ids:
                 targets = row.associated_picture_occurrence_ids
                 if (
@@ -219,12 +282,11 @@ class VisualEvidenceRead(_VisualModel):
     items: tuple[VisualEvidenceRow, ...] = ()
 
 
-def _qualified_observation(conn, request, evidence, project_id, source_release, budget):
-    """Resolve an exact downstream structural edge before opening evidence custody."""
+def _visual_dependents(request, project_id, source_release):
+    """Resolve Chandra products only through their exact integrated structural input."""
     from sqlalchemy import select
 
     from corpus_structure.semantic.metadata import table
-    from corpus_structure.semantic.pdf_storage import _budgeted_mappings
 
     products, tasks, runs = map(table, ("ops.pdf_product", "ops.task", "ops.run"))
     edges, bodies = map(table, ("ops.pdf_product_input", "ops.pdf_product_body"))
@@ -264,13 +326,9 @@ def _qualified_observation(conn, request, evidence, project_id, source_release, 
         )
         .join(producer, producer.c.id == source.c.task_id)
         .where(
-            products.c.task_id == evidence.task_id,
-            products.c.product_key == evidence.product_key,
-            products.c.content_digest == evidence.content_digest,
             products.c.kind == "recognition_observation",
             products.c.release_id == runs.c.release_id,
             observation["pass_role"].astext.in_(("chandra_page", "chandra_crop")),
-            runs.c.id == evidence.run_id,
             runs.c.project_id == project_id,
             edges.c.role == "structural",
             source.c.task_id == request.task_id,
@@ -281,14 +339,237 @@ def _qualified_observation(conn, request, evidence, project_id, source_release, 
             source.c.artifact_digest == products.c.artifact_digest,
             producer.c.run_id == request.run_id,
         )
-        .limit(2)
     )
-    rows = _budgeted_mappings(conn, statement, budget)
+    return statement, products, tasks, runs, bodies
+
+
+def _qualified_observation(conn, request, evidence, project_id, source_release, budget):
+    """Resolve an exact downstream structural edge before opening evidence custody."""
+    from corpus_structure.semantic.pdf_storage import _budgeted_mappings
+
+    statement, products, _, runs, _ = _visual_dependents(request, project_id, source_release)
+    rows = _budgeted_mappings(
+        conn,
+        statement.where(
+            products.c.task_id == evidence.task_id,
+            products.c.product_key == evidence.product_key,
+            products.c.content_digest == evidence.content_digest,
+            runs.c.id == evidence.run_id,
+        ).limit(2),
+        budget,
+    )
     if len(rows) != 1:
         raise ValueError(
             "visual evidence does not directly depend on the exact integrated source/run"
         )
     return rows[0]
+
+
+class VisualObservationEntry(_VisualModel):
+    page_no: int = Field(gt=0)
+    pointer: str | None = None
+    region_index: int | None = None
+    rotation: Literal[0, 90, 180, 270] | None = None
+    raw: VisualEvidencePin
+    mapped: VisualEvidencePin | None = None
+    execution_outcome: str
+    mapping_availability: Literal["raw_only", "unavailable", "available"]
+
+
+class VisualObservationManifest(_VisualModel):
+    source: VisualEvidencePin
+    observations: tuple[VisualObservationEntry, ...]
+    next_after_task: int | None = None
+
+
+def visual_observation_manifest(
+    conn: Connection,
+    source: VisualEvidencePin,
+    *,
+    page_no: int | None,
+    after_task: int,
+    limit: int,
+) -> VisualObservationManifest:
+    """List settled singleton observations and their exact raw/mapped dependencies."""
+    from sqlalchemy import or_, select
+
+    from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.pdf_contracts import pdf_context_for_release
+    from corpus_structure.semantic.pdf_record_reader import (
+        PublishedReadBudget,
+        published_record_reader,
+    )
+    from corpus_structure.semantic.pdf_storage import _budgeted_mappings
+    from corpus_structure.semantic.product_reference import ProductReference
+    from corpus_structure.semantic.releases import open_release
+    from corpus_structure.semantic.visual_requests import VisualSelection
+
+    if not (1 <= limit <= 1000 and after_task >= 0 and (page_no is None or page_no > 0)):
+        raise ValueError("invalid visual observation manifest page, position or limit")
+    runs, tasks = map(table, ("ops.run", "ops.task"))
+    identity = conn.execute(
+        select(runs.c.project_id, runs.c.release_id)
+        .join(tasks, tasks.c.run_id == runs.c.id)
+        .where(runs.c.id == source.run_id, tasks.c.id == source.task_id)
+    ).one_or_none()
+    if identity is None:
+        raise ValueError("visual observation manifest requires the exact producing run and task")
+    archive = open_release(conn, identity.release_id)
+    pdf_context_for_release(conn, archive).execution.require_operation("read_native_source")
+    reader = published_record_reader(
+        conn,
+        ProductReference(source.task_id, source.product_key, source.content_digest),
+        projection_context=archive,
+    )
+    if (
+        reader is None
+        or reader.revision["release_id"] != identity.release_id
+        or reader.product_kind() != "integrated"
+    ):
+        raise ValueError("visual observation manifest requires an exact published integrated PDF")
+
+    base, products, tasks, runs, bodies = _visual_dependents(
+        source, identity.project_id, identity.release_id
+    )
+    observation = bodies.c.descriptor["observation"]
+    selected = base.with_only_columns(
+        tasks.c.id.label("task_id"),
+        runs.c.id.label("run_id"),
+        products.c.product_key,
+        products.c.content_digest,
+        products.c.release_id,
+        products.c.artifact_digest,
+        observation["image"]["page_no"].as_integer().label("page_no"),
+        observation["pass_role"].astext.label("pass_role"),
+        observation["outcome"].astext.label("execution_outcome"),
+        observation["mapped_evidence_digest"].astext.label("mapped_digest"),
+        runs.c.options["visual_request"].label("scope"),
+    ).where(
+        tasks.c.id > after_task,
+        tasks.c.finished_at.is_not(None),
+        tasks.c.unit_key == products.c.product_key,
+        runs.c.options["visual_request"].is_not(None),
+        or_(
+            products.c.product_key.startswith("chandra-inference:"),
+            products.c.product_key.startswith("chandra-mapping:"),
+        ),
+    )
+    if page_no is not None:
+        selected = selected.where(observation["image"]["page_no"].as_integer() == page_no)
+    selected = selected.order_by(tasks.c.id).limit(limit + 1).cte("visual_manifest_page")
+
+    edges = table("ops.pdf_product_input").alias("visual_raw_input")
+    raw_source = table("ops.pdf_product_input").alias("visual_raw_source")
+    raw = products.alias("visual_raw_product")
+    raw_task, raw_run = tasks.alias("visual_raw_task"), runs.alias("visual_raw_run")
+    query = (
+        select(
+            selected,
+            raw.c.task_id.label("raw_task_id"),
+            raw.c.product_key.label("raw_product_key"),
+            raw.c.content_digest.label("raw_content_digest"),
+            raw_run.c.id.label("raw_run_id"),
+            raw.c.release_id.label("raw_release_id"),
+        )
+        .outerjoin(
+            edges,
+            (edges.c.task_id == selected.c.task_id)
+            & (edges.c.product_key == selected.c.product_key)
+            & (edges.c.role == "recognition"),
+        )
+        .outerjoin(
+            raw,
+            (raw.c.task_id == edges.c.input_task_id)
+            & (raw.c.product_key == edges.c.input_product_key)
+            & (raw.c.content_digest == edges.c.input_content_digest)
+            & (raw.c.kind == "recognition_observation")
+            & (raw.c.artifact_digest == selected.c.artifact_digest)
+            & raw.c.product_key.startswith("chandra-inference:")
+            & select(1)
+            .select_from(raw_source)
+            .where(
+                raw_source.c.task_id == raw.c.task_id,
+                raw_source.c.product_key == raw.c.product_key,
+                raw_source.c.role == "structural",
+                raw_source.c.input_task_id == source.task_id,
+                raw_source.c.input_product_key == source.product_key,
+                raw_source.c.input_content_digest == source.content_digest,
+            )
+            .exists(),
+        )
+        .outerjoin(raw_task, (raw_task.c.id == raw.c.task_id) & raw_task.c.finished_at.is_not(None))
+        .outerjoin(
+            raw_run,
+            (raw_run.c.id == raw_task.c.run_id)
+            & (raw_run.c.project_id == identity.project_id)
+            & (raw_run.c.release_id == raw.c.release_id),
+        )
+        .order_by(selected.c.task_id)
+        .limit(limit + 1)
+    )
+    budget = PublishedReadBudget(limit + 1, MAX_VISUAL_EVIDENCE_BYTES)
+    rows = _budgeted_mappings(conn, query, budget)
+    entries = []
+    allowed_releases: set[str] = set()
+    seen: set[int] = set()
+    for row in rows[:limit]:
+        task_id = row["task_id"]
+        if task_id in seen:
+            raise ValueError("visual manifest has multiple raw inputs for a mapped observation")
+        seen.add(task_id)
+        for release in (row["release_id"], row["raw_release_id"]):
+            if release is not None and release not in allowed_releases:
+                context = pdf_context_for_release(conn, open_release(conn, release))
+                context.execution.require_operation("read_pdf_product")
+                allowed_releases.add(release)
+        scope = VisualSelection.model_validate(row["scope"])
+        if (
+            scope.source != source
+            or scope.page_no != row["page_no"]
+            or ((scope.pointer is not None) != (row["pass_role"] == "chandra_crop"))
+        ):
+            raise ValueError("visual manifest observation differs from its retained selection")
+        observed = VisualEvidencePin(
+            run_id=row["run_id"],
+            task_id=task_id,
+            product_key=row["product_key"],
+            content_digest=row["content_digest"],
+        )
+        mapped = observed if row["product_key"].startswith("chandra-mapping:") else None
+        if mapped is None:
+            raw_pin = observed
+        else:
+            if row["raw_run_id"] is None:
+                raise ValueError("visual manifest mapping lacks a qualified raw input")
+            raw_pin = VisualEvidencePin(
+                run_id=row["raw_run_id"],
+                task_id=row["raw_task_id"],
+                product_key=row["raw_product_key"],
+                content_digest=row["raw_content_digest"],
+            )
+        entries.append(
+            VisualObservationEntry(
+                page_no=scope.page_no,
+                pointer=scope.pointer,
+                region_index=scope.region_index,
+                rotation=scope.rotation,
+                raw=raw_pin,
+                mapped=mapped,
+                execution_outcome=row["execution_outcome"],
+                mapping_availability=(
+                    "raw_only"
+                    if mapped is None
+                    else "available"
+                    if row["mapped_digest"] is not None
+                    else "unavailable"
+                ),
+            )
+        )
+    return VisualObservationManifest(
+        source=source,
+        observations=tuple(entries),
+        next_after_task=rows[limit - 1]["task_id"] if len(rows) > limit else None,
+    )
 
 
 def _read_visual_artifact(conn, evidence, digest, budget, *, offset=None):
@@ -370,7 +651,73 @@ def _media_region(row, image):
     )
 
 
-def _mapped_page(content, *, page_no, submitted, regions, budget, after, limit):
+def _selected_visual_rows(rows, *, occurrence_id, cell_index, kind, figure_query):
+    if occurrence_id is not None:
+        anchor = next((row for row in rows if row.get("occurrence_id") == occurrence_id), None)
+        if anchor is None:
+            raise ValueError("visual candidate occurrence is outside the submitted scope")
+        if cell_index is None:
+            rows = [anchor]
+        else:
+            if anchor.get("kind") != "table":
+                raise ValueError("visual cell reads require a table candidate")
+            table = VisualTable.model_validate(anchor)
+            if not 0 <= cell_index < len(table.cells):
+                raise ValueError("visual cell index is outside its candidate table")
+            group = table.cells[cell_index].content_occurrence_id
+            if group is None:
+                raise ValueError("visual cell has no retained rich content group")
+            subtree = set()
+            for row in rows:
+                pointer = row.get("occurrence_id")
+                parent = row.get("parent_occurrence_id")
+                if (pointer == group and parent == occurrence_id) or parent in subtree:
+                    subtree.add(pointer)
+            if group not in subtree:
+                raise ValueError("visual cell content is outside the submitted scope")
+            rows = [row for row in rows if row.get("occurrence_id") in subtree]
+    if figure_query is not None:
+        phrase = " ".join(figure_query.casefold().split())
+        figure_roots: dict[str, str] = {}
+        matches: set[str] = set()
+        for row in rows:
+            pointer, parent = row.get("occurrence_id"), row.get("parent_occurrence_id")
+            if row.get("kind") == "picture":
+                figure_roots[pointer] = pointer
+            elif parent in figure_roots:
+                figure_roots[pointer] = figure_roots[parent]
+            if row.get("kind") not in {
+                "picture_text",
+                "picture_description",
+                "caption",
+                "caption_candidate",
+            }:
+                continue
+            if phrase in " ".join(row.get("text", "").casefold().split()):
+                if pointer in figure_roots:
+                    matches.add(figure_roots[pointer])
+                matches.update(row.get("parser_attachment_occurrence_ids", ()))
+                matches.update(row.get("associated_picture_occurrence_ids", ()))
+        rows = [row for row in rows if row.get("occurrence_id") in matches]
+    if kind is not None:
+        rows = [row for row in rows if row.get("kind") == kind]
+    return rows
+
+
+def _mapped_page(
+    content,
+    *,
+    page_no,
+    submitted,
+    regions,
+    budget,
+    after,
+    limit,
+    occurrence_id=None,
+    cell_index=None,
+    kind=None,
+    figure_query=None,
+):
     """Charge the bounded locator scan, then validate only the selected candidate bodies."""
     from corpus_structure.semantic.refusals import InvalidContinuation
 
@@ -388,8 +735,7 @@ def _mapped_page(content, *, page_no, submitted, regions, budget, after, limit):
             "mapped visual evidence differs from the submitted page or artifact contract"
         )
     _charge_rows(budget, len(body["rows"]))
-    selected = []
-    matched = 0
+    scoped = []
     for row in body["rows"]:
         if not isinstance(row, dict):
             raise ValueError("mapped visual evidence row is invalid")
@@ -409,15 +755,21 @@ def _mapped_page(content, *, page_no, submitted, regions, budget, after, limit):
         ):
             raise ValueError("mapped visual evidence lies outside the submitted frame")
         if not regions or (region is not None and any(_overlaps(region, r) for r in regions)):
-            if after <= matched < after + limit:
-                selected.append(row)
-            matched += 1
+            scoped.append(row)
+    selected = _selected_visual_rows(
+        scoped,
+        occurrence_id=occurrence_id,
+        cell_index=cell_index,
+        kind=kind,
+        figure_query=figure_query,
+    )
+    matched = len(selected)
     if after and after >= matched:
         raise InvalidContinuation(
             "visual evidence continuation is out of scope", reason="invalid_continuation"
         )
     end = after + limit
-    return _VISUAL_ITEMS.validate_python(selected), end if end < matched else None
+    return _VISUAL_ITEMS.validate_python(selected[after:end]), end if end < matched else None
 
 
 _VISUAL_ITEMS = TypeAdapter(tuple[VisualEvidenceRow, ...])
@@ -489,8 +841,11 @@ def inspect_pdf_visual_evidence(
     evidence_release = qualified["release_id"]
     context = pdf_context_for_release(conn, open_release(conn, evidence_release))
     context.execution.require_operation("read_pdf_product")
+    # The archive governs which observation may be opened. These display filters
+    # apply only to its admitted, bounded candidate rows and bind the read cursor.
     context.boundary.validate_json(
-        "PdfNativeReadRequest", request.model_dump_json(exclude_none=True)
+        "PdfNativeReadRequest",
+        request.model_dump_json(exclude={"visual_kind", "visual_query"}, exclude_none=True),
     )
     states = context.execution.lifecycle("task").states
     matching = [
@@ -632,6 +987,10 @@ def inspect_pdf_visual_evidence(
             budget=read_budget,
             after=after,
             limit=request.limit,
+            occurrence_id=request.occurrence_id,
+            cell_index=request.cell_index,
+            kind=request.visual_kind,
+            figure_query=request.visual_query,
         )
     elif after:
         raise InvalidContinuation(

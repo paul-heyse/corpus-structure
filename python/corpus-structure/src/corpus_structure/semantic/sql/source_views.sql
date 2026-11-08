@@ -133,7 +133,14 @@ BEGIN
  WHERE release_id=run.release_id AND input_kind='dependency'
  AND input_name='execution/implementation/pdf/section-text-recipe.json';
  IF recipe_policy IS NOT NULL THEN
-  IF recipe_policy IS DISTINCT FROM '{"content_layers":["body"],"recipe":"native-section-text-v8"}'::jsonb
+  IF (recipe_policy IS DISTINCT FROM '{"content_layers":["body"],"recipe":"native-section-text-v8"}'::jsonb
+   AND (
+    recipe_policy-'readable_formula_original' IS DISTINCT FROM '{"content_layers":["body"],"recipe":"native-section-text-v9"}'::jsonb
+    OR jsonb_typeof(recipe_policy->'readable_formula_original') IS DISTINCT FROM 'object'
+    OR COALESCE(recipe_policy#>>'{readable_formula_original,content_digest}','') !~ '^[0-9a-f]{64}$'
+    OR COALESCE(recipe_policy#>>'{readable_formula_original,orig_digest}','') !~ '^[0-9a-f]{64}$'
+    OR COALESCE(recipe_policy#>>'{readable_formula_original,pointer}','') !~ '^#/texts/[0-9]+$'
+   ))
    OR job.unit_type<>'document' OR job.unit_id IS DISTINCT FROM (product->>'document_id')::bigint THEN
    RAISE EXCEPTION 'source view requires its selected PDF projection producer and recipe' USING ERRCODE='23514'; END IF;
   recipe_owner:=jsonb_build_object('task_id',native.task_id,'product_key',native.product_key,'content_digest',native.content_digest);
@@ -164,6 +171,15 @@ BEGIN
    piece_pointer:=piece->>'item_ref';
    IF NOT (projection->'items' ? piece_pointer) THEN RAISE EXCEPTION 'piece outside selected source occurrences' USING ERRCODE='23514'; END IF;
    SELECT native_json INTO STRICT node FROM kb.pdf_record_access WHERE product_id=placement.build_id AND revision_id=placement.build_id AND pointer=piece_pointer;
+   IF recipe_policy->>'recipe'='native-section-text-v9' AND node->>'label'='formula'
+   AND (COALESCE(piece->>'source_field','text')='orig') IS DISTINCT FROM COALESCE(
+    recipe_policy#>>'{readable_formula_original,content_digest}'=native.content_digest
+    AND recipe_policy#>>'{readable_formula_original,pointer}'=piece_pointer
+    AND recipe_policy#>>'{readable_formula_original,orig_digest}'=encode(sha256(convert_to(node->>'orig','UTF8')),'hex'),
+    false
+   ) THEN
+    RAISE EXCEPTION 'projected original formula differs from its selected witness' USING ERRCODE='23514';
+   END IF;
    IF piece->>'source_field'='cell_text' THEN
     node:=node->'data'->'table_cells'->((piece->>'cell_index')::integer);
    ELSIF piece->>'source_field'='chart_cell_text' THEN
@@ -418,7 +434,9 @@ BEGIN
  SELECT * INTO STRICT placement FROM ops.read_pdf_published_revision(product.task_id,product.product_key,product.content_digest);
  PERFORM sem.require_execution_operation(placement.release_id,'read_native_source');
  IF NOT EXISTS(SELECT FROM ops.source_build b JOIN kb.document d ON d.content_hash=b.artifact_digest WHERE b.task_id=product.task_id AND d.project_id=run.project_id AND
- ((job.unit_type='document' AND job.unit_id=d.id) OR (job.unit_type='source_view' AND EXISTS(SELECT FROM kb.source_view v JOIN ops.run_source_view rs ON rs.source_view_id=v.id WHERE rs.run_id=run.id AND v.id=job.unit_id AND v.document_id=d.id))))
+ ((job.unit_type='document' AND job.unit_id=d.id) OR (job.unit_type='source_view' AND EXISTS(SELECT FROM kb.source_view v JOIN ops.run_source_view rs ON rs.source_view_id=v.id WHERE rs.run_id=run.id AND v.id=job.unit_id AND v.document_id=d.id
+ AND v.native_task_id=product.task_id AND v.native_product_key=product.product_key
+ AND v.native_content_digest=product.content_digest))))
  OR NOT EXISTS(SELECT FROM kb.pdf_record_region WHERE product_id=placement.build_id AND revision_id=placement.build_id AND pointer=p_selection->>'pointer' AND region_index=(p_selection->>'region_index')::bigint) THEN
  RAISE EXCEPTION 'render artifact is outside selected native original/region' USING ERRCODE='23514'; END IF;
  digest:=encode(sha256(p_content),'hex');

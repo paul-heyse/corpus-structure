@@ -584,6 +584,12 @@ SUPPORTED_EFFECTS["recognize_pdf_observation"] = {
     "transitions": {},
     "version": "1",
 }
+SUPPORTED_EFFECTS["recognize_chandra_observation"] = {
+    "effects": ("external_model_requests",),
+    "implementation": "recognize_chandra_observation",
+    "version": "1",
+    "transitions": {},
+}
 SUPPORTED_EFFECT_VERSIONS.update(external_model_requests="1", retain_recognition_artifacts="1")
 
 SUPPORTED_EFFECT_VERSIONS["atomic_private_pdf_stage"] = "1"

@@ -132,6 +132,7 @@ def published_section_drafts(
             "direct" if selected_membership == "direct" else "descendant",
             section_refs=section_refs,
             selected_items=members,
+            projection_policy=recipe,
         )
         reports = reader.section_reports(members, (section, *ancestors))
         outcomes, coverage = [], []

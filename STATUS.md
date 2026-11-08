@@ -55,6 +55,6 @@ _Updated 2026-11-08. Whole-book processing and output review are complete. Chand
 - [Full-book intake](docs/plans/next-corpus-enrichment_2026-11-07.md#full-book-execution)
   completed Standard cut 413 and combined cut 431. All 29 scoped views and nine contextual
   cues published. LLM review covers all 518 pages and retained definition and artifact outputs.
-- The [Chandra coordinator](docs/plans/chandra-2-post-nemotron_2026-11-08.md#qualification-and-handoff) owns CH-08–11. Next are incumbent recovery, typed delivery and a dry routing assessment. Automatic activation needs shadow qualification.
-  The [verified inspection baseline](docs/plans/chandra-2-post-nemotron_2026-11-08.md#execution-disposition--2026-11-08) remains on `semantic_chandra_input_custody`, with recovery qualification open. The revised docs passed publication with an unrelated untracked draft excluded.
+- The [Chandra execution checkpoint](docs/plans/chandra-2-post-nemotron_2026-11-08.md#follow-up-execution-checkpoint--2026-11-08) records development revision `semantic_chandra_enrichment_v2`, live recognition, cancellation and Standard GPU handoff.
+  Typed delivery and the 518-page dry router passed bounded checks. Next are protected source repairs, grouped execution and the inference shadow.
 - Settle the WCE source and factor obligations. Live CLI qualification needs a configured production target, purpose roles and effect authority.

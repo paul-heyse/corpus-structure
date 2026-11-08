@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections import defaultdict
 from collections.abc import Mapping
 from contextlib import closing
 from io import BytesIO
@@ -12,6 +13,7 @@ from corpus_structure.ingest.pdf_recognition import crop_transform, render_recog
 from corpus_structure.serve.pdf_visual_evidence import (
     VisualCaption,
     VisualCaptionCandidate,
+    VisualCellGroup,
     VisualEvidenceArtifact,
     VisualPicture,
     VisualSourceRegion,
@@ -121,7 +123,7 @@ def _original_region(node, *, page_no, transform, image_size):
     )
 
 
-def _parent_first(nodes, attachments):
+def _parent_first(nodes):
     ordered = {}
     pending = set()
 
@@ -129,10 +131,10 @@ def _parent_first(nodes, attachments):
         if pointer in ordered:
             return
         if pointer in pending:
-            raise ValueError("visual evidence contains a cyclic attachment")
+            raise ValueError("visual evidence contains cyclic containment")
         pending.add(pointer)
         node = nodes[pointer]
-        parent = attachments.get(pointer, node.parent.cref if node.parent is not None else None)
+        parent = node.parent.cref if node.parent is not None else None
         if parent in nodes:
             visit(parent)
         pending.remove(pointer)
@@ -151,20 +153,25 @@ def map_visual_result(
     image_size: tuple[int, int],
 ) -> VisualEvidenceArtifact:
     """Preserve typed evidence without adding content to a published document."""
-    from docling_core.types.doc import CodeItem, PictureItem, TableItem
+    from docling_core.types.doc import CodeItem, GroupItem, PictureItem, RichTableCell, TableItem
 
     from corpus_structure.ingest.pdf_hierarchy import native_nodes
     from corpus_structure.ingest.pdf_reconciliation import _text
+    from corpus_structure.methods.source_preparation import native_table_geometry
 
     rows = {}
     nodes = native_nodes(document)
-    attachments = {
-        caption.cref: node.self_ref
-        for node in nodes.values()
-        if isinstance(node, (PictureItem, TableItem))
-        for caption in node.captions
-    }
-    for pointer, node in _parent_first(nodes, attachments).items():
+    attachments: dict[str, list[str]] = defaultdict(list)
+    rich_roots: set[str] = set()
+    for node in nodes.values():
+        if isinstance(node, (PictureItem, TableItem)):
+            for caption in node.captions:
+                attachments[caption.cref].append(node.self_ref)
+        if isinstance(node, TableItem):
+            rich_roots.update(
+                cell.ref.cref for cell in node.data.table_cells if isinstance(cell, RichTableCell)
+            )
+    for pointer, node in _parent_first(nodes).items():
         label = node.label.value
         parent = node.parent
         while parent is not None and parent.cref not in rows:
@@ -185,7 +192,15 @@ def map_visual_result(
             parent_occurrence_id=parent_id,
             source_region=region,
         )
-        if isinstance(node, PictureItem):
+        if pointer in rich_roots or (
+            isinstance(node, GroupItem) and isinstance(parent_row, VisualCellGroup)
+        ):
+            if parent_id is None:
+                raise ValueError("rich cell groups require a retained parent")
+            rows[pointer] = VisualCellGroup(
+                **{**scope, "parent_occurrence_id": parent_id}, native_label=label
+            )
+        elif isinstance(node, PictureItem):
             meta = node.meta.model_dump(mode="json", exclude_none=True) if node.meta else None
             rows[pointer] = VisualPicture(**scope, metadata=meta)
             description = getattr(node.meta, "description", None)
@@ -205,7 +220,7 @@ def map_visual_result(
                     else None,
                 )
         elif isinstance(node, TableItem):
-            cells = tuple(
+            cells = [
                 VisualTableCell(
                     **cell.model_dump(
                         include={
@@ -217,27 +232,56 @@ def map_visual_result(
                             "column_header",
                             "row_header",
                         }
-                    )
+                    ),
+                    content_occurrence_id=(
+                        cell.ref.cref if isinstance(cell, RichTableCell) else None
+                    ),
                 )
                 for cell in node.data.table_cells
-            )
+            ]
+            for target in native_table_geometry(
+                {"data": {"table_cells": [cell.model_dump() for cell in cells]}}
+            ):
+                if target.header_path or target.row_path:
+                    cells[target.cell_index] = cells[target.cell_index].model_copy(
+                        update={
+                            "column_header_path": target.header_path,
+                            "row_header_path": target.row_path,
+                        }
+                    )
             rows[pointer] = VisualTable(
-                **scope, cells=cells, num_rows=node.data.num_rows, num_cols=node.data.num_cols
+                **scope,
+                cells=tuple(cells),
+                num_rows=node.data.num_rows,
+                num_cols=node.data.num_cols,
+            )
+        elif label == "formula":
+            rows[pointer] = VisualText(
+                **scope,
+                kind="formula",
+                text=node.text,
+                original_text=node.orig if node.orig != node.text else None,
+            )
+        elif isinstance(parent_row, VisualCellGroup) and getattr(node, "text", ""):
+            rows[pointer] = VisualText(
+                **scope, kind="cell_text", text=node.text, native_label=label
             )
         elif label == "caption":
-            owner = attachments.get(pointer, parent_id)
-            if owner is not None and isinstance(rows.get(owner), (VisualPicture, VisualTable)):
-                if region is not None and region.enclosing_occurrence_id and owner != parent_id:
-                    scope["source_region"] = None
+            owners = tuple(dict.fromkeys(attachments.get(pointer, [])))
+            if parent_id is not None and isinstance(parent_row, (VisualPicture, VisualTable)):
                 rows[pointer] = VisualCaption(
-                    **{**scope, "parent_occurrence_id": owner}, text=_text(node, document)
+                    **{**scope, "parent_occurrence_id": parent_id},
+                    text=_text(node, document),
+                    parser_attachment_occurrence_ids=owners,
                 )
             else:
+                if region is not None and region.enclosing_occurrence_id:
+                    scope["source_region"] = None
                 rows[pointer] = VisualCaptionCandidate(
-                    **{**scope, "parent_occurrence_id": None}, text=_text(node, document)
+                    **{**scope, "parent_occurrence_id": None},
+                    text=_text(node, document),
+                    parser_attachment_occurrence_ids=owners,
                 )
-        elif label == "formula":
-            rows[pointer] = VisualText(**scope, kind="formula", text=node.text)
         elif (
             isinstance(node, CodeItem)
             and isinstance(parent_row, VisualPicture)

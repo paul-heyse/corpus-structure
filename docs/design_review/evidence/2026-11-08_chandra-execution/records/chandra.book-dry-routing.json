@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "id": "chandra.book-dry-routing",
+  "title": "Chandra dry routing across the exact archived book",
+  "group": "chandra-execution",
+  "package": "CH-10",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the dry router produce bounded determinations for every physical page under the exact archived integrated source?",
+  "answers": [
+    "CH-10"
+  ],
+  "method": "Read the archived producing pin in nine consecutive ranges of up to 64 pages; check total physical page coverage and retain nominated cases.",
+  "commands": [],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "dry-routing-book.json",
+      "role": "Exact archived source pins, page actions and non-skip reasons",
+      "sha256": "7962ed6f6fa4f3e5b1f16616e55a2f14b5b5bd5efcead6885614e66b950c1ff5"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Read all 518 pages. Nominated 48 for recognition and three for incumbent repair, skipped 466 with no supported trigger, and retained one unresolved page. This dry inventory does not qualify selective inference, silent misses or automatic activation.",
+  "consumed_by": [
+    "chandra-2-post-nemotron coordinator"
+  ]
+}

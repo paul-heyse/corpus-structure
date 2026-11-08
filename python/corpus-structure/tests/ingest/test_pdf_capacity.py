@@ -89,3 +89,15 @@ def test_remote_endpoint_and_unbounded_timeout_are_rejected():
         native_before_nemotron("http://127.0.0.1:8035/v1", timeout_seconds=90),
     ):
         pytest.fail("unbounded control timeout was accepted")
+
+
+def test_standalone_handoff_can_nest_inside_the_integrated_phase(capacity_service):
+    from corpus_structure.ingest.pdf_capacity import suspend_resident_nemotron
+
+    endpoint, state = capacity_service
+    with native_before_nemotron(endpoint):
+        with suspend_resident_nemotron(endpoint):
+            assert state["sleeping"]
+        assert state["sleeping"]
+    assert state["events"] == ["/sleep", "/wake_up"]
+    assert not state["sleeping"]

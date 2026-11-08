@@ -17,6 +17,7 @@ from .identity import canonical_bytes
 from .metadata import table
 from .operation_results import MethodConfigId, RunId
 from .operations import (
+    OperationBinding,
     OperationDescriptor,
     binding_of,
     claim_tasks,
@@ -107,7 +108,14 @@ def request_source_view(
     region_index: int | None = None,
     scale: float = 2,
     holder: str = "native-source-request",
+    writer_release: str | None = None,
+    writer_realization: str | None = None,
 ) -> NativeRequestResult:
+    if (writer_release is None) != (writer_realization is None):
+        raise ValueError("an explicit render writer requires both release and realization")
+    if writer_release is not None and demand != "render":
+        raise ValueError("a separate writer release is available only for rendering")
+
     from .claim_lifetime import maintained_claims
     from .contracts import require_bound_operation
     from .releases import open_release
@@ -118,7 +126,8 @@ def request_source_view(
     runs, tasks = table("ops.run"), table("ops.task")
     with engine.begin() as conn:
         origin = conn.execute(select(runs).where(runs.c.id == source_run_id)).mappings().one()
-        prepared = open_release(conn, origin["release_id"])
+        source_archive = open_release(conn, origin["release_id"])
+        prepared = source_archive if writer_release is None else open_release(conn, writer_release)
         require_bound_operation(prepared, "request_native_source")
         if not conn.execute(
             select(table("ops.run_source_view").c.source_view_id).where(
@@ -129,6 +138,30 @@ def request_source_view(
             raise ValueError("native source request requires an explicitly selected source view")
         view = load_source_view(conn, source_view_id, analysis=demand != "render")
         source_binding = binding_of(conn, source_run_id)
+        target_binding = source_binding
+        if writer_release is not None:
+            if writer_release != origin["release_id"] and origin["status"] != "finished":
+                raise ValueError("cross-release rendering requires a completed archived source")
+            realizations = table("data.realization")
+            revision = conn.execute(
+                select(realizations.c.data_revision).where(
+                    realizations.c.realization_id == writer_realization,
+                    realizations.c.project_id == origin["project_id"],
+                    realizations.c.release_id == writer_release,
+                    realizations.c.state == "active",
+                )
+            ).scalar_one_or_none()
+            if revision is None:
+                raise ValueError(
+                    "render writer must be an active realization of the source project"
+                )
+            assert writer_realization is not None
+            target_binding = OperationBinding(
+                writer_release,
+                writer_realization,
+                revision,
+                canonical_bytes({"native_render_source": source_run_id}),
+            )
         archived = {} if demand == "render" else json.loads(source_binding.dependencies)
         rules = [
             v.get("parameters", {}).get("math", {}).get("native_domain_rules", [])
@@ -250,11 +283,10 @@ def request_source_view(
         NativeRequestConfig,
     )
     with engine.begin() as conn:
-        source_binding = binding_of(conn, source_run_id)
         run_id = create_run(
             conn,
             project_id=origin["project_id"],
-            binding=source_binding,
+            binding=target_binding,
             kind="slice",
             options={"native_request": params},
             code_commit=code_commit,
@@ -330,7 +362,7 @@ def request_source_view(
                     from .pdf_record_reader import published_record_reader
 
                     published = published_record_reader(
-                        conn, view.ref.native_product, projection_context=prepared
+                        conn, view.ref.native_product, projection_context=source_archive
                     )
                     if published is None:
                         raise ValueError(
@@ -346,9 +378,14 @@ def request_source_view(
                         conn.execute(
                             select(artifact.c.content)
                             .join(build, build.c.artifact_digest == artifact.c.artifact_digest)
-                            .where(build.c.task_id == view.ref.native_product.task_id)
+                            .where(
+                                build.c.task_id == view.ref.native_product.task_id,
+                                build.c.artifact_digest == published.revision["source_digest"],
+                            )
                         ).scalar_one()
                     )
+                    if sha256(original).hexdigest() != published.revision["source_digest"]:
+                        raise ValueError("render original differs from the archived PDF digest")
 
             def terminal_intent(result):
                 with read_snapshot(engine) as preparation_conn:

@@ -15,7 +15,11 @@ from sqlalchemy import Connection, select
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.serve.pdf_visual_evidence import VisualEvidencePin, VisualEvidenceRead
+from corpus_structure.serve.pdf_visual_evidence import (
+    VisualEvidenceKind,
+    VisualEvidencePin,
+    VisualEvidenceRead,
+)
 
 
 class NativeSourceRequest(BaseModel):
@@ -49,6 +53,12 @@ class NativeSourceRequest(BaseModel):
     evidence: VisualEvidencePin | None = Field(default=None, exclude_if=lambda value: value is None)
     page_no: int | None = Field(default=None, gt=0, exclude_if=lambda value: value is None)
     region_index: int | None = Field(default=None, ge=0, exclude_if=lambda value: value is None)
+    visual_kind: VisualEvidenceKind | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    visual_query: str | None = Field(
+        default=None, min_length=1, max_length=256, exclude_if=lambda value: value is None
+    )
     cursor: str | None = None
     limit: int = Field(default=100, ge=1, le=1000)
     max_rows: int = Field(default=10000, strict=True, ge=1, le=10000)
@@ -66,8 +76,6 @@ class NativeSourceRequest(BaseModel):
                     for value in (
                         self.section_pointer,
                         self.membership,
-                        self.cell_index,
-                        self.occurrence_id,
                         self.collection,
                     )
                 )
@@ -77,9 +85,32 @@ class NativeSourceRequest(BaseModel):
                 )
             if self.artifact_digest is not None and self.pointer is not None:
                 raise ValueError("visual evidence artifacts require their submitted page scope")
+            if self.cell_index is not None and self.occurrence_id is None:
+                raise ValueError("visual cell reads require the candidate table occurrence")
+            if self.visual_query is not None and (
+                self.visual_kind != "picture"
+                or not self.visual_query.strip()
+                or self.occurrence_id is not None
+            ):
+                raise ValueError("visual queries require picture kind, text, and no occurrence")
+            if (
+                self.occurrence_id is not None
+                or self.visual_kind is not None
+                or self.visual_query is not None
+            ) and (self.artifact_digest is not None or self.occurrence_id == ""):
+                raise ValueError("visual candidate selectors require a mapped evidence read")
             return self
-        if any(value is not None for value in (self.evidence, self.page_no, self.region_index)):
-            raise ValueError("evidence, page and region selectors require the visual evidence view")
+        if any(
+            value is not None
+            for value in (
+                self.evidence,
+                self.page_no,
+                self.region_index,
+                self.visual_kind,
+                self.visual_query,
+            )
+        ):
+            raise ValueError("visual selectors require the visual evidence view")
         if self.view == "artifact":
             if self.artifact_digest is None or any(
                 value is not None
@@ -551,6 +582,11 @@ def _inspect_native_source(
             elif request.view == "formula":
                 if native.get("label") != "formula":
                     raise ValueError("native pointer is not a formula")
+                from corpus_structure.ingest.pdf_hierarchy import (
+                    readable_formula_original,
+                    section_formula_witness,
+                )
+
                 outcomes = list(
                     published.native_metadata("formula_outcomes", pointer=request.pointer)
                 )
@@ -576,6 +612,14 @@ def _inspect_native_source(
                         ),
                     )
                 ]
+                readable = readable_formula_original(
+                    section_formula_witness(projection_context),
+                    request.content_digest,
+                    request.pointer,
+                    native.get("orig"),
+                )
+                if readable is not None:
+                    rows[0].update(readable_text=readable, readable_source_field="orig")
             else:
                 rows = [dict(rows[0], native=native, inline_alignment_reports=alignment)]
     if request.view == "items" and len(rows) == request.limit:

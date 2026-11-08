@@ -167,3 +167,55 @@ product's authority.
 - Complete integrated functional and nonfunctional qualification remains open until
   the required recovery and handoff paths settle. The existing repository types failure
   remains recorded with its actual scope.
+
+## Follow-up execution checkpoint · 2026-11-08
+
+- **F01, F03 and F04.** Managed deployment `cf2b5536bcca4b66973b2a925081898f`
+  passed on development revision `semantic_chandra_enrichment_v2`. The first registered
+  candidate's deployment refused a changed source hash. The recaptured candidate passed
+  against the exact predecessor. Standalone Standard reached run 345 and cut 471 with
+  the resident Nemotron service releasing and reclaiming GPU memory. Completed archived
+  run 312 rendered the exact p416 region through the current writer at run 347, cut 472.
+  The general cross-release source-ready archive path remains open. Fresh Chandra
+  inference reached run 349, cut 473, and the exact typed read returned two tables.
+  `ci run cancel 350` stopped the active GPU-backed p416 request and the service
+  returned to its awake state. Controlled interruption before publication and same-run
+  receipt recovery passed. [Development receipt](../design_review/evidence/2026-11-08_chandra-execution/records/chandra.enrichment-development.json)
+- **CH-08 and F05.** The v9 view recipe projects the exact source-verified p416
+  `orig` as readable text. The archived Reader and bounded v8/v9 comparison passed.
+  Protected adoption at run 351 refused because the producer's native schema digest
+  differs from the current consumer release. The selected view needs a qualified
+  schema-compatible derivation. Source inspection identified one printed p108 caption
+  and two panels, and verified p151's 4×4 bindings. Their selected-product repair
+  remains open.
+- **CH-09.** The explicit Reader supports bounded figure discovery and rich-cell
+  subtree reads. It carries parser-proposed attachment multiplicity, original
+  formula alternatives, and source precision. `ci source visual-observations`
+  reads exact raw and mapped pins for settled singleton work. Managed result
+  `195172a6747748549ba1eb780f646d28` passed 38 focused Reader, CLI and parser
+  checks before the manifest slice. Exact live manifest reads and wrong-pin
+  refusal were checked separately. Grouped manifest custody remains open.
+- **CH-10.** `ci source visual-route` read all 518 archived pages. The versioned
+  dry policy nominated 48 for recognition and three for incumbent repair, skipped
+  466 with no supported trigger, and left one unresolved. The five focused router
+  tests passed under `2a30ac12480c42db839a97eec23f09e4`.
+  [Dry routing receipt](../design_review/evidence/2026-11-08_chandra-execution/records/chandra.book-dry-routing.json)
+  records the boundary. Routing currently compares inventories and scoped failures.
+  It still needs verified blank, finer spatial and disagreement cues, and CH-08
+  recovery feedback. Managed grouping and the 518-page inference shadow remain open.
+- **CH-05–07 and CH-11.** Continue the capability-specific public and retained
+  cohort checks. The current effect retains attributed evidence. Default activation
+  needs shadow qualification, and direct promotion still needs an independently
+  qualified Chandra-dependent candidate and its own authority decision.
+
+The post-deployment affected selection `70ede0217c75406eb04ca1930b85e0b1` passed 103
+of 104 selected nodes and exposed a stale test hook. Retry `0fac820b0f704c2ca663dea80f5f1722`
+then exposed a real visual handoff status defect. The exact retry after the status fix
+passed under `52f3e2cb232e4c3e8cc55f549d501ee4`. Managed coverage accounts for 104
+selected nodes and zero unresolved across the recorded source contexts. The remaining
+full-scope qualification is open. `uv run ci check --only types` still fails on the
+known PDF publication identity and protected comparison fixture diagnostics.
+
+`just turn-end` and the evidence index and checks passed. `uv run ci docs check`
+failed on the missing title in the unrelated untracked GitHub review draft. The
+same publication check passed with that draft excluded in memory.

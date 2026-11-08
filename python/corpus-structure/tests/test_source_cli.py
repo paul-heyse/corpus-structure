@@ -127,6 +127,7 @@ def test_inspect_cli_delivers_explicit_visual_selection(cli, source_runtime, mon
         assert conn is source_runtime.connection
         assert request.view == "visual_evidence" and request.page_no == 3
         assert request.pointer == "#/pictures/2" and request.region_index == 1
+        assert request.visual_kind == "mermaid" and request.occurrence_id == "o1"
         assert request.evidence is not None
         assert request.evidence.model_dump() == {
             "run_id": 31,
@@ -178,6 +179,10 @@ def test_inspect_cli_delivers_explicit_visual_selection(cli, source_runtime, mon
         "#/pictures/2",
         "--region-index",
         "1",
+        "--visual-kind",
+        "mermaid",
+        "--occurrence",
+        "o1",
         "--json",
     )
     assert result.exit_code == 0, (result.output, result.exception)
@@ -299,6 +304,8 @@ def test_native_request_json_emits_dataclass_and_preserves_failure_exit(
         predicate="positive",
         seconds=0.75,
         code_commit="native-source-cli-v2",
+        writer_release=None,
+        writer_realization=None,
     )
     assert source_runtime.opened == [("ci-native-request", "write")]
 

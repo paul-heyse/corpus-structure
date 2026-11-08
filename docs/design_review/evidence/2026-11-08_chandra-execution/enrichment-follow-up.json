@@ -1,0 +1,76 @@
+{
+  "deployment": {
+    "result_id": "cf2b5536bcca4b66973b2a925081898f",
+    "stage": "deployed",
+    "revision": "89b083ed4152d787dff496120cc722f9a42d8bb7b262db4dfd47ffcdd86cdff1",
+    "changed": [],
+    "predecessor": "semantic_chandra_input_custody",
+    "release": "release:025470695c4426e048b2a4adb13abfd23e87aaad38e985c2499c62a900487658",
+    "target_profile": "development",
+    "acquired_target": {
+      "database": "corpus_structure_dev",
+      "database_oid": 25921445,
+      "system_identifier": "7701811359771751232",
+      "host": "/var/run/postgresql",
+      "port": 5434,
+      "purpose": "maintenance"
+    }
+  },
+  "standalone_standard": {
+    "run_id": 345,
+    "status": "source_ready",
+    "release_id": "release:025470695c4426e048b2a4adb13abfd23e87aaad38e985c2499c62a900487658",
+    "realization_id": "source:chandra-standard-handoff",
+    "cut_id": 471
+  },
+  "archived_render": {
+    "run_id": 347,
+    "task_id": 1553,
+    "cut_id": 472,
+    "status": "source_ready",
+    "source_view_id": 215,
+    "product_digest": "b2db628ddb2c11166c98c1a49b8a071e5460895019529d44a8ea90ab9197dff3",
+    "artifact_digest": "ca453447f3033d9117041fbd12c560542707e3cce43c52bee83882fdb984d861",
+    "result": null,
+    "error": null
+  },
+  "fresh_chandra": {
+    "run_id": 349,
+    "task_id": 1556,
+    "cut_id": 473,
+    "status": "source_ready",
+    "source": {
+      "run_id": 309,
+      "task_id": 1389,
+      "product_key": "integrated",
+      "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+    },
+    "raw": {
+      "run_id": 349,
+      "task_id": 1555,
+      "product_key": "chandra-inference:f3cfd7a905e023e37e245b89c09f127e2109b9244371292590a4153fc7ac3e03",
+      "content_digest": "d56297d8403f6467488c8528599d5752d07686555340331ef051e34cf629b483"
+    },
+    "mapped": {
+      "run_id": 349,
+      "task_id": 1556,
+      "product_key": "chandra-mapping:28ffb0cc447ba6f0243ec5ac109a2124e34a7cb472417dce92c309b11b45ff6f",
+      "content_digest": "832b88aad4e8e8f92ca8382ee559e864f430960f6814912c6bc0a9528840fe35"
+    },
+    "attempt_receipt": "build/recognition/chandra/run-349-task-1555-59ac71d3bb2d16ba68f6bb15b752088dcc5a1aeb1e3d2df229e7f3bd52d6399d/attempt-1/receipt.json",
+    "error": null
+  },
+  "typed_table_count": 2,
+  "cancel": {
+    "run_id": 350,
+    "tasks_cancelled": 1
+  },
+  "cancel_control": "run=350 memory_mib=10064 service_sleeping=true",
+  "nemotron_restored_after_cancel": true,
+  "targeted_coverage": {
+    "original": "70ede0217c75406eb04ca1930b85e0b1",
+    "retry": "52f3e2cb232e4c3e8cc55f549d501ee4",
+    "required": 104,
+    "unresolved": 0
+  }
+}
