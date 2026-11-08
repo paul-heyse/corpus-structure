@@ -359,3 +359,14 @@ here when the work is implemented and verified.
 passed on an LFS-disabled export of `8b694c67b` with the seven authoring
 files overlaid. The documentation check rendered 705 canonical pages with
 zero link errors. This checks publication of the plan documents.
+
+### Corpus source custody
+
+The operator extended this increment to retain the eligible statistics
+corpus originals. The public corpus index and manifest identify 1,409
+Git LFS objects, including the exact PDF used by the whole-book results.
+The source directories stay at the Git revision. Pages includes the
+index and the small retained-examples JSON. The archive records the
+sources that require separate access and the upstream routes. The
+prepared local acquisition remains the prerequisite for corpus-marked
+tests. [Corpus index](../statistics_corpus/README.md) · [Assembled review](../design_review/reviews/design_review_ghv-follow-on-publication-assembled_2026-11-08.md)
