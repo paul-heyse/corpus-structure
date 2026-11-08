@@ -3,6 +3,7 @@
 repository = "https://github.com/paul-heyse/corpus-structure"
 branch = "main"
 base_url = "/"
+public_url = "https://paul-heyse.github.io/corpus-structure/"
 
 # Documentation binaries, pinned exactly; `just bootstrap-docs` installs these versions and
 # publication checks them.
@@ -27,11 +28,43 @@ sha256 = "1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a"
 member = "lychee-x86_64-unknown-linux-gnu/lychee"
 
 [publication]
-entrypoints = ["README.md", "docs/examples/README.md", "docs/README.md", "docs/design/README.md", "STATUS.md", "AGENTS.md", "docs/publishing.md", "docs/library_leverage/README.md", "docs/library_leverage/library-leverage-framework.md", "docs/library_leverage/patterns.md"]
+entrypoints = ["README.md", "docs/examples/README.md", "docs/README.md", "docs/design/README.md", "docs/evaluation.md", "docs/develop.md", "STATUS.md", "AGENTS.md", "docs/publishing.md", "docs/library_leverage/README.md", "docs/library_leverage/library-leverage-framework.md", "docs/library_leverage/patterns.md"]
 # The active plan, once written, e.g. ["docs/plans/<topic>_<YYYY-MM-DD>.md"]
 current_work = ["docs/plans/design-phase_2026-10-28.md"]
-exclude = ["docs/functional_reviews/github_view_improvement.md"]
-assets = ["docs/assets/pipeline.svg", "docs/examples/data/retained-examples.json"]
+exclude = [
+  "docs/functional_reviews/github_view_improvement.md",
+  "docs/functional_reviews/github_view_improvement_additional_recommendations.md",
+]
+assets = [
+  "docs/assets/pipeline.svg",
+  "docs/assets/pipeline-dark.svg",
+  "docs/assets/favicon.svg",
+  "docs/assets/social-preview.png",
+  "docs/examples/data/retained-examples.json",
+]
+
+[descriptions]
+"docs/examples/README.md" = "Inspect retained source, operation, result and assessment for worked Corpus Structure examples."
+"docs/design/README.md" = "Trace a retained result through the Corpus Structure pipeline and read the design contracts."
+"docs/evaluation.md" = "See what Corpus Structure assessed at each operation and where the current evidence has limits."
+"docs/develop.md" = "Prepare a Corpus Structure checkout and find the tools, code paths and contributor instructions."
+
+[navigation]
+opening = [
+  { title = "Overview", path = "README.md" },
+  { title = "Examples", path = "docs/examples/README.md" },
+  { title = "Functional architecture", path = "docs/design/README.md" },
+  { title = "Evaluation", path = "docs/evaluation.md" },
+  { title = "Develop locally", path = "docs/develop.md" },
+]
+groups = [
+  { title = "Architecture contracts", root = "docs/design/DESIGN.md", collections = ["Architecture", "Design standard"] },
+  { title = "Implementation reference", root = "docs/README.md", collections = ["Documentation"] },
+  { title = "Evidence and experiments", root = "docs/design_review/evidence/README.md", collections = ["Evidence", "Reviews", "Design principle audit"] },
+  { title = "Contributor and agent workflows", root = "AGENTS.md", collections = ["Process", "Start here"] },
+  { title = "Plans and decisions", root = "docs/plans/README.md", collections = ["Work plans", "Decisions"] },
+  { title = "Library references", root = "docs/libraries/README.md", collections = ["Library overviews", "Library leverage"] },
+]
 
 [[collections]]
 title = "Start here"

@@ -13,6 +13,7 @@ from repo_paths import local_skill
 def root(tmp_path):
     for name, body in {
         "README.md": "# Home\n",
+        "docs/book.toml": '[book]\ntitle="Test Book"\ndescription="Default description"\n',
         "docs/design/DESIGN.md": "# Design\n## §1 One\n",
         "docs/design_review/design_principles/core.md": "# Core\n",
         "docs/design_review/design_principles/template.md": "# Template\n",
@@ -48,7 +49,22 @@ def settings():
                 "scope": "Reference",
             }
         ],
-        "site": {"repository": "https://example.test/repo", "branch": "main", "base_url": "/"},
+        "site": {
+            "repository": "https://example.test/repo",
+            "branch": "main",
+            "base_url": "/preview/",
+            "public_url": "https://example.test/project/",
+        },
+        "navigation": {
+            "opening": [{"title": "Overview", "path": "README.md"}],
+            "groups": [
+                {
+                    "title": "Contracts",
+                    "root": "docs/design/DESIGN.md",
+                    "collections": ["Docs", "Architecture"],
+                }
+            ],
+        },
         "tools": {"mdbook": "0.5.4"},
     }
 
@@ -299,7 +315,8 @@ def test_renderer_annotation_titles_and_duplicate_alias(root, settings):
     site = root / "site"
     site.mkdir()
     (site / "README.html").write_text(
-        '<html lang="en"><head></head><body><h1>Book title</h1>'
+        '<html lang="en"><head><title>Old</title><meta name="description" content="Old"></head>'
+        "<body><h1>Book title</h1>"
         '<a href="https://example.test/repo/edit/main/src/README.md" rel="edit">Edit</a>'
         "<main><h1>Owner</h1></main></body></html>"
     )
@@ -320,15 +337,35 @@ def test_renderer_annotation_titles_and_duplicate_alias(root, settings):
     generated = docs.Page(
         Path("architecture-sections.md"), "Generated", "", "Docs", "Current", generated=True
     )
+    settings["descriptions"] = {"docs/nested page.md": 'A "quote" & an ampersand'}
+    settings["publication"]["assets"] = [
+        "docs/assets/social-preview.png",
+        "docs/assets/favicon.svg",
+    ]
+    (root / "docs/assets").mkdir()
+    for asset in settings["publication"]["assets"]:
+        (root / asset).write_bytes(b"declared")
     docs.annotate(root, site, [page, nested, generated], settings)
     canonical = (site / "README.html").read_text()
+    alias = (site / "index.html").read_text()
+    nested_html = (site / "docs/nested page.html").read_text()
     assert 'data-doc-title="Actual page, with comma"' in canonical
     assert "title[data-doc-title]" in canonical
     assert '/edit/main/README.md"' in canonical
-    assert '/edit/main/README.md"' in (site / "index.html").read_text()
-    assert '/edit/main/docs/nested%20page.md"' in (site / "docs/nested page.html").read_text()
+    assert '/edit/main/README.md"' in alias
+    assert '/edit/main/docs/nested%20page.md"' in nested_html
     assert 'rel="edit"' not in (site / "architecture-sections.html").read_text()
-    assert "data-pagefind-body" not in (site / "index.html").read_text()
+    assert "data-pagefind-body" not in alias
+    assert '<link rel="canonical" href="https://example.test/project/">' in canonical
+    assert '<link rel="canonical" href="https://example.test/project/">' in alias
+    assert 'href="https://example.test/project/docs/nested%20page.html"' in nested_html
+    assert 'content="A &quot;quote&quot; &amp; an ampersand"' in nested_html
+    assert canonical.count('<meta name="description"') == 1
+    assert "<title>Actual page, with comma - Test Book</title>" in canonical
+    assert 'content="https://example.test/project/docs/assets/social-preview.png"' in canonical
+    assert 'href="../docs/assets/favicon.svg"' in nested_html
+    for asset in settings["publication"]["assets"]:
+        assert (site / asset).read_bytes() == b"declared"
     assert 'data-pagefind-ignore="all"' in (site / "404.html").read_text()
 
 
@@ -349,6 +386,32 @@ def test_architecture_frontmatter_preserves_stable_anchor_destinations(root, set
     body = (candidate / "src/docs/design/DESIGN.md").read_text()
     assert '<a id="section-1"></a>\n\n## §1 First' in body
     assert '<a id="section-2"></a>\n\n## §2 Second' in body
+    summary = (candidate / "src/SUMMARY.md").read_text().splitlines()
+    assert summary[2:4] == [
+        "- [Overview](README.md)",
+        "- [Contracts](docs/design/DESIGN.md)",
+    ]
+    assert "    - [Architecture sections](architecture-sections.md)" in summary
+
+
+@pytest.mark.parametrize(
+    ("change", "error"),
+    [
+        ("unknown", "unknown or duplicate"),
+        ("duplicate", "unknown or duplicate"),
+        ("unassigned", "unassigned navigation"),
+    ],
+)
+def test_navigation_refuses_incomplete_or_ambiguous_membership(root, settings, change, error):
+    navigation = settings["navigation"]
+    if change == "unknown":
+        navigation["opening"][0]["path"] = "missing.md"
+    elif change == "duplicate":
+        navigation["groups"][0]["root"] = "README.md"
+    else:
+        navigation["groups"][0]["collections"] = []
+    with pytest.raises(ValueError, match=error):
+        docs.navigation_summary(docs.discover(root, settings), navigation)
 
 
 @pytest.mark.parametrize("selected", [False, True])

@@ -8,6 +8,19 @@ reasoning, and implementation plans own scheduled work and closure evidence.
 
 <a id="baseline"></a>
 
+<a id="ghv-follow-on-publication-refresh"></a>
+
+## GitHub visitor follow-on publication refresh · 2026-11-08
+
+Independent inspection by `ghv_target` used source `051b37aa4` and deployed
+baseline `8b694c67b`. The earlier scoped diagnosis still applies to artifact
+custody and serialized release. The live edit action exposes the staging
+prefix. The flat summary derives hierarchy and membership from one loop.
+The search adapter can enable input after initialization fails, and assets
+referenced only in the head have no copy route. These are the affected
+publisher boundaries. Concurrent product work is outside the assessment.
+[Publisher](../../../scripts/docs.py) · [Follow-on owner](../../plans/github-visitor-experience_2026-11-08.md#GHV-follow-on)
+
 ## Documentation publication refresh — 2026-11-08
 
 **Implemented source inspected.** This bounded refresh uses

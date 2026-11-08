@@ -25,8 +25,14 @@ def main() -> None:
 
     with TemporaryDirectory(dir=ASSETS) as staging:
         svg = Path(staging) / "pipeline.svg"
+        dark_svg = Path(staging) / "pipeline-dark.svg"
         png = Path(staging) / "social-preview.png"
-        run(["d2", "--layout=elk", "--scale=1", "--pad=32", str(SOURCE / "pipeline.d2"), str(svg)], check=True)
+        for theme, destination in ((8, svg), (201, dark_svg)):
+            run(
+                ["d2", "--layout=elk", "--scale=1", "--pad=24", f"--theme={theme}",
+                 str(SOURCE / "pipeline.d2"), str(destination)],
+                check=True,
+            )
         with sync_playwright() as playwright, playwright.chromium.launch() as browser:
             page = browser.new_page(viewport={"width": 1280, "height": 640}, device_scale_factor=1)
             page.goto((SOURCE / "social-preview.html").as_uri())
@@ -35,7 +41,7 @@ def main() -> None:
         image = png.read_bytes()
         if unpack(">II", image[16:24]) != (1280, 640) or len(image) >= 1_000_000:
             raise SystemExit("Social preview must be 1280 × 640 and under 1 MB.")
-        for asset in (svg, png):
+        for asset in (svg, dark_svg, png):
             asset.replace(ASSETS / asset.name)
 
 

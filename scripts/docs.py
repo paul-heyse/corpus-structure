@@ -160,13 +160,43 @@ def section_directory(root: Path, pages: list[Page]) -> tuple[Page, dict[Path, d
     ), annotations
 
 
+def navigation_summary(pages: list[Page], navigation: dict) -> str:
+    summary = ["# Summary", ""]
+    by_path = {page.path.as_posix(): page for page in pages}
+    selected = set()
+
+    def add(path: str, label: str, depth: int = 0) -> None:
+        if path not in by_path or path in selected:
+            raise ValueError(f"unknown or duplicate navigation target: {path}")
+        selected.add(path)
+        title = re.sub(r"[\[\]`*]", "", label)
+        target = f"<{path}>" if any(character.isspace() for character in path) else path
+        summary.append(f"{'    ' * depth}- [{title}]({target})")
+
+    for item in navigation["opening"]:
+        add(item["path"], item["title"])
+    roots = {group["root"] for group in navigation["groups"]}
+    assigned_collections = set()
+    for group in navigation["groups"]:
+        add(group["root"], group["title"])
+        collections = set(group["collections"])
+        if duplicates := assigned_collections & collections:
+            raise ValueError(f"duplicate navigation collections: {sorted(duplicates)}")
+        assigned_collections.update(collections)
+        for page in pages:
+            path = page.path.as_posix()
+            if page.collection in collections and path not in selected and path not in roots:
+                add(path, page.title, depth=1)
+    if missing := by_path.keys() - selected:
+        raise ValueError(f"unassigned navigation targets: {sorted(missing)}")
+    return "\n".join(summary) + "\n"
+
+
 def stage(root: Path, candidate: Path, pages: list[Page], settings: dict) -> list[Page]:
     directory, annotations = section_directory(root, pages)
     pages = [*pages, directory]
     src = candidate / "src"
     src.mkdir()
-    summary = ["# Summary", ""]
-    collection = ""
     for page in pages:
         body = page.body
         if page.path in annotations:
@@ -184,15 +214,7 @@ def stage(root: Path, candidate: Path, pages: list[Page], settings: dict) -> lis
         destination = src / page.path
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(body)
-        if page.collection != collection:
-            collection = page.collection
-            summary += ["", f"# {collection}", ""]
-        title = re.sub(r"[\[\]`*]", "", page.title)
-        target = page.path.as_posix()
-        if any(character.isspace() for character in target):
-            target = f"<{target}>"
-        summary.append(f"- [{title}]({target})")
-    (src / "SUMMARY.md").write_text("\n".join(summary) + "\n")
+    (src / "SUMMARY.md").write_text(navigation_summary(pages, settings["navigation"]))
     book = (root / "docs/book.toml").read_text()
     site = settings["site"]
     additions = {
@@ -278,7 +300,7 @@ def rewrite_links(
                 raise ValueError(
                     f"{page.path}: unresolved publication/source target: {value} ({source})"
                 )
-            if source.as_posix() in settings["publication"]["assets"] or (
+            if (
                 attr == "src"
                 and source.suffix.lower() in {".png", ".jpg", ".jpeg", ".svg", ".gif", ".webp"}
                 and "evidence" not in source.parts
@@ -328,14 +350,44 @@ def edit_action(text: str, page: Page, settings: dict) -> str:
             return text[:offset] + text[end:]
         site = settings["site"]
         destination = html.escape(
-            f'{site["repository"]}/edit/{site["branch"]}/{quote(page.path.as_posix())}',
+            f"{site['repository']}/edit/{site['branch']}/{quote(page.path.as_posix())}",
             quote=True,
         )
-        replacement = re.sub(
-            r'\bhref="[^"]*"', lambda _: f'href="{destination}"', tag, count=1
-        )
+        replacement = re.sub(r'\bhref="[^"]*"', lambda _: f'href="{destination}"', tag, count=1)
         return text[:offset] + replacement + text[offset + len(tag) :]
     return text
+
+
+def page_metadata(
+    text: str, page: Page, settings: dict, book: dict, prefix: str
+) -> tuple[str, str]:
+    path = page.path.as_posix()
+    public_url = settings["site"]["public_url"]
+    canonical = public_url + (
+        "" if path == "README.md" else quote(page.path.with_suffix(".html").as_posix())
+    )
+    title = page.title if page.title == book["title"] else f"{page.title} - {book['title']}"
+    description = settings.get("descriptions", {}).get(path, book.get("description", ""))
+    metadata = [
+        f"<title>{html.escape(title)}</title>",
+        f'<link rel="canonical" href="{html.escape(canonical, quote=True)}">',
+        f'<meta name="description" content="{html.escape(description, quote=True)}">',
+        f'<link rel="icon" type="image/svg+xml" href="{prefix}/docs/assets/favicon.svg">',
+    ]
+    for key, value in {
+        "title": title,
+        "description": description,
+        "url": canonical,
+        "image": public_url + "docs/assets/social-preview.png",
+    }.items():
+        metadata.append(f'<meta property="og:{key}" content="{html.escape(value, quote=True)}">')
+    head, end, body = text.partition("</head>")
+    head = re.sub(
+        r'<title>[^<]*</title>|<meta name="description"[^>]*>|<link rel="(?:shortcut )?icon"[^>]*>',
+        "",
+        head,
+    )
+    return head + end + body, "\n".join(metadata) + "\n"
 
 
 def annotate(root: Path, site: Path, pages: list[Page], settings: dict) -> None:
@@ -345,6 +397,12 @@ def annotate(root: Path, site: Path, pages: list[Page], settings: dict) -> None:
     dirty = bool(run(["git", "status", "--porcelain"], cwd=root, capture_output=True).stdout)
     tracked = tracked_files(root)
     published = {p.path.with_suffix(".html") for p in pages}
+    book = tomllib.loads((root / "docs/book.toml").read_text())["book"]
+    for asset in settings["publication"]["assets"]:
+        source = checked(root, asset)
+        destination = checked(site, asset)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, destination)
     errors = []
     for page in pages:
         path = site / page.path.with_suffix(".html")
@@ -355,6 +413,7 @@ def annotate(root: Path, site: Path, pages: list[Page], settings: dict) -> None:
             errors.append(str(error))
             continue
         prefix = posixpath.relpath(".", page.path.parent.as_posix())
+        text, metadata = page_metadata(text, page, settings, book, prefix)
         text = text.replace(
             "<main>",
             f'<main data-pagefind-body data-pagefind-filter="scope:{page.scope}" '
@@ -375,9 +434,10 @@ def annotate(root: Path, site: Path, pages: list[Page], settings: dict) -> None:
         )
         text = text.replace("</main>", banner + "</main>", 1)
         assets = (
-            f'<meta name="doc-scopes" content="{scopes}">'
+            metadata + f'<meta name="doc-scopes" content="{scopes}">'
             f'<link rel="stylesheet" href="{prefix}/pagefind/pagefind-component-ui.css">'
             f'<link rel="stylesheet" href="{prefix}/theme/search.css">'
+            f'<link rel="stylesheet" href="{prefix}/theme/presentation.css">'
             f'<script type="module" src="{prefix}/theme/search.js"></script>'
         )
         text = text.replace("</head>", assets + "</head>")

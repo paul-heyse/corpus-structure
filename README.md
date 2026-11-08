@@ -17,16 +17,21 @@ can be useful while a larger interpretation is still unresolved. The system pres
 differences so a reader can inspect what was observed, what was selected, and what has been
 assessed.
 
-[Documentation](https://paul-heyse.github.io/corpus-structure/) · [See an example](docs/examples/README.md) · [Explore the architecture](docs/design/README.md) · [Read the evaluation](docs/design_review/evidence/2026-11-08_nce-full-book/review/README.md) · [Run locally](#run-locally)
+[Documentation](https://paul-heyse.github.io/corpus-structure/) · [See an example](docs/examples/README.md) · [Explore the architecture](docs/design/README.md) · [Read the evaluation](docs/evaluation.md) · [Run locally](#run-locally)
 
 ## How it works
 
-[![Four operations turn located observations into qualified components, witnessed links, and inspectable views. Source provenance and assessment run across the pipeline.](docs/assets/pipeline.svg)](docs/assets/pipeline.svg)
+<picture class="pipeline-diagram">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/pipeline-dark.svg">
+  <img src="docs/assets/pipeline.svg" alt="Four operations produce located observations, qualified components, witnessed connections, and assembled views. Provenance and assessment apply throughout.">
+</picture>
 
-The pipeline locates observations in source material, composes local meaning by attaching
-roles and qualifiers, connects related material through typed links, and assembles
-comparisons and dossiers. Source locations stay attached throughout. Assessment can focus on
-capture, roles, attachments, links, or scope.
+[Full-size diagram](docs/assets/pipeline.svg) · [Full-size dark diagram](docs/assets/pipeline-dark.svg)
+
+The pipeline locates observations in source material, attaches roles and qualifiers,
+connects related material through typed links, and assembles comparisons and dossiers.
+Each operation leaves an inspectable output. Later stages reuse supported structure
+while unresolved material remains visible. Assessment can focus on any stage.
 
 ## A real result
 
@@ -74,16 +79,8 @@ candidate link lacks sufficient support.
 
 ## Run locally
 
-Start with the [static examples](docs/examples/README.md) to inspect results directly. The
-[reproduction guide](docs/examples/README.md#reproduce-the-contextual-example) lists the
-source, matching release, and environment needed to rebuild the contextual result.
-
-For a development checkout, see [AGENTS.md](AGENTS.md). Run `bash scripts/setup-env` to prepare
-the checkout, then use `uv run ci doctor` to inspect installed tools. The
-[ci skill](.claude/skills/ci/SKILL.md) documents the supported CLI routes, and the
-[shared agent roles](.agents/roles/README.md) describe contributor workflows.
-
-For a local documentation preview, run `just bootstrap-docs` and then `just docs-serve`.
-See [publishing operations](docs/publishing.md) for checks and authoring.
+- **Inspect results.** Start with the [static examples](docs/examples/README.md).
+- **Reproduce the documented experiment.** Follow the [source, release and environment instructions](docs/examples/README.md#reproduce-the-contextual-example).
+- **Develop locally.** Use the [developer setup](docs/develop.md) for the checkout, tool check and code routes.
 
 Built by Paul Heyse as part of an ongoing exploration of structured document intelligence.

@@ -1,52 +1,26 @@
 direction: down
 
 classes: {
-  band: {
+  stage: {
     shape: rectangle
     style: {
-      fill: "#e6eef9"
-      stroke: "#8196b3"
-      font-color: "#183454"
-      font-size: 22
+      font-size: 23
       border-radius: 10
-    }
-  }
-  operation: {
-    shape: rectangle
-    style: {
-      font-color: "#172d49"
-      font-size: 24
-      border-radius: 10
-      bold: true
     }
   }
 }
 
-source: "Source documents\nPDF intake and source locations" {class: band}
-
-operations: "" {
-  grid-rows: 2
-  grid-columns: 2
-  grid-gap: 18
-  style: {stroke-width: 0; fill: transparent}
-  extract: "01  Extract observations\nLocated observations" {
-    class: operation
-    style: {fill: "#dceafb"; stroke: "#4d77af"}
-  }
-  compose: "02  Compose local meaning\nQualified components" {
-    class: operation
-    style: {fill: "#d9f2eb"; stroke: "#428577"}
-  }
-  connect: "03  Connect the corpus\nWitnessed typed links" {
-    class: operation
-    style: {fill: "#ece5fa"; stroke: "#8066ac"}
-  }
-  assemble: "04  Assemble knowledge\nInspectable views and gaps" {
-    class: operation
-    style: {fill: "#f9edce"; stroke: "#9c7833"}
-  }
+source: "Source documents\nProvenance follows each output\nAssessment applies at every stage" {
+  class: stage
+  style.bold: true
 }
 
-evidence: "Source anchors and provenance across all stages\nAssessment of capture, roles, attachments, links and scope" {class: band}
-source -> operations
-operations -> evidence
+extract: "01  Extract observations\nLocate definitions, roles and cues\nOutput: located observations" {class: stage}
+compose: "02  Compose local meaning\nAttach roles, conditions and antecedents\nOutput: qualified components" {class: stage}
+connect: "03  Connect related material\nRetrieve candidates and select typed links\nOutput: witnessed connections" {class: stage}
+assemble: "04  Assemble knowledge\nGroup supported material and compare readings\nOutput: dossiers, comparisons and gaps" {class: stage}
+
+source -> extract: "source spans"
+extract -> compose: "located cues"
+compose -> connect: "qualified context"
+connect -> assemble: "supported links"

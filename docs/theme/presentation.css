@@ -1,0 +1,17 @@
+/* SPDX-License-Identifier: MIT OR Apache-2.0 */
+/* Copyright (c) 2026 Paul Heyse */
+.content h2, .content h3 { border-color: var(--table-border-color); }
+.content blockquote, .content details {
+    border-inline-start: 0.2rem solid var(--links);
+    padding-inline-start: 0.8rem;
+}
+.content details { margin-block: 1rem; }
+.content summary { cursor: pointer; }
+.pipeline-diagram img {
+    content: url("../docs/assets/pipeline.svg");
+    width: min(100%, 32rem);
+    height: auto;
+}
+:is(.coal, .navy, .ayu) .pipeline-diagram img {
+    content: url("../docs/assets/pipeline-dark.svg");
+}

@@ -1,6 +1,6 @@
 [book]
-title = "corpus-structure"
-description = "Architecture, decisions and working context"
+title = "Corpus Structure"
+description = "Document intelligence for building connected, source-grounded knowledge with structured extraction, semantic linking, and granular evaluation."
 authors = ["paul-heyse"]
 language = "en"
 src = "src"

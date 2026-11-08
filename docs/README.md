@@ -1,5 +1,9 @@
 # Documentation
 
+[Overview](../README.md) · [Examples](examples/README.md) · [Functional architecture](design/README.md) · [Evaluation](evaluation.md) · [Develop locally](develop.md)
+
+## Reference and contributor routes
+
 For consequential design and implementation choices, read the
 [design principles](design_review/design_principles/core/design-principles.md) and [efficient-architecture heuristics](design_review/design_principles/core/efficient-architecture-heuristics.md) together.
 Consider relevant patterns before physical choices become entrenched; use judgment rather than
@@ -7,8 +11,6 @@ a checklist or added proof machinery.
 
 Start with the task, then read the owning contract and adjacent consumer. Expand scope when a
 contradiction or dependency requires it; the whole corpus is not the default reading context.
-
-[Overview](../README.md) · [Examples](examples/README.md) · [Architecture](design/README.md) · [Evaluation](design_review/evidence/2026-11-08_nce-full-book/review/README.md) · [Running locally](../README.md#run-locally)
 
 | Task | Start here |
 |---|---|
