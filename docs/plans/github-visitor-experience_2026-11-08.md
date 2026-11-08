@@ -140,11 +140,14 @@ the verified public walkthrough.
 
 ### GHV-06 dispositions
 
+The [card and storyboard comparison](../design_review/evidence/2026-11-08_github-visitor-follow-ons/README.md)
+records the tested treatments and evidence journey.
+
 | Candidate | Disposition and revisit condition |
 | --- | --- |
-| Rendered example card | Provisional deferral. The four-row Markdown baseline is readable and its evidence links work. GHV-F04 owns the comparison against a visual treatment. |
-| Lucide | Provisional deferral. The numbered operation names and distinct output labels identify each stage. GHV-F04 owns the bounded visual comparison. |
-| Recorded walkthrough | Provisional deferral. The historical Reader query was refused. GHV-F04 owns the storyboard comparison using an exact verified result and its public evidence route. |
+| Rendered example card | Deferred. The card compacted the mobile layout. Both treatments kept the cue, result, witness and all three links easy to locate. Revisit if a denser example becomes hard to scan. |
+| Lucide | Deferred. The comparison surfaced no stage distinction requiring an icon. Revisit if the shared diagram gains operations that readers cannot distinguish from their names and outputs. |
+| Recorded walkthrough | Deferred. The run 327 storyboard repeated the static cue, target and witness links. Revisit when a verified interaction adds a distinct inspection step. |
 | Vale | Deferred. The editorial pass aligned naming across the README, architecture, examples and assets. Revisit if inconsistent names recur after edits. |
 | Markdownlint | Deferred. The existing publisher and link checks cover the observed Markdown failures. Revisit for recurring formatting defects those checks miss. |
 | D2 upgrade | Adopted in GHV-04 at 0.9.0 under the current-tooling decision. |
