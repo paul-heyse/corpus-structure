@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-08. Original whole-book intake and review are complete. Grouped Chandra and archive rendering are verified in development. The corrected comparator and shadow qualification are open._
+_Updated 2026-11-08. Original whole-book intake and review are complete. Grouped Chandra and archive rendering are verified in development. The corrected comparator was cancelled during validation. The full-book shadow is pending._
 
 ## Current authority
 
@@ -56,5 +56,5 @@ _Updated 2026-11-08. Original whole-book intake and review are complete. Grouped
   completed Standard cut 413 and combined cut 431. All 29 scoped views and nine contextual
   cues published. LLM review covers all 518 pages and retained definition and artifact outputs.
 - The [Chandra checkpoint](docs/plans/chandra-2-post-nemotron_2026-11-08.md#grouped-development-and-comparator-checkpoint--2026-11-08) owns `semantic_chandra_grouped_fix`, CUDA group 354, source-ready archive rendering and scoped test receipts.
-  Group recovery and the 15-page cohort passed their bounded journeys. Comparator run 373 and the full-book shadow precede the operating-policy decision.
+  Group recovery and the 15-page cohort passed. Comparator run 373 is cancelled with its frozen build retained. The full-book shadow and operating-policy decision remain open.
 - Settle the WCE source and factor obligations. Live CLI qualification needs a configured production target, purpose roles and effect authority.

@@ -1,7 +1,8 @@
 # Chandra 2 after Nemotron
 
 **Status · 2026-11-08.** Development inspection and grouped CUDA custody verified.
-The repaired incumbent comparator and shadow qualification are in progress. This coordinator
+The repaired incumbent comparator was cancelled during validation. Full-book
+shadow qualification remains open. This coordinator
 owns CH-01–11 and the combined Chandra target. It consumes the
 [functional review](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md) first
 published at `252a476da` and the dated follow-up integrated with this revision.
@@ -243,9 +244,12 @@ same publication check passed with that draft excluded in memory.
   The spools precede formula enrichment and lack the final native records.
   Retry run 356 sealed its exact native and organized products and retained
   all 29 views before a stale runtime pin refused its follow-up claim. The
-  current-runtime comparator run 373 reuses that organized product and all
-  1,246 verified A/B/C requests on the CPU. Its selected publication, exact
-  p416 formula projection and ordinary consumers still need verification.
+  current-runtime comparator run 373 reused that organized product and all
+  1,246 verified A/B/C requests on the CPU. At operator direction,
+  `uv run ci run cancel 373 --json` cancelled the ingest task. The active
+  validation statement was then cancelled on its exact PostgreSQL backend.
+  The frozen build and observations remain available. The selected publication,
+  exact p416 projection and ordinary consumer checks remain open.
   [Incumbent recovery evidence](../design_review/evidence/2026-11-08_chandra-execution/incumbent-recovery.md)
 - **CH-05–07 and CH-10.** The v2 evaluator covered all 518 archived pages and
   distinguished verified blank p506, scoped crop disagreements and unknown
