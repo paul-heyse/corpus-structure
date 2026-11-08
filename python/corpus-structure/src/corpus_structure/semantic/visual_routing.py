@@ -135,6 +135,7 @@ def _decide(page_no: int, signals: _PageSignals) -> VisualPageRoute:
     repair = []
     requests = list(signals.requests)
     unresolved = []
+    cues = signals.cues
     if (layout := signals.layout) is not None:
         selected: Sequence[_Region | StudyRegion] = signals.selected
         if signals.study_regions:
@@ -144,13 +145,13 @@ def _decide(page_no: int, signals: _PageSignals) -> VisualPageRoute:
                 *signals.study_regions,
             )
         seen = set()
+        comparable = _comparable_frame(layout.image)
         for reading in layout.readings:
             kind = _LAYOUT_KINDS.get(reading.kind)
             if kind is None or (kind, reading.box) in seen:
                 continue
             seen.add((kind, reading.box))
-            located = any(region.kind == kind for region in selected)
-            if located and not _comparable_frame(layout.image):
+            if not comparable:
                 unresolved.append(
                     VisualRouteReason(code="unassessed", kind=kind, inputs=(layout.pin,))
                 )
@@ -169,6 +170,28 @@ def _decide(page_no: int, signals: _PageSignals) -> VisualPageRoute:
                 requests.append(
                     VisualRouteReason(code="missing_structure", kind=kind, inputs=(layout.pin,))
                 )
+        if repair or len(requests) > len(signals.requests):
+            assessment = VisualCueAssessment(
+                cue="layout",
+                status="positive",
+                reason="located_structure_difference",
+                inputs=(layout.pin,),
+            )
+        elif unresolved:
+            assessment = VisualCueAssessment(
+                cue="layout",
+                status="inconclusive",
+                reason="unqualified_layout_geometry",
+                inputs=(layout.pin,),
+            )
+        else:
+            assessment = VisualCueAssessment(
+                cue="layout",
+                status="negative",
+                reason="assessed",
+                inputs=(layout.pin,),
+            )
+        cues = (assessment, *cues)
     if requests:
         crop = requests[0].crop
         return VisualPageRoute(
@@ -176,29 +199,29 @@ def _decide(page_no: int, signals: _PageSignals) -> VisualPageRoute:
             action="recognize",
             reasons=tuple(repair + requests + unresolved),
             crop=crop if all(reason.crop == crop for reason in requests + unresolved) else None,
-            cues=signals.cues,
+            cues=cues,
         )
     if repair:
         return VisualPageRoute(
-            page_no=page_no, action="repair", reasons=tuple(repair + unresolved), cues=signals.cues
+            page_no=page_no, action="repair", reasons=tuple(repair + unresolved), cues=cues
         )
     if unresolved:
         return VisualPageRoute(
-            page_no=page_no, action="unresolved", reasons=tuple(unresolved), cues=signals.cues
+            page_no=page_no, action="unresolved", reasons=tuple(unresolved), cues=cues
         )
     if signals.blank and layout is not None:
         return VisualPageRoute(
             page_no=page_no,
             action="skip",
             reasons=(VisualRouteReason(code="verified_blank_body", inputs=(layout.pin,)),),
-            cues=signals.cues,
+            cues=cues,
         )
-    assessed = signals.assessed and all(cue.status == "negative" for cue in signals.cues)
+    assessed = signals.assessed and all(cue.status == "negative" for cue in cues)
     return VisualPageRoute(
         page_no=page_no,
         action="skip" if assessed else "unresolved",
         reasons=(VisualRouteReason(code="no_supported_trigger" if assessed else "unassessed"),),
-        cues=signals.cues,
+        cues=cues,
     )
 
 
@@ -758,7 +781,15 @@ def _page_signals(
         signals.requests.extend(omissions)
 
     def cue(
-        name, *, observations=(), available=False, positive=False, reason=None, digest=None, pins=()
+        name,
+        *,
+        observations=(),
+        available=False,
+        positive=False,
+        inconclusive=False,
+        reason=None,
+        digest=None,
+        pins=(),
     ):
         unavailable = next((item.availability for item in observations if not item.readings), None)
         assessed = available and unavailable is None
@@ -770,27 +801,27 @@ def _page_signals(
                 else "negative"
                 if assessed
                 else "inconclusive"
-                if unavailable == "unsupported_reading"
+                if inconclusive or unavailable == "unsupported_reading"
                 else "unassessed"
             ),
-            reason=reason or unavailable or ("assessed" if assessed else "missing_input"),
+            reason=unavailable or reason or ("assessed" if assessed else "missing_input"),
             inputs=tuple(item.pin for item in observations) + tuple(pins),
             artifact_digest=digest,
         )
 
+    incomplete_comparison = bool(comparisons) and not all(complete for _, complete in comparisons)
     signals.cues = (
-        cue("layout", observations=(layout,) if layout else layouts, available=layout is not None),
+        *((cue("layout", observations=layouts),) if layout is None else ()),
         cue(
             "whole_recognition", observations=(whole,) if whole else (), available=whole is not None
         ),
         cue(
             "crop_comparison",
             observations=((whole,) if whole else ()) + tuple(crops),
-            available=bool(comparisons) and all(complete for _, complete in comparisons),
+            available=bool(comparisons) and not incomplete_comparison,
             positive=bool(disagreements),
-            reason="no_exact_quantity_comparison"
-            if not any(complete for _, complete in comparisons)
-            else None,
+            inconclusive=incomplete_comparison,
+            reason="no_exact_quantity_comparison" if incomplete_comparison else None,
         ),
         cue(
             "crop_coverage",

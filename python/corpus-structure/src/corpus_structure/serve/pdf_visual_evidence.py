@@ -817,17 +817,22 @@ def _read_mapped_locator(conn, evidence, digest, request, regions, budget, after
         )
 
     body = locator.c.body
-    region = body["source_region"].label("region")
     metadata = select(
-        locator.c.ordinal, locator.c.occurrence_id, locator.c.kind, locator.c.parent_id, region
+        locator.c.ordinal, locator.c.occurrence_id, locator.c.kind, locator.c.parent_id
     ).where(*pin(locator))
-
-    def scoped(row):
-        return not regions or (
-            row.region is not None
-            and any(
-                _overlaps(VisualSourceRegion.model_validate(row.region), requested)
-                for requested in regions
+    if regions:
+        coords = body["source_region"]
+        metadata = metadata.where(
+            or_(
+                *(
+                    and_(
+                        cast(coords["left"].as_string(), Numeric) < area.right,
+                        cast(coords["right"].as_string(), Numeric) > area.left,
+                        cast(coords["top"].as_string(), Numeric) < area.bottom,
+                        cast(coords["bottom"].as_string(), Numeric) > area.top,
+                    )
+                    for area in regions
+                )
             )
         )
 
@@ -842,7 +847,7 @@ def _read_mapped_locator(conn, evidence, digest, request, regions, budget, after
 
     def exact(occurrence):
         rows = bounded(metadata.where(locator.c.occurrence_id == occurrence), 1)
-        return rows[0] if rows and scoped(rows[0]) else None
+        return rows[0] if rows else None
 
     if request.occurrence_id is not None:
         anchor = exact(request.occurrence_id)
@@ -872,21 +877,6 @@ def _read_mapped_locator(conn, evidence, digest, request, regions, budget, after
                 "visual_cell_subtree", recursive=True
             )
             children = metadata.join(tree, locator.c.parent_id == tree.c.occurrence_id)
-            if regions:
-                coords = body["source_region"]
-                children = children.where(
-                    or_(
-                        *(
-                            and_(
-                                cast(coords["left"].as_string(), Numeric) < area.right,
-                                cast(coords["right"].as_string(), Numeric) > area.left,
-                                cast(coords["top"].as_string(), Numeric) < area.bottom,
-                                cast(coords["bottom"].as_string(), Numeric) > area.top,
-                            )
-                            for area in regions
-                        )
-                    )
-                )
             tree = tree.union_all(children)
             candidates = bounded(select(tree))
         candidates = sorted(
@@ -911,7 +901,7 @@ def _read_mapped_locator(conn, evidence, digest, request, regions, budget, after
         targets = set()
         for row in conn.execute(textual):
             budget.value(dict(row._mapping))
-            if not scoped(row) or phrase not in " ".join((row.reading or "").casefold().split()):
+            if phrase not in " ".join((row.reading or "").casefold().split()):
                 continue
             targets.update(row.parser_targets or ())
             targets.update(row.association_targets or ())
@@ -927,22 +917,17 @@ def _read_mapped_locator(conn, evidence, digest, request, regions, budget, after
             else bounded(
                 metadata.where(
                     locator.c.occurrence_id.in_(targets),
+                    locator.c.kind == "picture",
                     locator.c.ordinal > position,
-                ).order_by(locator.c.ordinal)
+                ).order_by(locator.c.ordinal),
+                request.limit + 1,
             )
         )
-        candidates = [row for row in candidates if scoped(row)]
     else:
         selection = metadata.where(locator.c.ordinal > position)
         if request.visual_kind is not None:
             selection = selection.where(locator.c.kind == request.visual_kind)
-        candidates = [
-            row
-            for row in bounded(
-                selection.order_by(locator.c.ordinal), request.limit + 1 if not regions else None
-            )
-            if scoped(row)
-        ]
+        candidates = bounded(selection.order_by(locator.c.ordinal), request.limit + 1)
 
     if request.visual_kind is not None:
         candidates = [row for row in candidates if row.kind == request.visual_kind]

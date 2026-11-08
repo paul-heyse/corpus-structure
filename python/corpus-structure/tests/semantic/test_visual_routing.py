@@ -1,5 +1,6 @@
 from contextlib import closing
 from ctypes import c_ushort
+from dataclasses import replace
 
 import pytest
 from pypdfium2 import PdfDocument, raw
@@ -71,6 +72,27 @@ def test_positioned_table_gap_is_distinct_from_unrelated_same_kind(
     assert result.action == action
     assert result.reasons[0].code == reason
     assert result.reasons[0].inputs == pins
+    (cue,) = result.cues
+    assert (cue.cue, cue.status, cue.inputs) == (
+        "layout",
+        "negative" if selected else "positive",
+        (_PIN,),
+    )
+
+
+def test_unqualified_layout_geometry_keeps_a_located_cue_inconclusive():
+    layout = _layout(b"<x_0.2><y_0.2><x_0.8><y_0.4><class_Table>")
+    result = _decide(
+        151, _PageSignals([], [_region()], True, layout=replace(layout, image=_image(rotation=90)))
+    )
+    assert result.action == "unresolved"
+    assert result.reasons[0].code == "unassessed"
+    (cue,) = result.cues
+    assert (cue.status, cue.reason, cue.inputs) == (
+        "inconclusive",
+        "unqualified_layout_geometry",
+        (_PIN,),
+    )
 
 
 def test_unassessed_page_is_unresolved_even_with_no_detected_gap():

@@ -343,23 +343,45 @@ def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
         VisualCellGroup,
         VisualEvidenceArtifact,
         VisualPicture,
+        VisualSourceRegion,
         VisualTable,
         VisualTableCell,
         VisualText,
         _read_mapped_locator,
     )
 
-    picture_count = MAX_VISUAL_EVIDENCE_ROWS - 5
+    caption_count = 192
+    formula_count = 96
+    picture_count = MAX_VISUAL_EVIDENCE_ROWS - caption_count - formula_count - 4
     final_picture = f"picture-{picture_count - 1}"
+    inside = VisualSourceRegion(left=120, top=120, right=140, bottom=140)
+    outside = VisualSourceRegion(left=10, top=10, right=20, bottom=20)
     near_limit = VisualEvidenceArtifact(
         page_no=1,
         rows=(
-            *(VisualPicture(occurrence_id=f"picture-{n}") for n in range(picture_count)),
+            *(
+                VisualPicture(
+                    occurrence_id=f"picture-{n}",
+                    source_region=inside if n == picture_count - 1 else outside,
+                )
+                for n in range(picture_count)
+            ),
+            *(
+                VisualText(
+                    occurrence_id=f"description-{n}",
+                    parent_occurrence_id=f"picture-{n}",
+                    kind="picture_description",
+                    text="Rare histogram" if n == 0 else f"Unrelated description {n}",
+                    source_region=outside,
+                )
+                for n in range(caption_count)
+            ),
             VisualText(
                 occurrence_id="description",
                 parent_occurrence_id=final_picture,
                 kind="picture_description",
                 text="Rare histogram",
+                source_region=inside,
             ),
             VisualTable(
                 occurrence_id="rich-table",
@@ -379,8 +401,14 @@ def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
             VisualCellGroup(
                 occurrence_id="group", parent_occurrence_id="rich-table", native_label="text"
             ),
-            VisualText(
-                occurrence_id="formula", parent_occurrence_id="group", kind="formula", text="x^2"
+            *(
+                VisualText(
+                    occurrence_id=f"formula-{n}",
+                    parent_occurrence_id="group",
+                    kind="formula",
+                    text=f"x^{n}",
+                )
+                for n in range(formula_count)
             ),
         ),
     )
@@ -403,28 +431,55 @@ def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
         )
     assert item.occurrence_id == request.occurrence_id and following is None
     with db.writer.connect() as conn:
-        cell = request.model_copy(update={"occurrence_id": "rich-table", "cell_index": 0})
-        items, following = _read_mapped_locator(
-            conn, large.mapped, mapped_digest, cell, (), PublishedReadBudget(7, 2048), 0
+        cell = request.model_copy(
+            update={"occurrence_id": "rich-table", "cell_index": 0, "limit": 2}
         )
-        assert [entry.occurrence_id for entry in items] == [
-            "group",
-            "formula",
-        ] and following is None
+        items, following = _read_mapped_locator(
+            conn, large.mapped, mapped_digest, cell, (), PublishedReadBudget(104, 2048), 0
+        )
+        assert [entry.occurrence_id for entry in items] == ["group", "formula-0"]
+        assert following is not None
+        items, _ = _read_mapped_locator(
+            conn, large.mapped, mapped_digest, cell, (), PublishedReadBudget(104, 2048), following
+        )
+        assert [entry.occurrence_id for entry in items] == ["formula-1", "formula-2"]
+        with pytest.raises(ReadLimit, match="row-work budget"):
+            _read_mapped_locator(
+                conn, large.mapped, mapped_digest, cell, (), PublishedReadBudget(7, 2048), 0
+            )
         figure = request.model_copy(
             update={
                 "occurrence_id": None,
                 "visual_query": "Rare histogram",
                 "visual_kind": "picture",
+                "limit": 1,
             }
         )
         (matched,), following = _read_mapped_locator(
-            conn, large.mapped, mapped_digest, figure, (), PublishedReadBudget(4, 2048), 0
+            conn, large.mapped, mapped_digest, figure, (), PublishedReadBudget(205, 131072), 0
+        )
+        assert matched.occurrence_id == "picture-0" and following is not None
+        (matched,), following = _read_mapped_locator(
+            conn,
+            large.mapped,
+            mapped_digest,
+            figure,
+            (),
+            PublishedReadBudget(205, 131072),
+            following,
         )
         assert matched.occurrence_id == final_picture and following is None
+        (matched,), following = _read_mapped_locator(
+            conn, large.mapped, mapped_digest, figure, (inside,), PublishedReadBudget(4, 2048), 0
+        )
+        assert matched.occurrence_id == final_picture and following is None
+        touching = inside.model_copy(update={"left": inside.right, "right": 160})
+        assert _read_mapped_locator(
+            conn, large.mapped, mapped_digest, figure, (touching,), PublishedReadBudget(4, 2048), 0
+        ) == ((), None)
         with pytest.raises(ReadLimit, match="byte budget"):
             _read_mapped_locator(
-                conn, large.mapped, mapped_digest, figure, (), PublishedReadBudget(4, 8), 0
+                conn, large.mapped, mapped_digest, figure, (), PublishedReadBudget(205, 8), 0
             )
     generation.remove("near-limit")
 
