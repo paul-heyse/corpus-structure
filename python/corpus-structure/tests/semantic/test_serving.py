@@ -438,7 +438,7 @@ def test_statistics_named_algorithms_and_exact_ownership(
         assert len(statements) == 1 and statements[0].statement.entity_id == "stmt"
 
 
-def test_ownership_uses_declared_qualification_type_and_exact_scale(
+def test_toy_pack_delivers_ownership_distinct_identities_and_contextual_inspection(
     semantic_db_engine, semantic_writer_engine, semantic_reader_engine
 ):
     from decimal import Decimal
@@ -453,9 +453,35 @@ def test_ownership_uses_declared_qualification_type_and_exact_scale(
         "end": {"kind": "partial_date", "lexical": "2020-12-31"},
         "end_incl": False,
     }
+
+    def atom(predicate):
+        return {
+            "kind": "atomic",
+            "predicate": predicate,
+            "arguments": ({"kind": "text", "text": "Asset X"},),
+        }
+
+    condition = {
+        "kind": "all",
+        "terms": (
+            atom("inspection_current"),
+            {
+                "kind": "not",
+                "term": {
+                    "kind": "any",
+                    "terms": (
+                        atom("inspection_withdrawn"),
+                        atom("sample_contaminated"),
+                    ),
+                },
+            },
+        ),
+    }
     entries = [
         ("org", "Organization", "registry_id", "Org101", q, "Qualification"),
         ("org", "Organization", "label", "Owner", q, "Qualification"),
+        ("other", "Organization", "registry_id", "Org102", q, "Qualification"),
+        ("other", "Organization", "label", "Owner", q, "Qualification"),
         ("asset", "Asset", "label", "Asset X", q, "Qualification"),
         (
             "org",
@@ -469,6 +495,27 @@ def test_ownership_uses_declared_qualification_type_and_exact_scale(
                 "valid_time": interval,
             },
             "ToyQualification",
+        ),
+        (
+            "asset",
+            "Asset",
+            "inspection",
+            {
+                "kind": "inspection",
+                "inspector": "org",
+                "custodian": "other",
+                "details": {
+                    "condition": "after desiccation",
+                    "measured_quantity": {
+                        "kind": "quantity",
+                        "number": Decimal("12.3400"),
+                        "unit": "kg",
+                        "basis": "dry mass",
+                    },
+                },
+            },
+            {**q, "condition": condition},
+            "Qualification",
         ),
     ]
     _, _batch = install_pack_scenario(semantic_db_engine, semantic_writer_engine, "toy", entries)
@@ -494,6 +541,19 @@ def test_ownership_uses_declared_qualification_type_and_exact_scale(
         )
         assert current[0]["claim"]["fact"]["qualification"]["filing_ref"] == "filing-A"
         assert rows("2020-12-31")[0]["applicability"] == "not_applicable"
+
+        assert set(ctx.reader.resolve("Owner", "Organization")) == {"org", "other"}
+        (inspection,) = ctx.reader.claims(predicate="toy:inspection")
+        retained = inspection.fact.model_dump(
+            mode="python", serialize_as_any=True, exclude_none=True
+        )
+        value = retained["object"]
+        assert value["inspector"] == "org" and value["custodian"] == "other"
+        assert value["details"]["condition"] == "after desiccation"
+        quantity = value["details"]["measured_quantity"]
+        assert quantity["number"].as_tuple() == Decimal("12.3400").as_tuple()
+        assert (quantity["unit"], quantity["basis"]) == ("kg", "dry mass")
+        assert retained["qualification"]["condition"] == condition
 
 
 def test_real_cli_query_explain_and_export_dispatch(serving_read_scenario, tmp_path, cli):

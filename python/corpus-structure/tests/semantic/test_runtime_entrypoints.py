@@ -148,6 +148,88 @@ def test_default_project_mcp_observes_run_created_after_startup(
     anyio.run(journey)
 
 
+def test_project_queue_inventory_and_selection_agree_for_two_pending_runs(
+    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
+):
+    from corpus_structure.core.method import UnitRef
+    from corpus_structure.core.vocab import TaskUnitType
+    from corpus_structure.orchestrate.semantic import queue_agent
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.operations import OperationBinding, create_run
+
+    prepared, first_run, first_task, locator = build_resubmission_case(
+        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
+    )
+    with semantic_writer_engine.begin() as conn:
+        runs, tasks = table("ops.run"), table("ops.task")
+        options = conn.scalar(select(runs.c.options).where(runs.c.id == first_run))
+        view_id = conn.scalar(select(tasks.c.unit_id).where(tasks.c.id == first_task))
+        configuration = options["agent_configs"]["agent.opus/extract"]
+        second_run = create_run(
+            conn,
+            project_id="resubmit",
+            binding=OperationBinding(
+                prepared.release_id,
+                "input",
+                0,
+                canonical_bytes(
+                    {
+                        "operations": {},
+                        "agent_configurations": options["agent_configs"],
+                    }
+                ),
+            ),
+            kind="full",
+            options=options,
+            code_commit="two-pending-queue-control",
+        )
+        conn.execute(
+            text("SELECT ops.select_source_view(:r,:origin,:v)"),
+            dict(r=second_run, origin=first_run, v=view_id),
+        )
+        (second_task,) = queue_agent(
+            conn,
+            run_id=second_run,
+            prepared=prepared,
+            configuration=configuration,
+            units=(UnitRef(TaskUnitType.SOURCE_VIEW, view_id, locator),),
+        )
+
+    session = SemanticProjectSession(semantic_writer_engine, "resubmit")
+
+    async def journey():
+        async with Client(
+            build_semantic_server(session, read_engine=semantic_reader_engine)
+        ) as client:
+            inventory = (await client.call_tool("queue_status", {})).structured_content
+            assert inventory is not None
+            assert [(q["run_id"], q["awaiting"]) for q in inventory["queues"]] == [
+                (second_run, 1),
+                (first_run, 1),
+            ]
+            explicit = (
+                await client.call_tool("queue_status", {"run": first_run})
+            ).structured_content
+            assert explicit is not None and [q["run_id"] for q in explicit["queues"]] == [first_run]
+
+            implicit = (await client.call_tool("queue_next", {})).structured_content
+            assert implicit is not None
+            assert [(q["run_id"], q["task_id"]) for q in implicit["tasks"]] == [
+                (second_run, second_task)
+            ]
+            released = (
+                await client.call_tool("release", {"task_id": second_task, "reason": "control"})
+            ).structured_content
+            assert released is not None and released["released"]
+            override = (await client.call_tool("queue_next", {"run": first_run})).structured_content
+            assert override is not None
+            assert [(q["run_id"], q["task_id"]) for q in override["tasks"]] == [
+                (first_run, first_task)
+            ]
+
+    anyio.run(journey)
+
+
 def test_db_migrate_uses_semantic_history_and_refuses_legacy(semantic_db_engine):
     from corpus_structure.cli.db import DbRefused, _migrate
     from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID

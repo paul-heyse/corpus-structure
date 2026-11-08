@@ -155,7 +155,6 @@ def build_resubmission_case(
         document_id=document,
         original=original,
         paragraphs=paragraphs,
-        keys=("source.html#people",),
     )
     with engine.begin() as conn:
         locator = view.ref.key
