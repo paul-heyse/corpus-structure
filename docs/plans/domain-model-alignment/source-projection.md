@@ -75,23 +75,20 @@ recognized text, source-verified readable spelling and positioned or
 mathematical interpretation remain distinct.
 
 Apply the same released witness decision to section preparation, the
-DMA-06 address check, native publication and formula inspection. For a
-supported archived PDF, resolve the policy and witness from the exact
-retained release or its versioned projection. Remove reliance on an
-installed recipe match for that read. Preserve the supported p416 v9
-representation when the successor is installed. Use the existing retained
-recipe and release custody, rather than a separate witness store or a
-historical semantic executor.
+DMA-06 address check, native publication and formula inspection. Resolve
+policy and witness from the current projection's exact bound release.
+Keep the p416 v9 representation as historical evidence and regenerate
+the affected projections using the current recipe. Use existing recipe
+and release custody for witness storage.
 [Installed recipe dependency](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_hierarchy.py#L239) ·
 [Exact formula Reader](../../../python/corpus-structure/src/corpus_structure/serve/native_source.py#L582) ·
 [Current-only decision](../../adr/0067-witnessed-current-only-cutover.md)
 
 **Closure.** Add a second independently checked witness. Change unrelated
 selected content and demonstrate the preserved correspondence. Changing the
-occurrence, frame or spelling must invalidate reuse. After a successor
-recipe is installed, the explicitly supported archived p416 response
-preserves its prior readable and recognized forms. Rebuilt current search
-and packets use the new exact projection.
+occurrence, frame or spelling must invalidate reuse. Rebuilt current
+Reader, search and packets use the new exact projection and preserve the
+source-grounded distinction between readable original and recognized text.
 
 ### Completion audit follow-up
 
@@ -106,3 +103,17 @@ its occurrence substitution refusal. Trace the rebuilt current recipe
 through search and packet delivery on the same source cut.
 [Witness collection control](../../../python/corpus-structure/tests/ingest/test_pdf_body_selection.py#L124) ·
 [Development adoption](../domain-model-alignment_2026-11-08.md#development-adoption-on-2026-11-08)
+
+**Independently checked source occurrence · 2026-11-08.** The second
+released witness names `#/texts/2355` under `#/groups/618` in integrated
+task 1627, digest
+`35f4384ea386e630448d804621c0767881650937c45cd4294182cb0dd91ce8fb`.
+Its original-spelling digest is
+`ecbafbade8d7d5fd24d4397a927f61799c215dea05735a723a7692ffef3d1d70`.
+`pdftotext -f 418 -l 418 -layout` and the author source agree on the five
+state labels and all 25 entries of the Ehrenfest transition matrix in
+Example 11.8. The retained recognized field is truncated. This establishes
+the second witness's source correspondence. Rebuilt current Reader, search
+and packet qualification belongs to the successor cut.
+[Original PDF](../../statistics_corpus/corpus/grinstead_snell/Introduction_to_probability_grinstead_and_snell.pdf) ·
+[Author source](../../statistics_corpus/corpus/grinstead_snell/latex_source/ch11.tex#L386)

@@ -31,8 +31,11 @@ GPU, PostgreSQL purpose roles and exact retained source products. Existing WCE
 receipts retain their smaller population.
 
 No rule changes are proposed. §B1–§B6, ADR-0067, ADR-0069 and ADR-0070
-continue to govern the target. Supported archived PDF reads retain their
-meaning within current-only execution. Chandra remains an explicit
+continue to govern the target. The operator directed a hard pivot for
+the audit repairs. Current producers and consumers use the replacement
+contracts and regenerate incompatible derived results. Retained sources,
+release inputs and recorded evidence keep their original identities.
+Chandra remains an explicit
 candidate-evidence route. Promoting it into selected source, automatic
 default dispatch, general historical execution and new production-domain
 qualification need separate scope decisions. If a package reveals a genuine
@@ -77,16 +80,16 @@ evidence rather than changing another plan's obligations. The
 |---|---|---|
 | [DMA-00](#dma-00) | Coordinator | Complete for baseline and review reconciliation. The audit confirmed the scope mapping and observed the acquired development revision. |
 | DA-067 · [DMA-01](domain-model-alignment/release-and-deployment.md#DMA-01) | Release compiler and exact preview | Implemented and qualified for the retained cross-process, changed-input and cold-archive controls. A changed artifact refused exact candidate creation. |
-| DA-063 · [DMA-02](domain-model-alignment/release-and-deployment.md#DMA-02) | Native target and migration | Partial. Older-read, non-head and recovery controls stand at their recorded scope, and the development bridge is verified. Full catalog preflight and the ordinary authored-SQL route remain open. |
+| DA-063 · [DMA-02](domain-model-alignment/release-and-deployment.md#DMA-02) | Native target and migration | Current implementation and focused native qualification passed. The forward descriptor includes the exact spatial index and generated geometry. Development deployment settled on the bound target. |
 | DA-062 · [DMA-03](domain-model-alignment/semantic-admission.md#DMA-03) | Source-value codec | Implemented and qualified for the tested encoded value boundary. Python, protected native completion and typed detached decoding agree on the tested nested values and malformed sequences. |
 | DA-056 · [DMA-04](domain-model-alignment/semantic-admission.md#DMA-04) | Finite interpretation and admission | Implemented and qualified for the displayed-support rule and scoped table and dossier controls. Full solver replay retains its separate assurance boundary. |
-| DA-065 · [DMA-05](domain-model-alignment/semantic-admission.md#DMA-05) | Definition derivation and publication | Partial. Typed witness custody and separate public eligibility stand. Native matched-cue and geometry admission still omit contextual restrictions applied by detached rederivation. |
-| [Review F02](../design_review/reviews/design_review_domain-model-alignment_2026-11-08.md#F02) · [DMA-06](domain-model-alignment/source-projection.md#DMA-06) | Selected source projection | Partial. Native ordered inventory and the protected omission refusal stand. Detached replay can accept a downgrade or unauthenticated exclusion. |
-| DA-061 · [DMA-07](domain-model-alignment/source-projection.md#DMA-07) | Formula witness and exact read | Partial closure. The witness collection and retained policy lookup are implemented. Archived p416 and current exact Reader checks stand. Independent second released witness and rebuilt search and packet qualification remain open. |
-| DA-059/060 · [DMA-08](domain-model-alignment/operational-custody.md#DMA-08) | Managed outcomes and evidence | Partial. Successful deploy target and effect reporting stand. Post-commit receipt failure and cleanup failure can still misstate effects or custody. |
-| DA-064 and [review F01](../design_review/reviews/design_review_domain-model-alignment_2026-11-08.md#F01) · [DMA-09](domain-model-alignment/visual-evidence.md#DMA-09) | Routing and native decision custody | Partial. Retained nominations and scoped cue controls stand. Mixed-crop coverage, by-ID progress for interrupted groups and changed-policy reuse remain open. |
-| DA-058 · [DMA-10](domain-model-alignment/visual-evidence.md#DMA-10) | Group recovery and original custody | Partial. Original reference custody and settled-inference resume stand. Fresh compatible page preparation and early reuse across groups remain open. |
-| DA-066 · [DMA-11](domain-model-alignment/visual-evidence.md#DMA-11) | Typed visual Reader | Partial. Exact indexed locators and retained p151 Reader, CLI, MCP and packet delivery stand. Region discovery still lacks an examined-work bound at the accepted limit. |
+| DA-065 · [DMA-05](domain-model-alignment/semantic-admission.md#DMA-05) | Definition derivation and publication | Current native eligibility checks retained scope and competing bindings. Targeted controls passed, including the compound conditional refusal. Public eligibility remains independent. |
+| [Review F02](../design_review/reviews/design_review_domain-model-alignment_2026-11-08.md#F02) · [DMA-06](domain-model-alignment/source-projection.md#DMA-06) | Selected source projection | Current detached proof rejects resealed omissions and unauthenticated exclusions in focused controls. The full native input digest verified. Whole-book detached delivery remains an assembled check. |
+| DA-061 · [DMA-07](domain-model-alignment/source-projection.md#DMA-07) | Formula witness and exact read | Both independently corroborated formula witnesses passed current Reader, source search and packet checks on cut 514. |
+| DA-059/060 · [DMA-08](domain-model-alignment/operational-custody.md#DMA-08) | Managed outcomes and evidence | Current receipt checkpoints and exact effect reconciliation passed focused commit and cleanup fault controls. The development receipt settles all four known deployment effects. |
+| DA-064 and [review F01](../design_review/reviews/design_review_domain-model-alignment_2026-11-08.md#F01) · [DMA-09](domain-model-alignment/visual-evidence.md#DMA-09) | Routing and native decision custody | Current crop assessments and native progress projection passed focused controls, including forged raw pin refusal. |
+| DA-058 · [DMA-10](domain-model-alignment/visual-evidence.md#DMA-10) | Group recovery and original custody | Shared raster preparation and early exact raw reuse passed focused controls. The native recovery regression passed after comparing typed geometry and digest identities separately. Live provider qualification remains part of assembled acceptance. |
+| DA-066 · [DMA-11](domain-model-alignment/visual-evidence.md#DMA-11) | Typed visual Reader | The typed spatial locator and near-limit sparse and empty regional checks passed focused native controls. The frozen descriptor verifies the access path. |
 | [DMA-12](#dma-12) | Coordinator and affected authorities | Bounded investigations delivered. Final-source reference-path coverage remains open. The second-pack control establishes only its scoped transfer case. |
 | [DMA-13](#dma-13) | Native migration and assembled acceptance | Development migration, archive, admission and private source rebuild verified. The assertion fix passed its pinned replay and focused controls. Full-book qualification, evaluated acceptance and selected cutover remain open. |
 
@@ -294,13 +297,13 @@ identities and context unconfirmed in this audit.
 
 Freeze the new contracts and reviewed native expectations before effectful
 cutover. Change meanings and generated/native representations together.
-For affected records, distinguish safe faithful conversion from derived
-closures that require regeneration. Validate conversions from authenticated
-premises and use new versioned identity when meaning changes. Retain raw
-originals, exact supported archived PDF products, receipts and independent
-evidence. Avoid guessed witnesses, inferred legacy receipt facts or altered
-exposure. Retire obsolete interpretation and consumer paths as their
-replacement is ready under current-only execution.
+Rebuild affected derived results from authenticated inputs and use new
+versioned identity when meaning changes. Retain raw originals, reusable
+source products, receipts and independent evidence. A historical result
+may remain as recorded evidence after its executable contract is removed.
+Retire replaced interpretation and consumer paths under current-only
+execution. Retire incompatible derived dependency closures after qualifying
+the replacement and confirming source and evidence custody.
 
 Stage and verify a forward native revision against the acquired target.
 Keep registration, migration, archive, admission, publication and
@@ -597,3 +600,79 @@ requirements.
    Keep evaluated acceptance, activation and selection separately
    attributable. The earlier source-ready cut and partial candidate run
    do not satisfy those transitions.
+
+### Audit repair execution
+
+**Focused Tested · 2026-11-08.** Development was observed at
+`semantic_dma_05_13_final`, database OID `25921445`, with the full-book
+project at generation 0 and empty activation and selection. A native
+two-connection control identified the blocking backend with
+`pg_blocking_pids`. The repair retries once after a confirmed rollback
+when the exact lease still covers the attempt. Both release and persistent
+contention passed in managed result `5f6ab477694140089eb92b3fec460e04`
+(`uv run ci test --json -- python/corpus-structure/tests/semantic/test_claim_owner_native.py -k run_row_contention`).
+The historical blocker for run 403 remains unidentified. The expiry and
+reassignment guard needs verification on the frozen successor.
+
+The isolated staged math parity check passed in
+`d0cf24d5cff34d5f819eb82759b4a212`. The isolated installed model preview
+passed within the existing timeout. The installed ordinary review replay
+failed before export with `candidate compiled projection differs` on the
+old native revision against changed source, in `0127a6767b454e8f92cbd1a0f4412161`.
+Both installed controls still require the final source and native revision.
+
+The focused native deployment and managed custody controls passed in
+`22dd4afd02164374bf4bff34bb1886c2` and
+`61a61f283b2040e9acac13f00a7c6491`. PostgreSQL-normalized catalog controls
+for the visual geometry and indexes passed in `1177bf0e02054e8e9039fbef927d8027`.
+Native definition scope and detached bundle controls passed their targeted
+selections in `1fd9f5a4cfd64de7a44ef118f4077bc3` and
+`80cc0bad47b34719a20126c23ffac0ca`. Visual routing, recognition preparation and
+delivery controls passed their focused selection in `d8be7e1dbf2c422495a301a1cb5a69fc`.
+These receipts apply to their captured sources and contexts. Full-book proof,
+native visual delivery and final installed CLI controls require the successor.
+
+The rollback-only candidate `c8576c24b81f4c149d984531ade04934` failed while
+authoring the definition scope function before its native predicate dependency.
+The function registration order was corrected. Development effects from that
+candidate were `not_run`.
+
+The rollback rehearsal passed in `3ed6862eb93c4eda9c8de28fb28f7c3d` after
+binding the existing renewal function to its frozen predecessor declaration.
+`uv run ci model change register 3ed6862eb93c4eda9c8de28fb28f7c3d --json`
+passed in `6ce78c850ae1496c8a38dc6648f00fb9`.
+`uv run ci model change deploy 3ed6862eb93c4eda9c8de28fb28f7c3d --json`
+passed in `d49b8422acfe4e8ba686853271ff2236`. Its managed account settles
+migration, archive, admission and verification for development revision
+`semantic_dma_audit_current`, with established cleanup. Activation, selection,
+and derived retirement remain separately gated on current qualification.
+
+On that revision, a restricted `uv run python` invocation of
+`capture_source_proof` and `load_source_proofs` verified the exact logical
+digest of integrated task 1627 over 456,304 frames and 28,233 occurrence
+openings. This uses the full retained book input. Rebuilt source projection,
+search and packet delivery were then checked on source-only run 404, cut 514.
+All 29 source views were selected. Native formula Reader checks with the
+8 MiB budget returned the 515-character p416 and 101-character p418
+original spellings. Both original digests matched their attributed pieces in
+the current native proposal packet. The source searches selected that same
+view. The default 1 MiB Reader requests refused on their work budget.
+
+The integrated focused selection `51dba05916b445529c5731a6c63e6df5`
+passed 66 controls and found one visual group recovery regression. The
+repair compares typed geometry in PostgreSQL's JSONB domain and retains
+exact recipe and PNG digest checks. The exact native regression passed in
+`82f222fb7b5a4915b754de1c1bfbe717`. Product commit `b812cbcfd` contains the
+current-only implementation and frozen migration. `uv run ci check --json`
+passed. Final-source functional qualification and evaluated selection are
+still open.
+
+Run 406 passed the [native assertion canary](../design_review/evidence/2026-11-08_dma-audit-repair/README.md)
+and sealed cut 515. Task 1955 retained context 435 and literal `positive`
+at `[24,32)` on its first attempt. Earlier run 405 failed because the
+stdin wrapper could not start the spawned provider worker. The current
+importable wrapper uses the pinned provider unchanged. Independent source-only
+development set 32 was frozen before full-book candidate execution, with
+protected A/B/C passes 117–119. Full-book run 407 uses the current release
+and the same 518-page input. Corpus grading and final functional coverage
+are pending.

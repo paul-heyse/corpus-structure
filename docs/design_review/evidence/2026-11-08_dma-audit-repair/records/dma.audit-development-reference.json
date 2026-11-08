@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "id": "dma.audit-development-reference",
+  "title": "Independent source-only development reference",
+  "group": "dma-audit-repair",
+  "package": "DMA-13",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the current full-book project retain independent authoring and adjudication without production prediction exposure?",
+  "answers": [
+    "DMA-12",
+    "DMA-13"
+  ],
+  "method": "Freeze one exact source-only sentence and its required section scope before candidate output. Retain separate authors and adjudication under the existing development origin.",
+  "commands": [
+    "uv run ci golden record-packet --unit 45 --pass A --project nce-grinstead-snell-full-book --json",
+    "uv run ci golden record-packet --unit 45 --pass C --project nce-grinstead-snell-full-book --json"
+  ],
+  "agents": [
+    {
+      "role": "A author",
+      "model": "gpt-6.1-sol high",
+      "brief": null,
+      "separation": "Fresh context with source packet only"
+    },
+    {
+      "role": "B author",
+      "model": "gpt-6.1-sol high",
+      "brief": null,
+      "separation": "Fresh context with source packet only"
+    },
+    {
+      "role": "C adjudicator",
+      "model": "gpt-6.1-sol high",
+      "brief": null,
+      "separation": "Fresh context with source and retained A/B passes"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "raw/author_packet_current.json",
+      "role": "Frozen source-only author packet",
+      "sha256": "e4ffef77128b38609de442a71b7b5e613d33ed04b4db92905df120c6c6b2ffe2"
+    },
+    {
+      "path": "raw/reference_frame.json",
+      "role": "Exact native and projection scope",
+      "sha256": "20aa765c90beb2e86166ebe56d862acd483690f249c2337b3154369e89779cf0"
+    },
+    {
+      "path": "raw/adjudication_packet.json",
+      "role": "Source and exact A/B decision input to C",
+      "sha256": "d3a46c7506fea9ed1e9d47eba118c10aa7ac144907a357f2f97469d6c699b3d8"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/author_a.json",
+      "role": "A authored bytes",
+      "sha256": "d1f625631e130de4ae8dfc3cd6fc572dd7807fd8e53a5b9b620e5bf446ea7bf7"
+    },
+    {
+      "path": "raw/author_b.json",
+      "role": "B authored bytes",
+      "sha256": "8b423f756ac8d675b9f8ce68f664a00832f868ccd8ca9bfa6c3d9f5d3a7cd13b"
+    },
+    {
+      "path": "raw/author_c.json",
+      "role": "C adjudicated bytes",
+      "sha256": "c59f2a884b259811a5ce82056bd13b90d1acbccd913aad4afbf842357392c36d"
+    },
+    {
+      "path": "raw/pass_a.json",
+      "role": "Protected A receipt",
+      "sha256": "d7236dda536edb89013fceb3815c09ce4ddce9c38160c8423e2d6829201974b6"
+    },
+    {
+      "path": "raw/pass_b.json",
+      "role": "Protected B receipt",
+      "sha256": "158f42f0392080891c8b1d5ba38cb02fe329b33a310e1895c35c8e5371cf62bc"
+    },
+    {
+      "path": "raw/pass_c.json",
+      "role": "Protected C receipt",
+      "sha256": "ccd1cf54591a819380cb3dbd86472938fc458bd720647480b2c147a7b20c4be1"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Set 32 holds one development unit at source-only cut 514. Native custody retained A/B/C passes 117, 118 and 119. C retained one scoped definition. Corpus grading and any wider independence claim remain separate.",
+  "consumed_by": [
+    "DMA-12",
+    "DMA-13"
+  ]
+}

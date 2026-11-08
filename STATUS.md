@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-08. Development runs `semantic_dma_05_13_final`. The 518-page comparator remains readable and the Chandra shadow stopped with 68 settled scopes._
+_Updated 2026-11-08. Development runs `semantic_dma_audit_current`. The full-book project remains unselected and the Chandra shadow stopped with 68 settled scopes._
 
 ## Current authority
 
@@ -8,7 +8,7 @@ _Updated 2026-11-08. Development runs `semantic_dma_05_13_final`. The 518-page c
   owns findings, package states and combined qualification. ADR-0067 governs current-only
   migration. ADR-0070 selects all 518 Grinstead–Snell pages. WCE receipts still cover pages 191–310.
   WCE baseline `07d25b840` retains `semantic_wce_lineage_20261107` and `retrieve.contextual/5`.
-- The [DMA-00–13 completion audit](docs/plans/domain-model-alignment_2026-11-08.md#completion-audit) confirms development adoption and private source-ready cut 512. The M1 assertion fix passed its pinned replay and 64 focused controls. Run 403 failed on a claim-renewal timeout and the broad campaign was interrupted at operator direction. The coordinator owns the remaining validity, custody, visual and qualification obligations. The project is at generation 0 with an empty selection.
+- The [DMA audit repairs](docs/plans/domain-model-alignment_2026-11-08.md#audit-repair-execution) are committed in `b812cbcfd` and deployed to development. Source cut 514, assertion canary 406 and independent development reference set 32 passed their scoped checks. Full-book run 407, final functional coverage and project selection remain with the coordinator.
 - The [broad design audit](docs/design_review/audit/README.md#baseline) records diagnostic source inspection at `67cbe680e` on 2026-11-08. `uv run ci docs check` and `just turn-end` passed. Product qualification was `not_run`.
 - The [GitHub visitor follow-on](docs/plans/github-visitor-experience_2026-11-08.md#ghv-follow-on-acceptance) is live. On 2026-11-08, the docs workflow and both live browser sizes passed. The corpus index links to 1,409 verified source files in Git LFS. The supplied How it works image passed desktop and mobile preview checks in the local revision.
 - The [M2 plan series](docs/plans/production-milestone-two_2026-11-08.md) proposes domain-agnostic model and composition contracts, with Grinstead–Snell as the qualification corpus. On 2026-11-08, `uv run ci docs check` passed and M2 model runs were `not_run`. The next package after authorization is PM2-00.

@@ -28,9 +28,11 @@ verified blank keeps its own reason.
 Freeze the policy, source/cut pins, considered range, cue coverage and
 decisions as native versioned run inputs before dispatch. Use existing
 run custody and reference that decision from group members. Retain the
-decision even if no group is nominated. Resume uses the frozen decisions. The inference key still reflects recognition
-determinants, so a changed routing rationale alone does not invalidate
-exact raw inference. The dispatch report and by-ID view project the
+decision even if no group is nominated. Resume uses the frozen decisions
+under the current nomination contract. Earlier decisions remain recorded
+evidence. The inference key reflects recognition determinants, so a changed
+routing rationale alone does not invalidate exact raw inference. The dispatch
+report and by-ID view project the
 same authoritative decisions and actual effect progress through DMA-08.
 Keep intentional explicit requests distinct from policy nominations.
 [Routing](../../../python/corpus-structure/src/corpus_structure/semantic/visual_routing.py) ·

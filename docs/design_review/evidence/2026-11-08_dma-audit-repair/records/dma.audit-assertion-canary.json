@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "id": "dma.audit-assertion-canary",
+  "title": "Current native M1 assertion canary",
+  "group": "dma-audit-repair",
+  "package": "DMA-13",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the previously affected full-book projection settle and retain the exact literal assertion on the successor?",
+  "answers": [
+    "DMA-13"
+  ],
+  "method": "Run one exact projection through the ordinary native source coordinator and verify the retained task report at its known context and offsets.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-08_dma-audit-repair/assertion_canary.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "assertion_canary.py",
+      "role": "Exact source and method binding",
+      "sha256": "07a110d75e5ac08329db1750488964215bf0e642f627fea7b71e6065d1251517"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/canary_result.json",
+      "role": "Retained task and literal predicate",
+      "sha256": "7b5641dffcb5d3e0b3cb270fc40e097831d289323936408159538be962652fe3"
+    }
+  ],
+  "depends_on": [
+    "2026-11-08_m1-assertion-qualification/m1.assertion-resident-replay"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Run 406 sealed cut 515. Task 1955 settled on attempt 1 and context 435 retained the literal predicate positive at [24,32). This qualifies the selected view.",
+  "consumed_by": [
+    "DMA-13"
+  ]
+}
