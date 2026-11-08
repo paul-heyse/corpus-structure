@@ -179,11 +179,12 @@ def inspect(
 
 def register(root: typer.Typer):
     from corpus_structure.cli.visual_request import visual_group, visual_request
-    from corpus_structure.cli.visual_route import visual_route
+    from corpus_structure.cli.visual_route import visual_dispatch, visual_route
 
     app.command("visual-request")(visual_request)
     app.command("visual-group")(visual_group)
     app.command("visual-route")(visual_route)
+    app.command("visual-dispatch")(visual_dispatch)
     root.add_typer(app, name="source")
 
 

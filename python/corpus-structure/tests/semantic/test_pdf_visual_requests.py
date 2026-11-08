@@ -18,6 +18,7 @@ from corpus_structure.semantic import pdf_visual_mapping, visual_requests
 from corpus_structure.semantic.domain_operations import DomainOperationRefused
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operation_results import ClaimedTask
+from corpus_structure.semantic.operations import OperationConflict, end_source_run
 from corpus_structure.serve.pdf_visual_evidence import VisualEvidencePin
 
 from .pdf_integration_support import IMAGE, integrated, prepare, publish
@@ -364,13 +365,21 @@ def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
         yield recognize
 
     interrupt = True
+    competing_request = True
+    fail_rotation = None
 
     def render(original, page, region, rotation):
-        nonlocal interrupt
+        nonlocal interrupt, competing_request
         assert original == db.source.original
+        if competing_request:
+            competing_request = False
+            with pytest.raises(OperationConflict, match="active visual request"):
+                visual_requests.request_visual_group(db.writer, **args)
         if rotation == 90 and interrupt:
             interrupt = False
             raise KeyboardInterrupt
+        if rotation == fail_rotation:
+            raise ValueError("controlled visual preparation failure")
         return IMAGE, _TRANSFORM
 
     monkeypatch.setattr(pdf_capacity, "pdf_gpu_slot", lambda check_active=None: nullcontext())
@@ -387,6 +396,7 @@ def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
         realization="z",
         receipts=tmp_path / "receipts",
         artifacts=tmp_path,
+        campaign_group="a" * 64,
     )
     with pytest.raises(KeyboardInterrupt):
         visual_requests.request_visual_group(db.writer, **args)
@@ -399,18 +409,88 @@ def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
     assert len(manifest.observations) == 2
     first = manifest.observations[-1]
     assert first.mapped is not None
-    resumed = visual_requests.request_visual_group(db.writer, resume_run_id=run_id, **args)
+    with pytest.raises(OperationConflict, match="differs from the retained campaign group"):
+        visual_requests.request_visual_group(db.writer, **{**args, "selections": requests[::-1]})
+    regrouped = {**args, "selections": requests[1:], "campaign_group": "c" * 64}
+    with pytest.raises(OperationConflict, match=f"pending campaign demand in run {run_id}"):
+        visual_requests.request_visual_group(db.writer, **regrouped)
+    with db.writer.connect() as conn:
+        assert (
+            conn.scalar(
+                select(runs.c.id).where(runs.c.options["visual_campaign_group"].astext == "c" * 64)
+            )
+            is None
+        )
+    settled_only = visual_requests.request_visual_group(
+        db.writer, **{**args, "selections": requests[:1], "campaign_group": "d" * 64}
+    )
+    assert settled_only.members[0].mapped == first.mapped
+    resumed = visual_requests.request_visual_group(db.writer, **args)
+    assert resumed.run_id == run_id
     assert resumed.status == "source_ready" and resumed.cut_id is not None
     assert resumed.members[0].mapped == first.mapped
     assert len(attempts) == 3 and len(sessions) == 2
+    after_cut = visual_requests.request_visual_group(db.writer, **regrouped)
+    assert after_cut.members[0].mapped == resumed.members[1].mapped
 
-    replay = visual_requests.request_visual_group(db.writer, **args)
+    recovered = visual_requests.request_visual_group(db.writer, **args)
+    assert recovered.run_id == resumed.run_id and recovered.cut_id == resumed.cut_id
+    assert [member.task_id for member in recovered.members] == [
+        member.task_id for member in resumed.members
+    ]
+    assert [member.mapped for member in recovered.members] == [
+        member.mapped for member in resumed.members
+    ]
+    assert len(attempts) == 3 and len(sessions) == 2
+
+    replay = visual_requests.request_visual_group(db.writer, **{**args, "campaign_group": None})
     assert replay.status == "source_ready"
+    assert replay.run_id != resumed.run_id
     assert [member.raw for member in replay.members] == [member.raw for member in resumed.members]
     assert [member.mapped for member in replay.members] == [
         member.mapped for member in resumed.members
     ]
     assert len(attempts) == 3 and len(sessions) == 2
+
+    cancelled = {**args, "campaign_group": "b" * 64}
+    interrupt = True
+    with pytest.raises(KeyboardInterrupt):
+        visual_requests.request_visual_group(db.writer, **cancelled)
+    with db.writer.begin() as conn:
+        cancelled_id = conn.execute(
+            select(runs.c.id).where(runs.c.options["visual_campaign_group"].astext == "b" * 64)
+        ).scalar_one()
+        end_source_run(conn, cancelled_id, prepared=db.prepared)
+    with pytest.raises(OperationConflict, match=f"run {cancelled_id} was cancelled"):
+        visual_requests.request_visual_group(db.writer, **cancelled)
+    assert len(attempts) == 3 and len(sessions) == 2
+
+    fail_rotation = 270
+    failed_scope = requests[1].model_copy(update={"rotation": fail_rotation})
+    failure_args = {**args, "selections": (failed_scope,), "campaign_group": "e" * 64}
+    failed = visual_requests.request_visual_group(db.writer, **failure_args)
+    assert failed.status == "failed"
+    assert failed.members[0].error == "controlled visual preparation failure"
+    assert visual_requests.request_visual_group(db.writer, **failure_args) == failed
+
+    def cancel_before_failure(conn, run_id, *, failure, prepared):
+        with db.writer.begin() as canceller:
+            end_source_run(canceller, run_id, prepared=prepared)
+        return end_source_run(conn, run_id, failure=failure, prepared=prepared)
+
+    monkeypatch.setattr(visual_requests, "end_source_run", cancel_before_failure)
+    race_args = {**failure_args, "campaign_group": "f" * 64}
+    with pytest.raises(OperationConflict, match=r"visual group run .* was cancelled"):
+        visual_requests.request_visual_group(db.writer, **race_args)
+    with db.writer.connect() as conn:
+        raced = conn.execute(
+            select(runs.c.id, runs.c.status).where(
+                runs.c.options["visual_campaign_group"].astext == "f" * 64
+            )
+        ).one()
+    assert raced.status == "cancelled"
+    with pytest.raises(OperationConflict, match=f"run {raced.id} was cancelled"):
+        visual_requests.request_visual_group(db.writer, **race_args)
 
 
 def test_visual_group_reopens_only_the_lost_worker(tmp_path, monkeypatch):

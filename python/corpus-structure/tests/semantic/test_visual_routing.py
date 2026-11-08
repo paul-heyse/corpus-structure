@@ -164,3 +164,116 @@ def test_verified_blank_uses_original_objects_not_an_empty_provider_result():
         assert blank is not body
         result = _decide(1, _PageSignals([], [], False, layout=layout, blank=blank))
         assert result.reasons[0].code == ("unassessed" if body else "verified_blank_body")
+
+
+def test_dispatch_coalesces_reasons_and_respects_repair_and_blank():
+    from corpus_structure.semantic.visual_dispatch import visual_dispatch_selections
+    from corpus_structure.semantic.visual_routing import VisualPageRoute, VisualRouteReport
+
+    report = VisualRouteReport(
+        source=_PIN,
+        structural_input=_BASE,
+        page_count=3,
+        pages=(
+            VisualPageRoute(
+                page_no=1,
+                action="repair",
+                reasons=(VisualRouteReason(code="incumbent_structure"),),
+            ),
+            VisualPageRoute(
+                page_no=2,
+                action="recognize",
+                reasons=(
+                    VisualRouteReason(code="located_disagreement", crop=_REGION),
+                    VisualRouteReason(code="omitted_crop", crop=_REGION),
+                    VisualRouteReason(code="missing_structure"),
+                ),
+            ),
+            VisualPageRoute(
+                page_no=3,
+                action="skip",
+                reasons=(VisualRouteReason(code="verified_blank_body"),),
+            ),
+        ),
+    )
+    selective = visual_dispatch_selections(report, "selective")
+    assert [(item.page_no, item.pointer, item.region_index) for item in selective] == [
+        (2, "#/tables/0", 0),
+        (2, None, None),
+    ]
+    assert all(item.source == _PIN for item in selective)
+    assert [
+        (item.page_no, item.pointer) for item in visual_dispatch_selections(report, "all-page")
+    ] == [(1, None), (2, None), (3, None)]
+
+
+def test_dispatch_qualifies_one_stable_retry_and_binds_the_provider_recipe(monkeypatch, tmp_path):
+    from contextlib import nullcontext
+    from functools import partial
+    from types import SimpleNamespace
+
+    from sqlalchemy import create_engine
+
+    from corpus_structure.ingest import pdf_chandra
+    from corpus_structure.semantic import visual_dispatch
+    from corpus_structure.semantic.visual_requests import VisualGroupResult
+    from corpus_structure.semantic.visual_routing import VisualPageRoute, VisualRouteReport
+
+    routes = VisualRouteReport(
+        source=_PIN,
+        structural_input=_BASE,
+        page_count=1,
+        pages=(
+            VisualPageRoute(
+                page_no=1,
+                action="recognize",
+                reasons=(VisualRouteReason(code="missing_structure"),),
+            ),
+        ),
+    )
+    monkeypatch.setattr(visual_dispatch, "read_snapshot", lambda engine: nullcontext(None))
+    monkeypatch.setattr(visual_dispatch, "_require_dispatch_cut", lambda *args: None)
+    monkeypatch.setattr(visual_dispatch, "read_visual_routes", lambda *args, **kwargs: routes)
+    monkeypatch.setattr(visual_dispatch, "open_release", lambda conn, release: release)
+    monkeypatch.setattr(visual_dispatch, "installed_runtime_id", lambda release: "runtime")
+    recipe = {"revision": "first"}
+    monkeypatch.setattr(
+        pdf_chandra, "ChandraRuntime", lambda artifacts: SimpleNamespace(identity=lambda: recipe)
+    )
+    keys = []
+
+    def settle_group(engine, *, campaign_group, **kwargs):
+        keys.append(campaign_group)
+        failure = campaign_group == keys[0]
+        return VisualGroupResult(
+            run_id=11 if failure else 12,
+            status="failed" if failure else "source_ready",
+            source=_PIN,
+            members=(),
+        )
+
+    monkeypatch.setattr(visual_dispatch, "request_visual_group", settle_group)
+    dispatch = partial(
+        visual_dispatch.dispatch_visual_work,
+        create_engine("sqlite://"),
+        source=_PIN,
+        source_cut=1,
+        semantic_release="release",
+        realization="realization",
+        mode="selective",
+        first=1,
+        limit=1,
+        artifacts=tmp_path,
+        receipts=tmp_path,
+        nemotron_endpoint=None,
+        retry_failed=True,
+    )
+    first = dispatch()
+    assert first.retried_failed_runs == (11,)
+    assert first.groups[0].run_id == 12
+    assert len(set(keys)) == 2
+    repeated = dispatch()
+    assert repeated == first and keys[2:] == keys[:2]
+    recipe["revision"] = "second"
+    changed = dispatch()
+    assert keys[-1] not in keys[:2] and changed.retried_failed_runs == ()

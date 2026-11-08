@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from contextlib import ExitStack, contextmanager
 from hashlib import sha256
 from io import BytesIO
@@ -578,6 +579,7 @@ def _visual_task(conn, run_id, step, selection=None):
             tasks.c.method_config_id,
             tasks.c.reused_task_id,
             tasks.c.reason,
+            tasks.c.error,
         )
         .join(configs, configs.c.id == tasks.c.method_config_id)
         .where(tasks.c.run_id == run_id, tasks.c.unit_key.startswith(f"chandra-{step}:"), scope)
@@ -898,8 +900,9 @@ def request_visual_group(
     nemotron_endpoint: str | None = None,
     holder: str = "visual-source-request",
     resume_run_id: int | None = None,
+    campaign_group: str | None = None,
 ) -> VisualGroupResult:
-    """Run a finite source-scoped group through the normal task and publication fences."""
+    """Run a finite group, optionally recovering a retained campaign demand."""
     from corpus_structure.orchestrate.liveness import (
         run_supervisor,
         supervisor_connection,
@@ -914,13 +917,38 @@ def request_visual_group(
     if len({canonical_bytes(scope) for scope in scopes}) != len(scopes):
         raise ValueError("visual group selections must be distinct")
     selections = tuple(VisualSelection.model_validate(scope) for scope in scopes)
-    options = {
+    options: dict[str, Any] = {
         "visual_group": {"version": VISUAL_GROUP_VERSION, "selections": scopes},
         "visual_recovery": {"artifacts": str(artifacts.resolve()), "replay": None},
     }
+    if campaign_group is not None:
+        if re.fullmatch(r"[0-9a-f]{64}", campaign_group) is None:
+            raise ValueError("visual campaign group requires a SHA-256 key")
+        options["visual_campaign_group"] = campaign_group
     with supervisor_connection(engine) as supervisor, _source_supervisor(supervisor, source):
         with engine.begin() as conn:
             project_id, document_id, original, reader = _load_visual_source(conn, source)
+            if campaign_group is not None:
+                retained_id = _campaign_group_run(conn, project_id, source, campaign_group)
+                if resume_run_id is not None and resume_run_id != retained_id:
+                    raise OperationConflict("visual resume does not own the campaign group")
+                if retained_id is None:
+                    _require_no_pending_group_overlap(conn, project_id, selections)
+                else:
+                    resume_run_id = retained_id
+                    retained = _visual_run(conn, retained_id)
+                    if (
+                        retained is None
+                        or retained.release_id != semantic_release
+                        or retained.input_realization_id != realization
+                        or retained.options != options
+                    ):
+                        raise OperationConflict(
+                            "visual request differs from the retained campaign group"
+                        )
+                    settled = _settled_campaign_group(conn, retained_id, retained, selections)
+                    if settled is not None:
+                        return settled
             regions = tuple(_selection_region(reader, selection) for selection in selections)
             run_id, prepared, context, installed = _bind_visual_run(
                 conn,
@@ -974,6 +1002,16 @@ def request_visual_group(
                         failure={"message": "one or more visual members failed"},
                         prepared=prepared,
                     )
+                    runs = table("ops.run")
+                    status = conn.execute(
+                        select(runs.c.status).where(runs.c.id == run_id)
+                    ).scalar_one()
+                    if status == "cancelled":
+                        raise OperationConflict(f"visual group run {run_id} was cancelled")
+                    if status != "failed":
+                        raise OperationConflict(
+                            f"visual group run {run_id} did not settle as failed"
+                        )
                 else:
                     cut_id = seal_cut(conn, run_id, VISUAL_REQUEST_CUT, final=True)
             return VisualGroupResult(
@@ -983,6 +1021,88 @@ def request_visual_group(
                 status="failed" if failed else "source_ready",
                 members=tuple(members),
             )
+
+
+def _campaign_group_run(conn, project_id, source, key):
+    """Find the demand while holding the exact source supervisor lock."""
+    runs = table("ops.run")
+    return conn.execute(
+        select(runs.c.id).where(
+            runs.c.project_id == project_id,
+            runs.c.code_commit == VISUAL_REQUEST_CODE_COMMIT,
+            runs.c.options.contains(
+                {
+                    "visual_campaign_group": key,
+                    "visual_group": {
+                        "selections": [{"source": source.model_dump(mode="json")}],
+                    },
+                }
+            ),
+        )
+    ).scalar_one_or_none()
+
+
+def _require_no_pending_group_overlap(conn, project_id, selections):
+    """Reserve pending members independently of campaign grouping under the source lock."""
+    source = selections[0].source
+    runs, cuts = map(table, ("ops.run", "ops.input_cut"))
+    final = select(cuts.c.id).where(cuts.c.run_id == runs.c.id, cuts.c.final).exists()
+    pending = conn.execute(
+        select(runs.c.id, runs.c.options).where(
+            runs.c.project_id == project_id,
+            runs.c.code_commit == VISUAL_REQUEST_CODE_COMMIT,
+            runs.c.status.in_(("created", "running")),
+            ~runs.c.sealed,
+            ~final,
+            runs.c.options["visual_campaign_group"].astext.is_not(None),
+            runs.c.options.contains(
+                {"visual_group": {"selections": [{"source": source.model_dump(mode="json")}]}},
+            ),
+        )
+    )
+    for run_id, options in pending:
+        for selection in selections:
+            if selection.scope() in options["visual_group"]["selections"]:
+                inference = _visual_task(conn, run_id, "inference", selection)
+                mapping = _visual_task(conn, run_id, "mapping", selection)
+                if _settled_group_member(conn, run_id, source, inference, mapping) is None:
+                    raise OperationConflict(
+                        f"exact visual selection has a pending campaign demand in run {run_id}"
+                    )
+
+
+def _settled_campaign_group(conn, run_id, retained, selections):
+    if retained.status == "cancelled":
+        raise OperationConflict(f"visual campaign group run {run_id} was cancelled")
+    cuts = table("ops.input_cut")
+    cut_id = conn.scalar(
+        select(cuts.c.id).where(
+            cuts.c.run_id == run_id, cuts.c.name == VISUAL_REQUEST_CUT, cuts.c.final
+        )
+    )
+    if cut_id is None and retained.status in {"created", "running"} and not retained.sealed:
+        return None
+    source = selections[0].source
+    members = []
+    for selection in selections:
+        inference = _visual_task(conn, run_id, "inference", selection)
+        mapping = _visual_task(conn, run_id, "mapping", selection)
+        settled = _settled_group_member(conn, run_id, source, inference, mapping)
+        if settled is None:
+            raise OperationConflict(f"terminal visual group run {run_id} lacks a settled member")
+        members.append(VisualGroupMember(selection=selection, **settled.model_dump()))
+    failed = any(member.status == "failed" for member in members)
+    if (cut_id is None and (retained.status != "failed" or not failed)) or (
+        cut_id is not None and (retained.status == "failed" or failed)
+    ):
+        raise OperationConflict(f"terminal visual group run {run_id} has inconsistent custody")
+    return VisualGroupResult(
+        run_id=run_id,
+        cut_id=cut_id,
+        source=source,
+        status="failed" if failed else "source_ready",
+        members=tuple(members),
+    )
 
 
 def _settled_group_member(conn, run_id, source, inference, mapping):
@@ -1010,7 +1130,7 @@ def _settled_group_member(conn, run_id, source, inference, mapping):
             status="failed",
             raw=pin(inference),
             mapped=pin(mapping),
-            error=task.reason or "visual member failed",
+            error=(task.error or {}).get("message") or task.reason or "visual member failed",
         )
     if mapping is not None and mapping.status in {"done", "empty", "reused"}:
         raw, mapped = pin(inference), pin(mapping)
@@ -1037,6 +1157,8 @@ def _visual_run(conn, run_id: int):
             runs.c.input_realization_id,
             runs.c.input_revision,
             runs.c.options,
+            runs.c.status,
+            runs.c.sealed,
         ).where(runs.c.id == run_id, runs.c.code_commit == VISUAL_REQUEST_CODE_COMMIT)
     ).one_or_none()
     return (
@@ -1083,6 +1205,7 @@ def resume_visual_observation(
             artifacts=Path(recovery["artifacts"]),
             nemotron_endpoint=nemotron_endpoint,
             resume_run_id=run_id,
+            campaign_group=retained.options.get("visual_campaign_group"),
         )
     return request_visual_observation(
         engine,
