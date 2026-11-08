@@ -217,3 +217,205 @@ def test_genuine_definition_spans_require_named_cue_custody(semantic_db_engine):
         conn.execute(check, {"component": json.dumps(weak)})
         with pytest.raises(DBAPIError, match="unsupported interpretation"), conn.begin_nested():
             conn.execute(check, {"component": json.dumps({**weak, "interpretation": "definition"})})
+
+
+def test_native_definition_scope_uses_retained_act_and_content_ownership(semantic_db_engine):
+    from corpus_structure.methods.predicate_frames import interpretation_recipe
+
+    def retained(words, heads, dependencies, positions, lemmas):
+        cursor = 0
+        tokens = []
+        for word, head, dep, pos, lemma in zip(
+            words.split(), heads, dependencies, positions, lemmas, strict=True
+        ):
+            tokens.append(
+                dict(
+                    sentence=0,
+                    start=cursor,
+                    end=cursor + len(word),
+                    head=head,
+                    dependency=dep,
+                    pos=pos,
+                    tag="",
+                    lemma=lemma,
+                    role="prose",
+                )
+            )
+            cursor += len(word) + 1
+        return dict(
+            tokens=tokens,
+            availability=[
+                dict(attribute=key, status="complete")
+                for key in ("DEP", "POS", "SENT_START", "LEMMA", "TAG")
+            ],
+        )
+
+    sql = (
+        Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/structural_products.sql"
+    ).read_text()
+    check = text("""
+        SELECT ops.definition_scope_supported(
+          CAST(:projection AS jsonb), CAST(:annotation AS jsonb),
+          CAST(:rule AS jsonb), CAST(:indices AS jsonb), :act, CAST(:recipe AS jsonb))
+        """)
+    with semantic_db_engine.connect() as conn, conn.begin():
+        conn.exec_driver_sql(sql, execution_options={"no_parameters": True})
+
+        def supported(words, heads, deps, pos, lemmas, act, *, bindings=None, indices=None):
+            return conn.scalar(
+                check,
+                dict(
+                    projection=json.dumps(dict(text=words)),
+                    annotation=json.dumps(retained(words, heads, deps, pos, lemmas)),
+                    rule=json.dumps(dict(bindings=bindings or {})),
+                    indices=json.dumps(indices or {}),
+                    act=act,
+                    recipe=json.dumps(interpretation_recipe()),
+                ),
+            )
+
+        assert supported(
+            "X is defined by : F .",
+            (2, 2, 2, 2, 2, 2, 2),
+            ("nsubjpass", "auxpass", "ROOT", "agent", "punct", "dobj", "punct"),
+            ("NOUN", "AUX", "VERB", "ADP", "PUNCT", "NOUN", "PUNCT"),
+            ("x", "be", "define", "by", ":", "f", "."),
+            2,
+        )
+        assert not supported(
+            "If heads occur , X is defined by : F .",
+            (2, 2, 6, 6, 6, 6, 6, 6, 6, 6, 6),
+            (
+                "mark",
+                "nsubj",
+                "advcl",
+                "punct",
+                "nsubjpass",
+                "auxpass",
+                "ROOT",
+                "agent",
+                "punct",
+                "dobj",
+                "punct",
+            ),
+            (
+                "SCONJ",
+                "NOUN",
+                "VERB",
+                "PUNCT",
+                "NOUN",
+                "AUX",
+                "VERB",
+                "ADP",
+                "PUNCT",
+                "NOUN",
+                "PUNCT",
+            ),
+            ("if", "head", "occur", ",", "x", "be", "define", "by", ":", "f", "."),
+            6,
+        )
+        assert not supported(
+            "Huygens claimed that we define X as a value .",
+            (1, 1, 4, 4, 1, 4, 4, 8, 6, 1),
+            ("nsubj", "ROOT", "mark", "nsubj", "ccomp", "dobj", "prep", "det", "pobj", "punct"),
+            ("PROPN", "VERB", "SCONJ", "PRON", "VERB", "NOUN", "ADP", "DET", "NOUN", "PUNCT"),
+            ("Huygens", "claim", "that", "we", "define", "x", "as", "a", "value", "."),
+            4,
+        )
+        assert supported(
+            "We define X as a value that does not change .",
+            (1, 1, 1, 1, 5, 3, 9, 9, 9, 5, 1),
+            (
+                "nsubj",
+                "ROOT",
+                "dobj",
+                "prep",
+                "det",
+                "pobj",
+                "nsubj",
+                "aux",
+                "neg",
+                "relcl",
+                "punct",
+            ),
+            ("PRON", "VERB", "NOUN", "ADP", "DET", "NOUN", "PRON", "AUX", "PART", "VERB", "PUNCT"),
+            ("we", "define", "x", "as", "a", "value", "that", "do", "not", "change", "."),
+            1,
+            bindings={"defining_content": {"node": "content", "expansion": "subtree"}},
+            indices={"content": 5},
+        )
+        assert not supported(
+            "We define X to be 1 if heads occur .",
+            (1, 1, 1, 4, 1, 4, 8, 8, 4, 1),
+            ("nsubj", "ROOT", "dobj", "aux", "xcomp", "attr", "mark", "nsubj", "advcl", "punct"),
+            ("PRON", "VERB", "NOUN", "PART", "AUX", "NUM", "SCONJ", "NOUN", "VERB", "PUNCT"),
+            ("we", "define", "x", "to", "be", "1", "if", "head", "occur", "."),
+            1,
+            bindings={
+                "defining_content": {"node": "content", "expansion": "exact"},
+                "defining_content_predicate": {"node": "predicate", "expansion": "exact"},
+            },
+            indices={"content": 5, "predicate": 4},
+        )
+        assert not supported(
+            "If F is ready and X is valid , then Y is defined by : Z .",
+            (2, 2, 6, 2, 6, 6, 12, 6, 12, 12, 12, 12, 12, 12, 12, 12, 12),
+            (
+                "mark",
+                "nsubj",
+                "advcl",
+                "acomp",
+                "cc",
+                "nsubj",
+                "ccomp",
+                "acomp",
+                "punct",
+                "advmod",
+                "nsubjpass",
+                "auxpass",
+                "ROOT",
+                "agent",
+                "punct",
+                "dobj",
+                "punct",
+            ),
+            (
+                "SCONJ",
+                "NOUN",
+                "AUX",
+                "ADJ",
+                "CCONJ",
+                "NOUN",
+                "AUX",
+                "ADJ",
+                "PUNCT",
+                "ADV",
+                "NOUN",
+                "AUX",
+                "VERB",
+                "ADP",
+                "PUNCT",
+                "NOUN",
+                "PUNCT",
+            ),
+            (
+                "if",
+                "f",
+                "be",
+                "ready",
+                "and",
+                "x",
+                "be",
+                "valid",
+                ",",
+                "then",
+                "y",
+                "be",
+                "define",
+                "by",
+                ":",
+                "z",
+                ".",
+            ),
+            12,
+        )

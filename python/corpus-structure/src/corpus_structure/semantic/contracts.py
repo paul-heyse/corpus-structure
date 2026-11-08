@@ -1228,6 +1228,7 @@ def analysis_implementation_inputs(
                 ("orchestration/source-reader.py", "orchestrate/source_reader.py"),
                 ("pdf/publication.py", "semantic/pdf_publication.py"),
                 ("pdf/record-logical-identity.sql", "semantic/sql/pdf_record_logical_identity.sql"),
+                ("pdf/record-proof-reader.sql", "semantic/sql/pdf_record_proof_reader.sql"),
                 (
                     "pdf/record-access-correspondence.sql",
                     "semantic/sql/pdf_record_access_correspondence.sql",

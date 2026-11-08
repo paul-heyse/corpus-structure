@@ -26,9 +26,7 @@ from corpus_structure.serve.pdf_visual_evidence import (
     VisualPicture,
     VisualSourceRegion,
     VisualTable,
-    VisualTableCell,
     VisualText,
-    _mapped_page,
     _read_visual_artifact,
 )
 
@@ -63,7 +61,7 @@ def test_visual_request_binds_both_pins_and_scope_to_cursor():
         )
 
 
-def test_visual_discovery_and_rich_cell_reads_keep_exact_candidate_scope():
+def test_mapping_retains_shared_caption_and_rich_cell_ownership():
     from corpus_structure.ingest.pdf_chandra import parse_chandra_response
     from corpus_structure.semantic.pdf_visual_mapping import map_visual_result
 
@@ -96,53 +94,29 @@ def test_visual_discovery_and_rich_cell_reads_keep_exact_candidate_scope():
             page_height=100,
         ),
     )
-    content = artifact.artifact_bytes()
-    frame = VisualSourceRegion(left=0, top=0, right=100, bottom=100)
-
-    def read(*, regions=(), **selectors):
-        rows, continuation = _mapped_page(
-            content,
-            page_no=1,
-            submitted=frame,
-            regions=regions,
-            budget=PublishedReadBudget(100, 16384),
-            after=0,
-            limit=100,
-            **selectors,
-        )
-        assert continuation is None
-        return rows
-
-    shared = [row for row in read() if isinstance(row, VisualCaption)]
+    shared = [row for row in artifact.rows if isinstance(row, VisualCaption)]
     assert len(shared) == 1
     assert shared[0].parent_occurrence_id == first.self_ref
     assert shared[0].parser_attachment_occurrence_ids == (first.self_ref, second.self_ref)
-    matches = read(kind="picture", figure_query="SHARED distributions")
-    assert [row.occurrence_id for row in matches] == [first.self_ref, second.self_ref]
-    assert read(kind="picture", figure_query="Unrelated note") == ()
-    left_scope = VisualSourceRegion(left=0, top=0, right=37, bottom=42)
-    assert [
-        row.occurrence_id
-        for row in read(regions=(left_scope,), kind="picture", figure_query="Shared distributions")
-    ] == [first.self_ref]
+    assert [row.occurrence_id for row in artifact.rows if isinstance(row, VisualPicture)] == [
+        first.self_ref,
+        second.self_ref,
+    ]
 
-    (table,) = read(kind="table")
-    assert isinstance(table, VisualTable)
+    (table,) = [row for row in artifact.rows if isinstance(row, VisualTable)]
     assert len(table.cells) == 5
     rich = table.cells[2]
     assert (rich.start_row_offset_idx, rich.end_row_offset_idx) == (1, 3)
     assert rich.column_header_path == (0,)
-    group, prose, formula = read(occurrence_id=table.occurrence_id, cell_index=2)
-    assert isinstance(group, VisualCellGroup)
+    (group,) = [row for row in artifact.rows if isinstance(row, VisualCellGroup)]
     assert rich.content_occurrence_id == group.occurrence_id
     assert group.provider_locator == group.occurrence_id
+    prose, formula = [
+        row for row in artifact.rows if row.parent_occurrence_id == group.occurrence_id
+    ]
     assert isinstance(prose, VisualText) and (prose.kind, prose.text) == ("cell_text", "Two terms")
     assert isinstance(formula, VisualText) and (formula.kind, formula.text) == ("formula", "x^2")
-    assert formula.parent_occurrence_id == group.occurrence_id
-    with pytest.raises(ValueError, match="outside the submitted scope"):
-        read(regions=(left_scope,), occurrence_id=table.occurrence_id, cell_index=2)
-    with pytest.raises(ValueError, match="no retained rich content"):
-        read(occurrence_id=table.occurrence_id, cell_index=1)
+    assert table.cells[1].content_occurrence_id is None
 
 
 def test_ordinary_v4_digest_preserves_the_prior_request_shape():
@@ -165,12 +139,10 @@ def test_ordinary_v4_digest_preserves_the_prior_request_shape():
     assert request.selection_digest() == prior_digest.hexdigest()
 
 
-def test_visual_region_selection_preserves_inherited_and_repeated_occurrences():
+def test_visual_artifact_retains_inherited_and_repeated_occurrences():
     panel = VisualSourceRegion(left=1, top=2, right=5, bottom=6)
     other_panel = VisualSourceRegion(left=10, top=2, right=14, bottom=6)
     inherited = panel.model_copy(update={"enclosing_occurrence_id": "p1"})
-    scope = VisualSourceRegion(left=0, top=0, right=9, bottom=9)
-    frame = VisualSourceRegion(left=0, top=0, right=20, bottom=20)
     artifact = VisualEvidenceArtifact(
         page_no=3,
         rows=(
@@ -197,56 +169,13 @@ def test_visual_region_selection_preserves_inherited_and_repeated_occurrences():
             ),
         ),
     )
-    content = artifact.artifact_bytes()
-    selection = dict(page_no=3, submitted=frame, regions=[scope], limit=2)
-    rows, after = _mapped_page(content, **selection, budget=PublishedReadBudget(10, 4096), after=0)
-    assert [row.occurrence_id for row in rows] == ["p1", "c1"] and after == 2
-    assert rows[1].source_region == inherited and rows[1].parent_occurrence_id == "p1"
-    rows, after = _mapped_page(
-        content, **selection, budget=PublishedReadBudget(10, 4096), after=after
-    )
-    assert [row.occurrence_id for row in rows] == ["m1"] and after is None
-    rows, after = _mapped_page(
-        content,
-        page_no=3,
-        submitted=frame,
-        regions=[],
-        limit=10,
-        budget=PublishedReadBudget(10, 4096),
-        after=0,
-    )
-    assert rows == artifact.rows and after is None
-    assert rows[1].text == rows[-1].text and rows[1].occurrence_id != rows[-1].occurrence_id
-
-
-def test_visual_read_charges_table_work_even_outside_selected_region():
-    region = VisualSourceRegion(left=10, top=10, right=20, bottom=20)
-    other = VisualSourceRegion(left=0, top=0, right=5, bottom=5)
-    cell = VisualTableCell(
-        text="12",
-        start_row_offset_idx=0,
-        end_row_offset_idx=1,
-        start_col_offset_idx=0,
-        end_col_offset_idx=1,
-    )
-    content = VisualEvidenceArtifact(
-        page_no=1,
-        rows=(
-            VisualTable(
-                occurrence_id="t1", cells=(cell,), num_rows=1, num_cols=1, source_region=region
-            ),
-        ),
-    ).artifact_bytes()
-    with pytest.raises(ReadLimit, match="row-work"):
-        _mapped_page(
-            content,
-            page_no=1,
-            submitted=region,
-            regions=[other],
-            limit=1,
-            budget=PublishedReadBudget(1, 4096),
-            after=0,
-        )
+    rows = VisualEvidenceArtifact.model_validate_json(artifact.artifact_bytes()).rows
+    assert rows == artifact.rows
+    first, second = rows[1], rows[-1]
+    assert isinstance(first, VisualCaption) and isinstance(second, VisualCaptionCandidate)
+    assert first.source_region == inherited and first.parent_occurrence_id == "p1"
+    assert second.associated_picture_occurrence_ids == ("p1", "p2")
+    assert first.text == second.text and first.occurrence_id != second.occurrence_id
 
 
 @pytest.mark.parametrize("offset,size,max_bytes", [(None, 10_000, 1024), (0, 800, 1024)])

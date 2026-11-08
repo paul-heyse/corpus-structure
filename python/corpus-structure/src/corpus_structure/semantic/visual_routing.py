@@ -75,10 +75,12 @@ class VisualCueAssessment(BaseModel):
     reason: str
     inputs: tuple[VisualEvidencePin, ...] = ()
     artifact_digest: str | None = None
+    crop: VisualRouteCrop | None = None
+    crop_bounds: _Box | None = None
 
 
 class VisualRouteReport(BaseModel):
-    policy: Literal["chandra-dry-routing-v3"] = "chandra-dry-routing-v3"
+    policy: Literal["chandra-dry-routing-v4"] = "chandra-dry-routing-v4"
     source: VisualEvidencePin
     structural_input: VisualEvidencePin | None
     page_count: int
@@ -506,11 +508,15 @@ def _read_observation(conn, row) -> _Observation:
     return _Observation(pin, image, readings, "available" if readings else "unsupported_reading")
 
 
-def _scoped_attempt(image: dict, selected: list[_Region]) -> VisualRouteCrop | None:
+def _crop_bounds(image: dict) -> _Box | None:
     transform = image.get("transform") or {}
     if not _comparable_frame(image) or transform["normalization"] != "clipped":
         return None
-    box = _box(transform["crop_" + key] for key in _BOX_KEYS)
+    return _box(transform["crop_" + key] for key in _BOX_KEYS)
+
+
+def _scoped_attempt(image: dict, selected: list[_Region]) -> VisualRouteCrop | None:
+    box = _crop_bounds(image)
     return _local_crop(box, image, selected) if box is not None else None
 
 
@@ -738,6 +744,7 @@ def _page_signals(
         layout=layout,
         structural=structural,
     )
+    crop_assessments = []
     for row in incomplete:
         if any(other["image"] == row["image"] for other in successful[row["role"]]):
             continue
@@ -751,6 +758,18 @@ def _page_signals(
                 crop=_scoped_attempt(row["image"], selected) if row["role"] == "C" else None,
             )
         )
+        if row["role"] == "C":
+            crop_assessments.append(
+                VisualCueAssessment(
+                    cue="crop_comparison",
+                    status="unassessed",
+                    reason="incomplete_request",
+                    inputs=(pin,),
+                    artifact_digest=row["raw_digest"],
+                    crop=_scoped_attempt(row["image"], selected),
+                    crop_bounds=_crop_bounds(row["image"]),
+                )
+            )
     anchor = layout.image if layout else successful["A"][-1]["image"] if successful["A"] else {}
     for region in ocr_incomplete:
         box = _box(
@@ -766,13 +785,6 @@ def _page_signals(
         )
     whole = _read_observation(conn, successful["A"][-1]) if successful["A"] else None
     crops = [_read_observation(conn, row) for row in successful["C"]]
-    comparisons = (
-        [_disagreements(whole, crop, selected) for crop in crops]
-        if whole and whole.readings
-        else []
-    )
-    disagreements = [reason for reasons, _ in comparisons for reason in reasons]
-    signals.requests.extend(disagreements)
     omissions, omission_availability, decision_digest = [], "missing_whole_recognition", None
     if successful["A"]:
         omissions, omission_availability, decision_digest = _omitted_crops(
@@ -810,27 +822,40 @@ def _page_signals(
             artifact_digest=digest,
         )
 
-    incomplete_comparison = bool(comparisons) and not all(complete for _, complete in comparisons)
-    comparison_reason = (
-        "located_quantity_disagreement"
-        if disagreements
-        else "no_exact_quantity_comparison"
-        if incomplete_comparison
-        else None
-    )
+    for row, crop in zip(successful["C"], crops, strict=True):
+        compared = whole is not None and bool(whole.readings) and bool(crop.readings)
+        disagreements, complete = (
+            _disagreements(whole, crop, selected) if whole is not None and compared else ([], False)
+        )
+        signals.requests.extend(disagreements)
+        crop_assessments.append(
+            cue(
+                "crop_comparison",
+                observations=(crop, whole) if whole is not None else (crop,),
+                available=complete,
+                positive=bool(disagreements),
+                inconclusive=compared and not complete,
+                reason=(
+                    "located_quantity_disagreement"
+                    if disagreements
+                    else "no_exact_quantity_comparison"
+                    if compared and not complete
+                    else None
+                ),
+                digest=row.get("raw_digest"),
+            ).model_copy(
+                update={
+                    "crop": _scoped_attempt(crop.image, selected),
+                    "crop_bounds": _crop_bounds(crop.image),
+                }
+            )
+        )
     signals.cues = (
         *((cue("layout", observations=layouts),) if layout is None else ()),
         cue(
             "whole_recognition", observations=(whole,) if whole else (), available=whole is not None
         ),
-        cue(
-            "crop_comparison",
-            observations=((whole,) if whole else ()) + tuple(crops),
-            available=bool(comparisons) and not incomplete_comparison,
-            positive=bool(disagreements),
-            inconclusive=incomplete_comparison,
-            reason=comparison_reason,
-        ),
+        *(crop_assessments or [cue("crop_comparison")]),
         cue(
             "crop_coverage",
             available=omission_availability == "available",

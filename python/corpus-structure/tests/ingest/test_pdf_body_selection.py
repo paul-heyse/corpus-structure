@@ -85,32 +85,39 @@ def test_original_formula_projection_requires_the_exact_release_witness():
     formula = document.add_formula(text=latex, orig=original)
     second = document.add_formula(text=latex, orig=original)
     digest = snapshot(document).digest
-    old_policy = b'{"content_layers":["body"],"recipe":"native-section-text-v8"}'
+    original_digest = sha256(b"authenticated original").hexdigest()
+    old_policy = (
+        b'{"content_layers":["body"],"readable_formula_originals":[],'
+        b'"recipe":"native-section-text-v10"}'
+    )
     witness = {
-        "content_digest": digest,
+        "original_digest": original_digest,
         "orig_digest": sha256(original.encode()).hexdigest(),
         "pointer": formula.self_ref,
+        "parent": "#/body",
+        "prov": [],
     }
     new_policy = json.dumps(
         {
             "content_layers": ["body"],
-            "readable_formula_original": witness,
-            "recipe": "native-section-text-v9",
+            "readable_formula_originals": [witness],
+            "recipe": "native-section-text-v10",
         }
     ).encode()
 
-    def projection(doc_digest, policy):
+    def projection(source_digest, policy):
         return project_section(
             document,
-            doc_digest,
+            digest,
             "#/body",
             "direct",
             section_refs=frozenset({"#/body"}),
             projection_policy=policy,
+            original_digest=source_digest,
         )
 
-    old = projection(digest, old_policy)
-    new = projection(digest, new_policy)
+    old = projection(original_digest, old_policy)
+    new = projection(original_digest, new_policy)
     assert old.text == latex + "\n" + latex
     assert projection("0" * 64, new_policy).text == old.text
     assert new.text == original + "\n" + latex

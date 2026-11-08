@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import multiprocessing
 import os
 from collections.abc import Callable
 from contextlib import contextmanager, suppress
-from copy import deepcopy
 from dataclasses import dataclass
 from enum import StrEnum
 from hashlib import file_digest
@@ -70,88 +68,96 @@ def _verify_artifacts(root: Path) -> Path:
     return model
 
 
+def _recognition_options():
+    from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
+    from docling.datamodel.pipeline_options import VlmConvertOptions
+    from docling.datamodel.pipeline_options_vlm_model import ResponseFormat
+    from docling.datamodel.vlm_engine_options import TransformersVlmEngineOptions
+
+    packages = {
+        name: version(name)
+        for name in (
+            *_DOCLING_PACKAGES,
+            "torch",
+            "torchvision",
+            "transformers",
+            "accelerate",
+            "tokenizers",
+            "safetensors",
+            "pillow",
+        )
+    }
+    if any(packages[name] != expected for name, expected in _DOCLING_PACKAGES.items()):
+        raise ValueError("the Chandra runtime requires the qualified Docling 2.148.0 family")
+    if any(find_spec(name) is not None for name in ("causal_conv1d", "fla")):
+        raise ValueError("Chandra requires the PyTorch reference linear attention kernels")
+    accelerator = AcceleratorOptions(device=AcceleratorDevice.CUDA, cuda_use_flash_attention2=False)
+    options = VlmConvertOptions.from_preset(
+        CHANDRA_PRESET,
+        engine_options=TransformersVlmEngineOptions(
+            load_in_8bit=False,
+            torch_dtype="bfloat16",
+            trust_remote_code=False,
+            compile_model=False,
+        ),
+    )
+    spec = options.model_spec
+    engine = options.engine_options.engine_type
+    if (
+        spec.get_repo_id(engine) != CHANDRA_REPOSITORY
+        or spec.get_revision(engine) != CHANDRA_REVISION
+        or spec.response_format != ResponseFormat.CHANDRA_HTML
+    ):
+        raise ValueError("Docling's Chandra preset does not match the qualified checkpoint")
+    # The verified checkpoint uses built-in Qwen3.5 and Qwen3VL processor classes.
+    options.model_spec = spec.model_copy(update={"trust_remote_code": False})
+    return packages, accelerator, options
+
+
+def _recognition_identity(packages, accelerator, options) -> dict[str, Any]:
+    spec = options.model_spec
+    engine = options.engine_options.engine_type
+    return {
+        "preset": CHANDRA_PRESET,
+        "repository": CHANDRA_REPOSITORY,
+        "revision": CHANDRA_REVISION,
+        "artifacts_sha256": dict(_ARTIFACT_SHA256),
+        "packages": dict(packages),
+        "engine": options.engine_options.model_dump(mode="json"),
+        "accelerator": accelerator.model_dump(mode="json"),
+        "full_attention": "sdpa",
+        "linear_attention": "torch_reference",
+        "image_boundary": "RGB at Docling engine input",
+        "prompt": spec.prompt,
+        "response_format": spec.response_format.value,
+        "decode": {
+            "max_new_tokens": spec.max_new_tokens,
+            "temperature": spec.temperature,
+            "do_sample": spec.temperature > 0,
+            "stop_strings": list(spec.stop_strings),
+            "engine_model": spec.get_engine_config(engine).model_dump(mode="json"),
+            "generation_config": spec.get_runtime_input_extra_config(engine),
+        },
+    }
+
+
+def chandra_recognition_identity() -> dict[str, Any]:
+    """Describe the pinned inference inputs without opening model artifacts."""
+    return _recognition_identity(*_recognition_options())
+
+
 class ChandraRuntime:
     """Prepare an offline recipe, then recognize while the caller owns the local GPU."""
 
     def __init__(self, artifacts: Path):
-        from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
-        from docling.datamodel.pipeline_options import VlmConvertOptions
-        from docling.datamodel.pipeline_options_vlm_model import ResponseFormat
-        from docling.datamodel.vlm_engine_options import TransformersVlmEngineOptions
-
-        packages = {
-            name: version(name)
-            for name in (
-                *_DOCLING_PACKAGES,
-                "torch",
-                "torchvision",
-                "transformers",
-                "accelerate",
-                "tokenizers",
-                "safetensors",
-                "pillow",
-            )
-        }
-        if any(packages[name] != expected for name, expected in _DOCLING_PACKAGES.items()):
-            raise ValueError("the Chandra runtime requires the qualified Docling 2.148.0 family")
-        if any(find_spec(name) is not None for name in ("causal_conv1d", "fla")):
-            raise ValueError("Chandra requires the PyTorch reference linear attention kernels")
+        self._packages, self._accelerator, self._options = _recognition_options()
         self._artifacts = artifacts.resolve(strict=True)
-        model = _verify_artifacts(self._artifacts)
-        self._processor = json.loads((model / "preprocessor_config.json").read_bytes())
-        self._packages = packages
+        _verify_artifacts(self._artifacts)
         self._model: VlmConvertModel | None = None
         self.effective_device: dict[str, Any] | None = None
-        self._accelerator = AcceleratorOptions(
-            device=AcceleratorDevice.CUDA, cuda_use_flash_attention2=False
-        )
-        self._options = VlmConvertOptions.from_preset(
-            CHANDRA_PRESET,
-            engine_options=TransformersVlmEngineOptions(
-                load_in_8bit=False,
-                torch_dtype="bfloat16",
-                trust_remote_code=False,
-                compile_model=False,
-            ),
-        )
-        spec = self._options.model_spec
-        engine = self._options.engine_options.engine_type
-        if (
-            spec.get_repo_id(engine) != CHANDRA_REPOSITORY
-            or spec.get_revision(engine) != CHANDRA_REVISION
-            or spec.response_format != ResponseFormat.CHANDRA_HTML
-        ):
-            raise ValueError("Docling's Chandra preset does not match the qualified checkpoint")
-        # The verified checkpoint uses built-in Qwen3.5 and Qwen3VL processor classes.
-        self._options.model_spec = spec.model_copy(update={"trust_remote_code": False})
 
     def identity(self) -> dict[str, Any]:
-        """Return the recognition recipe without initializing CUDA or the model."""
-        spec = self._options.model_spec
-        engine = self._options.engine_options.engine_type
-        return {
-            "preset": CHANDRA_PRESET,
-            "repository": CHANDRA_REPOSITORY,
-            "revision": CHANDRA_REVISION,
-            "artifacts_sha256": dict(_ARTIFACT_SHA256),
-            "packages": dict(self._packages),
-            "engine": self._options.engine_options.model_dump(mode="json"),
-            "accelerator": self._accelerator.model_dump(mode="json"),
-            "full_attention": "sdpa",
-            "linear_attention": "torch_reference",
-            "processor": deepcopy(self._processor),
-            "image_boundary": "RGB at Docling engine input",
-            "prompt": spec.prompt,
-            "response_format": spec.response_format.value,
-            "decode": {
-                "max_new_tokens": spec.max_new_tokens,
-                "temperature": spec.temperature,
-                "do_sample": spec.temperature > 0,
-                "stop_strings": list(spec.stop_strings),
-                "engine_model": spec.get_engine_config(engine).model_dump(mode="json"),
-                "generation_config": spec.get_runtime_input_extra_config(engine),
-            },
-        }
+        return _recognition_identity(self._packages, self._accelerator, self._options)
 
     def _load_model(self) -> None:
         import torch

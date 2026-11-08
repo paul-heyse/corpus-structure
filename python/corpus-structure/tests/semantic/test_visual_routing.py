@@ -204,18 +204,24 @@ def test_crop_cue_preserves_unavailable_inputs_and_exact_positive_reason(
         None, rows, [_region()], [], _BASE, (), ocr_assessed=True
     )
     route = _decide(151, signals)
-    cue = next(cue for cue in route.cues if cue.cue == "crop_comparison")
+    cues = [cue for cue in route.cues if cue.cue == "crop_comparison"]
+    unknown_cue = next(cue for cue in cues if _BASE in cue.inputs)
+    expected = (
+        ("inconclusive", "no_exact_quantity_comparison")
+        if availability == "available"
+        else ("unassessed", availability)
+    )
+    assert (unknown_cue.status, unknown_cue.reason) == expected
+    assert unknown_cue.crop == _REGION
     if exact_disagreement:
         assert route.action == "recognize"
+        cue = next(cue for cue in cues if cue.status == "positive")
         assert (cue.status, cue.reason) == ("positive", "located_quantity_disagreement")
+        assert cue.crop_bounds is not None
+        assert cue.inputs != unknown_cue.inputs
     else:
         assert route.action == "unresolved"
-        expected = (
-            ("inconclusive", "no_exact_quantity_comparison")
-            if availability == "available"
-            else ("unassessed", availability)
-        )
-        assert (cue.status, cue.reason) == expected
+        assert cues == [unknown_cue]
 
 
 def test_rotated_cropbox_never_invents_native_crop_address():
@@ -286,6 +292,7 @@ def test_dispatch_coalesces_reasons_and_respects_repair_and_blank():
 
 
 def test_dispatch_qualifies_one_stable_retry_and_binds_the_nomination(monkeypatch, tmp_path):
+    from contextlib import nullcontext
     from functools import partial
 
     from sqlalchemy import create_engine
@@ -310,6 +317,18 @@ def test_dispatch_qualifies_one_stable_retry_and_binds_the_nomination(monkeypatc
     selections = visual_dispatch.visual_dispatch_selections(routes, "selective")
     monkeypatch.setattr(
         visual_dispatch, "_nominate", lambda *args: (nomination, routes, selections)
+    )
+    monkeypatch.setattr(visual_dispatch, "read_snapshot", lambda engine: nullcontext())
+    monkeypatch.setattr(
+        visual_dispatch,
+        "read_visual_dispatch_progress",
+        lambda conn, run_id: visual_dispatch.VisualDispatchProgress(
+            nomination_run_id=run_id,
+            source_cut=1,
+            mode="selective",
+            routes=routes,
+            groups=(),
+        ),
     )
     keys = []
 

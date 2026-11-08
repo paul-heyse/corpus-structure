@@ -89,6 +89,22 @@ END $claim$;
 REVOKE ALL ON FUNCTION ops.claim_tasks(bigint,bigint,text,bigint,boolean) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ops.claim_tasks(bigint,bigint,text,bigint,boolean) TO corpus_sem_writer;
 
+CREATE OR REPLACE FUNCTION ops.renew_claim(p_task bigint,p_attempt bigint,p_holder text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $renew$
+DECLARE t ops.task; job ops.run;
+BEGIN
+ SELECT * INTO STRICT t FROM ops.task WHERE id=p_task;
+ SELECT * INTO STRICT job FROM ops.run WHERE id=t.run_id FOR SHARE;
+ SELECT * INTO STRICT t FROM ops.task WHERE id=p_task FOR UPDATE;
+ IF job.sealed OR job.status NOT IN ('created','running') OR t.status<>'running'
+  OR t.attempt<>p_attempt OR nullif(p_holder,'') IS NULL OR t.claimed_by IS DISTINCT FROM p_holder
+  OR t.lease_until IS NULL OR t.lease_until<=clock_timestamp() THEN
+  RAISE EXCEPTION 'claim ownership lost before renewal' USING ERRCODE='P0004'; END IF;
+ UPDATE ops.task SET lease_until=clock_timestamp()+interval '5 minutes' WHERE id=p_task;
+END $renew$;
+REVOKE ALL ON FUNCTION ops.renew_claim(bigint,bigint,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.renew_claim(bigint,bigint,text) TO corpus_sem_writer;
+
 CREATE OR REPLACE FUNCTION ops.lock_execution_run(p_run bigint,operation text) RETURNS ops.run
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $lock$
 DECLARE job ops.run;

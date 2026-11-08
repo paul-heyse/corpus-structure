@@ -141,10 +141,10 @@ BEGIN
  WHERE release_id=run.release_id AND input_kind='dependency'
  AND input_name='execution/implementation/pdf/section-text-recipe.json';
  IF recipe_policy IS NOT NULL THEN
-  IF (COALESCE(recipe_policy->>'recipe','') NOT IN ('native-section-text-v8','native-section-text-v9','native-section-text-v10'))
+  IF recipe_policy->>'recipe' IS DISTINCT FROM 'native-section-text-v10'
    OR job.unit_type<>'document' OR job.unit_id IS DISTINCT FROM (product->>'document_id')::bigint THEN
    RAISE EXCEPTION 'source view requires its selected PDF projection producer and recipe' USING ERRCODE='23514'; END IF;
-  IF recipe_policy->>'recipe'='native-section-text-v10' AND (
+  IF (
    recipe_policy-'readable_formula_originals' IS DISTINCT FROM '{"content_layers":["body"],"recipe":"native-section-text-v10"}'::jsonb
    OR jsonb_typeof(recipe_policy->'readable_formula_originals') IS DISTINCT FROM 'array'
    OR EXISTS (
@@ -169,11 +169,9 @@ BEGIN
    'recipe',product->>'recipe_digest')),'UTF8')),'hex');
   IF product->>'key' IS DISTINCT FROM recipe_key THEN
    RAISE EXCEPTION 'source view key differs from its selected projection recipe' USING ERRCODE='23514'; END IF;
-  IF recipe_policy->>'recipe'='native-section-text-v10' THEN
-   PERFORM ops.validate_projected_source_fields(
-    placement.build_id,section.pointer,projection,recipe_policy,placement.source_digest
-   );
-  END IF;
+  PERFORM ops.validate_projected_source_fields(
+   placement.build_id,section.pointer,projection,recipe_policy,placement.source_digest
+  );
  END IF;
  WITH RECURSIVE ancestry AS (
  SELECT p.*,0 depth FROM kb.pdf_record_access p WHERE p.product_id=placement.build_id AND p.revision_id=placement.build_id AND p.pointer=section.parent_pointer

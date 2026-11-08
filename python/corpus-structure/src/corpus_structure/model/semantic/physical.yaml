@@ -35,6 +35,14 @@ types:
     typeof: decimal
     annotations:
       ph:sql_type: numeric
+  numeric_range:
+    typeof: string
+    annotations:
+      ph:sql_type: numrange
+  integer_range:
+    typeof: string
+    annotations:
+      ph:sql_type: int8range
   contextual_vector_value:
     typeof: string
     annotations:
@@ -3075,13 +3083,38 @@ classes:
       kind: {range: string, required: true}
       parent_id: {range: string}
       body: {range: json_payload, required: true}
+      artifact_scope:
+        range: integer_range
+        required: true
+        annotations:
+          ph:computed: "int8range(task_id, task_id, '[]')"
+      source_x:
+        range: numeric_range
+        annotations:
+          ph:computed: >-
+            CASE WHEN body -> 'source_region' ->> 'left' IS NOT NULL
+                  AND body -> 'source_region' ->> 'right' IS NOT NULL
+                 THEN numrange((body -> 'source_region' ->> 'left')::numeric,
+                               (body -> 'source_region' ->> 'right')::numeric, '[)') END
+      source_y:
+        range: numeric_range
+        annotations:
+          ph:computed: >-
+            CASE WHEN body -> 'source_region' ->> 'top' IS NOT NULL
+                  AND body -> 'source_region' ->> 'bottom' IS NOT NULL
+                 THEN numrange((body -> 'source_region' ->> 'top')::numeric,
+                               (body -> 'source_region' ->> 'bottom')::numeric, '[)') END
     unique_keys:
       primary_key: {unique_key_slots: [task_id, product_key, artifact_digest, occurrence_id]}
       unique_0: {unique_key_slots: [task_id, product_key, artifact_digest, ordinal]}
     annotations:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns":["task_id","product_key","artifact_digest"],"target":"ops.pdf_visual_index.task_id,product_key,artifact_digest"}]'
-      ph:indexes: '[["task_id","product_key","artifact_digest","kind","ordinal"],["task_id","product_key","artifact_digest","parent_id","ordinal"]]'
+      ph:indexes: >-
+        [["task_id","product_key","artifact_digest","kind","ordinal"],
+         ["task_id","product_key","artifact_digest","parent_id","ordinal"],
+         {"name":"ix_pdf_visual_locator_artifact_region","columns":["artifact_scope","source_x","source_y"],
+          "using":"gist","where":"source_x IS NOT NULL AND source_y IS NOT NULL"}]
       ph:checks: '["ordinal > 0", "occurrence_id <> ''''"]'
 
   pdf_visual_cell:

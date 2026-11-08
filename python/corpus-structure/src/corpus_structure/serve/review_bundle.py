@@ -14,7 +14,7 @@ import re
 import stat
 import sys
 from collections.abc import Callable, Iterable, Mapping
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, closing, contextmanager
 from dataclasses import asdict, dataclass
 from hashlib import file_digest, sha256
 from pathlib import Path
@@ -59,7 +59,7 @@ from corpus_structure.serve.structural_products import (
 )
 from corpus_structure.settings import Settings
 
-FORMAT = "progressive-review-bundle-1"
+FORMAT = "progressive-review-bundle-2"
 _NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 SECTION_PACKET_INPUT = "execution/implementation/operations/section-packets.json"
 
@@ -150,6 +150,8 @@ def _digest(path: Path) -> str:
 def _contract_row(conn, prepared):
     from corpus_structure.methods.model_observation import MODEL_OBSERVATION_INPUT
 
+    from .review_source_projection import SECTION_TEXT_INPUT
+
     row: dict[str, Any] = {
         "release_id": prepared.release_id,
         "definitions": [asdict(value) for value in prepared.definitions],
@@ -166,6 +168,7 @@ def _contract_row(conn, prepared):
     for input_name, field in (
         (SECTION_PACKET_INPUT, "section_packets"),
         (MODEL_OBSERVATION_INPUT, "model_observation_policy"),
+        (SECTION_TEXT_INPUT, "section_text_policy"),
     ):
         expected = dependencies.get(input_name)
         if expected is None:
@@ -238,6 +241,7 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
     seen_releases: set[str] = set()
     seen_documents: set[int] = set()
     seen_producers: set[int] = set()
+    seen_proofs = set()
     validated_external: set[str] = set()
     predecessor_readers = {}
     origin_metadata = {}
@@ -416,6 +420,8 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
             seen_documents,
             seen_producers,
             cancellation,
+            seen_releases=seen_releases,
+            seen_proofs=seen_proofs,
             coordinate_versions=coordinate_versions,
             retained_sources=journey_views,
         )
@@ -601,6 +607,8 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                         seen_documents,
                         seen_producers,
                         cancellation,
+                        seen_releases=seen_releases,
+                        seen_proofs=seen_proofs,
                         coordinate_versions=coordinate_versions,
                         retained_sources=journey_views,
                     )
@@ -669,6 +677,8 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                 seen_documents,
                 seen_producers,
                 cancellation,
+                seen_releases=seen_releases,
+                seen_proofs=seen_proofs,
             )
         while True:
             cancellation.check_active()
@@ -709,6 +719,8 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
             seen_documents,
             seen_producers,
             cancellation,
+            seen_releases=seen_releases,
+            seen_proofs=seen_proofs,
             retained_sources=journey_views,
         )
         custody = {layer: pin for layer, (pin, _) in tasks.items()}
@@ -730,10 +742,14 @@ def _capture_sources(
     seen_producers,
     cancellation,
     *,
+    seen_releases,
+    seen_proofs,
     coordinate_versions=None,
     retained_sources=None,
 ):
-    from .review_source_projection import capture_source_projection
+    from corpus_structure.semantic.releases import open_release
+
+    from .review_source_projection import capture_source_projection, capture_source_proof
 
     task, cfg = table("ops.task"), table("ops.method_config")
     for source_id in sorted(source_ids - seen_sources):
@@ -779,7 +795,18 @@ def _capture_sources(
             budget.value(row)
             seen_documents.add(source.ref.document_id)
             yield "documents", row
-        projection_inputs = capture_source_projection(conn, source, budget)
+        consumer_release = capture_source_projection(conn, source, budget)
+        if consumer_release not in seen_releases or source.ref.native_product not in seen_proofs:
+            prepared = open_release(conn, consumer_release)
+            if consumer_release not in seen_releases:
+                seen_releases.add(consumer_release)
+                yield "contracts", _contract_row(conn, prepared)
+            if source.ref.native_product not in seen_proofs:
+                seen_proofs.add(source.ref.native_product)
+                yield from _named_rows(
+                    "source_proofs",
+                    capture_source_proof(conn, source.ref.native_product, prepared, cancellation),
+                )
         yield (
             "sources",
             {
@@ -787,17 +814,8 @@ def _capture_sources(
                 "ref": asdict(source.ref),
                 "text": source.text,
                 "context": source.context(),
-                "source_coverage": (
-                    "selected_projection_replay"
-                    if projection_inputs is not None
-                    else "selected_projection_only"
-                ),
+                "consumer_release": consumer_release,
                 "original_page_map": "unknown_unless_retained_in_native_items",
-                **(
-                    {"projection_inputs": projection_inputs}
-                    if projection_inputs is not None
-                    else {}
-                ),
             },
         )
 
@@ -993,12 +1011,10 @@ def _covers_assessment_unit(selection: ReviewSelection, run_id: int, source_view
     )
 
 
-def _validate_source(value: dict[str, Any]) -> str | None:
+def _validate_source(value: dict[str, Any]) -> None:
     # Reuse the production projection/piece validator rather than a parallel checker.
     from corpus_structure.core.method import SourceViewDraft
     from corpus_structure.semantic.product_reference import ProductReference
-
-    from .review_source_projection import verify_source_projection
 
     ref, context = value["ref"], value["context"]
     draft = SourceViewDraft(
@@ -1017,7 +1033,6 @@ def _validate_source(value: dict[str, Any]) -> str | None:
     )
     if draft.projection_digest != ref["projection_digest"] or value["source_view_id"] != ref["id"]:
         raise ValueError("review source projection digest differs")
-    return verify_source_projection(value)
 
 
 def _schema(selection_digest: str, relation: str) -> pa.Schema:
@@ -1751,6 +1766,43 @@ def _detached_relation(root, manifest, name):
             yield json.loads(json.loads(line)["payload_json"])
 
 
+def _verify_source_projections(root, manifest):
+    from corpus_structure.semantic.product_reference import ProductReference
+
+    from .review_source_projection import (
+        archived_projection_policy,
+        load_source_proofs,
+        open_proof_index,
+        verify_source_projection,
+    )
+
+    if not {"sources", "source_proofs"} & manifest["relations"].keys():
+        return set()
+    contracts = {row["release_id"]: row for row in _detached_relation(root, manifest, "contracts")}
+    with (
+        TemporaryDirectory(prefix="corpus-review-proof-") as temporary,
+        closing(open_proof_index(Path(temporary) / "records.sqlite")) as database,
+    ):
+        proofs = load_source_proofs(database, _detached_relation(root, manifest, "source_proofs"))
+        used = set()
+        originals = set()
+        policies = {}
+        for row in _detached_relation(root, manifest, "sources"):
+            ref = row["ref"]
+            native = ProductReference(**ref["native_product"])
+            release = row.get("consumer_release")
+            if native not in proofs or release not in contracts:
+                raise ValueError("review source requires an exact native proof and archived policy")
+            if release not in policies:
+                policies[release] = archived_projection_policy(contracts[release])
+            original = verify_source_projection(row, policies[release], proofs[native])
+            used.add(native)
+            originals.add((ref["document_id"], original))
+        if set(proofs) != used:
+            raise ValueError("review native proof is outside the selected source closure")
+        return originals
+
+
 def _verify_source_decision_journeys(root, manifest, selection, reports, selected_origins):
     from .source_decision_journey import METHODS
 
@@ -2411,7 +2463,6 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
     structural_reports = []
     structural_refs = {}
     captured_refs = {}
-    source_originals: set[tuple[int, str]] = set()
     document_originals: set[tuple[int, str]] = set()
     structural_product_ids: set[str] = set()
     public_product_ids: set[str] = set()
@@ -2597,9 +2648,7 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
                                 if ref.identity == passage.source_ref
                             )
                         if name == "sources":
-                            original = _validate_source(payload)
-                            if original is not None:
-                                source_originals.add((payload["ref"]["document_id"], original))
+                            _validate_source(payload)
                             if payload["source_view_id"] in present_sources:
                                 raise ValueError("review source member repeats")
                             present_sources.add(payload["source_view_id"])
@@ -2773,7 +2822,7 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
             raise ValueError("review selected snapshot members are missing")
         if bound_structural != set(range(len(selection.structural_selections))):
             raise ValueError("review structural snapshot members are missing")
-        if not source_originals <= document_originals:
+        if not _verify_source_projections(root, manifest) <= document_originals:
             raise ValueError("review source projection original differs from its retained document")
         if not needed_sources <= present_sources:
             raise ValueError("review required source members are missing")

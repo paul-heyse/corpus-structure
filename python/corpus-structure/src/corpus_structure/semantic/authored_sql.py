@@ -8,19 +8,20 @@ Only explicitly supported built-in types/functions/operators reach PostgreSQL an
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Generator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from hashlib import sha256
 from importlib.metadata import version
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .types import PreparedRelease
+    from .types import PreparedRelease, ResolvedDependencies
 
 from pglast import ast
 from pglast.stream import RawStream
 from pglast.visitors import Visitor, referenced_relations
-from sqlalchemy import Connection, MetaData, select, text
+from sqlalchemy import Connection, MetaData, or_, select, text
 
 from .identity import canonical_bytes
 from .prepared_sql import PreparedSQL, SQLSyntaxError, prepare_sql
@@ -179,26 +180,14 @@ def _syntax(sql: str | PreparedSQL, metadata: MetaData) -> tuple[tuple[str, ...]
     return tuple(sorted(known[r] for r in references)), tuple(sorted(inspection.functions))
 
 
-def admit_sql(
-    conn: Connection,
-    sql: str,
-    *,
-    release_id: str,
-    metadata: MetaData,
-    physical_id: str,
-    execution_role: str = "corpus_sem_reader",
-) -> AuthoredSQL:
-    """Analyze supported SQL without execution. Caller supplies a fresh restricted connection.
-
-    The resulting artifact belongs in the exact release archive. Its dependencies must be
-    re-admitted after a physical/catalog/compiler change; a parser fingerprint is never its ID.
-    """
-    relations, functions = _syntax(sql, metadata)
+@contextmanager
+def _analysis_snapshot(
+    conn: Connection, *, execution_role: str = "corpus_sem_reader"
+) -> Generator[Connection]:
     if conn.in_transaction():
-        raise SQLAdmissionError("admission needs a fresh connection")
-    dependencies: list[tuple[str, ...]] = []
+        raise SQLAdmissionError("admission needs a fresh reader connection")
     with conn.begin():
-        conn.exec_driver_sql("SET TRANSACTION READ ONLY")
+        conn.exec_driver_sql("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
         conn.exec_driver_sql("SET LOCAL search_path = pg_catalog")
         role = conn.execute(
             text(
@@ -224,54 +213,72 @@ def admit_sql(
             raise SQLAdmissionError(
                 "catalog admission requires restricted read capabilities"
             ) from exc
-        for name in relations:
-            t = metadata.tables[name]
-            columns = conn.execute(
-                text(
-                    "SELECT c.oid, c.relkind, a.attname, n.nspname, y.typname, "
-                    "pg_has_role(current_user,c.relowner,'USAGE'), "
-                    "has_schema_privilege(current_user,c.relnamespace,'CREATE') "
-                    "FROM pg_class c JOIN pg_namespace s ON s.oid=c.relnamespace "
-                    "JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped "
-                    "JOIN pg_type y ON y.oid=a.atttypid "
-                    "JOIN pg_namespace n ON n.oid=y.typnamespace "
-                    "WHERE s.nspname=:schema AND c.relname=:name ORDER BY a.attnum"
-                ),
-                {"schema": t.schema, "name": t.name},
-            ).all()
-            if not columns or any(
-                r[1] not in ("r", "p")
-                or r[3] != "pg_catalog"
-                or r[4] not in SAFE_TYPES
-                or r[5]
-                or r[6]
-                for r in columns
-            ):
-                raise SQLAdmissionError(f"unsupported or writable catalog dependency {name}")
-            dependencies.extend((name, str(r[0]), r[2], r[3], r[4]) for r in columns)
-        for function in functions:
-            rows = conn.execute(
-                text(
-                    "SELECT p.oid, pg_get_function_identity_arguments(p.oid), "
-                    "p.provolatile, p.prosecdef "
-                    "FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace "
-                    "WHERE n.nspname='pg_catalog' AND p.proname=:name ORDER BY p.oid"
-                ),
-                {"name": function},
-            ).all()
-            if not rows or any(r[2] == "v" or r[3] for r in rows):
-                raise SQLAdmissionError(f"unsupported catalog function pg_catalog.{function}")
-            dependencies.extend(("function", function, str(r[0]), r[1], r[2]) for r in rows)
-        # EXPLAIN without ANALYZE invokes PostgreSQL name/type/access analysis. Unknown functions
-        # and custom types were refused above, before any planner constant folding can call them.
-        # exec_driver_sql preserves exact authored text, including colons and percent literals.
-        driver = conn.connection.driver_connection
-        if driver is None:
-            raise SQLAdmissionError("PostgreSQL driver is unavailable")
-        with driver.cursor() as cur:
-            cur.execute("EXPLAIN (FORMAT JSON) " + sql, prepare=False)
-            cur.fetchone()
-        server_version = conn.exec_driver_sql("SHOW server_version").scalar_one()
+        yield conn
+
+
+def admit_sql(
+    conn: Connection,
+    sql: str,
+    *,
+    release_id: str,
+    metadata: MetaData,
+    physical_id: str,
+    execution_role: str = "corpus_sem_reader",
+) -> AuthoredSQL:
+    """Analyze supported SQL without execution on a fresh restricted connection."""
+    with _analysis_snapshot(conn, execution_role=execution_role):
+        return _analyze_sql(conn, sql, release_id, metadata, physical_id)
+
+
+def _analyze_sql(
+    conn: Connection, sql: str, release_id: str, metadata: MetaData, physical_id: str
+) -> AuthoredSQL:
+    relations, functions = _syntax(sql, metadata)
+    dependencies: list[tuple[str, ...]] = []
+    for name in relations:
+        t = metadata.tables[name]
+        columns = conn.execute(
+            text(
+                "SELECT c.oid, c.relkind, a.attname, n.nspname, y.typname, "
+                "pg_has_role(current_user,c.relowner,'USAGE'), "
+                "has_schema_privilege(current_user,c.relnamespace,'CREATE') "
+                "FROM pg_class c JOIN pg_namespace s ON s.oid=c.relnamespace "
+                "JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped "
+                "JOIN pg_type y ON y.oid=a.atttypid "
+                "JOIN pg_namespace n ON n.oid=y.typnamespace "
+                "WHERE s.nspname=:schema AND c.relname=:name ORDER BY a.attnum"
+            ),
+            {"schema": t.schema, "name": t.name},
+        ).all()
+        if not columns or any(
+            r[1] not in ("r", "p") or r[3] != "pg_catalog" or r[4] not in SAFE_TYPES or r[5] or r[6]
+            for r in columns
+        ):
+            raise SQLAdmissionError(f"unsupported or writable catalog dependency {name}")
+        dependencies.extend((name, str(r[0]), r[2], r[3], r[4]) for r in columns)
+    for function in functions:
+        rows = conn.execute(
+            text(
+                "SELECT p.oid, pg_get_function_identity_arguments(p.oid), "
+                "p.provolatile, p.prosecdef "
+                "FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace "
+                "WHERE n.nspname='pg_catalog' AND p.proname=:name ORDER BY p.oid"
+            ),
+            {"name": function},
+        ).all()
+        if not rows or any(r[2] == "v" or r[3] for r in rows):
+            raise SQLAdmissionError(f"unsupported catalog function pg_catalog.{function}")
+        dependencies.extend(("function", function, str(r[0]), r[1], r[2]) for r in rows)
+    # EXPLAIN without ANALYZE invokes PostgreSQL name/type/access analysis. Unknown functions
+    # and custom types were refused above, before any planner constant folding can call them.
+    # exec_driver_sql preserves exact authored text, including colons and percent literals.
+    driver = conn.connection.driver_connection
+    if driver is None:
+        raise SQLAdmissionError("PostgreSQL driver is unavailable")
+    with driver.cursor() as cur:
+        cur.execute("EXPLAIN (FORMAT JSON) " + sql, prepare=False)
+        cur.fetchone()
+    server_version = conn.exec_driver_sql("SHOW server_version").scalar_one()
     return AuthoredSQL(
         sql,
         release_id,
@@ -289,44 +296,157 @@ def decode_artifact(content: bytes) -> dict[str, Any]:
     return json.loads(content)
 
 
+_SQL_PREFIX = "authored-sql/"
+_IMPLEMENTATION = "execution/implementation/"
+
+
 def has_authored_sql(prepared: PreparedRelease) -> bool:
     """The immutable dependency manifest declares whether reader analysis is required."""
     return any(
-        name.startswith("authored-sql/")
-        for name, _ in json.loads(prepared.manifest)["dependencies"]
+        name.startswith(_SQL_PREFIX) for name, _ in json.loads(prepared.manifest)["dependencies"]
     )
 
 
-def analyze_archived_sql(conn: Connection, release_id: str) -> dict[str, AuthoredSQL]:
-    """Analyze archived inputs under the actual reader; return products without writing."""
-    from .metadata import PHYSICAL_MODEL_ID, metadata, table
+@dataclass(frozen=True)
+class AuthoredSQLInputs:
+    release_id: str
+    metadata: MetaData
+    statements: tuple[tuple[str, str], ...]
+
+    @property
+    def physical_id(self) -> str:
+        return self.metadata.info["physical_model_id"]
+
+
+def _sql_text(name: str, content: bytes) -> str:
+    if not name.endswith(".sql") or len(name) <= len(_SQL_PREFIX + ".sql"):
+        raise SQLAdmissionError(f"invalid reserved authored SQL dependency name {name}")
+    try:
+        return content.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise SQLAdmissionError(f"authored SQL {name} is not UTF-8") from exc
+
+
+def _prepare_sql_inputs(
+    release_id: str, dependencies: Mapping[str, bytes]
+) -> AuthoredSQLInputs | None:
+    statements = tuple(
+        (name, _sql_text(name, content))
+        for name, content in sorted(dependencies.items())
+        if name.startswith(_SQL_PREFIX)
+    )
+    if not statements:
+        return None
+
+    from corpus_structure.schema.physical import compile_physical
+
+    from .contracts import retained_physical_sources
+
+    implementations = {
+        name.removeprefix(_IMPLEMENTATION): content
+        for name, content in dependencies.items()
+        if name.startswith(_IMPLEMENTATION)
+    }
+    try:
+        metadata = compile_physical(
+            retained_physical_sources(implementations),
+            linkml_types=implementations["unified/linkml-types.yaml"],
+        )
+    except (ValueError, KeyError) as exc:
+        raise SQLAdmissionError("retained authored SQL physical closure is unavailable") from exc
+    for _, sql in statements:
+        _syntax(sql, metadata)
+    return AuthoredSQLInputs(release_id, metadata, statements)
+
+
+def prepare_release_sql(
+    prepared: PreparedRelease, dependencies: ResolvedDependencies
+) -> AuthoredSQLInputs | None:
+    """Rehearse syntax against exact frozen release inputs, without a native checkout."""
+    if not has_authored_sql(prepared):
+        return None
+    manifest = dict(json.loads(prepared.manifest)["dependencies"])
+    supplied = {source.name: source.content for source in dependencies.artifacts}
+    scoped = {name for name in manifest if name.startswith((_SQL_PREFIX, _IMPLEMENTATION))}
+    supplied_scope = {name for name in supplied if name.startswith((_SQL_PREFIX, _IMPLEMENTATION))}
+    if supplied_scope != scoped or any(
+        sha256(supplied[name]).hexdigest() != manifest[name] for name in scoped
+    ):
+        raise SQLAdmissionError("authored SQL dependency bytes differ from the release manifest")
+    return _prepare_sql_inputs(prepared.release_id, supplied)
+
+
+def _archive_inputs(
+    conn: Connection, release_id: str, *, include_physical: bool
+) -> dict[str, bytes]:
+    from .contracts import _PHYSICAL_ARTIFACTS, _PHYSICAL_IMPORT_PREFIX
+    from .metadata import table
 
     inputs = table("sem.input")
-    if conn.in_transaction():
-        raise SQLAdmissionError("archive analysis requires a fresh reader connection")
-    with conn.begin():
-        conn.exec_driver_sql("SET TRANSACTION READ ONLY")
-        rows = conn.execute(
-            select(inputs.c.input_name, inputs.c.content)
-            .where(
-                inputs.c.release_id == release_id,
-                inputs.c.input_kind == "dependency",
-                inputs.c.input_name.startswith("authored-sql/"),
+    names = [inputs.c.input_name.startswith(_SQL_PREFIX)]
+    if include_physical:
+        names.extend(
+            (
+                inputs.c.input_name.in_(
+                    [
+                        _IMPLEMENTATION + name
+                        for name in (*_PHYSICAL_ARTIFACTS.values(), "unified/linkml-types.yaml")
+                    ]
+                ),
+                inputs.c.input_name.startswith(_IMPLEMENTATION + _PHYSICAL_IMPORT_PREFIX),
             )
-            .order_by(inputs.c.input_name)
-        ).all()
-    products = {}
-    for name, content in rows:
-        if not name.endswith(".sql") or len(name) <= len("authored-sql/.sql"):
-            raise SQLAdmissionError(f"invalid reserved authored SQL dependency name {name}")
-        products[name] = admit_sql(
-            conn,
-            bytes(content).decode("utf-8"),
-            release_id=release_id,
-            metadata=metadata,
-            physical_id=PHYSICAL_MODEL_ID,
         )
-    return products
+    rows = conn.execute(
+        select(inputs.c.input_name, inputs.c.content, inputs.c.content_digest).where(
+            inputs.c.release_id == release_id,
+            inputs.c.input_kind == "dependency",
+            or_(*names),
+        )
+    )
+    result = {}
+    for name, content, digest in rows:
+        content = bytes(content)
+        if sha256(content).hexdigest() != digest:
+            raise SQLAdmissionError("archived authored SQL dependency digest differs")
+        result[name] = content
+    return result
+
+
+def _analyze_inputs(
+    conn: Connection, inputs: AuthoredSQLInputs, *, physical_id: str
+) -> dict[str, AuthoredSQL]:
+    if inputs.physical_id != physical_id:
+        raise SQLAdmissionError("authored SQL physical model differs from the verified target")
+    return {
+        name: _analyze_sql(conn, sql, inputs.release_id, inputs.metadata, physical_id)
+        for name, sql in inputs.statements
+    }
+
+
+def analyze_release_sql(
+    conn: Connection,
+    inputs: AuthoredSQLInputs,
+    *,
+    physical_id: str,
+    verify_target: Callable[[Connection], object],
+) -> dict[str, AuthoredSQL]:
+    """Analyze reviewed candidate bytes on the exact reached reader before archiving."""
+    with _analysis_snapshot(conn):
+        verify_target(conn)
+        return _analyze_inputs(conn, inputs, physical_id=physical_id)
+
+
+def analyze_archived_sql(conn: Connection, release_id: str) -> dict[str, AuthoredSQL]:
+    """Bind archive inputs and catalog analysis in a single restricted snapshot."""
+    from .execution_admission import _verify_deployment_functions
+
+    with _analysis_snapshot(conn):
+        inputs = _prepare_sql_inputs(
+            release_id, _archive_inputs(conn, release_id, include_physical=True)
+        )
+        if inputs is None:
+            return {}
+        return _analyze_inputs(conn, inputs, physical_id=_verify_deployment_functions(conn))
 
 
 def admit_archived_sql(
@@ -334,55 +454,49 @@ def admit_archived_sql(
     release_id: str,
     *,
     reader_conn: Connection | None = None,
+    verify_reader: Callable[[Connection], object] | None = None,
     analyzed: Mapping[str, AuthoredSQL] | None = None,
+    physical_id: str | None = None,
 ) -> tuple[AuthoredSQL, ...]:
-    """Admit reserved exact SQL dependencies before activation, on its caller transaction.
+    """Record an exact archive-input analysis on the caller's admission transaction."""
+    from .execution_admission import _verify_deployment_functions
+    from .metadata import table
 
-    Raw SQL belongs to the release digest; native catalog admission is a derived deployment
-    artifact. Keeping those separate avoids an impossible self-referential release identity.
-    """
-    from .metadata import PHYSICAL_MODEL_ID, metadata, table
-
-    inputs = table("sem.input")
-    admitted = table("sem.sql_admission")
-    rows = conn.execute(
-        select(inputs.c.input_name, inputs.c.content)
-        .where(
-            inputs.c.release_id == release_id,
-            inputs.c.input_kind == "dependency",
-            inputs.c.input_name.startswith("authored-sql/"),
-        )
-        .order_by(inputs.c.input_name)
-    ).all()
-    if analyzed is not None and set(analyzed) != {name for name, _ in rows}:
+    rows = _archive_inputs(conn, release_id, include_physical=False)
+    if analyzed is not None and set(analyzed) != rows.keys():
         raise SQLAdmissionError("analyzed SQL input set differs")
-    if rows and reader_conn is None and analyzed is None:
-        raise SQLAdmissionError("authored SQL activation requires a restricted reader connection")
-    artifacts = []
-    for name, content in rows:
-        if not name.endswith(".sql") or len(name) <= len("authored-sql/.sql"):
-            raise SQLAdmissionError(f"invalid reserved authored SQL dependency name {name}")
-        try:
-            sql = bytes(content).decode("utf-8")
-        except UnicodeDecodeError as exc:
-            raise SQLAdmissionError(f"authored SQL {name} is not UTF-8") from exc
-        if analyzed is not None:
-            artifact = analyzed[name]
-            if (artifact.sql, artifact.release_id, artifact.physical_id) != (
-                sql,
-                release_id,
-                PHYSICAL_MODEL_ID,
-            ):
-                raise SQLAdmissionError("analyzed SQL binding differs")
-        else:
-            assert reader_conn is not None
-            artifact = admit_sql(
-                reader_conn,
-                sql,
-                release_id=release_id,
-                metadata=metadata,
-                physical_id=PHYSICAL_MODEL_ID,
+    if not rows:
+        return ()
+    physical_id = _verify_deployment_functions(conn) if physical_id is None else physical_id
+    if analyzed is None:
+        if reader_conn is None:
+            raise SQLAdmissionError(
+                "authored SQL activation requires a restricted reader connection"
             )
+        # The caller may have staged the archive on this transaction. The reader
+        # analyzes only the catalog, using those exact authorized inputs.
+        inputs = _prepare_sql_inputs(
+            release_id, _archive_inputs(conn, release_id, include_physical=True)
+        )
+        assert inputs is not None
+        with _analysis_snapshot(reader_conn):
+            if verify_reader is not None:
+                verify_reader(reader_conn)
+            reached = _verify_deployment_functions(reader_conn)
+            if reached != physical_id:
+                raise SQLAdmissionError("authored SQL reader and admission target differ")
+            analyzed = _analyze_inputs(reader_conn, inputs, physical_id=reached)
+
+    admitted = table("sem.sql_admission")
+    artifacts = []
+    for name, content in sorted(rows.items()):
+        artifact = analyzed[name]
+        if (artifact.sql, artifact.release_id, artifact.physical_id) != (
+            _sql_text(name, content),
+            release_id,
+            physical_id,
+        ):
+            raise SQLAdmissionError("analyzed SQL binding differs")
         from ._operation_calls import record_sql_admission
         from ._operation_ids import ReleaseId
 
@@ -391,14 +505,14 @@ def admit_archived_sql(
             release_id=ReleaseId(release_id),
             input_kind="dependency",
             input_name=name,
-            physical_id=PHYSICAL_MODEL_ID,
+            physical_id=physical_id,
             content=artifact.content,
         )
         prior = conn.execute(
             select(admitted.c.content).where(
                 admitted.c.release_id == release_id,
                 admitted.c.input_name == name,
-                admitted.c.physical_id == PHYSICAL_MODEL_ID,
+                admitted.c.physical_id == physical_id,
             )
         ).scalar_one()
         if bytes(prior) != artifact.content:

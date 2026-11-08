@@ -483,6 +483,7 @@ def release_activate(
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.cli.managed import ResultError
     from corpus_structure.cli.target import select_target
+    from corpus_structure.semantic.authored_sql import SQLAdmissionError
     from corpus_structure.semantic.releases import (
         ActivationConflict,
         activate_release,
@@ -496,7 +497,9 @@ def release_activate(
     )
 
     with failure_boundary(
-        json, expected=(ActivationConflict, ResultError), report_expected_validation=False
+        json,
+        expected=(ActivationConflict, ResultError, SQLAdmissionError),
+        report_expected_validation=False,
     ):
         selected, settings = select_target(ctx, target, effect=True)
         project = project or settings.runtime.default_project
@@ -506,9 +509,11 @@ def release_activate(
             open_runtime_engine(settings, "ci-release-activate", purpose="admit") as admit,
             admit.begin() as conn,
         ):
-            if selected == "deployment":
-                verify_declared_route(read, settings)
-            acquired = verify_target(conn, acquired_target(read, purpose="read"), purpose="admit")
+            with read.begin():
+                if selected == "deployment":
+                    verify_declared_route(read, settings)
+                expected = acquired_target(read, purpose="read")
+            acquired = verify_target(conn, expected, purpose="admit")
             try:
                 before = activation_token(conn, project)
             except KeyError as error:
@@ -524,6 +529,9 @@ def release_activate(
                 expected_parent=before.release_id,
                 expected_generation=before.generation,
                 sql_reader=read,
+                verify_sql_reader=lambda reader_conn: verify_target(
+                    reader_conn, expected, purpose="read"
+                ),
             )
         emit(
             SelectionReport(

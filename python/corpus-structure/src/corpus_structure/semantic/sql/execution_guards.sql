@@ -80,8 +80,8 @@ BEGIN
    source:=demand->'source'; routes:=nomination->'routes';
    IF NEW.code_commit IS DISTINCT FROM 'chandra-visual-source-v1'
     OR NEW.options ?| ARRAY['visual_group','visual_request']
-    OR nomination->>'version' IS DISTINCT FROM 'visual-nomination-v1'
-    OR routes->>'policy' IS DISTINCT FROM 'chandra-dry-routing-v3'
+    OR nomination->>'version' IS DISTINCT FROM 'visual-nomination-v2'
+    OR routes->>'policy' IS DISTINCT FROM 'chandra-dry-routing-v4'
     OR routes->'source' IS DISTINCT FROM source
     OR demand->>'release' IS DISTINCT FROM NEW.release_id
     OR demand->>'realization' IS DISTINCT FROM NEW.input_realization_id
@@ -190,6 +190,10 @@ BEGIN
  IF TG_OP='UPDATE' AND (OLD.run_id,OLD.release_id,OLD.method_config_id,OLD.input_hash,OLD.packet_hash,OLD.unit_type,OLD.unit_id,OLD.unit_key,OLD.invocation_key)
  IS DISTINCT FROM (NEW.run_id,NEW.release_id,NEW.method_config_id,NEW.input_hash,NEW.packet_hash,NEW.unit_type,NEW.unit_id,NEW.unit_key,NEW.invocation_key) THEN
    RAISE EXCEPTION 'task inputs are immutable';
+ END IF;
+ IF TG_OP='UPDATE' AND starts_with(OLD.unit_key,'chandra-mapping:')
+  AND OLD.trigger->'visual_raw' IS DISTINCT FROM NEW.trigger->'visual_raw' THEN
+   RAISE EXCEPTION 'visual mapping raw input is immutable' USING ERRCODE='23514';
  END IF;
  IF NEW.status IN ('done','empty') AND current_user<>'corpus_sem_publisher' THEN RAISE EXCEPTION 'successful source completion requires protected result publication'; END IF;
  IF NEW.status='reused' AND NEW.reused_task_id IS NULL THEN RAISE EXCEPTION 'reuse requires a completed origin'; END IF;

@@ -1,9 +1,21 @@
 """Frozen forward realization of native section views and their actual consumers."""
 
+from dataclasses import dataclass
+
 from sqlalchemy import MetaData
 
 from .metadata import metadata
 from .native_products import NativeAuthoringProvenance
+
+VISUAL_LOCATOR_RELATIONS = frozenset(
+    {"kb.pdf_visual_locator", "kb.pdf_visual_cell", "ops.pdf_visual_index"}
+)
+
+
+@dataclass(frozen=True)
+class PhysicalCatalogExpectations:
+    indexes: tuple[dict[str, str], ...]
+    generated: dict[str, dict[str, str]]
 
 
 def _admission_descriptor(admission):
@@ -59,6 +71,7 @@ def native_admission_sql(
     native_objects=(),
     retire=(),
     target_metadata: MetaData | None = None,
+    physical_catalog: PhysicalCatalogExpectations | None = None,
 ):
     from hashlib import sha256
 
@@ -98,9 +111,11 @@ def native_admission_sql(
         for relation in target_metadata.tables.values()
         for index in relation.indexes
     }
-    descriptor["indexes"] = [
-        item for item in descriptor["indexes"] if item["index"] in owned_indexes
-    ]
+    descriptor["indexes"] = (
+        list(physical_catalog.indexes)
+        if physical_catalog is not None
+        else [item for item in descriptor["indexes"] if item["index"] in owned_indexes]
+    )
     descriptor["checks"] = [
         item for item in descriptor["checks"] if item["relation"] in target_metadata.tables
     ]
@@ -170,7 +185,7 @@ def native_admission_sql(
     # explicitly added relations. Frozen predecessor columns are not current authority.
     tables = {
         name: relation_descriptor(target_metadata.tables[name])
-        for name in tables
+        for name in tables.keys() | (VISUAL_LOCATOR_RELATIONS if physical_catalog else frozenset())
         if name in target_metadata.tables
     }
     # Removed stored relations cannot retain trigger or table admission authority.
@@ -246,6 +261,12 @@ def native_admission_sql(
     descriptor["triggers"] = sorted(
         descriptor["triggers"], key=lambda item: (item["relation"], item["name"])
     )
+    if physical_catalog is not None:
+        for name, table in tables.items():
+            generated = physical_catalog.generated.get(name, {})
+            for column in table["columns"]:
+                if column["generated"]:
+                    column["default"] = generated[column["name"]]
     descriptor["tables"] = sorted(tables.values(), key=lambda item: item["relation"])
     required = admission_kernel()
     from .native_sql_body import admission_body_comparison

@@ -207,7 +207,7 @@ BEGIN
         WHERE nomination.id=(run.options->>'visual_nomination_run_id')::bigint
          AND nomination.project_id=run.project_id AND nomination.release_id=run.release_id
          AND nomination.input_realization_id=run.input_realization_id AND nomination.sealed
-         AND nomination.options->'visual_nomination'->>'version'='visual-nomination-v1'
+         AND nomination.options->'visual_nomination'->>'version'='visual-nomination-v2'
          AND nomination.options->'visual_nomination'->'selections' @> jsonb_build_array(visual_scope)
        ))
        OR EXISTS(SELECT FROM jsonb_array_elements(run.options->'visual_group'->'selections') s
@@ -272,6 +272,7 @@ BEGIN
        raw_task.status IN ('done','empty') AND raw_task.unit_key=raw.product_key
        AND starts_with(raw.product_key,'chandra-inference:')
        AND visual_recipe->'raw'=(i::jsonb-'role') || jsonb_build_object('run_id',raw_run.id)
+       AND job.trigger->'visual_raw'=visual_recipe->'raw'
       ))
       AND raw.descriptor->'observation'=((product->'observation')-'mapped_evidence_digest')
       AND EXISTS (SELECT FROM ops.pdf_product_input upstream

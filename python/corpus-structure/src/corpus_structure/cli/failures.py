@@ -51,7 +51,7 @@ def failure_boundary(
         yield context
     except DATABASE_ERRORS as error:
         detail = database_failure_report(error, context=context)
-        envelope = operation.record_failure("execution", detail) if operation else {}
+        envelope = operation.record_failure("execution", detail, error=error) if operation else {}
         if json:
             write_report_text(
                 jsonlib.dumps({"error": _safe_diagnostic(detail), **envelope}) + "\n",
@@ -94,7 +94,7 @@ def failure_boundary(
                 "fields": fields,
             }
             if operation:
-                operation.record_failure("refusal", detail)
+                operation.record_failure("refusal", detail, error=error)
             diagnostic(f"{detail['message']}: {', '.join(fields)}")
             raise typer.Exit(1) from None
         if json or operation:
@@ -120,7 +120,7 @@ def failure_boundary(
                 if isinstance(error, OSError) and not isinstance(error, FileExistsError)
                 else "refusal"
             )
-            envelope = operation.record_failure(kind, detail) if operation else {}
+            envelope = operation.record_failure(kind, detail, error=error) if operation else {}
             if json:
                 write_report_text(
                     jsonlib.dumps({"error": _safe_diagnostic(detail), **envelope}) + "\n",

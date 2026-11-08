@@ -5,6 +5,13 @@
   "escape_reason": "Located qualifier retained without a supported formal interpretation.",
   "assumption_lemmas": ["assume", "suppose", "presume"],
   "report_lemmas": ["assume", "suppose", "presume", "say", "report", "state", "claim", "assert"],
+  "definition_scope": {
+    "version": "definition-scope-1",
+    "condition_markers": ["if", "when", "provided", "provided that", "as long as"],
+    "exception_markers": ["unless", "except", "except for"],
+    "order_markers": ["before", "after"],
+    "content_cues": ["condition", "negation", "quotation"]
+  },
   "naming_lemmas": ["define", "call", "name", "denote", "mean", "represent", "refer"],
   "naming_complement_required": ["call", "name", "refer"],
   "naming_reference_only": ["refer", "represent"],

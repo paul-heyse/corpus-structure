@@ -6,6 +6,7 @@
     "limit": 64
   },
   "definition_witness": {
+    "scope": "definition-scope-1",
     "term_role": "defined_term",
     "content_role": "defining_content",
     "rules": {

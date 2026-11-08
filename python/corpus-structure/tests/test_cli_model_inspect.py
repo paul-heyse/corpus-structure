@@ -386,7 +386,9 @@ def test_apply_records_stale_refusal_and_partial_effect_from_actual_files(
     runner = CliRunner()
     legacy = runner.invoke(app, ["results", "show", preview_id, "--json"])
     assert legacy.exit_code == 0, legacy.output
-    assert json.loads(legacy.stdout)["operation_account"] is None
+    legacy_receipt = json.loads(legacy.stdout)
+    assert legacy_receipt["operation_account"] is None
+    assert legacy_receipt["custody"] == "unsettled"
 
     def failure():
         attempt = runner.invoke(app, ["model", "change", "apply", preview_id, "--json"])

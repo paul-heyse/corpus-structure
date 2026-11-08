@@ -254,9 +254,6 @@ def section_text_policy(prepared: PreparedRelease) -> bytes:
     digest = _section_text_policy_digest(prepared)
     if digest == sha256(policy).hexdigest():
         return policy
-    previous = b'{"content_layers":["body"],"recipe":"native-section-text-v8"}\n'
-    if digest == sha256(previous).hexdigest():
-        return previous
     raise ValueError("section text recipe differs from the selected release")
 
 
@@ -290,7 +287,6 @@ def retained_section_text_policy(
 
 def readable_formula_original(
     policy: Mapping[str, Any],
-    document_digest: str,
     original_digest: str | None,
     pointer: str,
     node: Any,
@@ -306,15 +302,6 @@ def readable_formula_original(
     if not original:
         return None
     digest = sha256(original.encode()).hexdigest()
-    if policy.get("recipe") == "native-section-text-v9":
-        witness = policy.get("readable_formula_original", {})
-        return (
-            original
-            if witness.get("content_digest") == document_digest
-            and witness.get("pointer") == pointer
-            and witness.get("orig_digest") == digest
-            else None
-        )
     if policy.get("recipe") != "native-section-text-v10":
         return None
     witnesses = [
@@ -556,9 +543,7 @@ def project_section_nodes(
                             "selected readable original is missing from its native occurrence"
                         )
                 else:
-                    original = readable_formula_original(
-                        policy, document_digest, original_digest, pointer, node
-                    )
+                    original = readable_formula_original(policy, original_digest, pointer, node)
             append(
                 original if original is not None else value,
                 pointer,

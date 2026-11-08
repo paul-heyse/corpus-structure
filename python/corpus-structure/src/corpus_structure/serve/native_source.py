@@ -617,7 +617,6 @@ def _inspect_native_source(
                 )
                 readable = readable_formula_original(
                     json.loads(policy) if policy is not None else {},
-                    request.content_digest,
                     published.revision["source_digest"],
                     request.pointer,
                     native,

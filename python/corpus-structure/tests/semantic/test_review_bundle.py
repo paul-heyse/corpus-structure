@@ -198,7 +198,16 @@ def source_row(text="qq"):
     }
 
 
-def test_source_projection_and_membership_closure(tmp_path):
+@pytest.fixture
+def synthetic_source_projection(monkeypatch):
+    # These controls use hand-written structural scopes and opaque product IDs.
+    # The native fold and its mandatory bundle boundary are exercised separately.
+    from corpus_structure.serve import review_bundle
+
+    monkeypatch.setattr(review_bundle, "_verify_source_projections", lambda *_: set())
+
+
+def test_source_projection_and_membership_closure(tmp_path, synthetic_source_projection):
     request = ReviewSelection(selections=(ContributionRequest(run_id=1),))
     rows = [
         ("selections", {"selection_index": 0, "run_id": 1, "cut_id": 2}),
@@ -212,7 +221,9 @@ def test_source_projection_and_membership_closure(tmp_path):
     assert not (tmp_path / "missing").exists()
 
 
-def test_opaque_raw_diagnostic_identifier_is_not_source_custody(tmp_path):
+def test_opaque_raw_diagnostic_identifier_is_not_source_custody(
+    tmp_path, synthetic_source_projection
+):
     request = ReviewSelection(selections=(ContributionRequest(run_id=1),))
     rows = [
         ("selections", {"selection_index": 0, "run_id": 1, "cut_id": 2}),
@@ -232,7 +243,9 @@ def test_opaque_raw_diagnostic_identifier_is_not_source_custody(tmp_path):
     assert verify_review_bundle(tmp_path / "diagnostic") == manifest
 
 
-def test_assessment_requires_its_actual_producer_run_unit_scope(tmp_path):
+def test_assessment_requires_its_actual_producer_run_unit_scope(
+    tmp_path, synthetic_source_projection
+):
     request = ReviewSelection(selections=(ContributionRequest(run_id=1),))
     rows = [
         ("selections", {"selection_index": 0, "run_id": 1, "cut_id": 2}),
@@ -389,7 +402,9 @@ def structural_rows(text="qq"):
     ]
 
 
-def test_structural_only_bundle_retains_original_source_pin_and_passage(tmp_path):
+def test_structural_only_bundle_retains_original_source_pin_and_passage(
+    tmp_path, synthetic_source_projection
+):
     from corpus_structure.serve.structural_products import StructuralRequest
 
     request = ReviewSelection(structural_selections=(StructuralRequest(run_id=2),))
@@ -453,7 +468,9 @@ def test_full_dossier_bundle_refuses_missing_selected_predecessor(tmp_path):
     assert not (tmp_path / "missing-predecessor").exists()
 
 
-def test_structural_passage_that_does_not_match_exported_source_is_refused(tmp_path):
+def test_structural_passage_that_does_not_match_exported_source_is_refused(
+    tmp_path, synthetic_source_projection
+):
     from corpus_structure.semantic.structural_products import StructuralProductReport
     from corpus_structure.serve.structural_products import StructuralRequest
 
@@ -632,7 +649,9 @@ def cross_cut_dossier_rows():
     return selection, result
 
 
-def test_cross_cut_dossier_authenticates_declared_reused_predecessor(tmp_path):
+def test_cross_cut_dossier_authenticates_declared_reused_predecessor(
+    tmp_path, synthetic_source_projection
+):
     selection, rows = cross_cut_dossier_rows()
     dossier = next(
         v["report"]["dossier"]
@@ -671,7 +690,9 @@ def test_cross_cut_dossier_authenticates_declared_reused_predecessor(tmp_path):
         "borrowed_support",
     ],
 )
-def test_cross_cut_dossier_refuses_substituted_custody_or_meaning(tmp_path, corruption):
+def test_cross_cut_dossier_refuses_substituted_custody_or_meaning(
+    tmp_path, corruption, synthetic_source_projection
+):
     from corpus_structure.semantic.structural_products import StructuralProductReport
 
     selection, rows = cross_cut_dossier_rows()
@@ -1159,7 +1180,9 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target", disti
     ), captures
 
 
-def test_artifact_nomination_replays_exact_retained_cross_cut_source(tmp_path):
+def test_artifact_nomination_replays_exact_retained_cross_cut_source(
+    tmp_path, synthetic_source_projection
+):
     request, rows = artifact_nomination_rows()
     root = tmp_path / "artifact"
     write_review_bundle(request, root, iter(rows))
@@ -1174,7 +1197,9 @@ def test_artifact_nomination_replays_exact_retained_cross_cut_source(tmp_path):
     assert [e["role"] for e in nomination["endpoints"]] == ["attachment", "target"]
 
 
-def test_artifact_nomination_adds_a_different_code_pair_without_a_score(tmp_path):
+def test_artifact_nomination_adds_a_different_code_pair_without_a_score(
+    tmp_path, synthetic_source_projection
+):
     request, rows = artifact_nomination_rows(distinct_codes=True)
     root = tmp_path / "artifact-distinct-codes"
     write_review_bundle(request, root, iter(rows))
@@ -1320,7 +1345,9 @@ def comparison_rows(variant):
     ), rows
 
 
-def test_detached_archive_requires_registered_singleton_comparison(tmp_path):
+def test_detached_archive_requires_registered_singleton_comparison(
+    tmp_path, synthetic_source_projection
+):
     request, rows = comparison_rows("archive")
     write_review_bundle(request, tmp_path / "archive", iter(rows))
     verify_review_bundle(tmp_path / "archive")

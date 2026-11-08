@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 from alembic.script import ScriptDirectory
-from sqlalchemy import insert, select
+from sqlalchemy import insert, select, update
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import DBAPIError
 from typer.testing import CliRunner
@@ -36,6 +36,8 @@ from corpus_structure.semantic.storage_target import StorageTargetError, acquire
 from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
 from corpus_structure.settings import DeploymentDatabaseSettings
 
+from .archive_faults import administrative_archive_edit
+
 
 def test_exact_native_deployment_resumes_before_separate_activation(
     semantic_database_at, native_settings, tmp_path, monkeypatch
@@ -43,8 +45,9 @@ def test_exact_native_deployment_resumes_before_separate_activation(
     from corpus_structure.cli import model as commands
     from corpus_structure.cli import recipes
     from corpus_structure.cli.app import app
-    from corpus_structure.cli.managed import ResultStore
+    from corpus_structure.cli.managed import Invocation, ResultStore
     from corpus_structure.cli.output import CliState
+    from corpus_structure.core.db.store import Store
     from corpus_structure.semantic import migrations
 
     predecessor = "semantic_dma_00_04"
@@ -148,19 +151,24 @@ def test_exact_native_deployment_resumes_before_separate_activation(
             update={"wrapper_sha256": sha256(migration_wrapper(binding)).hexdigest()}
         )
         store = ResultStore(tmp_path / "results")
-        with store.operation("model.candidate") as authored:
-            products_dir = authored.directory / "native-candidate"
-            products_dir.mkdir()
-            for name, content in products.items():
-                (products_dir / name).write_bytes(content)
-            deployment = authored.directory / "deployment.json"
-            deployment.write_text(binding.model_dump_json(), encoding="utf-8")
-            wrapper = authored.directory / "migration.py"
-            wrapper.write_bytes(migration_wrapper(binding))
-            authored.publish("candidate", products_dir)
-            authored.publish("deployment", deployment)
-            authored.publish("wrapper", wrapper)
-            authored.settle(sha256=sha256(deployment.read_bytes()).hexdigest())
+
+        def create_candidate():
+            with store.operation("model.candidate") as candidate:
+                products_dir = candidate.directory / "native-candidate"
+                products_dir.mkdir()
+                for name, content in products.items():
+                    (products_dir / name).write_bytes(content)
+                deployment = candidate.directory / "deployment.json"
+                deployment.write_text(binding.model_dump_json(), encoding="utf-8")
+                wrapper = candidate.directory / "migration.py"
+                wrapper.write_bytes(migration_wrapper(binding))
+                candidate.publish("candidate", products_dir)
+                candidate.publish("deployment", deployment)
+                candidate.publish("wrapper", wrapper)
+                candidate.settle(sha256=sha256(deployment.read_bytes()).hexdigest())
+            return candidate
+
+        authored = create_candidate()
         configured = settings.model_copy(update={"ci_results": store.root})
         monkeypatch.setattr(recipes, "checkout", lambda _: tmp_path)
         monkeypatch.setattr(commands, "_prepare_release", lambda *_: prepared_input)
@@ -173,8 +181,8 @@ def test_exact_native_deployment_resumes_before_separate_activation(
                 obj=CliState(settings_factory=lambda: configured),
             )
 
-        def run(action):
-            return command("model", "change", action, authored.id)
+        def run(action, candidate=authored):
+            return command("model", "change", action, candidate.id)
 
         registered = run("register")
         assert registered.exit_code == 0, registered.output
@@ -296,16 +304,122 @@ def test_exact_native_deployment_resumes_before_separate_activation(
         with engine.begin() as conn:
             assert current_revision(conn) == predecessor
 
-        def interrupt_after_migration(stage):
-            assert stage == "migration"
-            raise KeyboardInterrupt
-
-        with pytest.raises(KeyboardInterrupt):
-            deploy_candidate(
-                tmp_path, settings, binding, prepared_input, report=interrupt_after_migration
+        with engine.begin() as conn:
+            conn.exec_driver_sql(
+                "GRANT TEMP ON DATABASE "
+                + conn.dialect.identifier_preparer.quote(identity.database)
+                + " TO corpus_sem_writer"
             )
+        try:
+            refused = run("deploy")
+            assert refused.exit_code == 1, refused.output
+            denied = json.loads(refused.stdout)
+            assert "privileged runtime principal" in denied["error"]["message"]
+            assert denied["operation_account"]["known_effects"] == []
+            failed_attempts = [denied["invocation_id"]]
+            with engine.begin() as conn:
+                assert current_revision(conn) == predecessor
+                assert conn.scalar(select(table("sem.release").c.release_id)) is None
+                assert conn.scalar(select(table("sem.deployment_admission").c.release_id)) is None
+                assert activation_token(conn, "model-deployment-control").generation == 0
+        finally:
+            with engine.begin() as conn:
+                conn.exec_driver_sql(
+                    "REVOKE TEMP ON DATABASE "
+                    + conn.dialect.identifier_preparer.quote(identity.database)
+                    + " FROM corpus_sem_writer"
+                )
+
+        upgrade = migrations.upgrade
+
+        def drift_after_upgrade(conn, *args, **kwargs):
+            result = upgrade(conn, *args, **kwargs)
+            conn.exec_driver_sql("ALTER TABLE eval.document_split ADD CHECK (length(split) > 0)")
+            return result
+
+        with monkeypatch.context() as faults:
+            faults.setattr(migrations, "upgrade", drift_after_upgrade)
+            refused = run("deploy")
+        assert refused.exit_code == 1, refused.output
+        denied = json.loads(refused.stdout)
+        assert "unexpected physical CHECK" in denied["error"]["message"]
+        assert denied["operation_account"]["known_effects"] == []
+        failed_attempts.append(denied["invocation_id"])
+        with engine.connect() as conn:
+            assert current_revision(conn) == predecessor
+            assert conn.scalar(select(table("sem.release").c.release_id)) is None
+            assert activation_token(conn, "model-deployment-control").generation == 0
+
+        write = Invocation._write
+        close = Store.close
+
+        def fail_checkpoint(invocation):
+            if (
+                invocation.manifest.action == "model.deploy"
+                and invocation.manifest.stage == "migration"
+                and invocation.manifest.settled is None
+            ):
+                raise OSError("injected post-commit receipt write failure")
+            write(invocation)
+
+        def fail_cleanup(store):
+            close(store)
+            if store.application_name == "ci-model-verify":
+                raise OSError("injected database cleanup failure")
+
+        def lose_commit_acknowledgement(conn, *args, **kwargs):
+            result = upgrade(conn, *args, **kwargs)
+            commit = conn.dialect.do_commit
+
+            def commit_and_lose(driver):
+                faults.setattr(conn.dialect, "do_commit", commit)
+                commit(driver)
+                raise OSError("injected lost migration commit acknowledgement")
+
+            faults.setattr(conn.dialect, "do_commit", commit_and_lose)
+            return result
+
+        with monkeypatch.context() as faults:
+            faults.setattr(migrations, "upgrade", lose_commit_acknowledgement)
+            failed = run("deploy")
+        assert failed.exit_code == 1, failed.output
+        failure = json.loads(failed.stdout)
+        failed_attempts.append(failure["invocation_id"])
+        assert failure["operation_account"]["known_effects"] == ["migration"]
+        assert failure["operation_account"]["failure"]["database_effects"] == "commit_confirmed"
+        assert failure["operation_account"]["failure"]["operation_id"] == "model.deploy:migration"
         with engine.connect() as conn:
             assert current_revision(conn) == revision
+            assert conn.scalar(select(table("sem.release").c.release_id)) is None
+
+        for cleanup in (False, True):
+            candidate = create_candidate() if cleanup else authored
+            with monkeypatch.context() as faults:
+                faults.setattr(Invocation, "_write", fail_checkpoint)
+                if cleanup:
+                    faults.setattr(Store, "close", fail_cleanup)
+                failed = run("deploy", candidate)
+            assert failed.exit_code == 1, failed.output
+            failure = json.loads(failed.stdout)
+            account = failure["operation_account"]
+            assert account["reached_revision"] == revision
+            assert account["known_effects"] == ["migration"]
+            assert account["cleanup"] == ("unresolved" if cleanup else "established")
+            receipt = command("results", "show", failure["invocation_id"])
+            assert receipt.exit_code == 0, receipt.output
+            assert json.loads(receipt.stdout)["operation_account"] == account
+            if cleanup:
+                refused = command("evidence", "retain", failure["invocation_id"], "--for", "DMA-08")
+                assert refused.exit_code == 1, refused.output
+                assert "evidence promotion requires established custody" in refused.stdout
+                assert failure["invocation_id"] in store.show(candidate.id).holds
+            else:
+                failed_attempts.append(failure["invocation_id"])
+
+        with engine.connect() as conn:
+            assert current_revision(conn) == revision
+            assert conn.scalar(select(table("sem.release").c.release_id)) is None
+            assert conn.scalar(select(table("sem.deployment_admission").c.release_id)) is None
             assert (
                 conn.exec_driver_sql(
                     "SELECT to_regprocedure('ops.dossier_contribution_members(jsonb,jsonb)')"
@@ -326,11 +440,23 @@ def test_exact_native_deployment_resumes_before_separate_activation(
         assert account["reached_revision"] == revision
         assert account["release"] == prepared.release_id
         assert account["known_effects"] == ["migration", "archive", "admission", "verified"]
+
+        admitted = table("sem.deployment_admission")
+        exact = (admitted.c.release_id == prepared.release_id) & (admitted.c.kind == "native")
+        with engine.begin() as conn:
+            digest = conn.execute(select(admitted.c.content_digest).where(exact)).scalar_one()
+            with administrative_archive_edit(conn, admitted):
+                conn.execute(update(admitted).where(exact).values(content_digest="0" * 64))
+        try:
+            with pytest.raises(ModelError, match="admitted release does not match"):
+                deploy_candidate(tmp_path, settings, binding, prepared_input, report=lambda _: None)
+        finally:
+            with engine.begin() as conn, administrative_archive_edit(conn, admitted):
+                conn.execute(update(admitted).where(exact).values(content_digest=digest))
+
         store.hold(result["result_id"], result["result_id"])
-        assert (
-            authored.id
-            in store.collect(apply=True, now=store.show(authored.id).expiry() + 1).removed
-        )
+        expiry = max(store.show(id_).expiry() for id_ in (authored.id, *failed_attempts))
+        assert authored.id in store.collect(apply=True, now=expiry + 1).removed
         retained = command("results", "show", result["result_id"])
         assert retained.exit_code == 0, retained.output
         assert json.loads(retained.stdout)["operation_account"] == account

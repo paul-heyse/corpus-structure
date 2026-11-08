@@ -64,6 +64,42 @@ def test_visual_scope_requires_exact_crop_and_quarter_turn(crop):
         )
 
 
+def test_visual_group_renders_compatible_page_once(monkeypatch, tmp_path):
+    from contextlib import ExitStack
+
+    with BytesIO() as buffer, Image.new("RGB", (40, 60), (110, 120, 130)) as image:
+        image.save(buffer, format="PDF")
+        original = buffer.getvalue()
+    render_page = pdf_visual_mapping.render_recognition_page
+    rendered = []
+
+    def observe_render(document, page_no, scale):
+        rendered.append((page_no, scale))
+        return render_page(document, page_no, scale)
+
+    monkeypatch.setattr(pdf_visual_mapping, "render_recognition_page", observe_render)
+    region = dict(
+        page_no=1,
+        page_width=40,
+        page_height=60,
+        left=5,
+        top=10,
+        right=20,
+        bottom=35,
+        origin="top_left",
+    )
+    with ExitStack() as lifetime:
+        group = visual_requests._GroupInference(tmp_path, None, lifetime)
+        whole, _ = group.render(lambda: original, 1, None, 0)
+        crop, transform = group.render(lambda: original, 1, region, 90)
+        assert rendered == [(1, 2)]
+    with Image.open(BytesIO(whole)) as full_image, Image.open(BytesIO(crop)) as crop_image:
+        assert full_image.size == (80, 120)
+        assert crop_image.size == (50, 30)
+    assert transform["normalization"] == "clipped"
+    assert (crop, transform) == pdf_visual_mapping.render_visual_input(original, 1, region, 90)
+
+
 def test_visual_nomination_keeps_empty_decision_and_refuses_a_forged_source_cut(
     pdf13_db, tmp_path, monkeypatch
 ):
@@ -128,6 +164,7 @@ def test_visual_nomination_keeps_empty_decision_and_refuses_a_forged_source_cut(
     )
     result = dispatch()
     assert result.groups == ()
+    assert result.progress.routes == routes and result.progress.groups == ()
     assert dispatch(nomination_run_id=result.nomination_run_id) == result
     runs = table("ops.run")
     with db.writer.connect() as conn:
@@ -431,6 +468,25 @@ def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
         )
     assert item.occurrence_id == request.occurrence_id and following is None
     with db.writer.connect() as conn:
+        regional = request.model_copy(update={"occurrence_id": None, "visual_kind": "picture"})
+        (sparse,), following = _read_mapped_locator(
+            conn, large.mapped, mapped_digest, regional, (inside,), PublishedReadBudget(2, 1024), 0
+        )
+        assert sparse.occurrence_id == final_picture and following is None
+        empty = inside.model_copy(update={"top": 145, "bottom": 155})
+        assert _read_mapped_locator(
+            conn, large.mapped, mapped_digest, regional, (empty,), PublishedReadBudget(2, 1024), 0
+        ) == ((), None)
+        with pytest.raises(ReadLimit, match="row-work budget"):
+            _read_mapped_locator(
+                conn,
+                large.mapped,
+                mapped_digest,
+                regional,
+                (outside,),
+                PublishedReadBudget(2, 1024),
+                0,
+            )
         cell = request.model_copy(
             update={"occurrence_id": "rich-table", "cell_index": 0, "limit": 2}
         )
@@ -572,6 +628,7 @@ def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
     pdf13_db, tmp_path, monkeypatch
 ):
     from contextlib import contextmanager
+    from types import SimpleNamespace
 
     from corpus_structure.serve.pdf_visual_evidence import visual_observation_manifest
 
@@ -591,6 +648,21 @@ def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
     )
     attempts = []
     sessions = []
+    stop_reason = VlmStopReason.UNSPECIFIED
+    recipe_revision = "controlled"
+
+    def provider_identity():
+        return {
+            "repository": "datalab-to/chandra-ocr-2",
+            "revision": recipe_revision,
+            "packages": {"docling": "2.148.0"},
+            "artifacts_sha256": {
+                "model.safetensors": "b" * 64,
+                "tokenizer.json": "c" * 64,
+            },
+            "prompt": "group test",
+            "decode": {},
+        }
 
     class ControlledRuntime:
         def __init__(self, artifacts):
@@ -598,17 +670,7 @@ def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
             self.effective_device = {"device": "controlled"}
 
         def identity(self):
-            return {
-                "repository": "datalab-to/chandra-ocr-2",
-                "revision": "controlled",
-                "packages": {"docling": "2.148.0"},
-                "artifacts_sha256": {
-                    "model.safetensors": "b" * 64,
-                    "tokenizer.json": "c" * 64,
-                },
-                "prompt": "group test",
-                "decode": {},
-            }
+            return provider_identity()
 
     @contextmanager
     def session(runtime):
@@ -618,7 +680,7 @@ def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
             check_active()
             before_submit()
             attempts.append(pixels)
-            return VlmPrediction(text=_HTML, stop_reason=VlmStopReason.UNSPECIFIED)
+            return VlmPrediction(text=_HTML, stop_reason=stop_reason)
 
         yield recognize
 
@@ -645,8 +707,15 @@ def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
         pdf_capacity, "suspend_resident_nemotron", lambda endpoint, check_active=None: nullcontext()
     )
     monkeypatch.setattr(pdf_chandra, "ChandraRuntime", ControlledRuntime)
+    monkeypatch.setattr(pdf_chandra, "chandra_recognition_identity", provider_identity)
     monkeypatch.setattr(pdf_chandra, "supervised_chandra", session)
-    monkeypatch.setattr(pdf_visual_mapping, "render_visual_input", render)
+    monkeypatch.setattr(
+        visual_requests._GroupInference,
+        "render",
+        lambda self, load_original, page, region, rotation: render(
+            load_original(), page, region, rotation
+        ),
+    )
 
     args = dict(
         selections=requests,
@@ -771,12 +840,74 @@ def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
 
     with monkeypatch.context() as patch:
         patch.setattr(pdf_chandra, "ChandraRuntime", unavailable)
-        patch.setattr(pdf_visual_mapping, "render_visual_input", unavailable)
+        patch.setattr(visual_requests._GroupInference, "render", unavailable)
         patch.setattr(visual_requests, "_read_visual_original", unavailable)
         recovered_mapping = visual_requests.request_visual_group(db.writer, **mapping_recovery)
     assert recovered_mapping.status == "source_ready"
     assert recovered_mapping.members[0].raw is not None
     assert recovered_mapping.members[0].mapped is not None
+
+    # A new ordinary group can bind the exact successful raw pin before
+    # inspecting local provider files or rendering the original.
+    stop_reason = VlmStopReason.END_OF_SEQUENCE
+    recipe_revision = "successful-recognition"
+    seed_args = {**failure_args, "campaign_group": "2" * 64}
+    seeded = visual_requests.request_visual_group(db.writer, **seed_args)
+    assert seeded.status == "source_ready" and seeded.members[0].raw is not None
+    raw_pin = seeded.members[0].raw
+
+    def pending_mapping(pin):
+        return SimpleNamespace(
+            id=-1,
+            reused_task_id=None,
+            unit_key="unpublished-mapping",
+            trigger={"visual_raw": pin.model_dump(mode="json")},
+        )
+
+    with db.writer.connect() as conn:
+        selection = seed_args["selections"][0]
+        assert (
+            visual_requests._visual_mapping_raw_pin(conn, pending_mapping(raw_pin), selection, "p")
+            == raw_pin
+        )
+        assert (
+            visual_requests._visual_mapping_raw_pin(
+                conn,
+                pending_mapping(raw_pin.model_copy(update={"run_id": raw_pin.run_id + 1})),
+                selection,
+                "p",
+            )
+            is None
+        )
+        assert (
+            visual_requests._visual_mapping_raw_pin(
+                conn, pending_mapping(raw_pin), requests[1], "p"
+            )
+            is None
+        )
+        assert (
+            visual_requests._visual_mapping_raw_pin(
+                conn, pending_mapping(raw_pin), selection, "wrong-project"
+            )
+            is None
+        )
+    attempts_before_reuse = len(attempts)
+    with monkeypatch.context() as patch:
+        patch.setattr(pdf_chandra, "ChandraRuntime", unavailable)
+        patch.setattr(visual_requests._GroupInference, "render", unavailable)
+        patch.setattr(visual_requests, "_read_visual_original", unavailable)
+        reused = visual_requests.request_visual_group(
+            db.writer, **{**seed_args, "campaign_group": "3" * 64}
+        )
+    assert reused.status == "source_ready" and reused.run_id != seeded.run_id
+    assert reused.members[0].raw == seeded.members[0].raw
+    assert len(attempts) == attempts_before_reuse
+    recipe_revision = "changed-recognition"
+    changed = visual_requests.request_visual_group(
+        db.writer, **{**seed_args, "campaign_group": "4" * 64}
+    )
+    assert changed.members[0].raw != seeded.members[0].raw
+    assert len(attempts) == attempts_before_reuse + 1
 
 
 def test_visual_group_reopens_only_the_lost_worker(tmp_path, monkeypatch):

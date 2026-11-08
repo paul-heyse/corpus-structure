@@ -7,7 +7,7 @@ only an explicit archive load recompiles the archived, entirely local inputs.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any
@@ -624,6 +624,7 @@ def activate_release(
     expected_parent: str | None,
     expected_generation: int,
     sql_reader: Connection | None = None,
+    verify_sql_reader: Callable[[Connection], object] | None = None,
     sql_admissions: Mapping[str, AuthoredSQL] | None = None,
 ) -> ActivationToken:
     """Admit the exact archived release, then CAS the pointer and generation together.
@@ -632,11 +633,19 @@ def activate_release(
     A stale token fails even after a pointer changes away and returns (ABA).
     """
     from .authored_sql import admit_archived_sql
+    from .migrations import migration_fence
     from .publication import admit_release
 
+    migration_fence(conn)
     prepared = load_release(conn, release_id)
     with conn.begin_nested():
-        admit_archived_sql(conn, release_id, reader_conn=sql_reader, analyzed=sql_admissions)
+        admit_archived_sql(
+            conn,
+            release_id,
+            reader_conn=sql_reader,
+            verify_reader=verify_sql_reader,
+            analyzed=sql_admissions,
+        )
         admit_release(prepared, connection=conn)
         from sqlalchemy.exc import DBAPIError
 

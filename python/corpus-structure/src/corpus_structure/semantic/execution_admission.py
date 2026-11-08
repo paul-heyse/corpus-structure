@@ -92,6 +92,7 @@ class NativeExpectation:
     guard_digest: str
     selected_fact_sql: str
     state: tuple[Path, str]
+    admission_body: str
 
 
 def _revision_expectation(versions: Path, revision: str) -> NativeExpectation:
@@ -103,15 +104,81 @@ def _revision_expectation(versions: Path, revision: str) -> NativeExpectation:
         ) from None
 
 
-def require_frozen_native_revision(versions: Path, revision: str) -> None:
+def require_frozen_native_revision(versions: Path, revision: str) -> str:
     """Resolve and validate the approved successor before attempting its migration."""
     from .native_objects import NativeAuthoringError
 
     expected = _revision_expectation(versions, revision)
     try:
         _frozen_functions(*expected.state)
+        _catalog_checks(expected.admission_body)
     except (NativeAuthoringError, OSError, ValueError) as exc:
         raise ExecutionAdmissionError(f"frozen native state is unavailable: {exc}") from exc
+    return expected.physical_id
+
+
+def _catalog_checks(body: str) -> str:
+    """Reuse the immutable guard's catalog checks without its release reads or writes."""
+    boundaries = (
+        (
+            " IF NOT EXISTS(SELECT FROM sem.physical_contract ",
+            " IF EXISTS(SELECT FROM sem.release archived CROSS JOIN LATERAL",
+        ),
+        (
+            " SELECT item.value INTO spec FROM jsonb_array_elements(expected->'functions')",
+            " IF NOT EXISTS(SELECT FROM sem.deployment_admission ",
+        ),
+    )
+    checks = []
+    for first, following in boundaries:
+        if body.count(first) != 1 or body.count(following) != 1:
+            raise ValueError("frozen native guard does not identify its catalog checks")
+        start, end = body.index(first), body.index(following)
+        if end <= start:
+            raise ValueError("frozen native guard has invalid catalog check boundaries")
+        checks.append(body[start:end])
+    return "\n".join(checks)
+
+
+def verify_deployment_catalog(
+    connection: Connection, *, revision: str, versions: Path | None = None
+) -> str:
+    """Verify the full known revision before an effect on the maintenance connection."""
+    from sqlalchemy.exc import DBAPIError
+
+    from .migrations import ALEMBIC_DIR
+    from .native_objects import execute_native_sql
+
+    versions = ALEMBIC_DIR / "versions" if versions is None else versions
+    expected = _revision_expectation(versions, revision)
+    physical_id = _verify_deployment_functions(connection, revision=revision, versions=versions)
+    try:
+        checks = _catalog_checks(expected.admission_body)
+        # Run the exact catalog clauses in the same search path as the authenticated
+        # guard, without running that guard's release-specific admission effects.
+        savepoint = connection.begin_nested()
+        try:
+            connection.exec_driver_sql("SET LOCAL search_path = pg_catalog, pg_temp")
+            execute_native_sql(
+                connection,
+                "DO $deployment_catalog$ DECLARE expected jsonb; spec jsonb; owner_name text; "
+                "BEGIN expected := data.execution_contract_descriptor(); "
+                "SELECT pg_get_userbyid(nspowner) INTO owner_name FROM pg_namespace "
+                "WHERE nspname='sem';\n" + checks + "\nEND $deployment_catalog$",
+            )
+        finally:
+            savepoint.rollback()
+    except (DBAPIError, ValueError) as exc:
+        original = exc.orig if isinstance(exc, DBAPIError) else exc
+        if isinstance(exc, DBAPIError) and getattr(original, "sqlstate", None) not in {
+            "23514",
+            "42501",
+        }:
+            raise
+        raise ExecutionAdmissionError(
+            f"native deployment catalog differs: {str(original).splitlines()[0]}"
+        ) from exc
+    return physical_id
 
 
 def _verify_deployment_functions(
@@ -370,6 +437,7 @@ def _frozen_expectations(stamps) -> dict[str, NativeExpectation]:
                 guard,
                 view,
                 (path.with_name(state), declared["NATIVE_STATE_SHA256"]),
+                bodies[_REQUIRED],
             )
 
         def inherited(revision, visiting):

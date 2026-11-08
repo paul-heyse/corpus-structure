@@ -33,6 +33,8 @@ from corpus_structure.serve.review_bundle import (
     write_review_bundle,
 )
 
+from .test_review_bundle import synthetic_source_projection as synthetic_source_projection
+
 
 def _source(view_id, pointer, text, label, release):
     original = view()
@@ -81,7 +83,9 @@ def _source(view_id, pointer, text, label, release):
 
 
 @pytest.mark.parametrize("outside", [False, True])
-def test_detached_section_replay_requires_complete_witnesses(monkeypatch, tmp_path, outside):
+def test_detached_section_replay_requires_complete_witnesses(
+    monkeypatch, tmp_path, outside, synthetic_source_projection
+):
     work = "c" * 64
     documents = {view_id: {"content_hash": f"{view_id + 1:x}" * 64} for view_id in (7, 8, 9)}
     packet = canonical_bytes(

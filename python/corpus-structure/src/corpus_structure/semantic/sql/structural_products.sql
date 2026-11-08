@@ -1901,6 +1901,179 @@ RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 $$;
 REVOKE ALL ON FUNCTION ops.definition_bound_span(jsonb,integer,jsonb,text) FROM PUBLIC;
 
+CREATE OR REPLACE FUNCTION ops.definition_dependency_bindings(
+ tokens jsonb,full_text text,passage jsonb,pattern jsonb,cue_node text,act integer)
+RETURNS SETOF jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+ WITH RECURSIVE token_rows AS MATERIALIZED (
+  SELECT (n-1)::integer i,(t->>'head')::integer head,t,
+   lower(substring(full_text FROM (t->>'start')::integer+1 FOR (t->>'end')::integer-(t->>'start')::integer)) word
+  FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n)
+  WHERE t->'sentence'=tokens->act->'sentence' AND (t->>'start')::integer>=(passage->>'start')::integer
+   AND (t->>'end')::integer<=(passage->>'end')::integer
+ ), ancestry(i,parent) AS (
+  SELECT i,head FROM token_rows WHERE i<>head
+  UNION SELECT a.i,t.head FROM ancestry a JOIN token_rows t ON t.i=a.parent AND t.i<>t.head
+ ), candidates AS MATERIALIZED (
+  SELECT (n-1)::integer position,p->>'RIGHT_ID' name,p->>'LEFT_ID' owner,p->>'REL_OP' edge,t.i,t.head
+  FROM jsonb_array_elements(pattern) WITH ORDINALITY r(p,n) CROSS JOIN token_rows t
+  WHERE ((p->>'RIGHT_ID'=cue_node)=(t.i=act)) AND NOT EXISTS(
+   SELECT FROM jsonb_each(p->'RIGHT_ATTRS') a
+   CROSS JOIN LATERAL (SELECT CASE a.key WHEN 'LOWER' THEN t.word WHEN 'DEP' THEN t.t->>'dependency'
+    WHEN 'LEMMA' THEN t.t->>'lemma' WHEN 'POS' THEN t.t->>'pos' END AS value) v
+   WHERE (CASE jsonb_typeof(a.value) WHEN 'string' THEN v.value=a.value#>>'{}'
+     WHEN 'object' THEN a.value->'IN' ? v.value END) IS DISTINCT FROM true
+  )
+ ), matches(position,names,used) AS (
+  SELECT 0,'{}'::jsonb,ARRAY[]::integer[]
+  UNION ALL
+  SELECT m.position+1,m.names||jsonb_build_object(c.name,c.i),m.used||c.i
+  FROM matches m JOIN candidates c USING(position) WHERE NOT c.i=ANY(m.used)
+   AND (c.position=0 OR c.edge='>' AND c.head=(m.names->>c.owner)::integer
+    OR c.edge='>>' AND EXISTS(SELECT FROM ancestry a WHERE a.i=c.i AND a.parent=(m.names->>c.owner)::integer))
+ )
+ SELECT names FROM matches WHERE position=jsonb_array_length(pattern)
+$$;
+REVOKE ALL ON FUNCTION ops.definition_dependency_bindings(jsonb,text,jsonb,jsonb,text,integer) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.definition_scope_supported(
+ projection jsonb,annotation jsonb,rule_ jsonb,indices jsonb,act integer,recipe jsonb)
+RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+ WITH RECURSIVE
+ tokens AS (SELECT annotation->'tokens' a),
+ available AS (
+  SELECT count(DISTINCT a->>'attribute')=5 complete FROM jsonb_array_elements(annotation->'availability') a
+  WHERE a->>'status'='complete' AND a->>'attribute' IN ('DEP','POS','SENT_START','LEMMA','TAG')
+ ),
+ host_inventory AS MATERIALIZED (
+  SELECT predicate FROM ops.predicate_argument_inventory(projection,(SELECT a FROM tokens),recipe,true)
+  WHERE role='predicate'
+ ),
+ token_rows AS MATERIALIZED (
+  SELECT (n-1)::integer i,(t->>'head')::integer head,t->>'dependency' dep,
+   t->>'lemma' lemma,t->>'tag' tag,t->>'pos' pos,(t->>'start')::integer lo,(t->>'end')::integer hi,
+   substring(projection->>'text' FROM (t->>'start')::integer+1 FOR (t->>'end')::integer-(t->>'start')::integer) word
+  FROM tokens CROSS JOIN jsonb_array_elements(a) WITH ORDINALITY x(t,n)
+  WHERE t->'sentence'=a->act->'sentence'
+ ),
+ quote_scan(i,stack,opened,closed) AS (
+  SELECT min(i)-1,ARRAY[]::text[],ARRAY[]::integer[],NULL::int4range FROM token_rows
+  UNION ALL
+  SELECT t.i,
+   CASE WHEN t.word=s.stack[cardinality(s.stack)] THEN trim_array(s.stack,1)
+    WHEN t.word IN ('"','“','‘') THEN s.stack||CASE t.word WHEN '“' THEN '”' WHEN '‘' THEN '’' ELSE '"' END ELSE s.stack END,
+   CASE WHEN t.word=s.stack[cardinality(s.stack)] THEN trim_array(s.opened,1)
+    WHEN t.word IN ('"','“','‘') THEN s.opened||t.i ELSE s.opened END,
+   CASE WHEN t.word=s.stack[cardinality(s.stack)] THEN int4range(s.opened[cardinality(s.opened)],t.i,'[]') END
+  FROM quote_scan s JOIN token_rows t ON t.i=s.i+1
+ ),
+ binding AS (
+  SELECT rule_->'bindings'->'defining_content' content,rule_->'bindings'->'defining_content_predicate' predicate,
+   rule_->'bindings'->'definition_scope_guard' guard
+ ),
+ ownership AS (
+  SELECT ops.definition_bound_span(a,(indices->>(content->>'node'))::integer,content,projection->>'text') content,
+   (indices->>(predicate->>'node'))::integer content_host,
+   ops.definition_bound_span(a,(indices->>(guard->>'node'))::integer,guard,projection->>'text') guard
+  FROM binding CROSS JOIN tokens
+ ),
+ scoped_hosts AS MATERIALIZED (
+  SELECT h.predicate,i.lo,i.hi FROM host_inventory h JOIN token_rows i ON i.i=h.predicate CROSS JOIN ownership o
+  WHERE h.predicate=act OR h.predicate=o.content_host
+   OR int4range(i.lo,i.hi,'[)') <@ int4range((o.content->>0)::integer,(o.content->>1)::integer,'[)') AND o.content IS NOT NULL
+   OR int4range(i.lo,i.hi,'[)') <@ int4range((o.guard->>0)::integer,(o.guard->>1)::integer,'[)')
+    AND o.content_host IS NULL AND o.guard IS NOT NULL
+ ),
+ quoted AS MATERIALIZED (SELECT closed AS extent FROM quote_scan WHERE closed IS NOT NULL),
+ marker_words AS (
+  SELECT 'condition' AS kind,word FROM jsonb_array_elements_text(recipe#>'{definition_scope,condition_markers}') word
+  UNION ALL SELECT 'exception',word FROM jsonb_array_elements_text(recipe#>'{definition_scope,exception_markers}') word
+  UNION ALL SELECT 'order',word FROM jsonb_array_elements_text(recipe#>'{definition_scope,order_markers}') word
+ ),
+ markers AS (
+  SELECT t.*,m.kind FROM token_rows t CROSS JOIN LATERAL (
+   SELECT kind FROM marker_words m WHERE m.word=lower(t.word) OR m.word=lower((
+    SELECT string_agg(next_.word,' ' ORDER BY next_.i) FROM token_rows next_
+    WHERE next_.i BETWEEN t.i AND t.i+cardinality(string_to_array(m.word,' '))-1
+   )) ORDER BY length(m.word) DESC LIMIT 1
+  ) m WHERE NOT EXISTS(SELECT FROM quoted q WHERE t.i <@ q.extent)
+ ),
+ clause_cues AS (
+  SELECT m.kind,m.i marker,
+   CASE WHEN m.dep='mark' THEN CASE WHEN p.dep='advcl' THEN p.head ELSE p.i END ELSE m.head END host,
+   CASE WHEN m.dep='mark' AND p.dep='advcl' THEN p.i ELSE child.i END subordinate
+  FROM markers m LEFT JOIN token_rows p ON p.i=m.head
+  LEFT JOIN token_rows child ON child.head=m.i AND child.dep IN ('pcomp','advcl')
+  WHERE m.dep IN ('mark','prep','advmod')
+ ),
+ cue_tree(marker,i) AS (
+  SELECT marker,subordinate FROM clause_cues WHERE subordinate IS NOT NULL
+  UNION SELECT w.marker,t.i FROM cue_tree w JOIN token_rows t ON t.head=w.i AND t.i<>w.i
+ ),
+ cues AS (
+  SELECT c.kind,c.host,c.marker,c.subordinate,coalesce(c.subordinate IS NOT NULL,false) located FROM clause_cues c
+  UNION ALL SELECT c.kind,premise.head,c.marker,c.subordinate,false
+   FROM clause_cues c JOIN token_rows premise ON premise.i=c.host
+   JOIN token_rows marker ON marker.i=c.marker
+   WHERE c.kind='condition' AND lower(marker.word)='if' AND premise.dep='ccomp' AND premise.head>premise.i
+    AND EXISTS(SELECT FROM token_rows connector WHERE connector.i BETWEEN c.subordinate+1 AND premise.i-1
+     AND connector.dep='cc' AND lower(connector.word)='and')
+    AND EXISTS(SELECT FROM token_rows then_ JOIN token_rows comma ON comma.i=then_.i-1
+     WHERE premise.i<then_.i AND then_.i<premise.head AND then_.head=premise.head
+      AND then_.dep='advmod' AND lower(then_.word)='then' AND comma.word=','
+      AND NOT EXISTS(SELECT FROM quoted q WHERE then_.i <@ q.extent))
+  UNION ALL SELECT 'negation',t.head,t.i,NULL,true FROM token_rows t WHERE t.dep='neg'
+  UNION ALL SELECT 'modality',t.head,t.i,NULL,true FROM token_rows t
+   WHERE t.tag='MD' AND recipe->'auxiliary_dependencies' ? t.dep
+  UNION ALL SELECT 'attribution',t.i,p.i,NULL,true FROM token_rows t JOIN token_rows p ON p.i=t.head
+   WHERE t.dep='ccomp' AND recipe->'report_lemmas' ? lower(p.lemma)
+  UNION ALL SELECT 'assumption',p.i,p.i,NULL,true FROM token_rows t JOIN token_rows p ON p.i=t.head
+   WHERE t.dep='ccomp' AND recipe->'assumption_lemmas' ? lower(p.lemma)
+  UNION ALL SELECT 'attribution',t.head,t.i,NULL,true FROM token_rows t JOIN token_rows n ON n.i=t.i+1
+   WHERE t.dep='prep' AND lower(t.word)='according' AND lower(n.word)='to'
+  UNION ALL SELECT 'example',t.head,t.i,NULL,true FROM token_rows t JOIN token_rows n ON n.i=t.i+1
+   WHERE t.dep='prep' AND lower(t.word)='for' AND lower(n.word)='example'
+    AND NOT EXISTS(SELECT FROM token_rows num WHERE num.i=n.i+1 AND num.head=n.i AND num.dep='nummod' AND num.pos='NUM')
+  UNION ALL SELECT 'contrast',t.i,p.i,NULL,true FROM token_rows t JOIN token_rows p ON p.i=t.head
+   JOIN token_rows marker ON marker.i=p.i-1 WHERE t.dep='pcomp' AND lower(p.word)='of' AND lower(marker.word)='instead'
+  UNION ALL SELECT 'quotation',h.predicate,h.predicate,NULL,true FROM scoped_hosts h WHERE EXISTS(
+   SELECT FROM quoted q WHERE h.predicate <@ q.extent)
+ ),
+ negations AS (
+  SELECT ops.predicate_source_negations(a,ops.predicate_token_texts(projection,a)) value FROM tokens
+ )
+ SELECT (SELECT complete FROM available) AND EXISTS(SELECT FROM scoped_hosts WHERE predicate=act)
+  AND NOT EXISTS(SELECT FROM binding b CROSS JOIN ownership o WHERE
+   b.predicate IS NOT NULL AND NOT EXISTS(SELECT FROM scoped_hosts WHERE predicate=o.content_host)
+   OR b.guard IS NOT NULL AND o.guard IS NULL)
+  AND NOT (SELECT value ? act::text FROM negations)
+  AND NOT EXISTS(
+   SELECT FROM scoped_hosts h CROSS JOIN ownership o CROSS JOIN negations n
+   WHERE h.predicate<>act AND n.value->>h.predicate::text='unresolved'
+  )
+  AND NOT EXISTS(
+   SELECT FROM cues c JOIN token_rows marker ON marker.i=c.marker CROSS JOIN ownership o
+   JOIN token_rows host ON host.i=c.host
+   WHERE (
+    c.host=act OR (c.kind IN ('condition','modality') AND EXISTS(
+     SELECT FROM token_rows t WHERE t.i=act AND t.dep='conj' AND t.head=c.host
+      AND (c.kind='modality' OR c.marker<c.host)
+      AND (SELECT array_agg(DISTINCT lower(cc.word)) FROM token_rows cc
+       WHERE cc.dep='cc' AND cc.head IN (c.host,act) AND cc.i BETWEEN least(c.host,act) AND greatest(c.host,act))=ARRAY['and']
+      AND NOT EXISTS(SELECT FROM token_rows own WHERE own.head=act AND
+       (recipe->'subject_dependencies' ? own.dep OR recipe->'patient_dependencies' ? own.dep
+        OR recipe->'auxiliary_dependencies' ? own.dep))
+    ))
+    OR (EXISTS(SELECT FROM scoped_hosts WHERE predicate=c.host) AND (
+     NOT c.located OR NOT (recipe#>'{definition_scope,content_cues}' ? c.kind)
+     OR o.content IS NULL OR marker.lo<(o.content->>0)::integer OR marker.hi>(o.content->>1)::integer
+     OR EXISTS(SELECT FROM cue_tree w JOIN token_rows t USING(i) WHERE w.marker=c.marker AND
+      (t.lo<(o.content->>0)::integer OR t.hi>(o.content->>1)::integer))
+    ))
+   )
+  )
+$$;
+REVOKE ALL ON FUNCTION ops.definition_scope_supported(jsonb,jsonb,jsonb,jsonb,integer,jsonb) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION ops.validate_definition_basis(
  component jsonb,passage jsonb,source_ jsonb,config_ jsonb,policy jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
@@ -1908,7 +2081,7 @@ DECLARE proof jsonb:=component->'witness'; basis text:=component->>'basis'; body
  view_ kb.source_view; rule_ jsonb; annotation jsonb; tokens jsonb; full_text text; term_ jsonb;
  cue jsonb; content jsonb; part jsonb; attr record; indexes jsonb:='{}'; names jsonb; token jsonb;
  n integer; idx integer; parent_ integer; lo integer; hi integer; value_ text; sentence_ jsonb;
- term_key text; cue_key text; display_piece jsonb; start_ integer; end_ integer; label_ jsonb;
+ term_key text; cue_key text; display_piece jsonb; start_ integer; end_ integer; label_ jsonb; scope_recipe jsonb;
 BEGIN
  IF basis='model_reading' THEN
   IF nullif(proof,'null'::jsonb) IS NOT NULL THEN
@@ -1935,6 +2108,7 @@ BEGIN
   AND task.unit_type='source_view' AND task.unit_id=view_.id AND task.status IN ('done','reused')
   AND origin.id=coalesce(task.reused_task_id,task.id) AND origin.id=(proof->>'annotation_task_id')::bigint
   AND origin.release_id=source_->>'release_id' AND method.name='extract.m1_annotations' AND method.version='2'
+  AND result.body->>'source'=view_.key
   AND result.body->>'input_hash'=origin.input_hash AND result.body->>'configuration_hash'=cfg.config_hash;
  detail:=data.record_source_json(body->'parse_detail');
  IF detail->>'recipe' IS DISTINCT FROM 'm1-owned-linguistic-product-1' THEN
@@ -1993,6 +2167,14 @@ BEGIN
  term_key:=CASE WHEN names ? 'definition_label_required' THEN 'nominal_subject' ELSE config_->>'term_role' END;
  cue_key:=CASE WHEN names ? 'definition_label_required' THEN 'copular_cue' ELSE 'defining_cue' END;
  cue:=tokens->((indexes->>(names->cue_key->>'node'))::integer);
+ SELECT convert_from(content,'UTF8')::jsonb INTO STRICT scope_recipe FROM sem.input
+ WHERE release_id=config_->>'_release' AND input_kind='dependency'
+  AND input_name='execution/implementation/operations/predicate-interpretation.json';
+ IF policy#>>'{definition_witness,scope}' IS DISTINCT FROM scope_recipe#>>'{definition_scope,version}'
+  OR scope_recipe#>>'{definition_scope,version}' IS DISTINCT FROM 'definition-scope-1'
+  OR ops.definition_scope_supported(view_.projection,annotation,rule_,indexes,
+   (indexes->>(names->cue_key->>'node'))::integer,scope_recipe) IS DISTINCT FROM true THEN
+  RAISE EXCEPTION 'definition witness lacks supported retained predicate scope' USING ERRCODE='23514'; END IF;
  term_:=ops.definition_bound_span(tokens,(indexes->>(names->term_key->>'node'))::integer,names->term_key,full_text);
  IF term_ IS NULL OR cue IS NULL OR term_ IS DISTINCT FROM jsonb_build_array(
   component->'term'->'start',component->'term'->'end')
@@ -2007,6 +2189,24 @@ BEGIN
   IF content IS NULL OR content IS DISTINCT FROM jsonb_build_array(component->'content'->'start',component->'content'->'end')
    OR nullif(proof->'label_nodes','null'::jsonb) IS NOT NULL THEN
    RAISE EXCEPTION 'definition content differs from retained cue roles' USING ERRCODE='23514'; END IF;
+  IF rule_->>'rule'='naming' AND rule_->>'variant'='passive_called_term' AND EXISTS(
+   SELECT FROM (SELECT t FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n)
+    WHERE t->'sentence'=sentence_ ORDER BY n LIMIT 1) first_
+   WHERE first_.t->'start'=content->0 AND first_.t->>'dependency'='det'
+    AND first_.t->'head'=indexes->(names->(config_->>'content_role')->>'node')
+    AND lower(substring(full_text FROM (content->>0)::integer+1
+     FOR (first_.t->>'end')::integer-(content->>0)::integer)) IN ('this','that','these','those')
+  ) THEN RAISE EXCEPTION 'definition witness leaves a demonstrative antecedent unresolved' USING ERRCODE='23514'; END IF;
+  IF EXISTS(
+   SELECT FROM ops.definition_dependency_bindings(tokens,full_text,passage,rule_->'pattern',
+    names->cue_key->>'node',(indexes->>(names->cue_key->>'node'))::integer) competing
+   CROSS JOIN LATERAL (SELECT
+    ops.definition_bound_span(tokens,(competing->>(names->term_key->>'node'))::integer,names->term_key,full_text) AS term,
+    ops.definition_bound_span(tokens,(competing->>(names->(config_->>'content_role')->>'node'))::integer,
+     names->(config_->>'content_role'),full_text) AS content) other
+   WHERE other.term IS NOT NULL AND other.content IS NOT NULL
+    AND (other.term,other.content) IS DISTINCT FROM (term_,content)
+  ) THEN RAISE EXCEPTION 'definition witness has competing retained bindings' USING ERRCODE='23514'; END IF;
   RETURN;
  END IF;
  IF names ? 'definition_label_required' THEN
@@ -2144,7 +2344,8 @@ BEGIN
    passage:=passage_map->(dimension->'term'->>'passage_id');
    SELECT s INTO source_ FROM jsonb_array_elements(inputs->'sources') s
    WHERE encode(sha256(convert_to(data.canonical_json(s),'UTF8')),'hex')=passage->>'source_ref';
-   PERFORM ops.validate_definition_basis(dimension,passage,source_,config_,definition_policy);
+   PERFORM ops.validate_definition_basis(dimension,passage,source_,
+    config_||jsonb_build_object('_release',t.release_id),definition_policy);
   END LOOP;
  WHEN 'definition_applicability' THEN
   item:=product->'definition';

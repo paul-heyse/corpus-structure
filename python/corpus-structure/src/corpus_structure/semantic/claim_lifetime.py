@@ -5,13 +5,16 @@ from __future__ import annotations
 import sys
 from collections.abc import Callable, Generator, Sequence
 from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
 from threading import Event, RLock, Thread
 
 from sqlalchemy import Connection, Engine, text
+from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.core.db.store import (
     DatabaseCause,
+    DatabaseFailure,
     DatabaseOperationFailure,
     DatabasePhase,
     EffectKnowledge,
@@ -118,6 +121,42 @@ def _deadlines(conn, database, *, statement_timeout_seconds: float):
         )
 
 
+def _retryable_renewal_timeout(error: Exception, failure: DatabaseFailure) -> bool:
+    if (
+        not isinstance(error, DBAPIError)
+        or failure.phase != DatabasePhase.EXECUTING
+        or failure.effects != EffectKnowledge.ROLLED_BACK
+        or failure.invalidated
+        or failure.cancellation_requested
+    ):
+        return False
+    message = getattr(getattr(error.orig, "diag", None), "message_primary", None)
+    return (failure.sqlstate, message) in {
+        ("55P03", "canceling statement due to lock timeout"),
+        ("57014", "canceling statement due to statement timeout"),
+    }
+
+
+def _leases_cover_retry(
+    conn: Connection, claims: Sequence[ClaimedTask], attempt_budget: timedelta
+) -> bool:
+    return conn.scalar(
+        text(
+            "SELECT count(*) FROM ops.task AS task "
+            "JOIN unnest(CAST(:tasks AS bigint[]), CAST(:attempts AS bigint[])) "
+            "AS active(id, attempt) USING (id, attempt) "
+            "WHERE task.status = 'running' AND task.claimed_by = :holder "
+            "AND task.lease_until > clock_timestamp() + :budget"
+        ),
+        {
+            "tasks": [int(claim.task_id) for claim in claims],
+            "attempts": [int(claim.attempt) for claim in claims],
+            "holder": claims[0].holder,
+            "budget": attempt_budget,
+        },
+    ) == len(claims)
+
+
 @contextmanager
 def maintained_claims(
     engine: Engine,
@@ -147,13 +186,16 @@ def maintained_claims(
     owner = ClaimOwner(engine, claims, holder, database, check_active)
 
     def renew() -> None:
-        while not stop.wait(interval):
+        renewed = False
+        retry_of: Exception | None = None
+        while not stop.wait(interval if retry_of is None else 0):
             phase = DatabasePhase.ACQUIRING
             effects = EffectKnowledge.NONE
             claim = claims[0] if len(claims) == 1 else None
             try:
                 with owner.lock, engine.connect() as conn, cancellation.borrow(conn):
                     if not owner.active or owner.uncertain:
+                        retry_of = None
                         continue
                     try:
                         with conn.begin():
@@ -164,7 +206,16 @@ def maintained_claims(
                                 database,
                                 statement_timeout_seconds=database.renewal_statement_timeout_seconds,
                             )
-                            for claim in tuple(owner.active.values()):
+                            active = tuple(owner.active.values())
+                            if retry_of is not None and not _leases_cover_retry(
+                                conn,
+                                active,
+                                timedelta(
+                                    seconds=database.renewal_statement_timeout_seconds * len(active)
+                                ),
+                            ):
+                                raise retry_of
+                            for claim in active:
                                 cancellation.check_active()
                                 renew_claim(
                                     conn,
@@ -175,6 +226,8 @@ def maintained_claims(
                             cancellation.check_active()
                             phase = DatabasePhase.COMMITTING
                         effects = EffectKnowledge.COMMITTED
+                        renewed = True
+                        retry_of = None
                     except Exception:
                         if phase != DatabasePhase.COMMITTING and not conn.invalidated:
                             effects = EffectKnowledge.ROLLED_BACK
@@ -192,6 +245,17 @@ def maintained_claims(
                     and failure.cause == DatabaseCause.CANCELLED
                 ):
                     return
+                if (
+                    retry_of is None
+                    and _retryable_renewal_timeout(error, failure)
+                    and (renewed or all(c.deadline > datetime.now(UTC) for c in claims))
+                ):
+                    # Release the checkout and serialization lock before the retry.
+                    retry_of = error
+                    continue
+                if retry_of is not None and retry_of is not error:
+                    prior_state = classify_error(retry_of).sqlstate
+                    error.add_note(f"renewal retry followed SQLSTATE {prior_state}")
                 record_operation_failure(
                     error,
                     DatabaseOperationFailure(

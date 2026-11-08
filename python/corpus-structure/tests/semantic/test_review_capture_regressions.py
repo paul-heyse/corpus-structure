@@ -22,7 +22,7 @@ def test_source_coordinate_version_uses_decoded_kind_not_native_build_id(
     expected_version,
 ):
     source = source_row()
-    recipe = b'{"recipe":"native-section-text-v9"}'
+    recipe = b'{"recipe":"native-section-text-v10"}'
     ref = SourceViewRef(
         id=1,
         key="known",
@@ -53,7 +53,7 @@ def test_source_coordinate_version_uses_decoded_kind_not_native_build_id(
     monkeypatch.setattr(review_bundle, "load_source_view", load)
     conn = MagicMock(spec=Connection)
     conn.scalar.return_value = 77  # An irrelevant nonnull native_build_id must not decide the ABI.
-    conn.execute.return_value.one.return_value = ("release", "c" * 64, recipe)
+    conn.execute.return_value.scalar_one.return_value = "release"
     versions = {}
     captured = list(
         review_bundle._capture_sources(
@@ -64,6 +64,8 @@ def test_source_coordinate_version_uses_decoded_kind_not_native_build_id(
             {1},
             {1},
             OperationCancellation(),
+            seen_releases={"release"},
+            seen_proofs={ref.native_product},
             coordinate_versions=versions,
         )
     )
@@ -74,8 +76,4 @@ def test_source_coordinate_version_uses_decoded_kind_not_native_build_id(
     conn.scalar.assert_not_called()
     conn.execute.assert_called_once()
     statement = conn.execute.call_args.args[0]
-    assert [column.name for column in statement.selected_columns] == [
-        "release_id",
-        "content_hash",
-        "content",
-    ]
+    assert [column.name for column in statement.selected_columns] == ["release_id"]

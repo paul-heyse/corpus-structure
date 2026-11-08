@@ -1,8 +1,9 @@
 """Actual native renewal/terminal fences under one attempt lifetime owner."""
 
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from threading import Event
+from time import monotonic, sleep
 from types import SimpleNamespace
 
 import psycopg
@@ -75,6 +76,106 @@ def completion(prepared, claim):
         observations=(),
         outcome="empty",
     )
+
+
+@pytest.mark.parametrize("release_lock", [True, False])
+def test_run_row_contention_retries_only_once_with_current_lease(
+    semantic_db_engine, semantic_writer_engine, monkeypatch, release_lock
+):
+    prepared, (claim,) = claims(semantic_db_engine, semantic_writer_engine)
+    started, timed_out, proceed, renewed = Event(), Event(), Event(), Event()
+    borrowers = []
+    actual = claim_lifetime.renew_claim
+
+    def observe(conn, **values):
+        borrowers.append(conn.scalar(text("SELECT pg_backend_pid()")))
+        started.set()
+        try:
+            actual(conn, **values)
+        except DBAPIError:
+            if len(borrowers) == 1:
+                timed_out.set()
+                assert proceed.wait(5)
+            raise
+        renewed.set()
+
+    monkeypatch.setattr(claim_lifetime, "renew_claim", observe)
+    settings = claim_lifetime.DatabaseSettings(
+        renewal_statement_timeout_seconds=0.5,
+        renewal_lock_timeout_seconds=0.5,
+    )
+    expected = nullcontext() if release_lock else pytest.raises(DBAPIError)
+    with (
+        expected as failure,
+        semantic_db_engine.connect() as blocker,
+        semantic_db_engine.connect() as observer,
+    ):
+        blocker_pid = blocker.scalar(text("SELECT pg_backend_pid()"))
+        blocker.execute(
+            text("SELECT id FROM ops.run WHERE id=:id FOR UPDATE"), {"id": claim.run_id}
+        )
+        with claim_lifetime.maintained_claims(
+            semantic_writer_engine, (claim,), "owner", interval=0.01, database=settings
+        ) as owner:
+            try:
+                assert started.wait(5)
+                deadline = monotonic() + 5
+                while True:
+                    blockers = observer.scalar(
+                        text("SELECT pg_blocking_pids(:pid)"), {"pid": borrowers[0]}
+                    )
+                    if blocker_pid in blockers:
+                        break
+                    assert not timed_out.is_set() and monotonic() < deadline
+                    sleep(0.005)
+                assert timed_out.wait(5)
+                if release_lock:
+                    blocker.rollback()
+            finally:
+                proceed.set()
+            if release_lock:
+                assert renewed.wait(5)
+                result = owner.settle(claim, completion(prepared, claim))
+                assert isinstance(result, CompletionResult) and result.transaction == "applied"
+            else:
+                deadline = monotonic() + 5
+                while monotonic() < deadline:
+                    owner()
+                    sleep(0.005)
+                pytest.fail("renewal remained active after its retry was exhausted")
+    if failure is not None:
+        assert getattr(failure.value.orig, "sqlstate", None) == "57014"
+        assert len(borrowers) == 2
+
+
+def test_renewal_refuses_expired_owner_before_and_after_reassignment(
+    semantic_db_engine, semantic_writer_engine
+):
+    _, (claim,) = claims(semantic_db_engine, semantic_writer_engine)
+    with semantic_db_engine.begin() as conn:
+        conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+        conn.execute(
+            text(
+                "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' WHERE id=:id"
+            ),
+            {"id": claim.task_id},
+        )
+
+    def renew(conn, owner):
+        claim_lifetime.renew_claim(
+            conn, task_id=owner.task_id, attempt=owner.attempt, holder=owner.holder
+        )
+
+    with pytest.raises(OperationConflict), semantic_writer_engine.begin() as conn:
+        renew(conn, claim)
+    with semantic_writer_engine.begin() as conn:
+        (new_owner,) = claim_tasks(
+            conn, run_id=claim.run_id, config_id=claim.method_config_id, holder="new-owner"
+        )
+        assert new_owner.attempt > claim.attempt
+        renew(conn, new_owner)
+    with pytest.raises(OperationConflict), semantic_writer_engine.begin() as conn:
+        renew(conn, claim)
 
 
 @pytest.mark.parametrize("completion_seconds", [1.0, 0.05])

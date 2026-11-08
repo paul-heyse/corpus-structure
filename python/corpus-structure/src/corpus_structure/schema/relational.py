@@ -72,6 +72,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Computed,
     Double,
     ForeignKeyConstraint,
     Identity,
@@ -86,7 +87,16 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, JSONB, REAL, REGCONFIG, TIMESTAMP
+from sqlalchemy.dialects.postgresql import (
+    ARRAY,
+    BYTEA,
+    INT8RANGE,
+    JSONB,
+    NUMRANGE,
+    REAL,
+    REGCONFIG,
+    TIMESTAMP,
+)
 from sqlalchemy.schema import DefaultClause
 from sqlalchemy.types import TypeEngine
 
@@ -604,6 +614,8 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
         "bytea": BYTEA,
         "jsonb": JSONB,
         "numeric": Numeric,
+        "int8range": INT8RANGE,
+        "numrange": NUMRANGE,
         "vector": Vector,
         "timestamptz": lambda: TIMESTAMP(timezone=True),
     }
@@ -634,6 +646,7 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
             if slot.multivalued:
                 typ = ARRAY(typ)
             default = ci_annotations(slot).get("ph:default")
+            computed = ci_annotations(slot).get("ph:computed")
             columns.append(
                 Column[Any](
                     str(slot.name),
@@ -641,6 +654,8 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
                     *(
                         [Identity(always=True)]
                         if ci_annotations(slot).get("ph:identity") == "true"
+                        else [Computed(computed, persisted=True)]
+                        if computed is not None
                         else []
                     ),
                     nullable=not slot.required,

@@ -23,6 +23,7 @@ from corpus_structure.methods.predicate_frames import (
     PREDICATE_FRAME_VERSION,
     FrameCue,
     PredicateFrameResult,
+    interpretation_recipe,
     predicate_frame_result,
 )
 from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
@@ -310,6 +311,9 @@ _SCOPE_CUES = frozenset(
         "order",
     }
 )
+_DEFINITION_SCOPE = interpretation_recipe()["definition_scope"]
+_CONTENT_CUES = frozenset(_DEFINITION_SCOPE["content_cues"])
+_WITNESS_COLUMNS = frozenset({"DEP", "POS", "SENT_START", "LEMMA", "TAG"})
 
 
 def definition_scopes(
@@ -403,8 +407,7 @@ def definition_scopes(
         elif "attribution" in act_kinds:
             disposition = "attributed"
         elif act_cues or any(
-            cue.kind not in {"condition", "negation", "quotation"}
-            or not set(cue.span.tokens) <= content_nodes
+            cue.kind not in _CONTENT_CUES or not set(cue.span.tokens) <= content_nodes
             for cue in content_cues
         ):
             # The pair cannot carry a qualification outside its exact content.
@@ -512,6 +515,21 @@ def _naming_antecedent(
         start=first,
         end=last,
         text=passage.text[first - passage.start : last - passage.start],
+    )
+
+
+def _demonstrative_content(view: AnnotationView, match: AnnotationRuleMatch, content_role: str):
+    if (match.rule, match.variant) != ("naming", "passive_called_term"):
+        return False
+    role = next((role for role in match.roles if role.role == content_role), None)
+    if role is None or not role.nodes:
+        return False
+    first = view.doc[role.nodes[0]]
+    return (
+        first.i == first.sent.start
+        and first.lower_ in {"this", "that", "these", "those"}
+        and first.dep_ == "det"
+        and first.head.i == role.head
     )
 
 
@@ -744,7 +762,8 @@ def retained_annotation_components(
     prepared = PreparedAnnotationRules(English().vocab, rules=cfg.annotation_rules)
     qualified_rules = (
         witness_policy.get("rules", {})
-        if cfg.term_role == witness_policy.get("term_role")
+        if witness_policy.get("scope") == _DEFINITION_SCOPE["version"]
+        and cfg.term_role == witness_policy.get("term_role")
         and cfg.content_role == witness_policy.get("content_role")
         else {}
     )
@@ -820,6 +839,9 @@ def retained_annotation_components(
                     ],
                 )
             )
+        complete_witness_columns = {
+            column.attribute for column in product.availability if column.status == "complete"
+        } >= _WITNESS_COLUMNS
         witnesses = {
             match: DefinitionBasisWitness(
                 annotation_task_id=retained.annotation_task_id,
@@ -830,7 +852,10 @@ def retained_annotation_components(
                 nodes=match.nodes,
             )
             for match in matches
-            if retained.annotation_task_id is not None and (match.rule, match.variant) in reviewed
+            if retained.annotation_task_id is not None
+            and complete_witness_columns
+            and (match.rule, match.variant) in reviewed
+            and not _demonstrative_content(restored, match, cfg.content_role)
         }
         found.extend(
             components_from_named_matches(

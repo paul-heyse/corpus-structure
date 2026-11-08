@@ -13,7 +13,8 @@ from time import monotonic
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import select, text, true
+from sqlalchemy import and_, cast, func, select, text, true
+from sqlalchemy.dialects.postgresql import JSONB
 
 from corpus_structure.core.method import UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
@@ -55,7 +56,9 @@ _MAX_REPLAY_BYTES = 8 * 1024 * 1024
 VISUAL_REQUEST_CUT = "visual-request-source"
 VISUAL_REQUEST_CODE_COMMIT = "chandra-visual-source-v1"
 VISUAL_GROUP_VERSION = "chandra-visual-group-v1"
+VISUAL_NOMINATION_VERSION = "visual-nomination-v2"
 MAX_VISUAL_GROUP = 4
+_INFERENCE_RECIPE_VERSION = "chandra-inference-v2"
 
 
 class VisualSelection(BaseModel):
@@ -303,6 +306,128 @@ def _open_observation(conn, pin: VisualEvidencePin, project_id: str, selection: 
     return body, content(obs["image"]["artifact_digest"]), content(raw_digest)
 
 
+def _recognition_recipe(selection, original, runtime_identity):
+    from pypdfium2.version import PDFIUM_INFO, PYPDFIUM_INFO
+
+    return {
+        "version": _INFERENCE_RECIPE_VERSION,
+        "selection": selection.scope(),
+        "runtime": runtime_identity,
+        "original_digest": original.digest,
+        "render_policy": _RENDER_POLICY,
+        "crop_policy": _CROP_POLICY,
+        "renderer": {"pypdfium2": str(PYPDFIUM_INFO), "pdfium": str(PDFIUM_INFO)},
+    }
+
+
+def _recognition_basis(recipe):
+    return {
+        key: value
+        for key, value in recipe.items()
+        if key not in {"submitted_png_digest", "transform"}
+    }
+
+
+def _compatible_raw(conn, project, selection, original, recipe):
+    """Resolve a settled raw result by its actual recognition determinants."""
+    inputs, products, tasks, runs, configs, bodies, attachments, artifacts = map(
+        table,
+        (
+            "ops.pdf_product_input",
+            "ops.pdf_product",
+            "ops.task",
+            "ops.run",
+            "ops.method_config",
+            "ops.pdf_product_body",
+            "ops.pdf_product_artifact",
+            "kb.source_artifact",
+        ),
+    )
+    observation = bodies.c.descriptor["observation"]
+    image = observation["image"]
+    retained_transform = cast(func.convert_from(artifacts.c.content, "UTF8"), JSONB).op("->")(
+        "transform"
+    )
+    candidate = conn.execute(
+        select(
+            runs.c.id.label("run_id"),
+            products.c.task_id,
+            products.c.product_key,
+            products.c.content_digest,
+            bodies.c.recipe_digest,
+            artifacts.c.content,
+            image["artifact_digest"].as_string().label("png_digest"),
+            (retained_transform == image["transform"]).label("transform_matches"),
+        )
+        .select_from(inputs)
+        .join(
+            products,
+            and_(
+                products.c.task_id == inputs.c.task_id,
+                products.c.product_key == inputs.c.product_key,
+            ),
+        )
+        .join(tasks, tasks.c.id == products.c.task_id)
+        .join(runs, runs.c.id == tasks.c.run_id)
+        .join(configs, configs.c.id == tasks.c.method_config_id)
+        .join(
+            bodies,
+            and_(
+                bodies.c.task_id == products.c.task_id,
+                bodies.c.product_key == products.c.product_key,
+            ),
+        )
+        .join(
+            attachments,
+            and_(
+                attachments.c.task_id == products.c.task_id,
+                attachments.c.product_key == products.c.product_key,
+                attachments.c.artifact_digest == bodies.c.recipe_digest,
+            ),
+        )
+        .join(artifacts, artifacts.c.artifact_digest == attachments.c.artifact_digest)
+        .where(
+            inputs.c.input_task_id == selection.source.task_id,
+            inputs.c.input_product_key == selection.source.product_key,
+            inputs.c.input_content_digest == selection.source.content_digest,
+            inputs.c.role == "structural",
+            runs.c.project_id == project,
+            tasks.c.status.in_(("done", "empty")),
+            tasks.c.unit_key == products.c.product_key,
+            products.c.product_key.startswith("chandra-inference:"),
+            products.c.artifact_digest == original.digest,
+            configs.c.params["selection"] == selection.model_dump(mode="json"),
+            observation["outcome"].as_string() == "succeeded",
+            observation["binding"]["decoding_json"]
+            .as_string()
+            .cast(JSONB)["recognition_digest"]
+            .as_string()
+            == _digest(canonical_bytes(recipe)),
+            func.octet_length(artifacts.c.content) <= 256 * 1024,
+        )
+        .order_by(products.c.task_id)
+        .limit(1)
+    ).one_or_none()
+    if candidate is None:
+        return None
+    retained = bytes(candidate.content)
+    if _digest(retained) != candidate.recipe_digest:
+        raise OperationConflict("retained visual recognition recipe differs from its digest")
+    retained_recipe = json.loads(retained)
+    if (
+        canonical_bytes(_recognition_basis(retained_recipe)) != canonical_bytes(recipe)
+        or retained_recipe.get("submitted_png_digest") != candidate.png_digest
+        or candidate.transform_matches is not True
+    ):
+        raise OperationConflict("retained visual recognition recipe differs from its exact inputs")
+    return VisualEvidencePin(
+        run_id=candidate.run_id,
+        task_id=candidate.task_id,
+        product_key=candidate.product_key,
+        content_digest=candidate.content_digest,
+    )
+
+
 def _prediction_details(
     prediction, runtime, recipe, claim, invocation_error: str | None
 ) -> tuple[dict[str, Any], bytes | None]:
@@ -344,6 +469,7 @@ def _prediction_details(
                     "decode": identity["decode"],
                     "effective_device": runtime.effective_device,
                     "inference_recipe_digest": _digest(canonical_bytes(recipe)),
+                    "recognition_digest": _digest(canonical_bytes(_recognition_basis(recipe))),
                     "provider_attempt": {
                         "run_id": claim.run_id,
                         "task_id": claim.task_id,
@@ -552,7 +678,17 @@ def _product(
 
 
 def _start_task(
-    conn, run_id, prepared, document_id, selection, step, recipe, holder, *, grouped=False
+    conn,
+    run_id,
+    prepared,
+    document_id,
+    selection,
+    step,
+    recipe,
+    holder,
+    *,
+    grouped=False,
+    replay: VisualEvidencePin | None = None,
 ):
     params = VisualRequestConfig(step=step, selection=selection, recipe_digest=_digest(recipe))
     values = params.model_dump(mode="json")
@@ -571,6 +707,7 @@ def _start_task(
             unit_id=document_id,
             unit_key=key,
             input_hash=params.recipe_digest,
+            trigger={"visual_raw": replay.model_dump(mode="json")} if replay is not None else None,
         )
     else:
         if retained.unit_key != key or retained.method_config_id != config_id:
@@ -609,6 +746,7 @@ def _visual_task(conn, run_id, step, selection=None):
             tasks.c.reused_task_id,
             tasks.c.reason,
             tasks.c.error,
+            tasks.c.trigger,
         )
         .join(configs, configs.c.id == tasks.c.method_config_id)
         .where(tasks.c.run_id == run_id, tasks.c.unit_key.startswith(f"chandra-{step}:"), scope)
@@ -884,6 +1022,8 @@ class _GroupInference:
         self._runtime = None
         self._child = None
         self._recognize = None
+        self._page = None
+        self._identity = None
 
     def runtime(self):
         from corpus_structure.ingest.pdf_chandra import ChandraRuntime
@@ -891,6 +1031,21 @@ class _GroupInference:
         if self._runtime is None:
             self._runtime = ChandraRuntime(self.artifacts)
         return self._runtime
+
+    def recognition_identity(self):
+        from corpus_structure.ingest.pdf_chandra import chandra_recognition_identity
+
+        if self._identity is None:
+            self._identity = chandra_recognition_identity()
+        return self._identity
+
+    def render(self, load_original, page_no, region, rotation):
+        from .pdf_visual_mapping import _prepare_visual_page
+
+        if self._page is None or self._page.page_no != page_no:
+            self._page = None
+            self._page = _prepare_visual_page(load_original(), page_no)
+        return self._page.submit(region, rotation)
 
     def recognize(self, pixels, *, check_active, before_submit):
         from corpus_structure.ingest.pdf_capacity import suspend_resident_nemotron
@@ -976,7 +1131,9 @@ def request_visual_group(
                         raise OperationConflict(
                             "visual request differs from the retained campaign group"
                         )
-                    settled = _settled_campaign_group(conn, retained_id, retained, selections)
+                    settled = _settled_campaign_group(
+                        conn, retained_id, retained, selections, project_id
+                    )
                     if settled is not None:
                         return settled
             regions = tuple(_selection_region(reader, selection) for selection in selections)
@@ -1000,7 +1157,9 @@ def request_visual_group(
                     with engine.connect() as conn:
                         inference = _visual_task(conn, run_id, "inference", selection)
                         mapping = _visual_task(conn, run_id, "mapping", selection)
-                        settled = _settled_group_member(conn, run_id, source, inference, mapping)
+                        settled = _settled_group_member(
+                            conn, run_id, selection, project_id, inference, mapping
+                        )
                         if (
                             settled is None
                             and inference is not None
@@ -1009,6 +1168,26 @@ def request_visual_group(
                             replay = _task_product_pin(
                                 conn, inference.reused_task_id or inference.id, inference.unit_key
                             )
+                        elif settled is None and mapping is not None:
+                            replay = _visual_mapping_raw_pin(conn, mapping, selection, project_id)
+                            if replay is None:
+                                raise OperationConflict(
+                                    "retained mapping has no qualified raw input"
+                                )
+                        elif settled is None and inference is None:
+                            try:
+                                identity = group.recognition_identity()
+                            except OSError, RuntimeError, ValueError:
+                                identity = None
+                            if identity is not None:
+                                replay = _compatible_raw(
+                                    conn,
+                                    project_id,
+                                    selection,
+                                    original,
+                                    _recognition_recipe(selection, original, identity),
+                                )
+                        if replay is not None:
                             raw_body, pixels, raw = _open_observation(
                                 conn, replay, project_id, selection
                             )
@@ -1084,7 +1263,7 @@ def _require_group_nomination(conn, nomination, project, release, realization, s
     retained = options.get("visual_nomination") if options else None
     if (
         retained is None
-        or retained.get("version") != "visual-nomination-v1"
+        or retained.get("version") != VISUAL_NOMINATION_VERSION
         or any(scope not in retained["selections"] for scope in scopes)
     ):
         raise OperationConflict("visual group differs from the frozen nomination")
@@ -1132,13 +1311,16 @@ def _require_no_pending_group_overlap(conn, project_id, selections):
             if selection.scope() in options["visual_group"]["selections"]:
                 inference = _visual_task(conn, run_id, "inference", selection)
                 mapping = _visual_task(conn, run_id, "mapping", selection)
-                if _settled_group_member(conn, run_id, source, inference, mapping) is None:
+                if (
+                    _settled_group_member(conn, run_id, selection, project_id, inference, mapping)
+                    is None
+                ):
                     raise OperationConflict(
                         f"exact visual selection has a pending campaign demand in run {run_id}"
                     )
 
 
-def _settled_campaign_group(conn, run_id, retained, selections):
+def _settled_campaign_group(conn, run_id, retained, selections, project_id):
     if retained.status == "cancelled":
         raise OperationConflict(f"visual campaign group run {run_id} was cancelled")
     cuts = table("ops.input_cut")
@@ -1154,7 +1336,7 @@ def _settled_campaign_group(conn, run_id, retained, selections):
     for selection in selections:
         inference = _visual_task(conn, run_id, "inference", selection)
         mapping = _visual_task(conn, run_id, "mapping", selection)
-        settled = _settled_group_member(conn, run_id, source, inference, mapping)
+        settled = _settled_group_member(conn, run_id, selection, project_id, inference, mapping)
         if settled is None:
             raise OperationConflict(f"terminal visual group run {run_id} lacks a settled member")
         members.append(VisualGroupMember(selection=selection, **settled.model_dump()))
@@ -1172,20 +1354,7 @@ def _settled_campaign_group(conn, run_id, retained, selections):
     )
 
 
-def _settled_group_member(conn, run_id, source, inference, mapping):
-    def pin(task):
-        if task is None:
-            return None
-        products = table("ops.pdf_product")
-        producer = task.reused_task_id or task.id
-        if not conn.scalar(
-            select(products.c.task_id).where(
-                products.c.task_id == producer, products.c.product_key == task.unit_key
-            )
-        ):
-            return None
-        return _task_product_pin(conn, producer, task.unit_key)
-
+def _settled_group_member(conn, run_id, selection, project_id, inference, mapping):
     task = mapping or inference
     if task is None:
         return None
@@ -1193,25 +1362,113 @@ def _settled_group_member(conn, run_id, source, inference, mapping):
         return VisualRequestResult(
             run_id=run_id,
             task_id=task.id,
-            source=source,
+            source=selection.source,
             status="failed",
-            raw=pin(inference),
-            mapped=pin(mapping),
+            raw=_visual_product_pin(conn, inference)
+            or _visual_mapping_raw_pin(conn, mapping, selection, project_id),
+            mapped=_visual_product_pin(conn, mapping),
             error=(task.error or {}).get("message") or task.reason or "visual member failed",
         )
     if mapping is not None and mapping.status in {"done", "empty", "reused"}:
-        raw, mapped = pin(inference), pin(mapping)
+        raw = _visual_product_pin(conn, inference) or _visual_mapping_raw_pin(
+            conn, mapping, selection, project_id
+        )
+        mapped = _visual_product_pin(conn, mapping)
         if raw is None or mapped is None:
             raise OperationConflict("settled visual member lacks its exact product pins")
         return VisualRequestResult(
             run_id=run_id,
             task_id=mapping.id,
-            source=source,
+            source=selection.source,
             status="source_ready",
             raw=raw,
             mapped=mapped,
         )
     return None
+
+
+def _visual_product_pin(conn, task):
+    if task is None:
+        return None
+    products = table("ops.pdf_product")
+    producer = task.reused_task_id or task.id
+    if not conn.scalar(
+        select(products.c.task_id).where(
+            products.c.task_id == producer, products.c.product_key == task.unit_key
+        )
+    ):
+        return None
+    return _task_product_pin(conn, producer, task.unit_key)
+
+
+def _visual_mapping_raw_pin(conn, mapping, selection, project_id):
+    if mapping is None:
+        return None
+    inputs = table("ops.pdf_product_input")
+    edge = conn.execute(
+        select(inputs.c.input_task_id, inputs.c.input_product_key).where(
+            inputs.c.task_id == (mapping.reused_task_id or mapping.id),
+            inputs.c.product_key == mapping.unit_key,
+            inputs.c.role == "recognition",
+        )
+    ).one_or_none()
+    if edge is not None:
+        return _task_product_pin(conn, *edge)
+    try:
+        pin = VisualEvidencePin.model_validate((mapping.trigger or {}).get("visual_raw"))
+    except ValueError:
+        return None
+    products, tasks, runs, configs, bodies = map(
+        table,
+        ("ops.pdf_product", "ops.task", "ops.run", "ops.method_config", "ops.pdf_product_body"),
+    )
+    observation = bodies.c.descriptor["observation"]
+    origin = conn.execute(
+        select(runs.c.options, configs.c.params["selection"].label("selection"))
+        .select_from(products)
+        .join(tasks, tasks.c.id == products.c.task_id)
+        .join(runs, runs.c.id == tasks.c.run_id)
+        .join(configs, configs.c.id == tasks.c.method_config_id)
+        .join(
+            bodies,
+            and_(
+                bodies.c.task_id == products.c.task_id,
+                bodies.c.product_key == products.c.product_key,
+            ),
+        )
+        .join(
+            inputs,
+            and_(
+                inputs.c.task_id == products.c.task_id,
+                inputs.c.product_key == products.c.product_key,
+            ),
+        )
+        .where(
+            products.c.task_id == pin.task_id,
+            products.c.product_key == pin.product_key,
+            products.c.content_digest == pin.content_digest,
+            products.c.release_id == runs.c.release_id,
+            products.c.kind == "recognition_observation",
+            runs.c.id == pin.run_id,
+            runs.c.project_id == project_id,
+            tasks.c.unit_key == pin.product_key,
+            tasks.c.status.in_(("done", "empty")),
+            products.c.product_key.startswith("chandra-inference:"),
+            observation["binding"]["provider"].as_string() == _PROVIDER,
+            observation["raw_response_digest"].as_string().is_not(None),
+            observation["image"]["page_no"].as_integer() == selection.page_no,
+            inputs.c.role == "structural",
+            inputs.c.input_task_id == selection.source.task_id,
+            inputs.c.input_product_key == selection.source.product_key,
+            inputs.c.input_content_digest == selection.source.content_digest,
+        )
+    ).one_or_none()
+    if (
+        origin is None
+        or retained_visual_scope(origin.options, origin.selection) != selection.scope()
+    ):
+        return None
+    return pin
 
 
 def _visual_run(conn, run_id: int):
@@ -1333,23 +1590,25 @@ def _execute_visual_request(
         if artifacts is not None:
             error: str | None = None
             recipe: dict[str, Any] = {
-                "version": "chandra-inference-v1",
+                "version": _INFERENCE_RECIPE_VERSION,
                 "selection": selection.scope(),
             }
             runtime = None
             transform = None
             try:
                 runtime = ChandraRuntime(artifacts) if group is None else group.runtime()
-                pixels, transform = render_visual_input(
-                    load_original(), selection.page_no, region, selection.rotation or 0
-                )
-                recipe.update(
-                    runtime=runtime.identity(),
-                    original_digest=original.digest,
+                if group is None:
+                    pixels, transform = render_visual_input(
+                        load_original(), selection.page_no, region, selection.rotation or 0
+                    )
+                else:
+                    pixels, transform = group.render(
+                        load_original, selection.page_no, region, selection.rotation or 0
+                    )
+                recipe = dict(
+                    _recognition_recipe(selection, original, runtime.identity()),
                     submitted_png_digest=_digest(pixels),
                     transform=transform,
-                    render_policy=_RENDER_POLICY,
-                    crop_policy=_CROP_POLICY,
                 )
             except (OSError, RuntimeError, ValueError) as exc:
                 error = str(exc)[:1800] or type(exc).__name__
@@ -1542,6 +1801,7 @@ def _execute_visual_request(
                 mapping,
                 holder,
                 grouped=group is not None,
+                replay=raw_pin if group is not None else None,
             )
         error = None
         if claim is not None:

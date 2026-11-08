@@ -40,12 +40,15 @@ class OperationFailure(BaseModel):
     code: str
     message: str
     reason: str | None = None
+    operation_id: str | None = None
     database_effects: EffectKnowledge | None = None
 
 
 class RoutingProgress(BaseModel):
     nomination_run_id: int
     group_run_ids: tuple[int, ...] = ()
+    native_status: Literal["verified", "unavailable"] | None = None
+    projection: dict[str, Any] | None = None
 
 
 class OperationAccount(BaseModel):
@@ -79,7 +82,9 @@ class Manifest(BaseModel):
     def custody_settled(self) -> bool:
         if self.settled is None or self.details.get("custody_unsettled"):
             return False
-        return self.operation_account is None or self.operation_account.cleanup == "established"
+        if self.operation_account is not None:
+            return self.operation_account.cleanup == "established"
+        return not self.action.startswith(("model.", "review.export"))
 
     def expiry(self) -> float:
         days = 1 if self.outcome == "passed" else 7
@@ -296,7 +301,38 @@ class Invocation:
         )
         self._write()
 
-    def record_routing(self, nomination_run_id: int, group_run_ids: tuple[int, ...] = ()) -> None:
+    def record_deployment_checkpoint(
+        self,
+        target: StorageTarget,
+        predecessor: str | None,
+        reached_revision: str,
+        release: str,
+        effect: str | None,
+    ) -> None:
+        account = self.manifest.operation_account
+        assert account is not None and account.known_effects is not None
+        known = account.known_effects
+        if effect is not None and effect not in known:
+            known = (*known, effect)
+        self._update_account(
+            acquired_target=target,
+            predecessor=predecessor,
+            reached_revision=reached_revision,
+            release=release,
+            known_effects=known,
+        )
+        if effect is None:
+            self._write()
+        else:
+            self.stage(effect, settled_effects=list(known))
+
+    def record_routing(
+        self,
+        nomination_run_id: int,
+        group_run_ids: tuple[int, ...] = (),
+        *,
+        projection: dict[str, Any] | None = None,
+    ) -> None:
         account = self.manifest.operation_account
         assert account is not None
         previous = account.routing
@@ -307,35 +343,73 @@ class Invocation:
             raise ResultError("routing progress differs from the recorded nomination or groups")
         self._update_account(
             routing=RoutingProgress(
-                nomination_run_id=nomination_run_id, group_run_ids=group_run_ids
+                nomination_run_id=nomination_run_id,
+                group_run_ids=group_run_ids,
+                native_status="verified" if projection is not None else None,
+                projection=projection,
             )
         )
         self._write()
 
+    def mark_cleanup(self, error: BaseException) -> None:
+        from corpus_structure.core.db.store import cleanup_unresolved
+
+        if cleanup_unresolved(error):
+            self.manifest.details["custody_unsettled"] = True
+
     def record_failure(
-        self, kind: Literal["refusal", "execution"], detail: dict[str, Any]
+        self,
+        kind: Literal["refusal", "execution"],
+        detail: dict[str, Any],
+        *,
+        error: BaseException | None = None,
     ) -> dict[str, Any]:
         # Redact the complete string before bounding it so clipping cannot expose a credential.
         reason = detail.get("reason")
         native = detail.get("failure") or {}
         effects = native.get("effects")
+        operation_id = detail.get("operation_id")
+        if effects is None and error is not None:
+            from corpus_structure.core.db.store import DatabaseOperationFailure
+
+            context = getattr(error, "database_operation_failure", None)
+            if isinstance(context, DatabaseOperationFailure):
+                effects = context.failure.effects
+                operation_id = context.operation_id
         self._update_account(
             failure=OperationFailure(
                 kind=kind,
                 code=safe_text(detail["code"])[:128],
                 message=safe_text(detail["message"])[:1024],
                 reason=safe_text(reason)[:256] if isinstance(reason, str) else None,
+                operation_id=safe_text(operation_id)[:256]
+                if isinstance(operation_id, str)
+                else None,
                 database_effects=EffectKnowledge(effects)
                 if effects in tuple(EffectKnowledge)
                 else None,
             )
         )
-        self.settle("failed", error_type=self.manifest.details.get("error_type", detail["code"]))
+        if error is not None:
+            self.mark_cleanup(error)
+        envelope: dict[str, Any] = {"invocation_id": self.id}
+        try:
+            self.settle(
+                "failed", error_type=self.manifest.details.get("error_type", detail["code"])
+            )
+        except OSError as receipt_error:
+            if self.manifest.action != "model.deploy":
+                raise
+            # Preserve immediate known facts while the last persisted checkpoint
+            # remains protected and explicitly unfinished.
+            if error is not None:
+                error.add_note("could not settle deployment receipt: " + repr(receipt_error))
+            self.manifest.details["custody_unsettled"] = True
+            self._update_account(cleanup="unresolved")
+            envelope["receipt_persisted"] = False
         assert self.manifest.operation_account is not None
-        return {
-            "invocation_id": self.id,
-            "operation_account": self.manifest.operation_account.model_dump(mode="json"),
-        }
+        envelope["operation_account"] = self.manifest.operation_account.model_dump(mode="json")
+        return envelope
 
     def defer_settlement(self) -> None:
         """Protect the result while its child ownership is unresolved."""
@@ -449,8 +523,10 @@ class ResultStore:
                         result.record_failure(
                             "execution",
                             {"code": type(error).__name__, "message": "operation failed"},
+                            error=error,
                         )
                     else:
+                        result.mark_cleanup(error)
                         result.settle(outcome, error_type=type(error).__name__)
                 raise
             else:
@@ -946,6 +1022,10 @@ def show_result(ctx: typer.Context, result: str, json: JsonOpt = False) -> None:
                     None,
                     settled=manifest.settled is not None,
                 )
+            if manifest.action == "source.visual-dispatch":
+                from corpus_structure.cli.visual_route import inspect_visual_dispatch
+
+                inspect_visual_dispatch(ctx, manifest)
             emit(_status(manifest, diagnostics), json=json)
 
 

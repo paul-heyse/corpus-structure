@@ -880,6 +880,7 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
         target_fingerprint,
     )
     from corpus_structure.schema.preparation import writer_lock
+    from corpus_structure.semantic.authored_sql import SQLAdmissionError, prepare_release_sql
     from corpus_structure.semantic.native_objects import NativeAuthoringError
     from corpus_structure.semantic.prepared_sql import SQLSyntaxError
     from corpus_structure.semantic.releases import ReleaseConflict
@@ -888,6 +889,7 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
         ModelError,
         ResultError,
         NativeAuthoringError,
+        SQLAdmissionError,
         SQLSyntaxError,
         OSError,
         ReleaseConflict,
@@ -918,8 +920,9 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
             with writer_lock(root):
                 model_stage(result, "verify preview and prepare release")
                 check_preview(root, staged, applied=True)
-                _, _, _, prepared = _prepare_release(root, staged.request.packs)
+                _, dependencies, _, prepared = _prepare_release(root, staged.request.packs)
                 staged.verify_release(prepared)
+                sql_inputs = prepare_release_sql(prepared, dependencies)
                 products: dict[str, bytes] = {}
                 if staged.effects.native:
                     settings = state(ctx).settings()
@@ -932,13 +935,21 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                         staged.request.retire, staged.request.recreate
                     )
                     model_stage(result, "rollback-only authoring")
+                    target_metadata = approved_physical_metadata(root, staged)
+                    if (
+                        sql_inputs is not None
+                        and sql_inputs.physical_id != target_metadata.info["physical_model_id"]
+                    ):
+                        raise SQLAdmissionError(
+                            "authored SQL physical model differs from the approved revision"
+                        )
                     native, products = author_native_candidate(
                         settings,
                         None,
                         None,
                         expected_predecessor=staged.request.native_predecessor,
                         expected_target=staged.authoring_identity,
-                        target_metadata=approved_physical_metadata(root, staged),
+                        target_metadata=target_metadata,
                         retire=retired,
                         recreate=recreated,
                     )
@@ -1061,11 +1072,8 @@ def deploy(ctx: typer.Context, candidate: str, json_: JsonOpt = False) -> None:
             with writer_lock(root):
                 model_stage(result, "prepare bound release")
                 deployment = _prepare_release(root, binding.packs)
-                applied: list[str] = []
 
                 def report(effect: str) -> None:
-                    applied.append(effect)
-                    result.record_effect(effect, stage=effect, settled_effects=applied)
                     diagnostic(f"Model {result.id} · {effect}")
 
                 try:
@@ -1075,19 +1083,21 @@ def deploy(ctx: typer.Context, candidate: str, json_: JsonOpt = False) -> None:
                         binding,
                         deployment,
                         report=report,
-                        report_target=lambda target, predecessor, revision: result.record_target(
-                            target, predecessor, revision, binding.release
+                        checkpoint=lambda target, predecessor, revision, effect: (
+                            result.record_deployment_checkpoint(
+                                target, predecessor, revision, binding.release, effect
+                            )
                         ),
                     )
-                except KeyboardInterrupt:
+                except KeyboardInterrupt as error:
+                    result.mark_cleanup(error)
                     result.settle(
                         "interrupted",
-                        settled_effects=applied,
                         next_action=f"ci model change deploy {candidate}",
                     )
                     raise
             store.release(candidate, _registration_hold(candidate))
-            result.settle(settled_effects=applied, release=binding.release)
+            result.settle(release=binding.release)
         emit(
             ModelResult(
                 result_id=result.id,

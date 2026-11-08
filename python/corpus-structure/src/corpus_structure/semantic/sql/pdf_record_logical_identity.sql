@@ -118,46 +118,26 @@ BEGIN
  RETURN ops.pdf_identity_inline(p_body->p_field);
 END $$;
 
-CREATE OR REPLACE FUNCTION ops.pdf_record_logical_identity(
- p_product text,p_revision text,p_verified_predecessor text)
-RETURNS text LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
+-- Published proof reads and admission fold the same ordered frame stream.
+CREATE OR REPLACE FUNCTION ops.pdf_record_identity_frames(
+ p_product text,p_revision text,p_fold boolean)
+RETURNS SETOF bytea LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
 DECLARE header_ ops.pdf_record_document; row_ record; node_ kb.pdf_record_native;
  member_ kb.pdf_record_membership; companion_ kb.pdf_record_companion; endpoint_ kb.pdf_record_endpoint;
- stream_ record; field_ text; descriptor_ jsonb; body_ jsonb;
+ field_ text; descriptor_ jsonb; body_ jsonb;
  names_ text[]; values_ bytea[]; frame_ bytea;
  state_ bytea:=ops.pdf_identity_fold_start('records'); count_ bigint:=0; length_ bigint:=0;
 BEGIN
  SELECT * INTO STRICT header_ FROM ops.pdf_record_document WHERE product_id=p_product AND revision_id=p_revision;
- -- The protected validator resolves the optional predecessor from a compatible
- -- sealed receipt. A matching descriptor alone cannot prove its bytes unchanged.
- FOR stream_ IN
-  SELECT current_.stream_id FROM ops.pdf_artifact_stream current_
-  LEFT JOIN ops.pdf_artifact_stream prior ON prior.product_id=p_verified_predecessor
-   AND prior.revision_id=p_verified_predecessor AND prior.stream_id=current_.stream_id
-  WHERE current_.product_id=p_product AND current_.revision_id=p_revision
-  AND (prior.stream_id IS NULL OR
-   ROW(current_.byte_length,current_.serialization_sha256,current_.byte_root,current_.encoding_profile)
-    IS DISTINCT FROM ROW(prior.byte_length,prior.serialization_sha256,prior.byte_root,prior.encoding_profile)
-   OR EXISTS (
-    SELECT FROM (
-     SELECT ordinal,byte_offset,byte_length,body,sha256_digest FROM ops.pdf_artifact_part
-     WHERE product_id=p_product AND revision_id=p_revision AND stream_id=current_.stream_id
-    ) new_part FULL JOIN (
-     SELECT ordinal,byte_offset,byte_length,body,sha256_digest FROM ops.pdf_artifact_part
-     WHERE product_id=p_verified_predecessor AND revision_id=p_verified_predecessor
-      AND stream_id=current_.stream_id
-    ) old_part USING (ordinal)
-    WHERE new_part IS DISTINCT FROM old_part
-   ))
- LOOP
-  PERFORM ops.pdf_identity_verify_artifact(p_product,p_revision,stream_.stream_id);
- END LOOP;
  frame_:=ops.pdf_identity_record_frame(header_.native_schema_digest,'@context','@context',
  ARRAY['protocol','release','source'],ARRAY[
  ops.pdf_identity_scalar('s',convert_to('pdf-record-sha256-fold-v1','UTF8')),
  ops.pdf_identity_scalar('s',convert_to(header_.release_id,'UTF8')),
  ops.pdf_identity_scalar('s',convert_to(header_.source_digest,'UTF8'))]);
- state_:=ops.pdf_identity_fold_step(state_,count_,frame_); count_:=count_+1; length_:=length_+octet_length(frame_);
+ IF p_fold THEN
+  state_:=ops.pdf_identity_fold_step(state_,count_,frame_);
+ ELSE RETURN NEXT frame_; END IF;
+ count_:=count_+1; length_:=length_+octet_length(frame_);
  FOR row_ IN
   SELECT * FROM (
    SELECT 'companion/'||c.family AS family,c.local_id AS key,
@@ -268,10 +248,53 @@ BEGIN
     ops.pdf_identity_text(endpoint_.occurrence_id),ops.pdf_identity_text(endpoint_.role)];
   END IF;
   frame_:=ops.pdf_identity_record_frame(header_.native_schema_digest,row_.family,row_.key,names_,values_);
-  state_:=ops.pdf_identity_fold_step(state_,count_,frame_); count_:=count_+1; length_:=length_+octet_length(frame_);
+  IF p_fold THEN
+   state_:=ops.pdf_identity_fold_step(state_,count_,frame_);
+  ELSE
+   -- A PL/pgSQL set-returning result may spool on the server before fetch.
+   -- Match the portable proof reader's frame, count and uncompressed byte bounds.
+   IF octet_length(frame_)>65536 OR count_>=1000000 OR length_+octet_length(frame_)>402653184 THEN
+    RAISE EXCEPTION 'review native proof exceeds frame budget' USING ERRCODE='54000';
+   END IF;
+   RETURN NEXT frame_;
+  END IF;
+  count_:=count_+1; length_:=length_+octet_length(frame_);
  END LOOP;
- RETURN encode(ops.pdf_identity_fold_finish(state_,count_,length_),'hex');
+ IF p_fold THEN RETURN NEXT ops.pdf_identity_fold_finish(state_,count_,length_); END IF;
 END $$;
+CREATE OR REPLACE FUNCTION ops.pdf_record_logical_identity(
+ p_product text,p_revision text,p_verified_predecessor text)
+RETURNS text LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE stream_ record; digest_ bytea;
+BEGIN
+ -- The protected validator resolves the optional predecessor from a compatible
+ -- sealed receipt. A matching descriptor alone cannot prove its bytes unchanged.
+ FOR stream_ IN
+  SELECT current_.stream_id FROM ops.pdf_artifact_stream current_
+  LEFT JOIN ops.pdf_artifact_stream prior ON prior.product_id=p_verified_predecessor
+   AND prior.revision_id=p_verified_predecessor AND prior.stream_id=current_.stream_id
+  WHERE current_.product_id=p_product AND current_.revision_id=p_revision
+  AND (prior.stream_id IS NULL OR
+   ROW(current_.byte_length,current_.serialization_sha256,current_.byte_root,current_.encoding_profile)
+    IS DISTINCT FROM ROW(prior.byte_length,prior.serialization_sha256,prior.byte_root,prior.encoding_profile)
+   OR EXISTS (
+    SELECT FROM (
+     SELECT ordinal,byte_offset,byte_length,body,sha256_digest FROM ops.pdf_artifact_part
+     WHERE product_id=p_product AND revision_id=p_revision AND stream_id=current_.stream_id
+    ) new_part FULL JOIN (
+     SELECT ordinal,byte_offset,byte_length,body,sha256_digest FROM ops.pdf_artifact_part
+     WHERE product_id=p_verified_predecessor AND revision_id=p_verified_predecessor
+      AND stream_id=current_.stream_id
+    ) old_part USING (ordinal)
+    WHERE new_part IS DISTINCT FROM old_part
+   ))
+ LOOP
+  PERFORM ops.pdf_identity_verify_artifact(p_product,p_revision,stream_.stream_id);
+ END LOOP;
+ SELECT f INTO STRICT digest_ FROM ops.pdf_record_identity_frames(p_product,p_revision,true) f;
+ RETURN encode(digest_,'hex');
+END $$;
+
 -- Existing callers verify every immutable stream, including unreferenced streams.
 CREATE OR REPLACE FUNCTION ops.pdf_record_logical_identity(p_product text,p_revision text)
 RETURNS text LANGUAGE sql STABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
@@ -280,4 +303,4 @@ $$;
 REVOKE ALL ON FUNCTION ops.pdf_identity_text(text),ops.pdf_identity_inline(jsonb),ops.pdf_identity_ascii_string(text),
  ops.pdf_identity_stream_scalar(text,text,text),
  ops.pdf_identity_companion_scalar(text,text,text,text,text,jsonb),
- ops.pdf_record_logical_identity(text,text,text),ops.pdf_record_logical_identity(text,text) FROM PUBLIC;
+ ops.pdf_record_identity_frames(text,text,boolean),ops.pdf_record_logical_identity(text,text,text),ops.pdf_record_logical_identity(text,text) FROM PUBLIC;

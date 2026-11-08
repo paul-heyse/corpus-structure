@@ -93,9 +93,24 @@ class Store:
             self.close()
         except BaseException as cleanup:
             if len(exc) > 1 and isinstance(exc[1], BaseException):
-                exc[1].add_note("database cleanup failed: " + repr(cleanup))
+                record_cleanup_failure(exc[1], cleanup)
+            elif isinstance(cleanup, Exception):
+                failure = OSError("database inventory cleanup failed")
+                record_cleanup_failure(failure, cleanup)
+                raise failure from cleanup
             else:
+                record_cleanup_failure(cleanup, cleanup)
                 raise
+
+
+def record_cleanup_failure(error: BaseException, cleanup: BaseException) -> None:
+    error.__dict__["database_cleanup_unresolved"] = True
+    if error is not cleanup:
+        error.add_note("database cleanup failed: " + repr(cleanup))
+
+
+def cleanup_unresolved(error: BaseException) -> bool:
+    return error.__dict__.get("database_cleanup_unresolved") is True
 
 
 def open_store(
@@ -132,8 +147,11 @@ def open_store(
         pool.wait(timeout)
         with pool.connection() as conn:
             extensions.check(conn.execute(extensions.FOUND).fetchall())
-    except BaseException:
-        pool.close()
+    except BaseException as error:
+        try:
+            pool.close()
+        except BaseException as cleanup:
+            record_cleanup_failure(error, cleanup)
         raise
     engine = create_engine("postgresql+psycopg://", creator=pool.getconn, poolclass=NullPool)
     store = Store(pool, engine, application_name)

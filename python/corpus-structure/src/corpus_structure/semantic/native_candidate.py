@@ -88,6 +88,10 @@ _PDF_PAYLOAD_FUNCTIONS = frozenset(
         "pdf_identity_inline",
         "pdf_identity_companion_scalar",
         "pdf_record_logical_identity",
+        "pdf_record_identity_frames",
+        "read_pdf_record_identity_frames",
+        "read_pdf_record_identity_items",
+        "read_pdf_record_identity_targets",
         "read_pdf_record_rows",
         "read_pdf_record_context_rows",
         "publish_source_view",
@@ -508,6 +512,14 @@ def series_predecessor_definitions(connection):
             connection, guard.read_text(), name="claim_tasks", source="frozen0053 claim"
         ),
         _task_call_definition(
+            connection,
+            trigger.read_text().replace(
+                "CREATE FUNCTION ops.renew_claim(", "CREATE OR REPLACE FUNCTION ops.renew_claim(", 1
+            ),
+            name="renew_claim",
+            source="frozen0023 renewal",
+        ),
+        _task_call_definition(
             connection, sql, name="select_source_view", source="frozen0065 source selection"
         ),
         _task_call_definition(
@@ -540,6 +552,8 @@ def series_native_definitions(connection, *, include_selected=True):
         + publication_sql()
         + "\n"
         + pdf_record_logical_identity_sql()
+        + "\n"
+        + access_sql.with_name("pdf_record_proof_reader.sql").read_text()
         + "\n"
         + access_sql.read_text()
         + "\n"
@@ -581,13 +595,17 @@ def series_native_definitions(connection, *, include_selected=True):
             source="execution task:forward",
         )
     )
-    definitions.append(
+    execution_projection = (
+        Path(__file__).with_name("sql").joinpath("execution_projection.sql").read_text()
+    )
+    definitions.extend(
         _task_call_definition(
             connection,
-            Path(__file__).with_name("sql").joinpath("execution_projection.sql").read_text(),
-            name="claim_tasks",
+            execution_projection,
+            name=name,
             source="native claim:forward",
         )
+        for name in ("claim_tasks", "renew_claim")
     )
     from .native_consumer_native import native_task_completion_sql
 
@@ -862,7 +880,7 @@ def series_native_definitions(connection, *, include_selected=True):
         "definition_role_candidates",
         "definition_model_components",
         "definition_bound_span",
-        "validate_definition_basis",
+        "definition_dependency_bindings",
         "clause_model_axis",
         "validate_clause_classification",
         "validate_structural_product_report",
@@ -952,6 +970,17 @@ def series_native_definitions(connection, *, include_selected=True):
                 else (),
             )
         )
+    # This SQL body resolves the current predicate inventory overload at CREATE time.
+    definitions.extend(
+        _task_call_definition(
+            connection,
+            structural_sql,
+            name=name,
+            source="structural definition scope:forward",
+            schema="ops",
+        )
+        for name in ("definition_scope_supported", "validate_definition_basis")
+    )
     for name in (
         "record_feature_score",
         "record_source_float",
@@ -1190,6 +1219,7 @@ def candidate_admission_sql(
     predecessor_state: Path | None = None,
     predecessor_source=None,
     target_metadata=metadata,
+    physical_catalog=None,
 ):
     from .contracts import compile_execution_model, trusted_execution_inputs
     from .native_products import current_authoring_provenance
@@ -1220,6 +1250,98 @@ def candidate_admission_sql(
         native_objects=selected,
         target_metadata=target_metadata,
         retire=retire | (source.retirements - desired),
+        physical_catalog=(
+            _declared_physical_catalog(connection, target_metadata)
+            if physical_catalog is None
+            else physical_catalog
+        ),
+    )
+
+
+def _declared_physical_catalog(connection, target_metadata):
+    """Normalize declarations on empty temporary relations, independent of installed indexes."""
+    from sqlalchemy.dialects.postgresql import dialect
+    from sqlalchemy.schema import CreateIndex, CreateTable
+
+    from .native_objects import execute_native_sql
+    from .source_view_native import PhysicalCatalogExpectations
+
+    postgres = dialect(paramstyle="named")
+    preparer = postgres.identifier_preparer
+    scratch = "semantic_candidate_catalog"
+    scratch_relation = "pg_temp." + scratch
+    indexes = []
+    generated = {}
+    savepoint = connection.begin_nested()
+    try:
+        # Match the protecting guard's deparser search path.
+        execute_native_sql(connection, "SET LOCAL search_path = pg_catalog, pg_temp")
+        for relation in sorted(target_metadata.tables.values(), key=lambda item: item.fullname):
+            if not relation.indexes and not any(c.computed is not None for c in relation.columns):
+                continue
+            target = preparer.format_table(relation)
+            definition = str(
+                CreateTable(relation, include_foreign_key_constraints=[]).compile(dialect=postgres)
+            ).strip()
+            if not definition.startswith("CREATE TABLE " + target + " "):
+                raise NativeAuthoringError(f"unexpected physical declaration header for {target}")
+            execute_native_sql(
+                connection,
+                definition.replace(
+                    "CREATE TABLE " + target + " ", "CREATE TEMP TABLE " + scratch_relation + " ", 1
+                ),
+            )
+            # The scratch table's keys are absent from this selection. Only
+            # model-declared standalone indexes enter the descriptor.
+            for index in sorted(relation.indexes, key=lambda item: str(item.name)):
+                ddl = str(CreateIndex(index).compile(dialect=postgres))
+                marker = " ON " + target + " "
+                if marker not in ddl:
+                    raise NativeAuthoringError(
+                        f"unexpected index declaration target for {index.name}"
+                    )
+                execute_native_sql(
+                    connection, ddl.replace(marker, " ON " + scratch_relation + " ", 1)
+                )
+                rendered_name = preparer.format_index(index)
+                definition = connection.execute(
+                    text("SELECT pg_get_indexdef(to_regclass(:name))"),
+                    {"name": "pg_temp." + rendered_name},
+                ).scalar_one()
+                if definition is None:
+                    raise NativeAuthoringError(f"declared index was not created: {index.name}")
+                header, separator, body = definition.partition(" USING ")
+                scratch_targets = (" ON " + scratch, " ON " + scratch_relation)
+                if not separator or not header.endswith(scratch_targets):
+                    raise NativeAuthoringError(f"unexpected index catalog shape for {index.name}")
+                prefix = header[: header.rindex(" ON ")]
+                index_name = (
+                    preparer.quote_schema(relation.schema) + "." + rendered_name
+                    if relation.schema
+                    else rendered_name
+                )
+                indexes.append(
+                    dict(
+                        index=index_name,
+                        relation=relation.fullname,
+                        definition=prefix + " ON " + target + separator + body,
+                    )
+                )
+            expressions = connection.execute(
+                text("""
+                    SELECT a.attname, pg_get_expr(d.adbin,d.adrelid)
+                    FROM pg_attribute a
+                    JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
+                    WHERE a.attrelid=to_regclass(:relation) AND a.attgenerated <> ''
+                """),
+                {"relation": scratch_relation},
+            )
+            generated[relation.fullname] = dict(expressions.tuples().all())
+            execute_native_sql(connection, "DROP TABLE " + scratch_relation)
+    finally:
+        savepoint.rollback()
+    return PhysicalCatalogExpectations(
+        tuple(sorted(indexes, key=lambda item: item["index"])), generated
     )
 
 
@@ -1499,6 +1621,7 @@ def _prepare_series_authoring(
         raise NativeAuthoringError(
             "frozen native state must include its descriptor and enforcing guard"
         )
+    physical_catalog = _declared_physical_catalog(connection, target_metadata)
     first_admission = candidate_admission_sql(
         connection,
         products,
@@ -1506,6 +1629,7 @@ def _prepare_series_authoring(
         retire=retire,
         predecessor_source=source,
         target_metadata=target_metadata,
+        physical_catalog=physical_catalog,
     )
     guard_definition = next(
         item
@@ -1530,6 +1654,7 @@ def _prepare_series_authoring(
         retire=retire,
         predecessor_source=source,
         target_metadata=target_metadata,
+        physical_catalog=physical_catalog,
     )
     admission_after = _admission_definitions(
         connection, admission, source="native-admission:forward"

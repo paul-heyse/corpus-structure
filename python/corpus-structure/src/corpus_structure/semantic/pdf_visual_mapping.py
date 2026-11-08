@@ -6,10 +6,15 @@ import math
 from collections import defaultdict
 from collections.abc import Mapping
 from contextlib import closing
+from dataclasses import dataclass
 from io import BytesIO
 from typing import TYPE_CHECKING, Any
 
-from corpus_structure.ingest.pdf_recognition import crop_transform, render_recognition_page
+from corpus_structure.ingest.pdf_recognition import (
+    _PDFIUM_LOCK,
+    crop_transform,
+    render_recognition_page,
+)
 from corpus_structure.serve.pdf_visual_evidence import (
     VisualCaption,
     VisualCaptionCandidate,
@@ -30,13 +35,26 @@ def render_visual_input(
     original: bytes, page_no: int, region: Mapping[str, Any] | None, rotation: int = 0
 ) -> tuple[bytes, dict[str, Any]]:
     """Use the incumbent PDF renderer and compose a qualified crop and orientation."""
-    from PIL import Image
+    return _prepare_visual_page(original, page_no).submit(region, rotation)
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedVisualPage:
+    page_no: int
+    width: float
+    height: float
+    pixels: bytes
+    transform: dict[str, Any]
+
+    def submit(self, region: Mapping[str, Any] | None, rotation: int):
+        return _submit_visual_input(self, region, rotation)
+
+
+def _prepare_visual_page(original: bytes, page_no: int) -> _PreparedVisualPage:
     from pypdfium2 import PdfDocument
 
-    if rotation not in (0, 90, 180, 270) or (rotation and region is None):
-        raise ValueError("visual rotation requires a qualified crop and a quarter turn")
     scale = 2
-    with PdfDocument(original) as document:
+    with _PDFIUM_LOCK, PdfDocument(original) as document:
         if not 1 <= page_no <= len(document):
             raise ValueError("visual request page is outside the original")
         with closing(document[page_no - 1]) as page:
@@ -45,6 +63,21 @@ def render_visual_input(
         if max(pixel_width, pixel_height) > 8192 or pixel_width * pixel_height > 24_000_000:
             raise ValueError("visual request exceeds the raster limit")
         pixels, transform = render_recognition_page(document, page_no, scale)
+    return _PreparedVisualPage(page_no, width, height, pixels, transform)
+
+
+def _submit_visual_input(page: _PreparedVisualPage, region, rotation):
+    from PIL import Image
+
+    if rotation not in (0, 90, 180, 270) or (rotation and region is None):
+        raise ValueError("visual rotation requires a qualified crop and a quarter turn")
+    page_no, width, height, pixels, transform = (
+        page.page_no,
+        page.width,
+        page.height,
+        page.pixels,
+        page.transform,
+    )
     if region is None:
         return pixels, transform
 

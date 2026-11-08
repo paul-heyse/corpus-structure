@@ -24,6 +24,8 @@ from corpus_structure.semantic.structural_products import (
     StructuralPassage,
 )
 
+from .test_review_bundle import synthetic_source_projection as synthetic_source_projection
+
 
 def source_fixture():
     frame = native_source_frame(
@@ -562,7 +564,9 @@ def detached_source_dossier_rows():
     return selection, rows
 
 
-def test_detached_dossier_replays_selected_raw_contribution_and_endpoint_custody(tmp_path):
+def test_detached_dossier_replays_selected_raw_contribution_and_endpoint_custody(
+    tmp_path, synthetic_source_projection
+):
     from corpus_structure.serve.review_bundle import verify_review_bundle, write_review_bundle
 
     selection, rows = detached_source_dossier_rows()
@@ -582,7 +586,9 @@ def test_detached_dossier_replays_selected_raw_contribution_and_endpoint_custody
         "member",
     ],
 )
-def test_detached_dossier_refuses_missing_or_forged_contribution_closure(tmp_path, corruption):
+def test_detached_dossier_refuses_missing_or_forged_contribution_closure(
+    tmp_path, corruption, synthetic_source_projection
+):
     from corpus_structure.serve.review_bundle import write_review_bundle
 
     selection, rows = detached_source_dossier_rows()
@@ -698,7 +704,9 @@ def test_batch_projection_keeps_endpoint_meaning_and_private_authority(semantic_
         )
 
 
-def test_detached_source_dossier_preserves_cross_project_original_producer(tmp_path):
+def test_detached_source_dossier_preserves_cross_project_original_producer(
+    tmp_path, synthetic_source_projection
+):
     """Detached/native-contract control; ordinary valid_reuse currently stays within a project."""
     from corpus_structure.serve.review_bundle import verify_review_bundle, write_review_bundle
 
@@ -720,7 +728,7 @@ def test_detached_source_dossier_preserves_cross_project_original_producer(tmp_p
     "corruption", ["selected_project", "origin_project", "origin_run", "inventory_runtime"]
 )
 def test_detached_source_dossier_refuses_selected_or_original_custody_substitution(
-    tmp_path, corruption
+    tmp_path, corruption, synthetic_source_projection
 ):
     from corpus_structure.serve.review_bundle import write_review_bundle
 

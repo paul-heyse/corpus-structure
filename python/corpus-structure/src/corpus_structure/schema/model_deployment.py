@@ -6,11 +6,13 @@ import ast
 import json
 import os
 import re
+import sys
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from hashlib import sha256
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
@@ -31,6 +33,9 @@ from corpus_structure.semantic.storage_target import (
 )
 from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.settings import DeploymentProfile, Settings
+
+if TYPE_CHECKING:
+    from sqlalchemy import Connection, Engine
 
 _NATIVE_PRODUCTS = (
     ("UPGRADE", "native_candidate.py", "upgrade.txt"),
@@ -458,6 +463,76 @@ def check_candidate_files(root: Path, binding: Candidate) -> None:
             raise ModelError([f"candidate input has changed: {relative}"])
 
 
+@contextmanager
+def _deployment_connection(engine: Engine) -> Generator[Connection]:
+    from corpus_structure.core.db.store import record_cleanup_failure
+
+    connection = engine.connect()
+    try:
+        yield connection
+    finally:
+        primary = sys.exception()
+        try:
+            connection.close()
+        except BaseException as cleanup:
+            record_cleanup_failure(primary or cleanup, cleanup)
+            if primary is None:
+                raise
+
+
+@contextmanager
+def _commit_deployment_effect(
+    conn: Connection,
+    effect: str,
+    *,
+    release: str,
+    reconcile: Callable[[], bool | None],
+    settled: Callable[[str], None],
+) -> Generator[None]:
+    from corpus_structure.core.db.store import (
+        DatabaseOperationFailure,
+        DatabasePhase,
+        EffectKnowledge,
+        classify_error,
+        record_operation_failure,
+    )
+
+    committing = False
+    try:
+        with conn.begin():
+            yield
+            committing = True
+    except BaseException as error:
+        if committing:
+            try:
+                observed = reconcile()
+            except Exception as observation_error:
+                error.add_note("deployment reconciliation failed: " + repr(observation_error))
+                observed = None
+            knowledge = {
+                True: EffectKnowledge.COMMITTED,
+                False: EffectKnowledge.ROLLED_BACK,
+                None: EffectKnowledge.UNCERTAIN,
+            }[observed]
+            record_operation_failure(
+                error,
+                DatabaseOperationFailure(
+                    classify_error(error, phase=DatabasePhase.COMMITTING, effects=knowledge),
+                    operation_id=f"model.deploy:{effect}",
+                    remediation="inspect_exact_deployment_target",
+                    release_id=release,
+                ),
+            )
+            if observed is True:
+                try:
+                    settled(effect)
+                except OSError as receipt_error:
+                    error.add_note("could not checkpoint confirmed effect: " + repr(receipt_error))
+        raise
+    else:
+        settled(effect)
+
+
 def deploy_candidate(
     root: Path,
     settings: Settings,
@@ -465,20 +540,22 @@ def deploy_candidate(
     deployment: tuple,
     *,
     report: Callable[[str], None],
-    report_target: Callable[[StorageTarget, str | None, str | None], None] | None = None,
+    checkpoint: Callable[[StorageTarget, str | None, str, str | None], None] | None = None,
 ) -> None:
+    from sqlalchemy import text
+
     from corpus_structure.semantic.authored_sql import (
+        SQLAdmissionError,
         admit_archived_sql,
-        analyze_archived_sql,
-        has_authored_sql,
+        analyze_release_sql,
+        prepare_release_sql,
     )
     from corpus_structure.semantic.execution_admission import (
-        _verify_deployment_functions,
         require_frozen_native_revision,
+        verify_deployment_catalog,
     )
     from corpus_structure.semantic.migrations import current_revision, migration_fence, upgrade
     from corpus_structure.semantic.publication import admit_release
-    from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.releases import open_release, persist_release
     from corpus_structure.semantic.runtime import open_runtime_engine
 
@@ -497,37 +574,79 @@ def deploy_candidate(
     if binding.target_identity is None:
         raise ModelError(["candidate lacks the approved acquired PostgreSQL target"])
     assert_explicit_route(destination)
+    sql_inputs = prepare_release_sql(prepared, deps)
 
-    def verify(conn, purpose: Purpose) -> StorageTarget:
+    def verify(conn: Connection, purpose: Purpose) -> StorageTarget:
         verify_declared_route(conn, destination)
         return verify_target(conn, binding.target_identity, purpose=purpose)
+
+    def release_fence(connection: Connection) -> None:
+        # Use the archive owner's release lock to wait out a possibly live
+        # committing backend before interpreting an absent durable row.
+        connection.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:release,0))"),
+            {"release": binding.release},
+        )
 
     with (
         _verified_script_location(root, binding) as script_location,
         open_runtime_engine(destination, "ci-model-migrate", purpose="maintenance") as maintenance,
-        maintenance.connect() as conn,
+        _deployment_connection(maintenance) as conn,
         open_runtime_engine(destination, "ci-model-admit", purpose="admit") as admission,
-        admission.connect() as writer,
+        _deployment_connection(admission) as writer,
         open_runtime_engine(destination, "ci-model-verify", purpose="read") as reader,
     ):
         versions = None if script_location is None else script_location / "versions"
-        # Verify all acquired purpose routes before the first durable effect. Recheck any
-        # later borrower before use, including the fresh post-admission reader snapshot.
-        with writer.begin(), reader.begin() as check:
+
+        def reconcile_migration() -> bool | None:
+            with _deployment_connection(maintenance) as recovery, recovery.begin():
+                recovery.exec_driver_sql("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+                recovery.exec_driver_sql("SET LOCAL lock_timeout = '5s'")
+                verify(recovery, "maintenance")
+                migration_fence(recovery)
+                observed = current_revision(recovery)
+                if observed is None or observed not in {binding.predecessor, binding.revision}:
+                    return None
+                verify_deployment_catalog(recovery, revision=observed, versions=versions)
+                return observed == binding.revision
+
+        # Establish each purpose route before the first durable effect.
+        with writer.begin(), _deployment_connection(reader) as check, check.begin():
             verify(writer, "admit")
             verify(check, "read")
+
+        target = binding.target_identity
+        reached = binding.revision
+
+        def settled(effect: str) -> None:
+            assert reached is not None
+            if checkpoint is not None:
+                checkpoint(target, binding.predecessor, reached, effect)
+            report(effect)
+
         if binding.revision is not None:
             assert versions is not None
-            require_frozen_native_revision(versions, binding.revision)
-            with conn.begin():
+            successor_physical = require_frozen_native_revision(versions, binding.revision)
+            if sql_inputs is not None and sql_inputs.physical_id != successor_physical:
+                raise SQLAdmissionError(
+                    "authored SQL physical model differs from the approved revision"
+                )
+            with _commit_deployment_effect(
+                conn,
+                "migration",
+                release=binding.release,
+                reconcile=reconcile_migration,
+                settled=settled,
+            ):
+                conn.exec_driver_sql("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
                 target = verify(conn, "maintenance")
                 migration_fence(conn)
                 actual = current_revision(conn)
                 if actual is None or actual not in {binding.predecessor, binding.revision}:
                     raise ModelError(["acquired revision differs from the approved predecessor"])
-                _verify_deployment_functions(conn, revision=actual, versions=versions)
-                if report_target is not None:
-                    report_target(target, binding.predecessor, actual)
+                verify_deployment_catalog(conn, revision=actual, versions=versions)
+                if checkpoint is not None and actual != binding.revision:
+                    checkpoint(target, binding.predecessor, actual, None)
                 upgrade(
                     conn,
                     binding.revision,
@@ -536,36 +655,133 @@ def deploy_candidate(
                 )
                 if current_revision(conn) != binding.revision:
                     raise ModelError(["migration did not reach the approved revision"])
-                _verify_deployment_functions(conn, revision=binding.revision, versions=versions)
-            if report_target is not None:
-                report_target(target, binding.predecessor, binding.revision)
-            report("migration")
+                if actual != binding.revision:
+                    verify_deployment_catalog(conn, revision=binding.revision, versions=versions)
+
         with conn.begin():
+            conn.exec_driver_sql("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
             target = verify(conn, "maintenance")
             migration_fence(conn)
             actual = current_revision(conn)
             if actual is None or (binding.revision is not None and actual != binding.revision):
                 raise ModelError(["native revision changed before archive/admission"])
-            _verify_deployment_functions(conn, revision=actual, versions=versions)
-            if report_target is not None:
-                report_target(target, binding.predecessor, actual)
-            with writer.begin():
+            physical_id = verify_deployment_catalog(conn, revision=actual, versions=versions)
+            reached = actual
+            if checkpoint is not None and binding.revision is None:
+                checkpoint(target, binding.predecessor, reached, None)
+
+            def verify_reader(snapshot: Connection) -> None:
+                verify(snapshot, "read")
+
+            analyzed = None
+            if sql_inputs is not None:
+                with _deployment_connection(reader) as sql_connection:
+                    analyzed = analyze_release_sql(
+                        sql_connection,
+                        sql_inputs,
+                        physical_id=physical_id,
+                        verify_target=verify_reader,
+                    )
+
+            def exact_archive(snapshot: Connection) -> bool | None:
+                exists = snapshot.scalar(
+                    text("SELECT EXISTS(SELECT FROM sem.release WHERE release_id=:release)"),
+                    {"release": binding.release},
+                )
+                if not exists:
+                    return False
+                archived = open_release(snapshot, binding.release)
+                exact = (
+                    archived.manifest == prepared.manifest
+                    and archived.artifacts_sha256 == prepared.artifacts_sha256
+                )
+                return True if exact else None
+
+            def reconcile_archive() -> bool | None:
+                with _deployment_connection(reader) as recovery, recovery.begin():
+                    recovery.exec_driver_sql("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+                    verify_reader(recovery)
+                    recovery.exec_driver_sql("SET LOCAL lock_timeout = '5s'")
+                    release_fence(recovery)
+                    return exact_archive(recovery)
+
+            def observe_admission() -> bool | None:
+                native = conn.scalar(
+                    text("""
+                        WITH descriptor AS (
+                            SELECT convert_to(
+                                data.execution_contract_descriptor()::text,'UTF8'
+                            ) body
+                        ), expected AS (
+                            SELECT body, encode(sha256(body),'hex') digest FROM descriptor
+                        )
+                        SELECT CASE
+                            WHEN EXISTS (
+                                SELECT FROM sem.deployment_admission a CROSS JOIN expected
+                                WHERE a.release_id=:release AND a.physical_id=:physical_id
+                                  AND a.kind='native' AND a.deployment_id=expected.digest
+                                  AND a.content=expected.body AND a.content_digest=expected.digest
+                            ) THEN true
+                            WHEN EXISTS (
+                                SELECT FROM sem.deployment_admission a CROSS JOIN expected
+                                WHERE a.release_id=:release AND a.physical_id=:physical_id
+                                  AND a.kind='native'
+                                  AND (a.deployment_id=expected.digest OR a.content=expected.body)
+                            ) THEN NULL
+                            ELSE false
+                        END
+                    """),
+                    {"release": binding.release, "physical_id": physical_id},
+                )
+                if native is not True or analyzed is None:
+                    return native
+                rows = conn.execute(
+                    text("""
+                        SELECT input_name, content, content_digest FROM sem.sql_admission
+                        WHERE release_id=:release AND physical_id=:physical_id
+                          AND input_kind='dependency'
+                    """),
+                    {"release": binding.release, "physical_id": physical_id},
+                )
+                observed = {name: (bytes(content), digest) for name, content, digest in rows}
+                exact = {
+                    name: (artifact.content, artifact.digest) for name, artifact in analyzed.items()
+                }
+                return True if observed == exact else None
+
+            def reconcile_admission() -> bool | None:
+                conn.exec_driver_sql("SET LOCAL lock_timeout = '5s'")
+                release_fence(conn)
+                return observe_admission()
+
+            with _commit_deployment_effect(
+                writer,
+                "archive",
+                release=binding.release,
+                reconcile=reconcile_archive,
+                settled=settled,
+            ):
                 verify(writer, "admit")
                 persist_release(writer, bundle, deps, profile, prepared)
-            report("archive")
-            analyzed = None
-            if has_authored_sql(prepared):
-                with reader.connect() as sql_connection:
-                    verify(sql_connection, "read")
-                    analyzed = analyze_archived_sql(sql_connection, binding.release)
-            with writer.begin():
+            with _commit_deployment_effect(
+                writer,
+                "admission",
+                release=binding.release,
+                reconcile=reconcile_admission,
+                settled=settled,
+            ):
                 verify(writer, "admit")
+                release_fence(writer)
                 if analyzed is not None:
-                    admit_archived_sql(writer, binding.release, analyzed=analyzed)
+                    admit_archived_sql(
+                        writer, binding.release, analyzed=analyzed, physical_id=physical_id
+                    )
                 admit_release(prepared, connection=writer)
-            report("admission")
-            with read_snapshot(reader) as snapshot:
-                verify(snapshot, "read")
-                if open_release(snapshot, binding.release).release_id != binding.release:
+            with _deployment_connection(reader) as snapshot, snapshot.begin():
+                snapshot.exec_driver_sql(
+                    "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"
+                )
+                verify_reader(snapshot)
+                if not exact_archive(snapshot) or observe_admission() is not True:
                     raise ModelError(["admitted release does not match the candidate"])
-            report("verified")
+            settled("verified")

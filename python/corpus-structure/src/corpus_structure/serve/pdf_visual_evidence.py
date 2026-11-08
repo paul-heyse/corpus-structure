@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from base64 import b64encode
 from typing import TYPE_CHECKING, Annotated, Literal
 
@@ -658,133 +657,14 @@ def _media_region(row, image):
     )
 
 
-def _selected_visual_rows(rows, *, occurrence_id, cell_index, kind, figure_query):
-    if occurrence_id is not None:
-        anchor = next((row for row in rows if row.get("occurrence_id") == occurrence_id), None)
-        if anchor is None:
-            raise ValueError("visual candidate occurrence is outside the submitted scope")
-        if cell_index is None:
-            rows = [anchor]
-        else:
-            if anchor.get("kind") != "table":
-                raise ValueError("visual cell reads require a table candidate")
-            table = VisualTable.model_validate(anchor)
-            if not 0 <= cell_index < len(table.cells):
-                raise ValueError("visual cell index is outside its candidate table")
-            group = table.cells[cell_index].content_occurrence_id
-            if group is None:
-                raise ValueError("visual cell has no retained rich content group")
-            subtree = set()
-            for row in rows:
-                pointer = row.get("occurrence_id")
-                parent = row.get("parent_occurrence_id")
-                if (pointer == group and parent == occurrence_id) or parent in subtree:
-                    subtree.add(pointer)
-            if group not in subtree:
-                raise ValueError("visual cell content is outside the submitted scope")
-            rows = [row for row in rows if row.get("occurrence_id") in subtree]
-    if figure_query is not None:
-        phrase = " ".join(figure_query.casefold().split())
-        figure_roots: dict[str, str] = {}
-        matches: set[str] = set()
-        for row in rows:
-            pointer, parent = row.get("occurrence_id"), row.get("parent_occurrence_id")
-            if row.get("kind") == "picture":
-                figure_roots[pointer] = pointer
-            elif parent in figure_roots:
-                figure_roots[pointer] = figure_roots[parent]
-            if row.get("kind") not in {
-                "picture_text",
-                "picture_description",
-                "caption",
-                "caption_candidate",
-            }:
-                continue
-            if phrase in " ".join(row.get("text", "").casefold().split()):
-                if pointer in figure_roots:
-                    matches.add(figure_roots[pointer])
-                matches.update(row.get("parser_attachment_occurrence_ids", ()))
-                matches.update(row.get("associated_picture_occurrence_ids", ()))
-        rows = [row for row in rows if row.get("occurrence_id") in matches]
-    if kind is not None:
-        rows = [row for row in rows if row.get("kind") == kind]
-    return rows
-
-
-def _mapped_page(
-    content,
-    *,
-    page_no,
-    submitted,
-    regions,
-    budget,
-    after,
-    limit,
-    occurrence_id=None,
-    cell_index=None,
-    kind=None,
-    figure_query=None,
-):
-    """Charge the bounded locator scan, then validate only the selected candidate bodies."""
-    from corpus_structure.semantic.refusals import InvalidContinuation
-
-    body = json.loads(content)
-    if (
-        not isinstance(body, dict)
-        or set(body) != {"version", "page_no", "rows"}
-        or type(body["version"]) is not int
-        or body["version"] != 1
-        or type(body["page_no"]) is not int
-        or body["page_no"] != page_no
-        or not isinstance(body["rows"], list)
-    ):
-        raise ValueError(
-            "mapped visual evidence differs from the submitted page or artifact contract"
-        )
-    _charge_rows(budget, len(body["rows"]))
-    scoped = []
-    for row in body["rows"]:
-        if not isinstance(row, dict):
-            raise ValueError("mapped visual evidence row is invalid")
-        if row.get("kind") == "table":
-            cells = row.get("cells")
-            if not isinstance(cells, list):
-                raise ValueError("mapped visual evidence table has no cell inventory")
-            _charge_rows(budget, len(cells))
-        raw_region = row.get("source_region")
-        region = VisualSourceRegion.model_validate(raw_region) if raw_region is not None else None
-        if region is not None and (
-            submitted is None
-            or region.left < submitted.left - 1e-5
-            or region.right > submitted.right + 1e-5
-            or region.top < submitted.top - 1e-5
-            or region.bottom > submitted.bottom + 1e-5
-        ):
-            raise ValueError("mapped visual evidence lies outside the submitted frame")
-        if not regions or (region is not None and any(_overlaps(region, r) for r in regions)):
-            scoped.append(row)
-    selected = _selected_visual_rows(
-        scoped,
-        occurrence_id=occurrence_id,
-        cell_index=cell_index,
-        kind=kind,
-        figure_query=figure_query,
-    )
-    matched = len(selected)
-    if after and after >= matched:
-        raise InvalidContinuation(
-            "visual evidence continuation is out of scope", reason="invalid_continuation"
-        )
-    end = after + limit
-    return _VISUAL_ITEMS.validate_python(selected[after:end]), end if end < matched else None
-
-
 _VISUAL_ITEMS = TypeAdapter(tuple[VisualEvidenceRow, ...])
 
 
 def _read_mapped_locator(conn, evidence, digest, request, regions, budget, after):
     """Seek within admitted metadata before hydrating the requested candidate bodies."""
-    from sqlalchemy import Numeric, Text, and_, cast, func, or_, select
+    from decimal import Decimal
+
+    from sqlalchemy import BigInteger, Text, and_, cast, func, or_, select
 
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.query import ReadLimit
@@ -821,19 +701,23 @@ def _read_mapped_locator(conn, evidence, digest, request, regions, budget, after
         locator.c.ordinal, locator.c.occurrence_id, locator.c.kind, locator.c.parent_id
     ).where(*pin(locator))
     if regions:
-        coords = body["source_region"]
         metadata = metadata.where(
+            locator.c.artifact_scope.op("@>")(cast(evidence.task_id, BigInteger)),
+            locator.c.source_x.is_not(None),
+            locator.c.source_y.is_not(None),
             or_(
                 *(
                     and_(
-                        cast(coords["left"].as_string(), Numeric) < area.right,
-                        cast(coords["right"].as_string(), Numeric) > area.left,
-                        cast(coords["top"].as_string(), Numeric) < area.bottom,
-                        cast(coords["bottom"].as_string(), Numeric) > area.top,
+                        locator.c.source_x.op("&&")(
+                            func.numrange(Decimal(str(area.left)), Decimal(str(area.right)), "[)")
+                        ),
+                        locator.c.source_y.op("&&")(
+                            func.numrange(Decimal(str(area.top)), Decimal(str(area.bottom)), "[)")
+                        ),
                     )
                     for area in regions
                 )
-            )
+            ),
         )
 
     def bounded(statement, maximum=None):
@@ -884,19 +768,17 @@ def _read_mapped_locator(conn, evidence, digest, request, regions, budget, after
         )
     elif request.visual_query is not None:
         phrase = " ".join(request.visual_query.casefold().split())
-        textual = (
-            metadata.add_columns(
-                body["text"].as_string().label("reading"),
-                body["parser_attachment_occurrence_ids"].label("parser_targets"),
-                body["associated_picture_occurrence_ids"].label("association_targets"),
+        textual = metadata.add_columns(
+            body["text"].as_string().label("reading"),
+            body["parser_attachment_occurrence_ids"].label("parser_targets"),
+            body["associated_picture_occurrence_ids"].label("association_targets"),
+        ).where(
+            locator.c.kind.in_(
+                ("picture_text", "picture_description", "caption", "caption_candidate")
             )
-            .where(
-                locator.c.kind.in_(
-                    ("picture_text", "picture_description", "caption", "caption_candidate")
-                )
-            )
-            .order_by(locator.c.kind, locator.c.ordinal)
         )
+        if not regions:
+            textual = textual.order_by(locator.c.kind, locator.c.ordinal)
         budget.preflight(conn, textual)
         targets = set()
         for row in conn.execute(textual):
@@ -927,7 +809,12 @@ def _read_mapped_locator(conn, evidence, digest, request, regions, budget, after
         selection = metadata.where(locator.c.ordinal > position)
         if request.visual_kind is not None:
             selection = selection.where(locator.c.kind == request.visual_kind)
-        candidates = bounded(selection.order_by(locator.c.ordinal), request.limit + 1)
+        if regions:
+            # Establish bounded overlap first so the ordinal index cannot turn
+            # a sparse regional request into an artifact-wide ordered scan.
+            candidates = sorted(bounded(selection), key=lambda row: row.ordinal)
+        else:
+            candidates = bounded(selection.order_by(locator.c.ordinal), request.limit + 1)
 
     if request.visual_kind is not None:
         candidates = [row for row in candidates if row.kind == request.visual_kind]
