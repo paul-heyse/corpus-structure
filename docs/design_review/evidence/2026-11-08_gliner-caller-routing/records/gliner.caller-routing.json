@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "id": "gliner.caller-routing",
+  "title": "Public GLiNER assertion request comparison",
+  "group": "gliner-caller-routing",
+  "package": "DMA-13",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the caller avoid schema-prefix candidates while preserving the natural predicate anchor on the retained failure?",
+  "answers": [
+    "DMA-13"
+  ],
+  "method": "Compare current, latent and literal-only structured requests on the exact retained input under the pinned model. Exercise independently expected affirmative and negative controls and standalone classification.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-08_gliner-caller-routing/probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "Read-only retained-context and control replay",
+      "sha256": "7a1af65a03cac697d7123737d7572c47da658cfac4bcae1770c83291fe75c0d6"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/replay.json",
+      "role": "Native request results and prefix word counts",
+      "sha256": "ec7bda05c96b1742f6a7fc61674e515dddc2e74f21e0b6d1473372823ae44a3a"
+    }
+  ],
+  "depends_on": [
+    "2026-11-08_gliner-assertion-anchor/gliner.assertion-anchor"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "The retained literal-only natural request excludes enum prefix positions and returns a source-located predicate candidate. Latent grouping retains the prefix and yields no located predicate on that input. The standalone classifier makes two polarity errors on the controls. This bounds a caller-side extraction proposal and does not establish integrated semantic or full-book qualification.",
+  "consumed_by": [
+    "DMA-13"
+  ]
+}

@@ -409,6 +409,19 @@ or yields an admissible scoped uncertainty. At the development boundary,
 generation is 0 with an empty selection. Activation and promotion are
 `not_run`.
 
+**Proposed · 2026-11-08.** Change the M1 assertion request at the caller.
+Keep the natural predicate anchor and ask GLiNER for literal fields only.
+Keep polarity and modality in the released domain model and resolve them
+in typed assembly only where applicable scoped evidence supports them.
+Otherwise preserve uncertainty. The
+[caller-side replay](../design_review/evidence/2026-11-08_gliner-caller-routing/README.md)
+used the current provider pin and recovered a literal predicate candidate
+on the exact failing input. It also found that latent grouping returned
+records without predicates and standalone classification made polarity
+errors. Before full-book qualification, verify grounded positive and
+negative cases and examine the remaining natural packs with inline
+choices for the same failure mechanism.
+
 The restricted Reader loaded all 13 older structural reports into the
 current report shape and found no earlier M1 candidate task in this project.
 Keep the authenticated older reports in their released context. This check
