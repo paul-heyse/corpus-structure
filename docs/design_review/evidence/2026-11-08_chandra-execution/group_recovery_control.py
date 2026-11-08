@@ -24,11 +24,13 @@ def main() -> None:
     parser.add_argument("project")
     parser.add_argument("artifacts", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--managed-cancel", action="store_true")
     args = parser.parse_args()
     source = json.loads(args.previous_group.read_bytes())["source"]
     args.output.mkdir()
     selections = args.output / "selections.json"
-    selections.write_text('[{"page_no":506},{"page_no":151}]\n')
+    second = 416 if args.managed_cancel else 151
+    selections.write_text(json.dumps([{"page_no": 506}, {"page_no": second}]) + "\n")
     settings = Settings()
     endpoint = settings.nemotron.endpoint.rstrip("/")[:-3]
     runs, tasks = map(table, ("ops.run", "ops.task"))
@@ -66,7 +68,7 @@ def main() -> None:
                             runs.c.options["visual_group"]["selections"]
                             == [
                                 {"source": source, "page_no": 506},
-                                {"source": source, "page_no": 151},
+                                {"source": source, "page_no": second},
                             ],
                         )
                     )
@@ -88,7 +90,16 @@ def main() -> None:
                     and row["status"] == "running"
                 ]
                 if settled and active and sleeping(endpoint):
-                    process.send_signal(signal.SIGINT)
+                    if args.managed_cancel:
+                        with (args.output / "cancel.json").open("wb") as receipt:
+                            subprocess.run(
+                                [str(Path(sys.executable).with_name("ci")), "run", "cancel",
+                                 str(run_id), "--json"],
+                                stdout=receipt,
+                                check=True,
+                            )
+                    else:
+                        process.send_signal(signal.SIGINT)
                     exit_code = process.wait(timeout=60)
                     if exit_code == 0 or sleeping(endpoint):
                         raise RuntimeError("interruption did not drain the group and restore Nemotron")
@@ -104,6 +115,7 @@ def main() -> None:
                         "lease_until": lease.isoformat() if lease else None,
                         "exit_code": exit_code,
                         "nemotron_awake": True,
+                        "managed_cancel": args.managed_cancel,
                     }
                     (args.output / "interrupted.json").write_text(json.dumps(report, indent=2))
                     print(json.dumps(report), flush=True)

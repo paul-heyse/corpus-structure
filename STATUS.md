@@ -56,5 +56,5 @@ _Updated 2026-11-08. Original whole-book intake and review are complete. Grouped
   completed Standard cut 413 and combined cut 431. All 29 scoped views and nine contextual
   cues published. LLM review covers all 518 pages and retained definition and artifact outputs.
 - The [Chandra checkpoint](docs/plans/chandra-2-post-nemotron_2026-11-08.md#grouped-development-and-comparator-checkpoint--2026-11-08) owns `semantic_chandra_grouped_fix`, CUDA group 354, source-ready archive rendering and scoped test receipts.
-  Current work settles Standard run 356, retained A/B/C replay and cohort run 361 before the full-book shadow and operating-policy decision.
+  Group recovery and the 15-page cohort passed their bounded journeys. Comparator run 373 and the full-book shadow precede the operating-policy decision.
 - Settle the WCE source and factor obligations. Live CLI qualification needs a configured production target, purpose roles and effect authority.

@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "id": "chandra.mixed-cohort-incumbent",
+  "title": "Published incumbent sources for the mixed Chandra cohort",
+  "group": "chandra-execution",
+  "package": "CH-10",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Are all frozen natural and control pages available under exact incumbent pins before scoring Chandra?",
+  "answers": [
+    "CH-05",
+    "CH-06",
+    "CH-10"
+  ],
+  "method": "Register nine exact PDFs, run real local Standard and Nemotron on the production integrated graph under one managed run, qualify each protected publication against its original hash, then freeze the route and all-page selections before examining Chandra.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-08_chandra-execution/mixed-cohort/cohort_publish.py RELEASE DOMAINS",
+    "uv run ci source native-products 363 --json",
+    "uv run python docs/design_review/evidence/2026-11-08_chandra-execution/mixed-cohort/freeze_cohort.py 363 RELEASE source:chandra-mixed-cohort ARTIFACTS OUTPUT"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/mixed-cohort-incumbent.json",
+      "role": "Completed managed source readiness and cut",
+      "sha256": "a481d6c974e7f92c7a1d65444f2188ec50c8ac084f2579643786eca4eba1f244"
+    },
+    {
+      "path": "raw/mixed-cohort-attempt-361.json",
+      "role": "Retained failed pre-freeze runtime attempt",
+      "sha256": "3ead5e75a058a825207688676b76b0b9fb520654e1e31986c2903d499be06fda"
+    },
+    {
+      "path": "raw/mixed-cohort-frozen",
+      "role": "Exact selected source pins and all frozen comparison arms",
+      "sha256": "896764f166ed522e6c1f7c73aeea24f038109eb0f3664854028e6ecb951b9cbf"
+    }
+  ],
+  "depends_on": [
+    "chandra.mixed-cohort-freeze"
+  ],
+  "results": [
+    {
+      "name": "published cohort integrated sources",
+      "value": 9,
+      "of": 9,
+      "unit": "PDFs",
+      "note": null
+    },
+    {
+      "name": "dry routed cohort pages",
+      "value": 15,
+      "of": 15,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "selective recognition nominations",
+      "value": 9,
+      "of": 15,
+      "unit": "pages",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Managed run 363 settled source-ready at cut 480 after the earlier runtime-change refusal. All nine protected integrated products have their exact registered originals. Six cohort pages have no supported trigger and nine nominate recognition. These are incumbent and dry-routing results; candidate correctness remains a separate judgment.",
+  "consumed_by": [
+    "chandra-2-post-nemotron coordinator"
+  ]
+}

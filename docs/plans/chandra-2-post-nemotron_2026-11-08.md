@@ -231,28 +231,33 @@ same publication check passed with that draft excluded in memory.
 - **CH-02, CH-09, CH-10 and F03.** CUDA run 354 sealed cut 474 for physical pages
   506 and 1. Each retained its own raw and mapped pin. Nemotron reclaimed its
   GPU capacity. The MCP manifest, exact Reader result and evidence packet agreed.
-  Controlled interruption, same-run continuation and exact group reuse passed
-  in the native test. Live grouped interruption and full shadow are separate
-  remaining checks.
-  [Grouped development evidence](../design_review/evidence/2026-11-08_chandra-execution/records/chandra.grouped-development.json)
+  Live interruption and continuation retained page 506 and resumed page 151
+  under its original inference task in run 362, cut 479. Managed cancellation
+  of run 375 restored Nemotron and kept the settled reuse records. The protected
+  recovery test and controlled lost-child test passed.
+  [Grouped development evidence](../design_review/evidence/2026-11-08_chandra-execution/records/chandra.grouped-development.json) ·
+  [Live recovery evidence](../design_review/evidence/2026-11-08_chandra-execution/records/chandra.grouped-recovery.json)
 - **CH-08 and F05.** The archive schema probe found that default Core migration
   changes literal text and offsets. Run 352 completed the 518 page spools,
   then its claim renewal failed behind a concurrent development DDL lock.
   The spools precede formula enrichment and lack the final native records.
-  Fresh Standard retry run 356 uses the serialized development route. Retained
-  A/B/C receipts and the source-witnessed p108 and p151 repairs feed the
-  complete comparator. The exact new p416 formula projection and ordinary
-  consumers still need verification.
+  Retry run 356 sealed its exact native and organized products and retained
+  all 29 views before a stale runtime pin refused its follow-up claim. The
+  current-runtime comparator run 373 reuses that organized product and all
+  1,246 verified A/B/C requests on the CPU. Its selected publication, exact
+  p416 formula projection and ordinary consumers still need verification.
   [Incumbent recovery evidence](../design_review/evidence/2026-11-08_chandra-execution/incumbent-recovery.md)
 - **CH-05–07 and CH-10.** The v2 evaluator covered all 518 archived pages and
   distinguished verified blank p506, scoped crop disagreements and unknown
   coverage. The archived scan nominated 93 pages for recognition and 13 for
   incumbent repair, and skipped 412. Re-evaluate the exact repaired comparator
-  before scoring. The mixed cohort freezes nine PDFs and 15 physical pages
-  with source expectations. Its incumbent and Chandra runs and specialist
-  dispositions remain open.
+  before scoring. The mixed cohort completed all 15 physical pages in 10
+  Chandra groups against nine exact incumbent products. Selective nominations
+  covered the source-verified discovery and transcription gains in the tested
+  fields. Diagram, chemistry, Arabic and missing-reading controls support
+  attributed delivery. The book comparison remains open.
   [Dry routing evidence](../design_review/evidence/2026-11-08_chandra-execution/records/chandra.book-dry-routing-v2.json) ·
-  [Mixed cohort](../design_review/evidence/2026-11-08_chandra-execution/records/chandra.mixed-cohort-freeze.json)
+  [Mixed cohort result](../design_review/evidence/2026-11-08_chandra-execution/records/chandra.mixed-cohort-shadow.json)
 
 The combined affected selection `ca503ec072104cfea0bd1539cf8d3ec1` passed 100
 nodes and recorded seven scripted recognition workers timing out on the live

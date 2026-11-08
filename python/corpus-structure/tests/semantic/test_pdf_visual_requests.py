@@ -411,3 +411,47 @@ def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
         member.mapped for member in resumed.members
     ]
     assert len(attempts) == 3 and len(sessions) == 2
+
+
+def test_visual_group_reopens_only_the_lost_worker(tmp_path, monkeypatch):
+    from contextlib import ExitStack, contextmanager
+
+    events = []
+
+    @contextmanager
+    def handoff(endpoint, *, check_active):
+        events.append("lease")
+        try:
+            yield
+        finally:
+            events.append("restore")
+
+    @contextmanager
+    def session(runtime):
+        generation = events.count("start") + 1
+        events.append("start")
+
+        def recognize(pixels, *, check_active, before_submit):
+            check_active()
+            before_submit()
+            if generation == 1:
+                raise pdf_chandra.ChandraWorkerLost("controlled lost pipe")
+            return pixels
+
+        try:
+            yield recognize
+        finally:
+            events.append("close")
+
+    def active():
+        pass
+
+    monkeypatch.setattr(pdf_capacity, "suspend_resident_nemotron", handoff)
+    monkeypatch.setattr(pdf_chandra, "ChandraRuntime", lambda _: object())
+    monkeypatch.setattr(pdf_chandra, "supervised_chandra", session)
+    with ExitStack() as stack:
+        group = visual_requests._GroupInference(tmp_path, None, stack)
+        with pytest.raises(pdf_chandra.ChandraWorkerLost, match="lost pipe"):
+            group.recognize(b"first", check_active=active, before_submit=active)
+        assert group.recognize(b"second", check_active=active, before_submit=active) == b"second"
+    assert events == ["lease", "start", "close", "start", "close", "restore"]

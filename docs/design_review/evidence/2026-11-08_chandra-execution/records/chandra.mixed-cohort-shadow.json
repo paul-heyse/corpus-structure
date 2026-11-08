@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "id": "chandra.mixed-cohort-shadow",
+  "title": "Managed mixed-cohort Chandra shadow and specialist comparisons",
+  "group": "chandra-execution",
+  "package": "CH-10",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which natural source structures add consumable evidence and which stronger claims remain unsupported?",
+  "answers": [
+    "CH-05",
+    "CH-06",
+    "CH-07",
+    "CH-09",
+    "CH-10"
+  ],
+  "method": "Run the exact frozen grouped selections on the local reference runtime. Read each raw response by its protected digest and each mapped result through the actual released Reader. Check the independently frozen source expectations and run the exact held-out figure and Arabic source-search queries.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-08_chandra-execution/group_shadow.py MANIFEST OUTPUT",
+    "uv run python docs/design_review/evidence/2026-11-08_chandra-execution/mixed-cohort/read_cohort.py MANIFESTS SHADOW OUTPUT",
+    "uv run ci source inspect 363 --producing-task 1585 --product integrated --native-digest c511d2bc85b2e958775fcb630e985b90c7c9e1b54dea4a5fb74325a0f3058433 --page 1 --native-view visual-evidence --visual-kind picture --visual-query PONTIUS --evidence-run 370 --evidence-task 1611 --evidence-product chandra-mapping:eb49da9e7afb929ff4bff4b3abac4ce8c30cfb254ff68a6af34998a830341ed4 --evidence-digest 26b0fb409f4f9a7bf01ca8b7de6c81965315bdccfea6f799b1795a50f25e025b --json"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/mixed-cohort-shadow.json",
+      "role": "Managed group and individual raw/mapped product pins",
+      "sha256": "a780439d7bd1abd40c2cfd27bd3e2d48fdbb213b03103682de4eafba4d314600"
+    },
+    {
+      "path": "raw/mixed-cohort-readers",
+      "role": "Exact protected visual and incumbent Reader responses and Arabic retrieval",
+      "sha256": "579a55966bf5082986e1aa85e7a5cb1daede045947a0a4fa73b5e3854a233e07"
+    },
+    {
+      "path": "raw/mixed-cohort-chart-discovery.json",
+      "role": "Live bounded held-out figure discovery",
+      "sha256": "9fd912514e284be8f12a7af0139185d88646635140b35bb4b6653d36e151dd3f"
+    },
+    {
+      "path": "mixed-cohort/assessment.md",
+      "role": "Independent specialist dispositions and remaining qualifications",
+      "sha256": "631649f86a2175287c5e29a9d87a49e407e929f43bea2322f5e96d264bd53933"
+    }
+  ],
+  "depends_on": [
+    "chandra.mixed-cohort-incumbent"
+  ],
+  "results": [
+    {
+      "name": "source-ready grouped requests",
+      "value": 10,
+      "of": 10,
+      "unit": "groups",
+      "note": null
+    },
+    {
+      "name": "source-ready full-page observations",
+      "value": 15,
+      "of": 15,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "exact mapped Reader deliveries",
+      "value": 15,
+      "of": 15,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "whole-page observations beyond the selective arm",
+      "value": 6,
+      "of": 15,
+      "unit": "pages",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The exact mixed cohort settled all pages and returned source-qualified attributed discovery for a six-panel chart, directed diagram code, and a raster-form table. Native form identity, graph authority, molecule correctness, and stronger navigation remain conditional. The full-book operating decision remains separate.",
+  "consumed_by": [
+    "chandra-2-post-nemotron coordinator"
+  ]
+}

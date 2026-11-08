@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "id": "chandra.grouped-recovery",
+  "title": "Live grouped interruption, exact continuation and terminal cancellation",
+  "group": "chandra-execution",
+  "package": "CH-10",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can a live grouped run retain its settled member, recover the interrupted task, and restore the resident service on both resumable and terminal cancellation?",
+  "answers": [
+    "CH-02",
+    "CH-09",
+    "CH-10",
+    "F03"
+  ],
+  "method": "Interrupt the active second CUDA member after the first mapping has settled. Resume after the original claim lease expires. Exercise a separate terminal cancellation and a controlled lost-child transport.",
+  "commands": [
+    "uv run ci run resume 362 --project nce-grinstead-snell-full-book --json",
+    "uv run ci run cancel 375 --json",
+    "uv run ci status 375 --project nce-grinstead-snell-full-book --json",
+    "uv run ci test -- python/corpus-structure/tests/semantic/test_pdf_visual_requests.py::test_visual_group_reopens_only_the_lost_worker"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "group-recovery-development.json",
+      "role": "Exact interrupted attempt, resumed pins, typed MCP packet and terminal result",
+      "sha256": "4d58b28ab2fc2839061a30a2cd44a3de95e9aa25dd1e2afc27b43c08a3f4810f"
+    },
+    {
+      "path": "group_recovery_control.py",
+      "role": "Bounded managed interruption and cancellation driver",
+      "sha256": "9f4225c4653eacdc879e65e3dd7b606f63e9deaefa0e0943e12753efd6930593"
+    }
+  ],
+  "depends_on": [
+    "chandra.grouped-development"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Run 362 retained page 506, resumed page 151 under the original inference task in attempt 2 and sealed cut 479. The first interrupted receipt remained intact. Run 375 cancelled its active task and retained its two reused task records without a final cut. Both restored the resident Nemotron service. The controlled transport loss reopened only the child.",
+  "consumed_by": [
+    "chandra-2-post-nemotron coordinator"
+  ]
+}

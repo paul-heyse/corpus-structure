@@ -1,0 +1,229 @@
+{
+  "interrupted": {
+    "run_id": 362,
+    "source": {
+      "run_id": 309,
+      "task_id": 1389,
+      "product_key": "integrated",
+      "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+    },
+    "first_mapping_task": 1580,
+    "interrupted_task": 1581,
+    "lease_until": "2026-11-08T08:21:47.318038-05:00",
+    "exit_code": 130,
+    "nemotron_awake": true
+  },
+  "resume": {
+    "run_id": 362,
+    "cut_id": 479,
+    "status": "source_ready",
+    "source": {
+      "run_id": 309,
+      "task_id": 1389,
+      "product_key": "integrated",
+      "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+    },
+    "members": [
+      {
+        "run_id": 362,
+        "task_id": 1580,
+        "cut_id": null,
+        "status": "source_ready",
+        "source": {
+          "run_id": 309,
+          "task_id": 1389,
+          "product_key": "integrated",
+          "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+        },
+        "raw": {
+          "run_id": 362,
+          "task_id": 1579,
+          "product_key": "chandra-inference:4d9667d344b516abcb4702b6eeb4addf01ab852360e192074eb3cc6b34bacbca",
+          "content_digest": "f7b0b07bcb84890bde717c7d9df3c584d409faeed810f1a3fc0f3eaa656ac009"
+        },
+        "mapped": {
+          "run_id": 362,
+          "task_id": 1580,
+          "product_key": "chandra-mapping:b7b7d987469f91e45588e263c0caf3dd10748a8e84478f12ed12e782a4afb7c6",
+          "content_digest": "2c5825b79ed2942579b8995ce160a5fb9d75e2fa4cd5f229e99b05f0572f1a46"
+        },
+        "attempt_receipt": null,
+        "error": null,
+        "selection": {
+          "source": {
+            "run_id": 309,
+            "task_id": 1389,
+            "product_key": "integrated",
+            "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+          },
+          "page_no": 506,
+          "pointer": null,
+          "region_index": null,
+          "rotation": null
+        }
+      },
+      {
+        "run_id": 362,
+        "task_id": 1591,
+        "cut_id": null,
+        "status": "source_ready",
+        "source": {
+          "run_id": 309,
+          "task_id": 1389,
+          "product_key": "integrated",
+          "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+        },
+        "raw": {
+          "run_id": 362,
+          "task_id": 1581,
+          "product_key": "chandra-inference:f3cfd7a905e023e37e245b89c09f127e2109b9244371292590a4153fc7ac3e03",
+          "content_digest": "3063879ffa396a737f9d5a79173127424bfe61414985ed1ad7979587ef2e375f"
+        },
+        "mapped": {
+          "run_id": 362,
+          "task_id": 1591,
+          "product_key": "chandra-mapping:c1052a83be45bcc6cc08d7afb9f4826c468f0b8c6ec4946d11b8e716eef7e985",
+          "content_digest": "1b01393e883e3479b2924c72b6f20aa6b896d9fc1fef9f47ab1823b5b3a7365d"
+        },
+        "attempt_receipt": "build/recognition/chandra/run-362-task-1581-3920d83e89c185c3bf74e4ba29804918cd6f51e575698266ee95245a1fc138e2/attempt-2/receipt.json",
+        "error": null,
+        "selection": {
+          "source": {
+            "run_id": 309,
+            "task_id": 1389,
+            "product_key": "integrated",
+            "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+          },
+          "page_no": 151,
+          "pointer": null,
+          "region_index": null,
+          "rotation": null
+        }
+      }
+    ]
+  },
+  "interrupted_task_attempts": [
+    {
+      "path": "build/recognition/chandra/run-362-task-1581-3920d83e89c185c3bf74e4ba29804918cd6f51e575698266ee95245a1fc138e2/attempt-1/receipt.json",
+      "sha256": "096def2913ed86d43f92cdb4ff635cb4e6a6ced3ea008f05d81aa9df73bdba6a",
+      "attempt": 1,
+      "files": {
+        "observation.json": {
+          "byte_length": 3288,
+          "sha256": "1213234d25a860629c5c298e106c25b2f257be2fe10acf168a2bc3793ea15335"
+        },
+        "recipe.json": {
+          "byte_length": 5489,
+          "sha256": "f3cfd7a905e023e37e245b89c09f127e2109b9244371292590a4153fc7ac3e03"
+        },
+        "submitted.png": {
+          "byte_length": 234376,
+          "sha256": "986e72ffcf726103dcb6a5a3631ebecd4ec9d33019fee69618b60b940e6f1ee1"
+        }
+      },
+      "interrupted": true,
+      "invocation_key": "f1c6d482-6be6-4aa4-bd43-0ded7e8d86ca",
+      "release_id": "release:7a8352c383c2c6f07fb6d2ed10246466c60faf6db4d382f9cd61b29ed8dc0744",
+      "run_id": 362,
+      "task_id": 1581,
+      "version": "chandra-attempt-receipt-v1"
+    },
+    {
+      "path": "build/recognition/chandra/run-362-task-1581-3920d83e89c185c3bf74e4ba29804918cd6f51e575698266ee95245a1fc138e2/attempt-2/receipt.json",
+      "sha256": "0ccf98d03bed0111241dd14947b6eb1a18100ac97f132208ae6968c2defbb247",
+      "attempt": 2,
+      "files": {
+        "observation.json": {
+          "byte_length": 3424,
+          "sha256": "5a3f18ab8c625cdd7bf771aba7222f5278410406908de48ca37c8efdf4be6a62"
+        },
+        "recipe.json": {
+          "byte_length": 5489,
+          "sha256": "f3cfd7a905e023e37e245b89c09f127e2109b9244371292590a4153fc7ac3e03"
+        },
+        "response.html": {
+          "byte_length": 3785,
+          "sha256": "414af667a59f6b1446be5434f59e90bd7c8214ab28d5035388f2e41b22d84362"
+        },
+        "submitted.png": {
+          "byte_length": 234376,
+          "sha256": "986e72ffcf726103dcb6a5a3631ebecd4ec9d33019fee69618b60b940e6f1ee1"
+        }
+      },
+      "interrupted": false,
+      "invocation_key": "f1c6d482-6be6-4aa4-bd43-0ded7e8d86ca",
+      "release_id": "release:7a8352c383c2c6f07fb6d2ed10246466c60faf6db4d382f9cd61b29ed8dc0744",
+      "run_id": 362,
+      "task_id": 1581,
+      "version": "chandra-attempt-receipt-v1"
+    }
+  ],
+  "typed_reader_packet": {
+    "source": {
+      "run_id": 309,
+      "task_id": 1389,
+      "product_key": "integrated",
+      "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+    },
+    "member": {
+      "run_id": 362,
+      "task_id": 1591,
+      "product_key": "chandra-mapping:c1052a83be45bcc6cc08d7afb9f4826c468f0b8c6ec4946d11b8e716eef7e985",
+      "content_digest": "1b01393e883e3479b2924c72b6f20aa6b896d9fc1fef9f47ab1823b5b3a7365d"
+    },
+    "page": 151,
+    "packet_digest": "19a560beca463a932342845f0fb1fec10384c67433982eacad8c9f3fb9002900",
+    "outcome": "source_ready",
+    "mapping_availability": "available"
+  },
+  "terminal_control": {
+    "run_id": 375,
+    "source": {
+      "run_id": 309,
+      "task_id": 1389,
+      "product_key": "integrated",
+      "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+    },
+    "first_mapping_task": 1624,
+    "interrupted_task": 1625,
+    "lease_until": null,
+    "exit_code": 1,
+    "nemotron_awake": true,
+    "managed_cancel": true
+  },
+  "terminal_status": {
+    "run_id": 375,
+    "kind": "slice",
+    "status": "cancelled",
+    "started_at": null,
+    "cut_at": null,
+    "cut_m19_task_id": null,
+    "finished_at": null,
+    "release_id": "release:7a8352c383c2c6f07fb6d2ed10246466c60faf6db4d382f9cd61b29ed8dc0744",
+    "cut_id": null,
+    "cut_name": null,
+    "output_realization_id": null,
+    "stages": [
+      {
+        "stage": "parsing",
+        "status": "cancelled",
+        "reason": null,
+        "count": 1
+      },
+      {
+        "stage": "parsing",
+        "status": "reused",
+        "reason": null,
+        "count": 2
+      }
+    ],
+    "unresolved_agent_tasks": 0,
+    "readiness": "terminal",
+    "supervisor": "terminal"
+  },
+  "terminal_cancellation": {
+    "run_id": 375,
+    "tasks_cancelled": 1
+  },
+  "worker_transport_retry_test": "3327527b8597465fa9e084737e3ba995"
+}
