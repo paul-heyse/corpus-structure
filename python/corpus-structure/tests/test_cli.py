@@ -136,14 +136,25 @@ def test_retain_evidence_survives_managed_expiry(cli, tmp_path, monkeypatch):
     evidence.mkdir(parents=True)
     results = tmp_path / "results"
     store = ResultStore(results)
-    with store.operation("test", scope={"consumer": "CLI-CA02"}) as invocation:
+    with store.operation(
+        "review.export", scope={"consumer": "CLI-CA02"}, account=True
+    ) as invocation:
         selection = invocation.directory / "selection.json"
         selection.write_text("{}\n", encoding="utf-8")
         invocation.publish("selection", selection)
         artifact = invocation.directory / "summary.txt"
         artifact.write_text("bounded closure\n", encoding="utf-8")
         invocation.publish("bundle", artifact)
-        invocation.settle("passed")
+        invocation.record_effect("bundle")
+        invocation.settle("failed")
+    with store.operation(
+        "review.export", scope={"consumer": "CLI-CA02"}, account=True
+    ) as unresolved:
+        artifact = unresolved.directory / "selection.json"
+        artifact.write_text("{}\n", encoding="utf-8")
+        unresolved.publish("selection", artifact)
+        unresolved.defer_settlement()
+        unresolved.settle("failed")
     monkeypatch.setattr(operations, "checkout", lambda ctx: tmp_path)
     indexed = []
 
@@ -152,6 +163,22 @@ def test_retain_evidence_survives_managed_expiry(cli, tmp_path, monkeypatch):
         return CompletedProcess([], 0, "", "")
 
     monkeypatch.setattr(operations, "run_recipe", index)
+    refused = cli(
+        "evidence", "retain", unresolved.id, "--json", env={"CORPUS_CI_RESULTS": str(results)}
+    )
+    assert refused.exit_code == 1
+    assert "established custody" in json.loads(refused.stdout)["error"]["message"]
+    assert list(evidence.iterdir()) == [] and not indexed
+    delivered = cli(
+        "results",
+        "export",
+        unresolved.id,
+        "--role",
+        "selection",
+        "--json",
+        env={"CORPUS_CI_RESULTS": str(results)},
+    )
+    assert delivered.exit_code == 0, delivered.output
     result = cli(
         "evidence", "retain", invocation.id, "--json", env={"CORPUS_CI_RESULTS": str(results)}
     )
@@ -163,8 +190,10 @@ def test_retain_evidence_survives_managed_expiry(cli, tmp_path, monkeypatch):
     assert not saved.load_errors
     [(folder, record)] = saved.all_records()
     assert record.consumed_by == ["CLI-CA02"]
-    assert record.outcome == "passed"
-    assert json.loads((folder.path / "invocation.json").read_text())["artifact_role"] == "bundle"
+    assert record.outcome == "failed"
+    provenance = json.loads((folder.path / "invocation.json").read_text())
+    assert provenance["artifact_role"] == "bundle" and provenance["custody"] == "settled"
+    assert provenance["operation_account"]["known_effects"] == ["bundle"]
     for _, ref in record.files:
         assert ref.sha256 == content_hash(folder.path / ref.path)
     assert (folder.path / "raw/summary.txt").read_text(encoding="utf-8") == "bounded closure\n"

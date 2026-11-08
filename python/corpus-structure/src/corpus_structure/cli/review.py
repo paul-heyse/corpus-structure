@@ -25,6 +25,7 @@ from corpus_structure.cli.output import (
 )
 
 if TYPE_CHECKING:
+    from corpus_structure.cli.managed import Invocation
     from corpus_structure.core.db.cancellation import OperationCancellation
     from corpus_structure.serve.review_bundle import ReviewSelection
 
@@ -65,11 +66,11 @@ def _deliver_review(
     *,
     exact_closure: bool,
     json: bool,
-    evaluator_capture: Callable[[Any], Any] | None = None,
+    prepare_evaluator: Callable[[Invocation], Callable[[Any], Any]] | None = None,
     previous: str | None = None,
     previous_binding: str | None = None,
 ) -> None:
-    from corpus_structure.cli.managed import result_store
+    from corpus_structure.cli.managed import managed_operation, result_store
     from corpus_structure.core.db.cancellation import OperationCancellation
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.serve.review_bundle import export_review_bundle
@@ -77,14 +78,17 @@ def _deliver_review(
     store = result_store(ctx)
     if destination is not None and (destination.exists() or destination.is_symlink()):
         raise FileExistsError(destination)
-    action = "review.export" if evaluator_capture is None else "review.export-evaluated"
+    action = "review.export" if prepare_evaluator is None else "review.export-evaluated"
     body = request.model_dump_json().encode()
     selection_digest = _selection_digest(body, exact_closure=exact_closure)
     cancellation = OperationCancellation()
     with (
         _capture_signals(cancellation) as interrupted,
-        store.operation(
+        managed_operation(
+            store,
             action,
+            json=json,
+            expected=(OSError, ValueError),
             scope={
                 "exact_closure": exact_closure,
                 "selection_digest": selection_digest,
@@ -108,6 +112,7 @@ def _deliver_review(
             result.stage("bound")
 
         try:
+            evaluator_capture = prepare_evaluator(result) if prepare_evaluator is not None else None
             manifest = export_review_bundle(
                 request,
                 bundle,
@@ -131,7 +136,7 @@ def _deliver_review(
                 raise
             if received is None:
                 raise
-            if evaluator_capture is not None:
+            if prepare_evaluator is not None:
                 next_action = "Submit the selection again with ci review export-evaluated"
             elif result.manifest.scope.get("source_binding") is None:
                 next_action = "Submit the selection again with ci review export"
@@ -142,6 +147,8 @@ def _deliver_review(
                 signal=received,
                 next_action=next_action,
             )
+            account = result.manifest.operation_account
+            assert account is not None
             if json:
                 emit(
                     RootModel[dict[str, JsonValue]](
@@ -150,7 +157,8 @@ def _deliver_review(
                                 "code": "review_interrupted",
                                 "message": "review capture interrupted and settled",
                                 "invocation_id": result.id,
-                            }
+                            },
+                            "operation_account": account.model_dump(mode="json"),
                         }
                     ),
                     json=True,
@@ -158,15 +166,23 @@ def _deliver_review(
                 )
             raise typer.Exit(128 + received) from error
         result.publish("bundle", bundle)
-        result.stage(
-            "published",
+        result.record_effect(
+            "bundle",
+            stage="published",
             bundle_manifest_sha256=sha256(canonical_bytes(manifest) + b"\n").hexdigest(),
         )
+    account = result.manifest.operation_account
+    assert account is not None
     delivered = store.deliver(result.id, "bundle", destination)
     diagnostic(f"Review {result.id} · published")
     emit(
         RootModel[dict[str, JsonValue]].model_validate(
-            {**manifest, "invocation_id": result.id, "destination": str(delivered)}
+            {
+                **manifest,
+                "invocation_id": result.id,
+                "destination": str(delivered),
+                "operation_account": account.model_dump(mode="json"),
+            }
         ),
         json=json,
     )
@@ -203,35 +219,44 @@ def export_evaluated_review(
         )
         if not cohorts or len(set(cohorts)) != len(cohorts):
             raise ValueError("assessment sets must be nonempty and distinct")
-        with (
-            open_runtime_engine(settings, "ci-review-exposure", purpose="evaluate") as engine,
-            engine.begin() as conn,
-        ):
-            receipts = {
-                (group, owner, set_id): record_review_exposure(
-                    conn,
-                    project_id=owner,
-                    set_id=set_id,
-                    purpose="portable_review",
-                    recipient_class="external_reviewer",
-                    group=group,
-                    authorization_basis=None if group else authorization_basis,
+
+        def prepare_evaluator(result: Invocation):
+            with (
+                open_runtime_engine(settings, "ci-review-exposure", purpose="evaluate") as engine,
+                engine.begin() as conn,
+            ):
+                receipts = {
+                    (group, owner, set_id): record_review_exposure(
+                        conn,
+                        project_id=owner,
+                        set_id=set_id,
+                        purpose="portable_review",
+                        recipient_class="external_reviewer",
+                        group=group,
+                        authorization_basis=None if group else authorization_basis,
+                    )
+                    for group, owner, set_id in cohorts
+                }
+            result.record_effect("review_exposure", exposure_receipt_ids=tuple(receipts.values()))
+            return assessment_review_capture(
+                tuple(
+                    AssessmentReviewSelection(
+                        project_id=owner,
+                        set_id=set_id,
+                        exposure_receipt_id=receipts[group, owner, set_id],
+                        group=group,
+                    )
+                    for group, owner, set_id in cohorts
                 )
-                for group, owner, set_id in cohorts
-            }
-        capture = assessment_review_capture(
-            tuple(
-                AssessmentReviewSelection(
-                    project_id=owner,
-                    set_id=set_id,
-                    exposure_receipt_id=receipts[group, owner, set_id],
-                    group=group,
-                )
-                for group, owner, set_id in cohorts
             )
-        )
+
         _deliver_review(
-            ctx, request, destination, exact_closure=False, json=json, evaluator_capture=capture
+            ctx,
+            request,
+            destination,
+            exact_closure=False,
+            json=json,
+            prepare_evaluator=prepare_evaluator,
         )
 
 
@@ -269,7 +294,7 @@ def retry_review(
             previous = store.show(result_id)
             if previous.action != "review.export":
                 raise ValueError("retry requires an ordinary review export result")
-            if previous.settled is None or previous.details.get("custody_unsettled"):
+            if not previous.custody_settled():
                 raise ValueError("retry requires proof that the previous capture settled")
             binding = previous.scope.get("source_binding")
             if not isinstance(binding, str):

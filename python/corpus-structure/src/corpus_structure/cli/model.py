@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from contextlib import contextmanager
 from hashlib import sha256
 from io import StringIO
 from pathlib import Path
@@ -15,6 +16,7 @@ from rich.syntax import Syntax
 from rich.table import Table
 from rich.text import Text
 
+from corpus_structure.cli.managed import OperationAccount, managed_operation
 from corpus_structure.cli.output import (
     JsonOpt,
     diagnostic,
@@ -46,6 +48,7 @@ class ModelResult(BaseModel):
     release: str | None = None
     target_profile: DeploymentProfile | None = None
     acquired_target: StorageTarget | None = None
+    operation_account: OperationAccount | None = None
 
 
 class CheckResult(BaseModel):
@@ -676,10 +679,11 @@ def preview(
         verify_predecessor,
     )
 
-    with refusal(json_, expected=(ModelError, ResultError, OSError, ValueError, yaml.YAMLError)):
+    expected = (ModelError, ResultError, OSError, ValueError, yaml.YAMLError)
+    with refusal(json_, expected=expected):
         store = result_store(ctx)
         root = checkout(ctx)
-        with store.operation("model.preview") as result:
+        with managed_operation(store, "model.preview", json=json_, expected=expected) as result:
             model_stage(result, "resolve request")
             if re.fullmatch(r"[a-f0-9]{32}", request) and not Path(request).is_file():
                 with store.lease(request):
@@ -709,6 +713,7 @@ def preview(
                     if profile == "development" and authoring_identity is not None
                     else capture_target(destination, purpose="maintenance")
                 )
+                result.record_target(target_identity, bound.native_predecessor, None, None)
             impact = None
             local = None
             release = None
@@ -723,6 +728,8 @@ def preview(
                     root, bound.packs, physical_sources=physical_sources
                 )
                 release = local.release_id
+                if target_identity is not None:
+                    result.record_target(target_identity, bound.native_predecessor, None, release)
             if bound.archive_release:
                 model_stage(result, "compare archived release")
                 from corpus_structure.semantic.operation_reporting import compare_semantic_releases
@@ -775,6 +782,7 @@ def preview(
                 release=release,
                 target_profile=staged.target_profile,
                 acquired_target=staged.target_identity,
+                operation_account=result.manifest.operation_account,
             ),
             json=json_,
         )
@@ -789,9 +797,12 @@ def apply(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
     from corpus_structure.schema.model_change import ChangePreview, apply_preview
     from corpus_structure.schema.model_deployment import predecessor_fence
 
-    with refusal(json_, expected=(ModelError, ResultError, OSError)):
+    expected = (ModelError, ResultError, OSError)
+    with refusal(json_, expected=expected):
         store = result_store(ctx)
-        with store.recovery_operation("model.apply", change, source_role="preview") as result:
+        with managed_operation(
+            store, "model.apply", json=json_, expected=expected, source=("preview", change)
+        ) as result:
             staged = ChangePreview.model_validate_json(
                 _load_artifact(store, change, "model.preview", "preview")
             )
@@ -804,31 +815,36 @@ def apply(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                     or not staged.request.native_predecessor
                 ):
                     raise ModelError(["preview lacks the bound development authoring target"])
-                native = predecessor_fence(
-                    state(ctx).settings(),
-                    staged.authoring_target,
-                    staged.request.native_predecessor,
-                    staged.authoring_identity,
-                )
+
+                @contextmanager
+                def native_binding():
+                    with predecessor_fence(
+                        state(ctx).settings(),
+                        staged.authoring_target,
+                        staged.request.native_predecessor,
+                        staged.authoring_identity,
+                    ) as target:
+                        result.record_target(
+                            target, staged.request.native_predecessor, None, staged.local_release
+                        )
+                        yield target
+
+                native = native_binding()
 
             settled: list[str] = []
 
             def report(path: str) -> None:
                 settled.append(path)
-                result.stage(f"applied {path}", settled_paths=settled)
+                result.record_effect(path, stage=f"applied {path}", settled_paths=settled)
 
             model_stage(result, "verify exact preview")
             try:
                 apply_preview(checkout(ctx), staged, native_fence=native, report=report)
-            except BaseException as error:
-                outcome = "interrupted" if isinstance(error, KeyboardInterrupt) else "failed"
-                details = (
-                    {"next_action": f"ci model change apply {change}"}
-                    if outcome == "interrupted"
-                    else {}
-                )
+            except KeyboardInterrupt:
                 result.settle(
-                    outcome, settled_paths=settled, error_type=type(error).__name__, **details
+                    "interrupted",
+                    settled_paths=settled,
+                    next_action=f"ci model change apply {change}",
                 )
                 raise
             result.settle(settled_paths=settled, revision=staged.revision)
@@ -839,6 +855,7 @@ def apply(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                 revision=staged.revision,
                 changed=tuple(settled),
                 predecessor=staged.request.native_predecessor,
+                operation_account=result.manifest.operation_account,
             ),
             json=json_,
         )
@@ -865,15 +882,24 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
     from corpus_structure.schema.preparation import writer_lock
     from corpus_structure.semantic.native_objects import NativeAuthoringError
     from corpus_structure.semantic.prepared_sql import SQLSyntaxError
+    from corpus_structure.semantic.releases import ReleaseConflict
 
-    with refusal(
-        json_, expected=(ModelError, ResultError, NativeAuthoringError, SQLSyntaxError, OSError)
-    ):
+    expected = (
+        ModelError,
+        ResultError,
+        NativeAuthoringError,
+        SQLSyntaxError,
+        OSError,
+        ReleaseConflict,
+    )
+    with refusal(json_, expected=expected):
         root = checkout(ctx)
         store = result_store(ctx)
         with (
             store.lease(change),
-            store.operation("model.candidate", scope={"preview": change}) as result,
+            managed_operation(
+                store, "model.candidate", json=json_, expected=expected, scope={"preview": change}
+            ) as result,
         ):
             staged = ChangePreview.model_validate_json(
                 _load_artifact(store, change, "model.preview", "preview")
@@ -917,6 +943,13 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                         recreate=recreated,
                     )
                     report = publish_native_candidate(result, native, products)
+                    if native.acquired_target is not None:
+                        result.record_target(
+                            native.acquired_target,
+                            staged.request.native_predecessor,
+                            None,
+                            prepared.release_id,
+                        )
                 else:
                     report = ModelResult(
                         result_id=result.id,
@@ -942,7 +975,10 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                 release=binding.release,
                 predecessor=binding.predecessor,
             )
-        emit(report, json=json_)
+        emit(
+            report.model_copy(update={"operation_account": result.manifest.operation_account}),
+            json=json_,
+        )
 
 
 @changes.command("register")
@@ -958,10 +994,11 @@ def register_native(ctx: typer.Context, candidate: str, json_: JsonOpt = False) 
     )
     from corpus_structure.schema.preparation import writer_lock
 
-    with refusal(json_, expected=(ModelError, ResultError, OSError)):
+    expected = (ModelError, ResultError, OSError)
+    with refusal(json_, expected=expected):
         store = result_store(ctx)
-        with store.recovery_operation(
-            "model.register", candidate, source_role="candidate"
+        with managed_operation(
+            store, "model.register", json=json_, expected=expected, source=("candidate", candidate)
         ) as result:
             binding = Candidate.model_validate_json(
                 _load_artifact(store, candidate, "model.candidate", "deployment")
@@ -974,7 +1011,7 @@ def register_native(ctx: typer.Context, candidate: str, json_: JsonOpt = False) 
                 writer_lock(root),
                 store.open_artifact(candidate, "candidate") as (_, directory_fd),
             ):
-                paths = register_candidate(root, binding, directory_fd)
+                paths = register_candidate(root, binding, directory_fd, report=result.record_effect)
             store.hold(candidate, _registration_hold(candidate))
             result.settle(paths=paths, revision=binding.revision)
         emit(
@@ -984,6 +1021,7 @@ def register_native(ctx: typer.Context, candidate: str, json_: JsonOpt = False) 
                 revision=binding.model_revision,
                 predecessor=binding.predecessor,
                 changed=paths,
+                operation_account=result.manifest.operation_account,
             ),
             json=json_,
         )
@@ -1000,20 +1038,22 @@ def deploy(ctx: typer.Context, candidate: str, json_: JsonOpt = False) -> None:
     from corpus_structure.semantic.authored_sql import SQLAdmissionError
     from corpus_structure.semantic.migrations import MigrationPredecessorError
     from corpus_structure.semantic.publication import PublicationConflict
+    from corpus_structure.semantic.releases import ReleaseConflict
 
-    with refusal(
-        json_,
-        expected=(
-            ModelError,
-            ResultError,
-            SQLAdmissionError,
-            MigrationPredecessorError,
-            PublicationConflict,
-            OSError,
-        ),
-    ):
+    expected = (
+        ModelError,
+        ResultError,
+        SQLAdmissionError,
+        MigrationPredecessorError,
+        PublicationConflict,
+        ReleaseConflict,
+        OSError,
+    )
+    with refusal(json_, expected=expected):
         store = result_store(ctx)
-        with store.recovery_operation("model.deploy", candidate, source_role="candidate") as result:
+        with managed_operation(
+            store, "model.deploy", json=json_, expected=expected, source=("candidate", candidate)
+        ) as result:
             binding = Candidate.model_validate_json(
                 _load_artifact(store, candidate, "model.candidate", "deployment")
             )
@@ -1025,21 +1065,25 @@ def deploy(ctx: typer.Context, candidate: str, json_: JsonOpt = False) -> None:
 
                 def report(effect: str) -> None:
                     applied.append(effect)
-                    model_stage(result, effect, settled_effects=applied)
+                    result.record_effect(effect, stage=effect, settled_effects=applied)
+                    diagnostic(f"Model {result.id} · {effect}")
 
                 try:
                     deploy_candidate(
-                        root, state(ctx).settings(), binding, deployment, report=report
+                        root,
+                        state(ctx).settings(),
+                        binding,
+                        deployment,
+                        report=report,
+                        report_target=lambda target, predecessor, revision: result.record_target(
+                            target, predecessor, revision, binding.release
+                        ),
                     )
-                except BaseException as error:
-                    outcome = "interrupted" if isinstance(error, KeyboardInterrupt) else "failed"
-                    details = (
-                        {"next_action": f"ci model change deploy {candidate}"}
-                        if outcome == "interrupted"
-                        else {}
-                    )
+                except KeyboardInterrupt:
                     result.settle(
-                        outcome, settled_effects=applied, error_type=type(error).__name__, **details
+                        "interrupted",
+                        settled_effects=applied,
+                        next_action=f"ci model change deploy {candidate}",
                     )
                     raise
             store.release(candidate, _registration_hold(candidate))
@@ -1052,7 +1096,10 @@ def deploy(ctx: typer.Context, candidate: str, json_: JsonOpt = False) -> None:
                 predecessor=binding.predecessor,
                 release=binding.release,
                 target_profile=binding.target_profile,
-                acquired_target=binding.target_identity,
+                acquired_target=result.manifest.operation_account.acquired_target
+                if result.manifest.operation_account is not None
+                else None,
+                operation_account=result.manifest.operation_account,
             ),
             json=json_,
         )

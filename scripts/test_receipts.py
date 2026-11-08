@@ -1083,13 +1083,34 @@ def _coverage_projection(result: dict[str, Any], limit: int | None) -> dict[str,
 _FAILURE_PHASES = ("collection", "setup", "call", "teardown", "unknown")
 
 
-def _failure_events(receipt: dict[str, Any]) -> Generator[dict[str, str]]:
+def _failure_diagnostic(report: dict[str, Any]) -> dict[str, Any]:
+    representation = report.get("longrepr")
+    if isinstance(representation, dict):
+        crash = representation.get("reprcrash")
+        message = crash.get("message") if isinstance(crash, dict) else None
+    elif isinstance(representation, str):
+        # CollectReport may have only a rendered exception. Omit source and captured streams.
+        message = next(
+            (line for line in reversed(representation.splitlines()) if line.strip()), None
+        )
+    else:
+        message = None
+    if not isinstance(message, str) or not message:
+        return {}
+    if len(message) > 32768:
+        # The CLI redacts before clipping. Never pass a pre-clipped credential there.
+        return {"diagnostic_truncated": True}
+    return {"diagnostic": message}
+
+
+def _failure_events(receipt: dict[str, Any]) -> Generator[dict[str, Any]]:
     for report in sorted(receipt["collection_errors"], key=lambda report: report.get("nodeid", "")):
         yield {
             "nodeid": report.get("nodeid", ""),
             "phase": "collection",
             "outcome": "failed",
             "reason": "collection_failure",
+            **_failure_diagnostic(report),
         }
     if not receipt["identity_valid"]:
         return
@@ -1109,6 +1130,7 @@ def _failure_events(receipt: dict[str, Any]) -> Generator[dict[str, str]]:
                 "phase": phase if phase in _FAILURE_PHASES else "unknown",
                 "outcome": "blocked" if blocked else "failed",
                 "reason": "prerequisite" if blocked else "pytest_failure",
+                **_failure_diagnostic(report),
             }
 
 

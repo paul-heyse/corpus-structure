@@ -320,6 +320,20 @@ def test_exact_native_deployment_resumes_before_separate_activation(
         cache.unlink()
         result = json.loads(deployed.stdout)
         assert result["acquired_target"]["database_oid"] == identity.database_oid
+        account = result["operation_account"]
+        assert account["acquired_target"] == identity.model_dump(mode="json")
+        assert account["predecessor"] == predecessor
+        assert account["reached_revision"] == revision
+        assert account["release"] == prepared.release_id
+        assert account["known_effects"] == ["migration", "archive", "admission", "verified"]
+        store.hold(result["result_id"], result["result_id"])
+        assert (
+            authored.id
+            in store.collect(apply=True, now=store.show(authored.id).expiry() + 1).removed
+        )
+        retained = command("results", "show", result["result_id"])
+        assert retained.exit_code == 0, retained.output
+        assert json.loads(retained.stdout)["operation_account"] == account
         assert store.show(result["result_id"]).details["settled_effects"] == [
             "migration",
             "archive",

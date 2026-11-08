@@ -19,8 +19,10 @@ from uuid import uuid4
 import typer
 from pydantic import BaseModel, Field
 
-from corpus_structure.cli.output import JsonOpt, diagnostic, emit, state
+from corpus_structure.cli.output import JsonOpt, diagnostic, emit, safe_text, state
 from corpus_structure.cli.recipes import RecipeError, checkout
+from corpus_structure.core.db.store import EffectKnowledge
+from corpus_structure.semantic.storage_target import StorageTarget
 
 _ID = re.compile(r"[a-f0-9]{32}")
 _ROLE = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_-]*")
@@ -31,6 +33,34 @@ _PUBLICATIONS = ".publications.json"
 _MANIFEST = "manifest.json"
 _NOFOLLOW = os.O_NOFOLLOW | os.O_NONBLOCK
 app = typer.Typer(help="Inspect and deliver managed invocation results.")
+
+
+class OperationFailure(BaseModel):
+    kind: Literal["refusal", "execution"]
+    code: str
+    message: str
+    reason: str | None = None
+    database_effects: EffectKnowledge | None = None
+
+
+class RoutingProgress(BaseModel):
+    nomination_run_id: int
+    group_run_ids: tuple[int, ...] = ()
+
+
+class OperationAccount(BaseModel):
+    """Durable effects and the extent of what the owner has verified."""
+
+    version: Literal[1] = 1
+    outcome: Literal["running", "passed", "failed", "interrupted", "blocked", "empty"]
+    cleanup: Literal["unknown", "unresolved", "established"]
+    failure: OperationFailure | None = None
+    known_effects: tuple[str, ...] | None = None
+    acquired_target: StorageTarget | None = None
+    predecessor: str | None = None
+    reached_revision: str | None = None
+    release: str | None = None
+    routing: RoutingProgress | None = None
 
 
 class Manifest(BaseModel):
@@ -44,6 +74,12 @@ class Manifest(BaseModel):
     artifacts: dict[str, str] = Field(default_factory=dict)
     details: dict[str, Any] = Field(default_factory=dict)
     holds: tuple[str, ...] = ()
+    operation_account: OperationAccount | None = None
+
+    def custody_settled(self) -> bool:
+        if self.settled is None or self.details.get("custody_unsettled"):
+            return False
+        return self.operation_account is None or self.operation_account.cleanup == "established"
 
     def expiry(self) -> float:
         days = 1 if self.outcome == "passed" else 7
@@ -234,13 +270,82 @@ class Invocation:
         self.manifest.artifacts[role] = relative
         self._write()
 
+    def _update_account(self, **fields: Any) -> None:
+        account = self.manifest.operation_account
+        if account is not None:
+            self.manifest.operation_account = account.model_copy(update=fields)
+
+    def record_effect(self, effect: str, *, stage: str | None = None, **details: Any) -> None:
+        account = self.manifest.operation_account
+        assert account is not None and account.known_effects is not None
+        self._update_account(known_effects=(*account.known_effects, effect))
+        self.stage(stage or self.manifest.stage, **details)
+
+    def record_target(
+        self,
+        target: StorageTarget,
+        predecessor: str | None,
+        reached_revision: str | None,
+        release: str | None,
+    ) -> None:
+        self._update_account(
+            acquired_target=target,
+            predecessor=predecessor,
+            reached_revision=reached_revision,
+            release=release,
+        )
+        self._write()
+
+    def record_routing(self, nomination_run_id: int, group_run_ids: tuple[int, ...] = ()) -> None:
+        account = self.manifest.operation_account
+        assert account is not None
+        previous = account.routing
+        if previous is not None and (
+            previous.nomination_run_id != nomination_run_id
+            or group_run_ids[: len(previous.group_run_ids)] != previous.group_run_ids
+        ):
+            raise ResultError("routing progress differs from the recorded nomination or groups")
+        self._update_account(
+            routing=RoutingProgress(
+                nomination_run_id=nomination_run_id, group_run_ids=group_run_ids
+            )
+        )
+        self._write()
+
+    def record_failure(
+        self, kind: Literal["refusal", "execution"], detail: dict[str, Any]
+    ) -> dict[str, Any]:
+        # Redact the complete string before bounding it so clipping cannot expose a credential.
+        reason = detail.get("reason")
+        native = detail.get("failure") or {}
+        effects = native.get("effects")
+        self._update_account(
+            failure=OperationFailure(
+                kind=kind,
+                code=safe_text(detail["code"])[:128],
+                message=safe_text(detail["message"])[:1024],
+                reason=safe_text(reason)[:256] if isinstance(reason, str) else None,
+                database_effects=EffectKnowledge(effects)
+                if effects in tuple(EffectKnowledge)
+                else None,
+            )
+        )
+        self.settle("failed", error_type=self.manifest.details.get("error_type", detail["code"]))
+        assert self.manifest.operation_account is not None
+        return {
+            "invocation_id": self.id,
+            "operation_account": self.manifest.operation_account.model_dump(mode="json"),
+        }
+
     def defer_settlement(self) -> None:
         """Protect the result while its child ownership is unresolved."""
         self.manifest.details["custody_unsettled"] = True
+        self._update_account(cleanup="unresolved")
         self._write()
 
     def confirm_settlement(self) -> None:
         self.manifest.details.pop("custody_unsettled", None)
+        self._update_account(cleanup="established")
         self._write()
 
     def settle(self, outcome: str = "passed", **details: Any) -> None:
@@ -249,6 +354,12 @@ class Invocation:
         self.manifest.outcome = outcome
         self.manifest.settled = time.time()
         self.manifest.details = {**self.manifest.details, **details}
+        self._update_account(
+            outcome=outcome,
+            cleanup="unresolved"
+            if self.manifest.details.get("custody_unsettled")
+            else "established",
+        )
         self._write()
 
 
@@ -309,9 +420,13 @@ class ResultStore:
 
     @contextmanager
     def operation(
-        self, action: str, *, scope: dict[str, Any] | None = None
+        self, action: str, *, scope: dict[str, Any] | None = None, account: bool = False
     ) -> Generator[Invocation]:
         manifest = Manifest(id=uuid4().hex, action=action, scope=scope or {}, started=time.time())
+        if account:
+            manifest.operation_account = OperationAccount(
+                outcome="running", cleanup="unknown", known_effects=()
+            )
         directory = self.root / manifest.id
         with self._namespace() as root:
             os.mkdir(manifest.id, mode=0o700, dir_fd=root)
@@ -330,9 +445,13 @@ class ResultStore:
             except BaseException as error:
                 if manifest.outcome == "running":
                     outcome = "interrupted" if isinstance(error, KeyboardInterrupt) else "failed"
-                    result.settle(
-                        outcome, **{**manifest.details, "error_type": type(error).__name__}
-                    )
+                    if account and outcome == "failed":
+                        result.record_failure(
+                            "execution",
+                            {"code": type(error).__name__, "message": "operation failed"},
+                        )
+                    else:
+                        result.settle(outcome, error_type=type(error).__name__)
                 raise
             else:
                 if manifest.outcome == "running":
@@ -340,12 +459,12 @@ class ResultStore:
 
     @contextmanager
     def recovery_operation(
-        self, action: str, source_id: str, *, source_role: str
+        self, action: str, source_id: str, *, source_role: str, account: bool = False
     ) -> Generator[Invocation]:
         """Keep an exact source usable while a dependent may still need recovery."""
         with (
             self.lease(source_id),
-            self.operation(action, scope={source_role: source_id}) as result,
+            self.operation(action, scope={source_role: source_id}, account=account) as result,
         ):
             with self._namespace():
                 self._dependency_source(source_id)
@@ -745,6 +864,33 @@ def _require_drained_test_lane(directory: Path, lane: str) -> None:
         ) from error
 
 
+@contextmanager
+def managed_operation(
+    store: ResultStore,
+    action: str,
+    *,
+    json: bool,
+    expected: tuple[type[Exception], ...] = (),
+    source: tuple[str, str] | None = None,
+    scope: dict[str, Any] | None = None,
+) -> Generator[Invocation]:
+    """Keep immediate failure delivery and its managed account at one boundary."""
+    from corpus_structure.cli.failures import failure_boundary
+
+    context = (
+        store.operation(action, scope=scope, account=True)
+        if source is None
+        else store.recovery_operation(action, source[1], source_role=source[0], account=True)
+    )
+    expected = (ResultError, *expected)
+    with (
+        failure_boundary(json, expected=expected),
+        context as result,
+        failure_boundary(json, expected=expected, operation=result),
+    ):
+        yield result
+
+
 def result_store(ctx: typer.Context) -> ResultStore:
     override = state(ctx).settings().ci_results
     if override is not None:
@@ -857,7 +1003,7 @@ def watch_result(
 
 
 def _status(manifest: Manifest, diagnostics: Diagnostics) -> ResultStatus:
-    unsettled = manifest.settled is None or manifest.details.get("custody_unsettled")
+    unsettled = not manifest.custody_settled()
     next_action = manifest.details.get("next_action")
     if unsettled and manifest.action in {"test", "test.retry"} and manifest.stage in _TEST_LANES:
         next_action = (

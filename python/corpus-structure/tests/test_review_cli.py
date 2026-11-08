@@ -81,6 +81,11 @@ def test_mixed_cohort_export_keeps_project_and_authorization_boundaries(cli, tmp
         settings=lambda: Settings(),
     )
     assert result.exit_code == 0, result.output
+    body = json.loads(result.stdout)
+    assert body["operation_account"]["known_effects"] == ["review_exposure", "bundle"]
+    by_id = cli("results", "show", body["invocation_id"], "--json")
+    assert by_id.exit_code == 0, by_id.output
+    assert json.loads(by_id.stdout)["operation_account"] == body["operation_account"]
     assert purposes == ["evaluate"]
     assert [
         (value["project_id"], value["group"], value["authorization_basis"]) for value in exposures
@@ -151,6 +156,8 @@ def test_review_retry_requires_settled_cleanup(cli, tmp_path, monkeypatch):
     manifest_path = next(results.glob("*/manifest.json"))
     manifest = json.loads(manifest_path.read_text())
     assert manifest["details"]["custody_unsettled"] is True
+    assert manifest["operation_account"]["cleanup"] == "unresolved"
+    assert json.loads(failed.stdout)["operation_account"] == manifest["operation_account"]
     retry = cli("review", "retry", manifest["id"], "--json")
     assert retry.exit_code == 1
     assert "proof that the previous capture settled" in json.loads(retry.stdout)["error"]["message"]

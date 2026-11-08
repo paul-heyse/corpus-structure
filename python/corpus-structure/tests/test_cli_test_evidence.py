@@ -37,7 +37,7 @@ def _receipt(
 ) -> None:
     directory.mkdir()
     events = [{"event": "collection_finish", "selected": nodes, "native_required": []}]
-    reports: list[dict[str, str | int]] = [{"$report_type": "SessionStart"}]
+    reports: list[dict[str, object]] = [{"$report_type": "SessionStart"}]
     for node in nodes:
         events.extend(
             [
@@ -51,6 +51,14 @@ def _receipt(
                 "nodeid": node,
                 "when": phase,
                 "outcome": "failed" if fail and phase == "call" else "passed",
+                "longrepr": {
+                    "reprcrash": {
+                        "message": "AssertionError: password=fixture-secret " + "x" * 650
+                    },
+                    "reprtraceback": {"entries": ["must stay private"]},
+                }
+                if fail and phase == "call"
+                else None,
             }
             for phase in ("setup", "call", "teardown")
         )
@@ -136,7 +144,10 @@ def test_installed_compact_coverage_and_exact_failures(tmp_path):
         "phase": "call",
         "outcome": "failed",
         "reason": "pytest_failure",
+        "diagnostic": ("AssertionError: password=********** " + "x" * 650)[:600],
+        "diagnostic_truncated": True,
     }
+    assert "fixture-secret" not in str(failure) and "must stay private" not in str(failure)
     assert failure["next_action"] == f"ci test retry {original.id} --lane ordinary"
     filtered = json.loads(
         _run(

@@ -314,7 +314,11 @@ def evidence_retain(
     with result_boundary(json):
         store = result_store(ctx)
         with store.lease(result):
-            manifest = store.show(result)
+            manifest = store.show(result, role=role)
+            if not manifest.custody_settled():
+                raise ResultError(
+                    "evidence promotion requires established custody; inspect the managed result"
+                )
             consumer = consumer or manifest.scope.get("consumer")
             if not isinstance(consumer, str):
                 raise ResultError("name the evidence consumer with --for")
@@ -340,6 +344,10 @@ def evidence_retain(
                             "settled": manifest.settled,
                             "outcome": manifest.outcome,
                             "artifact_role": role,
+                            "custody": "settled",
+                            "operation_account": manifest.operation_account.model_dump(mode="json")
+                            if manifest.operation_account is not None
+                            else None,
                         },
                         indent=2,
                     )

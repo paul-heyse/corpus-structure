@@ -373,17 +373,24 @@ def candidate_registration_files(
     return staged
 
 
-def register_candidate(root: Path, binding: Candidate, products: Path | int) -> tuple[str, ...]:
+def register_candidate(
+    root: Path,
+    binding: Candidate,
+    products: Path | int,
+    *,
+    report: Callable[[str], None] | None = None,
+) -> tuple[str, ...]:
     """Install exact migration products under the caller's checkout writer lock."""
     staged = candidate_registration_files(root, binding, products)
     for path, content in staged.items():
-        if path.exists():
-            continue
-        with NamedTemporaryFile(dir=path.parent) as pending:
-            pending.write(content)
-            pending.flush()
-            os.fchmod(pending.fileno(), 0o644)
-            os.link(pending.name, path)
+        if not path.exists():
+            with NamedTemporaryFile(dir=path.parent) as pending:
+                pending.write(content)
+                pending.flush()
+                os.fchmod(pending.fileno(), 0o644)
+                os.link(pending.name, path)
+        if report is not None:
+            report(path.relative_to(root).as_posix())
     return tuple(path.relative_to(root).as_posix() for path in staged)
 
 
@@ -458,6 +465,7 @@ def deploy_candidate(
     deployment: tuple,
     *,
     report: Callable[[str], None],
+    report_target: Callable[[StorageTarget, str | None, str | None], None] | None = None,
 ) -> None:
     from corpus_structure.semantic.authored_sql import (
         admit_archived_sql,
@@ -490,9 +498,9 @@ def deploy_candidate(
         raise ModelError(["candidate lacks the approved acquired PostgreSQL target"])
     assert_explicit_route(destination)
 
-    def verify(conn, purpose: Purpose) -> None:
+    def verify(conn, purpose: Purpose) -> StorageTarget:
         verify_declared_route(conn, destination)
-        verify_target(conn, binding.target_identity, purpose=purpose)
+        return verify_target(conn, binding.target_identity, purpose=purpose)
 
     with (
         _verified_script_location(root, binding) as script_location,
@@ -512,12 +520,14 @@ def deploy_candidate(
             assert versions is not None
             require_frozen_native_revision(versions, binding.revision)
             with conn.begin():
-                verify(conn, "maintenance")
+                target = verify(conn, "maintenance")
                 migration_fence(conn)
                 actual = current_revision(conn)
                 if actual is None or actual not in {binding.predecessor, binding.revision}:
                     raise ModelError(["acquired revision differs from the approved predecessor"])
                 _verify_deployment_functions(conn, revision=actual, versions=versions)
+                if report_target is not None:
+                    report_target(target, binding.predecessor, actual)
                 upgrade(
                     conn,
                     binding.revision,
@@ -527,14 +537,18 @@ def deploy_candidate(
                 if current_revision(conn) != binding.revision:
                     raise ModelError(["migration did not reach the approved revision"])
                 _verify_deployment_functions(conn, revision=binding.revision, versions=versions)
+            if report_target is not None:
+                report_target(target, binding.predecessor, binding.revision)
             report("migration")
         with conn.begin():
-            verify(conn, "maintenance")
+            target = verify(conn, "maintenance")
             migration_fence(conn)
             actual = current_revision(conn)
             if actual is None or (binding.revision is not None and actual != binding.revision):
                 raise ModelError(["native revision changed before archive/admission"])
             _verify_deployment_functions(conn, revision=actual, versions=versions)
+            if report_target is not None:
+                report_target(target, binding.predecessor, actual)
             with writer.begin():
                 verify(writer, "admit")
                 persist_release(writer, bundle, deps, profile, prepared)

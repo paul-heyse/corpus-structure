@@ -337,3 +337,86 @@ def test_candidate_registration_requires_exact_installed_artifacts(
     assert "installed migration artifact differs" in damaged["registration_detail"]
     assert damaged["next_command"] is None
     assert admission.read_bytes() == b"substituted"
+
+
+def test_apply_records_stale_refusal_and_partial_effect_from_actual_files(
+    model_results, tmp_path, monkeypatch
+):
+    from corpus_structure.cli import recipes
+    from corpus_structure.schema import model_change
+
+    root = tmp_path / "model"
+    root.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Fixture",
+            "-c",
+            "user.email=fixture@example.test",
+            "commit",
+            "--allow-empty",
+            "-qm",
+            "test baseline",
+        ],
+        cwd=root,
+        check=True,
+    )
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+    monkeypatch.setattr(recipes, "checkout", lambda _: root)
+    one, two = root / "one.txt", root / "two.txt"
+    preview = _preview().model_copy(
+        update={
+            "workspace": str(root),
+            "head": head,
+            "request": ChangeRequest(),
+            "compilers": model_change.model.compilers(),
+            "python": sys.version,
+            "generator": model_change.generator_fingerprint(root),
+            "files": (
+                FileEffect(path="one.txt", before=sha256(b"old\n").hexdigest(), after="new\n"),
+                FileEffect(path="two.txt", before=None, after="second\n"),
+            ),
+        }
+    )
+    preview_id, _ = _publish(
+        model_results, "model.preview", "preview", preview.model_dump_json().encode()
+    )
+    runner = CliRunner()
+    legacy = runner.invoke(app, ["results", "show", preview_id, "--json"])
+    assert legacy.exit_code == 0, legacy.output
+    assert json.loads(legacy.stdout)["operation_account"] is None
+
+    def failure():
+        attempt = runner.invoke(app, ["model", "change", "apply", preview_id, "--json"])
+        assert attempt.exit_code == 1, attempt.output
+        body = json.loads(attempt.stdout)
+        retained = runner.invoke(app, ["results", "show", body["invocation_id"], "--json"])
+        assert retained.exit_code == 0, retained.output
+        account = body["operation_account"]
+        assert account == json.loads(retained.stdout)["operation_account"]
+        assert account["outcome"] == "failed"
+        assert account["cleanup"] == "established"
+        return account
+
+    one.write_text("stale\n")
+    refused = failure()
+    assert refused["failure"]["kind"] == "refusal"
+    assert "stale model input one.txt" in refused["failure"]["message"]
+    assert refused["known_effects"] == []
+    assert one.read_text() == "stale\n" and not two.exists()
+
+    one.write_text("old\n")
+    original_replace = os.replace
+
+    def stop_second(source, destination, **options):
+        if Path(destination) == two:
+            raise OSError("second write interrupted")
+        return original_replace(source, destination, **options)
+
+    monkeypatch.setattr(os, "replace", stop_second)
+    failed = failure()
+    assert failed["failure"]["kind"] == "execution"
+    assert failed["known_effects"] == ["one.txt"]
+    assert one.read_text() == "new\n" and not two.exists()

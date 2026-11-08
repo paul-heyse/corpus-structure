@@ -97,6 +97,8 @@ class FailureEvent(BaseModel):
     phase: Phase
     outcome: Literal["failed", "blocked"]
     reason: Literal["collection_failure", "prerequisite", "pytest_failure"]
+    diagnostic: str | None = None
+    diagnostic_truncated: bool = False
 
 
 class FailureLane(BaseModel):
@@ -232,11 +234,16 @@ def _render_failures(report: Failures) -> Group:
     items.add_column("Lane / phase")
     items.add_column("Node", overflow="fold")
     items.add_column("Outcome")
+    items.add_column("Diagnostic", overflow="fold")
     for item in report.items:
+        excerpt = item.diagnostic or ""
+        if item.diagnostic_truncated:
+            excerpt += "…" if excerpt else "(diagnostic exceeds the bound)"
         items.add_row(
             Text(f"{item.lane} / {item.phase}"),
             Text(item.nodeid or "(session)"),
             Text(f"{item.outcome} ({item.reason.replace('_', ' ')})"),
+            Text(excerpt),
         )
     return Group(rows, items)
 
@@ -709,7 +716,16 @@ def failures(
             )
             if not report["custody_unsettled"]:
                 available += report["available"]
-                items.extend(FailureEvent(lane=name, **item) for item in report["items"])
+                for raw in report["items"]:
+                    item = FailureEvent(lane=name, **raw)
+                    if item.diagnostic is not None:
+                        excerpt = _display_text(item.diagnostic)
+                        item.diagnostic_truncated = len(excerpt) > 600
+                        if item.diagnostic_truncated and "\n" in item.diagnostic:
+                            item.diagnostic = excerpt[:220] + " … " + excerpt[-377:]
+                        else:
+                            item.diagnostic = excerpt[:600]
+                    items.append(item)
                 if report["retryable"]:
                     retry_lanes.add(name)
         next_action = _next_test_action(

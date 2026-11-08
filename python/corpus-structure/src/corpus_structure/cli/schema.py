@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from rich.table import Table
 
 from corpus_structure.cli.failures import failure_boundary
+from corpus_structure.cli.managed import OperationAccount
 from corpus_structure.cli.output import JsonOpt, diagnostic, emit
 from corpus_structure.semantic.storage_target import StorageTarget
 
@@ -192,6 +193,7 @@ class NativeCandidateResult(BaseModel):
     products: list[ArtifactRow]
     result_id: str | None = None
     acquired_target: StorageTarget | None = None
+    operation_account: OperationAccount | None = None
 
 
 def _render_native_candidate(result):

@@ -6,7 +6,7 @@ import json as jsonlib
 from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import asdict
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import typer
 from pydantic import ValidationError
@@ -19,6 +19,9 @@ from corpus_structure.semantic.refusals import (
     database_failure_report,
     semantic_refusal_report,
 )
+
+if TYPE_CHECKING:
+    from corpus_structure.cli.managed import Invocation
 
 
 def _safe_diagnostic(value: Any) -> Any:
@@ -38,6 +41,7 @@ def failure_boundary(
     expected: tuple[type[Exception], ...] = (),
     context: FailureContext | None = None,
     report_expected_validation: bool = True,
+    operation: Invocation | None = None,
 ) -> Generator[FailureContext]:
     """Report deliberate failures; programming errors and cancellation retain their identity."""
     from corpus_structure.semantic.operation_value_types import NativeResultViolation
@@ -47,9 +51,11 @@ def failure_boundary(
         yield context
     except DATABASE_ERRORS as error:
         detail = database_failure_report(error, context=context)
+        envelope = operation.record_failure("execution", detail) if operation else {}
         if json:
             write_report_text(
-                jsonlib.dumps({"error": _safe_diagnostic(detail)}) + "\n", exit_code=1
+                jsonlib.dumps({"error": _safe_diagnostic(detail), **envelope}) + "\n",
+                exit_code=1,
             )
         else:
             failure = detail["failure"]
@@ -87,9 +93,11 @@ def failure_boundary(
                 "message": f"invalid {error.title}",
                 "fields": fields,
             }
+            if operation:
+                operation.record_failure("refusal", detail)
             diagnostic(f"{detail['message']}: {', '.join(fields)}")
             raise typer.Exit(1) from None
-        if json:
+        if json or operation:
             detail: dict[str, Any] = {"code": type(error).__name__, "message": str(error)}
             if report_expected_validation or not isinstance(error, expected):
                 try:
@@ -107,9 +115,19 @@ def failure_boundary(
                     {key: value for key, value in asdict(item).items() if value is not None}
                     for item in error.diagnostics
                 ]
-            write_report_text(
-                jsonlib.dumps({"error": _safe_diagnostic(detail)}) + "\n", exit_code=1
+            kind = (
+                "execution"
+                if isinstance(error, OSError) and not isinstance(error, FileExistsError)
+                else "refusal"
             )
+            envelope = operation.record_failure(kind, detail) if operation else {}
+            if json:
+                write_report_text(
+                    jsonlib.dumps({"error": _safe_diagnostic(detail), **envelope}) + "\n",
+                    exit_code=1,
+                )
+            else:
+                diagnostic(f"refused: {detail['message']}")
         else:
             diagnostic(f"refused: {error}")
         raise typer.Exit(1) from None
