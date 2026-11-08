@@ -327,7 +327,7 @@ def readable_formula_original(
         item
         if isinstance(item, Mapping)
         else item.model_dump(mode="json", by_alias=True, exclude_none=True)
-        for item in field("prov", ())
+        for item in (field("prov") or ())
     ]
     if (
         witness["orig_digest"] == digest
