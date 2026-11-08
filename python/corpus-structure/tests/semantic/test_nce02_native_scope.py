@@ -152,3 +152,66 @@ def test_native_list_host_requires_exact_selected_membership(semantic_db_engine)
             conn.scalar(check, {**witnessed["checks"], "selection": clipped.model_dump_json()})
             is False
         )
+
+
+def test_native_clipped_role_population_detects_omitted_roles(semantic_db_engine):
+    spelling = "The analyst records the input."
+    view = complete_native_fields(source(spelling, labels=("text",)))
+    prepared = prepare_source(view, profile=AnnotationProfile(), annotations_only=True)
+    (annotation,) = prepared.annotations
+    from corpus_structure.methods.predicate_frames import interpretation_recipe
+
+    start = spelling.index("records")
+    action_only = (start, start + len("records"))
+    actor = {
+        "role": "actor",
+        "head_token": 1,
+        "token_indices": [0, 1],
+        "reason": "outside_selection",
+    }
+    object_ = {
+        "role": "object",
+        "head_token": 4,
+        "token_indices": [3, 4],
+        "reason": "outside_selection",
+    }
+    check = text("""
+        WITH expected AS (
+          SELECT jsonb_agg(to_jsonb(r)-'predicate') roles
+          FROM ops.predicate_argument_inventory(
+            jsonb_build_object('text',CAST(:spelling AS text)),
+            CAST(:tokens AS jsonb),CAST(:recipe AS jsonb)) r
+          WHERE r.predicate=2
+        )
+        SELECT ops.predicate_clipped_roles_match(
+          CAST(:mapped AS int8multirange),CAST(:tokens AS jsonb),roles,
+          :start,:end,CAST(:reported AS jsonb)) FROM expected
+    """)
+    with semantic_db_engine.connect() as conn:
+
+        def matches(reported, selection=action_only, mapping=None):
+            return conn.scalar(
+                check,
+                dict(
+                    spelling=spelling,
+                    tokens=json.dumps([asdict(token) for token in annotation.tokens]),
+                    recipe=json.dumps(interpretation_recipe()),
+                    mapped=mapping or f"{{[0,{len(spelling)})}}",
+                    start=selection[0],
+                    end=selection[1],
+                    reported=json.dumps(reported),
+                ),
+            )
+
+        assert matches([actor, object_]) is True
+        assert matches([object_, actor]) is True
+        assert matches([object_]) is False
+        assert matches([]) is False
+        assert matches([actor, object_, actor]) is False
+        assert matches([actor, {**object_, "token_indices": [4, 3]}]) is False
+        # The exact determiner remains located even though the object head is clipped.
+        through_determiner = (start, spelling.index("input"))
+        assert matches([actor], through_determiner) is True
+        # A selected extent without mapped native text is distinct from clipping.
+        unmappable_object = {**object_, "reason": "unmappable"}
+        assert matches([actor, unmappable_object], (start, len(spelling)), "{[12,19)}") is True

@@ -40,6 +40,7 @@ from corpus_structure.semantic.contributions import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.proposals import native_source_frame
+from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
     NativeSourceContext,
@@ -244,7 +245,11 @@ def explicit_definition_section(product, nodes, *, scope=None, effective_version
     producer = source_python(value["producer_value"])
     if producer.get("role") == "named_link_definition_subject":
         exact = explicit_definition_subject(
-            product, nodes, scope=scope, effective_version=effective_version
+            product,
+            nodes,
+            scope=scope,
+            effective_version=effective_version,
+            named_version="3" if "definition_subject_kind" in producer else "2",
         )
         return exact[0] if exact is not None else None
     if producer.get("role") != "named_link_subject":
@@ -270,9 +275,9 @@ def explicit_definition_section(product, nodes, *, scope=None, effective_version
     return reference[1]
 
 
-def explicit_definition_subject(product, nodes, *, scope, effective_version):
+def explicit_definition_subject(product, nodes, *, scope, effective_version, named_version="2"):
     """Read the exact source-named subject of a selected definition citation."""
-    from .witnessed_source_links import explicit_named_definition_extent
+    from .witnessed_source_links import named_definition_subject
 
     if len(product["anchors"]) != 1:
         return None
@@ -292,24 +297,50 @@ def explicit_definition_subject(product, nodes, *, scope, effective_version):
     (anchor,) = product["anchors"]
     literal = nodes[anchor["pointer"]]["text"]
     offset = original["start"] - anchor["start"]
-    extent = explicit_named_definition_extent(literal, 0, marker["cue"][0] - offset)
-    if anchor["precision"] != "exact" or extent != (anchor["start"], anchor["end"]):
+    bound = named_definition_subject(literal, 0, marker["cue"][0] - offset, version=named_version)
+    if (
+        anchor["precision"] != "exact"
+        or bound is None
+        or bound[0] != (anchor["start"], anchor["end"])
+    ):
         raise ValueError("definition subject differs from its exact native cue")
-    return marker["designator"], literal[slice(*extent)]
+    extent, kind = bound
+    if named_version == "3" and original.get("definition_subject_kind") != kind:
+        raise ValueError("definition subject kind differs from its exact native cue")
+    return marker["designator"], literal[slice(*extent)], kind
 
 
 def section_definition_subject_witnesses(
-    carriers, nodes, targets, *, source_binding, scope, effective_version
+    carriers,
+    nodes,
+    targets,
+    *,
+    source_binding,
+    scope,
+    effective_version,
+    named_version="2",
+    aliases=None,
 ):
     witnesses = []
     for product in carriers:
         binding = explicit_definition_subject(
-            product, nodes, scope=scope, effective_version=effective_version
+            product,
+            nodes,
+            scope=scope,
+            effective_version=effective_version,
+            named_version=named_version,
         )
         if binding is None:
             continue
-        code, subject = binding
-        matched = [ref for ref, term in targets if term == subject]
+        code, subject, kind = binding
+        matched = [
+            ref
+            for ref, term in targets
+            if term == subject
+            or (
+                kind == "term" and aliases and aliases.get(ref.component_id, ()).count(subject) == 1
+            )
+        ]
         if len(matched) != 1:
             continue
         (reference,) = matched
@@ -529,6 +560,9 @@ class ContextualCandidateConfig(BaseModel):
         max_length=256,
         exclude_if=lambda value: not value,
     )
+    definition_alias_refs: tuple[RetainedContributionRef, ...] = Field(
+        default=(), max_length=256, exclude_if=lambda value: not value
+    )
     relationship_constraints: tuple[RelationshipConstraint, ...] = ()
     relationship_recipes: tuple[ProducerRelationshipRecipe, ...] = ()
     source_product_digest: str = Field(pattern="^[0-9a-f]{64}$")
@@ -542,6 +576,15 @@ class ContextualCandidateConfig(BaseModel):
     def exclusive_target_scope(self):
         if bool(self.target_components) == bool(self.section_sources):
             raise ValueError("choose exactly one component or section target inventory")
+        if self.definition_alias_refs and (
+            len({ref.contribution_id for ref in self.definition_alias_refs})
+            != len(self.definition_alias_refs)
+            or self.section_sources
+            or not any("defined-by" in c.relation_kinds for c in self.relationship_constraints)
+        ):
+            raise ValueError(
+                "definition aliases require distinct references and a definition inventory"
+            )
         if self.unique_target_budget > self.channel_budget:
             raise ValueError("candidate target budget exceeds the channel budget")
         if self.section_sources:
@@ -782,6 +825,9 @@ class ContextualCandidates:
             )
             section_mentions = {}
             section_targets = defaultdict(list)
+            section_aliases = {}
+            if cfg.definition_alias_refs and self.version != "10":
+                raise ValueError("definition alias bindings require contextual operation 10")
             if any("defined-by" in c.relation_kinds for c in constraints):
                 for product in source_products:
                     section = explicit_definition_section(
@@ -792,6 +838,7 @@ class ContextualCandidates:
                             1
                         ].append(product)
                 if section_mentions:
+                    selected_codes = {code for code, _ in section_mentions.values()}
                     for target in cfg.target_components:
                         reference = target.authenticated_reference()
                         if reference.component_id not in inventory.target_ids:
@@ -799,8 +846,13 @@ class ContextualCandidates:
                         code = ctx.reader.retained_component_section(
                             reference, pin["product_digest"]
                         )
-                        if code is not None:
+                        if code in selected_codes:
                             section_targets[code].append(reference)
+                            if cfg.definition_alias_refs:
+                                section_aliases[reference.component_id] = tuple(
+                                    ctx.reader.retained_component_alias(reference, alias_ref)
+                                    for alias_ref in cfg.definition_alias_refs
+                                )
             products = list(source_products)
             inputs = [
                 ContextInput(occurrence, frame.unit_ref, "query", mention, text, start, end)
@@ -907,7 +959,7 @@ class ContextualCandidates:
                         )
                     if occurrence in section_mentions:
                         code, carriers = section_mentions[occurrence]
-                        if self.version == "9":
+                        if self.version in {"9", "10"}:
                             # A section locates a population. Its designation does
                             # not identify the definition of an unrelated concept.
                             section_nominations = {
@@ -927,6 +979,13 @@ class ContextualCandidates:
                                 source_binding=frame.unit_ref,
                                 scope=cfg.scope,
                                 effective_version=cfg.effective_version,
+                                named_version="3"
+                                if self.version == "10"
+                                and upstream.get("operation_version") == "10"
+                                else "2",
+                                aliases=section_aliases
+                                if upstream.get("operation_version") == "10"
+                                else None,
                             )
                         else:
                             exact_witnesses += tuple(
@@ -1114,7 +1173,7 @@ class ContextualCandidates:
                 ),
                 vector_reuse=tuple(item.reuse for item in cached),
             )
-            if self.version == "9":
+            if self.version in {"9", "10"}:
                 neighborhood = ctx.reader.contextual_mutual_neighbors(report)
                 report["neighborhood"] = dict(
                     neighborhood,
@@ -1169,3 +1228,7 @@ class ContextualCandidates:
 
 class ContextualCandidatesWithNeighborhood(ContextualCandidates):
     version = "9"
+
+
+class ContextualCandidatesWithNamedBindings(ContextualCandidatesWithNeighborhood):
+    version = "10"

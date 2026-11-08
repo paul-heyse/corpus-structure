@@ -109,6 +109,8 @@ def recapped_declarations(text, pieces, items, passages):
 
 NAMED_QUESTION = "source_named_links"
 NAMED_VERSION = "2"
+NAMED_COVERAGE_VERSION = "3"
+NAMED_ANNOTATION_VERSIONS = frozenset({NAMED_VERSION, NAMED_COVERAGE_VERSION})
 INHERITANCE_QUESTION = "source_scope_inheritance"
 
 
@@ -332,23 +334,39 @@ class NamedLinkInspection:
         return "succeeded" if self.matches else "empty"
 
 
-def explicit_named_definition_extent(text, start, cue_start):
-    """Return the quoted concept immediately preceding a definition-reference cue."""
-    recipe, _, _ = _named_recipe()
-    match = re.search(recipe["definition_subject_pattern"], text[start:cue_start])
-    if match is None:
-        return None
-    lo, hi = match.span(1 if match[1] is not None else 2)
-    return start + lo, start + hi
+def named_definition_subject(text, start, cue_start, *, version=NAMED_VERSION):
+    """Return a source-named term or explicitly marked identifier before its cue."""
+    recipe, _, _ = _named_recipe(version)
+    patterns = [("term", recipe["definition_subject_pattern"])]
+    if version == NAMED_COVERAGE_VERSION:
+        patterns.insert(0, ("identifier", recipe["definition_identifier_pattern"]))
+    for kind, pattern in patterns:
+        match = re.search(pattern, text[start:cue_start])
+        if match is not None:
+            lo, hi = match.span(1 if match[1] is not None else 2)
+            return (start + lo, start + hi), kind
+    return None
+
+
+def explicit_named_definition_extent(text, start, cue_start, *, version=NAMED_VERSION):
+    found = named_definition_subject(text, start, cue_start, version=version)
+    return found[0] if found is not None else None
 
 
 @lru_cache(maxsize=1)
-def _named_recipe():
+def _named_recipe(version=NAMED_VERSION):
     from spacy.lang.en import English
 
     recipe = json.loads(Path(__file__).with_name("named_link_rules.json").read_bytes())
     if recipe["version"] != NAMED_VERSION:
         raise ValueError("named link recipe differs from the released version")
+    if version == NAMED_COVERAGE_VERSION:
+        coverage = json.loads(Path(__file__).with_name("named_link_coverage.json").read_bytes())
+        if coverage["version"] != version:
+            raise ValueError("named link coverage differs from the released version")
+        recipe.update(coverage)
+    elif version != NAMED_VERSION:
+        raise ValueError("unknown named link recipe")
     variants = {}
     rules = []
     for rule in recipe["rules"]:
@@ -476,10 +494,10 @@ def _named_roles(text, doc, tokens, piece, rule, nodes, recipe):
 
 
 def match_named_source_links(
-    text, pieces, items, passages, annotations, *, annotation_errors=()
+    text, pieces, items, passages, annotations, *, annotation_errors=(), version=NAMED_VERSION
 ) -> NamedLinkInspection:
     """Find typed link cues on restored annotations and keep their exact source roles."""
-    recipe, variants, prepared = _named_recipe()
+    recipe, variants, prepared = _named_recipe(version)
     pieces = {
         p["item_ref"]: p
         for p in pieces
@@ -496,7 +514,8 @@ def match_named_source_links(
     }
     matches = []
     inspected = set()
-    incomplete = bool(annotation_errors)
+    strict_coverage = version == NAMED_COVERAGE_VERSION
+    incomplete = bool(annotation_errors) and not strict_coverage
     for pointer, piece in pieces.items():
         selected = [p for p in passages or () if p.start < piece["end"] and piece["start"] < p.end]
         if not selected:
@@ -505,11 +524,21 @@ def match_named_source_links(
         if annotation is None:
             incomplete = True
             continue
+        if strict_coverage:
+            availability = {column.attribute: column.status for column in annotation.availability}
+            if any(
+                availability.get(column) not in {"complete", "not_applicable"}
+                for column in recipe["required_columns"]
+            ):
+                incomplete = True
+                continue
         try:
             view = annotation_view(
                 annotation, text[annotation.block_start : annotation.block_end], prepared.vocab
             )
         except AnnotationUnavailable:
+            if strict_coverage:
+                raise
             incomplete = True
             continue
         result = prepared.match(view)

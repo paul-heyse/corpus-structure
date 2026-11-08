@@ -22,6 +22,7 @@ independent_integrated = integrated_examples.independent_integrated
     "change",
     [
         None,
+        "segmented",
         "empty_companions",
         "missing_coverage",
         "missing_decision",
@@ -34,6 +35,7 @@ independent_integrated = integrated_examples.independent_integrated
         "missing_local_endpoint",
         "duplicate_occurrence",
         "duplicate_endpoint",
+        "segmented_duplicate_endpoint",
         "missing_structural",
         "missing_recognition",
     ],
@@ -44,8 +46,10 @@ def test_frozen_selected_companions_retain_complete_meaning(
     change,
 ):
     value = independent_integrated
-    if change is not None:
-        integrated_examples.mutate_selected(value, change)
+    segmented = change in {"segmented", "segmented_duplicate_endpoint"}
+    defect = None if change == "segmented" else change
+    if defect is not None:
+        integrated_examples.mutate_selected(value, defect.removeprefix("segmented_"))
     store = FrozenPayloadStore(tmp_path / "meaning.sqlite")
     try:
         for family, key in (
@@ -56,13 +60,50 @@ def test_frozen_selected_companions_retain_complete_meaning(
             ("mapping_report", "mapping_reports"),
         ):
             for ordinal, body in enumerate(value.get(key, ())):
+                body = deepcopy(body)
+                if segmented and family == "relation" and ordinal == 0:
+                    for name, kind, profile, payload in (
+                        (
+                            "endpoints",
+                            "y",
+                            "pdf-companion-json-field-v1",
+                            json.dumps(body.pop("endpoints")).encode(),
+                        ),
+                        (
+                            "evidence",
+                            "s",
+                            "pdf-record-scalar-v1:s",
+                            body.pop("evidence").encode(),
+                        ),
+                    ):
+                        length, root = byte_root((payload,))
+                        store.add(
+                            "companion_field",
+                            dict(
+                                family=family,
+                                local_id="0",
+                                field_name=name,
+                                stream_id=name,
+                                scalar_kind=kind,
+                            ),
+                        )
+                        store.add(
+                            "artifact_stream",
+                            dict(
+                                stream_id=name,
+                                byte_length=length,
+                                byte_root=root.hex(),
+                                encoding_profile=profile,
+                            ),
+                        )
+                        store.add(
+                            "artifact_part", dict(stream_id=name, ordinal=0, body=payload.hex())
+                        )
                 store.add(
                     "companion",
-                    dict(
-                        family=family, local_id=str(ordinal), ordinal=ordinal, body=deepcopy(body)
-                    ),
+                    dict(family=family, local_id=str(ordinal), ordinal=ordinal, body=body),
                 )
-        if change is None:
+        if defect is None:
             store.validate_integrated_meaning(value["content"]["document"])
         else:
             with pytest.raises(ValueError):

@@ -1,5 +1,8 @@
 """Independent frozen visibility, reference and replay controls on actual PostgreSQL."""
 
+import json
+from hashlib import sha256
+
 import psycopg
 import pyarrow as pa
 import pytest
@@ -266,6 +269,103 @@ def test_metadata_parts_do_not_replace_semantic_schema_validation(
             [dict(kind="inline_candidate_pages", ordinal=0, value={"page_no": "not-a-page"})],
             "invalid-metadata",
         )
+
+
+def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
+    private_build, semantic_writer_engine, semantic_reader_engine, tmp_path
+):
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
+    from corpus_structure.semantic.product_reference import ProductReference
+
+    build = private_build
+    stage_complete_native(semantic_writer_engine, build, tmp_path)
+    occurrences = [
+        dict(
+            occurrence_id=f"observed-overlap-occurrence:{index:04d}",
+            kind="text",
+            pointer="#/texts/0",
+            precision="item",
+            address_space="native_item",
+        )
+        for index in range(915)
+    ]
+    relation = dict(
+        relation_id="wide-correspondence",
+        kind="correspondence",
+        outcome="ambiguous",
+        comparison="geometry",
+        policy="pdf-integration-v1",
+        evidence=canonical_bytes(
+            {"candidates": [["\u03b1", index, 0.5] for index in range(915)]}
+        ).decode(),
+        endpoints=[dict(role="output", occurrence_id=row["occurrence_id"]) for row in occurrences],
+    )
+    with semantic_writer_engine.begin() as conn:
+        assert (
+            conn.scalar(
+                text("SELECT octet_length(CAST(:body AS jsonb)::text)"),
+                {"body": canonical_bytes(relation).decode()},
+            )
+            > 65536
+        )
+        adopt_pdf_companion_batch(conn, build, "occurrence", occurrences, "occurrences")
+        for _ in range(2):
+            adopt_pdf_companion_batch(conn, build, "relation", [relation], "wide")
+
+        params = dict(
+            build=build.build_id,
+            task=build.task_id,
+            attempt=build.attempt,
+            holder=build.holder,
+            local=relation["relation_id"],
+        )
+        header = {k: v for k, v in relation.items() if k not in {"endpoints", "evidence"}}
+        streams = {
+            name: "companion-field:"
+            + sha256(canonical_bytes(["relation", relation["relation_id"], name])).hexdigest()
+            for name in ("endpoints", "evidence")
+        }
+        for body, fields, reason in (
+            (
+                header | {"endpoints": relation["endpoints"]},
+                streams,
+                "invalid companion external field",
+            ),
+            (
+                header,
+                {"endpoints": streams["evidence"], "evidence": streams["endpoints"]},
+                "companion field encoding differs",
+            ),
+        ):
+            with pytest.raises(DBAPIError, match=reason), conn.begin_nested():
+                conn.execute(
+                    text("""
+                        SELECT ops.adopt_pdf_companion(
+                            :build,:task,:attempt,:holder,'relation',:local,
+                            CAST(:body AS jsonb),'hostile',0,CAST(:fields AS jsonb)
+                        )
+                    """),
+                    params | {"body": json.dumps(body), "fields": json.dumps(fields)},
+                )
+        frozen = freeze_pdf_build(conn, build, kind="native")
+        prepare_pdf_build(conn, frozen)
+    validate_pdf_build(semantic_writer_engine, frozen)
+    with semantic_writer_engine.begin() as conn:
+        published = seal_pdf_build(conn, frozen, "native")
+    with semantic_reader_engine.connect() as conn:
+        reader = PublishedPdfReader(
+            conn, ProductReference(build.task_id, "native", published.logical_digest)
+        )
+        assert list(reader.iter_companions("relation")) == [relation]
+        assert json.loads(b"[" + b"".join(reader.iter_companion_json("relation")) + b"]") == [
+            relation
+        ]
+        (context,) = reader.source_context(["#/texts/0"], "#/body")["relations"]
+        assert context["body"]["evidence"] == relation["evidence"]
+        assert [row["occurrence_id"] for row in context["endpoints"]] == [
+            row["occurrence_id"] for row in relation["endpoints"]
+        ]
 
 
 def test_preparation_does_not_hold_task_lease_lock(private_build, semantic_writer_engine, tmp_path):

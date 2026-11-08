@@ -385,7 +385,7 @@ def _validate_predicate_component(row, component, population):
         local = component.get("candidate_tokens", ())
         if cross:
             if (
-                component["question_version"] not in {"3", "4"}
+                component["question_version"] not in {"3", "4", "5"}
                 or component["host_state"] != "located"
                 or component["variant"] not in {"list_assumption", "parameter_positive"}
                 or component["cue_kind"] != "assumption"
@@ -448,7 +448,7 @@ def _validate_predicate_component(row, component, population):
             )
         else:
             host_matches = (
-                component["question_version"] in {"3", "4"}
+                component["question_version"] in {"3", "4", "5"}
                 and cue["annotation"] != frame["annotation"]
                 and cue["block"] != frame["block"]
                 and host in cue.get("cross_block_hosts", ())

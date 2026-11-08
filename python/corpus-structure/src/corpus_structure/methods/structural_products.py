@@ -1181,6 +1181,7 @@ class StructuralComparisonConfig(StructuralValue):
 class StructuralComparisonMethod:
     name = "structure.compare"
     version = "4"
+    predicate_version = "4"
     family = MethodFamily.CONSOLIDATE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.DETERMINISTIC
@@ -1211,7 +1212,7 @@ class StructuralComparisonMethod:
                 sources[passage.source_ref],
                 reference,
                 ctx.reader.retained_source_contribution(reference),
-                predicate_version="4",
+                predicate_version=self.predicate_version,
             )
 
         report = compare_clauses(
@@ -1230,6 +1231,11 @@ class StructuralComparisonMethod:
             )
             for u in units
         )
+
+
+class StructuralComparisonWithRoleClosure(StructuralComparisonMethod):
+    version = "5"
+    predicate_version = "5"
 
 
 class StructuralDossierConfig(StructuralValue):

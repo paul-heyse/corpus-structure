@@ -67,6 +67,7 @@ _PDF_PAYLOAD_FUNCTIONS = frozenset(
         "freeze_pdf_build",
         "resume_pdf_build",
         "adopt_pdf_companion",
+        "pdf_companion_restore_fields",
         "read_pdf_frozen_rows",
         "read_pdf_published_revision",
         "read_pdf_published_validation",

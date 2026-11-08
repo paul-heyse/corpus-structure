@@ -1038,12 +1038,16 @@ def _select_pdf_integration(
             for key in origin.alternatives:
                 correspondence_outputs[key].append(o["occurrence_id"])
     for index, source, candidates, outcome, evidence in correspondences:
+        # Multiple mapped panels can support one raw occurrence. The evidence
+        # retains each overlap, while the relation names each endpoint once.
+        distinct_candidates = dict.fromkeys((i, s) for i, s in candidates)
+        distinct_candidates.pop((index, source), None)
         endpoints = [{"role": "input", "input_index": index, "occurrence_id": source}]
         endpoints.extend(
-            {"role": "input", "input_index": i, "occurrence_id": s} for i, s in candidates
+            {"role": "input", "input_index": i, "occurrence_id": s} for i, s in distinct_candidates
         )
         local_ids = set(correspondence_outputs.get((index, source), ()))
-        for candidate_index, candidate_source in candidates:
+        for candidate_index, candidate_source in distinct_candidates:
             local_ids.update(correspondence_outputs.get((candidate_index, candidate_source), ()))
         endpoints.extend({"role": "output", "occurrence_id": o} for o in sorted(local_ids))
         relations.append(

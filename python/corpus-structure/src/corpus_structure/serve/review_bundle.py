@@ -374,6 +374,17 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
             source_ids.update(_report_source_ids(report["body"]))
             pending_reports.update(_retained_report_ids(report))
             permitted.update(ref.id for ref in selected_source_views(conn, report["origin_run_id"]))
+            for alias in report["configuration"].get("definition_alias_refs", ()):
+                if report["method"] != "retrieve.contextual" or alias["project_id"] != project_id:
+                    raise SemanticRefusal("definition alias differs from the selected project")
+                budget.value(
+                    conn.scalar(
+                        text(
+                            "SELECT ops.resolve_retained_source_contribution(CAST(:ref AS jsonb))"
+                        ),
+                        {"ref": canonical_bytes(alias).decode()},
+                    )
+                )
             for ref in _section_source_refs(report):
                 if ref.project_id != project_id:
                     raise SemanticRefusal("section source belongs to another project")
@@ -1936,7 +1947,7 @@ def _verify_comparison_closure(root, manifest, products, structural_scopes, scop
         version = body.get("operation_version")
         if (
             not isinstance(config, dict)
-            or version not in {"2", "3", StructuralComparisonMethod.version}
+            or version not in {"2", "3", "4", "5"}
             or raw.get("project_id") != origin_project
             or raw.get("origin_run_id") != origin_run
             or raw.get("runtime_fingerprint") != runtime
@@ -1982,7 +1993,7 @@ def _verify_comparison_closure(root, manifest, products, structural_scopes, scop
         passages = {passage.passage_id: passage for passage in report.inputs.passages}
         sources = {source.identity: source for source in report.inputs.sources}
         left, right = passages[comparison.left_id], passages[comparison.right_id]
-        predicate_version = "4" if version == "4" else None
+        predicate_version = version if version in {"4", "5"} else None
         expected = compare_clauses(
             report.inputs,
             left=read_retained_clause(
@@ -2001,7 +2012,7 @@ def _verify_comparison_closure(root, manifest, products, structural_scopes, scop
             ),
             left_reading=comparison.left_reading,
             right_reading=comparison.right_reading,
-            typed_groups=version == "4",
+            typed_groups=version in {"4", "5"},
         )
         if comparison != expected.comparison:
             raise ValueError("comparison differs from its exact retained predicate evidence")
@@ -2220,7 +2231,9 @@ def _verify_predicate_closure(root, manifest):
             max_pieces=max(1, len(view.pieces)),
         )
         method_version = row["body"].get("operation_version")
-        version = {"4": "2", "5": "3", "6": "3", "7": "3", "8": "3", "9": "4"}.get(method_version)
+        version = {"4": "2", "5": "3", "6": "3", "7": "3", "8": "3", "9": "4", "10": "5"}.get(
+            method_version
+        )
         if version is None or {
             op["operation_version"]
             for op in row["body"].get("contribution_operations", ())

@@ -5,11 +5,13 @@ from dataclasses import asdict
 from corpus_structure.core.evidence import config_key
 from corpus_structure.methods.inline_formula_occurrences import INLINE_FORMULA_QUESTION
 from corpus_structure.methods.witnessed_source_links import (
+    NAMED_ANNOTATION_VERSIONS,
+    NAMED_COVERAGE_VERSION,
     NAMED_QUESTION,
     NAMED_VERSION,
     QUESTION,
     VERSION,
-    explicit_named_definition_extent,
+    named_definition_subject,
     named_source_links,
     procedure_artifact_bindings,
     procedure_artifact_endpoint,
@@ -128,7 +130,7 @@ def verify_witnessed_links(report, source, pin, inputs):
             and r.get("component", {}).get("attachment_kind") == "declares"
             and r["component"]["scope"] == link.scope
             and (
-                body["operation_version"] != "9"
+                body["operation_version"] not in {"9", "10"}
                 or r["component"].get("effective_version") == link.effective_version
             )
             and {cue["contribution_id"], prior["contribution_id"]}
@@ -212,7 +214,7 @@ def _verify_named_population(
     annotation_by_dependency = {
         "annotation:" + annotation.dependency_digest: annotation for annotation in annotations
     }
-    if version == NAMED_VERSION:
+    if version in NAMED_ANNOTATION_VERSIONS:
         artifact_bindings = procedure_artifact_bindings(body["contributions"])
     passage_starts = {passage.passage_id: passage.start for passage in passages}
     native_starts = {
@@ -268,7 +270,7 @@ def _verify_named_population(
         dependencies = None
         subject_dependencies = None
         artifacts = ()
-        if version == NAMED_VERSION:
+        if version in NAMED_ANNOTATION_VERSIONS:
             versioned = details | {"named_cue": link.evidence()}
             dependencies = [f"native:{pin['native_product_task_id']}", link.witness.annotation]
             artifacts = (
@@ -290,14 +292,15 @@ def _verify_named_population(
             "named_link_cue", link.pointer, link.cue, link.passage, versioned, dependencies
         )
         if (
-            body.get("operation_version") == "9"
+            body.get("operation_version") in {"9", "10"}
             and link.kind == "definition_reference"
             and link.resolution == "target_selection_required"
             and (
-                concept := explicit_named_definition_extent(
+                concept := named_definition_subject(
                     text,
                     max(native_starts[link.pointer], passage_starts[link.passage]),
                     link.cue[0],
+                    version=version,
                 )
             )
             is not None
@@ -306,12 +309,14 @@ def _verify_named_population(
             require(
                 "named_link_definition_subject",
                 link.pointer,
-                concept,
+                concept[0],
                 link.passage,
-                versioned,
+                {**versioned, "definition_subject_kind": concept[1]}
+                if version == NAMED_COVERAGE_VERSION
+                else versioned,
                 [*dependencies, subject, cue],
             )
-        if body.get("operation_version") == "9" and artifacts:
+        if body.get("operation_version") in {"9", "10"} and artifacts:
             binding = procedure_artifact_endpoint(
                 rows, link, annotation_by_dependency[link.witness.annotation], artifacts[0]
             )
@@ -359,7 +364,7 @@ def _verify_named_population(
             and r.get("component", {}).get("attachment_kind") == link.kind
             and r["component"]["scope"] == link.scope
             and (
-                version != NAMED_VERSION
+                version not in NAMED_ANNOTATION_VERSIONS
                 or (
                     r["component"]["question_version"] == version
                     and r["component"].get("effective_version") == link.witness.effective_version
@@ -370,7 +375,7 @@ def _verify_named_population(
         if len(matches) != 1:
             raise ValueError("named link differs from its exact cue or direction")
         (matched,) = matches
-        if version == NAMED_VERSION and matched["computation_dependencies"] != [
+        if version in NAMED_ANNOTATION_VERSIONS and matched["computation_dependencies"] != [
             subject,
             target,
             f"native:{pin['native_product_task_id']}",
@@ -396,9 +401,9 @@ def verify_annotated_named_links(report, source, producers):
     body, cfg = report["body"], report["configuration"]
     if cfg.get("inputs") is None:
         return
-    if body["operation_version"] not in {"7", "8", "9"} or body["configuration_hash"] != config_key(
-        "structure.scoped_relations", body["operation_version"], cfg
-    ):
+    if body["operation_version"] not in {"7", "8", "9", "10"} or body[
+        "configuration_hash"
+    ] != config_key("structure.scoped_relations", body["operation_version"], cfg):
         raise ValueError("named links differ from their retained configuration")
     inputs = StructuralInput.model_validate(cfg["inputs"])
     view = _retained_review_source_view(source)
@@ -406,6 +411,7 @@ def verify_annotated_named_links(report, source, producers):
     passages = tuple(p for p in inputs.passages if p.source_ref == ref.identity)
     operations = [op for op in body["contribution_operations"] if op["question"] == NAMED_QUESTION]
     (operation,) = operations
+    version = NAMED_COVERAGE_VERSION if body["operation_version"] == "10" else NAMED_VERSION
     origin_id = operation.get("annotation_origin_task_id")
     frame = native_source_frame(view, ())
     if origin_id is None:
@@ -444,6 +450,7 @@ def verify_annotated_named_links(report, source, producers):
         passages,
         annotations,
         annotation_errors=errors,
+        version=version,
     )
     _verify_named_population(
         body,
@@ -452,7 +459,7 @@ def verify_annotated_named_links(report, source, producers):
         passages,
         operations,
         expected.matches,
-        version=NAMED_VERSION,
+        version=version,
         inspected_count=expected.inspected_count,
         outcome=expected.outcome(),
         annotation_origin_task_id=origin_id,

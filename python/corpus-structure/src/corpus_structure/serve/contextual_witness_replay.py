@@ -34,14 +34,14 @@ from corpus_structure.semantic.contextual_retrieval import (
     freeze_inventory,
     fuse_candidates,
 )
-from corpus_structure.semantic.contributions import operation_identity
+from corpus_structure.semantic.contributions import contribution_identity, operation_identity
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.structural_products import StructuralProductReport
 
 
 def _reports(body):
-    if body.get("operation_version") in {"6", "7", "8", "9"}:
+    if body.get("operation_version") in {"6", "7", "8", "9", "10"}:
         for op in body.get("contribution_operations", ()):
             if "contextual_enrichment" in op:
                 yield op["contextual_enrichment"]
@@ -88,7 +88,7 @@ def witness_origin_ids(body, configuration):
         for report in _reports(body)
         if report.get("candidate_lists")
         for target in report["component_targets"]
-    }
+    } | {ref["origin_task_id"] for ref in configuration.get("definition_alias_refs", ())}
 
 
 def _packet_mapping(contract):
@@ -199,7 +199,7 @@ def _verify_section_report(retained, reports, sources, documents, contract):
 
     body, configuration = retained["body"], retained["configuration"]
     version = body["operation_version"]
-    if version not in {"7", "8", "9"} or body["configuration_hash"] != config_key(
+    if version not in {"7", "8", "9", "10"} or body["configuration_hash"] != config_key(
         "retrieve.contextual", version, configuration
     ):
         raise ValueError("section citation differs from exact retained configuration")
@@ -240,7 +240,7 @@ def _verify_section_report(retained, reports, sources, documents, contract):
         or scoped["project_id"] != retained["project_id"]
         or upstream["source"] != body["source"]
         or upstream["release_id"] != body["release_id"]
-        or upstream["operation_version"] not in {"7", "8", "9"}
+        or upstream["operation_version"] not in {"7", "8", "9", "10"}
     ):
         raise ValueError("section citation lacks its exact scoped source report")
     frame = native_source_frame(_retained_review_source_view(source), ())
@@ -402,6 +402,106 @@ def _term_binding(target, reports, sources):
     return physical, term, source
 
 
+def _retained_alias(reference, reports, sources):
+    origin = reports[reference["origin_task_id"]]
+    body = origin["body"]
+    if (
+        origin["project_id"] != reference["project_id"]
+        or origin["runtime_fingerprint"] != reference["runtime_fingerprint"]
+        or body["release_id"] != reference["release_id"]
+        or body.get("method") != "structure.scoped_relations"
+        or body.get("operation_version") not in {"7", "8", "9", "10"}
+    ):
+        raise ValueError("definition alias differs from its retained origin")
+    rows = {row["contribution_id"]: row for row in body["contributions"]}
+    edge = rows[reference["contribution_id"]]
+    component = edge.get("component", {})
+    if (
+        edge["kind"] != "relation"
+        or edge["semantic_type"] != "structural.scoped_attachment"
+        or component.get("question") != "source_named_links"
+        or component.get("attachment_kind") != "alias"
+        or component.get("question_version") not in {"2", "3"}
+        or len(edge["endpoints"]) != 2
+    ):
+        return None
+    if contribution_identity(edge) != edge["contribution_id"]:
+        raise ValueError("definition alias relation identity differs")
+    source = sources[origin["origin_unit_id"]]
+    native = source["ref"]["native_product"]
+    items = {item["self_ref"]: item for item in source["context"]["items"]}
+    anchors = []
+    for endpoint in edge["endpoints"]:
+        row = rows[endpoint["contribution_id"]]
+        if row["kind"] != "occurrence" or len(row["anchors"]) != 1:
+            return None
+        (anchor,) = row["anchors"]
+        pin = anchor["pin"]
+        if anchor["precision"] != "exact" or anchor["space"] != "native":
+            return None
+        if (
+            contribution_identity(row) != row["contribution_id"]
+            or row["pin"] != pin
+            or pin["source_view_id"] != source["source_view_id"]
+            or pin["source"] != source["ref"]["key"]
+            or pin["projection_digest"] != source["ref"]["projection_digest"]
+            or pin["recipe_digest"] != source["ref"]["recipe_digest"]
+            or (pin["native_product_task_id"], pin["product_key"], pin["product_digest"])
+            != (native["task_id"], native["product_key"], native["content_digest"])
+            or items[anchor["pointer"]]["text"][anchor["start"] : anchor["end"]]
+            != anchor["source_piece"]
+        ):
+            raise ValueError("definition alias endpoint differs from its original source")
+        anchors.append(anchor)
+    return component, tuple(anchors)
+
+
+def _term_alias(target, term, source, retained):
+    if retained is None:
+        return None
+    component, anchors = retained
+    if (component["scope"], component.get("effective_version")) != (
+        target.scope,
+        target.effective_version,
+    ):
+        return None
+    pieces = [
+        p
+        for p in source["context"]["pieces"]
+        if p["kind"] == "native_text"
+        and "cell_index" not in p
+        and p.get("source_field", "text") == "text"
+        and p["start"] <= term.start < term.end <= p["end"]
+    ]
+    if len(pieces) != 1:
+        return None
+    (piece,) = pieces
+    native = source["ref"]["native_product"]
+    matches = [
+        index
+        for index, anchor in enumerate(anchors)
+        if (
+            anchor["pin"]["native_product_task_id"],
+            anchor["pin"]["product_key"],
+            anchor["pin"]["product_digest"],
+            anchor["pointer"],
+            anchor["start"],
+            anchor["end"],
+            anchor["source_piece"],
+        )
+        == (
+            native["task_id"],
+            native["product_key"],
+            native["content_digest"],
+            piece["item_ref"],
+            term.start - piece["start"],
+            term.end - piece["start"],
+            term.text,
+        )
+    ]
+    return anchors[1 - matches[0]]["source_piece"] if len(matches) == 1 else None
+
+
 def _section(source, term):
     items = {i["self_ref"]: i for i in source["context"]["items"]}
     pieces = [
@@ -445,9 +545,9 @@ def verify_contextual_witness_closure(root, manifest):
     for retained in reports.values():
         body = retained.get("body") or {}
         version = body.get("operation_version")
-        if retained.get("method") == "retrieve.contextual" and version in ("8", "9"):
+        if retained.get("method") == "retrieve.contextual" and version in ("8", "9", "10"):
             (report,) = tuple(_reports(body))
-            verify_detached_neighborhood(report, native_ranks=version == "9")
+            verify_detached_neighborhood(report, native_ranks=version in {"9", "10"})
     relevant = [
         r
         for r in reports.values()
@@ -479,11 +579,29 @@ def verify_contextual_witness_closure(root, manifest):
         source = sources[retained["origin_unit_id"]]
         nodes = {i["self_ref"]: i for i in source["context"]["items"]}
         carriers = tuple(_possible_carriers(body))
+        alias_refs = retained["configuration"].get("definition_alias_refs", ())
+        if alias_refs and body["operation_version"] != "10":
+            raise ValueError("definition aliases require contextual operation 10")
+        if alias_refs and body["configuration_hash"] != config_key(
+            "retrieve.contextual", body["operation_version"], retained["configuration"]
+        ):
+            raise ValueError("definition alias selection differs from its configuration")
+        original_aliases = [
+            (ref["project_id"], _retained_alias(ref, reports, sources)) for ref in alias_refs
+        ]
         for report in _reports(body):
             targets = {
                 t.reference.component_id: (t, _term_binding(t, reports, sources))
                 for row in report["component_targets"]
                 for t in (ExtractedComponentTarget.model_validate(row),)
+            }
+            aliases = {
+                target_id: tuple(
+                    _term_alias(target, term, original, edge)
+                    for project, edge in original_aliases
+                    if project == target.reference.project_id
+                )
+                for target_id, (target, (_, term, original)) in targets.items()
             }
             for candidate in report["candidate_lists"]:
                 channels = {
@@ -586,7 +704,7 @@ def verify_contextual_witness_closure(root, manifest):
                     or replay.policy_id != candidate["policy_id"]
                 ):
                     raise ValueError("contextual witness rank differs from retained channels")
-                if body.get("operation_version") != "9":
+                if body.get("operation_version") not in {"9", "10"}:
                     continue
                 scope, version = inventory["scope"], inventory.get("effective_version")
                 section_carriers = [
@@ -609,12 +727,18 @@ def verify_contextual_witness_closure(root, manifest):
                 section_ids = {row["contribution_id"] for row in section_carriers}
                 exact_subject_witnesses = []
                 for row in section_carriers:
+                    original = source_python(source_python(row["value"])["producer_value"])
+                    named_version = "3" if "definition_subject_kind" in original else "2"
                     subject = explicit_definition_subject(
-                        row, nodes, scope=scope, effective_version=version
+                        row,
+                        nodes,
+                        scope=scope,
+                        effective_version=version,
+                        named_version=named_version,
                     )
                     if subject is None:
                         continue
-                    code, _ = subject
+                    code = subject[0]
                     matching_section = []
                     for target_id in eligible:
                         target, (physical, term, original) = targets[target_id]
@@ -632,6 +756,8 @@ def verify_contextual_witness_closure(root, manifest):
                             source_binding=original_binding,
                             scope=scope,
                             effective_version=version,
+                            named_version=named_version,
+                            aliases=aliases if named_version == "3" else None,
                         )
                     )
                 retained_other_witnesses = []

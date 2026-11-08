@@ -1134,6 +1134,15 @@ class BoundReader:
             {"reference": json.dumps(reference.model_dump(mode="json")), "digest": work_digest},
         ).scalar_one()
 
+    def retained_component_alias(self, reference, edge):
+        """Resolve an exact retained naming relation against a component term occurrence."""
+        return self.conn.execute(
+            text(
+                "SELECT ops.contextual_definition_alias(CAST(:ref AS jsonb), CAST(:edge AS jsonb))"
+            ),
+            {"ref": reference.model_dump_json(), "edge": edge.model_dump_json()},
+        ).scalar_one()
+
     def contextual_section_headings(self, sources, source_view_id, scope, effective_version):
         """Resolve a complete heading population against the consuming release."""
         return self.conn.execute(

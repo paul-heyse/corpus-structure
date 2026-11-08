@@ -585,7 +585,7 @@ BEGIN
  FOR retained IN SELECT * FROM ops.resolve_retained_source_contributions(refs) LOOP
   IF current_ AND NOT EXISTS(SELECT FROM jsonb_array_elements(retained.contributions) c
    WHERE c->>'contribution_id'=retained.reference->>'contribution_id'
-    AND c->'component'->>'question_version'='4') THEN
+    AND c->'component'->>'question_version'=coalesce(config->>'_comparison_predicate_version','4')) THEN
    RAISE EXCEPTION 'typed comparison requires a current predicate reading' USING ERRCODE='23514'; END IF;
   IF NOT inputs->'dependencies' ? (retained.reference->>'contribution_id') THEN
    RAISE EXCEPTION 'comparison lacks frozen retained reading dependency' USING ERRCODE='23514';END IF;
@@ -2041,7 +2041,8 @@ BEGIN
  WHEN 'qualified_comparison' THEN
   IF method_ IS DISTINCT FROM 'structure.compare' OR jsonb_strip_nulls(product->'comparison') IS DISTINCT FROM
     ops.structural_grouped_comparison(inputs,config_||jsonb_build_object(
-     '_comparison_current',p_envelope->>'operation_version'='4')) THEN
+     '_comparison_current',p_envelope->>'operation_version' IN ('4','5'),
+     '_comparison_predicate_version',CASE WHEN p_envelope->>'operation_version'='5' THEN '5' ELSE '4' END)) THEN
    RAISE EXCEPTION 'comparison differs from exact retained predicate replay' USING ERRCODE='23514'; END IF;
  WHEN 'dossier' THEN
   IF method_ IS DISTINCT FROM 'structure.dossier' OR jsonb_strip_nulls(product->'dossier') IS DISTINCT FROM

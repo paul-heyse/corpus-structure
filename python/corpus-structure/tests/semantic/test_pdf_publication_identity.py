@@ -63,13 +63,31 @@ def test_publication_inline_refuses_non_scalar(semantic_db_engine):
                 savepoint.rollback()
 
 
-def test_actual_record_cursor_matches_independent_logical_fields(semantic_db_engine, private_build):
-    from corpus_structure.semantic.pdf_record_identity import LogicalIdentity
+@pytest.mark.parametrize("segmented", [False, True])
+def test_actual_record_cursor_matches_independent_logical_fields(
+    semantic_db_engine, private_build, segmented
+):
+    from hashlib import sha256
+
+    from corpus_structure.semantic.pdf_record_identity import LogicalIdentity, byte_root
 
     binding = dict(release_id=private_build.release_id, source_digest=private_build.source_digest)
     schema = "f" * 64
     expected = LogicalIdentity(schema, binding["release_id"], binding["source_digest"])
     expected.add_record("companion/health", "health", (("body", '{"ready":true}'), ("ordinal", 0)))
+    relation = {
+        "relation_id": "r1",
+        "evidence": "ordered evidence",
+        "endpoints": [
+            {"role": "input", "input_index": 0, "occurrence_id": "before"},
+            {"role": "output", "occurrence_id": "after"},
+        ],
+    }
+    expected.add_record(
+        "companion/relation",
+        "r1",
+        (("body", json.dumps(relation, sort_keys=True, separators=(",", ":"))), ("ordinal", 0)),
+    )
     expected.add_record(
         "document",
         "root",
@@ -161,6 +179,50 @@ def test_actual_record_cursor_matches_independent_logical_fields(semantic_db_eng
             "local_id,body,ordinal) VALUES ('p','r','health','health',"
             "'{\"ready\":true}',0)"
         )
+        body = dict(relation)
+        if segmented:
+            fields = (
+                (
+                    "endpoints",
+                    "y",
+                    "pdf-companion-json-field-v1",
+                    json.dumps(body.pop("endpoints")).encode(),
+                ),
+                ("evidence", "s", "pdf-record-scalar-v1:s", body.pop("evidence").encode()),
+            )
+            for name, kind, profile, payload in fields:
+                size, root = byte_root((payload,))
+                params = dict(
+                    name=name,
+                    size=size,
+                    root=root.hex(),
+                    profile=profile,
+                    body=payload,
+                    sha=sha256(payload).hexdigest(),
+                    kind=kind,
+                )
+                execute(
+                    "INSERT INTO ops.pdf_artifact_stream VALUES "
+                    "('p','r',%(name)s,%(size)s,NULL,%(root)s,%(profile)s)",
+                    params,
+                )
+                execute(
+                    "INSERT INTO ops.pdf_artifact_part VALUES "
+                    "('p','r',%(name)s,0,0,%(size)s,%(body)s,%(sha)s)",
+                    params,
+                )
+        execute(
+            "INSERT INTO kb.pdf_record_companion VALUES "
+            "('p','r','relation','r1',%(body)s::jsonb,0)",
+            {"body": json.dumps(body)},
+        )
+        if segmented:
+            for name, kind, _, _ in fields:
+                execute(
+                    "INSERT INTO kb.pdf_record_companion_field VALUES "
+                    "('p','r','relation','r1',%(name)s,%(name)s,%(kind)s)",
+                    {"name": name, "kind": kind},
+                )
         actual = execute("SELECT ops.pdf_record_logical_identity('p','r')").scalar_one()
         assert actual == expected.pin().logical_digest
         # Operational allocations are not identity-bearing.

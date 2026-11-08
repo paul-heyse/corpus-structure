@@ -1060,12 +1060,12 @@ def discover_relations(
     if witnessed_links_enabled:
         from .witnessed_source_links import (
             INHERITANCE_QUESTION,
+            NAMED_ANNOTATION_VERSIONS,
             NAMED_QUESTION,
-            NAMED_VERSION,
             QUESTION,
             VERSION,
-            explicit_named_definition_extent,
             match_named_source_links,
+            named_definition_subject,
             named_source_links,
             procedure_artifact_bindings,
             procedure_artifact_endpoint,
@@ -1126,7 +1126,9 @@ def discover_relations(
                 operation=witness_op,
                 extra_witnesses=(cue, declarations[0]),
                 question=QUESTION,
-                effective_version=link.effective_version if predicate_version == "4" else None,
+                effective_version=link.effective_version
+                if predicate_version in {"4", "5"}
+                else None,
             )
         if links:
             witnessed_operations = (
@@ -1140,7 +1142,7 @@ def discover_relations(
                     computation_dependencies=(dependency,),
                 ),
             )
-        if named_link_version == NAMED_VERSION:
+        if named_link_version in NAMED_ANNOTATION_VERSIONS:
             named = ()
             if passages is not None:
                 inspected, inherited = qualified_inheritance(products)
@@ -1189,8 +1191,9 @@ def discover_relations(
                     passages,
                     annotations,
                     annotation_errors=annotation_errors,
+                    version=named_link_version,
                 )
-                named_op = operation_identity(NAMED_QUESTION, NAMED_VERSION, pin, selection)
+                named_op = operation_identity(NAMED_QUESTION, named_link_version, pin, selection)
                 first = len(products)
                 artifact_bindings = procedure_artifact_bindings(products)
                 procedure_rows = {row["contribution_id"]: row for row in products}
@@ -1239,27 +1242,30 @@ def discover_relations(
                         reading_key=reading_key,
                     )
                     if (
-                        predicate_version == "4"
+                        predicate_version in {"4", "5"}
                         and link.kind == "definition_reference"
                         and link.resolution == "target_selection_required"
                         and (
-                            concept := explicit_named_definition_extent(
+                            concept := named_definition_subject(
                                 frame.text,
                                 max(
                                     named_piece_starts[link.pointer],
                                     selected_passages[link.passage].start,
                                 ),
                                 link.cue[0],
+                                version=named_link_version,
                             )
                         )
                         is not None
                     ):
                         participant(
-                            *concept,
+                            *concept[0],
                             role="named_link_definition_subject",
                             pointer=link.pointer,
                             region=link.passage,
-                            extra=extra,
+                            extra={**extra, "definition_subject_kind": concept[1]}
+                            if named_link_version == "3"
+                            else extra,
                             dependencies=(
                                 *deps,
                                 subject["contribution_id"],
@@ -1268,7 +1274,7 @@ def discover_relations(
                             operation=named_op,
                             reading_key=reading_key,
                         )
-                    if predicate_version == "4" and artifact_deps:
+                    if predicate_version in {"4", "5"} and artifact_deps:
                         binding = procedure_artifact_endpoint(
                             procedure_rows,
                             link,
@@ -1286,7 +1292,7 @@ def discover_relations(
                                 operation=named_op,
                                 extra_witnesses=(subject, cue, artifact),
                                 question=NAMED_QUESTION,
-                                question_version=NAMED_VERSION,
+                                question_version=named_link_version,
                                 effective_version=link.witness.effective_version,
                             )
                     if link.right is None or link.target_pointer is None:
@@ -1310,7 +1316,7 @@ def discover_relations(
                         operation=named_op,
                         witness=cue,
                         question=NAMED_QUESTION,
-                        question_version=NAMED_VERSION,
+                        question_version=named_link_version,
                         effective_version=link.witness.effective_version,
                     )
                 outcome = inspection.outcome()
@@ -1318,7 +1324,7 @@ def discover_relations(
                     dict(
                         operation_key=named_op,
                         question=NAMED_QUESTION,
-                        operation_version=NAMED_VERSION,
+                        operation_version=named_link_version,
                         outcome=outcome,
                         inspected_count=inspection.inspected_count,
                         emitted_count=len(products) - first,
@@ -1420,6 +1426,8 @@ def discover_relations(
 class ScopedRelationsMethod:
     name = "structure.scoped_relations"
     version = "9"
+    predicate_version = "4"
+    named_link_version = "2"
     family = MethodFamily.RESOLVE
     tier = MethodTier.DETERMINISTIC
     unit_type = TaskUnitType.SOURCE_VIEW
@@ -1542,10 +1550,10 @@ class ScopedRelationsMethod:
                 passages=passages,
                 formula_seconds=cfg.formula_seconds,
                 max_formula_chars=cfg.max_formula_chars,
-                predicate_version="4",
+                predicate_version=self.predicate_version,
                 inline_equations_enabled=True,
                 witnessed_links_enabled=True,
-                named_link_version="2",
+                named_link_version=self.named_link_version,
             )
             from corpus_structure.methods.inline_formula_occurrences import INLINE_FORMULA_QUESTION
             from corpus_structure.methods.table_interpretation import (
@@ -1622,3 +1630,9 @@ class ScopedRelationsMethod:
                 )
             )
         return tuple(results)
+
+
+class ScopedRelationsWithRoleClosure(ScopedRelationsMethod):
+    version = "10"
+    predicate_version = "5"
+    named_link_version = "3"

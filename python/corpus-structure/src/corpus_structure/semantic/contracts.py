@@ -53,6 +53,7 @@ SEMANTIC_IMPLEMENTATION_NAMES = frozenset(
         "libraries.json",
         "operations/section-packets.json",
         "operations/named-link-rules.json",
+        "operations/named-link-coverage.json",
         "operations/predicate-interpretation.json",
         "operations/model-observation.json",
     }
@@ -1094,6 +1095,7 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("records/observations.py", "semantic/observations.py"),
                 ("operations/section-packets.json", "model/semantic/nce-section-packets.json"),
                 ("operations/named-link-rules.json", "methods/named_link_rules.json"),
+                ("operations/named-link-coverage.json", "methods/named_link_coverage.json"),
                 (
                     "operations/predicate-interpretation.json",
                     "methods/predicate_interpretation.json",
@@ -1747,6 +1749,8 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         required_implementations.update(
             {"operations/section-packets.json", "operations/named-link-rules.json"}
         )
+    if "operations/named-link-coverage.json" in names:
+        required_implementations.add("operations/named-link-coverage.json")
     required_implementations.update(
         {
             "pdf/section-text-recipe.json",

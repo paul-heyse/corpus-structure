@@ -102,7 +102,7 @@ def _numeric_condition(cue_variant, text, recipe):
 def _condition(kind, cue_variant, text, *, contiguous, version="3"):
     if kind not in {"condition", "assumption"}:
         return None
-    if version == "4":
+    if version in {"4", "5"}:
         recipe = interpretation_recipe()
         formal = _numeric_condition(cue_variant, text, recipe) if contiguous else None
         return formal or dict(kind="escape", text=text, reason=recipe["escape_reason"])
@@ -155,7 +155,7 @@ def publish_predicate_evidence(
 
     from .predicate_cross_block import CrossBlockTarget, cross_block_qualifiers
 
-    if version not in {"2", "3", "4"}:
+    if version not in {"2", "3", "4", "5"}:
         raise ValueError("unknown predicate contribution recipe")
     native = json.loads(frame.native_context)
     pieces = tuple(piece for piece in native["pieces"] if piece["kind"] == "native_text")
@@ -448,7 +448,7 @@ def publish_predicate_evidence(
 
     scoped_hosts = defaultdict(list)
     for annotation, result in results:
-        if version in {"3", "4"} and result.frames:
+        if version in {"3", "4", "5"} and result.frames:
             from corpus_structure.ingest.annotation_views import annotation_view
 
             from .predicate_frames import _frame_vocabulary
@@ -533,7 +533,7 @@ def publish_predicate_evidence(
                         if role.status == "unresolved"
                         else ("partial" if role.status == "partial" else "complete"),
                     )
-                    if version == "4" and len(role_rows) == row_count:
+                    if version in {"4", "5"} and len(role_rows) == row_count:
                         selected_tokens = any(
                             selected.start <= token.start < token.end <= selected.end
                             for token in (annotation.tokens[index] for index in role.span.tokens)
@@ -620,7 +620,7 @@ def publish_predicate_evidence(
                     annotation,
                     predicate_token,
                 )
-                if version in {"3", "4"} and scope is not None:
+                if version in {"3", "4", "5"} and scope is not None:
                     scoped_hosts[selected].append(target)
                 for cue in candidate.cues:
                     located = cue_row(annotation, selected, cue, dep, bases)
@@ -635,7 +635,7 @@ def publish_predicate_evidence(
                         continue
                     attach(selected, located, cue.variant, target, bases)
 
-    if version in {"3", "4"} and scope is not None:
+    if version in {"3", "4", "5"} and scope is not None:
         for selected in scope:
             for entry in cross_block_qualifiers(
                 frame,

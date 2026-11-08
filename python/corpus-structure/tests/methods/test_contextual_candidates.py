@@ -13,6 +13,7 @@ from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.contextual_candidates import (
     ContextualCandidateConfig,
     ContextualCandidates,
+    ContextualCandidatesWithNamedBindings,
     ContextualCandidatesWithNeighborhood,
     explicit_definition_section,
     relationship_contributions,
@@ -808,29 +809,34 @@ def test_overlapping_roles_choose_only_each_edges_cited_occurrence_carrier():
 
 @pytest.mark.parametrize("provider_available", [True, False])
 @pytest.mark.parametrize(
-    "method, quoted",
+    "method, subject",
     [
-        (ContextualCandidates, False),
-        (ContextualCandidatesWithNeighborhood, False),
-        (ContextualCandidatesWithNeighborhood, True),
+        (ContextualCandidates, "section"),
+        (ContextualCandidatesWithNeighborhood, "section"),
+        (ContextualCandidatesWithNeighborhood, "term"),
+        (ContextualCandidatesWithNamedBindings, "identifier"),
     ],
 )
 def test_explicit_cross_view_definition_witness_survives_exploration(
     monkeypatch,
     provider_available,
     method,
-    quoted,
+    subject,
 ):
     from corpus_structure.semantic.contextual_registry import ExtractedComponentTarget
     from corpus_structure.semantic.observations import source_value
     from corpus_structure.semantic.proposals import native_source_frame
     from corpus_structure.semantic.source_contexts import record_source_pin
 
-    text = (
-        'Use "Expected definition" as defined in section\t6.2.'
-        if quoted
-        else "Use the value as defined in Section 6.2."
-    )
+    quoted = subject != "section"
+    spelling = {"term": "Expected definition", "identifier": "PX:18.1", "section": "Section 6.2"}[
+        subject
+    ]
+    text = {
+        "term": f'Use "{spelling}" as defined in section\t6.2.',
+        "identifier": f'Use definition ID "{spelling}" as defined in section\t6.2.',
+        "section": "Use the value as defined in Section 6.2.",
+    }[subject]
     source = view()
     source = replace(
         source,
@@ -839,7 +845,6 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
         items=(source.items[0], dict(source.items[1], text=text)),
     )
     pin = record_source_pin(native_source_frame(source, ()))
-    spelling = "Expected definition" if quoted else "Section 6.2"
     start = text.index(spelling)
     anchor = dict(
         pin=pin,
@@ -863,6 +868,7 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
             dict(
                 role="named_link_definition_subject",
                 start=start,
+                **({"definition_subject_kind": subject} if subject == "identifier" else {}),
                 named_cue=dict(
                     scope="chapter",
                     kind="definition_reference",
@@ -901,7 +907,10 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
             )
         )
 
-    wrong, right = target("a" * 64, "Section 6.2"), target("b" * 64, "Expected definition")
+    wrong, right = (
+        target("a" * 64, "Section 6.2"),
+        target("b" * 64, spelling if quoted else "Expected definition"),
+    )
     cfg = ContextualCandidateConfig(
         target_components=(wrong, right),
         relationship_constraints=(
@@ -964,7 +973,9 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
 
     reader = SimpleNamespace(
         source_view=lambda _: source,
-        source_result=lambda *_: dict(contributions=(original,)),
+        source_result=lambda *_: dict(
+            contributions=(original,), operation_version="10" if subject == "identifier" else "9"
+        ),
         component_semantic_targets=lambda _: {
             t.reference.component_id: {
                 "term": {"text": t.label},
@@ -1082,3 +1093,31 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
     ]
     with pytest.raises(ValueError, match="complete source population"):
         verify_contextual_witness_closure(None, {"relations": {"reports": {}}})
+
+
+def test_detached_alias_matches_the_original_term_occurrence():
+    from corpus_structure.serve.contextual_witness_replay import _term_alias
+
+    pin = dict(native_product_task_id=4, product_key="organized", product_digest="digest")
+    source = {
+        "ref": {
+            "native_product": {"task_id": 4, "product_key": "organized", "content_digest": "digest"}
+        },
+        "context": {
+            "pieces": [{"kind": "native_text", "item_ref": "#/texts/3", "start": 50, "end": 80}]
+        },
+    }
+    target = SimpleNamespace(scope="chapter", effective_version="1")
+    term = SimpleNamespace(start=52, end=57, text="Event")
+    named_term = dict(pin=pin, pointer="#/texts/3", start=2, end=7, source_piece="Event")
+    alias = dict(pin=pin, pointer="#/texts/3", start=11, end=12, source_piece="E")
+    edge = dict(scope="chapter", effective_version="1")
+    assert _term_alias(target, term, source, (edge, (named_term, alias))) == "E"
+    assert (
+        _term_alias(target, term, source, (edge, (dict(named_term, start=15, end=20), alias)))
+        is None
+    )
+    assert (
+        _term_alias(target, term, source, (dict(edge, effective_version="2"), (named_term, alias)))
+        is None
+    )

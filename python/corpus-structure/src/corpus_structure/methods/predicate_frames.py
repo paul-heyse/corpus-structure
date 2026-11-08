@@ -28,17 +28,15 @@ def interpretation_recipe():
     return json.loads(files(__package__).joinpath("predicate_interpretation.json").read_text())
 
 
-_SUBJECT = ("nsubj", "csubj")
-_PATIENT = ("nsubjpass", "csubjpass", "nsubj:pass", "csubj:pass")
-_OBJECT = ("obj", "dobj", "iobj", "dative")
-_COMPLEMENT = ("attr", "acomp", "oprd")
-_AUX = frozenset({"aux", "auxpass", "aux:pass", "cop"})
+_SUBJECT = tuple(interpretation_recipe()["subject_dependencies"])
+_PATIENT = tuple(interpretation_recipe()["patient_dependencies"])
+_OBJECT = tuple(interpretation_recipe()["object_dependencies"])
+_COMPLEMENT = tuple(interpretation_recipe()["complement_dependencies"])
+_AUX = frozenset(interpretation_recipe()["auxiliary_dependencies"])
 _CLAUSE = frozenset(interpretation_recipe()["subordinate_dependencies"])
-_NOMINAL_EDGE = frozenset(
-    {"det", "amod", "compound", "nummod", "quantmod", "poss", "case", "flat", "fixed", "advmod"}
-)
-_NOMINAL_PREP = frozenset({"of", "for", "in", "than"})
-_NOMINAL_POS = frozenset({"NOUN", "PROPN", "PRON", "NUM", "ADJ"})
+_NOMINAL_EDGE = frozenset(interpretation_recipe()["nominal_dependencies"])
+_NOMINAL_PREP = frozenset(interpretation_recipe()["nominal_prepositions"])
+_NOMINAL_POS = frozenset(interpretation_recipe()["nominal_positions"])
 _REPORT = frozenset(interpretation_recipe()["report_lemmas"])
 _ASSUMPTION = frozenset(interpretation_recipe()["assumption_lemmas"])
 _ASSUMPTION_WORDS = frozenset(

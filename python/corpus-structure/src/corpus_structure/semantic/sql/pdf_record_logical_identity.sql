@@ -192,7 +192,7 @@ BEGIN
     names_:=array_append(names_,'value'); values_:=array_append(values_,CASE WHEN member_.value_kind='scalar' THEN ops.pdf_identity_inline(member_.scalar_json) ELSE ops.pdf_identity_stream_scalar(p_product,p_revision,member_.stream_id) END);
    END IF;
   ELSIF left(row_.family,10)='companion/' THEN
-   names_:=ARRAY['body','ordinal']; SELECT ARRAY[ops.pdf_identity_scalar('s',convert_to(data.canonical_json(CASE WHEN c.family='native_metadata' AND c.body->>'kind'='{pdf_payload_family}' THEN c.body-ARRAY['value','payload_codec','payload_schema_digest'] WHEN c.family='native_metadata' THEN c.body-'value' WHEN c.family='occurrence' THEN c.body-'text' ELSE c.body END),'UTF8')),ops.pdf_identity_scalar('i',convert_to(c.ordinal::text,'UTF8'))] INTO values_ FROM kb.pdf_record_companion c
+   names_:=ARRAY['body','ordinal']; SELECT ARRAY[ops.pdf_identity_scalar('s',convert_to(data.canonical_json(CASE WHEN c.family='native_metadata' AND c.body->>'kind'='{pdf_payload_family}' THEN c.body-ARRAY['value','payload_codec','payload_schema_digest'] WHEN c.family='native_metadata' THEN c.body-'value' WHEN c.family='occurrence' THEN c.body-'text' WHEN c.family='relation' THEN ops.pdf_companion_restore_fields(p_product,p_revision,c.family,c.local_id,c.body) ELSE c.body END),'UTF8')),ops.pdf_identity_scalar('i',convert_to(c.ordinal::text,'UTF8'))] INTO values_ FROM kb.pdf_record_companion c
     WHERE c.product_id=p_product AND c.revision_id=p_revision AND c.family=substr(row_.family,11) AND c.local_id=row_.key;
    IF row_.family IN ('companion/native_metadata','companion/occurrence') THEN
     field_:=CASE WHEN row_.family='companion/native_metadata' THEN 'value' ELSE 'text' END;

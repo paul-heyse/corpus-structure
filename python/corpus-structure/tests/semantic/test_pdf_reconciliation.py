@@ -1,5 +1,6 @@
 """Independent retained coordinate/token examples; no model inference or fixtures as oracle."""
 
+import json
 from hashlib import sha256
 
 import pytest
@@ -433,6 +434,41 @@ def test_panels_from_one_chart_block_are_a_composite_reading(native_source):
         "Second panel",
     ]
     assert not any(r["outcome"] == "unresolved" for r in result["relations"])
+
+
+def test_ambiguous_chart_overlap_retains_each_witness_and_one_input_endpoint(native_source):
+    chart = (
+        b'<x_0.6><y_0.5><chart type="line">\npanel: a ; line ; First panel\n'
+        b"panel: b ; bar ; Second panel\ntable[a]:\n|x|y|\n|---|---|\n|1|2|\n"
+        b"table[b]:\n|x|z|\n|---|---|\n|3|4|<x_0.95><y_0.9><class_Chart>"
+    )
+    later = b"<x_0.59><y_0.49>Other reading<x_0.96><y_0.91><class_Text>"
+    result = select_pdf_integration(
+        native_source.payload,
+        pin(1, "native", "0" * 64, "structural"),
+        [
+            (pin(2, "panels", "1" * 64, "recognition"), recognized(native_source, chart), chart),
+            (pin(3, "other", "2" * 64, "recognition"), recognized(native_source, later), later),
+        ],
+        native_source.original,
+        native_source.recipe,
+        native_source.schema,
+    ).values()
+    relation = next(
+        row
+        for row in result["relations"]
+        if row["kind"] == "correspondence" and row["endpoints"][0]["input_index"] == 2
+    )
+    assert relation["outcome"] == "ambiguous"
+    assert [
+        (end["input_index"], end["occurrence_id"])
+        for end in relation["endpoints"]
+        if end["role"] == "input"
+    ] == [(2, "block-0"), (1, "block-0")]
+    assert [
+        (index, occurrence)
+        for index, occurrence, _ in json.loads(relation["evidence"])["candidates"]
+    ] == [(1, "block-0"), (1, "block-0")]
 
 
 def test_chart_panels_share_one_crop_transform_without_reapplying_it(native_source):

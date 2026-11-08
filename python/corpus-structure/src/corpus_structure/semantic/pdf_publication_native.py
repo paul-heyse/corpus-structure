@@ -136,6 +136,23 @@ ops.pdf_stage_artifact_part
  RETURN COALESCE(payload_,''::bytea);
 END $$;
 REVOKE ALL ON FUNCTION ops.pdf_companion_field_bytes(text,text,text,boolean) FROM PUBLIC;
+CREATE OR REPLACE FUNCTION ops.pdf_companion_restore_fields(p_product text,p_revision text, \
+p_family text,p_local text,p_body jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE f record; body_ jsonb:=p_body; payload_ bytea;
+BEGIN
+ FOR f IN SELECT * FROM kb.pdf_record_companion_field WHERE product_id=p_product AND \
+revision_id=p_revision
+ AND family=p_family AND local_id=p_local ORDER BY field_name LOOP
+ IF body_ ? f.field_name THEN
+ RAISE EXCEPTION 'companion field has both inline and byte-owned values'; END IF;
+ payload_:=ops.pdf_companion_field_bytes(p_product,p_revision,f.stream_id);
+ body_:=body_||jsonb_build_object(f.field_name,CASE WHEN f.scalar_kind='y' THEN \
+convert_from(payload_,'UTF8')::jsonb ELSE to_jsonb(convert_from(payload_,'UTF8')) END);
+ END LOOP;
+ RETURN body_;
+END $$;
+REVOKE ALL ON FUNCTION ops.pdf_companion_restore_fields(text,text,text,text,jsonb) FROM PUBLIC;
 CREATE OR REPLACE FUNCTION ops.pdf_companion_body(p_product text,p_revision text,p_family \
 text,p_local text,p_body jsonb)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
@@ -510,17 +527,20 @@ ERRCODE='23514'; END IF;
 mapping'; END IF;
  FOR field_ IN SELECT key,value#>>'{}' stream_id FROM jsonb_each(p_fields) LOOP
  IF NOT ((p_family='native_metadata' AND field_.key='value') OR (p_family='occurrence' AND \
-field_.key='text'))
+field_.key='text') OR (p_family='relation' AND field_.key IN ('endpoints','evidence')))
  OR p_body ? field_.key THEN RAISE EXCEPTION 'invalid companion external field'; END IF;
  SELECT encoding_profile INTO STRICT profile_ FROM ops.pdf_stage_artifact_stream
  WHERE product_id=p_build AND revision_id=p_build AND stream_id=field_.stream_id;
- IF profile_ IS DISTINCT FROM (CASE WHEN field_.key='value' THEN CASE WHEN \
-p_body->>'kind'='{pdf_payload_family}' THEN '{pdf_payload_profile}' ELSE \
-'pdf-companion-json-field-v1' END ELSE 'pdf-record-scalar-v1:s' END) THEN
+ IF profile_ IS DISTINCT FROM (CASE WHEN field_.key='value' AND \
+p_body->>'kind'='{pdf_payload_family}' THEN '{pdf_payload_profile}' \
+WHEN field_.key IN ('value','endpoints') THEN 'pdf-companion-json-field-v1' \
+ELSE 'pdf-record-scalar-v1:s' END) THEN
  RAISE EXCEPTION 'companion field encoding differs'; END IF;
  payload_:=ops.pdf_companion_field_bytes(p_build,p_build,field_.stream_id,true);
  IF field_.key='value' THEN
  IF profile_<>'{pdf_payload_profile}' THEN metadata_:=convert_from(payload_,'UTF8')::json; END IF;
+ ELSIF field_.key='endpoints' THEN
+ body_:=body_||jsonb_build_object(field_.key,convert_from(payload_,'UTF8')::jsonb);
  ELSE body_:=body_||jsonb_build_object(field_.key,to_jsonb(convert_from(payload_,'UTF8'))); END IF;
  END LOOP;
  IF p_family='native_metadata' AND (p_body->>'kind' NOT IN
@@ -577,7 +597,7 @@ AND local_id=p_local AND body=p_body AND ordinal=p_ordinal) THEN
  FOR field_ IN SELECT key,value#>>'{}' stream_id FROM jsonb_each(p_fields) LOOP
  INSERT INTO ops.pdf_stage_companion_field VALUES(p_build,p_build,p_family,p_local,field_.key,fie\
 ld_.stream_id,
- CASE WHEN field_.key='value' THEN 'y' ELSE 's' END) ON CONFLICT DO NOTHING;
+ CASE WHEN field_.key IN ('value','endpoints') THEN 'y' ELSE 's' END) ON CONFLICT DO NOTHING;
  IF NOT EXISTS(SELECT FROM ops.pdf_stage_companion_field WHERE product_id=p_build AND \
 family=p_family AND local_id=p_local
  AND field_name=field_.key AND stream_id=field_.stream_id) THEN RAISE EXCEPTION 'changed \
@@ -588,9 +608,10 @@ family=p_family AND local_id=p_local)
  <>(SELECT count(*) FROM jsonb_object_keys(p_fields)) THEN RAISE EXCEPTION 'changed companion \
 field inventory'; END IF;
  IF p_family='relation' THEN
- IF jsonb_typeof(p_body->'endpoints')<>'array' OR jsonb_array_length(p_body->'endpoints')=0 THEN
+ IF jsonb_typeof(body_->'endpoints') IS DISTINCT FROM 'array' OR
+ jsonb_array_length(body_->'endpoints')=0 THEN
  RAISE EXCEPTION 'relation lacks independent endpoints' USING ERRCODE='23514'; END IF;
- FOR endpoint_ IN SELECT value FROM jsonb_array_elements(p_body->'endpoints') LOOP
+ FOR endpoint_ IN SELECT value FROM jsonb_array_elements(body_->'endpoints') LOOP
  IF endpoint_ ? 'input_index' THEN
  SELECT body INTO STRICT input_ FROM ops.pdf_stage_companion WHERE product_id=p_build
  AND family='input' AND local_id=endpoint_->>'input_index';
@@ -1035,8 +1056,9 @@ BEGIN
  JOIN ops.pdf_artifact_stream a USING(product_id,revision_id,stream_id) WHERE
  f.product_id=p_build AND f.revision_id=p_build
  AND (c.body ? f.field_name OR a.encoding_profile IS DISTINCT FROM CASE WHEN
- f.field_name='value' THEN CASE WHEN c.body->>'kind'='{pdf_payload_family}' THEN
- '{pdf_payload_profile}' ELSE 'pdf-companion-json-field-v1' END ELSE 'pdf-record-scalar-v1:s'
+ f.field_name='value' AND c.body->>'kind'='{pdf_payload_family}' THEN '{pdf_payload_profile}'
+ WHEN f.field_name IN ('value','endpoints') THEN 'pdf-companion-json-field-v1'
+ ELSE 'pdf-record-scalar-v1:s'
  END))
  THEN RAISE EXCEPTION 'invalid final companion field'; END IF;
  IF EXISTS(SELECT FROM kb.pdf_record_native n WHERE n.product_id=p_build AND

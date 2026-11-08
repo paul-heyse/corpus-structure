@@ -1,0 +1,12 @@
+{
+  "version": "3",
+  "required_columns": [
+    "LEMMA",
+    "POS",
+    "TAG",
+    "MORPH",
+    "DEP",
+    "SENT_START"
+  ],
+  "definition_identifier_pattern": "(?:^|[ \t])definition ID[ \t]+(?:\"([A-Za-z][A-Za-z0-9._:-]{0,79})\"|“([A-Za-z][A-Za-z0-9._:-]{0,79})”)[ \t]+$"
+}

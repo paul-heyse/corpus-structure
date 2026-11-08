@@ -102,7 +102,8 @@ def test_source_without_authenticated_parent_binding_retains_no_artifact_identit
     assert not any(r["semantic_type"] == "structural.artifact" for r in output["contributions"])
 
 
-def test_selected_action_preserves_wholly_clipped_role_without_an_anchor():
+@pytest.mark.parametrize("predicate_version", ["4", "5"])
+def test_selected_action_preserves_wholly_clipped_role_without_an_anchor(predicate_version):
     from corpus_structure.ingest.annotations import AnnotationProfile
     from corpus_structure.methods.source_preparation import prepare_source
 
@@ -122,7 +123,7 @@ def test_selected_action_preserves_wholly_clipped_role_without_an_anchor():
         native_source_frame(view, ()),
         annotations=prepared.annotations,
         passages=(selected,),
-        predicate_version="4",
+        predicate_version=predicate_version,
     )
     (frame,) = [
         row["component"]
@@ -136,7 +137,8 @@ def test_selected_action_preserves_wholly_clipped_role_without_an_anchor():
     }
 
 
-def test_named_procedure_reference_binds_verb_to_caption_under_selected_version():
+@pytest.mark.parametrize("named_version", ("2", "3"))
+def test_named_procedure_reference_binds_verb_to_caption_under_selected_version(named_version):
     from corpus_structure.ingest.annotations import AnnotationProfile
     from corpus_structure.methods.source_preparation import prepare_source
 
@@ -176,7 +178,7 @@ def test_named_procedure_reference_binds_verb_to_caption_under_selected_version(
         ),
         predicate_version="4",
         witnessed_links_enabled=True,
-        named_link_version="2",
+        named_link_version=named_version,
     )
     rows = {row["contribution_id"]: row for row in output["contributions"]}
     (edge,) = [
@@ -568,3 +570,43 @@ def test_retained_predicate_publication_preserves_exact_hosts_and_refuses_swappe
     forged["contribution_id"] = contribution_identity(forged)
     with pytest.raises(ValueError, match="exact proposed predicate host"):
         bind(tuple(forged if row is first else row for row in rows))
+
+
+def test_named_coverage_counts_selected_blocks_once_and_does_not_assume_absence():
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.methods.source_preparation import prepare_source
+    from corpus_structure.methods.witnessed_source_links import match_named_source_links
+
+    view = complete_native_fields(
+        native_table_source(
+            (table_cell("1", 0, 0),), caption="Table 6.1", note="A value is reported."
+        )
+    )
+    items = {item["self_ref"]: dict(item, content_layer="body") for item in view.items}
+    product = prepare_source(view, profile=AnnotationProfile(), annotations_only=True)
+    passages = tuple(
+        StructuralPassage(
+            passage_id=f"p-{i}",
+            source_ref="fixture",
+            scope="chapter",
+            start=0,
+            end=len(view.text),
+            text=view.text,
+        )
+        for i in range(2)
+    )
+    arguments = (view.text, view.pieces, items, passages)
+    verified = match_named_source_links(*arguments, product.annotations, version="3")
+    assert (verified.inspected_count, verified.outcome()) == (1, "empty")
+    absent = match_named_source_links(*arguments, (), version="3")
+    assert (absent.inspected_count, absent.outcome()) == (0, "unsupported")
+    unselected = match_named_source_links(
+        view.text,
+        view.pieces,
+        items,
+        (),
+        (),
+        annotation_errors=("another block failed",),
+        version="3",
+    )
+    assert (unselected.inspected_count, unselected.outcome()) == (0, "empty")

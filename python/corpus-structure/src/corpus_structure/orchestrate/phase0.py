@@ -33,7 +33,7 @@ from corpus_structure.core.vocab import (
 from corpus_structure.ingest import methods as ingest_methods
 from corpus_structure.methods.artifact_identity import ArtifactIdentityMethod
 from corpus_structure.methods.clause_classification import ClauseClassificationMethod
-from corpus_structure.methods.contextual_candidates import ContextualCandidatesWithNeighborhood
+from corpus_structure.methods.contextual_candidates import ContextualCandidatesWithNamedBindings
 from corpus_structure.methods.definition_applicability import (
     DefinitionApplicabilityMethod,
     DefinitionComponentsMethod,
@@ -41,9 +41,9 @@ from corpus_structure.methods.definition_applicability import (
 from corpus_structure.methods.definition_terms import DefinitionTermsMethod
 from corpus_structure.methods.llm.agent_opus import AgentGeneral, AgentOpus
 from corpus_structure.methods.math import methods as math_methods
-from corpus_structure.methods.scoped_relations import ScopedRelationsMethod
+from corpus_structure.methods.scoped_relations import ScopedRelationsWithRoleClosure
 from corpus_structure.methods.structural_products import (
-    StructuralComparisonMethod,
+    StructuralComparisonWithRoleClosure,
     StructuralDossierMethod,
 )
 from corpus_structure.orchestrate.domain_methods import ConsolidateMethod, RulesMethod
@@ -106,15 +106,15 @@ METHODS: tuple[Any, ...] = (
     *math_methods.METHODS,
     AgentOpus(),
     AgentGeneral(),
-    StructuralComparisonMethod(),
+    StructuralComparisonWithRoleClosure(),
     StructuralDossierMethod(),
-    ScopedRelationsMethod(),
+    ScopedRelationsWithRoleClosure(),
     ArtifactIdentityMethod(),
     DefinitionComponentsMethod(),
     ClauseClassificationMethod(),
     DefinitionApplicabilityMethod(),
     DefinitionTermsMethod(),
-    ContextualCandidatesWithNeighborhood(),
+    ContextualCandidatesWithNamedBindings(),
     ConsolidateMethod(),
     RulesMethod(),
     EvaluateStub(),

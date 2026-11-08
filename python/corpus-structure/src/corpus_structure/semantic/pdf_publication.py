@@ -270,6 +270,17 @@ def adopt_pdf_companion_batch(
             and len(body["text"].encode("utf8")) > 32768
         ):
             payloads.append(("text", body.pop("text").encode("utf8"), "pdf-record-scalar-v1:s"))
+        if family == "relation" and len(canonical_bytes(body)) > 32768:
+            payloads.extend(
+                (
+                    (
+                        "endpoints",
+                        canonical_bytes(body.pop("endpoints")),
+                        "pdf-companion-json-field-v1",
+                    ),
+                    ("evidence", body.pop("evidence").encode("utf8"), "pdf-record-scalar-v1:s"),
+                )
+            )
         size = sum(len(payload) for _, payload, _ in payloads)
         if pending and (
             len(pending) >= COMPANION_BATCH_ROWS or byte_count + size > COMPANION_BATCH_BYTES

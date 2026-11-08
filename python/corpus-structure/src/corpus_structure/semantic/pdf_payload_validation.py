@@ -170,27 +170,33 @@ class FrozenPayloadStore:
         )
 
     def companion_value(self, row: Mapping[str, Any]) -> dict[str, Any]:
-        """Decode the declared occurrence text field without a JSONB body conversion."""
+        """Decode declared overflow fields from their frozen bytes."""
         from .pdf_records import _decode_scalar
 
         body = dict(row["body"])
-        if row["family"] != "occurrence":
+        if row["family"] == "occurrence":
+            expected = (("text", "s", "pdf-record-scalar-v1:s"),)
+        elif row["family"] == "relation":
+            expected = (
+                ("endpoints", "y", "pdf-companion-json-field-v1"),
+                ("evidence", "s", "pdf-record-scalar-v1:s"),
+            )
+        else:
             return body
-        key = json.dumps([row["family"], row["local_id"], "text"])
-        field = self.db.execute(
-            "SELECT body FROM entry WHERE family='companion_field' AND key=?", (key,)
-        ).fetchone()
-        if field is not None:
-            if "text" in body:
-                raise ValueError("occurrence text has both inline and byte-owned values")
-            field = json.loads(field[0])
+        for name, kind, profile in expected:
+            key = json.dumps([row["family"], row["local_id"], name])
+            raw = self.db.execute(
+                "SELECT body FROM entry WHERE family='companion_field' AND key=?", (key,)
+            ).fetchone()
+            if raw is None:
+                continue
+            if name in body:
+                raise ValueError(f"{row['family']} {name} has both inline and byte-owned values")
+            field = json.loads(raw[0])
             descriptor, payload = self.stream(field["stream_id"])
-            if (
-                field["scalar_kind"] != "s"
-                or descriptor["encoding_profile"] != "pdf-record-scalar-v1:s"
-            ):
-                raise ValueError("frozen occurrence text encoding differs")
-            body["text"] = _decode_scalar((payload,), descriptor["encoding_profile"])
+            if field["scalar_kind"] != kind or descriptor["encoding_profile"] != profile:
+                raise ValueError(f"frozen {row['family']} {name} encoding differs")
+            body[name] = json.loads(payload) if kind == "y" else _decode_scalar((payload,), profile)
         return body
 
     def _prepare(self, kind: str):
