@@ -8,6 +8,32 @@ reasoning, and implementation plans own scheduled work and closure evidence.
 
 <a id="baseline"></a>
 
+## Documentation publication refresh — 2026-11-08
+
+**Implemented source inspected.** This bounded refresh uses
+`248b05cd22c6faa90f03a5f0f4f53c05cfc0afb7`, core 3.3, the efficiency heuristics and the repository
+binding. It covers [publisher selection and link transport](../../../scripts/docs.py),
+[site policy](../../site.toml), the [Documentation workflow](../../../.github/workflows/docs.yml),
+[ADR-0071](../../adr/0071-github-pages-publication.md), and the [example route](../../examples/README.md).
+The inherited product and test accounts retain their own coverage and dates.
+
+Source inspection found distinct ownership for authored collections, retained
+receipts and derived search. The publisher selects authored evidence explicitly
+and sends omitted tracked files to the build revision on GitHub. The public
+examples expose the candidate decision and the witnessed declaration separately.
+The workflow gates deployment on the checked artifact and gives the build and
+deploy jobs different permissions. An ordinary failed build leaves the
+previous output available. A deploy polling failure can leave promotion
+uncertain, so recovery checks the live revision.
+
+The workflow serializes deploy jobs after independent builds. That does not
+establish source order for overlapping eligible runs. The inspected operator
+route now allows one release at a time and verifies its exact revision before
+the next. The formal [review cadence](../design_principles/binding/corpus-structure.md#reviews-in-this-repository)
+owns the target judgment for that workload. No product runtime, test
+architecture, hosted failure injection or overlap experiment was exercised in
+this diagnostic refresh.
+
 ## Current refresh — 2026-11-06
 
 The [assembled WCE account](witnessed-enrichment.md) refreshes changed production boundaries and
