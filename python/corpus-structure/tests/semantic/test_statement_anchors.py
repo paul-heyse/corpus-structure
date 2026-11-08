@@ -66,10 +66,13 @@ def test_recorded_local_handles_are_resolved_at_sealed_cut_without_mutation(
     )
     from pdf_acceptance_support import independent_pdf_address
 
+    from corpus_structure.semantic.source_views import selected_source_views
+
     with semantic_reader_engine.connect() as conn:
+        views = selected_source_views(conn, run)
+        assert len(views) == expected
         expected_locations = {
-            independent_pdf_address(conn, run, key, start=0, end=14)
-            for key in (("page#one", "page#two") if packets == "different" else ("page#one",))
+            independent_pdf_address(conn, run, view.key, start=0, end=14) for view in views
         }
     observations = table("kb.observation")
     with semantic_reader_engine.connect() as conn:

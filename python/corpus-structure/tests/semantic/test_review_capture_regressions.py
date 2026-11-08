@@ -1,5 +1,6 @@
 """Capture uses decoded source semantics, without analytical work or build-ID guesses."""
 
+from hashlib import sha256
 from unittest.mock import MagicMock
 
 import pytest
@@ -21,6 +22,7 @@ def test_source_coordinate_version_uses_decoded_kind_not_native_build_id(
     expected_version,
 ):
     source = source_row()
+    recipe = b'{"recipe":"native-section-text-v9"}'
     ref = SourceViewRef(
         id=1,
         key="known",
@@ -29,7 +31,7 @@ def test_source_coordinate_version_uses_decoded_kind_not_native_build_id(
         section_pointer="#/texts/0",
         membership="direct",
         projection_digest=source["ref"]["projection_digest"],
-        recipe_digest="b" * 64,
+        recipe_digest=sha256(recipe).hexdigest(),
         analysis_eligible=True,
     )
     view = PreparedSourceView(
@@ -51,6 +53,7 @@ def test_source_coordinate_version_uses_decoded_kind_not_native_build_id(
     monkeypatch.setattr(review_bundle, "load_source_view", load)
     conn = MagicMock(spec=Connection)
     conn.scalar.return_value = 77  # An irrelevant nonnull native_build_id must not decide the ABI.
+    conn.execute.return_value.one.return_value = ("release", "c" * 64, recipe)
     versions = {}
     captured = list(
         review_bundle._capture_sources(
@@ -69,4 +72,10 @@ def test_source_coordinate_version_uses_decoded_kind_not_native_build_id(
     assert [name for name, _ in captured] == ["sources"]
     assert captured[0][1]["source_view_id"] == 1
     conn.scalar.assert_not_called()
-    conn.execute.assert_not_called()
+    conn.execute.assert_called_once()
+    statement = conn.execute.call_args.args[0]
+    assert [column.name for column in statement.selected_columns] == [
+        "release_id",
+        "content_hash",
+        "content",
+    ]

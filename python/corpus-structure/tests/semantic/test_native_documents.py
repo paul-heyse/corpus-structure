@@ -1,5 +1,6 @@
 """Restricted PDF publication independent of HTML rendition custody."""
 
+from dataclasses import replace
 from decimal import Decimal
 from hashlib import sha256
 from importlib.resources import files
@@ -76,7 +77,6 @@ def test_pdf_original_and_native_product_need_no_rendition(
         import os
         from pathlib import Path
 
-        from corpus_structure.ingest.pdf_hierarchy import load_snapshot
         from corpus_structure.ingest.pdf_methods import _conversion_from_product
 
         repository = Path(__file__).resolve().parents[4]
@@ -102,7 +102,9 @@ def test_pdf_original_and_native_product_need_no_rendition(
         assert captured["artifact_digest"] == sha256(original).hexdigest()
         assert (captured["page_start"], captured["page_end"]) == (85, 85)
         conversion = _conversion_from_product(SimpleNamespace(values=lambda: captured), recipe)
-        doc = load_snapshot(conversion.native)
+        # Prepare the older capture for a new publication before freezing its identity.
+        doc = DoclingDocument.model_validate_json(conversion.native.payload)
+        conversion = replace(conversion, native=snapshot(doc))
     probe = next(item for item in doc.texts if item.text and item.prov)
     expected_text = probe.text
     expected_box = probe.prov[0].bbox
@@ -195,8 +197,6 @@ def test_pdf_original_and_native_product_need_no_rendition(
     digest = published.logical_digest
     # Optional application preparation can fail after exact native capture. Existing terminal
     # publication must retain that valid capture even when the task outcome is failed.
-    from dataclasses import replace
-
     from corpus_structure.core.method import UnitRef, UnitResult
     from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
     from corpus_structure.ingest.pdf_candidates import CandidatePage, InlineCandidate
