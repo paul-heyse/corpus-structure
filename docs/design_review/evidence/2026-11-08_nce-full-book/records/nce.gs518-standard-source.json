@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "id": "nce.gs518-standard-source",
+  "title": "Complete Standard full-book source and frozen opportunity inventory",
+  "group": "next-corpus-enrichment",
+  "package": "full-book",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the authenticated whole Grinstead–Snell book produce one organized native source with complete page and annotation coverage?",
+  "answers": [
+    "ADR-0070"
+  ],
+  "method": "Run the registered Standard producer with the original whole book and CPU in-page RapidOCR, then run M1 annotations on selected views. Interrupt the initial finalizer after diagnosing repeated native view loads in one sealed cut. Retry the exact sealed cut after reusing each view in the existing snapshot, and census native page membership, source projection and annotation status. Freeze a source-only sample before opening enrichment output.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-08_nce-full-book/intake.py build/nce-full-book --release release:87b19212e2391c5441a1638f68b784036db68cd79a1b8bccaa611310d13c4993",
+    "uv run ci run finalize 297 --output-realization nce-gs518-source-result:297 --json",
+    "uv run python docs/design_review/evidence/2026-11-08_nce-full-book/enrich.py 297 build/nce-full-book/baseline --release release:87b19212e2391c5441a1638f68b784036db68cd79a1b8bccaa611310d13c4993 --phase inventory"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/standard-finalize.json",
+      "role": "Completed Standard run and cut",
+      "sha256": "03a29f6634f60401bb60ca852a649fafe8911656eaacfac520e540fd323b748a"
+    },
+    {
+      "path": "raw/standard-inventory.json",
+      "role": "Exact physical page, source view and annotation inventory",
+      "sha256": "e6e64f3b52cc90c65beb568295bbbe251dea14ca6937e7c3379d4768bba5744f"
+    },
+    {
+      "path": "raw/standard-source-sample.json",
+      "role": "Frozen source-only opportunities",
+      "sha256": "9816c9724d4ef7da49d5ff0b17ba6b39b3279bafab1a79135fa01e9cdae7d689"
+    },
+    {
+      "path": "raw/standard-finalizer-interrupted-stack.txt",
+      "role": "Active stack of the interrupted first finalization",
+      "sha256": "2f8c5e3834f9bb5419da1392ee34ab66514a69f586fe907a8b1b97befa84bafe"
+    },
+    {
+      "path": "raw/standard-finalizer-interrupted-process.txt",
+      "role": "Elapsed time and resident memory near interruption",
+      "sha256": "94609c252c46f46d726b21a3235e68c460c164b0139b7c8d430b06e8d547db27"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Exact native pages",
+      "value": 518,
+      "of": 518,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "Pages with projected native content",
+      "value": 518,
+      "of": 518,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "Completed annotated source views",
+      "value": 29,
+      "of": null,
+      "unit": "views",
+      "note": null
+    },
+    {
+      "name": "Finalized source reports",
+      "value": 11280,
+      "of": null,
+      "unit": "reports",
+      "note": null
+    },
+    {
+      "name": "Source-only sampled opportunities",
+      "value": 78,
+      "of": null,
+      "unit": "occurrences",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Run 297/cut 413 completes the Standard source and freezes its source-only benchmark. Its 518 pages share one organized native product. Full-book enrichment, independent quality assessment and the selected combined source have separate acceptance boundaries.",
+  "consumed_by": [
+    "next-corpus-enrichment plan",
+    "full-book development baseline",
+    "NCE-09-A2"
+  ]
+}

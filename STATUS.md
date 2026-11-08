@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-07. The NCE development audit repairs have reached the native, application and detached paths. The owning plan records the remaining qualification. The full-book baseline is in progress. Live qualification and WCE12 remain open._
+_Updated 2026-11-08. The owning NCE plan records current development and remaining qualification. The full-book Standard source has finalized. Live qualification and WCE12 remain open._
 
 ## Current authority
 
@@ -54,7 +54,7 @@ _Updated 2026-11-07. The NCE development audit repairs have reached the native, 
   Protected fit 3 and its ordinary parameter and feature reads passed on fresh
   set 30 and evaluation 35. Repository checks and the eight native fault tests passed.
 - [Full-book intake](docs/plans/next-corpus-enrichment_2026-11-07.md#full-book-execution)
-  is running on development run 297. Managed Nemotron Parse 3.5 primary recognition
-  passed across all 518 pages. Combined publication and enrichment are in progress.
+  completed Standard run 297/cut 413 and Nemotron primary recognition across all
+  518 pages. Enrichment is running. Combined publication needs larger relation custody.
 - Settle the WCE source and factor obligations. Live CLI qualification needs a configured
   production target, purpose roles and effect authority.

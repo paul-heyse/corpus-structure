@@ -15,7 +15,6 @@ from sqlalchemy import text
 
 from corpus_structure.methods.artifact_identity import ArtifactIdentityMethod
 from corpus_structure.methods.definition_applicability import DefinitionComponentsMethod
-from corpus_structure.methods.gliner import GlinerProfile
 from corpus_structure.methods.scoped_relations import ScopedRelationsMethod
 from corpus_structure.schema.pack import DOMAINS
 from corpus_structure.semantic.query import read_snapshot
@@ -312,14 +311,13 @@ def main():
         groups = (
             (views,) if args.phase == "artifact" else batched(views, args.batch_size, strict=False)
         )
-        methods = yaml.safe_load((DOMAINS / "statistics/m1-methods.yaml").read_bytes())
-        definitions = methods["configs"]["extract.m1_candidates"]
-        profile = GlinerProfile.model_validate(
-            {
+        if args.phase == "model":
+            methods = yaml.safe_load((DOMAINS / "statistics/m1-methods.yaml").read_bytes())
+            definitions = methods["configs"]["extract.m1_candidates"]
+            profile = {
                 key: definitions["default"][key]
                 for key in ("snapshot", "checkpoint", "revision", "artifact_hashes", "threads")
             }
-        )
         for index, group in enumerate(groups):
             root = args.output / f"{args.phase}-{index:03}"
             inputs = structural_inputs(reader, args.source_run, group, root.name)
@@ -349,7 +347,7 @@ def main():
                 method = DefinitionComponentsMethod()
                 config = dict(
                     target_ids=[passage.passage_id for passage in inputs.passages],
-                    profile=profile.model_dump(mode="json"),
+                    profile=profile,
                     description_arm="bare",
                     evaluation_overlap="flat",
                     threshold=0.5,

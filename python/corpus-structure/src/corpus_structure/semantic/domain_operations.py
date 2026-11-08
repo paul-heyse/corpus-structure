@@ -869,38 +869,43 @@ def _cut_input(engine: Engine, cut_id: CutId, output: str) -> CutInput:
             )
         )
         source_rows = conn.execute(source_selection).mappings().all()
+        from .proposals import NativeProposalFrame
+        from .source_views import load_source_view
+
         d = table("kb.document")
         reports_by_id = {row["id"]: row for row in observations}
+        views = {}
+        source_uris = {}
         for source in source_rows:
-            from .proposals import NativeProposalFrame
-            from .source_views import load_source_view
-
             report = reports_by_id[source["id"]]
             frame = source_frames.get(report["task_id"])
-            if isinstance(frame, NativeProposalFrame) or source["source_view_id"] is not None:
-                view = load_source_view(
-                    conn,
-                    frame.source_view_id
-                    if isinstance(frame, NativeProposalFrame)
-                    else source["source_view_id"],
-                    analysis=False,
-                )
-                document = (
-                    conn.execute(select(d).where(d.c.id == view.ref.document_id)).mappings().one()
-                )
+            view_id = (
+                frame.source_view_id
+                if isinstance(frame, NativeProposalFrame)
+                else source["source_view_id"]
+            )
+            if view_id is not None:
+                if view_id not in views:
+                    views[view_id] = load_source_view(conn, view_id, analysis=False)
+                view = views[view_id]
+                document_id = view.ref.document_id
+                if document_id not in source_uris:
+                    source_uris[document_id] = conn.execute(
+                        select(d.c.source_uri).where(d.c.id == document_id)
+                    ).scalar_one()
+                source_uri = source_uris[document_id]
                 descriptors[source["id"]] = {
                     "rendition_id": None,
                     "source_view_id": view.ref.id,
-                    "source_uri": document["source_uri"],
+                    "source_uri": source_uri,
                     "text": view.text,
                     "provider": source["provider"],
                     "version": source["version"],
                     "rendition_key": view.ref.key,
                     "content": {"macros": {}},
-                    "page": document["source_uri"],
+                    "page": source_uri,
                     "math": source["params"].get("math"),
                     "frame": frame,
-                    "native_view": view,
                 }
             else:
                 descriptors[source["id"]] = None

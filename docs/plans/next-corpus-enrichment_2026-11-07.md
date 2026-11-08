@@ -488,12 +488,15 @@ The full-book run uses the current release first, with source-only selections
 frozen before examining enrichment outputs.
 
 The [full-book evidence route](../design_review/evidence/2026-11-08_nce-full-book/README.md)
-owns the run and page, view, producer and delivery receipts. Whole-book intake
-run 297 was launched on the dedicated development project with one native
-conversion task. The Standard arm uses CUDA for Docling layout and formula
+owns the run and page, view, producer and delivery receipts. Whole-book Standard
+intake run 297 completed at cut 413 with one organized native product, native
+regions and projected content across all 518 pages, and 29 annotated views. The
+Standard arm uses CUDA for Docling layout and formula
 inference and CPU for in-page RapidOCR. Managed Nemotron Parse 3.5 primary
 recognition independently passed all 518 pages, including 210 applicable crop
 requests, on 2026-11-07 local time. The combined arm reuses the organized Standard
-product and retains its own reconciliation. Scope expands through the same origin,
-including cross-chapter links. Independent comparison publication and same-lineage
-scorer eligibility retain their separate audit prerequisites.
+product and retains its own reconciliation. Combined run 299 admitted every
+recognition response and exposed an inline relation-size limit during publication.
+Scope expands through the same origin, including cross-chapter links. Independent
+comparison publication and same-lineage scorer eligibility retain their separate
+audit prerequisites.
