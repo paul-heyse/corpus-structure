@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-08. The 518-page incumbent comparator and its witnessed projection are verified in development. The full-book Chandra shadow is pending._
+_Updated 2026-11-08. The 518-page incumbent comparator and its witnessed projection are verified in development. The frozen full-book Chandra shadow is running._
 
 ## Current authority
 
@@ -12,10 +12,8 @@ _Updated 2026-11-08. The 518-page incumbent comparator and its witnessed project
 
 ## Delivered and assessed
 
-- Scoped dice composition, typed comparison, rooted dossier, seven matched table-policy
-  arms and artifact identity completed natively. The retired rootless membership function
-  is absent. Current Reader, CLI, MCP and detached evidence is linked from the
-  [repair account](docs/design_review/evidence/2026-11-06_wce-completion-repair/README.md).
+- Scoped dice composition, typed comparison, rooted dossier, seven matched table-policy arms and artifact identity completed natively.
+  The retired rootless membership function is absent. The [repair account](docs/design_review/evidence/2026-11-06_wce-completion-repair/README.md) links current Reader, CLI, MCP and detached evidence.
 - The original 97 GLiNER2.5 envelopes supplied the retained model evidence. Native run207
   withheld the unsupported formula X link while keeping its candidate list. The exact
   formula Z occurrence was recovered in NCE-02 and linked to its declaration in NCE-06.
@@ -56,5 +54,8 @@ _Updated 2026-11-08. The 518-page incumbent comparator and its witnessed project
   cues published. LLM review covers all 518 pages and retained definition and artifact outputs.
 - The [Chandra comparator follow-up](docs/plans/chandra-2-post-nemotron_2026-11-08.md#comparator-execution-fit-follow-up)
   owns `semantic_chandra_pdf_ancestry`, book run 377 at cut 492 and projection adoption 378 at cut 493.
-  The p416 Reader, source search and packet passed. The full-book shadow and operating-policy decision remain open.
+  The p416 Reader, source search and packet passed.
+- The [repaired shadow execution](docs/plans/chandra-2-post-nemotron_2026-11-08.md#repaired-comparator-shadow-execution) owns the running 535-request campaign.
+  Run 381 sealed cut 496 with its settled p416 inference. The 63 affected CI checks, retry fixture, types, live dispatch and explicit MCP packet passed.
+  Full comparison, adjudication and activation remain open.
 - Settle the WCE source and factor obligations. Live CLI qualification needs a configured production target, purpose roles and effect authority.

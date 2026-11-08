@@ -1,6 +1,6 @@
 # Automatic routing and qualification
 
-**Proposed target · 2026-11-08.** Companion to the [Chandra coordinator](../chandra-2-post-nemotron_2026-11-08.md).
+**Managed shadow implemented and running · 2026-11-08.** Companion to the [Chandra coordinator](../chandra-2-post-nemotron_2026-11-08.md).
 This work turns the operating-policy investigation in [CH-07](specialist-extensions-and-scale.md#CH-07)
 into a release-scoped routing and qualification package.
 
@@ -52,7 +52,7 @@ requests outside this slice until a protected region selector is needed and spec
 
 ### Managed execution and visibility
 
-Add the automatic route after ordinary publication. Use the existing managed run/task/attempt
+Run optional dispatch against an exact, committed producing source-ready cut. Use the existing managed run/task/attempt
 and shared PDF GPU lease. A bounded group can amortize model load. Each member keeps its own
 exact source, page or crop, frame, provider and decode identity, retained raw result, mapped
 pin and outcome. Preserve scope per task for a multi-selection run. The singleton CLI
@@ -81,6 +81,18 @@ or enabling automatic work.
 [Transformers batch and stop contract](https://github.com/docling-project/docling/blob/v2.148.0/docling/models/inference_engines/vlm/transformers_engine.py#L447-L643) ·
 [Shared GPU lease](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_capacity.py) ·
 [CH-02 custody and recovery](recognition-and-observation-custody.md#CH-02)
+
+The shadow entry point is `uv run ci source visual-dispatch` with the exact
+producing source pin, `--source-cut`, active writer release and realization,
+explicit `--mode selective|all-page`, pinned artifacts and a bounded physical
+page range. The command returns routing reasons separately from the managed
+group receipts. It uses the writer and runtime identity, recipe and ordered
+effective selections to recover an exact group. An interrupted overlapping
+request names the owning run for recovery. If an operator resolves a
+transient terminal failure, `--retry-failed` allows one exact successor
+and reuses any settled members. A cancelled run refuses retry. Default
+activation is governed separately from this entry point.
+[Exact development journey](../../design_review/evidence/2026-11-08_chandra-execution/book-shadow-execution.md)
 
 ### First qualification and operating decision
 

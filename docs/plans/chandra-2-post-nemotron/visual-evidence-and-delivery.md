@@ -1,6 +1,6 @@
 # Visual evidence and delivery
 
-**Development inspection verified, typed enrichment proposed · 2026-11-08.** Companion to the [Chandra coordinator](../chandra-2-post-nemotron_2026-11-08.md). Owns the initial operator and agent workflow for O01, O02, O08 and the comparison portion of O04.
+**Bounded typed delivery verified in development · 2026-11-08.** Companion to the [Chandra coordinator](../chandra-2-post-nemotron_2026-11-08.md). Owns the initial operator and agent workflow for O01, O02, O08 and the comparison portion of O04.
 
 <a id="CH-03"></a>
 ## CH-03 · Inspect an original region and its alternatives
@@ -24,8 +24,8 @@ Starting with a real CH-02 result, verify the same source-qualified evidence thr
 <a id="CH-09"></a>
 ## CH-09 · Deliver attributable structure through normal evidence access
 
-**Proposed implementation · 2026-11-08.** Extend the existing bounded visual evidence
-Reader and its CLI, MCP and evidence-packet adapters. A source-scoped manifest from
+**Tested · 2026-11-08.** The bounded visual evidence Reader and its CLI,
+MCP and evidence-packet adapters deliver exact grouped observations. A source-scoped manifest from
 CH-10 lets callers discover exact settled observations without guessing a latest result.
 Explicit CH-02 observations remain usable without that manifest. Filter by exact
 published source, observation, page or item, and supported kind before expanding children.
@@ -74,3 +74,11 @@ with exact image navigation. Reject wrong source and observation pins and out-of
 children. Keep estimates, Mermaid and generated text out of ordinary sections, search
 and claim handles. Check that a known unavailable or partial field remains distinct
 from an empty qualified result.
+
+
+The [repaired comparator journey](../../design_review/evidence/2026-11-08_chandra-execution/book-shadow-execution.md#post-publication-control)
+verified consecutive raw and mapped manifest pages and the exact MCP
+packet while the ordinary incumbent Reader stayed available. The
+[case assessment](../../design_review/evidence/2026-11-08_chandra-execution/repaired-comparator-witnesses.md)
+records when the p108 and p301 candidates support figure discovery and
+where generated descriptions or associations lack a source witness.

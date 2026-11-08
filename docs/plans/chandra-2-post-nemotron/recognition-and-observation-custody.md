@@ -1,6 +1,6 @@
 # Recognition and observation custody
 
-**Development path verified, recovery qualification open · 2026-11-08.** Companion to the [Chandra coordinator](../chandra-2-post-nemotron_2026-11-08.md). Owns O01's production boundary and O09's first local reference runtime.
+**Bounded development and managed recovery verified · 2026-11-08.** Companion to the [Chandra coordinator](../chandra-2-post-nemotron_2026-11-08.md). Owns O01's production boundary and O09's first local reference runtime.
 
 <a id="CH-02"></a>
 ## CH-02 · Make a source-bound visual observation
@@ -29,6 +29,9 @@ Treat processor evidence as a scoped prerequisite where a higher-detail recipe n
 
 Consume CH-01's qualified version and a real published source. Run a real bounded page and rotated crop. Check inverse coordinates against independently located source regions. Verify exact replay without model load, pinned-source mismatch and stale attempt refusal, reuse versus changed recipe, interruption and resume, valid blank, invalid boxes, malformed HTML, missing output, explicit length stop and unmarked repetition. Match the probe's raw and parsed standing separately. Demonstrate that an admitted observation is available to CH-03 and retains its raw evidence even if interpretation fails.
 
-The coordinator retains F01 and F03 as open. [CH-10](automatic-routing-and-qualification.md#CH-10)
-consumes the same fences and schedules the applicable recovery and handoff prerequisites
-before automatic runtime qualification.
+The [development receipts](../chandra-2-post-nemotron_2026-11-08.md#grouped-development-and-comparator-checkpoint--2026-11-08)
+cover F01 cross-release source-ready rendering, F03 interrupted same-run
+continuation and managed cancellation, and F04 GPU restoration. CH-10
+reuses these fences for the running shadow. Abrupt parent termination
+retains durable run and attempt custody. Its orphan child and GPU service
+recovery remain distinct from the tested managed cancellation path.

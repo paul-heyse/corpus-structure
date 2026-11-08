@@ -2,9 +2,9 @@
 
 **Status · 2026-11-08.** The protected 518-page incumbent comparator and its
 witnessed projection reached development cuts 492 and 493. The archive-overlay
-study and bounded CUDA handoff passed. Full-book shadow qualification remains
-open. This coordinator
-owns CH-01–11 and the combined Chandra target. It consumes the
+study and bounded CUDA handoff passed. The full-book shadow is running against
+the frozen repaired comparator. Explicit requests remain the operating policy.
+This coordinator owns CH-01–11 and the combined Chandra target. It consumes the
 [functional review](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md) first
 published at `252a476da` and the dated follow-up integrated with this revision.
 The follow-up assessed source at `10f67f9fb`. The PDF, CLI and corpus-enrichment plans
@@ -84,8 +84,8 @@ new consumer and runtime effect. Direct promotion is outside the activation prer
 
 ## Qualification and handoff
 
-The next work is CH-08 incumbent recovery, CH-09 typed delivery and a dry CH-10
-routing assessment. Apply the [target review cadence](../design_review/design_principles/binding/corpus-structure.md#reviews-in-this-repository)
+The [current shadow execution](#repaired-comparator-shadow-execution) owns
+the remaining CH-10 comparison and operating decision. Apply the [target review cadence](../design_review/design_principles/binding/corpus-structure.md#reviews-in-this-repository)
 before substantial contract changes and at the assembled stage. CH-08 through CH-10
 are designed within the current PDF authority. CH-11 needs confirmation of the specific
 change to selected-input authority and a recorded ADR before dependent scope proceeds.
@@ -157,18 +157,11 @@ product's authority.
 
 ### Remaining qualification
 
-- F01 retains the general cross-release render effect and a dedicated released Chandra
-  recognition operation. The evidence route supplies the exact submitted original pixels
-  under both pins.
-- F03 retains same-run recovery of an interrupted unpublished attempt. The retained
-  local files carry attempt provenance. Published raw replay and new-run exact reuse are
-  covered. Standalone Standard handoff with a resident Nemotron service passed in
-  run 376. Prompt interruption inside synchronous generation remains open.
-- F05's source-qualified p108 caption association and p416 readable formula reached
-  the ordinary Reader and affected projection in the comparator follow-up below.
-- Complete integrated functional and nonfunctional qualification remains open until
-  the required recovery and handoff paths settle. The existing repository types failure
-  remains recorded with its actual scope.
+The later [grouped development checkpoint](#grouped-development-and-comparator-checkpoint--2026-11-08)
+records the F01 archive render, F03 same-run recovery and cancellation, F04 Standalone
+handoff, and F05 incumbent repairs. Native Chandra selection remains refused under F02.
+The live replacement result and current complete-scope obligations are tracked in
+[the repaired shadow execution](#repaired-comparator-shadow-execution).
 
 ## Follow-up execution checkpoint · 2026-11-08
 
@@ -336,3 +329,62 @@ source search and proposal packet reproduced the exact p416 witness.
 Explicit requests remain the operating policy. Selective and all-page behavior
 await the shadow comparison. CH-11 remains conditional on a separately qualified
 Chandra-dependent selected change and authority decision.
+
+
+## Repaired comparator shadow execution
+
+**Tested · 2026-11-08.** CH-02, CH-03 and CH-09 have bounded development
+receipts for cross-release archive access, exact raw and mapped custody,
+same-run recovery, cancellation, typed Reader and figure discovery, and
+the CLI/MCP manifest and explicit packet. F06's upgrade and F04's
+independent Standard CUDA handoff retain their earlier qualification.
+Ordinary selected views, search and claim inputs remain separate from
+the typed visual evidence.
+
+- **CH-04–08.** The [repaired comparator witnesses](../design_review/evidence/2026-11-08_chandra-execution/repaired-comparator-witnesses.md)
+  record what the original, Standard, selected and Chandra representations
+  actually supply. The p108 shared caption, p151 C/S table and readable p416
+  original remain qualified incumbent repairs. The p398 whole page supplies
+  a correct incremental reading of all 20 Profit bindings. Exact Standard
+  also supplies those bindings and retains Z5 as `2`. p301 captions and p439
+  expressions have independent incumbent or source witnesses. Retain
+  attributed figure descriptions and readable formula alternatives. A
+  missing selected Profit column, p301 caption relationships and false
+  chart title, p439 expression and context fidelity, and p509 alignment
+  have separate source-derived correction boundaries. Matrix interpretation,
+  numeric chart and graph authority, native active-widget checks, molecular
+  connectivity and document navigation retain the scoped reopen conditions.
+- **CH-07 and CH-10.** The [repaired book execution](../design_review/evidence/2026-11-08_chandra-execution/book-shadow-execution.md)
+  records the 518-route freeze, 535 scoped requests, 41 held-out book pages
+  and exact mixed-cohort controls. Retain the serial Transformers BF16
+  reference. Two-image Docling batching changed both outputs and left stop
+  evidence unknown. Local vLLM returned equivalent bounded fields with
+  explicit stop and a shorter warmed two-request call, with substantial cold
+  initialization and changed raw outputs. A separately qualified live
+  custody and handoff recipe would be required for adoption.
+- **CH-10.** Release-scoped dispatch takes a committed producing
+  source-ready cut, evaluates one bounded page range and publishes candidate
+  evidence through independent managed runs. The p151 live crop, verified
+  blank skip and wrong-cut refusal settled. Same-key recovery reconstructs
+  exact settled custody. A pending overlap refuses with its owning run
+  even if group boundaries change. Native cancellation stops dispatch.
+  Repeating an explicit retry for a transient failed group reuses one
+  successor key. The full comparison and policy decision await the
+  remaining book observations and source adjudication.
+- **CH-11.** Keep direct promotion conditional. The source-verified
+  increments to date have independent source or incumbent routes, or
+  are useful through the attributed evidence consumers. A distinct
+  Chandra-dependent selected change still requires the witness and authority
+  decision in CH-11.
+
+The affected managed selection `c98eb9070c1c4faf9d49027205881478` passed 63
+nodes. The changed retry fixture passed in `121e5e278c404ea6961b3de8986dc2f3`
+after a typing correction. `uv run ci check --only types`, `uv run ci docs check`,
+and `just ready` passed. Targeted Ruff passed. Broad `uv run ci check --only lint`
+reports pre-existing diagnostics in the generated SQL strings in
+`pdf_publication_native.py` and the documentation resolver's loop callback.
+
+The complete functional/provider/repository qualification and any automatic
+release activation remain open until the frozen study and actual source
+review settle. No new native schema or incumbent publication was required
+for the dispatcher and restart-safe driver.

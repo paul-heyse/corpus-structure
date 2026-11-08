@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "id": "chandra.repaired-shadow-controls",
+  "title": "Repaired book shadow freeze and live managed controls",
+  "group": "chandra-execution",
+  "package": "CH-10",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can release-scoped Chandra work reuse the exact repaired book baseline, preserve custody under recovery and distinguish useful visual evidence from unsupported changes?",
+  "answers": [
+    "CH-02",
+    "CH-03",
+    "CH-04",
+    "CH-07",
+    "CH-08",
+    "CH-09",
+    "CH-10",
+    "F03"
+  ],
+  "method": "Freeze exact run 377 routing and independent witnesses, compare local reference execution against two bounded engine variants, and exercise exact source-ready dispatch and same-run recovery.",
+  "commands": [
+    "uv run ci source visual-dispatch 377 --producing-task 1627 --product integrated --native-digest 35f4384ea386e630448d804621c0767881650937c45cd4294182cb0dd91ce8fb --source-cut 492 --semantic-release release:1266ff1bc135e28bca2466e2e5e5f273438536d4c56d06c0a8eeec494662d269 --realization source:chandra-comparator-projected-book --mode selective --artifacts build/chandra-review/artifacts --first 151 --limit 1 --json",
+    "uv run ci run resume 381 --project nce-grinstead-snell-full-book --json",
+    "uv run python docs/design_review/evidence/2026-11-08_chandra-execution/group_shadow_compare.py build/chandra-execution/book-shadow-377/groups"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/book-shadow-377/manifest.json.gz",
+      "role": "Immutable compressed four-arm freeze and held-out scope",
+      "sha256": "26bd1a81d39b26c744ed151649a5cc21be04005d6f94caa24db3c64a9f0144a8"
+    },
+    {
+      "path": "raw/book-shadow-377/transformers-batch.json",
+      "role": "Matched Docling serial and batch timing, exact input and output digests and completion",
+      "sha256": "3e48eabf1408a3d0d8be0145729f6ca283c66ca034153bc9c133d70b293e4a84"
+    },
+    {
+      "path": "raw/book-shadow-377/vllm.json",
+      "role": "Separate exact same-raster local vLLM runtime control",
+      "sha256": "698157612b54969fe8134b86f78497f60e55255302e08ae29ef26600aa8f363c"
+    },
+    {
+      "path": "raw/book-shadow-377/dispatch-p151.json",
+      "role": "Managed live dispatch cut, scope and exact observation pins",
+      "sha256": "d526f977d5355ed558190b28e431a2a84b4454748a5204ff6f8802d027ef2773"
+    },
+    {
+      "path": "raw/book-shadow-377/dispatch-mcp.json",
+      "role": "Exact MCP Reader and packet result",
+      "sha256": "0793eed87e42cdfa0ba768f35b3bb557d236be8fb9b188560a0d1114342e93f3"
+    },
+    {
+      "path": "raw/book-shadow-377/resume-381.json",
+      "role": "Recovered managed run and cut with original raw pin",
+      "sha256": "11a778192d86eb8b3d9a6603268447e3f69cb42256b001b70f67755f5918fb44"
+    },
+    {
+      "path": "book-shadow-execution.md",
+      "role": "Measured execution boundaries and reproducible receipts",
+      "sha256": "8fef65ecf556c8cb8630a2b0744fb3c167fa04ce70b5e1193be06b8ef7815aca"
+    }
+  ],
+  "depends_on": [
+    "chandra.incumbent-comparator",
+    "chandra.grouped-recovery",
+    "chandra.mixed-cohort-shadow"
+  ],
+  "results": [
+    {
+      "name": "repeatable exact routing census",
+      "value": 518,
+      "of": 518,
+      "unit": "physical pages",
+      "note": null
+    },
+    {
+      "name": "frozen held-out source witnesses",
+      "value": 41,
+      "of": null,
+      "unit": "physical pages",
+      "note": "Across 16 strata. Source side was checked before comparing the matching Chandra output."
+    },
+    {
+      "name": "exact managed groups after recovery",
+      "value": 2,
+      "of": null,
+      "unit": "managed groups",
+      "note": "Runs 380 and 381 sealed cuts 495 and 496."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The repaired comparator was readable during optional work. The two-image Docling batch changed both raw results, and the local vLLM control has a separate runtime and startup profile. Retain serial acquisition. Managed dispatch and the exact Reader and packet settled. Run 381 recovered its settled response without another inference under its original executable. The p151 crop hallucination and source-witnessed useful readings preserve their separate standing. Complete book observation coverage, independent adjudication and operating policy are tracked in the coordinator.",
+  "consumed_by": [
+    "chandra-2-post-nemotron coordinator"
+  ]
+}
