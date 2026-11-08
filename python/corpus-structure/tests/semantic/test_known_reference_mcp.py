@@ -147,7 +147,6 @@ def test_native_known_reference_packet_mcp_and_finalizer(
         document_id=document,
         original=original,
         paragraphs=("Alice is here.",),
-        keys=("source.html#people",),
     )
     with e.begin() as conn:
         locator = view.ref.key

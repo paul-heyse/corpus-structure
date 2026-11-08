@@ -239,7 +239,6 @@ def test_known_input_exclusions_follow_participating_endpoints(
         document_id=old_view["document_id"],
         original=Path(document["original_path"]).read_bytes(),
         paragraphs=("Alice is here.",),
-        keys=("source.html#known-people",),
     )
     with semantic_writer_engine.begin() as conn:
         locator = view.ref.key

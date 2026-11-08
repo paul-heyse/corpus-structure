@@ -114,7 +114,6 @@ def imported_declaration_case(admin, writer, tmp_path):
         document_id=document,
         original=original,
         paragraphs=("Alice is here.",),
-        keys=("next#one",),
     )
     with writer.begin() as conn:
         (task,) = queue_agent(

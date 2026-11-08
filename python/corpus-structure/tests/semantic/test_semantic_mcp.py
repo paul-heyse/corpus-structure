@@ -140,7 +140,6 @@ classes:
         document_id=document,
         original=original,
         paragraphs=(text,),
-        keys=("source.html#detail",),
     )
     with engine.begin() as conn:
         locator = view.ref.key

@@ -222,7 +222,6 @@ def _run_source_view_dependency_case(admin, writer, directory, monkeypatch, *, r
                     document_id=document,
                     original=original,
                     paragraphs=paragraphs,
-                    keys=tuple(f"scheduler-view-{number}" for number in range(6)),
                     source_claim=next(iter(owner.active.values())),
                 )
             )

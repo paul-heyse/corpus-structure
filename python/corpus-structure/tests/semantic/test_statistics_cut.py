@@ -120,7 +120,6 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
         document_id=document,
         original=original,
         paragraphs=(source,),
-        keys=("Statistics#qualified",),
     )
     with semantic_writer_engine.begin() as conn:
         unit_locator = view.ref.key

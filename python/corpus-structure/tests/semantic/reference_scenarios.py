@@ -132,7 +132,6 @@ def publish_reference_case(
         document_id=document,
         original=original,
         paragraphs=paragraphs,
-        keys=tuple(f"reference.pdf#case-{i}" for i in range(len(cases))),
     )
     with writer.begin() as conn:
         tasks = queue_agent(
