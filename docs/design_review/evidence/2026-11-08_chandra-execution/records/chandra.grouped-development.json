@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "id": "chandra.grouped-development",
+  "title": "Managed Chandra group and typed consumer checks",
+  "group": "chandra-execution",
+  "package": "CH-10",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can one managed local Chandra worker publish two exact page observations with existing GPU and Reader custody?",
+  "answers": [
+    "CH-02",
+    "CH-09",
+    "CH-10",
+    "F03"
+  ],
+  "method": "Use the exact archived book, grouped BF16 CUDA inference with a resident Nemotron service, and bounded CLI and MCP reads. Exercise an interrupted group and exact reuse in a protected PostgreSQL test.",
+  "commands": [
+    "uv run ci source visual-group 309 --producing-task 1389 --product integrated --native-digest a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2 --semantic-release release:7a8352c383c2c6f07fb6d2ed10246466c60faf6db4d382f9cd61b29ed8dc0744 --realization source:chandra-grouped-book --artifacts build/chandra-review/artifacts --selections build/chandra-execution/group-live-selections.json --json",
+    "uv run python docs/design_review/evidence/2026-11-08_chandra-execution/group_mcp_control.py build/chandra-execution/group-live.json",
+    "uv run ci test failures c6975f1fad2f4484a6f66b075c86e390"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "group-development.json",
+      "role": "Exact deployment, live raw and mapped pins, CUDA identity, and consumer receipts",
+      "sha256": "5abc4a107c8e52442883ac24cc89edc531b401e591a33dce762062031661e7a0"
+    },
+    {
+      "path": "group_mcp_control.py",
+      "role": "MCP discovery, exact Reader, and packet check",
+      "sha256": "423c372bc7664784a3a0866edebb3d84fee4cb2d63882bf1913e73ef8e1cda41"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "settled live selections",
+      "value": 2,
+      "of": 2,
+      "unit": "physical pages",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Managed run 354 sealed cut 474 with separate page 506 and page 1 raw and mapped pins and restored resident Nemotron. The exact MCP manifest, Reader response, and packet agree. Controlled interruption and exact group reuse passed in the native test. Live same-run recovery and complete shadow comparison remain open.",
+  "consumed_by": [
+    "chandra-2-post-nemotron coordinator"
+  ]
+}

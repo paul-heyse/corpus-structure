@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import ExitStack, contextmanager
 from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
@@ -10,7 +11,7 @@ from time import monotonic
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import select
+from sqlalchemy import select, text, true
 
 from corpus_structure.core.method import UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
@@ -47,6 +48,8 @@ _CROP_POLICY = "qualified-pdf-region-enclosing-pixels-quarter-turn-v1"
 _MAX_REPLAY_BYTES = 8 * 1024 * 1024
 VISUAL_REQUEST_CUT = "visual-request-source"
 VISUAL_REQUEST_CODE_COMMIT = "chandra-visual-source-v1"
+VISUAL_GROUP_VERSION = "chandra-visual-group-v1"
+MAX_VISUAL_GROUP = 4
 
 
 class VisualSelection(BaseModel):
@@ -93,6 +96,25 @@ class VisualRequestResult(BaseModel):
     error: str | None = None
 
 
+class VisualGroupMember(VisualRequestResult):
+    selection: VisualSelection
+
+
+class VisualGroupResult(BaseModel):
+    run_id: int
+    cut_id: int | None = None
+    status: Literal["source_ready", "failed"]
+    source: VisualEvidencePin
+    members: tuple[VisualGroupMember, ...]
+
+
+def retained_visual_scope(options, selection):
+    if "visual_group" not in options:
+        return options.get("visual_request")
+    scope = VisualSelection.model_validate(selection).scope()
+    return scope if scope in options["visual_group"]["selections"] else None
+
+
 _METHOD = OperationDescriptor(
     "native.source_request",
     "5",
@@ -111,11 +133,10 @@ def _reference(pin: VisualEvidencePin) -> ProductReference:
     return ProductReference(pin.task_id, pin.product_key, pin.content_digest)
 
 
-def _load_selection(conn, selection: VisualSelection):
+def _load_visual_source(conn, pin: VisualEvidencePin):
     from .pdf_record_reader import published_record_reader
     from .pdf_storage import _record_product_identity
 
-    pin = selection.source
     runs, tasks = table("ops.run"), table("ops.task")
     source = conn.execute(
         select(runs.c.project_id, runs.c.release_id, tasks.c.unit_type, tasks.c.unit_id)
@@ -156,12 +177,21 @@ def _load_selection(conn, selection: VisualSelection):
     ).one_or_none()
     if row is None or _digest(original := bytes(row.content)) != digest:
         raise ValueError("visual request original differs from the published source")
+    return source.project_id, source.unit_id, original, reader
+
+
+def _selection_region(reader, selection):
     region = None
     if selection.pointer is not None and selection.region_index is not None:
         region = reader.region(selection.pointer, selection.region_index)
         if region["page_no"] != selection.page_no:
             raise ValueError("visual request crop belongs to another physical page")
-    return source.project_id, source.unit_id, original, region
+    return region
+
+
+def _load_selection(conn, selection: VisualSelection):
+    project, document, original, reader = _load_visual_source(conn, selection.source)
+    return project, document, original, _selection_region(reader, selection)
 
 
 def _open_observation(conn, pin: VisualEvidencePin, project_id: str, selection: VisualSelection):
@@ -170,13 +200,22 @@ def _open_observation(conn, pin: VisualEvidencePin, project_id: str, selection: 
         table, ("ops.pdf_product", "ops.pdf_product_body", "ops.task", "ops.run")
     )
     row = conn.execute(
-        select(products.c.release_id, products.c.artifact_digest, bodies.c.payload, runs.c.options)
+        select(
+            products.c.release_id,
+            products.c.artifact_digest,
+            bodies.c.payload,
+            runs.c.options,
+            table("ops.method_config").c.params["selection"].label("selection"),
+        )
         .join(
             bodies,
             (bodies.c.task_id == products.c.task_id)
             & (bodies.c.product_key == products.c.product_key),
         )
         .join(tasks, tasks.c.id == products.c.task_id)
+        .join(
+            table("ops.method_config"), table("ops.method_config").c.id == tasks.c.method_config_id
+        )
         .join(runs, runs.c.id == tasks.c.run_id)
         .where(
             products.c.task_id == pin.task_id,
@@ -190,7 +229,7 @@ def _open_observation(conn, pin: VisualEvidencePin, project_id: str, selection: 
     ).one_or_none()
     if row is None or _digest(payload := bytes(row.payload)) != pin.content_digest:
         raise ValueError("visual replay requires an exact retained raw observation")
-    origin = row.options.get("visual_request")
+    origin = retained_visual_scope(row.options, row.selection)
     if (
         not isinstance(origin, dict)
         or VisualSelection.model_validate(origin).scope() != selection.scope()
@@ -482,14 +521,16 @@ def _product(
     )
 
 
-def _start_task(conn, run_id, prepared, document_id, selection, step, recipe, holder):
+def _start_task(
+    conn, run_id, prepared, document_id, selection, step, recipe, holder, *, grouped=False
+):
     params = VisualRequestConfig(step=step, selection=selection, recipe_digest=_digest(recipe))
     values = params.model_dump(mode="json")
     configuration = _digest(canonical_bytes(values))
     config_id = record_method(conn, _METHOD, step, values, configuration, prepared=prepared)
     key = f"chandra-{step}:{params.recipe_digest}"
     tasks = table("ops.task")
-    retained = _visual_task(conn, run_id, step)
+    retained = _visual_task(conn, run_id, step, selection if grouped else None)
     if retained is None:
         task_id = create_task(
             conn,
@@ -522,8 +563,13 @@ def _start_task(conn, run_id, prepared, document_id, selection, step, recipe, ho
     return task_id, key, configuration, claims[0], None
 
 
-def _visual_task(conn, run_id, step):
-    tasks = table("ops.task")
+def _visual_task(conn, run_id, step, selection=None):
+    tasks, configs = map(table, ("ops.task", "ops.method_config"))
+    scope = (
+        configs.c.params["selection"] == selection.model_dump(mode="json")
+        if selection is not None
+        else true()
+    )
     return conn.execute(
         select(
             tasks.c.id,
@@ -531,7 +577,10 @@ def _visual_task(conn, run_id, step):
             tasks.c.unit_key,
             tasks.c.method_config_id,
             tasks.c.reused_task_id,
-        ).where(tasks.c.run_id == run_id, tasks.c.unit_key.startswith(f"chandra-{step}:"))
+            tasks.c.reason,
+        )
+        .join(configs, configs.c.id == tasks.c.method_config_id)
+        .where(tasks.c.run_id == run_id, tasks.c.unit_key.startswith(f"chandra-{step}:"), scope)
     ).one_or_none()
 
 
@@ -626,6 +675,76 @@ def _settle(
     return owner.settle(claim, complete)
 
 
+def _bind_visual_run(
+    conn, project_id, semantic_release, realization, *, recognize, options, resume_run_id
+):
+    from .runtime_bindings import require_installed_runtime
+
+    realizations = table("data.realization")
+    revision = conn.execute(
+        select(realizations.c.data_revision).where(
+            realizations.c.realization_id == realization,
+            realizations.c.project_id == project_id,
+            realizations.c.release_id == semantic_release,
+            realizations.c.state == "active",
+        )
+    ).scalar_one_or_none()
+    if revision is None:
+        raise ValueError(
+            "visual effect requires an active realization of the release in the source project"
+        )
+    prepared = open_release(conn, semantic_release)
+    context = pdf_context_for_release(conn, prepared)
+    context.execution.require_operation("publish_pdf_observation")
+    if recognize:
+        context.execution.require_operation("recognize_chandra_observation")
+    installed = require_installed_runtime(prepared)
+    if resume_run_id is None:
+        run_id = create_run(
+            conn,
+            project_id=project_id,
+            binding=OperationBinding(
+                semantic_release,
+                realization,
+                revision,
+                canonical_bytes({"visual_request": "chandra-observation-v1"}),
+            ),
+            kind="slice",
+            options=options,
+            code_commit=VISUAL_REQUEST_CODE_COMMIT,
+            prepared=prepared,
+            runtime_binding=installed,
+        )
+    else:
+        run_id = resume_run_id
+        retained = _visual_run(conn, run_id)
+        if (
+            retained is None
+            or retained.project_id != project_id
+            or retained.release_id != semantic_release
+            or retained.runtime_id != installed.runtime_id
+            or retained.input_realization_id != realization
+            or retained.input_revision != revision
+            or retained.options != options
+        ):
+            raise OperationConflict("visual resume differs from its retained run binding")
+    return run_id, prepared, context, installed
+
+
+def _activate_visual_run(engine, supervisor, run_id):
+    from corpus_structure.orchestrate.liveness import record_supervisor
+
+    runs = table("ops.run")
+    with engine.connect() as conn:
+        current = conn.execute(
+            select(runs.c.status, runs.c.sealed).where(runs.c.id == run_id)
+        ).one()
+    if current.sealed or current.status not in {"created", "running"}:
+        raise OperationConflict("visual request run is terminal")
+    record_supervisor(supervisor, run_id, waiting=False)
+    supervisor.commit()
+
+
 def request_visual_observation(
     engine: Engine,
     *,
@@ -640,12 +759,9 @@ def request_visual_observation(
     resume_run_id: int | None = None,
 ) -> VisualRequestResult:
     from corpus_structure.orchestrate.liveness import (
-        record_supervisor,
         run_supervisor,
         supervisor_connection,
     )
-
-    from .runtime_bindings import require_installed_runtime
 
     if not semantic_release or not realization:
         raise ValueError("visual request requires an explicit semantic release and realization")
@@ -654,105 +770,261 @@ def request_visual_observation(
     raw_body: dict[str, Any] | None = None
     pixels: bytes | None = None
     raw: bytes | None = None
-    with engine.begin() as conn:
-        project_id, document_id, original, region = _load_selection(conn, selection)
-        realizations = table("data.realization")
-        revision = conn.execute(
-            select(realizations.c.data_revision).where(
-                realizations.c.realization_id == realization,
-                realizations.c.project_id == project_id,
-                realizations.c.release_id == semantic_release,
-                realizations.c.state == "active",
-            )
-        ).scalar_one_or_none()
-        if revision is None:
-            raise ValueError(
-                "visual effect requires an active realization of the release in the source project"
-            )
-        prepared = open_release(conn, semantic_release)
-        context = pdf_context_for_release(conn, prepared)
-        context.execution.require_operation("publish_pdf_observation")
-        if artifacts is not None:
-            context.execution.require_operation("recognize_chandra_observation")
-        installed = require_installed_runtime(prepared)
-        if replay is not None:
-            raw_body, pixels, raw = _open_observation(conn, replay, project_id, selection)
-            if raw_body["artifact_digest"] != _digest(original):
-                raise ValueError("visual replay original differs from the selected PDF")
-        recovery = {
-            "artifacts": str(artifacts.resolve()) if artifacts is not None else None,
-            "replay": replay.model_dump(mode="json") if replay is not None else None,
-        }
-        options = {"visual_request": selection.scope(), "visual_recovery": recovery}
-        if resume_run_id is None:
-            run_id = create_run(
+    recovery = {
+        "artifacts": str(artifacts.resolve()) if artifacts is not None else None,
+        "replay": replay.model_dump(mode="json") if replay is not None else None,
+    }
+    options = {"visual_request": selection.scope(), "visual_recovery": recovery}
+    with (
+        supervisor_connection(engine) as supervisor,
+        _source_supervisor(supervisor, selection.source),
+    ):
+        with engine.begin() as conn:
+            project_id, document_id, original, region = _load_selection(conn, selection)
+            if replay is not None:
+                raw_body, pixels, raw = _open_observation(conn, replay, project_id, selection)
+                if raw_body["artifact_digest"] != _digest(original):
+                    raise ValueError("visual replay original differs from the selected PDF")
+            run_id, prepared, context, installed = _bind_visual_run(
                 conn,
-                project_id=project_id,
-                binding=OperationBinding(
-                    semantic_release,
-                    realization,
-                    revision,
-                    canonical_bytes({"visual_request": "chandra-observation-v1"}),
-                ),
-                kind="slice",
+                project_id,
+                semantic_release,
+                realization,
+                recognize=artifacts is not None,
                 options=options,
-                code_commit=VISUAL_REQUEST_CODE_COMMIT,
-                prepared=prepared,
-                runtime_binding=installed,
+                resume_run_id=resume_run_id,
             )
-        else:
-            run_id = resume_run_id
-            retained = _visual_run(conn, run_id)
-            if (
-                retained is None
-                or retained.project_id != project_id
-                or retained.release_id != semantic_release
-                or retained.runtime_id != installed.runtime_id
-                or retained.input_realization_id != realization
-                or retained.input_revision != revision
-                or retained.options != options
-            ):
-                raise OperationConflict("visual resume differs from its retained run binding")
+        with run_supervisor(supervisor, run_id):
+            _activate_visual_run(engine, supervisor, run_id)
+            if resume_run_id is not None and artifacts is not None:
+                with engine.connect() as conn:
+                    task = _visual_task(conn, run_id, "inference")
+                    if task is not None and task.status in {"done", "empty", "reused"}:
+                        replay = _task_product_pin(
+                            conn, task.reused_task_id or task.id, task.unit_key
+                        )
+                        raw_body, pixels, raw = _open_observation(
+                            conn, replay, project_id, selection
+                        )
+                        if raw_body["artifact_digest"] != _digest(original):
+                            raise OperationConflict("retained visual response original differs")
+                        artifacts = None
+            return _execute_visual_request(
+                engine,
+                run_id,
+                selection,
+                prepared,
+                installed,
+                context,
+                project_id,
+                document_id,
+                original,
+                region,
+                receipts,
+                artifacts,
+                replay,
+                nemotron_endpoint,
+                holder,
+                raw_body,
+                pixels,
+                raw,
+            )
 
-    with supervisor_connection(engine) as supervisor, run_supervisor(supervisor, run_id):
-        runs = table("ops.run")
-        with engine.connect() as conn:
-            current = conn.execute(
-                select(runs.c.status, runs.c.sealed).where(runs.c.id == run_id)
-            ).one()
-        if current.sealed or current.status not in {"created", "running"}:
-            raise OperationConflict("visual request run is terminal")
-        record_supervisor(supervisor, run_id, waiting=False)
-        supervisor.commit()
-        if resume_run_id is not None and artifacts is not None:
-            with engine.connect() as conn:
-                task = _visual_task(conn, run_id, "inference")
-                if task is not None and task.status in {"done", "empty", "reused"}:
-                    replay = _task_product_pin(conn, task.reused_task_id or task.id, task.unit_key)
-                    raw_body, pixels, raw = _open_observation(conn, replay, project_id, selection)
-                    if raw_body["artifact_digest"] != _digest(original):
-                        raise OperationConflict("retained visual response original differs")
-                    artifacts = None
-        return _execute_visual_request(
-            engine,
-            run_id,
-            selection,
-            prepared,
-            installed,
-            context,
-            project_id,
-            document_id,
-            original,
-            region,
-            receipts,
-            artifacts,
-            replay,
-            nemotron_endpoint,
-            holder,
-            raw_body,
-            pixels,
-            raw,
+
+@contextmanager
+def _source_supervisor(conn, source: VisualEvidencePin):
+    """Fence simultaneous acquisition of the same exact source's requests."""
+    lock_id = int.from_bytes(
+        sha256(b"chandra-source:" + canonical_bytes(source.model_dump(mode="json"))).digest()[:8],
+        signed=True,
+    )
+    if not conn.scalar(text("SELECT pg_try_advisory_lock(:key)"), {"key": lock_id}):
+        raise OperationConflict("the exact PDF source already has an active visual request")
+    try:
+        yield
+    finally:
+        try:
+            if not conn.invalidated:
+                conn.rollback()
+                conn.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": lock_id})
+        except Exception:
+            conn.invalidate()
+
+
+class _GroupInference:
+    def __init__(self, artifacts, endpoint, lifetime):
+        self.artifacts = artifacts
+        self.endpoint = endpoint
+        self.lifetime = lifetime
+        self._runtime = None
+        self._child = None
+        self._recognize = None
+
+    def runtime(self):
+        from corpus_structure.ingest.pdf_chandra import ChandraRuntime
+
+        if self._runtime is None:
+            self._runtime = ChandraRuntime(self.artifacts)
+        return self._runtime
+
+    def recognize(self, pixels, *, check_active, before_submit):
+        from corpus_structure.ingest.pdf_capacity import suspend_resident_nemotron
+        from corpus_structure.ingest.pdf_chandra import ChandraWorkerLost, supervised_chandra
+
+        if self._child is None:
+            self.lifetime.enter_context(
+                suspend_resident_nemotron(self.endpoint, check_active=check_active)
+            )
+            self._child = self.lifetime.enter_context(ExitStack())
+        if self._recognize is None:
+            self._recognize = self._child.enter_context(supervised_chandra(self.runtime()))
+        try:
+            return self._recognize(pixels, check_active=check_active, before_submit=before_submit)
+        except ChandraWorkerLost:
+            # Retain the failed member and let subsequent members use a fresh child.
+            self._recognize = None
+            self._child.close()
+            raise
+
+
+def request_visual_group(
+    engine: Engine,
+    *,
+    selections: tuple[VisualSelection, ...],
+    semantic_release: str,
+    realization: str,
+    receipts: Path,
+    artifacts: Path,
+    nemotron_endpoint: str | None = None,
+    holder: str = "visual-source-request",
+    resume_run_id: int | None = None,
+) -> VisualGroupResult:
+    """Run a finite source-scoped group through the normal task and publication fences."""
+    from corpus_structure.orchestrate.liveness import (
+        run_supervisor,
+        supervisor_connection,
+    )
+
+    if not 1 <= len(selections) <= MAX_VISUAL_GROUP:
+        raise ValueError(f"visual groups require 1 to {MAX_VISUAL_GROUP} selections")
+    source = selections[0].source
+    scopes = [selection.scope() for selection in selections]
+    if any(selection.source != source for selection in selections):
+        raise ValueError("visual group selections must share one exact published PDF")
+    if len({canonical_bytes(scope) for scope in scopes}) != len(scopes):
+        raise ValueError("visual group selections must be distinct")
+    selections = tuple(VisualSelection.model_validate(scope) for scope in scopes)
+    options = {
+        "visual_group": {"version": VISUAL_GROUP_VERSION, "selections": scopes},
+        "visual_recovery": {"artifacts": str(artifacts.resolve()), "replay": None},
+    }
+    with supervisor_connection(engine) as supervisor, _source_supervisor(supervisor, source):
+        with engine.begin() as conn:
+            project_id, document_id, original, reader = _load_visual_source(conn, source)
+            regions = tuple(_selection_region(reader, selection) for selection in selections)
+            run_id, prepared, context, installed = _bind_visual_run(
+                conn,
+                project_id,
+                semantic_release,
+                realization,
+                recognize=True,
+                options=options,
+                resume_run_id=resume_run_id,
+            )
+        with run_supervisor(supervisor, run_id):
+            _activate_visual_run(engine, supervisor, run_id)
+            members = []
+            with ExitStack() as lifetime:
+                group = _GroupInference(artifacts, nemotron_endpoint, lifetime)
+                for selection, region in zip(selections, regions, strict=True):
+                    with engine.connect() as conn:
+                        inference = _visual_task(conn, run_id, "inference", selection)
+                        mapping = _visual_task(conn, run_id, "mapping", selection)
+                        settled = _settled_group_member(conn, run_id, source, inference, mapping)
+                    if settled is None:
+                        settled = _execute_visual_request(
+                            engine,
+                            run_id,
+                            selection,
+                            prepared,
+                            installed,
+                            context,
+                            project_id,
+                            document_id,
+                            original,
+                            region,
+                            receipts,
+                            artifacts,
+                            None,
+                            nemotron_endpoint,
+                            holder,
+                            None,
+                            None,
+                            None,
+                            group=group,
+                        )
+                    members.append(VisualGroupMember(selection=selection, **settled.model_dump()))
+            with engine.begin() as conn:
+                failed = any(member.status == "failed" for member in members)
+                cut_id = None
+                if failed:
+                    end_source_run(
+                        conn,
+                        run_id,
+                        failure={"message": "one or more visual members failed"},
+                        prepared=prepared,
+                    )
+                else:
+                    cut_id = seal_cut(conn, run_id, VISUAL_REQUEST_CUT, final=True)
+            return VisualGroupResult(
+                run_id=run_id,
+                cut_id=cut_id,
+                source=source,
+                status="failed" if failed else "source_ready",
+                members=tuple(members),
+            )
+
+
+def _settled_group_member(conn, run_id, source, inference, mapping):
+    def pin(task):
+        if task is None:
+            return None
+        products = table("ops.pdf_product")
+        producer = task.reused_task_id or task.id
+        if not conn.scalar(
+            select(products.c.task_id).where(
+                products.c.task_id == producer, products.c.product_key == task.unit_key
+            )
+        ):
+            return None
+        return _task_product_pin(conn, producer, task.unit_key)
+
+    task = mapping or inference
+    if task is None:
+        return None
+    if task.status == "failed":
+        return VisualRequestResult(
+            run_id=run_id,
+            task_id=task.id,
+            source=source,
+            status="failed",
+            raw=pin(inference),
+            mapped=pin(mapping),
+            error=task.reason or "visual member failed",
         )
+    if mapping is not None and mapping.status in {"done", "empty", "reused"}:
+        raw, mapped = pin(inference), pin(mapping)
+        if raw is None or mapped is None:
+            raise OperationConflict("settled visual member lacks its exact product pins")
+        return VisualRequestResult(
+            run_id=run_id,
+            task_id=mapping.id,
+            source=source,
+            status="source_ready",
+            raw=raw,
+            mapped=mapped,
+        )
+    return None
 
 
 def _visual_run(conn, run_id: int):
@@ -767,7 +1039,11 @@ def _visual_run(conn, run_id: int):
             runs.c.options,
         ).where(runs.c.id == run_id, runs.c.code_commit == VISUAL_REQUEST_CODE_COMMIT)
     ).one_or_none()
-    return row if row is not None and "visual_request" in row.options else None
+    return (
+        row
+        if row is not None and ("visual_request" in row.options or "visual_group" in row.options)
+        else None
+    )
 
 
 def resume_visual_observation(
@@ -780,8 +1056,8 @@ def resume_visual_observation(
     prepare_only: bool,
     select_result: bool,
     activate_release: bool,
-) -> VisualRequestResult | None:
-    """Dispatch only runs owned by the explicit visual request operation."""
+) -> VisualRequestResult | VisualGroupResult | None:
+    """Dispatch only runs owned by the visual request operation."""
     with engine.connect() as conn:
         retained = _visual_run(conn, run_id)
     if retained is None:
@@ -793,6 +1069,21 @@ def resume_visual_observation(
     recovery = retained.options.get("visual_recovery")
     if recovery is None:
         raise OperationConflict("legacy visual run has no retained recovery binding")
+    if group := retained.options.get("visual_group"):
+        if group["version"] != VISUAL_GROUP_VERSION:
+            raise OperationConflict("unsupported retained visual group version")
+        return request_visual_group(
+            engine,
+            selections=tuple(
+                VisualSelection.model_validate(value) for value in group["selections"]
+            ),
+            semantic_release=retained.release_id,
+            realization=retained.input_realization_id,
+            receipts=receipts,
+            artifacts=Path(recovery["artifacts"]),
+            nemotron_endpoint=nemotron_endpoint,
+            resume_run_id=run_id,
+        )
     return request_visual_observation(
         engine,
         selection=VisualSelection.model_validate(retained.options["visual_request"]),
@@ -827,6 +1118,8 @@ def _execute_visual_request(
     raw_body,
     pixels,
     raw,
+    *,
+    group=None,
 ):
     from PIL import Image
 
@@ -854,7 +1147,7 @@ def _execute_visual_request(
             runtime = None
             transform = None
             try:
-                runtime = ChandraRuntime(artifacts)
+                runtime = ChandraRuntime(artifacts) if group is None else group.runtime()
                 pixels, transform = render_visual_input(
                     original, selection.page_no, region, selection.rotation or 0
                 )
@@ -872,7 +1165,15 @@ def _execute_visual_request(
             inference = canonical_bytes(recipe)
             with engine.begin() as conn:
                 task_id, key, configuration, claim, raw_pin = _start_task(
-                    conn, run_id, prepared, document_id, selection, "inference", inference, holder
+                    conn,
+                    run_id,
+                    prepared,
+                    document_id,
+                    selection,
+                    "inference",
+                    inference,
+                    holder,
+                    grouped=group is not None,
                 )
                 if raw_pin is not None:
                     raw_body, pixels, raw = _open_observation(conn, raw_pin, project_id, selection)
@@ -922,16 +1223,23 @@ def _execute_visual_request(
                         try:
                             with Image.open(BytesIO(pixels)) as image:
                                 image_size = image.size
-                            with (
-                                pdf_gpu_slot(check_active=active),
-                                suspend_resident_nemotron(nemotron_endpoint, check_active=active),
-                            ):
-                                prediction = recognize_supervised(
-                                    runtime,
-                                    pixels,
-                                    check_active=active,
-                                    before_submit=mark_submission,
+                            if group is not None:
+                                prediction = group.recognize(
+                                    pixels, check_active=active, before_submit=mark_submission
                                 )
+                            else:
+                                with (
+                                    pdf_gpu_slot(check_active=active),
+                                    suspend_resident_nemotron(
+                                        nemotron_endpoint, check_active=active
+                                    ),
+                                ):
+                                    prediction = recognize_supervised(
+                                        runtime,
+                                        pixels,
+                                        check_active=active,
+                                        before_submit=mark_submission,
+                                    )
                         except (KeyboardInterrupt, OperationConflict) as exc:
                             interruption = exc
                             error = "Chandra request interrupted"
@@ -1005,8 +1313,11 @@ def _execute_visual_request(
                             run_id=run_id, task_id=task_id, product_key=key, content_digest=digest
                         )
                 if error is not None:
-                    with engine.begin() as conn:
-                        end_source_run(conn, run_id, failure={"message": error}, prepared=prepared)
+                    if group is None:
+                        with engine.begin() as conn:
+                            end_source_run(
+                                conn, run_id, failure={"message": error}, prepared=prepared
+                            )
                     return VisualRequestResult(
                         run_id=run_id,
                         task_id=task_id,
@@ -1030,7 +1341,15 @@ def _execute_visual_request(
         )
         with engine.begin() as conn:
             task_id, key, configuration, claim, mapped_pin = _start_task(
-                conn, run_id, prepared, document_id, selection, "mapping", mapping, holder
+                conn,
+                run_id,
+                prepared,
+                document_id,
+                selection,
+                "mapping",
+                mapping,
+                holder,
+                grouped=group is not None,
             )
         error = None
         if claim is not None:
@@ -1103,12 +1422,13 @@ def _execute_visual_request(
                     mapped_pin = VisualEvidencePin(
                         run_id=run_id, task_id=task_id, product_key=key, content_digest=digest
                     )
-        with engine.begin() as conn:
-            cut_id = None
-            if error is None:
-                cut_id = seal_cut(conn, run_id, VISUAL_REQUEST_CUT, final=True)
-            else:
-                end_source_run(conn, run_id, failure={"message": error}, prepared=prepared)
+        cut_id = None
+        if group is None:
+            with engine.begin() as conn:
+                if error is None:
+                    cut_id = seal_cut(conn, run_id, VISUAL_REQUEST_CUT, final=True)
+                else:
+                    end_source_run(conn, run_id, failure={"message": error}, prepared=prepared)
         return VisualRequestResult(
             run_id=run_id,
             task_id=task_id,

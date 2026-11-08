@@ -377,3 +377,161 @@ def test_published_region_render_frame_artifact_replay_and_invalid_address(
     assert len(wire.model_dump_json(by_alias=True, exclude_none=True).encode()) <= 1024
     assert any("octet_length" in statement for statement in selected_sql)
     assert not any("SELECT kb.source_artifact.content" in statement for statement in selected_sql)
+
+    _check_sealed_archive_render(
+        semantic_db_engine,
+        semantic_writer_engine,
+        task.run_id,
+        view_id,
+        item.self_ref,
+        selection,
+        rendered,
+    )
+
+
+def _check_sealed_archive_render(
+    admin, writer, source_run_id, source_view_id, pointer, selection, rendered
+):
+    from corpus_structure.orchestrate.commands import bound_status, finalize_bound_run
+    from corpus_structure.schema.pack import DOMAINS
+    from corpus_structure.semantic._operation_calls import select_source_view
+    from corpus_structure.semantic._operation_ids import RunId, SourceViewId
+    from corpus_structure.semantic.domain_operations import DomainOperationRefused
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.native_requests import request_source_view
+    from corpus_structure.semantic.operations import (
+        OperationBinding,
+        claim_tasks,
+        create_run,
+        seal_cut,
+    )
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.regeneration import prepare_pack
+    from corpus_structure.semantic.releases import persist_release
+
+    bundle, dependencies, profile, _ = prepare_pack(DOMAINS / "statistics")
+    prepared = prepare_release(bundle, dependencies, profile)
+    realization = "region-render-writer"
+    with admin.begin() as conn:
+        persist_release(conn, bundle, dependencies, profile, prepared)
+        conn.execute(
+            text(
+                "INSERT INTO data.realization (realization_id,project_id,release_id) "
+                "VALUES (:realization,'p',:release)"
+            ),
+            dict(realization=realization, release=prepared.release_id),
+        )
+
+    def request(run_id):
+        return request_source_view(
+            writer,
+            source_run_id=run_id,
+            source_view_id=source_view_id,
+            demand="render",
+            code_commit="archive-render-test",
+            pointer=pointer,
+            region_index=0,
+            writer_release=prepared.release_id,
+            writer_realization=realization,
+        )
+
+    with pytest.raises(ValueError, match="requires a sealed source-ready cut"):
+        request(source_run_id)
+    with writer.begin() as conn:
+        source = conn.execute(
+            text("SELECT release_id,input_realization_id,input_revision FROM ops.run WHERE id=:id"),
+            dict(id=source_run_id),
+        ).one()
+        source_prepared = open_release(conn, source.release_id)
+        archive_run = create_run(
+            conn,
+            project_id="p",
+            binding=OperationBinding(
+                source.release_id, source.input_realization_id, source.input_revision, b"{}"
+            ),
+            kind="slice",
+            options={},
+            code_commit="archived-source-ready-control",
+            prepared=source_prepared,
+        )
+        select_source_view(
+            conn,
+            run_id=archive_run,
+            source_run_id=RunId(source_run_id),
+            source_view_id=SourceViewId(source_view_id),
+            projection_context=source_prepared,
+        )
+        provisional = seal_cut(conn, archive_run, "source-ready")
+        final = seal_cut(conn, archive_run, "archive-render-source", final=True)
+    result = request(archive_run)
+    assert result.artifact_digest == sha256(rendered).hexdigest()
+    assert request(archive_run).artifact_digest == result.artifact_digest
+    with pytest.raises(DomainOperationRefused, match="no evaluated realization"):
+        finalize_bound_run(writer, result.run_id, "unwanted-render-analysis")
+    with (
+        pytest.raises(DBAPIError, match="no evaluated realization"),
+        writer.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        conn.begin(),
+    ):
+        conn.execute(
+            text("SELECT data.begin_evaluation(:cut,'unwanted-native-analysis')"),
+            dict(cut=result.cut_id),
+        )
+    with writer.connect() as conn:
+        progress = bound_status(conn, result.run_id).run
+        assert progress is not None and progress.readiness == "source_ready"
+        task = conn.execute(
+            text(
+                "SELECT t.unit_type,t.unit_id,t.method_config_id,t.unit_key,t.input_hash,r.options "
+                "FROM ops.task t JOIN ops.run r ON r.id=t.run_id WHERE t.id=:task"
+            ),
+            dict(task=result.task_id),
+        ).one()
+        assert task.unit_type == "document"
+        assert not conn.scalar(
+            text("SELECT count(*) FROM ops.run_source_view WHERE run_id=:run"),
+            dict(run=result.run_id),
+        )
+    with (
+        pytest.raises(DBAPIError, match="outside the sealed archived source view"),
+        writer.begin() as conn,
+    ):
+        forged_run = create_run(
+            conn,
+            project_id="p",
+            binding=OperationBinding(
+                prepared.release_id,
+                realization,
+                0,
+                canonical_bytes(
+                    dict(native_render_source=archive_run, native_render_cut=provisional)
+                ),
+            ),
+            kind="slice",
+            options=task.options,
+            code_commit="archive-render-control",
+            prepared=prepared,
+        )
+        assert provisional != final
+        forged_task = create_task(
+            conn,
+            run_id=forged_run,
+            config_id=task.method_config_id,
+            stage="parsing",
+            unit_type=task.unit_type,
+            unit_id=task.unit_id,
+            unit_key=task.unit_key,
+            input_hash=task.input_hash,
+        )
+        claim = claim_tasks(
+            conn, run_id=forged_run, config_id=task.method_config_id, holder="forged-render"
+        )[0]
+        store_region_artifact(
+            conn,
+            task_id=forged_task,
+            attempt=claim.attempt,
+            holder="forged-render",
+            selection=selection,
+            recipe_bytes=b'{"recipe":"forged-render"}',
+            content=rendered,
+        )

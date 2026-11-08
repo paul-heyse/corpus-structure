@@ -6,6 +6,7 @@ import json
 import multiprocessing
 import os
 from collections.abc import Callable
+from contextlib import contextmanager, suppress
 from copy import deepcopy
 from dataclasses import dataclass
 from enum import StrEnum
@@ -213,7 +214,7 @@ class ChandraRuntime:
             model.engine.cleanup()
 
 
-def _chandra_child(connection: Connection, runtime: ChandraRuntime, pixels: bytes) -> None:
+def _chandra_child(connection: Connection, runtime: ChandraRuntime) -> None:
     from PIL import Image
 
     os.dup2(2, 1)
@@ -224,16 +225,96 @@ def _chandra_child(connection: Connection, runtime: ChandraRuntime, pixels: byte
             if connection.recv() is not True:
                 raise InterruptedError("Chandra submission was not acknowledged")
 
-        try:
-            with Image.open(BytesIO(pixels)) as image:
-                prediction = runtime.recognize(image, before_submit=submitted)
-        finally:
-            runtime.close()
-        connection.send(("prediction", prediction))
-    except Exception as error:
-        connection.send(("failed", str(error)[:1800] or type(error).__name__))
+        while (pixels := connection.recv()) is not None:
+            try:
+                with Image.open(BytesIO(pixels)) as image:
+                    prediction = runtime.recognize(image, before_submit=submitted)
+            except Exception as error:
+                connection.send(("failed", str(error)[:1800] or type(error).__name__))
+            else:
+                connection.send(("prediction", prediction))
+    except BrokenPipeError, EOFError:
+        pass
     finally:
-        connection.close()
+        try:
+            runtime.close()
+        finally:
+            connection.close()
+
+
+class ChandraWorkerLost(RuntimeError):
+    """The child transport failed before it could return a prediction."""
+
+
+@contextmanager
+def supervised_chandra(runtime: ChandraRuntime):
+    """Keep one model process for serial requests and drain it before releasing CUDA."""
+    context = multiprocessing.get_context("spawn")
+    parent, child = context.Pipe(duplex=True)
+    process = context.Process(
+        target=_chandra_child, args=(child, runtime), name="chandra-pdf", daemon=True
+    )
+    idle = True
+
+    def recognize(pixels, *, check_active, before_submit):
+        nonlocal idle
+        check_active()
+        idle = False
+        try:
+            parent.send(pixels)
+        except (OSError, EOFError) as exc:
+            raise ChandraWorkerLost("Chandra child stopped accepting frames") from exc
+        while True:
+            check_active()
+            if not parent.poll(0.2):
+                if process.is_alive():
+                    continue
+                raise ChandraWorkerLost(f"Chandra child exited with code {process.exitcode}")
+            try:
+                state, payload = parent.recv()
+            except (OSError, EOFError) as exc:
+                raise ChandraWorkerLost("Chandra child closed its response channel") from exc
+            if state == "submitted":
+                runtime.effective_device = payload
+                before_submit()
+                try:
+                    parent.send(True)
+                except (OSError, EOFError) as exc:
+                    raise ChandraWorkerLost("Chandra child stopped before submission") from exc
+            elif state == "prediction":
+                idle = True
+                return payload
+            elif state == "failed":
+                idle = True
+                raise RuntimeError(f"Chandra child failed: {payload}")
+            else:
+                raise ChandraWorkerLost(f"Chandra child returned an unknown message: {state}")
+
+    try:
+        process.start()
+        child.close()
+        yield recognize
+    finally:
+        try:
+            if process.pid is not None:
+                if idle and process.is_alive():
+                    with suppress(BrokenPipeError, EOFError, OSError):
+                        parent.send(None)
+                    process.join(timeout=2)
+                if process.is_alive():
+                    process.terminate()
+                    process.join(timeout=2)
+                if process.is_alive():
+                    process.kill()
+                    process.join(timeout=5)
+                if process.is_alive():
+                    raise RuntimeError(
+                        f"Chandra child {process.pid} did not exit after termination"
+                    )
+                process.close()
+        finally:
+            parent.close()
+            child.close()
 
 
 def recognize_supervised(
@@ -244,47 +325,9 @@ def recognize_supervised(
     before_submit: Callable[[], None],
 ) -> VlmPrediction:
     """Contain native inference and drain the child before the GPU lease can end."""
-    context = multiprocessing.get_context("spawn")
-    parent, child = context.Pipe(duplex=True)
-    process = context.Process(
-        target=_chandra_child, args=(child, runtime, pixels), name="chandra-pdf", daemon=True
-    )
-    result = None
-    try:
-        check_active()
-        process.start()
-        child.close()
-        while result is None:
-            check_active()
-            if not parent.poll(0.2):
-                if process.is_alive():
-                    continue
-                raise RuntimeError(f"Chandra child exited with code {process.exitcode}")
-            state, payload = parent.recv()
-            if state == "submitted":
-                runtime.effective_device = payload
-                before_submit()
-                parent.send(True)
-            elif state == "prediction":
-                result = payload
-            else:
-                raise RuntimeError(f"Chandra child failed: {payload}")
-        return result
-    finally:
-        parent.close()
-        child.close()
-        if process.pid is not None:
-            if result is not None:
-                process.join(timeout=2)
-            if process.is_alive():
-                process.terminate()
-                process.join(timeout=2)
-            if process.is_alive():
-                process.kill()
-                process.join(timeout=5)
-            if process.is_alive():
-                raise RuntimeError(f"Chandra child {process.pid} did not exit after termination")
-            process.close()
+    check_active()
+    with supervised_chandra(runtime) as recognize:
+        return recognize(pixels, check_active=check_active, before_submit=before_submit)
 
 
 class ChandraParseStatus(StrEnum):

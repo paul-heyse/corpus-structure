@@ -1,0 +1,176 @@
+{
+  "checked_on": "2026-11-08",
+  "native_revision": "semantic_chandra_grouped_fix",
+  "writer_release": "release:7a8352c383c2c6f07fb6d2ed10246466c60faf6db4d382f9cd61b29ed8dc0744",
+  "writer_realization": "source:chandra-grouped-book",
+  "migration": {
+    "preview": "fe510a0e3a8c4ed19700b7100be277cc",
+    "apply": "f775c82785904f03af16d03567fb9e2c",
+    "candidate": "d9da6b9fa15949928c4fb49e4e794782",
+    "registration": "c70064d9d5784c5f8c9db9d26fc32af9",
+    "deployment": "a56ac0b819b84bdfb700c048ffa3062c",
+    "outcome": "passed",
+    "prior_live_failure": {
+      "run_id": 353,
+      "sqlstate": "42702",
+      "cause": "Archive binding variable name matched a run column"
+    }
+  },
+  "source_ready_archive": {
+    "run_id": 318,
+    "cut_id": 433,
+    "source_view_id": 163,
+    "pointer": "#/texts/0",
+    "region_index": 0,
+    "producing_run_id": 297,
+    "product": {
+      "task_id": 1342,
+      "product_key": "organized",
+      "content_digest": "5686b3b70c1039a4d90dda05f6376868268998b8d0ea705c1db10755faffb561"
+    },
+    "cli": {
+      "command": "uv run --no-sync ci source native-request 318 163 render --pointer '#/texts/0' --region-index 0 --writer-release release:7a8352c383c2c6f07fb6d2ed10246466c60faf6db4d382f9cd61b29ed8dc0744 --writer-realization source:chandra-grouped-book --json",
+      "outcome": "passed",
+      "result": {
+        "run_id": 355,
+        "task_id": 1565,
+        "cut_id": 475,
+        "status": "source_ready",
+        "source_view_id": 163,
+        "product_digest": "072459d7a18aff48e1ae8983a3ca85ef52a122ac135fa951a0a1e8ad36ad34a9",
+        "artifact_digest": "92ae4a61292cc5f73a27d8dd3564cd49817ba1a84cec7edde4bd624ab9e00423",
+        "result": null,
+        "error": null
+      }
+    },
+    "mcp": {
+      "command": ".venv/bin/ci mcp serve --semantic-run 318",
+      "tool": "render_source_region",
+      "request": {
+        "run_id": 318,
+        "source_view_id": 163,
+        "pointer": "#/texts/0",
+        "region_index": 0,
+        "writer_release": "release:7a8352c383c2c6f07fb6d2ed10246466c60faf6db4d382f9cd61b29ed8dc0744",
+        "writer_realization": "source:chandra-grouped-book"
+      },
+      "outcome": "passed",
+      "result": {
+        "run_id": 360,
+        "task_id": 1569,
+        "cut_id": 478,
+        "source_view_id": 163,
+        "status": "source_ready",
+        "artifact_digest": "92ae4a61292cc5f73a27d8dd3564cd49817ba1a84cec7edde4bd624ab9e00423",
+        "inline_image": {
+          "disposition": "included",
+          "media_type": "image/png",
+          "artifact_bytes": 12118,
+          "max_bytes": 1048576
+        }
+      },
+      "inline_bytes_sha256_matches_cli": true,
+      "reused_cli_task": 1565
+    },
+    "status": {
+      "command": "uv run --no-sync ci run status 355 --json",
+      "outcome": "passed",
+      "result": {
+        "run_id": 355,
+        "status": "source_ready",
+        "readiness": "source_ready",
+        "cut_id": 475,
+        "cut_name": "native-request-source",
+        "supervisor": "waiting",
+        "output_realization_id": null
+      }
+    }
+  },
+  "completed_archive": {
+    "run_id": 312,
+    "cut_id": 431,
+    "source_view_id": 215,
+    "command": "uv run --no-sync ci source native-request 312 215 render --pointer '#/texts/2550' --region-index 0 --writer-release release:7a8352c383c2c6f07fb6d2ed10246466c60faf6db4d382f9cd61b29ed8dc0744 --writer-realization source:chandra-grouped-book --json",
+    "outcome": "passed",
+    "result": {
+      "run_id": 357,
+      "task_id": 1567,
+      "cut_id": 476,
+      "status": "source_ready",
+      "source_view_id": 215,
+      "product_digest": "fa4463e34af1c8625f274a663957853f5bc8338402525b515c0d3b804db4c902",
+      "artifact_digest": "ca453447f3033d9117041fbd12c560542707e3cce43c52bee83882fdb984d861",
+      "result": null,
+      "error": null
+    },
+    "png_matches_run": 347
+  },
+  "expected_refusals": {
+    "failed-source": {
+      "command": "uv run --no-sync ci source native-request 317 163 render --pointer '#/texts/0' --region-index 0 --writer-release release:7a8352c383c2c6f07fb6d2ed10246466c60faf6db4d382f9cd61b29ed8dc0744 --writer-realization source:chandra-grouped-book --json",
+      "outcome": "passed",
+      "exit_code": 1,
+      "reason": "cross-release rendering requires a sealed source-ready cut"
+    },
+    "wrong-view-pointer": {
+      "command": "uv run --no-sync ci source native-request 318 163 render --pointer '#/texts/2550' --region-index 0 --writer-release release:7a8352c383c2c6f07fb6d2ed10246466c60faf6db4d382f9cd61b29ed8dc0744 --writer-realization source:chandra-grouped-book --json",
+      "outcome": "passed",
+      "exit_code": 1,
+      "reason": "render pointer is outside the selected archived source view"
+    },
+    "wrong-region": {
+      "command": "uv run --no-sync ci source native-request 318 163 render --pointer '#/texts/0' --region-index 99 --writer-release release:7a8352c383c2c6f07fb6d2ed10246466c60faf6db4d382f9cd61b29ed8dc0744 --writer-realization source:chandra-grouped-book --json",
+      "outcome": "passed",
+      "exit_code": 1,
+      "reason": "published region is absent or ambiguous"
+    },
+    "wrong-project-writer": {
+      "command": "uv run --no-sync ci source native-request 318 163 render --pointer '#/texts/0' --region-index 0 --writer-release release:025470695c4426e048b2a4adb13abfd23e87aaad38e985c2499c62a900487658 --writer-realization source:chandra-standard-handoff --json",
+      "outcome": "passed",
+      "exit_code": 1,
+      "reason": "render writer must be an active realization of the source project"
+    },
+    "no-render-finalize": {
+      "command": "uv run --no-sync ci run finalize 355 --output-realization source:chandra-render-refusal-control --json",
+      "outcome": "passed",
+      "exit_code": 1,
+      "reason": "native render runs have no evaluated realization"
+    }
+  },
+  "managed_tests": {
+    "renderer": {
+      "command": "uv run --no-sync ci test --json -- tests/test_native_render_preparation.py tests/test_native_region_render.py",
+      "result_id": "4d0176ee8a0a4c9eaf20ef66362bb038",
+      "outcome": "passed",
+      "selected": 9
+    },
+    "native": {
+      "command": "uv run --no-sync ci test --json -- python/corpus-structure/tests/semantic/test_published_region_artifact.py",
+      "attempts": [
+        {
+          "result_id": "2f5cf5d51e654469b34d542db0532d35",
+          "outcome": "failed",
+          "observation": "Fixture still had open tasks at the archive final cut"
+        },
+        {
+          "result_id": "f4fbb86cca844c55bb674f951da99f45",
+          "outcome": "failed",
+          "observation": "Frozen predecessor still had SQLSTATE 42702 at native publication"
+        },
+        {
+          "result_id": "d987cc047c1f4947b359e615ad7ef618",
+          "outcome": "passed",
+          "observation": "Protected publication and exact reuse passed. Wrong cut and evaluation were refused"
+        }
+      ],
+      "final_retry_command": "uv run --no-sync ci test retry f4fbb86cca844c55bb674f951da99f45 --lane ordinary --json",
+      "coverage": {
+        "node_coverage": "covered",
+        "required": 1,
+        "unresolved": 0,
+        "attempts_include_failures": true,
+        "sources_differ": true
+      }
+    }
+  }
+}

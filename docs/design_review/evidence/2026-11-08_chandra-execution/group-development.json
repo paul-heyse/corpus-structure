@@ -1,0 +1,189 @@
+{
+  "initial_deployment": {
+    "result_id": "176a4e4dd8c746dd880c5b3332b156b3",
+    "stage": "deployed",
+    "revision": "89b083ed4152d787dff496120cc722f9a42d8bb7b262db4dfd47ffcdd86cdff1",
+    "changed": [],
+    "predecessor": "semantic_chandra_enrichment_v2",
+    "release": "release:7a8352c383c2c6f07fb6d2ed10246466c60faf6db4d382f9cd61b29ed8dc0744",
+    "target_profile": "development",
+    "acquired_target": {
+      "database": "corpus_structure_dev",
+      "database_oid": 25921445,
+      "system_identifier": "7701811359771751232",
+      "host": "/var/run/postgresql",
+      "port": 5434,
+      "purpose": "maintenance"
+    }
+  },
+  "forward_render_fix": {
+    "result_id": "a56ac0b819b84bdfb700c048ffa3062c",
+    "stage": "deployed",
+    "revision": "89b083ed4152d787dff496120cc722f9a42d8bb7b262db4dfd47ffcdd86cdff1",
+    "changed": [],
+    "predecessor": "semantic_chandra_grouped",
+    "release": "release:7a8352c383c2c6f07fb6d2ed10246466c60faf6db4d382f9cd61b29ed8dc0744",
+    "target_profile": "development",
+    "acquired_target": {
+      "database": "corpus_structure_dev",
+      "database_oid": 25921445,
+      "system_identifier": "7701811359771751232",
+      "host": "/var/run/postgresql",
+      "port": 5434,
+      "purpose": "maintenance"
+    }
+  },
+  "group": {
+    "run_id": 354,
+    "cut_id": 474,
+    "status": "source_ready",
+    "source": {
+      "run_id": 309,
+      "task_id": 1389,
+      "product_key": "integrated",
+      "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+    },
+    "members": [
+      {
+        "run_id": 354,
+        "task_id": 1562,
+        "cut_id": null,
+        "status": "source_ready",
+        "source": {
+          "run_id": 309,
+          "task_id": 1389,
+          "product_key": "integrated",
+          "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+        },
+        "raw": {
+          "run_id": 354,
+          "task_id": 1561,
+          "product_key": "chandra-inference:4d9667d344b516abcb4702b6eeb4addf01ab852360e192074eb3cc6b34bacbca",
+          "content_digest": "cdab56931398595582f3f189a93fb09ec390b59939fb2ed4394fd40e3d5d31ea"
+        },
+        "mapped": {
+          "run_id": 354,
+          "task_id": 1562,
+          "product_key": "chandra-mapping:645bc617ff6e79ba20ba65a78e59d573fb74871279b0696c865ddcd92a3b956a",
+          "content_digest": "85ccd6cc7730fdc4ac6b3defe4c17809258a040868473615886c1565d2a5e3c0"
+        },
+        "attempt_receipt": "build/recognition/chandra/run-354-task-1561-288eaec870e874069cb1d3bd9f7fb8799bd456ecc8c236ee709c783de9a8af84/attempt-1/receipt.json",
+        "error": null,
+        "selection": {
+          "source": {
+            "run_id": 309,
+            "task_id": 1389,
+            "product_key": "integrated",
+            "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+          },
+          "page_no": 506,
+          "pointer": null,
+          "region_index": null,
+          "rotation": null
+        }
+      },
+      {
+        "run_id": 354,
+        "task_id": 1564,
+        "cut_id": null,
+        "status": "source_ready",
+        "source": {
+          "run_id": 309,
+          "task_id": 1389,
+          "product_key": "integrated",
+          "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+        },
+        "raw": {
+          "run_id": 354,
+          "task_id": 1563,
+          "product_key": "chandra-inference:cc60f04e6d1ec366be0f45e498d3fe1980e36d299d51d11593b90baaa1a8c2b7",
+          "content_digest": "09f863b95b965ba546cd7a335cce6dc848b841accedbe33e4e39463edb1ac1b6"
+        },
+        "mapped": {
+          "run_id": 354,
+          "task_id": 1564,
+          "product_key": "chandra-mapping:a5f2c4cf8fe6b8cb272946febb839e5147c71b2f06ecbb60e820aa62054e5594",
+          "content_digest": "8e6996fc33cfe3efc5ba910a15816b4524c3440f407cd70550171edd51f4bceb"
+        },
+        "attempt_receipt": "build/recognition/chandra/run-354-task-1563-158ff8fe2113659acdc1a57e0df38c94d16c9a879206ce2cec857538ccf925dc/attempt-1/receipt.json",
+        "error": null,
+        "selection": {
+          "source": {
+            "run_id": 309,
+            "task_id": 1389,
+            "product_key": "integrated",
+            "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+          },
+          "page_no": 1,
+          "pointer": null,
+          "region_index": null,
+          "rotation": null
+        }
+      }
+    ]
+  },
+  "provider_devices": [
+    {
+      "task_id": 1561,
+      "provider": "datalab-chandra-2",
+      "effective_device": {
+        "compute_capability": [
+          12,
+          0
+        ],
+        "cuda": "13.2",
+        "device": "cuda:0",
+        "image_processor": "Qwen2VLImageProcessor",
+        "name": "NVIDIA GeForce RTX 5090",
+        "processor": "Qwen3VLProcessor",
+        "torch": "2.15.0+cu132"
+      },
+      "finish_reason": "unspecified"
+    },
+    {
+      "task_id": 1563,
+      "provider": "datalab-chandra-2",
+      "effective_device": {
+        "compute_capability": [
+          12,
+          0
+        ],
+        "cuda": "13.2",
+        "device": "cuda:0",
+        "image_processor": "Qwen2VLImageProcessor",
+        "name": "NVIDIA GeForce RTX 5090",
+        "processor": "Qwen3VLProcessor",
+        "torch": "2.15.0+cu132"
+      },
+      "finish_reason": "unspecified"
+    }
+  ],
+  "resident_nemotron": {
+    "awake_after": true,
+    "server_log": "build/chandra-execution/group-nemotron.stdout"
+  },
+  "typed_mcp": {
+    "source": {
+      "run_id": 309,
+      "task_id": 1389,
+      "product_key": "integrated",
+      "content_digest": "a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2"
+    },
+    "member": {
+      "run_id": 354,
+      "task_id": 1562,
+      "product_key": "chandra-mapping:645bc617ff6e79ba20ba65a78e59d573fb74871279b0696c865ddcd92a3b956a",
+      "content_digest": "85ccd6cc7730fdc4ac6b3defe4c17809258a040868473615886c1565d2a5e3c0"
+    },
+    "page": 506,
+    "packet_digest": "5ab5f25dfabcaf20efc3cf40c3ba7ce647ac676e151f0c6dd22471b22e5d412a",
+    "outcome": "source_ready",
+    "mapping_availability": "available"
+  },
+  "managed_test": {
+    "result_id": "c6975f1fad2f4484a6f66b075c86e390",
+    "grouped_recovery_node": "passed",
+    "enclosing_lane": "failed",
+    "open_failure_context": "native archive-render ambiguity and concurrent installed runtime changes"
+  }
+}

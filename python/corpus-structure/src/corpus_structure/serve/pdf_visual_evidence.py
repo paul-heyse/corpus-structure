@@ -284,15 +284,19 @@ class VisualEvidenceRead(_VisualModel):
 
 def _visual_dependents(request, project_id, source_release):
     """Resolve Chandra products only through their exact integrated structural input."""
-    from sqlalchemy import select
+    from sqlalchemy import func, select
 
     from corpus_structure.semantic.metadata import table
 
     products, tasks, runs = map(table, ("ops.pdf_product", "ops.task", "ops.run"))
     edges, bodies = map(table, ("ops.pdf_product_input", "ops.pdf_product_body"))
+    configs = table("ops.method_config")
     source = products.alias("visual_source_product")
     producer = tasks.alias("visual_source_task")
     observation = bodies.c.descriptor["observation"]
+    scope = func.coalesce(
+        runs.c.options["visual_request"], func.jsonb_strip_nulls(configs.c.params["selection"])
+    )
     statement = (
         select(
             products.c.release_id,
@@ -303,11 +307,12 @@ def _visual_dependents(request, project_id, source_release):
             bodies.c.recipe_digest,
             observation.label("observation"),
             bodies.c.descriptor["health"].label("observation_health"),
-            runs.c.options["visual_request"].label("visual_request"),
+            scope.label("visual_request"),
         )
         .select_from(products)
         .join(tasks, tasks.c.id == products.c.task_id)
         .join(runs, runs.c.id == tasks.c.run_id)
+        .join(configs, configs.c.id == tasks.c.method_config_id)
         .join(
             bodies,
             (bodies.c.task_id == products.c.task_id)
@@ -340,14 +345,14 @@ def _visual_dependents(request, project_id, source_release):
             producer.c.run_id == request.run_id,
         )
     )
-    return statement, products, tasks, runs, bodies
+    return statement, products, tasks, runs, bodies, scope
 
 
 def _qualified_observation(conn, request, evidence, project_id, source_release, budget):
     """Resolve an exact downstream structural edge before opening evidence custody."""
     from corpus_structure.semantic.pdf_storage import _budgeted_mappings
 
-    statement, products, _, runs, _ = _visual_dependents(request, project_id, source_release)
+    statement, products, _, runs, _, _ = _visual_dependents(request, project_id, source_release)
     rows = _budgeted_mappings(
         conn,
         statement.where(
@@ -390,7 +395,7 @@ def visual_observation_manifest(
     after_task: int,
     limit: int,
 ) -> VisualObservationManifest:
-    """List settled singleton observations and their exact raw/mapped dependencies."""
+    """List settled observations and their exact raw/mapped dependencies."""
     from sqlalchemy import or_, select
 
     from corpus_structure.semantic.metadata import table
@@ -428,7 +433,7 @@ def visual_observation_manifest(
     ):
         raise ValueError("visual observation manifest requires an exact published integrated PDF")
 
-    base, products, tasks, runs, bodies = _visual_dependents(
+    base, products, tasks, runs, bodies, scope = _visual_dependents(
         source, identity.project_id, identity.release_id
     )
     observation = bodies.c.descriptor["observation"]
@@ -443,12 +448,15 @@ def visual_observation_manifest(
         observation["pass_role"].astext.label("pass_role"),
         observation["outcome"].astext.label("execution_outcome"),
         observation["mapped_evidence_digest"].astext.label("mapped_digest"),
-        runs.c.options["visual_request"].label("scope"),
+        scope.label("scope"),
     ).where(
         tasks.c.id > after_task,
         tasks.c.finished_at.is_not(None),
         tasks.c.unit_key == products.c.product_key,
-        runs.c.options["visual_request"].is_not(None),
+        or_(
+            runs.c.options["visual_request"].is_not(None),
+            runs.c.options["visual_group"].is_not(None),
+        ),
         or_(
             products.c.product_key.startswith("chandra-inference:"),
             products.c.product_key.startswith("chandra-mapping:"),

@@ -425,19 +425,54 @@ GRANT EXECUTE ON FUNCTION ops.select_source_view(bigint,bigint,bigint) TO corpus
 CREATE OR REPLACE FUNCTION ops.publish_pdf_region_artifact(p_task bigint,p_attempt bigint,p_holder text,p_selection jsonb,p_recipe bytea,p_content bytea) RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $artifact$
 DECLARE job ops.task; run ops.run; product ops.pdf_selected_product; placement ops.pdf_published_revision; previous ops.native_region_artifact; digest text;
+ method_name text; method_version text; parameters jsonb; archive_binding jsonb;
 BEGIN
- SELECT * INTO STRICT job FROM ops.task WHERE id=p_task FOR UPDATE;
+ SELECT * INTO STRICT job FROM ops.task WHERE id=p_task;
  SELECT * INTO STRICT run FROM ops.run WHERE id=job.run_id FOR SHARE;
+ SELECT * INTO STRICT job FROM ops.task WHERE id=p_task FOR UPDATE;
  PERFORM sem.require_execution_operation(run.release_id,'publish_pdf_region_artifact');
  IF run.sealed OR job.status<>'running' OR job.attempt<>p_attempt OR job.claimed_by IS DISTINCT FROM p_holder THEN RAISE EXCEPTION 'region artifact attempt lost' USING ERRCODE='P0004'; END IF;
  SELECT * INTO STRICT product FROM ops.pdf_selected_product WHERE task_id=(p_selection->>'task_id')::bigint AND product_key=p_selection->>'product_key' AND content_digest=p_selection->>'content_digest';
  SELECT * INTO STRICT placement FROM ops.read_pdf_published_revision(product.task_id,product.product_key,product.content_digest);
  PERFORM sem.require_execution_operation(placement.release_id,'read_native_source');
- IF NOT EXISTS(SELECT FROM ops.source_build b JOIN kb.document d ON d.content_hash=b.artifact_digest WHERE b.task_id=product.task_id AND d.project_id=run.project_id AND
- ((job.unit_type='document' AND job.unit_id=d.id) OR (job.unit_type='source_view' AND EXISTS(SELECT FROM kb.source_view v JOIN ops.run_source_view rs ON rs.source_view_id=v.id WHERE rs.run_id=run.id AND v.id=job.unit_id AND v.document_id=d.id
+ SELECT m.name,m.version,c.params INTO STRICT method_name,method_version,parameters
+ FROM ops.method_config c JOIN ops.method m ON m.id=c.method_id WHERE c.id=job.method_config_id;
+ IF method_name='native.source_request' AND method_version='6' THEN
+  archive_binding:=convert_from(run.dependencies,'UTF8')::jsonb;
+  IF job.unit_type<>'document' OR parameters IS DISTINCT FROM run.options->'native_request'
+   OR parameters->>'demand' IS DISTINCT FROM 'render'
+   OR parameters->'native_product' IS DISTINCT FROM (p_selection-ARRAY['pointer','region_index'])
+   OR parameters->'pointer' IS DISTINCT FROM p_selection->'pointer'
+   OR parameters->'region_index' IS DISTINCT FROM p_selection->'region_index' THEN
+   RAISE EXCEPTION 'render artifact differs from the archived render task' USING ERRCODE='23514'; END IF;
+  PERFORM FROM ops.run origin
+  JOIN ops.input_cut cut ON cut.run_id=origin.id AND cut.release_id=origin.release_id AND cut.source_revision=origin.input_revision
+  JOIN ops.run_source_view member ON member.run_id=origin.id
+  JOIN kb.source_view view ON view.id=member.source_view_id
+  JOIN kb.document document ON document.id=view.document_id AND document.project_id=origin.project_id
+  JOIN ops.source_build build ON build.task_id=product.task_id AND build.artifact_digest=document.content_hash
+  JOIN data.realization writer ON writer.realization_id=run.input_realization_id AND writer.release_id=run.release_id AND writer.project_id=run.project_id
+  WHERE origin.id=(archive_binding->>'native_render_source')::bigint AND cut.id=(archive_binding->>'native_render_cut')::bigint
+   AND origin.project_id=run.project_id AND origin.release_id<>run.release_id
+   AND origin.sealed AND origin.status='consolidating' AND cut.final AND writer.state='active'
+   AND view.id=(parameters->>'source_view_id')::bigint AND view.document_id=job.unit_id
+   AND view.native_task_id=product.task_id AND view.native_product_key=product.product_key AND view.native_content_digest=product.content_digest
+   AND view.native_build_id=placement.build_id AND view.native_revision_id=placement.build_id
+   AND document.content_hash=placement.source_digest
+   AND view.projection_digest=parameters->>'projection_digest' AND view.recipe_digest=parameters->>'recipe_digest'
+   AND view.projection->'items' ? (p_selection->>'pointer')
+   AND EXISTS(SELECT FROM ops.input_cut ready WHERE ready.run_id=origin.id AND ready.release_id=origin.release_id
+              AND ready.source_revision=cut.source_revision AND ready.name='source-ready')
+   AND NOT EXISTS(SELECT FROM ops.run_source_view newer WHERE newer.run_id=origin.id AND newer.supersedes_source_view_id=view.id)
+  FOR SHARE OF origin,writer;
+  IF NOT FOUND THEN
+   RAISE EXCEPTION 'render artifact is outside the sealed archived source view' USING ERRCODE='23514'; END IF;
+ ELSIF NOT EXISTS(SELECT FROM ops.source_build b JOIN kb.document d ON d.content_hash=b.artifact_digest WHERE b.task_id=product.task_id AND d.project_id=run.project_id AND
+ ((job.unit_type='document' AND job.unit_id=d.id AND placement.release_id=run.release_id) OR (job.unit_type='source_view' AND EXISTS(SELECT FROM kb.source_view v JOIN ops.run_source_view rs ON rs.source_view_id=v.id WHERE rs.run_id=run.id AND v.id=job.unit_id AND v.document_id=d.id
  AND v.native_task_id=product.task_id AND v.native_product_key=product.product_key
- AND v.native_content_digest=product.content_digest))))
- OR NOT EXISTS(SELECT FROM kb.pdf_record_region WHERE product_id=placement.build_id AND revision_id=placement.build_id AND pointer=p_selection->>'pointer' AND region_index=(p_selection->>'region_index')::bigint) THEN
+ AND v.native_content_digest=product.content_digest)))) THEN
+ RAISE EXCEPTION 'render artifact is outside selected native original/region' USING ERRCODE='23514'; END IF;
+ IF NOT EXISTS(SELECT FROM kb.pdf_record_region WHERE product_id=placement.build_id AND revision_id=placement.build_id AND pointer=p_selection->>'pointer' AND region_index=(p_selection->>'region_index')::bigint) THEN
  RAISE EXCEPTION 'render artifact is outside selected native original/region' USING ERRCODE='23514'; END IF;
  digest:=encode(sha256(p_content),'hex');
  SELECT * INTO previous FROM ops.native_region_artifact WHERE task_id=p_task;

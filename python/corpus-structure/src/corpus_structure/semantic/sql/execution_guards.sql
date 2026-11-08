@@ -81,6 +81,11 @@ BEGIN
  END IF;
  IF NEW.runtime_id IS DISTINCT FROM OLD.runtime_id THEN
   RAISE EXCEPTION 'run runtime binding is immutable' USING ERRCODE='23514'; END IF;
+ IF NEW.result_realization_id IS NOT NULL AND OLD.options->'native_request'->>'demand'='render' THEN
+  RAISE EXCEPTION 'native render runs have no evaluated realization' USING ERRCODE='23514'; END IF;
+ IF NEW.result_realization_id IS NOT NULL AND OLD.code_commit='chandra-visual-source-v1'
+   AND OLD.options ?| ARRAY['visual_request','visual_group'] THEN
+  RAISE EXCEPTION 'visual evidence runs have no evaluated realization' USING ERRCODE='23514'; END IF;
  prior:=OLD.status || CASE WHEN OLD.status IN ('failed','cancelled') THEN CASE WHEN OLD.sealed THEN '_sealed' ELSE '_open' END ELSE '' END;
  result:=NEW.status || CASE WHEN NEW.status IN ('failed','cancelled') THEN CASE WHEN NEW.sealed THEN '_sealed' ELSE '_open' END ELSE '' END;
  IF prior<>result THEN

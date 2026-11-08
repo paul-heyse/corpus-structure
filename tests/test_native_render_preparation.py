@@ -157,3 +157,103 @@ def test_render_request_prepares_only_retained_view_and_renderer(renderer_archiv
     context = json.loads(config["ancestor_context"])
     assert context["declarations"] == [] and context["source_views"] == []
     assert context["observations"] == []
+
+
+@pytest.mark.parametrize(
+    ("status", "sealed", "cut", "member", "error"),
+    [
+        ("created", False, None, None, "requires a sealed source-ready cut"),
+        ("failed", True, None, None, "requires a sealed source-ready cut"),
+        ("consolidating", True, 11, None, "outside the selected archived source view"),
+        ("consolidating", True, 11, 31, None),
+    ],
+)
+def test_cross_release_render_binds_only_the_sealed_archive(
+    renderer_archive, monkeypatch, status, sealed, cut, member, error
+):
+    from corpus_structure.semantic import _operation_calls, pdf_record_reader
+    from corpus_structure.semantic.runtime_bindings import prepare_runtime_binding
+
+    prepared, libraries = renderer_archive
+    archive_release = "release:archive"
+    conn = renderer_connection(libraries)
+    conn.execute.return_value.mappings.return_value.one.return_value = dict(
+        release_id=archive_release,
+        project_id="project",
+        status=status,
+        sealed=sealed,
+        input_revision=2,
+    )
+    conn.execute.return_value.scalar_one_or_none.side_effect = (31, 0)
+    conn.execute.return_value.scalar_one.return_value = None
+    conn.scalar.side_effect = (cut, member)
+    engine = MagicMock(spec=Engine)
+    engine.begin.return_value.__enter__.return_value = conn
+    engine.connect.return_value.__enter__.return_value = conn
+    ref = SourceViewRef(
+        31,
+        "native-section",
+        5,
+        ProductReference(23, "organized", "a" * 64),
+        "#/groups/0",
+        "direct",
+        "b" * 64,
+        "c" * 64,
+    )
+    archived_reader = MagicMock()
+    monkeypatch.setattr(
+        pdf_record_reader, "published_record_reader", MagicMock(return_value=archived_reader)
+    )
+    monkeypatch.setattr(native_requests, "selected_source_views", lambda *a, **k: (ref,))
+    monkeypatch.setattr(releases, "open_release", lambda *args: prepared)
+    monkeypatch.setattr(
+        native_requests, "binding_of", lambda *a: OperationBinding(archive_release, "z", 2, b"{}")
+    )
+    select = MagicMock()
+    monkeypatch.setattr(_operation_calls, "select_source_view", select)
+    load = MagicMock()
+    monkeypatch.setattr(native_requests, "load_source_view", load)
+    create = MagicMock(return_value=41)
+    monkeypatch.setattr(native_requests, "create_run", create)
+    schedule = MagicMock(return_value=42)
+    monkeypatch.setattr(native_requests, "create_task", schedule)
+    monkeypatch.setattr(native_requests, "record_method", MagicMock(return_value=43))
+    renderer = prepare_runtime_binding(prepared)
+    monkeypatch.setattr(
+        "corpus_structure.semantic.runtime_bindings.require_installed_runtime",
+        lambda *args: renderer,
+    )
+    boundary = MagicMock()
+    monkeypatch.setattr(
+        pdf_contracts, "pdf_context_for_release", lambda *args: SimpleNamespace(boundary=boundary)
+    )
+
+    class Scheduled(Exception):
+        pass
+
+    monkeypatch.setattr(native_requests, "claim_tasks", MagicMock(side_effect=Scheduled))
+    refusal = pytest.raises(ValueError, match=error) if error else pytest.raises(Scheduled)
+    with refusal:
+        native_requests.request_source_view(
+            engine,
+            source_run_id=17,
+            source_view_id=31,
+            demand="render",
+            pointer="#/texts/0",
+            region_index=0,
+            code_commit="render-control",
+            writer_release=prepared.release_id,
+            writer_realization="writer",
+        )
+    select.assert_not_called()
+    load.assert_not_called()
+    if error:
+        schedule.assert_not_called()
+        return
+    archived_reader.region.assert_called_once_with("#/texts/0", 0)
+    assert json.loads(create.call_args.kwargs["binding"].dependencies) == {
+        "native_render_source": 17,
+        "native_render_cut": 11,
+    }
+    assert schedule.call_args.kwargs["unit_type"] == "document"
+    assert schedule.call_args.kwargs["unit_id"] == ref.document_id

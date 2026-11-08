@@ -27,6 +27,7 @@ from corpus_structure.semantic.proposals import ProposalIssue, ProposalRefused
 from corpus_structure.semantic.refusals import located_failure_context, tool_refusals
 from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.serve.native_source import NativeSourceRequest, NativeSourceResponse
+from corpus_structure.serve.pdf_visual_evidence import VisualEvidencePin
 from corpus_structure.serve.source_search import SourceSearchRequest, SourceSearchResponse
 from corpus_structure.settings import Settings
 
@@ -696,6 +697,25 @@ def build_semantic_server(
         with source_snapshot(ctx, request.run_id) as conn:
             response = inspect_native_source(conn, request)
         return _bounded_mcp_result(response, request.max_bytes)
+
+    @server.tool(annotations={"readOnlyHint": True})
+    @tool_refusals(ProposalRefused, OperationConflict, ValueError)
+    def list_visual_observations(
+        ctx: Context,
+        source: VisualEvidencePin,
+        page_no: Annotated[int, Field(gt=0)] | None = None,
+        after_task: Annotated[int, Field(ge=0)] = 0,
+        limit: Annotated[int, Field(ge=1, le=1000)] = 100,
+        max_bytes: Annotated[int, Field(ge=1024, le=8 * 1024 * 1024)] = 1024 * 1024,
+    ) -> ToolResult:
+        """Discover settled page and crop observations for one pinned published PDF."""
+        from corpus_structure.serve.pdf_visual_evidence import visual_observation_manifest
+
+        with source_snapshot(ctx, source.run_id) as conn:
+            manifest = visual_observation_manifest(
+                conn, source, page_no=page_no, after_task=after_task, limit=limit
+            )
+        return _bounded_mcp_result(manifest, max_bytes)
 
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ProposalRefused, OperationConflict, ValueError)

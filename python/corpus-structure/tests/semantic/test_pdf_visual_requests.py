@@ -268,7 +268,10 @@ def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
         select_result=False,
         activate_release=False,
     )
-    assert recovered is not None and recovered.status == "source_ready"
+    assert (
+        isinstance(recovered, visual_requests.VisualRequestResult)
+        and recovered.status == "source_ready"
+    )
     assert recovered.run_id == claim.run_id
     assert recovered.raw is not None and recovered.raw.task_id == claim.task_id
     assert recovered.mapped is not None
@@ -304,3 +307,107 @@ def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
             replay=first.raw,
             **{**args, "selection": other_selection},
         )
+
+
+def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
+    pdf13_db, tmp_path, monkeypatch
+):
+    from contextlib import contextmanager
+
+    from corpus_structure.serve.pdf_visual_evidence import visual_observation_manifest
+
+    db = pdf13_db
+    digest = publish(db, prepare(integrated(db.source, db.inputs), db.source))
+    source = VisualEvidencePin(
+        run_id=db.job.run, task_id=db.job.task, product_key="selected", content_digest=digest
+    )
+    requests = (
+        visual_requests.VisualSelection(source=source, page_no=1),
+        visual_requests.VisualSelection(
+            source=source, page_no=1, pointer="#/tables/0", region_index=0, rotation=90
+        ),
+        visual_requests.VisualSelection(
+            source=source, page_no=1, pointer="#/tables/0", region_index=0, rotation=180
+        ),
+    )
+    attempts = []
+    sessions = []
+
+    class ControlledRuntime:
+        def __init__(self, artifacts):
+            assert artifacts == tmp_path
+            self.effective_device = {"device": "controlled"}
+
+        def identity(self):
+            return {
+                "repository": "datalab-to/chandra-ocr-2",
+                "revision": "controlled",
+                "packages": {"docling": "2.148.0"},
+                "artifacts_sha256": {
+                    "model.safetensors": "b" * 64,
+                    "tokenizer.json": "c" * 64,
+                },
+                "prompt": "group test",
+                "decode": {},
+            }
+
+    @contextmanager
+    def session(runtime):
+        sessions.append(runtime)
+
+        def recognize(pixels, *, check_active, before_submit):
+            check_active()
+            before_submit()
+            attempts.append(pixels)
+            return VlmPrediction(text=_HTML, stop_reason=VlmStopReason.UNSPECIFIED)
+
+        yield recognize
+
+    interrupt = True
+
+    def render(original, page, region, rotation):
+        nonlocal interrupt
+        assert original == db.source.original
+        if rotation == 90 and interrupt:
+            interrupt = False
+            raise KeyboardInterrupt
+        return IMAGE, _TRANSFORM
+
+    monkeypatch.setattr(pdf_capacity, "pdf_gpu_slot", lambda check_active=None: nullcontext())
+    monkeypatch.setattr(
+        pdf_capacity, "suspend_resident_nemotron", lambda endpoint, check_active=None: nullcontext()
+    )
+    monkeypatch.setattr(pdf_chandra, "ChandraRuntime", ControlledRuntime)
+    monkeypatch.setattr(pdf_chandra, "supervised_chandra", session)
+    monkeypatch.setattr(pdf_visual_mapping, "render_visual_input", render)
+
+    args = dict(
+        selections=requests,
+        semantic_release=db.prepared.release_id,
+        realization="z",
+        receipts=tmp_path / "receipts",
+        artifacts=tmp_path,
+    )
+    with pytest.raises(KeyboardInterrupt):
+        visual_requests.request_visual_group(db.writer, **args)
+    runs = table("ops.run")
+    with db.writer.connect() as conn:
+        run_id = conn.scalar(select(runs.c.id).where(runs.c.options.has_key("visual_group")))
+    assert run_id is not None
+    with db.writer.connect() as conn:
+        manifest = visual_observation_manifest(conn, source, page_no=1, after_task=0, limit=10)
+    assert len(manifest.observations) == 2
+    first = manifest.observations[-1]
+    assert first.mapped is not None
+    resumed = visual_requests.request_visual_group(db.writer, resume_run_id=run_id, **args)
+    assert resumed.status == "source_ready" and resumed.cut_id is not None
+    assert resumed.members[0].mapped == first.mapped
+    assert len(attempts) == 3 and len(sessions) == 2
+
+    replay = visual_requests.request_visual_group(db.writer, **args)
+    assert replay.status == "source_ready"
+    assert [member.raw for member in replay.members] == [member.raw for member in resumed.members]
+    assert [member.mapped for member in replay.members] == [
+        member.mapped for member in resumed.members
+    ]
+    assert len(attempts) == 3 and len(sessions) == 2

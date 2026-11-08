@@ -429,7 +429,12 @@ def _finalize_bound_run(
         row = lock_finalization_run(conn, run_id=owned_run_id).decoded_json_fields(
             operation="evaluate"
         )
-        if row["code_commit"] == VISUAL_REQUEST_CODE_COMMIT and "visual_request" in row["options"]:
+        native_request = row["options"].get("native_request")
+        if isinstance(native_request, dict) and native_request.get("demand") == "render":
+            raise DomainOperationRefused("native render runs have no evaluated realization")
+        if row["code_commit"] == VISUAL_REQUEST_CODE_COMMIT and (
+            {"visual_request", "visual_group"} & row["options"].keys()
+        ):
             raise DomainOperationRefused("visual evidence runs have no evaluated realization")
         if row["status"] in ("cancelled", "failed"):
             raise DomainOperationRefused("cancelled or failed run cannot finalize")
@@ -500,14 +505,25 @@ def bound_status(
     status = row["status"]
     visual_ready = (
         row["code_commit"] == VISUAL_REQUEST_CODE_COMMIT
-        and "visual_request" in row["options"]
+        and ({"visual_request", "visual_group"} & row["options"].keys())
         and row["sealed"]
         and latest_cut is not None
         and latest_cut.final
         and latest_cut.name == VISUAL_REQUEST_CUT
     )
-    source_ready = visual_ready or run_source_ready(conn, run)
-    if visual_ready:
+    native_request = row["options"].get("native_request")
+    render_ready = (
+        isinstance(native_request, dict)
+        and native_request.get("demand") == "render"
+        and status == "consolidating"
+        and row["sealed"]
+        and latest_cut is not None
+        and latest_cut.final
+        and latest_cut.name == "native-request-source"
+    )
+    evidence_ready = visual_ready or render_ready
+    source_ready = evidence_ready or run_source_ready(conn, run)
+    if evidence_ready:
         status = "source_ready"
     elif status == "running":
         if unresolved:
@@ -522,7 +538,7 @@ def bound_status(
         active, waiting = observe_supervisor(conn, run)
         if active:
             supervisor = "active"
-        elif visual_ready or (waiting is True and row["status"] == "running"):
+        elif evidence_ready or (waiting is True and row["status"] == "running"):
             supervisor = "waiting"
         elif waiting is not None:
             supervisor = "orphaned"

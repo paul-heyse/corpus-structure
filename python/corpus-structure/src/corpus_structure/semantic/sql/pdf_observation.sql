@@ -4,6 +4,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $observa
 DECLARE job ops.task; run ops.run; product jsonb:='{}'; digest text:=encode(sha256(p_payload),'hex');
  wire json; field_name text; field_value json; envelope_fields text[]:=ARRAY[]::text[];
  input_rows json; occurrence_rows json; relation_rows json; coverage_rows json; mapping_rows json;
+ visual_scope jsonb; visual_params jsonb; visual_recipe jsonb;
  previous ops.pdf_product; input jsonb; occurrence jsonb; relation jsonb; endpoint jsonb; coverage jsonb; mapping_report jsonb; pin ops.pdf_product; idx bigint; eid bigint; original text;
 BEGIN
  SELECT r.* INTO STRICT run FROM ops.run r JOIN ops.task t ON t.run_id=r.id WHERE t.id=p_task FOR SHARE OF r;
@@ -73,16 +74,66 @@ BEGIN
    RAISE EXCEPTION 'Chandra observation role differs from its provider' USING ERRCODE='23514';
   END IF;
   IF product->'observation'->>'pass_role' IN ('chandra_page','chandra_crop') THEN
+   visual_scope:=run.options->'visual_request';
+   IF run.options ? 'visual_group' THEN
+    SELECT config.params INTO STRICT visual_params
+     FROM ops.method_config config JOIN ops.method method ON method.id=config.method_id
+     WHERE config.id=job.method_config_id AND method.name='native.source_request'
+       AND method.version='5';
+    visual_scope:=jsonb_strip_nulls(visual_params->'selection');
+    SELECT convert_from(content,'UTF8')::jsonb INTO visual_recipe
+     FROM unnest(p_artifacts) content WHERE encode(sha256(content),'hex')=product->>'recipe_digest';
+    IF run.options ? 'visual_request'
+       OR run.options->'visual_group'->>'version' IS DISTINCT FROM 'chandra-visual-group-v1'
+       OR jsonb_typeof(run.options->'visual_group'->'selections') IS DISTINCT FROM 'array'
+       OR jsonb_array_length(run.options->'visual_group'->'selections') NOT BETWEEN 1 AND 4
+       OR (SELECT count(*) FROM jsonb_array_elements(run.options->'visual_group'->'selections') s
+           WHERE s=visual_scope)<>1
+       OR EXISTS(SELECT FROM jsonb_array_elements(run.options->'visual_group'->'selections') s
+          WHERE s->'source' IS DISTINCT FROM visual_scope->'source')
+       OR (visual_scope ? 'pointer')<>(visual_scope ? 'region_index')
+       OR (visual_scope ? 'rotation' AND
+           (NOT visual_scope ? 'pointer' OR visual_scope->>'rotation' NOT IN ('90','180','270')))
+       OR visual_recipe->'selection' IS DISTINCT FROM visual_scope
+       OR visual_params->>'recipe_digest' IS DISTINCT FROM product->>'recipe_digest'
+       OR job.unit_key IS DISTINCT FROM 'chandra-'||(visual_params->>'step')||':'||(visual_params->>'recipe_digest')
+       OR product->>'product_key' IS DISTINCT FROM job.unit_key
+       OR job.unit_type IS DISTINCT FROM 'document'
+       OR (visual_params->>'step'='mapping') IS DISTINCT FROM
+          EXISTS (SELECT FROM json_array_elements(input_rows) i WHERE i->>'role'='recognition')
+       OR (visual_params->>'step'='inference' AND
+          (visual_recipe->'transform' IS DISTINCT FROM product->'observation'->'image'->'transform'
+           OR visual_recipe->'submitted_png_digest' IS DISTINCT FROM product->'observation'->'image'->'artifact_digest'))
+    THEN RAISE EXCEPTION 'Chandra observation differs from its grouped task and recipe' USING ERRCODE='23514'; END IF;
+   END IF;
    IF (SELECT count(*) FROM json_array_elements(input_rows) i WHERE i->>'role'='structural')<>1 OR NOT EXISTS(
     SELECT FROM json_array_elements(input_rows) i JOIN ops.pdf_product parent
       ON parent.task_id=(i->>'task_id')::bigint AND parent.product_key=i->>'product_key'
       AND parent.content_digest=i->>'content_digest'
     JOIN ops.task source_task ON source_task.id=parent.task_id
     WHERE i->>'role'='structural' AND parent.kind='integrated'
-      AND (i::jsonb - 'role')=((run.options->'visual_request'->'source') - 'run_id')
-      AND source_task.run_id=(run.options->'visual_request'->'source'->>'run_id')::bigint
-      AND product->'observation'->'image'->'page_no'=run.options->'visual_request'->'page_no'
-      AND (product->'observation'->>'pass_role'='chandra_crop')=(run.options->'visual_request'->>'pointer' IS NOT NULL)
+      AND (i::jsonb - 'role')=((visual_scope->'source') - 'run_id')
+      AND source_task.run_id=(visual_scope->'source'->>'run_id')::bigint
+      AND (NOT run.options ? 'visual_group' OR (
+       source_task.unit_type='document' AND source_task.unit_id=job.unit_id AND EXISTS(
+        SELECT FROM ops.read_pdf_published_revision(parent.task_id,parent.product_key,parent.content_digest) published
+        WHERE published.source_digest=original AND published.kind='integrated'
+        AND EXISTS(
+         SELECT FROM kb.pdf_record_native page
+         WHERE page.product_id=published.build_id AND page.revision_id=published.build_id
+           AND page.family='page' AND page.scalars_json->'page_no'=visual_scope->'page_no'
+        )
+        AND (NOT visual_scope ? 'pointer' OR EXISTS(
+         SELECT FROM kb.pdf_record_region region
+         WHERE region.product_id=published.build_id AND region.revision_id=published.build_id
+           AND region.pointer=visual_scope->>'pointer'
+           AND region.region_index=(visual_scope->>'region_index')::bigint
+           AND region.page_no=(visual_scope->>'page_no')::bigint
+        ))
+       )
+      ))
+      AND product->'observation'->'image'->'page_no'=visual_scope->'page_no'
+      AND (product->'observation'->>'pass_role'='chandra_crop')=(visual_scope->>'pointer' IS NOT NULL)
    ) THEN RAISE EXCEPTION 'Chandra observation differs from requested source' USING ERRCODE='23514'; END IF;
    IF (product->'observation' ? 'mapped_evidence_digest'
       OR EXISTS (SELECT FROM json_array_elements(input_rows) i WHERE i->>'role'='recognition'))
@@ -91,15 +142,25 @@ BEGIN
       ON raw.task_id=(i->>'task_id')::bigint AND raw.product_key=i->>'product_key'
     JOIN ops.task raw_task ON raw_task.id=raw.task_id
     JOIN ops.run raw_run ON raw_run.id=raw_task.run_id
+    JOIN ops.method_config raw_config ON raw_config.id=raw_task.method_config_id
     WHERE i->>'role'='recognition'
-      AND raw_run.options->'visual_request'=run.options->'visual_request'
+      AND COALESCE(raw_run.options->'visual_request',
+       CASE WHEN raw_run.options->'visual_group'->>'version'='chandra-visual-group-v1'
+         AND raw_run.options->'visual_group'->'selections' @>
+           jsonb_build_array(jsonb_strip_nulls(raw_config.params->'selection'))
+       THEN jsonb_strip_nulls(raw_config.params->'selection') END)=visual_scope
+      AND (NOT run.options ? 'visual_group' OR (
+       raw_task.status IN ('done','empty') AND raw_task.unit_key=raw.product_key
+       AND starts_with(raw.product_key,'chandra-inference:')
+       AND visual_recipe->'raw'=(i::jsonb-'role') || jsonb_build_object('run_id',raw_run.id)
+      ))
       AND raw.descriptor->'observation'=((product->'observation')-'mapped_evidence_digest')
       AND EXISTS (SELECT FROM ops.pdf_product_input upstream
        WHERE upstream.task_id=raw.task_id AND upstream.product_key=raw.product_key
          AND upstream.role='structural'
-         AND upstream.input_task_id=(run.options->'visual_request'->'source'->>'task_id')::bigint
-         AND upstream.input_product_key=run.options->'visual_request'->'source'->>'product_key'
-         AND upstream.input_content_digest=run.options->'visual_request'->'source'->>'content_digest')
+         AND upstream.input_task_id=(visual_scope->'source'->>'task_id')::bigint
+         AND upstream.input_product_key=visual_scope->'source'->>'product_key'
+         AND upstream.input_content_digest=visual_scope->'source'->>'content_digest')
    )) THEN RAISE EXCEPTION 'mapped Chandra observation differs from its raw input' USING ERRCODE='23514'; END IF;
   ELSIF product->'observation' ? 'mapped_evidence_digest' THEN
    RAISE EXCEPTION 'mapped visual evidence requires a Chandra observation' USING ERRCODE='23514';

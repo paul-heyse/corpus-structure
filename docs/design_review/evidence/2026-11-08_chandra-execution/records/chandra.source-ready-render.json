@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "id": "chandra.source-ready-render",
+  "title": "Cross-release rendering from a sealed source-ready archive",
+  "group": "chandra-execution",
+  "package": "CH-02",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the current writer render an exact archived source-ready region and retain a reusable image under the original and writer pins?",
+  "answers": [
+    "F01",
+    "CH-02"
+  ],
+  "method": "Deploy the corrected native publisher, render the archived book region through CLI and MCP, verify a completed-archive byte control, and exercise lifecycle and source-scope refusals.",
+  "commands": [
+    "uv run --no-sync ci source native-request 318 163 render --pointer '#/texts/0' --region-index 0 --writer-release release:7a8352c383c2c6f07fb6d2ed10246466c60faf6db4d382f9cd61b29ed8dc0744 --writer-realization source:chandra-grouped-book --json",
+    "uv run --no-sync ci source native-request 312 215 render --pointer '#/texts/2550' --region-index 0 --writer-release release:7a8352c383c2c6f07fb6d2ed10246466c60faf6db4d382f9cd61b29ed8dc0744 --writer-realization source:chandra-grouped-book --json",
+    ".venv/bin/ci mcp serve --semantic-run 318",
+    "uv run --no-sync ci run status 355 --json",
+    "uv run --no-sync ci test retry f4fbb86cca844c55bb674f951da99f45 --lane ordinary --json"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "source-ready-render.json",
+      "role": "Exact archive, development and test receipts",
+      "sha256": "6338ed88ef497f1ce96d57efe02847331d40f2fc2c45744318c534e3d637f0b8"
+    }
+  ],
+  "depends_on": [
+    "chandra.enrichment-development"
+  ],
+  "results": [
+    {
+      "name": "Source-ready archive render",
+      "value": 355,
+      "of": null,
+      "unit": "run",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The current writer rendered the sealed archive through CLI and MCP with identical PNG bytes. Completed archive output matched its earlier render. Scoped refusals and the native regression passed.",
+  "consumed_by": [
+    "chandra-2-post-nemotron coordinator"
+  ]
+}

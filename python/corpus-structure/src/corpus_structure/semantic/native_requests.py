@@ -27,7 +27,7 @@ from .operations import (
     record_method,
     seal_cut,
 )
-from .source_views import load_source_view, store_region_artifact
+from .source_views import load_source_view, selected_source_views, store_region_artifact
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection
@@ -123,7 +123,12 @@ def request_source_view(
 
     limits = NativeRequestLimits(seconds=seconds, scale=scale)
     seconds, scale = limits.seconds, limits.scale
+    if demand == "render" and (pointer is None or region_index is None):
+        raise ValueError("render requires native occurrence and region index")
     runs, tasks = table("ops.run"), table("ops.task")
+    archived_cut = None
+    archived_region = None
+    view = None
     with engine.begin() as conn:
         origin = conn.execute(select(runs).where(runs.c.id == source_run_id)).mappings().one()
         source_archive = open_release(conn, origin["release_id"])
@@ -136,12 +141,33 @@ def request_source_view(
             )
         ).scalar_one_or_none():
             raise ValueError("native source request requires an explicitly selected source view")
-        view = load_source_view(conn, source_view_id, analysis=demand != "render")
         source_binding = binding_of(conn, source_run_id)
         target_binding = source_binding
         if writer_release is not None:
+            dependencies = {"native_render_source": source_run_id}
             if writer_release != origin["release_id"] and origin["status"] != "finished":
-                raise ValueError("cross-release rendering requires a completed archived source")
+                cuts = table("ops.input_cut")
+                ready = cuts.alias("source_ready")
+                archived_cut = conn.scalar(
+                    select(cuts.c.id).where(
+                        cuts.c.run_id == source_run_id,
+                        cuts.c.release_id == origin["release_id"],
+                        cuts.c.source_revision == origin["input_revision"],
+                        cuts.c.final,
+                        origin["sealed"] and origin["status"] == "consolidating",
+                        select(ready.c.id)
+                        .where(
+                            ready.c.run_id == cuts.c.run_id,
+                            ready.c.release_id == cuts.c.release_id,
+                            ready.c.source_revision == cuts.c.source_revision,
+                            ready.c.name == "source-ready",
+                        )
+                        .exists(),
+                    )
+                )
+                if archived_cut is None:
+                    raise ValueError("cross-release rendering requires a sealed source-ready cut")
+                dependencies["native_render_cut"] = archived_cut
             realizations = table("data.realization")
             revision = conn.execute(
                 select(realizations.c.data_revision).where(
@@ -160,8 +186,30 @@ def request_source_view(
                 writer_release,
                 writer_realization,
                 revision,
-                canonical_bytes({"native_render_source": source_run_id}),
+                canonical_bytes(dependencies),
             )
+        if archived_cut is not None:
+            from .pdf_record_reader import published_record_reader
+
+            refs = selected_source_views(conn, source_run_id, source_view_id=source_view_id)
+            views = table("kb.source_view")
+            if not refs or not conn.scalar(
+                select(views.c.id).where(
+                    views.c.id == source_view_id, views.c.projection["items"].has_key(pointer)
+                )
+            ):
+                raise ValueError("render pointer is outside the selected archived source view")
+            reference = refs[0]
+            published = published_record_reader(
+                conn, reference.native_product, projection_context=source_archive
+            )
+            if published is None:
+                raise ValueError("archive has no published record-backed source")
+            assert pointer is not None and region_index is not None
+            archived_region = published.region(pointer, region_index)
+        else:
+            view = load_source_view(conn, source_view_id, analysis=demand != "render")
+            reference = view.ref
         archived = {} if demand == "render" else json.loads(source_binding.dependencies)
         rules = [
             v.get("parameters", {}).get("math", {}).get("native_domain_rules", [])
@@ -224,12 +272,13 @@ def request_source_view(
             def source_view_coverage(self, identity, method):
                 return parent_coverage.get(identity, ())
 
+        assert view is not None
         declarations, issues = stored_native_ancestor_declarations(AncestorSnapshot(), view)
     config = NativeRequestConfig(
         source_view_id=source_view_id,
-        native_product=view.ref.native_product.values(),
-        projection_digest=view.ref.projection_digest,
-        recipe_digest=view.ref.recipe_digest,
+        native_product=reference.native_product.values(),
+        projection_digest=reference.projection_digest,
+        recipe_digest=reference.recipe_digest,
         demand=demand,
         pointer=pointer,
         question=question,
@@ -262,8 +311,6 @@ def request_source_view(
         ).decode(),
         renderer=renderer,
     )
-    if demand == "render" and (pointer is None or region_index is None):
-        raise ValueError("render requires native occurrence and region index")
     if demand == "assessment" and not question:
         raise ValueError("assessment requires a named question")
     from .pdf_contracts import pdf_context_for_release
@@ -274,12 +321,17 @@ def request_source_view(
         )
     params = config.model_dump(mode="json")
     digest = sha256(canonical_bytes(params)).hexdigest()
+    unit = (
+        UnitRef(TaskUnitType.DOCUMENT, reference.document_id, "native-archive-render:" + digest)
+        if archived_cut is not None
+        else UnitRef(TaskUnitType.SOURCE_VIEW, source_view_id, "native-request:" + digest)
+    )
     method = OperationDescriptor(
         "native.source_request",
-        "4",
+        "6" if archived_cut is not None else "4",
         "normalize",
         "deterministic",
-        TaskUnitType.SOURCE_VIEW,
+        unit.unit_type,
         NativeRequestConfig,
     )
     with engine.begin() as conn:
@@ -293,25 +345,26 @@ def request_source_view(
             prepared=prepared,
             runtime_binding=runtime_binding,
         )
-        from ._operation_calls import select_source_view
-        from ._operation_ids import SourceViewId
+        if archived_cut is None:
+            from ._operation_calls import select_source_view
+            from ._operation_ids import SourceViewId
 
-        select_source_view(
-            conn,
-            run_id=run_id,
-            source_run_id=RunId(source_run_id),
-            source_view_id=SourceViewId(source_view_id),
-            projection_context=prepared,
-        )
+            select_source_view(
+                conn,
+                run_id=run_id,
+                source_run_id=RunId(source_run_id),
+                source_view_id=SourceViewId(source_view_id),
+                projection_context=prepared,
+            )
         config_id = record_method(conn, method, "request", params, digest, prepared=prepared)
         task_id = create_task(
             conn,
             run_id=run_id,
             config_id=config_id,
             stage="parsing",
-            unit_type="source_view",
-            unit_id=source_view_id,
-            unit_key="native-request:" + digest,
+            unit_type=unit.unit_type,
+            unit_id=unit.unit_id,
+            unit_key=unit.unit_key,
             input_hash=digest,
         )
         reused = conn.execute(
@@ -323,15 +376,19 @@ def request_source_view(
                     table("ops.task_result").c.task_id == reused
                 )
             ).scalar_one()
-            raw = BoundReader(conn, run_id, prepared, analysis=False).source_observations(
-                source_view_id, method.name, ObservationKind.RECORD
-            )
-            result = dict(raw[0].payload) if raw else None
+            result = None
+            if demand != "render":
+                raw = BoundReader(conn, run_id, prepared, analysis=False).source_observations(
+                    source_view_id, method.name, ObservationKind.RECORD
+                )
+                result = dict(raw[0].payload) if raw else None
             artifact = conn.execute(
                 select(table("ops.native_region_artifact").c.artifact_digest).where(
                     table("ops.native_region_artifact").c.task_id == reused
                 )
             ).scalar_one_or_none()
+            if demand == "render" and artifact is None:
+                raise ValueError("reused render task has no protected artifact")
             cut = seal_cut(conn, run_id, "native-request-source", final=True)
             return NativeRequestResult(
                 run_id,
@@ -362,7 +419,7 @@ def request_source_view(
                     from .pdf_record_reader import published_record_reader
 
                     published = published_record_reader(
-                        conn, view.ref.native_product, projection_context=source_archive
+                        conn, reference.native_product, projection_context=source_archive
                     )
                     if published is None:
                         raise ValueError(
@@ -372,14 +429,18 @@ def request_source_view(
                         raise ValueError(
                             "render requires an exact published pointer and region index"
                         )
-                    region = published.region(pointer, region_index)
+                    region = (
+                        archived_region
+                        if archived_region is not None
+                        else published.region(pointer, region_index)
+                    )
                     build, artifact = table("ops.source_build"), table("kb.source_artifact")
                     original = bytes(
                         conn.execute(
                             select(artifact.c.content)
                             .join(build, build.c.artifact_digest == artifact.c.artifact_digest)
                             .where(
-                                build.c.task_id == view.ref.native_product.task_id,
+                                build.c.task_id == reference.native_product.task_id,
                                 build.c.artifact_digest == published.revision["source_digest"],
                             )
                         ).scalar_one()
@@ -398,7 +459,7 @@ def request_source_view(
                         result=result,
                         method=method,
                         configuration_hash=digest,
-                        source=view.ref.key,
+                        source=reference.key,
                     )
 
             owner()
@@ -412,6 +473,7 @@ def request_source_view(
             else:
                 from corpus_structure.methods.math.native import native_request_analysis
 
+                assert view is not None
                 analysis = native_request_analysis(
                     view,
                     prepared,
@@ -428,9 +490,7 @@ def request_source_view(
             failure = analysis_failure(analysis)
             if failure is not None and analysis is not None:
                 failed = UnitResult(
-                    ref=UnitRef(
-                        TaskUnitType.SOURCE_VIEW, source_view_id, "native-request:" + digest
-                    ),
+                    ref=unit,
                     outcome=ObservationOutcome.FAILED,
                     error=failure,
                     parse_detail={"native_analysis": analysis.model_dump(mode="json")},
@@ -470,13 +530,13 @@ def request_source_view(
                 )
             )
             result = UnitResult(
-                ref=UnitRef(TaskUnitType.SOURCE_VIEW, source_view_id, "native-request:" + digest),
+                ref=unit,
                 outcome=ObservationOutcome.PRODUCED if observations else ObservationOutcome.EMPTY,
                 observations=observations,
                 coverage=(
                     CoverageDraft(
                         family=method.name,
-                        scope=view.ref.key,
+                        scope=reference.key,
                         outcome=analysis_coverage(analysis),
                         required_capability=demand,
                         reason=None
@@ -492,7 +552,9 @@ def request_source_view(
                 artifact_digest = None
                 if artifact_bytes is not None:
                     selection = dict(
-                        view.ref.native_product.values(), pointer=pointer, region_index=region_index
+                        reference.native_product.values(),
+                        pointer=pointer,
+                        region_index=region_index,
                     )
                     recipe = canonical_bytes(
                         dict(
