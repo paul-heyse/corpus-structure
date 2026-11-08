@@ -47,8 +47,8 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0064](0064-local-semantic-admission.md) | Publish independently judged local semantics through a later ordinary consolidation | 2026-11-05 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0065](0065-cross-source-structural-products.md) | Retain cross-source structural products with original source custody | 2026-11-05 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Tested |  |
 | [ADR-0067](0067-witnessed-current-only-cutover.md) | Cut witnessed enrichment over to current contracts without legacy execution | 2026-11-06 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0066](0066-witnessed-component-policies.md) |
-| [ADR-0068](0068-single-corpus-method-development.md) | Develop and assess corpus structuring on one shared Grinstead–Snell corpus | 2026-11-06 | [§B1](../design/DESIGN.md#section-b1), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0069](0069-cli-operations-custody.md) | Route routine operations through ci with owned effects and result custody | 2026-11-07 | [§2](../design/DESIGN.md#section-2) | Proposed |  |
+| [ADR-0070](0070-full-book-method-development.md) | Use the whole Grinstead–Snell book for method development | 2026-11-07 | [§B1](../design/DESIGN.md#section-b1), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0068](0068-single-corpus-method-development.md) |
 
 ## Superseded, still in the tree
 
@@ -78,5 +78,6 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0055](0055-m1-record-admission.md) | Admit evaluated source readings through immutable run policies and common publication | 2026-11-04 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0057](0057-m1-retained-reading-execution.md) | Separate retained CPU extraction from evaluated reading policies | 2026-11-04 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0055](0055-m1-record-admission.md) |
 | [ADR-0066](0066-witnessed-component-policies.md) | Retain witnessed components and assess exact operation questions independently | 2026-11-06 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0068](0068-single-corpus-method-development.md) | Develop and assess corpus structuring on one shared Grinstead–Snell corpus | 2026-11-06 | [§B1](../design/DESIGN.md#section-b1), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 Unlinked identifiers under *Replaces* are retired records. Their surviving meaning is in the records above; recover the text from Git ([historical recovery](../README.md#historical-recovery)).

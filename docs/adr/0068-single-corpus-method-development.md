@@ -1,10 +1,10 @@
 ---
 id: ADR-0068
 title: Develop and assess corpus structuring on one shared Grinstead–Snell corpus
-status: accepted
+status: superseded
 date: 2026-11-06
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0070
 design: [§B1, §B5]
 evidence: Proposed
 revisit: The shared corpus is structured well enough that unseen-source generalization becomes the next practical question.

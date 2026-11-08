@@ -59,12 +59,13 @@ service; RDF publication; the methods D0 lists as deliberately left out until a 
 asks for them; per-item human verification of goldens (the operator steers through guidelines,
 [D7 §8](D7-evaluation-goldens-outer-loop.md#8-the-operators-outer-loop)).
 
-**Accepted method-development scope,2026-11-06.** WCE develops and assesses the same120
-Grinstead–Snell physical pages191–310 for all activities. Separate source populations, held-out
+**Accepted method-development scope,2026-11-07.** The full Grinstead–Snell book,
+physical pages 1–518, supplies the current shared benchmark. The WCE 120-page
+results retain their original scope. Separate source populations, held-out
 origins and group counts do not gate this exploratory benchmark. Progressive grounded structure
 and granular failure/capture assessment are the objective; complete records are a stronger outcome.
 
-> Decision: [ADR-0068](../adr/0068-single-corpus-method-development.md)
+> Decision: [ADR-0070](../adr/0070-full-book-method-development.md)
 
 <a id="section-1-3"></a>
 
@@ -278,7 +279,7 @@ uses its frozen claim form until scheduled consumer migration.
 contracts; preserve source custody and regenerate insufficient derived data, with no historical
 semantic decoder fallback.
 
-> Decision: [ADR-0068](../adr/0068-single-corpus-method-development.md)
+> Decision: [ADR-0070](../adr/0070-full-book-method-development.md)
 
 ### §B2 Methods write observations; only consolidation writes knowledge, per run
 
@@ -795,12 +796,12 @@ census or exact finite-population sampling bounds; unseen-origin performance is 
 > Decision: [ADR-0062](../adr/0062-progressive-contributions.md)
 
 
-**Accepted method-development target,2026-11-06.** One shared Grinstead–Snell120-page corpus
-supplies development, fitting, debugging, regression and repeated assessment. Single-origin
+**Accepted method-development target,2026-11-07.** One shared Grinstead–Snell
+full-book corpus supplies development, fitting, debugging, regression and repeated assessment. Single-origin
 in-sample event fitting is permitted; independent source labels and numerical validity remain.
 Separate held-out/calibration populations are later generalization work, not readiness gates.
 
-> Decision: [ADR-0068](../adr/0068-single-corpus-method-development.md)
+> Decision: [ADR-0070](../adr/0070-full-book-method-development.md)
 
 ### §B6 Escalation is routed by versioned policies over measurements
 

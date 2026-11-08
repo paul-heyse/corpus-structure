@@ -2,7 +2,7 @@
 
 ## Shared-corpus method development
 
-**Accepted target,2026-11-06.** Use one120-page Grinstead–Snell benchmark for development,
+**Accepted target,2026-11-07.** Use one full-book Grinstead–Snell benchmark for development,
 fitting, debugging, regression and assessment. Preserve source-only reference authoring, exact
 output identities, granular dimensions and exposure provenance. In-sample fitting needs genuine
 labels and valid numerical inputs; it requires no held-out population or multiple-origin minimum.
@@ -10,7 +10,7 @@ Useful construction survives unavailable fitting or incomplete records. Compare 
 on the same opportunities and retain corrected references explicitly. Separate calibration and
 generalization studies are deferred until method performance warrants them.
 
-> Decision: [ADR-0068](../adr/0068-single-corpus-method-development.md)
+> Decision: [ADR-0070](../adr/0070-full-book-method-development.md)
 
 ### Granular assessment and operation fitting
 
