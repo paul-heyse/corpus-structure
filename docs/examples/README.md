@@ -3,6 +3,36 @@
 Each example separates the result produced by the pipeline from the assessment of that result.
 The page numbers below are physical PDF pages.
 
+The source is the Dartmouth CHANCE Project edition of Grinstead and Snell’s
+*Introduction to Probability*, dated 4 July 2006. The title page identifies
+distribution under the GNU Free Documentation License.
+[Download the selected retained results as JSON](data/retained-examples.json)
+
+## A condition stays attached to its predicate
+
+**Source.** The exercise introduces random variables **“with positive variance.”**
+The following sentence says how their correlation is **“defined.”**
+[Source on physical page 289](https://math.dartmouth.edu/~prob/prob.pdf#page=289)
+
+**Operation.** Attach the premise to the neighboring defining predicate.
+
+**Retained result.** The definition keeps the textual condition as an inherited
+scope attachment. The selected source words and predicate remain inspectable.
+
+**Assessment.** The source review supports this attachment in the correlation
+exercise. It assesses the textual relationship.
+[Attachment assessment](../design_review/evidence/2026-11-08_nce-full-book/review/scoped-outputs.md#source-checks-on-cut-441)
+
+<details>
+<summary>Inspect evidence</summary>
+
+View 177, run 320, cut 441, task 1498. The premise is at
+`#/texts/5253[3:57)` and the defining predicate at `#/texts/5253[89:96)`.
+The retained `scope_inheritance` edge has prefix `1407260e0e7e6a`.
+[Retained scoped report](../design_review/evidence/2026-11-08_nce-full-book/raw/review-scoped-reports.jsonl)
+
+</details>
+
 ## A printed reference becomes a typed link
 
 | Step | Retained result |
@@ -16,16 +46,64 @@ The review compared the occurrence and target with the printed book. Its scope i
 cue and the selected target. It also documents printed references that never reached the
 resolver. [Occurrence on page 260](https://math.dartmouth.edu/~prob/prob/prob.pdf#page=260) · [Target on page 191](https://math.dartmouth.edu/~prob/prob/prob.pdf#page=191) · [Dated assessment](../design_review/evidence/2026-11-08_nce-full-book/review/scoped-outputs.md#contextual-section-citations)
 
-The source is the Dartmouth CHANCE Project edition of Grinstead and Snell’s *Introduction
-to Probability*, dated 4 July 2006 and identified by its title page as distributed under
-the GNU Free Documentation License.
+## A local phrase recovers its antecedent
 
-## A condition stays attached to its predicate
+**Source.** “This set of points” refers to a preceding description. In that
+description, the points are pairs in the plane for which the joint density
+takes a constant value.
 
-In the correlation exercise on page 289, the positive-variance assumption at
-`#/texts/5253[3:57)` is attached to the defining predicate `defined` at `[89:96)`.
-The retained edge is `1407260e0e7e6a`. The source check supports this local attachment.
-[Source page](https://math.dartmouth.edu/~prob/prob/prob.pdf#page=289) · [Attachment assessment](../design_review/evidence/2026-11-08_nce-full-book/review/scoped-outputs.md#source-checks-on-cut-441)
+**Operation.** Use the retained token relationships and source boundaries to
+resolve the local phrase to the complete preceding description, including the
+restriction.
+
+**Retained result.** The private definition component names a set of constant
+density and uses the full level-set description. The original local mention
+remains in the evidence.
+
+**Assessment.** The frozen source check and exact replay support this case.
+When candidates compete or the antecedent falls outside the selected passage
+or native piece, the bounded rule can preserve the local mention alone.
+[Antecedent assessment](../design_review/evidence/2026-11-07_nce-source-linguistics/README.md#antecedent-decision)
+
+<details>
+<summary>Inspect evidence</summary>
+
+Run 222, cut 313, source view 147, annotation task 594. In the retained passage,
+the antecedent spans `[208:295)` and the local mention spans `[296:314)`.
+[Retained component](../design_review/evidence/2026-11-07_nce-source-linguistics/antecedent.json) · [Delivery receipt](../design_review/evidence/2026-11-07_nce-source-linguistics/antecedent-delivery.json)
+
+</details>
+
+## Assemble a dossier around normal density
+
+**Source.** The protected source contains a normal-density definition and a
+separate supported definition for marginal totals.
+[Frozen source citations](../design_review/evidence/2026-11-06_wce-completion-repair/dossier/attempt003/frozen-preflight.json)
+
+**Operation.** Assemble supported material around the selected normal-density root.
+
+**Retained result.**
+
+| Facet | Root-qualified member |
+| --- | --- |
+| Terminology | The normal density function |
+| Definition | `f _ { X } ( x ) = \frac { 1 } { \sqrt { 2 \pi } \sigma } e ^ { - ( x - \mu ) ^ { 2 } / 2 \sigma ^ { 2 } } \ .` |
+
+The independently supported `marginal totals` component stays outside the
+dossier because it is unrelated to this root.
+
+**Assessment.** Both policies retained the same two independently supported
+members and facets. The verified scope is this two-member dossier.
+[Dossier assessment](../design_review/evidence/2026-11-06_wce-completion-repair/dossier/README.md#verified-native-and-delivery-results--2026-11-07)
+
+<details>
+<summary>Inspect evidence</summary>
+
+Runs 196/cut 261 and 202/cut 273. The term and definition span `[14565:14592)`
+and `[14640:14749)` in `gs120-recovered-source-116`.
+[Finalized record](../design_review/evidence/2026-11-06_wce-completion-repair/records/wce.repair-rooted-dossier.json) · [Retained result](../design_review/evidence/2026-11-06_wce-completion-repair/dossier/attempt003/result.json)
+
+</details>
 
 ## Candidates and selected relationships
 
@@ -47,10 +125,17 @@ standard-normal declaration at `#/texts/21[130:161)`.
 
 ## Illustrative enterprise workflow
 
-Consider a rule requiring a reviewer to complete Form P-17 before approving a high-risk
-purchase unless an approved exception applies. Its structure would distinguish the actor
-(the reviewer), the action (complete), the form (P-17), the timing condition (before approval),
-the risk scope, and the exception. This is an illustrative workflow.
+An illustrative policy requires a reviewer to complete Form P-17 before
+approving a high-risk purchase, unless an approved exception applies.
+
+| Field | Illustrative value |
+| --- | --- |
+| Actor | Reviewer |
+| Action | Complete |
+| Object | Form P-17 |
+| Timing | Before approval |
+| Scope | High-risk purchase |
+| Exception | An approved exception applies |
 
 ## Reproduce the contextual example
 

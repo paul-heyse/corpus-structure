@@ -1,0 +1,106 @@
+[
+  {
+    "case": "condition-attachment",
+    "source": {
+      "view": 177,
+      "premise": {
+        "pointer": "#/texts/5253",
+        "pages": [
+          289
+        ],
+        "start": 3,
+        "end": 57
+      },
+      "defining_predicate": {
+        "pointer": "#/texts/5253",
+        "pages": [
+          289
+        ],
+        "start": 89,
+        "end": 96,
+        "source_piece": "defined"
+      }
+    },
+    "result": {
+      "run_id": 320,
+      "cut_id": 441,
+      "task_id": 1498,
+      "contribution_id": "source-contribution:1407260e0e7e6afb162120ff59516d90c5e1b88a6bcfba98302adadec1252074",
+      "attachment_kind": "scope_inheritance"
+    },
+    "receipt": "https://github.com/paul-heyse/corpus-structure/blob/8b694c67b676306e2c2da3fb9fb08ae2c02a9421/docs/design_review/evidence/2026-11-08_nce-full-book/raw/review-scoped-reports.jsonl",
+    "assessment": "https://paul-heyse.github.io/corpus-structure/docs/design_review/evidence/2026-11-08_nce-full-book/review/scoped-outputs.html#source-checks-on-cut-441"
+  },
+  {
+    "case": "constant-density-antecedent",
+    "source": {
+      "view": 147,
+      "annotation_task": 594,
+      "mention": {
+        "end": 314,
+        "start": 296,
+        "text": "This set of points"
+      },
+      "antecedent": {
+        "passage_id": "benefit:147",
+        "start": 208,
+        "end": 295
+      }
+    },
+    "result": {
+      "run_id": 222,
+      "cut_id": 313,
+      "component_id": "739dfa66b74eb570f9c09a77040d66b2902636181bc37fc323f156f7cb597030",
+      "term": {
+        "end": 350,
+        "passage_id": "benefit:147",
+        "start": 325,
+        "text": "a set of constant density"
+      },
+      "interpretation": "explanation",
+      "standing": "private"
+    },
+    "receipt": "https://github.com/paul-heyse/corpus-structure/blob/8b694c67b676306e2c2da3fb9fb08ae2c02a9421/docs/design_review/evidence/2026-11-07_nce-source-linguistics/antecedent.json",
+    "assessment": "https://paul-heyse.github.io/corpus-structure/docs/design_review/evidence/2026-11-07_nce-source-linguistics/README.html#antecedent-decision"
+  },
+  {
+    "case": "normal-density-dossier",
+    "source": {
+      "root_component_id": "dd40f6c3f4447b2a25797110af22a04d16d1b35b1ed08f88f9c1922332d515d5",
+      "citations": [
+        {
+          "end": 14592,
+          "passage_id": "gs120-recovered-source-116",
+          "start": 14565,
+          "text": "The normal density function"
+        },
+        {
+          "end": 14749,
+          "passage_id": "gs120-recovered-source-116",
+          "start": 14640,
+          "text": "f _ { X } ( x ) = \\frac { 1 } { \\sqrt { 2 \\pi } \\sigma } e ^ { - ( x - \\mu ) ^ { 2 } / 2 \\sigma ^ { 2 } } \\ ."
+        }
+      ]
+    },
+    "result": {
+      "policies": {
+        "source-order-control-1": {
+          "run_id": 202,
+          "cut_id": 273
+        },
+        "supported-facet-greedy-1": {
+          "run_id": 196,
+          "cut_id": 261
+        }
+      },
+      "supported_facets": [
+        "a105aa79fbc3249a01d47f8b132dadf96bb80e622e92fc3fa8d3694accca4cd2:definition",
+        "d97d666f6c216ad6c2fe53e38d8b2f6abbe006aacf30af533363ce2753c2064e:terminology"
+      ],
+      "member_count": 2,
+      "excluded_supported_component": "1260f6b3c5b66b10b7d058303de67975cf8e98c4fa748d69c8d788f258aa5989"
+    },
+    "receipt": "https://github.com/paul-heyse/corpus-structure/blob/8b694c67b676306e2c2da3fb9fb08ae2c02a9421/docs/design_review/evidence/2026-11-06_wce-completion-repair/dossier/attempt003/result.json",
+    "assessment": "https://paul-heyse.github.io/corpus-structure/docs/design_review/evidence/2026-11-06_wce-completion-repair/dossier/README.html#verified-native-and-delivery-results--2026-11-07"
+  }
+]

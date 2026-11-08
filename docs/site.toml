@@ -31,7 +31,7 @@ entrypoints = ["README.md", "docs/examples/README.md", "docs/README.md", "docs/d
 # The active plan, once written, e.g. ["docs/plans/<topic>_<YYYY-MM-DD>.md"]
 current_work = ["docs/plans/design-phase_2026-10-28.md"]
 exclude = ["docs/functional_reviews/github_view_improvement.md"]
-assets = ["docs/assets/pipeline.svg"]
+assets = ["docs/assets/pipeline.svg", "docs/examples/data/retained-examples.json"]
 
 [[collections]]
 title = "Start here"

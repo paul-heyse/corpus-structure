@@ -5,7 +5,11 @@
 [![Docs build](https://github.com/paul-heyse/corpus-structure/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/paul-heyse/corpus-structure/actions/workflows/docs.yml)
 
 Corpus Structure is a document-intelligence pipeline for finding structure in a collection
-of documents. It locates definitions and predicate roles, attaches conditions, resolves
+of documents. The intended application is organizational knowledge, including policies,
+procedures, technical documentation, and the relationships between them. The current
+development corpus is a probability textbook.
+
+The pipeline locates definitions and predicate roles, attaches conditions, resolves
 references, and assembles related material into views that retain their source evidence.
 
 The central idea is **progressive enrichment**. A located observation or supported connection
@@ -25,6 +29,13 @@ comparisons and dossiers. Source locations stay attached throughout. Assessment 
 capture, roles, attachments, links, or scope.
 
 ## A real result
+
+In a correlation exercise, the source establishes positive variance before defining
+correlation in the next sentence. The pipeline retains the assumption and attaches
+it to the defining predicate. A separate source assessment supports that attachment
+in this occurrence. [Inspect the condition and its evidence](docs/examples/README.md#a-condition-stays-attached-to-its-predicate)
+
+### A printed reference becomes a typed link
 
 On physical page 260 of Grinstead and Snell’s *Introduction to Probability*, the text
 refers to **Section 5.1**. The pipeline retained that occurrence and selected a
@@ -58,8 +69,8 @@ and [current checkpoint](STATUS.md) document the boundaries.
 - **Assess the operation being improved.** Capture, interpretation, attachment, and link selection can be examined separately.
 
 The [architecture map](docs/design/README.md) connects these choices to design and code. The
-[examples](docs/examples/README.md) also show a positive-variance condition and what happens
-when a candidate link lacks sufficient support.
+[examples](docs/examples/README.md) also show antecedent recovery, dossier assembly, and what happens when a
+candidate link lacks sufficient support.
 
 ## Run locally
 
