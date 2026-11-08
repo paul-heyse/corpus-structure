@@ -115,6 +115,22 @@ class PdfIntegratedIngestConfig(PdfIngestConfig):
         return self
 
 
+class PdfIntegratedRecoveryConfig(PdfIntegratedIngestConfig):
+    """Forward configuration with optional exact-original witnessed recovery."""
+
+    source_recovery: Literal["grinstead-snell-witnessed-v1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+
+    @model_validator(mode="after")
+    def _whole_incumbent_recovery(self) -> PdfIntegratedRecoveryConfig:
+        if self.source_recovery is not None and (
+            self.integrated_product is not None or self.recognition_pages
+        ):
+            raise ValueError("source recovery requires whole-document incumbent reconciliation")
+        return self
+
+
 def _retain_page(
     page: RecognitionPage,
     unit: UnitRef,
@@ -122,9 +138,12 @@ def _retain_page(
     recipe: NemotronRecipe,
     prepared_original: Any,
     ctx: MethodContext,
+    *,
+    verify_retained: bool = False,
 ) -> list[tuple[dict[str, Any], dict[str, Any], bytes]]:
     observations = []
-    for row, raw, artifacts in page.requests():
+    requests = page.requests(verify_retained=True) if verify_retained else page.requests()
+    for row, raw, artifacts in requests:
         observation = recognition_observation_values(page, row, raw, source=source, recipe=recipe)
         product = ctx.reader.prepare_integrated_pdf_product(
             observation, prepared_original, recipe.to_bytes(), artifacts=artifacts
@@ -144,13 +163,14 @@ class IngestPdfIntegrated:
     """
 
     name = "ingest.pdf_integrated"
-    # The retained-only M1 producer owns version 2 with its separate configuration schema.
-    version = "3"
+    # The retained-only M1 producer keeps its version 2 and inherited base schema.
+    # Version 4 admits explicit witnessed recovery through its forward configuration.
+    version = "4"
     family = MethodFamily.INGEST
     unit_type = TaskUnitType.DOCUMENT
     tier = MethodTier.ENCODER
     confidence_source: ConfidenceSource | None = None
-    Config = PdfIntegratedIngestConfig
+    Config: type[PdfIntegratedIngestConfig] = PdfIntegratedRecoveryConfig
     resources = Resources(worker="encoder", batch_size=1, max_concurrency=1)
 
     def __init__(self) -> None:
@@ -173,6 +193,17 @@ class IngestPdfIntegrated:
                     },
                 }
             )
+        recovery = {}
+        if isinstance(cfg, PdfIntegratedRecoveryConfig) and cfg.source_recovery is not None:
+            from .pdf_incumbent_recovery import ORIGINAL, PREDECESSOR
+
+            recovery = {
+                "source_recovery": {
+                    "recipe_id": cfg.source_recovery,
+                    "original_digest": ORIGINAL,
+                    "reviewed_predecessor": PREDECESSOR,
+                }
+            }
         return canonical_bytes(
             {
                 "recipe_id": "pdf-integrated-source-v1",
@@ -184,6 +215,7 @@ class IngestPdfIntegrated:
                     else None
                 ),
                 "gpu_phase_policy": cfg.gpu_phase_policy,
+                **recovery,
                 "integration_policy": normalize_pdf_integration_policy(cfg.integration_policy),
                 "recognition_pages": cfg.recognition_pages,
                 "recovery_policy": (
@@ -276,6 +308,11 @@ class IngestPdfIntegrated:
                 source = PreparedRecognitionSource(native.original, prepared_original.digest)
                 if source.digest != values["artifact_digest"]:
                     raise ValueError("retained Standard source differs from recognition original")
+                source_witness = None
+                if isinstance(cfg, PdfIntegratedRecoveryConfig) and cfg.source_recovery is not None:
+                    from .pdf_incumbent_recovery import read_source_witness
+
+                    source_witness = read_source_witness(native.original)
                 available = tuple(sorted(int(p) for p in values["document"]["pages"]))
                 requested = cfg.recognition_pages or available
                 if len(set(requested)) != len(requested) or not set(requested) <= set(available):
@@ -306,17 +343,31 @@ class IngestPdfIntegrated:
                     prepared_original=prepared_original,
                     recovery=recovery,
                     failures=failures,
+                    retained_only=source_witness is not None,
                 ):
-                    for page in worker.recognize_pages(
-                        source,
-                        recipe,
-                        requested,
-                        check_active=ctx.check_active,
-                        concurrency=4,
-                        reuse_failures=True,
-                    ):
+                    pages = (
+                        worker.replay_completed_pages(
+                            source, recipe, requested, check_active=ctx.check_active
+                        )
+                        if retained_only
+                        else worker.recognize_pages(
+                            source,
+                            recipe,
+                            requested,
+                            check_active=ctx.check_active,
+                            concurrency=4,
+                            reuse_failures=True,
+                        )
+                    )
+                    for page in pages:
                         yield from _retain_page(
-                            page, unit.ref, source, recipe, prepared_original, ctx
+                            page,
+                            unit.ref,
+                            source,
+                            recipe,
+                            prepared_original,
+                            ctx,
+                            verify_retained=retained_only,
                         )
                         if (
                             not page.succeeded
@@ -369,6 +420,7 @@ class IngestPdfIntegrated:
                         directory=Path(root),
                         policy=cfg.integration_policy,
                         context=ctx.reader.pdf_context(),
+                        source_witness=source_witness,
                     ) as selected,
                 ):
                     # Reconciliation creates a new pointer inventory. Input assessments remain

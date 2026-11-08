@@ -386,8 +386,10 @@ def test_protected_comparison_yields_detached_unconnected_sides(
         assert page.status == "actionable"
         (row,) = page.rows
         assert row.reason == "no_qualifying_root_binding"
-        assert set(row.evidence["sides"]) == {"left", "right"}
-        assert len(row.evidence["support"]) == 1
+        sides = row.evidence["sides"]
+        support = row.evidence["support"]
+        assert isinstance(sides, dict) and set(sides) == {"left", "right"}
+        assert isinstance(support, list) and len(support) == 1
         with pytest.raises(SemanticRefusal, match="scope"):
             serve_structural_gap(conn, request.model_copy(update={"scope": "outside"}))
         journey = SourceDecisionJourneyParams.model_validate(
@@ -441,7 +443,9 @@ def test_protected_comparison_yields_detached_unconnected_sides(
     assertion["statement"]["scope"] = "substituted support scope"
     assertion["claim_id"] = structural_claim_id(assertion["statement"])
     support = [{"assertion_id": assertion["assertion_id"], "claim_id": assertion["claim_id"]}]
-    next(row for name, row in substituted if name == "structural_gap_sources")["support"] = support
+    source_row = next(row for name, row in substituted if name == "structural_gap_sources")
+    assert isinstance(source_row, dict)
+    source_row["support"] = support
     page = next(row for name, row in substituted if name == "structural_gaps")
     page["rows"][0]["evidence"]["support"] = support
     with pytest.raises(ValueError, match="support differs from the original comparison"):

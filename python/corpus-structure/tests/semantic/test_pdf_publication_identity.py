@@ -180,7 +180,10 @@ def test_actual_record_cursor_matches_independent_logical_fields(
             "'{\"ready\":true}',0)"
         )
         body = dict(relation)
+        fields: tuple[tuple[str, str, str, bytes], ...] = ()
         if segmented:
+            evidence = body.pop("evidence")
+            assert isinstance(evidence, str)
             fields = (
                 (
                     "endpoints",
@@ -188,7 +191,7 @@ def test_actual_record_cursor_matches_independent_logical_fields(
                     "pdf-companion-json-field-v1",
                     json.dumps(body.pop("endpoints")).encode(),
                 ),
-                ("evidence", "s", "pdf-record-scalar-v1:s", body.pop("evidence").encode()),
+                ("evidence", "s", "pdf-record-scalar-v1:s", evidence.encode()),
             )
             for name, kind, profile, payload in fields:
                 size, root = byte_root((payload,))

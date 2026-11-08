@@ -21,6 +21,8 @@ from corpus_structure.semantic.identity import canonical_bytes
 if TYPE_CHECKING:
     from corpus_structure.semantic.pdf_integrated import PreparedIntegratedPdfProduct
 
+    from .pdf_incumbent_recovery import RecoveryEvidence
+
 _CLASS = re.compile(r"<class_([^>]+)>")
 _COORD = re.compile(r"<x_(\d+(?:\.\d+)?)><y_(\d+(?:\.\d+)?)>")
 _LABELS = frozenset(
@@ -464,6 +466,8 @@ def _iter_selected_occurrences(document, origins):
     nodes = native_nodes(document)
     for pointer, node in nodes.items():
         label = str(node.label)
+        origin = origins[id(node)]
+        original_witness = getattr(origin, "evidence", {})
         row: dict[str, Any] = {
             "occurrence_id": pointer,
             "kind": "formula"
@@ -485,7 +489,7 @@ def _iter_selected_occurrences(document, origins):
         if getattr(anchor, "prov", ()):
             p = anchor.prov[0]
             box = p.bbox
-            generated = origins[id(node)].input_index != 0
+            generated = origin.input_index != 0 and not original_witness.get("positioned_original")
             precision = "coarse" if generated else "item"
             if anchor is not node:
                 row["grounding_pointer"] = anchor.self_ref
@@ -517,7 +521,22 @@ def _iter_selected_occurrences(document, origins):
                     "precision": "coarse" if origins[id(node)].input_index else "cell",
                     "text": cell.text,
                 }
-                if row.get("region"):
+                if cell.bbox is not None and original_witness.get("positioned_grid"):
+                    entry.update(
+                        page_no=row["page_no"],
+                        precision="cell",
+                        region={
+                            "address_space": "pdf_points",
+                            "precision": "cell",
+                            "normalization": "none",
+                            "left": cell.bbox.l,
+                            "top": cell.bbox.t,
+                            "right": cell.bbox.r,
+                            "bottom": cell.bbox.b,
+                            "origin": "top_left",
+                        },
+                    )
+                elif row.get("region"):
                     entry.update(
                         page_no=row["page_no"],
                         grounding_pointer=pointer,
@@ -553,6 +572,104 @@ class _PrivateSelection:
     health: dict[str, str]
 
 
+def _repair_incumbent_source(
+    doc,
+    origins,
+    evidence: RecoveryEvidence,
+    anchor_inputs: Mapping[str, tuple[int, str]],
+    mapping_reports,
+) -> None:
+    from .pdf_incumbent_recovery import (
+        FIGURE_CAPTION,
+        ORIGINAL,
+        PANEL_LABELS,
+        RECIPE,
+        TABLE_CAPTION,
+        add_caption,
+        recover_figure,
+        recover_table,
+    )
+
+    def caption(page_no, text, box):
+        height = doc.pages[page_no].size.height
+        matches = [
+            node
+            for node in doc.texts
+            if str(node.label) in {"caption", "text"}
+            and node.content_layer.value == "body"
+            and node.text.strip() == text
+            and any(
+                p.page_no == page_no
+                and box.intersection_over_self(p.bbox.to_top_left_origin(height)) > 0.5
+                for p in node.prov
+            )
+        ]
+        if len(matches) > 1:
+            raise ValueError("source-qualified caption has competing selected occurrences")
+        return matches[0] if matches else None
+
+    def record(node, page, *, grid=False):
+        origins[id(node)].evidence.update(
+            source_recovery=RECIPE,
+            original_digest=ORIGINAL,
+            physical_page=page,
+            positioned_original=True,
+            **({"positioned_grid": True} if grid else {}),
+        )
+
+    figure = caption(108, FIGURE_CAPTION, evidence.caption)
+    if figure is None:
+        figure_input = anchor_inputs.get("figure")
+        if figure_input is None:
+            raise ValueError("source-qualified figure has no retained caption evidence address")
+        panels = [node for node in doc.pictures if any(p.page_no == 108 for p in node.prov)]
+        chart_panels = [
+            node
+            for node in panels
+            if node.meta
+            and node.meta.tabular_chart
+            and node.meta.tabular_chart.title in PANEL_LABELS
+        ]
+        candidates = chart_panels or panels
+        if not candidates or len({node.parent.cref for node in candidates if node.parent}) != 1:
+            raise ValueError("source-qualified figure has no unambiguous caption placement")
+        after = candidates[-1]
+        figure = add_caption(
+            doc, after.parent.resolve(doc), FIGURE_CAPTION, evidence.caption, 108, after=after
+        )
+        origins[id(figure)] = _Origin(figure_input[0], figure_input[1], "added")
+        record(figure, 108)
+    panels = recover_figure(doc, evidence, figure)
+    for panel in panels:
+        record(panel, 108)
+        origins[id(panel)].evidence["shared_caption"] = figure.self_ref
+    figure_reading = anchor_inputs.get("figure_recognition")
+    if not panels and figure_reading is not None:
+        index, occurrence = figure_reading
+        mapping_reports.append(
+            {
+                "input_index": index,
+                "occurrence_id": occurrence,
+                "outcome": "unresolved",
+                "reason": "independent_figure_panels_lack_selected_occurrences",
+            }
+        )
+
+    table_caption = caption(151, TABLE_CAPTION, evidence.table_caption)
+    table_input = anchor_inputs.get("table")
+    if table_caption is None or table_input is None:
+        raise ValueError("source-qualified table recovery lacks the retained caption or C evidence")
+    table, added = recover_table(doc, evidence, table_caption)
+    previous = origins.get(id(table))
+    origins[id(table)] = _Origin(table_input[0], table_input[1], "added" if added else "replaced")
+    if previous is not None:
+        prior = (previous.input_index, previous.occurrence_id)
+        origins[id(table)].alternatives = list(
+            dict.fromkeys(key for key in (prior, *previous.alternatives) if key != table_input)
+        )
+    record(table, 151, grid=True)
+
+
 def _select_pdf_integration(
     native_product: Mapping[str, Any],
     structural_pin: Mapping[str, Any],
@@ -566,6 +683,7 @@ def _select_pdf_integration(
     product_key="integrated",
     native_document=None,
     journal=None,
+    source_witness: RecoveryEvidence | None = None,
 ) -> PreparedIntegratedPdfProduct | _PrivateSelection:
     """Select one graph with preserved alternatives and policy-governed keep/add/replace.
 
@@ -613,6 +731,17 @@ def _select_pdf_integration(
     correspondences = collection("correspondences")
     imported_nodes = {}
     deferred_references = []
+    witness_inputs: dict[str, tuple[int, str]] = {}
+    recovery = None
+    if source_witness is not None:
+        from . import pdf_incumbent_recovery as recovery
+
+        for pointer, node in nodes.items():
+            if getattr(node, "text", "").strip() == recovery.FIGURE_CAPTION and any(
+                p.page_no == 108 for p in getattr(node, "prov", ())
+            ):
+                witness_inputs["figure"] = (0, pointer)
+                break
     # Grid buckets bound correspondence to intersecting page regions, not an all-item matrix.
     # Rebuild a page index only for each affected page, preserving native document lifetime.
     mapped_inputs = collection("mapped_inputs")
@@ -623,6 +752,28 @@ def _select_pdf_integration(
             raise ValueError("recognition and structural original differ")
         index = len(inputs)
         inputs.append({**pin, "role": "recognition"})
+        if recovery is not None:
+            body = observation["observation"]
+            page = body["image"]["page_no"]
+            if page == 108 and body["pass_role"] == "A":
+                anchors = [
+                    o["occurrence_id"]
+                    for o in observation["occurrences"]
+                    if recovery.FIGURE_CAPTION in o.get("text", "")
+                ]
+                if len(anchors) == 1:
+                    witness_inputs.setdefault("figure", (index, anchors[0]))
+                    witness_inputs["figure_recognition"] = (index, anchors[0])
+            if page == 151 and body["pass_role"] == "C":
+                anchors = [
+                    o["occurrence_id"]
+                    for o in observation["occurrences"]
+                    if all(value in o.get("text", "") for value in recovery.FRACTIONS)
+                ]
+                if len(anchors) == 1:
+                    if "table" in witness_inputs:
+                        raise ValueError("source-qualified table has competing crop evidence")
+                    witness_inputs["table"] = (index, anchors[0])
         mapped_inputs.append((index, observation, raw))
         for c in observation["coverage"]:
             coverage.append(
@@ -964,6 +1115,8 @@ def _select_pdf_integration(
         refs = getattr(owner, name)
         if not any(ref.cref == target.self_ref for ref in refs):
             refs.append(target.get_ref())
+    if source_witness is not None:
+        _repair_incumbent_source(doc, origins, source_witness, witness_inputs, mapping_reports)
     normalize_section_header_levels(doc)
     _validate_native(doc)
     content = None

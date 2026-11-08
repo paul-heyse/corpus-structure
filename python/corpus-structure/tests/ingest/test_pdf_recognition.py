@@ -9,7 +9,7 @@ import base64
 import json
 import threading
 import time
-from contextlib import suppress
+from contextlib import nullcontext, suppress
 from dataclasses import replace
 from hashlib import sha256
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -103,6 +103,16 @@ def test_independent_cropbox_rotated_landmarks(page_no, pixel):
         document.close()
 
 
+@pytest.fixture(autouse=True)
+def scripted_worker_has_no_gpu(monkeypatch):
+    # These HTTP peers are scripted CPU fixtures. Capacity and real provider handoff
+    # have their own tests and must keep the operator's shared GPU lease.
+    monkeypatch.setattr(
+        "corpus_structure.ingest.pdf_recognition.pdf_gpu_slot",
+        lambda check_active=None: nullcontext(),
+    )
+
+
 @pytest.fixture
 def endpoint():
     requests = []
@@ -169,7 +179,7 @@ def owner(tmp_path, endpoint):
     )
 
 
-def test_public_triple_exact_images_raw_crops_and_replay(tmp_path, endpoint):
+def test_public_triple_exact_images_raw_crops_and_replay(tmp_path, endpoint, monkeypatch):
     url, requests, replies = endpoint
     table = "<x_100><y_200><table><tr><td>one</td></tr></table><x_700><y_800><class_Table>"
     replies.extend([table, "<x_100><y_200><x_700><y_800><class_Table>", table])
@@ -224,6 +234,20 @@ def test_public_triple_exact_images_raw_crops_and_replay(tmp_path, endpoint):
     assert replace(recipe, seed=3).digest != recipe.digest
     assert replace(recipe, render_scale=2).digest != recipe.digest
     assert replace(recipe, weights_digest="3" * 64).digest != recipe.digest
+
+    def unexpected_gpu(*args, **kwargs):
+        raise AssertionError("completed receipt replay must not acquire GPU capacity")
+
+    monkeypatch.setattr("corpus_structure.ingest.pdf_recognition.pdf_gpu_slot", unexpected_gpu)
+    worker.endpoint = "http://127.0.0.1:1/v1"
+    completed = list(worker.replay_completed_pages(source, recipe, [2], check_active=lambda: None))
+    assert len(completed) == 1 and completed[0].reused
+    assert list(completed[0].requests(verify_retained=True)) == rows
+    with pytest.raises(ValueError, match="no complete attempt"):
+        list(worker.replay_completed_pages(source, recipe, [3], check_active=lambda: None))
+    (page.directory / crop_row["raw_response"]).write_bytes(b"changed retained response")
+    with pytest.raises(ValueError, match="raw or submitted bytes differ"):
+        list(completed[0].requests(verify_retained=True))
 
 
 def test_later_crop_failure_preserves_prior_actual_responses(tmp_path, endpoint):

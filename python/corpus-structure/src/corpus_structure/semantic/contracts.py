@@ -1185,6 +1185,7 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("pdf/assembly.py", "ingest/pdf_assembly.py"),
                 ("pdf/stream-types.py", "ingest/pdf_stream_types.py"),
                 ("pdf/stream-reconciliation.py", "ingest/pdf_stream_reconciliation.py"),
+                ("pdf/incumbent-recovery.py", "ingest/pdf_incumbent_recovery.py"),
                 ("pdf/stream-orchestration.py", "orchestrate/pdf_streaming.py"),
             )
         ),

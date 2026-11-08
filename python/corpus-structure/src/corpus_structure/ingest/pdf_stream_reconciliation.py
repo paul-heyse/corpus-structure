@@ -9,12 +9,15 @@ from __future__ import annotations
 import json
 from collections.abc import Generator, Iterable, Iterator, Mapping
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import duckdb
 import pyarrow as pa
 
 from .pdf_reconciliation import _PrivateSelection, _select_pdf_integration
+
+if TYPE_CHECKING:
+    from .pdf_incumbent_recovery import RecoveryEvidence
 
 _NAMES = frozenset(
     {
@@ -337,6 +340,7 @@ def reconcile_pdf_stream(
     directory: Path,
     policy: Mapping[str, Any] | None = None,
     context: Any = None,
+    source_witness: RecoveryEvidence | None = None,
 ) -> ReconciledPdfStream:
     """Mutate one private native graph and retain companions incrementally.
 
@@ -362,6 +366,7 @@ def reconcile_pdf_stream(
             context=context,
             native_document=document,
             journal=journal,
+            source_witness=source_witness,
         )
         ordered.close()
         assert isinstance(selected, _PrivateSelection)

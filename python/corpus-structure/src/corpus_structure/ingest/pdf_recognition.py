@@ -306,24 +306,80 @@ class RecognitionPage:
     def succeeded(self) -> bool:
         return self.result.get("outcome") == "succeeded"
 
-    def requests(self) -> Iterator[tuple[dict[str, Any], bytes, tuple[bytes, ...]]]:
+    def requests(
+        self, *, verify_retained: bool = False
+    ) -> Iterator[tuple[dict[str, Any], bytes, tuple[bytes, ...]]]:
         """Durable rows survive worker/process loss before result.json is finalized."""
-        for path in sorted(self.directory.glob("request-*.json")):
-            if path.name.endswith(".http.json"):
-                continue
+        paths = sorted(
+            path
+            for path in self.directory.glob("request-*.json")
+            if not path.name.endswith(".http.json")
+        )
+        expected = None
+        if verify_retained:
+            expected = self.result.get("requests")
+            if (
+                not isinstance(expected, list)
+                or len(expected) != len(paths)
+                or len(paths) < 2
+                or [row.get("ordinal") for row in expected] != list(range(len(paths)))
+                or [row.get("stage") for row in expected]
+                != ["fullpage", "detection", *(["crop"] * (len(paths) - 2))]
+            ):
+                raise ValueError("retained recognition request inventory differs from its receipt")
+        root = self.directory.resolve()
+
+        def owned(name: str) -> Path:
+            path = self.directory / name
+            if verify_retained and (path.name != name or path.resolve().parent != root):
+                raise ValueError("retained recognition artifact escaped its attempt directory")
+            return path
+
+        for ordinal, path in enumerate(paths):
+            if verify_retained:
+                path = owned(path.name)
             row = json.loads(path.read_bytes())
-            raw = (
-                (self.directory / row["raw_response"]).read_bytes()
-                if "raw_response" in row
-                else b""
-            )
-            artifacts = [(self.directory / row["submitted_image"]).read_bytes()]
+            if expected is not None and (
+                row != expected[ordinal]
+                or row.get("outcome") != "succeeded"
+                or path.name != f"request-{ordinal:03d}.json"
+            ):
+                raise ValueError("retained recognition request differs from its completed attempt")
+            raw = owned(row["raw_response"]).read_bytes() if "raw_response" in row else b""
+            artifacts = [owned(row["submitted_image"]).read_bytes()]
             if "raw_response" in row:
                 artifacts.append(raw)
             if "http_response" in row:
-                artifacts.append((self.directory / row["http_response"]).read_bytes())
+                artifacts.append(owned(row["http_response"]).read_bytes())
             if row.get("crop", {}).get("jpeg_path") if row.get("crop") else False:
-                artifacts.append((self.directory / row["crop"]["jpeg_path"]).read_bytes())
+                artifacts.append(owned(row["crop"]["jpeg_path"]).read_bytes())
+            if verify_retained:
+                if (
+                    sha256(raw).hexdigest() != row.get("raw_digest")
+                    or sha256(artifacts[0]).hexdigest() != row.get("submitted_digest")
+                    or len(artifacts) < 3
+                ):
+                    raise ValueError("retained recognition raw or submitted bytes differ")
+                choice = json.loads(artifacts[2])["choices"][0]
+                if choice["message"]["content"].encode() != raw or choice[
+                    "finish_reason"
+                ] != row.get("finish_reason"):
+                    raise ValueError("retained recognition response differs from its raw reading")
+                if row["stage"] == "crop":
+                    crop = row.get("crop")
+                    if (
+                        not isinstance(crop, dict)
+                        or crop not in self.result["decisions"]
+                        or len(artifacts) != 4
+                        or sha256(artifacts[3]).hexdigest() != crop["jpeg_digest"]
+                    ):
+                        raise ValueError(
+                            "retained recognition crop differs from its recorded decision"
+                        )
+                elif artifacts[0] != owned("page.png").read_bytes():
+                    raise ValueError(
+                        "retained recognition full-page request differs from its frame"
+                    )
             # The request metadata contains the upstream crop witness even on later failure.
             # The first observation also protects page selection/omission and final status.
             names = [path.name]
@@ -339,7 +395,7 @@ class RecognitionPage:
                 )
             context = {}
             for name in names:
-                retained = self.directory / name
+                retained = owned(name)
                 if retained.exists():
                     payload = retained.read_bytes()
                     context[name] = sha256(payload).hexdigest()
@@ -482,6 +538,67 @@ class RecognitionWorker:
                 concurrency=concurrency,
                 reuse_failures=reuse_failures,
             )
+
+    def replay_completed_pages(
+        self,
+        source: PreparedRecognitionSource,
+        recipe: NemotronRecipe,
+        page_numbers: Sequence[int],
+        *,
+        check_active: Callable[[], None],
+    ) -> Generator[RecognitionPage]:
+        """Verify exact complete retained frames without contacting the provider or GPU lease."""
+        import pypdfium2
+
+        if len(set(page_numbers)) != len(page_numbers):
+            raise ValueError("retained recognition pages must have distinct physical identities")
+        root = (self.receipts / source.digest / recipe.digest).resolve()
+        with _PDFIUM_LOCK:
+            document = pypdfium2.PdfDocument(source.original)
+        try:
+            for page_no in page_numbers:
+                check_active()
+                with _PDFIUM_LOCK:
+                    if not 1 <= page_no <= len(document):
+                        raise ValueError("retained recognition page is outside the source")
+                    image, transform = render_recognition_page(
+                        document, page_no, recipe.render_scale
+                    )
+                parent = root / f"page-{page_no:05d}"
+                for receipt in sorted(parent.glob("attempt-*/result.json"), reverse=True):
+                    attempt = receipt.parent
+                    if (
+                        not re.fullmatch(r"attempt-\d{5,}", attempt.name)
+                        or attempt.resolve().parent != parent
+                        or receipt.resolve().parent != attempt.resolve()
+                    ):
+                        raise ValueError("retained recognition attempt escaped its exact scope")
+                    result = json.loads(receipt.read_bytes())
+                    if result.get("outcome") != "succeeded":
+                        continue
+                    input_path, frame_path = attempt / "input.json", attempt / "page.png"
+                    if any(
+                        path.resolve().parent != attempt.resolve()
+                        for path in (input_path, frame_path)
+                    ):
+                        raise ValueError("retained recognition input or frame escaped its attempt")
+                    submitted = json.loads(input_path.read_bytes())
+                    if (
+                        submitted.get("source_digest") != source.digest
+                        or submitted.get("recipe_digest") != recipe.digest
+                        or submitted.get("transform") != transform
+                        or frame_path.read_bytes() != image
+                    ):
+                        raise ValueError(
+                            f"retained recognition page {page_no} frame or binding differs"
+                        )
+                    yield RecognitionPage(page_no, attempt, result, transform, reused=True)
+                    break
+                else:
+                    raise ValueError(f"retained recognition page {page_no} has no complete attempt")
+        finally:
+            with _PDFIUM_LOCK:
+                document.close()
 
     def _recognize_pages(
         self,
