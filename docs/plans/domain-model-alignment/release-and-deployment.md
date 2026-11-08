@@ -84,3 +84,30 @@ wrong endpoint, purpose role, predecessor or catalog before unrelated effects.
 Inject failure after migration and establish an exact resume or refusal without
 repeating completed effects or activating an unadmitted release. Observe the
 actual catalog and pointers independently of the command's report.
+
+### Completion audit follow-up
+
+**DA-063 · Source-inspected · 2026-11-08.** The older-target and non-head
+deployment controls establish the revision-specific path they exercise.
+The pre-effect checks still verify a subset of the frozen catalog. Full
+function, ACL, purpose-role, constraint and index checks run at admission
+after migration and archive can commit. Extra TEMP privilege for the
+writer is one drift case that can survive preflight and fail at admission.
+Require the complete predecessor and reached-revision expectations before
+their respective durable effects. Independently verify revision, archive,
+admission and selection on refusal and exact retry.
+
+The ordinary authored-SQL branch verifies the reader connection by
+querying it, then hands the already-started transaction to an analyzer
+that requires a fresh connection. After that boundary is corrected, the
+analyzer's installed physical metadata can still mismatch a supported
+non-head target. Compose target verification and read-only analysis under
+one valid connection lifecycle, using the acquired revision's trusted
+physical metadata. Explicit release activation reaches the same
+connection-lifecycle refusal. Qualify a frozen non-head candidate with
+authored SQL, independently verify its physical identity, admission and
+unchanged selection, then exercise the explicit activation path.
+[Deploy sequencing](../../../python/corpus-structure/src/corpus_structure/schema/model_deployment.py#L516) ·
+[Full native admission](../../../python/corpus-structure/src/corpus_structure/semantic/sql/admission.sql#L92) ·
+[Authored SQL analysis](../../../python/corpus-structure/src/corpus_structure/semantic/authored_sql.py#L300) ·
+[Explicit activation](../../../python/corpus-structure/src/corpus_structure/cli/operations.py#L511)

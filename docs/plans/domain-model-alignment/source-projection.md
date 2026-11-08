@@ -43,6 +43,23 @@ Accept valid exclusions, the current caption and formula cases and an
 exact idempotent replay. Follow an independently specified text fragment
 through Reader, source search, packet and downstream interpretation.
 
+### Completion audit follow-up
+
+**F02 · Source-inspected · 2026-11-08.** Native publication derives the
+ordered field inventory. Detached verification still lets the submitted
+row select its own assurance level. Removing `projection_inputs` and
+claiming `selected_projection_only` bypasses current inventory replay.
+Even with replay requested, the supplied recipe and frontier can
+classify an omitted native item as excluded without authenticating that
+classification against the selected product. Bind replay requirements
+to the archived contract and the membership and excluded frontier to
+the selected product. Verify refusal of resealed current bundles that
+drop a required field by downgrading coverage or by fabricating the
+frontier. Preserve valid current replay and supported archived reads.
+[Detached replay branch](../../../python/corpus-structure/src/corpus_structure/serve/review_source_projection.py#L62) ·
+[Archived contract capture](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py#L150) ·
+[Bundle verification](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py#L2599)
+
 <a id="DMA-07"></a>
 
 ## DMA-07 · Resolve readable originals from their exact retained policy
@@ -75,3 +92,17 @@ occurrence, frame or spelling must invalidate reuse. After a successor
 recipe is installed, the explicitly supported archived p416 response
 preserves its prior readable and recognized forms. Rebuilt current search
 and packets use the new exact projection.
+
+### Completion audit follow-up
+
+**DA-061 · Source-inspected · 2026-11-08.** The released witness
+collection and archived policy lookup are implemented. The current v10
+recipe contains one released witness. The two-witness fixture builds both
+digests from artificial native original text. It establishes collection
+behavior and scoped refusals, with no independent second released
+original. The p416 archived response and current exact Reader have
+bounded evidence. Qualify an independently checked second witness and
+its occurrence substitution refusal. Trace the rebuilt current recipe
+through search and packet delivery on the same source cut.
+[Witness collection control](../../../python/corpus-structure/tests/ingest/test_pdf_body_selection.py#L124) ·
+[Development adoption](../domain-model-alignment_2026-11-08.md#development-adoption-on-2026-11-08)

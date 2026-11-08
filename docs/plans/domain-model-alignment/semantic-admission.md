@@ -93,3 +93,22 @@ cue or geometry refuses, including in detached verification. Positive
 independent cases establish each supported basis and a weaker private
 candidate. An independently adjudicated public case still passes through
 the distinct publication route.
+
+### Completion audit follow-up
+
+**DA-065 · Source-inspected · 2026-11-08.** Protected matched-cue admission
+authenticates the retained dependency pattern, role spans and direct
+negation. Its accepting branch does not establish the contextual
+predicate-frame restrictions used by the producer and detached
+rederivation. A conditional or reported match with genuine tokens and
+spans can pass that branch as a strong definition basis. The producer
+withholds that claim in the existing independent conditional and reported
+controls. The native-geometry branch has the same scope gap when a
+conditional definition cue precedes an authentic adjacent display.
+Reconcile the scoped witness contract at native completion and detached
+verification. Require both boundaries to refuse the same resealed
+matched-cue and geometry counterexamples while retaining supported
+positive bases and the separate public-eligibility control.
+[Native accepting branch](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L1951) ·
+[Producer scope checks](../../../python/corpus-structure/src/corpus_structure/methods/definition_applicability.py#L315) ·
+[Independent controls](../../../python/corpus-structure/tests/ingest/test_definition_rules.py#L124)

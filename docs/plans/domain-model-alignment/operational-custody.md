@@ -48,3 +48,21 @@ acquired target after candidate collection. Refuse settled evidence
 promotion for a terminal-looking selection with cleanup unresolved and
 accept a settled failed artifact with correct attribution. A legacy
 receipt with no retained target keeps an explicit unknown.
+
+### Completion audit follow-up
+
+**DA-059/060 · Source-inspected · 2026-11-08.** The successful
+development deployment has a settled typed account. After migration
+commits, the ordinary deploy path records the reached target before
+recording the migration effect. A failure writing that first checkpoint
+can leave a failed account with the reached revision and no migration
+effect. Model failure handling can also mark cleanup established when
+the underlying connection or engine cleanup failed and left only an
+exception note. Recover or report unknown effect and custody facts at
+those boundaries. Exercise a one-shot post-commit receipt write failure
+and a cleanup failure. Independently observe native revision, archive,
+admission and selection, then compare immediate and by-ID facts and
+verify settled evidence promotion refuses unresolved custody.
+[Post-commit sequencing](../../../python/corpus-structure/src/corpus_structure/schema/model_deployment.py#L537) ·
+[Managed settlement](../../../python/corpus-structure/src/corpus_structure/cli/managed.py#L351) ·
+[Connection cleanup](../../../python/corpus-structure/src/corpus_structure/core/db/store.py#L75)

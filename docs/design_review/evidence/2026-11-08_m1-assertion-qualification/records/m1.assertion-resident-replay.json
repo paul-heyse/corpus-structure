@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "id": "m1.assertion-resident-replay",
+  "title": "Resident M1 literal assertion replay and sibling controls",
+  "group": "m1-assertion-qualification",
+  "package": "DMA-13",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the implemented M1 assertion pack resolve the retained failure through the native worker?",
+  "answers": [
+    "DMA-13"
+  ],
+  "method": "Authenticate retained input and runtime, build actual M1 packs, run the pinned worker and check the transformed candidate coordinate length.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-08_m1-assertion-qualification/replay.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "replay.py",
+      "role": "Production pack and native worker replay",
+      "sha256": "d06b4ee8ca3c8824833c804cbda92a51e863cea4e6f6a1a20c78bd740cf7c6a5"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/replay.json",
+      "role": "Pinned native results and prefix count",
+      "sha256": "c0f8f25c2fbc62959034a76ed1a7860275e35c67e379494e50b9f78897f0264b"
+    }
+  ],
+  "depends_on": [
+    "2026-11-08_gliner-caller-routing/gliner.caller-routing"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "The implemented assertion request produced the source predicate positive at [24, 32) with zero prefix words. Bounded definition and measurement requests completed on the same source and one positive control each.",
+  "consumed_by": [
+    "DMA-13"
+  ]
+}

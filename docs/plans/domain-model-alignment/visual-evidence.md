@@ -44,6 +44,33 @@ Interrupt a dispatch after a group settles. Resume from the exact
 nomination. Change only policy or reasons and verify that both decisions
 are attributable and the unchanged inference can reuse its raw response.
 
+### Completion audit follow-up
+
+**F01 · Source-inspected · 2026-11-08.** The native nomination is retained.
+The managed by-ID view carries its ID and returned group IDs, while the
+immediate result carries cue coverage and route decisions. Group progress
+is added after the group returns. An interruption within a group can
+leave committed raw or mapped effects outside the by-ID account. Derive
+the same decisions and observable effects from native custody in both
+views, including empty nominations and an interrupted active group.
+Verify by interrupting after a member settles and comparing immediate
+or resumed output with independent native state and by-ID inspection.
+[Dispatch progress](../../../python/corpus-structure/src/corpus_structure/semantic/visual_dispatch.py#L224) ·
+[Managed routing projection](../../../python/corpus-structure/src/corpus_structure/cli/managed.py#L299)
+
+**DA-064 · Source-inspected · 2026-11-08.** A positive crop disagreement
+can still overwrite the availability reason for another crop on the same
+page when the router collapses them into one cue. Preserve coverage by
+scope alongside the valid positive nomination. Verify a mixed page
+whose positive and missing or oversized crop both remain inspectable.
+Also qualify a policy-version change against retained old decisions and
+ordinary raw reuse when recognition determinants match. The resume
+parser accepts the current policy literal, and ordinary reuse keys on
+the whole runtime. Explicit raw replay establishes its narrower route.
+[Cue aggregation](../../../python/corpus-structure/src/corpus_structure/semantic/visual_routing.py#L783) ·
+[Nomination resume](../../../python/corpus-structure/src/corpus_structure/semantic/visual_dispatch.py#L79) ·
+[Ordinary reuse](../../../python/corpus-structure/src/corpus_structure/semantic/operations.py#L293)
+
 <a id="DMA-10"></a>
 
 ## DMA-10 · Reuse settled visual work before acquisition
@@ -76,6 +103,33 @@ Exercise same-page whole and crop scopes, wrong source and stale attempt
 refusals, and cancellation that releases the bounded GPU lease. Use an
 independent transfer observation to show that fresh derivative
 settlement references the retained original without resending its bytes.
+
+### Completion audit follow-up
+
+**DA-058 · Source-inspected · 2026-11-08.** Settled inference can reopen
+its retained raw response for mapping. For fresh compatible whole-page
+and crop requests in one group, the original bytes are shared but each
+member opens and rasterizes the same full page before crop and
+orientation are applied. Share compatible page preparation for the
+group lifetime while retaining distinct crop and rotation identities.
+Verify an independently counted single page render for compatible
+scopes, exact outputs for each scope, and mapping-only recovery with
+provider inputs unavailable.
+
+A fresh group or new nomination still prepares the checkpoint and
+raster before task creation discovers a reusable raw result. Missing
+checkpoint files can prevent that reuse even when an earlier exact raw
+result exists. Resolve reusable raw work before acquisition where the
+recognition determinants can be established, retaining the exact
+runtime fence. Exercise ordinary group dispatch with a compatible raw
+result and unavailable provider files, plus a refusal for changed
+recognition inputs. The fresh-settlement transfer control and the live
+GPU cancellation and release control remain required at the applicable
+runtime. Earlier live cancellation evidence retains its original
+provider and runtime scope.
+[Group execution](../../../python/corpus-structure/src/corpus_structure/semantic/visual_requests.py#L995) ·
+[Fresh task preparation](../../../python/corpus-structure/src/corpus_structure/semantic/visual_requests.py#L1333) ·
+[Page raster path](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_visual_mapping.py#L29)
 
 <a id="DMA-11"></a>
 
@@ -112,3 +166,16 @@ pins, wrong cursors, exact region bounds and genuine work or output
 refusals. Compare independent occurrence and cell expectations through
 the actual Reader, CLI, MCP and packet. The ordinary selected source
 Reader remains independently authoritative.
+
+### Completion audit follow-up
+
+**DA-066 · Source-inspected · 2026-11-08.** Exact locator and p151 delivery
+evidence stand. Region filtering reads geometry from row bodies, and
+the row budget charges rows after filtering. A narrow or empty region
+can therefore examine off-scope candidate rows across the pinned
+artifact. Establish a scoped native access path or an honest bound on
+the examined work before body reads. Check sparse and empty regions on
+a near-limit artifact under an independent examined-work expectation,
+and verify the Reader, CLI, MCP and packet paths at that scope.
+[Region filtering and row accounting](../../../python/corpus-structure/src/corpus_structure/serve/pdf_visual_evidence.py#L819) ·
+[Dense locator control](../../../python/corpus-structure/tests/semantic/test_pdf_visual_requests.py#L421)
