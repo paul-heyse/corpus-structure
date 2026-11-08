@@ -29,10 +29,21 @@ The retained edge is `1407260e0e7e6a`. The source check supports this local atta
 
 ## Candidates and selected relationships
 
-The affine-`X` case retained its candidate list while withholding an unsupported link.
-In a separate case, the exact `Z` occurrence was recovered and linked to its declaration.
-These results illustrate the difference between retaining a possible connection and selecting
-a witnessed one. [Retained X and Z outcomes](../../STATUS.md#delivered-and-assessed)
+### An affine `X` keeps its candidates
+
+In source view 117, the affine formula’s `X` is at `#/texts/30[237:238)`.
+The retained list ranks the urn’s red-ball count first among 14 candidates. The
+selector recorded insufficient evidence and selected zero edges in run 207,
+cut 287. The shared symbol alone gives no source-backed reason to connect the
+formula variable to the urn count.
+[Full candidate list and decision](../design_review/evidence/2026-11-06_wce-completion-repair/composition/native-retained004/false-bridge-control.json) · [Source assessment](../design_review/evidence/2026-11-06_wce-completion-repair/composition/README.md#native-non-self-route)
+
+### A witnessed declaration resolves `Z`
+
+In a separate scoped replay, run 253 and cut 350, the exact formula `Z` at
+`#/texts/30[242:243)` in view 117 has a witnessed `declares` link to the
+standard-normal declaration at `#/texts/21[130:161)`.
+[Scoped replay results](../design_review/evidence/2026-11-07_nce06-closeout/development-results.json) · [Replay assessment](../design_review/evidence/2026-11-07_nce06-closeout/README.md#verified-development-results--2026-11-07)
 
 ## Illustrative enterprise workflow
 
