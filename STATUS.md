@@ -8,7 +8,7 @@ _Updated 2026-11-08. Whole-book processing and output review are complete. Chand
   owns findings, package states and combined qualification. ADR-0067 governs current-only
   migration. ADR-0070 selects all 518 Grinstead–Snell pages. WCE receipts still cover pages 191–310.
 - WCE baseline `07d25b840` retains `semantic_wce_lineage_20261107` and `retrieve.contextual/5`.
-- The [GitHub visitor review](docs/functional_reviews/github-visitor-experience_2026-11-08.md) is proposed. On 2026-11-08, `uv run --no-sync ci docs check --json` passed with temporary fixes in an isolated checkout. The review owns both clean-checkout Pages blockers.
+- The proposed [GitHub visitor series](docs/plans/github-visitor-experience_2026-11-08.md) owns GHV-01–06 and both Pages blockers. On 2026-11-08, `uv run --no-sync ci docs check --json` passed for the plans with isolated workarounds. Start with publication inputs and visitor content.
 
 ## Delivered and assessed
 

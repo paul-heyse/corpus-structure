@@ -23,6 +23,7 @@ semantic pivot series was added on 2026-10-29:
 | [CLI reporting](cli-reporting_2026-11-07.md) | Audit repairs verified on main with targeted functional and native checks. CLIR-01–08 cover bounded reports, test evidence, managed model and corpus reads, recipe diagnostics, stream behavior and file-free workflows. Owns reporting review O01–O07. |
 | [Next corpus enrichment](next-corpus-enrichment_2026-11-07.md) | Proposed NCE-01–12: caption and role recovery, witnessed links, artifact scoring, rooted navigation, finite interpretation, operation reliability and review O01–O12 dispositions. |
 | [Chandra 2 after Nemotron](chandra-2-post-nemotron_2026-11-08.md) | Proposed CH-01–07: Docling upgrade, opt-in visual evidence, and gated recovery, specialist consumer and runtime investigations. Owns the Chandra review O01–O09 dispositions. |
+| [GitHub visitor experience and Pages](github-visitor-experience_2026-11-08.md) | Proposed GHV-01–06: visitor content, source-linked examples, shared visuals, clean publication, Pages rollout and conditional adoption. Owns review O01–O06 and both Pages findings. |
 
 
 [Witnessed corpus enrichment](witnessed-corpus-enrichment_2026-11-05.md) is the new Proposed series
