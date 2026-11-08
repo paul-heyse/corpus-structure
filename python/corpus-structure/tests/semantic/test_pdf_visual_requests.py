@@ -67,9 +67,12 @@ def test_visual_scope_requires_exact_crop_and_quarter_turn(crop):
 def test_visual_nomination_keeps_empty_decision_and_refuses_a_forged_source_cut(
     pdf13_db, tmp_path, monkeypatch
 ):
+    from functools import partial
+
     from sqlalchemy.exc import DBAPIError
 
     from corpus_structure.semantic import visual_dispatch
+    from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.operations import (
         OperationBinding,
         complete_task,
@@ -109,7 +112,9 @@ def test_visual_nomination_keeps_empty_decision_and_refuses_a_forged_source_cut(
         ),
     )
     monkeypatch.setattr(visual_dispatch, "read_visual_routes", lambda *args, **kwargs: routes)
-    args = dict(
+    dispatch = partial(
+        visual_dispatch.dispatch_visual_work,
+        db.writer,
         source=source,
         source_cut=cut,
         semantic_release=db.prepared.release_id,
@@ -121,18 +126,36 @@ def test_visual_nomination_keeps_empty_decision_and_refuses_a_forged_source_cut(
         receipts=tmp_path,
         nemotron_endpoint=None,
     )
-    result = visual_dispatch.dispatch_visual_work(db.writer, **args)
+    result = dispatch()
     assert result.groups == ()
-    assert (
-        visual_dispatch.dispatch_visual_work(
-            db.writer, **args, nomination_run_id=result.nomination_run_id
-        )
-        == result
-    )
+    assert dispatch(nomination_run_id=result.nomination_run_id) == result
     runs = table("ops.run")
     with db.writer.connect() as conn:
         options = conn.scalar(select(runs.c.options).where(runs.c.id == result.nomination_run_id))
     assert options["visual_nomination"]["selections"] == []
+    other_routes = routes.model_copy(
+        update={"pages": (routes.pages[0].model_copy(update={"action": "skip"}),)}
+    )
+    other_nomination = {
+        **options["visual_nomination"],
+        "routes": other_routes.model_dump(mode="json"),
+    }
+    claimed_digest = sha256(canonical_bytes(other_nomination)).hexdigest()
+    with db.writer.begin() as conn:
+        collision = create_run(
+            conn,
+            project_id="p",
+            binding=OperationBinding(db.prepared.release_id, "z", 0, b"{}"),
+            kind="slice",
+            options={**options, "visual_nomination_id": claimed_digest},
+            code_commit=visual_requests.VISUAL_REQUEST_CODE_COMMIT,
+            prepared=db.prepared,
+        )
+        seal_cut(conn, collision, "visual-nomination", final=True)
+    monkeypatch.setattr(visual_dispatch, "read_visual_routes", lambda *args, **kwargs: other_routes)
+    other = dispatch()
+    assert other.nomination_run_id not in {collision, result.nomination_run_id}
+    assert dispatch(nomination_run_id=other.nomination_run_id) == other
     options["visual_nomination"]["demand"]["source_cut"] = cut + 100000
     with (
         pytest.raises(
@@ -313,18 +336,52 @@ def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
     assert descriptor["health"]["source_fidelity"] == "unassessed"
 
     from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
+    from corpus_structure.semantic.query import ReadLimit
     from corpus_structure.serve.native_source import NativeSourceRequest
     from corpus_structure.serve.pdf_visual_evidence import (
         MAX_VISUAL_EVIDENCE_ROWS,
+        VisualCellGroup,
         VisualEvidenceArtifact,
         VisualPicture,
+        VisualTable,
+        VisualTableCell,
+        VisualText,
         _read_mapped_locator,
     )
 
+    picture_count = MAX_VISUAL_EVIDENCE_ROWS - 5
+    final_picture = f"picture-{picture_count - 1}"
     near_limit = VisualEvidenceArtifact(
         page_no=1,
-        rows=tuple(
-            VisualPicture(occurrence_id=f"picture-{n}") for n in range(MAX_VISUAL_EVIDENCE_ROWS)
+        rows=(
+            *(VisualPicture(occurrence_id=f"picture-{n}") for n in range(picture_count)),
+            VisualText(
+                occurrence_id="description",
+                parent_occurrence_id=final_picture,
+                kind="picture_description",
+                text="Rare histogram",
+            ),
+            VisualTable(
+                occurrence_id="rich-table",
+                num_rows=1,
+                num_cols=1,
+                cells=(
+                    VisualTableCell(
+                        text="formula",
+                        start_row_offset_idx=0,
+                        end_row_offset_idx=1,
+                        start_col_offset_idx=0,
+                        end_col_offset_idx=1,
+                        content_occurrence_id="group",
+                    ),
+                ),
+            ),
+            VisualCellGroup(
+                occurrence_id="group", parent_occurrence_id="rich-table", native_label="text"
+            ),
+            VisualText(
+                occurrence_id="formula", parent_occurrence_id="group", kind="formula", text="x^2"
+            ),
         ),
     )
     with monkeypatch.context() as patch:
@@ -338,13 +395,37 @@ def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
         view="visual_evidence",
         page_no=1,
         evidence=large.mapped,
-        occurrence_id=f"picture-{MAX_VISUAL_EVIDENCE_ROWS - 1}",
+        occurrence_id=final_picture,
     )
     with db.writer.connect() as conn:
         (item,), following = _read_mapped_locator(
             conn, large.mapped, mapped_digest, request, (), PublishedReadBudget(2, 1024), 0
         )
     assert item.occurrence_id == request.occurrence_id and following is None
+    with db.writer.connect() as conn:
+        cell = request.model_copy(update={"occurrence_id": "rich-table", "cell_index": 0})
+        items, following = _read_mapped_locator(
+            conn, large.mapped, mapped_digest, cell, (), PublishedReadBudget(7, 2048), 0
+        )
+        assert [entry.occurrence_id for entry in items] == [
+            "group",
+            "formula",
+        ] and following is None
+        figure = request.model_copy(
+            update={
+                "occurrence_id": None,
+                "visual_query": "Rare histogram",
+                "visual_kind": "picture",
+            }
+        )
+        (matched,), following = _read_mapped_locator(
+            conn, large.mapped, mapped_digest, figure, (), PublishedReadBudget(4, 2048), 0
+        )
+        assert matched.occurrence_id == final_picture and following is None
+        with pytest.raises(ReadLimit, match="byte budget"):
+            _read_mapped_locator(
+                conn, large.mapped, mapped_digest, figure, (), PublishedReadBudget(4, 8), 0
+            )
     generation.remove("near-limit")
 
     repeated = visual_requests.request_visual_observation(db.writer, artifacts=tmp_path, **args)

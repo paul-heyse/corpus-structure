@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import replace
+from hashlib import sha256
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -20,7 +21,7 @@ from corpus_structure.core.method import (
     UnitView,
 )
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
-from corpus_structure.ingest.pdf_hierarchy import organize, snapshot
+from corpus_structure.ingest.pdf_hierarchy import _section_text_policy_bytes, organize, snapshot
 from corpus_structure.ingest.pdf_methods import (
     EnrichPdfMath,
     IngestPdf,
@@ -172,7 +173,19 @@ def test_exact_retained_enrichment_reuses_pin_without_worker_or_native_output(mo
         return InMemoryCandidatePageSource(())
 
     reader = SimpleNamespace(
-        prepared=SimpleNamespace(release_id="current"),
+        prepared=SimpleNamespace(
+            release_id="current",
+            manifest=json.dumps(
+                {
+                    "dependencies": [
+                        [
+                            "execution/implementation/pdf/section-text-recipe.json",
+                            sha256(_section_text_policy_bytes()).hexdigest(),
+                        ]
+                    ]
+                }
+            ),
+        ),
         source_views=lambda: (view,),
         native_document=native_document,
         capture_pdf_candidates=capture_candidates,

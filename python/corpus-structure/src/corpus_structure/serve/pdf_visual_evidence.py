@@ -894,7 +894,7 @@ def _read_mapped_locator(conn, evidence, digest, request, regions, budget, after
         )
     elif request.visual_query is not None:
         phrase = " ".join(request.visual_query.casefold().split())
-        textual = bounded(
+        textual = (
             metadata.add_columns(
                 body["text"].as_string().label("reading"),
                 body["parser_attachment_occurrence_ids"].label("parser_targets"),
@@ -907,8 +907,10 @@ def _read_mapped_locator(conn, evidence, digest, request, regions, budget, after
             )
             .order_by(locator.c.kind, locator.c.ordinal)
         )
+        budget.preflight(conn, textual)
         targets = set()
-        for row in textual:
+        for row in conn.execute(textual):
+            budget.value(dict(row._mapping))
             if not scoped(row) or phrase not in " ".join((row.reading or "").casefold().split()):
                 continue
             targets.update(row.parser_targets or ())

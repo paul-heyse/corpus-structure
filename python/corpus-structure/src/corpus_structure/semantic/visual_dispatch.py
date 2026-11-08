@@ -117,11 +117,15 @@ def _nominate(
             text("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))"), {"key": identity}
         )
         retained = conn.scalar(
-            select(runs.c.id).where(
+            select(runs.c.id)
+            .where(
                 runs.c.code_commit == VISUAL_REQUEST_CODE_COMMIT,
                 runs.c.options["visual_nomination_id"].as_string() == identity,
+                runs.c.options["visual_nomination"] == nomination,
                 runs.c.sealed,
             )
+            .order_by(runs.c.id)
+            .limit(1)
         )
         if retained is not None:
             return retained, routes, selections

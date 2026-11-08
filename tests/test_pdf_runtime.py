@@ -10,6 +10,7 @@ import pytest
 from corpus_structure.ingest.pdf import PdfRecipe
 from corpus_structure.ingest.pdf_assets import prepare_pdf_assets
 from corpus_structure.ingest.pdf_candidates import capture_candidates
+from corpus_structure.ingest.pdf_hierarchy import _section_text_policy_bytes
 from corpus_structure.ingest.pdf_methods import PdfIngestConfig
 
 
@@ -546,7 +547,19 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
     from corpus_structure.core.method import MethodContext, MethodSettings
 
     reader_port = SimpleNamespace(
-        prepared=SimpleNamespace(release_id="release1"),
+        prepared=SimpleNamespace(
+            release_id="release1",
+            manifest=json.dumps(
+                {
+                    "dependencies": [
+                        [
+                            "execution/implementation/pdf/section-text-recipe.json",
+                            sha256(_section_text_policy_bytes()).hexdigest(),
+                        ]
+                    ]
+                }
+            ),
+        ),
         source_views=reader.source_views,
         native_document=reader.native_document,
         capture_pdf_candidates=reader.capture_pdf_candidates,
