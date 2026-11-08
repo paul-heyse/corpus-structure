@@ -8,7 +8,7 @@ _Updated 2026-11-08. Whole-book processing and output review are complete. Chand
   owns findings, package states and combined qualification. ADR-0067 governs current-only
   migration. ADR-0070 selects all 518 Grinstead–Snell pages. WCE receipts still cover pages 191–310.
 - WCE baseline `07d25b840` retains `semantic_wce_lineage_20261107` and `retrieve.contextual/5`.
-- The [GitHub visitor series](docs/plans/github-visitor-experience_2026-11-08.md#GHV-acceptance) is complete. On 2026-11-08, `just docs-test`, the clean prefix build, and the hosted Pages run passed. The public site and About metadata were verified.
+- The [GitHub visitor series](docs/plans/github-visitor-experience_2026-11-08.md#GHV-completion-audit) is live. On 2026-11-08, `just docs-test`, `just docs-visuals` and both live browser sizes passed. The audit reopened X/Z evidence, follow-on comparisons and the publishing review.
 
 ## Delivered and assessed
 

@@ -1,6 +1,6 @@
 # GitHub visitor experience and Pages implementation
 
-**Status · 2026-11-08. Complete.** This coordinator owns GHV-01–06, scheduled findings
+**Status · 2026-11-08. Live. Completion partially reopened.** This coordinator owns GHV-01–06, scheduled findings
 and combined acceptance. It consumes the [functional review](../functional_reviews/github-visitor-experience_2026-11-08.md)
 at `b8697ab5f` and the two-part ChatGPT Pro proposal named `github_view_improvement.md`,
 identified by Git blob `2ce8a30811ce0d63f41d3296cc8291f62d08e627`. The draft is a
@@ -48,16 +48,16 @@ source spans, typed links, and dated assessment distinctions in the examples.
 These boundaries follow FP-04, FP-05, FP-07 and the heuristics for reusing valid
 preparation and limiting repeated work. [Design principles](../design_review/design_principles/core/design-principles.md) · [Efficiency heuristics](../design_review/design_principles/core/efficient-architecture-heuristics.md)
 
-## Execution queue
+## Packages and audited state
 
 | Package and owner | Input and readiness | Closure |
 | --- | --- | --- |
 | [GHV-01](github-visitor-experience/publication-and-rollout.md#GHV-01) · Documentation publisher | Committed checkout with LFS disabled and review O04 | Authored evidence and stable links build identically in relevant hydrated and LFS-disabled checkouts. Both publication findings have closure evidence. |
 | [GHV-02](github-visitor-experience/visitor-content-and-evidence.md#GHV-02) · README and documentation owners | Current status, architecture and evidence sources | Visitor-first entry routes, dated capability boundaries and a responsibility-based code map work in GitHub and the built site. |
-| [GHV-03](github-visitor-experience/visitor-content-and-evidence.md#GHV-03) · Examples and evidence | Exact reviewed records and original PDF | Static citation, qualifier and uncertainty examples and the illustrative example are usable. Reproduction instructions and a bounded Reader/detached compatibility result are recorded. |
+| [GHV-03](github-visitor-experience/visitor-content-and-evidence.md#GHV-03) · Examples and evidence | Exact reviewed records and original PDF | Citation, qualifier, illustration and reproduction boundary verified. GHV-F03 remains open for the uncertainty example. |
 | [GHV-04](github-visitor-experience/visuals-and-follow-ons.md#GHV-04) · Visual sources and assets | Stable output labels from GHV-02/03 and reviewed tooling pins | One diagram source/SVG pair and one social template/PNG pair render reproducibly. Their actual consumers and accessibility are checked. |
-| [GHV-05](github-visitor-experience/publication-and-rollout.md#GHV-05) · Publishing policy, CI and GitHub settings | GHV-01 qualification, initial visitor assets, superseding decision, authorized remote revision and settings access | The checked artifact is deployed from `main`, live journeys pass and About metadata, homepage and social preview are verified. |
-| [GHV-06](github-visitor-experience/visuals-and-follow-ons.md#GHV-06) · Follow-on decisions | Representative core prose, examples and assets | Each option has an evidence-based disposition. Adopted additions are delivered and checked. Deferred options have a concrete revisit trigger. |
+| [GHV-05](github-visitor-experience/publication-and-rollout.md#GHV-05) · Publishing policy, CI and GitHub settings | GHV-01 qualification, initial visitor assets, superseding decision, authorized remote revision and settings access | Deployment and repository settings verified. GHV-F05 remains open for the review obligation. |
+| [GHV-06](github-visitor-experience/visuals-and-follow-ons.md#GHV-06) · Follow-on decisions | Representative core prose, examples and assets | D2 adopted and the remaining evidence-based deferrals stand. GHV-F04 remains open for the visual and recording comparisons. |
 
 GHV-01 and GHV-02/03 can start independently. GHV-04 can prepare its layout and
 rendering path while the content is refined. Integrate the README, primary example
@@ -85,6 +85,9 @@ conditions used when the two differ.
 | --- | --- | --- | --- | --- |
 | GHV-F01 · O04 generated READMEs | Publisher selection | The recursive glob treats LFS pointers and generated payloads as authored chapters. Select authored indexes and nested reviews consistently. | Closed · GHV-01 | Both fixture forms stay linkable without becoming chapters. The clean hosted build passed. |
 | GHV-F02 · O04 source inventory | Source-population evidence | A link to an ignored checkout file fails hosted link resolution. Explain the local input and retain the tracked reference. | Closed · GHV-01 | The corrected owner and tracked inventory link passed in the clean hosted build. |
+| GHV-F03 · O02 uncertainty example | GHV-03 public examples | The page summarizes the X and Z outcomes but shows no retained candidate and links only to STATUS. Show the retained red-ball candidate and withheld selection, then link separate X and Z receipts. | Open · GHV-03 | The public example leads directly to both records and preserves the distinction between candidate retention and witnessed declaration selection. [X control](../design_review/evidence/2026-11-06_wce-completion-repair/composition/native-retained004/false-bridge-control.json) · [Z scoped replay](next-corpus-enrichment_2026-11-07.md#nce-03-through-nce-06-development-execution) |
+| GHV-F04 · O06 follow-on evidence | GHV-06 visual and editorial owners | The Markdown and diagram checks establish the baseline. The dispositions supply no comparison against a rendered card or icon treatment at both widths and no storyboard comparison for the recording. | Open · GHV-06 | Compare one card or icon treatment at both widths and a short storyboard against an exact evidence journey. Record an evidence-based adoption or deferral, then implement any option that meets the accepted criterion. |
+| GHV-F05 · O04 publishing review cadence | GHV-05 publication owner | ADR-0071 and the verification receipts establish the decision and delivery. The audit found no retained target review for the changed publishing boundary before activation or for the assembled delivery. | Open · GHV-05 | Record the missed pre-activation review and complete the scoped assembled design/target review under the existing binding. Keep the original timing visible. |
 
 The O02 historical Reader refusal is a constraint on GHV-03's optional native
 inspection. The coordinator records the outcome of that investigation separately
@@ -139,9 +142,9 @@ the verified public walkthrough.
 
 | Candidate | Disposition and revisit condition |
 | --- | --- |
-| Rendered example card | Deferred after comparing the source, edge, witness and receipt in the four-row Markdown example. All four are visible in reading order and their evidence links remain actionable. Revisit when a case benefits from visual correspondence that text cannot convey. |
-| Lucide | Deferred. The numbered operation names and distinct output labels already identify each stage. Revisit if a repeated object needs an icon across several figures. |
-| Recorded walkthrough | Deferred. The exact historical Reader query was refused and the useful public journey consists of static links. Revisit with a verified interactive read that shows a distinct operation. |
+| Rendered example card | Provisional deferral. The four-row Markdown baseline is readable and its evidence links work. GHV-F04 owns the comparison against a visual treatment. |
+| Lucide | Provisional deferral. The numbered operation names and distinct output labels identify each stage. GHV-F04 owns the bounded visual comparison. |
+| Recorded walkthrough | Provisional deferral. The historical Reader query was refused. GHV-F04 owns the storyboard comparison using an exact verified result and its public evidence route. |
 | Vale | Deferred. The editorial pass aligned naming across the README, architecture, examples and assets. Revisit if inconsistent names recur after edits. |
 | Markdownlint | Deferred. The existing publisher and link checks cover the observed Markdown failures. Revisit for recurring formatting defects those checks miss. |
 | D2 upgrade | Adopted in GHV-04 at 0.9.0 under the current-tooling decision. |
@@ -153,10 +156,10 @@ the verified public walkthrough.
 
 ## Acceptance · 2026-11-08
 
-GHV-01–06 closed for the approved visitor and publishing scope. The historical
+The rollout verified the published visitor and publishing scope below. The historical
 Reader check remains `blocked` by the producing release compatibility limit
-documented above. The published static walkthrough reaches the retained
-evidence and original pages.
+documented above. See the [completion audit](#GHV-completion-audit) for current
+package state and remaining obligations.
 
 - `uv run ci doctor`, `uv run ci check --only deps --json`, `actionlint .github/workflows/docs.yml`,
   and `just turn-end` passed. Turn-end used rustc 1.101.0-nightly (2d20b42b8).
@@ -183,3 +186,48 @@ evidence and original pages.
   remain in the hosted record. The final search waits for Pagefind's first
   index and filter load after the live browser check exposed an intermittent
   empty first query.
+
+
+<a id="GHV-completion-audit"></a>
+
+## Completion audit · 2026-11-08
+
+Audited GHV-01–06 as claimed complete at `5bddd141b`. This is the inspected
+source and live Pages revision. The review used the coordinator, all three
+supporting plans, the operator's direct-push and conditional-adoption decisions,
+the current publisher, the retained evidence and the real GitHub consumers.
+Concurrent Chandra edits were outside this audit.
+
+| Package | Audited disposition |
+| --- | --- |
+| GHV-01 | Complete. Discovery parity held after authentic hydration of all 50 omitted pointer READMEs. The authored scoped assessment remains published. Both original findings stay closed. |
+| GHV-02 | Complete. The README and documentation index expose the reader routes, capability and maturity boundaries, evaluation, and source-linked example. The architecture map and dated D0 retain their distinct roles. |
+| GHV-03 | Partially complete. The citation, qualifier, illustration and documented reproduction boundary stand. Reopen the separate X and Z evidence route under GHV-F03. |
+| GHV-04 | Complete. The opt-in renderer regenerated both committed assets byte for byte from an isolated checkout. The shared SVG is served and the hosted social PNG matches. |
+| GHV-05 | Live delivery verified. Reopen qualification for the scoped review cadence under GHV-F05. The authorized omission of a hosted PR run does not reopen release verification. |
+| GHV-06 | Partially complete. D2 adoption and the conditional decisions for Vale, Markdownlint, Mermaid, Excalidraw and generated illustration stand. Reopen the bounded comparisons under GHV-F04. |
+
+Fresh checks on 2026-11-08 used the exact release source or its hosted outputs.
+
+- `just docs-test` passed 45 tests in the isolated checkout. `just docs-visuals`
+  passed and both output SHA-256 values matched their committed assets.
+- A `docs.discover` inventory comparison in the isolated checkout passed for
+  all 701 selected source pages. The audit replaced the 50 omitted pointers
+  with their SHA-256-verified local LFS objects between the two reads. The
+  rendered site has one additional generated architecture directory page.
+- `gh run view 42481958715` confirmed successful build, both uploads and
+  deployment. `gh run download 42481958715 --name github-pages` and tar
+  member inspection passed. The 1,626-file archive contains the required
+  hidden paths, example and SVG, with no symlinks, Git internals or generated
+  raw evidence payloads. [Hosted run](https://github.com/paul-heyse/corpus-structure/actions/runs/42481958715)
+- The live Chromium reader smoke passed at 1280 × 800 and 390 × 844 for the
+  citation, assessment, SVG, all three search scopes, and hidden documentation
+  paths. The live examples HTML confirmed that the X/Z section links only
+  to the checkpoint. GitHub's repository API and the hosted Open Graph image
+  confirmed the configured homepage, description, topics and exact social PNG.
+  [Live examples](https://paul-heyse.github.io/corpus-structure/docs/examples/README.html)
+
+The checks establish the delivered visitor routes, navigable source evidence for the
+primary cases and repeatable publication. Visitor comprehension and discoverability
+metrics were outside the agreed acceptance. The next work is the X/Z evidence
+correction, the remaining comparison decisions and the scoped publishing review.
