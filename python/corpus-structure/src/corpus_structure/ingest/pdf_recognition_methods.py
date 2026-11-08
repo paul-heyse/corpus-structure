@@ -144,7 +144,8 @@ class IngestPdfIntegrated:
     """
 
     name = "ingest.pdf_integrated"
-    version = "2"
+    # The retained-only M1 producer owns version 2 with its separate configuration schema.
+    version = "3"
     family = MethodFamily.INGEST
     unit_type = TaskUnitType.DOCUMENT
     tier = MethodTier.ENCODER

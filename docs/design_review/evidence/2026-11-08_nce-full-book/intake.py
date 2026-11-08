@@ -105,6 +105,7 @@ def main():
                     {
                         **selection,
                         "release": args.release,
+                        "realization": args.realization,
                         "project": PROJECT,
                         "device": args.device,
                         "configuration": registry.resolve(

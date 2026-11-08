@@ -22,7 +22,13 @@ from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.ingest import pdf_recognition_methods as methods
 from corpus_structure.ingest.pdf import PdfConversion, publication_payload
 from corpus_structure.ingest.pdf_hierarchy import snapshot
+from corpus_structure.orchestrate.m1 import RetainedIntegratedPdf
 from corpus_structure.semantic.product_reference import ProductReference
+
+
+def test_fresh_and_retained_ingest_bind_distinct_method_contracts():
+    assert methods.IngestPdfIntegrated.name == RetainedIntegratedPdf.name
+    assert methods.IngestPdfIntegrated.version != RetainedIntegratedPdf.version
 
 
 def test_retained_integrated_projection_keeps_pin_without_inference_or_reconciliation(monkeypatch):
