@@ -39,7 +39,7 @@ def group(text, subject, predicate, obj, *, start=0):
     for role, literal in (("subject", subject), ("predicate", predicate), ("object", obj)):
         offset = text.index(literal, start)
         result[role] = span(offset, offset + len(literal), literal)
-    return result.records, result.parse_detail
+    return result
 
 
 class AssertionDecoder(ControlledDecoder):
@@ -69,7 +69,7 @@ def produce(monkeypatch, text, groups, *, heading=None):
     )
     assert result.records and result.parse_detail
     assert all(r["family"] == "assertion" and r["standing"] == "candidate" for r in result.records)
-    return result
+    return result.records, result.parse_detail
 
 
 def evidence(record, role):
