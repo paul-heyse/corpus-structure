@@ -188,3 +188,32 @@ def test_native_model_components_need_directed_provider_attachment(semantic_db_e
         raw["relation_extraction"]["attachment"] = [{"head": content, "tail": term}]
         entry["raw_json"] = json.dumps(raw)
         assert replay() == (roles, [])
+
+
+def test_genuine_definition_spans_require_named_cue_custody(semantic_db_engine):
+    import pytest
+    from sqlalchemy.exc import DBAPIError
+
+    term = dict(passage_id="p", start=0, end=4, text="term")
+    content = dict(passage_id="p", start=11, end=18, text="content")
+    named = dict(term=term, content=content, basis="matched_cue", interpretation="definition")
+    weak = {**named, "basis": "unqualified", "interpretation": "unresolved"}
+    sql = (
+        Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/structural_products.sql"
+    ).read_text()
+    with semantic_db_engine.connect() as conn, conn.begin():
+        conn.exec_driver_sql(sql, execution_options={"no_parameters": True})
+        check = text("""
+            SELECT ops.validate_definition_basis(
+              CAST(:component AS jsonb),
+              '{"passage_id":"p","text":"term means content","start":0,"end":18}',
+              '{}', '{"use_named_candidates":true}', '{}')
+            """)
+        with (
+            pytest.raises(DBAPIError, match="exact retained annotation witness"),
+            conn.begin_nested(),
+        ):
+            conn.execute(check, {"component": json.dumps(named)})
+        conn.execute(check, {"component": json.dumps(weak)})
+        with pytest.raises(DBAPIError, match="unsupported interpretation"), conn.begin_nested():
+            conn.execute(check, {"component": json.dumps({**weak, "interpretation": "definition"})})

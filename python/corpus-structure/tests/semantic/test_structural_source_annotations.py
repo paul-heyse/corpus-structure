@@ -84,7 +84,9 @@ def test_definition_consumer_uses_owned_original_source_read_not_current_run_vie
         def source_result(self, *args):
             raise AssertionError("must not search current-run annotations")
 
-    result = retained_annotation_components(Reader(), inputs, passage, DefinitionComponentsConfig())
+    result = retained_annotation_components(
+        Reader(), inputs, passage, DefinitionComponentsConfig(), witness_policy={}
+    )
     assert result.components == () and not result.available
     assert "no source absence" in result.reason
     assert len(calls) == 1 and calls[0][0] == inputs and calls[0][1] == source.identity
@@ -151,7 +153,12 @@ def test_missing_annotation_error_is_unavailable_without_reason_word_matching():
         errors=("original cut has no retained linguistic annotation product",),
     )
     result = retained_annotation_components(
-        object(), inputs, passage, DefinitionComponentsConfig(), retained=retained
+        object(),
+        inputs,
+        passage,
+        DefinitionComponentsConfig(),
+        retained=retained,
+        witness_policy={},
     )
     assert not result.available and not result.components
 
@@ -198,7 +205,9 @@ def test_named_rule_availability_is_preserved_per_variant(monkeypatch, states, a
             ),
         )
     )
-    result = retained_annotation_components(object(), inputs, passage, cfg, retained=retained)
+    result = retained_annotation_components(
+        object(), inputs, passage, cfg, retained=retained, witness_policy={}
+    )
     assert result.available is available and result.components == ()
     assert tuple(operation["availability"] for operation in result.operations) == states
 

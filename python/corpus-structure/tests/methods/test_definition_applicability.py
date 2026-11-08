@@ -30,6 +30,7 @@ from corpus_structure.semantic.contextual_links import RetainedRelationshipDecis
 from corpus_structure.semantic.structural_admission import structural_statement
 from corpus_structure.semantic.structural_products import (
     ApplicabilityPremise,
+    DefinitionBasisWitness,
     DefinitionComponentsProduct,
     ExternalSourceRef,
     RetainedComponentRef,
@@ -271,15 +272,38 @@ def test_named_roles_use_bindings_not_surface_order():
     content = LocatedRole(
         "content", "first", 2, "subtree", (2, 3, 4), ((22, 30), (31, 38), (39, 48)), "complete"
     )
+    cue = LocatedRole("defining_cue", "cue", 1, "exact", (1,), ((13, 17),), "complete")
     match = AnnotationRuleMatch(
-        "call", "reversed", "dependency", (5, 2), ((22, 56),), (), (), "d", (content, term)
+        "call",
+        "reversed",
+        "dependency",
+        (1, 5, 2),
+        ((13, 57),),
+        (),
+        (),
+        "d",
+        (content, term, cue),
     )
-    scope = DefinitionScope(2, "positive", "supported")
-    found = components_from_named_matches(
-        passage, (match,), scopes={match: scope}, term_role="term", content_role="content"
+    scope = DefinitionScope(1, "positive", "supported")
+    witness = DefinitionBasisWitness(
+        annotation_task_id=6,
+        block_id="#/texts/17",
+        dependency_digest="f" * 64,
+        rule="call",
+        variant="reversed",
+        nodes=(1, 5, 2),
     )
-    assert len(found) == 1 and found[0].term.text == "variance"
-    unavailable = replace(match, roles=(replace(term, status="unavailable"), content))
+    options = dict(scopes={match: scope}, term_role="term", content_role="content")
+    (found,) = components_from_named_matches(
+        passage, (match,), **options, witnesses={match: witness}
+    )
+    assert found.term.text == "variance"
+    assert found.witness == witness
+    (unqualified,) = components_from_named_matches(passage, (match,), **options, witnesses={})
+    assert unqualified.basis == "unqualified"
+    assert unqualified.interpretation == "unresolved"
+    assert unqualified.witness is None and unqualified.component_id != found.component_id
+    unavailable = replace(match, roles=(replace(term, status="unavailable"), content, cue))
     assert (
         components_from_named_matches(
             passage,
@@ -805,6 +829,7 @@ def test_naming_resolves_only_a_unique_selected_restricted_antecedent(context):
         None,
         selected,
         config,
+        witness_policy=installed_policy()[0]["definition_witness"],
         retained=SimpleNamespace(
             source=SimpleNamespace(text=source_text),
             annotations=(product,),
@@ -822,8 +847,45 @@ def test_naming_resolves_only_a_unique_selected_restricted_antecedent(context):
         if operation["variant"] == "passive_called_term"
     )
     if context == "unique":
+        assert found.basis == "unqualified" and found.interpretation == "unresolved"
         assert match["content_antecedent"] == found.content.model_dump(mode="json")
         (role,) = [role for role in match["roles"] if role["role"] == "defining_content"]
         assert source_text[role["extents"][0][0] : role["extents"][-1][1]] == mention
     else:
         assert "content_antecedent" not in match
+
+
+def test_detached_named_basis_refuses_genuine_spans_without_its_witness():
+    from corpus_structure.semantic.structural_products import (
+        LocatedDefinitionSpan,
+        definition_component,
+    )
+    from corpus_structure.serve.model_observation_replay import _verify_named_definition_bases
+
+    original = inputs()
+    passage = original.passages[0]
+
+    def located(start, end):
+        return LocatedDefinitionSpan(
+            passage_id=passage.passage_id,
+            start=start,
+            end=end,
+            text=passage.text[start - passage.start : end - passage.start],
+        )
+
+    unsupported = definition_component(
+        term=located(49, 57),
+        content=located(22, 48),
+        interpretation="explanation",
+        basis="matched_cue",
+        scope=passage.scope,
+        evidence=(passage.passage_id,),
+        reason="Both phrases are in the source.",
+    )
+    report = StructuralProductReport(
+        kind="definition_components",
+        inputs=original,
+        definition_components=DefinitionComponentsProduct(components=(unsupported,), stages=()),
+    )
+    with pytest.raises(ValueError, match="exact retained annotation witness"):
+        _verify_named_definition_bases(None, {}, report, {}, {}, {})

@@ -165,6 +165,18 @@ class LocatedDefinitionSpan(StructuralValue):
 DefinitionInterpretation = Literal["definition", "explanation", "unresolved"]
 
 
+class DefinitionBasisWitness(StructuralValue):
+    """The original selected annotation block and matched rule assignment."""
+
+    annotation_task_id: Positive
+    block_id: Nonempty
+    dependency_digest: Digest
+    rule: Nonempty
+    variant: Nonempty
+    nodes: tuple[Annotated[int, Field(strict=True, ge=0)], ...] = Field(min_length=1)
+    label_nodes: tuple[Annotated[int, Field(strict=True, ge=0)], ...] | None = None
+
+
 class LocatedDefinitionComponent(StructuralValue):
     component_id: Digest
     term: LocatedDefinitionSpan
@@ -172,11 +184,11 @@ class LocatedDefinitionComponent(StructuralValue):
     interpretation: DefinitionInterpretation
     basis: Literal[
         "matched_cue",
-        "returned_producer_group",
         "native_geometry",
         "model_reading",
-        "admitted_derivation",
+        "unqualified",
     ]
+    witness: DefinitionBasisWitness | None = None
     scope: Nonempty
     effective_version: str | None = None
     alternatives: tuple[Nonempty, ...] = ()
@@ -185,6 +197,10 @@ class LocatedDefinitionComponent(StructuralValue):
 
     @model_validator(mode="after")
     def bound_identity(self) -> Self:
+        if self.basis == "unqualified" and self.interpretation != "unresolved":
+            raise ValueError("unqualified definition candidates have unresolved interpretation")
+        if self.witness is not None and self.basis not in {"matched_cue", "native_geometry"}:
+            raise ValueError("definition annotation witness belongs to a named or geometry basis")
         meaning = self.model_dump(mode="json", exclude_none=True, exclude={"component_id"})
         if self.component_id != sha256(canonical_bytes(meaning)).hexdigest():
             raise ValueError("component identity differs from complete interpretation")

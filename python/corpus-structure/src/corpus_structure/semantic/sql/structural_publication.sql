@@ -196,6 +196,11 @@ BEGIN
   -- validate_structural_product_report replayed exact retained predecessor
   -- roles, protected member support and representation. Assembly admission remains
   -- separate from those independently established member assertions.
+  IF report->>'kind'='definition_components' AND EXISTS(
+   SELECT FROM jsonb_array_elements(report->'definition_components'->'components') component
+   WHERE component->>'component_id'=binding->>'component_id' AND component->>'basis'='unqualified'
+  ) THEN
+   RAISE EXCEPTION 'unqualified definition candidate is private' USING ERRCODE='23514'; END IF;
   statement:=data.structural_public_statement(report,binding->>'component_id');
   SELECT convert_from(content,'UTF8')::json INTO STRICT statement_shape FROM sem.artifact
    WHERE release_id=p_release AND artifact_name='json_schema/StructuralPublicStatement';

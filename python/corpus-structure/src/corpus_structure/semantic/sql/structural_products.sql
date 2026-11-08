@@ -1865,9 +1865,187 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION ops.validate_clause_classification(jsonb,jsonb,jsonb,jsonb) FROM PUBLIC;
 
+-- Resolve only the selected role span against its retained token tree.
+CREATE OR REPLACE FUNCTION ops.definition_bound_span(tokens jsonb,head_ integer,binding jsonb,full_text text)
+RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+ WITH RECURSIVE token_rows AS MATERIALIZED (
+  SELECT (n-1)::integer i,t,(t->>'head')::integer parent,t->'sentence' sentence
+  FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n)
+ ), roots AS (
+  SELECT head_ i, false complement
+  UNION ALL
+  SELECT object.i, true FROM token_rows prep JOIN token_rows object ON object.parent=prep.i
+   AND object.t->>'dependency'='pobj'
+  WHERE prep.parent=head_ AND prep.t->>'dependency'='prep'
+   AND binding->>'expansion'='noun_chunk'
+   AND binding->'nominal_prepositions' ? lower(substring(full_text
+    FROM (prep.t->>'start')::integer+1 FOR (prep.t->>'end')::integer-(prep.t->>'start')::integer))
+   AND (SELECT count(*) FROM token_rows o WHERE o.parent=prep.i AND o.t->>'dependency'='pobj')=1
+ ), tree(root,i) AS (
+  SELECT i,i FROM roots
+  UNION
+  SELECT tree.root,r.i FROM tree JOIN token_rows r ON r.parent=tree.i
+  WHERE r.sentence=(tokens->head_)->'sentence' AND binding->>'expansion' IN ('subtree','noun_chunk')
+ ), members AS (
+  SELECT i FROM tree WHERE binding->>'expansion'<>'noun_chunk' OR i<=root
+  UNION SELECT r.parent FROM roots JOIN token_rows r USING(i) WHERE roots.complement
+ ), span AS (
+  SELECT min(i) lo,max(i) hi,count(*) n FROM members
+ )
+ SELECT CASE WHEN n=hi-lo+1 AND n<=coalesce((binding->>'max_tokens')::integer,64)
+  AND NOT EXISTS(SELECT FROM members m JOIN token_rows r USING(i)
+   WHERE m.i<>head_ AND binding->'stop_words' ? lower(substring(full_text
+    FROM (r.t->>'start')::integer+1 FOR (r.t->>'end')::integer-(r.t->>'start')::integer)))
+  THEN jsonb_build_array((tokens->lo)->'start',(tokens->hi)->'end') END
+ FROM span WHERE binding->>'expansion' IN ('exact','subtree','noun_chunk')
+$$;
+REVOKE ALL ON FUNCTION ops.definition_bound_span(jsonb,integer,jsonb,text) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.validate_definition_basis(
+ component jsonb,passage jsonb,source_ jsonb,config_ jsonb,policy jsonb)
+RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE proof jsonb:=component->'witness'; basis text:=component->>'basis'; body jsonb; detail jsonb;
+ view_ kb.source_view; rule_ jsonb; annotation jsonb; tokens jsonb; full_text text; term_ jsonb;
+ cue jsonb; content jsonb; part jsonb; attr record; indexes jsonb:='{}'; names jsonb; token jsonb;
+ n integer; idx integer; parent_ integer; lo integer; hi integer; value_ text; sentence_ jsonb;
+ term_key text; cue_key text; display_piece jsonb; start_ integer; end_ integer; label_ jsonb;
+BEGIN
+ IF basis='model_reading' THEN
+  IF nullif(proof,'null'::jsonb) IS NOT NULL THEN
+   RAISE EXCEPTION 'model definition cannot claim a named annotation witness' USING ERRCODE='23514'; END IF;
+  RETURN;
+ ELSIF basis='unqualified' THEN
+  IF component->>'interpretation' IS DISTINCT FROM 'unresolved' OR nullif(proof,'null'::jsonb) IS NOT NULL THEN
+   RAISE EXCEPTION 'unqualified definition candidate claims unsupported interpretation' USING ERRCODE='23514'; END IF;
+  RETURN;
+ END IF;
+ IF basis IS NULL OR basis NOT IN ('matched_cue','native_geometry') OR proof IS NULL
+  OR source_ IS NULL OR component->'term'->>'passage_id' IS DISTINCT FROM component->'content'->>'passage_id'
+  OR config_->'use_named_candidates' IS DISTINCT FROM 'true'::jsonb THEN
+  RAISE EXCEPTION 'definition basis lacks exact retained annotation witness' USING ERRCODE='23514'; END IF;
+ SELECT * INTO STRICT view_ FROM kb.source_view WHERE id=(source_->>'source_view_id')::bigint;
+ full_text:=view_.projection->>'text';
+ SELECT result.body INTO STRICT body
+ FROM ops.cut_task member JOIN ops.task task ON task.id=member.task_id
+ JOIN ops.task origin ON origin.id=member.origin_task_id
+ JOIN ops.task_result result ON result.task_id=origin.id AND result.release_id=origin.release_id
+ JOIN ops.method_config cfg ON cfg.id=origin.method_config_id
+ JOIN ops.method method ON method.id=cfg.method_id
+ WHERE member.cut_id=(source_->>'cut_id')::bigint AND task.run_id=(source_->>'run_id')::bigint
+  AND task.unit_type='source_view' AND task.unit_id=view_.id AND task.status IN ('done','reused')
+  AND origin.id=coalesce(task.reused_task_id,task.id) AND origin.id=(proof->>'annotation_task_id')::bigint
+  AND origin.release_id=source_->>'release_id' AND method.name='extract.m1_annotations' AND method.version='2'
+  AND result.body->>'input_hash'=origin.input_hash AND result.body->>'configuration_hash'=cfg.config_hash;
+ detail:=data.record_source_json(body->'parse_detail');
+ IF detail->>'recipe' IS DISTINCT FROM 'm1-owned-linguistic-product-1' THEN
+  RAISE EXCEPTION 'definition annotation recipe differs from retained input' USING ERRCODE='23514'; END IF;
+ SELECT a INTO STRICT annotation FROM jsonb_array_elements(detail->'annotations') a
+ WHERE a->>'block_id'=proof->>'block_id' AND a->>'dependency_digest'=proof->>'dependency_digest';
+ SELECT r INTO STRICT rule_ FROM jsonb_array_elements(config_->'annotation_rules') r
+ WHERE r->>'rule'=proof->>'rule' AND r->>'variant'=proof->>'variant' AND r->>'mechanism'='dependency';
+ IF policy->'definition_witness'->'rules'->>((rule_->>'rule')||'/'||(rule_->>'variant')) IS DISTINCT FROM
+  encode(sha256(convert_to(data.canonical_json(rule_),'UTF8')),'hex')
+  OR config_->>'term_role' IS DISTINCT FROM policy#>>'{definition_witness,term_role}'
+  OR config_->>'content_role' IS DISTINCT FROM policy#>>'{definition_witness,content_role}' THEN
+  RAISE EXCEPTION 'definition witness rule differs from the released rule' USING ERRCODE='23514'; END IF;
+ tokens:=annotation->'tokens';
+ IF jsonb_array_length(proof->'nodes') IS DISTINCT FROM jsonb_array_length(rule_->'pattern')
+  OR (SELECT count(DISTINCT value) FROM jsonb_array_elements(proof->'nodes'))<>jsonb_array_length(proof->'nodes')
+  OR NOT EXISTS(SELECT FROM jsonb_array_elements(annotation->'availability') a
+   WHERE a->>'attribute'='DEP' AND a->>'status'='complete') THEN
+  RAISE EXCEPTION 'definition cue differs from exact released match nodes' USING ERRCODE='23514'; END IF;
+ FOR part,n IN SELECT value,(ordinality-1)::integer FROM jsonb_array_elements(rule_->'pattern') WITH ORDINALITY LOOP
+  idx:=(proof->'nodes'->>n)::integer;
+  token:=tokens->idx;
+  lo:=(token->>'start')::integer;
+  hi:=(token->>'end')::integer;
+  IF idx IS NULL OR idx<0 OR token->>'sentence' IS NULL OR lo IS NULL OR hi IS NULL
+   OR lo<greatest((passage->>'start')::integer,(annotation->>'block_start')::integer)
+   OR hi>least((passage->>'end')::integer,(annotation->>'block_end')::integer) OR hi<=lo
+   OR (sentence_ IS NOT NULL AND sentence_ IS DISTINCT FROM token->'sentence') THEN
+   RAISE EXCEPTION 'definition cue has no retained scoped annotation token' USING ERRCODE='23514'; END IF;
+  sentence_:=token->'sentence';
+  IF n>0 THEN
+   parent_:=(indexes->>(part->>'LEFT_ID'))::integer;
+   IF parent_ IS NULL OR NOT (CASE part->>'REL_OP'
+    WHEN '>' THEN (token->>'head')::integer=parent_
+    WHEN '>>' THEN EXISTS(
+     WITH RECURSIVE ancestry(i) AS (
+      SELECT (token->>'head')::integer
+      UNION SELECT ((tokens->a.i)->>'head')::integer FROM ancestry a WHERE a.i>=0
+     ) SELECT FROM ancestry WHERE i=parent_
+    )
+    ELSE false END) THEN
+    RAISE EXCEPTION 'definition cue differs from retained dependency links' USING ERRCODE='23514'; END IF;
+  END IF;
+  FOR attr IN SELECT * FROM jsonb_each(part->'RIGHT_ATTRS') LOOP
+   value_:=CASE attr.key WHEN 'LOWER' THEN lower(substring(full_text FROM lo+1 FOR hi-lo))
+    WHEN 'DEP' THEN token->>'dependency' WHEN 'LEMMA' THEN token->>'lemma' WHEN 'POS' THEN token->>'pos' END;
+   IF value_ IS NULL OR NOT (CASE jsonb_typeof(attr.value)
+    WHEN 'string' THEN value_=attr.value#>>'{}'
+    WHEN 'object' THEN coalesce(attr.value->'IN' ? value_,false)
+    ELSE false END) THEN
+    RAISE EXCEPTION 'definition cue fails released retained token predicate' USING ERRCODE='23514'; END IF;
+  END LOOP;
+  indexes:=indexes||jsonb_build_object(part->>'RIGHT_ID',idx);
+ END LOOP;
+ names:=rule_->'bindings';
+ term_key:=CASE WHEN names ? 'definition_label_required' THEN 'nominal_subject' ELSE config_->>'term_role' END;
+ cue_key:=CASE WHEN names ? 'definition_label_required' THEN 'copular_cue' ELSE 'defining_cue' END;
+ cue:=tokens->((indexes->>(names->cue_key->>'node'))::integer);
+ term_:=ops.definition_bound_span(tokens,(indexes->>(names->term_key->>'node'))::integer,names->term_key,full_text);
+ IF term_ IS NULL OR cue IS NULL OR term_ IS DISTINCT FROM jsonb_build_array(
+  component->'term'->'start',component->'term'->'end')
+  OR component->>'interpretation' IS DISTINCT FROM
+   (CASE WHEN rule_->>'rule' IN ('naming','explanation') THEN 'explanation' ELSE 'definition' END)
+  OR EXISTS(SELECT FROM jsonb_array_elements(tokens) t WHERE t->'sentence'=sentence_
+   AND t->>'dependency'='neg' AND (t->>'head')::integer=(indexes->>(names->cue_key->>'node'))::integer) THEN
+  RAISE EXCEPTION 'definition term, polarity or interpretation differs from retained cue roles' USING ERRCODE='23514'; END IF;
+ IF basis='matched_cue' THEN
+  content:=ops.definition_bound_span(tokens,
+   (indexes->>(names->(config_->>'content_role')->>'node'))::integer,names->(config_->>'content_role'),full_text);
+  IF content IS NULL OR content IS DISTINCT FROM jsonb_build_array(component->'content'->'start',component->'content'->'end')
+   OR nullif(proof->'label_nodes','null'::jsonb) IS NOT NULL THEN
+   RAISE EXCEPTION 'definition content differs from retained cue roles' USING ERRCODE='23514'; END IF;
+  RETURN;
+ END IF;
+ IF names ? 'definition_label_required' THEN
+  idx:=(proof->'label_nodes'->>0)::integer;
+  label_:=tokens->idx;
+  IF idx IS NULL OR idx<0 OR jsonb_array_length(proof->'label_nodes') IS DISTINCT FROM 2
+   OR (proof->'label_nodes'->>1)::integer IS DISTINCT FROM idx+1
+   OR lower(substring(full_text FROM (label_->>'start')::integer+1
+    FOR (label_->>'end')::integer-(label_->>'start')::integer)) IS DISTINCT FROM 'definition'
+   OR substring(full_text FROM ((tokens->(idx+1))->>'start')::integer+1
+    FOR ((tokens->(idx+1))->>'end')::integer-((tokens->(idx+1))->>'start')::integer) !~ '^[0-9]+(\.[0-9]+)*$'
+   OR (label_->>'start')::integer<(passage->>'start')::integer
+   OR ((tokens->(idx+1))->>'end')::integer>(term_->>0)::integer THEN
+   RAISE EXCEPTION 'definition display lacks its retained numbered label' USING ERRCODE='23514'; END IF;
+ ELSE
+  cue:=tokens->((indexes->>(names->'following_content_cue'->>'node'))::integer);
+  IF nullif(proof->'label_nodes','null'::jsonb) IS NOT NULL THEN
+   RAISE EXCEPTION 'definition display claims an unrelated label' USING ERRCODE='23514'; END IF;
+ END IF;
+ start_:=(component->'content'->>'start')::integer;
+ end_:=(component->'content'->>'end')::integer;
+ SELECT p INTO STRICT display_piece FROM jsonb_array_elements(view_.projection->'pieces') p
+ WHERE p->>'kind'='native_text' AND p->'start'=to_jsonb(start_) AND p->'end'=to_jsonb(end_)
+ AND EXISTS(SELECT FROM ops.read_pdf_published_items(view_.native_task_id,view_.native_product_key,
+  view_.native_content_digest,ARRAY[p->>'item_ref']) item WHERE item.native_json->>'label'='formula'
+  AND item.native_json->>'content_layer'='body');
+ IF cue IS NULL OR (cue->>'end')::integer<(term_->>1)::integer OR (cue->>'end')::integer>start_
+  OR substring(full_text FROM (cue->>'end')::integer+1 FOR start_-(cue->>'end')::integer) !~ '^[:[:space:]]*$'
+  OR NOT EXISTS(SELECT FROM jsonb_array_elements(detail->'annotations') a
+   WHERE a->'display_spans' @> jsonb_build_array(jsonb_build_array(start_,end_))) THEN
+  RAISE EXCEPTION 'definition display differs from adjacent retained source geometry' USING ERRCODE='23514'; END IF;
+EXCEPTION WHEN no_data_found OR too_many_rows OR invalid_text_representation OR numeric_value_out_of_range THEN
+ RAISE EXCEPTION 'definition basis cannot resolve its exact retained cue or display' USING ERRCODE='23514';
+END $$;
+REVOKE ALL ON FUNCTION ops.validate_definition_basis(jsonb,jsonb,jsonb,jsonb,jsonb) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION ops.validate_structural_product_report(p_task bigint,p_envelope jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE t ops.task; shape json; product jsonb; inputs jsonb; source_ jsonb; source_map jsonb:='{}'; passage jsonb; passage_map jsonb:='{}'; ref jsonb; v kb.source_view; identifier text; cited text; item jsonb; dimension jsonb; member jsonb; actual text[]; expected text[]; config_ jsonb; method_ text; introduction boolean; target_passage jsonb; premise jsonb; expected_state text; expected_outcome text; states text[]; model_detail jsonb; model_roles jsonb; model_components jsonb;
+DECLARE t ops.task; shape json; product jsonb; inputs jsonb; source_ jsonb; source_map jsonb:='{}'; passage jsonb; passage_map jsonb:='{}'; ref jsonb; v kb.source_view; identifier text; cited text; item jsonb; dimension jsonb; member jsonb; actual text[]; expected text[]; config_ jsonb; method_ text; introduction boolean; target_passage jsonb; premise jsonb; expected_state text; expected_outcome text; states text[]; model_detail jsonb; model_roles jsonb; model_components jsonb; definition_policy jsonb;
 BEGIN
  SELECT * INTO STRICT t FROM ops.task WHERE id=p_task;
  PERFORM sem.require_execution_operation(t.release_id,'bind_report');
@@ -1928,7 +2106,8 @@ BEGIN
     data.record_source_json(p_envelope->'parse_detail'));
  WHEN 'definition_components' THEN
   item:=product->'definition_components';
-  IF (ops.model_observation_policy(t.release_id) IS NOT NULL) IS DISTINCT FROM
+  definition_policy:=ops.model_observation_policy(t.release_id);
+  IF (definition_policy IS NOT NULL) IS DISTINCT FROM
    (p_envelope->>'operation_version'='9') THEN
    RAISE EXCEPTION 'definition observation version differs from released policy' USING ERRCODE='23514'; END IF;
   IF p_envelope->>'operation_version' IN ('8','9') THEN
@@ -1962,6 +2141,10 @@ BEGIN
    END LOOP;
    IF EXISTS(SELECT FROM jsonb_array_elements_text(dimension->'evidence') e WHERE NOT passage_map ? e) THEN
     RAISE EXCEPTION 'definition evidence outside selected source' USING ERRCODE='23514'; END IF;
+   passage:=passage_map->(dimension->'term'->>'passage_id');
+   SELECT s INTO source_ FROM jsonb_array_elements(inputs->'sources') s
+   WHERE encode(sha256(convert_to(data.canonical_json(s),'UTF8')),'hex')=passage->>'source_ref';
+   PERFORM ops.validate_definition_basis(dimension,passage,source_,config_,definition_policy);
   END LOOP;
  WHEN 'definition_applicability' THEN
   item:=product->'definition';

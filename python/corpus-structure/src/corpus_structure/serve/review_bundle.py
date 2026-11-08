@@ -606,6 +606,11 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                     )
                     if ref.coordinate_version != coordinate_versions[ref.source_view_id]:
                         raise SemanticRefusal("structural source coordinate version differs")
+                if report.definition_components:
+                    for dependency in _capture_definition_annotations(
+                        conn, report, seen_reports, budget
+                    ):
+                        yield "reports", dependency
                 if origin_id not in seen_reports:
                     result, cfg = table("ops.task_result"), table("ops.method_config")
                     producer = table("ops.run")
@@ -832,6 +837,72 @@ def _report_source_ids(body: Any) -> set[int]:
     return source_ids
 
 
+def _capture_definition_annotations(conn, report, seen_reports, budget):
+    """Capture the exact annotation bodies selected by current definition witnesses."""
+    result, config, method = (
+        table("ops.task_result"),
+        table("ops.method_config"),
+        table("ops.method"),
+    )
+    origin, run = table("ops.task"), table("ops.run")
+    member, selected = table("ops.cut_task"), origin.alias("definition_annotation_selected")
+    passages = {p.passage_id: p for p in report.inputs.passages}
+    sources = {source.identity: source for source in report.inputs.sources}
+    witnessed = {
+        (
+            component.witness.annotation_task_id,
+            sources[passages[component.term.passage_id].source_ref],
+        )
+        for component in report.definition_components.components
+        if component.witness is not None
+    }
+    for identity, source in sorted(witnessed, key=lambda pair: (pair[0], pair[1].identity)):
+        query = (
+            select(
+                result.c.body,
+                origin.c.input_hash,
+                origin.c.method_config_id,
+                origin.c.run_id.label("origin_run_id"),
+                origin.c.unit_type,
+                origin.c.unit_id.label("origin_unit_id"),
+                origin.c.status.label("task_status"),
+                origin.c.error.label("task_error"),
+                run.c.project_id,
+                run.c.runtime_id.label("runtime_fingerprint"),
+                config.c.params.label("configuration"),
+                config.c.config_hash,
+                method.c.name.label("method"),
+            )
+            .select_from(member)
+            .join(selected, selected.c.id == member.c.task_id)
+            .join(origin, origin.c.id == member.c.origin_task_id)
+            .join(result, result.c.task_id == origin.c.id)
+            .join(config, config.c.id == origin.c.method_config_id)
+            .join(method, method.c.id == config.c.method_id)
+            .join(run, run.c.id == origin.c.run_id)
+            .where(
+                member.c.cut_id == source.cut_id,
+                selected.c.run_id == source.run_id,
+                selected.c.unit_type == "source_view",
+                selected.c.unit_id == source.source_view_id,
+                selected.c.status.in_(("done", "reused")),
+                origin.c.id == func.coalesce(selected.c.reused_task_id, selected.c.id),
+                origin.c.id == identity,
+                origin.c.release_id == source.release_id,
+                method.c.name == "extract.m1_annotations",
+                method.c.version == "2",
+            )
+        )
+        budget.preflight(conn, query)
+        row = conn.execute(query).mappings().one_or_none()
+        if row is None:
+            raise SemanticRefusal("definition witness annotation is outside the original cut")
+        if identity not in seen_reports:
+            budget.value(dict(row))
+            seen_reports.add(identity)
+            yield {"origin_task_id": identity, **dict(row)}
+
+
 def _predicate_annotation_origin_ids(body: Mapping[str, Any]) -> set[int]:
     return {
         op["annotation_origin_task_id"]
@@ -859,6 +930,13 @@ def _retained_report_ids(report: Mapping[str, Any]) -> set[int]:
                 ref["origin_task_id"]
                 for ref in report["configuration"].get("classification_refs", ())
             )
+        )
+    elif report.get("method") == "structure.definition_components":
+        product = (report.get("body") or {}).get("structural_product") or {}
+        values = tuple(
+            component["witness"]["annotation_task_id"]
+            for component in (product.get("definition_components") or {}).get("components", ())
+            if component.get("witness") is not None
         )
     elif report.get("method") == "structure.clause_classification":
         values = tuple(

@@ -1373,6 +1373,16 @@ classes:
       start: {required: true, range: integer, minimum_value: 0}
       end: {required: true, range: integer, minimum_value: 1}
       text: {required: true}
+  DefinitionBasisWitness:
+    is_a: SourceRecordProduct
+    attributes:
+      annotation_task_id: {required: true, range: integer, minimum_value: 1}
+      block_id: {required: true}
+      dependency_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      rule: {required: true}
+      variant: {required: true}
+      nodes: {required: true, range: integer, minimum_value: 0, multivalued: true, minimum_cardinality: 1}
+      label_nodes: {range: integer, minimum_value: 0, multivalued: true}
   LocatedDefinitionComponent:
     is_a: SourceRecordProduct
     attributes:
@@ -1380,7 +1390,8 @@ classes:
       term: {required: true, range: LocatedDefinitionSpan, inlined: true}
       content: {required: true, range: LocatedDefinitionSpan, inlined: true}
       interpretation: {required: true, pattern: '^(definition|explanation|unresolved)$'}
-      basis: {required: true, pattern: '^(matched_cue|returned_producer_group|native_geometry|model_reading|admitted_derivation)$'}
+      basis: {required: true, pattern: '^(matched_cue|native_geometry|model_reading|unqualified)$'}
+      witness: {range: DefinitionBasisWitness, inlined: true}
       scope: {required: true}
       effective_version: {}
       alternatives: {multivalued: true}

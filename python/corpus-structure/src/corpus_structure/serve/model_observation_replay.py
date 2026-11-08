@@ -330,6 +330,100 @@ def _verify_clause_model(report, config, detail, release, payloads, origins, pol
         raise ValueError("unbound retained clause model envelopes")
 
 
+def _verify_named_definition_bases(root, manifest, report, config, origins, policy):
+    """Reconstruct selected named attachments from original portable source custody."""
+    from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
+    from corpus_structure.ingest.sentences import SentenceConfig
+    from corpus_structure.methods.definition_applicability import retained_annotation_components
+    from corpus_structure.semantic.proposals import native_source_frame
+    from corpus_structure.semantic.source_contexts import NativeSourcePin
+    from corpus_structure.semantic.structural_sources import PreparedStructuralAnnotations
+
+    from .review_bundle import _detached_relation, _retained_review_source_view
+
+    components = tuple(
+        component
+        for component in report.definition_components.components
+        if component.basis in {"matched_cue", "native_geometry"}
+    )
+    if not components:
+        return
+    if any(component.witness is None for component in components):
+        raise ValueError("definition basis lacks exact retained annotation witness")
+    cfg = DefinitionComponentsConfig.model_validate(config)
+    if cfg.inputs != report.inputs or not cfg.use_named_candidates:
+        raise ValueError("definition basis differs from exact selected configuration")
+    refs = {ref.identity: ref for ref in report.inputs.sources}
+    passages = {p.passage_id: p for p in report.inputs.passages}
+    wanted = {
+        refs[passages[component.term.passage_id].source_ref].source_view_id
+        for component in components
+    }
+    sources = {
+        row["source_view_id"]: row
+        for row in _detached_relation(root, manifest, "sources")
+        if row["source_view_id"] in wanted
+    }
+    restored = {}
+    replayed = {}
+    for component in components:
+        witness = component.witness
+        passage = passages[component.term.passage_id]
+        ref = refs[passage.source_ref]
+        if witness is None or passage.passage_id not in cfg.target_ids:
+            raise ValueError("definition basis lacks exact retained annotation witness")
+        producer = origins.get(witness.annotation_task_id) or {}
+        body = producer.get("body") or {}
+        if (
+            producer.get("method") != "extract.m1_annotations"
+            or producer.get("project_id") != ref.project_id
+            or producer.get("origin_unit_id") != ref.source_view_id
+            or body.get("release_id") != ref.release_id
+            or body.get("operation_version") != "2"
+            or ref.source_view_id not in sources
+        ):
+            raise ValueError("definition basis lacks original annotation and source custody")
+        source_key = (ref.source_view_id, witness.annotation_task_id)
+        if source_key not in restored:
+            view = _retained_review_source_view(sources[ref.source_view_id])
+            frame = native_source_frame(view, ())
+            detail = source_python(body["parse_detail"])
+            if (
+                detail.get("recipe") != "m1-owned-linguistic-product-1"
+                or detail.get("source_pin") != asdict(NativeSourcePin.from_source(frame))
+                or body.get("source") != frame.unit_ref
+                or view.ref.native_product.content_digest != ref.native_content_digest
+                or view.ref.projection_digest != ref.projection_digest
+                or view.ref.recipe_digest != ref.recipe_digest
+            ):
+                raise ValueError("definition basis differs from the retained annotation frame")
+            annotations = restore_annotations(
+                detail["annotations"],
+                source=frame,
+                profile=AnnotationProfile(SentenceConfig(exclude=("ner",))),
+            )
+            restored[source_key] = PreparedStructuralAnnotations(
+                frame,
+                annotations,
+                tuple(detail.get("annotation_errors", ())),
+                witness.annotation_task_id,
+                body["input_hash"],
+            )
+        replay_key = (source_key, passage.passage_id)
+        if replay_key not in replayed:
+            exact = retained_annotation_components(
+                None,
+                report.inputs,
+                passage,
+                cfg,
+                retained=restored[source_key],
+                witness_policy=(policy or {}).get("definition_witness", {}),
+            )
+            replayed[replay_key] = {item.component_id: item for item in exact.components}
+        if replayed[replay_key].get(component.component_id) != component:
+            raise ValueError("definition basis differs from the retained named cue or display")
+
+
 def verify_model_observation_closure(root, manifest, products, scopes, inventory):
     from .review_bundle import _detached_relation, _retained_contribution_payloads
 
@@ -386,6 +480,7 @@ def verify_model_observation_closure(root, manifest, products, scopes, inventory
             )
         else:
             _verify_definition_roles(report, config, detail, body["release_id"], policy)
+            _verify_named_definition_bases(root, manifest, report, config, origins, policy)
 
 
 def verify_projected_definition_roles(root, manifest, products, structural_scopes):

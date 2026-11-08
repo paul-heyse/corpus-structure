@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
+from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal, Self
 
 from pydantic import Field, JsonValue, RootModel, model_validator
@@ -28,6 +29,7 @@ from corpus_structure.semantic.contextual_links import RetainedRelationshipDecis
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import (
     ApplicabilityPremise,
+    DefinitionBasisWitness,
     DefinitionComponentsProduct,
     DefinitionProduct,
     DefinitionRoleCandidate,
@@ -521,6 +523,7 @@ def components_from_named_matches(
     term_role: str,
     content_role: str,
     antecedents: Mapping[AnnotationRuleMatch, LocatedDefinitionSpan] | None = None,
+    witnesses: Mapping[AnnotationRuleMatch, DefinitionBasisWitness] | None = None,
 ) -> tuple[LocatedDefinitionComponent, ...]:
     """Consume WCE03 named role expansions; never infer a role from node order.
 
@@ -545,7 +548,9 @@ def components_from_named_matches(
             continue
         roles = {role.role: role for role in match.roles}
         cue = roles.get("defining_cue")
-        if cue is not None and len(readings.get((match.rule, match.variant, cue.extents), ())) > 1:
+        if cue is None or cue.status != "complete":
+            continue
+        if len(readings.get((match.rule, match.variant, cue.extents), ())) > 1:
             # A competing retained binding is not resolved by surface order.
             continue
         selected = []
@@ -572,13 +577,17 @@ def components_from_named_matches(
         if len(selected) != 2:
             continue
         antecedent = antecedents.get(match) if antecedents is not None else None
+        qualified = witnesses is None or (match in witnesses and antecedent is None)
         component = definition_component(
             term=selected[0],
             content=antecedent if antecedent is not None else selected[1],
-            interpretation="explanation"
-            if match.rule in {"naming", "explanation"}
-            else "definition",
-            basis="matched_cue",
+            interpretation=(
+                ("explanation" if match.rule in {"naming", "explanation"} else "definition")
+                if qualified
+                else "unresolved"
+            ),
+            basis="matched_cue" if qualified else "unqualified",
+            witness=witnesses[match] if qualified and witnesses is not None else None,
             scope=passage.scope,
             effective_version=passage.effective_version,
             evidence=(passage.passage_id,),
@@ -605,6 +614,7 @@ def components_from_following_display(
     *,
     scopes: Mapping[AnnotationRuleMatch, DefinitionScope],
     term_role: str,
+    witnesses: Mapping[AnnotationRuleMatch, DefinitionBasisWitness] | None = None,
 ) -> tuple[LocatedDefinitionComponent, ...]:
     """Join an explicit named following-content cue to its adjacent native display.
 
@@ -613,7 +623,7 @@ def components_from_following_display(
     """
     found = []
     labels = [
-        role
+        (match, role)
         for match in matches
         for role in match.roles
         if role.role == "definition_label" and role.status == "complete" and role.extents
@@ -638,6 +648,7 @@ def components_from_following_display(
         if term.nodes != tuple(range(term.nodes[0], term.nodes[-1] + 1)):
             continue
         term_start, term_end = term.extents[0][0], term.extents[-1][1]
+        nominal = (term_start, term_end)
         if match.rule == "explanation" and scope.probability_subject is not None:
             subject_start, subject_end = scope.probability_subject
             if subject_start <= term_start < term_end <= subject_end:
@@ -645,10 +656,15 @@ def components_from_following_display(
         cue_end = cue.extents[-1][1]
         if not passage.start <= term_start < term_end <= cue_end <= passage.end:
             continue
-        if labelled and not any(
-            passage.start <= label.extents[0][0] < label.extents[-1][1] <= term_start
-            for label in labels
-        ):
+        label_match = next(
+            (
+                candidate
+                for candidate, label in labels
+                if passage.start <= label.extents[0][0] < label.extents[-1][1] <= term_start
+            ),
+            None,
+        )
+        if labelled and label_match is None:
             # Labels and cue matches are supplied from this one retained native block.
             # A bare copula in another block does not inherit definition standing.
             continue
@@ -667,12 +683,25 @@ def components_from_following_display(
                     text=passage.text[a - passage.start : b - passage.start],
                 )
 
+            qualified = witnesses is None or (
+                match in witnesses
+                and nominal == (term_start, term_end)
+                and (not labelled or label_match in witnesses)
+            )
+            witness = witnesses[match] if qualified and witnesses is not None else None
+            if witness is not None and labelled and label_match is not None:
+                witness = witness.model_copy(update={"label_nodes": label_match.nodes})
             found.append(
                 definition_component(
                     term=span(term_start, term_end),
                     content=span(start, end),
-                    interpretation="explanation" if match.rule == "explanation" else "definition",
-                    basis="native_geometry",
+                    interpretation=(
+                        ("explanation" if match.rule == "explanation" else "definition")
+                        if qualified
+                        else "unresolved"
+                    ),
+                    basis="native_geometry" if qualified else "unqualified",
+                    witness=witness,
                     scope=passage.scope,
                     effective_version=passage.effective_version,
                     evidence=(passage.passage_id,),
@@ -695,7 +724,9 @@ class NamedDefinitionResult:
     reason: str
 
 
-def retained_annotation_components(reader, inputs, passage, cfg, *, retained=None):
+def retained_annotation_components(
+    reader, inputs, passage, cfg, *, retained=None, witness_policy: Mapping[str, Any]
+):
     from spacy.lang.en import English
 
     from corpus_structure.ingest.annotation_views import annotation_view
@@ -711,6 +742,18 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
     if errors:
         return NamedDefinitionResult((), False, (), "; ".join(errors))
     prepared = PreparedAnnotationRules(English().vocab, rules=cfg.annotation_rules)
+    qualified_rules = (
+        witness_policy.get("rules", {})
+        if cfg.term_role == witness_policy.get("term_role")
+        and cfg.content_role == witness_policy.get("content_role")
+        else {}
+    )
+    reviewed = {
+        (rule.rule, rule.variant)
+        for rule in cfg.annotation_rules
+        if qualified_rules.get(f"{rule.rule}/{rule.variant}")
+        == sha256(canonical_bytes(rule.model_dump(mode="json"))).hexdigest()
+    }
     found, operations = [], []
     display_spans = tuple(
         span
@@ -777,6 +820,18 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
                     ],
                 )
             )
+        witnesses = {
+            match: DefinitionBasisWitness(
+                annotation_task_id=retained.annotation_task_id,
+                block_id=product.block_id,
+                dependency_digest=product.dependency_digest,
+                rule=match.rule,
+                variant=match.variant,
+                nodes=match.nodes,
+            )
+            for match in matches
+            if retained.annotation_task_id is not None and (match.rule, match.variant) in reviewed
+        }
         found.extend(
             components_from_named_matches(
                 passage,
@@ -785,11 +840,17 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
                 term_role=cfg.term_role,
                 content_role=cfg.content_role,
                 antecedents=antecedents,
+                witnesses=witnesses,
             )
         )
         found.extend(
             components_from_following_display(
-                passage, matches, display_spans, scopes=scopes, term_role=cfg.term_role
+                passage,
+                matches,
+                display_spans,
+                scopes=scopes,
+                term_role=cfg.term_role,
+                witnesses=witnesses,
             )
         )
     available = any(operation["availability"] == "available" for operation in operations)
@@ -923,6 +984,7 @@ class DefinitionComponentsMethod:
                         passages[passage_id],
                         cfg,
                         retained=annotation_sources[passages[passage_id].source_ref],
+                        witness_policy=policy.get("definition_witness", {}),
                     )
                     if cfg.annotation_rules
                     else NamedDefinitionResult(
