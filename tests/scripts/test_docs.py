@@ -277,7 +277,10 @@ def test_replacement_removes_deleted_pages(tmp_path):
 def test_isolated_command_uses_the_locked_pytest_and_no_project():
     command = docs.isolated(docs.ROOT, "--with", docs.pytest_requirement(docs.ROOT), "pytest")
     assert (
-        "--no-project" in command and "--offline" in command and "--no-python-downloads" in command
+        "--no-project" in command
+        and "--isolated" in command
+        and "--offline" in command
+        and "--no-python-downloads" in command
     )
 
 
