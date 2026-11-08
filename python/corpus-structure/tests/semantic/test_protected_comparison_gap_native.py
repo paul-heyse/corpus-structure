@@ -388,39 +388,52 @@ def test_protected_comparison_yields_detached_unconnected_sides(
         assert len(row.evidence["support"]) == 1
         with pytest.raises(SemanticRefusal, match="scope"):
             serve_structural_gap(conn, request.model_copy(update={"scope": "outside"}))
-        journey = SourceDecisionJourneyParams.model_validate({
-            "opportunity": dict(
-                source=inputs.sources[0].model_dump(mode="json"),
-                pointer=case.sibling, start=7, end=11,
-            ),
-            "layers": [
-                dict(
-                    layer="comparison", run_id=comparison.run_id, cut_id=comparison.cut_id,
-                    task_id=comparison.selected_task_id, case_id=readings["left"].contribution_id,
+        journey = SourceDecisionJourneyParams.model_validate(
+            {
+                "opportunity": dict(
+                    source=inputs.sources[0].model_dump(mode="json"),
+                    pointer=case.sibling,
+                    start=7,
+                    end=11,
                 ),
-                dict(
-                    layer="dossier", run_id=dossier["run_id"], cut_id=dossier["cut_id"],
-                    task_id=dossier_custody["selected_task_id"],
-                ),
-            ],
-        })
+                "layers": [
+                    dict(
+                        layer="comparison",
+                        run_id=comparison.run_id,
+                        cut_id=comparison.cut_id,
+                        task_id=comparison.selected_task_id,
+                        case_id=readings["left"].contribution_id,
+                    ),
+                    dict(
+                        layer="dossier",
+                        run_id=dossier["run_id"],
+                        cut_id=dossier["cut_id"],
+                        task_id=dossier_custody["selected_task_id"],
+                    ),
+                ],
+            }
+        )
         source, tasks = capture_source_decision_journey(conn, journey)
         traced = source_decision_journey(journey, source, tasks)
         assert traced.source_capture == "represented"
         assert {layer.layer: layer.status for layer in traced.layers} == {
-            "artifact": "unrequested", "contextual": "unrequested",
-            "comparison": "observed", "dossier": "inspected_empty",
+            "artifact": "unrequested",
+            "contextual": "unrequested",
+            "comparison": "observed",
+            "dossier": "inspected_empty",
         }
-        rows = tuple(compose_review_views(
-            review, capture_review_relations(conn, review, OperationCancellation())
-        ))
+        rows = tuple(
+            compose_review_views(
+                review, capture_review_relations(conn, review, OperationCancellation())
+            )
+        )
         write_review_bundle(review, bundle, rows)
     assert verify_review_bundle(bundle)["completeness"] == "selected_source_closure"
     manifest = json.loads((bundle / "manifest.json").read_bytes())
     assert manifest["relations"]["structural_gaps"]["rows"] == 1
 
     substituted = deepcopy(rows)
-    assertion, = next(row for name, row in substituted if name == "structural_gap_custody")[
+    (assertion,) = next(row for name, row in substituted if name == "structural_gap_custody")[
         "assertions"
     ]
     assertion["statement"]["scope"] = "substituted support scope"

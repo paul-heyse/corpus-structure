@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "id": "nce.protected-comparison-controlled",
+  "title": "Controlled protected comparison and detached gap delivery",
+  "group": "next-corpus-enrichment",
+  "package": "NCE-09",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can a source-supported comparison pass ordinary protected admission, expose each unconnected side and retain its original support in exact detached review?",
+  "answers": [
+    "NCE-09-A2",
+    "NCE-10-A2"
+  ],
+  "method": "Use two exact occurrences of one fixture sentence from a registered Docling source. Produce ordinary M1 annotations and scoped readings on the isolated native target. Derive expected public roles and extents from the fixture literal. Write separate controlled A/B/C passes, publish the exact comparison, and assemble a dossier that inspects the comparison without binding its sides. Read the selected gap and same-case source-decision journey. Verify exact detached review and a coherently resealed support substitution.",
+  "commands": [
+    "uv run ci test --json -- python/corpus-structure/tests/semantic/test_protected_comparison_gap_native.py",
+    "uv run ci test coverage 284b284ad0e34380b9c7c0e0822e58cd --json"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/controlled-coverage.json",
+      "role": "Managed selected test receipt with source hashes and native purpose-role applicability",
+      "sha256": "a41ad8d71790727aefffbdaa7b8827e38c7ec9d44aed1b182ca49ca846ac3589"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Exact native assertion and two actionable unconnected sides",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": "The Reader found both sides with admitted support for the comparison the dossier inspected."
+    },
+    {
+      "name": "Exact same-case source-decision journey",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": "The Reader returned represented source, observed comparison and inspected-empty dossier membership."
+    },
+    {
+      "name": "Detached original support and conflicting-scope discrimination",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": "Exact detached replay passed. A consistently resealed support substitution and a conflicting source scope refused."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The controlled native test establishes publication, actionable gap delivery and original support verification for its exact fixture. Grinstead–Snell comparison, independent source assessment and authentic detached delivery remain separate qualification.",
+  "consumed_by": [
+    "NCE-09-A2",
+    "NCE-10-A2",
+    "next-corpus-enrichment plan"
+  ]
+}

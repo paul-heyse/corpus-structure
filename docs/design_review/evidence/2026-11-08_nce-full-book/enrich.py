@@ -225,6 +225,7 @@ def execute(settings, prepared, method, config, inputs, output, attempt):
         output,
         f"{method.name}-{output.name}",
         attempt,
+        benchmark="gs518",
     )
     with (
         open_runtime_engine(settings, "nce-full-book-result-summary", purpose="read") as engine,

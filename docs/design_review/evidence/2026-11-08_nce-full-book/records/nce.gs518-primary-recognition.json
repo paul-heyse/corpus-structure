@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "nce.gs518-primary-recognition",
+  "title": "Full Grinstead–Snell Nemotron primary recognition",
+  "group": "next-corpus-enrichment",
+  "package": "full-book",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Did the managed Nemotron Parse 3.5 triple-pass producer return successful responses across the full authenticated book?",
+  "answers": [
+    "ADR-0070"
+  ],
+  "method": "Use the released primary recognition recipe and the same retained original and receipt directory as combined intake. Validate the exact 518-page inventory, per-page parse and detect and one managed generation on all returned parse, detect and applicable crop responses. The launcher initially refused the mismatched installed NVML version. The retry used NVIDIA 615.71.10 libraries extracted for the launcher process from the vendor package matching the loaded kernel module.",
+  "commands": [
+    "services/nemotron-parse/.venv/bin/python services/nemotron-parse/launch.py --receipts build/nce-full-book/nemotron/generations",
+    "uv run python docs/design_review/evidence/2026-11-08_nce-full-book/recognition.py build/nce-full-book"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/primary-recognition.jsonl",
+      "role": "Per-page real primary triple-pass result and request types",
+      "sha256": "e6759c46d65d8663355d8e559703a95e52cb216775a3f3355425a68d062daa9a"
+    },
+    {
+      "path": "raw/recognition-generation.json",
+      "role": "Verified managed generation for all 518 pages",
+      "sha256": "a88eaa75c18fbaa15b3ce4ef2b5e4f49244e1e7578def26eb19493ec8fc29003"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Successful primary pages",
+      "value": 518,
+      "of": 518,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "Successful full-page parses",
+      "value": 518,
+      "of": null,
+      "unit": "responses",
+      "note": null
+    },
+    {
+      "name": "Successful layout detections",
+      "value": 518,
+      "of": null,
+      "unit": "responses",
+      "note": null
+    },
+    {
+      "name": "Successful applicable crops",
+      "value": 210,
+      "of": null,
+      "unit": "responses",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Primary recognition completed across the authenticated 518-page parent. Combined publication, downstream extraction and source-quality assessment have separate receipts.",
+  "consumed_by": [
+    "next-corpus-enrichment plan",
+    "full-book development baseline"
+  ]
+}

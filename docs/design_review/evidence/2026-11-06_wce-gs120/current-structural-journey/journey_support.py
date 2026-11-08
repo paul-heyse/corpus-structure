@@ -80,7 +80,9 @@ def retain(path, value):
         stream.write(encoded)
 
 
-def run_method(settings, prepared, method, config, inputs, output, label, attempt):
+def run_method(
+    settings, prepared, method, config, inputs, output, label, attempt, *, benchmark="gs120"
+):
     output.mkdir(exist_ok=True)
     registry = MethodRegistry(
         (method,), MethodsFile(configs={method.name: {"current": config}})
@@ -104,10 +106,10 @@ def run_method(settings, prepared, method, config, inputs, output, label, attemp
         ready = json.loads((output / "source-ready.json").read_bytes())
         return finish_source_stage(settings, ready["run_id"], output)
     realization = (
-        "gs120-current-structural:" + attempt + ":" + label + ":" + prepared.release_id
+        benchmark + "-current-structural:" + attempt + ":" + label + ":" + prepared.release_id
     )
     with open_runtime_engine(
-        settings, "gs120-structural-" + label, purpose="write"
+        settings, benchmark + "-structural-" + label, purpose="write"
     ) as engine:
         with engine.begin() as conn:
             initialize_source_project(
@@ -136,7 +138,7 @@ def run_method(settings, prepared, method, config, inputs, output, label, attemp
                     dict(
                         source_parent_sha256=PARENT,
                         structural_input=inputs.identity,
-                        scope="same GS120 development and assessment corpus",
+                        scope=f"same {benchmark.upper()} development and assessment corpus",
                         label=label,
                     )
                 ),

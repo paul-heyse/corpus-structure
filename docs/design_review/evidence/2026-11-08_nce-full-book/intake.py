@@ -12,6 +12,7 @@ from sqlalchemy import select
 from corpus_structure.core.method import MethodSettings
 from corpus_structure.core.vocab import Stage
 from corpus_structure.ingest.pdf_methods import IngestPdf
+from corpus_structure.ingest.pdf_recognition_methods import IngestPdfIntegrated
 from corpus_structure.methods.m1_annotations import M1Annotations
 from corpus_structure.orchestrate.project import init_bound_project
 from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
@@ -22,6 +23,7 @@ from corpus_structure.schema.pack import DOMAINS
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import OperationBinding
+from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.runtime import open_runtime_engine
@@ -38,30 +40,35 @@ def main():
     parser.add_argument("--release", required=True)
     parser.add_argument("--realization", default="nce-gs518-source-baseline")
     parser.add_argument("--device", choices=("cuda", "cpu"), default="cuda")
+    parser.add_argument("--native-product", nargs=3, metavar=("TASK", "KEY", "SHA256"))
     args = parser.parse_args()
     source = args.work / "corpus" / PDF
     if sha256(source.read_bytes()).hexdigest() != PARENT:
         raise ValueError("source differs from the frozen benchmark parent")
-    output = args.work / "source"
+    native = None
+    if args.native_product:
+        task, key, digest = args.native_product
+        native = ProductReference(int(task), key, digest)
+        if args.realization == "nce-gs518-source-baseline":
+            parser.error("select a distinct --realization for the integrated source")
+    output = args.work / ("integrated-source" if native else "source")
     output.mkdir(exist_ok=True)
     selection = dict(parent_sha256=PARENT, physical_pages=list(range(1, 519)))
-    method = IngestPdf()
+    method = IngestPdfIntegrated() if native else IngestPdf()
+    config = {"originals": [PDF], "membership": "descendants", "device": args.device}
+    if native:
+        config["native_product"] = native.values()
     registry = MethodRegistry(
         (method, M1Annotations()),
         MethodsFile(
             configs={
-                method.name: {
-                    "full-book": {
-                        "originals": [PDF],
-                        "membership": "descendants",
-                        "device": args.device,
-                    }
-                },
+                method.name: {"full-book": config},
                 M1Annotations.name: {"default": {}},
             }
         ),
     )
-    with open_runtime_engine(Settings(), "nce-full-book-intake", purpose="write") as engine:
+    settings = Settings()
+    with open_runtime_engine(settings, "nce-full-book-intake", purpose="write") as engine:
         with engine.begin() as conn:
             project = init_bound_project(
                 conn,
@@ -126,7 +133,13 @@ def main():
                 policy_propose=False,
             ),
             method_settings=MethodSettings(
-                data_dir=output / "data", model_cache=Path.home() / ".cache/docling/models"
+                data_dir=output / "data",
+                model_cache=Path.home() / ".cache/docling/models",
+                nemotron_endpoint=settings.nemotron.endpoint,
+                nemotron_python=settings.nemotron.python,
+                nemotron_worker=settings.nemotron.worker,
+                nemotron_receipts=output / "recognition",
+                nemotron_timeout_seconds=settings.nemotron.timeout_seconds,
             ),
             guideline=(DOMAINS / "statistics/m1-guideline.md").read_text(),
             corpus_record=corpus_record,
