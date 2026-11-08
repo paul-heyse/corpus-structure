@@ -896,6 +896,7 @@ def series_native_definitions(connection, *, include_selected=True):
         "predicate_cross_block_host_matches",
         "predicate_lowered_condition",
         "predicate_unlocated_role_matches",
+        "predicate_source_negations",
         "predicate_source_negation",
         "predicate_reading_layout",
         "predicate_source_reading",

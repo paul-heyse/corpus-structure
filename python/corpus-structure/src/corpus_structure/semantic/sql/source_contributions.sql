@@ -542,7 +542,8 @@ GRANT EXECUTE ON FUNCTION ops.prepare_table_correspondence(bigint,bigint,jsonb,n
 -- A projected extent must reconstruct the exact ordered physical anchors and
 -- contain exactly the submitted retained tokens, apart from inter-token whitespace.
 CREATE OR REPLACE FUNCTION ops.predicate_role_anchor_match(
- projection jsonb,extents jsonb,anchors jsonb,tokens jsonb,indices jsonb,lo bigint,hi bigint)
+ source_text text,source_pieces jsonb,extents jsonb,anchors jsonb,tokens jsonb,indices jsonb,
+ lo bigint,hi bigint)
 RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
  WITH extents_ AS (
   SELECT (e->>'start')::bigint AS a,(e->>'end')::bigint AS b,n,
@@ -550,7 +551,7 @@ RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
   FROM jsonb_array_elements(extents) WITH ORDINALITY x(e,n)
  ), pieces AS (
   SELECT p,(p->>'start')::bigint AS a,(p->>'end')::bigint AS b,n
-  FROM jsonb_array_elements(projection->'pieces') WITH ORDINALITY x(p,n)
+  FROM jsonb_array_elements(source_pieces) WITH ORDINALITY x(p,n)
  ), selected_tokens AS (
   SELECT (t->>'start')::bigint AS a,(t->>'end')::bigint AS b,n-1 AS i
   FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n)
@@ -578,7 +579,7 @@ RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
  )
  AND NOT EXISTS(
   SELECT FROM token_runs r WHERE r.previous_end IS NOT NULL AND
-   substring(projection->>'text' FROM (r.previous_end+1)::integer FOR (r.a-r.previous_end)::integer)
+   substring(source_text FROM (r.previous_end+1)::integer FOR (r.a-r.previous_end)::integer)
     ~ '[^[:space:]]'
  )
  AND (SELECT physical.anchors FROM physical) IS NOT DISTINCT FROM (
@@ -586,6 +587,14 @@ RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
   FROM jsonb_array_elements(anchors) WITH ORDINALITY x(a,n)
   WHERE a->>'space'='native' AND a->>'precision'='exact'
  );
+$$;
+REVOKE ALL ON FUNCTION ops.predicate_role_anchor_match(text,jsonb,jsonb,jsonb,jsonb,jsonb,bigint,bigint) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.predicate_role_anchor_match(
+ projection jsonb,extents jsonb,anchors jsonb,tokens jsonb,indices jsonb,lo bigint,hi bigint)
+RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+ SELECT ops.predicate_role_anchor_match(
+  projection->>'text',projection->'pieces',extents,anchors,tokens,indices,lo,hi)
 $$;
 REVOKE ALL ON FUNCTION ops.predicate_role_anchor_match(jsonb,jsonb,jsonb,jsonb,jsonb,bigint,bigint) FROM PUBLIC;
 
@@ -1297,13 +1306,12 @@ RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 $$;
 REVOKE ALL ON FUNCTION ops.predicate_clipped_roles_match(int8multirange,jsonb,jsonb,bigint,bigint,jsonb) FROM PUBLIC;
 
-CREATE OR REPLACE FUNCTION ops.predicate_source_negation(projection jsonb,tokens jsonb,host integer)
-RETURNS text LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+CREATE OR REPLACE FUNCTION ops.predicate_source_negations(tokens jsonb,words text[])
+RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
  WITH token_rows AS MATERIALIZED (
   SELECT (n-1)::integer AS i,t->'sentence' AS sentence,t->>'dependency' AS dep,
    (t->>'head')::integer AS head,t->>'pos' AS pos,t->>'tag' AS tag,t->>'role' AS role,
-   lower(substring(projection->>'text' FROM (t->>'start')::integer+1
-    FOR (t->>'end')::integer-(t->>'start')::integer)) AS word
+   lower(words[n::integer]) AS word
   FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n)
  ), negated AS (
   SELECT DISTINCT origin.i,origin.sentence FROM token_rows n
@@ -1323,9 +1331,20 @@ RETURNS text LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
      AND EXISTS(SELECT FROM token_rows x WHERE x.head=origin.i AND x.dep='aux' AND x.word='do')
      AND NOT EXISTS(SELECT FROM token_rows x WHERE x.head=origin.i AND x.dep IN ('nsubj','csubj'))
      AND NOT EXISTS(SELECT FROM token_rows x WHERE x.head=peer.i AND x.dep<>'punct'))
+ ), unresolved AS (
+  SELECT origin AS i FROM shared UNION SELECT peer FROM shared
  )
- SELECT CASE WHEN EXISTS(SELECT FROM shared WHERE host IN (origin,peer)) THEN 'unresolved'
-  WHEN EXISTS(SELECT FROM negated WHERE i=host) THEN 'negative' ELSE 'none' END
+ SELECT coalesce(jsonb_object_agg(affected.i,CASE WHEN unresolved.i IS NOT NULL
+  THEN 'unresolved' ELSE 'negative' END),'{}')
+ FROM (SELECT i FROM negated UNION SELECT i FROM unresolved) affected
+ LEFT JOIN unresolved USING(i)
+$$;
+REVOKE ALL ON FUNCTION ops.predicate_source_negations(jsonb,text[]) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.predicate_source_negation(projection jsonb,tokens jsonb,host integer)
+RETURNS text LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+ SELECT coalesce(ops.predicate_source_negations(tokens,ops.predicate_token_texts(projection,tokens))
+  ->>host::text,'none')
 $$;
 REVOKE ALL ON FUNCTION ops.predicate_source_negation(jsonb,jsonb,integer) FROM PUBLIC;
 
@@ -1352,17 +1371,17 @@ $$;
 REVOKE ALL ON FUNCTION ops.predicate_reading_layout(jsonb,jsonb,jsonb,jsonb) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.predicate_source_reading(
- projection jsonb,annotation jsonb,frame jsonb,layout text,recipe jsonb,reporting_governor boolean)
+ annotation jsonb,frame jsonb,layout text,recipe jsonb,reporting_governor boolean,
+ words text[],negation text)
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
-DECLARE tokens jsonb:=annotation->'tokens'; words text[]; roles jsonb;
+DECLARE tokens jsonb:=annotation->'tokens'; roles jsonb;
  host integer:=(frame->>'predicate_token')::integer; h jsonb; sentence_ jsonb; parent integer;
  lemma_ text; dep text; voice_ text; grammar_ text; polarity_ text; reading_ text; modal text[];
  actor boolean; object_ boolean; complement boolean; copular boolean; passive boolean;
- negation text; probability boolean; contrasted boolean; attributed boolean; exemplified boolean;
+ probability boolean; contrasted boolean; attributed boolean; exemplified boolean;
  quoted boolean:=false; stack text[]:='{}'; openings integer[]:='{}'; i integer; top integer;
 BEGIN
  h:=tokens->host; sentence_:=h->'sentence'; dep:=h->>'dependency'; parent:=(h->>'head')::integer;
- words:=ops.predicate_token_texts(projection,tokens);
  lemma_:=casefold(coalesce(nullif(h->>'lemma',''),words[host+1]) COLLATE pg_unicode_fast);
  roles:=frame->'frame_members'||coalesce(frame->'unlocated_roles','[]');
  SELECT coalesce(jsonb_agg(r),'[]') INTO roles FROM jsonb_array_elements(roles) r
@@ -1370,7 +1389,6 @@ BEGIN
  actor:=EXISTS(SELECT FROM jsonb_array_elements(roles) r WHERE r->>'role'='actor');
  object_:=EXISTS(SELECT FROM jsonb_array_elements(roles) r WHERE r->>'role'='object');
  complement:=EXISTS(SELECT FROM jsonb_array_elements(roles) r WHERE r->>'role'='complement');
- negation:=ops.predicate_source_negation(projection,tokens,host);
  copular:=EXISTS(SELECT FROM jsonb_array_elements(tokens) t WHERE t->'head'=to_jsonb(host)
   AND t->'sentence'=sentence_ AND t->>'dependency'='cop');
  passive:=EXISTS(SELECT FROM jsonb_array_elements(tokens) t WHERE t->'head'=to_jsonb(host)
@@ -1459,6 +1477,15 @@ BEGIN
   ELSE 'unresolved' END;
  RETURN jsonb_build_object('grammar',grammar_,'voice',voice_,'polarity',polarity_,'reading',reading_);
 END $$;
+REVOKE ALL ON FUNCTION ops.predicate_source_reading(jsonb,jsonb,text,jsonb,boolean,text[],text) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.predicate_source_reading(
+ projection jsonb,annotation jsonb,frame jsonb,layout text,recipe jsonb,reporting_governor boolean)
+RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+ SELECT ops.predicate_source_reading(annotation,frame,layout,recipe,reporting_governor,words,
+  coalesce(ops.predicate_source_negations(annotation->'tokens',words)->>(frame->>'predicate_token'),'none'))
+ FROM (SELECT ops.predicate_token_texts(projection,annotation->'tokens') words) retained
+$$;
 REVOKE ALL ON FUNCTION ops.predicate_source_reading(jsonb,jsonb,jsonb,text,jsonb,boolean) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.predicate_source_reading(
@@ -1483,7 +1510,8 @@ DECLARE original jsonb; original_id text; selected_run bigint:=p_task.run_id; se
  cue jsonb; host jsonb; interpretation jsonb; qualified jsonb; condition_ jsonb; lo bigint; hi bigint; kind_ text;
  cue_component jsonb; host_component jsonb; host_annotation jsonb; recipe text; matches_host boolean;
  expected_reading jsonb; source_layout_items jsonb;
- argument_inventories jsonb; mapped_role_ranges int8multirange;
+ argument_inventories jsonb; host_inventory jsonb; mapped_role_ranges int8multirange;
+ source_text text:=p_view.projection->>'text'; role_pieces jsonb;
 BEGIN
  IF p_config->'inputs' IS NOT NULL AND p_config->'inputs'<>'null'::jsonb THEN
   SELECT s INTO STRICT original FROM jsonb_array_elements(p_config->'inputs'->'sources') s
@@ -1530,20 +1558,33 @@ BEGIN
   SELECT coalesce(range_agg(int8range((p->>'start')::bigint,(p->>'end')::bigint,'[)')),'{}')
   INTO mapped_role_ranges FROM jsonb_array_elements(p_view.projection->'pieces') p
   WHERE p->>'kind'='native_text' AND coalesce(p->>'source_field','text') IN ('text','orig','cell_text');
- SELECT jsonb_object_agg(block.key,jsonb_build_object(
-  'roles',expected.roles,'layout',ops.predicate_reading_layout(
-   p_view.projection,source_layout_items,annotation_map->block.key,interpretation_recipe)))
- INTO argument_inventories
-  FROM (
-   SELECT DISTINCT value->'component'->>'annotation' AS key FROM jsonb_each(p_population)
-   WHERE value->'component'->>'kind'='predicate_frame'
-  ) block
+  WITH blocks AS MATERIALIZED (
+   SELECT selected.key,annotation_map->selected.key AS source_annotation,
+    ops.predicate_token_texts(p_view.projection,annotation_map->selected.key->'tokens') words
+   FROM (
+    SELECT DISTINCT value->'component'->>'annotation' AS key FROM jsonb_each(p_population)
+    WHERE value->'component'->>'kind' IN ('predicate_frame','predicate_cue')
+   ) selected
+  )
+  SELECT jsonb_object_agg(block.key,jsonb_build_object(
+   'roles',expected.roles,'pieces',block_pieces.value,'words',block.words,
+   'negations',ops.predicate_source_negations(block.source_annotation->'tokens',block.words),
+   'layout',ops.predicate_reading_layout(
+    p_view.projection,source_layout_items,block.source_annotation,interpretation_recipe)))
+  INTO argument_inventories
+  FROM blocks block
+  CROSS JOIN LATERAL (
+   SELECT coalesce(jsonb_agg(p ORDER BY n),'[]') AS value
+   FROM jsonb_array_elements(p_view.projection->'pieces') WITH ORDINALITY x(p,n)
+   WHERE (p->>'start')::bigint<(block.source_annotation->>'block_end')::bigint
+    AND (p->>'end')::bigint>(block.source_annotation->>'block_start')::bigint
+  ) block_pieces
   CROSS JOIN LATERAL (
    SELECT jsonb_object_agg(by_predicate.predicate::text,by_predicate.members) roles FROM (
     SELECT r.predicate,coalesce(
      jsonb_agg(to_jsonb(r)-'predicate') FILTER (WHERE r.role<>'predicate'),'[]') members
     FROM ops.predicate_argument_inventory(
-     p_view.projection,annotation_map->block.key->'tokens',interpretation_recipe,true) r
+     p_view.projection,block.source_annotation->'tokens',interpretation_recipe,true) r
     GROUP BY r.predicate
    ) by_predicate
   ) expected;
@@ -1566,6 +1607,8 @@ BEGIN
     RAISE EXCEPTION 'predicate evidence lacks the exact retained annotation block' USING ERRCODE='23514';
    END IF;
    tokens:=annotation->'tokens';
+   role_pieces:=CASE WHEN predicate_version='5' THEN argument_inventories->(c->>'annotation')->'pieces'
+    ELSE p_view.projection->'pieces' END;
    lo:=(annotation->>'block_start')::bigint; hi:=(annotation->>'block_end')::bigint;
    IF selected_cut IS NOT NULL THEN
     SELECT p INTO STRICT selection FROM jsonb_array_elements(p_config->'inputs'->'passages') p
@@ -1598,7 +1641,8 @@ BEGIN
      OR NOT part->'computation_dependencies' ? (c->>'annotation')
      OR (m ? 'head_token' AND NOT m->'token_indices' @> jsonb_build_array(m->'head_token'))
      OR (m ? 'inherited_from' AND (m->>'inherited_from')::bigint>=jsonb_array_length(tokens))
-     OR NOT ops.predicate_role_anchor_match(p_view.projection,m->'extents',part->'anchors',tokens,m->'token_indices',lo,hi) THEN
+     OR NOT ops.predicate_role_anchor_match(
+      source_text,role_pieces,m->'extents',part->'anchors',tokens,m->'token_indices',lo,hi) THEN
      RAISE EXCEPTION 'predicate role differs from retained tokens and exact source extents' USING ERRCODE='23514';
     END IF;
    END LOOP;
@@ -1619,7 +1663,8 @@ BEGIN
   ELSIF kind_='predicate_cue' THEN
    part:=p_population->(c->>'marker_member');
    IF evidence->>'kind'<>'occurrence'
-    OR NOT ops.predicate_role_anchor_match(p_view.projection,c->'extents',evidence->'anchors',tokens,c->'token_indices',lo,hi)
+    OR NOT ops.predicate_role_anchor_match(
+     source_text,role_pieces,c->'extents',evidence->'anchors',tokens,c->'token_indices',lo,hi)
     OR EXISTS(SELECT FROM jsonb_array_elements_text(c->'candidate_tokens') token
      WHERE token::bigint>=jsonb_array_length(tokens))
     OR (c->>'host_state'='located' AND (part IS NULL OR (
@@ -1649,7 +1694,7 @@ BEGIN
      OR NOT c->'dependencies' ? (c->>'marker_member')
      OR evidence->'members' IS DISTINCT FROM jsonb_build_array(c->'marker_member')
      OR NOT ops.predicate_role_anchor_match(
-      p_view.projection,c->'marker_extents',part->'anchors',tokens,c->'marker_token_indices',lo,hi)))
+      source_text,role_pieces,c->'marker_extents',part->'anchors',tokens,c->'marker_token_indices',lo,hi)))
     OR (NOT c ? 'marker_member' AND evidence ? 'members') THEN
     RAISE EXCEPTION 'predicate qualifier lacks exact retained evidence or candidate hosts' USING ERRCODE='23514';
    END IF;
@@ -1671,10 +1716,13 @@ BEGIN
      host_component:=host->'component';
      host_annotation:=annotation_map->(host_component->>'annotation');
      IF predicate_version='5' THEN
-      expected_reading:=ops.predicate_source_reading(p_view.projection,host_annotation,host_component,
-       argument_inventories->(host_component->>'annotation')->>'layout',interpretation_recipe,
-       coalesce(argument_inventories->(host_component->>'annotation')->'roles'
-        ? (host_annotation->'tokens'->((host_component->>'predicate_token')::integer)->>'head'),false));
+      host_inventory:=argument_inventories->(host_component->>'annotation');
+      expected_reading:=ops.predicate_source_reading(host_annotation,host_component,
+       host_inventory->>'layout',interpretation_recipe,
+       coalesce(host_inventory->'roles'
+        ? (host_annotation->'tokens'->((host_component->>'predicate_token')::integer)->>'head'),false),
+       ARRAY(SELECT jsonb_array_elements_text(host_inventory->'words')),
+       coalesce(host_inventory->'negations'->>(host_component->>'predicate_token'),'none'));
      ELSE
       expected_reading:=ops.predicate_source_reading(
        p_view.projection,host_annotation,host_component,

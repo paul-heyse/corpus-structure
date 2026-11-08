@@ -260,3 +260,24 @@ def test_native_attribution_requires_an_eligible_reporting_governor(semantic_db_
         assert reading("NOUN") == dict(
             grammar="active", voice="active", polarity="positive", reading="unresolved"
         )
+
+
+def test_native_block_negation_preserves_direct_and_shared_scope(semantic_db_engine):
+    tokens = [
+        dict(head=2, dependency="aux", pos="AUX"),
+        dict(head=2, dependency="neg", pos="PART"),
+        dict(head=2, dependency="ROOT", pos="VERB"),
+        dict(head=2, dependency="cc", pos="CCONJ"),
+        dict(head=2, dependency="conj", pos="VERB"),
+    ]
+    query = text("""
+        SELECT ops.predicate_source_negations(CAST(:tokens AS jsonb),
+         ARRAY['Do','not','heat',CAST(:connector AS text),'stir'])
+    """)
+    retained = json.dumps([dict(token, sentence=0, role="prose") for token in tokens])
+    with semantic_db_engine.connect() as conn:
+        assert conn.scalar(query, dict(tokens=retained, connector="and")) == {
+            "2": "unresolved",
+            "4": "unresolved",
+        }
+        assert conn.scalar(query, dict(tokens=retained, connector="but")) == {"2": "negative"}
