@@ -26,6 +26,7 @@ class SelectedReader(PublishedPdfReader):
             product_key="integrated",
             logical_digest="a" * 64,
             build_id="published-42",
+            source_digest="f" * 64,
             release_id="producer",
         )
         self.requests = []

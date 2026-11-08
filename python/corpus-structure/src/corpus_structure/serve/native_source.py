@@ -584,7 +584,7 @@ def _inspect_native_source(
                     raise ValueError("native pointer is not a formula")
                 from corpus_structure.ingest.pdf_hierarchy import (
                     readable_formula_original,
-                    section_formula_witness,
+                    retained_section_text_policy,
                 )
 
                 outcomes = list(
@@ -612,11 +612,13 @@ def _inspect_native_source(
                         ),
                     )
                 ]
+                policy = retained_section_text_policy(conn, projection_context)
                 readable = readable_formula_original(
-                    section_formula_witness(projection_context),
+                    json.loads(policy) if policy is not None else {},
                     request.content_digest,
+                    published.revision["source_digest"],
                     request.pointer,
-                    native.get("orig"),
+                    native,
                 )
                 if readable is not None:
                     rows[0].update(readable_text=readable, readable_source_field="orig")

@@ -469,6 +469,7 @@ class IngestPdfIntegrated:
                         document=selected.document,
                         node_index=nodes,
                         projection_policy=section_text_policy(ctx.reader.prepared),
+                        original_digest=source.digest,
                     )
                     outputs.append(
                         UnitResult(

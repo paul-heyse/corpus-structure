@@ -121,6 +121,62 @@ def test_original_formula_projection_requires_the_exact_release_witness():
     assert formula.text == latex
 
 
+def test_readable_formula_collection_requires_exact_local_correspondence():
+    from docling_core.types.doc import BoundingBox, ProvenanceItem
+
+    document = DoclingDocument(name="two witnessed formulas")
+    original_digest = sha256(b"authenticated original PDF fixture").hexdigest()
+    formulae = [
+        document.add_formula(
+            text=recognized,
+            orig=original,
+            prov=ProvenanceItem(
+                page_no=page,
+                bbox=BoundingBox(l=10, t=20, r=35, b=40, coord_origin="TOPLEFT"),
+                charspan=(0, len(original)),
+            ),
+        )
+        for recognized, original, page in (("r_1", "x + y", 1), ("r_2", "a - b", 2))
+    ]
+    witnesses = [
+        {
+            "original_digest": original_digest,
+            "orig_digest": sha256(item.orig.encode()).hexdigest(),
+            "pointer": item.self_ref,
+            "parent": "#/body",
+            "prov": [loc.model_dump(mode="json", by_alias=True) for loc in item.prov],
+        }
+        for item in formulae
+    ]
+    policy = {
+        "content_layers": ["body"],
+        "recipe": "native-section-text-v10",
+        "readable_formula_originals": witnesses,
+    }
+
+    def project(digest=original_digest):
+        return project_section(
+            document,
+            "f" * 64,
+            "#/body",
+            "direct",
+            section_refs=frozenset({"#/body"}),
+            projection_policy=json.dumps(policy).encode(),
+            original_digest=digest,
+        ).text
+
+    assert project() == "x + y\na - b"
+    assert project("0" * 64) == "r_1\nr_2"
+    document.add_text(label=DocItemLabel.TEXT, text="Unrelated")
+    assert project() == "x + y\na - b\nUnrelated"
+    formulae[0].prov[0].bbox.l += 1
+    formulae[1].orig = "wrong source"
+    assert project() == "r_1\nr_2\nUnrelated"
+    witnesses.append(witnesses[0])
+    with pytest.raises(ValueError, match="witness is ambiguous"):
+        project()
+
+
 @pytest.mark.parametrize(
     ("name", "membership", "expected_sections"),
     [
@@ -212,6 +268,7 @@ def test_live_and_retained_views_project_selected_table_captions(
 
     class ArchivedSelection(PublishedPdfReader):
         def __init__(self):
+            self.revision = {"source_digest": "f" * 64}
             self.reference = reference
             self.frontiers = []
 
@@ -302,7 +359,7 @@ def test_live_and_retained_views_project_selected_table_captions(
     )
     for draft in live:
         recipe = json.loads(draft.recipe_bytes)
-        assert recipe["recipe"] == "native-section-text-v9"
+        assert recipe["recipe"] == "native-section-text-v10"
         assert recipe["content_layers"] == ["body"]
         assert recipe["analysis_eligible"] is True
         assert recipe["organization_owner"] == reference.values()

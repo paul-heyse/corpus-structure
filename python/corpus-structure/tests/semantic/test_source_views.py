@@ -319,6 +319,41 @@ def test_native_source_view_is_real_unit_with_exact_context(
             b'{"recipe":"section-view-fixture"}',
         )
         draft = qualified_view_draft(draft, prepared.release_id)
+        # First publication has no previous immutable view to catch a resealed
+        # omission, duplicate or reordering. Keep the original selected items.
+        from corpus_structure.semantic.invariant_failures import InvariantViolation
+
+        first = ("Independent source.", draft.pieces[0])
+        second = ("f(x)=x", draft.pieces[2])
+        for selection in ((second,), (first, first, second), (second, first)):
+            altered_pieces = []
+            altered_text = ""
+            for spelling, piece in selection:
+                if altered_text:
+                    start = len(altered_text)
+                    altered_text += "\n"
+                    altered_pieces.append(
+                        dict(start=start, end=start + 1, kind="synthetic_separator")
+                    )
+                start = len(altered_text)
+                altered_text += spelling
+                altered_pieces.append(dict(piece, start=start, end=len(altered_text)))
+            altered = replace(draft, text=altered_text, pieces=tuple(altered_pieces))
+            with (
+                pytest.raises((DBAPIError, InvariantViolation), match="field address inventory"),
+                conn.begin_nested(),
+            ):
+                store_source_view(
+                    conn,
+                    run_id=run,
+                    task_id=task,
+                    attempt=claim.attempt,
+                    holder="view-fixture",
+                    draft=altered,
+                    position=0,
+                )
+        assert selected_source_views(conn, run) == ()
+
         identity = store_source_view(
             conn,
             run_id=run,

@@ -260,27 +260,79 @@ def section_text_policy(prepared: PreparedRelease) -> bytes:
     raise ValueError("section text recipe differs from the selected release")
 
 
-def section_formula_witness(prepared: PreparedRelease) -> Mapping[str, str] | None:
-    """Older read contracts retain their original response shape."""
-    policy = _section_text_policy_bytes()
-    if _section_text_policy_digest(prepared) == sha256(policy).hexdigest():
-        return json.loads(policy).get("readable_formula_original")
-    return None
+def retained_section_text_policy(connection, prepared: PreparedRelease) -> bytes | None:
+    """Resolve formula policy bytes against the Reader's immutable release."""
+    from sqlalchemy import select
+
+    from corpus_structure.semantic.metadata import table
+
+    digest = _section_text_policy_digest(prepared)
+    if digest is None:
+        return None
+    inputs = table("sem.input")
+    content = connection.scalar(
+        select(inputs.c.content).where(
+            inputs.c.release_id == prepared.release_id,
+            inputs.c.input_kind == "dependency",
+            inputs.c.input_name == "execution/implementation/pdf/section-text-recipe.json",
+        )
+    )
+    if content is None or sha256(content).hexdigest() != digest:
+        raise ValueError("section text policy differs from the retained release")
+    return bytes(content)
 
 
 def readable_formula_original(
-    witness: Mapping[str, str] | None,
+    policy: Mapping[str, Any],
     document_digest: str,
+    original_digest: str | None,
     pointer: str,
-    original: str | None,
+    node: Any,
 ) -> str | None:
-    """Select only an original spelling with a source-checked witness in the release."""
+    """Select source-checked spelling only for the corresponding native occurrence."""
+
+    def field(name, default=None):
+        return (
+            node.get(name, default) if isinstance(node, Mapping) else getattr(node, name, default)
+        )
+
+    original = field("orig")
+    if not original:
+        return None
+    digest = sha256(original.encode()).hexdigest()
+    if policy.get("recipe") == "native-section-text-v9":
+        witness = policy.get("readable_formula_original", {})
+        return (
+            original
+            if witness.get("content_digest") == document_digest
+            and witness.get("pointer") == pointer
+            and witness.get("orig_digest") == digest
+            else None
+        )
+    witnesses = [
+        witness
+        for witness in policy.get("readable_formula_originals", ())
+        if witness["original_digest"] == original_digest and witness["pointer"] == pointer
+    ]
+    if len(witnesses) > 1:
+        raise ValueError("readable formula witness is ambiguous")
+    if not witnesses:
+        return None
+    witness = witnesses[0]
+    parent = field("parent")
+    parent_pointer = (
+        parent.get("$ref") if isinstance(parent, Mapping) else getattr(parent, "cref", None)
+    )
+    provenance = [
+        item
+        if isinstance(item, Mapping)
+        else item.model_dump(mode="json", by_alias=True, exclude_none=True)
+        for item in field("prov", ())
+    ]
     if (
-        original
-        and witness
-        and witness["content_digest"] == document_digest
-        and witness["pointer"] == pointer
-        and witness["orig_digest"] == sha256(original.encode()).hexdigest()
+        witness["orig_digest"] == digest
+        and witness["parent"] == parent_pointer
+        and witness["prov"] == provenance
     ):
         return original
     return None
@@ -333,6 +385,7 @@ def project_section(
     node_index: dict[str, Any] | None = None,
     selected_items: Iterable[str] = (),
     projection_policy: bytes | None = None,
+    original_digest: str | None = None,
 ) -> TextProjection:
     """One explicit section view, retaining tables/cells and synthetic separators."""
     nodes = native_nodes(document) if node_index is None else node_index
@@ -344,6 +397,7 @@ def project_section(
         section_refs=section_refs,
         selected_items=selected_items,
         projection_policy=projection_policy,
+        original_digest=original_digest,
     )
 
 
@@ -356,6 +410,7 @@ def project_section_nodes(
     section_refs: frozenset[str],
     selected_items: Iterable[str] = (),
     projection_policy: bytes | None = None,
+    original_digest: str | None = None,
 ) -> TextProjection:
     """Project an admitted selected closure without fabricating a partial document.
 
@@ -372,11 +427,7 @@ def project_section_nodes(
     position = 0
     selected = frozenset(selected_items)
     emitted_captions: set[str] = set()
-    formula_witness = (
-        json.loads(projection_policy).get("readable_formula_original")
-        if projection_policy is not None
-        else None
-    )
+    policy = json.loads(projection_policy) if projection_policy is not None else {}
 
     def append(
         value: str,
@@ -479,9 +530,7 @@ def project_section_nodes(
         value = field(node, "text")
         if value is not None:
             original = (
-                readable_formula_original(
-                    formula_witness, document_digest, pointer, field(node, "orig")
-                )
+                readable_formula_original(policy, document_digest, original_digest, pointer, node)
                 if field(node, "label") == "formula"
                 else None
             )

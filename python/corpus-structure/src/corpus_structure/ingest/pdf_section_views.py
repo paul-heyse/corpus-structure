@@ -133,6 +133,7 @@ def published_section_drafts(
             section_refs=section_refs,
             selected_items=members,
             projection_policy=recipe,
+            original_digest=reader.revision["source_digest"],
         )
         reports = reader.section_reports(members, (section, *ancestors))
         outcomes, coverage = [], []

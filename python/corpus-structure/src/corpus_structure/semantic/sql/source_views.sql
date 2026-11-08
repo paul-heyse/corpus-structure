@@ -1,92 +1,100 @@
 -- Immutable section views are instances, never fabricated document/rendition rows.
-CREATE OR REPLACE FUNCTION ops.validate_projected_table_captions(p_build text,p_root text,p_projection jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $captions$
+CREATE OR REPLACE FUNCTION ops.validate_projected_source_fields(
+ p_build text,p_root text,p_projection jsonb,p_policy jsonb,p_original text
+) RETURNS void
+LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $fields$
+DECLARE expected jsonb; supplied jsonb;
 BEGIN
- IF EXISTS (
-  WITH RECURSIVE selected AS MATERIALIZED (
-   SELECT r.pointer,r.parent_pointer,r.label,r.native_json
-   FROM jsonb_array_elements_text(p_projection->'items') p(pointer)
-   JOIN kb.pdf_record_access r ON r.pointer=p.pointer AND r.product_id=p_build
-    AND r.revision_id=p_build AND r.content_layer='body'
-   WHERE r.native_json->>'self_ref'=r.pointer
-  ), walk(pointer,path,visited,in_cell,cell_index) AS (
-   SELECT pointer,ARRAY[]::bigint[],ARRAY[pointer],false,NULL::bigint FROM selected WHERE pointer=p_root
-   UNION ALL
-   SELECT child.pointer,w.path||edge.n,w.visited||child.pointer,w.in_cell OR edge.in_cell,
-    CASE WHEN edge.in_cell THEN edge.n-1 ELSE w.cell_index END
-   FROM walk w JOIN selected parent USING(pointer)
-   CROSS JOIN LATERAL (
-    SELECT c->>'$ref' AS pointer,n,false AS in_cell
-    FROM jsonb_array_elements(parent.native_json->'children') WITH ORDINALITY c(c,n)
-    WHERE parent.native_json->'data'->'table_cells' IS NULL
-    UNION ALL
-    SELECT c->'ref'->>'$ref',n,true
-    FROM jsonb_array_elements(parent.native_json->'data'->'table_cells') WITH ORDINALITY c(c,n)
-    WHERE c->'ref'->>'$ref' IS NOT NULL
-   ) edge JOIN selected child ON child.pointer=edge.pointer AND NOT child.pointer=ANY(w.visited)
-  ), associations AS (
-   SELECT DISTINCT ON (caption.pointer) caption.pointer,t.pointer AS owner,w.path,
-    cardinality(w.path) AS depth,refs.family,refs.n
-   FROM walk w JOIN selected t USING(pointer)
-   CROSS JOIN LATERAL (
-    SELECT 0 AS family,n,c->>'$ref' AS pointer FROM jsonb_array_elements(t.native_json->'children') WITH ORDINALITY c(c,n)
-    UNION ALL
-    SELECT 1,n,c->>'$ref' FROM jsonb_array_elements(t.native_json->'captions') WITH ORDINALITY c(c,n)
-   ) refs JOIN selected caption ON caption.pointer=refs.pointer
-   WHERE t.label='table' AND t.native_json->'data'->'table_cells' IS NOT NULL
-    AND caption.label='caption' AND jsonb_typeof(caption.native_json->'text')='string'
-    AND caption.native_json->>'text'<>''
-    AND caption.parent_pointer=t.pointer
-    AND NOT EXISTS(SELECT FROM walk reached WHERE reached.pointer=caption.pointer)
-   ORDER BY caption.pointer,w.path,refs.family,refs.n
-  ), pieces AS MATERIALIZED (
-   SELECT piece,n FROM jsonb_array_elements(p_projection->'pieces') WITH ORDINALITY p(piece,n)
-   WHERE piece->>'kind'='native_text'
-  ), captions AS (
-   SELECT a.*,false AS ordinary,p.n AS position
-   FROM associations a LEFT JOIN pieces p ON p.piece->>'item_ref'=a.pointer
-    AND p.piece->>'source_field'='text' AND NOT p.piece ? 'cell_index'
-   UNION ALL
-   SELECT w.pointer,NULL,w.path,cardinality(w.path),NULL,NULL,true,p.n
-   FROM walk w JOIN selected c USING(pointer)
-   LEFT JOIN pieces p ON p.piece->>'item_ref'=w.pointer
-    AND p.piece->>'source_field'='text' AND NOT p.piece ? 'cell_index'
-   WHERE NOT w.in_cell AND c.label='caption' AND c.native_json->>'text'<>''
-  )
-  SELECT FROM captions a WHERE a.position IS NULL
-   OR (SELECT count(*) FROM pieces p WHERE p.piece->>'item_ref'=a.pointer)<>1
-   OR (NOT a.ordinary AND EXISTS (
-    SELECT FROM pieces p WHERE p.n>a.position AND (
-     (p.piece->>'item_ref'=a.owner AND p.piece->>'source_field'='cell_text')
-     OR (p.piece ? 'cell_index' AND EXISTS(
-      SELECT FROM walk rich WHERE rich.pointer=p.piece->>'item_ref' AND rich.in_cell
-       AND rich.path[1:a.depth]=a.path
-     ))
-    )
-   ))
-   OR EXISTS (
-    SELECT FROM captions prior WHERE prior.owner=a.owner
-     AND (prior.family,prior.n)<(a.family,a.n) AND prior.position>=a.position
-   )
-   OR EXISTS (
-    SELECT FROM pieces p JOIN walk w ON w.pointer=p.piece->>'item_ref' AND NOT w.in_cell
-    WHERE w.path<>a.path AND NOT p.piece ? 'cell_index'
-     AND ((w.path<a.path AND p.n>a.position) OR (w.path>a.path AND p.n<a.position))
-   )
+ -- The caller has already verified the complete ordered membership against the
+ -- protected section Reader. Traverse this bounded closure to order field addresses.
+ WITH RECURSIVE selected AS MATERIALIZED (
+  SELECT r.pointer,r.parent_pointer,r.label,r.native_json
+  FROM jsonb_array_elements_text(p_projection->'items') p(pointer)
+  JOIN kb.pdf_record_access r ON r.pointer=p.pointer AND r.product_id=p_build
+   AND r.revision_id=p_build AND r.content_layer='body'
+ ), walk(pointer,path,visited,cell_index,separate) AS (
+  SELECT pointer,ARRAY[]::bigint[],ARRAY[pointer],NULL::bigint,true FROM selected WHERE pointer=p_root
   UNION ALL
-  SELECT FROM pieces p JOIN selected c ON c.pointer=p.piece->>'item_ref'
-  WHERE c.label='caption' AND (
-   (NOT p.piece ? 'cell_index' AND NOT EXISTS(SELECT FROM captions a WHERE a.pointer=c.pointer))
-   OR (p.piece ? 'cell_index' AND NOT EXISTS(
-    SELECT FROM walk rich WHERE rich.pointer=c.pointer AND rich.in_cell
-     AND rich.cell_index=(p.piece->>'cell_index')::bigint AND p.piece->>'source_field'='text'
-   ))
-  )
- ) THEN
-  RAISE EXCEPTION 'source view table caption projection differs from selected native occurrences' USING ERRCODE='23514';
+  SELECT child.pointer,w.path||ARRAY[1::bigint,edge.n],w.visited||child.pointer,
+   CASE WHEN edge.rich THEN edge.n-1 ELSE w.cell_index END,
+   CASE WHEN edge.rich OR parent.label<>'inline' THEN true WHEN edge.n=1 THEN w.separate ELSE false END
+  FROM walk w JOIN selected parent USING(pointer)
+  CROSS JOIN LATERAL (
+   SELECT child->>'$ref' AS pointer,n,false AS rich
+   FROM jsonb_array_elements(parent.native_json->'children') WITH ORDINALITY c(child,n)
+   WHERE parent.native_json->'data'->'table_cells' IS NULL
+   UNION ALL
+   SELECT cell->'ref'->>'$ref',n,true
+   FROM jsonb_array_elements(parent.native_json->'data'->'table_cells') WITH ORDINALITY c(cell,n)
+   WHERE cell->'ref'->>'$ref' IS NOT NULL
+  ) edge JOIN selected child ON child.pointer=edge.pointer AND NOT child.pointer=ANY(w.visited)
+ ), captions AS (
+  SELECT DISTINCT ON (caption.pointer) caption.pointer,w.path||ARRAY[2::bigint,refs.family,refs.n] AS path
+  FROM walk w JOIN selected parent USING(pointer)
+  CROSS JOIN LATERAL (
+   SELECT 0::bigint AS family,n,child->>'$ref' AS pointer
+   FROM jsonb_array_elements(parent.native_json->'children') WITH ORDINALITY c(child,n)
+   UNION ALL
+   SELECT 1::bigint,n,caption->>'$ref'
+   FROM jsonb_array_elements(parent.native_json->'captions') WITH ORDINALITY c(caption,n)
+  ) refs JOIN selected caption ON caption.pointer=refs.pointer AND caption.parent_pointer=parent.pointer
+  WHERE parent.label='table' AND parent.native_json->'data'->'table_cells' IS NOT NULL
+   AND caption.label='caption' AND caption.native_json->>'text'<>''
+   AND NOT EXISTS (
+    SELECT FROM jsonb_array_elements(parent.native_json->'data'->'table_cells') cell
+    WHERE cell->'ref'->>'$ref'=caption.pointer
+   )
+  ORDER BY caption.pointer,w.path,refs.family,refs.n
+ ), node_text AS (
+  SELECT w.path,w.pointer,w.cell_index,w.separate,r.native_json,
+   r.label='formula' AND COALESCE(r.native_json->>'orig','')<>'' AND EXISTS (
+    SELECT FROM jsonb_array_elements(p_policy->'readable_formula_originals') witness
+    WHERE witness->>'original_digest'=p_original AND witness->>'pointer'=w.pointer
+     AND witness->>'parent'=r.parent_pointer AND witness->'prov'=r.native_json->'prov'
+     AND witness->>'orig_digest'=encode(sha256(convert_to(r.native_json->>'orig','UTF8')),'hex')
+   ) AS use_original
+  FROM walk w JOIN selected r USING(pointer)
+  WHERE r.native_json->'data'->'table_cells' IS NULL AND r.native_json->>'text' IS NOT NULL
+ ), fields AS (
+  SELECT path||ARRAY[0::bigint,2],pointer,cell_index,
+   CASE WHEN use_original THEN 'orig' ELSE 'text' END AS field,separate
+  FROM node_text WHERE use_original OR native_json->>'text'<>''
+  UNION ALL
+  SELECT w.path||ARRAY[1::bigint,c.n],w.pointer,c.n-1,'cell_text',true
+  FROM walk w JOIN selected r USING(pointer)
+  CROSS JOIN LATERAL jsonb_array_elements(r.native_json->'data'->'table_cells') WITH ORDINALITY c(cell,n)
+  WHERE c.cell->'ref'->>'$ref' IS NULL AND c.cell->>'text'<>''
+  UNION ALL
+  SELECT w.path||ARRAY[0::bigint,0],w.pointer,NULL::bigint,'chart_title',true
+  FROM walk w JOIN selected r USING(pointer)
+  WHERE r.native_json->'data'->'table_cells' IS NULL AND r.native_json#>>'{meta,tabular_chart,title}'<>''
+  UNION ALL
+  SELECT w.path||ARRAY[0::bigint,1,c.n],w.pointer,c.n-1,'chart_cell_text',true
+  FROM walk w JOIN selected r USING(pointer)
+  CROSS JOIN LATERAL jsonb_array_elements(r.native_json#>'{meta,tabular_chart,chart_data,table_cells}') WITH ORDINALITY c(cell,n)
+  WHERE r.native_json->'data'->'table_cells' IS NULL AND c.cell->>'text'<>''
+  UNION ALL
+  SELECT path,pointer,NULL::bigint,'text',true FROM captions
+ ), ordered AS (
+  SELECT row_number() OVER(ORDER BY path) AS ordinal, pointer,cell_index,field,separate FROM fields
+ ), pieces AS (
+  SELECT ordinal,1 AS part,jsonb_strip_nulls(jsonb_build_object(
+   'kind','native_text','item_ref',pointer,'cell_index',cell_index,'source_field',field)) AS address
+  FROM ordered
+  UNION ALL
+  SELECT ordinal,0,'{"kind":"synthetic_separator"}'::jsonb FROM ordered WHERE ordinal>1 AND separate
+ )
+ SELECT COALESCE(jsonb_agg(address ORDER BY ordinal,part),'[]'::jsonb) INTO expected FROM pieces;
+ SELECT COALESCE(jsonb_agg(
+  CASE WHEN piece->>'kind'='native_text' AND NOT piece ? 'source_field'
+   THEN piece||'{"source_field":"text"}'::jsonb ELSE piece END - 'start' - 'end' ORDER BY n
+ ),'[]'::jsonb) INTO supplied
+ FROM jsonb_array_elements(p_projection->'pieces') WITH ORDINALITY p(piece,n);
+ IF supplied IS DISTINCT FROM expected THEN
+  RAISE EXCEPTION 'source view field address inventory differs from selected native occurrences' USING ERRCODE='23514';
  END IF;
-END $captions$;
-REVOKE ALL ON FUNCTION ops.validate_projected_table_captions(text,text,jsonb) FROM PUBLIC;
+END $fields$;
+REVOKE ALL ON FUNCTION ops.validate_projected_source_fields(text,text,jsonb,jsonb,text) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.publish_source_view(p_run bigint,p_task bigint,p_attempt bigint,p_holder text,p_position bigint,p_payload bytea,p_recipe bytea) RETURNS bigint
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $view$
@@ -133,16 +141,24 @@ BEGIN
  WHERE release_id=run.release_id AND input_kind='dependency'
  AND input_name='execution/implementation/pdf/section-text-recipe.json';
  IF recipe_policy IS NOT NULL THEN
-  IF (recipe_policy IS DISTINCT FROM '{"content_layers":["body"],"recipe":"native-section-text-v8"}'::jsonb
-   AND (
-    recipe_policy-'readable_formula_original' IS DISTINCT FROM '{"content_layers":["body"],"recipe":"native-section-text-v9"}'::jsonb
-    OR jsonb_typeof(recipe_policy->'readable_formula_original') IS DISTINCT FROM 'object'
-    OR COALESCE(recipe_policy#>>'{readable_formula_original,content_digest}','') !~ '^[0-9a-f]{64}$'
-    OR COALESCE(recipe_policy#>>'{readable_formula_original,orig_digest}','') !~ '^[0-9a-f]{64}$'
-    OR COALESCE(recipe_policy#>>'{readable_formula_original,pointer}','') !~ '^#/texts/[0-9]+$'
-   ))
+  IF (COALESCE(recipe_policy->>'recipe','') NOT IN ('native-section-text-v8','native-section-text-v9','native-section-text-v10'))
    OR job.unit_type<>'document' OR job.unit_id IS DISTINCT FROM (product->>'document_id')::bigint THEN
    RAISE EXCEPTION 'source view requires its selected PDF projection producer and recipe' USING ERRCODE='23514'; END IF;
+  IF recipe_policy->>'recipe'='native-section-text-v10' AND (
+   recipe_policy-'readable_formula_originals' IS DISTINCT FROM '{"content_layers":["body"],"recipe":"native-section-text-v10"}'::jsonb
+   OR jsonb_typeof(recipe_policy->'readable_formula_originals') IS DISTINCT FROM 'array'
+   OR EXISTS (
+    SELECT FROM jsonb_array_elements(recipe_policy->'readable_formula_originals') witness
+    WHERE COALESCE(witness->>'original_digest','') !~ '^[0-9a-f]{64}$'
+     OR COALESCE(witness->>'orig_digest','') !~ '^[0-9a-f]{64}$'
+     OR COALESCE(witness->>'pointer','') !~ '^#/texts/[0-9]+$'
+     OR COALESCE(witness->>'parent','') !~ '^#/'
+     OR jsonb_typeof(witness->'prov') IS DISTINCT FROM 'array'
+   ) OR EXISTS (
+    SELECT FROM jsonb_array_elements(recipe_policy->'readable_formula_originals') witness
+    GROUP BY witness->>'original_digest',witness->>'pointer' HAVING count(*)>1
+   )
+  ) THEN RAISE EXCEPTION 'source view formula witness policy is malformed or ambiguous' USING ERRCODE='23514'; END IF;
   recipe_owner:=jsonb_build_object('task_id',native.task_id,'product_key',native.product_key,'content_digest',native.content_digest);
   IF p_recipe IS DISTINCT FROM convert_to(data.canonical_json(recipe_policy||jsonb_build_object(
    'analysis_eligible',product->'analysis_eligible','organization_owner',recipe_owner)),'UTF8') THEN
@@ -153,7 +169,11 @@ BEGIN
    'recipe',product->>'recipe_digest')),'UTF8')),'hex');
   IF product->>'key' IS DISTINCT FROM recipe_key THEN
    RAISE EXCEPTION 'source view key differs from its selected projection recipe' USING ERRCODE='23514'; END IF;
-  PERFORM ops.validate_projected_table_captions(placement.build_id,section.pointer,projection);
+  IF recipe_policy->>'recipe'='native-section-text-v10' THEN
+   PERFORM ops.validate_projected_source_fields(
+    placement.build_id,section.pointer,projection,recipe_policy,placement.source_digest
+   );
+  END IF;
  END IF;
  WITH RECURSIVE ancestry AS (
  SELECT p.*,0 depth FROM kb.pdf_record_access p WHERE p.product_id=placement.build_id AND p.revision_id=placement.build_id AND p.pointer=section.parent_pointer
@@ -171,15 +191,6 @@ BEGIN
    piece_pointer:=piece->>'item_ref';
    IF NOT (projection->'items' ? piece_pointer) THEN RAISE EXCEPTION 'piece outside selected source occurrences' USING ERRCODE='23514'; END IF;
    SELECT native_json INTO STRICT node FROM kb.pdf_record_access WHERE product_id=placement.build_id AND revision_id=placement.build_id AND pointer=piece_pointer;
-   IF recipe_policy->>'recipe'='native-section-text-v9' AND node->>'label'='formula'
-   AND (COALESCE(piece->>'source_field','text')='orig') IS DISTINCT FROM COALESCE(
-    recipe_policy#>>'{readable_formula_original,content_digest}'=native.content_digest
-    AND recipe_policy#>>'{readable_formula_original,pointer}'=piece_pointer
-    AND recipe_policy#>>'{readable_formula_original,orig_digest}'=encode(sha256(convert_to(node->>'orig','UTF8')),'hex'),
-    false
-   ) THEN
-    RAISE EXCEPTION 'projected original formula differs from its selected witness' USING ERRCODE='23514';
-   END IF;
    IF piece->>'source_field'='cell_text' THEN
     node:=node->'data'->'table_cells'->((piece->>'cell_index')::integer);
    ELSIF piece->>'source_field'='chart_cell_text' THEN
@@ -231,7 +242,7 @@ BEGIN
  IF pos<>char_length(projection->>'text') OR projection->'health' IS DISTINCT FROM expected THEN
  RAISE EXCEPTION 'source view text extent/health differs' USING ERRCODE='23514'; END IF;
  SELECT * INTO previous FROM kb.source_view WHERE key=product->>'key' AND release_id=run.release_id;
- IF recipe_policy IS NULL AND NOT EXISTS(
+ IF recipe_policy->>'recipe' IS DISTINCT FROM 'native-section-text-v10' AND NOT EXISTS(
   SELECT FROM ops.run_source_view WHERE run_id=p_run AND source_view_id=previous.id
    AND position=p_position AND supersedes_source_view_id IS NOT DISTINCT FROM (product->>'replaces_source_view_id')::bigint) THEN
   RAISE EXCEPTION 'fresh source view publication requires a release-bound projection recipe' USING ERRCODE='23514'; END IF;

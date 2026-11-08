@@ -300,6 +300,7 @@ class IngestPdf:
                     cfg.membership,
                     consumer_release,
                     projection_policy=section_text_policy(ctx.reader.prepared),
+                    original_digest=conversion.original_digest,
                 )
                 outputs.append(
                     UnitResult(
@@ -421,6 +422,7 @@ def _drafts(
     document: Any = None,
     node_index: dict[str, Any] | None = None,
     projection_policy: bytes | None = None,
+    original_digest: str | None = None,
 ) -> tuple[SourceViewDraft, ...]:
     doc = load_snapshot(native) if document is None else document
     nodes = native_nodes(doc) if node_index is None else node_index
@@ -453,6 +455,7 @@ def _drafts(
             node_index=nodes,
             selected_items=item_refs,
             projection_policy=recipe,
+            original_digest=original_digest,
         )
         ancestors = []
         item = nodes[section]
@@ -512,6 +515,7 @@ def _enrichment_view_drafts(
     *,
     retain_existing: bool = False,
     projection_policy: bytes | None = None,
+    original_digest: str | None = None,
 ) -> tuple[SourceViewDraft, ...]:
     replacements: dict[tuple[str, str], int] = {
         (view.section_pointer, view.membership): view.id for view in views
@@ -537,6 +541,7 @@ def _enrichment_view_drafts(
             document=document,
             node_index=nodes,
             projection_policy=projection_policy,
+            original_digest=original_digest,
         )
     )
     # The Ingest projection can already be the exact desired current-consumer view.
@@ -773,6 +778,7 @@ class EnrichPdfMath:
                         nodes,
                         retain_existing=True,
                         projection_policy=section_text_policy(ctx.reader.prepared),
+                        original_digest=conversion.original_digest,
                     )
                     outputs.append(
                         UnitResult(
@@ -954,6 +960,7 @@ class EnrichPdfMath:
                     document,
                     nodes,
                     projection_policy=section_text_policy(ctx.reader.prepared),
+                    original_digest=conversion.original_digest,
                 )
                 outputs.append(
                     UnitResult(
