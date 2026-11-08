@@ -28,3 +28,27 @@ The original workload supports explicit requests. The [CH-10 package](automatic-
 Compare model lifetime, shared GPU handoff, retained work reuse, page preparation, intermediate size and failure recovery. Start with CH-02's single local reference runtime. Test ordinary batching before MTP if there is demonstrated throughput demand. For an independent local server, examine `ApiVlmEngineOptions`, the actual endpoint and served model alias, input normalization and retry or stop semantics. Require equivalent meaning and retained attempt identity before allowing reuse across runtimes. Compare Docling's native multipass batching separately from Chandra and retain incumbent A/B/C receipt and decision custody. [Pinned engine options](https://github.com/docling-project/docling/blob/v2.148.0/docling/datamodel/vlm_engine_options.py) · [Chandra vLLM launcher](https://github.com/datalab-to/chandra/blob/v0.2.0/chandra/scripts/vllm.py) · [Native retry](https://github.com/datalab-to/chandra/blob/v0.2.0/chandra/model/vllm.py)
 
 Classify MLX as a separate quantized artifact and Ollama or LM Studio as separate API profiles. Chandra CLI/app can support troubleshooting. Consider Docling Serve or Jobkit only for a demonstrated multi-client or scheduling need. Hosted Chandra 2.5 has a separate structured figure schema and service boundary. Evaluate it only under separately selected scope and data-handling authority. Record an adoption, retention or defer decision for the actual workload. Carry any quantitative comparison with its workload, hardware, effective runtime, and measured boundaries. [Docling preset engine variants](https://github.com/docling-project/docling/blob/v2.148.0/docling/datamodel/stage_model_specs.py) · [Docling Serve](https://docling-project.github.io/docling/usage/api_server/deployment/) · [Docling Jobkit](https://docling-project.github.io/docling/usage/jobkit/) · [Hosted 2.5 release](https://www.datalab.to/blog/chandra-2-5)
+
+### Runtime follow-up · 2026-11-08
+
+The resident Nemotron service's vLLM 0.26.0 level-one sleep and wake worked during the
+two-page Chandra CUDA group. During the fresh Standard run's subsequent protected
+publication, its `/metrics` reported zero running requests, zero waiting requests,
+and zero generated tokens in the sampled service lifetime. The observed wait was
+Standard's protected metadata publication while its outer GPU lease remained held.
+The retained-only A/B/C replay releases that dependency for the comparator's CPU work.
+[Grouped device and handoff evidence](../../design_review/evidence/2026-11-08_chandra-execution/records/chandra.grouped-development.json) ·
+[Versioned vLLM sleep contract](https://docs.vllm.ai/en/v0.26.0/features/sleep_mode/) ·
+[vLLM metric definitions](https://docs.vllm.ai/en/stable/usage/metrics/)
+
+If the shadow measurement identifies Chandra decode or repeated model initialization
+as material, compare the qualified Transformers group with a separately pinned local
+vLLM recipe. Use identical submitted PNGs and compare effective multimodal resize,
+finish reasons, and independently reviewed structures. Compare one in-flight request
+and bounded concurrent requests before enabling MTP. Use the served alias, startup and
+handoff time, and request queue and prefill/decode metrics to explain the result. The
+repository overview describes vLLM 0.32.0. The pinned Chandra launcher selects a 0.17.0
+container and disables MTP by default. Establish actual feature support and memory fit
+for the selected runtime on this GPU before using it for qualification.
+[vLLM capability overview](../../libraries/analytical_infrastructure/vllm.md) ·
+[Pinned Chandra launcher](https://github.com/datalab-to/chandra/blob/v0.2.0/chandra/scripts/vllm.py)

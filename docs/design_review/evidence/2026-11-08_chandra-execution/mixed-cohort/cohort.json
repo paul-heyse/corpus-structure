@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "physical_pages": 15,
+  "inputs": [
+    {
+      "input": "inputs/nist-pri-controls.pdf",
+      "input_sha256": "a0d283956c00784b7e703ec25655f443de39586e21801fc69f030bb6e231a100",
+      "original": "docs/statistics_corpus/corpus/nist_ehandbook/pdf/pri.pdf",
+      "original_sha256": "05115ac84c0f5cfa1c7a5c686db46cb64d0f3b9ecc8a92c025cf336ad46fc30d",
+      "physical_page_map": {
+        "1": 141,
+        "2": 206
+      },
+      "role": "development",
+      "capabilities": [
+        "flowchart",
+        "direction",
+        "multiplicity"
+      ]
+    },
+    {
+      "input": "inputs/nist-pmd-flow.pdf",
+      "input_sha256": "fa6e444c99b24fc5047ba42fb0b90a22ef03679f47acb04419b4186f85441d58",
+      "original": "docs/statistics_corpus/corpus/nist_ehandbook/pdf/pmd.pdf",
+      "original_sha256": "67a320545b107f9f85d7728c41163c1f978390603132e76e810c9dc94306388a",
+      "physical_page_map": {
+        "1": 36,
+        "2": 37
+      },
+      "role": "held_out",
+      "capabilities": [
+        "flowchart",
+        "continuation",
+        "direction"
+      ]
+    },
+    {
+      "input": "inputs/nist-pmc-flow.pdf",
+      "input_sha256": "31159864dbd96e21e864eb25393425bf75cc539c3db449aa1bb37676d5039967",
+      "original": "docs/statistics_corpus/corpus/nist_ehandbook/pdf/pmc.pdf",
+      "original_sha256": "4f2e7629cc2e7abd58cc064eef65d6176f07d13e7cb7102d5e25e7c940ab1258",
+      "physical_page_map": {
+        "1": 10
+      },
+      "role": "held_out",
+      "capabilities": [
+        "prose",
+        "no_diagram"
+      ]
+    },
+    {
+      "input": "inputs/nist-eda-charts.pdf",
+      "input_sha256": "b1a4f6b7c4f3fd7cbafbd0a5c7610440059a3c9ac435bc0332cd04bb1fcf1b8d",
+      "original": "docs/statistics_corpus/corpus/nist_ehandbook/pdf/eda.pdf",
+      "original_sha256": "99d345ce0a2b0bb1dc533f0cb874e5bcf037f71165c1421db46f2758642ef0cc",
+      "physical_page_map": {
+        "1": 208
+      },
+      "role": "held_out",
+      "capabilities": [
+        "chart",
+        "panel",
+        "scale"
+      ]
+    },
+    {
+      "input": "inputs/forbes-tables.pdf",
+      "input_sha256": "3d30c5e45f0c5262816f56ae4fc0a91936886113754cc05b2ecfd867c331b788",
+      "original": "docs/design_review/evidence/2026-11-04_m1-source-populations/population-fixtures/forbes-statistical-distributions.pdf",
+      "original_sha256": "6f20111c2fc9daa5429026edac13496ddbb646a79bb0e47a4dea72f4b5518aa0",
+      "physical_page_map": {
+        "1": 4
+      },
+      "role": "held_out",
+      "capabilities": [
+        "table",
+        "formula"
+      ]
+    },
+    {
+      "input": "inputs/cdc-arabic.pdf",
+      "input_sha256": "8914e09554587002dc6508666cc24d8517fd6a78413e6c5c504ce972b9e87316",
+      "original": "https://stacks.cdc.gov/view/cdc/116394/cdc_116394_DS1.pdf",
+      "original_sha256": "8914e09554587002dc6508666cc24d8517fd6a78413e6c5c504ce972b9e87316",
+      "physical_page_map": {
+        "1": 1,
+        "2": 2,
+        "3": 3,
+        "4": 4,
+        "5": 5
+      },
+      "role": "held_out",
+      "capabilities": [
+        "rtl",
+        "mixed_script",
+        "native_widgets"
+      ]
+    },
+    {
+      "input": "inputs/nara-alaska-form.pdf",
+      "input_sha256": "f7a23fc6102b1076b0e1a9d5185fb1de11f0c5fb34d6c5a048c3292bc67b3eb7",
+      "original": "https://nara-1950-census.s3.us-east-2.amazonaws.com/1950census/43290879-Alaska/43290879-Alaska-226174/43290879-Alaska-226174-0002.jpg",
+      "original_sha256": "75d313af70b2e724e1df277ed72be75ef94cecbee49cf268d1141bbcb4d0fa8b",
+      "physical_page_map": {
+        "1": 1
+      },
+      "role": "held_out",
+      "capabilities": [
+        "scan",
+        "handwriting",
+        "raster_form"
+      ]
+    },
+    {
+      "input": "inputs/dailymed-levalbuterol-hcl.pdf",
+      "input_sha256": "270ebd7121d31d3565ee3d79bf6590ce9a168bacd51e37a49f326c0243966d75",
+      "original": "https://dailymed.nlm.nih.gov/dailymed/getFile.cfm?setid=7e2644e6-36c5-4988-8e52-bec90e2cd2f0&type=pdf",
+      "original_sha256": "8f46f8b85c55027505d7aacf15aac0fda254f0101f8c15e52fe9698f701bde3a",
+      "physical_page_map": {
+        "1": 14
+      },
+      "role": "held_out",
+      "capabilities": [
+        "chemistry",
+        "stereochemistry"
+      ]
+    },
+    {
+      "input": "inputs/dailymed-levalbuterol-tartrate.pdf",
+      "input_sha256": "d2a9ef99315bf1738da0aa451dba1a1f23e6df0227a1da6408901dc8b6bf02f1",
+      "original": "https://dailymed.nlm.nih.gov/dailymed/getFile.cfm?setid=70a35706-d7a8-4a48-98c6-1cab1c42fe8d&type=pdf",
+      "original_sha256": "56a2e55e71c671c6ad669b90df2c65acf1e454ef9ff6d6ddaa427a4327ac2020",
+      "physical_page_map": {
+        "1": 11
+      },
+      "role": "held_out",
+      "capabilities": [
+        "chemistry",
+        "multiple_components",
+        "stereochemistry"
+      ]
+    }
+  ]
+}

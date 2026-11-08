@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "id": "chandra.book-dry-routing-v2",
+  "title": "Spatial Chandra routing on all archived book pages",
+  "group": "chandra-execution",
+  "package": "CH-10",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the exact archived book support located dry decisions, independently verified blankness, and a frozen comparison sample?",
+  "answers": [
+    "CH-10"
+  ],
+  "method": "Read nine ranges of at most 64 consecutive physical pages with dry router v2. Confirm complete coverage, repeat the p506 decision, verify exact p4 and p119 inherited parent locations, and refuse a mismatched producing run. Select three pages per occupied action and feature stratum where available, ordered by SHA-256 of the fixed sample prefix, original digest, and physical page. Known development controls are excluded from the sample.",
+  "commands": [
+    "uv run ci source visual-route 309 --producing-task 1389 --product integrated --native-digest a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2 --first PAGE --limit 64 --json",
+    "uv run ci source inspect 309 --producing-task 1389 --product integrated --native-digest a491d3ddbf3ee964a8a95e6fc6bed59648fb5c5a77bc57cb84411a9205a749f2 --native-view regions --pointer POINTER --json",
+    "uv run ci test -- python/corpus-structure/tests/semantic/test_visual_routing.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/book-dry-routing-v2.json",
+      "role": "Full exact dry routes, selected source pins, scope controls, and provisional book sample",
+      "sha256": "8b927a5f6c7716bf2f4efdb1cfc8002dc2c7c14c49aa9c4fa30ebcf932c0751e"
+    }
+  ],
+  "depends_on": [
+    "chandra.book-dry-routing"
+  ],
+  "results": [
+    {
+      "name": "physical book pages assessed",
+      "value": 518,
+      "of": 518,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "recognized nominations",
+      "value": 93,
+      "of": 518,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "incumbent-only nominations",
+      "value": 13,
+      "of": 518,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "skipped nominations",
+      "value": 412,
+      "of": 518,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "verified blank body",
+      "value": 1,
+      "of": 518,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "focused test nodes passed in managed result 546c53335a4c459da5d80421c0202ed2",
+      "value": 8,
+      "of": 8,
+      "unit": "nodes",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The archived input produced repeatable dry blank-body and parent-location controls. A p509 table disagreement retained an exact selected crop while a distinct caption request still needed page context. The assessment uses archived incumbents. Its nominations do not settle source fidelity, missed gains, shadow coverage, or an activation policy.",
+  "consumed_by": [
+    "chandra-2-post-nemotron coordinator"
+  ]
+}

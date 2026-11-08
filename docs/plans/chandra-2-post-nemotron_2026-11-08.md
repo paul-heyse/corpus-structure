@@ -1,7 +1,7 @@
 # Chandra 2 after Nemotron
 
-**Status · 2026-11-08.** Development inspection verified. Structural enrichment and
-automatic routing are proposed. The initial qualification remains open. This coordinator
+**Status · 2026-11-08.** Development inspection and grouped CUDA custody verified.
+The repaired incumbent comparator and shadow qualification are in progress. This coordinator
 owns CH-01–11 and the combined Chandra target. It consumes the
 [functional review](../functional_reviews/chandra-2-post-nemotron_2026-11-08.md) first
 published at `252a476da` and the dated follow-up integrated with this revision.
@@ -219,3 +219,51 @@ known PDF publication identity and protected comparison fixture diagnostics.
 `just turn-end` and the evidence index and checks passed. `uv run ci docs check`
 failed on the missing title in the unrelated untracked GitHub review draft. The
 same publication check passed with that draft excluded in memory.
+
+
+## Grouped development and comparator checkpoint · 2026-11-08
+
+- **F01 passed in development.** Revision `semantic_chandra_grouped_fix` rendered
+  the sealed source-ready archive run 318 through CLI and MCP. Both returned
+  the same PNG. Completed run 312 retained byte parity. The protected wrong-cut,
+  wrong-project and analytical finalization controls refused the effects.
+  [Source-ready render evidence](../design_review/evidence/2026-11-08_chandra-execution/records/chandra.source-ready-render.json)
+- **CH-02, CH-09, CH-10 and F03.** CUDA run 354 sealed cut 474 for physical pages
+  506 and 1. Each retained its own raw and mapped pin. Nemotron reclaimed its
+  GPU capacity. The MCP manifest, exact Reader result and evidence packet agreed.
+  Controlled interruption, same-run continuation and exact group reuse passed
+  in the native test. Live grouped interruption and full shadow are separate
+  remaining checks.
+  [Grouped development evidence](../design_review/evidence/2026-11-08_chandra-execution/records/chandra.grouped-development.json)
+- **CH-08 and F05.** The archive schema probe found that default Core migration
+  changes literal text and offsets. Run 352 completed the 518 page spools,
+  then its claim renewal failed behind a concurrent development DDL lock.
+  The spools precede formula enrichment and lack the final native records.
+  Fresh Standard retry run 356 uses the serialized development route. Retained
+  A/B/C receipts and the source-witnessed p108 and p151 repairs feed the
+  complete comparator. The exact new p416 formula projection and ordinary
+  consumers still need verification.
+  [Incumbent recovery evidence](../design_review/evidence/2026-11-08_chandra-execution/incumbent-recovery.md)
+- **CH-05–07 and CH-10.** The v2 evaluator covered all 518 archived pages and
+  distinguished verified blank p506, scoped crop disagreements and unknown
+  coverage. The archived scan nominated 93 pages for recognition and 13 for
+  incumbent repair, and skipped 412. Re-evaluate the exact repaired comparator
+  before scoring. The mixed cohort freezes nine PDFs and 15 physical pages
+  with source expectations. Its incumbent and Chandra runs and specialist
+  dispositions remain open.
+  [Dry routing evidence](../design_review/evidence/2026-11-08_chandra-execution/records/chandra.book-dry-routing-v2.json) ·
+  [Mixed cohort](../design_review/evidence/2026-11-08_chandra-execution/records/chandra.mixed-cohort-freeze.json)
+
+The combined affected selection `ca503ec072104cfea0bd1539cf8d3ec1` passed 100
+nodes and recorded seven scripted recognition workers timing out on the live
+GPU lease. The CPU fixture now isolates that lease. Result
+`af907a76c8314e6ea53e5668a51a8196` passed the recognition file, and
+`672fb435bf97429596934ec56c1931be` passed the affected parser and method
+selection. Managed coverage accounts for all 114 required nodes with zero
+unresolved across those results. The original failure remains in its receipt.
+`uv run ci check --only types`, `uv run ci docs check`, and the evidence
+index check passed in their recorded scopes.
+
+Explicit requests remain the operating policy. Selective and all-page behavior
+await the shadow comparison. CH-11 remains conditional on a separately qualified
+Chandra-dependent selected change and authority decision.

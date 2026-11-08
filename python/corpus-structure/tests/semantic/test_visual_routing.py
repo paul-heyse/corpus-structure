@@ -1,49 +1,139 @@
-from collections import Counter
+from contextlib import closing
+from ctypes import c_ushort
 
 import pytest
+from pypdfium2 import PdfDocument, raw
 
-from corpus_structure.semantic.visual_routing import _decide, _layout_inventory, _PageSignals
+from corpus_structure.ingest.pdf_recognition import crop_transform, render_affine
+from corpus_structure.semantic.visual_routing import (
+    VisualRouteCrop,
+    VisualRouteReason,
+    _decide,
+    _disagreements,
+    _Observation,
+    _original_blank_body,
+    _PageSignals,
+    _readings,
+    _Region,
+    _scoped_attempt,
+)
 from corpus_structure.serve.pdf_visual_evidence import VisualEvidencePin
+
+_PIN = VisualEvidencePin(run_id=1, task_id=2, product_key="retained", content_digest="1" * 64)
+_BASE = _PIN.model_copy(update={"task_id": 1, "product_key": "structural"})
+_REGION = VisualRouteCrop(pointer="#/tables/0", region_index=0)
+_FRAME = (200, 200)
+
+
+def _image(*, crop=(0, 0, 200, 200), rotation=0):
+    return {
+        "width": 400,
+        "height": 400,
+        "transform": render_affine(
+            media=(0, 0, *_FRAME), crop=crop, rotation=rotation, width=400, height=400
+        ),
+    }
+
+
+def _layout(raw):
+    image = _image()
+    return _Observation(_PIN, image, _readings(raw, image))
+
+
+def _region(box=(40, 40, 160, 80), address=_REGION):
+    return _Region("table", address, box, _FRAME)
 
 
 @pytest.mark.parametrize(
-    ("native", "selected", "action", "reason"),
+    ("native", "selected", "action", "reason", "pins"),
     [
-        (2, 1, "repair", "incumbent_structure"),
-        (1, 1, "recognize", "missing_structure"),
-        (2, 2, "skip", "no_supported_trigger"),
+        (True, False, "repair", "incumbent_structure", (_BASE, _PIN)),
+        (False, False, "recognize", "missing_structure", (_PIN,)),
+        (False, True, "skip", "no_supported_trigger", ()),
     ],
 )
-def test_layout_table_gap_routes_even_with_assessed_full_page(native, selected, action, reason):
-    pin = VisualEvidencePin(run_id=1, task_id=2, product_key="retained-B", content_digest="1" * 64)
+def test_positioned_table_gap_is_distinct_from_unrelated_same_kind(
+    native, selected, action, reason, pins
+):
+    unrelated = _region((40, 120, 160, 150))
     result = _decide(
         151,
         _PageSignals(
-            Counter(table=selected),
-            Counter(table=native),
-            Counter(table=2),
-            (pin,),
-            (),
-            False,
+            [_region() if selected else unrelated],
+            [_region() if native else unrelated],
             True,
+            layout=_layout(b"<x_0.2><y_0.2><x_0.8><y_0.4><class_Table>"),
+            structural=_BASE,
         ),
     )
     assert result.page_no == 151
     assert result.action == action
     assert result.reasons[0].code == reason
-    if action != "skip":
-        assert result.reasons[0].inputs == (pin,)
+    assert result.reasons[0].inputs == pins
 
 
 def test_unassessed_page_is_unresolved_even_with_no_detected_gap():
-    route = _decide(506, _PageSignals(Counter(), Counter(), Counter(), (), (), False, False))
+    route = _decide(506, _PageSignals([], [], False))
     assert route.action == "unresolved"
     assert route.reasons[0].code == "unassessed"
 
 
-def test_retained_layout_requires_located_blocks():
+def test_retained_layout_requires_qualified_positions_for_every_block():
     box = b"<x_0.2><y_0.2><x_0.8><y_0.4>"
-    assert _layout_inventory(box + b"<class_Page-header>") == Counter()
-    assert _layout_inventory(box + b"<class_Table>") == Counter(table=1)
-    assert _layout_inventory(b"<class_Table>") is None
-    assert _layout_inventory(b"") is None
+    assert _layout(box + b"<class_Page-header>").readings[0].kind == "Page-header"
+    assert _layout(box + b"<class_Table>").readings[0].box == (40, 40, 160, 80)
+    assert _layout(box + b"<class_Table>\n<class_Table>").readings == ()
+    assert _layout(b"<class_Table>").readings == ()
+    assert _layout(b"<x_.><y_0><x_1><y_1><class_Table>").readings == ()
+    assert _layout(b"").readings == ()
+
+
+def test_crop_disagreement_needs_same_scope_and_preserves_exact_crop():
+    whole = _layout(b"<x_0.2><y_0.2>4 & 10<x_0.8><y_0.4><class_Table>")
+    image = _image()
+    image.update(
+        width=240, height=80, transform=crop_transform(image["transform"], (80, 80, 320, 160))
+    )
+    raw = b"<x_0><y_0>7 & 10<x_1><y_1><class_Table>"
+    cropped = _Observation(_BASE, image, _readings(raw, image))
+    reasons = _disagreements(whole, cropped, [_region()])
+    assert [(reason.code, reason.crop) for reason in reasons] == [("located_disagreement", _REGION)]
+    assert reasons[0].inputs == (_PIN, _BASE)
+    assert _disagreements(whole, whole, [_region()]) == []
+    assert _scoped_attempt(image, [_region()]) == _REGION
+    assert (
+        _scoped_attempt(
+            image, [_region(), _region(address=_REGION.model_copy(update={"region_index": 1}))]
+        )
+        is None
+    )
+    scoped = _PageSignals([_region()], [], True, requests=reasons)
+    assert _decide(151, scoped).crop == _REGION
+    scoped.requests.append(VisualRouteReason(code="incomplete_request", inputs=(_PIN,)))
+    assert _decide(151, scoped).crop is None
+
+
+def test_rotated_cropbox_never_invents_native_crop_address():
+    image = _image(crop=(25, 20, 180, 170), rotation=90)
+    assert _readings(b"<x_0.2><y_0.2><x_0.8><y_0.4><class_Table>", image) == ()
+    assert _scoped_attempt(image, [_region()]) is None
+
+
+def test_verified_blank_uses_original_objects_not_an_empty_provider_result():
+    layout = _layout(b"<x_0.03><y_0.03><x_0.5><y_0.13><class_Page-header>")
+    # The rectangle's drawing object contradicts the otherwise identical furniture-only B.
+    for body in (False, True):
+        with PdfDocument.new() as pdf, closing(pdf.new_page(*_FRAME)) as page:
+            header = raw.FPDFPageObj_NewTextObj(pdf.raw, b"Helvetica", 12)
+            value = tuple(map(ord, "Running header\0"))
+            assert raw.FPDFText_SetText(header, (c_ushort * len(value))(*value))
+            raw.FPDFPageObj_Transform(header, 1, 0, 0, 1, 12, 180)
+            raw.FPDFPage_InsertObject(page.raw, header)
+            if body:
+                rectangle = raw.FPDFPageObj_CreateNewRect(25, 90, 10, 10)
+                raw.FPDFPage_InsertObject(page.raw, rectangle)
+            assert raw.FPDFPage_GenerateContent(page.raw)
+            blank = _original_blank_body(page, layout, [])
+        assert blank is not body
+        result = _decide(1, _PageSignals([], [], False, layout=layout, blank=blank))
+        assert result.reasons[0].code == ("unassessed" if body else "verified_blank_body")

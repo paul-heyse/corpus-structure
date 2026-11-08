@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "id": "chandra.mixed-cohort-freeze",
+  "title": "Frozen mixed cohort for Chandra shadow qualification",
+  "group": "chandra-execution",
+  "package": "CH-10",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which finite exact inputs and independent source checks will cover the specialist and routing comparison?",
+  "answers": [
+    "CH-05",
+    "CH-06",
+    "CH-10"
+  ],
+  "method": "Use retained native NIST and Forbes controls where available. Fill gaps with public native and natural scanned inputs. Inspect original pixels, PDF widget identity, and source text before evaluating Chandra. Keep the known NIST PRI controls separate from held-out natural inputs.",
+  "commands": [
+    "mutool merge -o OUTPUT.pdf ORIGINAL.pdf PAGES",
+    "pdfimages -j nara-alaska-form.pdf nara-original",
+    "sha256sum nara-original-000.jpg",
+    "mutool show cdc-arabic.pdf 125 126 211 124 123"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "mixed-cohort/cohort.json",
+      "role": "Exact source and input pins with physical page mappings",
+      "sha256": "e8ab0b21ca15a567073b72f3cb4078b742f870edbe891dad31dc315ef30fa942"
+    },
+    {
+      "path": "mixed-cohort/README.md",
+      "role": "Independent source expectations and adjudication instructions",
+      "sha256": "35b3ce41d3b67386b746f39b27975adb6f67be7f164e47d2a06d11f3c7096271"
+    },
+    {
+      "path": "mixed-cohort/inputs",
+      "role": "Frozen PDF bytes for all cohort pages",
+      "sha256": "9284564ee49b5985080271484c72350af7ee3997e27d2326f0d7b8981faabd9a"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "frozen inputs",
+      "value": 9,
+      "of": null,
+      "unit": "PDFs",
+      "note": null
+    },
+    {
+      "name": "frozen physical pages",
+      "value": 15,
+      "of": null,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "known development controls",
+      "value": 2,
+      "of": 15,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "held-out controls",
+      "value": 13,
+      "of": 15,
+      "unit": "pages",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The frozen cohort and source expectations are ready for incumbent and Chandra runs. Candidate delivery, native form comparison, semantic correctness, and operating-policy conclusions remain separate obligations.",
+  "consumed_by": [
+    "chandra-2-post-nemotron coordinator"
+  ]
+}
