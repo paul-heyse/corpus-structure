@@ -509,6 +509,15 @@ records an independent LLM disposition for every physical page across both
 intake outputs and separate assessments of all 160 retained definition
 attachments and 530 artifact nominations. It confirms that page 506 has no body
 content in the original.
+
+The [GLiNER window retry](../design_review/evidence/2026-11-08_nce-full-book/records/nce.gs518-model-window-retry.json)
+completed 99 refused windows and seven uninspected tails using 375 smaller
+source-bound passages on the original checkpoint and profile. All retry
+requests returned across runs 331–336. The exact interval union with the
+original successful requests covers the full selected Standard projection in
+all 29 views. The [retry output review](../design_review/evidence/2026-11-08_nce-full-book/review/definition-window-retry.md)
+assessed all 15 retained attachments. Six were incomplete and nine unsupported.
+
 Scope expands through the same origin, including cross-chapter links. Independent
 comparison publication and same-lineage scorer eligibility retain their separate
 audit prerequisites.

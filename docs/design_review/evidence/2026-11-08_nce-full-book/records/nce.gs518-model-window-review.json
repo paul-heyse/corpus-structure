@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "id": "nce.gs518-model-window-review",
+  "title": "Independent review of all GLiNER retry attachments",
+  "group": "next-corpus-enrichment",
+  "package": "NCE-04",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What source-supported meaning did the attachments recovered by the full-coverage GLiNER retry preserve?",
+  "answers": [
+    "NCE-04-A1",
+    "ADR-0070"
+  ],
+  "method": "Read all fifteen retained attachments in the six published native retry tasks. Assess the exact term and content spans against the original source. Verify source and window anchors for all located candidate roles and assess their semantic quality through examples.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-08_nce-full-book/review_proposals.py build/nce-full-book/review --definition-tasks 1535 1536 1537 1538 1539 1540"
+  ],
+  "agents": [
+    {
+      "role": "definition retry reviewer",
+      "model": "Codex, inherited model",
+      "brief": null,
+      "separation": "Assess attachments independently from the agent who ran the retry."
+    }
+  ],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/definitions-retry.jsonl",
+      "role": "All retained attachments with original source locations and contexts",
+      "sha256": "38d7f467470d67f1063d50cef947cff65867d5398cbda3b79b987c5755b345c6"
+    },
+    {
+      "path": "raw/definition-roles-retry.jsonl",
+      "role": "All located raw role candidates with validated source anchors",
+      "sha256": "1b67110f611da10593b14085a158636f10747a99bbc59c3b95b8b836e15e9780"
+    },
+    {
+      "path": "raw/definition-stages-retry.jsonl",
+      "role": "Native stage dispositions and indexed candidate rejections",
+      "sha256": "5284b3ac836fb029c3a6ca915cbfb6c4391e71803ce81f3f060056df8b7a8977"
+    },
+    {
+      "path": "raw/definition-windows-retry.jsonl",
+      "role": "Exact 375 retained model requests and replies",
+      "sha256": "2d52c80e17cef2205efa21e5408093d3e4cc603ed9a3a41c6fb363363da29fdb"
+    },
+    {
+      "path": "review/definition-window-retry.md",
+      "role": "Independent individual attachment judgments and role diagnostics",
+      "sha256": "e00371107f10b1a9ce836cbd3dc1121c916130f90e2fa78af0837c1b08359319"
+    }
+  ],
+  "depends_on": [
+    "nce.gs518-model-window-retry",
+    "nce.gs518-proposal-review"
+  ],
+  "results": [
+    {
+      "name": "Retry attachments individually assessed",
+      "value": 15,
+      "of": 15,
+      "unit": "attachments",
+      "note": null
+    },
+    {
+      "name": "Materially incomplete attachments",
+      "value": 6,
+      "of": 15,
+      "unit": "attachments",
+      "note": null
+    },
+    {
+      "name": "Unsupported attachments",
+      "value": 9,
+      "of": 15,
+      "unit": "attachments",
+      "note": null
+    },
+    {
+      "name": "Located raw roles with exact source-anchor checks",
+      "value": 5782,
+      "of": 5782,
+      "unit": "roles",
+      "note": null
+    },
+    {
+      "name": "Indexed native candidate rejections",
+      "value": 60,
+      "of": null,
+      "unit": "rejections",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "All fifteen retry attachments were individually assessed. Six expressed an incomplete intended relation and nine were unsupported. The returned windows establish input coverage and retained role custody, while the attachment judgments identify incomplete formulas, wrong participant spans and unsupported citation links.",
+  "consumed_by": [
+    "next-corpus-enrichment plan",
+    "whole-book development baseline"
+  ]
+}

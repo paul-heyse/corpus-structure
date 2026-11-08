@@ -55,6 +55,13 @@ equivalences, 25 supported local explanations or examples, 70 materially
 incomplete attachments, and 42 unsupported attachments. Unattached candidate
 roles and missed opportunities are separate populations.
 
+The [targeted GLiNER retry review](definition-window-retry.md) independently
+assesses all 15 attachments from the smaller passages that cover the original
+refused windows and capped tails. Six were materially incomplete and nine
+unsupported. The review also reconciles all 375 exact returned requests and
+inventories the 5,782 located role proposals. It grades role quality through
+selected examples.
+
 Every one of the 530 artifact nominations received an independent disposition
 across the [initial review](artifact-nominations.md) and the
 [remaining unscoped-code review](artifact-unscoped-remainder.md). The results

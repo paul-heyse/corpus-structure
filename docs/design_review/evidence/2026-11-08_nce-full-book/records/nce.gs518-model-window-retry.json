@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "id": "nce.gs518-model-window-retry",
+  "title": "Complete the refused GLiNER windows and capped passage tails",
+  "group": "next-corpus-enrichment",
+  "package": "NCE-04",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the original whole-book definition model coverage be completed using the same released model with bounded exact source selections?",
+  "answers": [
+    "NCE-04-A1",
+    "ADR-0070"
+  ],
+  "method": "Read the four completed original model reports. Reproduce the 99 refusals with the exact checkpoint tokenizer and identify seven uninspected passage tails. Select smaller passages covering the exact original gap union. Run the original bare, flat checkpoint profile and threshold on those passages alone. Reconcile returned provider windows with the complete pinned source.",
+  "commands": [
+    "CORPUS_DATABASE__COMPLETION_STATEMENT_TIMEOUT_SECONDS=900 uv run python docs/design_review/evidence/2026-11-08_nce-full-book/retry_model_windows.py build/nce-full-book/model-window-retry --release release:845ac25166e63bae9177a19771fece4324453204a080fded91921eec5135e7e1"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/model-window-retry-plan.json",
+      "role": "Original task and window identities, confirmed refusal lengths and exact retry selections",
+      "sha256": "4df0a1bc675b8153167a2fb00fe7492b49c69a1676b2453de99660c9be71852f"
+    },
+    {
+      "path": "raw/model-window-retry-summary.json",
+      "role": "All original gaps reconciled with returned observations",
+      "sha256": "2c7ed62f2a561eb421bb00dea4bf10ca871252cd5835f2f8564f46c27682bc14"
+    },
+    {
+      "path": "raw/model-window-retry-batches.json",
+      "role": "All native runs, exact retry window receipts and decoder stage outcomes",
+      "sha256": "f020a690ef9927cf427ff1394aeff4e80e6e5a729b582da7c4f70dac9b1ce28b"
+    },
+    {
+      "path": "raw/model-window-retry-profile-verification.json",
+      "role": "Effective-profile parity across all original and retry replies, stage totals and elapsed timings",
+      "sha256": "5d7f4eb517a9c1125d6e6e1de45dfcf3665ad88aa2a66b65a361587f411c7c0a"
+    }
+  ],
+  "depends_on": [
+    "nce.gs518-standard-source"
+  ],
+  "results": [
+    {
+      "name": "Original refused windows covered",
+      "value": 99,
+      "of": 99,
+      "unit": "windows",
+      "note": null
+    },
+    {
+      "name": "Original uninspected tails covered",
+      "value": 7,
+      "of": 7,
+      "unit": "tails",
+      "note": null
+    },
+    {
+      "name": "Retry windows with real model replies",
+      "value": 375,
+      "of": 375,
+      "unit": "windows",
+      "note": null
+    },
+    {
+      "name": "Physical pages touched by retry intervals",
+      "value": 212,
+      "of": null,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "Projected characters in original gap union",
+      "value": 340613,
+      "of": null,
+      "unit": "characters",
+      "note": null
+    },
+    {
+      "name": "Selected views with any uncovered projected text after retry",
+      "value": 0,
+      "of": 29,
+      "unit": "views",
+      "note": null
+    },
+    {
+      "name": "Retained attachment components in retry",
+      "value": 15,
+      "of": null,
+      "unit": "components",
+      "note": null
+    },
+    {
+      "name": "Located raw role candidates in retry",
+      "value": 5782,
+      "of": null,
+      "unit": "candidates",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Six native cuts from 455 through 465 retained all 375 requested model replies. Their interval union with the 605 original successful windows covers the full selected projection across all 29 views. The retained attachment outputs have a separate source assessment.",
+  "consumed_by": [
+    "next-corpus-enrichment plan",
+    "whole-book development baseline"
+  ]
+}
