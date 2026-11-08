@@ -1,0 +1,212 @@
+# Linguistic, referential, and discourse observations
+
+**Proposed · 2026-11-08.** This plan develops PM2-03–06 for
+[HanLP O02](../../functional_reviews/production-milestone-two_2026-11-08.md#O02),
+[Maverick O03](../../functional_reviews/production-milestone-two_2026-11-08.md#O03), and
+[Dipo O04](../../functional_reviews/production-milestone-two_2026-11-08.md#O04).
+The [coordinator](../production-milestone-two_2026-11-08.md) owns sequence and disposition.
+The review's interface-checked evidence establishes the inspected library behavior, with
+native M2 runtime and semantic qualification still pending.
+
+## Shared integration boundary
+
+Consume PM2-01's selected source, prepared layout, canonical token and sentence IDs, and
+ordered source mapping. Use the runtime and artifact custody from PM2-02. Keep one adapter
+per native contract. Each adapter emits typed, attributed observations under the existing
+contribution machinery. Each input scope records coverage and terminal outcome independently.
+A model or mode that fails, cannot run, or emits no result leaves other methods' observations
+available. PM2-08 consumes the retained observations and witnesses and owns domain selection
+and assembly. It can nominate context or alternatives without reparsing an already retained
+scope. [Source context owner](../../../python/corpus-structure/src/corpus_structure/semantic/source_contexts.py) ·
+[Contribution owner](../../../python/corpus-structure/src/corpus_structure/semantic/contributions.py)
+
+The interfaces are domain agnostic. Eligibility depends on capabilities such as supported
+language, canonical sentences, coherent running text, and available layout or speaker provenance.
+The parser outputs keep their native semantics. Task definitions, terminology, allowed roles and
+domain relationships enter through versioned released schemas and policies. A statistical proof
+and a procedure use the same mapping, candidate, and partial-result path. Grinstead–Snell
+supplies milestone assessment, and authored transfer controls exercise the same path with a
+different domain configuration. Model limitations such as English checkpoint coverage or lack of
+layout evidence are profile conditions.
+
+<a id="PM2-03"></a>
+
+## PM2-03 · Sentence structure and frame candidates with HanLP
+
+**Input and realization.** Given authenticated sentences with canonical token IDs, use
+`hanlp==2.1.7` and `EN_TOK_LEM_POS_NER_SRL_UDEP_SDP_CON_MODERNBERT_LARGE` with the
+official `20250107_181612` archive and separately staged ModernBERT config and tokenizer
+at `45bb4654a4d5aaff24dd11d4781fa46d39bf8c13`. Verify the archive digest and the
+completeness of state-dict loading at provisioning. Start with the current Torch 2.15.0
+and Transformers 5.22.1 as compatibility candidates. PM2-02 records the qualified runtime,
+configuration, and effective limits. Call the model on lists of canonical tokens using
+`tasks=["lem","pos","dep","srl","con"]` and `skip_tasks="tok"`. Select supplementary
+`ner` in the same invocation for a consumer that uses it. The checkpoint declares the
+tokenizer as a dependency and the explicit skip preserves caller tokenization.
+[HanLP reference](../../libraries/parsing/HanLP.md) ·
+[Release wheel](https://pypi.org/project/hanlp/2.1.7/#files) ·
+[Large archive](https://ftp.hankcs.com/hanlp/mtl/en_tok_lem_pos_ner_srl_udep_sdp_con_modernbert_large_prepend_false_20250107_181612.zip) ·
+[Backbone snapshot](https://huggingface.co/answerdotai/ModernBERT-large/tree/45bb4654a4d5aaff24dd11d4781fa46d39bf8c13)
+
+**Contract and consumers.** Map one-based UD heads through the sentence token map with
+zero as the native root sentinel. Retain Penn Treebank tags separately from UPOS and
+morphology. Preserve native SRL argument spans, continuation and reference roles, and
+validate the ordered constituency yield before producing located phrase or clause
+intervals. Require both mapped endpoints and exact source evidence. Preserve discontinuous
+extents through source pieces. Refuse a partial protected atom as support for a whole atom.
+HanLP's flat NER and generic SRL roles remain evidence. SRL emits a predicate marker
+only when an argument survives decoding and its configured argument width is 30 tokens.
+Build a versioned UD-aware path into the existing frame, cue and witness contracts,
+including alternatives for coordinated hosts. Existing spaCy `prep`, `pcomp`,
+`obl:agent` and `neg` assumptions require explicit tests against the new evidence.
+Keep the current spaCy route for every consumer until the replacement is qualified for
+its actual role and scope. Reuse `PhraseMatcher` and unfiltered `SpanRuler` for overlapping
+terminology. A reviewed dictionary override remains a separately attributed observation.
+[Native output conventions](https://hanlp.hankcs.com/docs/data_format.html) ·
+[Predicate frames](../../../python/corpus-structure/src/corpus_structure/methods/predicate_frames.py) ·
+[Rule preparation](../../../python/corpus-structure/src/corpus_structure/methods/annotation_rules.py)
+
+**Execution and closure.** Use actual subword lengths and sentence boundaries to form
+outer batches. The checkpoint's 8192 sequence setting and first-task sampler settings
+of 128 examples and 12,800 tokens are inspected defaults. The native call shares encoder
+work within an internal batch, and the selected first task owns the dataloader. Arbitrary
+prediction kwargs do not alter that sampler in 2.1.7. Compare observed resource behavior
+at the proposed envelope with the corresponding Base checkpoint using the same scopes and
+heads. Mark unsupported sentences explicitly and preserve available results. Cutting a
+sentence around a protected atom removes the possibility of observing relations across the
+cut. Use existing spaCy, then HanLP syntax and constituency, then the additions of SRL,
+NER or terminology as matched comparison arms as relevant. Close the initial package when
+native anchored frames and host candidates reach the retained consumer with correct
+argument and qualifier distinctions, and protected atoms, repeated tokens, missing SRL
+predicates, nested clauses, modal and passive constructions, and coordinated hosts behave
+as declared. Report native and transformed errors separately. [Multitask execution](https://github.com/hankcs/HanLP/blob/master/hanlp/components/mtl/multi_task_learning.py)
+
+<a id="PM2-04"></a>
+
+## PM2-04 · Mention inventories and coherent-section coreference with Maverick
+
+**Input and realization.** Start with `maverick-coref==1.0.7`, staged
+`sapienzanlp/maverick-mes-ontonotes` at `087a90f0380ec1f20ed19732b657f53fd3542c81`,
+weight SHA-256 `b42053ce171ea904d10d92de5458dce2e8189ef1050e1705e7fced50d2479c1f`,
+and staged `microsoft/deberta-v3-large` configuration and tokenizer at
+`64a8c8eab3e352a784c658aef62be1662607476f`. Resolve the backbone artifact alongside
+the checkpoint because the public model-name loader cannot pin the weight revision and
+resolves the backbone separately. Start with isolated CPython 3.12 for the pinned
+SentencePiece 0.2.0 and protobuf 3.20 dependencies. Qualify the exact Torch, Lightning,
+and Transformers bundle by staged checkpoint deserialization and native execution.
+Use `Maverick.predict` with nested canonical sentence tokens and a bounded coherent
+section. Keep the native forward seam for the mention inventory in the same invocation
+as clustering. [Maverick reference](../../libraries/parsing/maverick-coref.md) ·
+[Package declarations](https://github.com/SapienzaNLP/maverick-coref/blob/5c1fa627021b190101b4893751fa9836e85474b1/setup.py) ·
+[Checkpoint](https://huggingface.co/sapienzanlp/maverick-mes-ontonotes/tree/087a90f0380ec1f20ed19732b657f53fd3542c81) ·
+[Backbone](https://huggingface.co/microsoft/deberta-v3-large/tree/64a8c8eab3e352a784c658aef62be1662607476f)
+
+**Contract and consumers.** Project both inclusive endpoints into the canonical token
+map and then into source extents. Reject missing, inverted, injected, or out-of-source
+endpoints. Preserve overlapping and nested mentions with stable identities. Keep the
+ordinary MES `mention_idxs` detection inventory distinct from cluster membership and
+unassigned mentions. Public clusters, including `singletons=True`, do not establish
+the inventory or exhaustive singleton coverage. Represent coherence and examined scope
+explicitly. Exact shared mentions can nominate cross-section links without establishing
+transitive identity. A competing cluster remains an alternative. Frame composition can
+use a selected local referent and its evidence. Event reference, acronym or concept
+equivalence, and broader identity have distinct operation questions.
+[Public wrapper](https://github.com/SapienzaNLP/maverick-coref/blob/5c1fa627021b190101b4893751fa9836e85474b1/maverick/models/maverick_model.py#L48-L208) ·
+[Endpoint mapping](https://github.com/SapienzaNLP/maverick-coref/blob/5c1fa627021b190101b4893751fa9836e85474b1/maverick/common/util.py#L91-L107)
+
+**Execution and closure.** Set a post-tokenizer admission envelope in PM2-02 and split
+an unsupported larger scope on coherent source boundaries with explicit unexamined
+cross-boundary pairs. Run ordinary prediction and `predefined_mentions` on the same
+scope as controlled assessment arms. That mode substitutes the candidate spans after
+extraction, so report mention detection separately from antecedent or cluster errors.
+Validate mapping, preservation of nested mentions, false merges and split chains,
+and the affected participant binding. Include a genuine local antecedent, a competing
+mention, a cross-section unassessed case, and a bound refusal. Compare exact boundaries
+and downstream contribution against the current local-reference route. Treat all
+diagnostic scores as model scores and apply independent controls to metric wrappers.
+The initial package closes with anchored mention inventory and supported section
+membership available to PM2-08, including honest noncoverage of pairs outside scope.
+[Native MES scoring and inventories](https://github.com/SapienzaNLP/maverick-coref/blob/5c1fa627021b190101b4893751fa9836e85474b1/maverick/models/model_mes.py#L129-L451)
+
+<a id="PM2-05"></a>
+
+## PM2-05 · Source-aligned discourse observations with Dipo
+
+**Input and realization.** Use `dipo==0.2.1` by distribution metadata and `DMRSTParser`.
+Stage `larc-iu/dmrst-ettin-400m-gum-12.1.0` at
+`e33906a27f89b2703df8ab19e471aa82141d62cb`, weight SHA-256
+`85a2590374d2d3bd82a04dcfa474869a8ae2ee6a64074e61b41540aed6633f24`, and
+`jhu-clsp/ettin-encoder-400m` at `7662476d60abb071a5bd319c9f3074f3072c062d`.
+Start with isolated Python 3.12, FP32, the checkpoint LoRA configuration and stride 100.
+Qualify exact Torch, Transformers, tokenizer and PEFT dependencies. The native loader
+uses `weights_only=False` and resolves the backbone and tokenizer separately from parser
+weights. PM2-02 provisions verified artifacts and qualifies both cold start and inference.
+[Dipo reference](../../libraries/parsing/dipo.md) ·
+[Checkpoint](https://huggingface.co/larc-iu/dmrst-ettin-400m-gum-12.1.0/tree/e33906a27f89b2703df8ab19e471aa82141d62cb) ·
+[Backbone](https://huggingface.co/jhu-clsp/ettin-encoder-400m/tree/7662476d60abb071a5bd319c9f3074f3072c062d) ·
+[Tagged loader](https://github.com/larc-iu/dipo/blob/v0.2.1/dipo/rst/parsers/common/inference.py#L72-L88)
+
+**Contract and consumers.** Feed coherent retained running text to
+`predict_from_text(..., break_at_paragraphs=False)`. The existing BIE/CRF stage
+predicts boundaries. The native default `True` also adds blank-line and heuristic
+heading boundaries. Compare on the same raw text and enable layout forcing for
+qualified layout semantics. Capture final post-merge EDU token and character
+boundaries at the native recovery seam, with learned, forced, coincident and merged
+provenance. Map through normalization to ordered retained source extents, preserving
+unmapped leading gaps and synthetic separators as coverage or diagnostic details.
+Retain native binary ordered child ranges, nuclearity, relation and singleton units
+once, together with exact source coordinates. PM2-08 uses range references to bounded
+context and can point outside the immediate package. Derived subtree extraction, RS4
+export and debinarized views can drop distinctions, prefixes or singleton coverage.
+A rhetorical condition can nominate a qualifier host. Rhetorical evidence, ordering
+and attribution have their own scope and do not establish a verified support
+relationship, procedural dependency or an endorsed assertion.
+[Boundary recovery](https://github.com/larc-iu/dipo/blob/v0.2.1/dipo/rst/parsers/dmrst/modeling_dmrst.py#L66-L144) ·
+[Native inference](https://github.com/larc-iu/dipo/blob/v0.2.1/dipo/rst/parsers/dmrst/modeling_dmrst.py#L682-L818) ·
+[Tree ranges and exports](https://github.com/larc-iu/dipo/blob/v0.2.1/dipo/rst/data/tree.py#L374-L518)
+
+**Execution and closure.** Begin with bounded logical sections. Qualify independent
+window and EDU limits because the tagged encoder batches overlapping windows ahead
+of global decoding. Test the actual boundary near the tokenizer's 8192 positions
+and backbone's configured 7999, along with cold-start and active-scope resource use.
+Section fallback exposes the actual coverage and leaves cross-section discourse
+attachments unresolved. Use `predict_both()` to pair supplied and model-predicted
+EDUs over an EDU-reconstructed input with shared encoding and both mappings.
+Separate that control from the raw layout comparison. Test repeated text, Unicode
+and whitespace normalization, merged empty units, singleton trees, hard wraps,
+cross-block extents and oversize fallback. Score boundaries, parent yield, child
+split, relation and nuclearity separately. Close the package when the native and
+projected output supports a bounded context consumer without invented anchors and
+the paired assessments can isolate boundary errors from structural errors.
+[Window execution](https://github.com/larc-iu/dipo/blob/v0.2.1/dipo/rst/parsers/common/encoding.py#L417-L474)
+
+<a id="PM2-06"></a>
+
+## PM2-06 · Qualify extended parser modes only for demonstrated gaps
+
+PM2-06 consumes the ordinary provider profile and the relevant operation-level
+comparison. Record the unmet source opportunity or operating need and its present
+failure mode before choosing a challenger. A failed or unavailable investigation
+keeps the ordinary bounded profile and leaves the corresponding operation's gap
+visible. Prefer source-faithful repair and released native primitives to a new
+decoder or model. The coordinator owns conditional activation and disposition.
+
+| Investigation | Evidence that changes the selected profile |
+| --- | --- |
+| HanLP extra heads and decoding | Add one SDP formalism per arm and compare incremental correct frame or attachment candidates. Keep DM, PAS and PSD separate. At the inspected settings, the paths return threshold-decoded arcs with `apply_constraint` disabled. Qualify each requested constraint against actual graph semantics. Supplementary NER, `hanlp_trie.Trie.parse`, and dictionary overrides require an identified limitation of current evidence or rules. Use standalone parsing, custom heads, nested NER training, or distillation only for a persistent diagnosed quality, coverage or resource gap. [HanLP reference](../../libraries/parsing/HanLP.md) |
+| Maverick segmented encoding and joint clustering | Reuse MES encoder, mention detection and clustering with sentence-respecting segment preparation, stable document mention coordinates and a joint inventory. Apply limits to segment subtokens and to projected mention count before dense pair/category allocation. The `naive` branch retains quadratic masking and unsafe boundaries, and `proper` is a stub. Qualify a narrow adapter with one-segment parity, exact multi-subtoken endpoints, real cross-boundary gain, a false-merge control, dense fallback and bounded native resource use. A coherent-section route remains valid. [Native long-document paths](https://github.com/SapienzaNLP/maverick-coref/blob/5c1fa627021b190101b4893751fa9836e85474b1/maverick/models/model_mes.py#L394-L588) |
+| Maverick controlled repair and diagnostics | Require a validated union of names, nominals and pronouns for production `predefined_mentions` repair, then test downstream participant gain. Where actual speaker provenance is present, validate exact speaker/token cardinality and mapped endpoints before use. Retain only bounded eligible-antecedent diagnostics, including the winner, runner-up, native null heuristic and useful MES category, with masked candidates excluded. Seed only a reviewed disjoint partition over stable members and keep before/after views. Model proposals cannot be passed as gold. Compare MES PreCo before retraining for a demonstrated singleton gap. Consider LitBank for a diagnosed narrative gap. S2E and Incremental require their own adapter and qualification where evidence warrants a different scoring architecture. [Native scoring and seeds](https://github.com/SapienzaNLP/maverick-coref/blob/5c1fa627021b190101b4893751fa9836e85474b1/maverick/models/model_mes.py#L129-L387) |
+| Dipo broader context and alternatives | Enable larger coherent scopes after demonstrated context gain within the qualified window, EDU and residency envelope. Default to bounded d1 interpretation of candidate hosts alongside the original tree. Recurring reviewed label errors can justify instrumenting the joint label/nuclearity readout on a fixed split. Topology repair requires complete ordered alternatives or controlled redecoding with branch-specific state. The greedy path supplies neither calibrated edge confidence nor n-best trees. Consider LoRA or DoRA only after controlled EDU comparisons identify a persistent learned-model error and independent training and assessment cases are available. Grammar-constrained or ICL parsers remain separate research for a persistent gap. [DMRST decoder](https://github.com/larc-iu/dipo/blob/v0.2.1/dipo/rst/parsers/dmrst/modeling_dmrst.py#L638-L679) |
+
+The controlled comparison uses fixed eligible populations and explicit unavailable
+outputs. For Maverick, qualify any low-level MUC, B³, CEAF or LEA use against
+independent singleton conventions and asymmetric precision/recall. The bundled
+recall accessor and Lightning argument order need special scrutiny. For Dipo,
+adapt the cascade decomposition to DMRST because the tagged script omits that path.
+Use the paired metric primitive only with explicit failures and grouping appropriate
+to the fixed source population. A single exposed book does not provide multiple independent document replicates. The stock comparison's intersection of available outputs
+would hide lost cases. Parser diagnostics support improvement decisions without becoming
+the authority for an accepted semantic relation.
+[Maverick metrics](https://github.com/SapienzaNLP/maverick-coref/blob/5c1fa627021b190101b4893751fa9836e85474b1/maverick/common/metrics.py#L38-L68) ·
+[Dipo paired metric](https://github.com/larc-iu/dipo/blob/v0.2.1/dipo/rst/data/metrics.py#L181-L241) ·
+[Dipo comparison selection](https://github.com/larc-iu/dipo/blob/v0.2.1/scripts/compare_runs.py#L86-L127)

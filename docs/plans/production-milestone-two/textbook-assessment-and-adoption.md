@@ -1,0 +1,196 @@
+# Production milestone two assessment and adoption
+
+**Proposed · 2026-11-08.** This companion develops PM2-11 and PM2-12. The
+[coordinator](../production-milestone-two_2026-11-08.md) owns their disposition and overall
+acceptance. It carries the [assessment opportunity](../../functional_reviews/production-milestone-two_2026-11-08.md#O07)
+into the existing operation reference, evaluation and release routes.
+
+Qualify the shared, domain-agnostic implementation on the authenticated Grinstead–Snell
+book, physical pages 1–518, parent SHA-256
+`763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e`.
+The book supplies the release workload, examples and independent expected results. The
+production operations take their meanings from the same released declarations used for any
+domain. Keep corpus page IDs, terminology and expected answers in the source selection,
+domain release, assessment frames and tests. Retain the original WCE 120-page and NCE
+receipts at their recorded scope. This is one exposed origin. The assessment supports
+statements about the selected operation and opportunity frame in this book.
+[ADR-0070](../../adr/0070-full-book-method-development.md) ·
+[D7 assessment and fitting](../../design/D7-evaluation-goldens-outer-loop.md#granular-assessment-and-operation-fitting)
+
+<a id="PM2-11"></a>
+
+## PM2-11 · Measure incremental value and preserve valid contributions
+
+**Prerequisites.** Start source-only reference preparation with PM2-00's eligible source
+pins and the applicable existing coordinate contract. Settle any new coordinate or coverage
+meaning in PM2-01 before freezing an affected frame. Fix questions and admissible meanings with each producer or
+consumer owner. Comparisons require actual retained results and attempted scope from the
+reference baseline and candidate. Provider closure consumes PM2-02 and PM2-03–05/07.
+Assembled assessment also consumes PM2-08/09. Assess PM2-06 and PM2-10 for modes selected
+for investigation or activation. Reference preparation and first native execution can proceed
+independently after their shared meanings are settled.
+
+### Freeze the reference and comparator
+
+Use the existing source-first `OperationEvaluationFrameV2` and protected
+`OperationSourceOpportunity` to freeze the declared question/version, source/view pins,
+inspected scope and opportunity IDs, expected facet/state, context, source group, prior
+exposure and adjudicated reference before opening new output. Enumerate eligible
+opportunities from retained source and the released input policy. Record inapplicability
+and uninspected regions, including sections outside a model's qualified window.
+Collapse overlapping projections by physical occurrence when the question calls for it.
+Keep distinct role, scope and attachment questions about the same occurrence separate.
+Use output-first frames with frozen contribution IDs for the correctness of emitted items,
+including emissions outside the source-first opportunity inventory. Author from
+authenticated source and independent rubric, then bind the output with protected grades
+outside provider and selection inputs. Use the existing review and adjudication owners for
+ambiguous references. An explicit correction creates a revised frozen reference for both
+arms. [Operation assessment owner](../../../python/corpus-structure/src/corpus_structure/evaluate/operation_assessment.py)
+
+The primary comparator is the existing supported source, spaCy, GLiNER, scoped
+composition and lexical/E5/Qwen route for the same question under its ordinary entry
+points. Freeze its exact run/cut, semantic release, execution/provider profiles and
+evaluation frame. Reuse retained comparator output where its source and operation
+coverage match. Where they differ, rerun the supported comparator over the same
+authenticated source under its own pinned profile, with the same expected meaning and
+source opportunities. Use explicit correspondence for comparable outcomes produced by
+different operation versions. A result from a source-ready cut establishes source readiness.
+If the comparator cannot run or a material correspondence is unavailable, keep that
+comparison blocked. Earlier scoped receipts are named controls at their recorded extent.
+DMA-13 retains its cutover and baseline qualification. [DMA-13](../domain-model-alignment_2026-11-08.md#dma-13)
+
+Compare complete paired opportunity inventories. Preserve attempted scope and outcome
+for each arm, including successful empty, failed, cancelled, unsupported, ineligible,
+unscheduled, and available partial. An empty success records that the method emitted
+nothing for the inspected scope. A failed or uncovered case remains unassessed in that
+arm. Missing output on an expected source opportunity counts against capture coverage,
+with its distinct cause. Keep unresolved selection distinct from a correct explicit no-match
+judgment. Compare like questions with `compare_assessments`, using source-first capture
+and the output-first inventory as complementary views. Inspect paired case rows alongside
+its summaries, since a formerly supported case can become ambiguous or unassessed and
+lose usable support. Attribute changes to source alignment, native observation, candidate
+nomination, selection, or delivery. For aggregate uncertainty, keep pairs together and
+group by prespecified disjoint source regions. Chapters or sections in this book are
+diagnostic groups of one exposed origin. [D7 evaluation design](../../design/D7-evaluation-goldens-outer-loop.md)
+
+### Qualification arms and expected distinctions
+
+| Question and affected package | Paired control and required independent observation |
+| --- | --- |
+| Source and bounded execution, PM2-01/02 | Recover the exact p416 formula and p151 visual manifest through the existing native and Reader routes. Check ordered text inventory, caption and block identity, formula/reference atoms, repeated spelling, Unicode, split subwords, escaped JSON and synthetic boundaries. Fail one provider after source settlement and verify that ordinary Reader and fresh MCP still deliver the exact surviving contribution and report the uncovered scope. |
+| Syntax to useful frames, PM2-03 and relevant PM2-06 modes | Compare spaCy with HanLP core heads, then Large/Base and one added head or transformation on the same frame opportunities. Review predicate presence, native argument boundaries/roles, released role mapping and qualifier-to-host attachment independently. Include passive and coordinated clauses, nested scope and a qualifier adjacent to a protected atom. Preserve the p289 positive-variance condition and both actual anchors. |
+| Local reference, PM2-04 and relevant PM2-06 modes | Compare the current scoped reference route with Maverick. Pair model mentions with reviewed mention input on the identical scope to locate detection versus clustering errors. Review nested mentions, false merges, split chains, ambiguous/null antecedents and participant-binding consequences. Preserve the complete antecedent for “This set of points.” Joint mode adds one-section parity, a genuinely useful cross-boundary chain, a false-merge control and budgeted fallback. Use upstream metric primitives only after an independent asymmetric precision/recall case and declared singleton convention pass. |
+| Discourse and attachments, PM2-05 and relevant PM2-06 modes | Pair learned versus layout-forced parsing of the same raw source. Separately compare supplied and predicted EDUs through `predict_both()` under its reconstructed input. Independently grade boundary/coverage, parent yield, ordered split, nuclearity and relation. Include a missing child and a wrong split to distinguish the causes. Keep unavailable trees in the frame. Measure whether discourse helps downstream premise or explanation attachment. |
+| Source-only capture, typed reads and interpretation, PM2-07 | Compare the current literal-only GLiNER plus grounded predicate-frame route, d1 source discovery, d1 on supplied current candidates and d1 on reviewed candidates, each where it answers the same named question. Review capture, candidate availability, choice, no-match, abstention, literal span, normalization and qualification separately. Include a source-backed missed candidate, candidate text that repeats a literal, ambiguous or unstated qualifiers, order/wording changes, and a misleading attribution. Inspect exact source evidence even when conversion fails. |
+| Scoped composition and contextual retrieval, PM2-08/09 | Compare independently correct anchored parts and complete products separately. Review a premise, a reference, and a locally resolvable occurrence when one downstream contribution fails or an attachment stays unresolved. Preserve Section 5.1's typed citation, the unresolved affine `X` with its candidate list, and `Z`'s witnessed declaration. Compare candidate availability and rank before interpretation on paired target inventories, then assess selected relation and provenance independently. A correctly rejected top-ranked candidate remains unselected. |
+| Conditional visual ambiguity, PM2-10 | Compare the current typed visual or text route with a named d1 visual question over the same authenticated figure, table, or crop. Independently review the claimed location, mapped source region and interpretation. Check wrong-crop refusal, repeated labels and an abstention, and preserve the p151 artifact binding. Additional region proposals qualify only when they contribute a supported distinction that changes the intended consumer's answer. |
+
+[Retained textbook examples and scope limits](../../examples/README.md) ·
+[p416 source custody](../domain-model-alignment/source-projection.md#DMA-07) ·
+[p151 typed visual reads](../domain-model-alignment/visual-evidence.md#DMA-11)
+
+### Decide what is good enough to activate
+
+Before opening candidate results, name the operation, primary decision dimension,
+supported context and operating bound for each activation. Use exact paired case
+changes. For an operation whose aim is better semantic results, require a strict gain
+in independently supported, distinct results on that primary dimension over the paired
+frame. Count additional correct capture, repaired span/role/attachment, or retrieval
+and selection gains at their declared grain. Preserve every supported protected
+control and reject any new unsupported selection on the compared frame. Treat a
+previously correct result becoming ambiguous, uncovered, or missing as a regression.
+Preserve its previous qualified route unless an independently verified correction changes
+the reference. Record new false proposals and lost coverage even when the selector
+refuses to admit them. An unresolved required case blocks that operation's promotion.
+When a narrow scope passes and broader work regresses, release only a prespecified
+scope with corresponding evidence, or rerun a narrowed arm against its own independently
+frozen frame. A tie keeps the current qualified route unless the alternative's declared
+objective is execution improvement and it meets semantic preservation with measured
+operating benefit. For an added diagnostic mode, require a reviewed case where it isolates
+the responsible operation and changes the next intervention. A failed optional gate keeps
+the qualified fallback and a revisit trigger.
+
+Independently assess any proposed public standing, including when inference scores and
+valid structure both favor a choice. Keep source support, exact structural consistency,
+model scores and semantic support distinct. If an adoption policy uses a numerical threshold,
+freeze the emitted event and applicable population before fitting. Compare the declared
+threshold policy with its baseline on independent source-authored labels using the
+existing fitting and availability routes. Insufficient emitted events or labels leave
+threshold-based activation unavailable. In-sample findings support development decisions
+on this book. Calibration transfer and unseen-corpus performance need separate evidence.
+
+For the implementation's domain-agnostic boundary, use one small authored counterfactual
+fixture with an alternate declared vocabulary, question, and relation. Run it through the
+same release preparation, operation selection, candidate/admission and Reader/MCP contracts
+as the textbook control. Replacing the declarations must change the applicable meanings
+without requiring adapter or orchestration edits. Include a missing declaration or
+incompatible relation to check explicit refusal. The fixture checks configurability and
+authority. Its output is outside the textbook comparison and supplies no new corpus
+qualification.
+
+**Closure.** The coordinator receives exact frame and comparator identities, named cases,
+paired changes and dispositions for each adopted operation. The report links source,
+observations, candidates, selected contribution and final consumer, showing one successful
+qualified part under a failed or unresolved sibling operation. Coverage obligations stay
+open where evidence is missing. A completed conditional investigation may recommend
+retaining the earlier route with its reason and trigger.
+
+<a id="PM2-12"></a>
+
+## PM2-12 · Adopt a qualified release for the textbook
+
+**Prerequisites.** Consume the exact PM2-11 assessment and final native execution evidence
+for every selected operation, including required Reader/MCP journeys and any optional mode
+actually enabled. Establish the acquired development target, released predecessor and
+current selectability under the existing DMA-13 and migration owners. A current-only
+consumer may depend on a new compatible release or a regenerated product. Keep effect
+authority separate from a plan or assessment judgment.
+
+Use the existing release compiler, managed operation custody, PostgreSQL purpose roles
+and source selection. Preview an exact coordinated change only when released definitions,
+native admission or deployed storage require one. Use the existing rollback-only candidate
+route to prove an applicable native migration before a registered deployment. If contracts
+and storage already fit, use ordinary release preparation and admission. Resolve the
+authenticated whole-book source and prepare new derived products privately under the exact
+intended release. Preserve recoverable older source, assessments, runs and receipts. Carry
+forward compatible products only when their semantic contract and authenticated dependencies
+still correspond. Regenerate insufficient derived artifacts. Apply current-only producer
+and consumer compatibility while keeping explicitly supported archived reads at their
+recorded meaning. [ADR-0067](../../adr/0067-witnessed-current-only-cutover.md) ·
+[Existing deployment and selection route](../../../.claude/skills/ci/references/database-and-model.md)
+
+Before promotion, use a pinned ordinary Reader, fresh MCP and managed CLI to read the
+staged release's named textbook journey. Inspect coverage, qualified and unresolved
+contributions, source anchors and candidate lineage. Use the existing detached review
+export where selected evidence is required for portable delivery. Refuse a mismatched
+release, predecessor, scope or stale continuation. Exercise interruption after a settled
+provider scope or durable release step. Verify the existing qualified selection remains
+readable until authorized activation and selection of the new result. Where the target
+has no selection, preserve that state and the supported archived reads. Resume from the
+acquired predecessor or reached revision and retained scope. If a native revision has
+committed, follow the owner's supported recovery route and record the durable boundary
+before attempting another effect. Effect reversal and run reselection have distinct
+contracts. Activation and run selection remain separate recorded effects. A configured
+target, purpose roles and authority are prerequisites for a live promotion. If unavailable,
+leave live adoption open and report the independently qualified boundary.
+
+Use focused compile checks and `uv run ci test -- PATH` during an affected package.
+Follow the existing binding for formal target reviews and their evidence. At complete
+selected implementation, run root maintenance `just turn-end` before final-source
+qualification. Run `uv run ci test --json` and `uv run ci check` for applicable functional
+and repository lanes, alongside declared native provider and assembled journeys.
+Use managed result IDs, actual commands, dated source/release/target bindings and
+declared test identities to account for the required union. Preserve original failed and
+interrupted records, using exact retry and `uv run ci test coverage` where applicable.
+Report `passed`, `failed`, `blocked` or `not_run` for each obligation. A mock, prior
+incompatible result or missing evidence cannot establish qualification. Keep operating
+claims within the tested envelope and corpus claims within the frozen opportunities.
+[Testing and managed results](../../../.claude/skills/ci/references/testing-and-results.md) ·
+[Review cadence](../../design_review/design_principles/binding/corpus-structure.md#reviews-in-this-repository)
+
+**Closure.** A selected M2 release requires the frozen full-book scope and accepted
+operation gains, retention of known controls and independent partial results, the
+applicable final-source evidence union, and a verified selected-reader journey on the
+authorized target. Record the new selection, exact predecessor and remaining unsupported
+scopes with the coordinator. A qualified private result, unavailable live target or
+unresolved required acceptance is an intermediate state with its own evidence and next action.
