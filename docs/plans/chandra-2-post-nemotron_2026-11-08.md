@@ -269,6 +269,25 @@ unresolved across those results. The original failure remains in its receipt.
 `uv run ci check --only types`, `uv run ci docs check`, and the evidence
 index check passed in their recorded scopes.
 
+
+### Comparator execution-fit follow-up
+
+- Reuse exact unchanged records, streams and validation premises from a sealed
+  predecessor. Validate the changed scopes and their affected relations,
+  containment, order and projections. Use full validation when a changed
+  contract invalidates the reuse premises.
+  [CH-08 publication reuse](chandra-2-post-nemotron/source-recovery-and-governed-selection.md#comparator-publication-reuse)
+- Profile and remove redundant work before widening concurrency. Parallelize
+  independent read-only validation and record preparation against one frozen
+  build. Retain the final ordered identity and protected publication checks.
+  Narrow the Standard GPU lease to the native worker lifetime.
+  [Measured boundary and performance work](chandra-2-post-nemotron/specialist-extensions-and-scale.md#comparator-execution-fit--2026-11-08)
+- Use the sealed archive plus a frozen, independently witnessed repair overlay
+  for future studies whose claims are limited to routing or attributed discovery.
+  The current qualification uses the protected comparator and ordinary Reader
+  checks.
+  [CH-10 evaluation scope](chandra-2-post-nemotron/automatic-routing-and-qualification.md#when-a-published-comparator-is-needed)
+
 Explicit requests remain the operating policy. Selective and all-page behavior
 await the shadow comparison. CH-11 remains conditional on a separately qualified
 Chandra-dependent selected change and authority decision.

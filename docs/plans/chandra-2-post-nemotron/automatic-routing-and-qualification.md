@@ -128,3 +128,23 @@ ordinary published result remains readable while shadow work runs. Use targeted
 `uv run ci test -- PATH…` and managed development journeys on the actual runtime before the
 combined qualification. [Book and cohort baseline](../next-corpus-enrichment_2026-11-07.md#full-book-execution) ·
 [Prior runtime observations](../../design_review/evidence/2026-11-08_chandra-execution/README.md)
+
+
+### When a published comparator is needed
+
+**Proposed follow-up · 2026-11-08.** For a study limited to routing, attributed
+discovery or recognition fidelity, freeze a sealed archived source with an
+independently witnessed repair overlay. Bind every overlay entry to the
+archive pin, physical page and original-source witness. Apply the same overlay
+to each arm. Count an incumbent repair before scoring incremental Chandra
+value. Keep omitted, unresolved and verified-blank scopes distinct. This
+route can avoid fresh Standard, A/B/C reconciliation and full native
+publication for the study.
+
+Use the protected comparator when qualification includes ordinary Reader,
+projection, search, packet or selected-structure behavior. For that path,
+reuse compatible predecessor validation where the dependent closure is
+known and parallelize independent checks for the full-build fallback.
+The current book qualification retains the published comparator path.
+[Comparator reuse](source-recovery-and-governed-selection.md#comparator-publication-reuse) ·
+[Parallel validation and comparison pruning](specialist-extensions-and-scale.md#comparator-execution-fit--2026-11-08)

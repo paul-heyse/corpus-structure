@@ -41,6 +41,15 @@ The retained-only A/B/C replay releases that dependency for the comparator's CPU
 [Versioned vLLM sleep contract](https://docs.vllm.ai/en/v0.26.0/features/sleep_mode/) ·
 [vLLM metric definitions](https://docs.vllm.ai/en/stable/usage/metrics/)
 
+The observed Standard handoff couples the native child lifetime to the later
+frozen-build validation. Investigate moving the handoff into the existing native
+worker context so it restores Nemotron after child teardown and before frozen
+validation. Qualify that change with a real provider handoff and the same protected
+publication and retry controls.
+[Standard handoff owner](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_methods.py) ·
+[Native worker and protected publication](../../../python/corpus-structure/src/corpus_structure/orchestrate/pdf_streaming.py) ·
+[Execution-fit heuristic H23](../../design_review/design_principles/core/efficient-architecture-heuristics.md#f-execution-coordination-and-recovery)
+
 If the shadow measurement identifies Chandra decode or repeated model initialization
 as material, compare the qualified Transformers group with a separately pinned local
 vLLM recipe. Use identical submitted PNGs and compare effective multimodal resize,
@@ -52,3 +61,54 @@ container and disables MTP by default. Establish actual feature support and memo
 for the selected runtime on this GPU before using it for qualification.
 [vLLM capability overview](../../libraries/analytical_infrastructure/vllm.md) ·
 [Pinned Chandra launcher](https://github.com/datalab-to/chandra/blob/v0.2.0/chandra/scripts/vllm.py)
+
+### Comparator execution fit · 2026-11-08
+
+**Measured · 2026-11-08.** During comparator run 373, PostgreSQL backend 3020393
+ran `ops.validate_pdf_build` with no blocking sessions or parallel workers.
+A two-second CPU-time sample measured 1.00 CPU equivalents on a 32-logical-CPU
+host. The work was past A/B/C replay and selection. PostgreSQL already allows
+four workers per gather. The protected validator and its logical identity
+and access-check routines are parallel-unsafe in the installed catalog, and
+the identity routine serially verifies byte streams, constructs canonical
+records and folds them in order. The observation establishes the execution
+boundary. It does not identify the most expensive nested statement.
+[Protected validation owner](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_publication_native.py) ·
+[Logical identity implementation](../../../python/corpus-structure/src/corpus_structure/semantic/sql/pdf_record_logical_identity.sql)
+
+**Proposed.** Separate the comparator's two consumers before changing the
+publication contract. A routing or discovery study can freeze the sealed
+archive plus independently witnessed repair decisions and compare Chandra
+against that view. A study using this route reports the source fixes as
+incumbent gains and explicitly limits ordinary Reader conclusions to a
+separately qualified published product.
+
+For repeat publications under compatible contracts, qualify an incremental
+derivation over one sealed predecessor. Reuse exact unchanged records, streams
+and validation premises. Check the changed occurrences and all dependent
+region, containment, order, projection and relation endpoints. If schema,
+policy or identity mapping invalidates those premises, use the full path.
+Determine whether the current graph can share physical storage and retain
+the existing digest. A composable identity requires a separately versioned
+contract and exact historical reads.
+
+For full builds, first measure access correspondence, artifact verification,
+canonical frame assembly and the final fold separately on representative
+frozen inputs. Eliminate repeated lookups using joined inputs and bounded
+batches. Parallelize independent read-only checks or frame preparation over
+the same frozen snapshot. Keep document-wide order, relationship closure
+and the ordered digest as final checks. Existing digests must match byte
+for byte. Validate cancellation and refusal of a missing shard, stale
+premise, or changed endpoint before using parallel output for publication.
+
+In the reconciliation path, keep the existing page and geometry bounds.
+Retain B's layout and coverage without building a correspondence index for
+an empty mapping. Reuse a page index until a local selection changes it.
+Resolve exact typed equality before edit alignment and avoid calculating
+table/chart edit traces that the published evidence discards. Keep spans
+and header paths in table equality. If page-local mapping becomes material,
+prepare it in bounded independent workers and reduce in stable A-before-C
+order under the existing document owner.
+[Reconciliation selection](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_reconciliation.py) ·
+[Validation scope and identity](../../design_review/design_principles/core/design-principles.md#dp-09--one-reuse-mechanism-keyed-on-complete-dependencies) ·
+[Execution-fit heuristics](../../design_review/design_principles/core/efficient-architecture-heuristics.md#f-execution-coordination-and-recovery)

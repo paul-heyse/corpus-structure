@@ -76,6 +76,26 @@ readable and stable. If an intended correction cannot be independently derived f
 incumbent evidence, deliver the candidate via CH-09 and route any proposed direct
 dependency to CH-11. [PDF authority](../../adr/0040-forward-pdf-only-contracts.md)
 
+
+### Comparator publication reuse
+
+**Proposed follow-up · 2026-11-08.** Use the sealed predecessor and exact
+validation contract as premises for a compatible derivation. Identify the changed
+native records, companions and byte streams by exact identity. Inherit established
+checks only where both inputs and applicable rules match. Recheck the changed
+occurrences and dependent references, page frames, containment and section order,
+relation endpoints, and affected ordinary projections. Treat p416's readable
+formula binding as a projection change when its selected product stays identical.
+
+Qualify incremental and full publication on the same source and compare logical
+identity, Reader outputs, search, and packet results. Reject changed bytes,
+stale premises, missing dependent endpoints and order changes outside the
+declared closure. Use full validation for an incompatible schema, policy,
+address migration or an unbounded dependency change. Preserve the predecessor
+and the existing single selected document contract.
+[Measured validation boundary and parallelization](specialist-extensions-and-scale.md#comparator-execution-fit--2026-11-08) ·
+[PDF publication authority](../../adr/0040-forward-pdf-only-contracts.md)
+
 <a id="CH-11"></a>
 ## CH-11 · Qualify a narrow direct promotion effect
 
