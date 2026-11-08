@@ -612,7 +612,9 @@ def _inspect_native_source(
                         ),
                     )
                 ]
-                policy = retained_section_text_policy(conn, projection_context)
+                policy = retained_section_text_policy(
+                    conn, projection_context, read_budget=read_budget
+                )
                 readable = readable_formula_original(
                     json.loads(policy) if policy is not None else {},
                     request.content_digest,

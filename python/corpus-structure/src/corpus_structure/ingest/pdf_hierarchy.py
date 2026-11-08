@@ -260,7 +260,9 @@ def section_text_policy(prepared: PreparedRelease) -> bytes:
     raise ValueError("section text recipe differs from the selected release")
 
 
-def retained_section_text_policy(connection, prepared: PreparedRelease) -> bytes | None:
+def retained_section_text_policy(
+    connection, prepared: PreparedRelease, *, read_budget=None
+) -> bytes | None:
     """Resolve formula policy bytes against the Reader's immutable release."""
     from sqlalchemy import select
 
@@ -270,16 +272,20 @@ def retained_section_text_policy(connection, prepared: PreparedRelease) -> bytes
     if digest is None:
         return None
     inputs = table("sem.input")
-    content = connection.scalar(
-        select(inputs.c.content).where(
-            inputs.c.release_id == prepared.release_id,
-            inputs.c.input_kind == "dependency",
-            inputs.c.input_name == "execution/implementation/pdf/section-text-recipe.json",
-        )
+    statement = select(inputs.c.content).where(
+        inputs.c.release_id == prepared.release_id,
+        inputs.c.input_kind == "dependency",
+        inputs.c.input_name == "execution/implementation/pdf/section-text-recipe.json",
     )
+    if read_budget is not None:
+        read_budget.preflight(connection, statement)
+    content = connection.scalar(statement)
     if content is None or sha256(content).hexdigest() != digest:
         raise ValueError("section text policy differs from the retained release")
-    return bytes(content)
+    retained = bytes(content)
+    if read_budget is not None:
+        read_budget.value(retained)
+    return retained
 
 
 def readable_formula_original(
@@ -309,6 +315,8 @@ def readable_formula_original(
             and witness.get("orig_digest") == digest
             else None
         )
+    if policy.get("recipe") != "native-section-text-v10":
+        return None
     witnesses = [
         witness
         for witness in policy.get("readable_formula_originals", ())

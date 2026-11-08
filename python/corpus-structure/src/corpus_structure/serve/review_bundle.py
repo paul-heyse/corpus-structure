@@ -728,6 +728,8 @@ def _capture_sources(
     coordinate_versions=None,
     retained_sources=None,
 ):
+    from .review_source_projection import capture_source_projection
+
     task, cfg = table("ops.task"), table("ops.method_config")
     for source_id in sorted(source_ids - seen_sources):
         cancellation.check_active()
@@ -772,6 +774,7 @@ def _capture_sources(
             budget.value(row)
             seen_documents.add(source.ref.document_id)
             yield "documents", row
+        projection_inputs = capture_source_projection(conn, source, budget)
         yield (
             "sources",
             {
@@ -779,8 +782,17 @@ def _capture_sources(
                 "ref": asdict(source.ref),
                 "text": source.text,
                 "context": source.context(),
-                "source_coverage": "selected_projection_only",
+                "source_coverage": (
+                    "selected_projection_replay"
+                    if projection_inputs is not None
+                    else "selected_projection_only"
+                ),
                 "original_page_map": "unknown_unless_retained_in_native_items",
+                **(
+                    {"projection_inputs": projection_inputs}
+                    if projection_inputs is not None
+                    else {}
+                ),
             },
         )
 
@@ -903,10 +915,12 @@ def _covers_assessment_unit(selection: ReviewSelection, run_id: int, source_view
     )
 
 
-def _validate_source(value: dict[str, Any]) -> None:
+def _validate_source(value: dict[str, Any]) -> str | None:
     # Reuse the production projection/piece validator rather than a parallel checker.
     from corpus_structure.core.method import SourceViewDraft
     from corpus_structure.semantic.product_reference import ProductReference
+
+    from .review_source_projection import verify_source_projection
 
     ref, context = value["ref"], value["context"]
     draft = SourceViewDraft(
@@ -925,6 +939,7 @@ def _validate_source(value: dict[str, Any]) -> None:
     )
     if draft.projection_digest != ref["projection_digest"] or value["source_view_id"] != ref["id"]:
         raise ValueError("review source projection digest differs")
+    return verify_source_projection(value)
 
 
 def _schema(selection_digest: str, relation: str) -> pa.Schema:
@@ -2318,6 +2333,8 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
     structural_reports = []
     structural_refs = {}
     captured_refs = {}
+    source_originals: set[tuple[int, str]] = set()
+    document_originals: set[tuple[int, str]] = set()
     structural_product_ids: set[str] = set()
     public_product_ids: set[str] = set()
     assessment_units: dict[int, int] = {}
@@ -2502,11 +2519,15 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
                                 if ref.identity == passage.source_ref
                             )
                         if name == "sources":
-                            _validate_source(payload)
+                            original = _validate_source(payload)
+                            if original is not None:
+                                source_originals.add((payload["ref"]["document_id"], original))
                             if payload["source_view_id"] in present_sources:
                                 raise ValueError("review source member repeats")
                             present_sources.add(payload["source_view_id"])
                             captured_refs[payload["source_view_id"]] = payload["ref"]
+                        elif name == "documents" and isinstance(payload.get("content_hash"), str):
+                            document_originals.add((payload["id"], payload["content_hash"]))
                         elif name == "reports":
                             needed_sources.update(_report_source_ids(payload["body"]))
                             for ref in _section_source_refs(payload):
@@ -2674,6 +2695,8 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
             raise ValueError("review selected snapshot members are missing")
         if bound_structural != set(range(len(selection.structural_selections))):
             raise ValueError("review structural snapshot members are missing")
+        if not source_originals <= document_originals:
+            raise ValueError("review source projection original differs from its retained document")
         if not needed_sources <= present_sources:
             raise ValueError("review required source members are missing")
         for ref in structural_refs.values():
