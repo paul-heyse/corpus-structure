@@ -47,14 +47,14 @@ _Updated 2026-11-08. Whole-book processing and output review are complete. The o
 ## NCE development and next work
 
 - The [NCE audit gap execution](docs/plans/next-corpus-enrichment_2026-11-07.md#audit-gap-execution)
-  owns current disposition and exact test and corpus receipts. Development is at
-  `semantic_nce_gs518_discourse` on PostgreSQL 18/corpus, port 5434.
+  owns exact receipts. Development runs `semantic_nce_gs518_discourse` on PostgreSQL 18/corpus, port 5434.
 - On 2026-11-07, qualifier replay, artifact delivery, both table Reader controls and seven
-  real model arms completed. Protected fit 3 and Reader checks passed on set 30 and
-  evaluation 35. Repository checks and eight native fault tests passed.
+  real model arms completed. Protected fit 3 passed on set 30 and evaluation 35.
+  Reader, repository and eight native fault checks passed.
 - [Full-book intake](docs/plans/next-corpus-enrichment_2026-11-07.md#full-book-execution)
   completed Standard cut 413 and combined cut 431. All 29 scoped views and nine contextual
-  cues published. LLM review covers all 518 pages, every scoped report and contextual proposal,
-  175 definition attachments and 530 artifact nominations. All 375 GLiNER retry windows returned.
+  cues published. LLM review covers all 518 pages and retained definition and artifact outputs.
+- The [Chandra 2 review](docs/functional_reviews/chandra-2-post-nemotron_2026-11-08.md) recommends
+  attributed visual inspection after 20 live probes with Docling 2.148.0.
 - Settle the WCE source and factor obligations. Live CLI qualification needs a configured
   production target, purpose roles and effect authority.

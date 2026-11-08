@@ -95,3 +95,10 @@ links, artifact scoring, interpretation, attachment fitting and rooted delivery.
 develop GLiNER policy and additional library capabilities with explicit adoption conditions.
 The crosswalk records the source recommendation dispositions. The WCE coordinator retains
 execution and qualification status.
+
+## Chandra 2 after Nemotron — 2026-11-08
+
+The [Chandra functional review](chandra-2-post-nemotron_2026-11-08.md) evaluates
+post-Nemotron recognition and new figure, chart, diagram and source-inspection
+uses on Docling 2.148.0. It recommends starting with attributed visual evidence
+and a typed read before considering governed promotion into the PDF product.

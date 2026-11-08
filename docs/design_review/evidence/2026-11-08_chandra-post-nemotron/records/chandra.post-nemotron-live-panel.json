@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "id": "chandra.post-nemotron-live-panel",
+  "title": "Local Chandra 2 post-Nemotron capability panel",
+  "group": "chandra-post-nemotron",
+  "package": "functional-review",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What additional PDF capabilities does Chandra OCR 2 offer after the retained Nemotron triple pass under Docling 2.148.0?",
+  "answers": [
+    "O01",
+    "O02",
+    "O03",
+    "O04",
+    "O05",
+    "O06",
+    "O07",
+    "O08",
+    "O09",
+    "ADR-0040"
+  ],
+  "method": "Pin and run official BF16 Chandra 2 on frozen PDF pages, authored enhancement controls and exact original-pixel crops. Compare the outputs against source and retained arms, then trace native replay, current projection, grammar and scoped baseline Reader use.",
+  "commands": [
+    ".venv/bin/python docs/design_review/evidence/2026-11-08_chandra-post-nemotron/probe.py PDF OUTPUT --artifacts ARTIFACTS [selected pages and images in evidence README]",
+    ".venv/bin/python docs/design_review/evidence/2026-11-08_chandra-post-nemotron/controls.py OUTPUT --baseline BASELINE",
+    ".venv/bin/python docs/design_review/evidence/2026-11-08_chandra-post-nemotron/trace.py INPUTS --out TRACE",
+    ".venv/bin/python docs/design_review/evidence/2026-11-08_chandra-post-nemotron/nemotron_replay.py build/nce-full-book/integrated-source/recognition",
+    "uv run ci source inspect RUN --producing-task TASK --product PRODUCT --native-digest DIGEST --native-view formula --pointer POINTER --json"
+  ],
+  "agents": [
+    {
+      "role": "independent book and consumer reviewer",
+      "model": "Codex",
+      "brief": null,
+      "separation": "Read-only source and live output assessment"
+    },
+    {
+      "role": "independent supplemental reviewer",
+      "model": "Codex",
+      "brief": null,
+      "separation": "Authored control source truth and checked novel live outputs"
+    },
+    {
+      "role": "upstream compatibility researcher",
+      "model": "Codex",
+      "brief": null,
+      "separation": "Tagged primary source inspection"
+    }
+  ],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "cases.json",
+      "role": "Frozen whole-book panel and source expectations",
+      "sha256": "bc6421b58ec06d7d11541cc6c09beeb7852ad2251b7380f8e56463f4bf4e701b"
+    },
+    {
+      "path": "raw/supplemental-reference.json",
+      "role": "Independent source truth and hashes for authored inputs",
+      "sha256": "a7c362e0f9f8b04e638d146b62ae0fa8bab63fae9d9972294dc17735004159d6"
+    },
+    {
+      "path": "raw/runtime.json",
+      "role": "Effective local versions and preset options",
+      "sha256": "8d8db2d18a627b8994799491b30fdfd6ad60cd475466bd319d27f25125d6028a"
+    },
+    {
+      "path": "raw/live-responses.jsonl",
+      "role": "Twenty live request dispositions with exact raw HTML",
+      "sha256": "b3a71073237b79a6765d0e725136623c29aff60d80b055fdf4717c948a9c5754"
+    },
+    {
+      "path": "raw/crop-frames.json",
+      "role": "Source page, render and reversible crop frames",
+      "sha256": "9c3317d5b095dbb27ab9d5aaefa4e7251aa87a342aba6512ecdaf4d063288e3d"
+    },
+    {
+      "path": "raw/consumer-trace.json",
+      "role": "Native items, replay summaries and actual application projection",
+      "sha256": "02893930f6776dbd8f331bc96f4fd376c80e1c8c2cf4a42aedab5567223966b6"
+    },
+    {
+      "path": "raw/parser-controls.json",
+      "role": "Paired parser, completion and serialization controls",
+      "sha256": "2814a47a0798246411cded351acb3b368ec73977f8fa0410310ce572ddf3a7fc"
+    },
+    {
+      "path": "raw/nemotron-replay.json",
+      "role": "Identical content summaries for 21 retained requests",
+      "sha256": "14d95e59c7c70779d50c03c4dfa072552407991a54399e946a47912e42fdee84"
+    },
+    {
+      "path": "raw/matrix-consumer.json",
+      "role": "Incumbent exact Reader records and Chandra projection and grammar results",
+      "sha256": "5e3f5035232357d748f7e98159f18a1cc2f6443771779fa052d7bb6d3f464c61"
+    },
+    {
+      "path": "raw/first-attempt.txt",
+      "role": "Offline snapshot refusal before successful explicit artifact selection",
+      "sha256": "edc527732ae77e3ca3cb9fce60bf0e406caabb8d031177cdff8c00724fbeadc2"
+    }
+  ],
+  "depends_on": [
+    "2026-11-08_nce-full-book/nce.gs518-standard-source",
+    "2026-11-08_nce-full-book/nce.gs518-integrated-source",
+    "2026-11-08_nce-full-book/nce.gs518-page-review"
+  ],
+  "results": [
+    {
+      "name": "Live conversions returned",
+      "value": 20,
+      "of": 20,
+      "unit": "cases",
+      "note": "12 pages, five authored supplements and three crops. All execution statuses were success and stop reasons unspecified."
+    },
+    {
+      "name": "Retained Nemotron response summaries matching across parsers",
+      "value": 21,
+      "of": 21,
+      "unit": "responses",
+      "note": null
+    },
+    {
+      "name": "Source-confirmed directed edges on the authored diagram",
+      "value": 3,
+      "of": 3,
+      "unit": "edges",
+      "note": null
+    },
+    {
+      "name": "Complete p416 matrix strings accepted by current grammar",
+      "value": 0,
+      "of": 6,
+      "unit": "strings",
+      "note": null
+    },
+    {
+      "name": "Sum of case conversion intervals",
+      "value": 346.93,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Attributed visual inspection and selected tables, figure descriptions, diagram edges and molecular metadata are supported by bounded live evidence. Typed promotion, generalization and upstream-only upgrade qualification remain separate. Existing projection can mix picture child interpretations into prose, and complete matrix strings still require a usable consumer reading.",
+  "consumed_by": [
+    "chandra-2-post-nemotron functional review"
+  ]
+}
