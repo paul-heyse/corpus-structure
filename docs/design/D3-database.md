@@ -366,7 +366,9 @@ contract. Final validation consumes the complete check set under the task and bu
 An exact predecessor from a sealed producer run in the same project and release can supply
 validated access and projection premises when their typed inputs match. Artifact verification reuses only streams
 whose descriptors and ordered byte parts match. The original ordered logical fold still binds
-the new product. The [Chandra coordinator](../plans/chandra-2-post-nemotron_2026-11-08.md#comparator-execution-fit-follow-up)
+the new product. Access correspondence walks each rooted component once and compares the
+nearest-section assignments as a set. Unreachable cyclic components fail correspondence.
+The [Chandra coordinator](../plans/chandra-2-post-nemotron_2026-11-08.md#comparator-execution-fit-follow-up)
 owns operational qualification.
 
 **Implemented; scoped concurrency controls Tested (2026-11-03).** Companion transport batches

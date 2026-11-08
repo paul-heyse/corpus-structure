@@ -114,19 +114,24 @@ BEGIN
  (m.value_kind='parts' AND ops.pdf_projection_stream_matches(p_build,m.stream_id,actual.value) IS NOT TRUE))))) THEN
  RAISE EXCEPTION 'native access JSON differs from frozen record fields/members/scalars' USING ERRCODE='23514'; END IF;
 
- IF EXISTS(WITH RECURSIVE ancestry(pointer,owner,depth) AS (
-  SELECT pointer,pointer,0 FROM kb.pdf_record_access WHERE product_id=p_build AND revision_id=p_build
-  UNION ALL SELECT a.pointer,parent.pointer,a.depth+1 FROM ancestry a JOIN kb.pdf_record_access child
-  ON child.product_id=p_build AND child.revision_id=p_build AND child.pointer=a.owner JOIN kb.pdf_record_access parent
-  ON parent.product_id=p_build AND parent.revision_id=p_build AND parent.pointer=child.parent_pointer
- ) CYCLE owner SET cycle_ USING path_, nearest AS (
- SELECT DISTINCT ON (n.pointer) n.pointer,n.owner FROM ancestry n JOIN kb.pdf_record_access section
- ON section.product_id=p_build AND section.revision_id=p_build AND section.pointer=n.owner
- WHERE section.label IN ('section','chapter') ORDER BY n.pointer,n.depth
- ), cycles AS (SELECT DISTINCT pointer FROM ancestry WHERE cycle_)
- SELECT FROM kb.pdf_record_access a LEFT JOIN nearest n ON n.pointer=a.pointer
- LEFT JOIN cycles c ON c.pointer=a.pointer WHERE a.product_id=p_build AND a.revision_id=p_build AND
- (c.pointer IS NOT NULL OR a.section_pointer IS DISTINCT FROM n.owner)) THEN
+ -- Each pointer has one parent. Walk each rooted component once, carrying its
+ -- nearest section owner. A cycle cannot be reached from a root in this graph,
+ -- so missing expected rows detect cycles even when their section owner is null.
+ IF EXISTS(WITH RECURSIVE scoped AS MATERIALIZED (
+  SELECT pointer,parent_pointer,label,section_pointer FROM kb.pdf_record_access
+  WHERE product_id=p_build AND revision_id=p_build
+ ), section_owners(pointer,owner) AS (
+  SELECT root.pointer,CASE WHEN root.label IN ('section','chapter') THEN root.pointer END
+  FROM scoped root WHERE NOT EXISTS(
+   SELECT FROM kb.pdf_record_access parent WHERE parent.product_id=p_build
+   AND parent.revision_id=p_build AND parent.pointer=root.parent_pointer
+  )
+  UNION ALL
+  SELECT child.pointer,CASE WHEN child.label IN ('section','chapter') THEN child.pointer ELSE parent.owner END
+  FROM section_owners parent JOIN scoped child ON child.parent_pointer=parent.pointer
+ )
+ SELECT pointer,section_pointer FROM scoped
+ EXCEPT ALL SELECT pointer,owner FROM section_owners) THEN
  RAISE EXCEPTION 'native access section owner differs from native ancestry' USING ERRCODE='23514'; END IF;
 
  IF EXISTS(WITH RECURSIVE roots(pointer,path) AS (

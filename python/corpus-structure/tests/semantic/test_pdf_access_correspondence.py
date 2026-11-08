@@ -13,7 +13,7 @@ from .test_pdf_record_reader import NativeRows, native
 
 
 @pytest.fixture
-def access_database(semantic_bare_engine):
+def access_database(semantic_bare_engine, request):
     value = native()
     value["pages"] = {
         "1": {"size": {"width": 100.0, "height": 100.0}, "page_no": 1},
@@ -32,6 +32,30 @@ def access_database(semantic_bare_engine):
         },
     ]
     value["body"]["meta"] = {"vendor": {"z": 1, "a": [True, None]}}
+    section_by_pointer = {}
+    access_nodes = [value["body"], value["texts"][0], value["furniture"]]
+    ancestry = getattr(request, "param", None)
+    if ancestry == "nested":
+        value["body"]["label"] = "chapter"
+        value["body"]["children"] = [{"$ref": "#/groups/0"}]
+        section = {
+            "self_ref": "#/groups/0",
+            "parent": {"$ref": "#/body"},
+            "children": [{"$ref": "#/texts/0"}],
+            "name": "Nested section",
+            "label": "section",
+        }
+        value["groups"] = [section]
+        value["texts"][0]["parent"] = {"$ref": "#/groups/0"}
+        value["furniture"]["parent"] = {"$ref": "#/absent"}
+        access_nodes.insert(1, section)
+        section_by_pointer = {
+            "#/body": "#/body",
+            "#/groups/0": "#/groups/0",
+            "#/texts/0": "#/groups/0",
+        }
+    elif ancestry == "cycle":
+        value["body"]["parent"] = {"$ref": "#/texts/0"}
     lowered = NativeRows(value)
     with semantic_bare_engine.begin() as conn:
         for ddl in (
@@ -133,11 +157,11 @@ def access_database(semantic_bare_engine):
                     ),
                     dict(stream=stream, ordinal=part.ordinal, body=part.body),
                 )
-        for ordinal, node in enumerate((value["body"], value["texts"][0], value["furniture"])):
+        for ordinal, node in enumerate(access_nodes):
             conn.execute(
                 text(
                     "INSERT INTO kb.pdf_record_access "
-                    "VALUES('b','b',:pointer,:ordinal,:label,:parent,NULL,:layer,:text"
+                    "VALUES('b','b',:pointer,:ordinal,:label,:parent,:section,:layer,:text"
                     ",CAST(:native AS jsonb))"
                 ),
                 dict(
@@ -145,6 +169,7 @@ def access_database(semantic_bare_engine):
                     ordinal=ordinal,
                     label=node["label"],
                     parent=node.get("parent", {}).get("$ref"),
+                    section=section_by_pointer.get(node["self_ref"]),
                     layer=node.get("content_layer", "body"),
                     text=node.get("text"),
                     native=json.dumps(node),
@@ -230,4 +255,26 @@ def test_projection_lookups_use_complete_revision_keys(access_database):
             "field_name,ordinal,value_kind,record_id,scalar_json,stream_id,member_key,"
             "member_key_stream_id FROM kb.pdf_record_membership"
         )
+        conn.execute(text("SELECT ops.pdf_check_access_correspondence('b')"))
+
+
+@pytest.mark.parametrize("access_database", ["nested"], indirect=True)
+def test_nearest_section_owner_and_missing_parent_boundary(access_database):
+    with access_database.begin() as conn:
+        conn.execute(text("SELECT ops.pdf_check_access_correspondence('b')"))
+        conn.exec_driver_sql(
+            "UPDATE kb.pdf_record_access SET section_pointer='#/body' WHERE pointer='#/texts/0'"
+        )
+        with conn.begin_nested() as savepoint:
+            with pytest.raises(DBAPIError, match="native access section owner"):
+                conn.execute(text("SELECT ops.pdf_check_access_correspondence('b')"))
+            savepoint.rollback()
+
+
+@pytest.mark.parametrize("access_database", ["cycle"], indirect=True)
+def test_section_owner_refuses_rootless_cycle_with_null_owners(access_database):
+    with (
+        access_database.connect() as conn,
+        pytest.raises(DBAPIError, match="native access section owner"),
+    ):
         conn.execute(text("SELECT ops.pdf_check_access_correspondence('b')"))
