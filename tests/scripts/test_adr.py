@@ -19,6 +19,8 @@ DESIGN = """# Design
 
 @pytest.fixture
 def root(tmp_path: Path) -> Path:
+    # A runner can place pytest temporary paths inside its shallow checkout.
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     (tmp_path / "docs" / "adr").mkdir(parents=True)
     (tmp_path / "docs" / "design").mkdir(parents=True)
     (tmp_path / "docs" / "design" / "DESIGN.md").write_text(DESIGN)
