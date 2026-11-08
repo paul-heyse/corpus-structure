@@ -6,6 +6,7 @@ import pytest
 from pypdfium2 import PdfDocument, raw
 
 from corpus_structure.ingest.pdf_recognition import crop_transform, render_affine
+from corpus_structure.semantic import visual_routing
 from corpus_structure.semantic.visual_routing import (
     StudyRegion,
     VisualRouteCrop,
@@ -161,6 +162,60 @@ def test_crop_disagreement_needs_same_scope_and_preserves_exact_crop():
     assert _decide(151, scoped).crop == _REGION
     scoped.requests.append(VisualRouteReason(code="incomplete_request", inputs=(_PIN,)))
     assert _decide(151, scoped).crop is None
+
+
+@pytest.mark.parametrize("availability", ["missing_artifact", "artifact_over_budget", "available"])
+@pytest.mark.parametrize("exact_disagreement", [False, True])
+def test_crop_cue_preserves_unavailable_inputs_and_exact_positive_reason(
+    monkeypatch, availability, exact_disagreement
+):
+    whole = _layout(b"<x_0.2><y_0.2>4 & 10<x_0.8><y_0.4><class_Table>")
+    image = _image()
+    image.update(
+        width=240, height=80, transform=crop_transform(image["transform"], (80, 80, 320, 160))
+    )
+    unknown = _Observation(
+        _BASE,
+        image,
+        _readings(b"<x_0><y_0>Words<x_1><y_1><class_Table>", image)
+        if availability == "available"
+        else (),
+        availability,
+    )
+    observations = [("A", whole), ("B", whole), ("C", unknown)]
+    if exact_disagreement:
+        observations.append(
+            (
+                "C",
+                _Observation(
+                    _PIN.model_copy(update={"task_id": 3}),
+                    image,
+                    _readings(b"<x_0><y_0>7 & 10<x_1><y_1><class_Table>", image),
+                ),
+            )
+        )
+    rows = [
+        {"role": role, "outcome": "succeeded", "finish": "stop", "observation": observation}
+        for role, observation in observations
+    ]
+    monkeypatch.setattr(visual_routing, "_read_observation", lambda conn, row: row["observation"])
+    monkeypatch.setattr(visual_routing, "_omitted_crops", lambda *args: ([], "available", None))
+    signals = visual_routing._page_signals(
+        None, rows, [_region()], [], _BASE, (), ocr_assessed=True
+    )
+    route = _decide(151, signals)
+    cue = next(cue for cue in route.cues if cue.cue == "crop_comparison")
+    if exact_disagreement:
+        assert route.action == "recognize"
+        assert (cue.status, cue.reason) == ("positive", "located_quantity_disagreement")
+    else:
+        assert route.action == "unresolved"
+        expected = (
+            ("inconclusive", "no_exact_quantity_comparison")
+            if availability == "available"
+            else ("unassessed", availability)
+        )
+        assert (cue.status, cue.reason) == expected
 
 
 def test_rotated_cropbox_never_invents_native_crop_address():

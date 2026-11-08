@@ -261,7 +261,7 @@ def configured_pack_variants(prepared, cfg):
 
 class M1Candidates:
     name = "extract.m1_candidates"
-    version = "8"
+    version = "9"
     family = MethodFamily.EXTRACT
     unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.ENCODER

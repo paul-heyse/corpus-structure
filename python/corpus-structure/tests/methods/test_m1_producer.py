@@ -688,7 +688,7 @@ def test_witnessed_recipe_is_explicit_versioned_and_rejects_old_writer_config():
     methods = registry(ROOT / "domains/statistics")
     cfg = methods.overlay("extract.m1_candidates", "witnessed")
     assert isinstance(cfg, m1_source.M1Config)
-    assert m1_source.M1Candidates.version == "8"
+    assert m1_source.M1Candidates.version == "9"
     assert len(cfg.annotation_rules) == 15
     assert {(r.rule, r.variant) for r in cfg.annotation_rules} == {
         ("defining", "active_as"),

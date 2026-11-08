@@ -793,6 +793,7 @@ def _page_signals(
     ):
         unavailable = next((item.availability for item in observations if not item.readings), None)
         assessed = available and unavailable is None
+        detail = reason or ("assessed" if assessed or positive else "missing_input")
         return VisualCueAssessment(
             cue=name,
             status=(
@@ -801,15 +802,22 @@ def _page_signals(
                 else "negative"
                 if assessed
                 else "inconclusive"
-                if inconclusive or unavailable == "unsupported_reading"
+                if unavailable == "unsupported_reading" or (inconclusive and unavailable is None)
                 else "unassessed"
             ),
-            reason=unavailable or reason or ("assessed" if assessed else "missing_input"),
+            reason=detail if positive else unavailable or detail,
             inputs=tuple(item.pin for item in observations) + tuple(pins),
             artifact_digest=digest,
         )
 
     incomplete_comparison = bool(comparisons) and not all(complete for _, complete in comparisons)
+    comparison_reason = (
+        "located_quantity_disagreement"
+        if disagreements
+        else "no_exact_quantity_comparison"
+        if incomplete_comparison
+        else None
+    )
     signals.cues = (
         *((cue("layout", observations=layouts),) if layout is None else ()),
         cue(
@@ -821,7 +829,7 @@ def _page_signals(
             available=bool(comparisons) and not incomplete_comparison,
             positive=bool(disagreements),
             inconclusive=incomplete_comparison,
-            reason="no_exact_quantity_comparison" if incomplete_comparison else None,
+            reason=comparison_reason,
         ),
         cue(
             "crop_coverage",
