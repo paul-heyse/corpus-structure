@@ -1519,7 +1519,7 @@ BEGIN
    WHERE value->'component'->>'kind'='predicate_frame'
   ) block
   CROSS JOIN LATERAL (
-   SELECT jsonb_object_agg(predicate::text,members) roles FROM (
+   SELECT jsonb_object_agg(by_predicate.predicate::text,by_predicate.members) roles FROM (
     SELECT r.predicate,jsonb_agg(to_jsonb(r)-'predicate') members
     FROM ops.predicate_argument_inventory(
      p_view.projection,annotation_map->block.key->'tokens',interpretation_recipe) r

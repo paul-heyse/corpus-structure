@@ -21,9 +21,9 @@ from corpus_structure.evaluate.structural_assessment import (
     record_structural_reference_pass,
 )
 from corpus_structure.methods.m1_annotations import M1Annotations
-from corpus_structure.methods.scoped_relations import ScopedRelationsMethod
+from corpus_structure.methods.scoped_relations import ScopedRelationsWithRoleClosure
 from corpus_structure.methods.structural_products import (
-    StructuralComparisonMethod,
+    StructuralComparisonWithRoleClosure,
     StructuralDossierMethod,
 )
 from corpus_structure.orchestrate.commands import finalize_bound_run
@@ -212,7 +212,7 @@ def test_protected_comparison_yields_detached_unconnected_sides(
         dependencies=("controlled-original",),
     )
     scoped = run(
-        ScopedRelationsMethod(),
+        ScopedRelationsWithRoleClosure(),
         Stage.SCOPE,
         scope.sources,
         dict(inputs=scope.model_dump(mode="json"), structural_input_digest=scope.identity),
@@ -317,7 +317,9 @@ def test_protected_comparison_yields_detached_unconnected_sides(
         left_reading=readings["left"].model_dump(mode="json"),
         right_reading=readings["right"].model_dump(mode="json"),
     )
-    candidate = run(StructuralComparisonMethod(), Stage.ASSEMBLE, inputs.sources, cfg, "candidate")
+    candidate = run(
+        StructuralComparisonWithRoleClosure(), Stage.ASSEMBLE, inputs.sources, cfg, "candidate"
+    )
     _, raw = report_row(candidate, "structure.compare")
     product = StructuralProductReport.model_validate(raw["structural_product"])
     assert structural_statement(product) == expected
@@ -331,7 +333,7 @@ def test_protected_comparison_yields_detached_unconnected_sides(
         policy_id=POLICY,
     )
     published = run(
-        StructuralComparisonMethod(),
+        StructuralComparisonWithRoleClosure(),
         Stage.ASSEMBLE,
         inputs.sources,
         cfg,
