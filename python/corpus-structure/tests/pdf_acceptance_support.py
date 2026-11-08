@@ -392,7 +392,7 @@ def write_controlled_pdf(path: Path, paragraphs: tuple[str, ...]) -> bytes:
 
 
 def publish_controlled_pdf_views(
-    engine, *, prepared, run_id, document_id, original, paragraphs, keys, source_claim=None
+    engine, *, prepared, run_id, document_id, original, paragraphs, keys=None, source_claim=None
 ):
     """Retain authored sections; a supplied claim leaves terminal settlement with its owner."""
     from dataclasses import replace
@@ -512,7 +512,9 @@ def publish_controlled_pdf_views(
         if reader is None:
             raise AssertionError("controlled source has no published record binding")
         views = []
-        for index, (key, section) in enumerate(zip(keys, sections, strict=True)):
+        for index, (key, section) in enumerate(
+            zip(keys if keys is not None else (None,) * len(sections), sections, strict=True)
+        ):
             membership = "descendants" if index == 0 and len(sections) > 1 else "direct"
             (draft,) = published_section_drafts(
                 reader,
@@ -522,7 +524,8 @@ def publish_controlled_pdf_views(
                 scope=None,
                 consumer_release=prepared.release_id,
             )
-            draft = replace(draft, key=key)
+            if key is not None:
+                draft = replace(draft, key=key)
             view_id = store_source_view(
                 conn,
                 run_id=run_id,

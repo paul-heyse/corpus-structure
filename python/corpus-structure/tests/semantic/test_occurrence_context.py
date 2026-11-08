@@ -56,9 +56,15 @@ def test_occurrences_keep_statement_and_citation_roles_in_query_explain(
     from pdf_acceptance_support import independent_pdf_address
 
     with semantic_reader_engine.connect() as conn:
-        expected_quote = independent_pdf_address(conn, run, "page#one", start=0, end=14)
-        first_anchor = independent_pdf_address(conn, run, "page#one", pointer="#/groups/0")
-        second_anchor = independent_pdf_address(conn, run, "page#one", start=15, end=29)
+        views, selected = table("kb.source_view"), table("ops.run_source_view")
+        key = conn.execute(
+            select(views.c.key)
+            .join(selected, selected.c.source_view_id == views.c.id)
+            .where(selected.c.run_id == run, selected.c.position == 0)
+        ).scalar_one()
+        expected_quote = independent_pdf_address(conn, run, key, start=0, end=14)
+        first_anchor = independent_pdf_address(conn, run, key, pointer="#/groups/0")
+        second_anchor = independent_pdf_address(conn, run, key, start=15, end=29)
     consolidate_cut(semantic_writer_engine, cut, "evaluated")
     with read_session(semantic_reader_engine, "evaluated") as session:
         cls = session.class_handle("Person")

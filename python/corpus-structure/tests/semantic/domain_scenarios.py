@@ -259,7 +259,6 @@ def build_domain_case(
         document_id=document,
         original=original,
         paragraphs=paragraphs,
-        keys=("page#one", "page#two") if double_source else ("page#one",),
     )
     with writer.begin() as conn:
         view = views[0]
@@ -301,10 +300,10 @@ def build_domain_case(
 
         capture_source_frame(conn, task, packet)
     raw: dict[str, Any] = {
-        "unit_ref": "page#one",
+        "unit_ref": view.ref.key,
         "entities": [{"id": "person", "class_iri": "https://example.org/Person", "label": "Alice"}],
         "statements": [
-            {"id": "s", "kind": "remark", "anchor": "s1" if statement_packets else "page#one"}
+            {"id": "s", "kind": "remark", "anchor": "s1" if statement_packets else view.ref.key}
         ],
         "claims": [
             {
@@ -495,11 +494,11 @@ def build_domain_case(
             second = copy.deepcopy(raw)
             if formulas:
                 second["claims"][0]["object"]["bindings"] = [{"symbol": "x", "kind": "constant"}]
-            second_unit = "page#two" if statement_packets == "different" else "page#one"
+            second_view = views[1] if statement_packets == "different" else view
+            second_unit = second_view.ref.key
             second["unit_ref"] = second_unit
             if statement_packets == "different":
                 second["statements"][0]["kind"] = "theorem"
-            second_view = views[1] if statement_packets == "different" else view
             second_frame = native_source_frame(second_view, (("s1", 0, 14),))
             second_packet = proposal_packet(prepared, second_frame, guideline="", configuration={})
             second_located = locate_proposal(prepared, second, second_frame)
@@ -598,7 +597,6 @@ def build_domain_case(
             document_id=foreign_document,
             original=foreign_original,
             paragraphs=("Alice is here.",),
-            keys=("outside#one",),
         )
         foreign_frame = native_source_frame(foreign_view, (("s1", 0, 14),))
         foreign_packet = proposal_packet(prepared, foreign_frame, guideline="", configuration={})
