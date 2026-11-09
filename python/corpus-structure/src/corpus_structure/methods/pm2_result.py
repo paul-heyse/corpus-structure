@@ -6,7 +6,7 @@ import json
 from collections.abc import Mapping
 from dataclasses import asdict
 from hashlib import sha256
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from corpus_structure.core.method import UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
@@ -16,12 +16,14 @@ from corpus_structure.semantic.contributions import (
     operation_identity,
 )
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
     evidence_anchor,
     record_source_pin,
 )
 
+from .pm2_products import PARSER_QUESTIONS, ParserProducts
 from .pm2_source import (
     D1SourceField,
     MappedSource,
@@ -34,6 +36,25 @@ from .pm2_source import (
     map_hanlp,
     map_maverick,
 )
+
+if TYPE_CHECKING:
+    from corpus_structure.semantic.types import PreparedRelease
+
+
+def _parser_products(provider, mapping, request, reply, prepared) -> ParserProducts:
+    if provider == "maverick" and isinstance(mapping, PM2TokenMap):
+        from .pm2_maverick_products import maverick_products
+
+        return maverick_products(mapping, request, reply)
+    if provider == "hanlp" and isinstance(mapping, PM2TokenMap):
+        from .pm2_hanlp_products import hanlp_products
+
+        return hanlp_products(mapping, request, reply)
+    if provider == "dipo" and isinstance(mapping, PM2SourceMap):
+        from .pm2_dipo_products import dipo_products
+
+        return dipo_products(mapping, request, reply, prepared=prepared)
+    raise ValueError("parser operation differs from its qualified provider map")
 
 
 def d1_evidence(
@@ -170,6 +191,7 @@ def pm2_unit_result(
     input_digest: str,
     source_path: str | None = None,
     field: D1SourceField | None = None,
+    prepared: PreparedRelease | None = None,
 ) -> UnitResult:
     """Bind the native reply, exact selected evidence, and eligible physical locations.
 
@@ -197,11 +219,18 @@ def pm2_unit_result(
         pin["source"],
     ):
         raise ValueError("admitted task unit differs from the PM2 source view")
-    evidence = (
-        _native_evidence(mapping, str(profile["provider"]), request, reply, field, source_path)
-        if outcome == "succeeded"
-        else {}
-    )
+    provider = str(profile["provider"])
+    parser_operation = question in PARSER_QUESTIONS.values()
+    if parser_operation and question != PARSER_QUESTIONS.get(provider):
+        raise ValueError("parser question differs from the admitted provider")
+    products = ()
+    evidence = {}
+    if outcome == "succeeded":
+        if parser_operation:
+            parsed = _parser_products(provider, mapping, request, reply, prepared)
+            evidence, products = parsed.locations, parsed.products
+        else:
+            evidence = _native_evidence(mapping, provider, request, reply, field, source_path)
     rows, coordinates, locations = [], [], {}
     for name, result in evidence.items():
         if result.scope_digest != source_map.scope_digest:
@@ -251,6 +280,37 @@ def pm2_unit_result(
         row["contribution_id"] = contribution_identity(row)
         rows.append(row)
         location.update(outcome="succeeded", occurrence_id=row["occurrence_id"])
+    retained = {row["item_key"]: row["contribution_id"] for row in rows}
+    defined_keys = set(evidence)
+    for product in products:
+        if product.key in defined_keys or not set(product.members) <= defined_keys:
+            raise ValueError("parser product has a duplicate key or an unavailable member")
+        defined_keys.add(product.key)
+        members = tuple(retained[key] for key in product.members if key in retained)
+        row = {
+            "contract": "RetainedContributionSemantics",
+            "kind": "composite" if members else "proposal",
+            "semantic_type": product.semantic_type,
+            "operation_key": operation_key,
+            "item_key": product.key,
+            "pin": pin,
+            "members": members,
+            "anchors": (),
+            "disposition": "unassessed",
+            "standing": "retained_private",
+            "score_state": "missing",
+            "value": source_value(
+                {
+                    **product.value,
+                    "location_keys": list(product.members),
+                    "unlocated_members": [key for key in product.members if key not in retained],
+                }
+            ),
+            "computation_dependencies": (input_digest,),
+        }
+        row["contribution_id"] = contribution_identity(row)
+        retained[product.key] = row["contribution_id"]
+        rows.append(row)
     report: dict[str, Any] = {
         "native": reply,
         "locations": locations,

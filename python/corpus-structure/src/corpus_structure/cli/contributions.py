@@ -18,6 +18,7 @@ def contributions(
     ctx: typer.Context,
     run: Annotated[int, typer.Option()],
     source_view: int | None = None,
+    selected_task_id: int | None = None,
     method: str | None = None,
     operation: str | None = None,
     operation_version: str | None = None,
@@ -49,6 +50,7 @@ def contributions(
             dict(
                 run_id=run,
                 source_view_id=source_view,
+                selected_task_id=selected_task_id,
                 method=method,
                 operation_key=operation,
                 operation_version=operation_version,

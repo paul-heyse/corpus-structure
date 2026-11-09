@@ -1,0 +1,511 @@
+"""Explicit development execution of retained-source parser scopes."""
+
+from __future__ import annotations
+
+import json
+from collections import defaultdict, deque
+from dataclasses import dataclass
+from hashlib import sha256
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import Annotated, Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+from sqlalchemy import Engine, func, select, text
+
+from corpus_structure.core.method import UnitRef
+from corpus_structure.core.provenance import code_commit
+from corpus_structure.core.vocab import TaskUnitType
+from corpus_structure.ingest.sentences import Block, SentenceConfig, split
+from corpus_structure.methods.pm2_products import PARSER_QUESTIONS
+from corpus_structure.methods.pm2_result import pm2_input_digest
+from corpus_structure.methods.pm2_source import (
+    PM2SourceMap,
+    PM2TokenMap,
+    ProviderToken,
+    SourceMapSegment,
+)
+from corpus_structure.methods.pm2_worker import Pm2WorkerError, open_pm2_worker
+from corpus_structure.semantic._operation_calls import select_source_view
+from corpus_structure.semantic._operation_ids import RunId, SourceViewId
+from corpus_structure.semantic.claim_lifetime import maintained_claims
+from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.operations import (
+    OperationBinding,
+    OperationConflict,
+    OperationDescriptor,
+    claim_tasks,
+    create_run,
+    create_task,
+    record_method,
+    start_run,
+)
+from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
+from corpus_structure.semantic.proposals import native_source_frame
+from corpus_structure.semantic.releases import open_release
+from corpus_structure.semantic.source_contexts import (
+    NativeSourceContext,
+    PreparedNativeSources,
+    SourceSlice,
+)
+from corpus_structure.semantic.source_views import load_source_view
+from corpus_structure.semantic.structural_products import ExternalSourceRef
+from corpus_structure.settings import Settings
+
+from .commands import _finalize_bound_run
+from .liveness import supervise_run
+from .pm2 import settle_pm2_claim
+
+Provider = Literal["hanlp", "maverick", "dipo"]
+Extent = tuple[Annotated[int, Field(ge=0)], Annotated[int, Field(ge=0)]]
+
+
+class ParserProfile(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    provider: Provider
+    device: Literal["cpu", "cuda"]
+    startup: dict[str, JsonValue]
+
+
+class ParserScope(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    source: ExternalSourceRef
+    extent: Extent
+    profile: ParserProfile
+    language: Literal["en"] = "en"
+    mode: Literal["ordinary", "supplied_mentions", "layout_forced", "supplied_edus"] = "ordinary"
+    supplied: tuple[Extent, ...] = Field(default=(), max_length=128)
+
+    @model_validator(mode="after")
+    def check_mode(self):
+        expected = {
+            "hanlp": {"ordinary"},
+            "maverick": {"ordinary", "supplied_mentions"},
+            "dipo": {"ordinary", "layout_forced", "supplied_edus"},
+        }
+        if self.mode not in expected[self.profile.provider]:
+            raise ValueError("parser mode does not belong to its profile")
+        if bool(self.supplied) != self.mode.startswith("supplied_"):
+            raise ValueError("supplied mode requires its exact reviewed extents")
+        if (
+            self.profile.startup.get("provider") != self.profile.provider
+            or str(self.profile.startup.get("device", "")).split(":")[0] != self.profile.device
+        ):
+            raise ValueError("startup identity differs from the selected parser and device")
+        return self
+
+
+class ParserRunRequest(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    project: Annotated[str, Field(min_length=1)]
+    release: Annotated[str, Field(min_length=1)]
+    realization: Annotated[str, Field(min_length=1)]
+    assets: Path
+    max_source_bytes: int = Field(default=64 * 1024 * 1024, ge=1, le=512 * 1024 * 1024)
+    scopes: tuple[ParserScope, ...] = Field(min_length=1, max_length=64)
+
+
+class ParserRunReport(BaseModel):
+    run_id: int
+    cut_id: int
+    release: str
+    realization: str
+    tasks: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class _Work:
+    scope: ParserScope
+    profile: ParserProfile
+    mapping: PM2SourceMap | PM2TokenMap
+    request: dict[str, Any]
+    ref: UnitRef
+    method: OperationDescriptor
+    question: str
+    input_digest: str
+
+
+def _sentences(view) -> list[tuple[int, int]]:
+    atoms = tuple((token.start, token.end) for token in view.layout.tokens if token.role != "prose")
+    (bounds,) = split(
+        [Block(view.text, atoms, (), ())],
+        SentenceConfig(),
+        layouts=[view.layout],
+        policy=view.text_policy,
+    )
+    return bounds
+
+
+def _work(
+    scope: ParserScope,
+    view,
+    source,
+    preparation: PreparedNativeSources,
+    canonical_sentences: list[tuple[int, int]],
+    *,
+    parent: str | None = None,
+) -> _Work:
+    start, end = scope.extent
+    if not 0 <= start < end <= len(view.text) or end - start > 65_536:
+        raise ValueError("parser scope is outside the selected projection or character budget")
+    context = NativeSourceContext(
+        source,
+        (),
+        (SourceSlice(source.source_view_id, start, end),),
+        "private parser",
+        "pm2-parser-scope-1",
+        "explicit selected source scope"
+        if parent is None
+        else f"coherent split of {parent}; cross-boundary relations unexamined",
+        max_chars=65_536,
+        max_pieces=1024,
+        version=2,
+        preparation=preparation,
+    )
+    tokens = [token for token in view.layout.tokens if token.end > start and token.start < end]
+    if any(token.start < start or token.end > end for token in tokens):
+        raise ValueError("parser scope cuts a canonical token")
+    atoms = tuple(
+        (token.start - start, token.end - start) for token in tokens if token.role != "prose"
+    )
+    mapping = PM2SourceMap(
+        context, context.text, (SourceMapSegment(0, len(context.text), 0),), atoms
+    )
+    provider = scope.profile.provider
+    request: dict[str, Any]
+    effective: PM2SourceMap | PM2TokenMap = mapping
+    if provider == "dipo":
+        request = {
+            "text": context.text,
+            "mode": "learned" if scope.mode == "ordinary" else scope.mode,
+        }
+        if scope.supplied:
+            request["edu_ranges"] = [list(pair) for pair in scope.supplied]
+    else:
+        covered = [
+            (left, right) for left, right in canonical_sentences if right > start and left < end
+        ]
+        if not covered or covered[0][0] < start or covered[-1][1] > end:
+            raise ValueError(
+                f"parser scope {source.source_view_id}:{start}-{end} cuts a canonical sentence"
+            )
+        sentence_bounds = [(left - start, right - start) for left, right in covered]
+        aligned = []
+        sentences = []
+        sentence = 0
+        for token in tokens:
+            left, right = token.start - start, token.end - start
+            word = context.text[left:right]
+            if not word.strip():
+                continue
+            while sentence < len(sentence_bounds) and left >= sentence_bounds[sentence][1]:
+                sentence += 1
+            if sentence == len(sentence_bounds) or not (
+                sentence_bounds[sentence][0] <= left < right <= sentence_bounds[sentence][1]
+            ):
+                raise ValueError("sentence boundaries cut a canonical parser token")
+            if len(sentences) == sentence:
+                sentences.append([])
+            sentences[sentence].append(word)
+            aligned.append(ProviderToken(word, left, right, sentence))
+        if not aligned:
+            raise ValueError("parser scope contains no canonical running text")
+        effective = PM2TokenMap(mapping, tuple(aligned))
+        request = {"sentences": sentences}
+        if scope.supplied:
+            starts = {token.start: index for index, token in enumerate(aligned)}
+            ends = {token.end: index for index, token in enumerate(aligned)}
+            for left, right in scope.supplied:
+                if left not in starts or right not in ends or starts[left] > ends[right]:
+                    raise ValueError("reviewed mention cuts or reverses canonical tokens")
+                if aligned[starts[left]].sentence != aligned[ends[right]].sentence:
+                    raise ValueError("reviewed mention crosses a canonical sentence")
+            request["predefined_mentions"] = [
+                [starts[left], ends[right]] for left, right in scope.supplied
+            ]
+    question = PARSER_QUESTIONS[provider]
+    method = OperationDescriptor(
+        f"extract.pm2_{provider}",
+        "1",
+        "extract",
+        "encoder",
+        TaskUnitType.SOURCE_VIEW,
+        ParserProfile,
+    )
+    ref = UnitRef(TaskUnitType.SOURCE_VIEW, source.source_view_id, source.unit_ref)
+    digest = pm2_input_digest(
+        effective,
+        scope.profile.startup,
+        request,
+        question=question,
+        operation_version=method.version,
+    )
+    return _Work(scope, scope.profile, effective, request, ref, method, question, digest)
+
+
+def _partition(extent: Extent, sentences: list[tuple[int, int]]) -> tuple[Extent, ...]:
+    start, end = extent
+    whole = [(left, right) for left, right in sentences if start <= left < right <= end]
+    cuts = [left for left, _ in whole[1:]]
+    if not cuts:
+        return ()
+    middle = min(cuts, key=lambda cut: (abs(2 * cut - start - end), cut))
+    return (start, middle), (middle, end)
+
+
+def _schedule(conn, run, config, item):
+    return create_task(
+        conn,
+        run_id=run,
+        config_id=config,
+        stage="extract",
+        unit_type="source_view",
+        unit_id=item.ref.unit_id,
+        unit_key=item.ref.unit_key,
+        input_hash=item.input_digest,
+    )
+
+
+def _limited(conn, task_ids):
+    task, result = table("ops.task"), table("ops.task_result")
+    return tuple(
+        conn.scalars(
+            select(task.c.id)
+            .join(result, result.c.task_id == func.coalesce(task.c.reused_task_id, task.c.id))
+            .where(
+                task.c.id.in_(task_ids),
+                result.c.body["contribution_operations"][0]["outcome"].astext == "limited",
+            )
+            .order_by(task.c.id)
+        )
+    )
+
+
+def run_parsers(engine: Engine, settings: Settings, request: ParserRunRequest) -> ParserRunReport:
+    """Select immutable source, settle scoped native work, and finalize a private result."""
+    with engine.connect() as conn:
+        prepared = open_release(conn, request.release)
+        realization = table("data.realization")
+        revision = conn.scalar(
+            select(realization.c.data_revision).where(
+                realization.c.realization_id == request.realization,
+                realization.c.release_id == request.release,
+                realization.c.project_id == request.project,
+                realization.c.state == "active",
+            )
+        )
+        if revision is None:
+            raise OperationConflict(
+                "parser input realization is unavailable under the selected release"
+            )
+        views = {}
+        source_refs = {}
+        read_budget = PublishedReadBudget(max_rows=100_000, max_bytes=request.max_source_bytes)
+        for scope in request.scopes:
+            ref = scope.source
+            if ref.project_id != request.project:
+                raise OperationConflict("parser source belongs to another project")
+            old = source_refs.setdefault(ref.source_view_id, ref)
+            if old != ref:
+                raise OperationConflict("one parser view was supplied under competing source pins")
+            if ref.source_view_id not in views:
+                conn.execute(
+                    text("SELECT ops.validate_structural_source(CAST(:pin AS jsonb))"),
+                    {"pin": ref.model_dump_json()},
+                )
+                views[ref.source_view_id] = load_source_view(
+                    conn, ref.source_view_id, analysis_context=prepared, read_budget=read_budget
+                )
+
+    sources = {identity: native_source_frame(view, ()) for identity, view in views.items()}
+    preparation = PreparedNativeSources(tuple(sources.values()), max_sources=len(sources))
+    token_views = {
+        scope.source.source_view_id for scope in request.scopes if scope.profile.provider != "dipo"
+    }
+    sentence_bounds = {identity: _sentences(views[identity]) for identity in token_views}
+    work = [
+        _work(
+            scope,
+            views[scope.source.source_view_id],
+            sources[scope.source.source_view_id],
+            preparation,
+            sentence_bounds.get(scope.source.source_view_id, []),
+        )
+        for scope in request.scopes
+    ]
+    if len({item.input_digest for item in work}) != len(work):
+        raise ValueError("duplicate logical parser scope")
+
+    with engine.begin() as conn:
+        run = create_run(
+            conn,
+            project_id=request.project,
+            binding=OperationBinding(
+                request.release,
+                request.realization,
+                revision,
+                canonical_bytes({"parser_scope_policy": "pm2-parser-scope-1"}),
+            ),
+            kind="slice",
+            options={
+                "parser_scopes": [
+                    scope.model_dump(mode="json", exclude={"profile"}) for scope in request.scopes
+                ]
+            },
+            code_commit=code_commit(),
+            prepared=prepared,
+        )
+        start_run(conn, run, prepared=prepared)
+        for ref in source_refs.values():
+            select_source_view(
+                conn,
+                run_id=run,
+                source_run_id=RunId(ref.run_id),
+                source_view_id=SourceViewId(ref.source_view_id),
+                projection_context=prepared,
+            )
+        groups = defaultdict(dict)
+        for item in work:
+            params = item.profile.model_dump(mode="json")
+            config_hash = sha256(canonical_bytes(params)).hexdigest()
+            config = record_method(
+                conn,
+                item.method,
+                item.profile.device,
+                params,
+                config_hash,
+                prepared=prepared,
+            )
+            task = _schedule(conn, run, config, item)
+            groups[config, config_hash][task] = item
+
+    script = Path(__file__).resolve().parents[1] / "methods" / "pm2_native.py"
+    root = script.parents[5]
+    holder = f"pm2-parsers:{run}"
+    remaining_splits = 64
+    with supervise_run(engine, run), TemporaryDirectory(prefix="pm2-profiles-") as tmp:
+        profile_path = Path(tmp) / "profile.json"
+        for (config, config_hash), items in groups.items():
+            profile = next(iter(items.values())).profile
+            profile_path.write_text(
+                json.dumps(
+                    {
+                        "provider": profile.provider,
+                        "device": profile.device,
+                        "assets": str(request.assets.resolve()),
+                    }
+                )
+            )
+            interpreter = root / f"services/pm2-{profile.provider}/.venv/bin/python"
+
+            def settle(
+                owner,
+                claim,
+                worker,
+                *,
+                startup_error=None,
+                items=items,
+                profile=profile,
+                config_hash=config_hash,
+            ):
+                item = items[claim.task_id]
+                settle_pm2_claim(
+                    owner,
+                    claim,
+                    worker,
+                    item.mapping,
+                    item.request,
+                    expected_profile=profile.startup,
+                    question=item.question,
+                    operation_version=item.method.version,
+                    prepared=prepared,
+                    method=item.method,
+                    configuration_hash=config_hash,
+                    startup_error=startup_error,
+                )
+
+            wave = tuple(items)
+            while wave:
+                with engine.begin() as conn:
+                    claims = claim_tasks(
+                        conn,
+                        run_id=run,
+                        config_id=config,
+                        holder=holder,
+                        limit=len(items),
+                        prepared=prepared,
+                    )
+                pending = deque(claims)
+                with maintained_claims(engine, claims, holder) as owner:
+                    while pending:
+                        startup_error = None
+                        entered = False
+                        try:
+                            with open_pm2_worker(
+                                python=interpreter,
+                                script=script,
+                                profile=profile_path,
+                                device=profile.device,
+                                check_active=owner,
+                                nemotron_endpoint=settings.nemotron.endpoint
+                                if profile.device == "cuda"
+                                else None,
+                            ) as worker:
+                                entered = True
+                                if worker.startup != profile.startup:
+                                    startup_error = (
+                                        "loaded parser differs from the admitted profile"
+                                    )
+                                else:
+                                    while pending and not worker.closed:
+                                        settle(owner, pending.popleft(), worker)
+                        except Pm2WorkerError as error:
+                            if entered:
+                                raise
+                            startup_error = str(error)
+                        if startup_error is not None:
+                            while pending:
+                                settle(owner, pending.popleft(), None, startup_error=startup_error)
+
+                with engine.connect() as conn:
+                    limited = _limited(conn, wave)
+                children = []
+                for task in limited:
+                    item = items[task]
+                    if item.scope.mode != "ordinary":
+                        continue
+                    identity = item.scope.source.source_view_id
+                    if identity not in sentence_bounds:
+                        sentence_bounds[identity] = _sentences(views[identity])
+                    if remaining_splits < 2:
+                        break
+                    for extent in _partition(item.scope.extent, sentence_bounds[identity]):
+                        child = item.scope.model_copy(update={"extent": extent})
+                        children.append(
+                            _work(
+                                child,
+                                views[identity],
+                                sources[identity],
+                                preparation,
+                                sentence_bounds[identity],
+                                parent=item.input_digest,
+                            )
+                        )
+                        remaining_splits -= 1
+                with engine.begin() as conn:
+                    wave = tuple(_schedule(conn, run, config, child) for child in children)
+                items.update(zip(wave, children, strict=True))
+        result = _finalize_bound_run(
+            engine, run, f"private:pm2-parsers:{run}", analytics=settings.analytics
+        )
+    return ParserRunReport(
+        run_id=run,
+        cut_id=result.cut_id,
+        release=request.release,
+        realization=result.realization_id,
+        tasks=tuple(int(task) for items in groups.values() for task in items),
+    )

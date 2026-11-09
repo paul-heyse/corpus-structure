@@ -181,7 +181,9 @@ def load_maverick(assets: Path, device: str) -> tuple[Payload, Inference]:
             if endpoints:
                 clusters.append(endpoints)
         return {
-            "outcome": "succeeded" if mentions_subtokens or clusters_subtokens else "empty",
+            "outcome": "succeeded"
+            if supplied or mentions_subtokens or clusters_subtokens
+            else "empty",
             "post_tokenizer_tokens": post_tokenizer,
             "tokens": result["tokens"],
             "mentions": inventory,
@@ -211,6 +213,11 @@ def load_dipo(assets: Path, device: str) -> tuple[Payload, Inference]:
             _bound("post_tokenizer_tokens", post_tokenizer, _DIPO_TOKENS)
             return super()._encode_tokens(input_ids)
 
+        def _build_edu_reprs(self, embeddings: Any, edu_mapping: Any) -> Any:
+            # predict_both bypasses the raw post-merge recovery seam.
+            _bound("edus", len(edu_mapping), _DIPO_EDUS)
+            return super()._build_edu_reprs(embeddings, edu_mapping)
+
     parser = BoundedDmrst.from_pretrained(
         str(assets / "dipo"), device=device, compile_encoder=False, token=False
     )
@@ -225,20 +232,50 @@ def load_dipo(assets: Path, device: str) -> tuple[Payload, Inference]:
     ):
         raise ValueError("unexpected Dipo DMRST configuration")
     native_recover = native.edus_from_breaks
+    native_breaks = parser.segmenter.predict_breaks
+    native_tokenize = native.tokenize_document
 
-    def infer(request: Payload) -> Payload:
-        text = request.get("text")
-        if not isinstance(text, str):
-            raise ValueError("Dipo requires a rendered text scope")
-        if not text.strip():
-            return {"outcome": "empty", "edus": [], "spans": []}
+    def splits(tree: Any) -> list[Payload]:
+        return [
+            {"left": left, "right": right, "nuclearity": nuclearity, "relation": relation}
+            for (left, right), nuclearity, relation in tree.spans_with_ranges()
+        ]
+
+    def raw_parse(text: str, mode: str) -> Payload:
         edus = []
+        learned: list[int] = []
+        boundaries = []
+
+        def predict_breaks(embeddings: Any) -> list[int]:
+            result = native_breaks(embeddings)
+            learned.extend(result)
+            return result
 
         def recover(
             source: str, char_map: list[int], offsets: list[tuple[int, int]], breaks: list[int]
         ) -> Any:
             mapping, texts = native_recover(source, char_map, offsets, breaks)
             _bound("edus", len(mapping), _DIPO_EDUS)
+            forced = set(
+                native.with_forced_breaks(
+                    source, char_map, offsets, [], native.line_start_breaks(source)
+                )
+                if mode == "layout_forced"
+                else ()
+            )
+            learned_set = set(learned)
+            if set(breaks) != learned_set | forced:
+                raise ValueError("Dipo boundary provenance differs from native breaks")
+            final = {end - 1 for _, end in mapping}
+            boundaries.extend(
+                {
+                    "token_end": stop + 1,
+                    "learned": stop in learned_set,
+                    "forced": stop in forced,
+                    "disposition": "retained" if stop in final else "merged",
+                }
+                for stop in breaks
+            )
             starts = [char_map[offsets[begin][0]] for begin, _end in mapping]
             ends = [*starts[1:], len(source)]
             for (begin, stop), start, end, value in zip(mapping, starts, ends, texts, strict=True):
@@ -247,26 +284,126 @@ def load_dipo(assets: Path, device: str) -> tuple[Payload, Inference]:
                 edus.append({"tokens": [begin, stop], "chars": [start, end], "text": value})
             return mapping, texts
 
+        native.edus_from_breaks = recover
+        parser.segmenter.predict_breaks = predict_breaks
         try:
-            _bound("input_bytes", len(text.encode()), _TEXT_BYTES)
-            native.edus_from_breaks = recover
-            try:
-                tree = parser.predict_from_text(text, break_at_paragraphs=False)
-            finally:
-                native.edus_from_breaks = native_recover
-        except _RequestLimit as exc:
-            return exc.result
+            tree = parser.predict_from_text(text, break_at_paragraphs=mode == "layout_forced")
+        finally:
+            native.edus_from_breaks = native_recover
+            parser.segmenter.predict_breaks = native_breaks
         if len(tree.edus) != len(edus):
             raise ValueError("Dipo recovered EDU count differs from its native tree")
         return {
             "outcome": "succeeded",
+            "mode": mode,
             "post_tokenizer_tokens": post_tokenizer,
             "edus": edus,
-            "spans": [
-                {"left": left, "right": right, "nuclearity": nuclearity, "relation": relation}
-                for (left, right), nuclearity, relation in tree.spans_with_ranges()
-            ],
+            "spans": splits(tree),
+            "boundaries": boundaries,
         }
+
+    def paired_parse(text: str, ranges: Any) -> Payload:
+        if not isinstance(ranges, list) or not ranges:
+            raise ValueError("Dipo supplied EDUs require ordered source ranges")
+        _bound("supplied_edus", len(ranges), _DIPO_EDUS)
+        edus = []
+        prefixes = []
+        previous = 0
+        for bounds in ranges:
+            if (
+                not isinstance(bounds, list)
+                or len(bounds) != 2
+                or any(type(bound) is not int for bound in bounds)
+            ):
+                raise ValueError("invalid Dipo supplied EDU range")
+            start, end = bounds
+            if (
+                not previous <= start < end <= len(text)
+                or text[previous:start].strip()
+                or not text[start:end].strip()
+            ):
+                raise ValueError("Dipo supplied EDUs must cover ordered non-whitespace source")
+            edus.append(text[start:end])
+            prefixes.append(text[previous:start])
+            previous = end
+        if text[previous:].strip():
+            raise ValueError("Dipo supplied EDUs omit trailing source text")
+        origin = ranges[0][0]
+        # predict_both reads the leaves and their prefixes. These scaffold splits
+        # only construct a valid native input and are never returned as predictions.
+        relation = next(name for name, kind in parser.config.relation_types if kind == "rst")
+        tree = native.RstTree.from_parsing_actions(
+            [(index, "NS", relation) for index in range(1, len(edus))],
+            edus,
+            relation_types=parser.config.relation_types,
+        )
+        for edu, prefix in zip(tree.edus, prefixes, strict=True):
+            edu.prefix = prefix
+
+        reconstruction = None
+
+        def tokenize(*args: Any, **kwargs: Any) -> Any:
+            nonlocal reconstruction
+            result = native_tokenize(*args, **kwargs)
+            _, _, rebuilt, offsets = result
+            if rebuilt != text[origin:previous]:
+                raise ValueError("Dipo paired reconstruction differs from its retained source")
+            reconstruction = (rebuilt, offsets)
+            return result
+
+        native.tokenize_document = tokenize
+        try:
+            result = parser.predict_both(tree)
+        finally:
+            native.tokenize_document = native_tokenize
+        if reconstruction is None or result["e2e_pred"] is None:
+            raise ValueError("Dipo paired prediction omitted its reconstructed input or arm")
+        rebuilt, offsets = reconstruction
+        supplied = [
+            {"tokens": pair, "chars": [start - origin, end - origin], "text": value}
+            for pair, (start, end), value in zip(
+                result["gold_edu_mapping"], ranges, edus, strict=True
+            )
+        ]
+        predicted = [
+            {
+                "tokens": [begin, end],
+                "chars": [offsets[begin][0], offsets[end - 1][1]],
+                "text": value,
+            }
+            for (begin, end), value in zip(
+                result["pred_edu_mapping"], result["e2e_pred"].edu_strings, strict=True
+            )
+        ]
+        return {
+            "outcome": "succeeded",
+            "mode": "supplied_edus",
+            "post_tokenizer_tokens": post_tokenizer,
+            "reconstruction": {"text": rebuilt, "raw_start": origin, "raw_end": previous},
+            "arms": {
+                "supplied": {"edus": supplied, "spans": splits(result["gold_pred"])},
+                "predicted": {"edus": predicted, "spans": splits(result["e2e_pred"])},
+            },
+        }
+
+    def infer(request: Payload) -> Payload:
+        text = request.get("text")
+        mode = request.get("mode", "learned")
+        if not isinstance(text, str):
+            raise ValueError("Dipo requires a rendered text scope")
+        if mode not in ("learned", "layout_forced", "supplied_edus"):
+            raise ValueError("unsupported Dipo prediction mode")
+        if mode != "supplied_edus" and "edu_ranges" in request:
+            raise ValueError("reviewed EDU ranges require the Dipo supplied mode")
+        try:
+            _bound("input_bytes", len(text.encode()), _TEXT_BYTES)
+            if mode == "supplied_edus":
+                return paired_parse(text, request.get("edu_ranges"))
+            if not text.strip():
+                return {"outcome": "empty", "edus": [], "spans": [], "mode": mode}
+            return raw_parse(text, mode)
+        except _RequestLimit as exc:
+            return {**exc.result, "mode": mode}
 
     return {
         **_native_metadata(parser, parser.encoder),

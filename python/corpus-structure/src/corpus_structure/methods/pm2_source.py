@@ -18,12 +18,14 @@ from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
     NativeSourcePin,
     NativeSpanEvidence,
+    NativeSpanReading,
     SourceSlice,
     evidence_anchor,
 )
 
 if TYPE_CHECKING:
     from corpus_structure.ingest.annotations import AnnotationInput
+    from corpus_structure.semantic.types import PreparedRelease
 
 
 class SourceMapReason(StrEnum):
@@ -224,6 +226,41 @@ class PM2SourceMap:
     def _cuts_atom(self, position: int) -> bool:
         index = bisect_right(self._atom_ends, position)
         return index < len(self.protected_atoms) and self.protected_atoms[index][0] < position
+
+    def map_whitespace_reading(
+        self, span: ProviderSpan, *, scope_digest: str, prepared: PreparedRelease
+    ) -> tuple[MappedSource, NativeSpanReading]:
+        """Keep native pieces and explicit synthetic gaps in the same bounded reading."""
+        self.require_scope(scope_digest)
+        start, end = self._layout_bounds(span)
+        if self._cuts_atom(start) or self._cuts_atom(end):
+            raise self.refuse(SourceMapReason.PROTECTED_ATOM, "extent cuts a source atom")
+        try:
+            reading = self.context.read_span(
+                start, end, prepared=prepared, policy="synthetic-whitespace-1", literal=span.literal
+            )
+            pieces = tuple(
+                piece for piece in reading.pieces if isinstance(piece, NativeSpanEvidence)
+            )
+            if len(pieces) != len(reading.pieces):
+                raise ContextRefused("reading is outside the native projection")
+            anchors, texts = zip(
+                *(evidence_anchor(self.context, piece) for piece in pieces), strict=True
+            )
+        except ContextRefused as error:
+            raise self.refuse(SourceMapReason.SOURCE_REFUSED, str(error)) from error
+        return (
+            MappedSource(
+                self.scope_digest,
+                self.input_digest,
+                self.input_digest,
+                (span,),
+                pieces,
+                anchors,
+                texts,
+            ),
+            reading,
+        )
 
     def map_extents(
         self, spans: tuple[ProviderSpan, ...], *, scope_digest: str, native: bool = False

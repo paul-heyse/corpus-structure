@@ -5870,6 +5870,33 @@ operations:
   - id: evaluate.score/result.outcome
     field: outcome
     outcome_domain: source_result_outcome
+  - id: extract.pm2_hanlp/family
+    field: family
+    outcome_domain: method_family_extract
+  - id: extract.pm2_hanlp/tier
+    field: tier
+    outcome_domain: method_tier_encoder
+  - id: extract.pm2_hanlp/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: extract.pm2_maverick/family
+    field: family
+    outcome_domain: method_family_extract
+  - id: extract.pm2_maverick/tier
+    field: tier
+    outcome_domain: method_tier_encoder
+  - id: extract.pm2_maverick/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: extract.pm2_dipo/family
+    field: family
+    outcome_domain: method_family_extract
+  - id: extract.pm2_dipo/tier
+    field: tier
+    outcome_domain: method_tier_encoder
+  - id: extract.pm2_dipo/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
   - id: extract.m1_annotations/family
     field: family
     outcome_domain: method_family_extract

@@ -123,6 +123,10 @@ class Pm2Worker:
         self.startup: dict[str, Any] = {}
 
     @property
+    def closed(self) -> bool:
+        return self._closed
+
+    @property
     def pid(self) -> int:
         return self._process.pid
 

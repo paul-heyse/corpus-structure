@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import func, select
 
 from corpus_structure.core.method import UnitRef
+from corpus_structure.methods.pm2_products import PARSER_QUESTIONS
 from corpus_structure.methods.pm2_result import pm2_input_digest, pm2_unit_result
 from corpus_structure.methods.pm2_source import D1SourceField, PM2SourceMap, PM2TokenMap
 from corpus_structure.methods.pm2_worker import Pm2WorkerError
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
 def settle_pm2_claim(
     owner: ClaimOwner,
     claim: ClaimedTask,
-    worker: Pm2Worker,
+    worker: Pm2Worker | None,
     mapping: PM2SourceMap | PM2TokenMap,
     request: dict[str, Any],
     *,
@@ -37,6 +38,7 @@ def settle_pm2_claim(
     method: Method[Any] | OperationDescriptor,
     configuration_hash: str,
     source_path: str | None = None,
+    startup_error: str | None = None,
 ):
     """Score outside a transaction, then settle through the caller's exact claim owner."""
     owner()
@@ -54,7 +56,7 @@ def settle_pm2_claim(
     if admitted is None:
         raise OperationConflict("PM2 claim attempt lost before inference")
     if (
-        worker.startup != expected_profile
+        (worker is not None and worker.startup != expected_profile)
         or admitted
         != pm2_input_digest(
             mapping,
@@ -68,29 +70,53 @@ def settle_pm2_claim(
     ):
         raise OperationConflict("PM2 runtime, input or release differs from the admitted claim")
     ref = UnitRef(claim.unit_type, claim.unit_id, claim.unit_key)
-    try:
-        reply = worker.infer(request, check_active=owner)
-    except Pm2WorkerError as exc:
-        owner()
-        reply = {"outcome": "failed", "reason": str(exc)}
+    if worker is None:
+        if startup_error is None:
+            raise ValueError("PM2 startup failure requires a diagnostic")
+        reply = {"outcome": "failed", "reason": startup_error}
+    else:
+        try:
+            reply = worker.infer(request, check_active=owner)
+        except Pm2WorkerError as exc:
+            owner()
+            reply = {"outcome": "failed", "reason": str(exc)}
     field = None
     if source_path is not None and reply["outcome"] == "succeeded":
         ((start, end, _),) = (row for row in reply["state_fields"] if row[2] == source_path)
         if not isinstance(start, int) or not isinstance(end, int):
             raise ValueError("d1 returned noninteger rendered source bounds")
         field = D1SourceField(reply["rendered_state"], source_path, start, end)
-    result = pm2_unit_result(
-        ref,
-        mapping,
-        profile=expected_profile,
-        request=request,
-        reply=reply,
-        field=field,
-        question=question,
-        operation_version=operation_version,
-        input_digest=admitted,
-        source_path=source_path,
-    )
+
+    def bind(reply):
+        return pm2_unit_result(
+            ref,
+            mapping,
+            profile=expected_profile,
+            request=request,
+            reply=reply,
+            field=field,
+            question=question,
+            operation_version=operation_version,
+            input_digest=admitted,
+            source_path=source_path,
+            prepared=prepared,
+        )
+
+    try:
+        result = bind(reply)
+    except (IndexError, KeyError, TypeError, ValueError) as exc:
+        if (
+            question not in PARSER_QUESTIONS.values()
+            or reply.get("outcome", "succeeded") != "succeeded"
+        ):
+            raise
+        result = bind(
+            {
+                "outcome": "failed",
+                "reason": f"invalid native parser product: {exc}",
+                "rejected_reply": reply,
+            }
+        )
     return owner.settle(
         claim,
         lambda conn: complete_unit_result(

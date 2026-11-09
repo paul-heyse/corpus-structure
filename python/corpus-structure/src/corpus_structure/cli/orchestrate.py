@@ -476,6 +476,23 @@ def ingest(
     emit(result, json=json)
 
 
+@run_app.command("parsers")
+def run_parsers_command(
+    ctx: typer.Context,
+    request: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    json: JsonOpt = False,
+) -> None:
+    """Run bounded private parser scopes over exact retained development source."""
+    from corpus_structure.orchestrate.pm2_stage import ParserRunRequest, run_parsers
+
+    settings = state(ctx).settings()
+    with _refusals(json):
+        selection = ParserRunRequest.model_validate_json(request.read_bytes())
+        with ENGINE(settings) as engine:
+            result = run_parsers(engine, settings, selection)
+    emit(result, json=json)
+
+
 def register(app: typer.Typer) -> None:
     from corpus_structure.cli.status import status
 

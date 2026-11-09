@@ -28,7 +28,7 @@ def _offline_only(*args: Any, **kwargs: Any) -> None:
     raise RuntimeError("HanLP profile has an unstaged native resource")
 
 
-def _load_archive(assets: Path, device: Any) -> tuple[Any, list[str]]:
+def _load_archive(directory: Path, backbone: str, device: Any) -> tuple[Any, list[str]]:
     hanlp = importlib.import_module("hanlp")
     multitask = importlib.import_module("hanlp.components.mtl.multi_task_learning")
     component = importlib.import_module("hanlp.utils.component_util")
@@ -53,9 +53,8 @@ def _load_archive(assets: Path, device: Any) -> tuple[Any, list[str]]:
         loaded = True
         return result
 
-    directory = assets / "hanlp" / _CHECKPOINT
     encoder_config = json.loads((directory / "config.json").read_bytes())["encoder"]
-    if encoder_config["transformer"] != _BACKBONE or not encoder_config["trainable"]:
+    if encoder_config["transformer"] != backbone or not encoder_config["trainable"]:
         raise RuntimeError("HanLP checkpoint encoder differs from the staged MTL profile")
     # Keep the logical ModernBERT name. HanLP selects its pretokenization
     # convention by that name. The caller verified its immutable offline cache.
@@ -115,11 +114,17 @@ def _prepare(
 
 def load_hanlp(assets: Path, device: str) -> tuple[Payload, Callable[[Payload], Payload]]:
     """Load the staged checkpoint and return bounded, ordered native observations."""
+    return _load_hanlp(assets, device, assets / "hanlp" / _CHECKPOINT, _BACKBONE)
+
+
+def _load_hanlp(
+    assets: Path, device: str, directory: Path, backbone: str
+) -> tuple[Payload, Callable[[Payload], Payload]]:
     os.environ.update(
         HF_HUB_CACHE=str(assets / "hub"), HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1"
     )
     torch = importlib.import_module("torch")
-    model, omitted_buffers = _load_archive(assets, torch.device(device))
+    model, omitted_buffers = _load_archive(directory, backbone, torch.device(device))
     resolved = model.resolve_tasks(list(_TASKS), "tok")
     heads = [name for group in resolved for name in group]
     if not all(any(head.split("/")[0] == task for head in heads) for task in _TASKS):
