@@ -38,6 +38,7 @@ from corpus_structure.methods.definition_applicability import (
     DefinitionApplicabilityMethod,
     DefinitionComponentsMethod,
 )
+from corpus_structure.methods.definition_declaration import DeclarationComponentsMethod
 from corpus_structure.methods.definition_terms import DefinitionTermsMethod
 from corpus_structure.methods.llm.agent_opus import AgentGeneral, AgentOpus
 from corpus_structure.methods.math import methods as math_methods
@@ -114,6 +115,7 @@ METHODS: tuple[Any, ...] = (
     ScopedRelationsWithRoleClosure(),
     ArtifactIdentityMethod(),
     DefinitionComponentsMethod(),
+    DeclarationComponentsMethod(),
     ClauseClassificationMethod(),
     DefinitionApplicabilityMethod(),
     DefinitionTermsMethod(),

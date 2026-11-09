@@ -3073,6 +3073,9 @@ BEGIN
  END IF;
  IF p_envelope->>'source' IS NULL OR p_envelope->>'source' NOT IN (t.unit_key,v.key) THEN
   RAISE EXCEPTION 'contribution source differs from selected task/view' USING ERRCODE='23514'; END IF;
+ IF p_envelope->>'method'='extract.pm2_hanlp' AND p_envelope->>'operation_version'='2' THEN
+  PERFORM ops.validate_hanlp_v2_report(t.id,p_envelope);
+ END IF;
  IF (SELECT count(*)<>count(DISTINCT o->>'operation_key') FROM jsonb_array_elements(p_envelope->'contribution_operations') o) THEN
   RAISE EXCEPTION 'duplicate contribution operation identity' USING ERRCODE='23514'; END IF;
  SELECT array_agg(x->>'contribution_id') INTO identities FROM jsonb_array_elements(p_envelope->'contributions') x;

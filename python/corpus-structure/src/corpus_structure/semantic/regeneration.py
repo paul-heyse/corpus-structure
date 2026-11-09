@@ -119,6 +119,7 @@ def acquire_pack(pack: Path, *, execution: ExecutionModelInputs | None = None) -
             "policies.yaml",
             "slices.yaml",
             "interpretation-questions.yaml",
+            "pm2-definition-policy.json",
         )
         if (pack / filename).is_file()
     )

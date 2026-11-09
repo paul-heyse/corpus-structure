@@ -7,10 +7,12 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Any
+from typing import Any, Self
 
-from pydantic import TypeAdapter
+from pydantic import Field, TypeAdapter, model_validator
 
+from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
+from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.ingest.sentences import TextToken
 from corpus_structure.semantic.contributions import contribution_identity
 from corpus_structure.semantic.identity import canonical_bytes
@@ -27,15 +29,21 @@ from corpus_structure.semantic.source_contexts import (
 from corpus_structure.semantic.structural_products import (
     DeclarationChainBinding,
     DeclarationChainWitness,
+    DefinitionComponentsProduct,
+    DefinitionStage,
     ExternalSourceRef,
     LocatedDefinitionSpan,
+    StructuralInput,
     StructuralPassage,
+    StructuralProductReport,
+    StructuralValue,
     definition_component,
 )
 
 from .pm2_hanlp_products import _dependency_graph, _Frame, _head, hanlp_products
 from .pm2_products import PARSER_QUESTIONS, ParserProducts, parser_value_for_contract
 from .pm2_source import (
+    HANLP_SEAM_LAYOUT,
     HanlpLayoutDecision,
     MappedSource,
     PM2SourceMap,
@@ -46,6 +54,7 @@ from .pm2_source import (
 )
 
 CHAIN_VERSION = "definition-declaration-chain-1"
+CHAIN_METHOD = "structure.definition_declaration_components"
 _LABEL_NUMBER = re.compile(r"[0-9]+(?:\.[0-9]+)*")
 _SCOPE_MARKERS = frozenset(
     {"if", "unless", "although", "except", "not", "never", "reportedly", "allegedly"}
@@ -53,6 +62,117 @@ _SCOPE_MARKERS = frozenset(
 _QUOTES = frozenset({'"', "\u201c", "\u201d", "\u2018", "\u2019", "``", "''"})
 _LAYOUT = TypeAdapter(HanlpLayoutDecision)
 _TOKENS = TypeAdapter(tuple[ProviderToken, ...])
+
+
+class DeclarationChainSelection(StructuralValue):
+    passage_id: str = Field(min_length=1)
+    parser: RetainedContributionRef
+
+
+class DeclarationComponentsConfig(StructuralValue):
+    inputs: StructuralInput | None = None
+    structural_input_digest: str | None = None
+    selections: tuple[DeclarationChainSelection, ...] = Field(default=(), max_length=64)
+
+    @model_validator(mode="after")
+    def selected_input(self) -> Self:
+        if self.inputs is None:
+            if self.selections or self.structural_input_digest is not None:
+                raise ValueError("absent declaration extraction cannot carry partial inputs")
+            return self
+        selected = {item.passage_id for item in self.selections}
+        if (
+            self.structural_input_digest != self.inputs.identity
+            or not selected
+            or len(selected) != len(self.selections)
+            or not selected <= {passage.passage_id for passage in self.inputs.passages}
+            or any(
+                item.parser.contribution_id not in self.inputs.dependencies
+                for item in self.selections
+            )
+        ):
+            raise ValueError("declaration extraction requires exact retained parser inputs")
+        return self
+
+
+class DeclarationComponentsMethod:
+    """A distinct declaration-only method; no change to the incumbent v9 ABI."""
+
+    name = CHAIN_METHOD
+    version = "1"
+    family = MethodFamily.RESOLVE
+    unit_type = TaskUnitType.RUN
+    tier = MethodTier.DETERMINISTIC
+    confidence_source = None
+    Config = DeclarationComponentsConfig
+    resources = Resources(worker="cpu", batch_size=1, max_concurrency=1)
+
+    def select(self, run, cfg):
+        return (
+            (UnitRef(TaskUnitType.RUN, unit_key="definition-declarations:" + cfg.inputs.identity),)
+            if cfg.inputs is not None
+            else ()
+        )
+
+    def input_digest(self, unit, cfg):
+        return Digest(canonical_bytes(cfg.model_dump(mode="json", exclude_none=True)))
+
+    def run(self, units, cfg, ctx):
+        from .model_observation import private_declaration_enabled
+
+        if cfg.inputs is None:
+            raise ValueError("declaration extraction requires exact selected inputs")
+        if not private_declaration_enabled(ctx.reader.prepared.manifest):
+            raise ValueError("declaration chain requires the matching released definition policy")
+        ctx.reader.validate_structural_inputs(cfg.inputs)
+        passages = {passage.passage_id: passage for passage in cfg.inputs.passages}
+        refs = {source.identity: source for source in cfg.inputs.sources}
+        found = []
+        for item in cfg.selections:
+            ctx.check_active()
+            if item.parser.release_id != ctx.reader.prepared.release_id:
+                raise ValueError("declaration parser must belong to the selected private release")
+            passage = passages[item.passage_id]
+            body = ctx.reader.retained_declaration_parser(item.parser)
+            frame = ctx.reader.structural_source_frame(cfg.inputs, passage.source_ref)
+            found.append(
+                replay_declaration_chain(
+                    body,
+                    body["parse_detail"],
+                    frame,
+                    refs[passage.source_ref],
+                    passage,
+                    item.parser,
+                    configuration=body["configuration"],
+                )
+            )
+        report = StructuralProductReport(
+            kind="definition_components",
+            inputs=cfg.inputs,
+            definition_components=DefinitionComponentsProduct(
+                components=tuple(found),
+                stages=tuple(
+                    DefinitionStage(
+                        passage_id=item.passage_id,
+                        operation="attachment",
+                        outcome="succeeded",
+                        reason=(
+                            "Released declaration chain replayed from exact native parser roles."
+                        ),
+                    )
+                    for item in cfg.selections
+                ),
+            ),
+        )
+        return tuple(
+            UnitResult(
+                ref=unit.ref,
+                outcome=ObservationOutcome.PRODUCED,
+                structural_product=report.model_dump(mode="json", exclude_none=True),
+                parse_detail={"version": CHAIN_VERSION},
+            )
+            for unit in units
+        )
 
 
 class DeclarationNotQualified(ValueError):
@@ -406,6 +526,8 @@ def replay_declaration_chain(
     source_ref: ExternalSourceRef,
     passage: StructuralPassage,
     reference: RetainedContributionRef,
+    *,
+    configuration: Mapping[str, Any] | None = None,
 ):
     """Rebind the original retained operation to its source before replaying its roles."""
     report = detail["pm2_native"]
@@ -452,17 +574,44 @@ def replay_declaration_chain(
         or report["scope_digest"] != context.dependency_digest
     ):
         raise ValueError("declaration parser source map is not an exact native copy")
-    mapping = PM2SourceMap(
-        context,
-        context.text,
-        (segment,),
-        tuple(tuple(row) for row in native_map["protected_atoms"]),
+    native = json.loads(source.native_context)
+    formula_items = {row["self_ref"] for row in native["items"] if row.get("label") == "formula"}
+    protected = tuple(
+        (piece["start"] - scope.start, piece["end"] - scope.start)
+        for piece in native["pieces"]
+        if piece.get("item_ref") in formula_items
+        and piece["start"] < scope.end
+        and scope.start < piece["end"]
     )
+    if tuple(tuple(row) for row in native_map["protected_atoms"]) != protected:
+        raise ValueError("declaration parser protected tokens differ from retained source atoms")
+    mapping = PM2SourceMap(context, context.text, (segment,), protected)
     if report["source_map_digest"] != mapping.input_digest:
         raise ValueError("declaration parser source map digest differs")
     tokens = _TOKENS.validate_python(native_map["tokens"])
     effective = PM2TokenMap(mapping, tokens, _LAYOUT.validate_python(native_map["layout"]))
+    if effective.layout is None or effective.layout.outcome != "repaired":
+        raise DeclarationNotQualified("released declaration route requires an exact repaired seam")
     _verify_layout(effective, source, scope)
+    if configuration is not None:
+        from .pm2_result import pm2_input_digest
+
+        startup = configuration.get("startup")
+        if (
+            configuration.get("layout_policy") != HANLP_SEAM_LAYOUT
+            or configuration.get("provider") != "hanlp"
+            or not isinstance(startup, Mapping)
+            or report["effective_profile_digest"] != sha256(canonical_bytes(startup)).hexdigest()
+            or body["input_hash"]
+            != pm2_input_digest(
+                effective,
+                startup,
+                report["request"],
+                question=PARSER_QUESTIONS["hanlp"],
+                operation_version="2",
+            )
+        ):
+            raise ValueError("declaration parser input differs from its exact configured layout")
     parsed = hanlp_products(effective, report["request"], report["native"])
     chain = declaration_chain(
         effective, report["request"], report["native"], passage, parsed=parsed

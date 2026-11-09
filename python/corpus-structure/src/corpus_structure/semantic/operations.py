@@ -1238,13 +1238,23 @@ class BoundReader:
         ]
         if len(roots) != 1 or roots[0]["semantic_type"] != "linguistic.predicate_frame":
             raise OperationConflict("declaration predecessor is not an exact retained parser frame")
-        results = table("ops.task_result")
-        statement = select(results.c.body).where(results.c.task_id == reference.origin_task_id)
+        results, task, config = map(table, ("ops.task_result", "ops.task", "ops.method_config"))
+        statement = (
+            select(results.c.body, config.c.params)
+            .join(task, task.c.id == results.c.task_id)
+            .join(config, config.c.id == task.c.method_config_id)
+            .where(results.c.task_id == reference.origin_task_id)
+        )
         budget = self._read_budget or PublishedReadBudget(16, _SOURCE_RESULT_MAX_BYTES)
         budget.preflight(self.conn, statement)
-        body = self.conn.execute(statement).scalar_one()
+        body, params = self.conn.execute(statement).one()
         budget.value(body)
-        return {**body, "parse_detail": source_python(body["parse_detail"])}
+        budget.value(params)
+        return {
+            **body,
+            "parse_detail": source_python(body["parse_detail"]),
+            "configuration": params,
+        }
 
     def prepare_table_correspondence(self, source_view_id, contributions, weight_scale):
         """Detach the canonical finite questions for an exact selected native view."""

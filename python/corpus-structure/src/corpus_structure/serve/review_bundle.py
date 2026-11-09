@@ -151,7 +151,10 @@ def _digest(path: Path) -> str:
 
 
 def _contract_row(conn, prepared):
-    from corpus_structure.methods.model_observation import MODEL_OBSERVATION_INPUT
+    from corpus_structure.methods.model_observation import (
+        MODEL_OBSERVATION_INPUT,
+        private_declaration_enabled,
+    )
     from corpus_structure.semantic.contributions import contribution_payload_contracts
 
     from .review_source_projection import SECTION_TEXT_INPUT
@@ -168,6 +171,8 @@ def _contract_row(conn, prepared):
             for value in prepared.registry_rows
         ],
     }
+    if private_declaration_enabled(prepared.manifest):
+        row["private_declaration_manifest_base64"] = base64.b64encode(prepared.manifest).decode()
     if payload_contracts := contribution_payload_contracts(prepared.definitions):
         row["contribution_payload_contracts"] = {
             semantic_type: dict(contract=contract, schema=prepared.json_schema(contract))

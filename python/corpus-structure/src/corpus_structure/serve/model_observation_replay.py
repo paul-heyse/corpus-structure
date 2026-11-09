@@ -424,7 +424,85 @@ def _verify_named_definition_bases(root, manifest, report, config, origins, poli
             raise ValueError("definition basis differs from the retained named cue or display")
 
 
+def _verify_declaration_bases(root, manifest, report, body, config, origins, contract):
+    from corpus_structure.methods.definition_declaration import (
+        CHAIN_VERSION,
+        DeclarationComponentsConfig,
+        replay_declaration_chain,
+    )
+    from corpus_structure.methods.model_observation import private_declaration_enabled
+    from corpus_structure.semantic.proposals import native_source_frame
+    from corpus_structure.semantic.structural_products import DefinitionStage
+
+    from .review_bundle import _detached_relation, _retained_review_source_view
+
+    cfg = DeclarationComponentsConfig.model_validate(config)
+    product = report.definition_components
+    release_manifest = base64.b64decode(
+        contract.get("private_declaration_manifest_base64", ""), validate=True
+    )
+    if (
+        "release:" + sha256(release_manifest).hexdigest() != body["release_id"]
+        or not private_declaration_enabled(release_manifest)
+        or body["operation_version"] != "1"
+        or source_python(body["parse_detail"]) != {"version": CHAIN_VERSION}
+        or cfg.inputs != report.inputs
+        or product is None
+        or product.role_candidates is not None
+        or len(product.components) != len(cfg.selections)
+        or product.stages
+        != tuple(
+            DefinitionStage(
+                passage_id=item.passage_id,
+                operation="attachment",
+                outcome="succeeded",
+                reason="Released declaration chain replayed from exact native parser roles.",
+            )
+            for item in cfg.selections
+        )
+    ):
+        raise ValueError("definition declarations differ from the exact released selection")
+    refs = {source.identity: source for source in report.inputs.sources}
+    passages = {passage.passage_id: passage for passage in report.inputs.passages}
+    sources = {row["source_view_id"]: row for row in _detached_relation(root, manifest, "sources")}
+    for component, item in zip(product.components, cfg.selections, strict=True):
+        chain = component.declaration_chain
+        passage = passages[item.passage_id]
+        source_ref = refs[passage.source_ref]
+        origin = origins.get(item.parser.origin_task_id, {})
+        raw = sources.get(source_ref.source_view_id)
+        if (
+            chain is None
+            or chain.parser != item.parser
+            or item.parser.release_id != body["release_id"]
+            or origin.get("project_id") != item.parser.project_id
+            or origin.get("origin_unit_id") != source_ref.source_view_id
+            or raw is None
+        ):
+            raise ValueError("definition declaration lacks exact parser and source custody")
+        original = origin["body"]
+        configuration = origin.get("configuration")
+        if not isinstance(configuration, dict):
+            raise ValueError("definition declaration lacks its original parser configuration")
+        frame = native_source_frame(_retained_review_source_view(raw), ())
+        if (
+            replay_declaration_chain(
+                original,
+                source_python(original["parse_detail"]),
+                frame,
+                source_ref,
+                passage,
+                item.parser,
+                configuration=configuration,
+            )
+            != component
+        ):
+            raise ValueError("definition declaration differs from retained role replay")
+
+
 def verify_model_observation_closure(root, manifest, products, scopes, inventory):
+    from corpus_structure.methods.definition_declaration import CHAIN_METHOD
+
     from .review_bundle import _detached_relation, _retained_contribution_payloads
 
     selected = [
@@ -444,9 +522,37 @@ def verify_model_observation_closure(root, manifest, products, scopes, inventory
         for row in report.clause_classification.readings
     ]
     payloads = _retained_contribution_payloads(root, manifest, requests, scopes, inventory)
+    declarations = [
+        (report, row.declaration_chain.parser)
+        for _, report in selected
+        if report.definition_components is not None
+        for row in report.definition_components.components
+        if row.declaration_chain is not None
+    ]
+    for _ in _retained_contribution_payloads(
+        root,
+        manifest,
+        declarations,
+        scopes,
+        inventory,
+        require_cut_member=True,
+        origin_reports=origins,
+    ):
+        pass
     for origin, report in selected:
         retained = origins.get(origin) or {}
         body = retained.get("body") or {}
+        if body.get("method") == CHAIN_METHOD:
+            config = retained.get("configuration")
+            if (
+                not isinstance(config, dict)
+                or StructuralProductReport.model_validate(body["structural_product"]) != report
+            ):
+                raise ValueError("definition declaration differs from its immutable report")
+            _verify_declaration_bases(
+                root, manifest, report, body, config, origins, contracts.get(body["release_id"], {})
+            )
+            continue
         if (
             report.definition_components is not None
             and report.definition_components.role_candidates is None

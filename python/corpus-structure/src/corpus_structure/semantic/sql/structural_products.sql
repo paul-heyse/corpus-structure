@@ -2270,9 +2270,9 @@ BEGIN
   IF jsonb_strip_nulls(config_->'inputs') IS DISTINCT FROM jsonb_strip_nulls(inputs)
    OR product->>'kind' IS DISTINCT FROM (CASE method_ WHEN 'structure.compare' THEN 'qualified_comparison' ELSE 'dossier' END) THEN
    RAISE EXCEPTION 'structural producer differs from frozen original inputs' USING ERRCODE='23514'; END IF;
- ELSIF method_ IN ('structure.definitions','structure.definition_components') THEN
+ ELSIF method_ IN ('structure.definitions','structure.definition_components','structure.definition_declaration_components') THEN
   IF jsonb_strip_nulls(config_->'inputs') IS DISTINCT FROM jsonb_strip_nulls(inputs)
-    OR product->>'kind' IS DISTINCT FROM (CASE method_ WHEN 'structure.definition_components' THEN 'definition_components' ELSE 'definition_applicability' END) THEN
+    OR product->>'kind' IS DISTINCT FROM (CASE WHEN method_='structure.definitions' THEN 'definition_applicability' ELSE 'definition_components' END) THEN
    RAISE EXCEPTION 'definition report differs from frozen source/question input' USING ERRCODE='23514'; END IF;
  ELSIF method_='structure.clause_classification' THEN
   IF jsonb_strip_nulls(config_->'inputs') IS DISTINCT FROM jsonb_strip_nulls(inputs)
@@ -2306,7 +2306,27 @@ BEGIN
  WHEN 'definition_components' THEN
   item:=product->'definition_components';
   definition_policy:=ops.model_observation_policy(t.release_id);
-  IF (definition_policy IS NOT NULL) IS DISTINCT FROM
+  IF method_='structure.definition_declaration_components' THEN
+   IF p_envelope->>'operation_version' IS DISTINCT FROM '1'
+    OR NOT ops.private_declaration_enabled(t.release_id)
+    OR data.record_source_json(p_envelope->'parse_detail') IS DISTINCT FROM
+     '{"version":"definition-declaration-chain-1"}'::jsonb
+    OR nullif(item->'role_candidates','null') IS NOT NULL
+    OR jsonb_typeof(config_->'selections') IS DISTINCT FROM 'array'
+    OR NOT COALESCE(jsonb_array_length(config_->'selections') BETWEEN 1 AND 64,false)
+    OR jsonb_array_length(item->'components') IS DISTINCT FROM jsonb_array_length(config_->'selections')
+    OR jsonb_array_length(item->'stages') IS DISTINCT FROM jsonb_array_length(config_->'selections')
+    OR (SELECT count(DISTINCT x->>'passage_id') FROM jsonb_array_elements(config_->'selections') x)
+     <>jsonb_array_length(config_->'selections')
+    OR EXISTS(SELECT FROM jsonb_array_elements(config_->'selections') WITH ORDINALITY AS s(selection,n)
+     WHERE NOT inputs->'dependencies' ? (selection#>>'{parser,contribution_id}')
+      OR item->'components'->((n-1)::integer)#>>'{term,passage_id}' IS DISTINCT FROM selection->>'passage_id'
+      OR item->'stages'->((n-1)::integer) IS DISTINCT FROM jsonb_build_object(
+       'passage_id',selection->>'passage_id','operation','attachment','outcome','succeeded',
+       'reason','Released declaration chain replayed from exact native parser roles.')) THEN
+    RAISE EXCEPTION 'declaration report differs from its released exact configured population'
+     USING ERRCODE='23514'; END IF;
+  ELSIF (definition_policy IS NOT NULL) IS DISTINCT FROM
    (p_envelope->>'operation_version'='9') THEN
    RAISE EXCEPTION 'definition observation version differs from released policy' USING ERRCODE='23514'; END IF;
   IF p_envelope->>'operation_version' IN ('8','9') THEN
@@ -2343,8 +2363,15 @@ BEGIN
    passage:=passage_map->(dimension->'term'->>'passage_id');
    SELECT s INTO source_ FROM jsonb_array_elements(inputs->'sources') s
    WHERE encode(sha256(convert_to(data.canonical_json(s),'UTF8')),'hex')=passage->>'source_ref';
-   PERFORM ops.validate_definition_basis(dimension,passage,source_,
-    config_||jsonb_build_object('_release',t.release_id),definition_policy);
+   IF method_='structure.definition_declaration_components' THEN
+    PERFORM ops.validate_declaration_chain_component(dimension,passage,source_,config_,t.release_id);
+   ELSE
+    IF nullif(dimension->'declaration_chain','null') IS NOT NULL THEN
+     RAISE EXCEPTION 'incumbent definition extraction cannot carry a declaration chain'
+      USING ERRCODE='23514'; END IF;
+    PERFORM ops.validate_definition_basis(dimension,passage,source_,
+     config_||jsonb_build_object('_release',t.release_id),definition_policy);
+   END IF;
   END LOOP;
  WHEN 'definition_applicability' THEN
   item:=product->'definition';

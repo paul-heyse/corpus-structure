@@ -846,6 +846,32 @@ def series_native_definitions(connection, *, include_selected=True):
                 else (),
             )
         )
+    declaration_sql = (
+        Path(__file__).with_name("sql").joinpath("definition_declaration.sql").read_text()
+    )
+    for name in (
+        "private_declaration_enabled",
+        "hanlp_seam_source_tokens",
+        "hanlp_unique_child",
+        "hanlp_srl_group",
+        "hanlp_srl_spans",
+        "hanlp_act_is_local",
+        "hanlp_native_role_is_exact",
+        "hanlp_chain_intro",
+        "hanlp_exact_chain",
+        "validate_hanlp_v2_report",
+        "hanlp_cited_frame_matches",
+        "validate_declaration_chain_component",
+    ):
+        definitions.append(
+            _task_call_definition(
+                connection,
+                declaration_sql,
+                name=name,
+                source="declaration chains:forward",
+                schema="ops",
+            )
+        )
     structural_sql = (
         predicate_interpretation_recipe_sql()
         + Path(__file__).with_name("sql").joinpath("structural_products.sql").read_text()

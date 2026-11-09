@@ -12,6 +12,23 @@ from corpus_structure.semantic.value_codec import decimal_text
 from .gliner import GlinerPack, _json
 
 MODEL_OBSERVATION_INPUT = "execution/implementation/operations/model-observation.json"
+PRIVATE_DECLARATION_INPUT = "operation/pm2-definition-policy.json"
+PRIVATE_DECLARATION_POLICY = {
+    "scope": "private_development",
+    "hanlp_layout_policy": "source-seam-continuation-1",
+    "definition_declaration_chain": "definition-declaration-chain-1",
+}
+
+
+def private_declaration_enabled(manifest: bytes) -> bool:
+    """Authorize a private staged release input; ordinary pack releases omit it."""
+    matches = [
+        digest
+        for name, digest in json.loads(manifest).get("dependencies", ())
+        if name == PRIVATE_DECLARATION_INPUT
+        or (name.startswith("pack/") and name.endswith("/" + PRIVATE_DECLARATION_INPUT))
+    ]
+    return matches == [sha256(canonical_bytes(PRIVATE_DECLARATION_POLICY)).hexdigest()]
 
 
 @cache

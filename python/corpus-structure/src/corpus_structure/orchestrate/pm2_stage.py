@@ -91,6 +91,11 @@ class ParserProfile(BaseModel):
     startup: dict[str, JsonValue]
 
 
+class HanlpSeamProfile(ParserProfile):
+    provider: Literal["hanlp"]
+    layout_policy: Literal["source-seam-continuation-1"]
+
+
 class InterpretationProfile(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -338,25 +343,35 @@ def _work(
                 [starts[left], ends[right]] for left, right in scope.supplied
             ]
     question = PARSER_QUESTIONS[provider]
+    profile = (
+        HanlpSeamProfile(
+            provider="hanlp",
+            device=scope.profile.device,
+            startup=scope.profile.startup,
+            layout_policy=HANLP_SEAM_LAYOUT,
+        )
+        if scope.layout_policy == HANLP_SEAM_LAYOUT
+        else scope.profile
+    )
     method = OperationDescriptor(
         f"extract.pm2_{provider}",
         scope.operation_version,
         "extract",
         "encoder",
         TaskUnitType.SOURCE_VIEW,
-        ParserProfile,
+        HanlpSeamProfile if isinstance(profile, HanlpSeamProfile) else ParserProfile,
     )
     ref = UnitRef(TaskUnitType.SOURCE_VIEW, source.source_view_id, source.unit_ref)
     digest = pm2_input_digest(
         effective,
-        scope.profile.startup,
+        profile.startup,
         request,
         question=question,
         operation_version=method.version,
     )
     return _Work(
         scope,
-        scope.profile,
+        profile,
         effective,
         request,
         ref,
@@ -724,9 +739,9 @@ def _run_scopes(
         if isinstance(request, ParserRunRequest) and any(
             scope.layout_policy is not None for scope in request.scopes
         ):
-            from corpus_structure.methods.model_observation import released_policy
+            from corpus_structure.methods.model_observation import private_declaration_enabled
 
-            if released_policy(prepared).get("hanlp_layout_policy") != HANLP_SEAM_LAYOUT:
+            if not private_declaration_enabled(prepared.manifest):
                 raise OperationConflict("HanLP seam layout requires its matching released policy")
         realization = table("data.realization")
         revision = conn.scalar(

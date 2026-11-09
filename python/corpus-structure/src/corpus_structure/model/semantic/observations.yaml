@@ -1535,6 +1535,24 @@ classes:
       variant: {required: true}
       nodes: {required: true, range: integer, minimum_value: 0, multivalued: true, minimum_cardinality: 1}
       label_nodes: {range: integer, minimum_value: 0, multivalued: true}
+  DeclarationChainBinding:
+    is_a: SourceRecordProduct
+    attributes:
+      frame: {required: true, pattern: '^s[0-9]+/predicate/[0-9]+$'}
+      subject_token: {required: true, range: integer, minimum_value: 0}
+      use_token: {required: true, range: integer, minimum_value: 0}
+  DeclarationChainWitness:
+    is_a: SourceRecordProduct
+    attributes:
+      version: {required: true, equals_string: definition-declaration-chain-1}
+      parser: {required: true, range: RetainedContributionRef, inlined: true}
+      scope_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      label: {required: true, range: LocatedDefinitionSpan, inlined: true}
+      bindings: {required: true, range: DeclarationChainBinding, inlined: true, multivalued: true, minimum_cardinality: 1, maximum_cardinality: 4}
+      construction_frame: {required: true, pattern: '^s[0-9]+/predicate/[0-9]+$'}
+      construction_subject_token: {required: true, range: integer, minimum_value: 0}
+      naming_frame: {required: true, pattern: '^s[0-9]+/predicate/[0-9]+$'}
+      naming_antecedent_token: {required: true, range: integer, minimum_value: 0}
   LocatedDefinitionComponent:
     is_a: SourceRecordProduct
     attributes:
@@ -1542,8 +1560,9 @@ classes:
       term: {required: true, range: LocatedDefinitionSpan, inlined: true}
       content: {required: true, range: LocatedDefinitionSpan, inlined: true}
       interpretation: {required: true, pattern: '^(definition|explanation|unresolved)$'}
-      basis: {required: true, pattern: '^(matched_cue|native_geometry|model_reading|unqualified)$'}
+      basis: {required: true, pattern: '^(matched_cue|native_geometry|declaration_chain|model_reading|unqualified)$'}
       witness: {range: DefinitionBasisWitness, inlined: true}
+      declaration_chain: {range: DeclarationChainWitness, inlined: true}
       scope: {required: true}
       effective_version: {}
       alternatives: {multivalued: true}

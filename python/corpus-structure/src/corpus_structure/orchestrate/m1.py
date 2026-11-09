@@ -17,6 +17,7 @@ from corpus_structure.methods.definition_applicability import (
     DefinitionApplicabilityMethod,
     DefinitionComponentsMethod,
 )
+from corpus_structure.methods.definition_declaration import DeclarationComponentsMethod
 from corpus_structure.methods.definition_terms import DefinitionTermsMethod
 from corpus_structure.methods.m1_annotations import M1Annotations
 from corpus_structure.methods.m1_readings import M1Readings
@@ -241,6 +242,7 @@ def registry(pack: Path) -> MethodRegistry:
             M1Candidates(),
             M1Readings(),
             DefinitionComponentsMethod(),
+            DeclarationComponentsMethod(),
             ClauseClassificationMethod(),
             DefinitionApplicabilityMethod(),
             DefinitionTermsMethod(),
