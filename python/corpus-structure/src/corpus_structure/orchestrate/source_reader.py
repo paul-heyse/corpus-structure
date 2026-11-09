@@ -77,8 +77,12 @@ class ScopedSourceReader:
             )
         )
 
-    def source_result(self, source_view_id, method):
-        return self._read(lambda reader: reader.source_result(source_view_id, method))
+    def source_result(self, source_view_id, method, *, occurrence_ids=(), semantic_types=()):
+        return self._read(
+            lambda reader: reader.source_result(
+                source_view_id, method, occurrence_ids=occurrence_ids, semantic_types=semantic_types
+            )
+        )
 
     def retained_source_result(self, source_view_id, task_id, method):
         return self._read(

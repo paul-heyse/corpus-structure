@@ -13,8 +13,9 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, JsonValue
 from sqlalchemy import Connection, cast, func, insert, literal, select, text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, JSONPATH
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.sql import ColumnElement
 
 from corpus_structure.core.method import (
     MeasurementView,
@@ -1448,7 +1449,7 @@ class BoundReader:
             read_budget=self._read_budget,
         )
 
-    def source_result(self, source_view_id, method):
+    def source_result(self, source_view_id, method, *, occurrence_ids=(), semantic_types=()):
         from .observations import source_python
         from .pdf_record_reader import PublishedReadBudget
 
@@ -1456,9 +1457,34 @@ class BoundReader:
         task, result, config, producer = map(
             table, ("ops.task", "ops.task_result", "ops.method_config", "ops.method")
         )
+        body_expr: ColumnElement[Any] = result.c.body
+        if occurrence_ids:
+            if len(occurrence_ids) > 256 or len(set(occurrence_ids)) != len(occurrence_ids):
+                raise ValueError("upstream occurrence selection requires distinct bounded ids")
+            selector = "$.contributions[*] ? (@.occurrence_id == $ids[*]"
+            if semantic_types:
+                selector += " && @.semantic_type == $types[*]"
+            projected = func.jsonb_path_query_array(
+                body_expr,
+                cast(literal(selector + ")"), JSONPATH),
+                literal({"ids": list(occurrence_ids), "types": list(semantic_types)}, type_=JSONB),
+            )
+            binding = (
+                "release_id",
+                "source",
+                "unit_key",
+                "method",
+                "configuration_hash",
+                "input_hash",
+            )
+            body_expr = func.jsonb_build_object(
+                *(item for key in binding for item in (key, body_expr[key])),
+                "contributions",
+                projected,
+            ).label("body")
         query = (
             select(
-                result.c.body,
+                body_expr,
                 result.c.task_id.label("origin_task_id"),
                 result.c.release_id,
                 task.c.input_hash,

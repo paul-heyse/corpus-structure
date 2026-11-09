@@ -408,8 +408,15 @@ class SourcePreparationReader(Protocol):
         """Return owned same-product relation sources after metadata/body admission."""
         ...
 
-    def source_result(self, source_view_id: int, method: str) -> Mapping[str, Any] | None:
-        """Read an exact run-selected upstream SourceObservationBatch envelope."""
+    def source_result(
+        self,
+        source_view_id: int,
+        method: str,
+        *,
+        occurrence_ids: tuple[str, ...] = (),
+        semantic_types: tuple[str, ...] = (),
+    ) -> Mapping[str, Any] | None:
+        """Read the selected upstream envelope or its exact, bound occurrence projection."""
         ...
 
     def retained_source_result(

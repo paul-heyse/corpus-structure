@@ -733,12 +733,22 @@ class ContextualCandidates:
                     source=view.ref.native_product.values(),
                     projection=view.ref.projection_digest,
                     input_population="retained-producer-occurrences-1",
-                    producer=unit.run.reader.source_result(
-                        unit.ref.unit_id, cfg.source_dependency_method
-                    ),
+                    producer=self._producer_input(unit.run.reader, unit.ref.unit_id, cfg),
                 )
             )
         )
+
+    @staticmethod
+    def _producer_input(reader, source_view_id, cfg):
+        exact = getattr(cfg, "required_occurrence_ids", ())
+        if exact:
+            return reader.source_result(
+                source_view_id,
+                cfg.source_dependency_method,
+                occurrence_ids=exact,
+                semantic_types=cfg.semantic_types,
+            )
+        return reader.source_result(source_view_id, cfg.source_dependency_method)
 
     def run(self, units, cfg, ctx):
         profile = E5 if cfg.profile == "e5" else QWEN
@@ -804,7 +814,7 @@ class ContextualCandidates:
             operation_key = operation_identity(
                 self.name, self.version, cfg.model_dump(mode="json"), pin
             )
-            upstream = ctx.reader.source_result(unit.ref.unit_id, cfg.source_dependency_method)
+            upstream = self._producer_input(ctx.reader, unit.ref.unit_id, cfg)
             if upstream is None:
                 raise ValueError("selected retained occurrence producer is unavailable")
             source_products, contexts, coordinates = retained_occurrences(
