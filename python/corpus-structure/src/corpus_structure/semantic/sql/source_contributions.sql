@@ -4347,8 +4347,19 @@ BEGIN
   IF p_envelope->>'method' IS DISTINCT FROM 'structure.scoped_relations'
    OR p_envelope->>'operation_version' NOT IN ('6','7','8','9','10') THEN
    RAISE EXCEPTION 'witnessed links require their released source producer' USING ERRCODE='23514'; END IF;
-  PERFORM ops.validate_witnessed_formula_links(v,table_config||jsonb_build_object(
-   '_current_witness_version',p_envelope->>'operation_version' IN ('9','10')),p_envelope->'contributions',operation_map);
+  IF table_config->>'ordered_formula_witness' IS NOT NULL THEN
+   IF p_envelope->>'operation_version' IS DISTINCT FROM '10'
+    OR NOT ops.ordered_formula_report(v,table_config,p_envelope->'contributions',operation_map,p_envelope->>'source') THEN
+    RAISE EXCEPTION 'ordered formula witness differs from retained source and dependencies' USING ERRCODE='23514';
+   END IF;
+  ELSE
+   IF EXISTS(SELECT FROM jsonb_each(operation_map) o
+    WHERE o.value->>'question'='source_witnessed_links' AND o.value->>'operation_version' IS DISTINCT FROM '1') THEN
+    RAISE EXCEPTION 'versioned formula witness requires its explicit released input' USING ERRCODE='23514';
+   END IF;
+   PERFORM ops.validate_witnessed_formula_links(v,table_config||jsonb_build_object(
+    '_current_witness_version',p_envelope->>'operation_version' IN ('9','10')),p_envelope->'contributions',operation_map);
+  END IF;
  END IF;
  IF (p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('7','8','9','10')
     AND table_config->>'inputs' IS NOT NULL)

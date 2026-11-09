@@ -5,11 +5,21 @@ from types import SimpleNamespace
 
 import pytest
 
-from corpus_structure.methods.scoped_relations import ScopedRelationsMethod, discover_relations
+from corpus_structure.methods.scoped_relations import (
+    ScopedRelationsConfig,
+    ScopedRelationsMethod,
+    discover_relations,
+)
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import record_source_pin
+from corpus_structure.semantic.structural_products import (
+    ExternalSourceRef,
+    StructuralInput,
+    StructuralPassage,
+)
+from corpus_structure.serve.inline_formula_replay import verify_inline_formula_report
 from corpus_structure.serve.witnessed_source_link_replay import verify_witnessed_links
 
 from .test_inline_formula_occurrences import _FROZEN_TEXT
@@ -143,6 +153,279 @@ def test_formula_ambiguity_or_partial_scope_keeps_the_syntax(kwargs):
     _, _, _, output = frozen(**kwargs)
     assert any(o["question"] == "source_formula_occurrences" for o in output["extra_operations"])
     assert not any(o["question"] == "source_witnessed_links" for o in output["extra_operations"])
+
+
+def ordered_fixture(*, control=None):
+    first = (
+        "Let V be a calibration signal with parameters A = 0 and B = 1. A\n"
+        "calibration signal with these parameters is said to be a "
+    )
+    middle, last = "standard", " calibration\nsignal."
+    recap = (
+        "We have seen above that it is possible to simulate a standard calibration signal V. "
+        "We use the simulated values for V using the equation "
+        + ("O = V + V." if control == "repeated-use" else "O = B V + A.")
+    )
+    section, wrapper, inline = "#/groups/1", "#/texts/0", "#/groups/2"
+    first_ref, middle_ref, last_ref, recap_ref, rival_ref = (f"#/texts/{i}" for i in range(1, 6))
+    second_ref = "#/texts/6"
+
+    def ref(pointer):
+        return {"$ref": pointer}
+
+    def node(pointer, label, text="", *, parent=None, children=()):
+        return dict(
+            self_ref=pointer,
+            label=label,
+            text=text,
+            content_layer="body",
+            parent=ref(parent) if parent else None,
+            children=tuple(map(ref, children)),
+        )
+
+    child_refs = (first_ref, middle_ref, last_ref)
+    declaration = first + middle + last
+    rival = "Suppose V denotes another signal.\n" if control == "rival" else ""
+    second = control == "two-recaps"
+    siblings = (wrapper, *((rival_ref,) if rival else ()), recap_ref)
+    if second:
+        siblings += (second_ref,)
+    context_nodes = (
+        node(section, "section", children=siblings),
+        node(wrapper, "text", parent=section, children=(inline,)),
+        node(
+            inline,
+            "inline",
+            parent=wrapper,
+            children=child_refs[::-1] if control == "order" else child_refs,
+        ),
+        node(first_ref, "text", first, parent=inline),
+        node(middle_ref, "text", middle, parent=inline),
+        node(last_ref, "text", last, parent=inline),
+        node(recap_ref, "text", recap, parent=inline if control == "foreign" else section),
+        *((node(rival_ref, "text", rival[:-1], parent=section),) if rival else ()),
+        *((node(second_ref, "text", recap, parent=section),) if second else ()),
+    )
+    chunks = [(first_ref, first), (middle_ref, middle), (last_ref, last), (None, "\n")]
+    if rival:
+        chunks.extend(((rival_ref, rival[:-1]), (None, "\n")))
+    chunks.append((recap_ref, recap))
+    query_text = recap
+    if second:
+        chunks.extend(((None, "\n"), (second_ref, recap)))
+        query_text += "\n" + recap
+    offset, pieces = 0, []
+    for pointer, literal in chunks:
+        end = offset + len(literal)
+        if pointer is None or (pointer == middle_ref and control == "synthetic"):
+            pieces.append(dict(start=offset, end=end, kind="synthetic_separator"))
+        else:
+            pieces.append(
+                dict(
+                    start=offset, end=end, item_ref=pointer, kind="native_text", source_field="text"
+                )
+            )
+        offset = end
+    text = declaration + "\n" + rival + query_text
+    original = source("placeholder", labels=("text",))
+    projection = dict(
+        text=text,
+        pieces=pieces,
+        items=[n["self_ref"] for n in context_nodes],
+        ancestors=[],
+        health={},
+    )
+    view = replace(
+        original,
+        text=text,
+        items=context_nodes,
+        pieces=tuple(pieces),
+        ref=replace(
+            original.ref, projection_digest=sha256(canonical_bytes(projection)).hexdigest()
+        ),
+    )
+    scope = dict(source_ref="original", scope="instrument-calibration", effective_version="R2")
+    query = StructuralPassage(
+        passage_id="original-query",
+        start=len(text) - len(query_text),
+        end=len(text),
+        text=query_text,
+        **scope,
+    )
+    wider = StructuralPassage(
+        passage_id="wider-premises", start=0, end=len(text), text=text, **scope
+    )
+    return view, query, wider
+
+
+def ordered_run(view, query, wider):
+    frame = native_source_frame(view, ())
+    external = ExternalSourceRef(
+        project_id="fixture",
+        run_id=1,
+        cut_id=1,
+        release_id="fixture",
+        result_revision=0,
+        source_view_id=frame.source_view_id,
+        native_task_id=frame.native_product.task_id,
+        native_product_key=frame.native_product.product_key,
+        native_content_digest=frame.native_product.content_digest,
+        projection_digest=frame.projection_digest,
+        recipe_digest=frame.recipe_digest,
+        coordinate_version=3,
+    )
+    query = query.model_copy(update={"source_ref": external.identity})
+    wider = wider.model_copy(update={"source_ref": external.identity})
+    inputs = StructuralInput(
+        question="formula witness",
+        scope=query.scope,
+        inventory_id="inventory",
+        policy_id="fixture",
+        sources=(external,),
+        passages=(query,),
+        dependencies=("fixture",),
+    )
+    config = ScopedRelationsConfig(
+        inputs=inputs, structural_input_digest=inputs.identity, ordered_formula_witness=wider
+    )
+    output = discover_relations(
+        frame,
+        inline_equations_enabled=True,
+        witnessed_links_enabled=True,
+        passages=(query,),
+        predicate_version="5",
+        ordered_formula_witness=wider,
+    )
+    operations = (output["operation"], *output["extra_operations"])
+    (witness,) = [o for o in operations if o["question"] == "source_witnessed_links"]
+    report = json.loads(
+        canonical_bytes(
+            dict(
+                configuration=config.model_dump(mode="json"),
+                body=dict(
+                    operation_version="10",
+                    contribution_operations=operations,
+                    contributions=output["contributions"],
+                    parse_detail=source_value({"formula_syntax": output["formula_diagnostics"]}),
+                ),
+            )
+        )
+    )
+    source = {
+        "source_view_id": frame.source_view_id,
+        "text": frame.text,
+        "ref": {
+            "key": frame.unit_ref,
+            "projection_digest": frame.projection_digest,
+            "recipe_digest": frame.recipe_digest,
+            "native_product": {
+                "task_id": frame.native_product.task_id,
+                "product_key": frame.native_product.product_key,
+                "content_digest": frame.native_product.content_digest,
+            },
+        },
+        "context": {"items": view.items, "ancestors": view.ancestors, "pieces": view.pieces},
+    }
+    verify_inline_formula_report(report, source)
+    return witness, report, source
+
+
+def test_ordered_formula_witness_keeps_exact_pieces_and_original_formula_population():
+    view, query, wider = ordered_fixture()
+    op, report, source = ordered_run(view, query, wider)
+    rows = report["body"]["contributions"]
+    by_id = {r["contribution_id"]: r for r in rows}
+    (link,) = [
+        r for r in rows if r["operation_key"] == op["operation_key"] and r["kind"] == "relation"
+    ]
+    use, name = map(by_id.__getitem__, link["members"])
+    assert (op["operation_version"], op["outcome"], op["inspected_count"], op["emitted_count"]) == (
+        "2",
+        "succeeded",
+        1,
+        3,
+    )
+    assert source_python(use["value"])["text"] == "V"
+    assert {"O", "V"} <= {
+        source_python(r["value"])["text"]
+        for r in rows
+        if r["kind"] == "occurrence" and source_python(r["value"])["role"] == "formula_symbol"
+    }
+    assert source_python(name["value"])["text"] == "standard calibration\nsignal"
+    assert [(a["pointer"], a["start"], a["end"], a["source_piece"]) for a in name["anchors"]] == [
+        ("#/texts/2", 0, 8, "standard"),
+        ("#/texts/3", 0, 19, " calibration\nsignal"),
+    ]
+    assert link["component"]["effective_version"] == "R2"
+    assert source_python(name["value"])["source_pointer"] == "#/texts/2"
+    assert source_python(name["value"])["region"] == wider.passage_id
+
+    name["anchors"].reverse()
+    with pytest.raises(ValueError, match="exact named target"):
+        verify_inline_formula_report(report, source)
+    name["anchors"].reverse()
+    report["body"]["contributions"] = [r for r in rows if r["operation_key"] != op["operation_key"]]
+    (claimed,) = [
+        o
+        for o in report["body"]["contribution_operations"]
+        if o["operation_key"] == op["operation_key"]
+    ]
+    claimed.update(outcome="limited", emitted_count=0)
+    with pytest.raises(ValueError, match="exact named target"):
+        verify_inline_formula_report(report, source)
+    prior = link["computation_dependencies"][-1]
+    report["body"]["contributions"] = [
+        r for r in report["body"]["contributions"] if r["contribution_id"] != prior
+    ]
+    with pytest.raises(ValueError, match="one exact prior binding"):
+        verify_inline_formula_report(report, source)
+
+
+def test_ordered_formula_witness_refuses_same_extent_or_changed_source_bytes():
+    view, query, wider = ordered_fixture()
+    with pytest.raises(ValueError, match="bounded selected source"):
+        ordered_run(view, query, wider.model_copy(update={"text": "!" + wider.text[1:]}))
+    with pytest.raises(ValueError, match="same exact query scope"):
+        ordered_run(view, query, query.model_copy(update={"passage_id": "relabelled"}))
+
+    original, *_ = ordered_run(view, query, wider)
+    clipped, *_ = ordered_run(
+        view, query.model_copy(update={"start": query.start + 1, "text": query.text[1:]}), wider
+    )
+    assert clipped["outcome"] == "empty"
+    assert clipped["operation_key"] != original["operation_key"]
+
+
+@pytest.mark.parametrize(
+    ("control", "outcome", "count"),
+    [
+        ("rival", "limited", 1),
+        ("order", "limited", 1),
+        ("synthetic", "limited", 1),
+        ("foreign", "empty", 0),
+        ("repeated-use", "limited", 1),
+    ],
+)
+def test_ordered_formula_witness_refuses_incomplete_or_ambiguous_source(control, outcome, count):
+    op, report, *_ = ordered_run(*ordered_fixture(control=control))
+    assert (op["outcome"], op["inspected_count"], op["emitted_count"]) == (outcome, count, 0)
+    assert any(
+        operation["question"] == "source_formula_occurrences"
+        and operation["outcome"] == "succeeded"
+        for operation in report["body"]["contribution_operations"]
+    )
+
+
+def test_ordered_formula_witness_uses_one_physical_target_for_two_inspected_recaps():
+    op, report, _ = ordered_run(*ordered_fixture(control="two-recaps"))
+    assert (op["outcome"], op["inspected_count"], op["emitted_count"]) == ("succeeded", 2, 5)
+    links = [
+        row
+        for row in report["body"]["contributions"]
+        if row["operation_key"] == op["operation_key"] and row["kind"] == "relation"
+    ]
+    assert len({row["members"][0] for row in links}) == 2
+    assert len({row["members"][1] for row in links}) == 1
 
 
 def test_named_links_use_literal_anchors_and_never_choose_first_section():

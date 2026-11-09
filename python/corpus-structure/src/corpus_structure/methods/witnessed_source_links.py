@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from functools import lru_cache
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -17,9 +20,14 @@ from corpus_structure.methods.annotation_rules import (
     RoleBinding,
 )
 from corpus_structure.semantic.observations import source_python
+from corpus_structure.semantic.structural_products import StructuralPassage
 
 QUESTION = "source_witnessed_links"
 VERSION = "1"
+ORDERED_VERSION = "2"
+ORDERED_LIMIT_REASON = (
+    "Selected recaps lack a unique exact ordered declaration or equation occurrence."
+)
 
 # A recap names both the declared meaning and the literal occurrence used by
 # the equation. A bare repeat of the same glyph is not a scope witness.
@@ -33,6 +41,16 @@ RECAP = re.compile(
     r" using the equation (?P<equation>[^.\n]+)\."
 )
 LET = re.compile(r"\bLet ([A-Za-z]) (?:be|denote|represent)\b")
+SOURCE_SYMBOL_DECLARATION = re.compile(
+    r"\b(?:where|let)\s+([A-Za-z][A-Za-z0-9_]*)\s+(?:denotes|is|be|represents)\s+([^.;\n]+)",
+    re.IGNORECASE,
+)
+_ORDERED_DECLARATION_CUE = re.compile(
+    r"\b(?:let|where|suppose|define)[ \t\r\n]+([a-z])[ \t\r\n]+"
+    r"(?:be|denotes?|is|represents?)\b",
+    re.IGNORECASE | re.ASCII,
+)
+_LINE_SPACING = str.maketrans("\n\t", "  ")
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +65,188 @@ class RecappedDeclaration:
     scope: str
     passage: str
     effective_version: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class OrderedRecappedDeclaration(RecappedDeclaration):
+    """A recap and its exact source spans; name anchors follow projection order."""
+
+    symbol_site: tuple[int, int]
+    name_pieces: tuple[tuple[str, int, int], ...]
+
+
+def ordered_witness_selection(query: StructuralPassage, passage: StructuralPassage):
+    return tuple((p.passage_id, p.start, p.end, p.effective_version) for p in (query, passage))
+
+
+def _children(node):
+    return tuple(item.get("$ref") for item in node.get("children", ()))
+
+
+def _parent(node):
+    return (node.get("parent") or {}).get("$ref")
+
+
+def ordered_recapped_declarations(
+    text: str,
+    pieces: Sequence[Mapping[str, Any]],
+    items: Mapping[str, Mapping[str, Any]],
+    passage: StructuralPassage,
+    query: StructuralPassage,
+) -> tuple[int, tuple[OrderedRecappedDeclaration, ...]]:
+    """Inspect only selected recaps, then authenticate their wider native premises.
+
+    The ordinary query determines the inspected recap population. The broader
+    premise passage is exact retained source, not a replacement query. Native
+    whitespace substitution is local to cue matching and preserves coordinates.
+    """
+    if (
+        not 0 <= passage.start <= query.start < query.end <= passage.end <= len(text)
+        or (passage.source_ref, passage.scope, passage.effective_version)
+        != (query.source_ref, query.scope, query.effective_version)
+        or passage.passage_id == query.passage_id
+        or (passage.start, passage.end) == (query.start, query.end)
+        or passage.end - passage.start > 4096
+        or passage.text != text[passage.start : passage.end]
+        or query.text != text[query.start : query.end]
+    ):
+        raise ValueError("ordered formula witness differs from its bounded selected source")
+    selected = tuple(
+        piece for piece in pieces if piece["start"] < passage.end and passage.start < piece["end"]
+    )
+    if (
+        not selected
+        or len(selected) > 128
+        or selected[0]["start"] != passage.start
+        or selected[-1]["end"] != passage.end
+        or any(left["end"] != right["start"] for left, right in pairwise(selected))
+    ):
+        raise ValueError("ordered formula witness requires complete ordered projection pieces")
+    physical = {}
+    for piece in selected:
+        if piece.get("kind") != "native_text" or piece.get("source_field", "text") != "text":
+            continue
+        pointer = piece.get("item_ref")
+        a, b = piece["start"], piece["end"]
+        if not isinstance(pointer, str):
+            continue
+        node = items.get(pointer, {})
+        if (
+            passage.start <= a < b <= passage.end
+            and "cell_index" not in piece
+            and node.get("content_layer") == "body"
+            and node.get("label") == "text"
+            and node.get("text") == text[a:b]
+        ):
+            if pointer in physical:
+                raise ValueError("ordered formula witness repeats a selected source piece")
+            physical[pointer] = (a, b)
+    inspected, results = 0, []
+    for use_pointer, (a, b) in physical.items():
+        if not query.start <= a < b <= query.end:
+            continue
+        section = _parent(items[use_pointer])
+        if not isinstance(section, str):
+            continue
+        container = items.get(section, {})
+        if container.get("label") != "section" or container.get("content_layer") != "body":
+            continue
+        siblings = _children(container)
+        sibling_counts = Counter(siblings)
+        if sibling_counts[use_pointer] != 1:
+            continue
+        use = RECAP.match(text[a:b].translate(_LINE_SPACING))
+        if use is None:
+            continue
+        inspected += 1
+        symbol = use["symbol"]
+        cues = [
+            passage.start + m.start(1)
+            for m in _ORDERED_DECLARATION_CUE.finditer(text[passage.start : a])
+            if m[1] == symbol
+        ]
+        if len(cues) != 1:
+            continue
+        for paragraph in siblings[: siblings.index(use_pointer)]:
+            if not isinstance(paragraph, str):
+                continue
+            owner = items.get(paragraph, {})
+            groups = _children(owner)
+            if (
+                owner.get("label") != "text"
+                or owner.get("content_layer") != "body"
+                or _parent(owner) != section
+                or owner.get("text") != ""
+                or len(groups) != 1
+                or sibling_counts[paragraph] != 1
+            ):
+                continue
+            (inline,) = groups
+            if not isinstance(inline, str):
+                continue
+            group = items.get(inline, {})
+            children = _children(group)
+            if (
+                group.get("label") != "inline"
+                or group.get("content_layer") != "body"
+                or _parent(group) != paragraph
+                or not 2 <= len(children) <= 32
+                or len(set(children)) != len(children)
+                or not all(
+                    isinstance(child, str) and child in physical and _parent(items[child]) == inline
+                    for child in children
+                )
+            ):
+                continue
+            parts = tuple(physical[child] for child in children)
+            start, end = parts[0][0], parts[-1][1]
+            if end > a or any(left[1] != right[0] for left, right in pairwise(parts)):
+                continue
+            binding = DECLARATION.match(text[start:end].translate(_LINE_SPACING))
+            if (
+                binding is None
+                or start + binding.start("symbol") != cues[0]
+                or binding["symbol"] != symbol
+                or binding["name"] != use["name"]
+                or not binding["description"].startswith(
+                    "a " + binding["family"] + " with parameters "
+                )
+                or start + binding.end("description") > parts[0][1]
+            ):
+                continue
+            site, description, name = (
+                (start + left, start + right)
+                for left, right in map(binding.span, ("symbol", "description", "name"))
+            )
+            original_binding = SOURCE_SYMBOL_DECLARATION.match(text[start : parts[0][1]])
+            if (
+                original_binding is None
+                or original_binding.span(1) != (site[0] - start, site[1] - start)
+                or original_binding.span(2) != (description[0] - start, description[1] - start)
+            ):
+                continue
+            name_parts = tuple(
+                (pointer, max(left, name[0]) - left, min(right, name[1]) - left)
+                for pointer, (left, right) in zip(children, parts, strict=True)
+                if left < name[1] and name[0] < right
+            )
+            results.append(
+                OrderedRecappedDeclaration(
+                    children[0],
+                    use_pointer,
+                    symbol,
+                    name,
+                    description,
+                    (a, a + use.end("symbol")),
+                    (a + use.start("equation"), a + use.end("equation")),
+                    passage.scope,
+                    passage.passage_id,
+                    passage.effective_version,
+                    site,
+                    name_parts,
+                )
+            )
+    return inspected, tuple(results)
 
 
 def recapped_declarations(text, pieces, items, passages):

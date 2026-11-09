@@ -32,6 +32,7 @@ REVOKE ALL ON FUNCTION ops.predicate_interpretation_recipe(text) FROM PUBLIC;
 def native_task_completion_sql(context=None) -> str:
     """One rendered completion source for normal products and native authoring."""
     from .native_shapes import record_shape_guards
+    from .ordered_witness_native import ordered_formula_witness_sql
     from .pdf_contracts import trusted_pdf_context
 
     context = trusted_pdf_context() if context is None else context
@@ -52,6 +53,7 @@ def native_task_completion_sql(context=None) -> str:
         + sql.joinpath("source_record_recognition.sql").read_text()
         + sql.joinpath("source_anchor_coordinates.sql").read_text()
         + sql.joinpath("source_record_coordinates.sql").read_text()
+        + ordered_formula_witness_sql()
         + sql.joinpath("source_contributions.sql").read_text()
         + sql.joinpath("source_record_report.sql").read_text()
         + sql.joinpath("dossier_contributions.sql").read_text()

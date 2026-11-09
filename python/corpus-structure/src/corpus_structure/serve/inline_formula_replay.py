@@ -22,10 +22,18 @@ def verify_inline_formula_report(report, source):
     cfg = ScopedRelationsConfig.model_validate(
         {
             key: configuration[key]
-            for key in ("inputs", "structural_input_digest", "max_formula_chars", "formula_seconds")
+            for key in (
+                "inputs",
+                "structural_input_digest",
+                "max_formula_chars",
+                "formula_seconds",
+                "ordered_formula_witness",
+            )
             if key in configuration
         }
     )
+    if cfg.ordered_formula_witness is not None and body.get("operation_version") != "10":
+        raise ValueError("ordered formula witness requires the current scoped producer")
     source_id = source["source_view_id"]
     selection = None
     if cfg.inputs is not None:
@@ -70,7 +78,7 @@ def verify_inline_formula_report(report, source):
     if body.get("operation_version") in {"6", "7", "8", "9", "10"}:
         from .witnessed_source_link_replay import verify_named_links, verify_witnessed_links
 
-        verify_witnessed_links(report, source, pin, cfg.inputs)
+        verify_witnessed_links(report, source, pin, cfg.inputs, cfg.ordered_formula_witness)
         if body["operation_version"] == "6":
             verify_named_links(report, source, pin, cfg.inputs)
     if not equations and not operations and not diagnostics and not actual:

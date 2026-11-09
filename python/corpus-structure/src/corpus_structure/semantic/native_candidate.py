@@ -936,6 +936,8 @@ def series_native_definitions(connection, *, include_selected=True):
         "predicate_argument_inventory",
         "predicate_clipped_roles_match",
         "validate_source_predicates",
+        "ordered_formula_source",
+        "ordered_formula_report",
         "validate_witnessed_formula_links",
         "source_formula_recaps",
         "named_link_rule_available",

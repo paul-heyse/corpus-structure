@@ -30,6 +30,7 @@ from corpus_structure.semantic.source_contexts import (
 from corpus_structure.semantic.structural_products import (
     RetainedStructuralRef,
     StructuralInput,
+    StructuralPassage,
     StructuralProductReport,
     StructuralValue,
 )
@@ -56,6 +57,9 @@ class ScopedRelationsConfig(StructuralValue):
     formula_seconds: float = Field(default=0.5, gt=0)
     max_formula_chars: int = Field(default=2048, gt=0, strict=True)
     classification_refs: tuple[RetainedStructuralRef, ...] = ()
+    ordered_formula_witness: StructuralPassage | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def bound_inputs(self) -> Self:
@@ -72,6 +76,24 @@ class ScopedRelationsConfig(StructuralValue):
             ref.product_id not in self.inputs.dependencies for ref in self.classification_refs
         ):
             raise ValueError("classification requires distinct retained report dependencies")
+        witness = self.ordered_formula_witness
+        if witness is not None:
+            if (
+                self.inputs is None
+                or len(self.inputs.sources) != 1
+                or len(self.inputs.passages) != 1
+            ):
+                raise ValueError("ordered formula witness requires one original selected passage")
+            (query,) = self.inputs.passages
+            if (
+                (witness.source_ref, witness.scope, witness.effective_version)
+                != (query.source_ref, query.scope, query.effective_version)
+                or witness.passage_id == query.passage_id
+                or not witness.start <= query.start < query.end <= witness.end
+                or (witness.start, witness.end) == (query.start, query.end)
+                or witness.end - witness.start > 4096
+            ):
+                raise ValueError("ordered formula witness must contain the same exact query scope")
         return self
 
 
@@ -287,6 +309,7 @@ def discover_relations(
     predicate_version="2",
     inline_equations_enabled=False,
     witnessed_links_enabled=False,
+    ordered_formula_witness=None,
     named_link_version="1",
     qualifier_preflight=None,
 ):
@@ -699,13 +722,11 @@ def discover_relations(
 
     # Symbol declaration is source local and explicitly cued. Each occurrence has
     # independent offsets, so repeated symbols never collapse into one identity.
+    from .witnessed_source_links import SOURCE_SYMBOL_DECLARATION
+
     for text_index, (piece, node, text) in enumerate(text_rows):
         pointer = piece["item_ref"]
-        for match in re.finditer(
-            r"\b(?:where|let)\s+([A-Za-z][A-Za-z0-9_]*)\s+(?:denotes|is|be|represents)\s+([^.;\n]+)",
-            text,
-            re.IGNORECASE,
-        ):
+        for match in SOURCE_SYMBOL_DECLARATION.finditer(text):
             symbol = participant(
                 piece["start"] + match.start(1),
                 piece["start"] + match.end(1),
@@ -1064,11 +1085,16 @@ def discover_relations(
             INHERITANCE_QUESTION,
             NAMED_ANNOTATION_VERSIONS,
             NAMED_QUESTION,
+            ORDERED_LIMIT_REASON,
+            ORDERED_VERSION,
             QUESTION,
             VERSION,
+            OrderedRecappedDeclaration,
             match_named_source_links,
             named_definition_subject,
             named_source_links,
+            ordered_recapped_declarations,
+            ordered_witness_selection,
             procedure_artifact_bindings,
             procedure_artifact_endpoint,
             qualified_inheritance,
@@ -1078,9 +1104,27 @@ def discover_relations(
         selection = tuple(
             (p.passage_id, p.start, p.end, p.effective_version) for p in passages or ()
         )
-        witness_op = operation_identity(QUESTION, VERSION, pin, selection)
-        links = tuple(recapped_declarations(frame.text, source_pieces, items, passages))
+        witness_version = VERSION
+        if ordered_formula_witness is not None:
+            if passages is None or len(passages) != 1:
+                raise ValueError("ordered formula witness requires one original selected passage")
+            (query,) = passages
+            inspected, links = ordered_recapped_declarations(
+                frame.text,
+                source_pieces,
+                {**{item["self_ref"]: item for item in native["ancestors"]}, **items},
+                ordered_formula_witness,
+                query,
+            )
+            witness_version = ORDERED_VERSION
+            witness_selection = ordered_witness_selection(query, ordered_formula_witness)
+        else:
+            links = tuple(recapped_declarations(frame.text, source_pieces, items, passages))
+            inspected = len(links)
+            witness_selection = selection
+        witness_op = operation_identity(QUESTION, witness_version, pin, witness_selection)
         prior = len(products)
+        linked = 0
         for link in links:
             uses = [
                 row
@@ -1093,15 +1137,30 @@ def discover_relations(
                 (*link.declaration, "declaration", link.declaration_pointer, op, None)
             )
             if declaration is None:
+                if isinstance(link, OrderedRecappedDeclaration):
+                    raise ValueError("ordered formula witness lacks its exact prior declaration")
                 continue
+            declared_symbol = None
+            if isinstance(link, OrderedRecappedDeclaration):
+                declared_symbol = participants.get(
+                    (*link.symbol_site, "symbol", link.declaration_pointer, op, None)
+                )
+                if declared_symbol is None:
+                    raise ValueError("ordered formula witness lacks its exact prior symbol")
             declarations = [
                 row
                 for row in products
                 if row["operation_key"] == op
                 and row["item_key"].startswith("declares:")
                 and row["members"][1] == declaration["contribution_id"]
+                and (
+                    declared_symbol is None
+                    or row["members"][0] == declared_symbol["contribution_id"]
+                )
             ]
             if len(declarations) != 1:
+                if isinstance(link, OrderedRecappedDeclaration):
+                    raise ValueError("ordered formula witness lacks one exact prior binding")
                 continue
             if len(uses) != 1:
                 continue
@@ -1115,7 +1174,11 @@ def discover_relations(
             target = participant(
                 *link.name,
                 role="declared_name",
-                pointer=link.declaration_pointer,
+                pointer=(
+                    link.name_pieces[0][0]
+                    if isinstance(link, OrderedRecappedDeclaration)
+                    else link.declaration_pointer
+                ),
                 region=link.passage,
                 operation=witness_op,
             )
@@ -1128,20 +1191,24 @@ def discover_relations(
                 operation=witness_op,
                 extra_witnesses=(cue, declarations[0]),
                 question=QUESTION,
+                question_version=witness_version,
                 effective_version=link.effective_version
                 if predicate_version in {"4", "5"}
                 else None,
             )
-        if links:
+            linked += 1
+        if links or ordered_formula_witness is not None:
+            limited = ordered_formula_witness is not None and linked < inspected
             witnessed_operations = (
                 dict(
                     operation_key=witness_op,
                     question=QUESTION,
-                    operation_version=VERSION,
-                    outcome="succeeded" if len(products) > prior else "empty",
-                    inspected_count=len(links),
+                    operation_version=witness_version,
+                    outcome="limited" if limited else "succeeded" if linked else "empty",
+                    inspected_count=inspected,
                     emitted_count=len(products) - prior,
                     computation_dependencies=(dependency,),
+                    **({"reason": ORDERED_LIMIT_REASON} if limited else {}),
                 ),
             )
         if named_link_version in NAMED_ANNOTATION_VERSIONS:
@@ -1452,6 +1519,9 @@ class ScopedRelationsMethod:
     def run(self, units, cfg, ctx):
         from .predicate_contributions import predicate_qualifier_refusal
 
+        if cfg.ordered_formula_witness is not None and self.version != "10":
+            raise ValueError("ordered formula witness requires the current scoped producer")
+
         def qualifier_preflight(component):
             return predicate_qualifier_refusal(ctx.reader.prepared, component)
 
@@ -1560,6 +1630,7 @@ class ScopedRelationsMethod:
                 predicate_version=self.predicate_version,
                 inline_equations_enabled=True,
                 witnessed_links_enabled=True,
+                ordered_formula_witness=cfg.ordered_formula_witness,
                 named_link_version=self.named_link_version,
                 qualifier_preflight=qualifier_preflight,
             )

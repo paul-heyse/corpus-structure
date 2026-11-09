@@ -9,10 +9,15 @@ from corpus_structure.methods.witnessed_source_links import (
     NAMED_COVERAGE_VERSION,
     NAMED_QUESTION,
     NAMED_VERSION,
+    ORDERED_LIMIT_REASON,
+    ORDERED_VERSION,
     QUESTION,
     VERSION,
+    OrderedRecappedDeclaration,
     named_definition_subject,
     named_source_links,
+    ordered_recapped_declarations,
+    ordered_witness_selection,
     procedure_artifact_bindings,
     procedure_artifact_endpoint,
     recapped_declarations,
@@ -22,7 +27,7 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
 
 
-def verify_witnessed_links(report, source, pin, inputs):
+def verify_witnessed_links(report, source, pin, inputs, ordered_formula_witness=None):
     body = report["body"]
     context, text = source["context"], source["text"]
     pieces = context["pieces"]
@@ -30,23 +35,42 @@ def verify_witnessed_links(report, source, pin, inputs):
     if inputs is not None:
         (ref,) = [r for r in inputs.sources if r.source_view_id == source["source_view_id"]]
         selection = tuple(p for p in inputs.passages if p.source_ref == ref.identity)
-    expected = tuple(
-        recapped_declarations(
+    if ordered_formula_witness is not None:
+        if body["operation_version"] != "10":
+            raise ValueError("ordered formula witness requires the current scoped producer")
+        (query,) = selection
+        inspected, expected = ordered_recapped_declarations(
             text,
             pieces,
-            {i["self_ref"]: i for i in context["items"]},
-            selection,
+            {i["self_ref"]: i for i in (*context.get("ancestors", ()), *context["items"])},
+            ordered_formula_witness,
+            query,
         )
-    )
+        version = ORDERED_VERSION
+        witness_selection = ordered_witness_selection(query, ordered_formula_witness)
+    else:
+        expected = tuple(
+            recapped_declarations(
+                text,
+                pieces,
+                {i["self_ref"]: i for i in context["items"]},
+                selection,
+            )
+        )
+        inspected = len(expected)
+        version = VERSION
+        witness_selection = tuple(
+            (p.passage_id, p.start, p.end, p.effective_version) for p in selection
+        )
     operations = {o["operation_key"]: o for o in body["contribution_operations"]}
     link_ops = [o for o in operations.values() if o["question"] == QUESTION]
-    if not expected and not link_ops:
+    if version == VERSION and not expected and not link_ops:
         return
     operation = operation_identity(
         QUESTION,
-        VERSION,
+        version,
         pin,
-        tuple((p.passage_id, p.start, p.end, p.effective_version) for p in selection),
+        witness_selection,
     )
     if len(link_ops) != 1 or link_ops[0]["operation_key"] != operation:
         raise ValueError("witnessed links lack the exact selected operation binding")
@@ -59,34 +83,79 @@ def verify_witnessed_links(report, source, pin, inputs):
         if operations[r["operation_key"]]["question"] == INLINE_FORMULA_QUESTION
     ]
     if (
-        op["operation_version"] != VERSION
-        or op["inspected_count"] != len(expected)
+        op["operation_version"] != version
+        or op["inspected_count"] != inspected
         or op["emitted_count"] != len(selected)
-        or op["outcome"] != ("succeeded" if selected else "empty")
     ):
         raise ValueError("witnessed link outcome differs from exact selected source")
+    dependency = f"native:{pin['native_product_task_id']}"
+    if version == ORDERED_VERSION and op["computation_dependencies"] != [dependency]:
+        raise ValueError("witnessed link operation lacks the exact native dependency")
 
-    def exact(row, role, pointer, extent):
-        (piece,) = [
-            p for p in pieces if p.get("item_ref") == pointer and p["kind"] == "native_text"
-        ]
+    offsets = (
+        {
+            p["item_ref"]: p["start"]
+            for p in pieces
+            if p["kind"] == "native_text"
+            and p.get("source_field", "text") == "text"
+            and "cell_index" not in p
+            and ordered_formula_witness.start
+            <= p["start"]
+            < p["end"]
+            <= ordered_formula_witness.end
+        }
+        if ordered_formula_witness is not None
+        else {}
+    )
+
+    def exact(row, role, pointer, extent, name_pieces=None, region=None):
         start, end = extent
-        anchors = row.get("anchors", ())
         value = source_python(row["value"])
+        if row["kind"] != "occurrence" or value["role"] != role:
+            return False
+        if region is not None and value["region"] != region:
+            return False
+        if version == ORDERED_VERSION:
+            if name_pieces is None:
+                left = offsets[pointer]
+                name_pieces = ((pointer, start - left, end - left),)
+            expected_anchors = tuple(
+                (ptr, lo, hi, text[offsets[ptr] + lo : offsets[ptr] + hi])
+                for ptr, lo, hi in name_pieces
+            )
+            if (
+                row["semantic_type"] != "structural.located_participant"
+                or row["computation_dependencies"] != [dependency]
+                or row["pin"] != pin
+                or any(
+                    anchor["space"] != "native"
+                    or anchor["precision"] != "exact"
+                    or anchor["pin"] != pin
+                    for anchor in row.get("anchors", ())
+                )
+            ):
+                return False
+        else:
+            (piece,) = [
+                p for p in pieces if p.get("item_ref") == pointer and p["kind"] == "native_text"
+            ]
+            expected_anchors = (
+                (pointer, start - piece["start"], end - piece["start"], text[start:end]),
+            )
         return (
-            row["kind"] == "occurrence"
-            and value["role"] == role
-            and value["text"] == text[start:end]
+            value["text"] == text[start:end]
             and (value["source_pointer"], value["start"], value["end"]) == (pointer, start, end)
-            and len(anchors) == 1
-            and anchors[0]["pointer"] == pointer
-            and (anchors[0]["start"], anchors[0]["end"])
-            == (start - piece["start"], end - piece["start"])
-            and anchors[0]["source_piece"] == text[start:end]
+            and tuple(
+                (a["pointer"], a["start"], a["end"], a["source_piece"])
+                for a in row.get("anchors", ())
+            )
+            == expected_anchors
         )
 
     verified = set()
+    linked = 0
     for link in expected:
+        is_ordered = isinstance(link, OrderedRecappedDeclaration)
         uses = [
             r
             for r in formula
@@ -96,25 +165,62 @@ def verify_witnessed_links(report, source, pin, inputs):
                 and link.equation[0] <= v["start"] < v["end"] <= link.equation[1]
             )
         ]
-        if len(uses) != 1:
+        if not is_ordered and len(uses) != 1:
             continue
-        (use,) = uses
+        name_pieces = link.name_pieces if is_ordered else None
+        region = link.passage if is_ordered else None
         targets = [
-            r for r in selected if exact(r, "declared_name", link.declaration_pointer, link.name)
+            r
+            for r in selected
+            if exact(
+                r,
+                "declared_name",
+                name_pieces[0][0] if name_pieces else link.declaration_pointer,
+                link.name,
+                name_pieces,
+                region,
+            )
         ]
-        cues = [r for r in selected if exact(r, "declaration_recap", link.use_pointer, link.recap)]
+        cues = [
+            r
+            for r in selected
+            if exact(r, "declaration_recap", link.use_pointer, link.recap, region=region)
+        ]
         antecedents = [
             r
             for r in rows.values()
             if r.get("component", {}).get("attachment_kind") == "declares"
             and r["operation_key"] != operation
-            and exact(
-                rows[r["members"][1]], "declaration", link.declaration_pointer, link.declaration
+            and (
+                not is_ordered
+                or operations[r["operation_key"]]["question"] == "source_structural_relations"
             )
-            and source_python(rows[r["members"][0]]["value"]).get("text") == link.symbol
+            and exact(
+                rows[r["members"][1]],
+                "declaration",
+                link.declaration_pointer,
+                link.declaration,
+                region=link.declaration_pointer if is_ordered else None,
+            )
+            and (
+                exact(
+                    rows[r["members"][0]],
+                    "symbol",
+                    link.declaration_pointer,
+                    link.symbol_site,
+                    region=link.declaration_pointer,
+                )
+                if isinstance(link, OrderedRecappedDeclaration)
+                else source_python(rows[r["members"][0]]["value"]).get("text") == link.symbol
+            )
         ]
         if len(antecedents) != 1:
+            if is_ordered:
+                raise ValueError("witnessed links lack one exact prior binding")
             continue
+        if len(uses) != 1:
+            continue
+        (use,) = uses
         if len(targets) != 1 or len(cues) != 1:
             raise ValueError("witnessed links lack the exact named target and recap")
         (target,), (cue,), (prior,) = targets, cues, antecedents
@@ -128,6 +234,24 @@ def verify_witnessed_links(report, source, pin, inputs):
             if r.get("endpoints") == endpoints
             and r["kind"] == "relation"
             and r.get("component", {}).get("attachment_kind") == "declares"
+            and (
+                not is_ordered
+                or (
+                    r["component"]["question"] == QUESTION
+                    and r["component"]["question_version"] == ORDERED_VERSION
+                    and r["semantic_type"] == "structural.scoped_attachment"
+                    and r["pin"] == pin
+                    and r["members"] == [use["contribution_id"], target["contribution_id"]]
+                    and r["computation_dependencies"]
+                    == [
+                        use["contribution_id"],
+                        target["contribution_id"],
+                        dependency,
+                        cue["contribution_id"],
+                        prior["contribution_id"],
+                    ]
+                )
+            )
             and r["component"]["scope"] == link.scope
             and (
                 body["operation_version"] not in {"9", "10"}
@@ -139,8 +263,15 @@ def verify_witnessed_links(report, source, pin, inputs):
         if len(relations) != 1:
             raise ValueError("witnessed links differ from declared direction or premises")
         verified.update(r["contribution_id"] for r in (target, cue, *relations))
+        linked += 1
     if verified != {r["contribution_id"] for r in selected}:
         raise ValueError("witnessed links contain unsupported rows")
+    limited = version == ORDERED_VERSION and linked < inspected
+    if op["outcome"] != ("limited" if limited else "succeeded" if selected else "empty") or (
+        version == ORDERED_VERSION
+        and op.get("reason") != (ORDERED_LIMIT_REASON if limited else None)
+    ):
+        raise ValueError("witnessed link outcome differs from exact selected source")
 
 
 def verify_named_links(report, source, pin, inputs):
