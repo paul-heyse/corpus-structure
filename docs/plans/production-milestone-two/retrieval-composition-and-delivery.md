@@ -250,8 +250,9 @@ found the exact earlier declaration in three ordered pieces of a single inline w
 owned by the same section as the recap. The wider producer passage recovered a unique
 `Z` candidate; the original query window could not. Preserve that query window and
 require the new released producer, native validator and detached proof to authenticate
-the wider witness and its mapped members before selection. Exact algebra is independently
-assessed under [PM2-11](textbook-assessment-and-adoption.md#exact-affine-qualification).
+the wider witness and its mapped members before selecting the link. This is a source
+binding check. Any separately selected algebraic analysis has its own
+[PM2-11 assessment](textbook-assessment-and-adoption.md#exact-affine-qualification).
 
 **Settled ordered witness · 2026-11-09.** The [native development run](../../design_review/evidence/2026-11-09_pm2-ordered-native/README.md)
 settled the /11 producer at run 443/cut 545/task 2151. It retains the original

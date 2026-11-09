@@ -68,12 +68,13 @@ arms. [Operation assessment owner](../../../python/corpus-structure/src/corpus_s
 Freeze each comparator's exact run/cut, semantic release, execution/provider profiles,
 prediction scope and evaluation frame. Use run 404/cut 514 for current source-only
 reference preparation and run 407/cut 517 as private M1 execution evidence where its
-scope corresponds. For release comparison use the eligible qualified predecessor's
-source, spaCy, GLiNER, scoped composition and lexical/E5/Qwen route for the same
-question. Reuse its exact output where applicable. Rerun through its ordinary pinned
+scope corresponds. For release comparison use the best compatible retained comparator
+for the same question, even if it was never selected. Use its actual source, spaCy, GLiNER,
+scoped composition and lexical/E5/Qwen route where applicable. Reuse its exact output
+where available. Rerun through its ordinary pinned
 route when output is missing and the same scope can be reproduced. Require explicit
 source and semantic correspondence across operation versions. Retain historical
-controls at their recorded extent. DMA-13 owns predecessor qualification and cutover.
+controls at their recorded extent. DMA-13 owns incremental qualification and cutover.
 [DMA-13](../domain-model-alignment_2026-11-08.md#dma-13)
 
 Freeze the independent reference and prediction scope together before opening results.
@@ -149,9 +150,11 @@ link nor public admission. The shared `reference-evidence-2` profile and histori
 grades remain at their original meaning.
 
 The [retained and authored controls](../../design_review/evidence/2026-11-09_pm2-affine-assessment/README.md)
-separate capture, binding and exact algebra. Use the exact check on the book only
-after the source declaration qualifies. A named distribution or moment check is
-conditional on supported distribution and parameter bindings. The existing
+separate capture, binding and exact algebra. Ordinary acceptance grades fidelity of
+the displayed expression and its supported source bindings. Preserve the literal or
+image when interpretation is unresolved. Use exact algebra only for an explicitly
+selected mathematical analysis, after the source declaration qualifies. A distribution
+or moment check also requires supported distribution and parameter bindings. The
 fair-coin literal-to-decimal control stays separate from the exact polynomial path.
 
 **Settled book form · 2026-11-09.** The [run-bound assessment](../../design_review/evidence/2026-11-09_pm2-ordered-native/README.md#development-deployment-and-settled-assessment)
@@ -167,12 +170,14 @@ supported context and operating bound for each activation. Use exact paired case
 changes. For an operation whose aim is better semantic results, require a strict gain
 in independently supported, distinct results on that primary dimension over the paired
 frame. Count additional correct capture, repaired span/role/attachment, or retrieval
-and selection gains at their declared grain. Preserve every supported protected
-control and reject any new unsupported selection on the compared frame. Treat a
-previously correct result becoming ambiguous, uncovered, or missing as a regression.
+and selection gains at their declared grain. Preserve material supported protected
+controls for the selected workflow and reject any new unsupported selection on the
+compared frame. Treat a previously correct result becoming ambiguous, uncovered, or
+missing as a regression.
 Preserve its previous qualified route unless an independently verified correction changes
 the reference. Record new false proposals and lost coverage even when the selector
-refuses to admit them. An unresolved required case blocks that operation's promotion.
+refuses to admit them. An unresolved case blocks promotion where the selected workflow
+depends on it; record remaining coverage gaps separately and preserve supported siblings.
 When a narrow scope passes and broader work regresses, release only a prespecified
 scope with corresponding evidence, or rerun a narrowed arm against its own independently
 frozen frame. A tie keeps the current qualified route unless the alternative's declared
@@ -231,20 +236,21 @@ retaining the earlier route with its reason and trigger.
 **Development only · 2026-11-09.** The acquired development database reached
 `semantic_pm2_parser_payloads` through the frozen candidate for release-owned
 parser payloads. The [development receipt](../../design_review/evidence/2026-11-09_pm2-contract-remediation/README.md)
-records the acquired target and archived private release. The paired results do not establish the required
-preservation and gain across selected operations. DMA-13's exact native
-evaluations 42 and 43 did not qualify an eligible predecessor. The retained
-Standard and Nemotron native product is intact; regenerate only selected
-derivations for the full-book release once their qualification scope is settled.
-Full-book derived qualification was `not_run` while these prerequisites remain
-open. Chandra data is excluded. No activation, selection or retirement occurred.
+records the acquired target and archived private release. The paired results do not
+establish broad preservation and gain. Evaluations 42 and 43 are regression evidence,
+not a staging gate. Full-book staging and qualification were `not_run`. Chandra data is
+excluded. No activation, selection or retirement occurred.
 
-**Prerequisites.** Consume the exact PM2-11 assessment and final native execution evidence
-for every selected operation, including required Reader/MCP journeys and any optional mode
-actually enabled. Establish the acquired development target, released predecessor and
-current selectability under the existing DMA-13 and migration owners. A current-only
-consumer may depend on a new compatible release or a regenerated product. Keep effect
-authority separate from a plan or assessment judgment.
+**Private staging.** Establish the acquired development target, authenticated Standard
+and Nemotron source and compatible release and operation contracts under the existing
+DMA-13 and migration owners. Regenerate the selected derivations that require it.
+Stage privately before analytical qualification; prior selection, fitting, calibration
+and complete formula coverage are not required for this step.
+
+**Selection.** Consume the exact PM2-11 assessment and final native evidence for the
+workflows proposed for selection, including required Reader/MCP journeys and optional
+modes actually enabled. Apply [DMA-13's incremental acceptance criteria](../domain-model-alignment_2026-11-08.md#incremental-acceptance)
+to the staged candidate. Keep effect authority separate from a plan or assessment judgment.
 
 Use the existing release compiler, managed operation custody, PostgreSQL purpose roles
 and source selection. Preview an exact coordinated change only when released definitions,
@@ -279,10 +285,9 @@ and dependency closure before retiring any incompatible derived results. A confi
 target, purpose roles and authority are prerequisites for a live promotion. If unavailable,
 leave live adoption open and report the independently qualified boundary.
 
-Optional extraction models do not enter this gate unless selected under PM2-11.
-The extraction amendment does not qualify DMA-13 or change the recognition source.
-Once scoped acceptance and predecessor eligibility settle, qualify the selected derivations
-over the existing authenticated Standard and Nemotron source.
+Optional extraction models and mathematical analysis enter qualification only if selected
+under PM2-11. Keep unresolved outputs visible and withhold them where their dependencies
+are missing. Preserve qualified siblings through ordinary and portable delivery.
 
 Use focused compile checks and `uv run ci test -- PATH` during an affected package.
 Follow the existing binding for formal target reviews and their evidence.
@@ -296,7 +301,7 @@ declared test identities to account for the required union. Preserve original fa
 interrupted records, using exact retry and `uv run ci test coverage` where applicable.
 Reconcile the applicable union after the explicit-only Chandra change. The interrupted
 DMA campaign, scoped retries and earlier live Chandra runs retain their original
-source, native and runtime bindings. DMA-13 owns the remaining predecessor evidence.
+source, native and runtime bindings. DMA-13 owns the incremental acceptance criteria.
 Report `passed`, `failed`, `blocked` or `not_run` for each obligation. A mock, prior
 incompatible result or missing evidence cannot establish qualification. Keep operating
 claims within the tested envelope and corpus claims within the frozen opportunities.
@@ -304,9 +309,10 @@ claims within the tested envelope and corpus claims within the frozen opportunit
 [Review cadence](../../design_review/design_principles/binding/corpus-structure.md#reviews-in-this-repository) ·
 [DMA qualification pause](../domain-model-alignment_2026-11-08.md#qualification-pause--2026-11-08)
 
-**Closure.** A selected M2 release requires the frozen full-book scope and accepted
-operation gains, retention of known controls and independent partial results, the
-applicable final-source evidence union, and a verified selected-reader journey on the
-authorized target. Record the new selection, exact predecessor and remaining unsupported
-scopes with the coordinator. A qualified private result, unavailable live target or
+**Closure.** A selected M2 release requires the frozen full-book source scope, demonstrated
+source-faithful workflow gains, preservation of material controls and independent partial
+results, the applicable final-source evidence union, and a verified selected-reader journey on the
+authorized target. Record the new selection, comparison baseline, native predecessor or
+reached revision where relevant, and remaining unsupported scopes with the coordinator.
+A qualified private result, unavailable live target or
 unresolved required acceptance is an intermediate state with its own evidence and next action.

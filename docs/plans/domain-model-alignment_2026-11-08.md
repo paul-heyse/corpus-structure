@@ -91,7 +91,7 @@ evidence rather than changing another plan's obligations. The
 | DA-058 · [DMA-10](domain-model-alignment/visual-evidence.md#DMA-10) | Group recovery and original custody | Live crops at cut 519 reused both exact raw responses from cut 518 with provider files unavailable. Recognition standing remained `unknown`. Live cancellation restored Nemotron. These results are scoped to the tested Chandra runtime. |
 | DA-066 · [DMA-11](domain-model-alignment/visual-evidence.md#DMA-11) | Typed visual Reader | The typed spatial locator and near-limit sparse and empty regional checks passed focused native controls. The frozen descriptor verifies the access path. |
 | [DMA-12](#dma-12) | Coordinator and affected authorities | Bounded investigations delivered. Final-source reference-path coverage remains open. The second-pack control establishes only its scoped transfer case. |
-| [DMA-13](#dma-13) | Native migration and assembled acceptance | Evaluation 42 on retained cut 517 missed both protected Preface readings. Evaluation 43 on admitted bounded cut 537 matched exact source scope but found no outputs for five protected readings. Neither result qualifies as a predecessor. Selected cutover remains open. |
+| [DMA-13](#dma-13) | Native migration and assembled acceptance | Evaluations 42 and 43 retain their coverage misses as regression evidence. The revised criteria allow private full-book staging from authenticated retained source. Selection still needs evidence of useful, source-faithful improvement for the claimed scope. |
 
 Source-view coverage, source-value validity, numerical consistency, derivation
 and target identity have priority by consequence. Start the release compiler
@@ -295,6 +295,57 @@ identities and context unconfirmed in this audit.
 
 ## DMA-13 · Adopt current contracts and qualify the assembled system
 
+### Incremental acceptance
+
+**Accepted scope · 2026-11-09.** Apply [ADR-0070](../adr/0070-full-book-method-development.md)
+and the [shared-corpus evaluation design](../design/D7-evaluation-goldens-outer-loop.md#shared-corpus-method-development):
+qualify an increment when it improves a named agent workflow and the structure that
+workflow relies on faithfully represents what the source states. Complete representation
+is a goal. Require coverage only to the extent the selected workflow or claim needs
+it. For example, retrieving a cited exception can succeed with partial coverage;
+claiming that the document contains no exceptions requires evidence of adequate coverage.
+Use the same criteria for a textbook, a business document or any other knowledge set.
+
+- **Private staging.** Resolve the acquired target, admitted execution contracts and
+  exact source and dependency identities. Reuse compatible source and derived products;
+  regenerate selected derivations whose contracts or dependencies no longer match.
+  A separately qualified analytical predecessor is not a prerequisite to staging.
+  Keep the native migration predecessor or reached revision checks for effects.
+- **Paired workflow assessment.** Freeze the named task, source opportunities and
+  independent references before inspecting the new output. Compare with the best
+  compatible retained comparator on the same source, question and semantic scope,
+  whether or not that result was ever selected. Keep exact run, release and scope
+  identities. Use the existing protected evaluator and ordinary consumer journeys.
+  Demonstrate a concrete improvement, such as retrieving a source definition or
+  following a claim to its governing condition. Preserve established material controls
+  for the selected workflow. A tie supports retaining the existing behavior; it does
+  not establish an improvement.
+- **Source fidelity and partial results.** Assess emitted structure independently of
+  source coverage. Check anchors, attribution, roles, relation direction, qualifiers
+  and scope where they affect meaning. A missed reading is a coverage gap; a dropped
+  material qualifier, reversed relation or unsupported assertion presented as sourced
+  is a fidelity defect. Fix or withhold the defective output before selecting the
+  affected capability. Preserve independently supported fragments and distinguish
+  missing, ambiguous, unsupported and failed results. A failed part blocks the
+  outputs that depend on it, while supported siblings remain usable under their own
+  eligibility. Preserve independent public admission for claims that receive public
+  standing.
+- **Formulas and other source assertions.** Assess whether the displayed expression,
+  source location, stated symbol bindings and qualifications are represented faithfully.
+  Retain the source literal or image and mark interpretation unresolved when the
+  expression is unreadable or ambiguous. Mathematical proof, factual verification and
+  symbolic equivalence are outside ordinary source-fidelity acceptance. An optional
+  mathematical analysis needs its own named workflow and evidence; it cannot replace
+  a source citation or qualify an unsupported reading.
+- **Claims that require more evidence.** A selected fitted policy requires evidence
+  for its actual fit, including valid inputs and independent labels. Claim calibrated
+  confidence only with applicable calibration evidence, and unseen-origin performance
+  only with applicable held-out evidence. These are conditions of those capabilities
+  and claims, not prerequisites for selecting useful source-faithful structure without
+  them. Keep exposure provenance and the limits of the comparison explicit.
+
+### Operational qualification and cutover
+
 Freeze the new contracts and reviewed native expectations before effectful
 cutover. Change meanings and generated/native representations together.
 Rebuild affected derived results from authenticated inputs and use new
@@ -322,9 +373,11 @@ Each package runs focused compile or functional checks and the independent
 positive and refusal cases it owns. Follow the binding's target review
 cadence for substantial boundary changes, bounded changes and the assembled
 increment. The integrated review rechecks A1–A4, G1–G8 and CI-G1–CI-G3
-independently. Use the original cross-process release and deployment cases,
-resealed semantic and source mutations, exact p416 and visual recovery,
-typed delivery, retained custody and reference isolation. Preserve the
+independently. Use applicable cross-process release and deployment cases,
+resealed semantic and source mutations, typed delivery, retained custody and
+reference isolation. Preserve supported archived reads, including p416, at their
+recorded scope. Run new visual recovery checks for visual paths in selected scope;
+Chandra remains excluded from current qualification. Preserve the
 coherent distinctions in the review, including candidate standing and
 independent public eligibility.
 
@@ -743,10 +796,15 @@ source and context. The Standard and Nemotron source used by cut 517 remains
 readable after the migration; its native product and projection identities
 still match the source-only cut 514. The known grading refusal against set 32
 requires independently authored full-view references for the run's full-view
-predictions, or a supported bounded run with matching reference scope. An eligible
-predecessor for PM2-12, activation, selection and derived retirement remain open.
+predictions, or a supported bounded run with matching reference scope. This
+refusal constrains the grade, not private staging. Activation, selection and
+derived retirement remain open.
 
 #### Non-Chandra predecessor assessment · 2026-11-09
+
+These historical grades retain their exact scope and outcomes. The two runs are
+available as comparators where scope matches; neither grade demonstrates useful
+improvement or authorizes selection.
 
 The retained [whole-view grade and source journey](../design_review/evidence/2026-11-09_dma-predecessor/README.md)
 use the exact Standard and Nemotron integrated product, task 1627, shared by
@@ -757,8 +815,8 @@ passed and persisted evaluation 42. It found neither protected Preface
 reading among the retained predictions and no accepted matches. The
 heading had zero eligible readings but one private false definition
 proposal; no proposal advanced to accepted standing. This resolves the
-scope mismatch for these two controls. It does not establish quality or
-make run 407 an eligible predecessor.
+scope mismatch for these two controls. It does not establish an improvement
+for the Preface workflow.
 
 On the acquired development target at `semantic_pm2_contextual_queries`,
 the archived DMA release passed `ci release check`. Its ordinary native
@@ -784,15 +842,14 @@ reference view 408 to current-release view 409 under the exact same
 native product, projection and recipe. The producer reported
 `produced`, but the grade recorded `no_output` for each of five
 independent readings: the definition, qualified assertion and three
-located formula bindings. The matching development scope is now usable;
-the protected reading preservation failed. Neither run is eligible.
+located formula bindings. Exact source correspondence passed; the scoped
+coverage result remains a regression control.
 
-Resolve the affected candidate/reading behavior against fresh exact
-controls before a full predecessor campaign; do not turn an attempted
-no-output into an accepted match or widen the proof to the book. Keep the
-private results, source and protected evidence under their original
-bindings. Activation, selection, derived retirement and the final
-qualification union remain open.
+Repeat the affected producer and consumer checks on exact protected
+controls. Use the privately staged full-book successor to assess selected
+workflows; keep every no-output and fidelity outcome at its original scope.
+Activation, selection, derived retirement and the final qualification union
+remain open.
 
 **Producer diagnosis · 2026-11-09.** The [retained read and contextual replay](../design_review/evidence/2026-11-09_dma-producer-gap/README.md)
 localize the misses before resolution. The ordinary route emitted no compatible
@@ -808,10 +865,9 @@ uses the same authenticated retained subsection and released field declarations.
 The challenger emitted more raw groups but assembled only a private role-misbound
 assertion; it did not recover the protected readings. The incumbent method schema
 and ordinary invocation are unchanged. The focused producer and resolver tests
-passed; no protected regrade or fit ran. A fresh run still needs supported role and
-field capture, an applicable exact resolver policy, and independent calibration
-evidence at the selected release and populations. The exposed sets 34 and 35 are
-preservation controls, not fit data. Evaluations 42 and 43 remain ineligible.
+passed; no protected regrade or fit ran. For selection, assess the repaired role
+and field capture and the actual resolver policy, if enabled. The exposed sets
+34 and 35 remain protected preservation controls.
 
 **Exact capture and origin preflight · 2026-11-09.** The [opt-in source-rule and locked HanLP
 controls](../design_review/evidence/2026-11-09_dma-source-rule-capture/README.md) recovered the
@@ -820,6 +876,8 @@ heading gained no new candidate. The two retained displays lack recognized synta
 captured-native parser refused them; no formula meaning was asserted. These are bounded
 private capture improvements. The ordinary route is unchanged, and no protected regrade or
 resolver fit ran. The [registered origin inventory](../design_review/evidence/2026-11-09_pm2-adoption-preflight/README.md#dma-13-origin-availability)
-found only the exposed book's development origin in the current project. Disjoint eligible
-fit and calibration populations, exact supported formula evidence and a fresh qualified
-predecessor remain open. Full-book successor execution and cutover remain `not_run`.
+found only the exposed book's development origin in the current project. This
+limits fitted, calibrated or held-out claims to their available evidence. The
+unresolved formula readings limit the affected outputs. Neither finding blocks
+private full-book derivation from the authenticated Standard and Nemotron source.
+Full-book successor execution and cutover were `not_run` in that preflight.

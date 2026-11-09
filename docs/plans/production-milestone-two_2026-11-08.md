@@ -131,7 +131,7 @@ implementation or evidence, rather than making a whole companion a prerequisite.
 | [PM2-09](production-milestone-two/retrieval-composition-and-delivery.md#PM2-09) · Contextual retrieval | PM2-01, eligible definition targets and exact affine carriers, current retrieval and anchored upstream context | Compare v10 with each applicable enriched recipe after coverage. Deliver an authenticated bounded list to PM2-07 and preserve qualified selection and detached replay. |
 | [PM2-10](production-milestone-two/retrieval-composition-and-delivery.md#PM2-10) · Visual inspection | Exact visual custody, PM2-07, named ambiguity | Conditional typed location or classification with incremental utility and crop mapping, or an explicit reason to leave off. |
 | [PM2-11](production-milestone-two/textbook-assessment-and-adoption.md#PM2-11) · Operation assessment | PM2-00 source-only frame. Predictions join as package results settle. | Paired native comparisons, independent dispositions and release-eligible event evidence. |
-| [PM2-12](production-milestone-two/textbook-assessment-and-adoption.md#PM2-12) · Adopt selected scope | PM2-08–11 outputs as selected, eligible predecessor, required union and effect authority | Qualified textbook release through normal entry points, with retry, preservation and verified selection. |
+| [PM2-12](production-milestone-two/textbook-assessment-and-adoption.md#PM2-12) · Adopt selected scope | Authenticated source and compatible contracts for private staging; scoped PM2-08–11 evidence, applicable qualification and effect authority for selection | Qualified textbook release through normal entry points, with retry, preservation and verified selection. |
 
 <a id="PM2-00"></a>
 
@@ -141,13 +141,13 @@ Reconcile the acquired target, release, and source identities with STATUS and DM
 at execution time. Start source-contract work, provider qualification, and independent
 reference preparation on the available development foundation. Use cut 514 for source
 preparation and cut 517 as the private M1 execution comparator where the selected
-source and operation scope correspond. Use the qualified predecessor for release
-comparisons once the owning evidence supplies it. Preserve historical WCE and NCE
+source and operation scope correspond. Use the best compatible retained comparator for
+each release comparison, whether or not it was selected. Preserve historical WCE and NCE
 comparators at their original extent and require exact source and semantic
 correspondence before pairing. Close PM2-00 once the source opportunities can be
 frozen without predictions and each comparator's available scope and outstanding
-prerequisite are identified. PM2-12 requires an eligible predecessor, applicable
-qualification and effect authority. DMA-13 retains the grading and cutover obligations.
+prerequisite are identified. PM2-12 separates private staging from evidence-based selection.
+DMA-13 retains the grading and cutover obligations.
 
 **Passed · 2026-11-08.** The [frozen baseline](../design_review/evidence/2026-11-08_pm2-foundation/README.md#frozen-development-baseline)
 names the target, release, source product, exact reference and multi-sentence scopes,
@@ -155,7 +155,7 @@ and two v10 original-spelling controls. An explicit archived-release check passe
 Selection lookup refused because the project has no active release. The source-only
 frame and private M1 comparator are available within their recorded scopes. Run 407
 against sentence-only set 32 remains a refused grading attempt with no evaluation.
-DMA-13 owns the eligible predecessor for PM2-12.
+DMA-13 owns the assessment criteria for PM2-12.
 
 ## Foundation execution
 
@@ -180,7 +180,7 @@ The existing task, result and host GPU owners retain their custody.
 | PM2-09 | The protected competitive `/11` pair found all three expected definitions at rank 1 in both arms; the negative remained unlinked. Dipo context rendered on two cases and enriched detached replay passed. Keep `/10`; wider interpretation and book export remain open. |
 | PM2-10 | Visual interpretation remains off. No selected case justifies an additional visual question. The [revisit trigger](production-milestone-two/retrieval-composition-and-delivery.md#PM2-10) requires a named material ambiguity on an authorized region. |
 | PM2-11 | The prior protected d1 pair improved exact fair-coin normalization. The new competitive frame preserved all four protected retrieval outcomes and found no gain. Native d1 missed the exponential-density link in both arms. Native exact affine assessment passed. Wider interpretation remains open. |
-| PM2-12 | Full-book derivation and selection remain open pending scoped acceptance and an [eligible DMA-13 predecessor](domain-model-alignment_2026-11-08.md#dma-13). Evaluations 42 and 43 leave both private predecessor candidates ineligible. All 29 Standard and Nemotron views still resolve identically; no new recognition is indicated. Chandra is excluded. |
+| PM2-12 | Stage selected full-book derivations privately from the authenticated Standard and Nemotron source. [DMA-13](domain-model-alignment_2026-11-08.md#dma-13) requires useful, source-faithful improvement and operational qualification before selection. Evaluations 42 and 43 remain regression evidence. Full-book staging and selection have not run; no new recognition is indicated. Chandra is excluded. |
 
 | Review opportunity | Proposed disposition and closure owner |
 | --- | --- |
@@ -275,9 +275,9 @@ The following readbacks ran on 2026-11-09:
 The audit's remaining work is carried forward in the [remediation execution](#remediation-execution)
 and the package owners above.
 
-Once scoped acceptance and predecessor eligibility settle, reuse the
-authenticated Standard and Nemotron source and qualify the selected derivations
-across the book. The current evidence supplies no reason to repeat recognition;
+Reuse the authenticated Standard and Nemotron source to stage selected derivations
+across the book, then qualify the workflows proposed for selection. The current
+evidence supplies no reason to repeat recognition;
 Chandra stays excluded. PM2-12 also requires the assembled review, final
 applicable functional, native and repository qualification, and the authorized
 selected-reader journey. Fresh provider campaigns, the full-book derived run,
@@ -308,8 +308,9 @@ PM2-08 and PM2-11
 need a qualified attachment and surviving useful part through the assembled
 cross-provider Reader and fresh MCP journey, and independent same-question
 comparisons. PM2-09 keeps ranking behind the definition inventory and fresh
-affirmative affine witness. DMA-13 still has no eligible predecessor. Keep the
-full-book derived run and selection open until the prerequisites pass.
+affirmative source witness for the selected link. This limits the affected retrieval
+scope. DMA-13 permits private staging of the full-book derivations and governs
+selection of the supported workflows.
 
 ### Witness and runtime execution
 
@@ -356,8 +357,8 @@ authenticated list and proposed that same target. The enriched result passed off
 verification. The affine retries passed the exact two-carrier read using a bounded
 SQLAlchemy projection of the retained producer. Both arms preserved X and Z, with
 no selected link to the unrelated sole target. A ranking gain needs a competitive
-eligible inventory and independent same-question judgments. Public partial delivery
-and DMA-13 eligibility remain open.
+eligible inventory and independent same-question judgments. This bounded result did
+not settle public partial delivery or qualification for selection.
 
 The [private condition Reader](../design_review/evidence/2026-11-09_pm2-condition-composition/README.md)
 resolves the directed qualifier and host under their exact retained scope. Controlled textbook
@@ -387,9 +388,11 @@ quality.
 
 The same [preflight](../design_review/evidence/2026-11-09_pm2-adoption-preflight/README.md#dma-13-origin-availability)
 found no registered fit, calibration or final-assessment group in the milestone project.
-[DMA-13](domain-model-alignment_2026-11-08.md#dma-13) owns that gate. The capture repairs recover
-bounded private candidates, with formula recognition still unresolved. Full-book derivation,
-activation and selection remain `not_run`.
+The capture repairs recover bounded private candidates, with formula recognition still
+unresolved. Under the revised [DMA-13 criteria](domain-model-alignment_2026-11-08.md#dma-13),
+these are limits on the affected outputs and claims. Stage selected derivations from the
+retained Standard and Nemotron source, and use the candidate to assess source fidelity and
+workflow gains. Full-book derivation, activation and selection remain `not_run`.
 
 The [condition admission revision](../design_review/evidence/2026-11-09_pm2-adoption-preflight/records/pm2.condition-admission-development.json)
 passed managed rollback authoring, registration and development deployment. Two isolated
@@ -412,4 +415,4 @@ released condition and assumption contract; it supplies no book-wide qualificati
 assessment, opt-in M1 capture and scoped relation selections passed 41 tests
 (`582764e1c2cb4ec0beedde6e1decd8ab`) after the managed revision registered.
 `uv run ci check --only types` and `uv run ci check --only lint` passed. The complete final
-qualification union was `not_run` while predecessor and remaining acceptance obligations were open.
+qualification union was `not_run` in that execution.
