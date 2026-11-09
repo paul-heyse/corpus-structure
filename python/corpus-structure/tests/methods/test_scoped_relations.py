@@ -868,7 +868,7 @@ def _assert_public_condition_projection(view, relation, rows, predicate):
     assert "attachment" not in statement
     original = inputs.passages[0]
     other_version = original.model_copy(
-        update={"passage_id": "same-physical-source-other-version", "effective_version": "revision-2"}
+        update={"passage_id": "other-source-version", "effective_version": "revision-2"}
     )
     versioned = inputs.model_copy(update={"passages": (original, other_version)})
     assert condition_qualification(versioned, ref, payload) == projected

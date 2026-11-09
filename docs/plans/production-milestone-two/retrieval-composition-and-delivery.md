@@ -147,6 +147,22 @@ with exact qualifier and host predicate-member anchors, its own independent
 protected judgments, and the matching native eligibility rule. The existing
 public contextual relation rule cannot represent that evidence.
 
+**Implemented structural admission · 2026-11-09.** The condition qualification
+projects the exact retained cue and host predicate member under the existing structural
+publication owner. Its released relation keeps `condition` and `assumption` distinct.
+Native and detached checks bind the actual role citations, effective version, selected
+custody and canonical statement; atomic publication still requires the current
+independent supported case. Development deployment reached
+`semantic_pm2_condition_admission`. The [p289 journey](../../design_review/evidence/2026-11-09_pm2-public-condition/README.md)
+records the real variance case. Native admission refused the phrase-level reference,
+then accepted the independently authored role-anchor statement at run 472/cut 586
+under the same released policy and the unchanged scoped producer. The archived v8
+source was readable live but could not supply current detached proof. Reusing a
+compatible retained Standard product reproduced the same exact physical premise and
+host in a separate v10 view. Run 477/cut 594 passed the same independent admission.
+Reader, CLI, fresh MCP and offline verification of the exact detached bundle returned
+the same assertion and claim. No recognition was run.
+
 <a id="PM2-09"></a>
 
 ## PM2-09 · Improve candidate context using Sentence Transformers

@@ -812,3 +812,14 @@ passed; no protected regrade or fit ran. A fresh run still needs supported role 
 field capture, an applicable exact resolver policy, and independent calibration
 evidence at the selected release and populations. The exposed sets 34 and 35 are
 preservation controls, not fit data. Evaluations 42 and 43 remain ineligible.
+
+**Exact capture and origin preflight · 2026-11-09.** The [opt-in source-rule and locked HanLP
+controls](../design_review/evidence/2026-11-09_dma-source-rule-capture/README.md) recovered the
+exact Preface assertion and measurement cores and the subsection condition and host. The
+heading gained no new candidate. The two retained displays lack recognized syntax and the
+captured-native parser refused them; no formula meaning was asserted. These are bounded
+private capture improvements. The ordinary route is unchanged, and no protected regrade or
+resolver fit ran. The [registered origin inventory](../design_review/evidence/2026-11-09_pm2-adoption-preflight/README.md#dma-13-origin-availability)
+found only the exposed book's development origin in the current project. Disjoint eligible
+fit and calibration populations, exact supported formula evidence and a fresh qualified
+predecessor remain open. Full-book successor execution and cutover remain `not_run`.

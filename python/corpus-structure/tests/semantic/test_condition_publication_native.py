@@ -446,7 +446,11 @@ def test_condition_admits_only_the_exact_supported_roles(
         write_review_bundle(
             review,
             omitted,
-            [(relation, row) for relation, row in rows if relation != "structural_public_assertions"],
+            [
+                (relation, row)
+                for relation, row in rows
+                if relation != "structural_public_assertions"
+            ],
         )
     _assert_transport_parity(page, semantic_application_settings, case.project_id, tmp_path)
 

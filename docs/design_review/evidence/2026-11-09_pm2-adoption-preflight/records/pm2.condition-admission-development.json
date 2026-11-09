@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "id": "pm2.condition-admission-development",
+  "title": "Managed condition admission and exact arm native deployment",
+  "group": "pm2-adoption-preflight",
+  "package": "PM2-08",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the versioned condition statement and comparison binding be admitted on the acquired development target without selecting a result?",
+  "answers": [
+    "F03",
+    "PM2-08",
+    "PM2-11"
+  ],
+  "method": "Inspect the exact preview; author in rollback, register, and deploy the frozen native candidate.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-09_pm2-adoption-preflight/model-change.yaml --json",
+    "uv run ci model change candidate f1f3fe50dbdf439b9ca1d5b9c4699a6b --json",
+    "uv run ci model change register 77d4d4c5435b432b99dcfd4217a7e295 --json",
+    "uv run ci model change deploy 77d4d4c5435b432b99dcfd4217a7e295 --json"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "PostgreSQL and the managed target check independently bind the native guards."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "model-change.yaml",
+      "role": "Frozen managed change",
+      "sha256": "3acca56bb3f2277a0d5a9536efa8de23e8a93220cba7bab689b3a97676866323"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/model-preview.json",
+      "role": "Managed native receipt",
+      "sha256": "7d655b3adc0541f955a6947d5163af98abd03bdd0aefbe23343c4f085f1390cc"
+    },
+    {
+      "path": "raw/model-candidate.json",
+      "role": "Managed native receipt",
+      "sha256": "9a968c87b52a85515d53e0b2dba3298780153966536f1e3ac6cc52100f5b9994"
+    },
+    {
+      "path": "raw/model-register.json",
+      "role": "Managed native receipt",
+      "sha256": "6cff5b56ac1c4f073b65901327717c39d837fca9b952f319869162c2ea640f68"
+    },
+    {
+      "path": "raw/model-deploy.json",
+      "role": "Managed native receipt",
+      "sha256": "3dbbae5a0182b2e30d04d22dc37fc7049b376b628b10bbf85d0b9eb5d8e37dc6"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-bounded-retrieval/pm2.bounded-retrieval-development-deployment"
+  ],
+  "results": [
+    {
+      "name": "Native operations",
+      "value": 9,
+      "of": null,
+      "unit": "operations",
+      "note": "Existing physical model unchanged."
+    },
+    {
+      "name": "Reached revision",
+      "value": "semantic_pm2_condition_admission",
+      "of": null,
+      "unit": null,
+      "note": "Development only; project remains unselected."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Rollback authoring, registration and development deployment passed. This receipt establishes native implementation and archived release admission, not public qualification of the textbook example.",
+  "consumed_by": [
+    "PM2-08",
+    "PM2-11",
+    "PM2-12"
+  ]
+}

@@ -1,0 +1,236 @@
+{
+  "schema_version": 1,
+  "id": "pm2.competitive-retrieval-interpretation",
+  "title": "Protected competitive retrieval and native d1 handoff",
+  "group": "pm2-adoption-preflight",
+  "package": "PM2-09",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does one exact Dipo signal improve retrieval or d1 decisions in the frozen competitive source frame?",
+  "answers": [
+    "PM2-09",
+    "PM2-12"
+  ],
+  "method": "Authenticate target custody, freeze exact arm configuration and independent source-only judgments, run matched native arms and d1, and verify the enriched bundle offline.",
+  "commands": [
+    "uv run ci eval run --run 461 --set-id 39 --comparison-arm baseline --project nce-grinstead-snell-full-book --json",
+    "uv run ci eval run --run 462 --set-id 39 --comparison-arm revised --project nce-grinstead-snell-full-book --json",
+    "uv run ci eval operation-compare --baseline 44 --revised 45 --project nce-grinstead-snell-full-book --json",
+    "uv run ci run interpret --request docs/design_review/evidence/2026-11-09_pm2-adoption-preflight/raw/d1-request.json --json",
+    "uv run ci review verify build/models/pm2/competitive-enriched-review --json",
+    "uv run ci eval operation-compare --baseline 46 --revised 47 --project nce-grinstead-snell-full-book --json"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "PostgreSQL and the managed target check independently bind the native guards."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "inventory.py",
+      "role": "Exact input or replay source",
+      "sha256": "45cb2f7b6a9e7e664f949aa3871c66cd8c20faa1e68844423296d77ac4dbd3ea"
+    },
+    {
+      "path": "targets.py",
+      "role": "Exact input or replay source",
+      "sha256": "4fc31b02338f29eb76047b7e60d3f9c32a3acedd9a31738bbd677ad1d5b5bda7"
+    },
+    {
+      "path": "source_opportunities.py",
+      "role": "Exact input or replay source",
+      "sha256": "25b2468cf310798d24541f82a548e36173e460c6f7834a653eee7a1734278f7f"
+    },
+    {
+      "path": "prepare_pair.py",
+      "role": "Exact input or replay source",
+      "sha256": "249cdcd756ba2103cca522e16b441b112baa98cf076bfc5237ac7273e03740a6"
+    },
+    {
+      "path": "protected_reference.py",
+      "role": "Exact input or replay source",
+      "sha256": "25392a0bb8694d54d580f7301e4cd7f13d4df0f3eaaca5684b31eb3d0400d791"
+    },
+    {
+      "path": "interpret_pair.py",
+      "role": "Exact input or replay source",
+      "sha256": "c9fbe22564953cbd60a07809a9fbeeb9e86fe443fdc88e4a3c83bccb76cae4d6"
+    },
+    {
+      "path": "read_pair.py",
+      "role": "Exact input or replay source",
+      "sha256": "d858ca8c2c50a63a1d78cc4500cab99227a68f33e42e206607daffb5ccb5a684"
+    },
+    {
+      "path": "retrieval-rubric.md",
+      "role": "Exact input or replay source",
+      "sha256": "429e027b74797d5ae94094f62e1917a2790c3cf3cfd851b6560a78352f25013b"
+    },
+    {
+      "path": "raw/arm-freeze.json",
+      "role": "Exact input or replay source",
+      "sha256": "0ac5b88ea8973eed5ce06293db374386ec33150a0b5a315d1ae140f7393b7f43"
+    },
+    {
+      "path": "raw/protected-sample.json",
+      "role": "Exact input or replay source",
+      "sha256": "97b9ae0a9561438ac16215ca52c32015338a5b4c17cdafe6ad366447633b1bbc"
+    },
+    {
+      "path": "raw/d1-request.json",
+      "role": "Exact input or replay source",
+      "sha256": "116a5df41afcabab478b0468c0d22ef8d68d9bf0547cb547174bd1b0ec34f9c3"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/competitive-targets.json",
+      "role": "Retained result or bounded readback",
+      "sha256": "89cf0b9c514118ae1a65860e7ca4e27cb73a08f00bc80253e06fbda2f0fda6d6"
+    },
+    {
+      "path": "raw/carrier-coverage.json",
+      "role": "Retained result or bounded readback",
+      "sha256": "8cfd8db8674df860b6d1cc82b629b8c8f8df350cd88c3ee8af7649c9ef8936f4"
+    },
+    {
+      "path": "raw/dipo-retry-result.json",
+      "role": "Retained result or bounded readback",
+      "sha256": "3235207c0355339567f262dadd7cc976f986eb150426f20e4bf499fa16d6cb73"
+    },
+    {
+      "path": "raw/dipo-result.json",
+      "role": "Retained result or bounded readback",
+      "sha256": "6323a7897b5c815d0f965d69e2f8e9e9e68014ca6779a7a8071646d4aeb390f4"
+    },
+    {
+      "path": "raw/protected-set.json",
+      "role": "Retained result or bounded readback",
+      "sha256": "5e6d7a5b09e6f7ef41c8f3e8571daa9fbaf9ffeaa4cef6f3ec218e0f0a215e89"
+    },
+    {
+      "path": "raw/protected-pass-A.json",
+      "role": "Retained result or bounded readback",
+      "sha256": "35910655f95b8012274e8d3866a87b195bddfa865ab0a08129b5c1eda99292b5"
+    },
+    {
+      "path": "raw/protected-pass-B.json",
+      "role": "Retained result or bounded readback",
+      "sha256": "f3baf57ed29658f3b3a969fee9edf42efb10b67f52799f36fdbdc724af7bea2e"
+    },
+    {
+      "path": "raw/protected-pass-C.json",
+      "role": "Retained result or bounded readback",
+      "sha256": "9b19da9fd235ef4695fb5667fdfb019f7130e0f6f2a50f3f590c1f58614267c4"
+    },
+    {
+      "path": "raw/protected-comparison.json",
+      "role": "Retained result or bounded readback",
+      "sha256": "4da9ca09d389474bb911023518151cc7bf5a06cf6c7bd5993150cb39c25acd9a"
+    },
+    {
+      "path": "raw/literal-completed.json",
+      "role": "Retained result or bounded readback",
+      "sha256": "dcc555f5fa7962aebb83f50dd78fa82f609b15f9066c683298335d09bc340cc2"
+    },
+    {
+      "path": "raw/enriched-completed.json",
+      "role": "Retained result or bounded readback",
+      "sha256": "329acb4e5d009f42cf03ad914fd9c59668d68f9f2d9a13acda92cf65f220e219"
+    },
+    {
+      "path": "raw/d1-result.json",
+      "role": "Retained result or bounded readback",
+      "sha256": "a240e05de0949bd580ac641b4a6fdf85760463a8c8f29f9d3bc8e26843737aa8"
+    },
+    {
+      "path": "raw/d1-retry-result.json",
+      "role": "Retained result or bounded readback",
+      "sha256": "ba3c4df9dec83d42d39069a4042099d507f918f0a6c09e7eb29bc8cc1d0535f7"
+    },
+    {
+      "path": "raw/d1-exact-runtime-result.json",
+      "role": "Retained result or bounded readback",
+      "sha256": "7f9752a0df10ffb1739cff876f9cd224504d8d99244a52e9b6663bd2b5c08f5d"
+    },
+    {
+      "path": "raw/rank-and-interpretation.json",
+      "role": "Retained result or bounded readback",
+      "sha256": "4f73c380d201e83b19ee58f334679e54c3ecf919a52706ba6f6bc1d23ee0d276"
+    },
+    {
+      "path": "raw/review-export.json",
+      "role": "Retained result or bounded readback",
+      "sha256": "94349559af3fd1314c977c4643906dc9ad77b2cf57e0a6e9fc882cfedff59a75"
+    },
+    {
+      "path": "raw/review-verified.json",
+      "role": "Retained result or bounded readback",
+      "sha256": "c4d4f1ed67a969537ed2c6bc898a837f22a4c1509d9931a6a270f4bbcf414331"
+    },
+    {
+      "path": "raw/native-protected-comparison.json",
+      "role": "Exact verified comparison or request binding",
+      "sha256": "40457e8beb9d6d18be4e3d9388f65d7147694eb280322c8cda4f7abc14f5563e"
+    },
+    {
+      "path": "raw/interpretation-bindings-verified.json",
+      "role": "Exact verified comparison or request binding",
+      "sha256": "4eb7f87bfad4964ffd09ae10468c3bf75551238fc1006eaaa26a66a9d92010f7"
+    },
+    {
+      "path": "raw/literal-finalize-runtime-refusal.json",
+      "role": "Exact verified comparison or request binding",
+      "sha256": "ba3c4df9dec83d42d39069a4042099d507f918f0a6c09e7eb29bc8cc1d0535f7"
+    },
+    {
+      "path": "raw/enriched-finalize-runtime-refusal.json",
+      "role": "Exact verified comparison or request binding",
+      "sha256": "ba3c4df9dec83d42d39069a4042099d507f918f0a6c09e7eb29bc8cc1d0535f7"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-bounded-retrieval/pm2.binomial-retrieval-d1-control"
+  ],
+  "results": [
+    {
+      "name": "Competing targets",
+      "value": 8,
+      "of": null,
+      "unit": null,
+      "note": "Top ten cannot distinguish recall at this size."
+    },
+    {
+      "name": "Expected definitions at rank 1",
+      "value": 3,
+      "of": null,
+      "unit": null,
+      "note": "Both literal and enriched."
+    },
+    {
+      "name": "Rendered Dipo signals",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": "Unavailable for binomial and exponential."
+    },
+    {
+      "name": "Supported positive d1 choices per arm",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": "Both miss the exponential-density link and refuse the hard negative."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The matched exposed-development frame shows no ranking or selection gain. Keep /10. Exact offline custody passed. Interpretation quality and public eligibility do not follow from this comparison.",
+  "consumed_by": [
+    "PM2-09",
+    "PM2-12"
+  ]
+}

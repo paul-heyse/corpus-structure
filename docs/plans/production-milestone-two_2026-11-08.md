@@ -175,11 +175,11 @@ The existing task, result and host GPU owners retain their custody.
 | Package | Current execution disposition · 2026-11-09 |
 | --- | --- |
 | PM2-06 | Ordinary bounded parser modes remain selected for development. The [optional-mode disposition](production-milestone-two/linguistic-referential-discourse.md#PM2-06) records the observed gaps and the evidence needed to revisit them. |
-| PM2-07 | Private CUDA execution and located typed reads are implemented. The v2 pair verified exact normalization of the fair-coin probability; roulette magnitude, condition host and local referent remain unsupported. Exact GLiNER2 diagnostics distinguish raw proposal loss from decoder loss on six retained windows. The matched binomial lists passed the native d1 handoff and produced the same private proposal. A like-for-like GLiNER/spaCy comparison and protected retrieval-fed interpretation remain open. |
-| PM2-08 | The fair-coin no-match is inspectable through CLI, MCP and detached proof. The revised exact quantity is inspectable through CLI and detached proof. The private Reader projects the exact condition and host and preserves useful siblings on refusal; the retained textbook attachment passed CLI and fresh MCP. Public admission and its detached journey remain open. |
-| PM2-09 | The typed frozen-list read is verified. The exact-carrier v11 literal control preserves the registered v10 default. Both native binomial arms found the sole exact definition at rank 1; the enriched arm passed detached replay. Both affine arms retained X and Z and selected no link. A protected comparison with a competitive eligible inventory and book export remain open. |
+| PM2-07 | Private CUDA execution and located typed reads are implemented. The v2 pair verified exact fair-coin normalization. On the competitive frame, both sets of d1 proposals recovered binomial and normal density, missed exponential density and declined the negative-binomial link. Broader interpretation and the like-for-like GLiNER/spaCy comparison remain open. |
+| PM2-08 | The public condition and assumption contracts are deployed in development. Native textbook-style and business controls passed atomic admission, partial delivery, Reader, CLI, fresh MCP and exact detached verification. The real p289 variance statement passed native admission and agreed across all four consumers at run 477/cut 594. |
+| PM2-09 | The protected competitive `/11` pair found all three expected definitions at rank 1 in both arms; the negative remained unlinked. Dipo context rendered on two cases and enriched detached replay passed. Keep `/10`; wider interpretation and book export remain open. |
 | PM2-10 | Visual interpretation remains off. No selected case justifies an additional visual question. The [revisit trigger](production-milestone-two/retrieval-composition-and-delivery.md#PM2-10) requires a named material ambiguity on an authorized region. |
-| PM2-11 | The [paired d1 runs](../design_review/evidence/2026-11-09_pm2-interpretation-pair/README.md) used the same protected opportunities and inputs. Exact fair-coin probability normalization improved; the definition control held; roulette loss, host and referent remain unsupported. Native exact affine assessment passed. Both exact binomial lists produced the same private d1 proposal; protected retrieval-fed interpretation and public condition grading remain open. |
+| PM2-11 | The prior protected d1 pair improved exact fair-coin normalization. The new competitive frame preserved all four protected retrieval outcomes and found no gain. Native d1 missed the exponential-density link in both arms. Native exact affine assessment passed. Wider interpretation remains open. |
 | PM2-12 | Full-book derivation and selection remain open pending scoped acceptance and an [eligible DMA-13 predecessor](domain-model-alignment_2026-11-08.md#dma-13). Evaluations 42 and 43 leave both private predecessor candidates ineligible. All 29 Standard and Nemotron views still resolve identically; no new recognition is indicated. Chandra is excluded. |
 
 | Review opportunity | Proposed disposition and closure owner |
@@ -373,3 +373,43 @@ exact alternate-domain parser test passed with the locked model assets
 (`c0c9d41241494580aff3d4fb7e63f9a4`). `uv run ci check --only types` passed.
 These selections cover the stated changes; the applicable full qualification union
 remains with PM2-12.
+
+### Adoption follow-up execution
+
+**Tested · 2026-11-09.** The [competitive retrieval frame](../design_review/evidence/2026-11-09_pm2-adoption-preflight/README.md)
+froze four exact source cases and eight reviewed competing targets, with separate registered
+configuration hashes for the two `/11` arms. Protected evaluations 44 and 45 found no change;
+the three supported targets ranked first in both arms and no negative-binomial edge was selected.
+All eight native d1 requests ran. Both arms missed the exponential-density link, while recovering
+the other two positive concepts and declining the negative. The enriched closure passed offline.
+Keep `/10` as the ordinary route. The frame does not establish recall gain or wider interpretation
+quality.
+
+The same [preflight](../design_review/evidence/2026-11-09_pm2-adoption-preflight/README.md#dma-13-origin-availability)
+found no registered fit, calibration or final-assessment group in the milestone project.
+[DMA-13](domain-model-alignment_2026-11-08.md#dma-13) owns that gate. The capture repairs recover
+bounded private candidates, with formula recognition still unresolved. Full-book derivation,
+activation and selection remain `not_run`.
+
+The [condition admission revision](../design_review/evidence/2026-11-09_pm2-adoption-preflight/records/pm2.condition-admission-development.json)
+passed managed rollback authoring, registration and development deployment. Two isolated
+native condition journeys passed (`8918df5ec9c940fcbe9e4021c88040eb`): textbook-style and
+business inputs used the same atomic publication route, Reader, CLI, fresh MCP and exact
+detached verification. They refused a stale or wrong protected case and altered or omitted
+public proof rows, and preserved an independently admitted part with a failed sibling.
+The [actual p289 journey](../design_review/evidence/2026-11-09_pm2-public-condition/README.md)
+admitted the complete premise and lexical host at run 472/cut 586, with matching ordinary
+Reader, CLI and fresh MCP. The archived v8 projection could not supply current detached proof.
+A separate v10 view from the compatible retained Standard product (run 474/cut 588/view 410)
+matched the complete independently reviewed passage and both physical role anchors without
+recognition. Its public admission passed at run 477/cut 594 against protected set 18.
+Ordinary Reader, CLI and fresh MCP agreed with offline `ci review verify` on the same
+assertion and claim from exact-closure export `96b92b4b1d01478a90e52fe736a050b0`.
+The original publication retains its original source custody. This closes F03 for the
+released condition and assumption contract; it supplies no book-wide qualification.
+
+**Scoped regression · 2026-11-09.** `uv run ci test --json --` on the native operation
+assessment, opt-in M1 capture and scoped relation selections passed 41 tests
+(`582764e1c2cb4ec0beedde6e1decd8ab`) after the managed revision registered.
+`uv run ci check --only types` and `uv run ci check --only lint` passed. The complete final
+qualification union was `not_run` while predecessor and remaining acceptance obligations were open.

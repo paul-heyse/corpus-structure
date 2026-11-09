@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "id": "pm2.condition-public-admission",
+  "title": "Exact condition qualification through native public admission and ordinary delivery",
+  "group": "PM2-08",
+  "package": "PM2-08",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the current release publish only independently supported condition or assumption roles, keep failed siblings, and replay the exact assertion from ordinary and detached readers?",
+  "answers": [
+    "F03",
+    "I07",
+    "PM2-08"
+  ],
+  "method": "Exercise isolated textbook and business source controls through ordinary PostgreSQL admission. Use the authenticated Standard p289 source and retained M1 annotations for current-release scoped qualification; preserve the phrase reference and refusal. Submit independently authored role anchors under a separate frame of the released policy. Preserve the old projection's detached and reprojection refusals. Qualify the same independently judged source passage under the current v10 projection from compatible retained Standard native records, without repeating recognition.",
+  "commands": [
+    "PYTEST_XDIST_AUTO_NUM_WORKERS=2 uv run ci test --json -- python/corpus-structure/tests/methods/test_scoped_relations.py -k condition_host_preserves",
+    "PYTEST_XDIST_AUTO_NUM_WORKERS=2 uv run ci test --json -- python/corpus-structure/tests/semantic/test_condition_publication_native.py",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-public-condition/variance_journey.py source",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-public-condition/variance_journey.py archived",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-public-condition/variance_journey.py initialize --release RELEASE --realization REALIZATION",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-public-condition/variance_journey.py reproject --native-baseline-view 276 --release RELEASE --realization REALIZATION --attempt pm2-p289-standard-v10-1",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-public-condition/variance_journey.py freeze --reference-design DESIGN --release RELEASE --group grinstead-snell --partition development --a A.json --b B.json --c C.json",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-public-condition/variance_journey.py stage --release RELEASE --realization REALIZATION --reference REFERENCE.json --attempt ATTEMPT",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-public-condition/variance_journey.py publish --release RELEASE --realization REALIZATION --reference REFERENCE.json --staged STAGED.json --attempt ATTEMPT",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-public-condition/variance_journey.py verify-delivery --publication PUBLICATION.json --delivery-root DELIVERY_ROOT"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "Source-only packet authors and adjudicators received the exact original passage and relevant rubric without prior model output. The producer and its evaluator inputs were bound separately; the first judgment was preserved after refusal."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "variance_journey.py",
+      "role": "Bounded original source, protected reference, ordinary native publication and delivery driver",
+      "sha256": "7e52f7459a11ff6f161f4f4193fec626928987c7c47f86c78e7a2d1eb79c91c2"
+    },
+    {
+      "path": "source_only_packet.md",
+      "role": "First source-only phrase rubric",
+      "sha256": "731ab433da4010f2f57f82456585dbefbb4921063ce79d885a8d0be7cdfda645"
+    },
+    {
+      "path": "role_anchor_packet.md",
+      "role": "Independent complete premise and lexical predicate rubric",
+      "sha256": "83415b545e8d93bc453ae363b6e8ef10863e296f640a839e710c8794ba350277"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/source.json",
+      "role": "Original authenticated p289 source and passage coordinates",
+      "sha256": "cb5966055db6df1e6c057cf61de6f436fb6b92b0ddbc48d5f2b8474109a93c32"
+    },
+    {
+      "path": "raw/archived-projection.json",
+      "role": "Archived private role projection",
+      "sha256": "d2e82a2db8fa907b20236a34c988b363cd9c6aee69bf354a794a410644a8db2e"
+    },
+    {
+      "path": "raw/checks.json",
+      "role": "Managed native deployment and test receipts, and earlier alias refusals",
+      "sha256": "c9854186d567b068aa0d1f4aa05d502a1c3b00a084cdfbe9af76d20ceb37d6c7"
+    },
+    {
+      "path": "raw/initialization.json",
+      "role": "Private exercise realization binding",
+      "sha256": "537a46e42bd8b336a7407fb23526af6c10fef40e181fc9a02adb0b4ebadeef54"
+    },
+    {
+      "path": "raw/protected-reference.json",
+      "role": "Original protected phrase frame and A/B/C receipt",
+      "sha256": "e520ce573e2af31dfdc2b10433f25e2623155ca355fb6e6fd29c3e430e4de2d0"
+    },
+    {
+      "path": "raw/staged.json",
+      "role": "Current scoped and private condition custody for the original exercise",
+      "sha256": "5d582330170b5dcde45b115ea2ecdd1c3dfa9fec98838bb610be0fb5b8d059a3"
+    },
+    {
+      "path": "raw/publication.json",
+      "role": "First native admission refusal and proof of zero completed/public rows",
+      "sha256": "ff9d24ebc493fabc99d052815751b72729514bd3683d196937fdecbfa21f4b2a"
+    },
+    {
+      "path": "raw/unregistered-role-anchor-reference.json",
+      "role": "Intermediate role anchor frame with unregistered policy",
+      "sha256": "051534413672a6905144996fc460c49efb76cc2ab01f1284c5e7f4cdbe0eba1c"
+    },
+    {
+      "path": "raw/unregistered-role-anchor-staged.json",
+      "role": "Unregistered-policy private product, never submitted for admission",
+      "sha256": "9b3fd3baa2251f7286308550aa82a1168a690428ccdfecf2c25db153fb1273c5"
+    },
+    {
+      "path": "raw/role-anchor-reference.json",
+      "role": "Independent role anchor frame with released policy and A/B/C receipt",
+      "sha256": "28cf548fe02ef0dbf171638c75d2bb567fedd304823c7324ad4a61ea87caf496"
+    },
+    {
+      "path": "raw/role-anchor-staged.json",
+      "role": "Unchanged producer's private exact condition and current custody",
+      "sha256": "204f6cd312bb0a93e95b140e5411b7cb99d92a6af55e6a8f1201e0f40a581b06"
+    },
+    {
+      "path": "raw/role-anchor-publication.json",
+      "role": "Completed ordinary development run with exact public witness",
+      "sha256": "bf2dce2c272f8517a083607dddd8fbd3dfd4b73c7fb5add32c55774afb488c07"
+    },
+    {
+      "path": "raw/delivery.jsonl",
+      "role": "Old projection's ordinary Reader, CLI and fresh stdio MCP equality and exact detached refusal",
+      "sha256": "db3f7f0335e4292ff89399415dca9171ea797870e6da3fbf8f910b935baccf1c"
+    },
+    {
+      "path": "raw/archived-reprojection-refusal.json",
+      "role": "Native refusal to reproject the older incompatible Standard schema",
+      "sha256": "1bbe86d8e071fdddbd19fdbe1ecac048e5c81f2575d26aa5aeabcc0e2b366dec"
+    },
+    {
+      "path": "raw/reprojected-source.json",
+      "role": "Completed v10 source, prior and new custody, exact passage and physical role item",
+      "sha256": "5f1da4f2480dc46e6cc7f5f97ec61b802f280a3d442ce51903fac5da3822ca81"
+    },
+    {
+      "path": "raw/reprojected-reference.json",
+      "role": "Same independent judgments bound to a fresh exact v10 frame and A/B/C receipt",
+      "sha256": "170498e8c76b291a35ebfab0ea7691b46a54d682dae1120bae6d4568d4fe37de"
+    },
+    {
+      "path": "raw/reprojected-staged.json",
+      "role": "Current v10 scoped producer and private product custody",
+      "sha256": "3a61b22839242e81cc0983dcae9660b666ff3c18e85b1cdf1dc40e38e5771572"
+    },
+    {
+      "path": "raw/reprojected-publication.json",
+      "role": "Ordinary native admission of the exact v10 source-bound statement",
+      "sha256": "750e08b6e7d65fb455f5643e6cdb4888fbb2cd1f5f7c03bf964a814bd1af1421"
+    },
+    {
+      "path": "raw/reprojected-delivery.jsonl",
+      "role": "Current v10 Reader, CLI, fresh MCP and bound offline verifier result",
+      "sha256": "87bccdac6479cf292d80441dba8a7b3f72820c0ee28ecce2cacc499ea31bce1e"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-condition-composition/pm2.condition-private-composition",
+    "2026-11-09_pm2-adoption-preflight/pm2.condition-admission-development"
+  ],
+  "results": [
+    {
+      "name": "Exact role projection controls",
+      "value": 6,
+      "of": 6,
+      "unit": "tests",
+      "note": null
+    },
+    {
+      "name": "Native publication and refusal across two vocabularies",
+      "value": 2,
+      "of": 2,
+      "unit": "tests",
+      "note": null
+    },
+    {
+      "name": "Actual p289 exact role admission and delivery",
+      "value": 1,
+      "of": 1,
+      "unit": "case",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The existing release publishes an exact source-first condition or assumption only when the independent structural support matches both role anchors. It rejected the original phrase reference and admitted a separately authored exact role reference. The compatible v10 source pin preserves the exact physical p289 evidence and delivers its assertion through ordinary and detached surfaces. This one exposed textbook case and controlled business case do not establish full-book or interpretation-provider qualification.",
+  "consumed_by": [
+    "PM2-08",
+    "PM2-11"
+  ]
+}

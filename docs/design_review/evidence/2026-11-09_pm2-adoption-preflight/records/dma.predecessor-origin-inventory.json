@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "id": "dma.predecessor-origin-inventory",
+  "title": "Registered origins for DMA-13 fit and calibration",
+  "group": "pm2-adoption-preflight",
+  "package": "DMA-13",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the current milestone project have registered disjoint populations for predecessor fitting and calibration?",
+  "answers": [
+    "DMA-13",
+    "PM2-12"
+  ],
+  "method": "Read only origin registrations and counts by project with evaluator authority, without reading protected labels.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-adoption-preflight/inventory.py"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "PostgreSQL and the managed target check independently bind the native guards."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "inventory.py",
+      "role": "Exact input or replay source",
+      "sha256": "45cb2f7b6a9e7e664f949aa3871c66cd8c20faa1e68844423296d77ac4dbd3ea"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/native-inventory.json",
+      "role": "Retained result or bounded readback",
+      "sha256": "de8c15bbf7638d633432cab260e74d4e764aec744c5f4b59aba512cf31ce1a4b"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Current project development origins",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": "Grinstead-Snell, already exposed."
+    },
+    {
+      "name": "Current project registered fit or calibration origins",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": "Historical registrations are under other projects."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The current project does not have the required disjoint independently adjudicated fit and calibration populations. Historical registrations do not establish current eligibility. No fit, calibration or predecessor promotion ran.",
+  "consumed_by": [
+    "DMA-13",
+    "PM2-12"
+  ]
+}

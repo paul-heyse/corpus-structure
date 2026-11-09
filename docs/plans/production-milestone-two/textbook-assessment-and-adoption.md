@@ -209,6 +209,14 @@ comparisons in the table above. The d1 v1/v2 pair qualifies one probability
 normalization gain at its frozen scope; the blocked retrieval comparison
 qualifies no ranking or selection change.
 
+**Tested competitive follow-up · 2026-11-09.** The [eight-target protected frame](../../design_review/evidence/2026-11-09_pm2-adoption-preflight/README.md#native-competitive-comparison)
+compared exact registered literal and Dipo configurations under `/11`. All three
+expected definitions ranked first in both arms. Dipo rendered a signal on two cases;
+the other two reused identical lists. Native d1 made the same choices in both arms,
+including the missed exponential-density link. The negative-binomial control remained
+unlinked. Detached replay passed. The case inventory is adequate for bounded ordering
+comparison and too small for top-10 recall discrimination. Retain `/10`.
+
 **Closure.** The coordinator receives exact frame and comparator identities, named cases,
 paired changes and dispositions for each adopted operation. The report links source,
 observations, candidates, selected contribution and final consumer, showing one successful

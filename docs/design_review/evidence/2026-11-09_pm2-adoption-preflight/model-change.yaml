@@ -1,0 +1,6 @@
+baseline: 36c8bd8e5
+packs: [statistics]
+native_predecessor: semantic_pm2_bounded_retrieval
+native_revision: semantic_pm2_condition_admission
+deployment: true
+deployment_profile: development
