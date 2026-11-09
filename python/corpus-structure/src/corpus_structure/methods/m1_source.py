@@ -266,9 +266,7 @@ def configured_pack_variants(prepared, cfg, *, generic_role_guidance: bool = Fal
     """Policies5/6 add a natural binding request, sharing the resident model."""
     from corpus_structure.methods.record_packs import formula_pack_variants
 
-    packs = configured_packs(
-        prepared, cfg, generic_role_guidance=generic_role_guidance
-    )
+    packs = configured_packs(prepared, cfg, generic_role_guidance=generic_role_guidance)
     variants: dict[str, tuple[tuple[str, str, GlinerPack], ...]] = {
         family: (("default", FAMILIES[family][1], pack),) for family, pack in packs.items()
     }
@@ -346,9 +344,7 @@ class M1Candidates:
 
     def run_generic_role_guidance_comparison(self, units, cfg, ctx):
         """Run the detached opt-in prompt arm without changing registered method config."""
-        return tuple(
-            self._source(unit, cfg, ctx, generic_role_guidance=True) for unit in units
-        )
+        return tuple(self._source(unit, cfg, ctx, generic_role_guidance=True) for unit in units)
 
     def interpretation_request(self, group):
         """Actual retained groups reach the interpreter only with an applicable factor policy."""

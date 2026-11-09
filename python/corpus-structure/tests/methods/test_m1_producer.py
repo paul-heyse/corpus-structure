@@ -247,9 +247,7 @@ def test_generic_role_guidance_is_an_explicit_pack_identity_with_configured_prec
     baseline_assertion = json.loads(baseline["assertion"].declaration_json)["structures"][
         "assertion"
     ]
-    guided_assertion = json.loads(guided["assertion"].declaration_json)["structures"][
-        "assertion"
-    ]
+    guided_assertion = json.loads(guided["assertion"].declaration_json)["structures"]["assertion"]
     baseline_fields = {field["name"]: field for field in baseline_assertion["fields"]}
     guided_fields = {field["name"]: field for field in guided_assertion["fields"]}
     assert "generic_role_guidance" not in cfg.model_dump(mode="json")
