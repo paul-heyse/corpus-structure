@@ -223,6 +223,14 @@ def _section_source_refs(report):
 def _structural_predecessors(report):
     if report.clause_classification is not None:
         return (), tuple(row.selection.frame for row in report.clause_classification.readings)
+    if report.definition_components is not None:
+        return (), tuple(
+            dict.fromkeys(
+                component.declaration_chain.parser
+                for component in report.definition_components.components
+                if component.declaration_chain is not None
+            )
+        )
     if report.dossier is not None:
         return report.dossier.predecessors, report.dossier.contribution_predecessors
     if report.artifact_identity is not None:

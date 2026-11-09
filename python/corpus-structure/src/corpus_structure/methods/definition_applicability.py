@@ -28,6 +28,7 @@ from corpus_structure.methods.predicate_frames import (
 )
 from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 from corpus_structure.semantic.structural_products import (
     ApplicabilityPremise,
     DefinitionBasisWitness,
@@ -46,10 +47,20 @@ from corpus_structure.semantic.structural_products import (
     definition_component,
 )
 
+from .definition_declaration import (
+    CHAIN_VERSION,
+    replay_declaration_chain,
+)
+
 if TYPE_CHECKING:
     from spacy.tokens import Span
 
     from corpus_structure.ingest.annotation_views import AnnotationView
+
+
+class DeclarationChainSelection(StructuralValue):
+    passage_id: str = Field(min_length=1)
+    parser: RetainedContributionRef
 
 
 class DefinitionComponentsConfig(StructuralValue):
@@ -68,11 +79,19 @@ class DefinitionComponentsConfig(StructuralValue):
     use_named_candidates: bool = True
     use_model: bool = True
     annotation_rules: tuple[AnnotationRule, ...] = ()
+    declaration_chains: tuple[DeclarationChainSelection, ...] = Field(
+        default=(), max_length=64, exclude_if=lambda value: not value
+    )
 
     @model_validator(mode="after")
     def bound_inputs(self) -> Self:
         if self.inputs is None:
-            if self.target_ids or self.profile or self.structural_input_digest:
+            if (
+                self.target_ids
+                or self.profile
+                or self.structural_input_digest
+                or self.declaration_chains
+            ):
                 raise ValueError("absent definition extraction cannot carry partial inputs")
             return self
         if (
@@ -81,7 +100,9 @@ class DefinitionComponentsConfig(StructuralValue):
             raise ValueError(
                 "definition extraction requires selected producer inputs and exact input digest"
             )
-        if not self.use_model and (self.profile is not None or not self.use_named_candidates):
+        if not self.use_model and (
+            self.profile is not None or not (self.use_named_candidates or self.declaration_chains)
+        ):
             raise ValueError(
                 "linguistic-only extraction requires named candidates and no model profile"
             )
@@ -98,6 +119,16 @@ class DefinitionComponentsConfig(StructuralValue):
             raise ValueError("definition targets must be unique selected passages")
         if self.term_entity == self.content_entity:
             raise ValueError("term and defining content need distinct entity roles")
+        selected = {item.passage_id for item in self.declaration_chains}
+        if (
+            len(selected) != len(self.declaration_chains)
+            or not selected <= set(self.target_ids)
+            or any(
+                item.parser.contribution_id not in self.inputs.dependencies
+                for item in self.declaration_chains
+            )
+        ):
+            raise ValueError("declaration chain requires one frozen parser dependency per passage")
         return self
 
 
@@ -974,6 +1005,8 @@ class DefinitionComponentsMethod:
         ctx.check_active()
         ctx.reader.validate_structural_inputs(cfg.inputs)
         policy = released_policy(ctx.reader.prepared)
+        if cfg.declaration_chains and policy.get("definition_declaration_chain") != CHAIN_VERSION:
+            raise ValueError("declaration chain requires the matching released definition policy")
         pack = (
             released_pack(ctx.reader.prepared.release_id, policy, config=cfg.model_dump())
             if cfg.use_model
@@ -991,6 +1024,30 @@ class DefinitionComponentsMethod:
         role_candidates = []
         named_rule_operations = []
         annotation_sources = {}
+        source_refs = {source.identity: source for source in cfg.inputs.sources}
+        for selected in cfg.declaration_chains:
+            ctx.check_active()
+            passage = passages[selected.passage_id]
+            source = ctx.reader.structural_source_frame(cfg.inputs, passage.source_ref)
+            body = ctx.reader.retained_declaration_parser(selected.parser)
+            components.append(
+                replay_declaration_chain(
+                    body,
+                    body["parse_detail"],
+                    source,
+                    source_refs[passage.source_ref],
+                    passage,
+                    selected.parser,
+                )
+            )
+            stages.append(
+                DefinitionStage(
+                    passage_id=passage.passage_id,
+                    operation="attachment",
+                    outcome="succeeded",
+                    reason="Released declaration chain replayed from exact native parser roles.",
+                )
+            )
         if cfg.use_named_candidates and cfg.annotation_rules:
             from corpus_structure.ingest.annotations import AnnotationProfile
             from corpus_structure.ingest.sentences import SentenceConfig

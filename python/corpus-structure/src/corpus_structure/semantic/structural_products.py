@@ -177,6 +177,40 @@ class DefinitionBasisWitness(StructuralValue):
     label_nodes: tuple[Annotated[int, Field(strict=True, ge=0)], ...] | None = None
 
 
+class DeclarationChainBinding(StructuralValue):
+    frame: Nonempty
+    subject_token: Annotated[int, Field(strict=True, ge=0)]
+    use_token: Annotated[int, Field(strict=True, ge=0)]
+
+
+class DeclarationChainWitness(StructuralValue):
+    """One retained HanLP role population and its exact local declaration bindings."""
+
+    version: Literal["definition-declaration-chain-1"]
+    parser: RetainedContributionRef
+    scope_digest: Digest
+    label: LocatedDefinitionSpan
+    bindings: tuple[DeclarationChainBinding, ...] = Field(min_length=1, max_length=4)
+    construction_frame: Nonempty
+    construction_subject_token: Annotated[int, Field(strict=True, ge=0)]
+    naming_frame: Nonempty
+    naming_antecedent_token: Annotated[int, Field(strict=True, ge=0)]
+
+    @model_validator(mode="after")
+    def distinct_roles(self) -> Self:
+        if (
+            len({row.frame for row in self.bindings}) != len(self.bindings)
+            or len({row.subject_token for row in self.bindings}) != len(self.bindings)
+            or len({row.use_token for row in self.bindings}) != len(self.bindings)
+            or len(
+                {self.construction_frame, self.naming_frame, *(row.frame for row in self.bindings)}
+            )
+            != len(self.bindings) + 2
+        ):
+            raise ValueError("declaration chain requires distinct ordered role occurrences")
+        return self
+
+
 class LocatedDefinitionComponent(StructuralValue):
     component_id: Digest
     term: LocatedDefinitionSpan
@@ -185,10 +219,14 @@ class LocatedDefinitionComponent(StructuralValue):
     basis: Literal[
         "matched_cue",
         "native_geometry",
+        "declaration_chain",
         "model_reading",
         "unqualified",
     ]
     witness: DefinitionBasisWitness | None = None
+    declaration_chain: DeclarationChainWitness | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     scope: Nonempty
     effective_version: str | None = None
     alternatives: tuple[Nonempty, ...] = ()
@@ -201,6 +239,15 @@ class LocatedDefinitionComponent(StructuralValue):
             raise ValueError("unqualified definition candidates have unresolved interpretation")
         if self.witness is not None and self.basis not in {"matched_cue", "native_geometry"}:
             raise ValueError("definition annotation witness belongs to a named or geometry basis")
+        if (self.declaration_chain is not None) != (self.basis == "declaration_chain") or (
+            self.declaration_chain is not None
+            and (
+                self.interpretation != "definition"
+                or self.declaration_chain.label.passage_id != self.term.passage_id
+                or self.content.passage_id != self.term.passage_id
+            )
+        ):
+            raise ValueError("definition declaration chain requires its exact witnessed basis")
         meaning = self.model_dump(mode="json", exclude_none=True, exclude={"component_id"})
         if self.component_id != sha256(canonical_bytes(meaning)).hexdigest():
             raise ValueError("component identity differs from complete interpretation")
@@ -936,7 +983,17 @@ class StructuralProductReport(StructuralValue):
                 cited.add(span.passage_id)
             for component in self.definition_components.components:
                 cited.update(component.evidence)
-                for span in (component.term, component.content):
+                chain = component.declaration_chain
+                if (
+                    chain is not None
+                    and chain.parser.contribution_id not in self.inputs.dependencies
+                ):
+                    raise ValueError("definition chain lacks its exact parser dependency")
+                for span in (
+                    component.term,
+                    component.content,
+                    *((chain.label,) if chain is not None else ()),
+                ):
                     passage = by_id.get(span.passage_id)
                     if (
                         passage is None

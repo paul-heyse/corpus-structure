@@ -18,6 +18,7 @@ from corpus_structure.methods.pm2_source import (
     SourceMapReason,
     SourceMapRefused,
     SourceMapSegment,
+    hanlp_seam_layout,
     map_d1,
     map_dipo,
     map_hanlp,
@@ -82,6 +83,43 @@ def source_context(fields, *, identity=1, policy="test-layout"):
     return NativeSourceContext(
         primary, (), (SourceSlice(identity, 0, len(text)),), "exact read", policy, "selected"
     )
+
+
+@pytest.mark.parametrize("protected", [False, True])
+def test_hanlp_repairs_only_exact_native_continuation_without_moving_other_sentences(protected):
+    text = "Apply Y and X. Continue."
+    pieces = tuple(
+        dict(kind="native_text", source_field="text", item_ref=f"#/texts/{i}", start=a, end=b)
+        for i, (a, b) in enumerate(((0, 12), (12, 13), (13, 24)))
+    )
+    tokens = (
+        TextToken(0, 5, True),
+        TextToken(6, 7, True),
+        TextToken(8, 11, True),
+        TextToken(12, 14, True, "math" if protected else "prose"),
+        TextToken(15, 23, False),
+        TextToken(23, 24, False),
+    )
+    original = ((0, 11), (12, 14), (15, 24))
+    effective, sentences, decision = hanlp_seam_layout(
+        text, (0, len(text)), tokens, original, pieces
+    )
+    if protected:
+        assert decision.outcome == "unchanged"
+        assert effective == tokens and sentences == original
+    else:
+        assert decision.outcome == "repaired"
+        assert sentences == ((0, 14), (15, 24))
+        assert [text[token.start : token.end] for token in effective] == [
+            "Apply",
+            "Y",
+            "and",
+            "X",
+            ".",
+            "Continue",
+            ".",
+        ]
+    assert effective[-2:] == tokens[-2:]
 
 
 def identity_map(text, *, atoms=(), identity=1, policy="test-layout"):

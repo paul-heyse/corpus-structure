@@ -21,10 +21,12 @@ from corpus_structure.ingest.sentences import Block, SentenceConfig, split
 from corpus_structure.methods.pm2_products import PARSER_QUESTIONS
 from corpus_structure.methods.pm2_result import pm2_input_digest
 from corpus_structure.methods.pm2_source import (
+    HANLP_SEAM_LAYOUT,
     PM2SourceMap,
     PM2TokenMap,
     ProviderToken,
     SourceMapSegment,
+    hanlp_seam_layout,
 )
 from corpus_structure.methods.pm2_worker import (
     Pm2WorkerError,
@@ -116,6 +118,11 @@ class ParserScope(BaseModel):
     schedule: bool = True
     mode: Literal["ordinary", "supplied_mentions", "layout_forced", "supplied_edus"] = "ordinary"
     supplied: tuple[Extent, ...] = Field(default=(), max_length=128)
+    layout_policy: Literal["source-seam-continuation-1"] | None = None
+
+    @property
+    def operation_version(self) -> Literal["1", "2"]:
+        return "2" if self.layout_policy is not None else "1"
 
     @model_validator(mode="after")
     def check_mode(self):
@@ -126,6 +133,8 @@ class ParserScope(BaseModel):
         }
         if self.mode not in expected[self.profile.provider]:
             raise ValueError("parser mode does not belong to its profile")
+        if self.layout_policy is not None and self.profile.provider != "hanlp":
+            raise ValueError("source seam layout is restricted to the HanLP operation")
         if bool(self.supplied) != self.mode.startswith("supplied_"):
             raise ValueError("supplied mode requires its exact reviewed extents")
         if (
@@ -280,6 +289,13 @@ def _work(
         if scope.supplied:
             request["edu_ranges"] = [list(pair) for pair in scope.supplied]
     else:
+        layout = None
+        if scope.layout_policy == HANLP_SEAM_LAYOUT:
+            repaired_tokens, repaired_sentences, layout = hanlp_seam_layout(
+                view.text, scope.extent, tuple(tokens), canonical_sentences, view.pieces
+            )
+            tokens = list(repaired_tokens)
+            canonical_sentences = list(repaired_sentences)
         covered = [
             (left, right) for left, right in canonical_sentences if right > start and left < end
         ]
@@ -308,7 +324,7 @@ def _work(
             aligned.append(ProviderToken(word, left, right, sentence))
         if not aligned:
             raise ValueError("parser scope contains no canonical running text")
-        effective = PM2TokenMap(mapping, tuple(aligned))
+        effective = PM2TokenMap(mapping, tuple(aligned), layout)
         request = {"sentences": sentences}
         if scope.supplied:
             starts = {token.start: index for index, token in enumerate(aligned)}
@@ -324,7 +340,7 @@ def _work(
     question = PARSER_QUESTIONS[provider]
     method = OperationDescriptor(
         f"extract.pm2_{provider}",
-        "1",
+        scope.operation_version,
         "extract",
         "encoder",
         TaskUnitType.SOURCE_VIEW,
@@ -648,7 +664,9 @@ def _run_scopes(
             "question": (
                 PARSER_QUESTIONS[provider] if isinstance(scope, ParserScope) else scope.family
             ),
-            "operation_version": "1" if isinstance(scope, ParserScope) else scope.version,
+            "operation_version": (
+                scope.operation_version if isinstance(scope, ParserScope) else scope.version
+            ),
         }
         if isinstance(scope, ParserScope) and scope.language.partition("-")[0].lower() != "en":
             held[position] = ScopeIntent(
@@ -703,6 +721,13 @@ def _run_scopes(
         scheduled_positions.append(position)
     with read_snapshot(engine) as conn:
         prepared = open_release(conn, request.release)
+        if isinstance(request, ParserRunRequest) and any(
+            scope.layout_policy is not None for scope in request.scopes
+        ):
+            from corpus_structure.methods.model_observation import released_policy
+
+            if released_policy(prepared).get("hanlp_layout_policy") != HANLP_SEAM_LAYOUT:
+                raise OperationConflict("HanLP seam layout requires its matching released policy")
         realization = table("data.realization")
         revision = conn.scalar(
             select(realization.c.data_revision).where(
@@ -804,7 +829,13 @@ def _run_scopes(
             options={
                 "pm2_scope_intents": intents,
                 ("interpretation_scopes" if interpretation else "parser_scopes"): [
-                    scope.model_dump(mode="json", exclude={"profile"}) for scope in request.scopes
+                    scope.model_dump(
+                        mode="json",
+                        exclude={"profile", "layout_policy"}
+                        if isinstance(scope, ParserScope) and scope.layout_policy is None
+                        else {"profile"},
+                    )
+                    for scope in request.scopes
                 ],
             },
             code_commit=code_commit(),
@@ -968,7 +999,11 @@ def _run_scopes(
                 children = []
                 for task in limited:
                     item = items[task]
-                    if not isinstance(item.scope, ParserScope) or item.scope.mode != "ordinary":
+                    if (
+                        not isinstance(item.scope, ParserScope)
+                        or item.scope.mode != "ordinary"
+                        or item.scope.layout_policy is not None
+                    ):
                         continue
                     identity = item.scope.source.source_view_id
                     if identity not in sentence_bounds:

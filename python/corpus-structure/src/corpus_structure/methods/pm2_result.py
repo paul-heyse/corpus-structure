@@ -241,6 +241,12 @@ def pm2_unit_result(
     parser_operation = question in PARSER_QUESTIONS.values()
     if parser_operation and question != PARSER_QUESTIONS.get(provider):
         raise ValueError("parser question differs from the admitted provider")
+    layout = mapping.layout if isinstance(mapping, PM2TokenMap) else None
+    if parser_operation and (
+        (layout is not None) != (provider == "hanlp" and operation_version == "2")
+        or (operation_version != "1" and not (provider == "hanlp" and operation_version == "2"))
+    ):
+        raise ValueError("native parser version differs from its exact layout policy")
     products = ()
     evidence = {}
     if outcome == "succeeded":
@@ -387,6 +393,7 @@ def pm2_unit_result(
             "tokens": [asdict(token) for token in mapping.tokens]
             if isinstance(mapping, PM2TokenMap)
             else [],
+            **({"layout": asdict(layout)} if layout is not None else {}),
         },
         "effective_profile_digest": sha256(canonical_bytes(dict(profile))).hexdigest(),
         "request": dict(request),

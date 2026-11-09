@@ -434,6 +434,10 @@ class SourcePreparationReader(Protocol):
         """Resolve original retained contribution, endpoint closure and source projections."""
         ...
 
+    def retained_declaration_parser(self, reference: Any) -> Mapping[str, Any]:
+        """Detach an authenticated original parser envelope for declaration replay."""
+        ...
+
     def prepare_table_correspondence(
         self, source_view_id: int, contributions: Sequence[Mapping[str, Any]], weight_scale: float
     ) -> Sequence[Mapping[str, Any]]:

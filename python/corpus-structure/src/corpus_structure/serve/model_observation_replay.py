@@ -424,6 +424,62 @@ def _verify_named_definition_bases(root, manifest, report, config, origins, poli
             raise ValueError("definition basis differs from the retained named cue or display")
 
 
+def _verify_declaration_bases(root, manifest, report, config, origins, policy):
+    from corpus_structure.methods.definition_declaration import (
+        CHAIN_VERSION,
+        replay_declaration_chain,
+    )
+    from corpus_structure.semantic.proposals import native_source_frame
+
+    from .review_bundle import _detached_relation, _retained_review_source_view
+
+    cfg = DefinitionComponentsConfig.model_validate(config)
+    product = report.definition_components
+    assert product is not None
+    components = {
+        component.term.passage_id: component
+        for component in product.components
+        if component.declaration_chain is not None
+    }
+    if not components and not cfg.declaration_chains:
+        return
+    if (
+        (policy or {}).get("definition_declaration_chain") != CHAIN_VERSION
+        or cfg.inputs != report.inputs
+        or set(components) != {item.passage_id for item in cfg.declaration_chains}
+        or len(components)
+        != sum(component.declaration_chain is not None for component in product.components)
+    ):
+        raise ValueError("definition declarations differ from their exact released selection")
+    refs = {source.identity: source for source in report.inputs.sources}
+    passages = {passage.passage_id: passage for passage in report.inputs.passages}
+    sources = {row["source_view_id"]: row for row in _detached_relation(root, manifest, "sources")}
+    for item in cfg.declaration_chains:
+        component = components[item.passage_id]
+        chain = component.declaration_chain
+        assert chain is not None
+        passage = passages[item.passage_id]
+        source_ref = refs[passage.source_ref]
+        origin = origins.get(item.parser.origin_task_id, {})
+        raw = sources.get(source_ref.source_view_id)
+        if (
+            chain.parser != item.parser
+            or origin.get("project_id") != item.parser.project_id
+            or origin.get("origin_unit_id") != source_ref.source_view_id
+            or raw is None
+        ):
+            raise ValueError("definition declaration lacks exact parser and source custody")
+        body = origin["body"]
+        frame = native_source_frame(_retained_review_source_view(raw), ())
+        if (
+            replay_declaration_chain(
+                body, source_python(body["parse_detail"]), frame, source_ref, passage, item.parser
+            )
+            != component
+        ):
+            raise ValueError("definition declaration differs from retained role replay")
+
+
 def verify_model_observation_closure(root, manifest, products, scopes, inventory):
     from .review_bundle import _detached_relation, _retained_contribution_payloads
 
@@ -444,6 +500,23 @@ def verify_model_observation_closure(root, manifest, products, scopes, inventory
         for row in report.clause_classification.readings
     ]
     payloads = _retained_contribution_payloads(root, manifest, requests, scopes, inventory)
+    declarations = [
+        (report, row.declaration_chain.parser)
+        for _, report in selected
+        if report.definition_components is not None
+        for row in report.definition_components.components
+        if row.declaration_chain is not None
+    ]
+    for _ in _retained_contribution_payloads(
+        root,
+        manifest,
+        declarations,
+        scopes,
+        inventory,
+        require_cut_member=True,
+        origin_reports=origins,
+    ):
+        pass
     for origin, report in selected:
         retained = origins.get(origin) or {}
         body = retained.get("body") or {}
@@ -481,6 +554,7 @@ def verify_model_observation_closure(root, manifest, products, scopes, inventory
         else:
             _verify_definition_roles(report, config, detail, body["release_id"], policy)
             _verify_named_definition_bases(root, manifest, report, config, origins, policy)
+            _verify_declaration_bases(root, manifest, report, config, origins, policy)
 
 
 def verify_projected_definition_roles(root, manifest, products, structural_scopes):
@@ -608,6 +682,7 @@ def verify_model_concordance_closure(root, manifest):
             "8",
             "9",
             "10",
+            "11",
         }:
             raise ValueError("model concordance uses the wrong producing method")
         expected = []

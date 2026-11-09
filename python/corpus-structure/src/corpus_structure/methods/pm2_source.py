@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import json
 from bisect import bisect_right
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field, replace
 from enum import StrEnum
 from hashlib import sha256
 from itertools import pairwise
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any, Literal, Self
 
+from corpus_structure.ingest.sentences import TextToken
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
@@ -26,6 +27,124 @@ from corpus_structure.semantic.source_contexts import (
 if TYPE_CHECKING:
     from corpus_structure.ingest.annotations import AnnotationInput
     from corpus_structure.semantic.types import PreparedRelease
+
+
+HANLP_SEAM_LAYOUT = "source-seam-continuation-1"
+
+
+@dataclass(frozen=True, slots=True)
+class SeamContinuation:
+    """Exact projected coordinates of one local layout repair."""
+
+    previous_sentence: tuple[int, int]
+    orphan_sentence: tuple[int, int]
+    punctuation_start: int
+    coordinator: tuple[int, int]
+
+
+@dataclass(frozen=True, slots=True)
+class HanlpLayoutDecision:
+    policy: Literal["source-seam-continuation-1"]
+    outcome: Literal["unchanged", "ambiguous", "repaired"]
+    repair: SeamContinuation | None = None
+
+    def __post_init__(self):
+        if self.policy != HANLP_SEAM_LAYOUT or (self.outcome == "repaired") != (
+            self.repair is not None
+        ):
+            raise ValueError("HanLP layout decision differs from its declared outcome")
+
+
+def hanlp_seam_layout(
+    text: str,
+    extent: tuple[int, int],
+    tokens: tuple[TextToken, ...],
+    sentences: Sequence[tuple[int, int]],
+    pieces: Sequence[Mapping[str, Any]],
+) -> tuple[tuple[TextToken, ...], tuple[tuple[int, int], ...], HanlpLayoutDecision]:
+    """Repair only an orphan word plus period when native geometry proves the seam.
+
+    Keep the canonical split on zero or competing repairs. A word wholly in one
+    native field and a period starting the next native field are different from
+    an abbreviation, a protected token, or punctuation guessed from model text.
+    """
+    start, end = extent
+    covered = tuple((a, b) for a, b in sentences if a < end and start < b)
+    if (
+        not 0 <= start < end <= len(text)
+        or end - start > 4096
+        or not 1 <= len(covered) <= 8
+        or covered[0][0] != start
+        or covered[-1][1] != end
+    ):
+        raise ValueError("HanLP seam layout requires a bounded complete sentence scope")
+    native_by_start = {
+        row["start"]: row
+        for row in pieces
+        if row["kind"] == "native_text"
+        and row.get("source_field") == "text"
+        and row.get("item_ref")
+        and row["start"] < end
+        and row["end"] > start
+    }
+    by_start = {token.start: token for token in tokens}
+    by_end = {token.end: token for token in tokens}
+    candidates = []
+    for previous, orphan in pairwise(covered):
+        a, b = orphan
+        last = by_end.get(previous[1])
+        token = by_start.get(a)
+        seam = b - 1
+        word = text[a:seam]
+        left, right = native_by_start.get(a), native_by_start.get(seam)
+        if (
+            token is None
+            or token.role != "prose"
+            or token.end != b
+            or last is None
+            or last.role != "prose"
+            or text[last.start : last.end].lower() not in {"and", "or"}
+            or text[last.end : a] != " "
+            or len(word) != 1
+            or not word.isalpha()
+            or text[seam:b] != "."
+            or left is None
+            or right is None
+            or left["end"] != seam
+            or right["item_ref"] == left["item_ref"]
+            or not any(
+                row["start"] <= last.start < last.end < row["end"] == a
+                for row in native_by_start.values()
+            )
+        ):
+            continue
+        candidates.append(SeamContinuation(previous, orphan, seam, (last.start, last.end)))
+    if len(candidates) != 1:
+        return (
+            tokens,
+            covered,
+            HanlpLayoutDecision(HANLP_SEAM_LAYOUT, "ambiguous" if candidates else "unchanged"),
+        )
+    (repair,) = candidates
+    a, b = repair.orphan_sentence
+    updated = tuple(
+        part
+        for token in tokens
+        for part in (
+            (
+                TextToken(a, repair.punctuation_start, False),
+                TextToken(repair.punctuation_start, b, token.space),
+            )
+            if token.start == a
+            else (token,)
+        )
+    )
+    merged = tuple(
+        (sentence[0], b) if sentence == repair.previous_sentence else sentence
+        for sentence in covered
+        if sentence != repair.orphan_sentence
+    )
+    return updated, merged, HanlpLayoutDecision(HANLP_SEAM_LAYOUT, "repaired", repair)
 
 
 class SourceMapReason(StrEnum):
@@ -323,6 +442,7 @@ class ProviderToken:
 class PM2TokenMap:
     mapping: PM2SourceMap
     tokens: tuple[ProviderToken, ...]
+    layout: HanlpLayoutDecision | None = None
     input_digest: str = field(init=False)
     _sentence_ranges: Mapping[int, tuple[int, int]] = field(init=False, repr=False, compare=False)
 
@@ -366,6 +486,7 @@ class PM2TokenMap:
                     {
                         "character_map": self.mapping.input_digest,
                         "tokens": [asdict(token) for token in self.tokens],
+                        **({"layout": asdict(self.layout)} if self.layout is not None else {}),
                     }
                 )
             ).hexdigest(),

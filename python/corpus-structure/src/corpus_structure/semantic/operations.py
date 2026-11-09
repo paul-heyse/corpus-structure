@@ -1225,6 +1225,27 @@ class BoundReader:
                     validate_parser_members(row, population)
         return retained
 
+    def retained_declaration_parser(self, reference):
+        """Use existing contribution custody, then read its bounded immutable envelope."""
+        from .observations import source_python
+        from .pdf_record_reader import PublishedReadBudget
+
+        retained = self.retained_source_contribution(reference)
+        roots = [
+            row
+            for row in retained["contributions"]
+            if row["contribution_id"] == reference.contribution_id
+        ]
+        if len(roots) != 1 or roots[0]["semantic_type"] != "linguistic.predicate_frame":
+            raise OperationConflict("declaration predecessor is not an exact retained parser frame")
+        results = table("ops.task_result")
+        statement = select(results.c.body).where(results.c.task_id == reference.origin_task_id)
+        budget = self._read_budget or PublishedReadBudget(16, _SOURCE_RESULT_MAX_BYTES)
+        budget.preflight(self.conn, statement)
+        body = self.conn.execute(statement).scalar_one()
+        budget.value(body)
+        return {**body, "parse_detail": source_python(body["parse_detail"])}
+
     def prepare_table_correspondence(self, source_view_id, contributions, weight_scale):
         """Detach the canonical finite questions for an exact selected native view."""
         from .identity import canonical_bytes
