@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "id": "pm2.typed-parser-scope-remediation",
+  "title": "Native typed parser payload, retained coverage and exact reuse",
+  "group": "pm2-contract-remediation",
+  "package": "PM2-01/02/03–05/08",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do typed native parser payloads, distinct scope coverage and verified runtime identity survive bounded retained-source execution, reuse and external reads?",
+  "answers": [
+    "PM2-R01",
+    "PM2-R02",
+    "F01",
+    "F02",
+    "I07"
+  ],
+  "method": "Deploy the frozen native migration on the exact development target, run the original retained views without source recognition, compare selected work outcomes across CLI and MCP, and replay one identical HanLP scope. Exercise differing original spelling, cancelled work and invalid payloads in isolated protected controls.",
+  "commands": [
+    "uv run ci model change deploy ab81386e64684d00bee4fd334bb4020d --json",
+    "uv run ci run parsers --request docs/design_review/evidence/2026-11-09_pm2-contract-remediation/raw/book-request.json --json",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-contract-remediation/inspect_coverage.py",
+    "uv run ci test --json -- python/corpus-structure/tests/semantic/test_contributions_native.py::test_native_parser_payload_uses_selected_release_contract"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "Protected native payload, cancellation and projection controls use independent expected values. Coverage readback compares custody, not semantic grading."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "model-change.yaml",
+      "role": "Exact deployment request",
+      "sha256": "fed0c6e9c73dfce0f8b157971cfe4b70d451de009a56e7d496f766bb79c723f0"
+    },
+    {
+      "path": "prepare_parser_run.py",
+      "role": "Private source input and scope preparation",
+      "sha256": "e69f6ebbb2b5013ecbad7faea0d08b3daa4d1022ba7aa64e4ed30ff38d0e215d"
+    },
+    {
+      "path": "raw/book-request.json",
+      "role": "Exact retained-source parser worklist",
+      "sha256": "afe3515f8a3ecffa5d686c6e59aaa0895da01dba82cf0e37d026bb8e2d36ce40"
+    },
+    {
+      "path": "inspect_coverage.py",
+      "role": "Installed CLI and fresh MCP readback",
+      "sha256": "179e179908ed018d9b2835cd976fad70b9b18c65e83df7004bc2db17517cfb1a"
+    },
+    {
+      "path": "archive_current_release.py",
+      "role": "Release-only admission for the regenerated report binding",
+      "sha256": "6941e9dd182f03a66291acfd23522478209e05e29350c5013c831a61c98d86c1"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/deployment.json",
+      "role": "Frozen native deployment and exact target verification",
+      "sha256": "d7c116e573742f0376eb3083861dc300ab82030d3ee59a5b6c5535618d4a109e"
+    },
+    {
+      "path": "raw/book-run.json",
+      "role": "Native parser worklist settlement at cut 540",
+      "sha256": "29c4bd5d7b75f533ed4f49a88a596113f411c8fda769d2de690a779ac92cde2e"
+    },
+    {
+      "path": "raw/book-reuse.json",
+      "role": "Exact HanLP result origin at cut 541",
+      "sha256": "61d292306d51ab47d8cc6dbb9cc00427f59916844bff5d9dec21dfe1ab05d9ea"
+    },
+    {
+      "path": "raw/report-release.json",
+      "role": "Generated report binding archived and admitted",
+      "sha256": "336acd1238f23c24405725da4abeb6d3eecc92de04e092234ac514ae089d7904"
+    },
+    {
+      "path": "raw/coverage-readback.json",
+      "role": "Matched CLI and fresh MCP coverage",
+      "sha256": "43b3e6ccfc212159c1695af9a61e991d16da2b52299767505801290a79329a8c"
+    }
+  ],
+  "depends_on": [
+    "2026-11-08_pm2-parsers/pm2.private-parser-stage"
+  ],
+  "results": [
+    {
+      "name": "Matching coverage rows",
+      "value": 8,
+      "of": 8,
+      "unit": "scopes",
+      "note": "Six requested scopes and two split children"
+    },
+    {
+      "name": "Exact reused selected origin",
+      "value": 1,
+      "of": 1,
+      "unit": "scope",
+      "note": "Task 2149 reuses task 2143"
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The bounded worklist settles and retains coverage independently of emitted products; native typed payload and exact reuse controls pass. Detached coverage, whole-book qualification, paired analytical benefit, cross-provider public admission and selection remain open.",
+  "consumed_by": [
+    "PM2-01",
+    "PM2-02",
+    "PM2-03",
+    "PM2-08",
+    "PM2-12"
+  ]
+}

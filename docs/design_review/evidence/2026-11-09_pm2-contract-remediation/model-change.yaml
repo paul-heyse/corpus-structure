@@ -1,0 +1,6 @@
+baseline: 9442e6298
+packs: [statistics]
+native_predecessor: semantic_pm2_def_scope_vars
+native_revision: semantic_pm2_parser_payloads
+deployment: true
+deployment_profile: development

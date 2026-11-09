@@ -87,6 +87,16 @@ still requires the independent protected evidence bound to the contribution.
 
 ### Typed partial delivery
 
+**Tested local attachment control · 2026-11-09.** Textbook assertions and business
+instructions use the same located condition, host and released component validation.
+A missing or incompatible attachment declaration leaves the competing frame and
+located cue intact, with a limited interpretation outcome. The business instruction
+keeps its prescribed action meaning; the conditional edge does not make it an
+epistemic claim. The 46 focused `uv run ci test` cases passed
+(`feba8693ca9e47c9adbd3901f1563972`), including the incumbent scoped and cross-block
+controls. This is private product qualification. It does not establish d1 selection
+of that edge or public admission through the full Reader and MCP journey.
+
 **Proposed.** Extend the existing release payload, operation and selector owners before
 adding read-side interpretation. The producer consumes source-bound provider products
 and publishes independently useful located parts and typed proposals with exact endpoint,
@@ -135,17 +145,28 @@ establishes contract configurability within its fixture, not cross-corpus qualif
 **Implemented · 2026-11-09.** The opt-in `retrieve.contextual/11` renderers add one exact parser
 signal: a frame, a preceding local referent, or a Dipo neighbor. They preserve
 the original lexical literal, target encoding/cache and witnessed selection.
-The stored configuration contract for `retrieve.contextual/10` is unchanged.
+Existing `retrieve.contextual/10` configurations retain their stored identity when the optional
+exact carrier selection is omitted.
 The private evidence runner explicitly registers the enriched arm through
 the existing source-method runner. The ordinary Phase 0 registry still
 selects v10.
 The frozen-list Reader resolved 14 exact definition alternatives in retained
 run 258 and refused a changed source. That verifies lookup; the retained 14
-alternatives exceed the d1 input cap of 12. The same-release
-paired comparison, d1 consumption on that paired path and offline replay of
-the enriched rendering remain open. Exact detached export refuses the richer
-rendering until its proof can be replayed. The existing rendering stays the
-default.
+alternatives exceed the d1 input cap of 12. The same-release paired comparison, d1 consumption
+on that paired path, and an end-to-end native v11 delivery remain open. The existing rendering
+stays the default.
+
+**Detached v11 receipts · tested on a controlled fixture, 2026-11-09.**
+`ci review export SELECTION DESTINATION --exact-closure` includes the parser contribution and
+its exact selected cut, source and member population. The
+[detached verifier](../../../python/corpus-structure/src/corpus_structure/serve/contextual_query_replay.py)
+reconstructs the signal and omissions with the existing query context recipe, checks the rendered
+input against the exact native context window and prompt, and binds its digest to the retained
+vector. A resealed substitute cut, missing endpoint, changed signal anchor, changed rendered text
+or changed vector binding is refused. This verifies retained context custody and input bytes;
+it does not rerun the tokenizer or encoder or establish query ranking quality. The
+[fixture](../../../python/corpus-structure/tests/semantic/test_contextual_query_replay.py)
+uses a constructed retained frame and does not establish a native result on the matched scope.
 
 The [blocked matched attempt](../../design_review/evidence/2026-11-09_pm2-adoption/README.md)
 froze the affine controls and cross-chapter binomial use in view 391. The bounded
@@ -168,19 +189,45 @@ profile fixed in both arms, and compare candidate availability before selection.
    named construction for the binomial definition. Preserve valid naming/explanation,
    reported and conditional forms and competing bindings as controls. A located standalone
    term can remain useful privately; do not relabel it or relax admission to fill the target list.
+   The [retained annotation prerequisite check](../../design_review/evidence/2026-11-09_pm2-definition-prerequisite/README.md)
+   recovered a split premise sentence with an exact token-boundary diagnostic. The first
+   parameter declaration still lacks a dependency binding, and the native matched-cue witness
+   does not yet admit the complete declaration chain. The target inventory remains blocked.
 2. **Affine carriers.** Use the
-   [retained formula/occurrence route](../../../python/corpus-structure/src/corpus_structure/methods/math/native.py)
+   [scoped formula/occurrence route](../../../python/corpus-structure/src/corpus_structure/methods/inline_formula_occurrences.py)
    and authenticated primary-field mapping to bind the exact in-equation `X` and `Z`
    occurrences before projecting them into retrieval. Term projection does not discover
    missing source evidence. Preserve repeated symbols at distinct extents; if the exact
    map is unavailable, retain the upstream coverage gap rather than guessing or initiating
    recognition. Keep the rejected `X` relation unselected and the witnessed `Z` relation intact.
 
-PM2-09 checks both products in the ordinary eligible inventory before invoking ranking.
-If either is missing, retain the blocked preflight. Once both qualify, use the frozen
-top-10 frame with the same source, target set, encoder and bounds for v10 and each
-applicable v11 signal separately. Report membership, rank and final selected meaning
-separately. Pass an authenticated list within d1's 12-alternative limit to PM2-07.
+**Affine preparation · tested at source readback, 2026-11-09.** For each affine arm,
+register `ScopedRelationsWithRoleClosure` (`structure.scoped_relations/10`) before the
+retrieval step in `run_source_methods`. Bind its `inputs` to the `affine` passage of the
+[frozen query input](../../design_review/evidence/2026-11-09_pm2-adoption/raw/query-inputs.json),
+recompute `structural_input_digest` for that selection, and use
+`interpretation_mode="feasibility"`. In the retrieval config, set
+`source_dependency_method="structure.scoped_relations"`, declare that step as the upstream
+dependency, select `semantic_types=["structural.located_participant"]`, and set
+`required_occurrence_ids` to the `affine-x` and `affine-z` IDs in the
+[frozen source cases](../../design_review/evidence/2026-11-09_pm2-adoption/raw/retrieval-case-source.json).
+The selector requires an exact native query context for each ID from this producer before
+encoding; it cannot create an occurrence. Readback of retained view 391 recovered the frozen
+`X` `[237, 238)` and `Z` `[242, 243)` in the same native field. This confirms carrier recovery;
+it does not re-establish the declaration link. The preceding declaration spans multiple native
+items in this view, while the existing witness recipe requires a complete declaration in one
+native item. Keep the [qualified earlier witness and refusal](../../design_review/evidence/2026-11-07_nce-comparison-model-links/README.md)
+as separate controls. Inspect the unfiltered producer output for the negative adverb control;
+absence from a query allowlist proves nothing about producer coverage.
+
+Run the affine pair separately from the binomial pair, whose carrier remains
+`extract.m1_candidates`. Use the same authenticated eligible definition inventory and keep the
+source, carrier selection, scope, encoder and bounds fixed within each v10/v11 pair. The scoped
+producer remains the source of affine syntax and the bounded M1 producer remains the source of
+the binomial use. If either the carrier or the eligible target is missing, retain the blocked
+preflight for that pair. Once both qualify, use the frozen top-10 frame for each applicable v11
+signal separately. Report membership, rank and final selected meaning separately. Pass an
+authenticated list within d1's 12-alternative limit to PM2-07.
 Require exact detached replay of the enriched rendering and preserved selection/refusal
 before proposing an ordinary default change. Ties or regressions retain v10.
 

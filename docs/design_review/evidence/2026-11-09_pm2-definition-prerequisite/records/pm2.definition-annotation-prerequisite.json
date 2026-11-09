@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "id": "pm2.definition-annotation-prerequisite",
+  "title": "Exact source roles and sentence boundary for the retained definition target",
+  "group": "pm2-remediation",
+  "package": "PM2-09",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can an exact local naming match recover the complete source-backed defining content under the existing annotation witness?",
+  "answers": [
+    "I01",
+    "I02",
+    "PM2-03",
+    "PM2-09"
+  ],
+  "method": "Read the protected target windows and authenticated original annotations, replay their exact layout on the pinned spaCy pipeline, and compare an exact token split and an added sentence-boundary component. Keep the source bytes and both native controls fixed.",
+  "commands": [
+    "UV_NO_SYNC=1 uv run python docs/design_review/evidence/2026-11-09_pm2-definition-prerequisite/compare_annotation.py",
+    "UV_NO_SYNC=1 uv run python docs/design_review/evidence/2026-11-09_pm2-definition-prerequisite/compare_annotation.py --target constant-density"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "compare_annotation.py",
+      "role": "Bounded diagnostic reading the previously frozen target input and retained annotation task",
+      "sha256": "32f37610e67a0934a3cee0a0d3ad6dead71d7c881f5cd2bc0bbd5a29ce40be0e"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "comparison.json",
+      "role": "Source pins, native annotation and boundary/token outcomes on both selected windows",
+      "sha256": "92d5a69873e8c9bc37b100d15e7f39c64c184bae65ed0d0d2c19ec20a46717e7"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-adoption/pm2.bounded-retrieval-eligibility"
+  ],
+  "results": [
+    {
+      "name": "Original retained sentence inventories reproduced",
+      "value": 2,
+      "of": 2,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Native source pieces in the binomial block",
+      "value": 19,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Binomial declaration sentence ends at projected character",
+      "value": 52274,
+      "of": null,
+      "unit": null,
+      "note": "Split diagnostic only; original retained sentence ended at 52271 before the final parameter."
+    },
+    {
+      "name": "Opening parameter declaration role recovered by the split",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": "The retained and both diagnostic parses attach n as ADV/cc."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The exact numbered source and naming predicate exist, but the retained witness lacks a complete declared-referent chain. One exact boundary split recovers a missing sentence ending but leaves another declaration unbound and changes sentence segmentation of the naming control. Preserve ordinary classification and keep the definition target blocked until aligned candidates, an authored witness, native admission and detached replay are qualified together.",
+  "consumed_by": [
+    "PM2-03",
+    "PM2-09",
+    "PM2-11",
+    "PM2-12"
+  ]
+}

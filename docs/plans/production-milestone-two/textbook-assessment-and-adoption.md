@@ -196,8 +196,9 @@ retaining the earlier route with its reason and trigger.
 ## PM2-12 · Adopt a qualified release for the textbook
 
 **Development only · 2026-11-09.** The acquired development database reached
-`semantic_pm2_def_scope_vars` through reviewed frozen candidates, with the same
-semantic release admitted. The paired results do not establish the required
+`semantic_pm2_parser_payloads` through the frozen candidate for release-owned
+parser payloads. The [development receipt](../../design_review/evidence/2026-11-09_pm2-contract-remediation/README.md)
+records the acquired target and archived private release. The paired results do not establish the required
 preservation and gain across selected operations. DMA-13's exact native
 evaluations 42 and 43 did not qualify an eligible predecessor. The retained
 Standard and Nemotron native product is intact; regenerate only selected

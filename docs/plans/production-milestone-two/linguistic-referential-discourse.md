@@ -268,7 +268,7 @@ owns the reviewed reasoning. The execution disposition is here.
 
 | Review finding | Execution disposition |
 | --- | --- |
-| F01 | Private conversion and Reader custody are implemented. Release-owned validation of parser payload shapes remains open for typed composition and selection; current fields are provider-validated inside private contribution values. Strong definition witness migration remains conditional in PM2-06. |
+| F01 | Release-owned parser payload contracts bind HanLP, Maverick and Dipo fields to their operation question. Lowering, composition and contextual consumers passed 22 targeted checks (`6fbd3ce315fa406a9a4b9ad5ae556838`). Protected native admission refused malformed payloads, wrong questions and generic fallback, then accepted the valid payload (`22812341406048d68cd6eb089c3fcd02`). Full composition, selection and admission still need their native journey. Strong definition witness migration remains conditional in PM2-06. |
 | F02 | Authenticate the exact finished source and select parser results by task. A coherent split creates distinct scope inputs. |
 | F03 | Keep the native Dipo encoder window and decoder EDU guards separate. Validate both reconstructed arms and retain source gaps and unmapped items in the scope result. |
 

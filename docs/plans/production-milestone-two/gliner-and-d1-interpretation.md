@@ -79,6 +79,13 @@ the witness and composition boundaries. [DMA-05](../domain-model-alignment/seman
 
 ### Proposal loss diagnostic
 
+**Tested on six retained source windows · 2026-11-09.** The exact binomial term
+reached the native proposal pool and was not decoded for the released term role.
+One partial declaration endpoint was missing from the ordinary pool and scored
+weakly when supplied. Five clipped formula spans refused. No window produced a
+decoded attachment. This result does not justify a new cutoff, wider proposal
+budget or trained head. [Native proposal and supplied-span evidence](../../design_review/evidence/2026-11-09_pm2-gliner-boundary/README.md)
+
 **Proposed.** Use schema descriptions and ordered field definitions as versioned inference inputs.
 Capture observed proposal availability separately from thresholding, classification and
 record assignment. Keep any added natural-formation candidate schema literal-only where the
@@ -111,6 +118,11 @@ where the correct span was already present. Keep raw diagnostic tensors out of o
 [Checkpoint configuration](https://huggingface.co/fastino/gliner2.5-base-v1/blob/54785d51df8d86a0d8f2eb212fec15871aad2c4d/config.json)
 
 ### Same-question extraction and interpretation
+
+**Qualification still open · 2026-11-09.** Two exact frozen windows overlap the
+retained d1 pair. The GLiNER diagnostic asks about definition endpoints; d1 asks
+about passage function, exact quantity or condition host in those windows. Compare
+equivalent released questions and roles before using those outputs as paired evidence.
 
 **Proposed.** Freeze the eligible source and question through PM2-11. Compare the current
 literal GLiNER pack plus spaCy-backed qualification, d1 source discovery and the applicable

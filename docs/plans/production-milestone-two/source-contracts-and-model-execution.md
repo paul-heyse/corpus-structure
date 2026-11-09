@@ -205,15 +205,21 @@ downstream policy. The changed allowed field produced a new task.
 [Result binding](../../../python/corpus-structure/src/corpus_structure/methods/pm2_result.py) ·
 [Claim adapter](../../../python/corpus-structure/src/corpus_structure/orchestrate/pm2.py)
 
-The completion audit leaves PM2-R01 open. Mapping controls distinguish the
-selected projection from physical occurrence identity. The native Reader
-control uses an exact physical cell. Complete the private Reader journey for
-an exact selected projection that differs from its physical source and verify
-that physical identity is withheld. The result adapter retains settled success,
-empty, limited and failed observations. It does not yet expose the planned
-distinction between ineligible, eligible but unscheduled and cancelled work
-for the selected scope. Carry these distinctions through the existing typed
-coverage and Reader owners; preserve fencing when an attempt loses authority.
+**Tested PM2-R01 remediation · 2026-11-09.** A native Reader control publishes an
+authored formula with a released exact original spelling that differs from the
+physical field. The Reader rechecks the projected literal and location against
+the selected source; there is no physical occurrence for the differing spelling.
+The control supplies a d1 reply to test custody and does not assess provider quality.
+The run worklist preserves an ineligible scope and an eligible unscheduled scope
+with distinct reasons and no provider task or contribution. The report, status and
+contribution inspection return the same scope outcomes.
+Targeted `uv run ci test` passed both native controls
+(`f420955ee35347d08b392d8fd6d5f288`). A separate native cancellation control
+passed (`e0137d2bf0814f16b65c75b70cc4a844`): cancelled work has a task but no
+result origin or emitted or inspected counts. The [retained-source run](../../design_review/evidence/2026-11-09_pm2-contract-remediation/README.md)
+at cut 540 distinguishes successful, empty, unscheduled, ineligible and limited
+scopes. Two successful child scopes preserve the failed-to-cover parent's bounds
+and identity. The detached bundle refuses coverage without worklist custody.
 
 **PM2-02 · Passed for the initial development profiles · 2026-11-08.** The resident supervisor
 holds the shared local device slot through native child teardown. Each runtime
@@ -231,11 +237,18 @@ The mixed-profile journey preserved the settled d1 result while an expired Dipo
 attempt refused and the new owner settled the exact request. Shared claim-owner
 checks cover bounded renewal retry and attempt fencing. The retained provider
 evidence covers Dipo startup refusal and d1 cancellation and restoration; it does
-not establish those operating outcomes for every native profile. PM2-R02 also
-owns the missing isolated environment identity: startup checks a subset of each
-worker's installed distributions, and the task's package fingerprint does not
-include the separate worker lockfiles. Bind the isolated runtime determinants
-that affect output before relying on exact reuse across worker environment changes.
+not establish those operating outcomes for every native profile.
+
+**Implemented PM2-R02 remediation · 2026-11-09.** The runner checks the selected
+worker environment against its exact lock, verifies its staged model artifacts,
+and binds interpreter, lock and installed distribution-record identities before
+admitting work or allowing exact reuse. That preflight does not load a model or
+reserve the GPU. Worker startup rechecks the identity before inference.
+An unavailable or mismatched preflight retains its failed scope and reason; it
+does not prevent independent verified profiles from running. Provider-specific
+operating bounds, cancellation and recovery remain separate qualification work.
+The bounded [retained-source replay](../../design_review/evidence/2026-11-09_pm2-contract-remediation/raw/book-reuse.json)
+sealed cut 541 with selected HanLP task 2149 reusing exact origin 2143.
 [Native profile identity](../../../python/corpus-structure/src/corpus_structure/methods/pm2_native.py)
 
 PM2-08 owns the assembled Reader and MCP journey, and PM2-12 owns selected-release

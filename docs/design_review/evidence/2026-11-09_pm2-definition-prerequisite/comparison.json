@@ -1,0 +1,323 @@
+[
+  {
+    "source": {
+      "coordinate_version": 3,
+      "cut_id": 517,
+      "native_content_digest": "35f4384ea386e630448d804621c0767881650937c45cd4294182cb0dd91ce8fb",
+      "native_product_key": "integrated",
+      "native_task_id": 1627,
+      "project_id": "nce-grinstead-snell-full-book",
+      "projection_digest": "9689f9583ab0c0a0cf54e79fd3e46bab699c474287f78f8d6d4ac63a453019f7",
+      "recipe_digest": "9a42d779de26546a6b702b2b7867c85d6785139dbff246e2914ea726f63c4cbc",
+      "release_id": "release:675b5f723ce83aadf7b8b1df7f0784fdc2c455d02b3979f1eae2cec30c352a56",
+      "result_revision": 1,
+      "run_id": 407,
+      "source_view_id": 387
+    },
+    "annotation_task": 1965,
+    "block": "#/texts/10950",
+    "dependency_digest": "b35e19b7de8144ce30179d17195d75bdfee2416012ea18afed7aea16c2014b96",
+    "pipeline": {
+      "batch_size": 64,
+      "exclude": [
+        "ner"
+      ],
+      "model": "en_core_web_sm",
+      "model_version": "3.8.0",
+      "spacy_version": "3.8.18",
+      "variant": "math_as_word"
+    },
+    "native_piece_count": 19,
+    "retained_sentences": [
+      [
+        52066,
+        52153,
+        "Definition 3.6 Let n be a positive integer, and let p be a real number between 0 and 1."
+      ],
+      [
+        52154,
+        52271,
+        "Let B be the random variable which counts the number of successes in a Bernoulli trials process with parameters n and"
+      ],
+      [
+        52272,
+        52274,
+        "p."
+      ],
+      [
+        52275,
+        52349,
+        "Then the distribution b(n, p, k) of B is called the binomial distribution."
+      ],
+      [
+        52350,
+        52362,
+        "\\sqcap\\sqcup"
+      ]
+    ],
+    "original_layout_reproduces_sentences": true,
+    "split_boundaries": [
+      [
+        52272,
+        52273,
+        52274
+      ]
+    ],
+    "split_sentences": [
+      [
+        52066,
+        52153,
+        "Definition 3.6 Let n be a positive integer, and let p be a real number between 0 and 1."
+      ],
+      [
+        52154,
+        52274,
+        "Let B be the random variable which counts the number of successes in a Bernoulli trials process with parameters n and p."
+      ],
+      [
+        52275,
+        52349,
+        "Then the distribution b(n, p, k) of B is called the binomial distribution."
+      ],
+      [
+        52350,
+        52362,
+        "\\sqcap\\sqcup"
+      ]
+    ],
+    "split_with_sentencizer_same_sentences": true,
+    "retained_token_samples": [
+      {
+        "text": "n",
+        "start": 52085,
+        "end": 52086,
+        "pos": "ADV",
+        "dependency": "cc",
+        "head": 2,
+        "sentence": 0,
+        "piece_indices": [
+          2
+        ]
+      },
+      {
+        "text": "n",
+        "start": 52266,
+        "end": 52267,
+        "pos": "ADV",
+        "dependency": "advmod",
+        "head": 28,
+        "sentence": 1,
+        "piece_indices": [
+          8
+        ]
+      },
+      {
+        "text": "p.",
+        "start": 52272,
+        "end": 52274,
+        "pos": "NOUN",
+        "dependency": "ROOT",
+        "head": 42,
+        "sentence": 2,
+        "piece_indices": [
+          10,
+          11
+        ]
+      },
+      {
+        "text": "called",
+        "start": 52316,
+        "end": 52322,
+        "pos": "VERB",
+        "dependency": "ROOT",
+        "head": 55,
+        "sentence": 3,
+        "piece_indices": [
+          15
+        ]
+      }
+    ],
+    "split_token_samples": [
+      {
+        "text": "n",
+        "start": 52085,
+        "end": 52086,
+        "pos": "ADV",
+        "dependency": "cc",
+        "head": 2,
+        "sentence_start": 0
+      },
+      {
+        "text": "p",
+        "start": 52118,
+        "end": 52119,
+        "pos": "NOUN",
+        "dependency": "nsubj",
+        "head": 12,
+        "sentence_start": 0
+      },
+      {
+        "text": "n",
+        "start": 52266,
+        "end": 52267,
+        "pos": "ADV",
+        "dependency": "advmod",
+        "head": 28,
+        "sentence_start": 21
+      },
+      {
+        "text": "p",
+        "start": 52272,
+        "end": 52273,
+        "pos": "PROPN",
+        "dependency": "conj",
+        "head": 40,
+        "sentence_start": 21
+      },
+      {
+        "text": "p",
+        "start": 52302,
+        "end": 52303,
+        "pos": "PROPN",
+        "dependency": "appos",
+        "head": 47,
+        "sentence_start": 44
+      },
+      {
+        "text": "called",
+        "start": 52316,
+        "end": 52322,
+        "pos": "VERB",
+        "dependency": "ROOT",
+        "head": 56,
+        "sentence_start": 44
+      }
+    ]
+  },
+  {
+    "source": {
+      "coordinate_version": 3,
+      "cut_id": 517,
+      "native_content_digest": "35f4384ea386e630448d804621c0767881650937c45cd4294182cb0dd91ce8fb",
+      "native_product_key": "integrated",
+      "native_task_id": 1627,
+      "project_id": "nce-grinstead-snell-full-book",
+      "projection_digest": "a71c0f768b4ddee089ff052b4f5ebed41db74679ded7a02acb55d7807d632e66",
+      "recipe_digest": "9a42d779de26546a6b702b2b7867c85d6785139dbff246e2914ea726f63c4cbc",
+      "release_id": "release:675b5f723ce83aadf7b8b1df7f0784fdc2c455d02b3979f1eae2cec30c352a56",
+      "result_revision": 1,
+      "run_id": 407,
+      "source_view_id": 393
+    },
+    "annotation_task": 1971,
+    "block": "#/texts/15906",
+    "dependency_digest": "28d1ea93a90c35055e6773e1365fea0852da6db0a6a5cba9d563cdd3186dc8d8",
+    "pipeline": {
+      "batch_size": 64,
+      "exclude": [
+        "ner"
+      ],
+      "model": "en_core_web_sm",
+      "model_version": "3.8.0",
+      "spacy_version": "3.8.18",
+      "variant": "math_as_word"
+    },
+    "native_piece_count": 25,
+    "retained_sentences": [
+      [
+        107525,
+        107619,
+        "In Exercise 20, the joint density function fX,Y (x,y) for the random variable (X,Y ) is given."
+      ],
+      [
+        107620,
+        107792,
+        "Now suppose that we want to know the set of points (x,y) in the xy-plane such that fX,Y (x,y)=C for some constant C. This set of points is called a set of constant density."
+      ],
+      [
+        107793,
+        107909,
+        "Roughly speaking, a set of constant density is a set of points where the outcomes (X,Y ) are equally likely to fall."
+      ],
+      [
+        107910,
+        108001,
+        "Show that for a given C, the set of points of constant density is a curve whose equation is"
+      ]
+    ],
+    "original_layout_reproduces_sentences": true,
+    "split_boundaries": [
+      [
+        107734,
+        107735,
+        107736
+      ]
+    ],
+    "split_sentences": [
+      [
+        107525,
+        107619,
+        "In Exercise 20, the joint density function fX,Y (x,y) for the random variable (X,Y ) is given."
+      ],
+      [
+        107620,
+        107736,
+        "Now suppose that we want to know the set of points (x,y) in the xy-plane such that fX,Y (x,y)=C for some constant C."
+      ],
+      [
+        107737,
+        107792,
+        "This set of points is called a set of constant density."
+      ],
+      [
+        107793,
+        107909,
+        "Roughly speaking, a set of constant density is a set of points where the outcomes (X,Y ) are equally likely to fall."
+      ],
+      [
+        107910,
+        108001,
+        "Show that for a given C, the set of points of constant density is a curve whose equation is"
+      ]
+    ],
+    "split_with_sentencizer_same_sentences": true,
+    "retained_token_samples": [
+      {
+        "text": "C.",
+        "start": 107734,
+        "end": 107736,
+        "pos": "PROPN",
+        "dependency": "pobj",
+        "head": 58,
+        "sentence": 1,
+        "piece_indices": [
+          19,
+          20
+        ]
+      },
+      {
+        "text": "called",
+        "start": 107759,
+        "end": 107765,
+        "pos": "VERB",
+        "dependency": "ccomp",
+        "head": 34,
+        "sentence": 1,
+        "piece_indices": [
+          20
+        ]
+      }
+    ],
+    "split_token_samples": [
+      {
+        "text": "called",
+        "start": 107759,
+        "end": 107765,
+        "pos": "VERB",
+        "dependency": "ROOT",
+        "head": 68,
+        "sentence_start": 63
+      }
+    ]
+  }
+]

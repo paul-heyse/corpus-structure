@@ -167,25 +167,25 @@ The existing task, result and host GPU owners retain their custody.
 | Package | Current disposition |
 | --- | --- |
 | PM2-00 | Passed for the frozen development source and explicitly scoped comparisons. |
-| PM2-01 | Exact maps, settled private outcomes and exact reuse are implemented and tested at the retained scopes. The full coverage-state contract remains open. [Source contract disposition](production-milestone-two/source-contracts-and-model-execution.md#foundation-execution-evidence). |
-| PM2-02 | Initial profiles passed the recorded native development cases, including mixed-profile reassignment. Isolated worker identity for reuse and per-profile operating qualification remain open. [Profile disposition](production-milestone-two/source-contracts-and-model-execution.md#foundation-execution-evidence). |
+| PM2-01 | Exact maps, settled private outcomes and exact reuse are implemented. A differing original spelling and unattempted scope outcomes passed the native Reader controls. Integrated coverage and composed admission remain bounded by the [source contract evidence](production-milestone-two/source-contracts-and-model-execution.md#foundation-execution-evidence). |
+| PM2-02 | Initial native profiles passed the recorded development cases. The runner verifies isolated runtime identity before scheduling or reusing a task. [Provider-specific operating qualification](production-milestone-two/source-contracts-and-model-execution.md#foundation-execution-evidence) remains open. |
 
 ## Review disposition
 
 | Package | Current execution disposition · 2026-11-09 |
 | --- | --- |
 | PM2-06 | Ordinary bounded parser modes remain selected for development. The [optional-mode disposition](production-milestone-two/linguistic-referential-discourse.md#PM2-06) records the observed gaps and the evidence needed to revisit them. |
-| PM2-07 | Private CUDA execution and located typed reads are implemented. The v2 pair verified exact normalization of the fair-coin probability; roulette magnitude, condition host and local referent remain unsupported. A like-for-like GLiNER/spaCy comparison and a native journey from a frozen retrieval list to d1 remain open. |
-| PM2-08 | The fair-coin no-match is inspectable through CLI, MCP and detached proof. The revised exact quantity is inspectable through CLI and detached proof. Typed composition, selection and admission from those private products remain open. |
-| PM2-09 | The typed frozen-list read is verified. Three v11 context recipes are implemented in an explicitly configured evidence runner, outside the ordinary registry. The v10 comparison was blocked before ranking, v11 did not run, and exact detached replay of v11 is unavailable. |
+| PM2-07 | Private CUDA execution and located typed reads are implemented. The v2 pair verified exact normalization of the fair-coin probability; roulette magnitude, condition host and local referent remain unsupported. Exact GLiNER2 diagnostics now distinguish raw proposal loss from decoder loss on six retained windows. A like-for-like GLiNER/spaCy comparison and a native journey from a frozen retrieval list to d1 remain open. |
+| PM2-08 | The fair-coin no-match is inspectable through CLI, MCP and detached proof. The revised exact quantity is inspectable through CLI and detached proof. Typed parser contracts and a release-aware safeguard for local condition attachments are implemented. The assembled selection and public admission from the private products remain open. |
+| PM2-09 | The typed frozen-list read is verified. Three v11 context recipes remain in the explicit evidence runner. Exact detached reconstruction of a retained frame signal passed a fixture and substitution controls. Paired native ranking and book export remain open. |
 | PM2-10 | Visual interpretation remains off. No selected case justifies an additional visual question. The [revisit trigger](production-milestone-two/retrieval-composition-and-delivery.md#PM2-10) requires a named material ambiguity on an authorized region. |
-| PM2-11 | The [paired d1 runs](../design_review/evidence/2026-11-09_pm2-interpretation-pair/README.md) used the same protected opportunities and inputs. Exact fair-coin probability normalization improved; the definition control held; roulette loss, host and referent remain unsupported. The [bounded retrieval comparison](../design_review/evidence/2026-11-09_pm2-adoption/README.md) was blocked by an empty eligible definition inventory and missing affine occurrence carriers; v10 remains the default. |
+| PM2-11 | The [paired d1 runs](../design_review/evidence/2026-11-09_pm2-interpretation-pair/README.md) used the same protected opportunities and inputs. Exact fair-coin probability normalization improved; the definition control held; roulette loss, host and referent remain unsupported. Both affine carriers have since been recovered from exact source; the paired retrieval still needs an eligible definition target and a fresh qualifying declaration witness for the affirmative affine control. v10 remains the default. |
 | PM2-12 | Full-book derivation and selection remain open pending scoped acceptance and an [eligible DMA-13 predecessor](domain-model-alignment_2026-11-08.md#dma-13). Evaluations 42 and 43 leave both private predecessor candidates ineligible. All 29 Standard and Nemotron views still resolve identically; no new recognition is indicated. Chandra is excluded. |
 
 | Review opportunity | Proposed disposition and closure owner |
 | --- | --- |
-| PM2-R01 | The mapper and private adapter separate exact selected projection from physical occurrence. The Reader control for a differing projection and coverage-state integration remain open in [PM2-01](production-milestone-two/source-contracts-and-model-execution.md#foundation-execution-evidence). PM2-08 owns the composed admission journey. |
-| PM2-R02 | Native profile and shared custody controls passed within the retained scope. [PM2-02](production-milestone-two/source-contracts-and-model-execution.md#foundation-execution-evidence) owns isolated worker identity for reuse and remaining provider-specific operating qualification. |
+| PM2-R01 | The mapper, private adapter and Reader separate an exact selected projection from physical occurrence. [PM2-01](production-milestone-two/source-contracts-and-model-execution.md#foundation-execution-evidence) owns remaining coverage-state qualification. PM2-08 owns the composed admission journey. |
+| PM2-R02 | Isolated worker identity is checked before reuse. [PM2-02](production-milestone-two/source-contracts-and-model-execution.md#foundation-execution-evidence) owns the remaining per-profile operating qualification. |
 | [O01](../functional_reviews/production-milestone-two_2026-11-08.md#O01) | Initial PM2-01. Exact source, identity and availability survive inference, composition and reads. |
 | [O02](../functional_reviews/production-milestone-two_2026-11-08.md#O02) | Initial PM2-03 retained frames, cues and constituency. Extra heads and migration evidence remain under PM2-06. |
 | [O03](../functional_reviews/production-milestone-two_2026-11-08.md#O03) | Initial PM2-04 retained separate mention and cluster products with a supplied-mention diagnostic. PM2-06 owns conditional joint mode, score access, speaker and seeding. |
@@ -214,19 +214,19 @@ The next work is recorded in the [completion audit](#completion-audit).
 
 ## Extraction improvement disposition
 
-These dispositions govern the proposed amendments, not execution progress. The
+These dispositions govern the amendments and their remaining qualification. The
 source review owns the rationale and [deferred or low-fit capability families](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#capability-dispositions-beyond-the-recommended-first-slice). WCE03, NCE-M03/M06
 and DMA-05/13 retain their existing authority and receipts.
 
 | Review | Plan disposition and owner |
 | --- | --- |
-| [I01](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I01) | Proposed PM2-03/07 producer work and PM2-08 qualification feed the [PM2-09 coverage gate](production-milestone-two/retrieval-composition-and-delivery.md#producer-coverage-before-ranking): a supported definition target plus exact affine carriers before ranking. |
-| [I02](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I02) | Proposed [PM2-03–06 role and context composition](production-milestone-two/linguistic-referential-discourse.md#shared-located-candidates), reusing WCE03 and retaining the strong definition witness. |
-| [I03](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I03) | Bounded [PM2-07 proposal diagnostic](production-milestone-two/gliner-and-d1-interpretation.md#proposal-loss-diagnostic), with PM2-01/02 mapping and identity and PM2-11 separate scoring. Supply explicit spans only for a diagnosed aligned proposal miss. |
-| [I04](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I04) | Proposed [PM2-07 same-question comparisons](production-milestone-two/gliner-and-d1-interpretation.md#same-question-extraction-and-interpretation), with PM2-08 selection and PM2-11 assessment. More complex decoding needs a named residual and consumer. |
+| [I01](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I01) | Exact affine carrier selection is implemented and both frozen locations reproduced. The [PM2-09 coverage gate](production-milestone-two/retrieval-composition-and-delivery.md#producer-coverage-before-ranking) still needs a witnessed definition target and the fresh affirmative affine control before ranking. |
+| [I02](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I02) | Release-owned role payloads and the local attachment safeguard are implemented. The [definition annotation comparison](../design_review/evidence/2026-11-09_pm2-definition-prerequisite/README.md) recovered one sentence boundary but left the opening declaration unbound. The matched spaCy, HanLP syntax and added SRL comparisons remain open. |
+| [I03](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I03) | [Exact GLiNER2 boundary diagnostics](../design_review/evidence/2026-11-09_pm2-gliner-boundary/README.md) ran the six retained windows. The target term was proposed but not decoded; one partial premise aligned only when supplied. No attachment was selected. |
+| [I04](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I04) | The [same-question comparison](production-milestone-two/gliner-and-d1-interpretation.md#same-question-extraction-and-interpretation) still needs equivalent released operations: the exact overlapping d1 windows ask about passage function, quantity or host, while I03 asks about definition endpoints. |
 | [I05](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I05) | Conditional [span modeling](production-milestone-two/learned-extraction-investigations.md#span-labeling-and-proposal-recall) for independently demonstrated label or proposal loss. |
 | [I06](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I06) | Conditional [typed binding modeling](production-milestone-two/learned-extraction-investigations.md#typed-binding-scorer) for recurring errors with the correct candidates already present and usable supervision. |
-| [I07](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I07) | Proposed [PM2-08 partial delivery](production-milestone-two/retrieval-composition-and-delivery.md#typed-partial-delivery) with PM2-01 coverage and PM2-11 same-path qualification. |
+| [I07](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I07) | [PM2-08 partial delivery](production-milestone-two/retrieval-composition-and-delivery.md#typed-partial-delivery) exposes distinct worklist outcomes. A missing or incompatible released local attachment contract preserves valid sibling frames and cues. The cross-provider selection, admission and same-path external qualification remain open. |
 | [I08](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I08) | Conditional [PM2-02 execution challengers](production-milestone-two/source-contracts-and-model-execution.md#conditional-context-and-execution) for measured operating need or a named scope-coverage loss. PM2-09 owns contextual retrieval recipes. |
 | [I09](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I09) | Conditional [GLiNER2 specialization](production-milestone-two/learned-extraction-investigations.md#gliner2-specialization) after alignment, proposal and configuration remedies, with NCE-M03/M06 and PM2-07/11. |
 | [I10](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I10) | Outside PM2 beyond existing declared products and the alternate-vocabulary control. Revisit broader insight discovery only for a named consumer; a canonical linker needs stable independently owned IDs, scoped candidates, an explicit NIL outcome and separate qualification. |
@@ -272,15 +272,8 @@ The following readbacks ran on 2026-11-09:
 | `uv run ci test --json --` scoped to `test_structural_source_annotations.py::test_named_rule_availability_is_preserved_per_variant` and `test_typed_realization.py::test_generated_surface_is_current_and_attaches_existing_table` | `passed`: all three cases from the parser retry's recorded ordinary failures pass at this baseline, in managed result `6136a128024d42268e5e5a5e1c415dc8`. |
 | `uv run ci test coverage` for the retained parser campaign and scoped retries | `failed`: the original fault receipt has empty files after a restart. The original campaign and exact ordinary retry retain their failed outcomes, and the later fault, opt-in and 78-test native repair results retain their narrower scope. The passing three-node rerun does not establish the required final-source union. [Parser qualification history](../design_review/evidence/2026-11-08_pm2-parsers/README.md#development-deployment-and-qualification) |
 
-Complete the coverage and reuse contracts in PM2-01/02 and the parser payload
-boundary in PM2-03–05. PM2-08 and PM2-11 then need a successful qualified
-attachment and a useful surviving part through Reader and fresh MCP, including
-the alternate declared relation and refusal control. For PM2-09, qualify the
-definition targets and affine carriers before repeating the paired retrieval
-and passing an authenticated bounded list to d1. Close the applicable paired
-interpretation and preservation controls before choosing release scope.
-DMA-13 independently owns predecessor eligibility. Evaluations 42 and 43
-completed but did not qualify either candidate.
+The audit's remaining work is carried forward in the [remediation execution](#remediation-execution)
+and the package owners above.
 
 Once scoped acceptance and predecessor eligibility settle, reuse the
 authenticated Standard and Nemotron source and qualify the selected derivations
@@ -289,3 +282,23 @@ Chandra stays excluded. PM2-12 also requires the assembled review, final
 applicable functional, native and repository qualification, and the authorized
 selected-reader journey. Fresh provider campaigns, the full-book derived run,
 and activation and selection were `not_run` in this audit.
+
+## Remediation execution
+
+**2026-11-09.** The bounded [development execution](../design_review/evidence/2026-11-09_pm2-contract-remediation/README.md)
+deployed typed parser payloads, verified scope outcome reporting on retained
+Standard and Nemotron source, and verified exact HanLP reuse. An authored
+native Reader fixture preserves exact selected spelling without minting an
+occurrence. A cancelled scope remains distinct from a completed empty scope.
+The shared local condition-to-host path has matched private textbook and
+business controls. The v11 detached fixture verifies the retained frame input;
+native paired ranking and d1 consumption are still untested.
+
+PM2-03 and PM2-07 own the next definition-target work: compare aligned spaCy,
+HanLP syntax and SRL over the complete retained declaration, then qualify a
+released binding with equivalent native and detached checks. PM2-08 and PM2-11
+need a qualified attachment and surviving useful part through the assembled
+cross-provider Reader and fresh MCP journey, and independent same-question
+comparisons. PM2-09 keeps ranking behind the definition inventory and fresh
+affirmative affine witness. DMA-13 still has no eligible predecessor. Keep the
+full-book derived run and selection open until the prerequisites pass.

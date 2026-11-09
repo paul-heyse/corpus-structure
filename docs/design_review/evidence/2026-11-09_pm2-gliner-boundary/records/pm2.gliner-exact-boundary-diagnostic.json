@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "id": "pm2.gliner-exact-boundary-diagnostic",
+  "title": "Exact GLiNER proposal and supplied-span diagnostic on six retained target windows",
+  "group": "pm2-gliner-boundary",
+  "package": "PM2-07",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the released GLiNER definition pack miss the frozen exact target at source alignment, ordinary proposal, or subsequent role scoring and decoding?",
+  "answers": [
+    "I03",
+    "PM2-07",
+    "PM2-09",
+    "PM2-11"
+  ],
+  "method": "Authenticate the original run and exact six windows through a read-only snapshot. Replay the incumbent bare release pack on pinned CPU Base and score independently source-authored extents using the same native boundary checkpoint. Retain source-protection refusals and separate decoded attachments from raw scores.",
+  "commands": [
+    "UV_NO_SYNC=1 uv run python docs/design_review/evidence/2026-11-09_pm2-gliner-boundary/inspect_boundaries.py",
+    "CORPUS_GLINER_DIAGNOSTIC=1 UV_NO_SYNC=1 uv run ci test --json -- python/corpus-structure/tests/methods/test_gliner.py"
+  ],
+  "agents": [
+    {
+      "role": "Probe executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "Exact diagnostic extents authored from the frozen source before native inference; not independent semantic adjudication."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "inspect_boundaries.py",
+      "role": "Source-authored extent controls and exact-window replay",
+      "sha256": "4a5884d4138e0d38ddb1b80b7a78f4e7690953742dfb33b4d45beeca928f81fd"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/boundary-probe.json",
+      "role": "Pinned ordinary, native proposal, supplied-score, and refusal observations",
+      "sha256": "e58d6407102ec97d8d05bac69857c76771a62092e6af957374081ce03b848722"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-adoption/pm2.bounded-retrieval-eligibility"
+  ],
+  "results": [
+    {
+      "name": "Ordinary windows returned",
+      "value": 6,
+      "of": 6,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Source-authorized explicit spans scored",
+      "value": 19,
+      "of": 24,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Explicit spans refused by source protection",
+      "value": 5,
+      "of": 24,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Common query/span logits matched exactly",
+      "value": 126,
+      "of": 126,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Windows with an ordinary decoded attachment",
+      "value": 0,
+      "of": 6,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The exact binomial term and partial content endpoints already reached the shared pool and did not decode under the selected role schema. One aligned restriction was absent from ordinary proposals and did not obtain a strong content score when explicitly supplied. This diagnoses separate proposal and role issues without qualifying a changed cutoff, composed attachment, or retrieval target.",
+  "consumed_by": [
+    "I03",
+    "PM2-07",
+    "PM2-09",
+    "PM2-11"
+  ]
+}
