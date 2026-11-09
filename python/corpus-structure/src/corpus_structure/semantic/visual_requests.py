@@ -345,6 +345,19 @@ def _compatible_raw(conn, project, selection, original, recipe):
     )
     observation = bodies.c.descriptor["observation"]
     image = observation["image"]
+    raw_attachment = attachments.alias("raw_attachment")
+    raw_artifact = artifacts.alias("raw_artifact")
+    has_raw_response = (
+        select(raw_attachment.c.artifact_digest)
+        .join(raw_artifact, raw_artifact.c.artifact_digest == raw_attachment.c.artifact_digest)
+        .where(
+            raw_attachment.c.task_id == products.c.task_id,
+            raw_attachment.c.product_key == products.c.product_key,
+            raw_attachment.c.artifact_digest == observation["raw_response_digest"].as_string(),
+            func.octet_length(raw_artifact.c.content) > 0,
+        )
+        .exists()
+    )
     retained_transform = cast(func.convert_from(artifacts.c.content, "UTF8"), JSONB).op("->")(
         "transform"
     )
@@ -397,7 +410,10 @@ def _compatible_raw(conn, project, selection, original, recipe):
             products.c.product_key.startswith("chandra-inference:"),
             products.c.artifact_digest == original.digest,
             configs.c.params["selection"] == selection.model_dump(mode="json"),
-            observation["outcome"].as_string() == "succeeded",
+            # Provider completion standing stays with the observation. An
+            # unspecified stop can still have exact settled response bytes.
+            observation["outcome"].as_string().in_(("succeeded", "unknown")),
+            has_raw_response,
             observation["binding"]["decoding_json"]
             .as_string()
             .cast(JSONB)["recognition_digest"]

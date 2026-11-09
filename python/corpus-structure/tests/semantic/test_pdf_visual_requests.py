@@ -648,7 +648,6 @@ def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
     )
     attempts = []
     sessions = []
-    stop_reason = VlmStopReason.UNSPECIFIED
     recipe_revision = "controlled"
 
     def provider_identity():
@@ -680,7 +679,7 @@ def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
             check_active()
             before_submit()
             attempts.append(pixels)
-            return VlmPrediction(text=_HTML, stop_reason=stop_reason)
+            return VlmPrediction(text=_HTML, stop_reason=VlmStopReason.UNSPECIFIED)
 
         yield recognize
 
@@ -780,9 +779,19 @@ def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
     assert len(attempts) == 3 and len(sessions) == 2
 
     cancelled = {**args, "campaign_group": "b" * 64}
-    interrupt = True
-    with pytest.raises(KeyboardInterrupt):
-        visual_requests.request_visual_group(db.writer, **cancelled)
+    start_task = visual_requests._start_task
+
+    def interrupt_cancelled_mapping(
+        conn, run_id, prepared, document_id, selection, step, *args, **kwargs
+    ):
+        if step == "mapping" and selection.rotation == 90:
+            raise KeyboardInterrupt
+        return start_task(conn, run_id, prepared, document_id, selection, step, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(visual_requests, "_start_task", interrupt_cancelled_mapping)
+        with pytest.raises(KeyboardInterrupt):
+            visual_requests.request_visual_group(db.writer, **cancelled)
     with db.writer.begin() as conn:
         cancelled_id = conn.execute(
             select(runs.c.id).where(runs.c.options["visual_campaign_group"].astext == "b" * 64)
@@ -823,7 +832,6 @@ def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
     # could start a new recognition is deliberately unavailable.
     fail_rotation = None
     mapping_recovery = {**failure_args, "campaign_group": "1" * 64}
-    start_task = visual_requests._start_task
 
     def interrupt_mapping(conn, run_id, prepared, document_id, selection, step, *args, **kwargs):
         if step == "mapping":
@@ -847,10 +855,9 @@ def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
     assert recovered_mapping.members[0].raw is not None
     assert recovered_mapping.members[0].mapped is not None
 
-    # A new ordinary group can bind the exact successful raw pin before
-    # inspecting local provider files or rendering the original.
-    stop_reason = VlmStopReason.END_OF_SEQUENCE
-    recipe_revision = "successful-recognition"
+    # A new ordinary group can reuse the provider's settled raw bytes even
+    # when the provider reports no completion reason.
+    recipe_revision = "unspecified-completion"
     seed_args = {**failure_args, "campaign_group": "2" * 64}
     seeded = visual_requests.request_visual_group(db.writer, **seed_args)
     assert seeded.status == "source_ready" and seeded.members[0].raw is not None
@@ -902,6 +909,12 @@ def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
     assert reused.status == "source_ready" and reused.run_id != seeded.run_id
     assert reused.members[0].raw == seeded.members[0].raw
     assert len(attempts) == attempts_before_reuse
+    with db.writer.connect() as conn:
+        body, _, response = visual_requests._open_observation(conn, raw_pin, "p", selection)
+    assert response == _HTML.encode()
+    assert body["observation"]["outcome"] == "unknown"
+    assert body["observation"]["finish_reason"] == VlmStopReason.UNSPECIFIED.value
+    assert body["observation"]["diagnostic"] == "Chandra did not report a completion reason"
     recipe_revision = "changed-recognition"
     changed = visual_requests.request_visual_group(
         db.writer, **{**seed_args, "campaign_group": "4" * 64}
