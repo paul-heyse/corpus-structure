@@ -1085,6 +1085,7 @@ def series_native_definitions(connection, *, include_selected=True):
         "pdf_published_item",
         "pdf_published_region",
         "pdf_published_coverage",
+        "record_source_json",
     )
     definitions = [
         *(item for name in providers for item in definitions if item.identity.name == name),
