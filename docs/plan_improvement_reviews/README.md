@@ -41,6 +41,10 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [PM2 structuring and DMA-13](pm2-structuring-and-dma13_2026-11-09.md):
+  independent assessment of the Pro proposals, question and comparison visibility,
+  source-backed composition, workflow qualification and conditional execution improvements.
+
 - [PM2 and shared extraction with GLiNER2 and spaCy](pm2-extraction-gliner2-spacy_2026-11-09.md):
   producer coverage before retrieval, source-bound candidate and attachment comparisons,
   staged spaCy modeling, and domain-agnostic delivery of useful partial results.
