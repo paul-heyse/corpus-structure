@@ -124,6 +124,14 @@ retained d1 pair. The GLiNER diagnostic asks about definition endpoints; d1 asks
 about passage function, exact quantity or condition host in those windows. Compare
 equivalent released questions and roles before using those outputs as paired evidence.
 
+**Tested same-question diagnostic · 2026-11-09.** On one authenticated retained
+passage, the native GLiNER2 classification and retained d1 v2 answer used the
+same passage-function instruction and label criteria. Both selected the
+independently supported definition label. The
+[diagnostic](../../design_review/evidence/2026-11-09_pm2-passage-function/README.md)
+is one case, with no protected GLiNER grade or evidence of a gain. The ordinary
+paired arms and remaining quantity, host, and referent comparisons stay open.
+
 **Proposed.** Freeze the eligible source and question through PM2-11. Compare the current
 literal GLiNER pack plus spaCy-backed qualification, d1 source discovery and the applicable
 fixed-candidate arms. Measure literal capture separately from typed normalization. On

@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "id": "pm2.exact-affine-assessment",
+  "title": "Exact affine form, scoped binding refusal and calibration control",
+  "group": "pm2-affine-assessment",
+  "package": "PM2-11",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the retained affine expression be assessed independently of symbol-link eligibility, with a generic exact algebra control?",
+  "answers": [
+    "PM2-11",
+    "I01"
+  ],
+  "method": "Authenticate the frozen selected view and in-equation source carriers, run the assessment with the current unresolved binding, and check independently authored exact coefficient controls through the same prepared grammar and SymPy path.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-affine-assessment/check_frozen_source.py",
+    "uv run ci test --json -- python/corpus-structure/tests/evaluate/test_affine.py python/corpus-structure/tests/semantic/test_shared_math.py python/corpus-structure/tests/methods/test_pm2_source.py python/corpus-structure/tests/evaluate/test_equivalence.py"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "Expected formula coefficients and refusal controls are explicit; they are not inferred by the assessment mechanism."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "check_frozen_source.py",
+      "role": "Pinned retained-source read and authored calibration",
+      "sha256": "a3daa14285c0ff41cb95cda8ae84c2399b40c2570021b3b3effd600992f8f327"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/comparison.json",
+      "role": "Authenticated source carrier and exact comparison outcomes",
+      "sha256": "f15bee40063b2046faf37e227d677d8e733dce199adf79e746658bda4a8cbe38"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-adoption/pm2.bounded-retrieval-eligibility"
+  ],
+  "results": [
+    {
+      "name": "Focused math and source checks",
+      "value": 47,
+      "of": 47,
+      "unit": "tests",
+      "note": "Managed result 30fea2f8b73444fcb4bc332e4e789c51"
+    },
+    {
+      "name": "Book binding",
+      "value": "undecided",
+      "of": null,
+      "unit": null,
+      "note": "Current Z declaration is not an admitted source binding"
+    },
+    {
+      "name": "Authored calibration",
+      "value": "equivalent",
+      "of": null,
+      "unit": null,
+      "note": "Exact coefficient g and offset 1/8"
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Exact coefficient, directed form, and guarded definedness controls passed. The authenticated book equation remains undecided until the source declaration is qualified; no protected grade or public standing changed.",
+  "consumed_by": [
+    "PM2-09",
+    "PM2-11"
+  ]
+}

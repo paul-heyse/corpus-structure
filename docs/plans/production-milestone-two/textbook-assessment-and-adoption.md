@@ -135,6 +135,25 @@ binding or normalization, and qualified consumer result separately.
 | Binding and partial delivery · PM2-08 | Compare the same ordinary host/referent candidates, including wrong, ambiguous or absent choices. Require a supported textbook attachment and an authored business instruction through the same released relation operation and admission. Refuse an incompatible declaration, retain competing alternatives and preserve a useful qualified part after sibling failure through Reader, CLI, fresh MCP and exact detached proof. |
 | Conditional learned alternatives · PM2-03/07/11 | Select only on the [diagnosis and data gates](learned-extraction-investigations.md). Keep source-group holdouts out of training, prompt examples and oracle candidate injection. Grade discovery, span label or typed binding, abstention and delivered meaning independently. Failure, ties or unavailable supervision retain the simpler route. |
 
+### Exact affine qualification
+
+**Implemented · 2026-11-09.** The bounded PM2 assessor uses the existing prepared
+math input and scientific comparison report. It checks a bare, source-directed
+output, exact degree and coefficients over a rational polynomial domain, and
+source-definedness conditions before cancellation. The reference supplies the
+expected coefficient and offset independently. An unresolved binding, incomplete
+parse, approximate operand, unsupported domain, or timeout leaves the assessment
+undecided. A nonzero premise must be explicitly supported in the same context.
+The result is a formal coefficient comparison; it establishes neither a symbol
+link nor public admission. The shared `reference-evidence-2` profile and historical
+grades remain at their original meaning.
+
+The [retained and authored controls](../../design_review/evidence/2026-11-09_pm2-affine-assessment/README.md)
+separate capture, binding and exact algebra. Use the exact check on the book only
+after the source declaration qualifies. A named distribution or moment check is
+conditional on supported distribution and parameter bindings. The existing
+fair-coin literal-to-decimal control stays separate from the exact polynomial path.
+
 ### Decide what is good enough to activate
 
 Before opening candidate results, name the operation, primary decision dimension,

@@ -294,9 +294,17 @@ The shared local condition-to-host path has matched private textbook and
 business controls. The v11 detached fixture verifies the retained frame input;
 native paired ranking and d1 consumption are still untested.
 
-PM2-03 and PM2-07 own the next definition-target work: compare aligned spaCy,
-HanLP syntax and SRL over the complete retained declaration, then qualify a
-released binding with equivalent native and detached checks. PM2-08 and PM2-11
+**Formula and definition follow-up · 2026-11-09.** [PM2-11's exact affine assessment](production-milestone-two/textbook-assessment-and-adoption.md#exact-affine-qualification)
+keeps mathematical agreement distinct from capture and source binding. The
+[bounded HanLP comparison](../design_review/evidence/2026-11-09_pm2-definition-hanlp/README.md)
+recovered the final parameter role only under a separately identified diagnostic layout.
+The [ordered affine declaration probe](../design_review/evidence/2026-11-09_pm2-affine-ordered-source/README.md)
+found the `Z` source pieces under the retained layout owner. Neither diagnostic
+supplies a released witness or makes the retrieval inventory eligible.
+
+PM2-03 and PM2-07 own the next definition-target work: qualify a bounded layout
+and released declaration chain with equivalent native and detached checks.
+PM2-08 and PM2-11
 need a qualified attachment and surviving useful part through the assembled
 cross-provider Reader and fresh MCP journey, and independent same-question
 comparisons. PM2-09 keeps ranking behind the definition inventory and fresh

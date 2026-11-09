@@ -220,6 +220,14 @@ native item. Keep the [qualified earlier witness and refusal](../../design_revie
 as separate controls. Inspect the unfiltered producer output for the negative adverb control;
 absence from a query allowlist proves nothing about producer coverage.
 
+**Ordered declaration diagnostic · 2026-11-09.** The [retained source probe](../../design_review/evidence/2026-11-09_pm2-affine-ordered-source/README.md)
+found the exact earlier declaration in three ordered pieces of a single inline wrapper
+owned by the same section as the recap. The wider producer passage recovered a unique
+`Z` candidate; the original query window could not. Preserve that query window and
+require the new released producer, native validator and detached proof to authenticate
+the wider witness and its mapped members before selection. Exact algebra is independently
+assessed under [PM2-11](textbook-assessment-and-adoption.md#exact-affine-qualification).
+
 Run the affine pair separately from the binomial pair, whose carrier remains
 `extract.m1_candidates`. Use the same authenticated eligible definition inventory and keep the
 source, carrier selection, scope, encoder and bounds fixed within each v10/v11 pair. The scoped

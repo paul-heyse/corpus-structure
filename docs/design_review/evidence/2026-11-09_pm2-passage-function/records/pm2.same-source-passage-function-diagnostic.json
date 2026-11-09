@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "id": "pm2.same-source-passage-function-diagnostic",
+  "title": "Native GLiNER2 and d1 on one released passage function question",
+  "group": "pm2-adoption",
+  "package": "PM2-11",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can a native GLiNER2 CPU diagnostic address the exact source-only passage question retained by d1 and recover its protected definition facet?",
+  "answers": [
+    "PM2-07",
+    "PM2-11"
+  ],
+  "method": "Authenticate the retained native projection and match the stored d1 source-scope digest. Ask GLiNER2 the same released instructions and independent label criteria on the same text. Compare the returned label to the retained d1 result and the previously protected positive facet after inference.",
+  "commands": [
+    "UV_NO_SYNC=1 uv run python docs/design_review/evidence/2026-11-09_pm2-passage-function/compare_passage_function.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "compare_passage_function.py",
+      "role": "Source-only read custody and native GLiNER2 comparison script",
+      "sha256": "4e5d4e4372000ea99f2885e64c1270532979a5aec2a64038168de27f9707a7bc"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/gliner.json",
+      "role": "Retained release question, exact model input and native GLiNER2 output",
+      "sha256": "0307d0965026ffd2f7287a71da69632e77512b465d25e1f882ccf2a5b26a8dcf"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-interpretation-pair/pm2.matched-interpretation-development"
+  ],
+  "results": [
+    {
+      "name": "Frozen source-only questions with an exact native GLiNER2 arm",
+      "value": 1,
+      "of": 1,
+      "unit": "question",
+      "note": "Protected set 36 unit 54, projection 383:[811,907)"
+    },
+    {
+      "name": "Definition is the sole label in both outputs",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": "Native GLiNER2 score 0.9912716746330261; retained d1 version 2 task 2127"
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Native GLiNER2 and retained d1 returned the same supported definition label on one exposed frozen passage. This diagnostic supplies no managed GLiNER2 assessment, wider population or adoption claim.",
+  "consumed_by": [
+    "PM2-07",
+    "PM2-11",
+    "PM2-12"
+  ]
+}

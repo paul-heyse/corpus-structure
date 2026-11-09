@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "id": "dma.predecessor-producer-gap",
+  "title": "Exact retained producer gap before DMA predecessor acceptance",
+  "group": "dma-predecessor",
+  "package": "DMA-13",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Were the missing readings in evaluations 42 and 43 caused by source selection, the candidate producer, or later acceptance, and does the existing contextual producer close the observed gap?",
+  "answers": [
+    "DMA-13"
+  ],
+  "method": "Reopen exact retained origin reports with the ordinary run-bound Reader, distinguish decoder proposals from assembly and policy outcomes, and replay the existing contextual CPU producer on the authenticated source and retained annotations. Preserve independent reference and selection authority.",
+  "commands": [
+    "UV_NO_SYNC=1 uv run python docs/design_review/evidence/2026-11-09_dma-producer-gap/inspect_retained.py",
+    "UV_NO_SYNC=1 uv run ci eval operation-event-availability 407 --project nce-grinstead-snell-full-book --json",
+    "UV_NO_SYNC=1 uv run ci eval operation-event-availability 437 --project nce-grinstead-snell-full-book --json",
+    "UV_NO_SYNC=1 uv run python docs/design_review/evidence/2026-11-09_dma-producer-gap/replay_candidate.py 409 contextual",
+    "UV_NO_SYNC=1 uv run python docs/design_review/evidence/2026-11-09_dma-producer-gap/replay_candidate.py 381 contextual"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "inspect_retained.py",
+      "role": "Read-only exact predecessor candidate origin trace",
+      "sha256": "ed3773a7868eebb7339116bd7acdbffd70b77e6c1d2fb07115860f4f61c4e9a9"
+    },
+    {
+      "path": "replay_candidate.py",
+      "role": "Existing named native CPU candidate replay over authenticated inputs",
+      "sha256": "65c2865c0e33b4b8a162d49b1366bf4aea6a6f3c12e6d6b83c6ffe2873cf941a"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/retained-origin-reports.json",
+      "role": "Detached decoder and private-record origin trace for three exact retained views",
+      "sha256": "ad4d182392c4b4283cf5813207f86b890b50af4dc9cba08644dc0f2001f49f1d"
+    },
+    {
+      "path": "raw/defined-by-events-407.json",
+      "role": "Run 407 native defined-by event availability",
+      "sha256": "3145ab6c8457275bd1bd8b2e64d3989d692d87e6739125cd0c34bcb9e588912b"
+    },
+    {
+      "path": "raw/defined-by-events-437.json",
+      "role": "Run 437 native defined-by event availability",
+      "sha256": "cac5bcc57e5237ae14f7fef1b76bb08bd2b7610ef688fb87ebd6dc8c6851d05e"
+    },
+    {
+      "path": "raw/contextual-409.json",
+      "role": "Detached CPU challenger result over the current exact subsection view",
+      "sha256": "1c8047954b55a5c0d7ac4c98e6f267760ea3d7c0199ec06bbe435f79cdcd2d94"
+    },
+    {
+      "path": "raw/contextual-381.json",
+      "role": "Detached CPU challenger result over the retained whole Preface view",
+      "sha256": "670d7ed82b12be0d03f00cb9c33815c1d3afcf418a53cacc2846b0c3653b2d7e"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_dma-predecessor/dma.predecessor-whole-view-grade",
+    "2026-11-09_dma-predecessor/dma.predecessor-bounded-grade"
+  ],
+  "results": [
+    {
+      "name": "Exact retained candidate origins inspected",
+      "value": 3,
+      "of": 3,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Contextual subsection decoder groups",
+      "value": 81,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Contextual subsection assembled private records",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Contextual Preface assembled private records",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": "The only assertion changes the independently adjudicated reading; no trial-bound measurement was assembled."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The retained default producer misses source roles before record acceptance, and no fitted whole-reading acceptance policy ran. Contextual native CPU decoding returned more partial subsection proposals and no assembled records, and one role-shifted Preface assertion with no measurement. The independent grades remain unchanged, no candidate acquired public standing, and neither run is an eligible DMA-13 predecessor.",
+  "consumed_by": [
+    "DMA-13",
+    "PM2-12"
+  ]
+}

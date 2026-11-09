@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "id": "pm2.hanlp-definition-role-comparison",
+  "title": "Native HanLP roles on the retained binomial definition",
+  "group": "pm2-remediation",
+  "package": "PM2-09",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do canonical or source-aligned diagnostic HanLP inputs supply the roles needed for a source-qualified definition?",
+  "answers": [
+    "I01",
+    "I02",
+    "PM2-03",
+    "PM2-09"
+  ],
+  "method": "Authenticate the same frozen source as the retained spaCy comparison. Compare ordinary HanLP syntax and SRL, then a distinct supplied exact punctuation-boundary repair with a canonical same-device control.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-definition-hanlp/compare_hanlp.py",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-definition-hanlp/compare_hanlp.py --device cpu --split-diagnostic"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "compare_hanlp.py",
+      "role": "Read-only probe over frozen source and native parser profiles",
+      "sha256": "a32c7c39c568c5aaab83d28ffb8ce601f18fee7d1d7ed37f3dad28c4116d7962"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/hanlp.json",
+      "role": "Canonical CUDA inputs, outputs and typed located products",
+      "sha256": "8d9f4507d341d21914632086e98c3bdae68adcd9137572af97b256672e941b4f"
+    },
+    {
+      "path": "raw/hanlp-layout.json",
+      "role": "Matched canonical and reviewed-split CPU arms with exact inputs and located products",
+      "sha256": "010d593c26a6f87741dc3823cd5240498e557f150c4bc8a567124f311dcb645a"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-definition-prerequisite/pm2.definition-annotation-prerequisite"
+  ],
+  "results": [
+    {
+      "name": "Canonical CUDA results",
+      "value": 1,
+      "of": 1,
+      "unit": "scope",
+      "note": null
+    },
+    {
+      "name": "Matched native CPU layout arms",
+      "value": 2,
+      "of": 2,
+      "unit": "scopes",
+      "note": null
+    },
+    {
+      "name": "Canonical opening n subject recovered",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": "UD and SRL locate the subject of the integer declaration"
+    },
+    {
+      "name": "Canonical B declaration includes final parameter",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": "The final parameter is in its own sentence"
+    },
+    {
+      "name": "Diagnostic B declaration includes final parameter",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": "The exact supplied split and sentence join recover UD coordination and the SRL complement"
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Native syntax and SRL provide additional exact local candidates, and a separately identified supplied split recovers the final parameter role. Neither the canonical run nor the diagnostic supplies the released, independently qualified cross-sentence definition witness; the target remains ineligible.",
+  "consumed_by": [
+    "PM2-03",
+    "PM2-09",
+    "PM2-11",
+    "PM2-12"
+  ]
+}

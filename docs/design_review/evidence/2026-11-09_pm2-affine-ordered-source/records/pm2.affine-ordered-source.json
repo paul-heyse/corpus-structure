@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "id": "pm2.affine-ordered-source",
+  "title": "Exact ordered source pieces for the affine declaration candidate",
+  "group": "pm2-affine-ordered-source",
+  "package": "PM2-09",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does an exact bounded producer passage contain the ordered prior declaration of the recap symbol without changing the frozen query extent?",
+  "answers": [
+    "I01",
+    "PM2-09"
+  ],
+  "method": "Authenticate the original non-Chandra run, cut, view and native product; reconstruct the declared name from complete ordered inline children under a single body section; replay exact inline formula carriers; refuse reordered, synthetic and foreign source variants.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-affine-ordered-source/inspect_affine_source.py"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "Source and query extents are from frozen evidence, independent of the diagnostic implementation."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "inspect_affine_source.py",
+      "role": "Read-only source and controlled refusal probe",
+      "sha256": "7e7d0d9aa901bebfeabc54a7744e3176b7b240ce1dab08ba22c1e9ee7b3a4c77"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/source.json",
+      "role": "Exact source pin, inspected scopes, candidate anchors and refusals",
+      "sha256": "f07306aa35c0f8caeb4e8def8d7e2e28a5d40529d10ce7314c4dde32510c372a"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-adoption/pm2.bounded-retrieval-eligibility"
+  ],
+  "results": [
+    {
+      "name": "Source declaration candidates",
+      "value": 1,
+      "of": 1,
+      "unit": "case",
+      "note": "Z only; producer extent includes complete inline owner"
+    },
+    {
+      "name": "Boundary and custody refusals",
+      "value": 4,
+      "of": 4,
+      "unit": "controls",
+      "note": "Frozen query alone, reordered children, foreign recap, synthetic piece"
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The exact retained source supplies a bounded ordered declaration candidate without changing either formula carrier or the frozen retrieval query. A versioned native and detached witness must still qualify the positive link.",
+  "consumed_by": [
+    "PM2-09",
+    "PM2-11"
+  ]
+}

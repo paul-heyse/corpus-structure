@@ -793,3 +793,12 @@ no-output into an accepted match or widen the proof to the book. Keep the
 private results, source and protected evidence under their original
 bindings. Activation, selection, derived retirement and the final
 qualification union remain open.
+
+**Producer diagnosis · 2026-11-09.** The [retained read and contextual replay](../design_review/evidence/2026-11-09_dma-producer-gap/README.md)
+localize the misses before resolution. The ordinary route emitted no compatible
+definition event in either run and did not schedule a resolver. On the same
+subsection, the contextual challenger exposed partial definition, assertion and
+formula candidates but assembled no records. On the Preface it still omitted
+the measurement and misbound the assertion's roles. Do not switch to that
+configuration or fit a policy on the protected book controls. Repair role and
+field capture, then repeat the exact protected producer and resolver checks.
