@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "id": "pm2.native-profile-controls",
+  "title": "Locked native profiles and bounded local GPU custody",
+  "group": "pm2-foundation",
+  "package": "PM2-02",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the exact provider profiles produce native results and refuse excess work in the intended local operating envelope?",
+  "answers": [
+    "PM2-01",
+    "PM2-02"
+  ],
+  "method": "Use pinned offline model artifacts and explicit interpreters. Exercise cold and warm scopes, actual tokenizer or decoder limits, alternate vocabulary, shared GPU contention and native cancellation. Retain profiles and outputs.",
+  "commands": [
+    "uv run python services/pm2-models/stage.py",
+    "uv lock --check --project services/pm2-hanlp",
+    "uv pip check --python services/pm2-hanlp/.venv/bin/python",
+    "uv lock --check --project services/pm2-maverick",
+    "uv pip check --python services/pm2-maverick/.venv/bin/python",
+    "uv lock --check --project services/pm2-dipo",
+    "uv pip check --python services/pm2-dipo/.venv/bin/python",
+    "uv run python docs/design_review/evidence/2026-11-08_pm2-foundation/native_probe.py hanlp",
+    "uv run python docs/design_review/evidence/2026-11-08_pm2-foundation/native_probe.py dipo",
+    "uv run python docs/design_review/evidence/2026-11-08_pm2-foundation/native_probe.py d1 --cancel-d1"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/hanlp-cuda.jsonl",
+      "role": "Native HanLP heads and mapped roots",
+      "sha256": "14224f0327d78b6bde909544e2456d767fabbf16d3456c63acdcc692cfbe5a93"
+    },
+    {
+      "path": "raw/hanlp-cpu-bounds.jsonl",
+      "role": "Exact native HanLP word, subword and padded bounds",
+      "sha256": "9cb13e6c6d55e87914cf193af178b32427d1ea61d41697bcd84b4027f2fc2fca"
+    },
+    {
+      "path": "raw/maverick-cuda.jsonl",
+      "role": "Native Maverick alternate vocabulary, frozen empty controls and limits",
+      "sha256": "c9267b9fdf6b92e2b787a2cd535e49e5f2a530b5307cf41f0d71178929210bc9"
+    },
+    {
+      "path": "raw/maverick-cpu-custody.log",
+      "role": "Native Maverick FP32 checkpoint equality and supplied bounds",
+      "sha256": "c1fb0b856ff3d2592a2ebb1815e6c1e9f85e1483027b6188d675380939c7d9c0"
+    },
+    {
+      "path": "raw/dipo-cuda.jsonl",
+      "role": "Native Dipo mapped EDUs and native discourse tree",
+      "sha256": "8ba7082d0e1cd90892776a9377ca2e420ef390464b6b158f63337a4170812d8a"
+    },
+    {
+      "path": "raw/dipo-cpu-bounds.jsonl",
+      "role": "Native Dipo tokenizer and recovered EDU bounds",
+      "sha256": "86be58db5620975a789a83994ae9bc0228ea895604dca3df268423f770f8ebb1"
+    },
+    {
+      "path": "raw/d1-cuda.jsonl",
+      "role": "Native d1 typed spans, packed boundary and cancellation",
+      "sha256": "342d4be2d70fef772e297fa892d62a8d2cf90d1c86b475bf72d1430cdcd18bdd"
+    },
+    {
+      "path": "raw/capacity-contention.json",
+      "role": "Real local GPU slot owner held past worker startup deadline",
+      "sha256": "8d64b5f9fcdc6bf1e7d7f010455427e5d649bf04ef4920f551b8f2d4fd262aa7"
+    },
+    {
+      "path": "raw/d1-cpu-smoke.jsonl",
+      "role": "Distinct FP32 CPU native text smoke",
+      "sha256": "f831727cbcfc15e8610327a2337405f651eecb9e8deac4b814818a4ce5a7d37d"
+    },
+    {
+      "path": "raw/native-load-refusal.json",
+      "role": "Exact Dipo child refused missing reviewed asset",
+      "sha256": "7ee603492ae1d243395d0972bd5113d429ff14bc92acf54f491c9deee2227d21"
+    }
+  ],
+  "depends_on": [
+    "pm2.development-baseline"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "All four profiles loaded and produced native CUDA results at the retained settings. Actual oversized inputs and persistent capacity contention were refused. d1 cancellation released the child and restored the configured resident service. The evidence is scoped to the recorded native cases and host.",
+  "consumed_by": [
+    "PM2-02",
+    "PM2-03",
+    "PM2-04",
+    "PM2-05",
+    "PM2-07"
+  ]
+}

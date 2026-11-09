@@ -1,6 +1,6 @@
 # M2 source contracts and model execution
 
-**Proposed · 2026-11-08.** Owns PM2-01 and PM2-02, realizing source review
+**Foundation implemented · 2026-11-08.** Owns PM2-01 and PM2-02, realizing source review
 [O01](../../functional_reviews/production-milestone-two_2026-11-08.md#O01) and
 [O08](../../functional_reviews/production-milestone-two_2026-11-08.md#O08).
 The [coordinator](../production-milestone-two_2026-11-08.md) owns disposition.
@@ -147,3 +147,40 @@ contention, expiry and reassignment. Verify preservation of another provider's
 completed result. A proposed profile may remain blocked
 with the missing asset, compatible lock or device prerequisite recorded. Only
 its dependent scope waits. [D6 orchestration and GPU sharing](../../design/D6-orchestration-metrics-policies.md)
+
+## Foundation execution evidence
+
+**PM2-01 · Implemented and tested · 2026-11-08.** The provider bridges retain their native coordinates,
+use the authenticated layout and protect indivisible atoms, synthetic gaps and
+distinct source pins. The retained result keeps native answers, exact selected
+projection evidence and the reason when canonical occurrence identity is
+unavailable. The task determinant covers operation version, ordered effective
+request, allowlisted d1 field, source map and exact runtime profile. The private
+claim adapter uses the existing maintained owner, terminal completion and Reader.
+The selected source and alternate vocabulary share this path. An actual d1 CUDA
+answer and a limited sibling operation settled through maintained claims and
+reopened through the private Reader. Exact same-release reuse survived a changed
+downstream policy. The changed allowed field produced a new task.
+[Native Reader and reuse receipt](../../design_review/evidence/2026-11-08_pm2-foundation/records/pm2.private-native-reader.json)
+[Source maps](../../../python/corpus-structure/src/corpus_structure/methods/pm2_source.py) ·
+[Result binding](../../../python/corpus-structure/src/corpus_structure/methods/pm2_result.py) ·
+[Claim adapter](../../../python/corpus-structure/src/corpus_structure/orchestrate/pm2.py)
+
+**PM2-02 · Passed for the initial development profiles · 2026-11-08.** The resident supervisor
+holds the shared local device slot through native child teardown. Each runtime
+uses its exact interpreter, locked dependencies and verified offline artifacts.
+The profile evidence covers all four CUDA models, actual admitted bounds,
+persistent capacity contention and d1 native cancellation with restoration of
+the configured incumbent service. HanLP and Dipo also produced grounded source
+locations on the two frozen scopes. Maverick's two frozen arms returned empty.
+Its separate alternate-vocabulary case returned grounded mentions and clusters.
+[Profile results and exact locks](../../design_review/evidence/2026-11-08_pm2-foundation/README.md#locked-native-profiles) ·
+[Resident supervisor](../../../python/corpus-structure/src/corpus_structure/methods/pm2_worker.py)
+
+Provider-specific semantic consumers begin in PM2-03–07. PM2-08 owns the
+assembled private Reader and MCP journey. Retained PM2-02 operating limits
+apply to the tested profiles on the development host. The mixed-profile journey preserved the settled d1 result while an expired Dipo
+attempt refused and the new owner settled the exact request. Shared claim-owner
+checks cover the bounded renewal retry and attempt fencing. The provider
+companions own extended scopes, and PM2-12 owns selected-release qualification. The native scope and outcomes are separate
+from a claim of textbook benefit.

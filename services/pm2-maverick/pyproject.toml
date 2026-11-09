@@ -1,0 +1,15 @@
+[project]
+name = "corpus-pm2-maverick-runtime"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "huggingface-hub==1.33.0",
+  "maverick-coref==1.0.7",
+  "pytorch-lightning==2.6.6",
+  "torch==2.15.0",
+  "transformers==5.22.1",
+]
+
+[tool.uv]
+package = false
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]

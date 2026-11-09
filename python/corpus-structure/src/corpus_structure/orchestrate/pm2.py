@@ -1,0 +1,107 @@
+"""Complete a private PM2 observation under the existing maintained source claim."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any
+
+from sqlalchemy import func, select
+
+from corpus_structure.core.method import UnitRef
+from corpus_structure.methods.pm2_result import pm2_input_digest, pm2_unit_result
+from corpus_structure.methods.pm2_source import D1SourceField, PM2SourceMap, PM2TokenMap
+from corpus_structure.methods.pm2_worker import Pm2WorkerError
+from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.operations import OperationConflict, complete_unit_result
+
+if TYPE_CHECKING:
+    from corpus_structure.core.method import Method
+    from corpus_structure.methods.pm2_worker import Pm2Worker
+    from corpus_structure.semantic._operation_calls import ClaimedTask
+    from corpus_structure.semantic.claim_lifetime import ClaimOwner
+    from corpus_structure.semantic.operations import OperationDescriptor
+    from corpus_structure.semantic.types import PreparedRelease
+
+
+def settle_pm2_claim(
+    owner: ClaimOwner,
+    claim: ClaimedTask,
+    worker: Pm2Worker,
+    mapping: PM2SourceMap | PM2TokenMap,
+    request: dict[str, Any],
+    *,
+    expected_profile: Mapping[str, Any],
+    question: str,
+    operation_version: str,
+    prepared: PreparedRelease,
+    method: Method[Any] | OperationDescriptor,
+    configuration_hash: str,
+    source_path: str | None = None,
+):
+    """Score outside a transaction, then settle through the caller's exact claim owner."""
+    owner()
+    task = table("ops.task")
+    with owner.engine.connect() as conn:
+        admitted = conn.scalar(
+            select(task.c.input_hash).where(
+                task.c.id == claim.task_id,
+                task.c.status == "running",
+                task.c.attempt == claim.attempt,
+                task.c.claimed_by == claim.holder,
+                task.c.lease_until > func.clock_timestamp(),
+            )
+        )
+    if admitted is None:
+        raise OperationConflict("PM2 claim attempt lost before inference")
+    if (
+        worker.startup != expected_profile
+        or admitted
+        != pm2_input_digest(
+            mapping,
+            expected_profile,
+            request,
+            question=question,
+            operation_version=operation_version,
+            source_path=source_path,
+        )
+        or claim.release_id != prepared.release_id
+    ):
+        raise OperationConflict("PM2 runtime, input or release differs from the admitted claim")
+    ref = UnitRef(claim.unit_type, claim.unit_id, claim.unit_key)
+    try:
+        reply = worker.infer(request, check_active=owner)
+    except Pm2WorkerError as exc:
+        owner()
+        reply = {"outcome": "failed", "reason": str(exc)}
+    field = None
+    if source_path is not None and reply["outcome"] == "succeeded":
+        ((start, end, _),) = (row for row in reply["state_fields"] if row[2] == source_path)
+        if not isinstance(start, int) or not isinstance(end, int):
+            raise ValueError("d1 returned noninteger rendered source bounds")
+        field = D1SourceField(reply["rendered_state"], source_path, start, end)
+    result = pm2_unit_result(
+        ref,
+        mapping,
+        profile=expected_profile,
+        request=request,
+        reply=reply,
+        field=field,
+        question=question,
+        operation_version=operation_version,
+        input_digest=admitted,
+        source_path=source_path,
+    )
+    return owner.settle(
+        claim,
+        lambda conn: complete_unit_result(
+            conn,
+            task_id=claim.task_id,
+            attempt=claim.attempt,
+            holder=claim.holder,
+            prepared=prepared,
+            method=method,
+            configuration_hash=configuration_hash,
+            source=claim.unit_key or "",
+            result=result,
+        ),
+    )

@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "id": "pm2.private-native-reader",
+  "title": "Native d1 and Dipo settlement, private read and reuse",
+  "group": "pm2-foundation",
+  "package": "PM2-01",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can native results settle under maintained claims, survive expiry and reassignment, and preserve exact reuse through the private Reader?",
+  "answers": [
+    "PM2-01",
+    "PM2-02"
+  ],
+  "method": "Run actual CUDA d1 and CPU Dipo on an authenticated controlled source. Settle d1 success and limit outcomes, expire and reassign the Dipo claim, and settle the same Dipo request under its new attempt. Read both scopes and verify same-release input reuse.",
+  "commands": [
+    "CORPUS_PM2_NATIVE_TEST_ASSETS=\"$PWD/build/models/pm2\" uv run ci test --json -- python/corpus-structure/tests/semantic/test_pm2_result_native.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/native-reader.json",
+      "role": "Managed native Reader test result 0663536b8acf42c19d45962dee93519f",
+      "sha256": "ed8eac5a59cda011e57b1f8afda281b0f40a26c1bdb059dd6db4117e0453b8cc"
+    },
+    {
+      "path": "raw/mixed-profile-reader.json",
+      "role": "Final-source mixed-profile native Reader and claim reassignment result 80b8da2ec5fe43b49b2c7ccd4df3a437",
+      "sha256": "edef4f328743e34f822025041c2935f27e5955b516009d917bb809e2dd85ae63"
+    },
+    {
+      "path": "raw/focused-checks.json",
+      "role": "Managed focused source, worker, Reader and ownership checks",
+      "sha256": "9d7bb7b6ff56f204d8ca9868ad83be5e3e56f3b913dd993e49abcc09219115a9"
+    }
+  ],
+  "depends_on": [
+    "pm2.development-baseline",
+    "pm2.native-profile-controls"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "The native d1 answer produced one canonical occurrence beside a limited request. Dipo settled after exact reassignment while the earlier d1 result remained available. A changed downstream admission declaration reused the producing d1 task. Changing its allowed source field scheduled fresh work.",
+  "consumed_by": [
+    "PM2-01",
+    "PM2-02",
+    "PM2-08"
+  ]
+}

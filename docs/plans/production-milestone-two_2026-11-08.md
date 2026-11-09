@@ -1,14 +1,14 @@
 # Production milestone two implementation plan
 
-**Status: Proposed · 2026-11-08.** This coordinator owns PM2-00–PM2-12, shared decisions,
+**Status: Foundation execution · 2026-11-08.** This coordinator owns PM2-00–PM2-12, shared decisions,
 scheduled M2 review disposition and milestone qualification. The [functional review](../functional_reviews/production-milestone-two_2026-11-08.md)
 at `971111baf` governs the recommendation baseline. Its [two-pass design input](../target-pipeline-design/production-milestone-two.md)
 was recorded at `4c71fa3f4`. The five model guides were inspected at
 `c55b1873e`. The current integration baseline was inspected at `fc111e466`.
 The Transformers and Sentence Transformers guides were recorded at
 `f6b8612be`. Consuming packages cite their mechanisms and source. This
-series proposes work and records the operator's corpus and design boundary. Package
-implementation and M2 checkpoint qualification are `not_run`.
+series records the operator's corpus and design boundary. The foundation receipts
+record the implemented and qualified scope of PM2-00–02. PM2-03 onward remains proposed.
 
 ## Target and foundation
 
@@ -85,7 +85,7 @@ operator before dependent design or work relies on it. [Review cadence](../desig
 
 ## Execution queue
 
-All entries are proposed. The availability column names the earliest dependency for
+The foundation entries have execution dispositions below. The availability column names the earliest dependency for
 implementation or evidence, rather than making a whole companion a prerequisite.
 
 | Package | Consumes | Delivers and closes when |
@@ -120,10 +120,33 @@ frozen without predictions and each comparator's available scope and outstanding
 prerequisite are identified. PM2-12 requires an eligible predecessor, applicable
 qualification and effect authority. DMA-13 retains the grading and cutover obligations.
 
+**Passed · 2026-11-08.** The [frozen baseline](../design_review/evidence/2026-11-08_pm2-foundation/README.md#frozen-development-baseline)
+names the target, release, source product, exact reference and multi-sentence scopes,
+and two v10 original-spelling controls. An explicit archived-release check passed.
+Selection lookup refused because the project has no active release. The source-only
+frame and private M1 comparator are available within their recorded scopes. Run 407
+against sentence-only set 32 remains a refused grading attempt with no evaluation.
+DMA-13 owns the eligible predecessor for PM2-12.
+
+## Foundation execution
+
+The [combined design and target review](../design_review/reviews/design_review_pm2-foundation_2026-11-08.md)
+accepted the private foundation scope against the refreshed audit at `9bdb0996e`.
+The source projection and physical occurrence have separate proof requirements.
+The existing task, result and host GPU owners retain their custody.
+
+| Package | Current disposition |
+| --- | --- |
+| PM2-00 | Passed for the frozen development source and explicitly scoped comparisons. |
+| PM2-01 | Implemented and tested. [Source mapping, private Reader and reuse](production-milestone-two/source-contracts-and-model-execution.md#foundation-execution-evidence). |
+| PM2-02 | Passed for the initial development profiles, including mixed-profile claim reassignment. [Profile and operating evidence](production-milestone-two/source-contracts-and-model-execution.md#foundation-execution-evidence). |
+
 ## Review disposition
 
 | Review opportunity | Proposed disposition and closure owner |
 | --- | --- |
+| PM2-R01 | Addressed by PM2-01. Retain exact selected projection separately from physical occurrence and test the admitted result path. |
+| PM2-R02 | PM2-02 native profile and shared custody controls passed within the retained scope. The mixed-profile Reader and exact reassignment control passed. Provider packages own expanded scopes. |
 | [O01](../functional_reviews/production-milestone-two_2026-11-08.md#O01) | Initial PM2-01. Exact source, identity and availability survive inference, composition and reads. |
 | [O02](../functional_reviews/production-milestone-two_2026-11-08.md#O02) | Initial PM2-03, controlled extra heads and migration evidence under PM2-06. |
 | [O03](../functional_reviews/production-milestone-two_2026-11-08.md#O03) | Initial PM2-04 with supplied-mention diagnostics. Joint mode, score access, speaker and seeding conditions in PM2-06. |
@@ -148,4 +171,4 @@ Completion requires a qualified four-profile release within the declared textboo
 a useful independently inspectable partial result and evidence of better named operations
 with preservation on their paired controls. The assessment companion owns exact
 release criteria and separates qualification, measured benefit, and live selection.
-The next package after authorization is PM2-00.
+The next provider packages are PM2-03–05 and PM2-07 under their declared dependencies.

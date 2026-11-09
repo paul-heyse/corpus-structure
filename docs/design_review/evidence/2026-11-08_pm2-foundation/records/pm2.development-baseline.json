@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "id": "pm2.development-baseline",
+  "title": "Exact development source and private M1 comparator",
+  "group": "pm2-foundation",
+  "package": "PM2-00",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which authenticated source and comparison scopes are available before PM2 predictions?",
+  "answers": [
+    "PM2-00"
+  ],
+  "method": "Read the development revision, explicit release archive, source-only run, private comparator and two original-spelling controls. Freeze half-open projection ranges before native M2 inference.",
+  "commands": [
+    "uv run ci db status --maintenance --json",
+    "uv run ci status 404 --project nce-grinstead-snell-full-book --json",
+    "uv run ci status 407 --project nce-grinstead-snell-full-book --json",
+    "uv run ci source views 404 --json",
+    "uv run ci release check --project nce-grinstead-snell-full-book --release release:675b5f723ce83aadf7b8b1df7f0784fdc2c455d02b3979f1eae2cec30c352a56 --json",
+    "uv run ci release check --project nce-grinstead-snell-full-book --json"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/archived-release.json",
+      "role": "Explicit archived release and acquired target",
+      "sha256": "ec8b9f8a69b279253733f7a900433bef211a8c586eaac096d9e2c88357a47f2e"
+    },
+    {
+      "path": "raw/no-selection.json",
+      "role": "Expected refusal from project selection",
+      "sha256": "7617d3cffbef8fea69698e0954cab6152e2c185a14b7c471de673426ed0613f6"
+    }
+  ],
+  "depends_on": [
+    "2026-11-08_dma-audit-repair/dma.audit-development-reference",
+    "2026-11-08_dma-audit-repair/dma.audit-full-book-candidate",
+    "2026-11-08_dma-audit-repair/dma.audit-detached-book-source"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Cut 514 supports view 383, its frozen sentence and coherent two-sentence control and two exact v10 original-spelling controls. Cut 517 is the private M1 comparator. The sentence-only reference does not grade the full view and DMA-13 owns the eligible predecessor.",
+  "consumed_by": [
+    "PM2-01",
+    "PM2-02",
+    "PM2-11"
+  ]
+}
