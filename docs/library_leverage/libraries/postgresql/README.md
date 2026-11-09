@@ -7,6 +7,12 @@
 - Follow-ups: Context7 (PostgreSQL 18 docs) and upstream `signalfuncs.c` at REL_18_STABLE.
 - No database was used ([evidence](../../../design_review/evidence/2026-10-29_library-leverage-postgres-migrations/README.md)).
 
+## Current library-led discovery
+
+The [typed-domain discovery briefing](briefing.md) (2026-11-09) covers nine PostgreSQL-associated
+libraries, existing use, potential underuse and conditional research. It has a separate source
+baseline; the October29 reusable types and applicability below retain their original dates.
+
 ## Reusable opportunity types
 
 <a id="postgresql-template-database-clone"></a>

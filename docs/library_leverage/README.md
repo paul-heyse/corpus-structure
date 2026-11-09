@@ -34,6 +34,12 @@ ordinary implementation and API questions do not initiate this workflow.
 
 ## Current accounts
 
+The [PostgreSQL library-led discovery](libraries/postgresql/briefing.md) (2026-11-09)
+connects nine library overviews to typed-domain design, existing adoption, concrete underuse
+candidates and conditional capabilities. Its own source baseline and seven topic companions
+leave the older assessment dates and implementation-plan dispositions intact.
+
+
 The [codebase opportunity account](codebase/README.md) has its first baseline (2026-10-29,
 source `9f8df02`, reconciled through `f697233`). It holds 24 opportunities, with a forward view on
 the semantic-model pivot's SP-08–SP-10 work. That pass also created the shared

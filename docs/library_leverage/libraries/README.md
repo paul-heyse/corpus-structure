@@ -23,7 +23,9 @@ The optional [discovery skill](../../../.claude/skills/leverage-library-discover
 maintains one briefing per investigated family. A briefing records representative local uses,
 capability territory and proposed research priorities at an inspected baseline. The
 [discovery and evidence guide](../references/discovery-and-evidence.md) defines its evidence
-and output. Add a route here when the operator-selected pilot creates the first briefing.
+and output. The first pilot is the [PostgreSQL typed-domain discovery](postgresql/briefing.md)
+(2026-11-09): nine libraries, seven responsibility topics and complete overview coverage. It has
+its own baseline and does not refresh the October applicability judgments below.
 
 <a id="baseline"></a>
 
