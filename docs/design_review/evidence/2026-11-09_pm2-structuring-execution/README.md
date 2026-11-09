@@ -18,6 +18,17 @@ views, all under task 1627, `integrated`,
 `35f4384ea386e630448d804621c0767881650937c45cd4294182cb0dd91ce8fb`.
 The derived attempt using the archived release [refused](raw/archived-runtime-refusal.json)
 the changed runtime. Source custody and analytical execution identity are separate.
+The generic regenerate attempt also stopped because the pack's default corpus expects
+a Siegrist original; it did not substitute a source. The
+[existing-project preparation](prepare_retained_release.py) used normal release and
+source-realization owners without re-registering originals. The
+[current release receipt](raw/final-release.json) retains the same semantic release
+identity. [Run 482](raw/run-482-checkpoint.json) binds the updated runtime and is
+still private, with 29 annotation tasks and six candidate tasks done at the recorded
+checkpoint. Finalization and protected set 34 regression grading are queued after
+successful settlement; neither will activate or select the run. Reopen by exact run
+and check the completion and grade receipts under
+`build/models/pm2/structuring-execution/`.
 
 ## Packed GLiNER diagnostics
 

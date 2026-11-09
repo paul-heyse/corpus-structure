@@ -297,8 +297,11 @@ the owner of the package boundaries.
   compression preserved exact offline proof with smaller transport only. Do not
   change numerical policy, retrieval defaults or logical proof completeness.
 - **I07 · Private source-ready.** Run 478/cut 595 resolved all 29 views under
-  the same authenticated Standard and Nemotron product. No Chandra, recognition,
-  activation or selection ran. The derived workflow qualification remains open.
+  the same authenticated Standard and Nemotron product. Derived run 482 is
+  active under the current runtime, with 29 annotations and six candidate tasks
+  completed at the checkpoint. Finalization and the existing set 34 regression
+  grade follow settlement. No Chandra, recognition, activation or selection ran.
+  Full-book workflow qualification and the final applicable test union remain open.
 
 ## Completion audit
 
