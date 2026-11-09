@@ -189,7 +189,7 @@ def record_create_command(
     project: str | None = None,
     json: JsonOpt = False,
 ):
-    """Freeze source-only unit_keys, sampling and encoded frames from --sample JSON."""
+    """Freeze source-only frames and report unit IDs for protected author packets."""
     from corpus_structure.evaluate import record_references as references
 
     with reference_session(ctx, project, json=json) as (conn, pid):

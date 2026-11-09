@@ -199,6 +199,15 @@ def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses
             .mappings()
             .one()
         )
+        expected_units = {row["unit_key"]: row for row in (unit, secondary)}
+        assert len(created["units"]) == len(expected_units)
+        for reported in created["units"]:
+            stored = expected_units[reported["unit_key"]]
+            assert (reported["unit_id"], reported["source_view_id"]) == (
+                stored["id"],
+                stored["source_view_id"],
+            )
+            assert author_packet(conn, reported["unit_id"])["unit_ref"] == stored["unit_key"]
         secondary_frame = decode_frame(secondary["context"][0])
         aa = native_pass(conn, secondary, None, secondary_frame, "A", "independent-A")
         bb = native_pass(conn, secondary, None, secondary_frame, "B", "independent-B")

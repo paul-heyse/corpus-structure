@@ -740,10 +740,17 @@ def create_reference_set(
         m=_json(metadata),
         u=_json(selected),
     ).scalar_one()
+    units = table("eval.reference_unit")
+    unit_ids = {
+        row.unit_key: row.id
+        for row in conn.execute(
+            select(units.c.unit_key, units.c.id).where(units.c.set_id == identity)
+        )
+    }
     return dict(
         set_id=identity,
         sampling=metadata,
-        units=selected,
+        units=[dict(unit, unit_id=unit_ids[unit["unit_key"]]) for unit in selected],
         release_id=prepared.release_id,
         source_run_id=source_run_id,
     )
