@@ -65,6 +65,7 @@ def d1_evidence(
     *,
     field: D1SourceField | None,
     source_path: str | None,
+    native: bool = False,
 ) -> dict[str, MappedSource | SourceMapRefused]:
     """Map each located answer independently. An unreturned pointer supplies no evidence."""
     if (field.path if field is not None else None) != source_path:
@@ -84,6 +85,7 @@ def d1_evidence(
                 scope_digest=mapping.scope_digest,
                 field=field,
                 path=answer.get("path"),
+                native=native,
             )
         except SourceMapRefused as exc:
             located[key] = exc
@@ -103,7 +105,13 @@ def _native_evidence(
         state = rendered if field is None else json.loads(rendered)
         if canonical_bytes(state) != canonical_bytes(request["state"]):
             raise ValueError("d1 rendered state differs from the admitted request")
-        return d1_evidence(mapping, reply, field=field, source_path=source_path)
+        return d1_evidence(
+            mapping,
+            reply,
+            field=field,
+            source_path=source_path,
+            native=request.get("interpretation", {}).get("version") == "2",
+        )
 
     located: dict[str, MappedSource | SourceMapRefused] = {}
     if provider == "dipo" and isinstance(mapping, PM2SourceMap):
@@ -243,6 +251,8 @@ def pm2_unit_result(
                 )
                 if family is None:
                     raise ValueError("interpretation question is not in the selected release")
+                if request["interpretation"].get("version", family.version) != operation_version:
+                    raise ValueError("interpretation rendering differs from the admitted version")
                 assessed = request["interpretation"]["assessed_scope"]
                 (scope,) = source_map.context.pieces
                 if (

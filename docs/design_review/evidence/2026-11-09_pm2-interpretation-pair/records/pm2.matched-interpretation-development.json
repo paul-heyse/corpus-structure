@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "id": "pm2.matched-interpretation-development",
+  "title": "Matched d1 interpretation on protected development scopes",
+  "group": "pm2-adoption",
+  "package": "PM2-11",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does a versioned d1 lowering improve exact source interpretation on the same protected cases while preserving the supported incumbent controls?",
+  "answers": [
+    "PM2-07",
+    "PM2-11"
+  ],
+  "method": "Freeze five independently reviewed source opportunities in two same-release V2 reference sets. Grade actual CUDA d1 version 1 and 2 runs with the same admitted source, declared questions, focal contributions and alternatives. Compare the immutable evaluations by protected case.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-interpretation-pair/prepare_pair.py --protect",
+    "uv run ci run interpret --request docs/design_review/evidence/2026-11-09_pm2-interpretation-pair/raw/baseline-request.json --json",
+    "uv run ci run interpret --request docs/design_review/evidence/2026-11-09_pm2-interpretation-pair/raw/revised-request.json --json",
+    "uv run ci eval run --run 429 --set-id 36 --comparison-arm baseline --project nce-grinstead-snell-full-book --json",
+    "uv run ci eval run --run 429 --set-id 37 --comparison-arm baseline --project nce-grinstead-snell-full-book --json",
+    "uv run ci eval run --run 431 --set-id 36 --comparison-arm revised --project nce-grinstead-snell-full-book --json",
+    "uv run ci eval run --run 431 --set-id 37 --comparison-arm revised --project nce-grinstead-snell-full-book --json",
+    "uv run ci eval operation-compare --baseline 38 --revised 40 --project nce-grinstead-snell-full-book --json",
+    "uv run ci eval operation-compare --baseline 39 --revised 41 --project nce-grinstead-snell-full-book --json",
+    "uv run ci contributions list --run 431 --method extract.pm2_d1 --include-details --include-interpretation --limit 60 --page-bytes 4000000 --json"
+  ],
+  "agents": [
+    {
+      "role": "A source author",
+      "model": "Codex",
+      "brief": null,
+      "separation": "Exact source only before the new paired predictions."
+    },
+    {
+      "role": "B source author",
+      "model": "Codex",
+      "brief": null,
+      "separation": "Separate source-only reading; prior development exposure disclosed."
+    },
+    {
+      "role": "C adjudicator",
+      "model": "Codex",
+      "brief": null,
+      "separation": "Exact source and retained A/B rationale; no new prediction outputs."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "rubric.md",
+      "role": "Frozen facet, controls and comparison limits",
+      "sha256": "6615d1a049572fb5f587ebbec1f4f76cea2f7af5f4b4febf3ff48aaf33ab925a"
+    },
+    {
+      "path": "source-reviews.json",
+      "role": "Independent source-only A/B and adjudication notes",
+      "sha256": "573a2c1bfde7bae351b3a11bdb9da36c34fe14c7cc757d8568c51bc3fbfb9679"
+    },
+    {
+      "path": "raw/literal-and-function-set.json",
+      "role": "Protected set 36 source-first frame",
+      "sha256": "dae8c112f995683190ec1ca6aaf12b4d184567da57493bd2321391b252ad2d9e"
+    },
+    {
+      "path": "raw/attachments-set.json",
+      "role": "Protected set 37 source-first frame",
+      "sha256": "0a27cff4bab18c30a743cb6f3d1c9f704a495c349b53e309a80e4b8f51f399e2"
+    },
+    {
+      "path": "raw/baseline-request.json",
+      "role": "Exact baseline source and candidate inputs",
+      "sha256": "45e318367ede15f3cec186a71eb985d4fd2a711ebf4d2786a68adee8b33b6c89"
+    },
+    {
+      "path": "raw/revised-request.json",
+      "role": "Exact revised source and candidate inputs",
+      "sha256": "d50ec727d985b0057926648290abce23f06818b7459500eef380cee78cd8fa2e"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/protected-passes.json",
+      "role": "Native source-only A/B/C protected pass receipts",
+      "sha256": "7e5d40d315e0d63b2fac9d7c041c1f10c873f8689e7bb1070f490ed5ed9b30ee"
+    },
+    {
+      "path": "raw/baseline-run.json",
+      "role": "Completed version 1 run and cut",
+      "sha256": "0298a9108cb9e2607c5a90543397e4699d50c9341d6a66deacea38dfdea47938"
+    },
+    {
+      "path": "raw/revised-run.json",
+      "role": "Completed version 2 run and cut",
+      "sha256": "0b647237371c773e95fd8356898a0c5ceb47e354846b9ce3192cad4d2f05b455"
+    },
+    {
+      "path": "raw/set-36-comparison.json",
+      "role": "Immutable matched literal and function results",
+      "sha256": "f37c140c9ca515ce44633a22d5a08a8d716cd2ab8dfb56ea555870d25cfc06e7"
+    },
+    {
+      "path": "raw/set-37-comparison.json",
+      "role": "Immutable matched attachment results",
+      "sha256": "6bc0dec4253fa107562f36b32fbca3768b11d1220838bb35aa01ff1073b11751"
+    },
+    {
+      "path": "raw/revised-reader-facets.json",
+      "role": "Private scoped Reader meanings and exact normalization",
+      "sha256": "ef201cb504c195c3c156df01ba2c1e85f4887081bbc6e60ed72dc1adb3468d07"
+    }
+  ],
+  "depends_on": [
+    "pm2.development-interpretation-grade"
+  ],
+  "results": [
+    {
+      "name": "Matched cases corrected",
+      "value": 1,
+      "of": 5,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Supported incumbent controls preserved",
+      "value": 1,
+      "of": 1,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Unchanged unsupported cases",
+      "value": 3,
+      "of": 5,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Exact authenticated probability normalization improved and the definition control survived. Roulette magnitude, condition host and local referent remain unsupported. The scoped improvement does not qualify broader interpretation adoption.",
+  "consumed_by": [
+    "PM2-07",
+    "PM2-11",
+    "PM2-12"
+  ]
+}

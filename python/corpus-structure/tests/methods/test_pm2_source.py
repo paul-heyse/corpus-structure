@@ -8,6 +8,7 @@ import pytest
 from corpus_structure.ingest.annotations import AnnotationInput
 from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
 from corpus_structure.ingest.sentences import Block, TextLayout, TextToken
+from corpus_structure.methods.pm2_interpretation_products import interpretation_products
 from corpus_structure.methods.pm2_source import (
     D1SourceField,
     PM2SourceMap,
@@ -23,6 +24,7 @@ from corpus_structure.methods.pm2_source import (
     map_maverick,
 )
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.interpretation_questions import Question, QuestionFamily
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.proposals import NativeFrameSource
 from corpus_structure.semantic.source_contexts import (
@@ -295,3 +297,38 @@ def test_d1_json_offset_inverts_escapes_and_proves_repeated_field_origin():
             **scope,
         )
     assert split_escape.value.reason == SourceMapReason.INVALID_FIELD
+
+
+@pytest.mark.parametrize(
+    ("literal", "native", "expected"),
+    [("1/8", True, "0.125"), ("1/8", False, None), ("3/7", True, None), ("2,500", True, None)],
+)
+def test_revised_quantity_normalizes_only_an_exact_native_finite_decimal(literal, native, expected):
+    mapping = identity_map(literal)
+    mapped = map_d1(
+        mapping,
+        ProviderSpan(0, len(literal), literal),
+        scope_digest=mapping.scope_digest,
+        native=native,
+    )
+    question = Question(key="amount", kind="number", instructions="Read the exact amount.")
+    family = QuestionFamily(family="literal_completion_v1", questions=(question,))
+    answer = {"type": "number", "found": 0.9, "span": [0, len(literal)], "number": None}
+    (product,) = interpretation_products(
+        family,
+        {
+            "questions": {question.key: question.native([])},
+            "interpretation": {
+                "version": "2",
+                "declaration_digest": family.digest,
+                "candidates": [],
+            },
+        },
+        {"native": {"answers": {question.key: answer}}},
+        {question.key: mapped},
+    )
+    assert product.value["native_answer"] == answer
+    assert product.value.get("normalized_value") == expected
+    assert product.value["normalization"] == (
+        "source_exact" if expected is not None else "unresolved"
+    )

@@ -150,6 +150,7 @@ class InterpretationScope(BaseModel):
     extent: Extent
     profile: InterpretationProfile
     family: Family
+    version: Literal["1", "2"] = "1"
     questions: tuple[str, ...] = Field(default=(), max_length=16)
     focus: RetainedContributionRef | None = None
     candidates: tuple[RetainedContributionRef, ...] = Field(default=(), max_length=12)
@@ -467,12 +468,17 @@ def _interpretation_work(scope, view, source, preparation, prepared, project, co
                     "description": target.description,
                 }
             )
+    option_aliases = None
+    if scope.version == "2" and rendered:
+        from corpus_structure.methods.pm2_interpretation_products import render_candidate_options
+
+        rendered, option_aliases = render_candidate_options(family, rendered)
     if rendered:
         state["candidates"] = rendered
     if not family.min_candidates <= len(candidates) <= family.max_candidates:
         raise ValueError("exact alternatives do not fit the released candidate population bounds")
     questions = {
-        question.key: question.native(candidates)
+        question.key: question.native(rendered if option_aliases is not None else candidates)
         for question in family.questions
         if not scope.questions or question.key in scope.questions
     }
@@ -493,8 +499,16 @@ def _interpretation_work(scope, view, source, preparation, prepared, project, co
             "retrieval": retrieval,
         },
     }
+    if scope.version == "2":
+        request["interpretation"]["version"] = scope.version
+        request["interpretation"]["option_aliases"] = option_aliases or {}
     method = OperationDescriptor(
-        "extract.pm2_d1", "1", "extract", "encoder", TaskUnitType.SOURCE_VIEW, InterpretationProfile
+        "extract.pm2_d1",
+        scope.version,
+        "extract",
+        "encoder",
+        TaskUnitType.SOURCE_VIEW,
+        InterpretationProfile,
     )
     ref = UnitRef(TaskUnitType.SOURCE_VIEW, source.source_view_id, source.unit_ref)
     digest = pm2_input_digest(
@@ -502,7 +516,7 @@ def _interpretation_work(scope, view, source, preparation, prepared, project, co
         scope.profile.startup,
         request,
         question=scope.family,
-        operation_version=family.version,
+        operation_version=method.version,
         source_path=family.source_field,
     )
     return _Work(

@@ -4,7 +4,10 @@ import json
 
 import pytest
 
-from corpus_structure.methods.pm2_interpretation_products import interpretation_products
+from corpus_structure.methods.pm2_interpretation_products import (
+    interpretation_products,
+    render_candidate_options,
+)
 from corpus_structure.semantic.interpretation_questions import (
     QUESTION_INPUT,
     compile_question_families,
@@ -171,3 +174,65 @@ def test_binary_relation_keeps_both_criteria_and_native_observation():
         "positive_criterion": "The source states a reason.",
         "negative_criterion": "No reason is stated.",
     }
+
+
+def test_revised_alias_carries_located_alternative_but_never_replaces_its_identity():
+    family = _family(
+        {
+            "family": "local_referent_choice_v1",
+            "candidate_types": ["mention"],
+            "questions": [
+                {
+                    "key": "referent",
+                    "kind": "choice",
+                    "candidate_options": True,
+                    "instructions": "Which preceding alternative denotes the same actor?",
+                    "options": [
+                        {
+                            "key": "option_1",
+                            "criterion": "No matching option.",
+                            "disposition": "no_match",
+                        },
+                        {
+                            "key": "unclear",
+                            "criterion": "Ambiguous.",
+                            "disposition": "insufficient_evidence",
+                        },
+                    ],
+                }
+            ],
+        }
+    )
+    key = "candidate_" + "3" * 64
+    candidate = {"key": key, "semantic_type": "mention"}
+    located_text = {"actor": ["The reviewer"]}
+    rendered, aliases = render_candidate_options(
+        family, [{**candidate, "located_text": located_text}]
+    )
+    assert rendered == [
+        {"key": "option_2", "semantic_type": "mention", "located_text": located_text}
+    ]
+    question = family.questions[0]
+    request = {
+        "state": {"candidates": rendered},
+        "questions": {question.key: question.native(rendered)},
+        "interpretation": {
+            "version": "2",
+            "declaration_digest": family.digest,
+            "candidates": [candidate],
+            "option_aliases": aliases,
+        },
+    }
+    answer = {
+        "type": "choice",
+        "choice": "option_2",
+        "probabilities": {"option_1": 0.1, "unclear": 0.1, "option_2": 0.8},
+    }
+    reply = {"native": {"answers": {question.key: answer}}}
+    (result,) = interpretation_products(family, request, reply, {})
+    assert result.value["selected_keys"] == (key,)
+    assert result.value["native_answer"] == answer
+    assert result.value["candidates"] == [candidate]
+    request["interpretation"]["option_aliases"] = {"option_2": "unoffered"}
+    with pytest.raises(ValueError, match="retained candidate population"):
+        interpretation_products(family, request, reply, {})

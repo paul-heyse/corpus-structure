@@ -227,7 +227,9 @@ def _interpretation_roles(value: Row, parts: _Parts) -> list[dict[str, Any]]:
     by_key = {candidate["key"]: candidate for candidate in candidates}
     selected = frozenset(value.get("selected_keys", ()))
     states = value.get("alternative_states", {})
-    for key in value["native_answer"].get("probabilities", {}):
+    aliases = value.get("option_aliases", {})
+    for native_key in value["native_answer"].get("probabilities", {}):
+        key = aliases.get(native_key, native_key)
         option: dict[str, Any] = {
             "role_family": "released_option",
             "role": "option",
@@ -312,6 +314,11 @@ def composition_facets(
         if interpretation:
             facets[ref]["interpretation_state"] = value["state"]
             facets[ref]["assessed_scope"] = _assessed_scope(value, row)
+            if value.get("normalization") == "source_exact":
+                facets[ref]["normalization"] = {
+                    "state": "source_exact",
+                    "decimal": value["normalized_value"],
+                }
             if value.get("answer_kind") == "noul":
                 facets[ref]["binary_observation"] = value["binary_observation"]
             if value.get("retrieval") is not None:

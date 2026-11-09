@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "id": "pm2.reviewed-interpretation-diagnostic",
+  "title": "Reviewed alternatives leave scoped d1 attachment misses unresolved",
+  "group": "pm2-adoption",
+  "package": "PM2-11",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do independently located supplied mentions or a narrower reviewed host population resolve the observed exposed attachment misses?",
+  "answers": [
+    "PM2-07",
+    "PM2-11"
+  ],
+  "method": "Supply two exact source-located mentions to the retained-source Maverick adapter, and independently reduce the HanLP host alternatives to the reviewed consequent. Ask the same scoped d1 questions under version 2 and inspect their private Reader results separately from the matched comparison.",
+  "commands": [
+    "uv run ci run parsers --request docs/design_review/evidence/2026-11-09_pm2-interpretation-pair/raw/reviewed-mentions-request.json --json",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-interpretation-pair/prepare_pair.py --diagnostic",
+    "uv run ci run interpret --request docs/design_review/evidence/2026-11-09_pm2-interpretation-pair/raw/diagnostic-request.json --json",
+    "uv run ci contributions list --run 433 --method extract.pm2_d1 --include-details --include-interpretation --limit 30 --page-bytes 4000000 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "source-reviews.json",
+      "role": "Independent adjudicated source notes identifying exact referent and host",
+      "sha256": "573a2c1bfde7bae351b3a11bdb9da36c34fe14c7cc757d8568c51bc3fbfb9679"
+    },
+    {
+      "path": "raw/reviewed-mentions-request.json",
+      "role": "Supplied-mention source extents and pinned parser request",
+      "sha256": "e187575bd6eae7502fc316b8860aef84b4a01545f3599955e98e5e6f2c043314"
+    },
+    {
+      "path": "raw/diagnostic-request.json",
+      "role": "Exact changed-population private d1 request",
+      "sha256": "16fb1f92682b9d8c961215247234b74db89f8e6f78e4e28eaccc4a4fd2aa95b7"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/reviewed-mentions-run.json",
+      "role": "Completed supplied-mention parser run and cut",
+      "sha256": "81056d4c1ed079bdfa30d9bfb7e1a0966733135b7a7d39e1865cc0225060aa51"
+    },
+    {
+      "path": "raw/diagnostic-run.json",
+      "role": "Completed d1 diagnostic run and cut",
+      "sha256": "54d295ab652449d61fe0368736c3bf015e62fb33dd137f0a70a8f2f686259e1b"
+    },
+    {
+      "path": "raw/diagnostic-reader-facets.json",
+      "role": "Exact private Reader observations and offered alternatives",
+      "sha256": "4a18a4c998d836a5817ffde2751df14ad9aa1acb9ae35efebed7230e57951086"
+    }
+  ],
+  "depends_on": [
+    "pm2.matched-interpretation-development"
+  ],
+  "results": [
+    {
+      "name": "Reviewed-candidate diagnostics settled natively",
+      "value": 2,
+      "of": 2,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Exposed attachment misses recovered",
+      "value": 0,
+      "of": 2,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The native diagnostic settles both requests but still reports no match for the host and missing candidate for the referent. The supplied populations isolate a candidate availability explanation in these scopes without qualifying attachment or modifying ordinary matched results.",
+  "consumed_by": [
+    "PM2-07",
+    "PM2-11"
+  ]
+}

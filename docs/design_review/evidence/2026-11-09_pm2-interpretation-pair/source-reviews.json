@@ -1,0 +1,28 @@
+{
+  "actors": {
+    "A": "codex:interpretation-pair-source-author",
+    "B": "codex:pm2-coordinator-source-author",
+    "C": "codex:comparison-assessment-adjudicator"
+  },
+  "A": {
+    "definition": "The selected sentence explicitly defines a random variable through the outcome of an experiment. An additional assertion reading can co-occur, but no example or qualification is established.",
+    "probability": "The probability assigned to each outcome is the fraction 1/8 (decimal 0.125). Eight counts the outcomes and does not answer the focal probability question.",
+    "host": "The if clause is the fairness condition on assigning the probability, not a condition modifying the copula within its own clause.",
+    "referent": "The singular subject She resumes the earlier A gambler. The stake and the subsequent capital values are separate referents.",
+    "loss": "The narrowed failure clause contains the exact digit 1 in the second native item; its decimal magnitude is 1. The projected newline does not provide contiguous native evidence across the preceding word losing."
+  },
+  "B": {
+    "definition": "This is an explicit definition: A random variable names the term and the following description supplies its content. No independent example, procedure or proof is supported in the extent.",
+    "probability": "The literal 1/8 is the assigned probability per outcome; eight is the count of possible outcomes and is inadmissible for this probability question.",
+    "host": "If the coin is fair restricts assign in then we should assign the probability 1/8 to each of the eight possible outcomes. The predicate is occurs inside the condition. Keep the modal should.",
+    "referent": "She at [27893,27896) refers to earlier A gambler; neither stake nor later capital values are compatible alternatives.",
+    "loss": "The loss magnitude is the native digit 1, normalized as 1. Losing conveys polarity if a signed change is asked, not a minus sign in the literal. A fused contiguous native anchor across the synthetic seam is illegal."
+  },
+  "C": {
+    "definition": "A and B agree that the selected passage explicitly defines the named term. An incidental assertion label may coexist; an example, procedure, proof or condition is not supported here.",
+    "probability": "The assignment is to each outcome, exactly native 1/8 at #/texts/14369 [98,101), yielding canonical decimal 0.125. Eight counts the outcomes and cannot substitute.",
+    "host": "Fairness restricts the modal action should assign in the consequent. The predicate is belongs only to the antecedent.",
+    "referent": "The focal She [27893,27896) resumes preceding A gambler. The stake and the later numerical capital values cannot play the human subject role.",
+    "loss": "The designated failure clause has a magnitude of one dollar; the exact digit at #/texts/543 [0,1) yields decimal 1. The synthetic newline does not justify a merged native anchor or a negative literal."
+  }
+}
