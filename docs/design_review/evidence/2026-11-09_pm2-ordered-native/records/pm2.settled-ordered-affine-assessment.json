@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "id": "pm2.settled-ordered-affine-assessment",
+  "title": "Exact affine assessment on the settled ordered Z witness",
+  "group": "pm2-ordered-native",
+  "package": "PM2-11",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the source-directed book equation have the exact independently specified coefficient and offset after the source witness settles?",
+  "answers": [
+    "I01",
+    "PM2-09",
+    "PM2-11"
+  ],
+  "method": "Read both exact operation populations on the completed private cut. Keep source evidence coordinates distinct from the equation range in which the mathematical bindings apply. Compare in the existing exact polynomial assessor.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-ordered-native/assess_affine.py docs/design_review/evidence/2026-11-09_pm2-ordered-native/raw/settled-request.json 443 2151"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "The expected coefficient and offset are supplied separately from the normalized reading."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "assess_affine.py",
+      "role": "Exact run-bound assessment and authored expectations",
+      "sha256": "e892a7dc81a14fd74993a24b529e62884dccd80567ca5668c9010b8c17da41f7"
+    },
+    {
+      "path": "raw/settled-request.json",
+      "role": "Original authenticated source and explicit producer scope",
+      "sha256": "c8872381b3cd377ba291c5ab33c060baced1d8501c64c5d967807ed985467a72"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/settled-run.json",
+      "role": "Settled result or assessment receipt",
+      "sha256": "839cae082da74cd0e6028bc1b2f7bd257c6591c71c52a3c15c2c1f611e0a65b0"
+    },
+    {
+      "path": "raw/assessment-before-applicability.json",
+      "role": "Settled result or assessment receipt",
+      "sha256": "1eb7279b16ce5012cf82cbc213400b6d3e7a70fb569e8668297480e6fa7d58b0"
+    },
+    {
+      "path": "raw/assessment.json",
+      "role": "Settled result or assessment receipt",
+      "sha256": "1dda673f1e73eba2b068b21e75b03b81fcea8de0dbe85be8d480a45bcbb9ff11"
+    }
+  ],
+  "depends_on": [
+    "pm2.ordered-witness-deployment",
+    "2026-11-09_pm2-affine-assessment/pm2.exact-affine-assessment"
+  ],
+  "results": [
+    {
+      "name": "Exact affine comparison",
+      "value": "equivalent",
+      "of": null,
+      "unit": null,
+      "note": "Degree 1, coefficient sigma, offset mu."
+    },
+    {
+      "name": "Ordered binding",
+      "value": "Z",
+      "of": null,
+      "unit": null,
+      "note": "Exact private /11 task 2151, run 443/cut 545. X has no declaration link."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The book case agrees in exact bounded symbolic algebra after the admitted native producer settled its private declaration link. The first readback was undecided because source evidence locations were supplied as applicability ranges; the corrected context binds the exact equation range. Neither report selects an external X link or establishes distributional validity, ranking, or public standing.",
+  "consumed_by": [
+    "PM2-09",
+    "PM2-11"
+  ]
+}

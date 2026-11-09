@@ -251,5 +251,13 @@ The bounded [retained-source replay](../../design_review/evidence/2026-11-09_pm2
 sealed cut 541 with selected HanLP task 2149 reusing exact origin 2143.
 [Native profile identity](../../../python/corpus-structure/src/corpus_structure/methods/pm2_native.py)
 
+**Tested resident recovery · 2026-11-09.** The [native recovery controls](../../design_review/evidence/2026-11-09_pm2-runtime-recovery/README.md)
+verified real missing-artifact startup refusal on each CUDA profile, then active-request
+cancellation, incumbent restoration and exact warm-result recovery for HanLP, Maverick
+and Dipo. Together with the earlier d1 cancellation and shared claim controls, these
+close the tested worker-lifecycle cases at their declared scopes. Provider-specific
+scope fallback, source-map delivery and assembled readiness retain their separate
+qualification owners.
+
 PM2-08 owns the assembled Reader and MCP journey, and PM2-12 owns selected-release
 qualification. Native scope and outcomes establish no textbook benefit by themselves.

@@ -132,6 +132,13 @@ independently supported definition label. The
 is one case, with no protected GLiNER grade or evidence of a gain. The ordinary
 paired arms and remaining quantity, host, and referent comparisons stay open.
 
+**Tested same-question quantity diagnostic · 2026-11-09.** The [native GLiNER comparison](../../design_review/evidence/2026-11-09_pm2-quantity-span/README.md)
+used the exact released instruction and source scopes from the retained d1 v2
+pair. Both paths recovered the exact fair-coin magnitude. On roulette both
+located a compound span and the shared normalizer left it unresolved. A
+released comparison that separates amount, unit and loss role is still open;
+this diagnostic has no new protected grade or admission standing.
+
 **Proposed.** Freeze the eligible source and question through PM2-11. Compare the current
 literal GLiNER pack plus spaCy-backed qualification, d1 source discovery and the applicable
 fixed-candidate arms. Measure literal capture separately from typed normalization. On

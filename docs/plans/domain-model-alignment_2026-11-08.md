@@ -802,3 +802,13 @@ formula candidates but assembled no records. On the Preface it still omitted
 the measurement and misbound the assertion's roles. Do not switch to that
 configuration or fit a policy on the protected book controls. Repair role and
 field capture, then repeat the exact protected producer and resolver checks.
+
+**Generic role guidance comparison · 2026-11-09.** The [explicit CPU comparison](../design_review/evidence/2026-11-09_dma-generic-role-guidance/README.md)
+uses the same authenticated retained subsection and released field declarations.
+The challenger emitted more raw groups but assembled only a private role-misbound
+assertion; it did not recover the protected readings. The incumbent method schema
+and ordinary invocation are unchanged. The focused producer and resolver tests
+passed; no protected regrade or fit ran. A fresh run still needs supported role and
+field capture, an applicable exact resolver policy, and independent calibration
+evidence at the selected release and populations. The exposed sets 34 and 35 are
+preservation controls, not fit data. Evaluations 42 and 43 remain ineligible.

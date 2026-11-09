@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "id": "dma.generic-role-guidance",
+  "title": "Detached generic M1 role-guidance comparison",
+  "group": "dma-role-guidance",
+  "package": "DMA-13",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does generic source-anchored role guidance improve M1 candidate coverage on the exact retained subsection while preserving the default registered configuration?",
+  "answers": [
+    "DMA-13"
+  ],
+  "method": "Replay both arms with the same retained release, run, cut, view, method version and registered config. Invoke the proposed role instructions only through a detached comparison helper, calculate a separate diagnostic request identity, and retain only source and request digests plus aggregate decoder and private-record summaries.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_dma-generic-role-guidance/compare.py > docs/design_review/evidence/2026-11-09_dma-generic-role-guidance/raw/comparison.json",
+    "uv run ci test --json -- python/corpus-structure/tests/methods/test_m1_producer.py python/corpus-structure/tests/methods/test_m1_readings.py",
+    "uv run ci check --only types --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "compare.py",
+      "role": "Reproducible same-source baseline and detached generic-guidance comparison",
+      "sha256": "2ca42f693b3b29aaa8ed302ebedb60e6779f1290c31ff1a6c8ee0a6fb63812aa"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/comparison.json",
+      "role": "Source and request digests with aggregate outputs; no raw text or protected reference labels",
+      "sha256": "d11813ed361b38d1c650daec50e5a122d7b78ba58a3feab0aac1c43b5a4ad014"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_dma-producer-gap/dma.predecessor-producer-gap"
+  ],
+  "results": [
+    {
+      "name": "Baseline decoder groups",
+      "value": 10,
+      "of": null,
+      "unit": "groups",
+      "note": "8 definition; 2 formula-context; 0 assertion; 0 measurement"
+    },
+    {
+      "name": "Generic-guidance decoder groups",
+      "value": 15,
+      "of": null,
+      "unit": "groups",
+      "note": "9 assertion; 4 definition; 2 measurement; 0 formula-context"
+    },
+    {
+      "name": "Generic-guidance assembled private assertion records",
+      "value": 1,
+      "of": null,
+      "unit": "records",
+      "note": "Role names were summarized; no role values or protected references were retained. Record correctness was not graded."
+    },
+    {
+      "name": "Same registered config key across arms",
+      "value": 1,
+      "of": 1,
+      "unit": "identity match",
+      "note": "Separate diagnostic request IDs and different role pack fingerprints identify the comparison arm."
+    },
+    {
+      "name": "Protected reference grade",
+      "value": "not_run",
+      "of": null,
+      "unit": "grade outcome",
+      "note": "not_run; no protected reference was used"
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Generic role guidance changed M1 decoder coverage and yielded one assembled private assertion record on the exact retained source. The record was not graded, so improved coverage is not evidence of semantic correctness, fitted-policy fitness, or an eligible DMA-13 predecessor. The registered M1 config and default execution identity remain unchanged; the diagnostic arm has its own request identity.",
+  "consumed_by": [
+    "DMA-13"
+  ]
+}

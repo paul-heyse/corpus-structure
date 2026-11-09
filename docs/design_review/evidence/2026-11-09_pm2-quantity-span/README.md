@@ -1,0 +1,55 @@
+# PM2 quantity span comparison
+
+This bounded PM2-07 diagnostic compares the native CPU GLiNER literal-span route with retained
+d1 v2 outputs on the exact two `literal_completion_v1/quantity` scopes in the revised PM2
+interpretation request. Both arms use the same released quantity instruction. The GLiNER worker
+receives only the authenticated source scope and that instruction; the comparison script reads
+the d1 Reader result after GLiNER inference. No protected reference labels are loaded into the
+worker or the comparison artifact.
+
+## Source and model binding
+
+The script reuses the read-only pin validation, retained source-view loading and native scope
+reconstruction pattern from
+[`pm2-passage-function`](../2026-11-09_pm2-passage-function/compare_passage_function.py). It
+asserts the exact retained d1 scope digests for views 389 and 387. Both use release
+`release:d79e9a624e59a449d549a933bc512c3fed2780c1198276596a486696084b727f`, family
+`literal_completion_v1`, question `quantity`, and the archived instruction:
+
+> Read the exact written focal quantity from source; leave it absent when no focal quantity is given.
+
+GLiNER uses the same pinned CPU profile as the adjacent passage-function diagnostic and a
+`native-local-v1` entity span schema whose `quantity` description is exactly that instruction.
+Each output span is mapped through `map_literal` to the retained native source context. The
+shared exact-number normalizer is the existing d1 `_exact_number` helper; it accepts plain
+decimals and terminating ratios and returns unresolved for composite or unit-bearing phrases.
+
+## Result
+
+| Source view | GLiNER native spans | Retained d1 v2 | Shared exact-number normalization |
+| --- | --- | --- | --- |
+| 389, extent `[18091,18193)` | One exact native span; normalized decimal `0.125` | Succeeded; proposed; `source_exact` decimal `0.125` | Both resolve to `0.125` |
+| 387, extent `[47316,47345)` | One exact native span of 8 characters; no numeric normalization | Succeeded; proposed; no normalized decimal | Both leave the numeric value unresolved |
+
+The first scope is an exact same-question normalization agreement. On the second, GLiNER's
+captured span is source-located but not a standalone plain numeric literal, so the shared
+normalizer correctly declines to coerce it. The existing paired review describes d1's retained
+span as the whole `1 dollar` phrase and likewise records no standalone digit read or unit
+normalization. This comparison does not grade either span against protected references.
+
+The released question provides one quantity answer and no separate amount or unit roles, so
+separate amount/unit extraction is `not_run`. Both GLiNER spans and d1 outputs remain candidate
+or retained-private evidence; this diagnostic does not qualify selection, fitting, or adoption.
+
+## Reproduction
+
+Run from the repository root:
+
+```sh
+uv run python docs/design_review/evidence/2026-11-09_pm2-quantity-span/compare_quantity.py \
+  > docs/design_review/evidence/2026-11-09_pm2-quantity-span/raw/comparison.json
+```
+
+The resulting JSON retains only source/request digests, local span offsets, confidence, literal
+hashes and lengths, normalized values, and d1 status. It contains no source quote or protected
+reference labels.

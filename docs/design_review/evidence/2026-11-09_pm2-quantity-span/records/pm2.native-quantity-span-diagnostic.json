@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "id": "pm2.native-quantity-span-diagnostic",
+  "title": "Native GLiNER spans on the exact d1 quantity questions",
+  "group": "pm2-adoption",
+  "package": "PM2-07",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "How does CPU GLiNER literal-span capture and exact number normalization compare with retained d1 v2 on the two same-question quantity scopes?",
+  "answers": [
+    "PM2-07",
+    "PM2-11"
+  ],
+  "method": "Authenticate and reconstruct both exact source scopes using the read-only PM2 passage-function pin/read route. Run CPU GLiNER with the archived quantity instruction as a literal entity description, map spans to native source, and apply the same exact number helper used by d1. Only after inference, join the retained d1 v2 Reader facets by source view and scope digest.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-quantity-span/compare_quantity.py > docs/design_review/evidence/2026-11-09_pm2-quantity-span/raw/comparison.json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "compare_quantity.py",
+      "role": "Reproducible native GLiNER and retained d1 same-question quantity comparison",
+      "sha256": "0c1d4dd06e2aad47f9f772330606ccc932517ea7b3ea07c3a550a2db7eac894a"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/comparison.json",
+      "role": "Native span and d1 status summaries, with source digests and no raw source or reference labels",
+      "sha256": "42e8a0f3812438c79b717b864cfadcc0b70d0c01f5d07046dd589ab353e2d43d"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-interpretation-pair/pm2.matched-interpretation-development",
+    "2026-11-09_pm2-passage-function/pm2.same-source-passage-function-diagnostic"
+  ],
+  "results": [
+    {
+      "name": "Exact quantity scopes compared",
+      "value": 2,
+      "of": 2,
+      "unit": "scopes",
+      "note": "Both use the same archived literal_completion_v1/quantity instruction."
+    },
+    {
+      "name": "View 389 exact normalized agreements",
+      "value": 1,
+      "of": 1,
+      "unit": "scope",
+      "note": "GLiNER and retained d1 v2 both produce source-exact 0.125."
+    },
+    {
+      "name": "View 387 exact standalone numeric normalizations",
+      "value": 0,
+      "of": 1,
+      "unit": "scope",
+      "note": "Each arm retains a source-located proposed quantity, but the shared normalizer leaves the composite amount/unit phrase unresolved."
+    },
+    {
+      "name": "Separate amount/unit roles",
+      "value": "not_run",
+      "of": null,
+      "unit": "diagnostic",
+      "note": "The released scope asks one quantity question and has no separate amount or unit roles."
+    },
+    {
+      "name": "Protected reference grade",
+      "value": "not_run",
+      "of": null,
+      "unit": "grade outcome",
+      "note": "Protected labels were not loaded into inference or this comparison."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Native GLiNER and retained d1 v2 agree on exact 0.125 normalization for the fair-coin quantity. On the second quantity scope both preserve a source-located proposal but the shared exact-number helper correctly leaves the amount/unit phrase unresolved. The declared operation does not split amount and unit, and no protected reference grade was run; these findings do not qualify adoption.",
+  "consumed_by": [
+    "PM2-07",
+    "PM2-11"
+  ]
+}

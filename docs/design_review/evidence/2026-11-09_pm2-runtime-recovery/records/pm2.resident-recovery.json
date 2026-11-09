@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "id": "pm2.resident-recovery",
+  "title": "Native worker startup refusal, cancellation and recovery",
+  "group": "pm2-runtime-recovery",
+  "package": "PM2-02",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Native worker startup refusal, cancellation and recovery?",
+  "answers": [
+    "PM2-02",
+    "PM2-R02"
+  ],
+  "method": "Exercise the actual retained production mechanism and its scoped refusal controls.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-runtime-recovery/probe.py hanlp",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-runtime-recovery/probe.py maverick",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-runtime-recovery/probe.py dipo",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-runtime-recovery/probe.py d1"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "Expected behavior was specified independently of the checked native outcomes."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "Reproducible bounded probe",
+      "sha256": "2a9b4abd57e6ab566fdb82d281c585ee6d38cd0798df600ef987e4f41ed54f2f"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/d1.jsonl",
+      "role": "Native probe receipt",
+      "sha256": "4a4d0df8c4c3538ab3daea0c608222e18f85fdc73577a5634ce127f6fd11b4ed"
+    },
+    {
+      "path": "raw/dipo-initial.jsonl",
+      "role": "Native probe receipt",
+      "sha256": "0f170325796cc329c6b9c3ac84b42b9a9e64ca49e87bb5dd337e452919d8fd1a"
+    },
+    {
+      "path": "raw/dipo.jsonl",
+      "role": "Native probe receipt",
+      "sha256": "dfbd0602a8e775b7258d1b76b6f2ea09d9014261e168a3a0cdd7ffa131d4c816"
+    },
+    {
+      "path": "raw/hanlp-initial.jsonl",
+      "role": "Native probe receipt",
+      "sha256": "593132edec866212e002a27c6c759246530c628de8b6d1580e0be07eee14c0af"
+    },
+    {
+      "path": "raw/hanlp.jsonl",
+      "role": "Native probe receipt",
+      "sha256": "593132edec866212e002a27c6c759246530c628de8b6d1580e0be07eee14c0af"
+    },
+    {
+      "path": "raw/maverick-initial.jsonl",
+      "role": "Native probe receipt",
+      "sha256": "a5dcaec993de5df2b09b3a5528b870fbc165c0b715ebab5846b1be980e7e616f"
+    },
+    {
+      "path": "raw/maverick.jsonl",
+      "role": "Native probe receipt",
+      "sha256": "736be6679485f764a774f3bb3822dfe02c3b5ad5ec9a08b7c327d19d13e20fb7"
+    }
+  ],
+  "depends_on": [
+    "2026-11-08_pm2-foundation/pm2.native-profile-controls"
+  ],
+  "results": [
+    {
+      "name": "Native startup refusal",
+      "value": 4,
+      "of": 4,
+      "unit": "profiles",
+      "note": null
+    },
+    {
+      "name": "Cancellation and exact recovery",
+      "value": 3,
+      "of": 3,
+      "unit": "parser profiles",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Real CUDA profiles exercised the existing resident lifecycle; the d1 cancellation receipt remains at its earlier scope. No recognition ran.",
+  "consumed_by": [
+    "PM2-02",
+    "PM2-R02"
+  ]
+}

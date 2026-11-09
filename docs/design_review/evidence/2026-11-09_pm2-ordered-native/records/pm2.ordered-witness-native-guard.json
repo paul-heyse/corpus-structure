@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "id": "pm2.ordered-witness-native-guard",
+  "title": "Ordered source declaration producer and native guard",
+  "group": "pm2-ordered-native",
+  "package": "PM2-09",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Ordered source declaration producer and native guard?",
+  "answers": [
+    "I01",
+    "PM2-09",
+    "PM2-11"
+  ],
+  "method": "Exercise the actual retained production mechanism and its scoped refusal controls.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-ordered-native/probe.py"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "Expected behavior was specified independently of the checked native outcomes."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "Reproducible bounded probe",
+      "sha256": "9a1400bf94499fb9c0acf7acc052fd5cb98763d2bc02676a54ed89a806ae92ce"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/guard.json",
+      "role": "Native probe receipt",
+      "sha256": "7a112b4f353f390b9cf3b5a9111f362c1d5dc43576b51d8ce929a3265f4195a4"
+    },
+    {
+      "path": "raw/producer.json",
+      "role": "Native probe receipt",
+      "sha256": "a831675719b0244079049b0c445e9cf21541bde38bd63dad70c91594c8f1f24a"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-affine-ordered-source/pm2.affine-ordered-source"
+  ],
+  "results": [
+    {
+      "name": "Native ordered declaration",
+      "value": 1,
+      "of": 1,
+      "unit": "retained source candidate",
+      "note": null
+    },
+    {
+      "name": "Native guard refusal controls",
+      "value": 4,
+      "of": 4,
+      "unit": "controls",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The generated PostgreSQL guard and retained Python producer agree on the ordered Z declaration. The rollback probe does not establish deployed producer or ranking qualification.",
+  "consumed_by": [
+    "I01",
+    "PM2-09",
+    "PM2-11"
+  ]
+}

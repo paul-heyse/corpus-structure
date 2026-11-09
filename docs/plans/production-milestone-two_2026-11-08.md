@@ -310,3 +310,32 @@ cross-provider Reader and fresh MCP journey, and independent same-question
 comparisons. PM2-09 keeps ranking behind the definition inventory and fresh
 affirmative affine witness. DMA-13 still has no eligible predecessor. Keep the
 full-book derived run and selection open until the prerequisites pass.
+
+### Witness and runtime execution
+
+**2026-11-09.** The [independent target review](../design_review/reviews/design_review_pm2_witness_composition_2026-11-09.md)
+accepts the bounded implementation approach. F01 belongs to PM2-03/07/08 (definition
+chain); F02 to PM2-09/11 (ordered declaration); F03 to PM2-08/11 (independent public
+admission); and F04 to PM2-12 (exact dependencies and ordinary release assembly).
+None of these findings is closed by the review.
+
+The [native recovery probe](../design_review/evidence/2026-11-09_pm2-runtime-recovery/README.md)
+refused startup with missing artifacts on all four locked CUDA profiles. HanLP,
+Maverick and Dipo cancelled admitted native requests, reaped their workers, restored
+the incumbent service and reproduced the earlier result on a fresh worker. Earlier
+provider bounds and d1 cancellation keep their recorded scope. The probe does not
+supply missing composed Reader or assessment evidence.
+
+The [declaration-chain replay](../design_review/evidence/2026-11-09_pm2-definition-chain/README.md)
+reused the genuine retained HanLP reply after independently reconstructing its
+exact repaired inputs. Both local parameter bindings and the unique constructed
+antecedent were found; an alternate predicate was refused and the punctuation
+preservation case was unchanged. The [native verifier](../design_review/evidence/2026-11-09_pm2-native-definition/README.md) also passed isolated PostgreSQL checks on that input. The private policy is staged separately; actual parser and definition settlement and detached closure remain open.
+
+The [ordered witness guard](../design_review/evidence/2026-11-09_pm2-ordered-native/README.md)
+accepts the exact retained Z population in a rollback transaction and rejects
+altered anchors, omitted eligible rows and mismatched scope. The distinct /11 producer was
+privately deployed at `semantic_pm2_ordered_witness`. It settled Z on run 443/cut 545
+and preserved the unlinked X. The exact symbolic assessment passed on that retained
+result. Historical source and witness identities are preserved. Definition admission
+still gates paired ranking; public partial delivery and DMA-13 eligibility remain open.

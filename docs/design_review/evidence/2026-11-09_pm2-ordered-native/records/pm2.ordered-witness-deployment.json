@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "id": "pm2.ordered-witness-deployment",
+  "title": "Private ordered witness development deployment",
+  "group": "pm2-ordered-native",
+  "package": "PM2-09",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the exact versioned ordered declaration guard be deployed without changing the incumbent method or stored tables?",
+  "answers": [
+    "I01",
+    "PM2-09"
+  ],
+  "method": "Author a managed rollback-only candidate, inspect its native changes, register its frozen migration and deploy to the exact development target.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-09_pm2-ordered-native/model-change.yaml --json",
+    "uv run ci model change candidate 528c9fc70ac943ab96623e7bdcbeeab3 --json",
+    "uv run ci model change register c699a9ff9f804d0fac596abbc0e2c8f2 --json",
+    "uv run ci model change deploy c699a9ff9f804d0fac596abbc0e2c8f2 --json",
+    "uv run ci release check --project nce-grinstead-snell-full-book --target development --release release:0fea02616c97367ad658fefee131b01855c8c20a4e9bd40b3e97c1b0c4e0aca3 --json"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "The acquired PostgreSQL catalog and managed workflow independently validate the declared functions."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "model-change.yaml",
+      "role": "Exact forward development change request",
+      "sha256": "42a3c4008286b79763c736395ab299754002d69b2d3425a61d67a604e7a7d7d5"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/candidate-before-ordering.json",
+      "role": "Managed candidate or deployment receipt",
+      "sha256": "05d6eff41623c76b1f6b6cde87856f535b68bf1c96ac1751d1e2b3365f27827d"
+    },
+    {
+      "path": "raw/candidate-stale-preview.json",
+      "role": "Managed candidate or deployment receipt",
+      "sha256": "1eb24fe6f791611e1b307fc3565d132b0add2324b962c49d33bf4cc95a40d109"
+    },
+    {
+      "path": "raw/ordered-bound-candidate.json",
+      "role": "Managed candidate or deployment receipt",
+      "sha256": "815c18b74b6d79d747732a5ee5adb9392dc3c797b387f0d124a5d3622c89ace6"
+    },
+    {
+      "path": "raw/ordered-bound-preview.json",
+      "role": "Managed candidate or deployment receipt",
+      "sha256": "d28c4eee82dde7dc393b20f6d55eb850174a14e9bc2d392a4a468b9ac3dc7cd6"
+    },
+    {
+      "path": "raw/ordered-deploy.json",
+      "role": "Managed candidate or deployment receipt",
+      "sha256": "08e224ee304eda93503dbf6905feed9a0af10391896d43ba7fb51760da24698a"
+    },
+    {
+      "path": "raw/ordered-register.json",
+      "role": "Managed candidate or deployment receipt",
+      "sha256": "385113b8f8902d0822bf043403fd231159532085474525ef579b5b99d58e8764"
+    },
+    {
+      "path": "raw/ordered-release-check.json",
+      "role": "Managed candidate or deployment receipt",
+      "sha256": "e81e0873260f1013259b4e1916a40e73dc9fd9ec2687ffb8b8c71af51833abc3"
+    }
+  ],
+  "depends_on": [
+    "pm2.ordered-witness-native-guard"
+  ],
+  "results": [
+    {
+      "name": "Native operations",
+      "value": 5,
+      "of": null,
+      "unit": "functions",
+      "note": "No physical table changes."
+    },
+    {
+      "name": "Focused source and detached verification",
+      "value": 54,
+      "of": 54,
+      "unit": "tests",
+      "note": "Managed result 64131073e899406fb5d49736ea6bd153."
+    },
+    {
+      "name": "Acquired development revision",
+      "value": "semantic_pm2_ordered_witness",
+      "of": null,
+      "unit": null,
+      "note": "Private admission; no active release or run selection."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The initial candidate refused a source decoder dependency that had not yet been recreated. A stale preview correctly refused after the ordering fix. The corrected frozen candidate passed rollback authoring, registration and development deployment.",
+  "consumed_by": [
+    "PM2-09",
+    "PM2-11",
+    "PM2-12"
+  ]
+}

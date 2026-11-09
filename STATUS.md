@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-09. Development runs `semantic_pm2_parser_payloads`. Typed parser products and exact HanLP reuse passed on retained Standard and Nemotron source. The project remains unselected._
+_Updated 2026-11-09. Development runs `semantic_pm2_ordered_witness`. The ordered Z witness and exact affine form passed on retained Standard and Nemotron source. The project remains unselected._
 
 ## Current authority
 
@@ -13,7 +13,7 @@ _Updated 2026-11-09. Development runs `semantic_pm2_parser_payloads`. Typed pars
 - The [GitHub visitor follow-on](docs/plans/github-visitor-experience_2026-11-08.md#ghv-follow-on-acceptance) is live. On 2026-11-08, the docs workflow and both live browser sizes passed. The corpus index links to 1,409 verified source files in Git LFS. The supplied How it works image passed desktop and mobile preview checks in the local revision.
 - The [M2 foundation](docs/plans/production-milestone-two_2026-11-08.md#foundation-execution) uses cut 514 for source-only expectations and cut 517 for the finished private M1 comparator over the same views. On 2026-11-08 all four CUDA profiles ran under the shared handoff, and the private d1/Dipo Reader journey passed claim reassignment and exact reuse. The [foundation evidence](docs/design_review/evidence/2026-11-08_pm2-foundation/README.md) owns the scoped checks. DMA-13 owns evaluated cutover.
 - The [M2 parser execution](docs/plans/production-milestone-two/linguistic-referential-discourse.md#parser-execution) sealed cut 520 and verified replay at cut 521. Same-release HanLP and Maverick inputs for d1 reached cut 524 without repeating source recognition.
-- The [M2 remediation](docs/plans/production-milestone-two_2026-11-08.md#remediation-execution) owns the current work. [Development evidence](docs/design_review/evidence/2026-11-09_pm2-contract-remediation/README.md) records native cuts 540 and 541. On 2026-11-09, the [exact affine assessment](docs/design_review/evidence/2026-11-09_pm2-affine-assessment/README.md) passed 47 targeted `uv run ci test` cases (`30fea2f8b73444fcb4bc332e4e789c51`); the book result remains undecided pending its source binding. `uv run ci check --only types` passed. Qualify the definition and affine witnesses, paired comparisons and assembled admission. DMA-13 remains ineligible; full-book derivation and selection were `not_run`.
+- The [M2 remediation](docs/plans/production-milestone-two_2026-11-08.md#witness-and-runtime-execution) owns remaining qualification. On 2026-11-09, the [ordered witness](docs/design_review/evidence/2026-11-09_pm2-ordered-native/README.md) settled run 443/cut 545 and passed the exact affine assessment. The [resident worker controls](docs/design_review/evidence/2026-11-09_pm2-runtime-recovery/README.md) passed at their recorded scopes. [Definition verification](docs/design_review/evidence/2026-11-09_pm2-native-definition/README.md) passed isolated native controls; the staged release journey is open. Complete detached delivery, paired comparisons and public partial admission. DMA-13 remains ineligible; full-book derivation and selection were `not_run`.
 
 ## Delivered and assessed
 

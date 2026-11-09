@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "id": "pm2.definition-chain-source-replay",
+  "title": "Exact source seam and declaration role replay",
+  "group": "pm2-remediation",
+  "package": "PM2-09",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can an opt-in source seam policy and declaration chain reproduce the genuine retained HanLP roles on the frozen definition without altering the control?",
+  "answers": [
+    "I01",
+    "I02",
+    "PM2-03",
+    "PM2-09"
+  ],
+  "method": "Authenticate the retained source through a read-only snapshot, reproduce both exact native requests, and replay the v2 role chain from the prior genuine HanLP reply in an in-memory producer envelope. Check the unaffected constant-density layout and refuse an alternate predicate as the naming witness.",
+  "commands": [
+    "UV_NO_SYNC=1 uv run python docs/design_review/evidence/2026-11-09_pm2-definition-chain/replay_chain.py",
+    "UV_NO_SYNC=1 uv run ci test --json -- python/corpus-structure/tests/methods/test_pm2_source.py python/corpus-structure/tests/methods/test_definition_applicability.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "replay_chain.py",
+      "role": "Source and genuine native response replay over an in-memory producer fixture",
+      "sha256": "b4fe1a803aa8c39de31d5d2bf69fb7f5bc4070708fa5b45c8b8c77c0056c1462"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/replay.json",
+      "role": "Exact seam, role and refusal result with control",
+      "sha256": "fc10d50bec8eb36a7f1762cca00a53ee0ff8c01114e7c0413a675c4a06a89e55"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-definition-hanlp/pm2.hanlp-definition-role-comparison"
+  ],
+  "results": [
+    {
+      "name": "Matched genuine native CPU requests",
+      "value": 2,
+      "of": 2,
+      "unit": "requests",
+      "note": null
+    },
+    {
+      "name": "Recovered exact declaration use bindings",
+      "value": 2,
+      "of": 2,
+      "unit": "bindings",
+      "note": null
+    },
+    {
+      "name": "Alternate predicate refused",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Constant-density layout preserved",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The bounded versioned source seam and declaration role replay recovered the exact binomial definition on existing native evidence without moving the control. Release activation, native and detached settlement, independent qualification and retrieval eligibility remain open.",
+  "consumed_by": [
+    "PM2-03",
+    "PM2-09",
+    "PM2-11",
+    "PM2-12"
+  ]
+}

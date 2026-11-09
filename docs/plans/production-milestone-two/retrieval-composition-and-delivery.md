@@ -228,6 +228,12 @@ require the new released producer, native validator and detached proof to authen
 the wider witness and its mapped members before selection. Exact algebra is independently
 assessed under [PM2-11](textbook-assessment-and-adoption.md#exact-affine-qualification).
 
+**Settled ordered witness · 2026-11-09.** The [native development run](../../design_review/evidence/2026-11-09_pm2-ordered-native/README.md)
+settled the /11 producer at run 443/cut 545/task 2151. It retains the original
+formula scope and both occurrence identities, and attaches only Z using the
+version-2 ordered declaration. The formal affine control passed. The binomial
+definition inventory still needs released native admission before paired ranking.
+
 Run the affine pair separately from the binomial pair, whose carrier remains
 `extract.m1_candidates`. Use the same authenticated eligible definition inventory and keep the
 source, carrier selection, scope, encoder and bounds fixed within each v10/v11 pair. The scoped

@@ -154,6 +154,12 @@ after the source declaration qualifies. A named distribution or moment check is
 conditional on supported distribution and parameter bindings. The existing
 fair-coin literal-to-decimal control stays separate from the exact polynomial path.
 
+**Settled book form · 2026-11-09.** The [run-bound assessment](../../design_review/evidence/2026-11-09_pm2-ordered-native/README.md#development-deployment-and-settled-assessment)
+read the exact private ordered declaration and equation carriers at run 443,
+cut 545. It found the exact affine form with coefficient σ and offset μ. X
+retains its syntax-only output role in the equation and has no external link.
+The result does not establish a distribution, ranking gain or public admission.
+
 ### Decide what is good enough to activate
 
 Before opening candidate results, name the operation, primary decision dimension,

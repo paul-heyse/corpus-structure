@@ -1,0 +1,6 @@
+baseline: 452840cc5
+packs: [statistics]
+native_predecessor: semantic_pm2_parser_payloads
+native_revision: semantic_pm2_ordered_witness
+deployment: true
+deployment_profile: development
