@@ -16,8 +16,11 @@ from multiprocessing.connection import Connection
 from multiprocessing.process import BaseProcess
 from multiprocessing.reduction import ForkingPickler
 from threading import Event, Lock, Thread
+from typing import TYPE_CHECKING
 
 from .gliner import (
+    BOUNDARY_DIAGNOSTIC,
+    MAX_DIAGNOSTIC_SPANS,
     GlinerInput,
     GlinerPack,
     GlinerProfile,
@@ -25,14 +28,24 @@ from .gliner import (
     GlinerReport,
     _digest,
     _json,
+    boundary_diagnostic,
     effective_profile_fingerprint,
     load_model,
     prepare_input,
 )
 
+if TYPE_CHECKING:
+    from .pm2_source import PM2SourceMap
+
 
 class GlinerWorkerError(RuntimeError):
     """Failed native operation, never an empty successful report."""
+
+
+@dataclass(frozen=True)
+class _Diagnostic:
+    source_map_digest: str
+    supplied: tuple[tuple[int, int], ...]
 
 
 @dataclass(frozen=True)
@@ -43,6 +56,7 @@ class _Request:
     threshold: float
     overlap_policy: str
     evaluation: bool
+    diagnostic: _Diagnostic | None = None
 
 
 @dataclass(frozen=True)
@@ -109,6 +123,37 @@ def _native_child(connection: Connection, profile: GlinerProfile) -> None:
                     prepare_input(model, schema, item, profile) for item in request.inputs
                 )
                 started = time.monotonic()
+                if request.diagnostic is not None:
+                    (item,) = request.inputs
+                    (prepared,) = preparations
+                    diagnostic = request.diagnostic
+                    raw = boundary_diagnostic(model, schema, item, prepared, diagnostic.supplied)
+                    report = GlinerReport(
+                        item.context_id,
+                        item.context_digest,
+                        _digest(
+                            {
+                                "operation": BOUNDARY_DIAGNOSTIC,
+                                "context": item.context_digest,
+                                "text": item.text,
+                                "source_map": diagnostic.source_map_digest,
+                                "profile": profile.fingerprint,
+                                "effective_profile": effective_profile_fingerprint(effective),
+                                "pack": request.pack.fingerprint,
+                                "supplied": diagnostic.supplied,
+                            }
+                        ),
+                        profile.fingerprint,
+                        request.pack.fingerprint,
+                        prepared,
+                        _json({**raw, "source_map_digest": diagnostic.source_map_digest}),
+                        effective,
+                        time.monotonic() - started,
+                        reused,
+                        diagnostics=(("proposal_pool", "native_diagnostic"),),
+                    )
+                    _send_reply(connection, _Reply(request.serial, reports=(report,)), profile)
+                    continue
                 inference = installed_policy()[0]["inference"]
                 settings = {key: value for key, value in inference.items() if key != "operation"}
                 request_key = (
@@ -253,6 +298,66 @@ class GlinerWorker:
         evaluation: bool = False,
         check_active: Callable[[], None] | None = None,
     ) -> tuple[GlinerReport, ...]:
+        return self._exchange(
+            pack,
+            inputs,
+            threshold=threshold,
+            overlap_policy=overlap_policy,
+            evaluation=evaluation,
+            check_active=check_active,
+        )
+
+    def diagnose(
+        self,
+        pack: GlinerPack,
+        mapping: PM2SourceMap,
+        supplied: tuple[tuple[int, int], ...] = (),
+        *,
+        check_active: Callable[[], None] | None = None,
+    ) -> GlinerReport:
+        """Observe the ordinary pool and optional source-authorized spans without decoding."""
+        from corpus_structure.semantic.source_contexts import ContextRefused
+
+        from .pm2_source import ProviderSpan
+
+        context = mapping.context
+        if mapping.provider_text != context.text:
+            raise GlinerRefused("GLiNER diagnosis requires the exact selected source text")
+        if not isinstance(supplied, tuple) or len(supplied) > MAX_DIAGNOSTIC_SPANS:
+            raise GlinerRefused("diagnostic supplied span population exceeds its bound")
+        try:
+            context.require_native_projection()
+            for start, end in supplied:
+                if type(start) is not int or type(end) is not int:
+                    raise GlinerRefused("supplied spans require integer half-open coordinates")
+                mapping.map_extents(
+                    (ProviderSpan(start, end, context.text[start:end]),),
+                    scope_digest=mapping.scope_digest,
+                )
+        except ContextRefused as error:
+            raise GlinerRefused(str(error)) from error
+        (report,) = self._exchange(
+            pack,
+            (GlinerInput.from_context(context),),
+            threshold=0.5,
+            overlap_policy="flat",
+            evaluation=True,
+            check_active=check_active,
+            diagnostic=_Diagnostic(mapping.input_digest, supplied),
+        )
+        return report
+
+    def _exchange(
+        self,
+        pack: GlinerPack,
+        inputs: tuple[GlinerInput, ...],
+        *,
+        threshold: float,
+        overlap_policy: str,
+        evaluation: bool,
+        check_active: Callable[[], None] | None,
+        diagnostic: _Diagnostic | None = None,
+    ) -> tuple[GlinerReport, ...]:
         if not isinstance(inputs, tuple) or not inputs or len(inputs) > self.profile.max_batch:
             raise GlinerRefused("batch must be a nonempty bounded immutable tuple")
         supported_overlap = {"flat", "nested", "allow"} if evaluation else {"flat"}
@@ -283,7 +388,9 @@ class GlinerWorker:
             if check_active is not None:
                 check_active()
             self._serial += 1
-            request = _Request(self._serial, pack, inputs, threshold, overlap_policy, evaluation)
+            request = _Request(
+                self._serial, pack, inputs, threshold, overlap_policy, evaluation, diagnostic
+            )
             frame = bytes(ForkingPickler.dumps(request))
             if len(frame) > self.profile.max_request_frame_bytes:
                 raise GlinerRefused("request frame byte bound exceeded")
@@ -346,7 +453,8 @@ class GlinerWorker:
             raise
         except BaseException as original:
             original.add_note(
-                f"GLiNER operation=batch_extract profile={self.profile.fingerprint} "
+                f"GLiNER operation={BOUNDARY_DIAGNOSTIC if diagnostic else 'batch_extract'} "
+                f"profile={self.profile.fingerprint} "
                 f"pack={pack.fingerprint} contexts=" + ",".join(item.context_id for item in inputs)
             )
             try:

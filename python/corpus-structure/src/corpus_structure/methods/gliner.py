@@ -1,7 +1,7 @@
 """Thin detached GLiNER contracts; observations remain candidates, never accepted facts.
 
-Only native combined extraction is selected here. Classifier/JointIE wrappers, persistent
-encoding caches, aggregate CPU admission and method registration remain integration work.
+Native combined extraction is the ordinary route. The bounded proposal diagnostic
+does not supply decoded observations or admission witnesses.
 """
 
 from __future__ import annotations
@@ -34,6 +34,8 @@ class GlinerRefused(ValueError):
 
 WHITESPACE_PROFILE = "gliner2-2.1.0-cpu-fp32-standard-whitespace-v1"
 CODEPOINT_PROFILE = "gliner2-2.1.0-cpu-fp32-standard-codepoints-v1"
+BOUNDARY_DIAGNOSTIC = "boundary-span-diagnostic-1"
+MAX_DIAGNOSTIC_SPANS = 256
 
 
 class UnicodeCodepointSplitter:
@@ -361,6 +363,132 @@ def prepare_input(
     ):
         raise GlinerRefused("native token map lies outside consumed text")
     return GlinerPreparation(prepared.text, suffix, words, subwords, size)
+
+
+def boundary_diagnostic(
+    model: Any,
+    schema: Any,
+    item: GlinerInput,
+    prepared: GlinerPreparation,
+    supplied: tuple[tuple[int, int], ...],
+) -> dict[str, Any]:
+    """Report ordinary and independently supplied spans on the same bounded input."""
+    import torch
+
+    if getattr(model, "architecture", None) != "boundary":
+        raise GlinerRefused("proposal diagnostics require the native boundary checkpoint")
+    # Same native collation as batch_extract, but never fall back to a dummy row.
+    batch = model.processor.collate_fn_inference(
+        [(item.text, schema.build())], architecture="boundary", error_policy="raise"
+    )
+    if len(batch) != 1 or batch.original_texts[0] != prepared.consumed_text:
+        raise GlinerRefused("native diagnostic collation differs from the prepared scope")
+    starts, ends = batch.start_mappings[0], batch.end_mappings[0]
+    prefix = int(batch.text_word_counts[0]) - len(starts)
+    layout = batch.query_layouts[0].queries
+    if (
+        prefix < 0
+        or len(starts) != prepared.words
+        or len(ends) != prepared.words
+        or len(set(starts)) != len(starts)
+        or len(set(ends)) != len(ends)
+    ):
+        raise GlinerRefused("native diagnostic word mapping differs from preparation")
+    if not 0 < len(layout) <= 16:
+        raise GlinerRefused("diagnostic requires between 1 and 16 native extractive queries")
+    aligned = []
+    for start, end in supplied:
+        try:
+            left = starts.index(start)
+            right = ends.index(end) + 1
+        except ValueError as error:
+            raise GlinerRefused("supplied span is not aligned to native word boundaries") from error
+        if not 0 <= start < end <= len(item.text) or left >= right:
+            raise GlinerRefused("supplied span is outside the exact native source word range")
+        aligned.append((left + prefix, right + prefix))
+
+    if (
+        model.boundary_settings.candidate_pool == "shared"
+        and len(set(aligned)) > model.boundary_settings.pool_size
+    ):
+        raise GlinerRefused("explicit spans exceed the native shared candidate pool")
+    with torch.inference_mode():
+        candidates, aux = model.score_candidates(batch, return_auxiliary_logits=True)
+        if candidates is None or candidates.shape[:2] != (1, len(layout)):
+            raise GlinerRefused("native candidate population differs from the extractive layout")
+        ordinary = []
+        pairs = {}
+        for query, positions in enumerate(candidates.indices[0].tolist()):
+            for index, (left, right) in enumerate(positions):
+                if not bool(candidates.valid_mask[0, query, index]):
+                    continue
+                exact = None
+                if prefix <= left < right <= prefix + len(starts):
+                    start, end = starts[left - prefix], ends[right - prefix - 1]
+                    if 0 <= start < end <= len(item.text):
+                        exact = [start, end]
+                logit = float(candidates.pair_logits[0, query, index])
+                pairs[query, left, right] = logit
+                ordinary.append(
+                    {
+                        "query": query,
+                        "words": [left, right],
+                        "input_chars": exact,
+                        "pair_logit": logit,
+                        "proposal_logit": (
+                            float(candidates.proposal_logits[0, query, index])
+                            if candidates.proposal_logits is not None
+                            else None
+                        ),
+                    }
+                )
+
+        explicit = []
+        if aligned:
+            encoded = model.encode(batch)
+
+            # encode() expands entity field_path to (entities, name); query identity
+            # is the group/role route, not that redundant representation.
+            def query_routes(queries):
+                return [
+                    (q.query_id, q.task_index, q.task_type, q.task_name, q.role_index, q.role_name)
+                    for q in queries
+                ]
+
+            if query_routes(encoded.query_layouts[0].queries) != query_routes(layout) or int(
+                encoded.text_lengths[0]
+            ) != prefix + len(starts):
+                raise GlinerRefused("native explicit scoring changed the extractive query layout")
+            indices = torch.tensor(aligned, dtype=torch.long)[None, None].expand(
+                1, len(layout), -1, -1
+            )
+            try:
+                scored = model.score_explicit_spans(encoded, indices)[0].tolist()
+            except ValueError as error:
+                if "exceed the shared candidate pool" not in str(error):
+                    raise
+                raise GlinerRefused(
+                    "explicit spans exceed the native shared candidate pool"
+                ) from error
+            for query, logits in enumerate(scored):
+                for (left, right), chars, logit in zip(aligned, supplied, logits, strict=True):
+                    explicit.append(
+                        {
+                            "query": query,
+                            "words": [left, right],
+                            "input_chars": list(chars),
+                            "pair_logit": logit,
+                            "ordinary_pair_logit": pairs.get((query, left, right)),
+                        }
+                    )
+    return {
+        "operation": BOUNDARY_DIAGNOSTIC,
+        "queries": [asdict(query) for query in layout],
+        "schema_prefix_words": prefix,
+        "ordinary": ordinary,
+        "explicit": explicit,
+        "available_boundary_logits": sorted(key for key, value in aux.items() if value is not None),
+    }
 
 
 def effective_profile_fingerprint(effective_json: str) -> str:

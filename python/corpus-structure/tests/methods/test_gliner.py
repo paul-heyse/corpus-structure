@@ -1,14 +1,17 @@
 import json
+import os
 import shutil
 from dataclasses import replace
 from hashlib import sha256
 from multiprocessing.connection import Connection
 from multiprocessing.process import BaseProcess
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import Mock
 
 import pytest
+import yaml
 
 from corpus_structure.methods.gliner import (
     GlinerInput,
@@ -358,6 +361,54 @@ def test_actual_context_owner_synthetic_crossing_and_classified_offsets(source_c
     with pytest.raises(GlinerRefused, match="reconstruct"):
         map_literal(report, context, {"text": "distribution", "start": 0, "end": 4})
     assert dict(report.diagnostics)["suppression"] == "unavailable"
+
+
+@pytest.mark.skipif(
+    os.environ.get("CORPUS_GLINER_DIAGNOSTIC") != "1", reason="pinned Base checkpoint is opt-in"
+)
+def test_native_boundary_diagnostic_observes_and_rescores_exact_occurrence(source_context):
+    from corpus_structure.methods.m1_source import M1Config
+    from corpus_structure.methods.pm2_source import PM2SourceMap, SourceMapSegment
+
+    declaration_path = Path(__file__).resolve().parents[4] / "domains/statistics/m1-methods.yaml"
+    config = yaml.safe_load(declaration_path.read_text())["configs"]["extract.m1_candidates"][
+        "default"
+    ]
+    profile = M1Config.model_validate(config).profile()
+    mapping = PM2SourceMap(
+        source_context,
+        source_context.text,
+        (SourceMapSegment(0, 4, 0), SourceMapSegment(5, 7, 5)),
+        ((5, 7),),
+    )
+    pack = GlinerPack.from_declaration(
+        "diagnostic-fixture", {"entities": {"number": "numeric literal"}}, version="native-local-v1"
+    )
+    worker = GlinerWorker(profile)
+    try:
+        with pytest.raises(GlinerRefused, match="atom"):
+            worker.diagnose(pack, mapping, ((5, 6),))
+        with pytest.raises(GlinerRefused, match="unmapped"):
+            worker.diagnose(pack, mapping, ((0, 7),))
+        assert worker.pid is None
+
+        first = worker.diagnose(pack, mapping)
+        assert first.raw["explicit"] == []
+        assert first.raw["source_map_digest"] == mapping.input_digest
+        assert first.request_digest is None and first.observation_digest is None
+        native = next(row for row in first.raw["ordinary"] if row["input_chars"] == [5, 7])
+
+        with pytest.raises(GlinerRefused, match="native word boundaries"):
+            worker.diagnose(pack, mapping, ((0, 3),))
+
+        second = worker.diagnose(pack, mapping, ((5, 7),))
+        (explicit,) = second.raw["explicit"]
+        assert second.resident_reused and second.computation != first.computation
+        assert explicit["input_chars"] == [5, 7]
+        assert explicit["ordinary_pair_logit"] == pytest.approx(native["pair_logit"])
+        assert explicit["pair_logit"] == pytest.approx(native["pair_logit"], abs=1e-5)
+    finally:
+        worker.close()
 
 
 @pytest.mark.parametrize("classified_first", [False, True])
