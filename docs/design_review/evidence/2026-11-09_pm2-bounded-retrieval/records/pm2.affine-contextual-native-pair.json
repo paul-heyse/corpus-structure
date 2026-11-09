@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "id": "pm2.affine-contextual-native-pair",
+  "title": "Exact affine carrier retrieval and enriched offline replay",
+  "group": "pm2-bounded-retrieval",
+  "package": "PM2-09",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can both frozen affine retrieval arms preserve the source carriers without selecting a spurious semantic link?",
+  "answers": [
+    "PM2-09",
+    "PM2-11"
+  ],
+  "method": "Retry both exact frozen arms with the bounded producer projection, inspect the completed native results and independently query the producer for the adverb, then replay the enriched exact source closure offline.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-bounded-retrieval/run_control.py run literal docs/design_review/evidence/2026-11-09_pm2-bounded-retrieval/raw/affine-frozen.json",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-bounded-retrieval/run_control.py run enriched docs/design_review/evidence/2026-11-09_pm2-bounded-retrieval/raw/affine-frozen.json",
+    "uv run ci run finalize 455 --output-realization private:pm2-bounded-retrieval:455 --json",
+    "uv run ci run finalize 456 --output-realization private:pm2-bounded-retrieval:456 --json",
+    "uv run ci contributions list --run 456 --source-view 391 --method structure.scoped_relations --operation-version 11 --occurrence-id source-occurrence:4d6bf60f66c724369a2cedd9e616a5e3114ff3bab81841820e757d81d3ca1374 --json",
+    "uv run ci review export docs/design_review/evidence/2026-11-09_pm2-bounded-retrieval/raw/affine-review-selection.json build/models/pm2/bounded-affine-review --exact-closure --json",
+    "uv run ci review verify build/models/pm2/bounded-affine-review --json"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "PostgreSQL and the managed target check independently bind the native guards."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "run_control.py",
+      "role": "Exact frozen source, arm or detached selection",
+      "sha256": "ede5e177fc6b1dd6c6336887c8950156b80188ab1af48cc565405ae8ef04c300"
+    },
+    {
+      "path": "raw/affine-frozen.json",
+      "role": "Exact frozen source, arm or detached selection",
+      "sha256": "f0847c6ace7cc355c10e43dd8628fe79645f4e232f6494483fd3508d934330c1"
+    },
+    {
+      "path": "raw/affine-context.json",
+      "role": "Exact frozen source, arm or detached selection",
+      "sha256": "e2605feb1b49faabc368b6a23832c4ac4c643dc3ad4eb43dfb171e5a6ffe06be"
+    },
+    {
+      "path": "raw/affine-review-selection.json",
+      "role": "Exact frozen source, arm or detached selection",
+      "sha256": "a694d18538139368038b78534d5230bb8d7af8d1bde18ac49aaa90d6c99c1781"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/affine-literal-retry-ready.json",
+      "role": "Exact native or detached result",
+      "sha256": "f6786b3fd236d4677343f24091ea2401b0b80c7bba6eae5c8fd9a0cf92cc6816"
+    },
+    {
+      "path": "raw/affine-literal-completed.json",
+      "role": "Exact native or detached result",
+      "sha256": "7a5dfbd6c2b955486182c4c2b8c1270b8ca7d1f042b74ab66dd11c41e33e4e53"
+    },
+    {
+      "path": "raw/affine-literal-reader.json",
+      "role": "Exact native or detached result",
+      "sha256": "b0604c205d826ff4650e50bfbd40879e1e7017b74de36fdef1d65bf9cfb3fc92"
+    },
+    {
+      "path": "raw/affine-enriched-retry-ready.json",
+      "role": "Exact native or detached result",
+      "sha256": "186bfe528d372d2b3f28b9951a000bd87db8593c37b7814b94fecb16958523ba"
+    },
+    {
+      "path": "raw/affine-enriched-completed.json",
+      "role": "Exact native or detached result",
+      "sha256": "dad68b54c512d515b0a315011441633175a329a88d8a21fec7e93fbc8f465e47"
+    },
+    {
+      "path": "raw/affine-enriched-reader.json",
+      "role": "Exact native or detached result",
+      "sha256": "668bd966c357910eee7fd833813b868af8fdbab7810bb1640f5ed72d48e46e88"
+    },
+    {
+      "path": "raw/affine-adverb-producer.json",
+      "role": "Exact native or detached result",
+      "sha256": "f473f33374d9087a7403684e1d14340f045b69e0ed93869459f2caa6b2936185"
+    },
+    {
+      "path": "raw/affine-review-export.json",
+      "role": "Exact native or detached result",
+      "sha256": "5ea04f1691b6dfb62720c7d55fa252a482edd1c6a55491cd5de4e101af4d8e44"
+    },
+    {
+      "path": "raw/affine-review-verified.json",
+      "role": "Exact native or detached result",
+      "sha256": "428064ac28acb09a11d5f32a1d64fd84477fdd652ac26c2d6fa421e5d781e374"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-bounded-retrieval/pm2.affine-producer-read-bound",
+    "2026-11-09_pm2-affine-ordered-source/pm2.affine-ordered-witness-retention"
+  ],
+  "results": [
+    {
+      "name": "Matched carriers per arm",
+      "value": 2,
+      "of": null,
+      "unit": "occurrences",
+      "note": "Exact X and Z on the frozen affine source."
+    },
+    {
+      "name": "Selected links per arm",
+      "value": 0,
+      "of": null,
+      "unit": "edges",
+      "note": "The one unrelated inventory target ranks first but neither arm selects a contextual edge."
+    },
+    {
+      "name": "Adverb producer rows",
+      "value": 0,
+      "of": null,
+      "unit": "occurrences",
+      "note": "The exact producer report remains present; checked independently of ranking."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Both native arms and enriched offline replay verify carrier custody and candidate delivery. Neither arm selected a spurious link. The matched development controls do not establish ranking gains or protected or public eligibility.",
+  "consumed_by": [
+    "PM2-09",
+    "PM2-11"
+  ]
+}

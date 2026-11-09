@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "id": "pm2.affine-producer-read-bound",
+  "title": "Exact affine carrier projection under the native read budget",
+  "group": "pm2-bounded-retrieval",
+  "package": "PM2-09",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the exact affine carriers be read within the existing bound when the full producer result exceeds it?",
+  "answers": [
+    "PM2-09",
+    "PM2-11"
+  ],
+  "method": "Reopen the actual affine upstream result from its bound run, exercise the existing full read and the SQLAlchemy exact projection, and check a substituted semantic type.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-bounded-retrieval/run_control.py projection 451 docs/design_review/evidence/2026-11-09_pm2-bounded-retrieval/raw/affine-frozen.json"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "PostgreSQL and the managed target check independently bind the native guards."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "run_control.py",
+      "role": "Readback driver and exact frozen configuration",
+      "sha256": "ede5e177fc6b1dd6c6336887c8950156b80188ab1af48cc565405ae8ef04c300"
+    },
+    {
+      "path": "raw/affine-frozen.json",
+      "role": "Readback driver and exact frozen configuration",
+      "sha256": "f0847c6ace7cc355c10e43dd8628fe79645f4e232f6494483fd3508d934330c1"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/affine-projection.json",
+      "role": "Exact readback and retained original refusals",
+      "sha256": "72bf6c67cbc0c049ecec9b7e72dc7440017468301600534c25aeae80452aae17"
+    },
+    {
+      "path": "raw/affine-literal-original-refusal.txt",
+      "role": "Exact readback and retained original refusals",
+      "sha256": "a30c7cbe80036f49d5a60d3394e4db886c27a23c2bd3b7313f59077be48ac4fe"
+    },
+    {
+      "path": "raw/affine-enriched-original-refusal.txt",
+      "role": "Exact readback and retained original refusals",
+      "sha256": "a30c7cbe80036f49d5a60d3394e4db886c27a23c2bd3b7313f59077be48ac4fe"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-affine-ordered-source/pm2.affine-ordered-witness-retention"
+  ],
+  "results": [
+    {
+      "name": "Projected object bytes",
+      "value": 5463,
+      "of": null,
+      "unit": "bytes",
+      "note": "Exact two-carrier population and original task binding."
+    },
+    {
+      "name": "Wrong-type carriers",
+      "value": 0,
+      "of": null,
+      "unit": "occurrences",
+      "note": "A substituted type admits no carrier."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The original full read refused at the existing bound. The bounded query returned the two exact configured carriers without loading the full immutable report. This readback does not establish ranking or any semantic link.",
+  "consumed_by": [
+    "PM2-09",
+    "PM2-11"
+  ]
+}

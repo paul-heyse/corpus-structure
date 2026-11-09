@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "id": "pm2.native-parser-scope-fallback",
+  "title": "Maverick and Dipo coherent-scope fallback on retained source",
+  "group": "pm2-adoption",
+  "package": "PM2-04/05",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the admitted native Maverick and Dipo parser operations retain typed limits and complete smaller coherent source scopes through the existing fallback?",
+  "answers": [
+    "PM2-04",
+    "PM2-05"
+  ],
+  "method": "Authenticate the existing Standard/Nemotron source pin under the exact admitted development release, construct sentence-aligned parents using the production PM2 partition functions, and submit one ordinary provider profile per private ci run. Preserve every limited parent or intermediate child and the exact descendant coverage rows. Keep each cross-child relationship unexamined.",
+  "commands": [
+    "uv run ci db status --maintenance --json",
+    "uv run ci release check --project nce-grinstead-snell-full-book --target development --release release:ca0d3cbe0eb56ce659afada0f4b1692624558622ebf61bfdd9a93b44aa11354f --json",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-scope-fallback/prepare.py > docs/design_review/evidence/2026-11-09_pm2-scope-fallback/raw/prepare-report.json",
+    "uv run ci run parsers --request docs/design_review/evidence/2026-11-09_pm2-scope-fallback/raw/maverick-request.json --json > docs/design_review/evidence/2026-11-09_pm2-scope-fallback/raw/maverick-run.json",
+    "uv run ci run parsers --request docs/design_review/evidence/2026-11-09_pm2-scope-fallback/raw/dipo-request.json --json > docs/design_review/evidence/2026-11-09_pm2-scope-fallback/raw/dipo-run.json",
+    "uv run ci run parsers --request docs/design_review/evidence/2026-11-09_pm2-scope-fallback/raw/dipo-reduced-request.json --json > docs/design_review/evidence/2026-11-09_pm2-scope-fallback/raw/dipo-reduced-run.json",
+    "uv run ci status 446 --project nce-grinstead-snell-full-book --json",
+    "uv run ci status 447 --project nce-grinstead-snell-full-book --json",
+    "uv run ci status 448 --project nce-grinstead-snell-full-book --json",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-scope-fallback/probe_prior_release_refusal.py > docs/design_review/evidence/2026-11-09_pm2-scope-fallback/raw/prior-release-refusal.json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "prepare.py",
+      "role": "Exact release/source authentication, coherent parent derivation, private realization and request preparation",
+      "sha256": "bb662e97e12c7b7fb1e576f0fc7f2c79b712eb14fc3ee4040d9a0986def41ad1"
+    },
+    {
+      "path": "probe_prior_release_refusal.py",
+      "role": "Read-only authentication and analytical preparation refusal under the superseded private release",
+      "sha256": "022c36c62e91ca9ba5b551271d6c6c053ac0abed5cf52c921af12d33f2326880"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/prepare-report.json",
+      "role": "Sentence-coherent parent and child boundaries with the selected admitted release",
+      "sha256": "d0812ab24a51b288d12dbe58f3771605672a9eaa237aebb21eaa9666d7486d05"
+    },
+    {
+      "path": "raw/scope-preparation.json",
+      "role": "Authenticated source digests and active private realization binding",
+      "sha256": "f08471be1929038b7a333900e3490497655c60967e6170ba104f02bbe7b5bc91"
+    },
+    {
+      "path": "raw/prior-release-refusal.json",
+      "role": "Preserved authenticated-source analytical-layout refusal under release 0fea026…0aca3",
+      "sha256": "e077833aecd25ea5086557b297d213bb7af7c998d02395694d4520e0043f5160"
+    },
+    {
+      "path": "raw/maverick-run.json",
+      "role": "Native Maverick limited parent and two successful coherent children, run 446/cut 549",
+      "sha256": "a7d095b1747bbba66bde6893c1dab9433c8113400ff0e892dd2ed1e517f243a8"
+    },
+    {
+      "path": "raw/dipo-run.json",
+      "role": "Native Dipo tokenizer and EDU bounds with recursive coherent fallback, run 447/cut 550",
+      "sha256": "2a3e4e49fddd3a61a2d03c33e520ee4173640512779b5a54216848a22940fc96"
+    },
+    {
+      "path": "raw/dipo-reduced-run.json",
+      "role": "Native Dipo reduced parent with one successful child and one EDU-limited child recursively recovered, run 448/cut 551",
+      "sha256": "8fe2abb9f311d052b6d957c794d1c8afb92b7b49ddc7be73d3fe747d8d98e2ff"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Maverick parent scope",
+      "value": 1,
+      "of": 1,
+      "unit": "limited",
+      "note": "Run 446 task 2154 at [811,4564) was limited by post_tokenizer_tokens."
+    },
+    {
+      "name": "Maverick successful coherent children",
+      "value": 2,
+      "of": 2,
+      "unit": "scopes",
+      "note": "Tasks 2155 and 2156 succeeded with 54 and 38 emitted mentions."
+    },
+    {
+      "name": "Initial Dipo scopes limited by tokenizer or EDU bounds",
+      "value": 5,
+      "of": 5,
+      "unit": "scopes",
+      "note": "Run 447: parent task 2157 hit post_tokenizer_tokens; initial children 2158–2159 hit edus."
+    },
+    {
+      "name": "Initial Dipo successful recursive descendants",
+      "value": 4,
+      "of": 4,
+      "unit": "scopes",
+      "note": "Run 447 tasks 2160–2163 emitted 177, 201, 189 and 191 products."
+    },
+    {
+      "name": "Reduced Dipo parent tokenizer limit",
+      "value": 1,
+      "of": 1,
+      "unit": "scope",
+      "note": "Run 448 task 2164 at [811,10578) was limited by post_tokenizer_tokens."
+    },
+    {
+      "name": "Reduced Dipo first child succeeded",
+      "value": 1,
+      "of": 1,
+      "unit": "scope",
+      "note": "Task 2165 at [811,5688) emitted 237 products."
+    },
+    {
+      "name": "Reduced Dipo second child recursive EDU recovery",
+      "value": 2,
+      "of": 2,
+      "unit": "scopes",
+      "note": "Task 2166 was limited by edus; descendants 2167 and 2168 emitted 147 and 135 products."
+    },
+    {
+      "name": "Runs settled with no unresolved agent tasks",
+      "value": 3,
+      "of": 3,
+      "unit": "runs",
+      "note": "Runs 446–448 report finished, completed readiness, terminal supervisors."
+    },
+    {
+      "name": "Protected quality grade or downstream consumer gain",
+      "value": "not_run",
+      "of": null,
+      "unit": "assessment",
+      "note": "Fallback execution establishes coverage behavior only."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The admitted PM2 release successfully exercised Maverick token-bound fallback and Dipo tokenizer- and EDU-bound recursive fallback on authenticated retained Standard/Nemotron source. Limited parents and intermediate scopes were retained beside successful sentence-coherent descendants, with parent input lineage and explicit unexamined cross-boundary scope. One superseded release's source-analysis refusal is preserved. These native runs do not establish parser quality, calibration, referent correctness, EDU quality, downstream consumer improvement, or release adoption.",
+  "consumed_by": [
+    "PM2-04",
+    "PM2-05"
+  ]
+}

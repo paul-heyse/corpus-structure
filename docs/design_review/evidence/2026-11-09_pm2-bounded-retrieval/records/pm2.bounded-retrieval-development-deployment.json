@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "id": "pm2.bounded-retrieval-development-deployment",
+  "title": "Bounded contextual retrieval development deployment",
+  "group": "pm2-bounded-retrieval",
+  "package": "PM2-09",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can exact matched carrier selection be deployed with the ordinary /10 contract intact?",
+  "answers": [
+    "PM2-09",
+    "PM2-11"
+  ],
+  "method": "Inspect the managed rollback candidate and register and deploy its exact native revision to the acquired development database.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-09_pm2-bounded-retrieval/model-change.yaml --json",
+    "uv run ci model change candidate 2abcfa53ef014621b9ac88c4c407a54a --json",
+    "uv run ci model change register fd0d93f7cd6d48d88c4be33cc4608b33 --json",
+    "uv run ci model change deploy fd0d93f7cd6d48d88c4be33cc4608b33 --json"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "PostgreSQL and the managed target check independently bind the native guards."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "model-change.yaml",
+      "role": "Frozen development change",
+      "sha256": "2d888f1f1903c2fc414d3e36144ef8d735e60216ad58e8a6e39f7d366f8ccd09"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/preview.json",
+      "role": "Managed candidate workflow receipt",
+      "sha256": "5bcd8c53b78f229a1a0f0af377563ab9c8119a9f2bfa61d537250604fbd034e7"
+    },
+    {
+      "path": "raw/candidate.json",
+      "role": "Managed candidate workflow receipt",
+      "sha256": "a5da44c63949306a99e4af846cd3be090ef9fce7cd5153e91d4322d3a4d24c6d"
+    },
+    {
+      "path": "raw/register.json",
+      "role": "Managed candidate workflow receipt",
+      "sha256": "cbe7bf4b3be66afe96d840a2b796cdd2dc38c33ab4c0f8db627a5e660519e2bd"
+    },
+    {
+      "path": "raw/deploy.json",
+      "role": "Managed candidate workflow receipt",
+      "sha256": "bcf877e94ccc9341d4ef27851fe6e0dedd78f2e155cf1fe2cdb6ccd598b594f3"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-native-definition/pm2.native-definition-development-deployment"
+  ],
+  "results": [
+    {
+      "name": "Native changes",
+      "value": 2,
+      "of": null,
+      "unit": "operations",
+      "note": "No physical changes; existing validator and its catalog record."
+    },
+    {
+      "name": "Reached revision",
+      "value": "semantic_pm2_bounded_retrieval",
+      "of": null,
+      "unit": null,
+      "note": "Ordinary release identity unchanged; project unselected."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Rollback candidate, registration and development deployment passed. The existing /10 configuration schema and ordinary release remain unchanged. This record does not establish paired ranking or public selection.",
+  "consumed_by": [
+    "PM2-09",
+    "PM2-11",
+    "PM2-12"
+  ]
+}

@@ -1,0 +1,6 @@
+baseline: e2f52ef61
+packs: [statistics]
+native_predecessor: semantic_pm2_definition_chain
+native_revision: semantic_pm2_bounded_retrieval
+deployment: true
+deployment_profile: development

@@ -138,6 +138,15 @@ refuse a missing or incompatible declaration and verify an admitted useful part
 survives a failed sibling. PM2-11 owns the independent expectations. The business case
 establishes contract configurability within its fixture, not cross-corpus qualification.
 
+**Private partial delivery · 2026-11-09.** The [condition Reader](../../design_review/evidence/2026-11-09_pm2-condition-composition/README.md)
+projects exact qualifier, host and optional host reading from the same selected
+task, source and scope. The retained textbook result agreed across CLI and fresh
+MCP. Controlled cases show that a refused edge leaves its cue, competing frames
+and host reading available. Public admission needs a released directed statement
+with exact qualifier and host predicate-member anchors, its own independent
+protected judgments, and the matching native eligibility rule. The existing
+public contextual relation rule cannot represent that evidence.
+
 <a id="PM2-09"></a>
 
 ## PM2-09 · Improve candidate context using Sentence Transformers
@@ -145,16 +154,16 @@ establishes contract configurability within its fixture, not cross-corpus qualif
 **Implemented · 2026-11-09.** The opt-in `retrieve.contextual/11` renderers add one exact parser
 signal: a frame, a preceding local referent, or a Dipo neighbor. They preserve
 the original lexical literal, target encoding/cache and witnessed selection.
-Existing `retrieve.contextual/10` configurations retain their stored identity when the optional
-exact carrier selection is omitted.
+Existing `retrieve.contextual/10` configurations retain their registered shape.
+Explicit carrier selection belongs to the opt-in `/11` operation.
 The private evidence runner explicitly registers the enriched arm through
 the existing source-method runner. The ordinary Phase 0 registry still
 selects v10.
 The frozen-list Reader resolved 14 exact definition alternatives in retained
 run 258 and refused a changed source. That verifies lookup; the retained 14
-alternatives exceed the d1 input cap of 12. The same-release paired comparison, d1 consumption
-on that paired path, and an end-to-end native v11 delivery remain open. The existing rendering
-stays the default.
+alternatives exceed the d1 input cap of 12. The later bounded binomial comparison passed
+with one exact target per arm, including d1 consumption and offline proof. The existing
+rendering stays the default; a protected comparison needs a competitive eligible inventory.
 
 **Detached v11 receipts · tested on a controlled fixture, 2026-11-09.**
 `ci review export SELECTION DESTINATION --exact-closure` includes the parser contribution and
@@ -235,14 +244,16 @@ version-2 ordered declaration. The formal affine control passed. The
 [native definition registry read](../../design_review/evidence/2026-11-09_pm2-native-definition/records/pm2.declaration-retrieval-eligibility.json)
 also accepted the exact binomial target from run 445/cut 548. Both remain private.
 The affine report contains 389 located participants, beyond the 256-item encoder
-population bound. Its bounded carrier field changed the stored /10 configuration schema,
-so an unchanged /10 contract cannot express the needed exact selection. The paired
-control must use the incumbent literal rendering with the same exact carrier input
-contract as the enriched arm; preserve the earlier frozen reference and its blocked attempt.
+population bound. The registered /10 schema cannot express the exact selection.
+The opt-in /11 contract supports the incumbent literal rendering under an explicit
+carrier set and binds the enriched arm to that same set. Preserve the earlier
+frozen /10-versus-/11 reference and its blocked attempt. Bind a new comparison
+to the two exact configurations before ranking; this control leaves the ordinary
+/10 configuration and route intact.
 
 Run the affine pair separately from the binomial pair, whose carrier remains
 `extract.m1_candidates`. Use the same authenticated eligible definition inventory and keep the
-source, carrier selection, scope, encoder and bounds fixed within each v10/v11 pair. The scoped
+source, carrier selection, scope, encoder and bounds fixed within each matched pair. The scoped
 producer remains the source of affine syntax and the bounded M1 producer remains the source of
 the binomial use. If either the carrier or the eligible target is missing, retain the blocked
 preflight for that pair. Once both qualify, use the frozen top-10 frame for each applicable v11
@@ -250,6 +261,22 @@ signal separately. Report membership, rank and final selected meaning separately
 authenticated list within d1's 12-alternative limit to PM2-07.
 Require exact detached replay of the enriched rendering and preserved selection/refusal
 before proposing an ordinary default change. Ties or regressions retain v10.
+
+**Tested private binomial control · 2026-11-09.** The [matched native arms](../../design_review/evidence/2026-11-09_pm2-bounded-retrieval/README.md#native-binomial-control-and-d1-handoff)
+both returned the sole exact definition at rank 1 and selected no retrieval edge. d1
+consumed each exact list through the ordinary interpretation runner and proposed the
+same target. The enriched exact closure passed offline verification. These results
+establish availability and delivery at the frozen scope. The one-target inventory
+cannot discriminate rankings, and the development opportunity is already exposed.
+Keep a new protected comparison, a competitive eligible inventory and ordinary book
+delivery open. The `/10` default stays selected.
+
+The same evidence folder records the affine control: both exact /11 arms reached
+completed cuts after projecting only the requested carriers in PostgreSQL. The
+native producer independently returned no contribution for the frozen adverb.
+Both ranked arms retained X and Z without selecting a contextual link; this does
+not change the separately verified ordered Z declaration. The enriched affine
+exact closure passed offline verification as well.
 
 Reuse the existing contextual encoder, target registry, lexical channel, dense
 channels, bounded fusion and witnessed selection. The current profiles use

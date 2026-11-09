@@ -168,18 +168,18 @@ The existing task, result and host GPU owners retain their custody.
 | --- | --- |
 | PM2-00 | Passed for the frozen development source and explicitly scoped comparisons. |
 | PM2-01 | Exact maps, settled private outcomes and exact reuse are implemented. A differing original spelling and unattempted scope outcomes passed the native Reader controls. Integrated coverage and composed admission remain bounded by the [source contract evidence](production-milestone-two/source-contracts-and-model-execution.md#foundation-execution-evidence). |
-| PM2-02 | Initial native profiles passed the recorded development cases. The runner verifies isolated runtime identity before scheduling or reusing a task. [Provider-specific operating qualification](production-milestone-two/source-contracts-and-model-execution.md#foundation-execution-evidence) remains open. |
+| PM2-02 | The runner verifies isolated runtime identity before scheduling or reusing a task. Native startup refusal, cancellation and exact recovery passed at recorded scopes; Maverick and Dipo also passed exact bounded fallback. Integrated operating qualification remains with [the source and runtime owner](production-milestone-two/source-contracts-and-model-execution.md#foundation-execution-evidence). |
 
 ## Review disposition
 
 | Package | Current execution disposition · 2026-11-09 |
 | --- | --- |
 | PM2-06 | Ordinary bounded parser modes remain selected for development. The [optional-mode disposition](production-milestone-two/linguistic-referential-discourse.md#PM2-06) records the observed gaps and the evidence needed to revisit them. |
-| PM2-07 | Private CUDA execution and located typed reads are implemented. The v2 pair verified exact normalization of the fair-coin probability; roulette magnitude, condition host and local referent remain unsupported. Exact GLiNER2 diagnostics now distinguish raw proposal loss from decoder loss on six retained windows. A like-for-like GLiNER/spaCy comparison and a native journey from a frozen retrieval list to d1 remain open. |
-| PM2-08 | The fair-coin no-match is inspectable through CLI, MCP and detached proof. The revised exact quantity is inspectable through CLI and detached proof. Typed parser contracts and a release-aware safeguard for local condition attachments are implemented. The assembled selection and public admission from the private products remain open. |
-| PM2-09 | The typed frozen-list read is verified. Three v11 context recipes remain in the explicit evidence runner. Exact detached reconstruction of a retained frame signal passed a fixture and substitution controls. Paired native ranking and book export remain open. |
+| PM2-07 | Private CUDA execution and located typed reads are implemented. The v2 pair verified exact normalization of the fair-coin probability; roulette magnitude, condition host and local referent remain unsupported. Exact GLiNER2 diagnostics distinguish raw proposal loss from decoder loss on six retained windows. The matched binomial lists passed the native d1 handoff and produced the same private proposal. A like-for-like GLiNER/spaCy comparison and protected retrieval-fed interpretation remain open. |
+| PM2-08 | The fair-coin no-match is inspectable through CLI, MCP and detached proof. The revised exact quantity is inspectable through CLI and detached proof. The private Reader projects the exact condition and host and preserves useful siblings on refusal; the retained textbook attachment passed CLI and fresh MCP. Public admission and its detached journey remain open. |
+| PM2-09 | The typed frozen-list read is verified. The exact-carrier v11 literal control preserves the registered v10 default. Both native binomial arms found the sole exact definition at rank 1; the enriched arm passed detached replay. Both affine arms retained X and Z and selected no link. A protected comparison with a competitive eligible inventory and book export remain open. |
 | PM2-10 | Visual interpretation remains off. No selected case justifies an additional visual question. The [revisit trigger](production-milestone-two/retrieval-composition-and-delivery.md#PM2-10) requires a named material ambiguity on an authorized region. |
-| PM2-11 | The [paired d1 runs](../design_review/evidence/2026-11-09_pm2-interpretation-pair/README.md) used the same protected opportunities and inputs. Exact fair-coin probability normalization improved; the definition control held; roulette loss, host and referent remain unsupported. Both affine carriers have since been recovered from exact source; the paired retrieval still needs an eligible definition target and a fresh qualifying declaration witness for the affirmative affine control. v10 remains the default. |
+| PM2-11 | The [paired d1 runs](../design_review/evidence/2026-11-09_pm2-interpretation-pair/README.md) used the same protected opportunities and inputs. Exact fair-coin probability normalization improved; the definition control held; roulette loss, host and referent remain unsupported. Native exact affine assessment passed. Both exact binomial lists produced the same private d1 proposal; protected retrieval-fed interpretation and public condition grading remain open. |
 | PM2-12 | Full-book derivation and selection remain open pending scoped acceptance and an [eligible DMA-13 predecessor](domain-model-alignment_2026-11-08.md#dma-13). Evaluations 42 and 43 leave both private predecessor candidates ineligible. All 29 Standard and Nemotron views still resolve identically; no new recognition is indicated. Chandra is excluded. |
 
 | Review opportunity | Proposed disposition and closure owner |
@@ -326,6 +326,12 @@ the incumbent service and reproduced the earlier result on a fresh worker. Earli
 provider bounds and d1 cancellation keep their recorded scope. The probe does not
 supply missing composed Reader or assessment evidence.
 
+The [native scope fallback](../design_review/evidence/2026-11-09_pm2-scope-fallback/README.md)
+retains the Maverick token-limited parent and both successful sentence-aligned children.
+Dipo's two runs retain the distinct tokenizer and EDU limits and all successful leaf scopes.
+Each fallback scope has a fresh input identity bound to its exact parent. This is bounded
+runtime evidence; it does not qualify combined book interpretation.
+
 The [declaration-chain replay](../design_review/evidence/2026-11-09_pm2-definition-chain/README.md)
 reused the genuine retained HanLP reply after independently reconstructing its
 exact repaired inputs. Both local parameter bindings and the unique constructed
@@ -341,6 +347,29 @@ altered anchors, omitted eligible rows and mismatched scope. The distinct /11 pr
 privately deployed at `semantic_pm2_ordered_witness`. It settled Z on run 443/cut 545
 and preserved the unlinked X. The exact symbolic assessment passed on that retained
 result. Historical source and witness identities are preserved. Definition admission
-and ordered affine producer coverage have settled at their private scopes. Paired ranking
-still needs an exact-carrier control with a compatible registered schema. Public partial
-delivery and DMA-13 eligibility remain open.
+and ordered affine producer coverage have settled at their private scopes.
+
+The [bounded retrieval deployment](../design_review/evidence/2026-11-09_pm2-bounded-retrieval/README.md)
+leaves the ordinary `/10` schema and release intact. The two private binomial arms
+found the same sole target at rank 1 and selected no retrieval edge. d1 consumed each
+authenticated list and proposed that same target. The enriched result passed offline
+verification. The affine retries passed the exact two-carrier read using a bounded
+SQLAlchemy projection of the retained producer. Both arms preserved X and Z, with
+no selected link to the unrelated sole target. A ranking gain needs a competitive
+eligible inventory and independent same-question judgments. Public partial delivery
+and DMA-13 eligibility remain open.
+
+The [private condition Reader](../design_review/evidence/2026-11-09_pm2-condition-composition/README.md)
+resolves the directed qualifier and host under their exact retained scope. Controlled textbook
+and business cases preserve competing frames and the cue when admission is refused. The
+authentic textbook condition passed the existing CLI and fresh MCP journey. Public eligibility
+requires an independently adjudicated role-bound statement and matching native admission.
+
+**Scoped verification · 2026-11-09.** The managed `uv run ci test --json --` contextual
+candidate, native workflow and detached replay selection passed 39 tests
+(`36fcdd64387b47f8a05118d6786a5c28`). The broader affected selection passed 122 and
+reported one blocked opt-in provider test (`1d4ead3890ee4c2db39fb6aec04da42b`). That
+exact alternate-domain parser test passed with the locked model assets
+(`c0c9d41241494580aff3d4fb7e63f9a4`). `uv run ci check --only types` passed.
+These selections cover the stated changes; the applicable full qualification union
+remains with PM2-12.

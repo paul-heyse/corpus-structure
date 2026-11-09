@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "id": "pm2.binomial-retrieval-d1-control",
+  "title": "Native binomial retrieval and frozen-list d1 comparison",
+  "group": "pm2-bounded-retrieval",
+  "package": "PM2-09",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can both exact retrieval arms expose the same definition to the released contextual-link question, and can the enriched signal replay offline?",
+  "answers": [
+    "PM2-09",
+    "PM2-11"
+  ],
+  "method": "Freeze both configurations before ranking, authenticate the exact completed lists through the existing Reader, then submit the same released d1 question under both list bindings and verify a detached enriched export.",
+  "commands": [
+    "uv run ci run parsers --request docs/design_review/evidence/2026-11-09_pm2-bounded-retrieval/raw/dipo-request.json --json",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-bounded-retrieval/run_control.py run literal docs/design_review/evidence/2026-11-09_pm2-bounded-retrieval/raw/binomial-frozen.json",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-bounded-retrieval/run_control.py run enriched docs/design_review/evidence/2026-11-09_pm2-bounded-retrieval/raw/binomial-frozen.json",
+    "uv run ci run finalize 450 --output-realization private:pm2-bounded-retrieval:450 --json",
+    "uv run ci run finalize 452 --output-realization private:pm2-bounded-retrieval:452 --json",
+    "uv run ci run interpret --request docs/design_review/evidence/2026-11-09_pm2-bounded-retrieval/raw/interpretation-request.json --json",
+    "uv run ci review export docs/design_review/evidence/2026-11-09_pm2-bounded-retrieval/raw/binomial-review-selection.json build/models/pm2/bounded-binomial-review --exact-closure --json",
+    "uv run ci review verify build/models/pm2/bounded-binomial-review --json"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "PostgreSQL and the managed target check independently bind the native guards."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "run_control.py",
+      "role": "Frozen source, arm or proof input",
+      "sha256": "ede5e177fc6b1dd6c6336887c8950156b80188ab1af48cc565405ae8ef04c300"
+    },
+    {
+      "path": "raw/dipo-request.json",
+      "role": "Frozen source, arm or proof input",
+      "sha256": "93e2dbbca3aac711923ca8675477f16fd84a9f4796bef0af9b4719115019a3e8"
+    },
+    {
+      "path": "raw/binomial-frozen.json",
+      "role": "Frozen source, arm or proof input",
+      "sha256": "b7668ce9fc72acc8a62374de27f9cde61e0c2a523a84fa282dff95fe7400fa7e"
+    },
+    {
+      "path": "raw/binomial-context.json",
+      "role": "Frozen source, arm or proof input",
+      "sha256": "6d38d866ab7e66a09b3a2600eaf309f91b1f1f24c17ac6f741484ec1f340d006"
+    },
+    {
+      "path": "raw/interpretation-request.json",
+      "role": "Frozen source, arm or proof input",
+      "sha256": "eb859ca51df0da15456a151032fdc44cd2060b389a018ec639ffaa71560584db"
+    },
+    {
+      "path": "raw/binomial-review-selection.json",
+      "role": "Frozen source, arm or proof input",
+      "sha256": "b4f6c0948aee948eb6c56f7e77e75bdbe0d92eeab1ad8fe7973de28d652a15cd"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/dipo-result.json",
+      "role": "Native or detached result",
+      "sha256": "00a82a9b30bb28eca9b82e84d0a0fd832d154f6a212635185698aa137f12a1a7"
+    },
+    {
+      "path": "raw/binomial-literal-ready.json",
+      "role": "Native or detached result",
+      "sha256": "62215242bbf358b16a130a16feee061fa5cdb719730be1e9983a60331a7080fa"
+    },
+    {
+      "path": "raw/binomial-literal-completed.json",
+      "role": "Native or detached result",
+      "sha256": "3b8992e5f842dda64c8c9d26d29aea1c60975fe929383e09778b44a7f10a7e63"
+    },
+    {
+      "path": "raw/binomial-literal-reader.json",
+      "role": "Native or detached result",
+      "sha256": "5ce93aa958631a0fc651c74e0fdcfd3836fd826176317068cdfd8a1e2674615f"
+    },
+    {
+      "path": "raw/binomial-enriched-ready.json",
+      "role": "Native or detached result",
+      "sha256": "d5cb94bb7ed00fcd4dcb3b2e611968c48407c8adb38806a7e6a4c46d89c6e71f"
+    },
+    {
+      "path": "raw/binomial-enriched-completed.json",
+      "role": "Native or detached result",
+      "sha256": "64f5470ebf52bf15239d61c965ec4fec16df9b9ffcc46b91e40584b2c9d1f29d"
+    },
+    {
+      "path": "raw/binomial-enriched-reader.json",
+      "role": "Native or detached result",
+      "sha256": "332a85b67bd57b914efbc7e1162799be8bc76ec33923bf5c3f4db512db1372d6"
+    },
+    {
+      "path": "raw/interpretation-result.json",
+      "role": "Native or detached result",
+      "sha256": "a0ae6105ee8124ef3ebc62709fd23374e59c6c665430c90a8bd99fd41ca44a2b"
+    },
+    {
+      "path": "raw/interpretation-reader.json",
+      "role": "Native or detached result",
+      "sha256": "24dbfa0843a8ef1bc4740f3a1a1a49ec9163b67b8d1c06d3950e39f921aee584"
+    },
+    {
+      "path": "raw/binomial-review-export.json",
+      "role": "Native or detached result",
+      "sha256": "7e7a9ef01154da4a8156f5b66a8abce59ae491107855d5e680a9f757ccbc71f8"
+    },
+    {
+      "path": "raw/binomial-review-verified.json",
+      "role": "Native or detached result",
+      "sha256": "9b6b51c78248c18fcfd01f2f5b0ed952ceda848de2548d86dc78ec0f28ddcc46"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-bounded-retrieval/pm2.bounded-retrieval-development-deployment",
+    "2026-11-09_pm2-native-definition/pm2.declaration-retrieval-eligibility"
+  ],
+  "results": [
+    {
+      "name": "Exact target rank",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": "Both arms on the same one-target inventory; neither selected a semantic edge."
+    },
+    {
+      "name": "Native d1 proposals",
+      "value": 2,
+      "of": null,
+      "unit": "tasks",
+      "note": "Both proposed the same sole exact target; no public standing."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The binomial control verified exact same-target availability, native frozen-list interpretation on both arms and exact enriched detached reconstruction. It cannot establish a rank gain, a protected grade or public eligibility.",
+  "consumed_by": [
+    "PM2-09",
+    "PM2-11",
+    "PM2-12"
+  ]
+}
