@@ -3,8 +3,9 @@
 **Status: Proposed · 2026-11-08.** This coordinator owns PM2-00–PM2-12, shared decisions,
 scheduled M2 review disposition and milestone qualification. The [functional review](../functional_reviews/production-milestone-two_2026-11-08.md)
 at `971111baf` governs the recommendation baseline. Its [two-pass design input](../target-pipeline-design/production-milestone-two.md)
-was recorded at `4c71fa3f4`. Product source and the five model guides were inspected at
-`c55b1873e`. The Transformers and Sentence Transformers guides were recorded at
+was recorded at `4c71fa3f4`. The five model guides were inspected at
+`c55b1873e`. The current integration baseline was inspected at `fc111e466`.
+The Transformers and Sentence Transformers guides were recorded at
 `f6b8612be`. Consuming packages cite their mechanisms and source. This
 series proposes work and records the operator's corpus and design boundary. Package
 implementation and M2 checkpoint qualification are `not_run`.
@@ -38,10 +39,21 @@ on this exposed source establish textbook behavior within the tested release.
 
 | Inspected foundation | Design consequence |
 | --- | --- |
-| Selected source views, exact native pieces, atom-preserving annotation layouts, source pins and projection witnesses | Reuse their authoritative coordinates. Add narrow provider-specific mappings over them. A provider rendering can supply a candidate while an ambiguous mapping withholds an exact assertion. [Source projection owner](domain-model-alignment/source-projection.md) |
-| Existing predicate-frame consumer of spaCy annotations and the M1 literal-only GLiNER caller plus exact retained-frame qualifier logic in `4a55713a5` and focused corrections in `c55b1873e` | Preserve the existing comparator. Qualify a scheme-aware HanLP route before moving any consumer. The caller implementation and its focused checks do not close DMA-13. Use the selected qualified comparator when that owner settles it. [DMA-13](domain-model-alignment_2026-11-08.md#dma-13) |
+| Current v10 selected source views, ordered native fields, atom-preserving layouts and authenticated projection proofs | Use these coordinates for provider maps and the existing native and detached completeness checks. A provider rendering can supply a candidate while an ambiguous mapping withholds an exact witness. [Source projection owner](domain-model-alignment/source-projection.md) |
+| M1 literal-only GLiNER extraction and retained predicate-frame qualification, with the released `definition-scope-1` witness guard | Use scoped M1 execution evidence as a comparator. Preserve the strong retained-annotation route and qualify a scheme-aware HanLP route before migrating a consumer that relies on it. [Definition admission](domain-model-alignment/semantic-admission.md#DMA-05) |
 | Released operation/dependency model, immutable native task receipts, shared PostgreSQL admission, and protected references | Use these owners for effective profiles, operation outputs, retained witnesses and assessment. Keep observation, selection and admission separate. Maintain the current-only producer/consumer rule with supported archived reads. [Current-only decision](../adr/0067-witnessed-current-only-cutover.md) · [Semantic admission](domain-model-alignment/semantic-admission.md) |
 | E5 and Qwen role-aware encoders, frozen candidate inventories, typed relationship selection, and contribution and dossier reads | Extend anchored context and candidate availability through the same pipeline. A model score or extra candidate does not confer semantic standing. Make a separate consumer only if existing typed reads cannot deliver the required product. [Architecture map](../design/README.md) |
+
+**Development readiness, 2026-11-08.** The repaired development revision
+`semantic_dma_audit_current` is deployed and its release is archived and admitted.
+Source-only run 404 at cut 514 supplies the current source views. Private run 407
+at cut 517 settled all 29 annotation and 29 candidate tasks and supplies M1
+execution evidence at those scopes. Its grading attempt paired the full selected
+view's predictions with a one-sentence reference and produced no evaluation.
+The project has no active release or selected result. Final qualification and
+evaluated cutover remain with DMA-13 after the explicit-only Chandra change.
+[Deployment, private runs and grading](domain-model-alignment_2026-11-08.md#audit-repair-execution) ·
+[Qualification pause](domain-model-alignment_2026-11-08.md#qualification-pause--2026-11-08)
 
 ## Shared decisions and sequencing
 
@@ -78,7 +90,7 @@ implementation or evidence, rather than making a whole companion a prerequisite.
 
 | Package | Consumes | Delivers and closes when |
 | --- | --- | --- |
-| [PM2-00](#PM2-00) · Baseline and release boundary | Current tree, owning receipts and fixed source | Exact comparator and inherited authority recorded. A source-only reference frame is viable. |
+| [PM2-00](#PM2-00) · Baseline and release boundary | Current tree, DMA development receipts and cut 514 source | Exact source and scoped comparators recorded, with adoption readiness separately identified. |
 | [PM2-01](production-milestone-two/source-contracts-and-model-execution.md#PM2-01) · Source and result contracts | PM2-00 source identity | Exact typed maps, outcomes and same-release reuse through retained reads. |
 | [PM2-02](production-milestone-two/source-contracts-and-model-execution.md#PM2-02) · Worker qualification | PM2-00 target access, provider artifacts | Each initial provider has an executable locked profile and bounded attempt/failure evidence. |
 | [PM2-03](production-milestone-two/linguistic-referential-discourse.md#PM2-03) · HanLP | PM2-01 and own PM2-02 profile | Located frame candidates with native labels and no semantic regression on migrated consumers. |
@@ -96,17 +108,17 @@ implementation or evidence, rather than making a whole companion a prerequisite.
 
 ### PM2-00 · Freeze the comparable baseline
 
-Reconcile source and eligible execution/release identities with STATUS, DMA-13 and the
-current application. Preserve authenticated archived comparators as bounded reference
-evidence. Use the same source inventory for paired opportunities and the current
-qualified method as the primary comparison. Record when a historical result and a
-successor can be compared only on exact unchanged source and meaning. If DMA-13 still
-blocks selection, use the supported private source-only preparation and exact bounded
-controls for development. Keep PM2-12 open pending an eligible current predecessor
-rather than reopening the DMA investigation in this series. Close PM2-00 when the
-source/operation population can be frozen without provider outputs, baseline behavior
-and current cutover standing are separately identified, and each known comparator is
-either usable with explicit scope or has a named owner and prerequisite.
+Reconcile the acquired target, release, and source identities with STATUS and DMA-13
+at execution time. Start source-contract work, provider qualification, and independent
+reference preparation on the available development foundation. Use cut 514 for source
+preparation and cut 517 as the private M1 execution comparator where the selected
+source and operation scope correspond. Use the qualified predecessor for release
+comparisons once the owning evidence supplies it. Preserve historical WCE and NCE
+comparators at their original extent and require exact source and semantic
+correspondence before pairing. Close PM2-00 once the source opportunities can be
+frozen without predictions and each comparator's available scope and outstanding
+prerequisite are identified. PM2-12 requires an eligible predecessor, applicable
+qualification and effect authority. DMA-13 retains the grading and cutover obligations.
 
 ## Review disposition
 

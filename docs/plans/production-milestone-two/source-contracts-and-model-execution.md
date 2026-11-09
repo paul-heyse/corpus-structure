@@ -10,10 +10,11 @@ The provider companions own their task semantics and native-specific limits.
 
 ## PM2-01 · Map native observations to retained source
 
-Consume an authenticated selected source view and its existing prepared layout, ordered
-native pieces, synthetic separators and protected atoms. Use the existing source
-projection and anchor owners as the source of truth. Retain each request's selected
-scope and ordered provider-to-layout map. For HanLP and Maverick, bind canonical
+Consume the release-qualified `native-section-text-v10` view, its prepared layout,
+exact native product, ordered field addresses and pieces, synthetic separators and
+protected atoms. Preserve the selected `text` or `orig` field on each native piece.
+The projection and anchor owners determine this field choice. Retain each request's
+selected scope and ordered provider-to-layout map. For HanLP and Maverick, bind canonical
 tokens to the effective model tokens and their containing sentence. For Dipo, map
 native text and EDU boundaries through the actual parser input. For d1, map the
 serialized evidence strings and any media transform. Keep each coordinate space
@@ -21,6 +22,14 @@ named at the consuming boundary. Provider rendering, label normalization and sou
 coordinates are distinct. Preserve valid disjoint extents. A boundary inside an
 indivisible protected atom, a fabricated synthetic span, or an ambiguous mapping
 can produce a diagnostic with its input scope. It cannot supply an exact witness.
+
+Use existing native source publication and detached completeness replay. Bind the
+archived consumer policy to the selected projection and share one authenticated proof
+per native product across views and providers. The current exact-closure evidence
+covers view 382 at cut 517 under its recorded bounds. Preserve supported historical
+reads under their own recipes. Current provider inputs use the current released
+projection. [DMA projection and formula witnesses](../domain-model-alignment/source-projection.md) ·
+[Portable verification](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py)
 
 Use existing retained operation, report, and contribution contracts to express
 scope, native result and alignment availability. Reuse their vocabulary and
@@ -61,6 +70,9 @@ origins. An evaluation-reference compatibility finding does not license producer
 reuse across releases. [D6 local publication and reuse](../../design/D6-orchestration-metrics-policies.md)
 
 **Closure.** Independently specified source slices round-trip through all four maps.
+Keep the p416 and p418 original-spelling Reader, search and packet checks at their
+explicit work bounds. Native publication and detached replay refuse omitted or reordered
+required fields, substituted occurrences, and unauthenticated exclusions.
 Wrong-source, partial-atom and fabricated-offset controls yield inspectable typed
 outcomes and no exact witness. A changed downstream rule can consume unchanged
 eligible provider outputs, and a changed effective provider input cannot. Use a
@@ -74,6 +86,12 @@ coordinate details are qualified under each profile.
 ## PM2-02 · Qualify and operate the native provider profiles
 
 Use current run-owned task admission, fencing, worker cleanup and retained receipts.
+The existing claim renewal retries once after a retryable lock or statement timeout
+and confirmed rollback while the same running attempt still owns
+sufficient lease time. Keep that retry at the claim boundary, distinct from a new
+provider attempt. Preserve completed scopes when ownership expires or is reassigned.
+[Claim lifetime](../../../python/corpus-structure/src/corpus_structure/semantic/claim_lifetime.py)
+
 Each provider runs its native entry point in its exact compatible environment.
 Use a separate lock where package or interpreter compatibility, resource isolation,
 or cancellation requires it. Keep the application on CPython 3.14.10. Begin with
@@ -124,7 +142,8 @@ alternate runtime, export or co-resident profile only for a recorded operating
 problem, with matched native outputs and the relevant decision or calibration
 checks. Under each initial profile, record exact dependency locks and artifact
 hashes, a working native grounded output and explicit accepted bounds. Verify
-failed load, over-limit single input, cancellation, bounded retry and preservation
-of another provider's completed result. A proposed profile may remain blocked
+failed load, over-limit single input, cancellation, bounded retry, persistent
+contention, expiry and reassignment. Verify preservation of another provider's
+completed result. A proposed profile may remain blocked
 with the missing asset, compatible lock or device prerequisite recorded. Only
 its dependent scope waits. [D6 orchestration and GPU sharing](../../design/D6-orchestration-metrics-policies.md)

@@ -47,17 +47,28 @@ outside provider and selection inputs. Use the existing review and adjudication 
 ambiguous references. An explicit correction creates a revised frozen reference for both
 arms. [Operation assessment owner](../../../python/corpus-structure/src/corpus_structure/evaluate/operation_assessment.py)
 
-The primary comparator is the existing supported source, spaCy, GLiNER, scoped
-composition and lexical/E5/Qwen route for the same question under its ordinary entry
-points. Freeze its exact run/cut, semantic release, execution/provider profiles and
-evaluation frame. Reuse retained comparator output where its source and operation
-coverage match. Where they differ, rerun the supported comparator over the same
-authenticated source under its own pinned profile, with the same expected meaning and
-source opportunities. Use explicit correspondence for comparable outcomes produced by
-different operation versions. A result from a source-ready cut establishes source readiness.
-If the comparator cannot run or a material correspondence is unavailable, keep that
-comparison blocked. Earlier scoped receipts are named controls at their recorded extent.
-DMA-13 retains its cutover and baseline qualification. [DMA-13](../domain-model-alignment_2026-11-08.md#dma-13)
+Freeze each comparator's exact run/cut, semantic release, execution/provider profiles,
+prediction scope and evaluation frame. Use run 404/cut 514 for current source-only
+reference preparation and run 407/cut 517 as private M1 execution evidence where its
+scope corresponds. For release comparison use the eligible qualified predecessor's
+source, spaCy, GLiNER, scoped composition and lexical/E5/Qwen route for the same
+question. Reuse its exact output where applicable. Rerun through its ordinary pinned
+route when output is missing and the same scope can be reproduced. Require explicit
+source and semantic correspondence across operation versions. Retain historical
+controls at their recorded extent. DMA-13 owns predecessor qualification and cutover.
+[DMA-13](../domain-model-alignment_2026-11-08.md#dma-13)
+
+Freeze the independent reference and prediction scope together before opening results.
+For record evaluation, author full-view independent references when the supported route
+supplies full-view predictions. A bounded reference is usable when a supported bounded
+prediction route covers the same frozen scope in both arms. If neither route is
+available, keep the comparison open. Preserve the exact evaluation-cut guard and
+the run 407/set 32 refusal as a regression case. Set 32 covers one sentence and the
+evaluator supplied the full view, so the attempt produced no evaluation. Preserve
+authoritative resolver failure or empty outcomes without substituting raw candidates.
+Continue source-first reference work independently of the open release comparison.
+[Retained grading refusal](../../design_review/evidence/2026-11-08_dma-audit-repair/README.md#private-full-book-replacement) ·
+[Evaluation cut guard](../../../python/corpus-structure/src/corpus_structure/evaluate/record_alignment.py)
 
 Compare complete paired opportunity inventories. Preserve attempted scope and outcome
 for each arm, including successful empty, failed, cancelled, unsupported, ineligible,
@@ -77,16 +88,16 @@ diagnostic groups of one exposed origin. [D7 evaluation design](../../design/D7-
 
 | Question and affected package | Paired control and required independent observation |
 | --- | --- |
-| Source and bounded execution, PM2-01/02 | Recover the exact p416 formula and p151 visual manifest through the existing native and Reader routes. Check ordered text inventory, caption and block identity, formula/reference atoms, repeated spelling, Unicode, split subwords, escaped JSON and synthetic boundaries. Fail one provider after source settlement and verify that ordinary Reader and fresh MCP still deliver the exact surviving contribution and report the uncovered scope. |
-| Syntax to useful frames, PM2-03 and relevant PM2-06 modes | Compare spaCy with HanLP core heads, then Large/Base and one added head or transformation on the same frame opportunities. Review predicate presence, native argument boundaries/roles, released role mapping and qualifier-to-host attachment independently. Include passive and coordinated clauses, nested scope and a qualifier adjacent to a protected atom. Preserve the p289 positive-variance condition and both actual anchors. |
+| Source and bounded execution, PM2-01/02 | Preserve p416 and p418 originals through Reader, search and packet, plus the p151 visual manifest. Check v10 proof refusal for omitted or reordered fields, occurrence substitution and unauthenticated exclusions, alongside Unicode, protected atoms and synthetic boundaries. Verify retry after confirmed rollback, persistent contention, and expiry or reassignment. Fail one provider after source settlement and verify the surviving contribution and uncovered scope through Reader and fresh MCP. |
+| Syntax to useful frames, PM2-03 and relevant PM2-06 modes | Compare spaCy with HanLP core heads, then Large/Base and one added head or transformation on the same frame opportunities. Review predicate presence, native argument boundaries/roles, released role mapping and qualifier-to-host attachment independently. Preserve the p289 positive-variance condition and both anchors. For strong definitions, test defining-act versus content qualification, reported and conditional acts, competing bindings and unresolved demonstratives in producer, native and detached paths. |
 | Local reference, PM2-04 and relevant PM2-06 modes | Compare the current scoped reference route with Maverick. Pair model mentions with reviewed mention input on the identical scope to locate detection versus clustering errors. Review nested mentions, false merges, split chains, ambiguous/null antecedents and participant-binding consequences. Preserve the complete antecedent for “This set of points.” Joint mode adds one-section parity, a genuinely useful cross-boundary chain, a false-merge control and budgeted fallback. Use upstream metric primitives only after an independent asymmetric precision/recall case and declared singleton convention pass. |
 | Discourse and attachments, PM2-05 and relevant PM2-06 modes | Pair learned versus layout-forced parsing of the same raw source. Separately compare supplied and predicted EDUs through `predict_both()` under its reconstructed input. Independently grade boundary/coverage, parent yield, ordered split, nuclearity and relation. Include a missing child and a wrong split to distinguish the causes. Keep unavailable trees in the frame. Measure whether discourse helps downstream premise or explanation attachment. |
 | Source-only capture, typed reads and interpretation, PM2-07 | Compare the current literal-only GLiNER plus grounded predicate-frame route, d1 source discovery, d1 on supplied current candidates and d1 on reviewed candidates, each where it answers the same named question. Review capture, candidate availability, choice, no-match, abstention, literal span, normalization and qualification separately. Include a source-backed missed candidate, candidate text that repeats a literal, ambiguous or unstated qualifiers, order/wording changes, and a misleading attribution. Inspect exact source evidence even when conversion fails. |
 | Scoped composition and contextual retrieval, PM2-08/09 | Compare independently correct anchored parts and complete products separately. Review a premise, a reference, and a locally resolvable occurrence when one downstream contribution fails or an attachment stays unresolved. Preserve Section 5.1's typed citation, the unresolved affine `X` with its candidate list, and `Z`'s witnessed declaration. Compare candidate availability and rank before interpretation on paired target inventories, then assess selected relation and provenance independently. A correctly rejected top-ranked candidate remains unselected. |
-| Conditional visual ambiguity, PM2-10 | Compare the current typed visual or text route with a named d1 visual question over the same authenticated figure, table, or crop. Independently review the claimed location, mapped source region and interpretation. Check wrong-crop refusal, repeated labels and an abstention, and preserve the p151 artifact binding. Additional region proposals qualify only when they contribute a supported distinction that changes the intended consumer's answer. |
+| Conditional visual ambiguity, PM2-10 | Compare the current typed visual or text route with an authorized d1 question over the same authenticated region. Use Chandra only as an explicit comparator if selected. Verify wrong-crop refusal, sparse and empty bounded reads, read-only diagnostics, retired-resume refusal, preservation on interruption and the p151 artifact binding. Review location and interpretation independently. Qualify only a supported distinction that changes the intended consumer's answer. |
 
 [Retained textbook examples and scope limits](../../examples/README.md) ·
-[p416 source custody](../domain-model-alignment/source-projection.md#DMA-07) ·
+[p416 and p418 source custody](../domain-model-alignment/source-projection.md#DMA-07) ·
 [p151 typed visual reads](../domain-model-alignment/visual-evidence.md#DMA-11)
 
 ### Decide what is good enough to activate
@@ -148,16 +159,20 @@ authority separate from a plan or assessment judgment.
 
 Use the existing release compiler, managed operation custody, PostgreSQL purpose roles
 and source selection. Preview an exact coordinated change only when released definitions,
-native admission or deployed storage require one. Use the existing rollback-only candidate
-route to prove an applicable native migration before a registered deployment. If contracts
-and storage already fit, use ordinary release preparation and admission. Resolve the
-authenticated whole-book source and prepare new derived products privately under the exact
+native admission or deployed storage require one. When a native change is needed, author a
+rollback-only candidate, register the exact frozen candidate, and verify the acquired target
+and its predecessor and reached-revision catalogs at the relevant effect boundaries. Analyze
+authored SQL in the restricted read context for the acquired physical model. Use the
+current Alembic generated-column comparator and native expression checks where applicable.
+If contracts and storage already fit, use ordinary release preparation and admission.
+Resolve the authenticated whole-book source and prepare new derived products privately under the exact
 intended release. Preserve recoverable older source, assessments, runs and receipts. Carry
 forward compatible products only when their semantic contract and authenticated dependencies
 still correspond. Regenerate insufficient derived artifacts. Apply current-only producer
 and consumer compatibility while keeping explicitly supported archived reads at their
 recorded meaning. [ADR-0067](../../adr/0067-witnessed-current-only-cutover.md) ·
-[Existing deployment and selection route](../../../.claude/skills/ci/references/database-and-model.md)
+[Existing deployment and selection route](../../../.claude/skills/ci/references/database-and-model.md) ·
+[Acquired target verification](../domain-model-alignment/release-and-deployment.md#DMA-02)
 
 Before promotion, use a pinned ordinary Reader, fresh MCP and managed CLI to read the
 staged release's named textbook journey. Inspect coverage, qualified and unresolved
@@ -167,10 +182,11 @@ release, predecessor, scope or stale continuation. Exercise interruption after a
 provider scope or durable release step. Verify the existing qualified selection remains
 readable until authorized activation and selection of the new result. Where the target
 has no selection, preserve that state and the supported archived reads. Resume from the
-acquired predecessor or reached revision and retained scope. If a native revision has
-committed, follow the owner's supported recovery route and record the durable boundary
-before attempting another effect. Effect reversal and run reselection have distinct
-contracts. Activation and run selection remain separate recorded effects. A configured
+acquired predecessor or reached revision and retained scope. Reconcile the durable
+effects and cleanup from the managed result by ID before retrying. Keep migration,
+archive, admission, evaluated acceptance, activation, run selection and retirement
+separately attributable. Use the existing owner to confirm a qualified replacement
+and dependency closure before retiring any incompatible derived results. A configured
 target, purpose roles and authority are prerequisites for a live promotion. If unavailable,
 leave live adoption open and report the independently qualified boundary.
 
@@ -182,11 +198,15 @@ and repository lanes, alongside declared native provider and assembled journeys.
 Use managed result IDs, actual commands, dated source/release/target bindings and
 declared test identities to account for the required union. Preserve original failed and
 interrupted records, using exact retry and `uv run ci test coverage` where applicable.
+Reconcile the applicable union after the explicit-only Chandra change. The interrupted
+DMA campaign, scoped retries and earlier live Chandra runs retain their original
+source, native and runtime bindings. DMA-13 owns the remaining predecessor evidence.
 Report `passed`, `failed`, `blocked` or `not_run` for each obligation. A mock, prior
 incompatible result or missing evidence cannot establish qualification. Keep operating
 claims within the tested envelope and corpus claims within the frozen opportunities.
 [Testing and managed results](../../../.claude/skills/ci/references/testing-and-results.md) ·
-[Review cadence](../../design_review/design_principles/binding/corpus-structure.md#reviews-in-this-repository)
+[Review cadence](../../design_review/design_principles/binding/corpus-structure.md#reviews-in-this-repository) ·
+[DMA qualification pause](../domain-model-alignment_2026-11-08.md#qualification-pause--2026-11-08)
 
 **Closure.** A selected M2 release requires the frozen full-book scope and accepted
 operation gains, retention of known controls and independent partial results, the

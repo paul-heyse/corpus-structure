@@ -61,6 +61,14 @@ Pyro only for a defined inference question beyond the finite route. Revisit Spli
 only for a selected identity-linkage question. [D5 consolidation](../../design/D5-consolidation-identity-confidence.md) ·
 [DMA support consistency](../domain-model-alignment/semantic-admission.md#DMA-04)
 
+For a definition, enforce the existing witness contract for its claimed basis.
+The strong matched-cue basis rederives the binding and scope from the exact retained
+annotations and released `definition-scope-1` policy. A genuine span or new model
+reading can support a separately attributed private candidate. Public eligibility
+still requires the independent protected evidence bound to the contribution.
+[DMA definition basis](../domain-model-alignment/semantic-admission.md#DMA-05) ·
+[Public eligibility](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_publication.sql)
+
 **Delivery and closure.** Use the existing contribution read facets and exact
 source and contextual readers. Expose operation outcomes, selected meanings,
 alternatives and public standing with bounded continuation under the same selection.
@@ -73,7 +81,12 @@ to show that source-first discovery can add a different useful part. Withhold
 one provider or attachment and verify the surviving contribution, source and gap
 through those same consumers. Extend the journey to each selected family. A new
 typed read earns scope only if the current consumers cannot deliver that behavior.
+Where portable delivery is required, use `progressive-review-bundle-2` and PM2-01's
+shared proof closure. Exercise authenticated exact closure and refusal for substituted
+or incomplete source custody. The retained view 382 export establishes its own
+delivery scope. Report larger requests that exceed hydration or row budgets explicitly.
 [D8 contribution inspection](../../design/D8-agent-and-query-interfaces.md#independent-contribution-inspection) ·
+[Bundle verification](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py) ·
 [Current Reader controls](../../examples/README.md)
 
 <a id="PM2-09"></a>
@@ -105,8 +118,11 @@ core. Authenticate reusable document vectors against exact rendered bytes,
 profile, representation, and source. A new context recipe invalidates changed
 vectors and affected candidate inventories. It need not recalculate unaffected
 target descriptors. Respect the existing limits on examined targets and retained
-pairs. Use the existing native candidate and storage path. An exact semantic
-search utility can serve a bounded comparison of ranking behavior under the same
+pairs. Use the existing native candidate and storage path. Preserve heading and
+dossier witnesses and their exact target, scope and release bindings through the
+common proof closure. New candidate context can change which targets are retrieved.
+Selection and evidence authority remain with the existing typed relation owner.
+An exact semantic search utility can serve a bounded comparison of ranking behavior under the same
 inputs. It does not replace native selection or prove semantic correctness.
 
 **Ordering versus retrieval versus meaning.** Evaluate the inventory first on
@@ -142,10 +158,12 @@ remains deferred. [Frozen inventory and fusion](../../../python/corpus-structure
 
 ## PM2-10 · Inspect an exact retained visual region when needed
 
-Run only for a named visual ambiguity where the existing text, geometry and
-candidate routes are insufficient. Start with a single exact retained crop and
-one released question. Compare current Reader/geometry and, where relevant,
-the existing Chandra candidate route on the same region. PM2-07's pinned d1
+Run only for an explicitly authorized question over an authenticated region
+where the existing text, geometry and candidates are insufficient. Start with a
+single exact retained crop. Compare current Reader/geometry and, where useful,
+explicit Chandra requests on the same region. `ci source visual-request` and
+`ci source visual-group` require named scopes. Chandra diagnostics and retained
+campaign receipts supply evidence without initiating recognition. PM2-07's pinned d1
 profile may use Choice, `box`, or bounded `boxes`. Bind the processor and
 image/render identity, crop-to-source transform, native normalized coordinates,
 presence, localization confidence and any count limit. Preserve original and
@@ -153,11 +171,22 @@ clipped coordinates when clipping is required. Withhold an exact source
 relationship when the region cannot map to the selected visual product.
 Keep source selection and publication under the existing visual owner.
 
+Use the scoped native visual locator to bound examined work before loading bodies.
+For Chandra comparisons, preserve exact crop, render, raw-response and mapping
+identities. Compatible replay can reuse authenticated settled raw responses with
+`unknown` standing even when provider files are unavailable. Keep that standing when
+mapping them again. Pre-change live
+runs 408, 410 and 411 and the 98 focused controls after the explicit-only change
+support separate scopes. Qualify the selected current route before activation.
+
 **Activation and closure.** Require a reviewed source ambiguity where the route
 adds distinct correct evidence and a wrong-crop and out-of-bounds control where
-it refuses attribution. Preserve prior valid source reads. If the textbook
+it refuses attribution. Exercise sparse and empty reads and bounded refusal.
+Verify diagnostics leave recognition untouched, retired resume refuses, and
+interruption preserves settled work and prior valid source reads. If the textbook
 provides no suitable ambiguity or the route adds no useful evidence, keep the
 profile off and record a trigger. Consider video or general visual replacement
 only under separate selected scope and custody. [Visual evidence owner](../domain-model-alignment/visual-evidence.md) ·
-[Chandra functional review](../../functional_reviews/chandra-2-post-nemotron_2026-11-08.md) ·
+[Explicit request owner](../../../python/corpus-structure/src/corpus_structure/semantic/visual_requests.py) ·
+[Retained live Chandra evidence](../../design_review/evidence/2026-11-08_dma-audit-repair/README.md#live-chandra-settlement-and-reuse) ·
 [Pinned d1 box implementation](https://huggingface.co/LiquidAI/d1-2B/blob/652f920e544ea37f81e4b0ce89b81d4ed0da90b1/box.py)

@@ -10,8 +10,9 @@ native M2 runtime and semantic qualification still pending.
 
 ## Shared integration boundary
 
-Consume PM2-01's selected source, prepared layout, canonical token and sentence IDs, and
-ordered source mapping. Use the runtime and artifact custody from PM2-02. Keep one adapter
+Consume PM2-01's release-qualified source view and native product, prepared layout,
+canonical token and sentence IDs, and ordered source mapping with each piece's retained
+field choice. Use the runtime and artifact custody from PM2-02. Keep one adapter
 per native contract. Each adapter emits typed, attributed observations under the existing
 contribution machinery. Each input scope records coverage and terminal outcome independently.
 A model or mode that fails, cannot run, or emits no result leaves other methods' observations
@@ -65,6 +66,18 @@ terminology. A reviewed dictionary override remains a separately attributed obse
 [Native output conventions](https://hanlp.hankcs.com/docs/data_format.html) ·
 [Predicate frames](../../../python/corpus-structure/src/corpus_structure/methods/predicate_frames.py) ·
 [Rule preparation](../../../python/corpus-structure/src/corpus_structure/methods/annotation_rules.py)
+
+**Strong definition witness.** Identify consumers that mint or use a
+`DefinitionBasisWitness`. The current `definition-scope-1` route binds the exact
+retained `extract.m1_annotations/2` task, source and rule, and requires complete
+`DEP`, `POS`, `SENT_START`, `LEMMA` and `TAG` columns. Preserve the spaCy-backed
+route for these consumers. HanLP can contribute separately located evidence. Any
+replacement strong witness needs a released scheme-aware contract and equivalent
+producer, native and detached checks. Exercise a qualification inside defining
+content versus a qualification of the defining act, reported and conditional
+acts, competing bindings, and unresolved demonstratives.
+[Definition witness owner](../domain-model-alignment/semantic-admission.md#DMA-05) ·
+[Portable witness replay](../../../python/corpus-structure/src/corpus_structure/serve/model_observation_replay.py)
 
 **Execution and closure.** Use actual subword lengths and sentence boundaries to form
 outer batches. The checkpoint's 8192 sequence setting and first-task sampler settings

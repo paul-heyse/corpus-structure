@@ -25,7 +25,7 @@ acquisition and execution. The release owns field kinds and role meanings.
 [GLiNER runtime profile](../../../python/corpus-structure/src/corpus_structure/methods/gliner.py) ·
 [GLiNER reference and addendum](../../libraries/parsing/gliner2.md)
 
-**Implemented baseline inspected at `c55b1873e`.** The M1 successor
+**Implemented baseline.** The current M1
 `extract.m1_candidates/10` builds the assertion pack with a natural predicate anchor and
 literal fields only. `AssertionQualification` attaches polarity or modality only when
 an exactly matched retained predicate frame supports the corresponding released role.
@@ -34,15 +34,26 @@ prefix as its natural anchor and attempt to convert it to a source offset. The r
 recovered a located predicate from the literal-only request. A located predicate without
 other required members remains partial. Other record families retain their current semantics.
 The repository's focused successor checks and replay have narrower scope than full-book
-qualification. DMA-13 retains the evaluated cutover obligation. Compare against the current
-admitted and qualified predecessor for the particular evaluation population, with the
-implemented successor as a separately identified arm wherever its assembled qualification
-is still open.
+qualification. Run 406 at cut 515 retained `positive` at `[24,32)` in the
+native assertion canary. Run 407 at cut 517 settled all 29 annotation and 29
+candidate tasks and repeated that literal. Use these results as private execution
+controls on corresponding source and operation scope. DMA-13 owns evaluated cutover.
+PM2-11 establishes the independent comparison population and release comparator.
+The completed projection's authoritative resolver result governs the comparison,
+including an empty or failed result. Preserve that outcome when upstream raw
+candidates are available.
 [Exact failing replay](../../design_review/evidence/2026-11-08_gliner-assertion-anchor/README.md) ·
 [Caller-side comparison](../../design_review/evidence/2026-11-08_gliner-caller-routing/README.md) ·
 [M1 producer](../../../python/corpus-structure/src/corpus_structure/methods/m1_source.py) ·
 [Predicate qualification](../../../python/corpus-structure/src/corpus_structure/methods/assertion_qualification.py) ·
-[DMA-13](../domain-model-alignment_2026-11-08.md#dma-13)
+[DMA canary and full-book evidence](../../design_review/evidence/2026-11-08_dma-audit-repair/README.md) ·
+[Prediction selection](../../../python/corpus-structure/src/corpus_structure/evaluate/record_references.py)
+
+For definition questions, d1 can propose a literal, premise or scope reading with its
+own grounded evidence. Preserve the released `definition-scope-1` route for strong
+matched-cue witnesses. A d1 output cannot substitute for the retained annotation task
+or the independently protected public eligibility decision. PM2-03 and PM2-08 own
+the witness and composition boundaries. [DMA-05](../domain-model-alignment/semantic-admission.md#DMA-05)
 
 Use schema descriptions and ordered field definitions as versioned inference inputs.
 Capture observed proposal availability separately from thresholding, classification and
@@ -159,7 +170,7 @@ under PM2-01's identity determinants.
 | `relation_interpretation_v1` | Two anchored products and alternatives within one declared relation family. Use exclusive Choice or binary `noul` with explicit positive and negative criteria. | Typed proposal and native probabilities. Source-reported reasons, author endorsement, and cause remain different propositions. |
 | `literal_completion_v1` | A nominated missing field and bounded exact source clause. Use `text`, `number` or `date`, with source-backed locale, units or reference events where required. | Exact phrase, separate normalization result and support state, or explicit unresolved result. Keep comparisons, relative anchors and units when grounded. |
 | `contextual_link_assessment_v1` | PM2-09's frozen lexical/embedding candidates and pinned contexts with scope and type data. Ask one declared link question per family. | Interpretation candidates keyed to the retrieval list. Preserve candidate availability, rank and semantic selection separately. Cross-chapter textbook controls exercise the same relation path used for other eligible scopes. |
-| `visual_location_v1` | Conditional PM2-10 route. An authenticated image/crop and a named ambiguity that text or geometry could not resolve. Use Choice or `box`/`boxes`. | Candidate location or reading with source transform, separate presence and localization quantities, and explicit instance limit. |
+| `visual_location_v1` | Conditional PM2-10 route. An explicitly authorized question over an authenticated image/crop for an ambiguity unresolved by text or geometry. Use Choice or `box`/`boxes`. | Candidate location or reading with source transform, separate presence and localization quantities, and explicit instance limit. |
 
 For source discovery keep an immutable source-only state and its exact reversible map.
 Candidate-centered questions separate `source` and `candidates` fields. Prefer a
@@ -191,7 +202,8 @@ not qualify source evidence.
 
 ### Integration and closure
 
-1. Consume PM2-01's source/identity contract and PM2-02's pinned runtime route. Verify
+1. Consume PM2-01's exact released view, native product and ordered field bindings,
+   and PM2-02's pinned runtime route. Verify
    the existing GLiNER source-only anchor comparator. Build an independent source-discovery
    and literal read path before requiring parser or retrieval results. Supply one located
    interpretation and unresolved result to PM2-08 early.
