@@ -5,8 +5,8 @@
 [Maverick O03](../../functional_reviews/production-milestone-two_2026-11-08.md#O03), and
 [Dipo O04](../../functional_reviews/production-milestone-two_2026-11-08.md#O04).
 The [coordinator](../production-milestone-two_2026-11-08.md) owns sequence and disposition.
-The review's interface-checked evidence establishes the inspected library behavior, with
-native M2 runtime and semantic qualification still pending.
+The 2026-11-08 native results cover the bounded private scopes below.
+Qualification at selected downstream consumers remains open.
 
 ## Shared integration boundary
 
@@ -215,7 +215,9 @@ Development admitted the parser release on `semantic_pm2_parser_methods`.
 Postmigration checks recovered the same 29 views in cuts 514 and 517 and read
 the retained HanLP task from cut 520. A fresh two-scope HanLP run sealed cut 522.
 The [qualification account](../../design_review/evidence/2026-11-08_pm2-parsers/README.md#development-deployment-and-qualification)
-records the passing private parser checks and the open repository-wide failures.
+records the passing private parser checks and the original repository-wide failures.
+The [completion audit](../production-milestone-two_2026-11-08.md#completion-audit)
+records the current scoped rerun and the still-open qualification union.
 PM2-11 owns paired release-level assessment.
 [Native execution receipt](../../design_review/evidence/2026-11-08_pm2-parsers/records/pm2.private-parser-stage.json) ·
 [Alternate vocabulary receipt](../../design_review/evidence/2026-11-08_pm2-parsers/records/pm2.alternate-vocabulary.json) ·
@@ -223,16 +225,16 @@ PM2-11 owns paired release-level assessment.
 
 | Package | Implemented private scope | Qualification boundary |
 | --- | --- | --- |
-| PM2-03 | Located UD and SRL predicate frames, constituency spans and candidate qualifier hosts. spaCy remains the producer for the released strong definition witness. | Matched M1 comparisons and demonstrated downstream benefit remain scoped to the independently assessed operations. Additional heads and consumer migration belong to PM2-06. |
-| PM2-04 | Separate detection, supplied mentions and local cluster memberships. A supplied-only unclustered mention remains inspectable. Coherent subdivision preserves the limited parent and exposes its children. | A local cluster proposes co-reference inside its examined section. Exact boundary errors, missing nested mentions, and competing antecedents remain visible in the assessment. Broader identity and calibrated ranking need separate evidence. |
-| PM2-05 | Ordered native trees, post-merge boundary provenance, reviewed-EDU pairing, and a bounded context selector over located leaves. | The scope controls distinguish segmentation from ordered split and label differences. PM2-08 owns use of the selector in the composed context product. |
+| PM2-03 | Located UD and SRL predicate frames, constituency spans and candidate qualifier hosts. spaCy remains the producer for the released strong definition witness. | The matched M1 → HanLP syntax → SRL comparison at the released consumer is open. The expanded variance case still missed the cue. Additional heads and consumer migration belong to PM2-06. |
+| PM2-04 | Separate detection, supplied mentions and local cluster memberships. A supplied-only unclustered mention remains inspectable. The common scope path preserves a limited parent when smaller scopes run. | The native competing-mention, cross-section coverage and Maverick-specific bounded fallback journey and local-reference comparison remain open. The retained book fallback was HanLP. Local clusters do not establish broader identity or calibrated ranking. |
+| PM2-05 | Ordered native trees, post-merge boundary provenance, reviewed-EDU pairing and a bounded context selector used by private reads and contextual query rendering. | The named cases distinguish segmentation, ordered split and labels. Native coherent-scope fallback and independent downstream improvement remain open. PM2-08 owns the typed composed context product. |
 
 The [parser design review](../../design_review/reviews/design_review_pm2-parsers_2026-11-08.md)
 owns the reviewed reasoning. The execution disposition is here.
 
 | Review finding | Execution disposition |
 | --- | --- |
-| F01 | Keep private products and native observations separate from admission. Parser values use the existing private contribution contract with provider-specific validation at conversion. Strong definition witness migration remains in PM2-06. |
+| F01 | Private conversion and Reader custody are implemented. Release-owned validation of parser payload shapes remains open for typed composition and selection; current fields are provider-validated inside private contribution values. Strong definition witness migration remains conditional in PM2-06. |
 | F02 | Authenticate the exact finished source and select parser results by task. A coherent split creates distinct scope inputs. |
 | F03 | Keep the native Dipo encoder window and decoder EDU guards separate. Validate both reconstructed arms and retain source gaps and unmapped items in the scope result. |
 

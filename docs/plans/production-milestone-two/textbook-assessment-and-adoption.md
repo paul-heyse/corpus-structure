@@ -157,6 +157,16 @@ incompatible relation to check explicit refusal. The fixture checks configurabil
 authority. Its output is outside the textbook comparison and supplies no new corpus
 qualification.
 
+**Completion audit · 2026-11-09.** Native alternate-vocabulary parser execution
+reached the private Reader with a failed sibling profile. The alternate d1
+fixture exercises release-declared questions and response conversion using a
+supplied reply. Keep both controls. Neither establishes the required alternate
+declared relation through operation selection, admission or explicit refusal,
+Reader and fresh MCP. PM2-11 retains that shared journey and the protected
+comparisons in the table above. The d1 v1/v2 pair qualifies one probability
+normalization gain at its frozen scope; the blocked retrieval comparison
+qualifies no ranking or selection change.
+
 **Closure.** The coordinator receives exact frame and comparator identities, named cases,
 paired changes and dispositions for each adopted operation. The report links source,
 observations, candidates, selected contribution and final consumer, showing one successful
@@ -171,8 +181,8 @@ retaining the earlier route with its reason and trigger.
 **Development only · 2026-11-09.** The acquired development database reached
 `semantic_pm2_def_scope_vars` through reviewed frozen candidates, with the same
 semantic release admitted. The paired results do not establish the required
-preservation and gain across selected operations. DMA-13's exact native grades
-did not qualify an eligible predecessor. The retained
+preservation and gain across selected operations. DMA-13's exact native
+evaluations 42 and 43 did not qualify an eligible predecessor. The retained
 Standard and Nemotron native product is intact; regenerate only selected
 derivations for the full-book release once their qualification scope is settled.
 Full-book derived qualification was `not_run` while these prerequisites remain
@@ -219,7 +229,9 @@ target, purpose roles and authority are prerequisites for a live promotion. If u
 leave live adoption open and report the independently qualified boundary.
 
 Use focused compile checks and `uv run ci test -- PATH` during an affected package.
-Follow the existing binding for formal target reviews and their evidence. At complete
+Follow the existing binding for formal target reviews and their evidence.
+The private parser review excludes the assembled delivery, admission and
+selection scope; the assembled review remains open. At complete
 selected implementation, run root maintenance `just turn-end` before final-source
 qualification. Run `uv run ci test --json` and `uv run ci check` for applicable functional
 and repository lanes, alongside declared native provider and assembled journeys.

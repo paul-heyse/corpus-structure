@@ -26,11 +26,13 @@ an independent definition function and a binary relation observation, returned
 no match for the fair-coin host, and returned missing candidate on the gambler
 referent with a grounded candidate available. Preserve those gaps as development
 findings. The [protected paired interpretation](../../design_review/evidence/2026-11-09_pm2-interpretation-pair/README.md)
-supports the v2 change to exact source-backed probability normalization and preserves
-the definition control. Roulette loss, condition host and local referent stayed
+supports the v2 change to exact source-backed probability normalization of
+`1/8` as `0.125` and preserves the definition control. v1 remains the default
+for the current private runner. Roulette loss, condition host and local referent stayed
 unsupported. The changed-candidate diagnostic kept the attachment misses separate
-from candidate availability. A matching GLiNER/spaCy comparison and wider d1
-interpretation qualification remain open.
+from candidate availability. A like-for-like GLiNER/spaCy comparison, a real
+d1 run from a qualified frozen retrieval list, and the successful composed
+attachment and selected-family consumer journeys remain open.
 
 ### Reuse GLiNER extraction and the current source qualification route
 

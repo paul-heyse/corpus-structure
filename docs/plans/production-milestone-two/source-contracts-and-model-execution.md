@@ -1,6 +1,6 @@
 # M2 source contracts and model execution
 
-**Foundation implemented · 2026-11-08.** Owns PM2-01 and PM2-02, realizing source review
+**Private foundation tested; full qualification open · 2026-11-09.** Owns PM2-01 and PM2-02, realizing source review
 [O01](../../functional_reviews/production-milestone-two_2026-11-08.md#O01) and
 [O08](../../functional_reviews/production-milestone-two_2026-11-08.md#O08).
 The [coordinator](../production-milestone-two_2026-11-08.md) owns disposition.
@@ -150,14 +150,14 @@ its dependent scope waits. [D6 orchestration and GPU sharing](../../design/D6-or
 
 ## Foundation execution evidence
 
-**PM2-01 · Implemented and tested · 2026-11-08.** The provider bridges retain their native coordinates,
+**PM2-01 · Private mapping and settled outcomes tested · 2026-11-08.** The provider bridges retain their native coordinates,
 use the authenticated layout and protect indivisible atoms, synthetic gaps and
 distinct source pins. The retained result keeps native answers, exact selected
 projection evidence and the reason when canonical occurrence identity is
 unavailable. The task determinant covers operation version, ordered effective
-request, allowlisted d1 field, source map and exact runtime profile. The private
+request, allowlisted d1 field, source map and reported profile and artifact identities. The private
 claim adapter uses the existing maintained owner, terminal completion and Reader.
-The selected source and alternate vocabulary share this path. An actual d1 CUDA
+The selected source and alternate vocabulary share the private path. An actual d1 CUDA
 answer and a limited sibling operation settled through maintained claims and
 reopened through the private Reader. Exact same-release reuse survived a changed
 downstream policy. The changed allowed field produced a new task.
@@ -166,9 +166,20 @@ downstream policy. The changed allowed field produced a new task.
 [Result binding](../../../python/corpus-structure/src/corpus_structure/methods/pm2_result.py) ·
 [Claim adapter](../../../python/corpus-structure/src/corpus_structure/orchestrate/pm2.py)
 
+The completion audit leaves PM2-R01 open. Mapping controls distinguish the
+selected projection from physical occurrence identity. The native Reader
+control uses an exact physical cell. Complete the private Reader journey for
+an exact selected projection that differs from its physical source and verify
+that physical identity is withheld. The result adapter retains settled success,
+empty, limited and failed observations. It does not yet expose the planned
+distinction between ineligible, eligible but unscheduled and cancelled work
+for the selected scope. Carry these distinctions through the existing typed
+coverage and Reader owners; preserve fencing when an attempt loses authority.
+
 **PM2-02 · Passed for the initial development profiles · 2026-11-08.** The resident supervisor
 holds the shared local device slot through native child teardown. Each runtime
-uses its exact interpreter, locked dependencies and verified offline artifacts.
+uses its configured interpreter and provisioned worker lock, with verified
+offline artifacts and startup checks for selected distributions.
 The profile evidence covers all four CUDA models, actual admitted bounds,
 persistent capacity contention and d1 native cancellation with restoration of
 the configured incumbent service. HanLP and Dipo also produced grounded source
@@ -177,10 +188,16 @@ Its separate alternate-vocabulary case returned grounded mentions and clusters.
 [Profile results and exact locks](../../design_review/evidence/2026-11-08_pm2-foundation/README.md#locked-native-profiles) ·
 [Resident supervisor](../../../python/corpus-structure/src/corpus_structure/methods/pm2_worker.py)
 
-Provider-specific semantic consumers begin in PM2-03–07. PM2-08 owns the
-assembled private Reader and MCP journey. Retained PM2-02 operating limits
-apply to the tested profiles on the development host. The mixed-profile journey preserved the settled d1 result while an expired Dipo
+The mixed-profile journey preserved the settled d1 result while an expired Dipo
 attempt refused and the new owner settled the exact request. Shared claim-owner
-checks cover the bounded renewal retry and attempt fencing. The provider
-companions own extended scopes, and PM2-12 owns selected-release qualification. The native scope and outcomes are separate
-from a claim of textbook benefit.
+checks cover bounded renewal retry and attempt fencing. The retained provider
+evidence covers Dipo startup refusal and d1 cancellation and restoration; it does
+not establish those operating outcomes for every native profile. PM2-R02 also
+owns the missing isolated environment identity: startup checks a subset of each
+worker's installed distributions, and the task's package fingerprint does not
+include the separate worker lockfiles. Bind the isolated runtime determinants
+that affect output before relying on exact reuse across worker environment changes.
+[Native profile identity](../../../python/corpus-structure/src/corpus_structure/methods/pm2_native.py)
+
+PM2-08 owns the assembled Reader and MCP journey, and PM2-12 owns selected-release
+qualification. Native scope and outcomes establish no textbook benefit by themselves.

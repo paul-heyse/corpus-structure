@@ -15,8 +15,12 @@ bounded Dipo context, the assessed interpretation extent, and exact candidate
 and witness references. On run 422/cut 525, CLI and MCP agreed on the fair-coin
 condition scope and both host alternatives. The exact detached proof resolved
 the original parser task under run 421/cut 524. The no-match result preserved
-both candidates without admitting an attachment. Wider composition and
-assessment still need qualification.
+both candidates without admitting an attachment. The Reader builds facets
+over private observations and proposals. The ordinary producer and selector
+for converting those proposals into the planned typed composed products and
+binding independent admission witnesses remain open. A successful attachment
+and a useful qualified part surviving a failed or unresolved sibling still
+need to reach the same CLI, Reader and fresh MCP journey.
 
 The [exact detached quantity proof](../../design_review/evidence/2026-11-09_pm2-adoption/README.md)
 also verified the revised run 431/cut 531 result at task 2128, with private standing
@@ -109,10 +113,12 @@ delivery scope. Report larger requests that exceed hydration or row budgets expl
 signal: a frame, a preceding local referent, or a Dipo neighbor. They preserve
 the original lexical literal, target encoding/cache and witnessed selection.
 The stored configuration contract for `retrieve.contextual/10` is unchanged.
-Use separate explicit method registries for the incumbent and the enriched
-arm of a private comparison; both use the existing source-method runner.
+The private evidence runner explicitly registers the enriched arm through
+the existing source-method runner. The ordinary Phase 0 registry still
+selects v10.
 The frozen-list Reader resolved 14 exact definition alternatives in retained
-run 258 and refused a changed source. That verifies lookup. The same-release
+run 258 and refused a changed source. That verifies lookup; the retained 14
+alternatives exceed the d1 input cap of 12. The same-release
 paired comparison, d1 consumption on that paired path and offline replay of
 the enriched rendering remain open. Exact detached export refuses the richer
 rendering until its proof can be replayed. The existing rendering stays the
@@ -122,7 +128,8 @@ The [blocked matched attempt](../../design_review/evidence/2026-11-09_pm2-adopti
 froze the affine controls and cross-chapter binomial use in view 391. The bounded
 producer located the binomial use and Dipo supplied an exact context binding, but
 the target producer classified the source-labeled definition as an explanation.
-The common eligible target inventory was empty, and neither arm ran retrieval.
+The common eligible target inventory was empty. v10 preflight was `blocked`;
+v11 retrieval and paired grading were `not_run`.
 The bounded producer also missed the two in-equation carriers. Qualify those
 upstream populations before retrying. Hold source, targets, scope and encoder
 profile fixed in both arms, and compare candidate availability before selection.
@@ -195,7 +202,8 @@ remains deferred. [Frozen inventory and fusion](../../../python/corpus-structure
 **Disposition · 2026-11-09.** The current milestone cases use authenticated
 Standard and Nemotron source. No selected case has shown a material ambiguity
 that those source and geometry reads cannot settle, so the d1 visual route
-remains off. Revisit on a named unanswered location or classification question
+remains off. The separate PM2-11 p151 manifest preservation control still
+applies. Revisit on a named unanswered location or classification question
 with an exact retained region, crop authority, and a consumer whose result
 would change. Chandra data and recognition are outside current qualification;
 the routes below describe historical or separately scoped work.
