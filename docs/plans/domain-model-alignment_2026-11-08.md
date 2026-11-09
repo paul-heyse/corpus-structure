@@ -84,14 +84,14 @@ evidence rather than changing another plan's obligations. The
 | DA-062 · [DMA-03](domain-model-alignment/semantic-admission.md#DMA-03) | Source-value codec | Implemented and qualified for the tested encoded value boundary. Python, protected native completion and typed detached decoding agree on the tested nested values and malformed sequences. |
 | DA-056 · [DMA-04](domain-model-alignment/semantic-admission.md#DMA-04) | Finite interpretation and admission | Implemented and qualified for the displayed-support rule and scoped table and dossier controls. Full solver replay retains its separate assurance boundary. |
 | DA-065 · [DMA-05](domain-model-alignment/semantic-admission.md#DMA-05) | Definition derivation and publication | Current native eligibility checks retained scope and competing bindings. Targeted controls passed, including the compound conditional refusal. Public eligibility remains independent. |
-| [Review F02](../design_review/reviews/design_review_domain-model-alignment_2026-11-08.md#F02) · [DMA-06](domain-model-alignment/source-projection.md#DMA-06) | Selected source projection | Current detached proof rejects resealed omissions and unauthenticated exclusions in focused controls. The full native input digest verified. Whole-book detached delivery remains an assembled check. |
+| [Review F02](../design_review/reviews/design_review_domain-model-alignment_2026-11-08.md#F02) · [DMA-06](domain-model-alignment/source-projection.md#DMA-06) | Selected source projection | Current detached proof rejects resealed omissions and unauthenticated exclusions. Installed detached verification passed for one selected view and its full native book product. |
 | DA-061 · [DMA-07](domain-model-alignment/source-projection.md#DMA-07) | Formula witness and exact read | Both independently corroborated formula witnesses passed current Reader, source search and packet checks on cut 514. |
 | DA-059/060 · [DMA-08](domain-model-alignment/operational-custody.md#DMA-08) | Managed outcomes and evidence | Current receipt checkpoints and exact effect reconciliation passed focused commit and cleanup fault controls. The development receipt settles all four known deployment effects. |
 | DA-064 and [review F01](../design_review/reviews/design_review_domain-model-alignment_2026-11-08.md#F01) · [DMA-09](domain-model-alignment/visual-evidence.md#DMA-09) | Routing and native decision custody | Current crop assessments and native progress projection passed focused controls, including forged raw pin refusal. |
-| DA-058 · [DMA-10](domain-model-alignment/visual-evidence.md#DMA-10) | Group recovery and original custody | Shared raster preparation and early exact raw reuse passed focused controls. The native recovery regression passed after comparing typed geometry and digest identities separately. Live provider qualification remains part of assembled acceptance. |
+| DA-058 · [DMA-10](domain-model-alignment/visual-evidence.md#DMA-10) | Group recovery and original custody | Live crops at cut 519 reused both exact raw responses from cut 518 with provider files unavailable. Recognition standing remained `unknown`. Live cancellation preserved a settled mapping and restored Nemotron. |
 | DA-066 · [DMA-11](domain-model-alignment/visual-evidence.md#DMA-11) | Typed visual Reader | The typed spatial locator and near-limit sparse and empty regional checks passed focused native controls. The frozen descriptor verifies the access path. |
 | [DMA-12](#dma-12) | Coordinator and affected authorities | Bounded investigations delivered. Final-source reference-path coverage remains open. The second-pack control establishes only its scoped transfer case. |
-| [DMA-13](#dma-13) | Native migration and assembled acceptance | Development migration, archive, admission and private source rebuild verified. The assertion fix passed its pinned replay and focused controls. Full-book qualification, evaluated acceptance and selected cutover remain open. |
+| [DMA-13](#dma-13) | Native migration and assembled acceptance | Development migration, archive and admission verified. The replacement full-book candidate run finished privately at cut 517. Evaluated acceptance and selected cutover remain open. |
 
 Source-view coverage, source-value validity, numerical consistency, derivation
 and target identity have priority by consequence. Start the release compiler
@@ -658,14 +658,21 @@ original spellings. Both original digests matched their attributed pieces in
 the current native proposal packet. The source searches selected that same
 view. The default 1 MiB Reader requests refused on their work budget.
 
+`uv run ci review export - --exact-closure --json` passed for view 382
+at cut 517 under explicit delivery bounds. `uv run ci review inspect
+--result ea341ab7e1164874b00f6a3c1c44fa31 --json` passed detached verification
+for its selected projection and exact full native product. The bundle
+retained 1,107 source proof records. The larger formula view's earlier
+export attempts refused the hydration byte budget and contribution row cap.
+The installed result covers one selected view of the whole-book source.
+
 The integrated focused selection `51dba05916b445529c5731a6c63e6df5`
 passed 66 controls and found one visual group recovery regression. The
 repair compares typed geometry in PostgreSQL's JSONB domain and retains
 exact recipe and PNG digest checks. The exact native regression passed in
 `82f222fb7b5a4915b754de1c1bfbe717`. Product commit `b812cbcfd` contains the
 current-only implementation and frozen migration. `uv run ci check --json`
-passed. Final-source functional qualification and evaluated selection are
-still open.
+passed.
 
 Run 406 passed the [native assertion canary](../design_review/evidence/2026-11-08_dma-audit-repair/README.md)
 and sealed cut 515. Task 1955 retained context 435 and literal `positive`
@@ -673,6 +680,35 @@ at `[24,32)` on its first attempt. Earlier run 405 failed because the
 stdin wrapper could not start the spawned provider worker. The current
 importable wrapper uses the pinned provider unchanged. Independent source-only
 development set 32 was frozen before full-book candidate execution, with
-protected A/B/C passes 117–119. Full-book run 407 uses the current release
-and the same 518-page input. Corpus grading and final functional coverage
-are pending.
+protected A/B/C passes 117–119. Full-book run 407 used the current release
+and the same 518-page input. All 29 annotation tasks and 29 candidate tasks
+settled, with 29 produced candidate reports and no failed candidate
+reports. The affected view again retained literal `positive` at `[24,32)`.
+`uv run ci run finalize 407 --output-realization result:dma-audit-current:grinstead-snell --json`
+passed and published 10,071 reports and zero occurrences to the private
+result at cut 517. This candidate run establishes current execution over
+the book and its claimed source scope.
+
+`uv run ci eval run --run 407 --set-id 32 --project nce-grinstead-snell-full-book --json`
+failed with `record anchor is outside the explicit evaluation cut`. Set 32
+freezes one independently adjudicated sentence. The evaluator supplied the
+complete selected source view's predictions. Evaluated acceptance remains
+blocked on independent reference coverage corresponding to the prediction
+scope. The protected reference and alignment rules stay in force. The
+development project remains at generation 0 with empty activation and
+selection. No earlier result was converted or retired. The operator
+prioritized regeneration under the replacement contracts.
+
+The live Chandra route completed two page-151 crops in run 408 at cut 518.
+The pinned provider returned nonempty raw responses with unspecified
+completion. The first empty-artifact run 409 failed to reuse them. Commit
+`9b5fa2993` allows early reuse of verified, nonempty raw attachments from
+settled attempts with `unknown` standing. The same exact recipe, original,
+geometry and PNG bindings apply. The focused native regression passed in
+`7e882ffd59bb49ad97633edadafd591f`. Live run 410 at cut 519 reused raw tasks
+2015 and 2017 and their exact digests with provider artifacts unavailable.
+New mapped tasks 2021 and 2022 each retained `unknown`. The incumbent
+Nemotron service remained available after replay. In run 411 a subsequent
+managed cancellation preserved settled mapping task 2023, cancelled active
+rotated inference task 2024 and restored the incumbent service.
+[Retained live and book evidence](../design_review/evidence/2026-11-08_dma-audit-repair/README.md)

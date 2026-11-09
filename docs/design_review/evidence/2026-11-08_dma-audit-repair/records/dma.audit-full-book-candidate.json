@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "id": "dma.audit-full-book-candidate",
+  "title": "Private full-book candidate replacement and grade boundary",
+  "group": "dma-audit-repair",
+  "package": "DMA-13",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the current release complete all source views and publish its candidate result, and does the independent development reference apply to grading?",
+  "answers": [
+    "DMA-13"
+  ],
+  "method": "Run the pinned M1 providers over the authenticated 518-page input, finalize the private candidate result, and grade against the frozen development reference.",
+  "commands": [
+    "uv run ci run finalize 407 --output-realization result:dma-audit-current:grinstead-snell --json",
+    "uv run ci eval run --run 407 --set-id 32 --project nce-grinstead-snell-full-book --json"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/full_book_finalize.json",
+      "role": "Native private result publication receipt",
+      "sha256": "c3d0bd865e3de6e3f2cd238a2ad325a43cf9a46133cd470cb5dd9800aa8ca34e"
+    },
+    {
+      "path": "raw/full_book_grade.json",
+      "role": "Recorded grade refusal and exact scope",
+      "sha256": "cfd1fc6345f5cd4187335d0165b7450bf98cb2e82116a1a3f6abf5471eee0488"
+    }
+  ],
+  "depends_on": [
+    "dma.audit-assertion-canary",
+    "dma.audit-development-reference"
+  ],
+  "results": [
+    {
+      "name": "Produced candidate reports",
+      "value": 29,
+      "of": 29,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Published candidate reports",
+      "value": 10071,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Private final cut",
+      "value": 517,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Run 407 completed all selected views and published its private candidate result. Set 32 covers one adjudicated sentence and the evaluator supplied whole-view predictions. The exact cut guard refused grading. Evaluation and project selection remain open.",
+  "consumed_by": [
+    "DMA-13"
+  ]
+}

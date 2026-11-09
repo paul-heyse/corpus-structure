@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "id": "dma.audit-live-visual-reuse",
+  "title": "Live visual raw reuse and active cancellation",
+  "group": "dma-audit-repair",
+  "package": "DMA-10",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the current live Chandra route reuse exact retained crop bytes without provider files and restore the incumbent service after active cancellation?",
+  "answers": [
+    "DMA-10"
+  ],
+  "method": "Run two same-page crops with the pinned provider, replay with empty provider artifacts, then keep one completed mapping and cancel a new rotated crop while the GPU lease is active.",
+  "commands": [
+    "uv run ci source visual-group 377 --producing-task 1627 --product integrated --native-digest 35f4384ea386e630448d804621c0767881650937c45cd4294182cb0dd91ce8fb --semantic-release release:675b5f723ce83aadf7b8b1df7f0784fdc2c455d02b3979f1eae2cec30c352a56 --realization source:dma-audit-current:grinstead-snell --artifacts build/dma-audit-visual/empty --selections build/dma-audit-visual/selections.json --json",
+    "uv run python docs/design_review/evidence/2026-11-08_dma-audit-repair/visual_cancel_control.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "visual_cancel_control.py",
+      "role": "Bounded live managed cancellation driver",
+      "sha256": "d4b89b59c231645fc671c1dc823bc3ffaed82f01d65e0e3a2c41eb08991296c7"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/live_visual_artifacts.json",
+      "role": "First pinned live group with its exact raw and mapped tasks",
+      "sha256": "e6456a17bc925aa0ac6ce338e29aa78d52bd6f72a4ce271ca90cacd4ab8aa891"
+    },
+    {
+      "path": "raw/live_visual_empty.json",
+      "role": "Initial reuse refusal on unspecified completion",
+      "sha256": "188530ad5cbd8118da589477080d92e9fdcd06f7e939f0fb775f9b17f715a275"
+    },
+    {
+      "path": "raw/live_visual_reuse.json",
+      "role": "Exact raw reuse with empty provider artifacts",
+      "sha256": "8ae000ec54f41e6c0db1aa3fda51c4254fc76ff0fbf65c9ee06ef283cef7e047"
+    },
+    {
+      "path": "raw/live_visual_cancel.json",
+      "role": "Protected cancellation result and observed incumbent state",
+      "sha256": "38dbb81472124cbbc631c4908b2345fbea60c508297dc6f561d18f55b05871f5"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Reused exact raw crop responses",
+      "value": 2,
+      "of": 2,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Live cancellation run",
+      "value": 411,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Run 410 reused both raw task IDs and digests from run 408, with unknown recognition standing preserved. Run 411 retained one mapped task, cancelled the active rotated crop, and restored the incumbent service. This establishes scoped raw custody and recovery.",
+  "consumed_by": [
+    "DMA-10",
+    "DMA-13"
+  ]
+}

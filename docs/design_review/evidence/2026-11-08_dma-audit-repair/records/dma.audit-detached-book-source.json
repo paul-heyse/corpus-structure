@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "id": "dma.audit-detached-book-source",
+  "title": "Detached proof of the retained full-book source product",
+  "group": "dma-audit-repair",
+  "package": "DMA-06",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can installed detached delivery verify a selected current view and authenticate the retained native book product?",
+  "answers": [
+    "DMA-06"
+  ],
+  "method": "Export the exact closure of view 382 at cut 517 under explicit file-work bounds, then inspect the retained managed artifact offline. Preserve the broader view refusals.",
+  "commands": [
+    "uv run ci review export - --exact-closure --json",
+    "uv run ci review inspect --result ea341ab7e1164874b00f6a3c1c44fa31 --json"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/book_review_export.json",
+      "role": "Default contribution hydration budget refusal",
+      "sha256": "e7459cac514e9295f34cc8bee8164f0b8de51f083c07d4c2ad84814f5dd1147d"
+    },
+    {
+      "path": "raw/book_review_export_explicit.json",
+      "role": "Broader view contribution inventory refusal",
+      "sha256": "7420267552ea7d1958d4f3e778ba322c2e074b557b11807b0d60bcf6c4fb8c65"
+    },
+    {
+      "path": "raw/book_review_export_scoped.json",
+      "role": "Bounded selected source closure export",
+      "sha256": "4c7de545de07941517b31147c07e24a63b458db452f118a687bb6620b5b4b32a"
+    },
+    {
+      "path": "raw/book_review_inspect.json",
+      "role": "Detached exact verification summary",
+      "sha256": "21187f2b39968069b8439d595ebc5b8b34e33347b8349991ee57f5ab06e1946a"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Native source proof records",
+      "value": 1107,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Selected source views",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The scoped installed export and detached inspection passed. The bundle verifies the selected projection against its exact full native product. The broader view refused byte and contribution count bounds. Original book content completeness and all-view detached delivery are outside the verified selection.",
+  "consumed_by": [
+    "DMA-06",
+    "DMA-13"
+  ]
+}
