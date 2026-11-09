@@ -183,6 +183,7 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("operations/artifact-producer.py", "methods/artifact_identity.py"),
     ("operations/scoped-relations.py", "methods/scoped_relations.py"),
     ("operations/ordered-witness-native.py", "semantic/ordered_witness_native.py"),
+    ("operations/witnessed-source-links.py", "methods/witnessed_source_links.py"),
     ("operations/structural-roles.py", "methods/structural_roles.py"),
     ("operations/structural-producers.py", "methods/structural_products.py"),
     ("operations/structural-parsing.py", "semantic/structural_parsing.py"),
