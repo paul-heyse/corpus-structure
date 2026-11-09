@@ -40,6 +40,7 @@ class Question(_Declaration):
     key: Key
     kind: Literal["text", "number", "date", "choice", "noul"]
     instructions: Description
+    explicit_only: bool = Field(default=False, exclude_if=lambda value: not value)
     options: tuple[Option, ...] = Field(default=(), max_length=16)
     multiple: bool = False
     candidate_options: bool = False
@@ -107,6 +108,20 @@ class QuestionFamily(_Declaration):
         from .identity import canonical_bytes
 
         return sha256(canonical_bytes(self.model_dump(mode="json"))).hexdigest()
+
+    def select_questions(self, keys: tuple[str, ...]) -> tuple[Question, ...]:
+        selected = tuple(
+            question
+            for question in self.questions
+            if (question.key in keys if keys else not question.explicit_only)
+        )
+        if keys and {question.key for question in selected} != set(keys):
+            raise ValueError(
+                "an interpretation question key is unavailable in this released family"
+            )
+        if not selected:
+            raise ValueError("this interpretation family requires explicit question selection")
+        return selected
 
     @model_validator(mode="after")
     def coherent(self):

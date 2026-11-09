@@ -14,6 +14,18 @@
   questions:
     - {key: literal, kind: text, instructions: "Read the exact source phrase that states the focal definition or assertion. Leave it absent if no such phrase is written."}
     - {key: quantity, kind: number, instructions: "Read the exact written focal quantity from source; leave it absent when no focal quantity is given."}
+    - key: loss_amount
+      kind: number
+      explicit_only: true
+      instructions: Read only the exact written number for the focal amount that the source describes as lost. Exclude its unit. Leave the answer absent if the source does not identify a unique amount lost.
+    - key: loss_unit
+      kind: text
+      explicit_only: true
+      instructions: Read only the exact written unit for the focal amount described as lost. Exclude the number. Leave the answer absent if the source does not state a unit for a unique amount lost.
+    - key: loss_role_cue
+      kind: text
+      explicit_only: true
+      instructions: Read the smallest exact source phrase showing that the focal amount is lost rather than won, paid to enter, or used as a probability. Leave the answer absent if the role is unclear.
     - {key: date, kind: date, instructions: "Read the exact written calendar date of the focal event from source; leave it absent if there is no such date."}
 - family: frame_interpretation_v1
   focus_types: [linguistic.predicate_frame]

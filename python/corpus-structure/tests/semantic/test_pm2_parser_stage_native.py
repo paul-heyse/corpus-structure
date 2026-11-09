@@ -201,6 +201,7 @@ def test_cancelled_pm2_scope_does_not_gain_an_operation_result(private_source):
     from corpus_structure.semantic._operation_calls import select_source_view
     from corpus_structure.semantic._operation_ids import SourceViewId
     from corpus_structure.semantic.operations import binding_of, create_run, create_task, start_run
+    from corpus_structure.semantic.pm2_coverage import scope_coverage
 
     case = private_source
     with case.writer.begin() as conn:
@@ -256,6 +257,21 @@ def test_cancelled_pm2_scope_does_not_gain_an_operation_result(private_source):
     assert cancel_bound_run(case.writer, run).tasks_cancelled == 1
     with read_snapshot(case.writer) as conn:
         status = bound_status(conn, run).run
+        with pytest.raises(ValueError, match="scope source view differs from its admitted task"):
+            scope_coverage(
+                conn,
+                run,
+                [
+                    {
+                        "source_view_id": case.view,
+                        "extent": [0, 2],
+                        "question": "pm2.hanlp.frames",
+                        "operation_version": "1",
+                        "disposition": "scheduled",
+                        "input_digest": digest,
+                    }
+                ],
+            )
     assert status is not None and status.pm2_scope_coverage is not None
     (entry,) = status.pm2_scope_coverage
     assert entry.task_id == task

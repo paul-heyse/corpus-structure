@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 import sys
-from collections import defaultdict, deque
+from collections import Counter, defaultdict, deque
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
@@ -12,7 +13,7 @@ from tempfile import TemporaryDirectory
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
-from sqlalchemy import Engine, func, select, text
+from sqlalchemy import Connection, Engine, func, select, text
 
 from corpus_structure.core.method import UnitRef
 from corpus_structure.core.provenance import code_commit
@@ -73,6 +74,7 @@ from corpus_structure.semantic.source_contexts import (
 )
 from corpus_structure.semantic.source_views import load_source_view
 from corpus_structure.semantic.structural_products import ExternalSourceRef
+from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.settings import Settings
 
 from .commands import _finalize_bound_run
@@ -382,7 +384,37 @@ def _work(
     )
 
 
-def _interpretation_work(scope, view, source, preparation, prepared, project, conn, family):
+def _interpretation_references(scope: InterpretationScope) -> tuple[RetainedContributionRef, ...]:
+    return (*scope.candidates, *((scope.focus,) if scope.focus is not None else ()))
+
+
+def _interpretation_dependency_reader(
+    conn: Connection, prepared: PreparedRelease, references: Iterable[RetainedContributionRef]
+) -> Callable[[RetainedContributionRef], list[dict[str, Any]]]:
+    """Read each repeatedly used exact reference once within this read snapshot."""
+    remaining = Counter(references)
+    retained: dict[RetainedContributionRef, list[dict[str, Any]]] = {}
+
+    def resolve(ref: RetainedContributionRef) -> list[dict[str, Any]]:
+        if ref in retained:
+            rows = retained[ref]
+        else:
+            rows = BoundReader(
+                conn, ref.run_id, prepared, ref.cut_id, analysis=False
+            ).retained_source_contribution(ref)["contributions"]
+            if remaining[ref] > 1:
+                retained[ref] = rows
+        remaining[ref] -= 1
+        if remaining[ref] == 0:
+            retained.pop(ref, None)
+        return rows
+
+    return resolve
+
+
+def _interpretation_work(
+    scope, view, source, preparation, prepared, project, conn, family, resolve_dependency
+):
     if family is None:
         raise ValueError("interpretation family is unavailable in the selected release")
     if family.require_focus and scope.focus is None:
@@ -412,17 +444,12 @@ def _interpretation_work(scope, view, source, preparation, prepared, project, co
                     return index, start, end
         return None
 
-    references = (*scope.candidates, *((scope.focus,) if scope.focus is not None else ()))
+    references = _interpretation_references(scope)
     if any(
         (ref.project_id, ref.release_id) != (project, prepared.release_id) for ref in references
     ):
         raise ValueError("interpretation input differs from the selected project or release")
-    resolved = {
-        ref.contribution_id: BoundReader(
-            conn, ref.run_id, prepared, ref.cut_id, analysis=False
-        ).retained_source_contribution(ref)["contributions"]
-        for ref in references
-    }
+    resolved = {ref.contribution_id: resolve_dependency(ref) for ref in references}
 
     def render(ref, allowed, *, precedes=None):
         rows = resolved[ref.contribution_id]
@@ -530,11 +557,8 @@ def _interpretation_work(scope, view, source, preparation, prepared, project, co
         raise ValueError("exact alternatives do not fit the released candidate population bounds")
     questions = {
         question.key: question.native(rendered if option_aliases is not None else candidates)
-        for question in family.questions
-        if not scope.questions or question.key in scope.questions
+        for question in family.select_questions(scope.questions)
     }
-    if scope.questions and set(questions) != set(scope.questions):
-        raise ValueError("an interpretation question key is unavailable in this released family")
     request = {
         "state": state,
         "questions": questions,
@@ -787,6 +811,18 @@ def _run_scopes(
         sentence_bounds = {}
         if isinstance(request, InterpretationRunRequest):
             families = declared_families(prepared.registry_rows)
+            interpretation_scopes = [
+                scope for scope in scopes if isinstance(scope, InterpretationScope)
+            ]
+            resolve_dependency = _interpretation_dependency_reader(
+                conn,
+                prepared,
+                (
+                    ref
+                    for scope in interpretation_scopes
+                    for ref in _interpretation_references(scope)
+                ),
+            )
             work = [
                 _interpretation_work(
                     scope,
@@ -797,9 +833,9 @@ def _run_scopes(
                     request.project,
                     conn,
                     families.get(scope.family),
+                    resolve_dependency,
                 )
-                for scope in scopes
-                if isinstance(scope, InterpretationScope)
+                for scope in interpretation_scopes
             ]
         else:
             token_views = {

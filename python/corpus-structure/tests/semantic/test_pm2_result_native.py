@@ -9,7 +9,8 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
-from sqlalchemy import select, text
+from sqlalchemy import event, select, text
+from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.core.method import UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
@@ -19,6 +20,7 @@ from corpus_structure.methods.pm2_source import D1SourceField, PM2SourceMap, Sou
 from corpus_structure.methods.pm2_worker import Pm2Worker, open_pm2_worker
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.orchestrate.pm2 import settle_pm2_claim
+from corpus_structure.orchestrate.pm2_stage import _interpretation_dependency_reader
 from corpus_structure.semantic._operation_calls import select_source_view
 from corpus_structure.semantic.claim_lifetime import maintained_claims
 from corpus_structure.semantic.identity import canonical_bytes
@@ -38,6 +40,7 @@ from corpus_structure.semantic.pm2_coverage import scope_coverage
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.query import read_snapshot
+from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
     SourceSlice,
@@ -286,7 +289,7 @@ def test_native_mapped_answer_and_limited_operation_survive_a_retained_read(
     case = private_source
     with case.writer.connect() as conn:
         view = BoundReader(conn, case.run, case.prepared, analysis=False).source_view(case.view)
-    source = replace(native_source_frame(view, ()), unit_ref="private-unit")
+    source = native_source_frame(view, ())
     cell = next(piece for piece in view.pieces if piece.get("cell_index") == 0)
     context = NativeSourceContext(
         source,
@@ -302,9 +305,16 @@ def test_native_mapped_answer_and_limited_operation_survive_a_retained_read(
         "state": {"source": "12"},
         "questions": {"value": {"type": "text", "instructions": "Copy the numeral as written."}},
     }
-    ref = UnitRef(TaskUnitType.SOURCE_VIEW, case.view, "private-unit")
+    ref = UnitRef(TaskUnitType.SOURCE_VIEW, case.view, source.unit_ref)
     with case.writer.begin() as conn:
-        complete_contributions(case, conn, UnitResult(ref=ref, outcome=ObservationOutcome.EMPTY))
+        complete_contributions(
+            case,
+            conn,
+            UnitResult(
+                ref=UnitRef(TaskUnitType.SOURCE_VIEW, case.view, "private-unit"),
+                outcome=ObservationOutcome.EMPTY,
+            ),
+        )
     options = {
         "question": "locate_literal",
         "operation_version": "1",
@@ -329,8 +339,12 @@ def test_native_mapped_answer_and_limited_operation_survive_a_retained_read(
         ) as worker:
             profile = worker.startup
             digest = pm2_input_digest(mapping, profile, request, **options)
-            held = _claim(case, digest)
-            limited_held = _claim(case, pm2_input_digest(mapping, profile, oversized, **options))
+            held = _claim(case, digest, unit_key=source.unit_ref)
+            limited_held = _claim(
+                case,
+                pm2_input_digest(mapping, profile, oversized, **options),
+                unit_key=source.unit_ref,
+            )
             with maintained_claims(
                 case.writer, (held, limited_held), "records", interval=0.1
             ) as owner:
@@ -379,7 +393,7 @@ def test_native_mapped_answer_and_limited_operation_survive_a_retained_read(
             input_digest=digest,
             **options,
         )
-        held = _claim(case, digest)
+        held = _claim(case, digest, unit_key=source.unit_ref)
         with case.writer.begin() as conn:
             _complete(case, conn, held, result)
 
@@ -394,7 +408,7 @@ def test_native_mapped_answer_and_limited_operation_survive_a_retained_read(
     )
     if not assets:
         limited_digest = pm2_input_digest(mapping, profile, oversized, **options)
-        limited_held = _claim(case, limited_digest)
+        limited_held = _claim(case, limited_digest, unit_key=source.unit_ref)
         with case.writer.begin() as conn:
             limited = pm2_unit_result(
                 ref,
@@ -406,7 +420,7 @@ def test_native_mapped_answer_and_limited_operation_survive_a_retained_read(
                 **options,
             )
             _complete(case, conn, limited_held, limited)
-    finalize_bound_run(case.writer, case.run, "pm2-private-read")
+    completed = finalize_bound_run(case.writer, case.run, "pm2-private-read")
     with read_snapshot(case.writer) as conn:
         page = serve_contributions(
             conn,
@@ -424,6 +438,41 @@ def test_native_mapped_answer_and_limited_operation_survive_a_retained_read(
             assert second_page.inventory_counts["contributions"] > 0
         retained = table("ops.task_result")
         detail = conn.scalar(select(retained.c.body).where(retained.c.task_id == held.task_id))
+        run = table("ops.run")
+        runtime = conn.execute(select(run.c.runtime_id).where(run.c.id == case.run)).scalar_one()
+        (contribution,) = detail["contributions"]
+        ref = RetainedContributionRef(
+            contribution_id=contribution["contribution_id"],
+            project_id=case.project_id,
+            run_id=case.run,
+            cut_id=completed.cut_id,
+            release_id=case.prepared.release_id,
+            result_revision=completed.data_revision,
+            selected_task_id=held.task_id,
+            origin_task_id=held.task_id,
+            runtime_fingerprint=runtime,
+        )
+        stale = ref.model_copy(update={"cut_id": completed.cut_id + 1})
+        resolved = _interpretation_dependency_reader(conn, case.prepared, (ref, stale, ref))
+        native_reads = []
+
+        def observe_native_read(_conn, _cursor, statement, _parameters, _context, _executemany):
+            if "ops.resolve_retained_source_contribution(" in statement:
+                native_reads.append(statement)
+
+        event.listen(conn, "before_cursor_execute", observe_native_read)
+        try:
+            assert resolved(ref) == [contribution]
+            assert len(native_reads) == 1
+            with (
+                pytest.raises(DBAPIError, match="cannot resolve exact selected origin"),
+                conn.begin_nested(),
+            ):
+                resolved(stale)
+            assert resolved(ref) == [contribution]
+            assert len(native_reads) == 2
+        finally:
+            event.remove(conn, "before_cursor_execute", observe_native_read)
     assert page.inventory_counts["contributions"] == 1
     anchor = next(
         cast(dict[str, Any], item["row"])["anchors"][0]
@@ -486,7 +535,7 @@ def test_native_mapped_answer_and_limited_operation_survive_a_retained_read(
                 stage="record",
                 unit_type="source_view",
                 unit_id=case.view,
-                unit_key="private-unit",
+                unit_key=source.unit_ref,
                 input_hash=input_hash,
             )
         tasks = table("ops.task")
@@ -583,6 +632,7 @@ def _settle_reassigned_dipo(case, tmp_path, admin, assets):
 
 
 def _complete(case, conn, held, result):
+    assert held.unit_key is not None
     return complete_unit_result(
         conn,
         task_id=held.task_id,
@@ -591,7 +641,7 @@ def _complete(case, conn, held, result):
         prepared=case.prepared,
         method=case.method,
         configuration_hash="private-config",
-        source="private-unit",
+        source=held.unit_key,
         result=result,
     )
 

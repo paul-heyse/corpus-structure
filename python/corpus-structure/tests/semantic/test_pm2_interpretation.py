@@ -23,6 +23,28 @@ def _family(definition):
     return declared_families(rows)[definition["family"]]
 
 
+def test_released_specialized_reads_do_not_change_implicit_selection():
+    family = _family(
+        {
+            "family": "literal_completion_v1",
+            "questions": [
+                {"key": "literal", "kind": "text", "instructions": "Read the exact text."},
+                {
+                    "key": "deadline",
+                    "kind": "date",
+                    "instructions": "Read the deadline only.",
+                    "explicit_only": True,
+                },
+            ],
+        }
+    )
+    assert [question.key for question in family.select_questions(())] == ["literal"]
+    assert [question.key for question in family.select_questions(("deadline",))] == ["deadline"]
+    assert "explicit_only" not in family.questions[0].model_dump(mode="json")
+    with pytest.raises(ValueError, match="unavailable"):
+        family.select_questions(("missing",))
+
+
 def test_released_vocabulary_changes_without_changing_the_interpretation_adapter():
     for label, criterion in (
         ("illustration", "An example of a theorem or its proof."),

@@ -103,6 +103,8 @@ def scope_coverage(conn: Connection, run_id: int, intents: object) -> tuple[Scop
             select(
                 task.c.input_hash,
                 task.c.id,
+                task.c.unit_type,
+                task.c.unit_id,
                 task.c.reused_task_id,
                 task.c.status,
                 task.c.reason,
@@ -189,6 +191,8 @@ def scope_coverage(conn: Connection, run_id: int, intents: object) -> tuple[Scop
         row = rows.get((item.input_digest, item.parent_input_digest))
         if row is None:
             raise ValueError("scheduled PM2 scope lacks its admitted task")
+        if row.unit_type != "source_view" or row.unit_id != item.source_view_id:
+            raise ValueError("PM2 scope source view differs from its admitted task")
         if row.question is not None and (
             row.question != item.question or row.operation_version != item.operation_version
         ):
