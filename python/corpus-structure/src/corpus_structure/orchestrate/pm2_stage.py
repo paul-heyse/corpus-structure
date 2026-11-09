@@ -26,7 +26,12 @@ from corpus_structure.methods.pm2_source import (
     ProviderToken,
     SourceMapSegment,
 )
-from corpus_structure.methods.pm2_worker import Pm2WorkerError, open_pm2_worker
+from corpus_structure.methods.pm2_worker import (
+    Pm2WorkerError,
+    Pm2WorkerRefused,
+    open_pm2_worker,
+    preflight_pm2_runtime,
+)
 from corpus_structure.semantic._operation_calls import select_source_view
 from corpus_structure.semantic._operation_ids import RunId, SourceViewId
 from corpus_structure.semantic.claim_lifetime import maintained_claims
@@ -50,6 +55,7 @@ from corpus_structure.semantic.operations import (
     start_run,
 )
 from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
+from corpus_structure.semantic.pm2_coverage import ScopeCoverage, ScopeIntent, scope_coverage
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.semantic.releases import open_release
@@ -106,7 +112,8 @@ class ParserScope(BaseModel):
     source: ExternalSourceRef
     extent: Extent
     profile: ParserProfile
-    language: Literal["en"] = "en"
+    language: str = Field(default="en", min_length=1, max_length=35)
+    schedule: bool = True
     mode: Literal["ordinary", "supplied_mentions", "layout_forced", "supplied_edus"] = "ordinary"
     supplied: tuple[Extent, ...] = Field(default=(), max_length=128)
 
@@ -151,6 +158,7 @@ class InterpretationScope(BaseModel):
     profile: InterpretationProfile
     family: Family
     version: Literal["1", "2"] = "1"
+    schedule: bool = True
     questions: tuple[str, ...] = Field(default=(), max_length=16)
     focus: RetainedContributionRef | None = None
     candidates: tuple[RetainedContributionRef, ...] = Field(default=(), max_length=12)
@@ -183,6 +191,7 @@ class ParserRunReport(BaseModel):
     release: str
     realization: str
     tasks: tuple[int, ...]
+    scope_coverage: tuple[ScopeCoverage, ...]
 
 
 @dataclass(frozen=True)
@@ -196,6 +205,7 @@ class _Work:
     question: str
     input_digest: str
     source_path: str | None = None
+    parent_input_digest: str | None = None
 
 
 def _sentences(view) -> list[tuple[int, int]]:
@@ -328,7 +338,17 @@ def _work(
         question=question,
         operation_version=method.version,
     )
-    return _Work(scope, scope.profile, effective, request, ref, method, question, digest)
+    return _Work(
+        scope,
+        scope.profile,
+        effective,
+        request,
+        ref,
+        method,
+        question,
+        digest,
+        parent_input_digest=parent,
+    )
 
 
 def _interpretation_work(scope, view, source, preparation, prepared, project, conn, family):
@@ -542,7 +562,7 @@ def _partition(extent: Extent, sentences: list[tuple[int, int]]) -> tuple[Extent
     return (start, middle), (middle, end)
 
 
-def _schedule(conn, run, config, item):
+def _schedule(conn, run, config, item, *, split=False):
     return create_task(
         conn,
         run_id=run,
@@ -552,18 +572,34 @@ def _schedule(conn, run, config, item):
         unit_id=item.ref.unit_id,
         unit_key=item.ref.unit_key,
         input_hash=item.input_digest,
+        trigger=(
+            {"pm2_split_scope": _scheduled_intent(item).model_dump(mode="json")} if split else None
+        ),
+    )
+
+
+def _scheduled_intent(item: _Work) -> ScopeIntent:
+    return ScopeIntent(
+        source_view_id=item.scope.source.source_view_id,
+        extent=item.scope.extent,
+        question=item.question,
+        operation_version=item.method.version,
+        disposition="scheduled",
+        input_digest=item.input_digest,
+        parent_input_digest=item.parent_input_digest,
     )
 
 
 def _limited(conn, task_ids):
-    task, result = table("ops.task"), table("ops.task_result")
+    task, operation = table("ops.task"), table("kb.source_contribution_operation")
     return tuple(
         conn.scalars(
             select(task.c.id)
-            .join(result, result.c.task_id == func.coalesce(task.c.reused_task_id, task.c.id))
+            .join(operation, operation.c.task_id == func.coalesce(task.c.reused_task_id, task.c.id))
             .where(
                 task.c.id.in_(task_ids),
-                result.c.body["contribution_operations"][0]["outcome"].astext == "limited",
+                operation.c.position == 0,
+                operation.c.outcome == "limited",
             )
             .order_by(task.c.id)
         )
@@ -587,6 +623,84 @@ def _run_scopes(
 ) -> ParserRunReport:
     interpretation = isinstance(request, InterpretationRunRequest)
     stage = "interpretation" if interpretation else "parsers"
+    script = Path(__file__).resolve().parents[1] / "methods" / "pm2_native.py"
+    root = script.parents[5]
+    interpreters = {
+        scope.profile.provider: (
+            Path(sys.executable)
+            if scope.profile.provider == "d1"
+            else root / f"services/pm2-{scope.profile.provider}/.venv/bin/python"
+        )
+        for scope in request.scopes
+    }
+    # Verify before deriving task identities or allowing create_task to reuse a result.
+    # A GPU worker may never be opened for a reuse hit.
+    verified: dict[str, dict[str, Any] | str] = {}
+    scopes: list[ParserScope | InterpretationScope] = []
+    scheduled_positions = []
+    held: dict[int, ScopeIntent] = {}
+    for position, scope in enumerate(request.scopes):
+        profile = scope.profile
+        provider = profile.provider
+        intent = {
+            "source_view_id": scope.source.source_view_id,
+            "extent": scope.extent,
+            "question": (
+                PARSER_QUESTIONS[provider] if isinstance(scope, ParserScope) else scope.family
+            ),
+            "operation_version": "1" if isinstance(scope, ParserScope) else scope.version,
+        }
+        if isinstance(scope, ParserScope) and scope.language.partition("-")[0].lower() != "en":
+            held[position] = ScopeIntent(
+                **intent,
+                disposition="ineligible",
+                reason="selected parser profile supports English",
+            )
+            continue
+        if not scope.schedule:
+            held[position] = ScopeIntent(
+                **intent,
+                disposition="unscheduled",
+                reason="scope retained without requesting execution",
+            )
+            continue
+        if provider not in verified:
+            try:
+                verified[provider] = preflight_pm2_runtime(
+                    python=interpreters[provider],
+                    script=script,
+                    project=root if provider == "d1" else root / f"services/pm2-{provider}",
+                    provider=provider,
+                    assets=request.assets,
+                )
+            except (Pm2WorkerError, Pm2WorkerRefused) as exc:
+                verified[provider] = str(exc)
+        identity = verified[provider]
+        if isinstance(identity, str):
+            held[position] = ScopeIntent(**intent, disposition="failed", reason=identity)
+            continue
+        if profile.startup.get("assets") != identity["assets"]:
+            held[position] = ScopeIntent(
+                **intent,
+                disposition="failed",
+                reason="verified PM2 assets differ from selected profile",
+            )
+            continue
+        expected_runtime = profile.startup.get("runtime_identity")
+        if expected_runtime is not None and expected_runtime != identity["runtime_identity"]:
+            held[position] = ScopeIntent(
+                **intent,
+                disposition="failed",
+                reason="verified PM2 runtime differs from selected profile",
+            )
+            continue
+        profile = profile.model_copy(
+            update={
+                "startup": {**profile.startup, "runtime_identity": identity["runtime_identity"]}
+            }
+        )
+        scopes.append(scope.model_copy(update={"profile": profile}))
+        scheduled_positions.append(position)
     with read_snapshot(engine) as conn:
         prepared = open_release(conn, request.release)
         realization = table("data.realization")
@@ -622,6 +736,13 @@ def _run_scopes(
                 )
 
         sources = {identity: native_source_frame(view, ()) for identity, view in views.items()}
+        for scope in request.scopes:
+            start, stop = scope.extent
+            if (
+                not 0 <= start < stop <= len(views[scope.source.source_view_id].text)
+                or stop - start > 65_536
+            ):
+                raise ValueError("PM2 scope is outside its selected source projection")
         preparation = PreparedNativeSources(tuple(sources.values()), max_sources=len(sources))
         sentence_bounds = {}
         if isinstance(request, InterpretationRunRequest):
@@ -637,13 +758,14 @@ def _run_scopes(
                     conn,
                     families.get(scope.family),
                 )
-                for scope in request.scopes
+                for scope in scopes
+                if isinstance(scope, InterpretationScope)
             ]
         else:
             token_views = {
                 scope.source.source_view_id
-                for scope in request.scopes
-                if scope.profile.provider != "dipo"
+                for scope in scopes
+                if isinstance(scope, ParserScope) and scope.profile.provider != "dipo"
             }
             sentence_bounds = {identity: _sentences(views[identity]) for identity in token_views}
             work = [
@@ -654,11 +776,16 @@ def _run_scopes(
                     preparation,
                     sentence_bounds.get(scope.source.source_view_id, []),
                 )
-                for scope in request.scopes
+                for scope in scopes
+                if isinstance(scope, ParserScope)
             ]
     if len({item.input_digest for item in work}) != len(work):
         raise ValueError("duplicate logical parser scope")
 
+    by_position = held | dict(zip(scheduled_positions, map(_scheduled_intent, work), strict=True))
+    intents = [
+        by_position[position].model_dump(mode="json") for position in range(len(by_position))
+    ]
     with engine.begin() as conn:
         run = create_run(
             conn,
@@ -675,9 +802,10 @@ def _run_scopes(
             ),
             kind="slice",
             options={
+                "pm2_scope_intents": intents,
                 ("interpretation_scopes" if interpretation else "parser_scopes"): [
                     scope.model_dump(mode="json", exclude={"profile"}) for scope in request.scopes
-                ]
+                ],
             },
             code_commit=code_commit(),
             prepared=prepared,
@@ -706,8 +834,6 @@ def _run_scopes(
             task = _schedule(conn, run, config, item)
             groups[config, config_hash][task] = item
 
-    script = Path(__file__).resolve().parents[1] / "methods" / "pm2_native.py"
-    root = script.parents[5]
     holder = f"pm2-{stage}:{run}"
     remaining_splits = 64
     with supervise_run(engine, run), TemporaryDirectory(prefix="pm2-profiles-") as tmp:
@@ -720,14 +846,11 @@ def _run_scopes(
                         "provider": profile.provider,
                         "device": profile.device,
                         "assets": str(request.assets.resolve()),
+                        "runtime_identity": profile.startup["runtime_identity"],
                     }
                 )
             )
-            interpreter = (
-                Path(sys.executable)
-                if profile.provider == "d1"
-                else root / f"services/pm2-{profile.provider}/.venv/bin/python"
-            )
+            interpreter = interpreters[profile.provider]
 
             def settle(
                 owner,
@@ -866,15 +989,20 @@ def _run_scopes(
                         )
                         remaining_splits -= 1
                 with engine.begin() as conn:
-                    wave = tuple(_schedule(conn, run, config, child) for child in children)
+                    wave = tuple(
+                        _schedule(conn, run, config, child, split=True) for child in children
+                    )
                 items.update(zip(wave, children, strict=True))
         result = _finalize_bound_run(
             engine, run, f"private:pm2-{stage}:{run}", analytics=settings.analytics
         )
+    with engine.connect() as conn:
+        coverage = scope_coverage(conn, run, intents)
     return ParserRunReport(
         run_id=run,
         cut_id=result.cut_id,
         release=request.release,
         realization=result.realization_id,
         tasks=tuple(int(task) for items in groups.values() for task in items),
+        scope_coverage=coverage,
     )

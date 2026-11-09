@@ -97,6 +97,65 @@ def test_native_completion_checks_nested_source_detail_before_retention(private_
         assert "absent" not in restored
 
 
+def test_native_parser_payload_uses_selected_release_contract(private_source):
+    from copy import deepcopy
+    from dataclasses import replace
+
+    from corpus_structure.semantic.observations import source_value
+
+    case = private_source
+    base = drafts(case)
+    operation, *_ = base.contribution_operations or ()
+    occurrence, _ = base.contributions or ()
+    location = dict(occurrence, semantic_type="source_occurrence")
+    location["contribution_id"] = contribution_identity(location)
+    payload = dict(
+        scheme="hanlp-ptb-constituency-1",
+        sentence=0,
+        label="NP",
+        location="cell/0",
+        location_keys=["cell/0"],
+        unlocated_members=[],
+    )
+    phrase = dict(
+        contract="PM2HanLPPhraseContributionV1",
+        kind="composite",
+        semantic_type="linguistic.constituent",
+        operation_key=operation["operation_key"],
+        item_key="phrase/0",
+        pin=location["pin"],
+        members=(location["contribution_id"],),
+        disposition="unassessed",
+        standing="retained_private",
+        score_state="missing",
+        value=source_value(payload),
+    )
+    phrase["contribution_id"] = contribution_identity(phrase)
+    result = replace(
+        base,
+        contributions=(location, phrase),
+        contribution_operations=(dict(operation, question="pm2.hanlp.frames"),),
+    )
+    original = envelope(case, result)
+    with case.writer.begin() as conn:
+        malformed = deepcopy(original)
+        malformed["contributions"][1]["value"] = source_value(dict(payload, sentence="0"))
+        legacy = deepcopy(original)
+        legacy["contributions"][1]["contract"] = "RetainedContributionSemantics"
+        wrong_question = deepcopy(original)
+        wrong_question["contribution_operations"][0]["question"] = "inspect_cell"
+        for raw, reason in (
+            (malformed, "semantics differ from released contract"),
+            (legacy, "does not use its released payload contract"),
+            (wrong_question, "semantics differ from released contract"),
+        ):
+            row = raw["contributions"][1]
+            row["contribution_id"] = contribution_identity(row)
+            with pytest.raises(DBAPIError, match=reason), conn.begin_nested():
+                bypass(case, conn, raw)
+        bypass(case, conn, original)
+
+
 def test_native_anchorless_occurrence_spoof_refuses_at_protected_completion(private_source):
     case = private_source
     raw = envelope(case, drafts(case))

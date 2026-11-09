@@ -12,8 +12,10 @@ from corpus_structure.core.method import UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.semantic.contributions import (
     contribution_identity,
+    contribution_payload_contracts,
     occurrence_identity,
     operation_identity,
+    validate_contribution_semantics,
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.interpretation_questions import declared_families
@@ -25,7 +27,13 @@ from corpus_structure.semantic.source_contexts import (
     record_source_pin,
 )
 
-from .pm2_products import PARSER_QUESTIONS, ParserProducts
+from .pm2_products import (
+    PARSER_QUESTIONS,
+    ParserProducts,
+    parser_member_types,
+    parser_value_for_contract,
+    parser_view,
+)
 from .pm2_source import (
     D1SourceField,
     MappedSource,
@@ -314,13 +322,25 @@ def pm2_unit_result(
         location.update(outcome="succeeded", occurrence_id=row["occurrence_id"])
     retained = {row["item_key"]: row["contribution_id"] for row in rows}
     defined_keys = set(evidence)
+    member_types = dict.fromkeys(evidence, "source_occurrence")
+    contracts = (
+        contribution_payload_contracts(prepared.index.definitions.values())
+        if prepared is not None and parser_operation
+        else {}
+    )
     for product in products:
         if product.key in defined_keys or not set(product.members) <= defined_keys:
             raise ValueError("parser product has a duplicate key or an unavailable member")
         defined_keys.add(product.key)
         members = tuple(retained[key] for key in product.members if key in retained)
+        payload_contract = contracts.get(product.semantic_type)
+        value = (
+            parser_value_for_contract(product.semantic_type, product.value)
+            if payload_contract is not None
+            else product.value
+        )
         row = {
-            "contract": "RetainedContributionSemantics",
+            "contract": payload_contract or "RetainedContributionSemantics",
             "kind": "composite" if members else "proposal",
             "semantic_type": product.semantic_type,
             "operation_key": operation_key,
@@ -333,15 +353,25 @@ def pm2_unit_result(
             "score_state": "missing",
             "value": source_value(
                 {
-                    **product.value,
+                    **value,
                     "location_keys": list(product.members),
                     "unlocated_members": [key for key in product.members if key not in retained],
                 }
             ),
             "computation_dependencies": (input_digest,),
         }
+        if payload_contract is not None and prepared is not None:
+            validate_contribution_semantics(
+                prepared, row, question=question, payload_contracts=contracts
+            )
+            references = parser_member_types(parser_view(row))
+            if tuple(references) != product.members or any(
+                member_types.get(key) != kind for key, kind in references.items()
+            ):
+                raise ValueError("released parser roles differ from their exact source members")
         row["contribution_id"] = contribution_identity(row)
         retained[product.key] = row["contribution_id"]
+        member_types[product.key] = product.semantic_type
         rows.append(row)
     report: dict[str, Any] = {
         "native": reply,

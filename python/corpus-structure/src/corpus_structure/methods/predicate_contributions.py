@@ -3,8 +3,11 @@
 import re
 from bisect import bisect_right
 from collections import defaultdict
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
+
+from pydantic import ValidationError
 
 from corpus_structure.ingest.annotations import AnnotationProduct
 from corpus_structure.semantic.contributions import (
@@ -16,8 +19,27 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.source_contexts import ContextRefused, evidence_anchor
 from corpus_structure.semantic.structural_parsing import parse_threshold
+from corpus_structure.semantic.types import PreparedRelease
 
 from .predicate_frames import interpretation_recipe, source_layout
+
+PREDICATE_QUALIFIER_CLASS = "PredicateQualifierComponent"
+MISSING_QUALIFIER = "Predicate qualifier declaration is missing from the selected release."
+INCOMPATIBLE_QUALIFIER = "Located attachment differs from the released qualifier declaration."
+type QualifierPreflight = Callable[[Mapping[str, Any]], str | None]
+
+
+def predicate_qualifier_refusal(
+    prepared: PreparedRelease, qualifier: Mapping[str, Any]
+) -> str | None:
+    """Check a proposed relation without risking the independently located parts."""
+    if PREDICATE_QUALIFIER_CLASS not in prepared.index.definitions:
+        return MISSING_QUALIFIER
+    try:
+        prepared.validate_json(PREDICATE_QUALIFIER_CLASS, canonical_bytes(qualifier))
+    except ValidationError:
+        return INCOMPATIBLE_QUALIFIER
+    return None
 
 
 @dataclass(frozen=True)
@@ -119,6 +141,7 @@ def publish_predicate_evidence(
     coordinates,
     *,
     version="2",
+    qualifier_preflight: QualifierPreflight | None = None,
 ):
     """Bind each role to exact native pieces before constructing frame/attachment identities."""
     import json
@@ -149,6 +172,7 @@ def publish_predicate_evidence(
     emitted = {operation: 0 for operation in operations}
     retained = tuple("annotation:" + annotation.dependency_digest for annotation, _ in results)
     issues = [*annotation_errors, *(str(issue) for _, result in results for issue in result.issues)]
+    attachment_issues: set[str] = set()
     unavailable = any(not result.frames and result.issues for _, result in results)
     mapped_cache = {}
     row_cache = {}
@@ -395,6 +419,26 @@ def publish_predicate_evidence(
             if "parameterization" in witness:
                 predecessor = (witness["parameterization"],)
         deps = (*bases, *members, *predecessor)
+        attachment = component(
+            1,
+            "predicate_qualifier",
+            selected,
+            deps,
+            bases,
+            qualifier_contribution_id=qualifier,
+            host_contribution_id=host,
+            qualifier_kind=kind,
+            **details,
+        )
+        # Local candidates stand alone. Cross-block cues have a protected
+        # all-host witness population and keep their existing closure path.
+        if (
+            witness is None
+            and qualifier_preflight is not None
+            and (reason := qualifier_preflight(attachment))
+        ):
+            attachment_issues.add(reason)
+            return
         emit(
             1,
             f"{qualifier}:{host}",
@@ -403,17 +447,7 @@ def publish_predicate_evidence(
             kind="relation",
             members=members,
             endpoints=(("qualifier", qualifier), ("host", host)),
-            component=component(
-                1,
-                "predicate_qualifier",
-                selected,
-                deps,
-                bases,
-                qualifier_contribution_id=qualifier,
-                host_contribution_id=host,
-                qualifier_kind=kind,
-                **details,
-            ),
+            component=attachment,
         )
 
     scoped_hosts = defaultdict(list)
@@ -639,26 +673,35 @@ def publish_predicate_evidence(
                         witness=entry.witness,
                     )
 
-    reason = "; ".join(issues)
-    if not reason and not results:
-        reason = "No retained linguistic annotation block is available."
-    return tuple(
-        dict(
-            operation_key=op,
-            question=question,
-            operation_version=version,
-            outcome=("limited" if emitted[op] else "unsupported" if unavailable else "failed")
-            if issues
-            else ("succeeded" if emitted[op] else "empty" if results else "not_run"),
-            **({"reason": reason} if reason else {}),
-            inspected_count=sum(len(annotation.tokens) for annotation, _ in results),
-            emitted_count=emitted[op],
-            **(
-                {"annotation_origin_task_id": annotation_origin_task_id}
-                if annotation_origin_task_id is not None
-                else {}
-            ),
-            computation_dependencies=tuple(dict.fromkeys((dependency, *retained))),
+    reports = []
+    definitions = zip(operations, questions, versions, strict=True)
+    for index, (op, question, version) in enumerate(definitions):
+        refusals = sorted(attachment_issues) if index == 1 else []
+        reasons = (*issues, *refusals)
+        reason = "; ".join(reasons)
+        if not reason and not results:
+            reason = "No retained linguistic annotation block is available."
+        if reasons:
+            outcome = (
+                "limited" if emitted[op] else "unsupported" if unavailable or refusals else "failed"
+            )
+        else:
+            outcome = "succeeded" if emitted[op] else "empty" if results else "not_run"
+        reports.append(
+            dict(
+                operation_key=op,
+                question=question,
+                operation_version=version,
+                outcome=outcome,
+                **({"reason": reason} if reason else {}),
+                inspected_count=sum(len(annotation.tokens) for annotation, _ in results),
+                emitted_count=emitted[op],
+                **(
+                    {"annotation_origin_task_id": annotation_origin_task_id}
+                    if annotation_origin_task_id is not None
+                    else {}
+                ),
+                computation_dependencies=tuple(dict.fromkeys((dependency, *retained))),
+            )
         )
-        for op, question, version in zip(operations, questions, versions, strict=True)
-    )
+    return tuple(reports)

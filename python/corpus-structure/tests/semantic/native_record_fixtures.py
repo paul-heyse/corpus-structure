@@ -84,12 +84,14 @@ from corpus_structure.semantic.source_views import store_source_view
 from corpus_structure.semantic.types import PreparedRelease
 
 
-def qualified_view_draft(draft, release_id):
+def qualified_view_draft(draft, release_id, *, policy=None):
     from dataclasses import replace
 
     from corpus_structure.ingest.pdf_hierarchy import section_text_recipe, section_view_key
 
-    recipe = section_text_recipe(draft.native_product, analysis_eligible=draft.analysis_eligible)
+    recipe = section_text_recipe(
+        draft.native_product, analysis_eligible=draft.analysis_eligible, policy=policy
+    )
     return replace(
         draft,
         key=section_view_key(
@@ -293,23 +295,14 @@ def build_record_source(
     record_method_spec=None,
     sibling_captions=(),
     sibling_references=(),
+    sibling_originals=(),
+    monkeypatch=None,
     project_id="private-records",
 ):
     """Publish the selected pure preparation and acquire one leased record task."""
     bundle, dependencies, profile = preparation.preparation_inputs
-    prepared = preparation.prepared
     semantic_db_engine, semantic_writer_engine, tmp_path = admin, writer, directory
     realization = "private-input" if project_id == "private-records" else f"{project_id}-input"
-    with semantic_db_engine.begin() as conn:
-        persist_release(conn, bundle, dependencies, profile, prepared)
-        conn.execute(insert(table("data.project")).values(project_id=project_id))
-        conn.execute(
-            insert(table("data.realization")).values(
-                project_id=project_id,
-                realization_id=realization,
-                release_id=prepared.release_id,
-            )
-        )
     original, recipe = b"%PDF-1.7\nprivate source record fixture", b'{"recipe":"private-records-1"}'
     if project_id != "private-records":
         original += b"\n" + project_id.encode()
@@ -334,19 +327,79 @@ def build_record_source(
     )
     sibling = doc.add_group(label=GroupLabel.SECTION, name="Other source")
     sibling_texts = (*sibling_captions, *sibling_references) or ("12",)
+    originals = sibling_originals or sibling_texts
     sibling_items = tuple(
-        doc.add_text(
+        doc.add_formula(text=literal, orig=original_text, parent=sibling)
+        if sibling_originals
+        else doc.add_text(
             label=DocItemLabel.CAPTION if position < len(sibling_captions) else DocItemLabel.TEXT,
             text=literal,
-            orig=literal,
+            orig=original_text,
             parent=sibling,
         )
-        for position, literal in enumerate(sibling_texts)
+        for position, (literal, original_text) in enumerate(
+            zip(sibling_texts, originals, strict=True)
+        )
     )
-    sibling_projection = "\n".join(sibling_texts)
+    policy = None
+    prepared = preparation.prepared
+    if sibling_originals:
+        from corpus_structure.semantic import contracts
+
+        assert monkeypatch is not None
+        policy = json.dumps(
+            {
+                "recipe": "native-section-text-v10",
+                "content_layers": ["body"],
+                "readable_formula_originals": [
+                    {
+                        "original_digest": sha256(original).hexdigest(),
+                        "orig_digest": sha256(item.orig.encode()).hexdigest(),
+                        "pointer": item.self_ref,
+                        "parent": sibling.self_ref,
+                        "prov": [],
+                    }
+                    for item in sibling_items
+                ],
+            },
+        ).encode()
+        dependencies = replace(
+            dependencies,
+            artifacts=tuple(
+                replace(artifact, content=policy)
+                if artifact.name == "execution/implementation/pdf/section-text-recipe.json"
+                else artifact
+                for artifact in dependencies.artifacts
+            ),
+        )
+        # This fixture installs one authored policy asset. Runtime and native
+        # release checks still compare its exact bytes against the released input.
+        installed = contracts.analysis_implementation_inputs
+        monkeypatch.setattr(
+            contracts,
+            "analysis_implementation_inputs",
+            lambda **kwargs: tuple(
+                replace(artifact, content=policy)
+                if artifact.name == "pdf/section-text-recipe.json"
+                else artifact
+                for artifact in installed(**kwargs)
+            ),
+        )
+        prepared = prepare_release(bundle, dependencies, profile)
+    with semantic_db_engine.begin() as conn:
+        persist_release(conn, bundle, dependencies, profile, prepared)
+        conn.execute(insert(table("data.project")).values(project_id=project_id))
+        conn.execute(
+            insert(table("data.realization")).values(
+                project_id=project_id,
+                realization_id=realization,
+                release_id=prepared.release_id,
+            )
+        )
+    sibling_projection = "\n".join(originals)
     sibling_pieces = []
     offset = 0
-    for item, literal in zip(sibling_items, sibling_texts, strict=True):
+    for item, literal in zip(sibling_items, originals, strict=True):
         if offset:
             sibling_pieces.append(dict(kind="synthetic_separator", start=offset, end=offset + 1))
             offset += 1
@@ -354,7 +407,7 @@ def build_record_source(
             dict(
                 kind="native_text",
                 item_ref=item.self_ref,
-                source_field="text",
+                source_field="orig" if sibling_originals else "text",
                 start=offset,
                 end=offset + len(literal),
             )
@@ -367,7 +420,16 @@ def build_record_source(
     )
     payload = publication_payload(
         PdfConversion(
-            sha256(original).hexdigest(), recipe, snapshot(doc), "success", (), (), (), None
+            sha256(original).hexdigest(),
+            recipe,
+            snapshot(doc),
+            "success",
+            (),
+            tuple(FormulaOutcome(item.self_ref, "succeeded") for item in sibling_items)
+            if sibling_originals
+            else (),
+            (),
+            None,
         ),
         product_key="native",
         schema_digest=sha256(native_schema).hexdigest(),
@@ -467,7 +529,7 @@ def build_record_source(
             dict(payload["health"], formula_outcomes=[]),
             b'{"view":"cells"}',
         )
-        draft = qualified_view_draft(draft, prepared.release_id)
+        draft = qualified_view_draft(draft, prepared.release_id, policy=policy)
         view = store_source_view(
             conn,
             run_id=run,
@@ -487,10 +549,12 @@ def build_record_source(
             tuple(sibling_pieces),
             (sibling.self_ref, *(item.self_ref for item in sibling_items)),
             (),
-            dict(payload["health"], formula_outcomes=[]),
+            payload["health"]
+            if sibling_originals
+            else dict(payload["health"], formula_outcomes=[]),
             b'{"view":"other"}',
         )
-        other = qualified_view_draft(other, prepared.release_id)
+        other = qualified_view_draft(other, prepared.release_id, policy=policy)
         other_view = store_source_view(
             conn,
             run_id=run,
@@ -707,7 +771,12 @@ def private_preparation():
 
 @pytest.fixture
 def private_source(
-    semantic_db_engine, semantic_writer_engine, tmp_path, request, private_source_options
+    semantic_db_engine,
+    semantic_writer_engine,
+    tmp_path,
+    request,
+    private_source_options,
+    monkeypatch,
 ):
     options = private_source_options | getattr(request, "param", {})
     method = options.get("record_method")
@@ -724,6 +793,8 @@ def private_source(
         record_method_spec=method,
         sibling_captions=options.get("sibling_captions", ()),
         sibling_references=options.get("sibling_references", ()),
+        sibling_originals=options.get("sibling_originals", ()),
+        monkeypatch=monkeypatch,
     )
 
 

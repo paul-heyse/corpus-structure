@@ -1,5 +1,7 @@
 """Maverick detection, membership and participant alternatives have distinct populations."""
 
+from semantic.test_record_contracts import release_inputs
+
 from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.pm2_maverick_products import (
@@ -57,6 +59,7 @@ def test_maverick_retains_nested_and_unassigned_detection_independently_of_clust
         request=request,
         reply=reply,
         input_digest=pm2_input_digest(mapping, profile, request, **dimensions),
+        prepared=release_inputs()[2],
         **dimensions,
     )
     assert result.contributions is not None
@@ -64,6 +67,8 @@ def test_maverick_retains_nested_and_unassigned_detection_independently_of_clust
     assert rows["cluster:0"]["members"] == tuple(
         rows[key]["contribution_id"] for key in by_key["cluster:0"].members
     )
+    assert rows["cluster:0"]["contract"] == "PM2MaverickClusterContributionV1"
+    assert rows["mention:4:5"]["contract"] == "PM2MaverickMentionContributionV1"
     assert rows["mention:4:5"]["kind"] == "proposal"
     assert "occurrence_id" not in rows["mention:4:5"]
 

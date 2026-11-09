@@ -8,10 +8,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, JsonValue
+from pydantic import BaseModel, Field, JsonValue
 from sqlalchemy import Connection, Engine
 
 from corpus_structure.core.vocab import TaskStatus
+from corpus_structure.semantic.pm2_coverage import ScopeCoverage, scope_coverage
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.settings import AnalyticsSettings
 
@@ -48,6 +49,9 @@ class RunProgress(BaseModel):
     unresolved_agent_tasks: int
     readiness: Literal["completed", "source_ready", "incomplete", "terminal"]
     supervisor: Literal["active", "waiting", "orphaned", "unassessed", "terminal"]
+    pm2_scope_coverage: tuple[ScopeCoverage, ...] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class StatusReport(BaseModel):
@@ -561,6 +565,11 @@ def bound_status(
             unresolved_agent_tasks=unresolved,
             readiness=readiness,
             supervisor=supervisor,
+            pm2_scope_coverage=(
+                scope_coverage(conn, run, row["options"]["pm2_scope_intents"])
+                if "pm2_scope_intents" in row["options"]
+                else None
+            ),
         ),
         orphaned=[run] if supervisor == "orphaned" else None if supervisor == "unassessed" else [],
     )

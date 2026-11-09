@@ -13,21 +13,30 @@ from dataclasses import dataclass
 from typing import Any
 
 from corpus_structure.methods.pm2_dipo_products import prepare_dipo_context
-from corpus_structure.methods.pm2_products import PARSER_QUESTIONS
+from corpus_structure.methods.pm2_products import (
+    PARSER_PROVIDER,
+    PARSER_QUESTIONS,
+    ClusterView,
+    CueView,
+    EDUView,
+    FrameView,
+    MentionView,
+    ParserValue,
+    PhraseView,
+    TreeView,
+    parser_view,
+    released_parser_members,
+)
 from corpus_structure.semantic.contextual_storage import RetainedCandidateListRef
+from corpus_structure.semantic.contributions import (
+    contribution_payload_contracts,
+    validate_contribution_semantics,
+)
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.retained_contributions import RetainedContributionRef
+from corpus_structure.semantic.types import PreparedRelease
 
-_PARSER = {
-    "linguistic.predicate_frame": "hanlp",
-    "linguistic.qualifier_cue": "hanlp",
-    "linguistic.constituent": "hanlp",
-    "maverick.mention": "maverick",
-    "maverick.cluster": "maverick",
-    "dipo.edu": "dipo",
-    "dipo.tree": "dipo",
-}
 _CONTEXT_EDUS = 4
 _CONTEXT_OMISSIONS = 8
 
@@ -69,9 +78,13 @@ class _Parts:
     selection: Mapping[tuple[Custody, str], Row]
 
     @classmethod
-    def read(cls, product: Row, value: Row, selection: Mapping[tuple[Custody, str], Row]) -> _Parts:
-        keys = value.get("location_keys", ())
-        missing = value.get("unlocated_members", ())
+    def read(
+        cls,
+        product: Row,
+        keys: Sequence[str],
+        missing: Sequence[str],
+        selection: Mapping[tuple[Custody, str], Row],
+    ) -> _Parts:
         ids = product.get("members", ())
         # The producer keeps the native keys in order and materializes only
         # located members in that same order; never join by text or key alone.
@@ -136,32 +149,36 @@ class _Parts:
         return result
 
 
-def _parser_roles(semantic_type: str, value: Row, parts: _Parts) -> list[dict[str, Any]]:
-    if semantic_type == "linguistic.predicate_frame":
+def _parser_roles(value: ParserValue, parts: _Parts) -> list[dict[str, Any]]:
+    if isinstance(value, FrameView):
+        if value.focus is None:
+            raise SemanticRefusal("retained PM2 frame lacks a focal member")
         roles = [
-            parts.role("frame", "predicate", value["predicate"]),
-            parts.role("frame", "focus", value["focus"]),
+            parts.role("frame", "predicate", value.predicate),
+            parts.role("frame", "focus", value.focus),
             *(
-                parts.role("native_dependency", item["role"], item["location"])
-                for item in value["dependency_arguments"]
+                parts.role("native_dependency", item.role, item.location)
+                for item in value.dependency_arguments
             ),
         ]
-        for group, frame in enumerate(value["srl_frames"]):
-            roles.append(parts.role("native_srl", "PRED", frame["predicate"], group=group))
+        for group, frame in enumerate(value.srl_frames):
+            if frame.predicate is None:
+                raise SemanticRefusal("retained PM2 frame lacks its SRL predicate")
+            roles.append(parts.role("native_srl", "PRED", frame.predicate, group=group))
             roles.extend(
-                parts.role("native_srl", item["role"], item["location"], group=group)
-                for item in frame["arguments"]
+                parts.role("native_srl", item.role, item.location, group=group)
+                for item in frame.arguments
             )
         return roles
-    if semantic_type == "linguistic.qualifier_cue":
+    if isinstance(value, CueView):
         return [
-            parts.role("qualifier", "cue", value["location"]),
-            parts.role("qualifier", "marker", value["marker"]),
+            parts.role("qualifier", "cue", value.location),
+            parts.role("qualifier", "marker", value.marker),
             *(
                 parts.role(
                     "qualifier_candidate", "host", key, semantic_type="linguistic.predicate_frame"
                 )
-                for key in value["candidates"]
+                for key in value.candidates
             ),
             *(
                 [
@@ -172,21 +189,23 @@ def _parser_roles(semantic_type: str, value: Row, parts: _Parts) -> list[dict[st
                         semantic_type="linguistic.predicate_frame",
                     )
                 ]
-                if (source := value.get("attribution_source")) is not None
+                if (source := value.attribution_source) is not None
                 else []
             ),
         ]
-    if semantic_type == "maverick.cluster":
+    if isinstance(value, ClusterView):
         return [
             parts.role("local_coreference", "mention", key, semantic_type="maverick.mention")
-            for key in value["member_keys"]
+            for key in value.member_keys
         ]
-    if semantic_type == "maverick.mention":
+    if isinstance(value, MentionView):
         return [
-            parts.role("local_coreference", "mention_extent", key) for key in value["location_keys"]
+            parts.role("local_coreference", "mention_extent", key) for key in value.location_keys
         ]
-    if semantic_type in {"linguistic.constituent", "dipo.edu"}:
-        key = value["location_key" if semantic_type == "dipo.edu" else "location"]
+    if isinstance(value, (PhraseView, EDUView)):
+        key = value.location_key if isinstance(value, EDUView) else value.location
+        if key is None:
+            raise SemanticRefusal("retained PM2 product lacks an extent member")
         return [parts.role("source", "extent", key)]
     return []
 
@@ -269,7 +288,7 @@ def _assessed_scope(value: Row, row: Row) -> Row:
 
 
 def composition_facets(
-    operations: Sequence[Row], rows: Sequence[Row]
+    operations: Sequence[Row], rows: Sequence[Row], *, prepared: PreparedRelease | None = None
 ) -> dict[tuple[Custody, str], dict[str, Any]]:
     """Return a private view of named parts under one existing Reader selection."""
     by_operation = {_custody(op): op for op in operations if op.get("cut_member") is True}
@@ -278,10 +297,13 @@ def composition_facets(
         for row in rows
         if row.get("cut_member") is True
     }
-    facets, edus, trees = {}, {}, {}
+    facets: dict[tuple[Custody, str], dict[str, Any]] = {}
+    edus: dict[tuple[Custody, str], EDUView] = {}
+    trees: dict[tuple[Custody, str], tuple[Row, TreeView, _Parts]] = {}
+    payload_contracts = contribution_payload_contracts(prepared.definitions) if prepared else {}
     for ref, row in by_ref.items():
         semantic_type = row["semantic_type"]
-        parser = _PARSER.get(semantic_type)
+        parser = PARSER_PROVIDER.get(semantic_type)
         interpretation = semantic_type.startswith("interpretation.")
         if parser is None and not interpretation:
             continue
@@ -297,8 +319,26 @@ def composition_facets(
             )
         ):
             raise SemanticRefusal("PM2 contribution lacks its exact producing operation")
-        value = source_python(row["value"])
-        parts = _Parts.read(row, value, by_ref)
+        try:
+            parser_value = parser_view(row) if parser is not None else None
+            if prepared is not None and semantic_type in payload_contracts:
+                validate_contribution_semantics(
+                    prepared,
+                    row,
+                    question=operation["question"],
+                    payload_contracts=payload_contracts,
+                )
+                if parser_value is not None:
+                    released_parser_members(parser_value)
+        except (KeyError, ValueError) as error:
+            raise SemanticRefusal("retained PM2 payload differs from its released roles") from error
+        value = source_python(row["value"]) if interpretation else {}
+        parts = _Parts.read(
+            row,
+            parser_value.location_keys if parser_value else value.get("location_keys", ()),
+            parser_value.unlocated_members if parser_value else value.get("unlocated_members", ()),
+            by_ref,
+        )
         facets[ref] = {
             "version": "private-contribution-composition-1",
             "standing": "retained_private",
@@ -306,9 +346,9 @@ def composition_facets(
             "operation_version": operation["operation_version"],
             "operation_outcome": operation["outcome"],
             "roles": (
-                _interpretation_roles(value, parts)
-                if interpretation
-                else _parser_roles(semantic_type, value, parts)
+                _parser_roles(parser_value, parts)
+                if parser_value is not None
+                else _interpretation_roles(value, parts)
             ),
         }
         if interpretation:
@@ -325,8 +365,8 @@ def composition_facets(
                 facets[ref]["candidate_inventory"] = RetainedCandidateListRef.model_validate(
                     value["retrieval"]
                 ).model_dump(mode="json")
-        elif semantic_type == "dipo.edu":
-            edus[ref] = value
+        elif isinstance(parser_value, EDUView):
+            edus[ref] = parser_value
             state = facets[ref]["roles"][0]["state"]
             facets[ref]["discourse_context"] = {
                 "outcome": "unavailable",
@@ -336,24 +376,26 @@ def composition_facets(
                     "outside_selection": "focal_anchor_outside_selection",
                 }[state],
             }
-        elif semantic_type == "dipo.tree":
-            trees[ref] = (row, value, parts)
+        elif isinstance(parser_value, TreeView):
+            trees[ref] = (row, parser_value, parts)
 
     for ref, (tree, value, parts) in trees.items():
         located = {}
-        if len(value["location_keys"]) != value["root"][1]:
+        if len(value.location_keys) != value.root[1]:
             raise SemanticRefusal("Dipo tree and retained EDU population differ")
-        for index, key in enumerate(value["location_keys"]):
+        for index, key in enumerate(value.location_keys):
             _, edu = parts.resolve(key, "dipo.edu")
             if edu is None:
                 continue
             edu_ref = ref[0], edu["contribution_id"]
             meaning = edus[edu_ref]
-            if meaning["arm"] != value["arm"] or meaning["edu"] != index:
+            if meaning.arm != value.arm or meaning.edu != index:
                 raise SemanticRefusal("Dipo context member differs from its native arm or order")
             if any(role["state"] == "source_located" for role in facets[edu_ref]["roles"]):
                 located[index] = edu
-        topology = prepare_dipo_context(value, located_edus=located.keys(), max_edus=_CONTEXT_EDUS)
+        topology = prepare_dipo_context(
+            value.model_dump(mode="json"), located_edus=located.keys(), max_edus=_CONTEXT_EDUS
+        )
         for focal, edu in located.items():
             context = topology.select(focal, max_omitted=_CONTEXT_OMISSIONS)
             sibling = context["sibling"]

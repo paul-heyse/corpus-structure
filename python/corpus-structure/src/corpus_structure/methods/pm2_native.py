@@ -5,11 +5,13 @@ from __future__ import annotations
 import importlib
 import json
 import os
+import platform
+import re
 import runpy
 import sys
 from collections.abc import Callable
-from hashlib import file_digest
-from importlib.metadata import version
+from hashlib import file_digest, sha256
+from importlib.metadata import distributions, version
 from pathlib import Path
 from typing import Any, BinaryIO
 
@@ -165,13 +167,8 @@ def _load_d1(assets: Path, device: str) -> tuple[Payload, Inference]:
     }, infer
 
 
-def _load_profile(profile_path: Path) -> tuple[Payload, Inference]:
-    import platform
-
-    profile = json.loads(profile_path.read_bytes())
-    provider, device = profile["provider"], profile["device"]
-    if provider not in _ARTIFACT_GROUPS or device not in {"cpu", "cuda"}:
-        raise ValueError("unrecognized PM2 provider or device")
+def _runtime_identity(provider: str) -> Payload:
+    """Identify this isolated interpreter without importing any model packages."""
     python = platform.python_version()
     expected_python = "3.14.10" if provider in {"d1", "hanlp"} else "3.12.3"
     if python != expected_python:
@@ -179,8 +176,49 @@ def _load_profile(profile_path: Path) -> tuple[Payload, Inference]:
     packages = {name: version(name) for name in _RUNTIME_PACKAGES[provider]}
     if packages != _RUNTIME_PACKAGES[provider]:
         raise ValueError(f"{provider} package identity differs: {packages}")
+    inventory = {}
+    for installed in distributions():
+        name = re.sub(r"[-_.]+", "-", installed.metadata["Name"]).lower()
+        if name in inventory:
+            raise ValueError(f"duplicate installed PM2 distribution {name}")
+        record = installed.read_text("RECORD")
+        if not record:
+            raise ValueError(f"missing installed PM2 distribution record for {name}")
+        inventory[name] = (installed.version, sha256(record.encode()).hexdigest())
+    root = Path(__file__).resolve().parents[5]
+    project = root if provider == "d1" else root / f"services/pm2-{provider}"
+    with (project / "uv.lock").open("rb") as lock, Path(sys.executable).open("rb") as binary:
+        return {
+            "version": "pm2-runtime-1",
+            "python": python,
+            "platform": [sys.platform, platform.machine(), sys.implementation.cache_tag],
+            "python_sha256": file_digest(binary, "sha256").hexdigest(),
+            "lock_sha256": file_digest(lock, "sha256").hexdigest(),
+            "distributions_sha256": sha256(
+                json.dumps(inventory, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest(),
+        }
+
+
+def _preflight(provider: str, assets: Path) -> Payload:
+    if provider not in _ARTIFACT_GROUPS:
+        raise ValueError("unrecognized PM2 provider")
+    return {
+        "runtime_identity": _runtime_identity(provider),
+        "assets": _verify_assets(assets.resolve(strict=True), provider),
+    }
+
+
+def _load_profile(profile_path: Path) -> tuple[Payload, Inference]:
+    profile = json.loads(profile_path.read_bytes())
+    provider, device = profile["provider"], profile["device"]
+    if device not in {"cpu", "cuda"}:
+        raise ValueError("unrecognized PM2 device")
     assets = Path(profile["assets"]).resolve(strict=True)
-    manifests = _verify_assets(assets, provider)
+    checked = _preflight(provider, assets)
+    expected_runtime = profile.get("runtime_identity")
+    if expected_runtime is not None and expected_runtime != checked["runtime_identity"]:
+        raise ValueError("native PM2 runtime differs from the preflight identity")
     os.environ.update(
         HF_HUB_CACHE=str(assets / "hub"),
         HF_HUB_OFFLINE="1",
@@ -200,12 +238,12 @@ def _load_profile(profile_path: Path) -> tuple[Payload, Inference]:
     metadata, infer = loader(assets, device)
     return {
         "provider": provider,
-        "python": python,
-        "packages": packages,
+        "python": checked["runtime_identity"]["python"],
+        "packages": dict(_RUNTIME_PACKAGES[provider]),
         "torch_build": torch.__version__,
         "cuda_build": torch.version.cuda,
         "device_name": torch.cuda.get_device_name() if device == "cuda" else None,
-        "assets": manifests,
+        **checked,
         **metadata,
     }, infer
 
@@ -251,4 +289,11 @@ if __name__ == "__main__":
     # Libraries may write progress directly to fd 1. Keep the wire stream separate.
     with os.fdopen(os.dup(sys.stdout.fileno()), "wb") as protocol:
         os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
-        _serve(Path(sys.argv[1]), protocol)
+        if sys.argv[1] == "--preflight":
+            try:
+                provider, assets = sys.argv[2:]
+                _send(protocol, {"kind": "ready", "payload": _preflight(provider, Path(assets))})
+            except Exception as exc:
+                _send(protocol, {"kind": "error", "message": f"{type(exc).__name__}: {exc}"[:4000]})
+        else:
+            _serve(Path(sys.argv[1]), protocol)

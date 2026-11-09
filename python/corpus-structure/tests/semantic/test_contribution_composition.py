@@ -252,9 +252,48 @@ def test_binary_observation_keeps_scope_and_criteria_without_a_literal_witness()
         )
 
 
-def test_detached_interpretation_requires_original_candidate_and_selected_membership(monkeypatch):
+@pytest.mark.parametrize("contract_mode", ("legacy", "typed", "malformed_typed"))
+def test_detached_interpretation_requires_original_candidate_and_selected_membership(
+    monkeypatch, contract_mode
+):
     release, project, runtime = "release-a", "project-a", "runtime-a"
     candidate = {"semantic_type": "linguistic.predicate_frame", "pin": PIN}
+    contracts = ()
+    if contract_mode != "legacy":
+        from .test_record_contracts import release_inputs
+
+        prepared = release_inputs()[2]
+        contract = "PM2HanLPFrameContributionV1"
+        candidate.update(
+            contract=contract,
+            kind="proposal",
+            operation_key="frame-op",
+            value=source_value(
+                dict(
+                    scheme="hanlp-ud-ptb-propbank-1",
+                    sentence=0 if contract_mode == "typed" else "0",
+                    predicate_token=0,
+                    syntactic_head=0,
+                    predicate="verb",
+                    focus="verb",
+                    voice="active",
+                    dependency_arguments=[],
+                    srl_frames=[],
+                    location_keys=["verb"],
+                    unlocated_members=["verb"],
+                )
+            ),
+        )
+        contracts = (
+            {
+                "release_id": release,
+                "contribution_payload_contracts": {
+                    "linguistic.predicate_frame": dict(
+                        contract=contract, schema=prepared.json_schema(contract)
+                    )
+                },
+            },
+        )
     candidate["contribution_id"] = contribution_identity(candidate)
     ref = {
         "contribution_id": candidate["contribution_id"],
@@ -307,16 +346,28 @@ def test_detached_interpretation_requires_original_candidate_and_selected_member
             unit_type="source_view",
             origin_run_id=run,
             origin_task_id=task,
-            body={"release_id": release, "contributions": [raw]},
+            body={
+                "release_id": release,
+                "contributions": [raw],
+                "contribution_operations": [
+                    {"operation_key": "frame-op", "question": "pm2.hanlp.frames"}
+                ]
+                if task == 9
+                else [],
+            },
         )
         for run, task, raw in [(1, 9, candidate), (2, 19, reading)]
     ]
     monkeypatch.setattr(
         review_bundle,
         "_detached_relation",
-        lambda _root, _manifest, name: reports if name == "reports" else (),
+        lambda _root, _manifest, name: {"reports": reports, "contracts": contracts}.get(name, ()),
     )
     verify = review_bundle._verify_interpretation_closure
+    if contract_mode == "malformed_typed":
+        with pytest.raises(ValueError, match="parser payload differs from its released contract"):
+            verify(None, {}, scopes, selected)
+        return
     assert len(verify(None, {}, scopes, selected)) == 1
     with pytest.raises(ValueError, match="selected endpoint inventory missing"):
         verify(None, {}, scopes, {reading_key: selected[reading_key]})
@@ -335,7 +386,7 @@ def test_detached_interpretation_requires_original_candidate_and_selected_member
         )
 
 
-def test_detached_closure_refuses_unreplayed_parser_context(tmp_path):
+def test_detached_closure_refuses_query_context_without_v11_custody(tmp_path):
     destination = tmp_path / "unverifiable"
     selection = review_bundle.ReviewSelection(
         selections=(ContributionRequest(run_id=1, selected_task_id=2),)
@@ -346,6 +397,6 @@ def test_detached_closure_refuses_unreplayed_parser_context(tmp_path):
         "configuration": {"query_context": {"recipe": "located-frame-1", "bindings": []}},
         "body": {},
     }
-    with pytest.raises(ValueError, match="cannot yet replay retained parser evidence"):
+    with pytest.raises(ValueError, match="differs from contextual operation 11"):
         review_bundle.write_review_bundle(selection, destination, [("reports", report)])
     assert not destination.exists()

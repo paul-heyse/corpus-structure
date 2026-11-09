@@ -62,9 +62,7 @@ from corpus_structure.settings import Settings
 FORMAT = "progressive-review-bundle-2"
 _NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 SECTION_PACKET_INPUT = "execution/implementation/operations/section-packets.json"
-_UNREPLAYED_QUERY_CONTEXT = (
-    "exact review closure cannot yet replay retained parser evidence for enriched retrieval"
-)
+_PREDICATE_QUALIFIER_SCHEMA = "predicate_qualifier_schema"
 
 
 class ReviewComparison(BaseModel):
@@ -133,6 +131,8 @@ class ReviewSelection(BaseModel):
             raise ValueError("selected evaluations must have distinct positive identifiers")
         if any(item.cursor is not None for item in self.selections):
             raise ValueError("review selection cannot begin at a continuation")
+        if any(item.include_scope_coverage for item in self.selections):
+            raise ValueError("detached review does not yet authenticate the PM2 scope worklist")
         identities = [canonical_bytes(item.selection()) for item in self.selections]
         if len(identities) != len(set(identities)):
             raise ValueError("review selections must be distinct")
@@ -152,6 +152,7 @@ def _digest(path: Path) -> str:
 
 def _contract_row(conn, prepared):
     from corpus_structure.methods.model_observation import MODEL_OBSERVATION_INPUT
+    from corpus_structure.semantic.contributions import contribution_payload_contracts
 
     from .review_source_projection import SECTION_TEXT_INPUT
 
@@ -167,6 +168,17 @@ def _contract_row(conn, prepared):
             for value in prepared.registry_rows
         ],
     }
+    if payload_contracts := contribution_payload_contracts(prepared.definitions):
+        row["contribution_payload_contracts"] = {
+            semantic_type: dict(contract=contract, schema=prepared.json_schema(contract))
+            for semantic_type, contract in payload_contracts.items()
+        }
+    qualifier_class = "PredicateQualifierComponent"
+    row[_PREDICATE_QUALIFIER_SCHEMA] = (
+        prepared.json_schema(qualifier_class)
+        if qualifier_class in prepared.index.definitions
+        else None
+    )
     dependencies = dict(json.loads(prepared.manifest).get("dependencies", ()))
     for input_name, field in (
         (SECTION_PACKET_INPUT, "section_packets"),
@@ -363,11 +375,6 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                     {"origin_task_id": report_id, "reason": "no_retained_task_metadata"},
                 )
                 continue
-            if report["method"] == "retrieve.contextual" and (
-                report["configuration"].get("query_context") is not None
-                or (report["body"] or {}).get("operation_version") == "11"
-            ):
-                raise SemanticRefusal(_UNREPLAYED_QUERY_CONTEXT)
             if report["body"] is None:
                 yield (
                     "omissions",
@@ -974,9 +981,20 @@ def _retained_report_ids(report: Mapping[str, Any]) -> set[int]:
             for role in report["configuration"].get("role_refs", ())
         )
     elif report.get("method") == "retrieve.contextual":
+        from .contextual_query_replay import retained_query_selection
         from .contextual_witness_replay import witness_origin_ids
 
-        values = witness_origin_ids(report.get("body") or {}, report["configuration"])
+        body, config = report.get("body") or {}, report["configuration"]
+        query_context = (
+            retained_query_selection(report["method"], body.get("operation_version"), config)
+            if body
+            else None
+        )
+        values = witness_origin_ids(body, config) | (
+            {binding.evidence.origin_task_id for binding in query_context.bindings}
+            if query_context is not None
+            else set()
+        )
     else:
         return set()
     if any(type(value) is not int or value <= 0 for value in values):
@@ -1206,12 +1224,15 @@ def _exact_closure(
     from corpus_structure.semantic.structural_products import RetainedDefinitionRoleRef
     from corpus_structure.serve.contribution_composition import interpretation_predecessors
 
+    from .contextual_query_replay import query_context_dependency, retained_query_selection
+
     if selection.completeness != "selected_source_closure":
         raise SemanticRefusal("exact closure requires selected_source_closure")
     pending = list(selection.structural_selections)
     seen_scopes = set(pending)
     readers: dict[tuple[int, int], BoundReader] = {}
     contribution_groups: dict[tuple[int, int], set[str]] = {}
+    dependency_origins: set[int] = set()
     seen_references = set()
     reasons: list[dict[str, Any]] = []
     budget = PublishedReadBudget(selection.max_source_rows, selection.max_bytes)
@@ -1248,6 +1269,7 @@ def _exact_closure(
         seen_references.add(reference)
         retained = reader_for(reference).retained_source_contribution(reference)
         budget.value(retained)
+        dependency_origins.add(reference.origin_task_id)
         group = contribution_groups.setdefault(
             (reference.run_id, reference.selected_task_id), set()
         )
@@ -1257,16 +1279,20 @@ def _exact_closure(
                 "exact closure exceeds one producer's contribution selection limit"
             )
 
-    def record_dependency(identity, reference):
-        reason = {
-            "required_by": identity,
-            "reason": "declared_retained_predecessor",
-            "reference": reference.model_dump(mode="json"),
-        }
+    def record_reason(reason):
         budget.value(reason)
         reasons.append(reason)
         if len(reasons) > selection.max_source_rows:
             raise SemanticRefusal("exact closure exceeds declared predecessor budget")
+
+    def record_dependency(identity, reference):
+        record_reason(
+            {
+                "required_by": identity,
+                "reason": "declared_retained_predecessor",
+                "reference": reference.model_dump(mode="json"),
+            }
+        )
 
     for request in selection.selections:
         if request.method not in (None, "extract.pm2_d1"):
@@ -1410,6 +1436,65 @@ def _exact_closure(
             if page.next_after_task_id is None:
                 break
             after = page.next_after_task_id
+    for request in selection.selections:
+        if request.method not in (None, "retrieve.contextual"):
+            continue
+        cancellation.check_active()
+        page = _contributions(
+            conn,
+            request.model_copy(
+                update={
+                    "method": "retrieve.contextual",
+                    "include_details": False,
+                    "include_publication": False,
+                    "include_support": False,
+                    "include_interpretation": False,
+                    "include_assessment": False,
+                    "include_relationships": False,
+                    "max_bytes": min(request.max_bytes, selection.max_bytes),
+                }
+            ),
+            paginate=False,
+        )
+        dependency_origins.update(
+            identity
+            for item in page.items
+            if item["population"] == "report"
+            and isinstance(row := item["row"], dict)
+            and row.get("cut_member") is True
+            and row.get("operations_present") is True
+            and type(identity := row.get("origin_task_id")) is int
+        )
+    if dependency_origins:
+        task, config, method, run = map(
+            table, ("ops.task", "ops.method_config", "ops.method", "ops.run")
+        )
+        query = (
+            select(task.c.id, task.c.release_id, run.c.project_id, config.c.params)
+            .select_from(task)
+            .join(config, config.c.id == task.c.method_config_id)
+            .join(method, method.c.id == config.c.method_id)
+            .join(run, run.c.id == task.c.run_id)
+            .where(
+                task.c.id.in_(dependency_origins),
+                method.c.name == "retrieve.contextual",
+                method.c.version == "11",
+            )
+            .order_by(task.c.id)
+        )
+        budget.preflight(conn, query)
+        for origin, release, project, config in conn.execute(query).all():
+            budget.value(config)
+            selection_context = retained_query_selection("retrieve.contextual", "11", config)
+            assert selection_context is not None
+            references = dict.fromkeys(binding.evidence for binding in selection_context.bindings)
+            for reference in references:
+                if (reference.project_id, reference.release_id) != (project, release):
+                    raise SemanticRefusal(
+                        "query context predecessor differs from its project or release"
+                    )
+                record_reason(query_context_dependency(origin, reference))
+                include_contribution(reference)
     extras = (
         ContributionRequest(
             run_id=run,
@@ -2030,20 +2115,39 @@ def _verify_structural_gaps(root, manifest, selection):
 
 
 def _retained_contribution_payloads(
-    root, manifest, requested, scopes, inventory, *, origin_sources=False
+    root,
+    manifest,
+    requested,
+    scopes,
+    inventory,
+    *,
+    origin_sources=False,
+    require_cut_member=False,
+    origin_reports=None,
 ):
     """Read exact selected raw provenance and endpoint closure once for dependent products."""
+    from jsonschema import Draft202012Validator
+
+    from corpus_structure.methods.pm2_products import PARSER_PROVIDER, validate_parser_members
     from corpus_structure.methods.structural_products import comparison_host_evidence
-    from corpus_structure.semantic.contributions import contribution_identity
+    from corpus_structure.semantic.contributions import (
+        bound_contribution_semantics,
+        contribution_identity,
+    )
 
     if not requested:
         return
+    contracts = None
     origin_ids = {reference.origin_task_id for _, reference in requested}
-    reports = {
-        row["origin_task_id"]: row
-        for row in _detached_relation(root, manifest, "reports")
-        if row["origin_task_id"] in origin_ids
-    }
+    reports = (
+        origin_reports
+        if origin_reports is not None
+        else {
+            row["origin_task_id"]: row
+            for row in _detached_relation(root, manifest, "reports")
+            if row["origin_task_id"] in origin_ids
+        }
+    )
     source_ids = (
         set()
         if origin_sources
@@ -2116,6 +2220,7 @@ def _retained_contribution_payloads(
                 and captured.get("origin_project_id") == raw.get("project_id")
                 and captured.get("origin_run_id") == raw.get("origin_run_id")
                 and captured.get("runtime_fingerprint") == reference.runtime_fingerprint
+                and (not require_cut_member or captured.get("cut_member") is True)
                 for index in candidates
             ):
                 raise ValueError("retained contribution selected endpoint inventory missing")
@@ -2131,6 +2236,34 @@ def _retained_contribution_payloads(
             raise ValueError("retained contribution original endpoint source missing")
         if any(contribution_identity(row) != key for key, row in closure.items()):
             raise ValueError("retained contribution identity differs from original content")
+        parser_rows = [row for row in closure.values() if row["semantic_type"] in PARSER_PROVIDER]
+        if parser_rows:
+            if contracts is None:
+                contracts = {
+                    row["release_id"]: row.get("contribution_payload_contracts", {})
+                    for row in _detached_relation(root, manifest, "contracts")
+                }
+            selected = contracts.get(reference.release_id, {})
+            operations = {
+                op["operation_key"]: op["question"]
+                for op in raw["body"].get("contribution_operations", ())
+            }
+            for row in parser_rows:
+                contract = selected.get(row["semantic_type"])
+                named_contract = row.get("contract")
+                if contract is None and named_contract in {None, "RetainedContributionSemantics"}:
+                    continue  # Older releases used the generic private contract.
+                question = operations.get(row["operation_key"])
+                if (
+                    contract is None
+                    or named_contract != contract["contract"]
+                    or question is None
+                    or not Draft202012Validator(contract["schema"]).is_valid(
+                        bound_contribution_semantics(row, question=question)
+                    )
+                ):
+                    raise ValueError("retained parser payload differs from its released contract")
+                validate_parser_members(row, closure)
         yield dict(
             contributions=list(closure.values()),
             sources=[sources[key] for key in sorted(source_ids)],
@@ -2531,9 +2664,13 @@ def _retained_review_source_view(source):
 
 def _verify_predicate_closure(root, manifest):
     """Replay predicate evidence against the retained annotations and physical source pieces."""
+    from jsonschema import Draft202012Validator
+
     from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
     from corpus_structure.ingest.sentences import SentenceConfig
     from corpus_structure.methods.predicate_contributions import (
+        INCOMPATIBLE_QUALIFIER,
+        MISSING_QUALIFIER,
         predicate_results,
         publish_predicate_evidence,
     )
@@ -2561,6 +2698,11 @@ def _verify_predicate_closure(root, manifest):
             scoped.append(row)
     if not scoped:
         return
+    qualifier_schemas = {
+        row["release_id"]: row[_PREDICATE_QUALIFIER_SCHEMA]
+        for row in _detached_relation(root, manifest, "contracts")
+        if _PREDICATE_QUALIFIER_SCHEMA in row
+    }
     source_ids = {row["origin_unit_id"] for row in scoped}
     sources = {
         row["source_view_id"]: row
@@ -2607,14 +2749,28 @@ def _verify_predicate_closure(root, manifest):
         version = {"4": "2", "5": "3", "6": "3", "7": "3", "8": "3", "9": "4", "10": "5"}.get(
             method_version
         )
-        if version is None or {
-            op["operation_version"]
+        predicate_operations = [
+            op
             for op in row["body"].get("contribution_operations", ())
             if op["question"] in {"source_predicate_frames", "source_predicate_interpretation"}
-        } != {version}:
+        ]
+        if version is None or {op["operation_version"] for op in predicate_operations} != {version}:
             raise ValueError("unsupported retained predicate replay version")
         replay = []
-        publish_predicate_evidence(
+        released_qualifier = row["body"]["release_id"] in qualifier_schemas
+        qualifier_schema = qualifier_schemas.get(row["body"]["release_id"])
+        validator = Draft202012Validator(qualifier_schema) if qualifier_schema is not None else None
+
+        def qualifier_preflight(component, validator=validator):
+            if validator is None:
+                return MISSING_QUALIFIER
+            return (
+                None
+                if validator.is_valid(json.loads(canonical_bytes(component)))
+                else INCOMPATIBLE_QUALIFIER
+            )
+
+        replay_operations = publish_predicate_evidence(
             frame,
             context,
             record_source_pin(frame),
@@ -2628,6 +2784,7 @@ def _verify_predicate_closure(root, manifest):
             replay,
             {},
             version=version,
+            qualifier_preflight=qualifier_preflight if released_qualifier else None,
         )
         actual = {
             c["contribution_id"]: canonical_bytes(c)
@@ -2639,6 +2796,12 @@ def _verify_predicate_closure(root, manifest):
             raise ValueError(
                 "predicate evidence differs from retained source and annotation replay"
             )
+        if released_qualifier:
+            fields = ("question", "outcome", "emitted_count", "reason")
+            if {tuple(op.get(key) for key in fields) for op in predicate_operations} != {
+                tuple(op.get(key) for key in fields) for op in replay_operations
+            }:
+                raise ValueError("predicate outcomes differ from released attachment replay")
 
 
 @dataclass(frozen=True, slots=True)
@@ -2707,6 +2870,7 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
     dossier_source_members = []
     contribution_scopes = {}
     contribution_inventory = {}
+    report_inventory = {}
     required_contracts: set[str] = set()
     captured_contracts: set[str] = set()
     closure_reasons: set[bytes] = set()
@@ -2884,16 +3048,6 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
                         elif name == "documents" and isinstance(payload.get("content_hash"), str):
                             document_originals.add((payload["id"], payload["content_hash"]))
                         elif name == "reports":
-                            if (
-                                selection.completeness == "selected_source_closure"
-                                and payload.get("method") == "retrieve.contextual"
-                                and (
-                                    (payload.get("configuration") or {}).get("query_context")
-                                    is not None
-                                    or (payload.get("body") or {}).get("operation_version") == "11"
-                                )
-                            ):
-                                raise ValueError(_UNREPLAYED_QUERY_CONTEXT)
                             needed_sources.update(_report_source_ids(payload["body"]))
                             for ref in _section_source_refs(payload):
                                 needed_sources.add(ref.source_view_id)
@@ -2941,6 +3095,9 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
                                 needed_reports.add(item["origin_task_id"])
                                 index = payload.get("selection_index")
                                 if type(index) is int and 0 <= index < len(selection.selections):
+                                    origin = item["origin_task_id"]
+                                    task = item.get("selected_task_id")
+                                    report_inventory[(index, task, origin)] = item
                                     captured_report_scopes.add(
                                         (
                                             selection.selections[index].run_id,
@@ -2968,6 +3125,15 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
         if selection.completeness == "selected_source_closure"
         else set()
     )
+    from .contextual_query_replay import verify_contextual_query_closure
+
+    query_context_reasons = (
+        verify_contextual_query_closure(
+            root, manifest, contribution_scopes, contribution_inventory, report_inventory
+        )
+        if selection.completeness == "selected_source_closure"
+        else set()
+    )
     if "closure_dependencies" in manifest["relations"]:
         declared_reasons = {
             canonical_bytes(
@@ -2981,7 +3147,7 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
             for group in _structural_predecessors(product)
             for reference in group
         }
-        if closure_reasons != declared_reasons | interpretation_reasons:
+        if closure_reasons != declared_reasons | interpretation_reasons | query_context_reasons:
             raise ValueError("review closure reasons differ from declared retained predecessors")
     if not public_product_ids <= structural_product_ids:
         raise ValueError("public structural witness has no selected product")

@@ -3031,7 +3031,8 @@ DECLARE t ops.task; v kb.source_view; shape json; op jsonb; contribution jsonb; 
  anchors jsonb; identities text[]; expected text; previous_ends jsonb; coordinate text; actual bigint;
  declaration json; role_definition jsonb; retained ops.task; binding jsonb; old_view kb.source_view; new_view kb.source_view; old_descriptor jsonb; new_descriptor jsonb; retained_body jsonb; retained_digests jsonb:='{}'; retained_sources jsonb:='{}';
  operation_map jsonb; anchor_map jsonb; formula_relation_endpoints jsonb;
- output_counts jsonb; schemas jsonb:='{}'; allowed_contracts jsonb;
+ output_counts jsonb; schemas jsonb:='{}'; contract_projection jsonb;
+ allowed_contracts jsonb; payload_contract text; bound_semantics jsonb;
  local_ jsonb; local_request jsonb; local_result jsonb; selected_ids jsonb; local_inputs jsonb;
  predicate_population jsonb; table_config jsonb; table_mode text; table_policy_id text; formula_meaning jsonb;
  table_expected jsonb; table_actual jsonb;
@@ -3099,8 +3100,9 @@ BEGIN
  END IF;
  SELECT COALESCE(jsonb_object_agg(key,n),'{}') INTO output_counts FROM (
   SELECT c->>'operation_key' AS key,count(*) AS n FROM jsonb_array_elements(p_envelope->'contributions') c GROUP BY c->>'operation_key') counts;
- SELECT convert_from(content,'UTF8')::jsonb->'contracts' INTO allowed_contracts FROM sem.artifact
+ SELECT convert_from(content,'UTF8')::jsonb INTO contract_projection FROM sem.artifact
   WHERE release_id=t.release_id AND artifact_name='contribution_projection.json';
+ allowed_contracts:=contract_projection->'contracts';
  FOR op IN SELECT DISTINCT jsonb_build_object('retained_task_id',o->'retained_task_id',
   'retained_result_digest',o->'retained_result_digest','retained_source_bindings',o->'retained_source_bindings')
   FROM jsonb_array_elements(p_envelope->'contribution_operations') o
@@ -4182,8 +4184,17 @@ BEGIN
   -- Only released domain contracts with an implemented private effect may be named.
   IF declaration IS NULL OR NOT COALESCE(allowed_contracts ? (contribution->>'contract'),false) THEN
    RAISE EXCEPTION 'contribution semantic contract unavailable' USING ERRCODE='23514'; END IF;
-  IF NOT public.json_matches_schema(declaration,jsonb_build_object('kind',contribution->'kind','semantic_type',contribution->'semantic_type',
-    'effect','retain_private','assessment_event','local-contribution-1')::json) THEN
+  payload_contract:=contract_projection->'payload_contracts'->>(contribution->>'semantic_type');
+  IF payload_contract IS NOT NULL AND payload_contract IS DISTINCT FROM contribution->>'contract' THEN
+   RAISE EXCEPTION 'contribution does not use its released payload contract' USING ERRCODE='23514'; END IF;
+  bound_semantics:=jsonb_build_object('kind',contribution->'kind','semantic_type',contribution->'semantic_type',
+    'effect','retain_private','assessment_event','local-contribution-1');
+  IF payload_contract IS NOT NULL THEN
+   bound_semantics:=bound_semantics||jsonb_build_object(
+    'question',operation_map->(contribution->>'operation_key')->'question',
+    'value',data.record_source_json(contribution->'value'));
+  END IF;
+  IF NOT public.json_matches_schema(declaration,bound_semantics::json) THEN
    RAISE EXCEPTION 'contribution semantics differ from released contract' USING ERRCODE='23514'; END IF;
   IF contribution->'pin' IS DISTINCT FROM jsonb_build_object('source',p_envelope->>'source',
     'native_product_task_id',v.native_task_id,'product_key',v.native_product_key,'product_digest',v.native_content_digest,

@@ -5,7 +5,11 @@ from dataclasses import replace
 import pytest
 from semantic.test_record_contracts import release_inputs
 
+from corpus_structure.core.method import UnitRef
+from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.pm2_dipo_products import dipo_context, dipo_products
+from corpus_structure.methods.pm2_products import PARSER_QUESTIONS
+from corpus_structure.methods.pm2_result import pm2_input_digest, pm2_unit_result
 from corpus_structure.methods.pm2_source import (
     MappedSource,
     PM2SourceMap,
@@ -13,6 +17,7 @@ from corpus_structure.methods.pm2_source import (
     SourceMapRefused,
     SourceMapSegment,
 )
+from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.source_contexts import PreparedNativeSources
 
 from .test_pm2_source import identity_map, source_context
@@ -69,6 +74,24 @@ def test_raw_tree_preserves_leading_gap_coincident_and_merged_breaks():
         dipo_products(mapping, request, {**reply, "spans": [_split([1, 2], [0, 1])]})
     with pytest.raises(ValueError, match="provenance differs"):
         dipo_products(mapping, request, {**reply, "boundaries": [_break(6)]})
+
+    dimensions = {"question": PARSER_QUESTIONS["dipo"], "operation_version": "1"}
+    profile = {"provider": "dipo"}
+    retained = pm2_unit_result(
+        UnitRef(TaskUnitType.SOURCE_VIEW, 1, "unit:1"),
+        mapping,
+        profile=profile,
+        request=request,
+        reply=dict(reply, outcome="succeeded"),
+        input_digest=pm2_input_digest(mapping, profile, request, **dimensions),
+        prepared=release_inputs()[2],
+        **dimensions,
+    )
+    rows = {row["item_key"]: row for row in retained.contributions or ()}
+    root = rows["layout_forced:tree"]
+    assert root["contract"] == "PM2DipoTreeContributionV1"
+    assert source_python(root["value"])["provider_gaps"] == [{"start": 0, "end": 2}]
+    assert rows["layout_forced:edu:0"]["contract"] == "PM2DipoEDUContributionV1"
 
 
 def test_singleton_can_have_exact_whitespace_pieces_without_claiming_the_gap():

@@ -7,7 +7,7 @@ release, method input and source item; task attempts and sequence IDs do not ent
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any
 
@@ -980,6 +980,100 @@ class BoundReader:
 
         return read_private_record_report(self, task_id)
 
+    def pm2_scope_coverage(self):
+        from .pm2_coverage import scope_coverage
+
+        run = table("ops.run")
+        options = self.conn.execute(
+            select(run.c.options).where(
+                run.c.id == self.run_id, run.c.release_id == self.prepared.release_id
+            )
+        ).scalar_one()
+        intents = options.get("pm2_scope_intents")
+        return None if intents is None else scope_coverage(self.conn, self.run_id, intents)
+
+    def pm2_projection_locations(self, task_id: int, *, max_bytes: int = 8_388_608):
+        """Read selected-projection evidence without creating a physical occurrence."""
+        from sqlalchemy import Text
+
+        from .contracts import require_bound_operation
+        from .observations import source_python
+        from .proposals import native_source_frame
+        from .source_contexts import (
+            NativeSourceContext,
+            PreparedNativeSources,
+            SourceSlice,
+            evidence_anchor,
+        )
+
+        require_bound_operation(self.prepared, "read_source_contributions")
+        if self.cut_id is None or task_id <= 0 or not 0 < max_bytes <= 8_388_608:
+            raise ValueError("PM2 projection read requires a selected cut and bounded detail")
+        selected, origin, result, member = (
+            table("ops.task"),
+            table("ops.task").alias("pm2_origin"),
+            table("ops.task_result"),
+            table("ops.cut_task"),
+        )
+        detail = result.c.body["parse_detail"]
+        size = func.octet_length(cast(detail, Text))
+        statement = (
+            select(detail)
+            .select_from(selected)
+            .join(member, member.c.task_id == selected.c.id)
+            .join(origin, origin.c.id == member.c.origin_task_id)
+            .join(result, result.c.task_id == origin.c.id)
+            .where(
+                selected.c.id == task_id,
+                selected.c.run_id == self.run_id,
+                selected.c.release_id == self.prepared.release_id,
+                origin.c.release_id == self.prepared.release_id,
+                origin.c.id == func.coalesce(selected.c.reused_task_id, selected.c.id),
+                member.c.cut_id == self.cut_id,
+                selected.c.unit_type == "source_view",
+            )
+        )
+        length = self.conn.scalar(statement.with_only_columns(size))
+        if length is None:
+            return None
+        if length > max_bytes:
+            raise ValueError("PM2 projection detail exceeds read budget")
+        payload, view_id, unit_key = self.conn.execute(
+            statement.with_only_columns(detail, selected.c.unit_id, selected.c.unit_key)
+        ).one()
+        decoded = source_python(payload)
+        native = decoded.get("pm2_native") if isinstance(decoded, dict) else None
+        if not isinstance(native, dict):
+            return None
+        locations = native["locations"]
+        if not isinstance(locations, dict):
+            raise ValueError("retained PM2 locations have an invalid shape")
+        source = None
+        preparation = None
+        for location in locations.values():
+            for anchor in location.get("selected_projection", ()):
+                if source is None:
+                    source = replace(
+                        native_source_frame(self.source_view(view_id), ()), unit_ref=unit_key
+                    )
+                    preparation = PreparedNativeSources((source,))
+                start, end, literal = anchor["start"], anchor["end"], anchor["source_piece"]
+                context = NativeSourceContext(
+                    source,
+                    (),
+                    (SourceSlice(view_id, start, end),),
+                    "pm2_projection_read",
+                    "exact_retained_piece",
+                    "verify_selected_projection",
+                    max_chars=65_536,
+                    preparation=preparation,
+                )
+                (piece,) = context.map_span(0, end - start, literal=literal)
+                expected, _ = evidence_anchor(context, piece)
+                if anchor != expected:
+                    raise ValueError("retained PM2 location differs from the selected source piece")
+        return locations
+
     def source_views(self):
         cached = getattr(self, "_native_view_refs", None)
         if cached is not None:
@@ -1099,13 +1193,37 @@ class BoundReader:
         """Resolve immutable selected producer output and all endpoint source evidence."""
         import json
 
+        from corpus_structure.methods.pm2_products import (
+            PARSER_PROVIDER,
+            validate_parser_input,
+            validate_parser_members,
+        )
+
+        from .contributions import contribution_payload_contracts
+        from .releases import load_release
         from .retained_contributions import RetainedContributionRef
 
         ref = RetainedContributionRef.model_validate(reference)
-        return self.conn.execute(
+        retained = self.conn.execute(
             text("SELECT ops.resolve_retained_source_contribution(CAST(:reference AS jsonb))"),
             {"reference": json.dumps(ref.model_dump(mode="json"))},
         ).scalar_one()
+        parser_rows = [
+            row for row in retained["contributions"] if row["semantic_type"] in PARSER_PROVIDER
+        ]
+        if parser_rows:
+            prepared = (
+                self.prepared
+                if ref.release_id == self.prepared.release_id
+                else load_release(self.conn, ref.release_id)
+            )
+            payload_contracts = contribution_payload_contracts(prepared.definitions)
+            population = {row["contribution_id"]: row for row in retained["contributions"]}
+            for row in parser_rows:
+                validate_parser_input(prepared, row, payload_contracts=payload_contracts)
+                if row["semantic_type"] in payload_contracts:
+                    validate_parser_members(row, population)
+        return retained
 
     def prepare_table_correspondence(self, source_view_id, contributions, weight_scale):
         """Detach the canonical finite questions for an exact selected native view."""

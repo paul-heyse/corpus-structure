@@ -66,6 +66,67 @@ def validate_contribution_declarations(definitions) -> None:
             )
 
 
+def contribution_payload_contracts(definitions) -> dict[str, str]:
+    """Release-owned dispatch for contribution types with explicit payload contracts."""
+    contracts: dict[str, str] = {}
+    for definition in definitions:
+        if definition.abstract or "ContributionSemantics" not in definition.ancestors:
+            continue
+        properties = {p.name: p for p in definition.properties}
+        if "value" not in properties:
+            continue
+        semantic_type = properties["semantic_type"].equals_string
+        if (
+            not semantic_type
+            or semantic_type in contracts
+            or not properties["value"].required
+            or not properties["value"].inlined
+            or "question" not in properties
+            or not properties["question"].equals_string
+        ):
+            raise PreparationError(
+                (
+                    Diagnostic(
+                        "contribution_payload_contract",
+                        definition.name,
+                        "typed contributions require a unique semantic type, payload and question",
+                    ),
+                )
+            )
+        contracts[semantic_type] = definition.name
+    return contracts
+
+
+def bound_contribution_semantics(row, *, question=None) -> dict:
+    """Lower the retained envelope into the semantic contract input."""
+    bound = dict(
+        kind=row["kind"],
+        semantic_type=row["semantic_type"],
+        effect="retain_private",
+        assessment_event="local-contribution-1",
+    )
+    if question is not None:
+        from .observations import source_python
+
+        bound.update(question=question, value=source_python(row.get("value")))
+    return bound
+
+
+def validate_contribution_semantics(prepared, row, *, question, payload_contracts) -> None:
+    definition = prepared.index.definitions.get(row["contract"])
+    if definition is None or "ContributionSemantics" not in definition.ancestors:
+        raise ValueError("contribution requires a released semantic contract")
+    expected = payload_contracts.get(row["semantic_type"])
+    if expected is not None:
+        if row["contract"] != expected:
+            raise ValueError("contribution does not use its released payload contract")
+        prepared.validate_json(
+            expected, canonical_bytes(bound_contribution_semantics(row, question=question))
+        )
+    else:
+        prepared.validate_python(row["contract"], bound_contribution_semantics(row))
+
+
 def bind_contributions(prepared, *, source, operations, contributions, coordinate_texts=()):
     """Validate actual pieces, operation population, identities and local endpoint closure."""
     contexts = {}
@@ -79,25 +140,18 @@ def bind_contributions(prepared, *, source, operations, contributions, coordinat
         prepared.validate_python("SourceContributionOperation", op).model_dump(mode="python")
         for op in operations
     )
-    operation_keys = {op["operation_key"] for op in ops}
-    if len(operation_keys) != len(ops):
+    by_operation = {op["operation_key"]: op for op in ops}
+    if len(by_operation) != len(ops):
         raise ValueError("duplicate contribution operation identity")
+    payload_contracts = contribution_payload_contracts(prepared.index.definitions.values())
     output = []
     for raw in contributions:
         row = prepared.validate_python("SourceContribution", raw).model_dump(mode="python")
-        if row["operation_key"] not in operation_keys:
+        operation = by_operation.get(row["operation_key"])
+        if operation is None:
             raise ValueError("contribution has no operation population row")
-        definition = prepared.index.definitions.get(row["contract"])
-        if definition is None or "ContributionSemantics" not in definition.ancestors:
-            raise ValueError("contribution requires a released semantic contract")
-        prepared.validate_python(
-            row["contract"],
-            dict(
-                kind=row["kind"],
-                semantic_type=row["semantic_type"],
-                effect="retain_private",
-                assessment_event="local-contribution-1",
-            ),
+        validate_contribution_semantics(
+            prepared, row, question=operation["question"], payload_contracts=payload_contracts
         )
         if row["pin"]["source"] != source:
             raise ValueError("contribution source differs from producing source")
@@ -171,7 +225,6 @@ def bind_contributions(prepared, *, source, operations, contributions, coordinat
         if row["kind"] == "composite" and not members:
             raise ValueError("composite contribution requires explicit members")
     by_identity = {row["contribution_id"]: row for row in output}
-    by_operation = {op["operation_key"]: op for op in ops}
     endpoint_signatures = component_endpoint_signatures(prepared.index.definitions.values())
     for row in output:
         validate_component(
@@ -218,12 +271,14 @@ def prepare_contribution_projection(definitions):
     contracts = sorted(
         d.name for d in definitions if "ContributionSemantics" in d.ancestors and not d.abstract
     )
+    payload_contracts = contribution_payload_contracts(definitions)
     return PreparedArtifact(
         "contribution_projection.json",
         canonical_bytes(
             dict(
                 abi="source-contribution-projection-1",
                 contracts=contracts,
+                **({"payload_contracts": payload_contracts} if payload_contracts else {}),
                 component_endpoints=component_endpoint_signatures(definitions),
                 relations=[
                     "kb.source_contribution_operation",

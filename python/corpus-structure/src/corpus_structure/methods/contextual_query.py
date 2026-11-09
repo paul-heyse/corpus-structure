@@ -9,11 +9,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 
 from .contextual_embeddings import identity
 from .pm2_dipo_products import prepare_dipo_context
+from .pm2_products import EDUView, FrameView, MentionView, TreeView, parser_view
 
 ContextRecipe = Literal["located-frame-1", "located-referent-1", "located-discourse-neighbor-1"]
 _PRODUCTS = {
@@ -137,24 +137,26 @@ class _RetainedContext:
 
     @cached_property
     def discourse(self):
-        tree = source_python(self.root["value"])
+        tree = parser_view(self.root)
+        if not isinstance(tree, TreeView):
+            raise ValueError("discourse context requires a retained Dipo tree")
         located = {}
         seen = set()
         for member in self.members(self.root):
-            value = source_python(member["value"])
-            if (
-                member["semantic_type"] != "dipo.edu"
-                or value["arm"] != tree["arm"]
-                or value["edu"] in seen
-            ):
+            if member["semantic_type"] != "dipo.edu":
                 raise ValueError("discourse context has a foreign or repeated EDU")
-            seen.add(value["edu"])
+            value = parser_view(member)
+            if not isinstance(value, EDUView) or value.arm != tree.arm or value.edu in seen:
+                raise ValueError("discourse context has a foreign or repeated EDU")
+            seen.add(value.edu)
             anchors = self.single_location(member)
             if anchors:
-                located[value["edu"]] = anchors
-        if seen != set(range(tree["root"][1])):
+                located[value.edu] = anchors
+        if seen != set(range(tree.root[1])):
             raise ValueError("discourse context has an incomplete leaf population")
-        return located, prepare_dipo_context(tree, located_edus=located.keys(), max_edus=2)
+        return located, prepare_dipo_context(
+            tree.model_dump(mode="json"), located_edus=located.keys(), max_edus=2
+        )
 
 
 def _covers(anchors, focal):
@@ -170,17 +172,17 @@ def _covers(anchors, focal):
 
 def _frame(context, focal):
     root = context.root
-    value = source_python(root["value"])
+    value = parser_view(root)
+    if not isinstance(value, FrameView):
+        raise ValueError("frame context requires a retained HanLP frame")
     locations = {member["item_key"]: context.location(member) for member in context.members(root)}
     if not any(_covers(anchors, focal) for anchors in locations.values()):
         raise ValueError("frame context does not locate the selected occurrence")
-    roles = [("Predicate", value["predicate"])]
-    roles.extend(
-        (f"Dependency {arg['role']}", arg["location"]) for arg in value["dependency_arguments"]
-    )
-    for frame in value["srl_frames"]:
-        roles.extend((f"SRL {arg['role']}", arg["location"]) for arg in frame["arguments"])
-    if not locations.get(value["predicate"]):
+    roles = [("Predicate", value.predicate)]
+    roles.extend((f"Dependency {arg.role}", arg.location) for arg in value.dependency_arguments)
+    for frame in value.srl_frames:
+        roles.extend((f"SRL {arg.role}", arg.location) for arg in frame.arguments)
+    if not locations.get(value.predicate):
         return (), ("frame predicate has no exact source location",)
     signals, omissions = [], []
     for role, key in dict.fromkeys(roles):
@@ -198,8 +200,10 @@ def _referent(context, focal):
     for member in context.members(context.root):
         if member["semantic_type"] != "maverick.mention":
             raise ValueError("local referent cluster has a non-mention member")
-        value = source_python(member["value"])
-        located.append((value["first"], value["last"], context.single_location(member)))
+        value = parser_view(member)
+        if not isinstance(value, MentionView) or value.first > value.last:
+            raise ValueError("local referent cluster has an invalid mention interval")
+        located.append((value.first, value.last, context.single_location(member)))
     matching = [(first, last) for first, last, anchors in located if _covers(anchors, focal)]
     if len(matching) != 1:
         raise ValueError("local referent context requires one located focal mention")

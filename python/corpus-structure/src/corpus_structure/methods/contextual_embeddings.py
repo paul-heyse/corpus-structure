@@ -161,6 +161,47 @@ class ContextCoreLimited(ValueError):
     """The exact literal and required context do not fit the selected encoder."""
 
 
+_CONTEXT_STEP = 16
+
+
+def _context_core(item: ContextInput) -> str:
+    core = f"Mention: {item.literal}\nType: {item.type_name or 'unknown'}"
+    if item.parent:
+        core += f"\nParent: {item.parent}"
+    if item.heading:
+        core += f"\nHeading: {item.heading}"
+    if item.query_context is not None:
+        core += "\n" + item.query_context
+    return core + "\nContext: "
+
+
+def verify_retained_rendering(
+    item: ContextInput, profile: EncoderProfile, retained: RenderedInput
+) -> None:
+    """Authenticate captured input bytes and source window without claiming token-budget replay."""
+    core = _context_core(item)
+    prompt = profile.query_prompt if item.role == "query" else profile.document_prompt
+    if (
+        (retained.object_id, retained.source_binding, retained.role, retained.representation_digest)
+        != (item.object_id, item.source_binding, item.role, item.representation_digest)
+        or type(retained.text) is not str
+        or not retained.text.startswith(core)
+        or retained.final_input_digest != sha256((prompt + retained.text).encode()).hexdigest()
+    ):
+        raise ValueError("retained contextual rendering differs from its source and signal")
+    window = retained.text[len(core) :]
+    if type(retained.truncated) is not bool or retained.truncated != (window != item.context):
+        raise ValueError("retained contextual window has inconsistent truncation")
+    if not retained.truncated:
+        return
+    extra = len(window) - len(item.literal)
+    near = min(item.start, len(item.context) - item.end)
+    radius = extra // 2 if extra < 2 * near else extra - near
+    left, right = max(0, item.start - radius), min(len(item.context), item.end + radius)
+    if extra < 0 or radius % _CONTEXT_STEP or window != item.context[left:right]:
+        raise ValueError("retained contextual window is outside the source rendering recipe")
+
+
 def render_context(
     item: ContextInput, profile: EncoderProfile, token_count: Callable[[str], int]
 ) -> RenderedInput:
@@ -170,17 +211,11 @@ def render_context(
     truncate the admitted string again. Source coordinates are never coordinates in this text.
     """
     prompt = profile.query_prompt if item.role == "query" else profile.document_prompt
-    core = f"Mention: {item.literal}\nType: {item.type_name or 'unknown'}"
-    if item.parent:
-        core += f"\nParent: {item.parent}"
-    if item.heading:
-        core += f"\nHeading: {item.heading}"
-    if item.query_context is not None:
-        core += "\n" + item.query_context
-    minimum = core + f"\nContext: {item.literal}"
+    core = _context_core(item)
+    minimum = core + item.literal
     if token_count(prompt + minimum) > profile.max_tokens:
         raise ContextCoreLimited("occurrence and discriminating context exceed encoder token bound")
-    full = core + "\nContext: " + item.context
+    full = core + item.context
     if token_count(prompt + full) <= profile.max_tokens:
         text = full
     else:
@@ -189,8 +224,9 @@ def render_context(
         text = minimum
         left, right = item.start, item.end
         while left > 0 or right < len(item.context):
-            next_left, next_right = max(0, left - 16), min(len(item.context), right + 16)
-            candidate = core + "\nContext: " + item.context[next_left:next_right]
+            next_left = max(0, left - _CONTEXT_STEP)
+            next_right = min(len(item.context), right + _CONTEXT_STEP)
+            candidate = core + item.context[next_left:next_right]
             if token_count(prompt + candidate) > profile.max_tokens:
                 break
             left, right, text = next_left, next_right, candidate

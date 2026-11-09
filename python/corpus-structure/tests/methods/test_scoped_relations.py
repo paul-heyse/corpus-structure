@@ -102,6 +102,112 @@ def test_source_without_authenticated_parent_binding_retains_no_artifact_identit
     assert not any(r["semantic_type"] == "structural.artifact" for r in output["contributions"])
 
 
+@pytest.fixture(scope="module", params=("declared", "missing", "incompatible"))
+def qualifier_release(request):
+    import yaml
+    from semantic.test_record_contracts import release_inputs
+
+    from corpus_structure.semantic import prepare_release
+
+    bundle, profile, prepared = release_inputs()
+    if request.param == "declared":
+        return request.param, prepared
+    updated = []
+    for artifact in bundle.sources:
+        if artifact.name == "observations":
+            module = yaml.safe_load(artifact.content)
+            if request.param == "missing":
+                del module["classes"]["PredicateQualifierComponent"]
+            else:
+                slot = module["classes"]["PredicateQualifierComponent"]["attributes"]
+                slot["qualifier_kind"]["pattern"] = "^attribution$"
+            artifact = replace(artifact, content=yaml.safe_dump(module).encode())
+        updated.append(artifact)
+    return request.param, prepare_release(replace(bundle, sources=tuple(updated)), profile=profile)
+
+
+@pytest.mark.parametrize(
+    ("text", "host", "competing", "reading"),
+    (
+        (
+            "If the sample includes duplicates, the algorithm computes the mean.",
+            "computes",
+            "includes",
+            "described_process",
+        ),
+        (
+            "Instructions\n"
+            "If the manager approves the invoice, the clerk must release the payment.",
+            "release",
+            "approves",
+            "prescribed_action",
+        ),
+    ),
+)
+def test_condition_host_preserves_located_parts_after_declaration_refusal(
+    qualifier_release, text, host, competing, reading
+):
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.methods.predicate_contributions import predicate_qualifier_refusal
+    from corpus_structure.methods.source_preparation import prepare_source
+
+    declaration, release = qualifier_release
+    labels = ("section_header", "text") if "\n" in text else ("text",)
+    view = complete_native_fields(source(text, labels=labels))
+    prepared = prepare_source(view, profile=AnnotationProfile(), annotations_only=True)
+    result = discover_relations(
+        native_source_frame(view, ()),
+        annotations=prepared.annotations,
+        predicate_version="5",
+        qualifier_preflight=lambda component: predicate_qualifier_refusal(release, component),
+    )
+    rows = {row["contribution_id"]: row for row in result["contributions"]}
+    frames = {}
+    for row in rows.values():
+        component = row.get("component", {})
+        if component.get("kind") == "predicate_frame":
+            (member,) = (role for role in component["frame_members"] if role["role"] == "predicate")
+            (anchor,) = rows[member["contribution"]]["anchors"]
+            frames[anchor["source_piece"]] = row["contribution_id"]
+    assert {host, competing} <= frames.keys()
+    components = [row.get("component", {}) for row in rows.values()]
+    assert any(
+        component.get("kind") == "predicate_reading"
+        and component["frame"] == frames[host]
+        and component["reading"] == reading
+        for component in components
+    )
+    operations = {operation["question"]: operation for operation in result["extra_operations"]}
+    assert operations["source_predicate_frames"]["outcome"] == "succeeded"
+    interpretation = operations["source_predicate_interpretation"]
+    condition_relations = [
+        row
+        for row in rows.values()
+        if row.get("component", {}).get("qualifier_kind") == "condition"
+    ]
+    emitted_count = interpretation["emitted_count"]
+    assert isinstance(emitted_count, int)
+    assert emitted_count == sum(
+        row["operation_key"] == interpretation["operation_key"] for row in rows.values()
+    )
+    if declaration == "declared":
+        (relation,) = condition_relations
+        cue, target = relation["endpoints"]
+        assert target == {"role": "host", "contribution_id": frames[host]}
+        assert rows[cue["contribution_id"]]["component"]["cue_kind"] == "condition"
+        condition = source_python(relation["component"]["condition"])
+        assert condition["kind"] == "escape" and condition["text"] in text
+        if reading == "prescribed_action":
+            assert "qualification" not in relation["component"]
+        assert interpretation["outcome"] == "succeeded"
+    else:
+        assert not condition_relations
+        assert interpretation["outcome"] == "limited" and emitted_count > 0
+        reason = "is missing" if declaration == "missing" else "differs from"
+        detail = interpretation["reason"]
+        assert isinstance(detail, str) and reason in detail
+
+
 @pytest.mark.parametrize("predicate_version", ["4", "5"])
 def test_selected_action_preserves_wholly_clipped_role_without_an_anchor(predicate_version):
     from corpus_structure.ingest.annotations import AnnotationProfile

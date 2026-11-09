@@ -382,3 +382,82 @@ def _complete(case, conn, held, result):
         source="private-unit",
         result=result,
     )
+
+
+@pytest.mark.parametrize(
+    "private_source",
+    [{"sibling_references": ("x+y",), "sibling_originals": ("x + y",)}],
+    indirect=True,
+)
+def test_exact_original_projection_does_not_mint_a_physical_occurrence(private_source):
+    case = private_source
+    with case.writer.connect() as conn:
+        view = BoundReader(conn, case.run, case.prepared, analysis=False).source_view(
+            case.other_view
+        )
+    source = replace(native_source_frame(view, ()), unit_ref="private-unit")
+    context = NativeSourceContext(
+        source,
+        (),
+        (SourceSlice(case.other_view, 0, 5),),
+        "literal",
+        "native-test",
+        "original spelling",
+    )
+    assert context.text == "x + y"
+    mapping = PM2SourceMap(context, context.text, (SourceMapSegment(0, 5, 0),), ())
+    profile = {"provider": "d1"}
+    request = {
+        "state": {"source": "x + y"},
+        "questions": {"formula": {"type": "text", "instructions": "Read the formula."}},
+    }
+    rendered = '{"source":"x + y"}'
+    options = dict(question="locate_literal", operation_version="1", source_path=SOURCE_PATH)
+    digest = pm2_input_digest(mapping, profile, request, **options)
+    with case.writer.begin() as conn:
+        complete_contributions(
+            case,
+            conn,
+            UnitResult(
+                ref=UnitRef(TaskUnitType.SOURCE_VIEW, case.view, "private-unit"),
+                outcome=ObservationOutcome.EMPTY,
+            ),
+        )
+    held = _claim(case, digest, view_id=case.other_view)
+    result = pm2_unit_result(
+        UnitRef(TaskUnitType.SOURCE_VIEW, case.other_view, "private-unit"),
+        mapping,
+        profile=profile,
+        request=request,
+        reply={
+            "outcome": "succeeded",
+            "rendered_state": rendered,
+            "native": {
+                "answers": {"formula": {"span": [11, 16], "text": "x + y", "path": SOURCE_PATH}}
+            },
+        },
+        field=D1SourceField(rendered, SOURCE_PATH, 11, 16),
+        input_digest=digest,
+        **options,
+    )
+    with case.writer.begin() as conn:
+        _complete(case, conn, held, result)
+    finalize_bound_run(case.writer, case.run, "pm2-orig-projection")
+    with read_snapshot(case.writer) as conn:
+        page = serve_contributions(
+            conn,
+            ContributionRequest(
+                run_id=case.run,
+                selected_task_id=held.task_id,
+                include_details=True,
+            ),
+        )
+        locations = BoundReader(
+            conn, case.run, case.prepared, page.cut_id
+        ).pm2_projection_locations(held.task_id)
+    assert page.inventory_counts["contributions"] == 0
+    assert locations is not None
+    location = locations["formula"]
+    assert location["reason"] == "native_occurrence_unavailable"
+    assert "occurrence_id" not in location
+    assert location["selected_projection"][0]["source_piece"] == "x + y"

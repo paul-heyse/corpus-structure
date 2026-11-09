@@ -288,6 +288,7 @@ def discover_relations(
     inline_equations_enabled=False,
     witnessed_links_enabled=False,
     named_link_version="1",
+    qualifier_preflight=None,
 ):
     """Return participants and relation candidates against actual detached source pieces.
 
@@ -993,6 +994,7 @@ def discover_relations(
         products,
         coordinates,
         version=predicate_version,
+        qualifier_preflight=qualifier_preflight,
     )
     inline_operations = ()
     witnessed_operations = ()
@@ -1448,6 +1450,11 @@ class ScopedRelationsMethod:
         return Digest(canonical_bytes(inputs))
 
     def run(self, units, cfg, ctx):
+        from .predicate_contributions import predicate_qualifier_refusal
+
+        def qualifier_preflight(component):
+            return predicate_qualifier_refusal(ctx.reader.prepared, component)
+
         results = []
         classifications = [
             (
@@ -1554,6 +1561,7 @@ class ScopedRelationsMethod:
                 inline_equations_enabled=True,
                 witnessed_links_enabled=True,
                 named_link_version=self.named_link_version,
+                qualifier_preflight=qualifier_preflight,
             )
             from corpus_structure.methods.inline_formula_occurrences import INLINE_FORMULA_QUESTION
             from corpus_structure.methods.table_interpretation import (

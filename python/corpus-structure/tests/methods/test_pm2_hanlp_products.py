@@ -5,8 +5,13 @@ from __future__ import annotations
 from copy import deepcopy
 
 import pytest
+from semantic.test_record_contracts import release_inputs
 
+from corpus_structure.core.method import UnitRef
+from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.pm2_hanlp_products import hanlp_products
+from corpus_structure.methods.pm2_products import PARSER_QUESTIONS
+from corpus_structure.methods.pm2_result import pm2_input_digest, pm2_unit_result
 from corpus_structure.methods.pm2_source import PM2TokenMap, ProviderToken, SourceMapRefused
 from methods.test_pm2_source import identity_map
 
@@ -70,15 +75,14 @@ def test_conditional_host_alternatives_and_srl_roles_remain_independent():
         [8, "conj"],
         [8, "punct"],
     ]
-    result = hanlp_products(
-        *_scope(
-            words,
-            tags,
-            arcs,
-            srl=((("ARG1", 4, 6), ("PRED", 7, 8), ("R-ARG1", 1, 2), ("C-ARG1", 9, 10)),),
-            constituent=(4, 6),
-        )
+    mapping, request, native = _scope(
+        words,
+        tags,
+        arcs,
+        srl=((("ARG1", 4, 6), ("PRED", 7, 8), ("R-ARG1", 1, 2), ("C-ARG1", 9, 10)),),
+        constituent=(4, 6),
     )
+    result = hanlp_products(mapping, request, native)
     products = {row.key: row.value for row in result.products}
     frame = products["s0/predicate/7"]
     assert frame["scheme"] == "hanlp-ud-ptb-propbank-1"
@@ -99,6 +103,25 @@ def test_conditional_host_alternatives_and_srl_roles_remain_independent():
     assert _quoted(result, modal["location"]) == ["must"]
     phrase = next(row.value for row in result.products if row.value.get("label") == "NP")
     assert _quoted(result, phrase["location"]) == ["the valve"]
+
+    dimensions = {"question": PARSER_QUESTIONS["hanlp"], "operation_version": "1"}
+    profile = {"provider": "hanlp"}
+    retained = pm2_unit_result(
+        UnitRef(TaskUnitType.SOURCE_VIEW, 1, "unit:1"),
+        mapping,
+        profile=profile,
+        request=request,
+        reply=dict(native, outcome="succeeded"),
+        input_digest=pm2_input_digest(mapping, profile, request, **dimensions),
+        prepared=release_inputs()[2],
+        **dimensions,
+    )
+    assert {row["semantic_type"]: row["contract"] for row in retained.contributions or ()} == {
+        "source_occurrence": "RetainedContributionSemantics",
+        "linguistic.predicate_frame": "PM2HanLPFrameContributionV1",
+        "linguistic.qualifier_cue": "PM2HanLPCueContributionV1",
+        "linguistic.constituent": "PM2HanLPPhraseContributionV1",
+    }
 
 
 @pytest.mark.parametrize("noun", ["médiane", "valve"])

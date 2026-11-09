@@ -52,6 +52,7 @@ class ContributionRequest(BaseModel):
     kind: Literal["occurrence", "proposal", "relation", "composite", "diagnostic"] | None = None
     include_details: bool = False
     include_interpretation: bool = False
+    include_scope_coverage: bool = Field(default=False, exclude_if=lambda value: not value)
     include_assessment: bool = False
     include_publication: bool = False
     include_support: bool = False
@@ -88,6 +89,17 @@ class ContributionRequest(BaseModel):
             raise ValueError("relationship traversal requires the relationship facet")
         if self.relationship_direction and not self.relationship_endpoint:
             raise ValueError("relationship direction requires an endpoint")
+        if self.include_scope_coverage and (
+            self.method
+            or self.operation_key
+            or self.operation_version
+            or self.contribution_id
+            or self.contribution_ids
+            or self.occurrence_id
+            or self.kind
+            or self.relationship_endpoint
+        ):
+            raise ValueError("PM2 scope coverage can be selected by run, source view, or task")
         return self
 
 
@@ -124,8 +136,10 @@ def serve_contributions(conn: Connection, request: ContributionRequest) -> Contr
     return _contributions(conn, request, paginate=True)
 
 
-def _interpretations(inventory):
-    composition = composition_facets(inventory.operations, inventory.interpretations)
+def _interpretations(inventory, *, prepared=None):
+    composition = composition_facets(
+        inventory.operations, inventory.interpretations, prepared=prepared
+    )
     for row in inventory.interpretations:
         meaning = {
             key: row[key]
@@ -330,7 +344,11 @@ def _contributions(
                 semantic_rows = tuple(decoded)
             else:
                 local_rows = tuple(decoded)
-    interpretations = tuple(_interpretations(inventory)) if request.include_interpretation else ()
+    interpretations = (
+        tuple(_interpretations(inventory, prepared=session.prepared))
+        if request.include_interpretation
+        else ()
+    )
     assessments = ()
     if request.include_assessment:
         assessment_fields = {
@@ -395,10 +413,22 @@ def _contributions(
             direction=request.relationship_direction or "both",
             max_bytes=request.max_bytes,
         )
+    coverage = ()
+    if request.include_scope_coverage:
+        from corpus_structure.semantic.operations import BoundReader
+
+        reader = BoundReader(conn, request.run_id, session.prepared, cut_id)
+        coverage = tuple(
+            item.model_dump(mode="json")
+            for item in reader.pm2_scope_coverage() or ()
+            if (request.source_view_id is None or item.source_view_id == request.source_view_id)
+            and (request.selected_task_id is None or item.task_id == request.selected_task_id)
+        )
     items = tuple(
         dict(population=population, row=json.loads(canonical_bytes(row)))
         for population, rows in (
             ("report", inventory.reports),
+            ("scope_coverage", coverage),
             ("operation", inventory.operations),
             ("contribution", inventory.contributions),
             ("relationship", relationships),
@@ -428,6 +458,7 @@ def _contributions(
         items=items[offset:end],
         inventory_counts=dict(
             reports=len(inventory.reports),
+            **({"scope_coverage": len(coverage)} if request.include_scope_coverage else {}),
             operations=len(inventory.operations),
             contributions=len(inventory.contributions),
             **({"relationships": len(relationships)} if request.include_relationships else {}),

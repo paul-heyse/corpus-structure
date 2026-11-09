@@ -41,7 +41,7 @@ from corpus_structure.semantic.structural_products import StructuralProductRepor
 
 
 def _reports(body):
-    if body.get("operation_version") in {"6", "7", "8", "9", "10"}:
+    if body.get("operation_version") in {"6", "7", "8", "9", "10", "11"}:
         for op in body.get("contribution_operations", ()):
             if "contextual_enrichment" in op:
                 yield op["contextual_enrichment"]
@@ -545,9 +545,9 @@ def verify_contextual_witness_closure(root, manifest):
     for retained in reports.values():
         body = retained.get("body") or {}
         version = body.get("operation_version")
-        if retained.get("method") == "retrieve.contextual" and version in ("8", "9", "10"):
+        if retained.get("method") == "retrieve.contextual" and version in {"8", "9", "10", "11"}:
             (report,) = tuple(_reports(body))
-            verify_detached_neighborhood(report, native_ranks=version in {"9", "10"})
+            verify_detached_neighborhood(report, native_ranks=version in {"9", "10", "11"})
     relevant = [
         r
         for r in reports.values()
@@ -580,8 +580,8 @@ def verify_contextual_witness_closure(root, manifest):
         nodes = {i["self_ref"]: i for i in source["context"]["items"]}
         carriers = tuple(_possible_carriers(body))
         alias_refs = retained["configuration"].get("definition_alias_refs", ())
-        if alias_refs and body["operation_version"] != "10":
-            raise ValueError("definition aliases require contextual operation 10")
+        if alias_refs and body["operation_version"] not in {"10", "11"}:
+            raise ValueError("definition aliases require contextual operation 10 or 11")
         if alias_refs and body["configuration_hash"] != config_key(
             "retrieve.contextual", body["operation_version"], retained["configuration"]
         ):

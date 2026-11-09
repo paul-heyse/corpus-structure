@@ -7,11 +7,14 @@ from types import SimpleNamespace
 
 import pytest
 
+from corpus_structure.methods.contextual_candidates import retained_occurrences
 from corpus_structure.methods.scoped_relations import ScopedRelationsConfig, discover_relations
 from corpus_structure.orchestrate.registry import canonical_numbers
+from corpus_structure.semantic.contributions import occurrence_identity
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.proposals import native_source_frame
+from corpus_structure.semantic.source_contexts import record_source_pin
 from corpus_structure.serve.inline_formula_replay import verify_inline_formula_report
 
 from .test_m1_source_preparation import source
@@ -90,6 +93,56 @@ def test_clipped_equation_produces_no_formula_operation():
         ),
     )
     assert all(o["question"] != "source_formula_occurrences" for o in output["extra_operations"])
+
+
+def test_affine_query_carriers_use_exact_scoped_occurrences_not_prose_mentions():
+    view, frame, output = discovery(_FROZEN_TEXT)
+    pin = record_source_pin(frame)
+    (node,) = view.items
+    pointer = node["self_ref"]
+    nodes = {pointer: node}
+    selected = tuple(
+        occurrence_identity(
+            (
+                dict(
+                    pin=pin,
+                    pointer=pointer,
+                    space="native",
+                    precision="exact",
+                    start=start,
+                    end=start + 1,
+                    source_piece=symbol,
+                ),
+            )
+        )
+        for start, symbol in ((237, "X"), (242, "Z"))
+    )
+    rows, contexts, _ = retained_occurrences(
+        output,
+        nodes,
+        pin,
+        "affine-query",
+        ("structural.located_participant",),
+        required_occurrence_ids=selected,
+    )
+    assert set(contexts) == set(selected)
+    assert [contexts[key][1:] for key in selected] == [(237, 238, "X"), (242, 243, "Z")]
+    assert {row["occurrence_id"] for row in rows} == set(selected)
+    _, originals = inline_rows(output)
+    by_id = {row["contribution_id"]: row for row in originals}
+    assert all(
+        row["anchors"] == by_id[row["computation_dependencies"][0]]["anchors"] for row in rows
+    )
+
+    without_z = {
+        "contributions": [
+            row for row in output["contributions"] if row.get("occurrence_id") != selected[1]
+        ]
+    }
+    with pytest.raises(ValueError, match="lacks an exact native query carrier"):
+        retained_occurrences(
+            without_z, nodes, pin, "affine-query", required_occurrence_ids=selected
+        )
 
 
 @pytest.mark.parametrize(

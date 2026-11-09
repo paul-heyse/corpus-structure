@@ -6,7 +6,7 @@ import json
 import re
 from collections import defaultdict
 from dataclasses import asdict
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.exc import DBAPIError
@@ -553,6 +553,11 @@ class ContextualCandidateConfig(BaseModel):
     source_dependencies: Literal["source_view_product"] = "source_view_product"
     source_dependency_method: str = Field(default="extract.m1_candidates", min_length=1)
     semantic_types: tuple[str, ...] = ()
+    # The selected producer still supplies each occurrence and every native anchor.
+    # An omitted selection retains the historical population and configuration digest.
+    required_occurrence_ids: tuple[
+        Annotated[str, Field(pattern=r"^source-occurrence:[0-9a-f]{64}$")], ...
+    ] = Field(default=(), max_length=256, exclude_if=lambda value: not value)
     target_components: tuple[ExtractedComponentTarget, ...] = Field(default=(), max_length=256)
     section_sources: tuple[ExternalSourceRef, ...] = Field(
         default=(), max_length=256, exclude_if=lambda value: not value
@@ -578,6 +583,13 @@ class ContextualCandidateConfig(BaseModel):
     def exclusive_target_scope(self):
         if bool(self.target_components) == bool(self.section_sources):
             raise ValueError("choose exactly one component or section target inventory")
+        if self.required_occurrence_ids and (
+            self.section_sources
+            or len(set(self.required_occurrence_ids)) != len(self.required_occurrence_ids)
+        ):
+            raise ValueError(
+                "exact occurrence selection requires distinct component query carriers"
+            )
         if self.definition_alias_refs and (
             len({ref.contribution_id for ref in self.definition_alias_refs})
             != len(self.definition_alias_refs)
@@ -615,7 +627,14 @@ class ContextualCandidateConfig(BaseModel):
 
 
 def retained_occurrences(
-    upstream, nodes, pin, operation_key, semantic_types=(), *, canonical_producer=False
+    upstream,
+    nodes,
+    pin,
+    operation_key,
+    semantic_types=(),
+    *,
+    canonical_producer=False,
+    required_occurrence_ids: tuple[str, ...] = (),
 ):
     """Authenticate selected producer locations; role proposals remain distinct products.
 
@@ -623,8 +642,11 @@ def retained_occurrences(
     their intervening characters a new asserted source occurrence.
     """
     products, contexts, coordinates = [], {}, {}
+    required = set(required_occurrence_ids)
     for original in upstream.get("contributions", ()):
         if semantic_types and original["semantic_type"] not in semantic_types:
+            continue
+        if required and original.get("occurrence_id") not in required:
             continue
         anchors = tuple(original.get("anchors", ()))
         if original.get("kind") not in {"occurrence", "proposal", "group"} or not anchors:
@@ -683,6 +705,11 @@ def retained_occurrences(
             start, end = min(a["start"] for a in anchors), max(a["end"] for a in anchors)
             text = nodes[anchors[0]["pointer"]]["text"]
             contexts[occurrence] = (text, start, end, text[start:end])
+    if missing := required - contexts.keys():
+        raise ValueError(
+            "selected producer lacks an exact native query carrier for "
+            + ", ".join(sorted(missing))
+        )
     return tuple(products), contexts, tuple(coordinates.values())
 
 
@@ -799,6 +826,7 @@ class ContextualCandidates:
                 operation_key,
                 cfg.semantic_types,
                 canonical_producer=bool(cfg.section_sources),
+                required_occurrence_ids=cfg.required_occurrence_ids,
             )
             heading_mentions = defaultdict(list)
             heading_ids = defaultdict(list)

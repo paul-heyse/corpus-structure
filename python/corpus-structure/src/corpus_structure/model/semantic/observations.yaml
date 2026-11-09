@@ -506,6 +506,158 @@ classes:
     attributes:
       effect: {equals_string: retain_private}
       assessment_event: {equals_string: local-contribution-1}
+  PM2HanLPFrameContributionV1:
+    is_a: RetainedContributionSemantics
+    attributes:
+      semantic_type: {equals_string: linguistic.predicate_frame}
+      question: {required: true, equals_string: pm2.hanlp.frames}
+      value: {range: PM2HanLPFramePayload, required: true, inlined: true}
+  PM2HanLPCueContributionV1:
+    is_a: RetainedContributionSemantics
+    attributes:
+      semantic_type: {equals_string: linguistic.qualifier_cue}
+      question: {required: true, equals_string: pm2.hanlp.frames}
+      value: {range: PM2HanLPCuePayload, required: true, inlined: true}
+  PM2HanLPPhraseContributionV1:
+    is_a: RetainedContributionSemantics
+    attributes:
+      semantic_type: {equals_string: linguistic.constituent}
+      question: {required: true, equals_string: pm2.hanlp.frames}
+      value: {range: PM2HanLPPhrasePayload, required: true, inlined: true}
+  PM2MaverickMentionContributionV1:
+    is_a: RetainedContributionSemantics
+    attributes:
+      semantic_type: {equals_string: maverick.mention}
+      question: {required: true, equals_string: pm2.maverick.coreference}
+      value: {range: PM2MaverickMentionPayload, required: true, inlined: true}
+  PM2MaverickClusterContributionV1:
+    is_a: RetainedContributionSemantics
+    attributes:
+      semantic_type: {equals_string: maverick.cluster}
+      question: {required: true, equals_string: pm2.maverick.coreference}
+      value: {range: PM2MaverickClusterPayload, required: true, inlined: true}
+  PM2DipoEDUContributionV1:
+    is_a: RetainedContributionSemantics
+    attributes:
+      semantic_type: {equals_string: dipo.edu}
+      question: {required: true, equals_string: pm2.dipo.discourse}
+      value: {range: PM2DipoEDUPayload, required: true, inlined: true}
+  PM2DipoTreeContributionV1:
+    is_a: RetainedContributionSemantics
+    attributes:
+      semantic_type: {equals_string: dipo.tree}
+      question: {required: true, equals_string: pm2.dipo.discourse}
+      value: {range: PM2DipoTreePayload, required: true, inlined: true}
+  PM2ParserPayload:
+    is_a: SourceRecordProduct
+    description: Native member keys in order; missing exact locations remain explicit.
+    attributes:
+      location_keys: {required: true, multivalued: true}
+      unlocated_members: {value_presence: PRESENT, multivalued: true, minimum_cardinality: 0}
+  PM2HanLPArgument:
+    is_a: SourceRecordProduct
+    attributes:
+      role: {required: true}
+      location: {required: true}
+      head: {range: integer, minimum_value: 0}
+  PM2HanLPSRLFrame:
+    is_a: SourceRecordProduct
+    attributes:
+      predicate: {required: true}
+      arguments: {range: PM2HanLPArgument, value_presence: PRESENT, multivalued: true, inlined: true, minimum_cardinality: 0}
+  PM2HanLPFramePayload:
+    is_a: PM2ParserPayload
+    attributes:
+      scheme: {required: true, equals_string: hanlp-ud-ptb-propbank-1}
+      sentence: {range: integer, required: true, minimum_value: 0}
+      predicate_token: {range: integer, required: true, minimum_value: 0}
+      syntactic_head: {range: integer, required: true, minimum_value: 0}
+      predicate: {required: true}
+      focus: {required: true}
+      voice: {required: true, pattern: '^(active|passive|copular|unresolved)$'}
+      dependency_arguments: {range: PM2HanLPArgument, value_presence: PRESENT, multivalued: true, inlined: true, minimum_cardinality: 0}
+      srl_frames: {range: PM2HanLPSRLFrame, value_presence: PRESENT, multivalued: true, inlined: true, minimum_cardinality: 0}
+  PM2HanLPCuePayload:
+    is_a: PM2ParserPayload
+    attributes:
+      scheme: {required: true, equals_string: hanlp-ud-cue-1}
+      sentence: {range: integer, required: true, minimum_value: 0}
+      kind: {required: true, pattern: '^(condition|exception|modality|negation|attribution)$'}
+      location: {required: true}
+      marker: {required: true}
+      candidates: {value_presence: PRESENT, multivalued: true, minimum_cardinality: 0}
+      attribution_source: {}
+  PM2HanLPPhrasePayload:
+    is_a: PM2ParserPayload
+    attributes:
+      scheme: {required: true, equals_string: hanlp-ptb-constituency-1}
+      sentence: {range: integer, required: true, minimum_value: 0}
+      label: {required: true}
+      location: {required: true}
+  PM2MaverickMentionPayload:
+    is_a: PM2ParserPayload
+    attributes:
+      first: {range: integer, required: true, minimum_value: 0}
+      last: {range: integer, required: true, minimum_value: 0}
+      detected: {range: boolean, required: true}
+      supplied: {range: boolean, required: true}
+      clustered: {range: boolean, required: true}
+  PM2MaverickClusterPayload:
+    is_a: PM2ParserPayload
+    attributes:
+      ordinal: {range: integer, required: true, minimum_value: 0}
+      member_keys: {required: true, multivalued: true, minimum_cardinality: 1}
+  PM2DipoWhitespaceGap:
+    is_a: SourceRecordProduct
+    attributes:
+      model_start: {range: integer, required: true, minimum_value: 0}
+      model_end: {range: integer, required: true, minimum_value: 1}
+      reason: {required: true}
+  PM2DipoWhitespaceReading:
+    is_a: SourceRecordProduct
+    attributes:
+      version: {range: integer, required: true, minimum_value: 2, maximum_value: 2}
+      policy: {required: true}
+      context_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      model_start: {range: integer, required: true, minimum_value: 0}
+      model_end: {range: integer, required: true, minimum_value: 1}
+      gaps: {range: PM2DipoWhitespaceGap, value_presence: PRESENT, multivalued: true, inlined: true, minimum_cardinality: 0}
+  PM2DipoEDUPayload:
+    is_a: PM2ParserPayload
+    attributes:
+      arm: {required: true, pattern: '^(learned|layout_forced|supplied|predicted)$'}
+      edu: {range: integer, required: true, minimum_value: 0}
+      tokens: {range: integer, required: true, multivalued: true, minimum_value: 0, minimum_cardinality: 2, maximum_cardinality: 2}
+      provider_chars: {range: integer, required: true, multivalued: true, minimum_value: 0, minimum_cardinality: 2, maximum_cardinality: 2}
+      location_key: {required: true}
+      whitespace_reading: {range: PM2DipoWhitespaceReading, inlined: true}
+  PM2DipoSplit:
+    is_a: SourceRecordProduct
+    attributes:
+      left: {range: integer, required: true, multivalued: true, minimum_value: 0, minimum_cardinality: 2, maximum_cardinality: 2}
+      right: {range: integer, required: true, multivalued: true, minimum_value: 0, minimum_cardinality: 2, maximum_cardinality: 2}
+      nuclearity: {required: true, pattern: '^(NN|NS|SN)$'}
+      relation: {required: true, pattern: '.+'}
+  PM2DipoBoundary:
+    is_a: SourceRecordProduct
+    attributes:
+      token_end: {range: integer, required: true, minimum_value: 1}
+      learned: {range: boolean, required: true}
+      forced: {range: boolean, required: true}
+      disposition: {required: true, pattern: '^(retained|merged)$'}
+  PM2DipoProviderGap:
+    is_a: SourceRecordProduct
+    attributes:
+      start: {range: integer, required: true, minimum_value: 0}
+      end: {range: integer, required: true, minimum_value: 1}
+  PM2DipoTreePayload:
+    is_a: PM2ParserPayload
+    attributes:
+      arm: {required: true, pattern: '^(learned|layout_forced|supplied|predicted)$'}
+      root: {range: integer, required: true, multivalued: true, minimum_value: 0, minimum_cardinality: 2, maximum_cardinality: 2}
+      splits: {range: PM2DipoSplit, value_presence: PRESENT, multivalued: true, inlined: true, minimum_cardinality: 0}
+      provider_gaps: {range: PM2DipoProviderGap, value_presence: PRESENT, multivalued: true, inlined: true, minimum_cardinality: 0}
+      boundaries: {range: PM2DipoBoundary, value_presence: PRESENT, multivalued: true, inlined: true, minimum_cardinality: 0}
   LocalContributionPublicationPolicy:
     is_a: SourceRecordProduct
     description: Exact native source location and quotation only; no semantic role, attachment or scientific truth.
