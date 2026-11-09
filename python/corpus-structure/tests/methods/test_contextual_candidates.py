@@ -15,6 +15,7 @@ from corpus_structure.methods.contextual_candidates import (
     ContextualCandidates,
     ContextualCandidatesWithNamedBindings,
     ContextualCandidatesWithNeighborhood,
+    ContextualCandidatesWithQueryContext,
     explicit_definition_section,
     relationship_contributions,
     retained_occurrences,
@@ -815,6 +816,7 @@ def test_overlapping_roles_choose_only_each_edges_cited_occurrence_carrier():
         (ContextualCandidatesWithNeighborhood, "section"),
         (ContextualCandidatesWithNeighborhood, "term"),
         (ContextualCandidatesWithNamedBindings, "identifier"),
+        (ContextualCandidatesWithQueryContext, "identifier"),
     ],
 )
 def test_explicit_cross_view_definition_witness_survives_exploration(
@@ -921,8 +923,55 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
         scope="chapter",
         unique_target_budget=1,
     )
+    rich = method is ContextualCandidatesWithQueryContext
+    if rich:
+        location = dict(
+            original, semantic_type="source_occurrence", item_key="focus", operation_key="parser"
+        )
+        location["contribution_id"] = contribution_identity(location)
+        frame = dict(
+            kind="composite",
+            semantic_type="linguistic.predicate_frame",
+            operation_key="parser",
+            pin=pin,
+            members=(location["contribution_id"],),
+            value=source_value(
+                {"predicate": "focus", "dependency_arguments": [], "srl_frames": []}
+            ),
+        )
+        frame["contribution_id"] = contribution_identity(frame)
+        cfg = method.Config.model_validate(
+            {
+                **cfg.model_dump(),
+                "query_context": {
+                    "recipe": "located-frame-1",
+                    "bindings": [
+                        {
+                            "occurrence_id": original["occurrence_id"],
+                            "evidence": {
+                                "contribution_id": frame["contribution_id"],
+                                "project_id": "source",
+                                "run_id": 1,
+                                "cut_id": 2,
+                                "release_id": "release",
+                                "result_revision": 0,
+                                "selected_task_id": 1,
+                                "origin_task_id": 1,
+                                "runtime_fingerprint": "runtime",
+                            },
+                        }
+                    ],
+                },
+            }
+        )
 
     def encoded(items, profile, **_kwargs):
+        if rich:
+            (query,) = (item for item in items if item.role == "query")
+            assert query.literal == spelling
+            assert query.query_context == f"Predicate: {spelling}"
+            assert query.representation_digest.startswith("located-query-context:")
+            assert all(not item.query_context for item in items if item.role == "document")
         if not provider_available:
             raise OSError("controlled encoder failure")
         vectors = []
@@ -989,6 +1038,11 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
         cached_contextual_vectors=lambda **_: (),
         contextual_candidates=retrieve,
         contextual_mutual_neighbors=lambda _: {"directed_ranks": [], "edges": []},
+        prepared=SimpleNamespace(release_id="release"),
+        retained_source_contribution=lambda _: {
+            "contributions": (frame, location),
+            "sources": ({"pin": pin},),
+        },
     )
     monkeypatch.setattr(
         "corpus_structure.methods.contextual_candidates.verify_encoder_implementation", lambda _: ()
@@ -1022,6 +1076,10 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
             retrieval["outcome"] == "limited"
             and "controlled encoder failure" in retrieval["reason"]
         )
+
+    if rich:
+        # Enriched source context has its own detached refusal control.
+        return
 
     import json
 

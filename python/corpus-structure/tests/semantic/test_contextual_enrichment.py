@@ -1,6 +1,6 @@
 """Independent controls for context, candidate ranking and source-supported relationships."""
 
-from dataclasses import replace
+from dataclasses import asdict, replace
 from math import sqrt
 from threading import Event
 
@@ -30,7 +30,11 @@ from corpus_structure.semantic.contextual_retrieval import (
     fuse_candidates,
     target_representation,
 )
-from corpus_structure.semantic.contextual_storage import eligible_vector_relation, enrichment_report
+from corpus_structure.semantic.contextual_storage import (
+    eligible_vector_relation,
+    enrichment_report,
+    interpretation_candidates,
+)
 
 
 def target(id_, **kw):
@@ -324,6 +328,28 @@ def test_report_profiles_and_list_closure():
     assert report["version"] == "contextual-enrichment-2"
     with pytest.raises(ValueError, match="unavailable"):
         enrichment_report(profiles=(E5,), vectors=(vector,), candidate_lists=(candidates(),))
+
+
+def test_interpretation_inventory_preserves_equal_labels_and_exact_rank():
+    inv = inventory()
+    candidate_list = candidates(inv, {"dense": (ChannelHit("b", 0.9), ChannelHit("a", 0.8))})
+    report = {
+        "version": "contextual-enrichment-2",
+        "inventories": [asdict(inv)],
+        "candidate_lists": [asdict(candidate_list)],
+    }
+    anchors = ({"pointer": "#/texts/1", "start": 0, "end": 6},)
+    selected = interpretation_candidates(report, candidate_list.list_id, "occ", anchors)
+    assert selected.anchors == anchors
+    assert [(t.target_id, t.label, t.rank) for t in selected.targets] == [
+        ("b", "normal", 1),
+        ("a", "normal", 2),
+    ]
+    with pytest.raises(ValueError, match="selected occurrence"):
+        interpretation_candidates(report, candidate_list.list_id, "different-occ", anchors)
+    report["candidate_lists"][0]["candidates"][0]["target_id"] = "foreign"
+    with pytest.raises(ValueError, match="identity differs"):
+        interpretation_candidates(report, candidate_list.list_id, "occ", anchors)
 
 
 def test_read_projection_is_task_bound_and_uses_native_vector_type():

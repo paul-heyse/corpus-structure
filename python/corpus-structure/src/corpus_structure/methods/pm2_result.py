@@ -16,9 +16,11 @@ from corpus_structure.semantic.contributions import (
     operation_identity,
 )
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.interpretation_questions import declared_families
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
+    SourceSlice,
     evidence_anchor,
     record_source_pin,
 )
@@ -72,7 +74,7 @@ def d1_evidence(
         raise ValueError("d1 returned a different rendered state")
     located: dict[str, MappedSource | SourceMapRefused] = {}
     for key, answer in reply.get("native", {}).get("answers", {}).items():
-        if answer["span"] is None:
+        if answer.get("span") is None:
             continue
         try:
             start, end = answer["span"]
@@ -231,6 +233,26 @@ def pm2_unit_result(
             evidence, products = parsed.locations, parsed.products
         else:
             evidence = _native_evidence(mapping, provider, request, reply, field, source_path)
+            if provider == "d1" and "interpretation" in request:
+                from .pm2_interpretation_products import interpretation_products
+
+                family = (
+                    None
+                    if prepared is None
+                    else declared_families(prepared.registry_rows).get(question)
+                )
+                if family is None:
+                    raise ValueError("interpretation question is not in the selected release")
+                assessed = request["interpretation"]["assessed_scope"]
+                (scope,) = source_map.context.pieces
+                if (
+                    not isinstance(scope, SourceSlice)
+                    or assessed["pin"] != pin
+                    or assessed["scope_digest"] != source_map.scope_digest
+                    or assessed["projection_extent"] != [scope.start, scope.end]
+                ):
+                    raise ValueError("interpretation scope differs from the authenticated source")
+                products = interpretation_products(family, dict(request), reply, evidence)
     rows, coordinates, locations = [], [], {}
     for name, result in evidence.items():
         if result.scope_digest != source_map.scope_digest:

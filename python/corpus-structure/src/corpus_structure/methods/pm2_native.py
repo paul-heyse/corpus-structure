@@ -85,17 +85,20 @@ def _load_d1(assets: Path, device: str) -> tuple[Payload, Inference]:
     if engine.attention != "set" or engine.set_size != 16:
         raise RuntimeError("unexpected d1 attention or independent-question group size")
 
-    def infer(request: Payload) -> Payload:
+    def prepare(request: Payload) -> tuple[tuple, str, list[int]] | Payload:
         state, questions = request.get("state"), request.get("questions")
         if not isinstance(state, (str, dict)) or not isinstance(questions, dict) or not questions:
             raise ValueError("d1 text requests require a source state and named questions")
         if len(questions) > 16:
             return {"outcome": "limited", "reason": "question_count", "limit": 16}
         if any(
-            not isinstance(question, dict) or question.get("type") != "text"
+            not isinstance(question, dict)
+            or question.get("type") not in {"text", "number", "date", "choice", "noul"}
+            or not isinstance(question.get("instructions"), str)
+            or "range" in question
             for question in questions.values()
         ):
-            raise ValueError("this d1 profile admits typed text reads")
+            raise ValueError("this d1 profile admits bounded reads and text decisions")
         named = engine.named(questions)
         rendered = prompt.state_text(state, engine.state_style)
         sequences = engine._sequences([(state, list(named.values()), ())], set_size=16)
@@ -107,19 +110,48 @@ def _load_d1(assets: Path, device: str) -> tuple[Payload, Inference]:
                 "limit": 4096,
                 "row_tokens": lengths,
             }
-        result = model.system_one(state, questions, set_size=16)
-        if result["usage"]["input_tokens"] != sum(lengths):
-            raise RuntimeError("d1 packed preflight and native inference differ")
-        answers = result["answers"]
-        return {
-            "outcome": "succeeded"
-            if any(answer["span"] is not None for answer in answers.values())
-            else "empty",
-            "rendered_state": rendered,
-            "state_fields": json_spans.string_paths(rendered) if isinstance(state, dict) else [],
-            "row_tokens": lengths,
-            "native": result,
-        }
+        return (state, questions), rendered, lengths
+
+    def infer(request: Payload) -> Payload:
+        batched = "batch" in request
+        requests = request["batch"] if batched else [request]
+        if not isinstance(requests, list) or not 1 <= len(requests) <= 16:
+            raise ValueError("d1 batches require one to sixteen independent requests")
+        prepared = [prepare(item) for item in requests]
+        # The pinned runner repacks by row length and scatters back by request ordinal.
+        ready = [item[0] for item in prepared if isinstance(item, tuple)]
+        native = iter(model.system_one_batch(ready, set_size=16) if ready else ())
+        outputs = []
+        for item in prepared:
+            if isinstance(item, dict):
+                outputs.append(item)
+                continue
+            (state, questions), rendered, lengths = item
+            result = next(native)
+            if result["usage"]["input_tokens"] != sum(lengths):
+                raise RuntimeError("d1 packed preflight and native inference differ")
+            answers = result["answers"]
+            if tuple(answers) != tuple(questions):
+                raise RuntimeError("d1 returned a different question population")
+            outputs.append(
+                {
+                    "outcome": "succeeded"
+                    if any(
+                        answer.get("span") is not None or answer["type"] in {"choice", "noul"}
+                        for answer in answers.values()
+                    )
+                    else "empty",
+                    "rendered_state": rendered,
+                    "state_fields": json_spans.string_paths(rendered)
+                    if isinstance(state, dict)
+                    else [],
+                    "row_tokens": lengths,
+                    "native": result,
+                }
+            )
+        if next(native, None) is not None:
+            raise RuntimeError("d1 returned a different request population")
+        return {"batch": outputs} if batched else outputs[0]
 
     parameter = next(model.parameters())
     return {

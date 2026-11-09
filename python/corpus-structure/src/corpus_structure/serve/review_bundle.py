@@ -62,6 +62,9 @@ from corpus_structure.settings import Settings
 FORMAT = "progressive-review-bundle-2"
 _NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 SECTION_PACKET_INPUT = "execution/implementation/operations/section-packets.json"
+_UNREPLAYED_QUERY_CONTEXT = (
+    "exact review closure cannot yet replay retained parser evidence for enriched retrieval"
+)
 
 
 class ReviewComparison(BaseModel):
@@ -360,6 +363,11 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                     {"origin_task_id": report_id, "reason": "no_retained_task_metadata"},
                 )
                 continue
+            if report["method"] == "retrieve.contextual" and (
+                report["configuration"].get("query_context") is not None
+                or (report["body"] or {}).get("operation_version") == "11"
+            ):
+                raise SemanticRefusal(_UNREPLAYED_QUERY_CONTEXT)
             if report["body"] is None:
                 yield (
                     "omissions",
@@ -1192,9 +1200,11 @@ def write_review_bundle(
 def _exact_closure(
     conn, selection: ReviewSelection, cancellation: OperationCancellation
 ) -> tuple[ReviewSelection, list[dict[str, Any]]]:
-    """Extend a structural request with only its authenticated retained predecessors."""
+    """Extend the selection with its authenticated retained predecessors."""
+    from corpus_structure.semantic.observations import source_python
     from corpus_structure.semantic.operations import BoundReader
     from corpus_structure.semantic.structural_products import RetainedDefinitionRoleRef
+    from corpus_structure.serve.contribution_composition import interpretation_predecessors
 
     if selection.completeness != "selected_source_closure":
         raise SemanticRefusal("exact closure requires selected_source_closure")
@@ -1231,6 +1241,94 @@ def _exact_closure(
         if dependency not in seen_scopes:
             pending.append(dependency)
             seen_scopes.add(dependency)
+
+    def include_contribution(reference):
+        if reference in seen_references:
+            return
+        seen_references.add(reference)
+        retained = reader_for(reference).retained_source_contribution(reference)
+        budget.value(retained)
+        group = contribution_groups.setdefault(
+            (reference.run_id, reference.selected_task_id), set()
+        )
+        group.update(row["contribution_id"] for row in retained["contributions"])
+        if len(group) > 1000:
+            raise SemanticRefusal(
+                "exact closure exceeds one producer's contribution selection limit"
+            )
+
+    def record_dependency(identity, reference):
+        reason = {
+            "required_by": identity,
+            "reason": "declared_retained_predecessor",
+            "reference": reference.model_dump(mode="json"),
+        }
+        budget.value(reason)
+        reasons.append(reason)
+        if len(reasons) > selection.max_source_rows:
+            raise SemanticRefusal("exact closure exceeds declared predecessor budget")
+
+    for request in selection.selections:
+        if request.method not in (None, "extract.pm2_d1"):
+            continue
+        cancellation.check_active()
+        page = _contributions(
+            conn,
+            request.model_copy(
+                update={
+                    "method": "extract.pm2_d1",
+                    "include_details": True,
+                    "include_interpretation": False,
+                    "include_publication": False,
+                    "include_support": False,
+                    "include_assessment": False,
+                    "include_relationships": False,
+                    "max_bytes": min(request.max_bytes, selection.max_bytes),
+                }
+            ),
+            paginate=False,
+        )
+        for item in page.items:
+            if item["population"] != "contribution":
+                continue
+            row = item["row"]
+            if not isinstance(row, dict) or not isinstance(
+                semantic_type := row.get("semantic_type"), str
+            ):
+                raise SemanticRefusal("retained contribution lacks a typed meaning")
+            if not semantic_type.startswith("interpretation."):
+                continue
+            identity, task, value = (
+                row.get("contribution_id"),
+                row.get("selected_task_id"),
+                row.get("value"),
+            )
+            if (
+                not isinstance(identity, str)
+                or type(task) is not int
+                or not isinstance(value, dict)
+            ):
+                raise SemanticRefusal("retained interpretation lacks exact selected custody")
+            references, _ = interpretation_predecessors(source_python(value))
+            for reference in references:
+                record_dependency(identity, reference)
+                include_contribution(reference)
+            members = row.get("members")
+            if members and (request.contribution_ids or request.contribution_id or request.kind):
+                # Exact-ID selections need the local source members in the detached inventory too.
+                if not isinstance(members, list):
+                    raise SemanticRefusal("retained interpretation has invalid selected members")
+                group = contribution_groups.setdefault((request.run_id, task), set())
+                for member in members:
+                    if not isinstance(member, str):
+                        raise SemanticRefusal(
+                            "retained interpretation has invalid selected members"
+                        )
+                    group.add(member)
+                if len(group) > 1000:
+                    raise SemanticRefusal(
+                        "exact closure exceeds one producer's contribution selection limit"
+                    )
 
     for request in selection.selections:
         if request.method not in (None, "locate.definition_terms"):
@@ -1291,31 +1389,11 @@ def _exact_closure(
                 budget.value(report)
                 structural, contributions = _structural_predecessors(report)
                 for reference in (*structural, *contributions):
-                    reason = {
-                        "required_by": report.product_id,
-                        "reason": "declared_retained_predecessor",
-                        "reference": reference.model_dump(mode="json"),
-                    }
-                    budget.value(reason)
-                    reasons.append(reason)
-                    if len(reasons) > selection.max_source_rows:
-                        raise SemanticRefusal("exact closure exceeds declared predecessor budget")
+                    record_dependency(report.product_id, reference)
                 for reference in structural:
                     include_structural(reference)
                 for reference in contributions:
-                    if reference in seen_references:
-                        continue
-                    seen_references.add(reference)
-                    retained = reader_for(reference).retained_source_contribution(reference)
-                    budget.value(retained)
-                    identifiers = contribution_groups.setdefault(
-                        (reference.run_id, reference.selected_task_id), set()
-                    )
-                    identifiers.update(row["contribution_id"] for row in retained["contributions"])
-                    if len(identifiers) > 1000:
-                        raise SemanticRefusal(
-                            "exact closure exceeds one producer's contribution selection limit"
-                        )
+                    include_contribution(reference)
                 for reference in _dossier_relationship_refs(report):
                     if reference in seen_references:
                         continue
@@ -1966,9 +2044,11 @@ def _retained_contribution_payloads(
         for row in _detached_relation(root, manifest, "reports")
         if row["origin_task_id"] in origin_ids
     }
-    source_ids = {
-        source.source_view_id for report, _ in requested for source in report.inputs.sources
-    }
+    source_ids = (
+        set()
+        if origin_sources
+        else {source.source_view_id for report, _ in requested for source in report.inputs.sources}
+    )
     sources = {}
     for row in _detached_relation(root, manifest, "sources"):
         if not origin_sources and row["source_view_id"] not in source_ids:
@@ -2055,6 +2135,154 @@ def _retained_contribution_payloads(
             contributions=list(closure.values()),
             sources=[sources[key] for key in sorted(source_ids)],
         )
+
+
+def _verify_interpretation_closure(root, manifest, scopes, inventory):
+    """Replay the exact source-part and candidate references retained by d1."""
+    from corpus_structure.semantic.contextual_storage import interpretation_candidates
+    from corpus_structure.semantic.observations import source_python
+    from corpus_structure.semantic.retained_contributions import RetainedContributionRef
+    from corpus_structure.serve.contribution_composition import interpretation_predecessors
+
+    readings = {}
+    for (index, task, origin, identity), row in inventory.items():
+        if not row.get("semantic_type", "").startswith("interpretation."):
+            continue
+        scope = scopes[index]
+        reference = RetainedContributionRef(
+            contribution_id=identity,
+            project_id=scope["project_id"],
+            run_id=scope["run_id"],
+            cut_id=scope["cut_id"],
+            release_id=scope["binding"]["release_id"],
+            result_revision=scope["binding"]["data_revision"],
+            selected_task_id=task,
+            origin_task_id=origin,
+            runtime_fingerprint=row["runtime_fingerprint"],
+        )
+        if row.get("method") != "extract.pm2_d1" or not row.get("cut_member"):
+            raise ValueError("interpretation differs from exact producing method or cut")
+        readings[reference] = row
+    if not readings:
+        return set()
+
+    needed = {}
+    reasons = set()
+    for own, row in readings.items():
+        value = source_python(row["value"])
+        references, retrieval = interpretation_predecessors(value)
+        needed[own] = (value, references, retrieval)
+        for reference in references:
+            if (reference.project_id, reference.release_id) != (own.project_id, own.release_id):
+                raise ValueError("interpretation predecessor belongs to another project or release")
+            reasons.add(
+                canonical_bytes(
+                    {
+                        "required_by": own.contribution_id,
+                        "reason": "declared_retained_predecessor",
+                        "reference": reference.model_dump(mode="json"),
+                    }
+                )
+            )
+    refs = tuple(
+        dict.fromkeys((*readings, *(ref for _, group, _ in needed.values() for ref in group)))
+    )
+    payloads = dict(
+        zip(
+            refs,
+            _retained_contribution_payloads(
+                root,
+                manifest,
+                [(None, ref) for ref in refs],
+                scopes,
+                inventory,
+                origin_sources=True,
+            ),
+            strict=True,
+        )
+    )
+    roots = {
+        ref: next(
+            row for row in payload["contributions"] if row["contribution_id"] == ref.contribution_id
+        )
+        for ref, payload in payloads.items()
+    }
+    retrieval_origins = {
+        retrieval.carrier.origin_task_id
+        for _, _, retrieval in needed.values()
+        if retrieval is not None
+    }
+    retrieval_reports = (
+        {
+            row["origin_task_id"]: row
+            for row in _detached_relation(root, manifest, "reports")
+            if row["origin_task_id"] in retrieval_origins
+        }
+        if retrieval_origins
+        else {}
+    )
+
+    for own, (value, references, retrieval) in needed.items():
+        actual = roots[own]
+        if any(readings[own].get(key) != item for key, item in actual.items()):
+            raise ValueError("detached interpretation differs from original retained contents")
+        if any(roots[ref]["pin"] != actual["pin"] for ref in references):
+            raise ValueError("detached interpretation predecessor differs from original source")
+        for candidate in value.get("candidates", ()):
+            if "reference" in candidate:
+                candidate_ref = RetainedContributionRef.model_validate(candidate["reference"])
+                if roots[candidate_ref]["semantic_type"] != candidate["semantic_type"]:
+                    raise ValueError(
+                        "detached interpretation candidate differs from its retained type"
+                    )
+        if retrieval is None:
+            continue
+        carrier = roots[retrieval.carrier]
+        origin = retrieval_reports[retrieval.carrier.origin_task_id]
+        operations = [
+            operation
+            for operation in origin["body"]["contribution_operations"]
+            if operation["operation_key"] == retrieval.operation_key
+        ]
+        if (
+            origin["method"] != "retrieve.contextual"
+            or carrier["semantic_type"] != "contextual.located_mention"
+            or carrier["operation_key"] != retrieval.operation_key
+            or not carrier.get("anchors")
+            or len(operations) != 1
+            or not operations[0].get("contextual_enrichment")
+        ):
+            raise ValueError("detached interpretation candidate list differs from its carrier")
+        frozen = interpretation_candidates(
+            operations[0]["contextual_enrichment"],
+            retrieval.list_id,
+            carrier["occurrence_id"],
+            tuple(carrier["anchors"]),
+        )
+        actual_targets = tuple(
+            (
+                candidate["key"],
+                candidate["semantic_type"],
+                candidate["target_id"],
+                candidate["representation_digest"],
+            )
+            for candidate in value["candidates"]
+            if "target_id" in candidate
+        )
+        expected_targets = tuple(
+            (
+                "target_" + sha256(target.target_id.encode()).hexdigest(),
+                target.type_name,
+                target.target_id,
+                target.representation_digest,
+            )
+            for target in frozen.targets
+        )
+        if actual_targets != expected_targets:
+            raise ValueError(
+                "detached interpretation alternatives differ from the exact candidate list"
+            )
+    return reasons
 
 
 def _verify_comparison_closure(root, manifest, products, structural_scopes, scopes, inventory):
@@ -2656,6 +2884,16 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
                         elif name == "documents" and isinstance(payload.get("content_hash"), str):
                             document_originals.add((payload["id"], payload["content_hash"]))
                         elif name == "reports":
+                            if (
+                                selection.completeness == "selected_source_closure"
+                                and payload.get("method") == "retrieve.contextual"
+                                and (
+                                    (payload.get("configuration") or {}).get("query_context")
+                                    is not None
+                                    or (payload.get("body") or {}).get("operation_version") == "11"
+                                )
+                            ):
+                                raise ValueError(_UNREPLAYED_QUERY_CONTEXT)
                             needed_sources.update(_report_source_ids(payload["body"]))
                             for ref in _section_source_refs(payload):
                                 needed_sources.add(ref.source_view_id)
@@ -2725,6 +2963,11 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
             logicals[suffix] = logical.digest
         if len(set(logicals.values())) != 1:
             raise ValueError("review serializations disagree")
+    interpretation_reasons = (
+        _verify_interpretation_closure(root, manifest, contribution_scopes, contribution_inventory)
+        if selection.completeness == "selected_source_closure"
+        else set()
+    )
     if "closure_dependencies" in manifest["relations"]:
         declared_reasons = {
             canonical_bytes(
@@ -2738,7 +2981,7 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
             for group in _structural_predecessors(product)
             for reference in group
         }
-        if closure_reasons != declared_reasons:
+        if closure_reasons != declared_reasons | interpretation_reasons:
             raise ValueError("review closure reasons differ from declared retained predecessors")
     if not public_product_ids <= structural_product_ids:
         raise ValueError("public structural witness has no selected product")

@@ -2,28 +2,204 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import select
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
+from sqlalchemy import Connection, select
 
 from corpus_structure.methods.contextual_embeddings import (
     EncodedVector,
     EncoderProfile,
     identity,
+    numeric_identity,
     validate_vector,
 )
 from corpus_structure.semantic.contextual_links import RelationshipDecision, select_relationships
-from corpus_structure.semantic.contextual_registry import SectionHeadingTarget, section_target_input
+from corpus_structure.semantic.contextual_registry import (
+    ExtractedComponentTarget,
+    SectionHeadingTarget,
+    section_target_input,
+)
 from corpus_structure.semantic.contextual_retrieval import (
     CandidateList,
     FrozenInventory,
+    TargetRepresentation,
     freeze_inventory,
     fuse_candidates,
 )
+from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 from corpus_structure.semantic.structural_products import ExternalSourceRef
+
+
+class RetainedCandidateListRef(BaseModel):
+    """The custody of a frozen inventory read, without caller-authored target labels."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    carrier: RetainedContributionRef
+    operation_key: str = Field(pattern=r"^contribution-operation:[0-9a-f]{64}$")
+    list_id: str = Field(pattern=r"^concept-candidates:[0-9a-f]{64}$")
+
+
+@dataclass(frozen=True)
+class InterpretationCandidateTarget:
+    target_id: str
+    label: str
+    description: str
+    source_binding: str
+    representation_digest: str
+    rank: int
+    type_name: str | None
+
+
+@dataclass(frozen=True)
+class InterpretationCandidateSet:
+    list_id: str
+    inventory_id: str
+    occurrence_id: str
+    targets: tuple[InterpretationCandidateTarget, ...]
+    anchors: tuple[Mapping[str, Any], ...]
+
+
+_CANDIDATE_LIST = TypeAdapter(CandidateList)
+_TARGET_REPRESENTATIONS = TypeAdapter(tuple[TargetRepresentation, ...])
+
+
+def interpretation_candidates(
+    report: Mapping[str, Any],
+    list_id: str,
+    occurrence_id: str,
+    anchors: tuple[Mapping[str, Any], ...],
+) -> InterpretationCandidateSet:
+    """Project ordered alternatives from a source-bound, already admitted report."""
+    if report.get("version") != "contextual-enrichment-2":
+        raise ValueError("candidate report has unsupported meaning")
+    selected = [row for row in report["candidate_lists"] if row["list_id"] == list_id]
+    if len(selected) != 1 or selected[0]["occurrence_id"] != occurrence_id:
+        raise ValueError("frozen candidate list differs from selected occurrence")
+    candidate_list = _CANDIDATE_LIST.validate_python(
+        {"profile_id": None, "query_vector_id": None, **selected[0]}
+    )
+    meaning = {
+        key: value
+        for key, value in asdict(candidate_list).items()
+        if key != "list_id" and value is not None
+    }
+    if numeric_identity("concept-candidates", meaning) != list_id:
+        raise ValueError("frozen candidate list identity differs from its report")
+    inventories = [
+        row for row in report["inventories"] if row["inventory_id"] == candidate_list.inventory_id
+    ]
+    if len(inventories) != 1:
+        raise ValueError("frozen candidate list inventory is unavailable")
+    targets = _TARGET_REPRESENTATIONS.validate_python(inventories[0]["targets"])
+    by_id = {target.target_id: target for target in targets}
+    definition_bindings = {
+        target.reference.component_id: "definition-component:" + target.reference.identity
+        for row in report.get("component_targets", ())
+        for target in (ExtractedComponentTarget.model_validate(row),)
+    }
+    ids = [c.target_id for c in candidate_list.candidates]
+    if (
+        len(by_id) != len(targets)
+        or len(targets) != candidate_list.eligible_target_count
+        or len(set(ids)) != len(ids)
+        or not set(ids) <= by_id.keys()
+        or tuple(c.rank for c in candidate_list.candidates) != tuple(range(1, len(ids) + 1))
+    ):
+        raise ValueError("frozen candidate alternatives differ from the eligible inventory")
+    return InterpretationCandidateSet(
+        list_id,
+        candidate_list.inventory_id,
+        occurrence_id,
+        tuple(
+            InterpretationCandidateTarget(
+                target.target_id,
+                target.label,
+                target.description,
+                target.source_binding,
+                target.representation_digest,
+                rank,
+                "definition"
+                if definition_bindings.get(target.target_id) == target.source_binding
+                else target.type_name,
+            )
+            for rank, target in enumerate((by_id[id_] for id_ in ids), 1)
+        ),
+        anchors,
+    )
+
+
+def read_interpretation_candidates(
+    conn: Connection,
+    ref: RetainedCandidateListRef,
+    *,
+    source_pin: Mapping[str, Any],
+    project_id: str,
+    release_id: str,
+) -> InterpretationCandidateSet:
+    """Resolve the exact native carrier and report in the caller's owned read snapshot."""
+    from .contribution_queries import read_source_contributions
+    from .operations import BoundReader
+    from .query import bind_completed_result
+
+    carrier = ref.carrier
+    if (carrier.project_id, carrier.release_id) != (project_id, release_id):
+        raise ValueError("frozen candidate selection belongs to another project or release")
+    session = bind_completed_result(conn, carrier.run_id)
+    if (
+        session.completed_cut_id != carrier.cut_id
+        or session.binding.release_id != release_id
+        or session.binding.data_revision != carrier.result_revision
+    ):
+        raise ValueError("frozen candidate selection differs from completed cut or revision")
+    retained = BoundReader(
+        conn, carrier.run_id, session.prepared, carrier.cut_id, analysis=False
+    ).retained_source_contribution(carrier)
+    rows = [
+        row
+        for row in retained["contributions"]
+        if row["contribution_id"] == carrier.contribution_id
+    ]
+    if len(rows) != 1:
+        raise ValueError("frozen candidate selection has no unique native occurrence carrier")
+    (occurrence,) = rows
+    if (
+        occurrence["operation_key"] != ref.operation_key
+        or occurrence["semantic_type"] != "contextual.located_mention"
+        or occurrence["pin"] != source_pin
+        or not occurrence.get("anchors")
+    ):
+        raise ValueError("frozen candidate carrier differs from exact source or operation")
+    inventory = read_source_contributions(
+        conn,
+        prepared=session.prepared,
+        run_id=carrier.run_id,
+        cut_id=carrier.cut_id,
+        source_view_id=source_pin["source_view_id"],
+        selected_task_id=carrier.selected_task_id,
+        method="retrieve.contextual",
+        operation_key=ref.operation_key,
+        contribution_id=carrier.contribution_id,
+        limit=1,
+        include_details=True,
+    )
+    if len(inventory.operations) != 1 or inventory.more:
+        raise ValueError("frozen candidate operation is unavailable or ambiguous")
+    (operation,) = inventory.operations
+    if (
+        not operation["cut_member"]
+        or operation["origin_task_id"] != carrier.origin_task_id
+        or not operation.get("contextual_enrichment")
+    ):
+        raise ValueError("frozen candidate operation differs from exact producing task")
+    return interpretation_candidates(
+        operation["contextual_enrichment"],
+        ref.list_id,
+        occurrence["occurrence_id"],
+        tuple(occurrence["anchors"]),
+    )
 
 
 @dataclass(frozen=True)
@@ -135,7 +311,7 @@ def enrichment_report(
     ):
         raise ValueError("heading report requires original selected source references")
     if component_targets:
-        from .contextual_registry import ExtractedComponentTarget, component_target_input
+        from .contextual_registry import component_target_input
 
         if curated_registry_id is not None:
             raise ValueError("component targets cannot use curated registry attribution")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Set
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from .pm2_products import ParserProduct, ParserProducts
@@ -241,47 +242,72 @@ def dipo_products(
     return ParserProducts(locations, tuple(products))
 
 
-def dipo_context(
-    tree: Mapping[str, Any], *, focal: int, located_edus: Set[int], max_edus: int
-) -> dict[str, Any]:
-    """Select a bounded sibling subtree by leaf range without rebuilding its text."""
+@dataclass(frozen=True)
+class DipoContext:
+    count: int
+    children: Mapping[Range, tuple[Range, Range]]
+    located_edus: frozenset[int]
+    max_edus: int
+
+    def select(self, focal: int, *, max_omitted: int | None = None) -> dict[str, Any]:
+        """Select a bounded sibling subtree, retaining explicit omissions."""
+        if type(focal) is not int or not 0 <= focal < self.count:
+            raise ValueError("invalid Dipo context request")
+        if focal not in self.located_edus:
+            return {"outcome": "unsupported", "reason": "focal_edu_unmapped"}
+        siblings = []
+        parent = (0, self.count)
+        while parent in self.children:
+            left, right = self.children[parent]
+            parent, sibling = (left, right) if focal < right[0] else (right, left)
+            siblings.append(sibling)
+        eligible, omitted = [], []
+        for sibling in reversed(siblings):
+            start, end = sibling
+            if end - start + 1 > self.max_edus:
+                omitted.append({"range": list(sibling), "reason": "context_bound"})
+            elif any(edu not in self.located_edus for edu in range(start, end)):
+                omitted.append({"range": list(sibling), "reason": "unmapped_edu"})
+            else:
+                eligible.append(sibling)
+        selected = min(eligible, key=lambda span: span[1] - span[0], default=None)
+        omitted.extend(
+            {"range": list(span), "reason": "wider_than_selected"}
+            for span in eligible
+            if span != selected
+        )
+        return {
+            "outcome": "succeeded",
+            "focal": [focal, focal + 1],
+            "sibling": list(selected) if selected is not None else None,
+            "omitted": omitted[:max_omitted],
+            **(
+                {"additional_omitted_ranges": len(omitted) - max_omitted}
+                if max_omitted is not None and len(omitted) > max_omitted
+                else {}
+            ),
+        }
+
+
+def prepare_dipo_context(
+    tree: Mapping[str, Any], *, located_edus: Set[int], max_edus: int
+) -> DipoContext:
+    """Validate one retained tree for reuse across its selected EDU views."""
     count = tree["root"][1]
     if (
         type(count) is not int
         or tree["root"] != [0, count]
-        or type(focal) is not int
-        or not 0 <= focal < count
         or type(max_edus) is not int
         or max_edus < 1
     ):
         raise ValueError("invalid Dipo context request")
-    parents = _tree_children(tree["splits"], count)
-    if focal not in located_edus:
-        return {"outcome": "unsupported", "reason": "focal_edu_unmapped"}
-    siblings = []
-    parent = (0, count)
-    while parent in parents:
-        left, right = parents[parent]
-        parent, sibling = (left, right) if focal < right[0] else (right, left)
-        siblings.append(sibling)
-    eligible = []
-    omitted = []
-    for start, end in reversed(siblings):
-        if end - start + 1 > max_edus:
-            omitted.append({"range": [start, end], "reason": "context_bound"})
-        elif any(edu not in located_edus for edu in range(start, end)):
-            omitted.append({"range": [start, end], "reason": "unmapped_edu"})
-        else:
-            eligible.append((start, end))
-    selected = min(eligible, key=lambda span: span[1] - span[0], default=None)
-    omitted.extend(
-        {"range": list(span), "reason": "wider_than_selected"}
-        for span in eligible
-        if span != selected
+    return DipoContext(
+        count, _tree_children(tree["splits"], count), frozenset(located_edus), max_edus
     )
-    return {
-        "outcome": "succeeded",
-        "focal": [focal, focal + 1],
-        "sibling": list(selected) if selected is not None else None,
-        "omitted": omitted,
-    }
+
+
+def dipo_context(
+    tree: Mapping[str, Any], *, focal: int, located_edus: Set[int], max_edus: int
+) -> dict[str, Any]:
+    """Select a bounded sibling subtree by leaf range without rebuilding its text."""
+    return prepare_dipo_context(tree, located_edus=located_edus, max_edus=max_edus).select(focal)

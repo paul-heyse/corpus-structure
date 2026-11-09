@@ -189,6 +189,7 @@ def test_named_rule_availability_is_preserved_per_variant(monkeypatch, states, a
                 block_id="block",
                 display_spans=(),
                 dependency_digest="d" * 64,
+                availability=(),
             ),
         ),
         errors=(),

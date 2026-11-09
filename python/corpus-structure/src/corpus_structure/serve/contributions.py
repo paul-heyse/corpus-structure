@@ -23,6 +23,7 @@ from corpus_structure.semantic.contribution_queries import read_source_contribut
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.query import bind_completed_result
 from corpus_structure.semantic.refusals import InvalidContinuation, SemanticRefusal
+from corpus_structure.serve.contribution_composition import composition_facets
 from corpus_structure.serve.journey import params_digest
 
 
@@ -121,6 +122,42 @@ class ContributionPage(BaseModel):
 
 def serve_contributions(conn: Connection, request: ContributionRequest) -> ContributionPage:
     return _contributions(conn, request, paginate=True)
+
+
+def _interpretations(inventory):
+    composition = composition_facets(inventory.operations, inventory.interpretations)
+    for row in inventory.interpretations:
+        meaning = {
+            key: row[key]
+            for key in (
+                "selected_task_id",
+                "origin_task_id",
+                "source_view_id",
+                "contribution_id",
+                "operation_key",
+                "occurrence_id",
+                "kind",
+                "semantic_type",
+                "disposition",
+                "standing",
+                "source_field_state",
+                "anchor_role",
+                "value",
+                "members",
+                "endpoints",
+                "computation_dependencies",
+                "reason",
+                "alternatives",
+            )
+            if key in row
+        }
+        key = (
+            (row["selected_task_id"], row["origin_task_id"], row["operation_key"]),
+            row["contribution_id"],
+        )
+        if key in composition:
+            meaning["composition"] = composition[key]
+        yield meaning
 
 
 def _contributions(
@@ -293,37 +330,7 @@ def _contributions(
                 semantic_rows = tuple(decoded)
             else:
                 local_rows = tuple(decoded)
-    interpretations = (
-        tuple(
-            {
-                key: row[key]
-                for key in (
-                    "selected_task_id",
-                    "origin_task_id",
-                    "source_view_id",
-                    "contribution_id",
-                    "operation_key",
-                    "occurrence_id",
-                    "kind",
-                    "semantic_type",
-                    "disposition",
-                    "standing",
-                    "source_field_state",
-                    "anchor_role",
-                    "value",
-                    "members",
-                    "endpoints",
-                    "computation_dependencies",
-                    "reason",
-                    "alternatives",
-                )
-                if key in row
-            }
-            for row in inventory.interpretations
-        )
-        if request.include_interpretation
-        else ()
-    )
+    interpretations = tuple(_interpretations(inventory)) if request.include_interpretation else ()
     assessments = ()
     if request.include_assessment:
         assessment_fields = {

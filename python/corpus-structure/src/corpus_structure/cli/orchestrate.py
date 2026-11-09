@@ -493,6 +493,23 @@ def run_parsers_command(
     emit(result, json=json)
 
 
+@run_app.command("interpret")
+def run_interpretation_command(
+    ctx: typer.Context,
+    request: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    json: JsonOpt = False,
+) -> None:
+    """Run named private interpretation questions over exact retained development source."""
+    from corpus_structure.orchestrate.pm2_stage import InterpretationRunRequest, run_interpretation
+
+    settings = state(ctx).settings()
+    with _refusals(json):
+        selection = InterpretationRunRequest.model_validate_json(request.read_bytes())
+        with ENGINE(settings) as engine:
+            result = run_interpretation(engine, settings, selection)
+    emit(result, json=json)
+
+
 def register(app: typer.Typer) -> None:
     from corpus_structure.cli.status import status
 

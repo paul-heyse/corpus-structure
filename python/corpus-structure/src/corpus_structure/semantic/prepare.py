@@ -1084,6 +1084,12 @@ def _prepare_release_uncached(
         for definition in definitions
         for prop in definition.properties
     )
+    from .interpretation_questions import compile_question_families
+
+    try:
+        rows += compile_question_families(dependencies.artifacts)
+    except (ValueError, yaml.YAMLError) as exc:
+        _fail("interpretation_questions", bundle.root, str(exc))
     rows += tuple(
         RegistryRow("enum_definition", str(name), canonical_bytes(json_dumper.to_dict(enum)))
         for name, enum in sorted(view.all_enums().items())

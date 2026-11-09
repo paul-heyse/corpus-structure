@@ -331,10 +331,52 @@ def _literal_product(value: Mapping[str, Any]) -> Mapping[str, Any]:
     return value
 
 
+def _interpretation_product(
+    row: Mapping[str, Any], closure: Mapping[str, Mapping[str, Any]]
+) -> Mapping[str, Any]:
+    """Expose independently judgeable fields without comparing model probabilities."""
+    from corpus_structure.semantic.observations import source_python
+
+    result = source_python(row["value"])
+    scope = result["assessed_scope"]
+    if scope["pin"] != row["pin"]:
+        raise ReferenceError("interpretation result differs from its assessed source pin")
+    fields = {
+        "interpretation_question_key": result["question_key"],
+        "interpretation_answer_kind": result["answer_kind"],
+        "interpretation_state": result["state"],
+        "interpretation_selected_keys": result["selected_keys"],
+        "interpretation_projection_extent": scope["projection_extent"],
+    }
+    members = [closure.get(identity) for identity in row.get("members", ())]
+    if (
+        result["answer_kind"] in {"text", "number", "date"}
+        and result["state"] == "proposed"
+        and len(members) == 1
+        and (member := members[0]) is not None
+        and member["semantic_type"] == "source_occurrence"
+        and member["operation_key"] == row["operation_key"]
+        and member["pin"] == row["pin"]
+        and (anchors := member.get("anchors"))
+        and all(a["space"] == "native" and a["precision"] == "exact" for a in anchors)
+    ):
+        fields["interpretation_literal_pieces"] = [a["source_piece"] for a in anchors]
+        fields["interpretation_literal_anchors"] = [
+            {key: a[key] for key in ("pointer", "start", "end")} for a in anchors
+        ]
+        if result.get("normalization") == "native_proposal":
+            fields["interpretation_normalized_value"] = result["native_answer"][
+                result["answer_kind"]
+            ]
+    return dict(row, **fields)
+
+
 def _comparison_product(
     value: Mapping[str, Any], closure: Mapping[str, Mapping[str, Any]]
 ) -> Mapping[str, Any]:
     value = _literal_product(value)
+    if value.get("semantic_type", "").startswith("interpretation."):
+        return _interpretation_product(value, closure)
     if value.get("kind") not in {"proposal", "relation"} or (
         value.get("kind") == "proposal" and not value.get("endpoints")
     ):
@@ -824,6 +866,8 @@ def reference_evaluate(
     conn: Connection, *, project_id: str, run_id: int, set_id: int
 ) -> ReferenceReport:
     from corpus_structure.semantic.contribution_queries import read_source_contributions
+    from corpus_structure.semantic.interpretation_questions import declared_families
+    from corpus_structure.semantic.observations import source_python
 
     completed = _completed(conn, run_id, project_id)
     prepared = open_release(conn, completed["release_id"])
@@ -846,10 +890,18 @@ def reference_evaluate(
         .mappings()
         .all()
     )
+    run_views = {unit["source_view_id"] for unit in source_units(conn, run_id)}
+    missing = {unit["source_view_id"] for unit in selected} - run_views
+    if missing:
+        raise ReferenceError(
+            "operation evaluation lacks frozen source views in the prediction run: "
+            + ", ".join(str(view) for view in sorted(missing))
+        )
     snapshot = _call(conn, "SELECT eval.native_reference_snapshot(:s)", s=set_id).scalar_one()
     if not selected or len(snapshot) != len(selected):
         raise ReferenceError("every operation unit requires adjudicated C, including zero output")
     frozen = {value["unit_id"]: value for value in snapshot}
+    interpretation_questions = declared_families(prepared.registry_rows)
     reports = []
     for unit in selected:
         frame = decode_frame(unit["context"][0])
@@ -877,6 +929,21 @@ def reference_evaluate(
             and value["operation_version"] == frame.operation_version
         ]
         operation_keys = {value["operation_key"] for value in operations}
+        assessed_extents = (
+            {
+                (item.start, item.end)
+                for item in frame.opportunities
+                if item.source_view_id == unit["source_view_id"]
+            }
+            if (
+                isinstance(frame, OperationEvaluationFrameV2)
+                and frame.direction == "source_first"
+                and frame.operation_question in interpretation_questions
+                and not frame.anchor_ids
+                and not frame.anchor_scopes
+            )
+            else set()
+        )
         endpoint_roles = tuple(
             sorted(
                 {
@@ -895,8 +962,12 @@ def reference_evaluate(
             limit=10000,
             include_details=True,
             operation_keys=tuple(sorted(operation_keys)),
-            anchor_ids=frame.anchor_ids if frame.direction == "source_first" else None,
-            anchor_scopes=frame.anchor_scopes if frame.direction == "source_first" else None,
+            anchor_ids=frame.anchor_ids
+            if frame.direction == "source_first" and not assessed_extents
+            else None,
+            anchor_scopes=frame.anchor_scopes
+            if frame.direction == "source_first" and not assessed_extents
+            else None,
             anchor_endpoint_roles=endpoint_roles,
             contribution_ids=frame.contribution_ids if frame.direction == "output_first" else None,
         )
@@ -905,6 +976,14 @@ def reference_evaluate(
                 "operation selected contribution capture exceeds bounded source inventory"
             )
         predictions = list(captured.contributions)
+        if assessed_extents:
+            predictions = [
+                row
+                for row in predictions
+                if row["semantic_type"] == f"interpretation.{frame.operation_question}"
+                and tuple(source_python(row["value"])["assessed_scope"]["projection_extent"])
+                in assessed_extents
+            ]
         if frame.rubric_version == "nce12-attachment-role-direction-scope-2":
             selected_attachments = [
                 {"task_id": value["origin_task_id"], "contribution_id": value["contribution_id"]}
@@ -936,7 +1015,13 @@ def reference_evaluate(
             endpoint["contribution_id"]
             for value in predictions
             for endpoint in value.get("endpoints", ())
-        } - prediction_ids
+        } | {
+            identity
+            for value in predictions
+            if value["semantic_type"].startswith("interpretation.")
+            for identity in value.get("members", ())
+        }
+        endpoint_ids -= prediction_ids
         endpoints = (
             read_source_contributions(
                 conn,

@@ -53,10 +53,12 @@ from corpus_structure.semantic.structural_products import ExternalSourceRef
 from .contextual_embeddings import (
     E5,
     QWEN,
+    ContextCoreLimited,
     ContextInput,
     encode_contexts,
     verify_encoder_implementation,
 )
+from .contextual_query import QueryContextSelection, resolve_query_contexts
 
 
 def _phase_operation(phase, occurrence, dependencies, *, result_id=None, error=None, skipped=False):
@@ -826,7 +828,7 @@ class ContextualCandidates:
             section_mentions = {}
             section_targets = defaultdict(list)
             section_aliases = {}
-            if cfg.definition_alias_refs and self.version != "10":
+            if cfg.definition_alias_refs and self.version not in {"10", "11"}:
                 raise ValueError("definition alias bindings require contextual operation 10")
             if any("defined-by" in c.relation_kinds for c in constraints):
                 for product in source_products:
@@ -854,10 +856,45 @@ class ContextualCandidates:
                                     for alias_ref in cfg.definition_alias_refs
                                 )
             products = list(source_products)
-            inputs = [
-                ContextInput(occurrence, frame.unit_ref, "query", mention, text, start, end)
-                for occurrence, (text, start, end, mention) in contexts.items()
-            ]
+            query_context = {}
+            selected_context = getattr(cfg, "query_context", None)
+            if selected_context is not None:
+                if self.version != "11":
+                    raise ValueError("located query context requires contextual operation 11")
+                if any(b.occurrence_id not in contexts for b in selected_context.bindings):
+                    raise ValueError("query context has no single exact native encoder input")
+                references = tuple(b.evidence for b in selected_context.bindings)
+                if any(ref.release_id != ctx.reader.prepared.release_id for ref in references):
+                    raise ValueError("query context evidence is from a different release")
+                # Native source selection is project-scoped. The retained resolver checks
+                # reference custody and the context resolver checks the complete source pin.
+                held = {
+                    ref: ctx.reader.retained_source_contribution(ref)
+                    for ref in dict.fromkeys(references)
+                }
+                query_context = resolve_query_contexts(
+                    selected_context,
+                    tuple(held[ref] for ref in references),
+                    source_products,
+                    nodes,
+                    pin,
+                )
+            inputs = []
+            for occurrence, (text, start, end, mention) in contexts.items():
+                signal = query_context.get(occurrence)
+                inputs.append(
+                    ContextInput(
+                        occurrence,
+                        frame.unit_ref,
+                        "query",
+                        mention,
+                        text,
+                        start,
+                        end,
+                        representation_digest=signal.representation_digest if signal else "",
+                        query_context=signal.rendered if signal and signal.signals else None,
+                    )
+                )
             encoder_error = None
             try:
                 verify_encoder_implementation(profile)
@@ -900,6 +937,7 @@ class ContextualCandidates:
                 encoder_error = error
                 encoded, cached, all_vectors = None, (), ()
             vectors = {v.object_id: v for v in all_vectors}
+            limited_queries = frozenset(encoded.limited_query_ids) if encoded else frozenset()
             target_vectors = tuple(v for v in all_vectors if v.object_id in inventory.target_ids)
             lists, decisions, phases = [], [], []
             for occurrence in sorted(
@@ -959,7 +997,7 @@ class ContextualCandidates:
                         )
                     if occurrence in section_mentions:
                         code, carriers = section_mentions[occurrence]
-                        if self.version in {"9", "10"}:
+                        if self.version in {"9", "10", "11"}:
                             # A section locates a population. Its designation does
                             # not identify the definition of an unrelated concept.
                             section_nominations = {
@@ -980,7 +1018,7 @@ class ContextualCandidates:
                                 scope=cfg.scope,
                                 effective_version=cfg.effective_version,
                                 named_version="3"
-                                if self.version == "10"
+                                if self.version in {"10", "11"}
                                 and upstream.get("operation_version") == "10"
                                 else "2",
                                 aliases=section_aliases
@@ -1007,7 +1045,13 @@ class ContextualCandidates:
                                 for reference in section_targets[code]
                                 for product in carriers
                             )
-                    retrieval_error = encoder_error
+                    retrieval_error = (
+                        ContextCoreLimited(
+                            "required located query context exceeds encoder token bound"
+                        )
+                        if occurrence in limited_queries
+                        else encoder_error
+                    )
                     channels = {}
                     if query is not None:
                         try:
@@ -1049,11 +1093,12 @@ class ContextualCandidates:
                     )
                 except (ValueError, DBAPIError, RuntimeError, TimeoutError, OSError) as error:
                     _propagate_cancellation(error, ctx.check_active)
-                    phases.append(
-                        _phase_operation(
-                            "candidate retrieval", occurrence, dependencies, error=error
-                        )
+                    phase = _phase_operation(
+                        "candidate retrieval", occurrence, dependencies, error=error
                     )
+                    if isinstance(error, ContextCoreLimited):
+                        phase["outcome"] = "limited"
+                    phases.append(phase)
                     phases.append(
                         _phase_operation(
                             "relationship selection", occurrence, dependencies, skipped=True
@@ -1173,7 +1218,7 @@ class ContextualCandidates:
                 ),
                 vector_reuse=tuple(item.reuse for item in cached),
             )
-            if self.version in {"9", "10"}:
+            if self.version in {"9", "10", "11"}:
                 neighborhood = ctx.reader.contextual_mutual_neighbors(report)
                 report["neighborhood"] = dict(
                     neighborhood,
@@ -1184,7 +1229,7 @@ class ContextualCandidates:
                 operation_key=operation_key,
                 question="retained producer occurrence roles and contextual encoder products",
                 operation_version=self.version,
-                outcome="succeeded" if encoder_error is None else "limited",
+                outcome="succeeded" if encoder_error is None and not limited_queries else "limited",
                 inspected_count=len(source_products),
                 emitted_count=len(source_products),
                 contextual_enrichment=report,
@@ -1192,10 +1237,38 @@ class ContextualCandidates:
                     registry_id,
                     profile.profile_id,
                     view.ref.projection_digest,
+                    *dict.fromkeys(
+                        signal.evidence.contribution_id for signal in query_context.values()
+                    ),
                 ),
             )
             if encoder_error is not None:
                 operation["reason"] = "configured contextual encoder unavailable for this selection"
+            elif limited_queries:
+                operation["reason"] = (
+                    "some required located query contexts exceeded the token bound"
+                )
+            query_detail = (
+                {
+                    "query_context": {
+                        occurrence: dict(
+                            signal.report(),
+                            outcome=(
+                                "limited"
+                                if occurrence in limited_queries
+                                else "unavailable"
+                                if not signal.signals
+                                else "rendered"
+                                if occurrence in vectors
+                                else "encoder_unavailable"
+                            ),
+                        )
+                        for occurrence, signal in query_context.items()
+                    }
+                }
+                if query_context
+                else {}
+            )
             results.append(
                 UnitResult(
                     ref=unit.ref,
@@ -1218,6 +1291,7 @@ class ContextualCandidates:
                                 encoder_inputs=[asdict(i) for i in encoded.inputs]
                                 if encoded
                                 else [],
+                                **query_detail,
                             )
                         )
                     ),
@@ -1232,3 +1306,20 @@ class ContextualCandidatesWithNeighborhood(ContextualCandidates):
 
 class ContextualCandidatesWithNamedBindings(ContextualCandidatesWithNeighborhood):
     version = "10"
+
+
+class ContextualQueryConfig(ContextualCandidateConfig):
+    """Separate persisted configuration for the opt-in query context operation."""
+
+    query_context: QueryContextSelection
+
+    @model_validator(mode="after")
+    def component_context(self):
+        if self.section_sources:
+            raise ValueError("located query context requires a component retrieval inventory")
+        return self
+
+
+class ContextualCandidatesWithQueryContext(ContextualCandidatesWithNamedBindings):
+    version = "11"
+    Config = ContextualQueryConfig

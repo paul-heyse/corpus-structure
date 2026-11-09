@@ -3479,7 +3479,7 @@ BEGIN
  END LOOP;
  -- Contextual reports remain private, source-bound operation products.
  IF p_envelope->>'method'='retrieve.contextual'
-  AND (p_envelope->>'operation_version' IN ('8','9','10') OR (p_envelope->>'operation_version'='7'
+  AND (p_envelope->>'operation_version' IN ('8','9','10','11') OR (p_envelope->>'operation_version'='7'
    AND EXISTS(SELECT FROM ops.method_config cfg WHERE cfg.id=t.method_config_id
     AND jsonb_array_length(coalesce(cfg.params->'section_sources','[]'))>0)))
   AND (SELECT count(*) FROM jsonb_array_elements(p_envelope->'contribution_operations') o
@@ -3498,9 +3498,40 @@ BEGIN
    heading_catalog jsonb; heading_catalog_sources jsonb;
   BEGIN
    SELECT params INTO STRICT contextual_config FROM ops.method_config WHERE id=t.method_config_id;
+   IF p_envelope->>'method'='retrieve.contextual'
+    AND p_envelope->>'operation_version'='11' THEN
+    IF jsonb_typeof(contextual_config->'query_context') IS DISTINCT FROM 'object'
+     OR jsonb_typeof(contextual_config->'query_context'->'bindings') IS DISTINCT FROM 'array'
+     OR jsonb_array_length(contextual_config->'query_context'->'bindings') NOT BETWEEN 1 AND 32
+     OR jsonb_array_length(coalesce(contextual_config->'section_sources','[]'))<>0
+     OR EXISTS(SELECT FROM jsonb_array_elements(contextual_config->'query_context'->'bindings') b
+      WHERE b->'evidence'->>'release_id' IS DISTINCT FROM t.release_id
+       OR b->'evidence'->>'project_id' IS DISTINCT FROM (SELECT project_id FROM ops.run WHERE id=t.run_id)) THEN
+     RAISE EXCEPTION 'enriched query context differs from registered source and release' USING ERRCODE='23514';
+    END IF;
+    IF EXISTS(
+     SELECT FROM ops.resolve_retained_source_contributions(
+      (SELECT jsonb_agg(b->'evidence') FROM jsonb_array_elements(contextual_config->'query_context'->'bindings') b)) held
+     WHERE NOT EXISTS(
+      SELECT FROM jsonb_array_elements(held.contributions) r
+      WHERE r->>'contribution_id'=held.reference->>'contribution_id'
+       AND r->'pin'->>'source_view_id'=v.id::text
+       AND r->>'semantic_type'=CASE contextual_config->'query_context'->>'recipe'
+        WHEN 'located-frame-1' THEN 'linguistic.predicate_frame'
+        WHEN 'located-referent-1' THEN 'maverick.cluster'
+        WHEN 'located-discourse-neighbor-1' THEN 'dipo.tree' END)
+    ) OR EXISTS(
+     SELECT FROM jsonb_array_elements(contextual_config->'query_context'->'bindings') b
+     WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(p_envelope->'contributions') c
+      WHERE c->>'semantic_type'='contextual.located_mention'
+       AND c->>'occurrence_id'=b->>'occurrence_id')
+    ) THEN
+     RAISE EXCEPTION 'enriched query context lacks its exact parser and focal source' USING ERRCODE='23514';
+    END IF;
+   END IF;
    IF contextual_config ? 'definition_alias_refs' THEN
     IF p_envelope->>'method' IS DISTINCT FROM 'retrieve.contextual'
-     OR p_envelope->>'operation_version' IS DISTINCT FROM '10'
+     OR coalesce(p_envelope->>'operation_version','') NOT IN ('10','11')
      OR jsonb_array_length(contextual_config->'definition_alias_refs')>256
      OR jsonb_array_length(coalesce(contextual_config->'section_sources','[]'))>0
      OR EXISTS(SELECT FROM jsonb_array_elements(contextual_config->'definition_alias_refs') r
@@ -3511,7 +3542,7 @@ BEGIN
     END IF;
     PERFORM ops.resolve_retained_source_contributions(contextual_config->'definition_alias_refs');
    END IF;
-   IF p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version' IN ('7','8','9','10')
+   IF p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version' IN ('7','8','9','10','11')
     AND jsonb_array_length(coalesce(contextual_config->'section_sources','[]'))>0 THEN
     heading_inventory:=ops.contextual_section_headings(t.release_id,contextual_config->'section_sources',v.id,
      contextual_config->>'scope',contextual_config->>'effective_version');
@@ -3608,7 +3639,7 @@ BEGIN
      profile-'profile_id'-'max_items'-'max_input_bytes'-'timeout_seconds'),'UTF8')),'hex');
     IF profile->>'profile_id' IS DISTINCT FROM expected THEN
      RAISE EXCEPTION 'contextual profile identity differs from meaning' USING ERRCODE='23514'; END IF;
-    IF p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version' IN ('8','9','10') THEN
+    IF p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version' IN ('8','9','10','11') THEN
      expected:=CASE coalesce(contextual_config->>'profile','e5')
       WHEN 'e5' THEN 'encoder-profile:45a1807d2b4d6c8b2217aec6cd9dba7a5ed7b5c451f1e8800eaebc4a379a6397'
       WHEN 'qwen' THEN 'encoder-profile:4ff89ee3472c56c28d99545ddd6207cc0b6a82b9f9931a77b0fea8b86efb55eb' END;
@@ -3744,7 +3775,7 @@ BEGIN
      END LOOP;
     END LOOP;
    END LOOP;
-   IF p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version' IN ('8','9','10') THEN
+   IF p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version' IN ('8','9','10','11') THEN
     IF jsonb_array_length(report->'inventories') IS DISTINCT FROM 1
      OR jsonb_array_length(report->'profiles')>1 THEN
      RAISE EXCEPTION 'mutual neighborhood requires one inventory and at most one profile' USING ERRCODE='23514'; END IF;
@@ -3853,7 +3884,7 @@ BEGIN
      SELECT coalesce(jsonb_agg(h ORDER BY n),'[]') INTO expected_hits
      FROM jsonb_array_elements(heading_full_hits) WITH ORDINALITY x(h,n)
      WHERE n<=(candidate_list->>'unique_target_budget')::integer;
-    ELSIF p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version' IN ('6','7','8','9','10')
+    ELSIF p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version' IN ('6','7','8','9','10','11')
      AND EXISTS(SELECT FROM ops.method_config cfg,
       LATERAL jsonb_array_elements(cfg.params->'relationship_constraints') q
       WHERE cfg.id=t.method_config_id AND q->'relation_kinds' ? 'defined-by') THEN
@@ -3872,7 +3903,7 @@ BEGIN
           AND meaning.val->>'role'='defined_term' AND meaning.val->'component_reference'=ct->'reference')
          OR (occurrence.val->>'producer_semantic_type'='structural.located_participant'
           AND (meaning.val->>'role'='named_link_subject' OR
-           (p_envelope->>'operation_version' IN ('9','10') AND meaning.val->>'role'='named_link_definition_subject'))
+           (p_envelope->>'operation_version' IN ('9','10','11') AND meaning.val->>'role'='named_link_definition_subject'))
           AND jsonb_array_length(c->'anchors')=1
           AND (
            (meaning.val ? 'named_cue'
@@ -4024,7 +4055,7 @@ BEGIN
       RAISE EXCEPTION 'local proposal differs from examined source/list/evidence' USING ERRCODE='23514'; END IF;
     END IF;
     FOR witness IN SELECT value FROM jsonb_array_elements(decision->'witnesses') LOOP
-     IF p_envelope->>'operation_version' IN ('9','10') AND witness->>'relation'='defined-by'
+     IF p_envelope->>'operation_version' IN ('9','10','11') AND witness->>'relation'='defined-by'
       AND (starts_with(witness->>'witness_id','section-definition:') OR EXISTS(
        SELECT FROM jsonb_array_elements(p_envelope->'contributions') carrier
        CROSS JOIN LATERAL (SELECT data.record_source_json(data.record_source_json(
@@ -4035,7 +4066,7 @@ BEGIN
       )) THEN
       RAISE EXCEPTION 'section nomination cannot establish a definition endpoint' USING ERRCODE='23514';
      END IF;
-     IF p_envelope->>'operation_version' IN ('9','10') AND witness->>'relation'='defined-by'
+     IF p_envelope->>'operation_version' IN ('9','10','11') AND witness->>'relation'='defined-by'
       AND (starts_with(witness->>'witness_id','section-term-definition:') OR EXISTS(
        SELECT FROM jsonb_array_elements(p_envelope->'contributions') carrier
        CROSS JOIN LATERAL (SELECT data.record_source_json(data.record_source_json(
@@ -4054,7 +4085,7 @@ BEGIN
          AND (
           ops.component_semantic_target(ct->'reference')->'term'->>'text'
            =carrier->'anchors'->0->>'source_piece'
-          OR (p_envelope->>'operation_version'='10' AND extracted.original->>'definition_subject_kind'='term'
+          OR (p_envelope->>'operation_version' IN ('10','11') AND extracted.original->>'definition_subject_kind'='term'
            AND (SELECT count(*) FROM jsonb_array_elements(contextual_config->'definition_alias_refs') alias_ref
             WHERE ops.contextual_definition_alias(ct->'reference',alias_ref)=carrier->'anchors'->0->>'source_piece')=1)
          )

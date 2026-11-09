@@ -39,6 +39,7 @@ def settle_pm2_claim(
     configuration_hash: str,
     source_path: str | None = None,
     startup_error: str | None = None,
+    prefetched_reply: dict[str, Any] | None = None,
 ):
     """Score outside a transaction, then settle through the caller's exact claim owner."""
     owner()
@@ -70,7 +71,11 @@ def settle_pm2_claim(
     ):
         raise OperationConflict("PM2 runtime, input or release differs from the admitted claim")
     ref = UnitRef(claim.unit_type, claim.unit_id, claim.unit_key)
-    if worker is None:
+    if prefetched_reply is not None:
+        if worker is None:
+            raise ValueError("prefetched PM2 result requires the admitted live worker")
+        reply = prefetched_reply
+    elif worker is None:
         if startup_error is None:
             raise ValueError("PM2 startup failure requires a diagnostic")
         reply = {"outcome": "failed", "reason": startup_error}
@@ -80,14 +85,14 @@ def settle_pm2_claim(
         except Pm2WorkerError as exc:
             owner()
             reply = {"outcome": "failed", "reason": str(exc)}
-    field = None
-    if source_path is not None and reply["outcome"] == "succeeded":
-        ((start, end, _),) = (row for row in reply["state_fields"] if row[2] == source_path)
-        if not isinstance(start, int) or not isinstance(end, int):
-            raise ValueError("d1 returned noninteger rendered source bounds")
-        field = D1SourceField(reply["rendered_state"], source_path, start, end)
 
     def bind(reply):
+        field = None
+        if source_path is not None and reply["outcome"] == "succeeded":
+            ((start, end, _),) = (row for row in reply["state_fields"] if row[2] == source_path)
+            if type(start) is not int or type(end) is not int:
+                raise ValueError("d1 returned noninteger rendered source bounds")
+            field = D1SourceField(reply["rendered_state"], source_path, start, end)
         return pm2_unit_result(
             ref,
             mapping,
@@ -105,15 +110,13 @@ def settle_pm2_claim(
     try:
         result = bind(reply)
     except (IndexError, KeyError, TypeError, ValueError) as exc:
-        if (
-            question not in PARSER_QUESTIONS.values()
-            or reply.get("outcome", "succeeded") != "succeeded"
-        ):
+        handles_product = question in PARSER_QUESTIONS.values() or "interpretation" in request
+        if not handles_product or reply.get("outcome") != "succeeded":
             raise
         result = bind(
             {
                 "outcome": "failed",
-                "reason": f"invalid native parser product: {exc}",
+                "reason": f"invalid native PM2 product: {exc}",
                 "rejected_reply": reply,
             }
         )

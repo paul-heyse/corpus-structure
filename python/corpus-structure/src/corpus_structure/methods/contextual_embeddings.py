@@ -129,6 +129,7 @@ class ContextInput:
     parent: str = ""
     type_name: str | None = None
     representation_digest: str = ""
+    query_context: str | None = None
 
     def __post_init__(self):
         if not self.object_id or not self.source_binding or not self.literal:
@@ -139,6 +140,10 @@ class ContextInput:
             raise ValueError("context occurrence is outside its source")
         if self.context[self.start : self.end] != self.literal:
             raise ValueError("context occurrence must reconstruct its exact source literal")
+        if self.query_context is not None and (
+            self.role != "query" or not self.query_context or not self.representation_digest
+        ):
+            raise ValueError("located query context requires its own representation identity")
 
 
 @dataclass(frozen=True)
@@ -150,6 +155,10 @@ class RenderedInput:
     final_input_digest: str
     truncated: bool
     representation_digest: str = ""
+
+
+class ContextCoreLimited(ValueError):
+    """The exact literal and required context do not fit the selected encoder."""
 
 
 def render_context(
@@ -166,9 +175,11 @@ def render_context(
         core += f"\nParent: {item.parent}"
     if item.heading:
         core += f"\nHeading: {item.heading}"
+    if item.query_context is not None:
+        core += "\n" + item.query_context
     minimum = core + f"\nContext: {item.literal}"
     if token_count(prompt + minimum) > profile.max_tokens:
-        raise ValueError("occurrence and discriminating context exceed encoder token bound")
+        raise ContextCoreLimited("occurrence and discriminating context exceed encoder token bound")
     full = core + "\nContext: " + item.context
     if token_count(prompt + full) <= profile.max_tokens:
         text = full
@@ -222,6 +233,7 @@ class EncoderResult:
     vectors: tuple[EncodedVector, ...]
     implementation: tuple[tuple[str, str], ...]
     reused_vector_ids: tuple[str, ...] = ()
+    limited_query_ids: tuple[str, ...] = ()
 
 
 class EncoderCancelled(RuntimeError):
@@ -260,12 +272,20 @@ def _encode_child(
             or poolings[0].get_config_dict().get("pooling_mode") != profile.pooling
         ):
             raise ValueError("loaded model pooling differs from declared profile")
-        rendered = tuple(
-            render_context(
-                item, profile, lambda text: len(model.tokenizer.encode(text, truncation=False))
-            )
-            for item in items
-        )
+        rendered, limited_queries = [], []
+        for item in items:
+            try:
+                rendered.append(
+                    render_context(
+                        item,
+                        profile,
+                        lambda text: len(model.tokenizer.encode(text, truncation=False)),
+                    )
+                )
+            except ContextCoreLimited:
+                if item.query_context is None:
+                    raise
+                limited_queries.append(item.object_id)
         cached_by_object = {value.object_id: value for value in cached_vectors}
         reused = {}
         for i, item in enumerate(rendered):
@@ -328,10 +348,11 @@ def _encode_child(
                 )
         result = EncoderResult(
             profile.profile_id,
-            rendered,
+            tuple(rendered),
             tuple(value for _, value in sorted(vectors)),
             implementation,
             tuple(reused[i] for i in sorted(reused)),
+            tuple(limited_queries),
         )
         connection.send((result, None))
     except Exception as error:
@@ -362,7 +383,21 @@ def encode_contexts(
         validate_vector(cached.values, profile.dimension)
     if not items or len(items) > profile.max_items:
         raise EncoderLimited("encoder item bound exceeded or empty request")
-    if len(canonical_bytes([asdict(item) for item in items])) > profile.max_input_bytes:
+    if (
+        len(
+            canonical_bytes(
+                [
+                    {
+                        key: value
+                        for key, value in asdict(item).items()
+                        if key != "query_context" or value is not None
+                    }
+                    for item in items
+                ]
+            )
+        )
+        > profile.max_input_bytes
+    ):
         raise EncoderLimited("encoder request byte bound exceeded")
     if len({item.object_id for item in items}) != len(items):
         raise ValueError("duplicate encoded object identity")

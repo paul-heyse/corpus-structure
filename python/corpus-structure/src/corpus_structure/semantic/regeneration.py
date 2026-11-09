@@ -118,6 +118,7 @@ def acquire_pack(pack: Path, *, execution: ExecutionModelInputs | None = None) -
             "queries.py",
             "policies.yaml",
             "slices.yaml",
+            "interpretation-questions.yaml",
         )
         if (pack / filename).is_file()
     )

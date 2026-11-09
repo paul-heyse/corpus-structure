@@ -1,0 +1,85 @@
+# Private observations. These definitions confer no record eligibility.
+- family: passage_function_v1
+  questions:
+    - key: passage_functions
+      kind: choice
+      multiple: true
+      instructions: Which functions are explicitly performed by this passage? Judge each independently from the source.
+      options:
+        - {key: definition, criterion: Introduces a term or explains what it means.}
+        - {key: assertion, criterion: States a claim rather than only naming a topic.}
+        - {key: example, criterion: Illustrates a claim or method with a specific case.}
+        - {key: qualification, criterion: Restricts another statement by a condition or exception.}
+- family: literal_completion_v1
+  questions:
+    - {key: literal, kind: text, instructions: "Read the exact source phrase that states the focal definition or assertion. Leave it absent if no such phrase is written."}
+    - {key: quantity, kind: number, instructions: "Read the exact written focal quantity from source; leave it absent when no focal quantity is given."}
+    - {key: date, kind: date, instructions: "Read the exact written calendar date of the focal event from source; leave it absent if there is no such date."}
+- family: frame_interpretation_v1
+  focus_types: [linguistic.predicate_frame]
+  require_focus: true
+  questions:
+    - key: assertion_force
+      kind: choice
+      instructions: What force does the source give the supplied predicate? Consider the literal clause and context.
+      options:
+        - {key: descriptive, criterion: A proposition stated to hold.}
+        - {key: supposition, criterion: A premise or hypothetical introduced for an argument.}
+        - {key: instruction, criterion: A direction to carry out an action.}
+        - {key: insufficient, criterion: The force cannot be determined from this source., disposition: insufficient_evidence}
+    - key: assertion_polarity
+      kind: choice
+      instructions: Does the focal clause affirm or deny the supplied predicate, independently of its force?
+      options:
+        - {key: affirmative, criterion: The focal clause affirms the predicate.}
+        - {key: negative, criterion: The focal clause denies the predicate.}
+        - {key: insufficient, criterion: The polarity cannot be determined from this source., disposition: insufficient_evidence}
+- family: qualification_scope_v1
+  focus_types: [linguistic.qualifier_cue]
+  require_focus: true
+  candidate_types: [linguistic.predicate_frame]
+  questions:
+    - key: qualification_host
+      kind: choice
+      candidate_options: true
+      instructions: Which supplied predicate is restricted by the focal qualification? Require a restriction in source, not merely proximity.
+      options:
+        - {key: no_match, criterion: The source supports that none of the supplied predicates is restricted., disposition: no_match}
+        - {key: insufficient, criterion: The source does not determine the host., disposition: insufficient_evidence}
+        - {key: missing_host, criterion: The source indicates a host absent from the supplied alternatives., disposition: missing_candidate}
+- family: local_referent_choice_v1
+  focus_types: [maverick.mention]
+  require_focus: true
+  candidate_types: [maverick.mention, maverick.cluster]
+  questions:
+    - key: local_referent
+      kind: choice
+      candidate_options: true
+      instructions: Which supplied alternative denotes the same referent as the focal mention in the source?
+      options:
+        - {key: no_match, criterion: The source supports none of the alternatives., disposition: no_match}
+        - {key: insufficient, criterion: The source leaves the referent ambiguous., disposition: insufficient_evidence}
+        - {key: missing_referent, criterion: The source identifies a referent omitted from the alternatives., disposition: missing_candidate}
+- family: relation_interpretation_v1
+  min_candidates: 1
+  max_candidates: 1
+  focus_types: [linguistic.predicate_frame]
+  require_focus: true
+  candidate_types: [linguistic.predicate_frame]
+  questions:
+    - key: reported_reason
+      kind: noul
+      instructions: Is the sole supplied alternative presented in the source as a reason for the focal statement?
+      positive: The source explicitly presents the alternative as a reason for the focal statement.
+      negative: The alternative is not presented as a reason or the source leaves the relationship unclear.
+- family: contextual_link_assessment_v1
+  candidate_types: [definition, concept, section-heading]
+  questions:
+    - key: concept_link
+      kind: choice
+      candidate_options: true
+      instructions: Which frozen candidate does the focal source occurrence refer to in this context? Related subject matter alone is insufficient.
+      options:
+        - {key: no_match, criterion: None of these definitions is the source referent., disposition: no_match}
+        - {key: insufficient, criterion: The source occurrence does not determine a link., disposition: insufficient_evidence}
+        - {key: missing_target, criterion: The source points to a different target absent from the list., disposition: missing_candidate}

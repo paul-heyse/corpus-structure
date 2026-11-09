@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from hashlib import sha256
@@ -29,9 +30,16 @@ from corpus_structure.methods.pm2_worker import Pm2WorkerError, open_pm2_worker
 from corpus_structure.semantic._operation_calls import select_source_view
 from corpus_structure.semantic._operation_ids import RunId, SourceViewId
 from corpus_structure.semantic.claim_lifetime import maintained_claims
+from corpus_structure.semantic.contextual_storage import (
+    RetainedCandidateListRef,
+    read_interpretation_candidates,
+)
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.interpretation_questions import Family, declared_families
 from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.operations import (
+    BoundReader,
     OperationBinding,
     OperationConflict,
     OperationDescriptor,
@@ -43,11 +51,17 @@ from corpus_structure.semantic.operations import (
 )
 from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
 from corpus_structure.semantic.proposals import native_source_frame
+from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.semantic.releases import open_release
+from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 from corpus_structure.semantic.source_contexts import (
+    ContextRefused,
     NativeSourceContext,
     PreparedNativeSources,
+    SourceInterval,
     SourceSlice,
+    evidence_anchor,
+    record_source_pin,
 )
 from corpus_structure.semantic.source_views import load_source_view
 from corpus_structure.semantic.structural_products import ExternalSourceRef
@@ -67,6 +81,23 @@ class ParserProfile(BaseModel):
     provider: Provider
     device: Literal["cpu", "cuda"]
     startup: dict[str, JsonValue]
+
+
+class InterpretationProfile(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    provider: Literal["d1"]
+    device: Literal["cpu", "cuda"]
+    startup: dict[str, JsonValue]
+
+    @model_validator(mode="after")
+    def identity(self):
+        if (
+            self.startup.get("provider") != self.provider
+            or str(self.startup.get("device", "")).split(":")[0] != self.device
+        ):
+            raise ValueError("startup identity differs from the selected provider and device")
+        return self
 
 
 class ParserScope(BaseModel):
@@ -98,7 +129,7 @@ class ParserScope(BaseModel):
         return self
 
 
-class ParserRunRequest(BaseModel):
+class _SourceRunRequest(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     project: Annotated[str, Field(min_length=1)]
@@ -106,7 +137,43 @@ class ParserRunRequest(BaseModel):
     realization: Annotated[str, Field(min_length=1)]
     assets: Path
     max_source_bytes: int = Field(default=64 * 1024 * 1024, ge=1, le=512 * 1024 * 1024)
+
+
+class ParserRunRequest(_SourceRunRequest):
     scopes: tuple[ParserScope, ...] = Field(min_length=1, max_length=64)
+
+
+class InterpretationScope(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    source: ExternalSourceRef
+    extent: Extent
+    profile: InterpretationProfile
+    family: Family
+    questions: tuple[str, ...] = Field(default=(), max_length=16)
+    focus: RetainedContributionRef | None = None
+    candidates: tuple[RetainedContributionRef, ...] = Field(default=(), max_length=12)
+    retrieval: RetainedCandidateListRef | None = None
+
+    @model_validator(mode="after")
+    def identity(self):
+        if len(set(self.questions)) != len(self.questions):
+            raise ValueError("interpretation question selection repeats a released key")
+        if len({item.contribution_id for item in self.candidates}) != len(self.candidates):
+            raise ValueError("interpretation alternatives repeat a contribution")
+        if self.focus is not None and any(
+            item.contribution_id == self.focus.contribution_id for item in self.candidates
+        ):
+            raise ValueError("interpretation focus cannot also be an alternative")
+        if (self.family == "contextual_link_assessment_v1") != (self.retrieval is not None):
+            raise ValueError("contextual interpretation requires its exact frozen candidate list")
+        if self.retrieval is not None and (self.candidates or self.focus is not None):
+            raise ValueError("frozen retrieval supplies its own occurrence and alternatives")
+        return self
+
+
+class InterpretationRunRequest(_SourceRunRequest):
+    scopes: tuple[InterpretationScope, ...] = Field(min_length=1, max_length=64)
 
 
 class ParserRunReport(BaseModel):
@@ -119,14 +186,15 @@ class ParserRunReport(BaseModel):
 
 @dataclass(frozen=True)
 class _Work:
-    scope: ParserScope
-    profile: ParserProfile
+    scope: ParserScope | InterpretationScope
+    profile: ParserProfile | InterpretationProfile
     mapping: PM2SourceMap | PM2TokenMap
     request: dict[str, Any]
     ref: UnitRef
     method: OperationDescriptor
     question: str
     input_digest: str
+    source_path: str | None = None
 
 
 def _sentences(view) -> list[tuple[int, int]]:
@@ -140,24 +208,24 @@ def _sentences(view) -> list[tuple[int, int]]:
     return bounds
 
 
-def _work(
-    scope: ParserScope,
+def _source_map(
+    scope: ParserScope | InterpretationScope,
     view,
     source,
     preparation: PreparedNativeSources,
-    canonical_sentences: list[tuple[int, int]],
     *,
     parent: str | None = None,
-) -> _Work:
+) -> tuple[PM2SourceMap, list]:
     start, end = scope.extent
     if not 0 <= start < end <= len(view.text) or end - start > 65_536:
         raise ValueError("parser scope is outside the selected projection or character budget")
+    interpretation = isinstance(scope, InterpretationScope)
     context = NativeSourceContext(
         source,
         (),
         (SourceSlice(source.source_view_id, start, end),),
-        "private parser",
-        "pm2-parser-scope-1",
+        "private interpretation" if interpretation else "private parser",
+        "pm2-interpretation-scope-1" if interpretation else "pm2-parser-scope-1",
         "explicit selected source scope"
         if parent is None
         else f"coherent split of {parent}; cross-boundary relations unexamined",
@@ -172,9 +240,24 @@ def _work(
     atoms = tuple(
         (token.start - start, token.end - start) for token in tokens if token.role != "prose"
     )
-    mapping = PM2SourceMap(
-        context, context.text, (SourceMapSegment(0, len(context.text), 0),), atoms
+    return (
+        PM2SourceMap(context, context.text, (SourceMapSegment(0, len(context.text), 0),), atoms),
+        tokens,
     )
+
+
+def _work(
+    scope: ParserScope,
+    view,
+    source,
+    preparation: PreparedNativeSources,
+    canonical_sentences: list[tuple[int, int]],
+    *,
+    parent: str | None = None,
+) -> _Work:
+    mapping, tokens = _source_map(scope, view, source, preparation, parent=parent)
+    start, end = scope.extent
+    context = mapping.context
     provider = scope.profile.provider
     request: dict[str, Any]
     effective: PM2SourceMap | PM2TokenMap = mapping
@@ -247,6 +330,194 @@ def _work(
     return _Work(scope, scope.profile, effective, request, ref, method, question, digest)
 
 
+def _interpretation_work(scope, view, source, preparation, prepared, project, conn, family):
+    if family is None:
+        raise ValueError("interpretation family is unavailable in the selected release")
+    if family.require_focus and scope.focus is None:
+        raise ValueError("released interpretation question requires an exact focal contribution")
+    mapping, _ = _source_map(scope, view, source, preparation)
+    pin = record_source_pin(source)
+    selected_anchors = []
+    if scope.focus is not None or scope.retrieval is not None or scope.candidates:
+        for interval in mapping.context.intervals:
+            if not isinstance(interval, SourceInterval):
+                continue
+            try:
+                (piece,) = mapping.context.map_span(interval.model_start, interval.model_end)
+                anchor, _ = evidence_anchor(mapping.context, piece, native=True)
+            except ContextRefused:
+                continue
+            selected_anchors.append(anchor)
+
+    def position(anchor):
+        start, end = anchor.get("start"), anchor.get("end")
+        if type(start) is int and type(end) is int:
+            for index, allowed in enumerate(selected_anchors):
+                if (
+                    allowed["pointer"] == anchor.get("pointer")
+                    and allowed["start"] <= start < end <= allowed["end"]
+                ):
+                    return index, start, end
+        return None
+
+    references = (*scope.candidates, *((scope.focus,) if scope.focus is not None else ()))
+    if any(
+        (ref.project_id, ref.release_id) != (project, prepared.release_id) for ref in references
+    ):
+        raise ValueError("interpretation input differs from the selected project or release")
+    resolved = {
+        ref.contribution_id: BoundReader(
+            conn, ref.run_id, prepared, ref.cut_id, analysis=False
+        ).retained_source_contribution(ref)["contributions"]
+        for ref in references
+    }
+
+    def render(ref, allowed, *, precedes=None):
+        rows = resolved[ref.contribution_id]
+        (root,) = (row for row in rows if row["contribution_id"] == ref.contribution_id)
+        kind = root["semantic_type"]
+        if root["pin"] != pin or kind not in allowed:
+            raise ValueError(
+                "interpretation input differs from the allowed source or semantic type"
+            )
+        pieces = {}
+        positions = []
+        for row in rows:
+            if row["pin"] != pin:
+                continue
+            located = []
+            for anchor in row.get("anchors", ()):
+                loc = position(anchor)
+                if (
+                    loc is not None
+                    and anchor.get("space") == "native"
+                    and anchor.get("precision") == "exact"
+                    and anchor.get("source_piece")
+                    and (precedes is None or (loc[0], loc[2]) <= precedes)
+                ):
+                    located.append(anchor["source_piece"])
+                    positions.append((loc[0], loc[1]))
+            if located:
+                pieces[row["item_key"]] = located
+        if (
+            not pieces
+            or sum(map(len, pieces.values())) > 16
+            or sum(len(literal) for parts in pieces.values() for literal in parts) > 2048
+        ):
+            raise ValueError("interpretation input has no bounded exact source evidence")
+        key = "candidate_" + ref.contribution_id.rsplit(":", 1)[-1]
+        native_roles = source_python(root["value"]) if root.get("value") is not None else None
+        if len(canonical_bytes(native_roles)) > 4096:
+            raise ValueError("interpretation input native roles exceed their rendering bound")
+        return (
+            {"key": key, "semantic_type": kind, "reference": ref.model_dump(mode="json")},
+            {
+                "key": key,
+                "semantic_type": kind,
+                "located_text": pieces,
+                "native_roles": native_roles,
+            },
+            min(positions),
+        )
+
+    candidates, rendered = [], []
+    focus = retrieval = None
+    precedes = None
+    state: dict[str, Any] = {"source": mapping.provider_text}
+    if scope.focus is not None:
+        exact, display, start = render(scope.focus, family.focus_types)
+        if scope.family == "local_referent_choice_v1":
+            precedes = start
+        focus = exact["reference"]
+        state["focus"] = display
+    for candidate in scope.candidates:
+        exact, display, _ = render(candidate, family.candidate_types, precedes=precedes)
+        candidates.append(exact)
+        rendered.append(display)
+    if scope.retrieval is not None:
+        population = read_interpretation_candidates(
+            conn,
+            scope.retrieval,
+            source_pin=pin,
+            project_id=project,
+            release_id=prepared.release_id,
+        )
+        if not all(position(anchor) is not None for anchor in population.anchors):
+            raise ValueError("retrieval occurrence lies outside the exact interpretation scope")
+        if len(population.targets) > 12:
+            raise ValueError("frozen retrieval alternatives exceed the question bound")
+        retrieval = scope.retrieval.model_dump(mode="json")
+        for target in population.targets:
+            if target.type_name not in family.candidate_types:
+                raise ValueError("retrieval target type is unavailable to this released question")
+            key = "target_" + sha256(target.target_id.encode()).hexdigest()
+            candidates.append(
+                {
+                    "key": key,
+                    "semantic_type": target.type_name,
+                    "target_id": target.target_id,
+                    "representation_digest": target.representation_digest,
+                }
+            )
+            rendered.append(
+                {
+                    "key": key,
+                    "semantic_type": target.type_name,
+                    "label": target.label,
+                    "description": target.description,
+                }
+            )
+    if rendered:
+        state["candidates"] = rendered
+    if not family.min_candidates <= len(candidates) <= family.max_candidates:
+        raise ValueError("exact alternatives do not fit the released candidate population bounds")
+    questions = {
+        question.key: question.native(candidates)
+        for question in family.questions
+        if not scope.questions or question.key in scope.questions
+    }
+    if scope.questions and set(questions) != set(scope.questions):
+        raise ValueError("an interpretation question key is unavailable in this released family")
+    request = {
+        "state": state,
+        "questions": questions,
+        "interpretation": {
+            "declaration_digest": family.digest,
+            "assessed_scope": {
+                "pin": pin,
+                "projection_extent": list(scope.extent),
+                "scope_digest": mapping.scope_digest,
+            },
+            "candidates": candidates,
+            "focus": focus,
+            "retrieval": retrieval,
+        },
+    }
+    method = OperationDescriptor(
+        "extract.pm2_d1", "1", "extract", "encoder", TaskUnitType.SOURCE_VIEW, InterpretationProfile
+    )
+    ref = UnitRef(TaskUnitType.SOURCE_VIEW, source.source_view_id, source.unit_ref)
+    digest = pm2_input_digest(
+        mapping,
+        scope.profile.startup,
+        request,
+        question=scope.family,
+        operation_version=family.version,
+        source_path=family.source_field,
+    )
+    return _Work(
+        scope,
+        scope.profile,
+        mapping,
+        request,
+        ref,
+        method,
+        scope.family,
+        digest,
+        family.source_field,
+    )
+
+
 def _partition(extent: Extent, sentences: list[tuple[int, int]]) -> tuple[Extent, ...]:
     start, end = extent
     whole = [(left, right) for left, right in sentences if start <= left < right <= end]
@@ -287,7 +558,22 @@ def _limited(conn, task_ids):
 
 def run_parsers(engine: Engine, settings: Settings, request: ParserRunRequest) -> ParserRunReport:
     """Select immutable source, settle scoped native work, and finalize a private result."""
-    with engine.connect() as conn:
+    return _run_scopes(engine, settings, request)
+
+
+def run_interpretation(
+    engine: Engine, settings: Settings, request: InterpretationRunRequest
+) -> ParserRunReport:
+    """Run only named release-owned questions on authenticated development source."""
+    return _run_scopes(engine, settings, request)
+
+
+def _run_scopes(
+    engine: Engine, settings: Settings, request: ParserRunRequest | InterpretationRunRequest
+) -> ParserRunReport:
+    interpretation = isinstance(request, InterpretationRunRequest)
+    stage = "interpretation" if interpretation else "parsers"
+    with read_snapshot(engine) as conn:
         prepared = open_release(conn, request.release)
         realization = table("data.realization")
         revision = conn.scalar(
@@ -321,22 +607,41 @@ def run_parsers(engine: Engine, settings: Settings, request: ParserRunRequest) -
                     conn, ref.source_view_id, analysis_context=prepared, read_budget=read_budget
                 )
 
-    sources = {identity: native_source_frame(view, ()) for identity, view in views.items()}
-    preparation = PreparedNativeSources(tuple(sources.values()), max_sources=len(sources))
-    token_views = {
-        scope.source.source_view_id for scope in request.scopes if scope.profile.provider != "dipo"
-    }
-    sentence_bounds = {identity: _sentences(views[identity]) for identity in token_views}
-    work = [
-        _work(
-            scope,
-            views[scope.source.source_view_id],
-            sources[scope.source.source_view_id],
-            preparation,
-            sentence_bounds.get(scope.source.source_view_id, []),
-        )
-        for scope in request.scopes
-    ]
+        sources = {identity: native_source_frame(view, ()) for identity, view in views.items()}
+        preparation = PreparedNativeSources(tuple(sources.values()), max_sources=len(sources))
+        sentence_bounds = {}
+        if isinstance(request, InterpretationRunRequest):
+            families = declared_families(prepared.registry_rows)
+            work = [
+                _interpretation_work(
+                    scope,
+                    views[scope.source.source_view_id],
+                    sources[scope.source.source_view_id],
+                    preparation,
+                    prepared,
+                    request.project,
+                    conn,
+                    families.get(scope.family),
+                )
+                for scope in request.scopes
+            ]
+        else:
+            token_views = {
+                scope.source.source_view_id
+                for scope in request.scopes
+                if scope.profile.provider != "dipo"
+            }
+            sentence_bounds = {identity: _sentences(views[identity]) for identity in token_views}
+            work = [
+                _work(
+                    scope,
+                    views[scope.source.source_view_id],
+                    sources[scope.source.source_view_id],
+                    preparation,
+                    sentence_bounds.get(scope.source.source_view_id, []),
+                )
+                for scope in request.scopes
+            ]
     if len({item.input_digest for item in work}) != len(work):
         raise ValueError("duplicate logical parser scope")
 
@@ -348,11 +653,15 @@ def run_parsers(engine: Engine, settings: Settings, request: ParserRunRequest) -
                 request.release,
                 request.realization,
                 revision,
-                canonical_bytes({"parser_scope_policy": "pm2-parser-scope-1"}),
+                canonical_bytes(
+                    {"interpretation_scope_policy": "pm2-interpretation-scope-1"}
+                    if interpretation
+                    else {"parser_scope_policy": "pm2-parser-scope-1"}
+                ),
             ),
             kind="slice",
             options={
-                "parser_scopes": [
+                ("interpretation_scopes" if interpretation else "parser_scopes"): [
                     scope.model_dump(mode="json", exclude={"profile"}) for scope in request.scopes
                 ]
             },
@@ -385,7 +694,7 @@ def run_parsers(engine: Engine, settings: Settings, request: ParserRunRequest) -
 
     script = Path(__file__).resolve().parents[1] / "methods" / "pm2_native.py"
     root = script.parents[5]
-    holder = f"pm2-parsers:{run}"
+    holder = f"pm2-{stage}:{run}"
     remaining_splits = 64
     with supervise_run(engine, run), TemporaryDirectory(prefix="pm2-profiles-") as tmp:
         profile_path = Path(tmp) / "profile.json"
@@ -400,7 +709,11 @@ def run_parsers(engine: Engine, settings: Settings, request: ParserRunRequest) -
                     }
                 )
             )
-            interpreter = root / f"services/pm2-{profile.provider}/.venv/bin/python"
+            interpreter = (
+                Path(sys.executable)
+                if profile.provider == "d1"
+                else root / f"services/pm2-{profile.provider}/.venv/bin/python"
+            )
 
             def settle(
                 owner,
@@ -408,6 +721,7 @@ def run_parsers(engine: Engine, settings: Settings, request: ParserRunRequest) -
                 worker,
                 *,
                 startup_error=None,
+                prefetched_reply=None,
                 items=items,
                 profile=profile,
                 config_hash=config_hash,
@@ -425,7 +739,9 @@ def run_parsers(engine: Engine, settings: Settings, request: ParserRunRequest) -
                     prepared=prepared,
                     method=item.method,
                     configuration_hash=config_hash,
+                    source_path=item.source_path,
                     startup_error=startup_error,
+                    prefetched_reply=prefetched_reply,
                 )
 
             wave = tuple(items)
@@ -441,6 +757,7 @@ def run_parsers(engine: Engine, settings: Settings, request: ParserRunRequest) -
                     )
                 pending = deque(claims)
                 with maintained_claims(engine, claims, holder) as owner:
+                    allow_batch = interpretation
                     while pending:
                         startup_error = None
                         entered = False
@@ -462,6 +779,44 @@ def run_parsers(engine: Engine, settings: Settings, request: ParserRunRequest) -
                                     )
                                 else:
                                     while pending and not worker.closed:
+                                        if allow_batch and len(pending) > 1:
+                                            from itertools import islice
+
+                                            batch = tuple(islice(pending, 16))
+                                            try:
+                                                response = worker.infer(
+                                                    {
+                                                        "batch": [
+                                                            items[c.task_id].request for c in batch
+                                                        ]
+                                                    },
+                                                    check_active=owner,
+                                                )
+                                                responses = response.get("batch")
+                                                if (
+                                                    not isinstance(responses, list)
+                                                    or len(responses) != len(batch)
+                                                    or any(
+                                                        not isinstance(reply, dict)
+                                                        for reply in responses
+                                                    )
+                                                ):
+                                                    raise Pm2WorkerError(
+                                                        "d1 batch response population differs"
+                                                    )
+                                            except Pm2WorkerError:
+                                                owner()
+                                                # Retry independently under the same active claims.
+                                                allow_batch = False
+                                                continue
+                                            for reply in responses:
+                                                settle(
+                                                    owner,
+                                                    pending.popleft(),
+                                                    worker,
+                                                    prefetched_reply=reply,
+                                                )
+                                            continue
                                         settle(owner, pending.popleft(), worker)
                         except Pm2WorkerError as error:
                             if entered:
@@ -476,7 +831,7 @@ def run_parsers(engine: Engine, settings: Settings, request: ParserRunRequest) -
                 children = []
                 for task in limited:
                     item = items[task]
-                    if item.scope.mode != "ordinary":
+                    if not isinstance(item.scope, ParserScope) or item.scope.mode != "ordinary":
                         continue
                     identity = item.scope.source.source_view_id
                     if identity not in sentence_bounds:
@@ -500,7 +855,7 @@ def run_parsers(engine: Engine, settings: Settings, request: ParserRunRequest) -
                     wave = tuple(_schedule(conn, run, config, child) for child in children)
                 items.update(zip(wave, children, strict=True))
         result = _finalize_bound_run(
-            engine, run, f"private:pm2-parsers:{run}", analytics=settings.analytics
+            engine, run, f"private:pm2-{stage}:{run}", analytics=settings.analytics
         )
     return ParserRunReport(
         run_id=run,
