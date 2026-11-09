@@ -61,6 +61,7 @@ from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
 from corpus_structure.semantic.pm2_coverage import ScopeCoverage, ScopeIntent, scope_coverage
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.query import read_snapshot
+from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 from corpus_structure.semantic.source_contexts import (
@@ -83,6 +84,14 @@ from .pm2 import settle_pm2_claim
 
 Provider = Literal["hanlp", "maverick", "dipo"]
 Extent = tuple[Annotated[int, Field(ge=0)], Annotated[int, Field(ge=0)]]
+
+
+class Pm2ScopeRefused(SemanticRefusal):
+    """The selected extent cannot be admitted under the PM2 source contract."""
+
+    def __init__(self, reason: str, detail: str):
+        self.reason = reason
+        super().__init__(detail)
 
 
 class ParserProfile(BaseModel):
@@ -235,6 +244,15 @@ def _sentences(view) -> list[tuple[int, int]]:
     return bounds
 
 
+def _validate_scope_extent(extent: Extent, projection_length: int) -> None:
+    start, end = extent
+    if not 0 <= start < end <= projection_length or end - start > 65_536:
+        raise Pm2ScopeRefused(
+            "invalid_source_extent",
+            "PM2 scope is outside the selected projection or character budget",
+        )
+
+
 def _source_map(
     scope: ParserScope | InterpretationScope,
     view,
@@ -244,8 +262,7 @@ def _source_map(
     parent: str | None = None,
 ) -> tuple[PM2SourceMap, list]:
     start, end = scope.extent
-    if not 0 <= start < end <= len(view.text) or end - start > 65_536:
-        raise ValueError("parser scope is outside the selected projection or character budget")
+    _validate_scope_extent(scope.extent, len(view.text))
     interpretation = isinstance(scope, InterpretationScope)
     context = NativeSourceContext(
         source,
@@ -263,7 +280,7 @@ def _source_map(
     )
     tokens = [token for token in view.layout.tokens if token.end > start and token.start < end]
     if any(token.start < start or token.end > end for token in tokens):
-        raise ValueError("parser scope cuts a canonical token")
+        raise Pm2ScopeRefused("partial_canonical_token", "PM2 scope cuts a canonical token")
     atoms = tuple(
         (token.start - start, token.end - start) for token in tokens if token.role != "prose"
     )
@@ -307,8 +324,10 @@ def _work(
             (left, right) for left, right in canonical_sentences if right > start and left < end
         ]
         if not covered or covered[0][0] < start or covered[-1][1] > end:
-            raise ValueError(
-                f"parser scope {source.source_view_id}:{start}-{end} cuts a canonical sentence"
+            raise Pm2ScopeRefused(
+                "partial_canonical_sentence",
+                f"parser scope {source.source_view_id}:{start}-{end}"
+                " does not cover whole canonical sentences",
             )
         sentence_bounds = [(left - start, right - start) for left, right in covered]
         aligned = []
@@ -330,7 +349,9 @@ def _work(
             sentences[sentence].append(word)
             aligned.append(ProviderToken(word, left, right, sentence))
         if not aligned:
-            raise ValueError("parser scope contains no canonical running text")
+            raise Pm2ScopeRefused(
+                "empty_source_scope", "parser scope contains no canonical running text"
+            )
         effective = PM2TokenMap(mapping, tuple(aligned), layout)
         request = {"sentences": sentences}
         if scope.supplied:
@@ -801,12 +822,7 @@ def _run_scopes(
 
         sources = {identity: native_source_frame(view, ()) for identity, view in views.items()}
         for scope in request.scopes:
-            start, stop = scope.extent
-            if (
-                not 0 <= start < stop <= len(views[scope.source.source_view_id].text)
-                or stop - start > 65_536
-            ):
-                raise ValueError("PM2 scope is outside its selected source projection")
+            _validate_scope_extent(scope.extent, len(views[scope.source.source_view_id].text))
         preparation = PreparedNativeSources(tuple(sources.values()), max_sources=len(sources))
         sentence_bounds = {}
         if isinstance(request, InterpretationRunRequest):

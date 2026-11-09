@@ -194,6 +194,107 @@ def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions
     ]
 
 
+def test_pm2_cli_refuses_invalid_extent_before_run_admission(
+    private_source, parser_samples, semantic_application_settings, tmp_path, monkeypatch
+):
+    from sqlalchemy import func, select
+    from typer.testing import CliRunner
+
+    from corpus_structure.cli.app import app
+    from corpus_structure.cli.output import CliState
+    from corpus_structure.orchestrate import pm2_stage
+    from corpus_structure.semantic.metadata import table
+
+    case = private_source
+    with case.writer.begin() as conn:
+        complete_contributions(
+            case,
+            conn,
+            UnitResult(
+                ref=UnitRef(TaskUnitType.SOURCE_VIEW, case.view, "private-unit"),
+                outcome=ObservationOutcome.EMPTY,
+            ),
+        )
+    finalize_bound_run(case.writer, case.run, "pm2-scope-refusal-origin")
+    (source,) = prepare_structural_sources(
+        case.writer,
+        (
+            StructuralPassageSelection(
+                run_id=case.run,
+                source_view_id=case.other_view,
+                passage_id="invalid-extent-control",
+                start=0,
+                end=len(parser_samples[0]),
+                scope="coverage",
+            ),
+        ),
+    ).sources
+
+    # Satisfy the profile identity check without launching a provider; the
+    # canonical-boundary controls must reach real source preparation.
+    monkeypatch.setattr(
+        pm2_stage,
+        "preflight_pm2_runtime",
+        lambda **_: {"assets": {}, "runtime_identity": "extent-control"},
+    )
+    run, task = table("ops.run"), table("ops.task")
+
+    def inventory():
+        with case.writer.connect() as conn:
+            return (
+                conn.scalar(
+                    select(func.count()).select_from(run).where(run.c.project_id == case.project_id)
+                ),
+                conn.scalar(
+                    select(func.count())
+                    .select_from(task.join(run, task.c.run_id == run.c.id))
+                    .where(run.c.project_id == case.project_id)
+                ),
+            )
+
+    before = inventory()
+    request_path = tmp_path / "scope-request.json"
+    runner = CliRunner()
+    for command, extent, reason in (
+        ("parsers", [0, 50_000], "invalid_source_extent"),
+        ("interpret", [0, 50_000], "invalid_source_extent"),
+        ("parsers", [1, 2], "partial_canonical_token"),
+        ("parsers", [0, 2], "partial_canonical_sentence"),
+    ):
+        provider = "hanlp" if command == "parsers" else "d1"
+        scope = {
+            "source": source.model_dump(mode="json"),
+            "extent": extent,
+            "profile": {
+                "provider": provider,
+                "device": "cpu",
+                "startup": {"provider": provider, "device": "cpu", "assets": {}},
+            },
+        }
+        if command == "interpret":
+            scope["family"] = "passage_function_v1"
+        request_path.write_text(
+            json.dumps(
+                {
+                    "project": case.project_id,
+                    "release": case.prepared.release_id,
+                    "realization": "private-input",
+                    "assets": str(tmp_path),
+                    "scopes": [scope],
+                }
+            )
+        )
+        result = runner.invoke(
+            app,
+            ["run", command, "--request", str(request_path), "--json"],
+            obj=CliState(lambda: semantic_application_settings),
+        )
+        assert result.exit_code == 1, (result.output, result.exception)
+        error = json.loads(result.stdout)["error"]
+        assert (error["code"], error["reason"]) == ("Pm2ScopeRefused", reason), error
+        assert inventory() == before
+
+
 def test_cancelled_pm2_scope_does_not_gain_an_operation_result(private_source):
     from hashlib import sha256
 
