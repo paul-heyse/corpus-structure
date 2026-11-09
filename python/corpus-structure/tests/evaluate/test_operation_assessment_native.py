@@ -18,6 +18,7 @@ from semantic.test_method_dimensions_native import current_guarded_database
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.core.evidence import config_key
 from corpus_structure.evaluate.operation_assessment import (
     PROTOCOL,
     OperationCase,
@@ -38,6 +39,8 @@ from corpus_structure.semantic.domain_operations import consolidate_cut
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import seal_cut
+
+_CELL_CONFIGURATION = config_key("private.records", "1", {})
 
 
 def freeze(
@@ -399,6 +402,92 @@ def test_native_bound_pair_retains_the_actual_operation_and_does_not_credit_unco
         assert not changes["corrected"] and not changes["newly_captured"]
         with pytest.raises(ReferenceError, match="opposite arms"):
             compare_assessments(grades[1], grades[0])
+
+
+@pytest.mark.parametrize(
+    "private_source", [{"record_configuration_hash": _CELL_CONFIGURATION}], indirect=True
+)
+def test_same_operation_comparison_authenticates_each_completed_configuration(
+    private_source, semantic_db_engine, semantic_evaluator_engine
+):
+    source = private_source
+    with source.writer.begin() as conn:
+        complete_contributions(source, conn, contribution_drafts(source))
+        source.cut = seal_cut(conn, source.run, "exact-configuration-frame", final=False)
+        final = seal_cut(conn, source.run, "exact-configuration-predictions", final=True)
+    consolidate_cut(source.writer, final, "exact-configuration-assessment")
+    current_guarded_database(semantic_db_engine)
+    binding = dict(
+        method=source.method.name,
+        method_version=source.method.version,
+        operation_question="inspect_cell",
+        operation_version="1",
+    )
+    literal = dict(binding, configuration_hash=_CELL_CONFIGURATION)
+    enriched = dict(
+        binding,
+        configuration_hash=config_key(source.method.name, source.method.version, {"context": True}),
+    )
+    with semantic_evaluator_engine.begin() as conn:
+        for left, right in ((binding, binding), (literal, binding), (literal, literal)):
+            with pytest.raises(ReferenceError, match="distinct registered configuration"):
+                freeze(
+                    conn, source, frame_version=2, comparison={"baseline": left, "revised": right}
+                )
+        created, unit, frame, payload = freeze(
+            conn, source, frame_version=2, comparison={"baseline": literal, "revised": enriched}
+        )
+        payload["cases"][0].update(
+            contribution_kind="occurrence",
+            alternatives=[{"semantic_type": "table.cell_value", "source_pieces": ["12"]}],
+        )
+        ids = []
+        for kind in ("A", "B", "C"):
+            payload["adjudication_passes"] = ids if kind == "C" else []
+            identity = record_pass(
+                conn,
+                unit_id=unit,
+                pass_kind=kind,
+                actor=f"configuration-source-{kind}",
+                authored=canonical_bytes(payload),
+                frame=frame,
+            )
+            if kind != "C":
+                ids.append(identity)
+    with semantic_evaluator_engine.begin() as conn:
+        args = dict(project_id="private-records", run_id=source.run, set_id=created["set_id"])
+        with pytest.raises(ReferenceError, match="frozen arm configuration"):
+            reference_evaluate(conn, comparison_arm="revised", **args)
+        accepted = reference_evaluate(conn, comparison_arm="baseline", **args)
+        stored = read_evaluation(conn, project_id="private-records", evaluation_id=accepted.id)
+        assert stored["units"][0]["cases"][0]["judgment"] == "supported"
+        (report,) = stored["units"][0]["producer_reports"]
+        assert report["configuration_hash"] == _CELL_CONFIGURATION
+
+        statement = text(
+            "SELECT eval.record_operation_reference_evaluation('private-records',:r,:s,"
+            "CAST(:snapshot AS jsonb),CAST(:result AS jsonb))"
+        )
+
+        wrong_arm = deepcopy(stored)
+        wrong_arm["comparison_arm"].update(name="revised", producers={frame.unit: enriched})
+        wrong_report = deepcopy(stored)
+        wrong_report["units"][0]["producer_reports"][0]["configuration_hash"] = enriched[
+            "configuration_hash"
+        ]
+        missing_report = deepcopy(stored)
+        missing_report["units"][0]["producer_reports"] = []
+        for changed in (wrong_arm, wrong_report, missing_report):
+            with pytest.raises(DBAPIError, match="frozen arm configuration"), conn.begin_nested():
+                conn.scalar(
+                    statement,
+                    dict(
+                        r=source.run,
+                        s=created["set_id"],
+                        snapshot=canonical_bytes(accepted.reference_snapshot).decode(),
+                        result=canonical_bytes(changed).decode(),
+                    ),
+                )
 
 
 def test_native_conditional_proposal_endpoint_cases_preserve_kind_and_source_scope(

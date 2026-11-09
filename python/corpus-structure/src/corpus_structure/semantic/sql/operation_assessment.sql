@@ -2,6 +2,8 @@
 CREATE OR REPLACE FUNCTION eval.create_operation_reference_set(p_project text,p_run bigint,p_label text,p_split text,p_guideline text,p_sampling jsonb,p_units jsonb)
 RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE result bigint; source_release text; unit jsonb; metadata jsonb; group_snapshot jsonb; unit_id bigint; unit_snapshot jsonb; frozen_frame jsonb; source_cut bigint; membership_snapshot jsonb;
+ arms jsonb:=p_sampling->'comparison_arms'; arm_name text; arm jsonb; baseline jsonb; revised jsonb;
+ arm_fields text[]:=ARRAY['method','method_version','operation_question','operation_version'];
 BEGIN
  SELECT release_id INTO STRICT source_release FROM ops.run WHERE id=p_run AND project_id=p_project FOR UPDATE;
  source_cut:=COALESCE((p_sampling->>'source_cut_id')::bigint,(SELECT cut_id FROM ops.completed_result WHERE run_id=p_run));
@@ -26,7 +28,33 @@ BEGIN
  IF jsonb_array_length(p_units)<>(SELECT count(DISTINCT u->>'unit_key') FROM jsonb_array_elements(p_units) u)
   OR (SELECT count(*) FROM jsonb_object_keys(p_sampling->'inclusion_probabilities'))<>jsonb_array_length(p_units) THEN
   RAISE EXCEPTION 'record sample repeats or omits eligible unit probabilities' USING ERRCODE='23514'; END IF;
+ IF arms IS NOT NULL THEN
+  IF jsonb_typeof(arms) IS DISTINCT FROM 'object' OR NOT(arms ?& ARRAY['baseline','revised'])
+   OR arms-ARRAY['baseline','revised']<>'{}' OR p_sampling->>'source_frame_abi'<>'source-operation-frame-2' THEN
+   RAISE EXCEPTION 'comparison requires baseline and revised arms on source-first V2 frames' USING ERRCODE='23514'; END IF;
+  FOREACH arm_name IN ARRAY ARRAY['baseline','revised'] LOOP
+   IF jsonb_typeof(arms->arm_name) IS DISTINCT FROM 'object'
+    OR (SELECT count(*) FROM jsonb_object_keys(arms->arm_name))<>jsonb_array_length(p_units) THEN
+    RAISE EXCEPTION 'each comparison arm must bind every frozen source unit' USING ERRCODE='23514'; END IF;
+  END LOOP;
+ END IF;
  FOR unit IN SELECT value FROM jsonb_array_elements(p_units) LOOP
+  IF arms IS NOT NULL THEN
+   IF unit->'frame'->'evaluation_frame'->>'direction' IS DISTINCT FROM 'source_first' THEN
+    RAISE EXCEPTION 'comparison requires source-first V2 frames' USING ERRCODE='23514'; END IF;
+   baseline:=arms->'baseline'->(unit->>'unit_key'); revised:=arms->'revised'->(unit->>'unit_key');
+   FOREACH arm IN ARRAY ARRAY[baseline,revised] LOOP
+    IF jsonb_typeof(arm) IS DISTINCT FROM 'object' OR NOT(arm ?& arm_fields)
+     OR arm-(arm_fields||ARRAY['configuration_hash'])<>'{}'
+     OR EXISTS(SELECT FROM jsonb_each(arm) v WHERE jsonb_typeof(v.value)<>'string' OR btrim(v.value#>>'{}')='')
+     OR (arm ? 'configuration_hash' AND arm->>'configuration_hash' !~ '^(cfg:[0-9a-f]{32}|[0-9a-f]{64})$') THEN
+     RAISE EXCEPTION 'comparison requires exact method, operation and registered configuration bindings' USING ERRCODE='23514'; END IF;
+   END LOOP;
+   IF (baseline ? 'configuration_hash') IS DISTINCT FROM (revised ? 'configuration_hash')
+    OR (baseline-'configuration_hash'=revised-'configuration_hash'
+     AND baseline->>'configuration_hash' IS NOT DISTINCT FROM revised->>'configuration_hash') THEN
+    RAISE EXCEPTION 'same-operation comparison arms require distinct registered configuration hashes; configuration binding must cover both arms' USING ERRCODE='23514'; END IF;
+  END IF;
   IF NOT EXISTS(SELECT FROM kb.source_view v JOIN kb.document d ON d.id=v.document_id
    JOIN eval.document_split legacy ON legacy.project_id=p_project AND legacy.source_uri=d.source_uri AND legacy.split=p_split
    JOIN eval.reference_origin_source member ON member.project_id=p_project AND member.source_uri=d.source_uri
@@ -318,6 +346,8 @@ CREATE OR REPLACE FUNCTION eval.validate_operation_reference_evaluation(p_projec
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE reference_set eval.reference_set; completed ops.completed_result; snap jsonb;
  unit eval.reference_unit; source_frame jsonb; authored jsonb;
+ arms jsonb; claimed_arm jsonb:=p_result->'comparison_arm'; arm_name text; binding jsonb;
+ actual_reports jsonb; claimed_reports jsonb;
 BEGIN
  PERFORM 1 FROM eval.reference_unit WHERE set_id=p_set FOR UPDATE;
  SELECT * INTO STRICT reference_set FROM eval.reference_set WHERE id=p_set AND project_id=p_project;
@@ -341,8 +371,38 @@ BEGIN
   OR jsonb_typeof(p_result->'units') IS DISTINCT FROM 'array'
   OR jsonb_array_length(p_result->'units')<>jsonb_array_length(p_snapshot) THEN
   RAISE EXCEPTION 'operation evaluation source/release/snapshot differs or is stale' USING ERRCODE='23514'; END IF;
+ arms:=reference_set.sampling->'comparison_arms'; arm_name:=claimed_arm->>'name';
+ IF (arms IS NOT NULL OR claimed_arm IS NOT NULL) AND (
+  jsonb_typeof(claimed_arm) IS DISTINCT FROM 'object' OR COALESCE(arm_name,'') NOT IN ('baseline','revised')
+  OR NOT COALESCE(arms ? arm_name,false) OR claimed_arm->'producers' IS DISTINCT FROM arms->arm_name
+  OR claimed_arm->>'binding_digest' IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(arms),'UTF8')),'hex')
+  OR claimed_arm->'cut_id' IS DISTINCT FROM to_jsonb(completed.cut_id)) THEN
+  RAISE EXCEPTION 'operation evaluation differs from its frozen comparison arm or cut' USING ERRCODE='23514'; END IF;
  FOR snap IN SELECT value FROM jsonb_array_elements(p_snapshot) LOOP
   SELECT * INTO STRICT unit FROM eval.reference_unit WHERE id=(snap->>'unit_id')::bigint AND set_id=p_set;
+  binding:=arms->arm_name->unit.unit_key;
+  IF binding ? 'configuration_hash' THEN
+   -- The selected origin's registered configuration owns the hash, not the submitted grade.
+   SELECT jsonb_agg(jsonb_build_array(task.id,origin.id,cfg.config_hash) ORDER BY task.id) INTO actual_reports
+   FROM ops.cut_task member JOIN ops.task task ON task.id=member.task_id AND task.run_id=p_run
+   JOIN ops.task origin ON origin.id=member.origin_task_id AND origin.id=COALESCE(task.reused_task_id,task.id)
+   JOIN ops.method_config cfg ON cfg.id=origin.method_config_id JOIN ops.method method ON method.id=cfg.method_id
+   JOIN ops.task_result report ON report.task_id=origin.id
+   WHERE member.cut_id=completed.cut_id AND task.unit_type='source_view' AND task.unit_id=unit.source_view_id
+    AND task.release_id=completed.release_id AND origin.release_id=completed.release_id
+    AND method.name=binding->>'method' AND method.version=binding->>'method_version'
+    AND EXISTS(SELECT FROM kb.source_contribution_operation operation WHERE operation.task_id=origin.id
+     AND operation.release_id=completed.release_id AND operation.question=binding->>'operation_question'
+     AND operation.operation_version=binding->>'operation_version');
+   SELECT jsonb_agg(jsonb_build_array(report->'selected_task_id',report->'origin_task_id',report->'configuration_hash')
+     ORDER BY (report->>'selected_task_id')::bigint) INTO claimed_reports
+   FROM jsonb_array_elements(p_result->'units') assessed
+   CROSS JOIN LATERAL jsonb_array_elements(assessed->'producer_reports') report
+   WHERE assessed->'unit_id'=to_jsonb(unit.id);
+   IF actual_reports IS NULL OR actual_reports IS DISTINCT FROM claimed_reports OR EXISTS(
+    SELECT FROM jsonb_array_elements(actual_reports) report WHERE report->>2 IS DISTINCT FROM binding->>'configuration_hash') THEN
+    RAISE EXCEPTION 'completed operation reports do not match the frozen arm configuration' USING ERRCODE='23514'; END IF;
+  END IF;
   SELECT f.source_frame,convert_from(p.authored,'UTF8')::jsonb INTO STRICT source_frame,authored
    FROM eval.reference_pass p JOIN eval.reference_frame f ON f.pass_id=p.id
    WHERE p.id=(snap->>'pass_id')::bigint AND f.id=(snap->>'frame_id')::bigint

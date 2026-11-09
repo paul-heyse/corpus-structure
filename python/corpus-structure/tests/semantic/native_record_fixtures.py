@@ -293,6 +293,7 @@ def build_record_source(
     *,
     include_blank_cell=False,
     record_method_spec=None,
+    record_configuration_hash="private-config",
     sibling_captions=(),
     sibling_references=(),
     sibling_originals=(),
@@ -583,7 +584,7 @@ def build_record_source(
             Config=create_model("PrivateRecordConfig"),
         )
         record_config = record_method(
-            conn, record_method_, "default", {}, "private-config", prepared=prepared
+            conn, record_method_, "default", {}, record_configuration_hash, prepared=prepared
         )
         task = create_task(
             conn,
@@ -622,6 +623,7 @@ def build_record_source(
         view_row=view_row,
         task_row=task_row,
         method=record_method_,
+        record_configuration_hash=record_configuration_hash,
         table=native_table.self_ref,
         sibling=sibling_items[0].self_ref,
     )
@@ -791,6 +793,7 @@ def private_source(
         preparation,
         include_blank_cell=options.get("include_blank_cell", False),
         record_method_spec=method,
+        record_configuration_hash=options.get("record_configuration_hash", "private-config"),
         sibling_captions=options.get("sibling_captions", ()),
         sibling_references=options.get("sibling_references", ()),
         sibling_originals=options.get("sibling_originals", ()),
@@ -863,7 +866,7 @@ def complete_contributions(case, conn, result):
         holder="records",
         prepared=case.prepared,
         method=case.method,
-        configuration_hash="private-config",
+        configuration_hash=case.record_configuration_hash,
         source="private-unit",
         result=result,
     )

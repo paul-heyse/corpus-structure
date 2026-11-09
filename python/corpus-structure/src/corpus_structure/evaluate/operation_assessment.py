@@ -7,6 +7,7 @@ do not supply whole-reading labels, fitted probabilities, or publication authori
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field
@@ -31,10 +32,12 @@ EVALUATION_PROTOCOL = "source-operation-evaluation-1"
 JUDGMENTS = ("supported", "unsupported", "ambiguous", "unassessed")
 COMPARISON_ARMS = ("baseline", "revised")
 _ARM_METHOD_FIELDS = {"method", "method_version", "operation_question", "operation_version"}
+_ARM_CONFIGURATION_FIELD = "configuration_hash"
+_REGISTERED_CONFIG_HASH = re.compile(r"(?:cfg:[0-9a-f]{32}|[0-9a-f]{64})")
 
 
 def _comparison_arms(
-    value: Any, frames: Mapping[str, OperationEvaluationFrame]
+    value: Any, frames: Mapping[str, OperationEvaluationFrame], *, new_reference: bool = False
 ) -> dict[str, dict[str, dict[str, str]]]:
     """A paired protocol binds native producers, independently of protected case answers."""
     if (
@@ -56,11 +59,26 @@ def _comparison_arms(
         for unit, binding in units.items():
             if (
                 not isinstance(binding, Mapping)
-                or set(binding) != _ARM_METHOD_FIELDS
+                or set(binding) - {_ARM_CONFIGURATION_FIELD} != _ARM_METHOD_FIELDS
                 or any(not isinstance(v, str) or not v.strip() for v in binding.values())
             ):
                 raise ReferenceError("arm binding requires exact method and operation versions")
+            if _ARM_CONFIGURATION_FIELD in binding and not _REGISTERED_CONFIG_HASH.fullmatch(
+                binding[_ARM_CONFIGURATION_FIELD]
+            ):
+                raise ReferenceError("arm binding requires a registered configuration hash")
             arms[arm][unit] = dict(binding)
+    for unit in frames:
+        baseline, revised = (arms[arm][unit] for arm in COMPARISON_ARMS)
+        left, right = (binding.get(_ARM_CONFIGURATION_FIELD) for binding in (baseline, revised))
+        same_operation = all(baseline[field] == revised[field] for field in _ARM_METHOD_FIELDS)
+        if (left is None) != (right is None) or (
+            same_operation and left == right and (new_reference or left is not None)
+        ):
+            raise ReferenceError(
+                "same-operation comparison arms require distinct registered configuration hashes; "
+                "configuration binding must cover both arms"
+            )
     return arms
 
 
@@ -916,7 +934,9 @@ def create_reference_set(
         guideline_digest=sha256(guideline_text.encode()).hexdigest(),
     )
     if "comparison_arms" in metadata:
-        metadata["comparison_arms"] = _comparison_arms(metadata["comparison_arms"], frames)
+        metadata["comparison_arms"] = _comparison_arms(
+            metadata["comparison_arms"], frames, new_reference=True
+        )
     result = _call(
         conn,
         "SELECT eval.create_operation_reference_set(:p,:r,:l,:s,:g,"
@@ -1308,10 +1328,6 @@ def reference_evaluate(
         version = arm["operation_version"] if arm else frame.operation_version
         method = arm["method"] if arm else None
         method_version = arm["method_version"] if arm else None
-        reference = read_pass(
-            conn, frozen[unit["id"]]["pass_id"], frame_id=frozen[unit["id"]]["frame_id"]
-        )
-        cases = reference["payload"]["cases"]
         inventory = read_source_contributions(
             conn,
             prepared=prepared,
@@ -1324,17 +1340,38 @@ def reference_evaluate(
         )
         if inventory.more:
             raise ReferenceError("operation summary capture exceeds bounded source inventory")
-        report_views = {
-            report["selected_task_id"]: report["source_view_id"] for report in inventory.reports
+        producer_reports = {
+            report["selected_task_id"]: dict(report)
+            for report in inventory.reports
+            if report["source_view_id"] == unit["source_view_id"]
         }
         operations = [
             dict(value)
             for value in inventory.operations
-            if report_views.get(value["selected_task_id"]) == unit["source_view_id"]
+            if value["selected_task_id"] in producer_reports
             and value["question"] == question
             and value["operation_version"] == version
             and (arm is None or value["cut_member"])
         ]
+        configuration_hash = arm.get(_ARM_CONFIGURATION_FIELD) if arm else None
+        if configuration_hash is not None:
+            producing_tasks = {operation["selected_task_id"] for operation in operations}
+            producer_reports = {
+                task: report for task, report in producer_reports.items() if task in producing_tasks
+            }
+            if not producer_reports or any(
+                report["configuration_hash"] != configuration_hash
+                or not report["cut_member"]
+                or not report["operations_present"]
+                for report in producer_reports.values()
+            ):
+                raise ReferenceError(
+                    "completed operation reports do not match the frozen arm configuration"
+                )
+        reference = read_pass(
+            conn, frozen[unit["id"]]["pass_id"], frame_id=frozen[unit["id"]]["frame_id"]
+        )
+        cases = reference["payload"]["cases"]
         operation_keys = {value["operation_key"] for value in operations}
         assessed_extents = (
             {
@@ -1478,11 +1515,7 @@ def reference_evaluate(
                 unit_id=unit["id"],
                 source_view_id=unit["source_view_id"],
                 producer_operations=operations,
-                producer_reports=[
-                    dict(value)
-                    for value in inventory.reports
-                    if value["source_view_id"] == unit["source_view_id"]
-                ],
+                producer_reports=list(producer_reports.values()),
                 prediction_ids=[value["contribution_id"] for value in predictions],
                 **scope_fields,
             )
