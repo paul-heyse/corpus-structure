@@ -340,12 +340,14 @@ def _matches(actual: Mapping[str, Any], expected: Mapping[str, Any]) -> bool:
         if key == "retrieval_target_id" and actual.get("kind") == "contextual_candidate_list":
             if not any(row["target_id"] == value for row in actual["retrieval_candidates"]):
                 return False
+            continue
         elif (
             key == "retrieval_selected_edge"
             and actual.get("kind") == "contextual_relationship_decision"
         ):
             if not any(_matches(row, value) for row in actual["retrieval_selected_edges"]):
                 return False
+            continue
         elif key not in actual:
             return False
         if key == "endpoint_semantics":
@@ -652,18 +654,21 @@ def score_cases(
                 ),
                 contribution_id=(
                     matched["contribution_id"]
-                    if matched and not operation_product else case.contribution_id
+                    if matched and not operation_product
+                    else case.contribution_id
                 ),
-                candidate_ids=[] if operation_product else [
-                    value["contribution_id"] for value in candidates
-                ],
+                candidate_ids=[]
+                if operation_product
+                else [value["contribution_id"] for value in candidates],
                 **(
                     dict(
                         operation_product_id=matched["contribution_id"] if matched else None,
                         candidate_operation_product_ids=[
                             value["contribution_id"] for value in candidates
                         ],
-                    ) if operation_product else {}
+                    )
+                    if operation_product
+                    else {}
                 ),
                 explanation=case.explanation,
             )
@@ -738,15 +743,15 @@ def score_cases(
         absence_detection_facets=detection_facets,
         prediction_count=len(selected),
         prediction_count_grain=(
-            "unique_contribution_or_operation_product" if any(
-                row.get("kind") in _RETRIEVAL_CASES for row in selected
-            ) else "unique_semantic_contribution_product"
+            "unique_contribution_or_operation_product"
+            if any(row.get("kind") in _RETRIEVAL_CASES for row in selected)
+            else "unique_semantic_contribution_product"
         ),
         producer_observation_count=len(observed) if not missing_observation_lineage else None,
         producer_observation_count_grain=(
-            "unique_origin_task_and_product_id" if any(
-                row.get("kind") in _RETRIEVAL_CASES for row in selected
-            ) else "unique_origin_task_and_contribution_id"
+            "unique_origin_task_and_product_id"
+            if any(row.get("kind") in _RETRIEVAL_CASES for row in selected)
+            else "unique_origin_task_and_contribution_id"
         ),
         missing_producer_observation_lineage=missing_observation_lineage,
         quality_claim="not_established",
@@ -828,9 +833,11 @@ def compare_assessments(baseline: Mapping[str, Any], revised: Mapping[str, Any])
         old, new = a[identity], b[identity]
         if bound and old["judgment"] == "unassessed":
             category = "not_comparable"
-        elif bound and old["judgment"] == "supported" and new["judgment"] in {
-            "ambiguous", "unassessed"
-        }:
+        elif (
+            bound
+            and old["judgment"] == "supported"
+            and new["judgment"] in {"ambiguous", "unassessed"}
+        ):
             category = "regressed"
         elif new["judgment"] in {"ambiguous", "unassessed"}:
             category = "still_unresolved"
@@ -924,9 +931,7 @@ def create_reference_set(
     ).scalar_one()
     units = table("eval.reference_unit")
     by_unit = dict(
-        conn.execute(
-            select(units.c.unit_key, units.c.id).where(units.c.set_id == result)
-        ).all()
+        conn.execute(select(units.c.unit_key, units.c.id).where(units.c.set_id == result)).all()
     )
     return dict(
         set_id=result,
@@ -1059,7 +1064,8 @@ def _retrieval_projection(frame, cases, predictions, operations, phases):
                 report, retained["list_id"], occurrence, tuple(carrier["anchors"])
             )
             matched_inventory = next(
-                item for item in report["inventories"]
+                item
+                for item in report["inventories"]
                 if item["inventory_id"] == candidates.inventory_id
             )
             target_ids = {target["target_id"] for target in matched_inventory["targets"]}
@@ -1081,15 +1087,18 @@ def _retrieval_projection(frame, cases, predictions, operations, phases):
                 origin_task_id=carrier["origin_task_id"],
             )
             if retrieval_succeeded:
-                products.append(dict(
-                    common,
-                    kind="contextual_candidate_list",
-                    contribution_id=candidates.list_id,
-                    retrieval_outcome=retained["outcome"],
-                    retrieval_candidates=retained["candidates"],
-                ))
+                products.append(
+                    dict(
+                        common,
+                        kind="contextual_candidate_list",
+                        contribution_id=candidates.list_id,
+                        retrieval_outcome=retained["outcome"],
+                        retrieval_candidates=retained["candidates"],
+                    )
+                )
             decisions = [
-                decision for decision in report["relationship_decisions"]
+                decision
+                for decision in report["relationship_decisions"]
                 if decision["candidate_list_id"] == candidates.list_id
                 and decision["occurrence_id"] == occurrence
             ]
@@ -1099,13 +1108,15 @@ def _retrieval_projection(frame, cases, predictions, operations, phases):
                 )
             decision = decisions[0] if decisions else None
             if decision is not None:
-                products.append(dict(
-                    common,
-                    kind="contextual_relationship_decision",
-                    contribution_id=decision["decision_id"],
-                    retrieval_outcome=decision["outcome"],
-                    retrieval_selected_edges=decision["selected_edges"],
-                ))
+                products.append(
+                    dict(
+                        common,
+                        kind="contextual_relationship_decision",
+                        contribution_id=decision["decision_id"],
+                        retrieval_outcome=decision["outcome"],
+                        retrieval_selected_edges=decision["selected_edges"],
+                    )
+                )
             scope[occurrence] = dict(
                 comparable_inputs=dict(
                     inventory_id=candidates.inventory_id,
@@ -1115,14 +1126,17 @@ def _retrieval_projection(frame, cases, predictions, operations, phases):
                     channel_budget=retained["channel_budget"],
                     target_encodings=sorted(
                         (
-                            vector["object_id"], vector["vector_id"],
+                            vector["object_id"],
+                            vector["vector_id"],
                             numeric_identity("assessment-target-encoding", vector["values"]),
                         )
                         for vector in report["vectors"]
                         if vector["object_id"] in target_ids
                         and vector["profile_id"] == retained.get("profile_id")
                     ),
-                ) if retrieval_succeeded else None,
+                )
+                if retrieval_succeeded
+                else None,
                 list_id=candidates.list_id,
                 retrieval_attempt=phase_outcomes[0],
                 ranked_targets=retained["candidates"],
@@ -1198,8 +1212,8 @@ def _bound_case_scopes(frame, cases, predictions, products, operations, endpoint
                 and tuple(value["assessed_scope"]["projection_extent"])
                 == (opportunity.start, opportunity.end)
                 and (
-                    (question := case.candidate_selector.get("interpretation_question_key"))
-                    is None or value["question_key"] == question
+                    (question := case.candidate_selector.get("interpretation_question_key")) is None
+                    or value["question_key"] == question
                 )
             ]
             if len({row["selected_task_id"] for row, _ in relevant}) > 1:
@@ -1373,7 +1387,8 @@ def reference_evaluate(
             (value["selected_task_id"], value["operation_key"]) for value in operations
         }
         predictions = [
-            row for row in captured.contributions
+            row
+            for row in captured.contributions
             if arm is None or (row["selected_task_id"], row["operation_key"]) in selected_attempts
         ]
         if assessed_extents:
@@ -1527,9 +1542,7 @@ def read_evaluation(conn: Connection, *, project_id: str, evaluation_id: int) ->
         conn.execute(
             select(evaluations, sets.c.sampling)
             .join(sets, sets.c.id == evaluations.c.set_id)
-            .where(
-                evaluations.c.id == evaluation_id, evaluations.c.project_id == project_id
-            )
+            .where(evaluations.c.id == evaluation_id, evaluations.c.project_id == project_id)
         )
         .mappings()
         .one_or_none()

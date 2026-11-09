@@ -41,8 +41,13 @@ from corpus_structure.semantic.operations import seal_cut
 
 
 def freeze(
-    conn, case, partition="development", label="operation-source-only", *,
-    frame_version=1, comparison=None,
+    conn,
+    case,
+    partition="development",
+    label="operation-source-only",
+    *,
+    frame_version=1,
+    comparison=None,
 ):
     uri = conn.scalar(
         select(table("kb.document").c.source_uri).where(
@@ -113,7 +118,11 @@ def freeze(
             opportunities=(
                 OperationSourceOpportunity(
                     "cell-value" if comparison else "cell-opportunity-without-output",
-                    case.view, 0, 2, "value" if comparison else "location", "stated",
+                    case.view,
+                    0,
+                    2,
+                    "value" if comparison else "location",
+                    "stated",
                 ),
             ),
         )
@@ -135,10 +144,13 @@ def freeze(
             provenance={"selection": "source-only controlled cell"},
             cohort="native-controls",
             **(
-                {"comparison_arms": {
-                    arm: {frame.unit: binding} for arm, binding in comparison.items()
-                }}
-                if comparison else {}
+                {
+                    "comparison_arms": {
+                        arm: {frame.unit: binding} for arm, binding in comparison.items()
+                    }
+                }
+                if comparison
+                else {}
             ),
         ),
     )
@@ -339,7 +351,9 @@ def test_native_bound_pair_retains_the_actual_operation_and_does_not_credit_unco
     )
     with semantic_evaluator_engine.begin() as conn:
         created, unit, frame, payload = freeze(
-            conn, source, frame_version=2,
+            conn,
+            source,
+            frame_version=2,
             comparison={
                 "baseline": dict(binding, operation_version="unavailable"),
                 "revised": binding,
@@ -354,8 +368,12 @@ def test_native_bound_pair_retains_the_actual_operation_and_does_not_credit_unco
         for kind in ("A", "B", "C"):
             payload["adjudication_passes"] = ids if kind == "C" else []
             identity = record_pass(
-                conn, unit_id=unit, pass_kind=kind, actor=f"paired-source-{kind}",
-                authored=canonical_bytes(payload), frame=frame,
+                conn,
+                unit_id=unit,
+                pass_kind=kind,
+                actor=f"paired-source-{kind}",
+                authored=canonical_bytes(payload),
+                frame=frame,
             )
             if kind != "C":
                 ids.append(identity)
@@ -372,8 +390,10 @@ def test_native_bound_pair_retains_the_actual_operation_and_does_not_credit_unco
         assert revised.result["units"][0]["cases"][0]["judgment"] == "supported"
         assert revised.result["units"][0]["producer_operations"][0]["question"] == "inspect_cell"
         assert revised.result["comparison_arm"]["cut_id"] == final
-        grades = [read_evaluation(conn, project_id="private-records", evaluation_id=grade.id)
-                  for grade in (baseline, revised)]
+        grades = [
+            read_evaluation(conn, project_id="private-records", evaluation_id=grade.id)
+            for grade in (baseline, revised)
+        ]
         changes = compare_assessments(*grades)["changes"]
         assert [entry["case_id"] for entry in changes["not_comparable"]] == ["cell-value"]
         assert not changes["corrected"] and not changes["newly_captured"]

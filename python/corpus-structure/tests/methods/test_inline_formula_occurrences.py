@@ -57,13 +57,14 @@ def inline_rows(output):
     ]
 
 
-def test_frozen_symbol_is_exact_standalone_and_separate_from_geometry():
-    _, frame, output = discovery(_FROZEN_TEXT)
+@pytest.mark.parametrize("mu", ["µ", "μ"])
+def test_frozen_symbol_is_exact_standalone_and_separate_from_geometry(mu):
+    _, frame, output = discovery(_FROZEN_TEXT.replace("µ", mu))
     operation, rows = inline_rows(output)
     assert operation["inspected_count"] == 1
     assert operation["outcome"] == "succeeded"
     assert operation["emitted_count"] == len(rows) == 4
-    assert {source_python(row["value"])["text"] for row in rows} == {"X", "\u03c3", "Z", "µ"}
+    assert {source_python(row["value"])["text"] for row in rows} == {"X", "\u03c3", "Z", mu}
     (z,) = [row for row in rows if source_python(row["value"])["text"] == "Z"]
     (anchor,) = z["anchors"]
     assert (anchor["start"], anchor["end"], anchor["source_piece"]) == (242, 243, "Z")

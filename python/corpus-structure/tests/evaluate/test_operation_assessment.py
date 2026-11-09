@@ -82,6 +82,46 @@ def test_value_location_and_role_are_independent(frame):
     assert "accuracy" not in result and result["quality_claim"] == "not_established"
 
 
+def test_retrieval_membership_and_witnessed_selection_grade_separately(frame):
+    available = replace(
+        case("candidate", facet="availability"),
+        contribution_kind="contextual_candidate_list",
+        alternatives=({"retrieval_target_id": "target-b"},),
+    )
+    selected = replace(
+        case("edge", facet="selection"),
+        contribution_kind="contextual_relationship_decision",
+        alternatives=(
+            {
+                "retrieval_selected_edge": {
+                    "member_target_ids": ["target-b"],
+                    "relation": "denotes",
+                }
+            },
+        ),
+    )
+    candidates = dict(
+        prediction("list-1"),
+        kind=available.contribution_kind,
+        retrieval_candidates=[{"target_id": "target-a"}, {"target_id": "target-b"}],
+    )
+    decision = dict(
+        prediction("decision-1"),
+        kind=selected.contribution_kind,
+        retrieval_selected_edges=[{"member_target_ids": ["target-b"], "relation": "denotes"}],
+    )
+    supported = score_cases(frame, (available, selected), (candidates, decision))
+    assert [row["judgment"] for row in supported["cases"]] == ["supported", "supported"]
+    wrong_relation = dict(
+        decision,
+        retrieval_selected_edges=[
+            {"member_target_ids": ["target-b"], "relation": "compares-with"}
+        ],
+    )
+    unsupported = score_cases(frame, (available, selected), (candidates, wrong_relation))
+    assert [row["judgment"] for row in unsupported["cases"]] == ["supported", "unsupported"]
+
+
 @pytest.mark.parametrize(
     "facet,expected,actual",
     [

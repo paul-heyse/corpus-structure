@@ -17,8 +17,8 @@ INLINE_FORMULA_OCCURRENCE_FIELDS = {
 
 _EQUATION_CUE = re.compile(r"\busing the equation[ \t]+(?=[A-Za-z][ \t]*=)", re.IGNORECASE)
 _LINE_BOUNDARY = re.compile(r"\.(?=$|\s)|[\r\n]")
-_PLAIN_MATH = re.compile(r"[A-Za-z0-9\u03c3µ \t=+*/().\-]+")
-_LATEX_ATOMS = {"\u03c3": r"\sigma", "µ": r"\mu"}
+_LATEX_ATOMS = {"\u03c3": r"\sigma", "\u00b5": r"\mu", "\u03bc": r"\mu"}
+_PLAIN_MATH = re.compile(r"[A-Za-z0-9" + re.escape("".join(_LATEX_ATOMS)) + r" \t=+*/().\-]+")
 
 
 @dataclass(frozen=True, slots=True)
