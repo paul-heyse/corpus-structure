@@ -117,6 +117,28 @@ where the correct span was already present. Keep raw diagnostic tensors out of o
 [Explicit-span scoring](https://github.com/fastino-ai/GLiNER2/blob/v2.1.0/gliner2/models/boundary/model.py) ·
 [Checkpoint configuration](https://huggingface.co/fastino/gliner2.5-base-v1/blob/54785d51df8d86a0d8f2eb212fec15871aad2c4d/config.json)
 
+### Packed boundary and attribute comparisons
+
+**Proposed · [Structuring I04](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I04).** Run native discovery,
+independently nominated exact spaCy/HanLP/source spans, and their bounded joint
+population against the same role and binding consumer. Freeze source and rubric in
+PM2-11. Check repeated and nested spans, candidate order, capacity and wrong-role
+controls. Score reviewed injection only as a diagnostic ceiling, never as ordinary
+discovery. Use the pinned [GLiNER boundary API](../../libraries/parsing/gliner2.md#2-advanced-boundary-head-architecture-and-decoding-controls):
+`score_candidates(return_auxiliary_logits=True)` exposes boundary marginals; inspect
+the pinned forward/decoder only for cases where NULL/count, threshold, overlap or
+instance assignment could change the remedy. Record unobservable causes as unknown.
+
+Compare one released predicate-local polarity or modality attribute with a no-attribute
+arm. Restrict the mention type and qualify labels; preserve the exact mention, literal
+cue and attributed prediction. Check adjacent opposite cues, an absent mention and
+an unrelated cue. Grade both mention recovery and attribute correctness; a winning
+label is not abstention. Keep natural anchored records and optional fields as the
+baseline. Use exclusivity only where valid; latent/anchorless formation, constrained
+classification and JointIE require a diagnosed grouping failure. Long classification
+is conditional on a whole-document question and cannot locate a witness. Route
+recurring residual errors to the [learned companion](learned-extraction-investigations.md).
+
 ### Same-question extraction and interpretation
 
 **Qualification still open · 2026-11-09.** Two exact frozen windows overlap the
@@ -283,6 +305,43 @@ A number, date, unit or locale obtained from the rendered candidate description 
 not qualify source evidence.
 [Native pointer gate](https://huggingface.co/LiquidAI/d1-2B/blob/652f920e544ea37f81e4b0ce89b81d4ed0da90b1/pointer.py#L148-L166) ·
 [Typed postprocessing](https://huggingface.co/LiquidAI/d1-2B/blob/652f920e544ea37f81e4b0ce89b81d4ed0da90b1/api.py#L84-L140)
+
+### Completed empty interpretation
+
+**Scheduled · [Structuring I01](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I01).** The native d1 route settles an
+all-missing span request as `empty`, but the result adapter currently projects typed
+questions only for `succeeded`. Use the same released question projector and
+authenticated scope, rendered-state and question-population checks for both completed
+paths. Preserve request `empty`, each question identity, native `found` and typed
+`unresolved` with no answer span or minted occurrence. Reject an inconsistent empty
+reply; failed, limited, cancelled and unattempted requests do not acquire completed
+question results. PM2-01 owns source binding and PM2-08 owns ordinary readback.
+
+Keep archived empty results at their recorded meaning. Give changed derived products
+new versioned identity under the existing release owner and regenerate affected results
+only; retain the raw replies. Close with the same absent question in mixed and
+all-empty replies, an altered source or question refusal, and agreement through the
+ordinary contribution Reader and its CLI/MCP consumers.
+
+### Fixed-candidate rendering and quantity
+
+**Proposed comparison · [Structuring I05](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I05).** Compare the current
+candidate descriptions with release-owned task wording for qualifier/host, focal
+mention/referent, and use/definition. Hold source, offered candidates and release
+question meaning fixed; keep durable custody separate from model-facing text. Use
+the pinned [d1 Choice and Noul interfaces](../../libraries/parsing/Liquid_AI_d1-2B.md#1-advanced-question-specification-and-decision-semantics).
+Include option order, paraphrase, wrong-role/ambiguous choices, true no-match and the
+exponential-density fixed offer. Distinguish missing offer, unresolved decision and
+withholding; native scores are not empirical calibration. Compare directly usable
+parser evidence where it answers the same question.
+
+Grade quantity literal, magnitude, written unit, role and exact normalization separately.
+Use authorized pointers, retain the literal if parsing fails and preserve the exact
+fair-coin normalization control. A loss role does not imply a negative magnitude;
+unit hints do not authorize conversion. Check whether native endpoint gating removed
+a span before any application threshold. Group independent questions; bind dependent
+follow-ups separately. Require an independently supported downstream gain with no
+material fidelity regression; otherwise retain the incumbent.
 
 ### Integration and closure
 

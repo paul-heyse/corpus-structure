@@ -48,6 +48,18 @@ Assembled assessment also consumes PM2-08/09. Assess PM2-06 and PM2-10 for modes
 for investigation or activation. Reference preparation and first native execution can proceed
 independently after their shared meanings are settled.
 
+### Paired state readback
+
+**Scheduled · [Structuring I02](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I02).** Extend the existing shared
+comparison used by managed CLI and review views. Preserve transition categories and
+add an orthogonal revised-state summary keyed by existing unit/case identity. Derive
+persistent unsupported from both grades; keep newly unsupported, ambiguity, unassessed
+and pairing non-comparability distinct. Use observed stage/reason when available and
+unknown otherwise. Do not reinterpret historical grades or change their protected custody.
+Check whether the comparison delivery contract needs a new version; keep the old meaning
+readable. Mixed transitions, persistent failures and non-comparability must agree across
+CLI and review views. Changed configuration, scope, rubric or grain must still refuse.
+
 ### Freeze the reference and comparator
 
 Use the existing source-first `OperationEvaluationFrameV2` and protected
@@ -135,6 +147,20 @@ binding or normalization, and qualified consumer result separately.
 | Capture and typed interpretation · PM2-07 | Grade fair-coin exact normalization and roulette amount, original literal, unit and loss role separately. Compare equivalent passage-function questions only. Use repeated/nested spans, misleading attribution, explicit no-match, synthetic and clipped atom refusal, an unalignable span and explicit pool overflow. Record a native surviving span as a comparability control for supplied-span scoring. |
 | Binding and partial delivery · PM2-08 | Compare the same ordinary host/referent candidates, including wrong, ambiguous or absent choices. Require a supported textbook attachment and an authored business instruction through the same released relation operation and admission. Refuse an incompatible declaration, retain competing alternatives and preserve a useful qualified part after sibling failure through Reader, CLI, fresh MCP and exact detached proof. |
 | Conditional learned alternatives · PM2-03/07/11 | Select only on the [diagnosis and data gates](learned-extraction-investigations.md). Keep source-group holdouts out of training, prompt examples and oracle candidate injection. Grade discovery, span label or typed binding, abstention and delivered meaning independently. Failure, ties or unavailable supervision retain the simpler route. |
+
+### Structuring comparison acceptance
+
+**Proposed · [Structuring review](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md).** For I03–I06, grade source
+coverage and exact representability separately from proposal, role, binding, normalization,
+composition, delivery and admission. Separate semantic relation, role membership, anchor
+extent and completeness. Use independent source-only references; a changed rubric requires
+a separately frozen reference for both arms. Preserve the earlier p289 refusal and later
+role-anchor success. Carry observed failure causes into I02 only when supported by exact
+evidence. Include fixed-candidate/no-match and wrong-role controls, missing or oversize
+candidate populations and a qualified result with a failed sibling. For I08 compare duplicate
+replay with distinct corroboration and conflict on frozen cases; do not interpret candidate
+weights as calibrated confidence. Preserve the independence and protection of fit and grade
+inputs; comparative diagnostics are not training data by default.
 
 ### Exact affine qualification
 
@@ -252,6 +278,31 @@ workflows proposed for selection, including required Reader/MCP journeys and opt
 modes actually enabled. Apply [DMA-13's incremental acceptance criteria](../domain-model-alignment_2026-11-08.md#incremental-acceptance)
 to the staged candidate. Keep effect authority separate from a plan or assessment judgment.
 
+### Named workflow qualification
+
+**Scheduled · [Structuring I07](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I07).** Assess the staged candidate
+against the best compatible retained comparator for each selected workflow, even if
+the comparator was never selected. Freeze source, question, operation version, arms and
+independent expectations before opening new output. Keep staging separate from qualification
+and authorized selection; only the profiles and dependencies used by a workflow gate its
+selection. Other scheduled milestone obligations remain open on their own evidence.
+
+| Workflow | Comparator and improvement sought | Preservation and refusal |
+| --- | --- | --- |
+| Find and cite a definition | Corresponding literal `/10` or retained M1 route; use the native private binomial target as a transport control. Show one newly supported or corrected definition/use link with an exact citation. | Preserve term/content/cue, rejected cross-sense and negative-binomial links, and definition versus use/explanation. A highly ranked unsupported link stays unselected. |
+| Follow a claim to its condition or exception | Current ordinary located path; retain p289 cut 594 and grade a new or corrected qualifier-host attachment independently. | Preserve premise, lexical host, attribution and scope. Include an alternate business vocabulary, a failed sibling and an absence question whose coverage is insufficient. Refuse or scope the absence answer. |
+| Resolve a local reference or inspect a stated quantity | Compare nearest prior mention and fixed-offer d1; target an improved gambler reference or roulette quantity. Grade reference and quantity as separate questions. | Preserve fair-coin normalization, local identity scope and original quantity literal, unit and role. Withhold unsupported links or invented literals. |
+
+Verify the selected structure, standing, coverage and citations in ordinary Reader, CLI
+and fresh MCP; verify detached proof offline when portability is claimed. Keep the archive
+pins and p289 evidence at their original scopes. Formula qualification checks the source
+expression, location, stated bindings and qualifications; preserve unreadable material as
+literal or image with unresolved interpretation. Mathematical proof, fitting, calibration
+and held-out evidence apply only to a selected capability or claim that needs them.
+A tie preserves the incumbent and does not count as improvement.
+
+### Operational qualification and selection
+
 Use the existing release compiler, managed operation custody, PostgreSQL purpose roles
 and source selection. Preview an exact coordinated change only when released definitions,
 native admission or deployed storage require one. When a native change is needed, author a
@@ -309,10 +360,10 @@ claims within the tested envelope and corpus claims within the frozen opportunit
 [Review cadence](../../design_review/design_principles/binding/corpus-structure.md#reviews-in-this-repository) ·
 [DMA qualification pause](../domain-model-alignment_2026-11-08.md#qualification-pause--2026-11-08)
 
-**Closure.** A selected M2 release requires the frozen full-book source scope, demonstrated
-source-faithful workflow gains, preservation of material controls and independent partial
-results, the applicable final-source evidence union, and a verified selected-reader journey on the
-authorized target. Record the new selection, comparison baseline, native predecessor or
+**Closure.** Selection on the frozen full-book source requires a demonstrated
+source-faithful gain for the named workflow, preservation of material controls and
+independent partial results, the applicable final-source evidence union, and a verified
+selected-reader journey on the authorized target. Record the new selection, comparison baseline, native predecessor or
 reached revision where relevant, and remaining unsupported scopes with the coordinator.
 A qualified private result, unavailable live target or
 unresolved required acceptance is an intermediate state with its own evidence and next action.

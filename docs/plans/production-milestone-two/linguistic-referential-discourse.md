@@ -128,6 +128,25 @@ argument and qualifier distinctions, and protected atoms, repeated tokens, missi
 predicates, nested clauses, modal and passive constructions, and coordinated hosts behave
 as declared. Report native and transformed errors separately. [Multitask execution](https://github.com/hankcs/HanLP/blob/master/hanlp/components/mtl/multi_task_learning.py)
 
+### Located modifiers and clause scope
+
+**Proposed · [Structuring I03](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I03).** Reuse HanLP 2.1.7 retained
+dependency, SRL and constituency results to project temporal, purpose, manner and causal
+modifier candidates and clause containment where it changes a consumer's answer. Keep
+native scheme, predicate member, exact extent and scope. Do not promote a temporal
+phrase to a deadline or an SRL causal label to an admitted causal claim. Compare the
+existing spaCy named rules and bounded dependency/conjunct traversal with HanLP syntax
+and the incremental SRL evidence on the same release question. PM2-08 owns the
+selected association, not the parser adapter.
+
+For the definition path, the later
+[native HanLP chain](../../design_review/evidence/2026-11-09_pm2-native-definition/README.md)
+passed bounded private transport. Independently grade the released declaration-to-use
+binding with competing declarations and the constant-density control. Separate that
+question from the earlier sentence-split recovery. PM2-06 may compare a pinned HanLP
+sentence detector or a separate SDP/AMR head only after isolating a residual boundary
+or relation failure and checking label and exact-map fit.
+
 <a id="PM2-04"></a>
 
 ## PM2-04 · Mention inventories and coherent-section coreference with Maverick
@@ -174,6 +193,18 @@ diagnostic scores as model scores and apply independent controls to metric wrapp
 The initial package closes with anchored mention inventory and supported section
 membership available to PM2-08, including honest noncoverage of pairs outside scope.
 [Native MES scoring and inventories](https://github.com/SapienzaNLP/maverick-coref/blob/5c1fa627021b190101b4893751fa9836e85474b1/maverick/models/model_mes.py#L129-L451)
+
+### Informative local referent candidates
+
+**Proposed · [Structuring I03](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I03).** Reuse retained Maverick mention
+and cluster products. Compare the current nearest earlier located member with a name
+or nominal selected from retained syntax, with the nearer mention retained separately
+if it helps the same question. Preserve scope, cluster provenance and the representative
+decision. Do not infer global identity. Use supplied mentions only to distinguish
+inventory from clustering errors; they do not bypass all native detection. Probe a
+segmented joint mode under PM2-06 only for demonstrated cross-partition misses, with
+exact boundary, false-merge and resource controls. A d1 disagreement does not erase
+the independently inspectable local proposal.
 
 <a id="PM2-05"></a>
 
@@ -226,6 +257,16 @@ split, relation and nuclearity separately. Close the package when the native and
 projected output supports a bounded context consumer without invented anchors and
 the paired assessments can isolate boundary errors from structural errors.
 [Window execution](https://github.com/larc-iu/dipo/blob/v0.2.1/dipo/rst/parsers/common/encoding.py#L417-L474)
+
+### Discourse alignment for a conditional context comparison
+
+**Conditional · [Structuring I06](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I06).** Preserve focal EDU, ordered
+child split, parent yield, relation, nuclearity, eligible sibling ranges and omissions
+for PM2-09. Compare raw end-to-end and reviewed EDU paths separately:
+`predict_both()` uses reconstructed inputs. Attribute missing child, wrong split and
+label or nuclearity errors only where exact alignment allows that judgment. A valid
+tree or constrained decode does not prove source fidelity. A wider or generative mode
+stays under PM2-06 until diagnosed loss requires it.
 
 ## Parser execution
 

@@ -128,6 +128,19 @@ Require a correct independently graded consumer result and preserved controls be
 selection. Distributed training and broader pretraining stay outside the selected scope.
 [GLiNER2 training and objectives](../../libraries/parsing/gliner2.md#8-training-and-model-specialization)
 
+### Entry from structuring diagnostics
+
+[Structuring I04–I05](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I04) use the
+[PM2-07 bounded controls](gliner-and-d1-interpretation.md#packed-boundary-and-attribute-comparisons)
+before selecting a training investigation. Preserve the stock preset-span/SpanCategorizer
+route for label loss, SpanFinder for residual proposal loss, and typed occurrence pairs for
+binding loss after deterministic alternatives. Use a lightweight scorer before a custom
+`TrainablePipe`; require independently judged pairs or complete/masked supervision.
+For residual GLiNER loss use native alignment/capacity checks and
+`dry_run_recall_steps` with gold injection off, then compare LoRA/DoRA with the pinned
+unchanged checkpoint. A successful oracle arm or improved score alone does not warrant
+training or selection. Unavailable supervision or no downstream gain retains the incumbent.
+
 ## Evidence and disposition
 
 PM2-02 owns profile, resource and reuse qualification. PM2-11 owns the matched frames,

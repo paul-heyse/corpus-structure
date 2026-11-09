@@ -99,6 +99,14 @@ public read and interpretation dependencies for the early PM2-08 journey. Shared
 shape work can begin against PM2-00's source inventory while provider-specific
 coordinate details are qualified under each profile.
 
+### Completed empty question custody
+
+[PM2-07's completed empty projection](gliner-and-d1-interpretation.md#completed-empty-interpretation)
+uses the same PM2-01 source pin, assessed scope, request and rendered-state identity
+as successful replies. Keep question-level unresolved independent of the request's
+empty outcome; there is no physical occurrence for an absent span. Preserve archived
+contracts and apply current-only rules to affected regeneration.
+
 <a id="PM2-02"></a>
 
 ## PM2-02 · Qualify and operate the native provider profiles
@@ -186,6 +194,27 @@ zone-owned objects escape; lowering to detached products comes first. A challeng
 actual workload benefit, exact custody and parity on success, refusal and partial recovery.
 Retain the incumbent if these conditions fail.
 [spaCy execution and lifetime](../../libraries/parsing/spacy.md#9-runtime-performance-batching-and-memory-control)
+
+### Staged workload operating comparisons
+
+**Conditional · [Structuring I09](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I09).** Use actual staging observations
+to isolate a burden. Compare singleton and compatible GLiNER `batch_extract` calls
+with mixed lengths and exact per-window order/maps. Compare current fallback waves
+with reuse of a healthy compatible worker only; keep claim settlement, exclusive GPU
+custody, cancellation, worker reaping and incumbent restoration. Verify tokenizer
+alignment, overflow and the effective Transformers profile before changing batching.
+The overview describes 5.22.2; the selected workers pin 5.22.1. Keep HanLP token budgets
+and d1 native batching/packed-row limits distinct. Prefer bounded native batching and
+reuse over new serving, compilation, quantization or cache modes. Generic System One
+is at most a separately qualified closed-choice comparator, with no assumed d1 span parity.
+
+If retained spaCy rule setup is a material cost, reuse task-local preparation and
+group matchers only by matching mechanism and required annotation columns; index
+negation once per consumed block. Verify stable order, unavailable variants and exact
+witnesses. Avoid persistent caches; component error context must not settle a partially
+mutated Doc. Measure throughput, memory and load count as applicable, with parity and
+refusal/recovery controls. Keep the incumbent for ties, regressions or no material burden.
+[PM2-08 owns smaller proof](retrieval-composition-and-delivery.md#bounded-detached-proof).
 
 ## Foundation execution evidence
 

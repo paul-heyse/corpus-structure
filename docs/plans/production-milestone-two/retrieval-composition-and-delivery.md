@@ -16,11 +16,10 @@ and witness references. On run 422/cut 525, CLI and MCP agreed on the fair-coin
 condition scope and both host alternatives. The exact detached proof resolved
 the original parser task under run 421/cut 524. The no-match result preserved
 both candidates without admitting an attachment. The Reader builds facets
-over private observations and proposals. The ordinary producer and selector
-for converting those proposals into the planned typed composed products and
-binding independent admission witnesses remain open. A successful attachment
-and a useful qualified part surviving a failed or unresolved sibling still
-need to reach the same CLI, Reader and fresh MCP journey.
+over private observations and proposals. The later bounded public condition path
+passed at cut 594, and native vocabulary controls exercised failed-sibling
+preservation. Broader cross-provider composition and its corresponding admission
+and delivery remain open for the selected families.
 
 The [exact detached quantity proof](../../design_review/evidence/2026-11-09_pm2-adoption/README.md)
 also verified the revised run 431/cut 531 result at task 2128, with private standing
@@ -84,6 +83,62 @@ reading can support a separately attributed private candidate. Public eligibilit
 still requires the independent protected evidence bound to the contribution.
 [DMA definition basis](../domain-model-alignment/semantic-admission.md#DMA-05) ·
 [Public eligibility](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_publication.sql)
+
+### Compose retained parts
+
+**Scheduled · [Structuring I03](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I03).** Use the existing returned-group
+and released located-contribution owners to expose useful GLiNER predicate-to-subject,
+object, condition, attribution and quantification candidates. A group association is
+one attributed model observation; it carries no independent confirmation or fabricated
+relationship score. Consume exact PM2-03 modifier/host and PM2-04 local referent products.
+A qualifier-to-host candidate does not require a complete SVO record. Compare active
+baseline with passive, copular, intransitive, coordinated and multiple-qualifier
+constructions where the selected workflow needs them. Keep native labels, competitors
+and scope. Compare parser-only, d1-only and composed arms when they answer the same
+released question on matching evidence. d1 does not veto separately inspectable proposals.
+
+Deliver roles, direction and citations via the existing Reader, CLI and fresh MCP. Include
+a competing host or referent, an alternate vocabulary and a useful part surviving a
+failed sibling. Public standing requires independent native admission and exact detached
+verification where portable closure is claimed. Reuse p289/cut 594 as a positive control.
+For [completed empty d1 replies](gliner-and-d1-interpretation.md#completed-empty-interpretation),
+show attempted unresolved questions through the same contribution surfaces. Preserve
+request empty, absent answer anchor, and the distinct unattempted/failed states.
+
+### Dependence and finite support
+
+**Scheduled diagnostic; remedy conditional · [Structuring I08](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I08).**
+The finite interpreter uses dependence scopes for connectivity; they do not change the
+sum of log potentials. Trace repeated evidence from shared windows/native groups and
+deduplicate only equivalent attributed support at assembly, preserving distinct roles,
+derivations and disagreements. Use PM2-11 fixed duplicate replay, independent
+corroboration and conflict cases. Compare grouped potentials only when a duplicate
+changes support or the decision. Use existing table joint evidence treatment only where
+its semantics fit. Preserve candidate-relative scores, unknown omitted mass and the union
+of supporting derivations. Expose clause, cluster and role agreement as diagnostics
+before any fitted features. Defer pgmpy until exact inference has a measured bottleneck
+and Pyro until there is a specified latent or hierarchical question with suitable data.
+
+### Bounded detached proof
+
+**Conditional · [Structuring I09](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I09).** Use the retained affine
+bundle's proof volume as a lead, not as a size ratio against the ordinary live read.
+Trace the actual relation dependencies needed for offline verification; prefer existing
+owner projections and reusable immutable evidence. Use item-addressable proof or a new
+versioned completeness witness only if it still authenticates the selected item and
+required population. Compare against the existing exact export on the same closure:
+omission, substitution, changed sibling and exact replay, plus size and verification cost.
+Keep the current exact mode if the challenger cannot preserve the guarantees or show benefit.
+PM2-12 consumes the resulting portable evidence only where required.
+
+### Artifact identity revisit
+
+**Deferred · [Structuring I10](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I10).** Reopen Splink title/alias scoring
+only for a selected identity-linkage question with reviewed misses. Compare graded
+title and any observed alias agreement with exact code/title on the same blocked pair
+population. Include near-duplicate unrelated titles, missing values and correlated
+signals. Keep reference, lineage, revision, supersession and identity distinct.
+This is a separate decision and has no staging or scoped selection dependency.
 
 ### Typed partial delivery
 
@@ -215,9 +270,11 @@ profile fixed in both arms, and compare candidate availability before selection.
    reported and conditional forms and competing bindings as controls. A located standalone
    term can remain useful privately; do not relabel it or relax admission to fill the target list.
    The [retained annotation prerequisite check](../../design_review/evidence/2026-11-09_pm2-definition-prerequisite/README.md)
-   recovered a split premise sentence with an exact token-boundary diagnostic. The first
-   parameter declaration still lacks a dependency binding, and the native matched-cue witness
-   does not yet admit the complete declaration chain. The target inventory remains blocked.
+   recovered a split premise sentence with an exact token-boundary diagnostic, but that
+   route did not bind the first parameter. The later
+   [native HanLP chain](../../design_review/evidence/2026-11-09_pm2-native-definition/README.md)
+   supplied a bounded private target and detached proof. Independently assess its binding
+   before using it as a qualified definition, and do not infer wider inventory coverage.
 2. **Affine carriers.** Use the
    [scoped formula/occurrence route](../../../python/corpus-structure/src/corpus_structure/methods/inline_formula_occurrences.py)
    and authenticated primary-field mapping to bind the exact in-equation `X` and `Z`
@@ -355,6 +412,26 @@ admission path regardless of ranking result. The rejected affine `X` link and
 witnessed `Z` resolution test different outcomes. Document-to-document identity
 remains deferred. [Frozen inventory and fusion](../../../python/corpus-structure/src/corpus_structure/semantic/contextual_retrieval.py) ·
 [Relationship selection](../../../python/corpus-structure/src/corpus_structure/semantic/contextual_links.py)
+
+### Discriminating context comparison
+
+**Conditional · [Structuring I06](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I06).** The later
+[competitive protected pair](../../design_review/evidence/2026-11-09_pm2-adoption-preflight/README.md#native-competitive-comparison)
+tied: eight eligible targets and all three positives already first. Keep `/10`.
+On a frame with a named context failure, compare literal, current first-EDU neighbor,
+complete budgeted mapped sibling with focal side/relation/nuclearity, and a size-matched
+contiguous text control. Reuse PM2-05's selector; consider the next eligible ancestor
+only when the bounded local branch omits relevant context. Preserve exact ranges and
+explicit omissions, and leave rhetorical labels attributed rather than admitting them
+as semantic relations.
+
+Freeze more than ten genuinely competitive eligible targets for a top-10 recall claim,
+including neighboring senses, concepts and definition/use negatives. If such a frame is
+unavailable, use bounded ordering or fixed offers and make no recall claim. Keep encoders,
+target population, budgets and question meaning fixed, using registered configuration-bound
+arms. Report source/producer exclusions, actual context rendering, eligibility, rank and
+d1 choice given an offer separately. Test a selection rendering separately from ranking.
+Retain the incumbent on a tie, regression or unsupported link.
 
 <a id="PM2-10"></a>
 
