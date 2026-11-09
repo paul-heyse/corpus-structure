@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "id": "pm2.condition-private-composition",
+  "title": "Exact private condition and host roles through the existing Reader",
+  "group": "PM2-08",
+  "package": "PM2-08",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the existing private producer and Reader deliver exact condition/host roles and preserve independently useful source parts when a release refuses the relation?",
+  "answers": [
+    "F03",
+    "I07",
+    "PM2-08"
+  ],
+  "method": "Use the released scoped predicate producer and row codec for an authored sample-processing assertion and payment instruction; refuse absent or incompatible relation declarations and reordered endpoints. Read a settled, independently referenced textbook condition through the ordinary CLI and fresh MCP paths.",
+  "commands": [
+    "uv run ci test --json -- python/corpus-structure/tests/methods/test_scoped_relations.py::test_condition_host_preserves_located_parts_after_declaration_refusal python/corpus-structure/tests/semantic/test_contribution_composition.py",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-condition-composition/probe.py"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "The retained Event F condition and host identities come from the previously frozen qualifier evidence; no protected labels were added."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "Exact retained textbook CLI and fresh MCP probe",
+      "sha256": "1546ded4cc81d7d852f36f52d04daa9988c56857c934bef21bd41fa488ef5390"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/checks.json",
+      "role": "Final focused tests, earlier refusals and explicit scope limits",
+      "sha256": "9a07e717f30727980657273226a75eb24ef6d6c7d16a03e6885e31acdb7d2c3f"
+    },
+    {
+      "path": "raw/textbook-transport.json",
+      "role": "Private condition/host roles and archived transport agreement",
+      "sha256": "c3cb79eac53736e8021e41ae7a06175f2a70ceb1f65a6d6b85aeaf2ea53c6da2"
+    }
+  ],
+  "depends_on": [
+    "2026-11-07_nce-source-linguistics/nce.qualifier-scope-development"
+  ],
+  "results": [
+    {
+      "name": "Focused private composition checks",
+      "value": 14,
+      "of": 14,
+      "unit": "tests",
+      "note": null
+    },
+    {
+      "name": "Transport agreement on exact retained condition",
+      "value": 1,
+      "of": 1,
+      "unit": "case",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The optional Reader view exposes exact retained condition/host roles under one release-owned private relation and keeps useful parts visible after a declaration refusal. It does not qualify an independently admitted public relation, a new detached facet, or cross-provider interpretation selection.",
+  "consumed_by": [
+    "PM2-08",
+    "PM2-11"
+  ]
+}

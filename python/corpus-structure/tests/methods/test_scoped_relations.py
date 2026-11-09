@@ -207,6 +207,85 @@ def test_condition_host_preserves_located_parts_after_declaration_refusal(
         detail = interpretation["reason"]
         assert isinstance(detail, str) and reason in detail
 
+    # Exercise the ordinary Reader projection with the actual released row codec,
+    # not a second fixture of the component or an independent interpretation rule.
+    from corpus_structure.semantic.contribution_queries import ContributionInventory
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.serve.contributions import _interpretations
+
+    pin = next(iter(rows.values()))["pin"]
+    custody = dict(
+        selected_task_id=51,
+        origin_task_id=49,
+        source_view_id=pin["source_view_id"],
+        source=pin["source"],
+        cut_member=True,
+    )
+    retained = tuple(
+        release.validate_json("SourceContribution", canonical_bytes(row)).model_dump(mode="python")
+        | custody
+        for row in rows.values()
+    )
+    retained_operations = tuple(op | custody for op in operations.values())
+
+    def facets(selected):
+        inventory = ContributionInventory((), retained_operations, (), False, selected)
+        return {
+            row["contribution_id"]: row["composition"]
+            for row in _interpretations(inventory, prepared=release)
+            if "composition" in row
+        }
+
+    composed = facets(retained)
+    for frame in (frames[host], frames[competing]):
+        assert composed[frame]["operation_outcome"] == "succeeded"
+        (predicate,) = [role for role in composed[frame]["roles"] if role["role"] == "predicate"]
+        assert predicate["state"] == "source_located"
+    (host_reading,) = [
+        row
+        for row in rows.values()
+        if row.get("component", {}).get("kind") == "predicate_reading"
+        and row["component"]["frame"] == frames[host]
+    ]
+    host_facet = composed[host_reading["contribution_id"]]
+    assert host_facet["reading"] == reading
+    assert host_facet["operation_outcome"] == interpretation["outcome"]
+    assert host_facet["standing"] == "retained_private"
+
+    if declaration == "declared":
+        (relation,) = condition_relations
+        identity = relation["contribution_id"]
+        attachment = composed[identity]
+        assert [(role["role"], role["state"]) for role in attachment["roles"][:2]] == [
+            ("qualifier", "source_located"),
+            ("host", "retained"),
+        ]
+        assert attachment["roles"][1]["reference"]["contribution_id"] == frames[host]
+        assert (
+            attachment["roles"][1]["reference"]["operation_key"]
+            == operations["source_predicate_frames"]["operation_key"]
+        )
+        assert attachment["condition"]["text"] == text.split(",")[0].splitlines()[-1]
+        (relation_row,) = [row for row in retained if row["contribution_id"] == identity]
+        assert [role["state"] for role in facets((relation_row,))[identity]["roles"][:2]] == [
+            "outside_selection",
+            "outside_selection",
+        ]
+        with pytest.raises(SemanticRefusal, match="directed endpoints"):
+            facets((dict(relation_row, endpoints=list(reversed(relation_row["endpoints"]))),))
+    else:
+        assert not any(
+            facet["operation_question"] == "source_predicate_interpretation"
+            and facet.get("qualifier_kind") == "condition"
+            for facet in composed.values()
+        )
+        assert any(
+            facet.get("qualifier_kind") == "condition"
+            and facet["roles"][0]["state"] == "source_located"
+            for facet in composed.values()
+        )
+
 
 @pytest.mark.parametrize("predicate_version", ["4", "5"])
 def test_selected_action_preserves_wholly_clipped_role_without_an_anchor(predicate_version):

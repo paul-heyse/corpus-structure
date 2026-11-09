@@ -32,6 +32,7 @@ from corpus_structure.semantic.contributions import (
     contribution_payload_contracts,
     validate_contribution_semantics,
 )
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.retained_contributions import RetainedContributionRef
@@ -287,6 +288,229 @@ def _assessed_scope(value: Row, row: Row) -> Row:
     return scope
 
 
+_PREDICATE_FRAMES = "source_predicate_frames"
+_PREDICATE_INTERPRETATION = "source_predicate_interpretation"
+_PREDICATE_ROLE_VERSIONS = {"3", "4", "5"}
+_PREDICATE_PRODUCTS = {
+    "structural.predicate_frame": ("predicate_frame", _PREDICATE_FRAMES),
+    "structural.predicate_cue": ("predicate_cue", _PREDICATE_FRAMES),
+    "structural.predicate_reading": ("predicate_reading", _PREDICATE_INTERPRETATION),
+    "structural.predicate_qualification": ("predicate_qualifier", _PREDICATE_INTERPRETATION),
+}
+
+
+def _predicate_scope(row: Row) -> tuple[Any, ...]:
+    component = row["component"]
+    return (
+        row["selected_task_id"],
+        row["origin_task_id"],
+        component["question_version"],
+        component["scope"],
+        component.get("effective_version"),
+    )
+
+
+class _PredicateParts:
+    """Project retained roles across the two operations in one exact task."""
+
+    def __init__(
+        self,
+        rows: Mapping[tuple[Custody, str], Row],
+        operations: Mapping[Custody, Row],
+    ):
+        self.operations = operations
+        self.rows = {
+            (task, origin, identity): row for ((task, origin, _), identity), row in rows.items()
+        }
+        self.hosts: dict[tuple[Any, ...], list[str]] = {}
+        for (_, identity), row in rows.items():
+            if row["semantic_type"] != "structural.predicate_frame":
+                continue
+            component = row.get("component") or {}
+            if component.get("question_version") not in _PREDICATE_ROLE_VERSIONS:
+                continue
+            key = (
+                *_predicate_scope(row),
+                component["annotation"],
+                component["block"],
+                component["predicate_token"],
+            )
+            self.hosts.setdefault(key, []).append(identity)
+
+    def _part(self, row: Row, identity: str) -> Row | None:
+        return self.rows.get((row["selected_task_id"], row["origin_task_id"], identity))
+
+    def _role(self, row: Row, role: str, identity: str, semantic_type: str) -> dict[str, Any]:
+        part = self._part(row, identity)
+        result: dict[str, Any] = {
+            "role_family": "predicate_composition",
+            "role": role,
+            "contribution_id": identity,
+            "state": "outside_selection",
+        }
+        if part is None:
+            return result
+        operation = self.operations.get(_custody(part))
+        expected = _PREDICATE_PRODUCTS.get(semantic_type)
+        question = expected[1] if expected is not None else _PREDICATE_FRAMES
+        if (
+            part["pin"] != row["pin"]
+            or part["source_view_id"] != row["source_view_id"]
+            or part["semantic_type"] != semantic_type
+            or operation is None
+            or operation["question"] != question
+            or operation["operation_version"] != row["component"]["question_version"]
+            or (expected is not None and _predicate_scope(part) != _predicate_scope(row))
+            or (
+                semantic_type == "structural.predicate_member"
+                and source_python(part["value"])["role"] != role
+            )
+        ):
+            raise SemanticRefusal("retained predicate role differs from its source member")
+        result.update(state="retained", reference=_reference(part))
+        if semantic_type in {"structural.predicate_member", "structural.predicate_cue"}:
+            anchors = _exact_anchors(part)
+            if not anchors or len(anchors) != len(part["anchors"]):
+                raise SemanticRefusal("retained predicate role lacks its exact native anchors")
+            result.update(
+                state="source_located", anchor_ids=anchors, occurrence_id=part["occurrence_id"]
+            )
+        return result
+
+    def facet(self, row: Row, operation: Row, prepared: PreparedRelease | None) -> dict[str, Any]:
+        kind, question = _PREDICATE_PRODUCTS[row["semantic_type"]]
+        component = row["component"]
+        if (
+            component["kind"] != kind
+            or component["question"] != question
+            or component["question_version"] != operation["operation_version"]
+            or operation["question"] != question
+            or operation["source_view_id"] != row["source_view_id"]
+            or operation["source"] != row["pin"]["source"]
+        ):
+            raise SemanticRefusal("predicate composition lacks its exact producing operation")
+        facet: dict[str, Any] = {
+            "version": "private-contribution-composition-1",
+            "standing": "retained_private",
+            "operation_question": question,
+            "operation_version": operation["operation_version"],
+            "operation_outcome": operation["outcome"],
+            "scope": component["scope"],
+            "effective_version": component.get("effective_version"),
+            "roles": [],
+        }
+        roles = facet["roles"]
+        if kind == "predicate_frame":
+            for member in component["frame_members"]:
+                if member["contribution"] not in row["members"]:
+                    raise SemanticRefusal("retained predicate frame refers outside its members")
+                located = self._role(
+                    row, member["role"], member["contribution"], "structural.predicate_member"
+                )
+                located["role_outcome"] = member["outcome"]
+                roles.append(located)
+            roles.extend(
+                {
+                    "role_family": "predicate_composition",
+                    "role": member["role"],
+                    "state": member["reason"],
+                    "token_indices": member["token_indices"],
+                }
+                for member in component.get("unlocated_roles") or ()
+            )
+            facet["focus_state"] = component["focus_state"]
+        elif kind == "predicate_cue":
+            roles.append(
+                self._role(row, "qualifier", row["contribution_id"], "structural.predicate_cue")
+            )
+            if marker := component.get("marker_member"):
+                if marker not in row["members"]:
+                    raise SemanticRefusal("retained predicate cue refers outside its members")
+                roles.append(self._role(row, "marker", marker, "structural.predicate_member"))
+            facet.update(qualifier_kind=component["cue_kind"], host_state=component["host_state"])
+            if host_ids := component.get("cross_block_hosts"):
+                roles.extend(
+                    self._role(row, "candidate_host", host, "structural.predicate_frame")
+                    for host in host_ids
+                )
+            else:
+                for token in component.get("candidate_tokens") or ():
+                    hosts = self.hosts.get(
+                        (*_predicate_scope(row), component["annotation"], component["block"], token)
+                    )
+                    if not hosts:
+                        roles.append(
+                            {
+                                "role_family": "predicate_composition",
+                                "role": "candidate_host",
+                                "state": "retained_candidate_token",
+                                "token_index": token,
+                            }
+                        )
+                        continue
+                    roles.extend(
+                        self._role(row, "candidate_host", host, "structural.predicate_frame")
+                        | {"token_index": token}
+                        for host in hosts
+                    )
+        elif kind == "predicate_reading":
+            frame = component["frame"]
+            if tuple(row["members"]) != (frame,):
+                raise SemanticRefusal("retained predicate reading differs from its frame")
+            roles.append(self._role(row, "host", frame, "structural.predicate_frame"))
+            facet.update(reading=component["reading"], polarity=component["polarity"])
+        else:
+            if prepared is not None:
+                try:
+                    prepared.validate_json(
+                        "PredicateQualifierComponent", canonical_bytes(component)
+                    )
+                except (KeyError, ValueError) as error:
+                    raise SemanticRefusal("retained attachment differs from its release") from error
+            qualifier, host = (
+                component["qualifier_contribution_id"],
+                component["host_contribution_id"],
+            )
+            endpoints = (("qualifier", qualifier), ("host", host))
+            reading = component.get("interpretation_member")
+            members = (qualifier, host, reading) if reading else (qualifier, host)
+            if (
+                row["kind"] != "relation"
+                or tuple((part["role"], part["contribution_id"]) for part in row["endpoints"])
+                != endpoints
+                or tuple(row["members"]) != members
+                or not set(members).issubset(row["computation_dependencies"])
+            ):
+                raise SemanticRefusal(
+                    "retained predicate attachment differs from its directed endpoints"
+                )
+            roles.extend(
+                (
+                    self._role(row, "qualifier", qualifier, "structural.predicate_cue"),
+                    self._role(row, "host", host, "structural.predicate_frame"),
+                )
+            )
+            cue = self._part(row, qualifier)
+            if cue is not None and (
+                cue["component"]["cue_kind"] != component["qualifier_kind"]
+                or cue["component"]["host_state"] != "located"
+            ):
+                raise SemanticRefusal("retained predicate attachment differs from its qualifier")
+            if reading:
+                roles.append(
+                    self._role(row, "host_reading", reading, "structural.predicate_reading")
+                )
+                host_reading = self._part(row, reading)
+                if host_reading is not None and host_reading["component"]["frame"] != host:
+                    raise SemanticRefusal(
+                        "retained predicate attachment uses a foreign host reading"
+                    )
+            facet["qualifier_kind"] = component["qualifier_kind"]
+            if condition := component.get("condition"):
+                facet["condition"] = source_python(condition)
+        return facet
+
+
 def composition_facets(
     operations: Sequence[Row], rows: Sequence[Row], *, prepared: PreparedRelease | None = None
 ) -> dict[tuple[Custody, str], dict[str, Any]]:
@@ -301,8 +525,20 @@ def composition_facets(
     edus: dict[tuple[Custody, str], EDUView] = {}
     trees: dict[tuple[Custody, str], tuple[Row, TreeView, _Parts]] = {}
     payload_contracts = contribution_payload_contracts(prepared.definitions) if prepared else {}
+    predicate_parts = None
     for ref, row in by_ref.items():
         semantic_type = row["semantic_type"]
+        if (
+            semantic_type in _PREDICATE_PRODUCTS
+            and (row.get("component") or {}).get("question_version") in _PREDICATE_ROLE_VERSIONS
+        ):
+            operation = by_operation.get(ref[0])
+            if operation is None:
+                raise SemanticRefusal("predicate composition lacks its exact producing operation")
+            if predicate_parts is None:
+                predicate_parts = _PredicateParts(by_ref, by_operation)
+            facets[ref] = predicate_parts.facet(row, operation, prepared)
+            continue
         parser = PARSER_PROVIDER.get(semantic_type)
         interpretation = semantic_type.startswith("interpretation.")
         if parser is None and not interpretation:
