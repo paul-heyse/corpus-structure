@@ -94,3 +94,82 @@ comparison controls for the managed observations.
   with no typed table region. The printed grid is visible in the PDF and
   the deposited author PostScript contains its numerical strings.
   [Original PostScript for Appendix A](../../../statistics_corpus/corpus/grinstead_snell/latex_source/figures/PSfigappA.ps#L2173-L2183)
+
+## Settled holdout observations
+
+**Tested · 2026-11-08.** The protected comparison verified the producing
+group and exact raw and mapped pins for these whole-page requests. Each
+provider stop was unknown. The rows assess only the listed source fields.
+The comparison marks independently unlocated fragments as candidates even
+where their reading is true. Arm credit follows the frozen exact scope.
+The Standard alternatives below were read from organized run 356, task
+1566, digest `a3de20e84391b90ad183c040ce3107cc74eed2f80e7927a78519d4cd11490817`.
+
+| Physical page | Managed mapping task | Arms | Bounded disposition |
+| --- | --- | --- | --- |
+| 20 | 1655 | All-page | Seven formula rows are unlocated inline variables and values. The inspected scope has no standalone formula, chart or table gain. |
+| 24 | 1657 | Selective, all-page | Three located picture candidates and the three printed local captions are useful panel evidence. The first description omits the left arrow. The detached panel captions have empty association lists. Keep the source-grounded 2D/3D descriptions and distinct local captions as candidates with the shared Figure 1.6 relationship independently witnessed. |
+| 66 | 1659 | Selective, all-page | The description locates the target and bar plot as two parts of one figure, a discovery gain over the selected picture's empty metadata. Keep the caption's 400 and the prose's 1000 separately. No exact chart series or separate panel geometry qualifies from the compound result. |
+| 75 | 1661 | All-page | Figure 2.20's description correctly supplies the function and horizontal extent. The same function is already in the incumbent chart title. Figure 2.19's description misstates the shaded diagonal band and misses two dimension arrows. Both caption literals remain available through the incumbent's text/orig. |
+| 89 | 1663 | All-page | The located Stirling formula `#/texts/37` preserves `n^n e^(−n) √(2πn)`. Selected `#/texts/14583` flattens it, and Standard `#/texts/1526` incorrectly puts the square root inside the exponent. The author formula supplies a direct source repair route. Table 3.4 agrees on the checked row. [Author formula](../../../statistics_corpus/corpus/grinstead_snell/latex_source/ch3.tex#L266-L270) |
+| 91 | 1665 | All-page | Both Chandra tables preserve the tested snowfall and rank anchors. Selected `#/tables/48` and `#/tables/24` already expose them. The numerical checks give agreement. |
+| 92 | 1667 | Selective, all-page | Chandra retained inline logarithms and simulation inputs, with no located display. The page's centered verse does not qualify as a formula. The nomination yields no gain in the inspected structural scope. |
+| 114 | 1669 | All-page | The candidate keeps the eight probabilities and combines the wrapped probability header into one logical row. Its two located series also restore the fraction and exponent syntax flattened in the selected text. Standard `#/texts/1976` and `#/texts/1978` already supply readable mathematical structure. |
+| 121 | 1673 | Selective, all-page | Candidate `#/tables/0` preserves the checked triangular values and represents the upper-left heading as a two-row span with the six games columns beneath their parent header. The incumbent retains the numeric values and a different header partition. Column hierarchy is a candidate gain. Row header semantics remain open because candidate row labels have no header flags. |
+| 127 | 1675 | Selective, all-page | The located Lucas formula `#/texts/46` and paired base-seven expansion `#/texts/54` correct selected malformed notation and the omitted second expansion. Standard `#/texts/2172` and `#/texts/2174` provide independent readings. |
+| 143 | 1679 | Selective, all-page | The picture description preserves the checked urn paths and branch probabilities. The generated nested table is an alternative view of a tree and carries no independent table region. Located `#/texts/40` correctly groups both denominator terms in the conditional probability. |
+| 146 | 1681 | Selective, all-page | Reject the description's claim that every final door choice has probability `1/2`. The original also has forced branches with weight 1. The nested table does not establish branch ownership and cannot substitute for the original diagram. |
+| 175 | 1683 | All-page | The located CDF `#/texts/10` restores the square and all four conditions where selected `#/texts/4600` corrupts the first nonzero branch. Standard `#/texts/3095` retains those branches. Keep the graph description separate because its stated shaded extent omits the vertical boundary at `ω₁=1/2`. |
+| 189 | 1685 | All-page | Inline inequalities are recognizable, with no independently located display or new typed picture/table in the inspected scope. |
+| 191 | 1687 | Selective, all-page | The caption trigger yields no caption. The source floor operation is explicit in selected `#/texts/1079`. The candidate writes ordinary brackets. Preserve the selected notation and chapter hierarchy. |
+| 196 | 1689 | All-page | The caption parameters agree. The description gives a unique peak at `j=4`, while the source shows equal-height adjacent peaks at 4 and 5. The nested generated numerical series has no independent source table. |
+| 202 | 1691 | All-page | All nine Table 5.2 numeric anchors agree. Separately, the located hypergeometric expression `#/texts/37` restores the binomial arguments and fraction lost in selected `#/texts/19719`. Standard `#/texts/3662` has a malformed numerator, while the printed formula and author source independently supply the intended expression. [Author formula](../../../statistics_corpus/corpus/grinstead_snell/latex_source/ch5.tex#L441) |
+| 208 | 1693 | All-page | Chandra retains `λ=600(1/500)=1.2` as an unlocated inline formula. No new standalone structure is established. |
+| 217 | 1695 | All-page | The located Figure 5.8 caption `#/texts/3` matches the source and is absent from run 377. Standard `#/texts/3910` supplies it under the frozen repair action. The model combines the two upper queue panels, so its description is distinct from independently bound panel evidence. |
+| 218 | 1697 | All-page | The increasing and decreasing cases retain the correct signs. Candidate `#/texts/71` agrees with selected `#/texts/11235` and Standard `#/texts/3946` on the signed derivative. |
+| 241 | 1699 | All-page | Candidate `#/texts/13` and `#/texts/68` reproduce the two separate theorem identities already present in the incumbent. The checked identities agree. |
+| 254 | 1701 | Selective, all-page | Table 6.4 candidate `#/tables/0` preserves the separate probability labels `p` and `1−p` and the four payoffs in their source rows. Both selected `#/tables/3` and Standard `#/tables/36` collapse labels and lose values. The original layout and author table independently supply the bindings. Table 6.5 agrees on the checked mortality values. [Author table](../../../statistics_corpus/corpus/grinstead_snell/latex_source/ch6.tex#L823-L836) |
+| 256 | 1703 | All-page | The model represents the opening equality as an inline expression. The page has no chart or table, and no additional independently located structure was established. |
+| 285 | 1705 | All-page | Located `#/texts/11` restores both fractions in the waiting-time identity, which selected `#/texts/7073` flattens. Standard `#/texts/5163` already preserves them. The chart reading may describe a histogram bin near zero, without claiming an exact point frequency. |
+| 286 | 1707 | All-page | The description identifies the waiting-time histogram but adds hours as the unit. The source plot and surrounding simulation do not establish hours. Keep the incumbent caption and withhold the unit. |
+| 303 | 1709 | Selective, all-page | The Cauchy expressions agree. Candidate `#/texts/46` restores the normal exponential as a factor outside the denominator. `#/texts/52` restores the Rayleigh expression and its zero branch. Standard `#/texts/5540` and `#/texts/5542` provide independent readings. |
+| 315 | 1711 | Selective, all-page | The source has no picture. The same whole-page request nevertheless restores the missing absolute-value delimiter and correct `≥ε` and `<ε` conditions in the theorem and proof displays. Standard also retains the properly delimited bounds in the proof. |
+| 343 | 1717 | All-page | The located Figure 9.5 description correctly identifies the spikes, horizontal scale and center near .54. The source prose and figure already supply the distribution identity and sample count. Retain approximate chart description as an alternative. |
+| 345 | 1719 | All-page | Chandra and selected `#/tables/25` agree on the visible columns and the checked 1936 and 1996 rows, including every printed percentage in those rows. |
+| 361 | 1721 | All-page | The picture description repeats the already available caption. It supplies no additional labelled trace or qualified numerical series. |
+| 386 | 1723 | All-page | Located `#/texts/27` restores the complete `5/16` calculation, also available from Standard `#/texts/7239`. The raw diagram prose omits the root-to-2 branch and adds an unsupported root label. The nested table mixes branch weights with joint probabilities and does not retain the parent paths. |
+| 388 | 1725 | All-page | The compound description gives the three source cases and intersections. The exact positions remain panel-specific, while this candidate occupies the combined figure. The incumbent already retains three pictures and the caption, and the cases appear in the surrounding source prose. |
+| 390 | 1727 | Selective, all-page | Table 10.1 agrees on the checked values. Candidate `#/tables/1` restores separate `p₉=.0002` and `p₁₀=.0000` rows. Selected `#/tables/4` and Standard `#/tables/44` combine them in a single row. The author source supplies both bindings independently. [Author rows](../../../statistics_corpus/corpus/grinstead_snell/latex_source/ch10.tex#L872-L885) |
+| 407 | 1729 | Selective, all-page | The CDF integral agrees on its limits and negative exponent. Chandra restores the piecewise terminator and gives one integral where the selected moment-generating derivation duplicates it. The local density limit remains a shared error. The printed `exp(−x²/2)` appears as `exp(t²/2)` in Chandra, selected `#/texts/19703` and Standard `#/texts/7619`. |
+| 408 | 1731 | All-page | The candidate restores the displayed hyperbolic-sine fraction and the Cauchy denominator. Standard `#/texts/7626` and `#/texts/7639` already supply these readings. |
+| 412 | 1733 | All-page | The retained raw response contains the two running-header fragments and no body. The available mapping has no candidate rows. This agrees with the independently verified blank body even though provider completion remains unknown. |
+| 424 | 1735 | All-page | Located `#/texts/26` preserves all five row labels, all five column labels and all 25 matrix values. The outer array declares five columns for a header with six positions. Treat the values and label lists as readable evidence pending a valid positioned matrix contract. Both incumbents preserve those values in `orig`, while their rendered formula text corrupts the arrangement. The author matrix independently binds the values. [Author matrix](../../../statistics_corpus/corpus/grinstead_snell/latex_source/ch11.tex#L754-L767) |
+| 448 | 1737 | All-page | The located candidate `#/texts/13` preserves all 81 maze matrix values and both label lists in a nested LaTeX representation. Both incumbent originals retain the values, while selected `#/texts/2513` and Standard `#/texts/8252` render only the opening token sequence. The author matrix independently binds all positions. Table 11.3 agrees on all nine checked row and value fields. [Author matrix](../../../statistics_corpus/corpus/grinstead_snell/latex_source/ch11.tex#L2376-L2388) |
+| 470 | 1739 | Selective, all-page | Candidate `#/texts/2` restores the missing Figure 11.6 caption, also available from Standard `#/texts/8629`. The description correctly separates time-forward and time-reversed panels but says the lower x-axis runs 1000 to 0. Both printed axes run 0 to 1000. |
+| 491 | 1741 | All-page | The candidate preserves the three inequality relations, the parity branches, and the different even/odd sum starts and coefficient signs. It restores fraction and binomial structure flattened in the selected calculations. Exact Standard already preserves these structures at `#/texts/9013` through `#/texts/9019`. |
+| 508 | 1745 | All-page | The located Appendix A table `#/tables/0` supplies all 400 printed decimals and all ordered labels in a 41×11 grid. Both incumbents lack a typed table. The ten column labels qualify by position, while the mapping gives the first-column labels no row-header flags. The separate figure description puts the shading to the right of `d`, but the source shades the interval from 0 to `d`. |
+
+The p508 CLI Reader used run 394, raw task 1744 and mapped task 1745 with
+digest `8d618b5561e39b958fdfe215c5935fd76219cb4234f06f4f8f20a93859166fdf`.
+All 451 mapped unit-span anchors matched the independently extracted
+source grid, including the blank corner. The cell `.3264` is at zero-based
+row 10 and column 5 with column path `[5]`. The exact candidate has
+11 column-header flags and zero row-header flags. The Reader reports
+`recognition_candidate` and an unspecified provider stop.
+
+An independent `pdftotext -f 508 -l 508 -bbox-layout` pass found 40
+ordered source rows with 11 numeric words each and ten positioned column
+labels. The largest body-word left-edge deviation from the median
+for its column was 0.275 PDF points. This gives an incumbent recovery
+route for the witnessed grid and a candidate routing cue for similarly
+aligned numeric layouts. Any wider cue needs separate testing on dense
+prose, charts and wrapped tables. The p508 dry router skipped the page,
+so the current selective arm missed this structural gain.
+
+The 41-page held-out sample demonstrates selective gains on pp254 and
+390 and additional all-page gains on pp89, 202, 424, 448 and 508 in
+the inspected fields. Some corrected readings already exist in Standard
+or in independently positioned source material. The diagram and figure
+errors above demonstrate why an observation's readable structure remains
+attributed. The sample settles these field comparisons within the
+full-book campaign.

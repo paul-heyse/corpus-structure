@@ -19,16 +19,27 @@ def main():
     parser.add_argument("domains", type=Path)
     parser.add_argument("--project", default="chandra-standard-control")
     parser.add_argument("--realization", default="source:chandra-standard-control")
-    parser.add_argument("--native-pin", type=Path)
+    inputs = parser.add_mutually_exclusive_group()
+    inputs.add_argument("--native-pin", type=Path)
+    inputs.add_argument("--integrated-pin", type=Path)
     parser.add_argument("--integrate", action="store_true")
     args = parser.parse_args()
     settings = Settings()
     native = (
         ProductReference(**json.loads(args.native_pin.read_bytes())) if args.native_pin else None
     )
+    integrated = (
+        ProductReference(**json.loads(args.integrated_pin.read_bytes()))
+        if args.integrated_pin
+        else None
+    )
     if args.integrate and native is None:
         parser.error("--integrate requires --native-pin")
-    method = "ingest.pdf_integrated/default" if args.integrate else "ingest.pdf/default"
+    method = (
+        "ingest.pdf_integrated/default"
+        if args.integrate or integrated is not None
+        else "ingest.pdf/default"
+    )
     with open_runtime_engine(
         settings, application_name="chandra-standard-control", purpose="write"
     ) as engine:
@@ -50,6 +61,7 @@ def main():
             domains=args.domains,
             graph=Graph(((Stage.INGEST, (Step(method),)),), policy_propose=False),
             native_product=native,
+            integrated_product=integrated,
             source_only=True,
         )
     print(result.model_dump_json())
