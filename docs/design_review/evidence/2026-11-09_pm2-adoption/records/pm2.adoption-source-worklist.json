@@ -47,7 +47,7 @@
     }
   ],
   "depends_on": [
-    "pm2.matched-interpretation-development"
+    "2026-11-09_pm2-interpretation-pair/pm2.matched-interpretation-development"
   ],
   "results": [
     {

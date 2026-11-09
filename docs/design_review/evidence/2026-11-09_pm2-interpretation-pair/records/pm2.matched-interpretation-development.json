@@ -111,7 +111,7 @@
     }
   ],
   "depends_on": [
-    "pm2.development-interpretation-grade"
+    "2026-11-09_pm2-interpretation/pm2.development-interpretation-grade"
   ],
   "results": [
     {

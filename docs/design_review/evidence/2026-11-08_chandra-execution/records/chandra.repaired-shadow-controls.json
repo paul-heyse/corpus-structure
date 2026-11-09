@@ -57,11 +57,6 @@
       "path": "raw/book-shadow-377/resume-381.json",
       "role": "Recovered managed run and cut with original raw pin",
       "sha256": "11a778192d86eb8b3d9a6603268447e3f69cb42256b001b70f67755f5918fb44"
-    },
-    {
-      "path": "book-shadow-execution.md",
-      "role": "Measured execution boundaries and reproducible receipts",
-      "sha256": "8fef65ecf556c8cb8630a2b0744fb3c167fa04ce70b5e1193be06b8ef7815aca"
     }
   ],
   "depends_on": [
@@ -93,7 +88,7 @@
     }
   ],
   "outcome": "partial",
-  "conclusion": "The repaired comparator was readable during optional work. The two-image Docling batch changed both raw results, and the local vLLM control has a separate runtime and startup profile. Retain serial acquisition. Managed dispatch and the exact Reader and packet settled. Run 381 recovered its settled response without another inference under its original executable. The p151 crop hallucination and source-witnessed useful readings preserve their separate standing. Complete book observation coverage, independent adjudication and operating policy are tracked in the coordinator.",
+  "conclusion": "The repaired comparator was readable during optional work. The two-image Docling batch changed both raw results, and the local vLLM control has a separate runtime and startup profile. Retain serial acquisition. Managed dispatch and the exact Reader and packet settled. Run 381 recovered its settled response without another inference under its original executable. The p151 crop hallucination and source-witnessed useful readings preserve their separate standing. This record is historical evidence for the retired campaign and does not qualify PM2. The report as finalized, book-shadow-execution.md, is recoverable from Git commit 67cbe680e.",
   "consumed_by": [
     "chandra-2-post-nemotron coordinator"
   ]
