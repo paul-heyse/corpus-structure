@@ -23,18 +23,29 @@ def evaluate(
     set_id: Annotated[int, typer.Option()],
     project: str | None = None,
     json: JsonOpt = False,
+    comparison_arm: Annotated[
+        Literal["baseline", "revised"] | None,
+        typer.Option(help="Grade the selected frozen operation comparison arm."),
+    ] = None,
 ):
-    """Persist core, qualified-full and evidence P/R/F1 with exact pass-C snapshots."""
+    """Grade a completed run against the exact adjudicated reference snapshot."""
     from corpus_structure.evaluate import operation_assessment, record_references, semantic
 
     with reference_session(ctx, project, json=json) as (conn, pid):
         protocol = reference_protocol(conn, set_id, pid)
-        evaluator = {
-            operation_assessment.PROTOCOL: operation_assessment.reference_evaluate,
-            record_references.PROTOCOL: record_references.reference_evaluate,
-            None: semantic.reference_evaluate,
-        }[protocol]
-        result = evaluator(conn, project_id=pid, run_id=run, set_id=set_id)
+        if protocol == operation_assessment.PROTOCOL:
+            result = operation_assessment.reference_evaluate(
+                conn, project_id=pid, run_id=run, set_id=set_id, comparison_arm=comparison_arm
+            )
+        else:
+            if comparison_arm is not None:
+                raise semantic.ReferenceError("comparison arms require operation references")
+            evaluator = (
+                record_references.reference_evaluate
+                if protocol == record_references.PROTOCOL
+                else semantic.reference_evaluate
+            )
+            result = evaluator(conn, project_id=pid, run_id=run, set_id=set_id)
     output(result, json)
 
 

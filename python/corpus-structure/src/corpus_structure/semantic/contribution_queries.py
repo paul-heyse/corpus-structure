@@ -29,6 +29,7 @@ def read_source_contributions(
     source_view_id: int | None = None,
     selected_task_id: int | None = None,
     method: str | None = None,
+    method_version: str | None = None,
     operation_key: str | None = None,
     operation_version: str | None = None,
     contribution_id: str | None = None,
@@ -120,6 +121,12 @@ def read_source_contributions(
         query = query.where(selected.c.unit_id == source_view_id)
     if method is not None:
         query = query.where(methods.c.name == method)
+    if method_version is not None:
+        query = query.where(methods.c.version == method_version).add_columns(
+            methods.c.version.label("method_version"),
+            cfg.c.config_hash.label("configuration_hash"),
+            origin.c.input_hash.label("input_hash"),
+        )
     reports = tuple(
         dict(row) for row in conn.execute(query.order_by(selected.c.id).limit(limit + 1)).mappings()
     )

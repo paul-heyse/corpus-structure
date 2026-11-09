@@ -10,6 +10,7 @@ import json
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field
+from decimal import Decimal
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,39 @@ PROTOCOL = "source-operation-reference-1"
 FRAME_PROTOCOL = "source-operation-frame-1"
 EVALUATION_PROTOCOL = "source-operation-evaluation-1"
 JUDGMENTS = ("supported", "unsupported", "ambiguous", "unassessed")
+COMPARISON_ARMS = ("baseline", "revised")
+_ARM_METHOD_FIELDS = {"method", "method_version", "operation_question", "operation_version"}
+
+
+def _comparison_arms(
+    value: Any, frames: Mapping[str, OperationEvaluationFrame]
+) -> dict[str, dict[str, dict[str, str]]]:
+    """A paired protocol binds native producers, independently of protected case answers."""
+    if (
+        not isinstance(value, Mapping)
+        or set(value) != set(COMPARISON_ARMS)
+        or any(
+            not isinstance(frame, OperationEvaluationFrameV2) or frame.direction != "source_first"
+            for frame in frames.values()
+        )
+    ):
+        raise ReferenceError(
+            "comparison requires baseline and revised arms on source-first V2 frames"
+        )
+    arms: dict[str, dict[str, dict[str, str]]] = {}
+    for arm, units in value.items():
+        if not isinstance(units, Mapping) or set(units) != set(frames):
+            raise ReferenceError("each comparison arm must bind every frozen source unit")
+        arms[arm] = {}
+        for unit, binding in units.items():
+            if (
+                not isinstance(binding, Mapping)
+                or set(binding) != _ARM_METHOD_FIELDS
+                or any(not isinstance(v, str) or not v.strip() for v in binding.values())
+            ):
+                raise ReferenceError("arm binding requires exact method and operation versions")
+            arms[arm][unit] = dict(binding)
+    return arms
 
 
 @dataclass(frozen=True)
@@ -303,7 +337,16 @@ def decode_authored(authored: bytes, frame: OperationEvaluationFrame) -> dict[st
 def _matches(actual: Mapping[str, Any], expected: Mapping[str, Any]) -> bool:
     """Partial object equality is rubric-declared; sequences retain order and membership."""
     for key, value in expected.items():
-        if key not in actual:
+        if key == "retrieval_target_id" and actual.get("kind") == "contextual_candidate_list":
+            if not any(row["target_id"] == value for row in actual["retrieval_candidates"]):
+                return False
+        elif (
+            key == "retrieval_selected_edge"
+            and actual.get("kind") == "contextual_relationship_decision"
+        ):
+            if not any(_matches(row, value) for row in actual["retrieval_selected_edges"]):
+                return False
+        elif key not in actual:
             return False
         if key == "endpoint_semantics":
             endpoints = actual[key]
@@ -336,6 +379,7 @@ def _interpretation_product(
 ) -> Mapping[str, Any]:
     """Expose independently judgeable fields without comparing model probabilities."""
     from corpus_structure.semantic.observations import source_python
+    from corpus_structure.semantic.value_codec import decimal_text
 
     result = source_python(row["value"])
     scope = result["assessed_scope"]
@@ -365,9 +409,12 @@ def _interpretation_product(
             {key: a[key] for key in ("pointer", "start", "end")} for a in anchors
         ]
         if result.get("normalization") == "native_proposal":
-            fields["interpretation_normalized_value"] = result["native_answer"][
-                result["answer_kind"]
-            ]
+            normalized = result["native_answer"][result["answer_kind"]]
+            fields["interpretation_normalized_value"] = normalized
+            if result["answer_kind"] == "number":
+                fields["interpretation_normalized_decimal"] = decimal_text(Decimal(str(normalized)))
+        if result.get("normalization") == "source_exact" and result["answer_kind"] == "number":
+            fields["interpretation_normalized_decimal"] = result["normalized_value"]
     return dict(row, **fields)
 
 
@@ -422,6 +469,7 @@ def score_cases(
     contributions: Sequence[Mapping[str, Any]],
     *,
     endpoint_closure: Sequence[Mapping[str, Any]] | None = None,
+    scoped_predictions: Mapping[str, frozenset[str]] | None = None,
 ) -> dict[str, Any]:
     from scipy.optimize import linear_sum_assignment
 
@@ -471,6 +519,10 @@ def score_cases(
             value
             for value in selected
             if value.get("kind") == case.contribution_kind
+            and (
+                scoped_predictions is None
+                or value["contribution_id"] in scoped_predictions.get(case.case_id, ())
+            )
             and _matches(value, case.candidate_selector)
             and (case.contribution_id is None or value["contribution_id"] == case.contribution_id)
             and any(
@@ -511,6 +563,7 @@ def score_cases(
                 case
                 for case in cases
                 if case.facet == facet
+                and (scoped_predictions is None or scoped_predictions.get(case.case_id))
                 and case.judgment in {"supported", "ambiguous"}
                 and case.source_state in {"stated", "unstated", "unresolved"}
             ),
@@ -558,6 +611,8 @@ def score_cases(
         matched = assignments.get(case.case_id)
         if case.judgment == "unassessed" or case.source_state == "uninspected":
             judgment, category = "unassessed", "uninspected"
+        elif scoped_predictions is not None and case.case_id not in scoped_predictions:
+            judgment, category = "unassessed", "prediction_scope_unavailable"
         elif case.judgment == "ambiguous" or case.source_state == "unresolved":
             judgment, category = (
                 "ambiguous",
@@ -579,6 +634,7 @@ def score_cases(
                     case.error_category or ("wrong_structure" if candidates else "missing_output")
                 )
             )
+        operation_product = case.contribution_kind in _RETRIEVAL_CASES
         results.append(
             dict(
                 case_id=case.case_id,
@@ -594,8 +650,21 @@ def score_cases(
                     if matched is not None and judgment == "supported"
                     else "not_captured"
                 ),
-                contribution_id=matched["contribution_id"] if matched else case.contribution_id,
-                candidate_ids=[value["contribution_id"] for value in candidates],
+                contribution_id=(
+                    matched["contribution_id"]
+                    if matched and not operation_product else case.contribution_id
+                ),
+                candidate_ids=[] if operation_product else [
+                    value["contribution_id"] for value in candidates
+                ],
+                **(
+                    dict(
+                        operation_product_id=matched["contribution_id"] if matched else None,
+                        candidate_operation_product_ids=[
+                            value["contribution_id"] for value in candidates
+                        ],
+                    ) if operation_product else {}
+                ),
                 explanation=case.explanation,
             )
         )
@@ -668,20 +737,68 @@ def score_cases(
         cases=results,
         absence_detection_facets=detection_facets,
         prediction_count=len(selected),
-        prediction_count_grain="unique_semantic_contribution_product",
+        prediction_count_grain=(
+            "unique_contribution_or_operation_product" if any(
+                row.get("kind") in _RETRIEVAL_CASES for row in selected
+            ) else "unique_semantic_contribution_product"
+        ),
         producer_observation_count=len(observed) if not missing_observation_lineage else None,
-        producer_observation_count_grain="unique_origin_task_and_contribution_id",
+        producer_observation_count_grain=(
+            "unique_origin_task_and_product_id" if any(
+                row.get("kind") in _RETRIEVAL_CASES for row in selected
+            ) else "unique_origin_task_and_contribution_id"
+        ),
         missing_producer_observation_lineage=missing_observation_lineage,
         quality_claim="not_established",
     )
 
 
 def compare_assessments(baseline: Mapping[str, Any], revised: Mapping[str, Any]) -> dict[str, Any]:
-    for key in ("protocol", "set_id", "reference_snapshot", "frame_digest"):
+    for key in ("protocol", "set_id", "release_id", "reference_snapshot", "frame_digest"):
         if baseline.get(key) != revised.get(key):
             raise ReferenceError(
                 "operation comparison requires same frozen source/rubric/reference cases"
             )
+    baseline_arm, revised_arm = baseline.get("comparison_arm"), revised.get("comparison_arm")
+    bound = baseline_arm is not None or revised_arm is not None
+    if bound and (
+        not isinstance(baseline_arm, Mapping)
+        or not isinstance(revised_arm, Mapping)
+        or (baseline_arm.get("name"), revised_arm.get("name")) != COMPARISON_ARMS
+        or not baseline_arm.get("binding_digest")
+        or baseline_arm["binding_digest"] != revised_arm.get("binding_digest")
+    ):
+        raise ReferenceError(
+            "operation comparison requires opposite arms of the same frozen binding"
+        )
+    if bound:
+        a_scope, b_scope = (
+            {
+                (unit["unit_id"], occurrence): scope["comparable_inputs"]
+                for unit in result["units"]
+                for occurrence, scope in unit.get("retrieval_scope", {}).items()
+                if scope["comparable_inputs"] is not None
+            }
+            for result in (baseline, revised)
+        )
+        if any(
+            canonical_bytes(a_scope[key]) != canonical_bytes(b_scope[key])
+            for key in a_scope.keys() & b_scope.keys()
+        ):
+            raise ReferenceError("retrieval arms differ in eligible inventory, encoding or budgets")
+        left, right = (
+            {
+                (unit["unit_id"], case_id): inputs
+                for unit in result["units"]
+                for case_id, inputs in unit.get("interpretation_scope", {}).items()
+            }
+            for result in (baseline, revised)
+        )
+        if any(
+            canonical_bytes(left[key]) != canonical_bytes(right[key])
+            for key in left.keys() & right.keys()
+        ):
+            raise ReferenceError("interpretation arms differ in focal or offered source inputs")
     a = {
         (unit["unit_id"], case["case_id"]): case
         for unit in baseline["units"]
@@ -705,9 +822,17 @@ def compare_assessments(baseline: Mapping[str, Any], revised: Mapping[str, Any])
             "unchanged",
         )
     }
+    if bound:
+        changes["not_comparable"] = []
     for identity in sorted(a):
         old, new = a[identity], b[identity]
-        if new["judgment"] in {"ambiguous", "unassessed"}:
+        if bound and old["judgment"] == "unassessed":
+            category = "not_comparable"
+        elif bound and old["judgment"] == "supported" and new["judgment"] in {
+            "ambiguous", "unassessed"
+        }:
+            category = "regressed"
+        elif new["judgment"] in {"ambiguous", "unassessed"}:
             category = "still_unresolved"
         elif old["judgment"] != "supported" and new["judgment"] == "supported":
             category = (
@@ -720,9 +845,15 @@ def compare_assessments(baseline: Mapping[str, Any], revised: Mapping[str, Any])
         changes[category].append(
             dict(unit_id=identity[0], case_id=identity[1], baseline=old, revised=new)
         )
-    return dict(
+    result: dict[str, Any] = dict(
         protocol="source-operation-comparison-1", changes=changes, quality_claim="not_established"
     )
+    if isinstance(baseline_arm, Mapping) and isinstance(revised_arm, Mapping):
+        result["comparison_arms"] = [
+            dict(run_id=baseline["run_id"], **baseline_arm),
+            dict(run_id=revised["run_id"], **revised_arm),
+        ]
+    return result
 
 
 def create_reference_set(
@@ -768,7 +899,7 @@ def create_reference_set(
         for frame in frames.values()
     ):
         raise ReferenceError("frame partition differs from reference set")
-    metadata = dict(
+    metadata: dict[str, Any] = dict(
         sampling,
         operation_protocol=PROTOCOL,
         partition=partition,
@@ -777,6 +908,8 @@ def create_reference_set(
         guideline_text=guideline_text,
         guideline_digest=sha256(guideline_text.encode()).hexdigest(),
     )
+    if "comparison_arms" in metadata:
+        metadata["comparison_arms"] = _comparison_arms(metadata["comparison_arms"], frames)
     result = _call(
         conn,
         "SELECT eval.create_operation_reference_set(:p,:r,:l,:s,:g,"
@@ -789,7 +922,18 @@ def create_reference_set(
         m=_json(metadata),
         u=_json(selected),
     ).scalar_one()
-    return dict(set_id=result, release_id=release_id, units=selected, sampling=metadata)
+    units = table("eval.reference_unit")
+    by_unit = dict(
+        conn.execute(
+            select(units.c.unit_key, units.c.id).where(units.c.set_id == result)
+        ).all()
+    )
+    return dict(
+        set_id=result,
+        release_id=release_id,
+        units=[dict(unit, unit_id=by_unit[unit["unit_key"]]) for unit in selected],
+        sampling=metadata,
+    )
 
 
 def author_packet(conn: Connection, unit_id: int) -> dict[str, Any]:
@@ -862,8 +1006,240 @@ def adjudication_packet(conn: Connection, unit_id: int) -> dict[str, Any]:
     )
 
 
+_RETRIEVAL_CASES = {"contextual_candidate_list", "contextual_relationship_decision"}
+
+
+def _retrieval_projection(frame, cases, predictions, operations, phases):
+    """Assess native lists and decisions at their occurrence, without publishing contributions."""
+    from corpus_structure.methods.contextual_embeddings import numeric_identity
+    from corpus_structure.semantic.contextual_storage import interpretation_candidates
+
+    occurrences = {
+        case.candidate_selector.get("retrieval_occurrence_id")
+        for case in cases
+        if case.contribution_kind in _RETRIEVAL_CASES
+    }
+    if any(not isinstance(occurrence, str) or not occurrence for occurrence in occurrences):
+        raise ReferenceError("contextual comparison cases must declare an exact occurrence")
+    carriers = {}
+    carrier_tasks = {}
+    for row in predictions:
+        if (
+            row["semantic_type"] != "contextual.located_mention"
+            or row["occurrence_id"] not in occurrences
+            or row["pin"] != frame.pin
+        ):
+            continue
+        key = (row["selected_task_id"], row["occurrence_id"])
+        if carrier_tasks.setdefault(row["occurrence_id"], row["selected_task_id"]) != key[0]:
+            raise ReferenceError("comparison arm has ambiguous tasks for one contextual occurrence")
+        if key in carriers and (
+            {a["anchor_id"] for a in carriers[key]["anchors"]}
+            != {a["anchor_id"] for a in row["anchors"]}
+        ):
+            raise ReferenceError("retained contextual carriers disagree on physical occurrence")
+        carriers[key] = row
+    products: list[dict[str, Any]] = []
+    scope: dict[str, Any] = {}
+    selected_occurrences = set()
+    for operation in operations:
+        report = operation.get("contextual_enrichment")
+        if report is None:
+            continue
+        task = operation["selected_task_id"]
+        for retained in report["candidate_lists"]:
+            occurrence = retained["occurrence_id"]
+            carrier = carriers.get((task, occurrence))
+            if carrier is None or carrier["operation_key"] != operation["operation_key"]:
+                continue
+            if occurrence in selected_occurrences:
+                raise ReferenceError("comparison arm repeats a contextual occurrence")
+            selected_occurrences.add(occurrence)
+            candidates = interpretation_candidates(
+                report, retained["list_id"], occurrence, tuple(carrier["anchors"])
+            )
+            matched_inventory = next(
+                item for item in report["inventories"]
+                if item["inventory_id"] == candidates.inventory_id
+            )
+            target_ids = {target["target_id"] for target in matched_inventory["targets"]}
+            question = f"contextual candidate retrieval for located occurrence {occurrence}"
+            phase_outcomes = [
+                item["outcome"]
+                for item in phases
+                if item["selected_task_id"] == task and item["question"] == question
+            ]
+            if len(phase_outcomes) != 1:
+                raise ReferenceError(
+                    "contextual comparison lacks a unique retained retrieval attempt"
+                )
+            retrieval_succeeded = phase_outcomes[0] == "succeeded"
+            common = dict(
+                retrieval_occurrence_id=occurrence,
+                anchors=carrier["anchors"],
+                occurrence_id=occurrence,
+                origin_task_id=carrier["origin_task_id"],
+            )
+            if retrieval_succeeded:
+                products.append(dict(
+                    common,
+                    kind="contextual_candidate_list",
+                    contribution_id=candidates.list_id,
+                    retrieval_outcome=retained["outcome"],
+                    retrieval_candidates=retained["candidates"],
+                ))
+            decisions = [
+                decision for decision in report["relationship_decisions"]
+                if decision["candidate_list_id"] == candidates.list_id
+                and decision["occurrence_id"] == occurrence
+            ]
+            if len(decisions) > 1:
+                raise ReferenceError(
+                    "contextual comparison repeats a retained relationship decision"
+                )
+            decision = decisions[0] if decisions else None
+            if decision is not None:
+                products.append(dict(
+                    common,
+                    kind="contextual_relationship_decision",
+                    contribution_id=decision["decision_id"],
+                    retrieval_outcome=decision["outcome"],
+                    retrieval_selected_edges=decision["selected_edges"],
+                ))
+            scope[occurrence] = dict(
+                comparable_inputs=dict(
+                    inventory_id=candidates.inventory_id,
+                    profile_id=retained.get("profile_id"),
+                    policy_id=retained["policy_id"],
+                    unique_target_budget=retained["unique_target_budget"],
+                    channel_budget=retained["channel_budget"],
+                    target_encodings=sorted(
+                        (
+                            vector["object_id"], vector["vector_id"],
+                            numeric_identity("assessment-target-encoding", vector["values"]),
+                        )
+                        for vector in report["vectors"]
+                        if vector["object_id"] in target_ids
+                        and vector["profile_id"] == retained.get("profile_id")
+                    ),
+                ) if retrieval_succeeded else None,
+                list_id=candidates.list_id,
+                retrieval_attempt=phase_outcomes[0],
+                ranked_targets=retained["candidates"],
+                decision=decision,
+            )
+        for selected_task, occurrence in carriers:
+            if selected_task != task or occurrence in scope:
+                continue
+            question = f"contextual candidate retrieval for located occurrence {occurrence}"
+            phase = [
+                item["outcome"]
+                for item in phases
+                if item["selected_task_id"] == task and item["question"] == question
+            ]
+            if len(phase) > 1:
+                raise ReferenceError("contextual comparison repeats a retained retrieval attempt")
+            scope[occurrence] = dict(
+                comparable_inputs=None,
+                list_id=None,
+                retrieval_attempt=phase[0] if phase else "unavailable",
+                ranked_targets=[],
+                decision=None,
+            )
+    return products, scope
+
+
+def _bound_case_scopes(frame, cases, predictions, products, operations, endpoint_closure):
+    """Resolve each frozen scope from actual observations; missing coverage stays unknown."""
+    from corpus_structure.semantic.observations import source_python
+
+    opportunities = {item.opportunity_id: item for item in frame.opportunities}
+    status = {
+        (item["selected_task_id"], item["operation_key"]): item["outcome"] for item in operations
+    }
+    interpreted = [
+        (row, source_python(row["value"]))
+        for row in predictions
+        if row["semantic_type"].startswith("interpretation.")
+        and status.get((row["selected_task_id"], row["operation_key"])) == "succeeded"
+    ]
+    closure = {row["contribution_id"]: row for row in endpoint_closure}
+    anchored = [
+        _comparison_product(row, closure)
+        for row in predictions
+        if not row["semantic_type"].startswith("interpretation.")
+        and row["pin"] == frame.pin
+        and status.get((row["selected_task_id"], row["operation_key"])) == "succeeded"
+    ]
+    scoped: dict[str, frozenset[str]] = {}
+    inputs: dict[str, str] = {}
+    for case in cases:
+        opportunity = opportunities.get(case.case_id)
+        if opportunity is None or opportunity.source_view_id != frame.pin.get("source_view_id"):
+            raise ReferenceError("comparison case must bind its exact primary-view opportunity")
+        if case.contribution_kind in _RETRIEVAL_CASES:
+            occurrence = case.candidate_selector["retrieval_occurrence_id"]
+            rows = [
+                row
+                for row in products
+                if row["kind"] == case.contribution_kind
+                and row["retrieval_occurrence_id"] == occurrence
+                and any(
+                    _case_anchors(case, row) == set(anchors)
+                    for anchors in (case.anchor_ids, *case.permissible_anchor_sets)
+                )
+            ]
+        elif interpreted:
+            relevant = [
+                (row, value)
+                for row, value in interpreted
+                if row["pin"] == frame.pin
+                and value["assessed_scope"]["pin"] == frame.pin
+                and tuple(value["assessed_scope"]["projection_extent"])
+                == (opportunity.start, opportunity.end)
+                and (
+                    (question := case.candidate_selector.get("interpretation_question_key"))
+                    is None or value["question_key"] == question
+                )
+            ]
+            if len({row["selected_task_id"] for row, _ in relevant}) > 1:
+                raise ReferenceError(
+                    "comparison arm has ambiguous tasks for one interpretation scope"
+                )
+            rows = [row for row, _ in relevant]
+            if relevant:
+                declared_inputs = [
+                    dict(
+                        question_key=value["question_key"],
+                        candidates=value["candidates"],
+                        focus=value.get("focus"),
+                        retrieval=value.get("retrieval"),
+                    )
+                    for _, value in sorted(relevant, key=lambda item: item[1]["question_key"])
+                ]
+                inputs[case.case_id] = sha256(canonical_bytes(declared_inputs)).hexdigest()
+        else:
+            rows = [
+                row
+                for row in anchored
+                if (anchor_ids := _case_anchors(case, row))
+                and any(
+                    anchor_ids == set(anchors)
+                    for anchors in (case.anchor_ids, *case.permissible_anchor_sets)
+                )
+            ]
+        if rows:
+            scoped[case.case_id] = frozenset(row["contribution_id"] for row in rows)
+    return scoped, inputs
+
+
 def reference_evaluate(
-    conn: Connection, *, project_id: str, run_id: int, set_id: int
+    conn: Connection,
+    *,
+    project_id: str,
+    run_id: int,
+    set_id: int,
+    comparison_arm: str | None = None,
 ) -> ReferenceReport:
     from corpus_structure.semantic.contribution_queries import read_source_contributions
     from corpus_structure.semantic.interpretation_questions import declared_families
@@ -890,6 +1266,14 @@ def reference_evaluate(
         .mappings()
         .all()
     )
+    frames = {unit["unit_key"]: decode_frame(unit["context"][0]) for unit in selected}
+    arms = None
+    if "comparison_arms" in definition["sampling"]:
+        arms = _comparison_arms(definition["sampling"]["comparison_arms"], frames)
+        if comparison_arm is None or comparison_arm not in arms:
+            raise ReferenceError("choose the frozen baseline or revised comparison arm")
+    elif comparison_arm is not None:
+        raise ReferenceError("comparison arm is not frozen in this operation reference set")
     run_views = {unit["source_view_id"] for unit in source_units(conn, run_id)}
     missing = {unit["source_view_id"] for unit in selected} - run_views
     if missing:
@@ -904,10 +1288,16 @@ def reference_evaluate(
     interpretation_questions = declared_families(prepared.registry_rows)
     reports = []
     for unit in selected:
-        frame = decode_frame(unit["context"][0])
+        frame = frames[unit["unit_key"]]
+        arm = arms[comparison_arm][unit["unit_key"]] if arms and comparison_arm else None
+        question = arm["operation_question"] if arm else frame.operation_question
+        version = arm["operation_version"] if arm else frame.operation_version
+        method = arm["method"] if arm else None
+        method_version = arm["method_version"] if arm else None
         reference = read_pass(
             conn, frozen[unit["id"]]["pass_id"], frame_id=frozen[unit["id"]]["frame_id"]
         )
+        cases = reference["payload"]["cases"]
         inventory = read_source_contributions(
             conn,
             prepared=prepared,
@@ -915,6 +1305,8 @@ def reference_evaluate(
             source_view_id=unit["source_view_id"],
             cut_id=completed["cut_id"],
             limit=10000,
+            method=method,
+            method_version=method_version,
         )
         if inventory.more:
             raise ReferenceError("operation summary capture exceeds bounded source inventory")
@@ -925,8 +1317,9 @@ def reference_evaluate(
             dict(value)
             for value in inventory.operations
             if report_views.get(value["selected_task_id"]) == unit["source_view_id"]
-            and value["question"] == frame.operation_question
-            and value["operation_version"] == frame.operation_version
+            and value["question"] == question
+            and value["operation_version"] == version
+            and (arm is None or value["cut_member"])
         ]
         operation_keys = {value["operation_key"] for value in operations}
         assessed_extents = (
@@ -938,9 +1331,8 @@ def reference_evaluate(
             if (
                 isinstance(frame, OperationEvaluationFrameV2)
                 and frame.direction == "source_first"
-                and frame.operation_question in interpretation_questions
-                and not frame.anchor_ids
-                and not frame.anchor_scopes
+                and question in interpretation_questions
+                and (arm is not None or (not frame.anchor_ids and not frame.anchor_scopes))
             )
             else set()
         )
@@ -970,17 +1362,25 @@ def reference_evaluate(
             else None,
             anchor_endpoint_roles=endpoint_roles,
             contribution_ids=frame.contribution_ids if frame.direction == "output_first" else None,
+            method=method,
+            method_version=method_version,
         )
         if captured.more:
             raise ReferenceError(
                 "operation selected contribution capture exceeds bounded source inventory"
             )
-        predictions = list(captured.contributions)
+        selected_attempts = {
+            (value["selected_task_id"], value["operation_key"]) for value in operations
+        }
+        predictions = [
+            row for row in captured.contributions
+            if arm is None or (row["selected_task_id"], row["operation_key"]) in selected_attempts
+        ]
         if assessed_extents:
             predictions = [
                 row
                 for row in predictions
-                if row["semantic_type"] == f"interpretation.{frame.operation_question}"
+                if row["semantic_type"] == f"interpretation.{question}"
                 and tuple(source_python(row["value"])["assessed_scope"]["projection_extent"])
                 in assessed_extents
             ]
@@ -1039,8 +1439,23 @@ def reference_evaluate(
         if endpoints is not None and endpoints.more:
             raise ReferenceError("operation endpoint closure exceeds bounded source inventory")
         closure = (*predictions, *(endpoints.contributions if endpoints is not None else ()))
+        scope_fields: dict[str, Any] = {}
+        scoped = None
+        report_products = []
+        if arm is not None:
+            if any(case.contribution_kind in _RETRIEVAL_CASES for case in cases):
+                report_products, scope_fields["retrieval_scope"] = _retrieval_projection(
+                    frame, cases, predictions, captured.operations, inventory.operations
+                )
+            scoped, scope_fields["interpretation_scope"] = _bound_case_scopes(
+                frame, cases, predictions, report_products, operations, closure
+            )
         report = score_cases(
-            frame, reference["payload"]["cases"], predictions, endpoint_closure=closure
+            frame,
+            cases,
+            (*predictions, *report_products),
+            endpoint_closure=closure,
+            scoped_predictions=scoped,
         )
         reports.append(
             dict(
@@ -1054,9 +1469,10 @@ def reference_evaluate(
                     if value["source_view_id"] == unit["source_view_id"]
                 ],
                 prediction_ids=[value["contribution_id"] for value in predictions],
+                **scope_fields,
             )
         )
-    result = dict(
+    result: dict[str, Any] = dict(
         protocol=EVALUATION_PROTOCOL,
         set_id=set_id,
         run_id=run_id,
@@ -1068,6 +1484,13 @@ def reference_evaluate(
         quality_claim="not_established",
         population_claim="declared_cases_only",
     )
+    if arms and comparison_arm is not None:
+        result["comparison_arm"] = dict(
+            name=comparison_arm,
+            binding_digest=sha256(canonical_bytes(arms)).hexdigest(),
+            producers=arms[comparison_arm],
+            cut_id=completed["cut_id"],
+        )
     identity = _call(
         conn,
         "SELECT eval.record_operation_reference_evaluation(:p,:r,:s,"
@@ -1099,10 +1522,12 @@ def operation_assessment_native_sql() -> str:
 
 
 def read_evaluation(conn: Connection, *, project_id: str, evaluation_id: int) -> Mapping[str, Any]:
-    evaluations = table("eval.reference_evaluation")
+    evaluations, sets = table("eval.reference_evaluation"), table("eval.reference_set")
     row = (
         conn.execute(
-            select(evaluations).where(
+            select(evaluations, sets.c.sampling)
+            .join(sets, sets.c.id == evaluations.c.set_id)
+            .where(
                 evaluations.c.id == evaluation_id, evaluations.c.project_id == project_id
             )
         )
@@ -1116,7 +1541,19 @@ def read_evaluation(conn: Connection, *, project_id: str, evaluation_id: int) ->
     ).hexdigest()
     if digest != row["content_digest"]:
         raise ReferenceError("immutable operation evaluation digest differs")
-    return row["result"]
+    result = row["result"]
+    arm = result.get("comparison_arm")
+    frozen_arms = row["sampling"].get("comparison_arms")
+    if (arm is not None or frozen_arms is not None) and (
+        not isinstance(arm, Mapping)
+        or not isinstance(frozen_arms, Mapping)
+        or arm.get("name") not in COMPARISON_ARMS
+        or arm.get("producers") != frozen_arms.get(arm["name"])
+        or arm.get("binding_digest") != sha256(canonical_bytes(frozen_arms)).hexdigest()
+        or arm.get("cut_id") != _completed(conn, row["run_id"], project_id)["cut_id"]
+    ):
+        raise ReferenceError("retained operation evaluation differs from its frozen arm or cut")
+    return result
 
 
 def review_export(conn: Connection, *, project_id: str, set_id: int) -> dict[str, Any]:

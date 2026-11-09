@@ -9,6 +9,7 @@ import pytest
 from semantic.conftest import semantic_db_engine as semantic_db_engine
 from semantic.conftest import semantic_evaluator_engine as semantic_evaluator_engine
 from semantic.conftest import semantic_writer_engine as semantic_writer_engine
+from semantic.native_record_fixtures import complete_contributions, contribution_drafts
 from semantic.native_record_fixtures import private_source as private_source
 from semantic.reference_scenarios import expected_reading
 from semantic.reference_scenarios import private_source_options as private_source_options
@@ -23,13 +24,15 @@ from corpus_structure.evaluate.operation_assessment import (
     OperationEvaluationFrame,
     adjudication_packet,
     author_packet,
+    compare_assessments,
     create_reference_set,
+    read_evaluation,
     record_pass,
     reference_evaluate,
     review_export,
 )
 from corpus_structure.evaluate.record_references import assign_origin, source_binding
-from corpus_structure.evaluate.semantic import split_documents
+from corpus_structure.evaluate.semantic import ReferenceError, split_documents
 from corpus_structure.evaluate.split import SplitConfig
 from corpus_structure.semantic.domain_operations import consolidate_cut
 from corpus_structure.semantic.identity import canonical_bytes
@@ -37,7 +40,10 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import seal_cut
 
 
-def freeze(conn, case, partition="development", label="operation-source-only", *, frame_version=1):
+def freeze(
+    conn, case, partition="development", label="operation-source-only", *,
+    frame_version=1, comparison=None,
+):
     uri = conn.scalar(
         select(table("kb.document").c.source_uri).where(
             table("kb.document").c.id == case.view_row["document_id"]
@@ -106,7 +112,8 @@ def freeze(conn, case, partition="development", label="operation-source-only", *
             inspected_scope="two-cell native source control",
             opportunities=(
                 OperationSourceOpportunity(
-                    "cell-opportunity-without-output", case.view, 0, 2, "location", "stated"
+                    "cell-value" if comparison else "cell-opportunity-without-output",
+                    case.view, 0, 2, "value" if comparison else "location", "stated",
                 ),
             ),
         )
@@ -127,6 +134,12 @@ def freeze(conn, case, partition="development", label="operation-source-only", *
             inclusion_probabilities={frame.unit: 1},
             provenance={"selection": "source-only controlled cell"},
             cohort="native-controls",
+            **(
+                {"comparison_arms": {
+                    arm: {frame.unit: binding} for arm, binding in comparison.items()
+                }}
+                if comparison else {}
+            ),
         ),
     )
     units = table("eval.reference_unit")
@@ -309,6 +322,63 @@ def test_heldout_review_export_retains_sealed_inventory_only(
         exported = review_export(conn, project_id="private-records", set_id=created["set_id"])
         assert exported["inventory"][0]["adjudicated"]
         assert exported["judgments"] == [] and not exported["judgments_exposed"]
+
+
+def test_native_bound_pair_retains_the_actual_operation_and_does_not_credit_uncovered_scope(
+    private_source, semantic_evaluator_engine
+):
+    source = private_source
+    with source.writer.begin() as conn:
+        complete_contributions(source, conn, contribution_drafts(source))
+        source.cut = seal_cut(conn, source.run, "paired-source-frame", final=False)
+    binding = dict(
+        method=source.method.name,
+        method_version=source.method.version,
+        operation_question="inspect_cell",
+        operation_version="1",
+    )
+    with semantic_evaluator_engine.begin() as conn:
+        created, unit, frame, payload = freeze(
+            conn, source, frame_version=2,
+            comparison={
+                "baseline": dict(binding, operation_version="unavailable"),
+                "revised": binding,
+            },
+        )
+        expected: dict[str, Any] = payload["cases"][0]
+        expected.update(
+            contribution_kind="occurrence",
+            alternatives=[{"semantic_type": "table.cell_value", "source_pieces": ["12"]}],
+        )
+        ids = []
+        for kind in ("A", "B", "C"):
+            payload["adjudication_passes"] = ids if kind == "C" else []
+            identity = record_pass(
+                conn, unit_id=unit, pass_kind=kind, actor=f"paired-source-{kind}",
+                authored=canonical_bytes(payload), frame=frame,
+            )
+            if kind != "C":
+                ids.append(identity)
+    with source.writer.begin() as conn:
+        final = seal_cut(conn, source.run, "paired-predictions", final=True)
+    consolidate_cut(source.writer, final, "paired-operation-assessment")
+    with semantic_evaluator_engine.begin() as conn:
+        args = dict(project_id="private-records", run_id=source.run, set_id=created["set_id"])
+        with pytest.raises(ReferenceError, match="frozen baseline or revised"):
+            reference_evaluate(conn, **args)
+        baseline = reference_evaluate(conn, comparison_arm="baseline", **args)
+        revised = reference_evaluate(conn, comparison_arm="revised", **args)
+        assert baseline.result["units"][0]["cases"][0]["judgment"] == "unassessed"
+        assert revised.result["units"][0]["cases"][0]["judgment"] == "supported"
+        assert revised.result["units"][0]["producer_operations"][0]["question"] == "inspect_cell"
+        assert revised.result["comparison_arm"]["cut_id"] == final
+        grades = [read_evaluation(conn, project_id="private-records", evaluation_id=grade.id)
+                  for grade in (baseline, revised)]
+        changes = compare_assessments(*grades)["changes"]
+        assert [entry["case_id"] for entry in changes["not_comparable"]] == ["cell-value"]
+        assert not changes["corrected"] and not changes["newly_captured"]
+        with pytest.raises(ReferenceError, match="opposite arms"):
+            compare_assessments(grades[1], grades[0])
 
 
 def test_native_conditional_proposal_endpoint_cases_preserve_kind_and_source_scope(
