@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-08. Development runs `semantic_dma_audit_current`. The private full-book candidate result reached cut 517. The project remains unselected._
+_Updated 2026-11-08. Development runs `semantic_pm2_parser_methods`. The private full-book M1 result reached cut 517 and the private parser run reached cut 520. The project remains unselected._
 
 ## Current authority
 
@@ -11,7 +11,8 @@ _Updated 2026-11-08. Development runs `semantic_dma_audit_current`. The private 
 - The [DMA audit repairs](docs/plans/domain-model-alignment_2026-11-08.md#qualification-pause--2026-11-08) are deployed to development. Run 407 completed all 29 views. On 2026-11-08, `uv run ci test --json` was interrupted at the operator's request pending a Chandra change. The focused authoring tests and `uv run ci check --json` passed. Evaluation and selection remain open.
 - The [broad design audit](docs/design_review/audit/README.md#baseline) records diagnostic source inspection at `67cbe680e` on 2026-11-08. `uv run ci docs check` and `just turn-end` passed. Product qualification was `not_run`.
 - The [GitHub visitor follow-on](docs/plans/github-visitor-experience_2026-11-08.md#ghv-follow-on-acceptance) is live. On 2026-11-08, the docs workflow and both live browser sizes passed. The corpus index links to 1,409 verified source files in Git LFS. The supplied How it works image passed desktop and mobile preview checks in the local revision.
-- The [M2 foundation](docs/plans/production-milestone-two_2026-11-08.md#foundation-execution) froze cut 514 and private comparator cut 517. The source maps and supervised native profiles are implemented. On 2026-11-08 all four CUDA profiles ran under the shared handoff, and the private d1/Dipo Reader journey passed claim reassignment and exact reuse. The [foundation evidence](docs/design_review/evidence/2026-11-08_pm2-foundation/README.md) owns the scoped checks. DMA-13 owns evaluated cutover.
+- The [M2 foundation](docs/plans/production-milestone-two_2026-11-08.md#foundation-execution) uses cut 514 for source-only expectations and cut 517 for the finished private M1 comparator over the same views. On 2026-11-08 all four CUDA profiles ran under the shared handoff, and the private d1/Dipo Reader journey passed claim reassignment and exact reuse. The [foundation evidence](docs/design_review/evidence/2026-11-08_pm2-foundation/README.md) owns the scoped checks. DMA-13 owns evaluated cutover.
+- The [M2 parser execution](docs/plans/production-milestone-two/linguistic-referential-discourse.md#parser-execution) sealed cut 520, verified exact replay at cut 521, and produced fresh HanLP results at cut 522 after migration. On 2026-11-08 the focused parser, witness, native closure, fault and repository checks passed. The [qualification account](docs/design_review/evidence/2026-11-08_pm2-parsers/README.md#development-deployment-and-qualification) records three remaining ordinary failures. PM2-07 is the next independent provider package.
 
 ## Delivered and assessed
 
@@ -51,8 +52,7 @@ _Updated 2026-11-08. Development runs `semantic_dma_audit_current`. The private 
 - [Full-book intake](docs/plans/next-corpus-enrichment_2026-11-07.md#full-book-execution)
   completed Standard cut 413 and combined cut 431. All 29 scoped views and nine contextual
   cues published. LLM review covers all 518 pages and retained definition and artifact outputs.
-- The [Chandra comparator follow-up](docs/plans/chandra-2-post-nemotron_2026-11-08.md#comparator-execution-fit-follow-up)
-  owns `semantic_chandra_pdf_ancestry`, book run 377 at cut 492 and projection adoption 378 at cut 493.
+- The [Chandra comparator follow-up](docs/plans/chandra-2-post-nemotron_2026-11-08.md#comparator-execution-fit-follow-up) owns `semantic_chandra_pdf_ancestry`, book run 377 at cut 492 and projection adoption 378 at cut 493.
   The p416 Reader, source search and packet passed.
 - The [repaired shadow execution](docs/plans/chandra-2-post-nemotron_2026-11-08.md#repaired-comparator-shadow-execution) owns the 535-request frozen scope and its settled results.
   Run 381 sealed cut 496 with its settled p416 inference. The 63 affected CI checks, retry fixture, types, live dispatch and explicit MCP packet passed.

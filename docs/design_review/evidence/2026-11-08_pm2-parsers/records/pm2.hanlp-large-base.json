@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "pm2.hanlp-large-base",
+  "title": "Matched native HanLP Large and Base comparison",
+  "group": "pm2-parsers",
+  "package": "PM2-03",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "How do the pinned Large and Base variants realize the same five heads over identical canonical source scopes?",
+  "answers": [
+    "PM2-03",
+    "PM2-06"
+  ],
+  "method": "Verify each staged archive and backbone identity and run one isolated four-thread FP32 CPU process per variant. Use cut 514, view 383, exact scopes [811,907) and [811,1018), identical canonical tokens, the same five heads, and a first and repeated inference per scope. Measure model-load time, process peak RSS, and inference time. Validate native head products against authenticated scope mappings.",
+  "commands": [
+    "unzip -tq build/models/pm2/hanlp-base/en_tok_lem_pos_ner_srl_udep_sdp_con_modernbert_base_prepend_false_20241229_053838.zip",
+    "uv run python docs/design_review/evidence/2026-11-08_pm2-parsers/hanlp_base.py --base-sha256 cfb7e94782fc1277c5d094210185e8e83c64e8f990cc2f98e8525d66f5dd6782"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "hanlp_base.py",
+      "role": "Executed matched diagnostic source",
+      "sha256": "8bc0ce619763abe4062fe5d4fc3c870f1ebfc7e9316001111f5997bae71d3cd8"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/hanlp-large-base.jsonl",
+      "role": "Native responses, mapped products and local process measurements",
+      "sha256": "bb33988d0e5f7fa8ba3a02bd93460de786836adc072f6d75f75221172d5f565f"
+    }
+  ],
+  "depends_on": [
+    "2026-11-08_pm2-foundation/pm2.development-baseline",
+    "2026-11-08_pm2-foundation/pm2.native-profile-controls"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Both variants produced two and three private predicate frames, twelve and thirty constituent products, and a qualifier cue on the second scope. Large loaded in 10.63 seconds at peak RSS 3,988,432 KiB. Base loaded in 4.53 seconds at peak RSS 2,050,748 KiB. These are local observations on two short, previously exposed scopes. Held-out semantic quality and a production profile choice require separate evidence.",
+  "consumed_by": [
+    "PM2-03",
+    "PM2-06"
+  ]
+}

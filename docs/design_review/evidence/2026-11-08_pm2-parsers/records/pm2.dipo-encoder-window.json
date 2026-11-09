@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "id": "pm2.dipo-encoder-window",
+  "title": "Pinned Dipo encoder window and effective position controls",
+  "group": "pm2-parsers",
+  "package": "PM2-05",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "How does the locked Dipo encoder realize windows near the tokenizer and backbone position declarations?",
+  "answers": [
+    "PM2-05",
+    "PM2-06"
+  ],
+  "method": "Verify the staged Dipo and Ettin artifact manifests, load the exact offline CPU profile, and use native DMRST encoding without invoking the EDU decoder. Observe each real backbone forward's input shape and attention mask and check finite output alignment.",
+  "commands": [
+    "timeout 360s services/pm2-dipo/.venv/bin/python -I docs/design_review/evidence/2026-11-08_pm2-parsers/dipo_window_probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "dipo_window_probe.py",
+      "role": "Executed diagnostic source",
+      "sha256": "d06d859f6a232519b11fb00578eb7cfc81025f9705ef8b07c1dedcad589bc138"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/dipo-window.jsonl",
+      "role": "Real CPU window shapes, attended lengths and finite alignment",
+      "sha256": "371abb6ff8da649027e5ede79a23c617227ea525048b78484b325a01bec83d24"
+    },
+    {
+      "path": "raw/dipo-window.stderr",
+      "role": "Locked model startup diagnostics",
+      "sha256": "60dc958d2b8e155a42e0521b3800859825329690964c419ced5c7811e15ad82d"
+    }
+  ],
+  "depends_on": [
+    "2026-11-08_pm2-foundation/pm2.native-profile-controls"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Single attended windows of 7,999, 8,000, and 8,192 positions produced finite aligned outputs. An 8,191-content-token input used two windows of padded width 8,192 with attended lengths 8,192 and 103, then produced exactly 8,191 finite aligned embeddings. This bounded CPU diagnostic covers encoder behavior. The ordinary 2,048-token and 128-EDU parser profile retains its own bounds and qualification.",
+  "consumed_by": [
+    "PM2-05",
+    "PM2-06"
+  ]
+}

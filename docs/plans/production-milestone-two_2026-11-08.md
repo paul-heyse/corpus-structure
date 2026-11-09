@@ -1,6 +1,6 @@
 # Production milestone two implementation plan
 
-**Status: Foundation execution · 2026-11-08.** This coordinator owns PM2-00–PM2-12, shared decisions,
+**Status: Private parser execution · 2026-11-08.** This coordinator owns PM2-00–PM2-12, shared decisions,
 scheduled M2 review disposition and milestone qualification. The [functional review](../functional_reviews/production-milestone-two_2026-11-08.md)
 at `971111baf` governs the recommendation baseline. Its [two-pass design input](../target-pipeline-design/production-milestone-two.md)
 was recorded at `4c71fa3f4`. The five model guides were inspected at
@@ -8,7 +8,8 @@ was recorded at `4c71fa3f4`. The five model guides were inspected at
 The Transformers and Sentence Transformers guides were recorded at
 `f6b8612be`. Consuming packages cite their mechanisms and source. This
 series records the operator's corpus and design boundary. The foundation receipts
-record the implemented and qualified scope of PM2-00–02. PM2-03 onward remains proposed.
+record the qualified scope of PM2-00–02. The [parser execution account](production-milestone-two/linguistic-referential-discourse.md#parser-execution)
+owns the implementation and scoped assessment for PM2-03–05. PM2-06 onward remains proposed.
 
 ## Target and foundation
 
@@ -44,15 +45,18 @@ on this exposed source establish textbook behavior within the tested release.
 | Released operation/dependency model, immutable native task receipts, shared PostgreSQL admission, and protected references | Use these owners for effective profiles, operation outputs, retained witnesses and assessment. Keep observation, selection and admission separate. Maintain the current-only producer/consumer rule with supported archived reads. [Current-only decision](../adr/0067-witnessed-current-only-cutover.md) · [Semantic admission](domain-model-alignment/semantic-admission.md) |
 | E5 and Qwen role-aware encoders, frozen candidate inventories, typed relationship selection, and contribution and dossier reads | Extend anchored context and candidate availability through the same pipeline. A model score or extra candidate does not confer semantic standing. Make a separate consumer only if existing typed reads cannot deliver the required product. [Architecture map](../design/README.md) |
 
-**Development readiness, 2026-11-08.** The repaired development revision
-`semantic_dma_audit_current` is deployed and its release is archived and admitted.
-Source-only run 404 at cut 514 supplies the current source views. Private run 407
-at cut 517 settled all 29 annotation and 29 candidate tasks and supplies M1
-execution evidence at those scopes. Its grading attempt paired the full selected
+**Development readiness, 2026-11-08.** Development reached
+`semantic_pm2_parser_methods` and admitted the private parser release.
+Run 404 at cut 514 supplies the source-only view used to write expectations.
+Private run 407 at cut 517 selected the same retained views and settled all 29
+annotation and 29 candidate tasks. It supplies the authenticated completed-source
+references for parser execution and M1 execution evidence at those scopes.
+Its grading attempt paired the full selected
 view's predictions with a one-sentence reference and produced no evaluation.
 The project has no active release or selected result. Final qualification and
 evaluated cutover remain with DMA-13 after the explicit-only Chandra change.
-[Deployment, private runs and grading](domain-model-alignment_2026-11-08.md#audit-repair-execution) ·
+[Parser development deployment](../design_review/evidence/2026-11-08_pm2-parsers/records/pm2.parser-development-deployment.json) ·
+[M1 deployment, private runs and grading](domain-model-alignment_2026-11-08.md#audit-repair-execution) ·
 [Qualification pause](domain-model-alignment_2026-11-08.md#qualification-pause--2026-11-08)
 
 ## Shared decisions and sequencing
@@ -85,7 +89,7 @@ operator before dependent design or work relies on it. [Review cadence](../desig
 
 ## Execution queue
 
-The foundation entries have execution dispositions below. The availability column names the earliest dependency for
+The foundation and private parser entries have execution dispositions in their owning sections. The availability column names the earliest dependency for
 implementation or evidence, rather than making a whole companion a prerequisite.
 
 | Package | Consumes | Delivers and closes when |
@@ -148,9 +152,9 @@ The existing task, result and host GPU owners retain their custody.
 | PM2-R01 | Addressed by PM2-01. Retain exact selected projection separately from physical occurrence and test the admitted result path. |
 | PM2-R02 | PM2-02 native profile and shared custody controls passed within the retained scope. The mixed-profile Reader and exact reassignment control passed. Provider packages own expanded scopes. |
 | [O01](../functional_reviews/production-milestone-two_2026-11-08.md#O01) | Initial PM2-01. Exact source, identity and availability survive inference, composition and reads. |
-| [O02](../functional_reviews/production-milestone-two_2026-11-08.md#O02) | Initial PM2-03, controlled extra heads and migration evidence under PM2-06. |
-| [O03](../functional_reviews/production-milestone-two_2026-11-08.md#O03) | Initial PM2-04 with supplied-mention diagnostics. Joint mode, score access, speaker and seeding conditions in PM2-06. |
-| [O04](../functional_reviews/production-milestone-two_2026-11-08.md#O04) | Initial PM2-05 and context use in PM2-08. Larger scopes and tree revision decisions in PM2-06. |
+| [O02](../functional_reviews/production-milestone-two_2026-11-08.md#O02) | Initial PM2-03 retained frames, cues and constituency. Extra heads and migration evidence remain under PM2-06. |
+| [O03](../functional_reviews/production-milestone-two_2026-11-08.md#O03) | Initial PM2-04 retained separate mention and cluster products with a supplied-mention diagnostic. PM2-06 owns conditional joint mode, score access, speaker and seeding. |
+| [O04](../functional_reviews/production-milestone-two_2026-11-08.md#O04) | Initial PM2-05 retained ordered trees and paired EDU diagnostics. PM2-08 owns composed context use. PM2-06 owns larger scopes and tree revision decisions. |
 | [O05](../functional_reviews/production-milestone-two_2026-11-08.md#O05) | Initial PM2-07 with source-first and candidate-centered paths. PM2-09 supplies scoped relation candidates. Optional tasks and challengers retain triggers. |
 | [O06](../functional_reviews/production-milestone-two_2026-11-08.md#O06) | Initial PM2-08 and PM2-09. Product meaning, scope, model dependence and admission remain explicit. |
 | [O07](../functional_reviews/production-milestone-two_2026-11-08.md#O07) | Initial PM2-11 and assembled PM2-12. Compare independent results and report coverage before claims. |
@@ -171,4 +175,5 @@ Completion requires a qualified four-profile release within the declared textboo
 a useful independently inspectable partial result and evidence of better named operations
 with preservation on their paired controls. The assessment companion owns exact
 release criteria and separates qualification, measured benefit, and live selection.
-The next provider packages are PM2-03–05 and PM2-07 under their declared dependencies.
+PM2-07 is the next independent provider package. The parser execution account identifies
+the remaining evidence for PM2-03–05 and the boundary with PM2-06, PM2-08 and PM2-11.

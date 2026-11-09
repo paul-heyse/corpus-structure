@@ -8,6 +8,61 @@ reasoning, and implementation plans own scheduled work and closure evidence.
 
 <a id="baseline"></a>
 
+<a id="pm2-parser-refresh"></a>
+
+## Production milestone two parser refresh · 2026-11-08
+
+**Implemented source inspected.** Audited source
+`fb3709f4d43b697f6acc08d1fa6b783688343b83`. This refresh excludes concurrent
+edits and follows the foundation changes into task admission, native source
+selection, contribution publication and retained reads. The prior audit
+continues to cover the inherited architecture. The applicable standard is
+core 3.3, heuristics 1.0, code-intelligence 1.4 and the repository binding.
+Test-assessment 1.2 informs the use of retained verification evidence.
+
+- **Private provider custody.** The foundation compares the live attempt,
+  holder, lease, release, profile and effective input before inference. Its
+  settlement uses the existing claim owner. The resident process follows the
+  shared GPU handoff and bounds IPC and lifetime. Historical CPU and CUDA
+  receipts establish the tested profiles and scope. These controls leave the
+  named parser operations and package-level comparison work to the next
+  stage. [Claim adapter](../../../python/corpus-structure/src/corpus_structure/orchestrate/pm2.py#L26) ·
+  [Foundation receipts](../evidence/2026-11-08_pm2-foundation/README.md)
+- **Native products and located products.** The foundation retains the raw
+  reply and maps HanLP roots, Maverick mentions and Dipo EDU extents to source
+  evidence. The separately indexed products are individual source occurrences.
+  Retention at this baseline stops at raw replies and individual occurrences.
+  A consumer seeking HanLP argument and cue-host membership, Maverick cluster
+  membership, or Dipo ordered child yields would need to interpret the provider
+  reply and reestablish source bindings. Existing
+  contribution and predicate validators already own local endpoint closure.
+  The current strong definition basis still identifies the original M1
+  producer. These are distinct boundaries (FP-02/04, DP-02/03/07, CI-02/11).
+  [Foundation result](../../../python/corpus-structure/src/corpus_structure/methods/pm2_result.py#L70) ·
+  [Contribution enforcement](../../../python/corpus-structure/src/corpus_structure/semantic/contributions.py#L69)
+- **Scoped selection and read cardinality.** The named historical source
+  reference guard checks an original finished run, final cut, result revision,
+  native product and view and recipe digests. The same-release source result
+  shortcut expects one row per method and view. Contribution inspection already
+  selects by operation or selected task. Multiple parser scopes per view require
+  that distinction to reach the consumer (FP-05/06, DP-04/09, CI-08/13).
+  [Source custody](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L2) ·
+  [Result cardinality](../../../python/corpus-structure/src/corpus_structure/semantic/operations.py#L1302) ·
+  [Reader selection](../../../python/corpus-structure/src/corpus_structure/serve/contributions.py#L29)
+- **Distinct Dipo input universes.** Interface-checked against installed
+  `dipo==0.2.1`. Raw parsing reconstructs EDUs through `edus_from_breaks`,
+  while `predict_both` reconstructs from supplied EDUs through
+  `tokenize_document(return_source=True)`. The current raw adapter bounds
+  token encoding and recovered EDUs. Its recovery hook is outside the paired
+  path, so that hook alone cannot establish paired-arm mapping or decoder
+  admission (FP-05/07, DP-08/15/20, CI-02/05/06).
+  [Current raw adapter](../../../python/corpus-structure/src/corpus_structure/methods/pm2_dispatched.py#L203) ·
+  [Dipo tagged inference](https://github.com/larc-iu/dipo/blob/v0.2.1/dipo/rst/parsers/dmrst/modeling_dmrst.py#L694-L818)
+
+Fresh functional, provider, fault and stage qualification commands were
+`not_run`. The [M2 coordinator](../../plans/production-milestone-two_2026-11-08.md)
+owns scheduled disposition.
+
 <a id="pm2-foundation-refresh"></a>
 
 ## Production milestone two foundation refresh · 2026-11-08

@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "id": "pm2.alternate-vocabulary",
+  "title": "Private parser transfer and profile-refusal isolation",
+  "group": "pm2-parsers",
+  "package": "PM2-03–05",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the same parser operations retain private results under an independent vocabulary while a sibling profile refuses?",
+  "answers": [
+    "PM2-03",
+    "PM2-04",
+    "PM2-05"
+  ],
+  "method": "Publish the independently authored operations fixture through a second released vocabulary. Use the existing completed-source selection and native CUDA profiles for HanLP, Maverick and Dipo. Submit a second Dipo scope with a deliberately mismatched startup identity and inspect the exact failed operation and successful sibling products in the contribution Reader.",
+  "commands": [
+    "CORPUS_PM2_NATIVE_TEST_ASSETS=\"$PWD/build/models/pm2\" taskset -c 0-7 uv run ci test --json -- python/corpus-structure/tests/semantic/test_pm2_parser_stage_native.py",
+    "uv run ci test failures 23e8dec82b0c45e59fd4e766cd13e2eb --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/reference-operations.json",
+      "role": "Independent alternate-vocabulary source and expectations",
+      "sha256": "9a6ee7aaa741e4c69214c510bff1426bf62b9e1c6910021958890ac75f951f35"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/alternate-first-assessment.json",
+      "role": "Earlier native run retained Dipo and Maverick with the HanLP frame absent",
+      "sha256": "f0fe0c78206299e992f904eee4fa06fbbe90c00ac2925859734afbaba4792c8c"
+    },
+    {
+      "path": "raw/alternate-native-check.json",
+      "role": "Passing alternate-vocabulary and profile-refusal result 212d318f4d754d4bbfbb2456c8e05ff7",
+      "sha256": "55b9ddf78c409fd940b83406f4d7edd3eb54e8dcb4ffe1f92d53cd0ae0d871c5"
+    }
+  ],
+  "depends_on": [
+    "pm2.private-parser-stage"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "The same private execution and Reader retained a HanLP predicate frame, a Maverick cluster and a Dipo tree with the second Dipo scope reporting the intended startup mismatch. The successful retry bounded host CPU affinity while the broad campaign was active. The first attempt did not expose the HanLP failure reason in its assertion. The fixture establishes path transfer and failure isolation within its three source scopes.",
+  "consumed_by": [
+    "PM2-03",
+    "PM2-04",
+    "PM2-05",
+    "PM2-08"
+  ]
+}

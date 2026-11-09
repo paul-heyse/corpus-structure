@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "id": "pm2.dipo-panel",
+  "title": "Dipo paired discourse cases and private completed-cut readback",
+  "group": "pm2-parsers",
+  "package": "PM2-05",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What changes across Dipo's raw and reconstructed paired arms, and what source evidence survives private book readback?",
+  "answers": [
+    "PM2-05",
+    "PM2-06",
+    "PM2-08",
+    "PM2-11"
+  ],
+  "method": "Replay the frozen book and operations cases through the pinned isolated CPU worker. Compare reviewed EDU extents, parent yield, ordered child split, nuclearity and relation as separate facets. On completed CUDA book run 416 and cut 520, independently inspect the retained Dipo task products and check exact provider coordinates, native tree features, physical anchors, explicit gaps and bounded sibling selection.",
+  "commands": [
+    "timeout 180s uv run python docs/design_review/evidence/2026-11-08_pm2-parsers/dipo_panel_probe.py",
+    "uv run ci contributions list --run 416 --method extract.pm2_dipo --include-details --limit 200 --page-bytes 4000000 --json | uv run python docs/design_review/evidence/2026-11-08_pm2-parsers/dipo_readback_probe.py",
+    "uv run ci contributions list --run 416 --selected-task-id 2092 --method extract.pm2_dipo --include-details --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/reference-book.json",
+      "role": "Frozen book source and reviewed distinctions",
+      "sha256": "620d6b1f410273e9684ba51fd79a69c1d2b2416efc9a56c8f0ddbde804788ef5"
+    },
+    {
+      "path": "raw/reference-operations.json",
+      "role": "Frozen operations source and reviewed distinctions",
+      "sha256": "9a6ee7aaa741e4c69214c510bff1426bf62b9e1c6910021958890ac75f951f35"
+    },
+    {
+      "path": "dipo_panel_probe.py",
+      "role": "Isolated CPU replay source",
+      "sha256": "ac54be64b7af1964819bb39969ed6b634f441d236ac5dc208f99785bccac1d02"
+    },
+    {
+      "path": "dipo_readback_probe.py",
+      "role": "Bounded completed-cut comparison source",
+      "sha256": "1f0259eeaee7ce626b12a52f7698541fa3dc5c18e1e1cf569de95083603a3888"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/dipo-panel-cpu.jsonl",
+      "role": "Exact isolated CPU provider replies and profile",
+      "sha256": "276376119920f72f447bb142b9d098647b8a53319ea1f0a098c3b07e2cc4cf89"
+    },
+    {
+      "path": "raw/dipo-panel-cpu.stderr",
+      "role": "Isolated CPU startup diagnostics",
+      "sha256": "e002bf3cd7729b1e212ad4927b738b1c9248ef7e361a9d9137a451e11baa9618"
+    },
+    {
+      "path": "raw/dipo-book-readback.jsonl",
+      "role": "Validated private cut 520 observations and physical gap evidence",
+      "sha256": "f1bedae1e1c600f55df675748ce7cfb42b003e0c81e597f50c942bbbe68ec564"
+    },
+    {
+      "path": "dipo-assessment.md",
+      "role": "Comparison findings by facet and assessment limits",
+      "sha256": "53d8f3b54269a8719f4d7322a24a4ddcfffde5f5605af8fd11eaf1c4561f5fa3"
+    }
+  ],
+  "depends_on": [
+    "2026-11-08_pm2-foundation/pm2.native-profile-controls"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "All eight completed book operations retained 36 anchored EDUs and 10 ordered trees with exact CPU/CUDA product parity for the compared facets. The gambler arms agree on the reviewed boundaries and temporal attachment, and the context selector recovers the same bounded sibling. Roulette retains two physical pieces and an explicit gap in every crossing arm. Its extra predicted boundaries coincide with a different root split, leaving label comparison at matching splits unassessed. The isolated operations fixture shows a recovered layout cut with changed heading attachment and a stable singleton. The case-level comparison leaves broader quality and composed-context benefits open.",
+  "consumed_by": [
+    "PM2-05",
+    "PM2-06",
+    "PM2-08",
+    "PM2-11"
+  ]
+}

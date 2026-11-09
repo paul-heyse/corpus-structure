@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "id": "pm2.private-parser-stage",
+  "title": "Private native parser execution and exact readback",
+  "group": "pm2-parsers",
+  "package": "PM2-03–05",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can all three locked native parsers settle bounded products and exact source diagnostics through the shared private run and Reader?",
+  "answers": [
+    "PM2-03",
+    "PM2-04",
+    "PM2-05"
+  ],
+  "method": "Use five immutable source views from completed M1 run 407 and cut 517. Execute the explicit 18-scope CUDA request, including raw and supplied diagnostics and a ten-sentence HanLP limit. Read two results on one view by exact selected task, retain the limited parent and two child scopes, and replay the two exact inputs under the same release.",
+  "commands": [
+    "uv run ci run parsers --request docs/design_review/evidence/2026-11-08_pm2-parsers/raw/book-parser-request.json --json",
+    "uv run ci contributions list --run 416 --selected-task-id 2076 --include-details --json",
+    "uv run ci contributions list --run 416 --selected-task-id 2079 --include-details --json",
+    "uv run ci contributions list --run 416 --selected-task-id 2093 --include-details --json",
+    "uv run ci contributions list --run 416 --method extract.pm2_maverick --include-details --limit 1000 --json",
+    "uv run ci contributions list --run 417 --method extract.pm2_hanlp --limit 1000 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/reference-book.json",
+      "role": "Independent source-only expected distinctions and exact references",
+      "sha256": "620d6b1f410273e9684ba51fd79a69c1d2b2416efc9a56c8f0ddbde804788ef5"
+    },
+    {
+      "path": "raw/book-parser-request.json",
+      "role": "Installed parser request",
+      "sha256": "f2bc9e037cec15a7d467ffd3a1e47aa223bd16e1324422b35147b1e98cdea1dc"
+    },
+    {
+      "path": "raw/archived-release.json",
+      "role": "Admitted development release and input realization",
+      "sha256": "ac030de8f99c2266882977ace92e969b07f8a94091143605a7a298a915e45ba1"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/book-parser-run.json",
+      "role": "Completed book run 416 and cut 520",
+      "sha256": "35773241da3ffc13390330060db74f5e1f9c7feb69d79043a5e74369255e47ab"
+    },
+    {
+      "path": "raw/replay-run.json",
+      "role": "Completed exact replay run 417 and cut 521",
+      "sha256": "cafc38988e1ac3f96317d2780ca1c78a7bd07a6b5b6314ba39b0f4b5313f78bf"
+    },
+    {
+      "path": "raw/book-reader-summary.json",
+      "role": "Exact Reader task, product, scope and reuse observations",
+      "sha256": "bac4ac4ee11b0dfc5b476112ec9fa9e8e4ec70fcc09e8f2ccb438a506264a03b"
+    },
+    {
+      "path": "raw/book-refusals.json",
+      "role": "Earlier bounded read, runtime and finalization refusals",
+      "sha256": "8bd44d5e74ab298a3d784cb8067ffd3a5b70de46a7cbab6f071b111390b5ac13"
+    },
+    {
+      "path": "raw/source-only-cut-refusal.json",
+      "role": "Source-ready cut 514 refusal as a completed-source origin",
+      "sha256": "28cc45a6cc464c84b782accbd0e02410c41e29b9410ef09fd2e0ff21c3680a7e"
+    },
+    {
+      "path": "raw/wrong-projection-refusal.json",
+      "role": "Altered completed-source projection digest refusal",
+      "sha256": "21a3cbaea59013356ec4946fe977f5c63a1918e46de03f5e453d6e9e4863c927"
+    },
+    {
+      "path": "raw/focused-checks.json",
+      "role": "28 focused parser and source tests",
+      "sha256": "e96589e9bca185de0a72b67b6cc10be090b81c37cecabd08aead53a22f237abf"
+    },
+    {
+      "path": "raw/definition-witness-checks.json",
+      "role": "27 focused definition witness preservation tests",
+      "sha256": "3e0778b85d6984266bef244e0affa3a9fbd52f913171494184c166854fbf533e"
+    }
+  ],
+  "depends_on": [
+    "2026-11-08_pm2-foundation/pm2.development-baseline",
+    "2026-11-08_pm2-foundation/pm2.native-profile-controls",
+    "pm2.dipo-panel"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Run 416 sealed private cut 520 with 18 requested scopes and two coherent child scopes. HanLP retained two and three frames in two exact reads of view 383. The ten-sentence scope remained limited and the two five-sentence children retained their distinct coordinates. Maverick retained the independently supplied her capital mention as supplied-only and unclustered. Cut 521 reused both exact HanLP scope origins. Run 416 did not select a project result. These checks establish private development execution and readback for these scopes.",
+  "consumed_by": [
+    "PM2-03",
+    "PM2-04",
+    "PM2-05",
+    "PM2-06",
+    "PM2-08",
+    "PM2-11"
+  ]
+}

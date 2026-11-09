@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "id": "pm2.parser-development-deployment",
+  "title": "Parser methods on the development revision",
+  "group": "pm2-parsers",
+  "package": "PM2-03–05",
+  "finalized": "2026-11-08",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can development admit the parser release and preserve the existing source and parser cuts across the revision?",
+  "answers": [
+    "PM2-03",
+    "PM2-04",
+    "PM2-05"
+  ],
+  "method": "Rehearse and deploy the frozen execution descriptor. Verify and reuse the exact archived release under the reached revision. Compare the full source inventories and read the retained HanLP task by its exact identity.",
+  "commands": [
+    "uv run ci model change deploy 49871fcd521a4e3bb476dc4bfbfd87a2 --json",
+    "uv run ci model change deploy 29c06a8a5493470fb6c1677195871b0e --json",
+    "uv run ci source views 404 --json",
+    "uv run ci source views 407 --json",
+    "uv run ci contributions list --run 416 --selected-task-id 2079 --include-details --json",
+    "uv run ci db status --maintenance --json",
+    "uv run ci test --json -- python/corpus-structure/tests/semantic/test_native_closure.py::test_current_frozen_head_witness_records_current_authoring_provenance python/corpus-structure/tests/semantic/test_native_closure.py::test_model_products_match_frozen_current_native_state",
+    "uv run ci test --json -- python/corpus-structure/tests/semantic/test_model_deployment.py::test_exact_native_deployment_resumes_before_separate_activation"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/parser-development-deployment.json",
+      "role": "Migration refusal, exact archive recovery, native checks and retained read observations",
+      "sha256": "5a4feb0d4c655b08e9bbb9c8e293d8b07a8ba0c504b54045500fa93ca69a80ef"
+    }
+  ],
+  "depends_on": [
+    "pm2.private-parser-stage"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Development reached semantic_pm2_parser_methods. The first deployment committed the migration and refused archive replay over existing parent lineage. The recovery verified and reused the exact archive and admitted the release. Both native closure checks and the deployment regression passed. Cuts 514 and 517 exposed identical inventories of 29 views, and cut 520 still returned task 2079.",
+  "consumed_by": [
+    "PM2-03",
+    "PM2-04",
+    "PM2-05",
+    "PM2-06",
+    "PM2-08"
+  ]
+}
