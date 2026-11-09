@@ -41,6 +41,10 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [PM2 and shared extraction with GLiNER2 and spaCy](pm2-extraction-gliner2-spacy_2026-11-09.md):
+  producer coverage before retrieval, source-bound candidate and attachment comparisons,
+  staged spaCy modeling, and domain-agnostic delivery of useful partial results.
+
 - [CLI operations and Python introspection](cli-operations_2026-11-07.md):
   Typer 0.28.0 transition, invocation and receipt boundaries, staged model changes,
   bounded source discovery, shared refusals and action-driven diagnostics.
