@@ -2079,8 +2079,8 @@ CREATE OR REPLACE FUNCTION ops.validate_definition_basis(
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE proof jsonb:=component->'witness'; basis text:=component->>'basis'; body jsonb; detail jsonb;
  view_ kb.source_view; rule_ jsonb; annotation jsonb; tokens jsonb; full_text text; term_ jsonb;
- cue jsonb; content jsonb; part jsonb; attr record; indexes jsonb:='{}'; names jsonb; token jsonb;
- n integer; idx integer; parent_ integer; lo integer; hi integer; value_ text; sentence_ jsonb;
+ cue jsonb; bound_content_span jsonb; part jsonb; attr record; indexes jsonb:='{}'; names jsonb; token jsonb;
+ pattern_position integer; idx integer; parent_ integer; lo integer; hi integer; value_ text; sentence_ jsonb;
  term_key text; cue_key text; display_piece jsonb; start_ integer; end_ integer; label_ jsonb; scope_recipe jsonb;
 BEGIN
  IF basis='model_reading' THEN
@@ -2128,8 +2128,8 @@ BEGIN
   OR NOT EXISTS(SELECT FROM jsonb_array_elements(annotation->'availability') a
    WHERE a->>'attribute'='DEP' AND a->>'status'='complete') THEN
   RAISE EXCEPTION 'definition cue differs from exact released match nodes' USING ERRCODE='23514'; END IF;
- FOR part,n IN SELECT value,(ordinality-1)::integer FROM jsonb_array_elements(rule_->'pattern') WITH ORDINALITY LOOP
-  idx:=(proof->'nodes'->>n)::integer;
+ FOR part,pattern_position IN SELECT value,(ordinality-1)::integer FROM jsonb_array_elements(rule_->'pattern') WITH ORDINALITY LOOP
+  idx:=(proof->'nodes'->>pattern_position)::integer;
   token:=tokens->idx;
   lo:=(token->>'start')::integer;
   hi:=(token->>'end')::integer;
@@ -2139,7 +2139,7 @@ BEGIN
    OR (sentence_ IS NOT NULL AND sentence_ IS DISTINCT FROM token->'sentence') THEN
    RAISE EXCEPTION 'definition cue has no retained scoped annotation token' USING ERRCODE='23514'; END IF;
   sentence_:=token->'sentence';
-  IF n>0 THEN
+  IF pattern_position>0 THEN
    parent_:=(indexes->>(part->>'LEFT_ID'))::integer;
    IF parent_ IS NULL OR NOT (CASE part->>'REL_OP'
     WHEN '>' THEN (token->>'head')::integer=parent_
@@ -2183,18 +2183,18 @@ BEGIN
    AND t->>'dependency'='neg' AND (t->>'head')::integer=(indexes->>(names->cue_key->>'node'))::integer) THEN
   RAISE EXCEPTION 'definition term, polarity or interpretation differs from retained cue roles' USING ERRCODE='23514'; END IF;
  IF basis='matched_cue' THEN
-  content:=ops.definition_bound_span(tokens,
+  bound_content_span:=ops.definition_bound_span(tokens,
    (indexes->>(names->(config_->>'content_role')->>'node'))::integer,names->(config_->>'content_role'),full_text);
-  IF content IS NULL OR content IS DISTINCT FROM jsonb_build_array(component->'content'->'start',component->'content'->'end')
+  IF bound_content_span IS NULL OR bound_content_span IS DISTINCT FROM jsonb_build_array(component->'content'->'start',component->'content'->'end')
    OR nullif(proof->'label_nodes','null'::jsonb) IS NOT NULL THEN
    RAISE EXCEPTION 'definition content differs from retained cue roles' USING ERRCODE='23514'; END IF;
   IF rule_->>'rule'='naming' AND rule_->>'variant'='passive_called_term' AND EXISTS(
    SELECT FROM (SELECT t FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n)
     WHERE t->'sentence'=sentence_ ORDER BY n LIMIT 1) first_
-   WHERE first_.t->'start'=content->0 AND first_.t->>'dependency'='det'
+   WHERE first_.t->'start'=bound_content_span->0 AND first_.t->>'dependency'='det'
     AND first_.t->'head'=indexes->(names->(config_->>'content_role')->>'node')
-    AND lower(substring(full_text FROM (content->>0)::integer+1
-     FOR (first_.t->>'end')::integer-(content->>0)::integer)) IN ('this','that','these','those')
+    AND lower(substring(full_text FROM (bound_content_span->>0)::integer+1
+     FOR (first_.t->>'end')::integer-(bound_content_span->>0)::integer)) IN ('this','that','these','those')
   ) THEN RAISE EXCEPTION 'definition witness leaves a demonstrative antecedent unresolved' USING ERRCODE='23514'; END IF;
   IF EXISTS(
    SELECT FROM ops.definition_dependency_bindings(tokens,full_text,passage,rule_->'pattern',
@@ -2204,7 +2204,7 @@ BEGIN
     ops.definition_bound_span(tokens,(competing->>(names->(config_->>'content_role')->>'node'))::integer,
      names->(config_->>'content_role'),full_text) AS content) other
    WHERE other.term IS NOT NULL AND other.content IS NOT NULL
-    AND (other.term,other.content) IS DISTINCT FROM (term_,content)
+    AND (other.term,other.content) IS DISTINCT FROM (term_,bound_content_span)
   ) THEN RAISE EXCEPTION 'definition witness has competing retained bindings' USING ERRCODE='23514'; END IF;
   RETURN;
  END IF;
