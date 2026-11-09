@@ -163,7 +163,7 @@ BEGIN
  IF p_frame->>'protocol' IS DISTINCT FROM 'structural-evaluation-frame-3'
   OR p_frame-ARRAY['protocol','inputs','operation','direction','rubric_version','rubric_text','product_ids','partition','source_groups','opportunities','inspected_scope','exposure_history']<>'{}'
   OR COALESCE(p_frame->>'partition','') NOT IN ('development','feature_fit','final_event_calibration','final_assessment')
-  OR COALESCE(p_frame->>'operation','') NOT IN ('definition_components','definition_applicability','scoped_relationship','qualified_comparison','dossier')
+  OR COALESCE(p_frame->>'operation','') NOT IN ('definition_components','definition_applicability','scoped_relationship','condition_qualification','qualified_comparison','dossier')
   OR COALESCE(p_frame->>'direction','') NOT IN ('source_first','output_first')
   OR btrim(COALESCE(p_frame->>'rubric_version',''))='' OR btrim(COALESCE(p_frame->>'rubric_text',''))=''
   OR jsonb_typeof(p_frame->'product_ids') IS DISTINCT FROM 'array'

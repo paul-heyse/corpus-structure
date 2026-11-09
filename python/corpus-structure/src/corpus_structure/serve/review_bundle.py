@@ -226,6 +226,8 @@ def _section_source_refs(report):
 
 
 def _structural_predecessors(report):
+    if report.condition_qualification is not None:
+        return (), (report.condition_qualification.attachment,)
     if report.clause_classification is not None:
         return (), tuple(row.selection.frame for row in report.clause_classification.readings)
     if report.definition_components is not None:
@@ -988,6 +990,8 @@ def _retained_report_ids(report: Mapping[str, Any]) -> set[int]:
         values = tuple(
             focus["frame"]["origin_task_id"] for focus in report["configuration"]["focuses"]
         )
+    elif report.get("method") == "structure.condition_qualification":
+        values = (report["configuration"]["attachment"]["origin_task_id"],)
     elif report.get("method") == "locate.definition_terms":
         values = tuple(
             role["report"]["origin_task_id"]
@@ -2537,6 +2541,70 @@ def _verify_comparison_closure(root, manifest, products, structural_scopes, scop
             raise ValueError("comparison differs from its exact retained predicate evidence")
 
 
+def _verify_condition_closure(root, manifest, products, structural_scopes, scopes, inventory):
+    from corpus_structure.core.evidence import config_key
+    from corpus_structure.methods.structural_products import (
+        ConditionQualificationConfig,
+        ConditionQualificationMethod,
+        condition_qualification,
+    )
+    from corpus_structure.semantic.structural_products import StructuralProductReport
+
+    reports = {item[2]: item for item in products}
+    captured = {}
+    for raw in _detached_relation(root, manifest, "reports"):
+        origin = raw["origin_task_id"]
+        if origin in reports and (raw.get("body") or {}).get("method") == ConditionQualificationMethod.name:
+            if origin in captured:
+                raise ValueError("condition producer raw result repeats")
+            captured[origin] = raw
+    requested = []
+    for origin, (index, _selected, _, origin_run, origin_project, runtime, report) in reports.items():
+        raw, product = captured.get(origin), report.condition_qualification
+        if raw is None and product is None:
+            continue
+        if raw is None or product is None:
+            raise ValueError("condition lacks its registered producer result")
+        config = raw.get("configuration")
+        body = raw["body"]
+        if (
+            not isinstance(config, dict)
+            or body.get("operation_version") != ConditionQualificationMethod.version
+            or body.get("outcome") != "produced"
+            or raw.get("project_id") != origin_project
+            or raw.get("origin_run_id") != origin_run
+            or raw.get("runtime_fingerprint") != runtime
+            or body.get("release_id") != structural_scopes[index]["release_id"]
+            or body.get("configuration_hash") != raw.get("config_hash")
+            or body.get("configuration_hash") != config_key(
+                ConditionQualificationMethod.name, ConditionQualificationMethod.version, config
+            )
+            or not raw.get("input_hash")
+            or body.get("input_hash") != raw["input_hash"]
+            or StructuralProductReport.model_validate(body.get("structural_product")) != report
+        ):
+            raise ValueError("condition differs from its registered producer result")
+        bound = ConditionQualificationConfig.model_validate(config)
+        if (
+            bound.inputs != report.inputs
+            or bound.attachment != product.attachment
+            or product.attachment.release_id != body["release_id"]
+            or product.attachment.project_id != origin_project
+        ):
+            raise ValueError("condition differs from frozen source and attachment")
+        requested.append((report, product.attachment))
+    for (report, reference), payload in zip(
+        requested,
+        _retained_contribution_payloads(
+            root, manifest, requested, scopes, inventory, origin_sources=True,
+            require_cut_member=True,
+        ),
+        strict=True,
+    ):
+        if condition_qualification(report.inputs, reference, payload) != report.condition_qualification:
+            raise ValueError("condition differs from its exact retained endpoints")
+
+
 def _verify_dossier_contribution_closure(root, manifest, members, scopes, inventory, roots):
     from corpus_structure.methods.dossier_contributions import derive_contribution_members
 
@@ -3222,6 +3290,15 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
                 root,
                 manifest,
                 artifacts,
+                structural_scopes,
+                contribution_scopes,
+                contribution_inventory,
+            )
+        if any(item[-1].condition_qualification is not None for item in structural_products):
+            _verify_condition_closure(
+                root,
+                manifest,
+                structural_products,
                 structural_scopes,
                 contribution_scopes,
                 contribution_inventory,

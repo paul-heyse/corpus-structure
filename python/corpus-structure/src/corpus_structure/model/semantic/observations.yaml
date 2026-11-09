@@ -1884,6 +1884,19 @@ classes:
         required: true
       effective_version: {}
       parent: {}
+  ConditionRoleCitation:
+    is_a: SourceRecordProduct
+    attributes:
+      source_pointer: {required: true}
+      span: {range: LocatedDefinitionSpan, required: true, inlined: true}
+  ConditionQualificationProduct:
+    is_a: SourceRecordProduct
+    attributes:
+      relation: {required: true, range: ConditionQualificationKind}
+      attachment: {range: RetainedContributionRef, required: true, inlined: true}
+      effective_version: {}
+      qualifier: {range: ConditionRoleCitation, required: true, multivalued: true, inlined: true, inlined_as_list: true, minimum_cardinality: 1}
+      host_predicate: {range: ConditionRoleCitation, required: true, multivalued: true, inlined: true, inlined_as_list: true, minimum_cardinality: 1}
   StructuralProductReport:
     description: Structural-product envelope identity is SHA256 of canonical released report values excluding retrieval_report; full immutable task result digest retains raw retrieval derivation. Public claim identity is a separate source-resolved projection.
     is_a: SourceRecordProduct
@@ -1901,6 +1914,7 @@ classes:
         equals_string: private_proposal
       definition_components: {range: DefinitionComponentsProduct, inlined: true}
       clause_classification: {range: ClauseClassificationProduct, inlined: true}
+      condition_qualification: {range: ConditionQualificationProduct, inlined: true}
       definition:
         range: DefinitionProduct
         inlined: true
@@ -2139,9 +2153,16 @@ classes:
         range: string
         required: true
         equals_string: membership_assembly_not_member_truth
+  StructuralPublicConditionQualification:
+    attributes:
+      relation: {required: true, range: ConditionQualificationKind}
+      effective_version: {}
+      qualifier: {range: StructuralPublicContributionCitation, required: true, multivalued: true, inlined: true, inlined_as_list: true, minimum_cardinality: 1}
+      host_predicate: {range: StructuralPublicContributionCitation, required: true, multivalued: true, inlined: true, inlined_as_list: true, minimum_cardinality: 1}
   StructuralPublicStatement:
     attributes:
       definition_component: {range: StructuralPublicDefinitionComponent, inlined: true}
+      condition_qualification: {range: StructuralPublicConditionQualification, inlined: true}
       version:
         range: string
         required: true
@@ -2177,6 +2198,10 @@ classes:
         inlined: true
 
 enums:
+  ConditionQualificationKind:
+    permissible_values:
+      condition: {}
+      assumption: {}
   ContextualNeighborhoodPolicy:
     permissible_values:
       mutual-exact-cosine-top5-1: {}
@@ -2447,8 +2472,10 @@ enums:
       definition_applicability: {}
       qualified_comparison: {}
       dossier: {}
+      condition_qualification: {}
   StructuralStructuralProductReportKindValue:
     permissible_values:
+      condition_qualification: {}
       artifact_identity: {}
       clause_classification: {}
       definition_components: {}

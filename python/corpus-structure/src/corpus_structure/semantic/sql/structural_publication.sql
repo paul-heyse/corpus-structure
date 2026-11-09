@@ -83,6 +83,17 @@ BEGIN
   IF value->>'interpretation'='unresolved' THEN RAISE EXCEPTION 'unresolved attachment is not a supported public component' USING ERRCODE='23514'; END IF;
   result:=(result-'inventory_id'-'input_policy_id')||jsonb_build_object('definition_component',data.structural_definition_component(report,value));
  ELSIF component_id IS NOT NULL THEN RAISE EXCEPTION 'component selector requires component report' USING ERRCODE='23514';
+ ELSIF report->>'kind'='condition_qualification' THEN
+  result:=result-'inventory_id'-'input_policy_id';
+  value:=report->'condition_qualification';
+  entry:=jsonb_strip_nulls(jsonb_build_object('relation',value->>'relation','effective_version',value->>'effective_version'));
+  FOREACH side IN ARRAY ARRAY['qualifier','host_predicate'] LOOP
+   SELECT jsonb_agg(jsonb_build_object('source_pointer',v->>'source_pointer',
+    'passage',data.structural_citation(report,v->'span'->>'passage_id')||((v->'span')-'passage_id')) ORDER BY n)
+   INTO items FROM jsonb_array_elements(value->side) WITH ORDINALITY x(v,n);
+   entry:=entry||jsonb_build_object(side,items);
+  END LOOP;
+  result:=result||jsonb_build_object('condition_qualification',entry);
  ELSIF report->>'kind'='definition_applicability' THEN
   result:=result-'inventory_id'-'input_policy_id';
   value:=report->'definition';
@@ -175,7 +186,8 @@ BEGIN
    AND 'structural:'||encode(sha256(convert_to(data.canonical_json((result.body->'structural_product')-'retrieval_report'),'UTF8')),'hex')=binding->>'product_id';
   report:=selected.body->'structural_product';
   policy:=CASE report->>'kind' WHEN 'definition_components' THEN 'independent-definition-component-1' WHEN 'definition_applicability' THEN 'independent-witnessed-applicability-1'
-   WHEN 'qualified_comparison' THEN 'independent-structural-comparison-1' WHEN 'dossier' THEN 'independent-structural-dossier-1' END;
+   WHEN 'qualified_comparison' THEN 'independent-structural-comparison-1' WHEN 'dossier' THEN 'independent-structural-dossier-1'
+   WHEN 'condition_qualification' THEN 'independent-condition-qualification-1' END;
   IF policy IS NULL OR binding->>'policy_id' IS DISTINCT FROM policy OR NOT public.json_matches_schema(shape,
    jsonb_build_object('policy_id',policy,'policy_version','1','product_kind',report->>'kind','facet','public_statement')::json) THEN
    RAISE EXCEPTION 'structural publication policy is not released' USING ERRCODE='23514'; END IF;
@@ -210,6 +222,8 @@ BEGIN
   SELECT value INTO STRICT case_ FROM jsonb_array_elements(authored->'cases')
    WHERE value->>'facet'='public_statement' AND value->'path'='["public_statement"]'::jsonb
    AND value->>'judgment'='supported' AND value->'expected'=statement AND value->>'component_id' IS NOT DISTINCT FROM binding->>'component_id';
+  IF report->>'kind'='condition_qualification' AND group_.frame->>'direction' IS DISTINCT FROM 'source_first' THEN
+   RAISE EXCEPTION 'condition admission requires independent source-first support' USING ERRCODE='23514'; END IF;
   IF NOT(case_->'source_passages' @> COALESCE((SELECT jsonb_agg(p->>'passage_id') FROM jsonb_array_elements(report->'inputs'->'passages') p),'[]')) THEN
    RAISE EXCEPTION 'public structural judgment omits selected source passages' USING ERRCODE='23514'; END IF;
   row_:=jsonb_build_object('claim_id','structural-claim:'||encode(sha256(convert_to(data.canonical_json(statement),'UTF8')),'hex'),

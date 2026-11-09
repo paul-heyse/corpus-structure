@@ -47,6 +47,7 @@ from corpus_structure.methods.scoped_relations import (
     ScopedRelationsWithRoleClosure,
 )
 from corpus_structure.methods.structural_products import (
+    ConditionQualificationMethod,
     StructuralComparisonWithRoleClosure,
     StructuralDossierMethod,
 )
@@ -112,6 +113,7 @@ METHODS: tuple[Any, ...] = (
     AgentGeneral(),
     StructuralComparisonWithRoleClosure(),
     StructuralDossierMethod(),
+    ConditionQualificationMethod(),
     ScopedRelationsWithRoleClosure(),
     ArtifactIdentityMethod(),
     DefinitionComponentsMethod(),

@@ -76,6 +76,7 @@ class StructuralExportRequest(BaseModel):
             "definition_components",
             "definition_applicability",
             "clause_classification",
+            "condition_qualification",
             "qualified_comparison",
             "dossier",
             "artifact_identity",

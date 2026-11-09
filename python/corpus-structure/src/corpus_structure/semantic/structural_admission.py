@@ -21,6 +21,7 @@ POLICIES = {
     "definition_components": "independent-definition-component-1",
     "qualified_comparison": "independent-structural-comparison-1",
     "dossier": "independent-structural-dossier-1",
+    "condition_qualification": "independent-condition-qualification-1",
 }
 
 
@@ -75,7 +76,9 @@ def structural_statement(
         ),
     }
 
-    if report.kind in {"definition_components", "definition_applicability"}:
+    if report.kind in {
+        "definition_components", "definition_applicability", "condition_qualification",
+    }:
         statement.pop("inventory_id")
         statement.pop("input_policy_id")
 
@@ -271,6 +274,21 @@ def structural_statement(
             "missing_sections": sorted(value.missing_sections),
             "membership_completeness": value.membership_completeness,
             "admission_scope": "membership_assembly_not_member_truth",
+        }
+    if value := report.condition_qualification:
+        statement["condition_qualification"] = {
+            "relation": value.relation,
+            **({"effective_version": value.effective_version} if value.effective_version else {}),
+            **{
+                role: [
+                    {"source_pointer": item.source_pointer, "passage": span_citation(item.span)}
+                    for item in citations
+                ]
+                for role, citations in (
+                    ("qualifier", value.qualifier),
+                    ("host_predicate", value.host_predicate),
+                )
+            },
         }
     return statement
 

@@ -916,6 +916,8 @@ def series_native_definitions(connection, *, include_selected=True):
         "definition_dependency_bindings",
         "clause_model_axis",
         "validate_clause_classification",
+        "condition_role_citations",
+        "validate_condition_qualification",
         "validate_structural_product_report",
     ):
         definitions.extend(

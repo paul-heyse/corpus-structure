@@ -36,6 +36,7 @@ class StructuralEvaluationFrame(StructuralValue):
         "definition_components",
         "definition_applicability",
         "scoped_relationship",
+        "condition_qualification",
         "qualified_comparison",
         "dossier",
     ]

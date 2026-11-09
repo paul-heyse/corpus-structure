@@ -7,6 +7,7 @@ admission remain separate boundaries; these producers emit only private proposal
 from __future__ import annotations
 
 from collections import defaultdict
+from hashlib import sha256
 from itertools import pairwise
 from typing import Literal
 
@@ -1362,4 +1363,188 @@ class StructuralDossierMethod:
                 structural_product=report.model_dump(mode="json"),
             )
             for u in units
+        )
+
+
+class ConditionQualificationConfig(StructuralValue):
+    inputs: StructuralInput | None = None
+    structural_input_digest: str | None = None
+    attachment: RetainedContributionRef | None = None
+
+    @model_validator(mode="after")
+    def selected_input(self):
+        if self.inputs is None:
+            if self.structural_input_digest is not None or self.attachment is not None:
+                raise ValueError("condition qualification requires complete source and attachment")
+        elif self.structural_input_digest != self.inputs.identity or self.attachment is None:
+            raise ValueError("condition qualification requires complete source and attachment")
+        return self
+
+
+def condition_qualification(inputs, attachment, retained):
+    """Project only the condition and the declared host predicate, under retained custody."""
+    from corpus_structure.semantic.observations import source_python
+    from corpus_structure.semantic.structural_products import (
+        ConditionQualificationProduct,
+        ConditionRoleCitation,
+    )
+
+    rows = {row["contribution_id"]: row for row in retained["contributions"]}
+    relation = rows.get(attachment.contribution_id)
+    if (
+        relation is None
+        or relation.get("semantic_type") != "structural.predicate_qualification"
+        or relation.get("kind") != "relation"
+    ):
+        raise ValueError("condition statement requires the exact directed qualification")
+    component = relation["component"]
+    qualifier_id, host_id = (
+        component["qualifier_contribution_id"],
+        component["host_contribution_id"],
+    )
+    version = component["question_version"]
+    effective = component.get("effective_version")
+    relation_kind = component["qualifier_kind"]
+    if (
+        component["kind"] != "predicate_qualifier"
+        or component["question"] != "source_predicate_interpretation"
+        or version not in {"3", "4", "5"}
+        or relation_kind not in {"condition", "assumption"}
+        or component["scope"] != inputs.scope
+        or tuple((e["role"], e["contribution_id"]) for e in relation["endpoints"])
+        != (("qualifier", qualifier_id), ("host", host_id))
+    ):
+        raise ValueError("condition statement requires the exact directed qualification")
+    if qualifier_id not in rows or host_id not in rows:
+        raise ValueError("condition statement lacks the retained endpoint closure")
+    cue, host = rows[qualifier_id], rows[host_id]
+    for row, kind in ((cue, "predicate_cue"), (host, "predicate_frame")):
+        value = row["component"]
+        if (
+            row["semantic_type"] != f"structural.{kind}"
+            or row["pin"] != relation["pin"]
+            or value["kind"] != kind
+            or value["question"] != "source_predicate_frames"
+            or value["question_version"] != version
+            or value["scope"] != inputs.scope
+            or value.get("effective_version") != effective
+            or row["contribution_id"] not in relation["members"]
+        ):
+            raise ValueError("condition statement differs from the retained endpoint scope")
+    cue_part, host_part = cue["component"], host["component"]
+    cross_hosts = cue_part.get("cross_block_hosts")
+    unique_host = (
+        tuple(cross_hosts) == (host_id,)
+        if cross_hosts
+        else (
+            tuple(cue_part.get("candidate_tokens", ())) == (host_part["predicate_token"],)
+            and cue_part["block"] == host_part["block"]
+            and cue_part["annotation"] == host_part["annotation"]
+        )
+    )
+    if (
+        cue_part["cue_kind"] != relation_kind
+        or cue_part["host_state"] != "located"
+        or not unique_host
+    ):
+        raise ValueError("condition statement requires a uniquely located host")
+    (predicate,) = (entry for entry in host_part["frame_members"] if entry["role"] == "predicate")
+    member = rows.get(predicate["contribution"])
+    if (
+        member is None
+        or predicate["outcome"] != "complete"
+        or member["semantic_type"] != "structural.predicate_member"
+        or member["contribution_id"] not in host["members"]
+        or member["pin"] != relation["pin"]
+        or source_python(member["value"])["role"] != "predicate"
+    ):
+        raise ValueError("condition host requires its complete declared predicate member")
+
+    pin = relation["pin"]
+    (source,) = (
+        source
+        for source in inputs.sources
+        if source.project_id == attachment.project_id
+        and source.source_view_id == pin["source_view_id"]
+        and source.native_task_id == pin["native_product_task_id"]
+        and source.native_product_key == pin["product_key"]
+        and source.native_content_digest == pin["product_digest"]
+        and source.projection_digest == pin["projection_digest"]
+        and source.recipe_digest == pin["recipe_digest"]
+    )
+    (projection,) = (row["projection"] for row in retained["sources"] if row["pin"] == pin)
+
+    def locations(row):
+        locations = []
+        for anchor in row["anchors"]:
+            if anchor["pin"] != pin or anchor["space"] != "native" or anchor["precision"] != "exact":
+                raise ValueError("condition role requires exact original source anchors")
+            pointer = anchor["pointer"]
+            (piece,) = (
+                piece for piece in projection["pieces"]
+                if piece["kind"] == "native_text"
+                and piece["item_ref"] + (
+                    f"/data/table_cells/{piece['cell_index']}" if piece.get("cell_index") is not None else ""
+                ) == pointer
+            )
+            start, end = piece["start"] + anchor["start"], piece["start"] + anchor["end"]
+            if not piece["start"] <= start < end <= piece["end"]:
+                raise ValueError("condition role exceeds its original source item")
+            (passage,) = (
+                p for p in inputs.passages
+                if p.source_ref == source.identity and p.scope == inputs.scope
+                and p.effective_version == effective and p.start <= start < end <= p.end
+            )
+            text = passage.text[start - passage.start:end - passage.start]
+            if text != anchor["source_piece"] or projection["text"][start:end] != text:
+                raise ValueError("condition role differs from the original source text")
+            locations.append(ConditionRoleCitation(
+                source_pointer=pointer,
+                span=LocatedDefinitionSpan(passage_id=passage.passage_id, start=start, end=end, text=text),
+            ))
+        return tuple(locations)
+
+    return ConditionQualificationProduct(
+        relation=relation_kind, attachment=attachment, effective_version=effective,
+        qualifier=locations(cue), host_predicate=locations(member),
+    )
+
+
+class ConditionQualificationMethod:
+    name = "structure.condition_qualification"
+    version = "1"
+    family = MethodFamily.RESOLVE
+    unit_type = TaskUnitType.RUN
+    tier = MethodTier.DETERMINISTIC
+    confidence_source = None
+    Config = ConditionQualificationConfig
+    resources = Resources(worker="cpu", batch_size=1, max_concurrency=1)
+
+    def select(self, run, cfg):
+        if cfg.inputs is None or cfg.attachment is None:
+            return ()
+        digest = sha256(canonical_bytes(cfg.attachment.model_dump(mode="json"))).hexdigest()
+        return (UnitRef(TaskUnitType.RUN, unit_key="condition-qualification:" + digest),)
+
+    def input_digest(self, unit, cfg):
+        return Digest(canonical_bytes(cfg.model_dump(mode="json", exclude_none=True)))
+
+    def run(self, units, cfg, ctx):
+        if cfg.inputs is None or cfg.attachment is None:
+            raise ValueError("condition qualification requires complete source and attachment")
+        ctx.check_active()
+        ctx.reader.validate_structural_inputs(cfg.inputs)
+        if cfg.attachment.release_id != ctx.reader.prepared.release_id:
+            raise ValueError("condition attachment belongs to another release")
+        retained = ctx.reader.retained_source_contribution(cfg.attachment)
+        report = StructuralProductReport(
+            kind="condition_qualification", inputs=cfg.inputs,
+            condition_qualification=condition_qualification(cfg.inputs, cfg.attachment, retained),
+        )
+        return tuple(
+            UnitResult(
+                ref=unit.ref, outcome=ObservationOutcome.PRODUCED,
+                structural_product=report.model_dump(mode="json", exclude_none=True),
+            )
+            for unit in units
         )

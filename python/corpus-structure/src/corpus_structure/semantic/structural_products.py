@@ -895,6 +895,21 @@ class DossierProduct(StructuralValue):
         return self
 
 
+class ConditionRoleCitation(StructuralValue):
+    source_pointer: Nonempty
+    span: LocatedDefinitionSpan
+
+
+class ConditionQualificationProduct(StructuralValue):
+    relation: Literal["condition", "assumption"]
+    attachment: RetainedContributionRef
+    effective_version: Nonempty | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    qualifier: tuple[ConditionRoleCitation, ...] = Field(min_length=1)
+    host_predicate: tuple[ConditionRoleCitation, ...] = Field(min_length=1)
+
+
 class StructuralProductReport(StructuralValue):
     version: Literal["structural-product-3"] = "structural-product-3"
     kind: Literal[
@@ -904,6 +919,7 @@ class StructuralProductReport(StructuralValue):
         "dossier",
         "artifact_identity",
         "clause_classification",
+        "condition_qualification",
     ]
     inputs: StructuralInput
     standing: Literal["private_proposal"] = "private_proposal"
@@ -913,6 +929,9 @@ class StructuralProductReport(StructuralValue):
     dossier: DossierProduct | None = None
     artifact_identity: ArtifactIdentityProduct | None = None
     clause_classification: ClauseClassificationProduct | None = None
+    condition_qualification: ConditionQualificationProduct | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     # The released ContextualEnrichmentReport validates this ordinary upstream report.
     retrieval_report: dict[str, Any] | None = None
 
@@ -925,6 +944,7 @@ class StructuralProductReport(StructuralValue):
             self.dossier is not None,
             self.artifact_identity is not None,
             self.clause_classification is not None,
+            self.condition_qualification is not None,
         ) != (
             self.kind == "definition_components",
             self.kind == "definition_applicability",
@@ -932,10 +952,35 @@ class StructuralProductReport(StructuralValue):
             self.kind == "dossier",
             self.kind == "artifact_identity",
             self.kind == "clause_classification",
+            self.kind == "condition_qualification",
         ):
             raise ValueError("structural report must contain exactly its declared product")
         passages = {p.passage_id for p in self.inputs.passages}
         cited: set[str] = set()
+        if self.condition_qualification is not None:
+            by_id = {p.passage_id: p for p in self.inputs.passages}
+            for citations in (
+                self.condition_qualification.qualifier,
+                self.condition_qualification.host_predicate,
+            ):
+                if len(set(canonical_bytes(c.model_dump(mode="json")) for c in citations)) != len(
+                    citations
+                ):
+                    raise ValueError("condition role repeats source evidence")
+                for citation in citations:
+                    span = citation.span
+                    passage = by_id.get(span.passage_id)
+                    if (
+                        passage is None
+                        or passage.scope != self.inputs.scope
+                        or passage.effective_version
+                        != self.condition_qualification.effective_version
+                        or not passage.start <= span.start < span.end <= passage.end
+                        or passage.text[span.start - passage.start : span.end - passage.start]
+                        != span.text
+                    ):
+                        raise ValueError("condition role differs from its selected source scope")
+                    cited.add(span.passage_id)
         if self.clause_classification is not None:
             by_id = {p.passage_id: p for p in self.inputs.passages}
             readings = self.clause_classification.readings

@@ -2242,6 +2242,120 @@ EXCEPTION WHEN no_data_found OR too_many_rows OR invalid_text_representation OR 
 END $$;
 REVOKE ALL ON FUNCTION ops.validate_definition_basis(jsonb,jsonb,jsonb,jsonb,jsonb) FROM PUBLIC;
 
+CREATE OR REPLACE FUNCTION ops.condition_role_citations(inputs jsonb, retained jsonb, row_ jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE a jsonb; src jsonb; view_ jsonb; piece jsonb; passage jsonb; source_id text;
+ lo integer; hi integer; result jsonb:='[]'; pin jsonb:=row_->'pin';
+BEGIN
+ SELECT s INTO STRICT src FROM jsonb_array_elements(inputs->'sources') s
+ WHERE s->'source_view_id'=pin->'source_view_id'
+ AND s->'native_task_id'=pin->'native_product_task_id'
+ AND s->'native_product_key'=pin->'product_key'
+ AND s->'native_content_digest'=pin->'product_digest'
+ AND s->'projection_digest'=pin->'projection_digest'
+ AND s->'recipe_digest'=pin->'recipe_digest';
+ source_id:=encode(sha256(convert_to(data.canonical_json(src),'UTF8')),'hex');
+ SELECT v INTO STRICT view_ FROM jsonb_array_elements(retained->'sources') v WHERE v->'pin'=pin;
+ IF jsonb_typeof(row_->'anchors') IS DISTINCT FROM 'array' OR jsonb_array_length(row_->'anchors')=0 THEN
+  RAISE EXCEPTION 'condition role requires exact source anchors' USING ERRCODE='23514'; END IF;
+ FOR a IN SELECT v FROM jsonb_array_elements(row_->'anchors') WITH ORDINALITY x(v,n) ORDER BY n LOOP
+  IF a->'pin' IS DISTINCT FROM pin OR a->>'space' IS DISTINCT FROM 'native'
+   OR a->>'precision' IS DISTINCT FROM 'exact' THEN
+   RAISE EXCEPTION 'condition role requires exact source anchors' USING ERRCODE='23514'; END IF;
+  SELECT p INTO STRICT piece FROM jsonb_array_elements(view_->'projection'->'pieces') p
+  WHERE p->>'kind'='native_text' AND (p->>'item_ref')||
+   CASE WHEN p->>'cell_index' IS NULL THEN '' ELSE '/data/table_cells/'||(p->>'cell_index') END=a->>'pointer';
+  lo:=(piece->>'start')::integer+(a->>'start')::integer;
+  hi:=(piece->>'start')::integer+(a->>'end')::integer;
+  IF NOT ((piece->>'start')::integer<=lo AND lo<hi AND hi<=(piece->>'end')::integer)
+   OR substring(view_->'projection'->>'text' FROM lo+1 FOR hi-lo) IS DISTINCT FROM a->>'source_piece' THEN
+   RAISE EXCEPTION 'condition role differs from native source item' USING ERRCODE='23514'; END IF;
+  SELECT p INTO STRICT passage FROM jsonb_array_elements(inputs->'passages') p
+   WHERE p->>'source_ref'=source_id AND p->>'scope'=inputs->>'scope'
+   AND (p->>'start')::integer<=lo AND hi<=(p->>'end')::integer;
+  IF substring(passage->>'text' FROM lo-(passage->>'start')::integer+1 FOR hi-lo) IS DISTINCT FROM a->>'source_piece' THEN
+   RAISE EXCEPTION 'condition role differs from the exact source passage' USING ERRCODE='23514'; END IF;
+  result:=result||jsonb_build_array(jsonb_build_object('source_pointer',a->>'pointer','span',
+   jsonb_build_object('passage_id',passage->>'passage_id','start',lo,'end',hi,'text',a->>'source_piece')));
+ END LOOP;
+ IF (SELECT count(DISTINCT x) FROM jsonb_array_elements(result) x)<>jsonb_array_length(result) THEN
+  RAISE EXCEPTION 'condition role repeats source evidence' USING ERRCODE='23514'; END IF;
+ RETURN result;
+END $$;
+REVOKE ALL ON FUNCTION ops.condition_role_citations(jsonb,jsonb,jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.validate_condition_qualification(inputs jsonb, ref jsonb, product jsonb)
+RETURNS void LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE retained jsonb; relation_ jsonb; cue jsonb; host jsonb; predicate jsonb; member jsonb;
+ component jsonb; cue_part jsonb; host_part jsonb; qualifier_id text; host_id text; version_ text;
+ qualifier_citations jsonb; predicate_citations jsonb;
+BEGIN
+ retained:=ops.resolve_retained_source_contribution(ref);
+ SELECT r INTO STRICT relation_ FROM jsonb_array_elements(retained->'contributions') r
+ WHERE r->>'contribution_id'=ref->>'contribution_id';
+ component:=relation_->'component';
+ qualifier_id:=component->>'qualifier_contribution_id';
+ host_id:=component->>'host_contribution_id';
+ version_:=component->>'question_version';
+ IF relation_->>'semantic_type' IS DISTINCT FROM 'structural.predicate_qualification'
+  OR relation_->>'kind' IS DISTINCT FROM 'relation'
+  OR component->>'kind' IS DISTINCT FROM 'predicate_qualifier'
+  OR component->>'question' IS DISTINCT FROM 'source_predicate_interpretation'
+  OR NOT COALESCE(version_ IN ('3','4','5'),false)
+  OR component->>'scope' IS DISTINCT FROM inputs->>'scope'
+  OR NOT COALESCE(component->>'qualifier_kind' IN ('condition','assumption'),false)
+  OR relation_->'endpoints' IS DISTINCT FROM jsonb_build_array(
+   jsonb_build_object('role','qualifier','contribution_id',qualifier_id),
+   jsonb_build_object('role','host','contribution_id',host_id))
+  OR NOT COALESCE(relation_->'members' ?& ARRAY[qualifier_id,host_id],false) THEN
+  RAISE EXCEPTION 'condition statement requires the exact directed qualification' USING ERRCODE='23514'; END IF;
+ SELECT r INTO STRICT cue FROM jsonb_array_elements(retained->'contributions') r WHERE r->>'contribution_id'=qualifier_id;
+ SELECT r INTO STRICT host FROM jsonb_array_elements(retained->'contributions') r WHERE r->>'contribution_id'=host_id;
+ cue_part:=cue->'component'; host_part:=host->'component';
+ IF cue->>'semantic_type' IS DISTINCT FROM 'structural.predicate_cue'
+  OR host->>'semantic_type' IS DISTINCT FROM 'structural.predicate_frame'
+  OR cue_part->>'kind' IS DISTINCT FROM 'predicate_cue'
+  OR host_part->>'kind' IS DISTINCT FROM 'predicate_frame'
+  OR cue->'pin' IS DISTINCT FROM relation_->'pin' OR host->'pin' IS DISTINCT FROM relation_->'pin'
+  OR cue_part->>'question' IS DISTINCT FROM 'source_predicate_frames'
+  OR host_part->>'question' IS DISTINCT FROM 'source_predicate_frames'
+  OR cue_part->>'question_version' IS DISTINCT FROM version_
+  OR host_part->>'question_version' IS DISTINCT FROM version_
+  OR cue_part->>'scope' IS DISTINCT FROM inputs->>'scope'
+  OR host_part->>'scope' IS DISTINCT FROM inputs->>'scope'
+  OR cue_part->>'effective_version' IS DISTINCT FROM component->>'effective_version'
+  OR host_part->>'effective_version' IS DISTINCT FROM component->>'effective_version'
+  OR cue_part->>'cue_kind' IS DISTINCT FROM component->>'qualifier_kind'
+  OR cue_part->>'host_state' IS DISTINCT FROM 'located'
+  OR NOT (CASE WHEN COALESCE(jsonb_array_length(cue_part->'cross_block_hosts'),0)>0
+     THEN cue_part->'cross_block_hosts' IS NOT DISTINCT FROM jsonb_build_array(host_id)
+     ELSE cue_part->'candidate_tokens' IS NOT DISTINCT FROM jsonb_build_array(host_part->'predicate_token')
+      AND cue_part->>'block' IS NOT DISTINCT FROM host_part->>'block'
+      AND cue_part->>'annotation' IS NOT DISTINCT FROM host_part->>'annotation' END) THEN
+  RAISE EXCEPTION 'condition statement requires a uniquely located host in its source scope' USING ERRCODE='23514'; END IF;
+ SELECT r INTO STRICT predicate FROM jsonb_array_elements(host_part->'frame_members') r WHERE r->>'role'='predicate';
+ SELECT r INTO STRICT member FROM jsonb_array_elements(retained->'contributions') r
+ WHERE r->>'contribution_id'=predicate->>'contribution';
+ IF predicate->>'outcome' IS DISTINCT FROM 'complete'
+  OR member->>'semantic_type' IS DISTINCT FROM 'structural.predicate_member'
+  OR NOT COALESCE(host->'members' ? (predicate->>'contribution'),false)
+  OR member->'pin' IS DISTINCT FROM relation_->'pin'
+  OR data.record_source_json(member->'value')->>'role' IS DISTINCT FROM 'predicate' THEN
+  RAISE EXCEPTION 'condition host requires its complete declared predicate member' USING ERRCODE='23514'; END IF;
+ qualifier_citations:=ops.condition_role_citations(inputs,retained,cue);
+ predicate_citations:=ops.condition_role_citations(inputs,retained,member);
+ IF EXISTS(SELECT FROM jsonb_array_elements(qualifier_citations||predicate_citations) c
+  JOIN LATERAL jsonb_array_elements(inputs->'passages') p ON p->>'passage_id'=c->'span'->>'passage_id'
+  WHERE p->>'effective_version' IS DISTINCT FROM component->>'effective_version')
+  OR product IS DISTINCT FROM jsonb_strip_nulls(jsonb_build_object(
+   'relation',component->>'qualifier_kind','attachment',ref,'effective_version',component->>'effective_version',
+   'qualifier',qualifier_citations,'host_predicate',predicate_citations)) THEN
+  RAISE EXCEPTION 'condition role evidence differs from its exact retained source' USING ERRCODE='23514'; END IF;
+EXCEPTION WHEN no_data_found OR too_many_rows THEN
+ RAISE EXCEPTION 'condition statement cannot resolve exact role custody' USING ERRCODE='23514';
+END $$;
+REVOKE ALL ON FUNCTION ops.validate_condition_qualification(jsonb,jsonb,jsonb) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION ops.validate_structural_product_report(p_task bigint,p_envelope jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE t ops.task; shape json; product jsonb; inputs jsonb; source_ jsonb; source_map jsonb:='{}'; passage jsonb; passage_map jsonb:='{}'; ref jsonb; v kb.source_view; identifier text; cited text; item jsonb; dimension jsonb; member jsonb; actual text[]; expected text[]; config_ jsonb; method_ text; introduction boolean; target_passage jsonb; premise jsonb; expected_state text; expected_outcome text; states text[]; model_detail jsonb; model_roles jsonb; model_components jsonb; definition_policy jsonb;
@@ -2274,6 +2388,13 @@ BEGIN
   IF jsonb_strip_nulls(config_->'inputs') IS DISTINCT FROM jsonb_strip_nulls(inputs)
     OR product->>'kind' IS DISTINCT FROM (CASE WHEN method_='structure.definitions' THEN 'definition_applicability' ELSE 'definition_components' END) THEN
    RAISE EXCEPTION 'definition report differs from frozen source/question input' USING ERRCODE='23514'; END IF;
+ ELSIF method_='structure.condition_qualification' THEN
+  IF jsonb_strip_nulls(config_->'inputs') IS DISTINCT FROM jsonb_strip_nulls(inputs)
+   OR product->>'kind' IS DISTINCT FROM 'condition_qualification'
+   OR p_envelope->>'operation_version' IS DISTINCT FROM '1'
+   OR config_->'attachment'->>'release_id' IS DISTINCT FROM t.release_id
+   OR config_->'attachment'->>'project_id' IS DISTINCT FROM (SELECT project_id FROM ops.run WHERE id=t.run_id) THEN
+   RAISE EXCEPTION 'condition qualification differs from exact producing release and source input' USING ERRCODE='23514'; END IF;
  ELSIF method_='structure.clause_classification' THEN
   IF jsonb_strip_nulls(config_->'inputs') IS DISTINCT FROM jsonb_strip_nulls(inputs)
    OR product->>'kind' IS DISTINCT FROM 'clause_classification' THEN
@@ -2293,9 +2414,12 @@ BEGIN
   +CASE WHEN nullif(product->'dossier','null'::jsonb) IS NOT NULL THEN 1 ELSE 0 END
   +CASE WHEN nullif(product->'definition_components','null'::jsonb) IS NOT NULL THEN 1 ELSE 0 END
   +CASE WHEN nullif(product->'artifact_identity','null'::jsonb) IS NOT NULL THEN 1 ELSE 0 END
-  +CASE WHEN nullif(product->'clause_classification','null'::jsonb) IS NOT NULL THEN 1 ELSE 0 END)<>1 THEN
+  +CASE WHEN nullif(product->'clause_classification','null'::jsonb) IS NOT NULL THEN 1 ELSE 0 END
+  +CASE WHEN nullif(product->'condition_qualification','null'::jsonb) IS NOT NULL THEN 1 ELSE 0 END)<>1 THEN
   RAISE EXCEPTION 'structural report must contain exactly one product variant' USING ERRCODE='23514'; END IF;
  CASE product->>'kind'
+ WHEN 'condition_qualification' THEN
+  PERFORM ops.validate_condition_qualification(inputs,config_->'attachment',product->'condition_qualification');
  WHEN 'clause_classification' THEN
   IF (ops.model_observation_policy(t.release_id) IS NOT NULL) IS DISTINCT FROM
    (p_envelope->>'operation_version'='2') THEN
