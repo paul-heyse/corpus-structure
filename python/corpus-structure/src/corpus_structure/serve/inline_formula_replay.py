@@ -13,13 +13,22 @@ from corpus_structure.semantic.observations import source_python
 
 
 def verify_inline_formula_report(report, source):
-    from corpus_structure.methods.scoped_relations import ScopedRelationsConfig
+    from corpus_structure.methods.scoped_relations import (
+        ORDERED_FORMULA_WITNESS_METHOD_VERSION,
+        ScopedRelationsConfig,
+        ScopedRelationsOrderedConfig,
+    )
 
     body = report["body"]
     configuration = report["configuration"]
     # The registry stores floats as decimal strings. Replay only the input
     # binding and parser settings, whose validators accept that representation.
-    cfg = ScopedRelationsConfig.model_validate(
+    config_type = (
+        ScopedRelationsOrderedConfig
+        if body.get("operation_version") == ORDERED_FORMULA_WITNESS_METHOD_VERSION
+        else ScopedRelationsConfig
+    )
+    cfg = config_type.model_validate(
         {
             key: configuration[key]
             for key in (
@@ -32,8 +41,9 @@ def verify_inline_formula_report(report, source):
             if key in configuration
         }
     )
-    if cfg.ordered_formula_witness is not None and body.get("operation_version") != "10":
-        raise ValueError("ordered formula witness requires the current scoped producer")
+    ordered_formula_witness = (
+        cfg.ordered_formula_witness if isinstance(cfg, ScopedRelationsOrderedConfig) else None
+    )
     source_id = source["source_view_id"]
     selection = None
     if cfg.inputs is not None:
@@ -75,10 +85,10 @@ def verify_inline_formula_report(report, source):
         d for d in detail["formula_syntax"] if d.get("input_policy") == INLINE_FORMULA_POLICY
     ]
     actual = [row for row in body["contributions"] if row["operation_key"] == op_key]
-    if body.get("operation_version") in {"6", "7", "8", "9", "10"}:
+    if body.get("operation_version") in {"6", "7", "8", "9", "10", "11"}:
         from .witnessed_source_link_replay import verify_named_links, verify_witnessed_links
 
-        verify_witnessed_links(report, source, pin, cfg.inputs, cfg.ordered_formula_witness)
+        verify_witnessed_links(report, source, pin, cfg.inputs, ordered_formula_witness)
         if body["operation_version"] == "6":
             verify_named_links(report, source, pin, cfg.inputs)
     if not equations and not operations and not diagnostics and not actual:
@@ -133,7 +143,7 @@ def verify_inline_formula_report(report, source):
             for op in body["contribution_operations"]
             if op["question"] == QUESTION
         }
-        if body.get("operation_version") in {"6", "7", "8", "9", "10"}
+        if body.get("operation_version") in {"6", "7", "8", "9", "10", "11"}
         else set()
     )
     formula_ids = {row["contribution_id"] for row in actual}
@@ -199,7 +209,8 @@ def verify_inline_formula_closure(root, manifest):
         row
         for row in all_reports.values()
         if row.get("method") == "structure.scoped_relations"
-        and (row.get("body") or {}).get("operation_version") in {"5", "6", "7", "8", "9", "10"}
+        and (row.get("body") or {}).get("operation_version")
+        in {"5", "6", "7", "8", "9", "10", "11"}
         and (row.get("body") or {}).get("outcome") in {"produced", "empty"}
     ]
     if not reports:
@@ -215,5 +226,5 @@ def verify_inline_formula_closure(root, manifest):
         if source is None:
             raise ValueError("inline formula verification lacks exact retained source")
         verify_inline_formula_report(report, source)
-        if report["body"]["operation_version"] in {"7", "8", "9", "10"}:
+        if report["body"]["operation_version"] in {"7", "8", "9", "10", "11"}:
             verify_annotated_named_links(report, source, all_reports)

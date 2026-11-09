@@ -547,7 +547,7 @@ def verify_table_correspondence_closure(root, manifest):
         row
         for row in _detached_relation(root, manifest, "reports")
         if row.get("method") == "structure.scoped_relations"
-        and (row.get("body") or {}).get("operation_version") in {"8", "9", "10"}
+        and (row.get("body") or {}).get("operation_version") in {"8", "9", "10", "11"}
         and (row.get("body") or {}).get("outcome") in {"produced", "empty"}
     ]
     ids = {report["origin_unit_id"] for report in reports}

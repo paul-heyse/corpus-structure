@@ -1047,10 +1047,10 @@ class ContextualCandidates:
                                 effective_version=cfg.effective_version,
                                 named_version="3"
                                 if self.version in {"10", "11"}
-                                and upstream.get("operation_version") == "10"
+                                and upstream.get("operation_version") in {"10", "11"}
                                 else "2",
                                 aliases=section_aliases
-                                if upstream.get("operation_version") == "10"
+                                if upstream.get("operation_version") in {"10", "11"}
                                 else None,
                             )
                         else:

@@ -57,9 +57,6 @@ class ScopedRelationsConfig(StructuralValue):
     formula_seconds: float = Field(default=0.5, gt=0)
     max_formula_chars: int = Field(default=2048, gt=0, strict=True)
     classification_refs: tuple[RetainedStructuralRef, ...] = ()
-    ordered_formula_witness: StructuralPassage | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
 
     @model_validator(mode="after")
     def bound_inputs(self) -> Self:
@@ -76,6 +73,19 @@ class ScopedRelationsConfig(StructuralValue):
             ref.product_id not in self.inputs.dependencies for ref in self.classification_refs
         ):
             raise ValueError("classification requires distinct retained report dependencies")
+        return self
+
+
+ORDERED_FORMULA_WITNESS_METHOD_VERSION = "11"
+
+
+class ScopedRelationsOrderedConfig(ScopedRelationsConfig):
+    ordered_formula_witness: StructuralPassage | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+
+    @model_validator(mode="after")
+    def bound_ordered_formula_witness(self) -> Self:
         witness = self.ordered_formula_witness
         if witness is not None:
             if (
@@ -1519,7 +1529,13 @@ class ScopedRelationsMethod:
     def run(self, units, cfg, ctx):
         from .predicate_contributions import predicate_qualifier_refusal
 
-        if cfg.ordered_formula_witness is not None and self.version != "10":
+        ordered_formula_witness = (
+            cfg.ordered_formula_witness if isinstance(cfg, ScopedRelationsOrderedConfig) else None
+        )
+        if (
+            ordered_formula_witness is not None
+            and self.version != ORDERED_FORMULA_WITNESS_METHOD_VERSION
+        ):
             raise ValueError("ordered formula witness requires the current scoped producer")
 
         def qualifier_preflight(component):
@@ -1630,7 +1646,7 @@ class ScopedRelationsMethod:
                 predicate_version=self.predicate_version,
                 inline_equations_enabled=True,
                 witnessed_links_enabled=True,
-                ordered_formula_witness=cfg.ordered_formula_witness,
+                ordered_formula_witness=ordered_formula_witness,
                 named_link_version=self.named_link_version,
                 qualifier_preflight=qualifier_preflight,
             )
@@ -1715,3 +1731,20 @@ class ScopedRelationsWithRoleClosure(ScopedRelationsMethod):
     version = "10"
     predicate_version = "5"
     named_link_version = "3"
+
+
+class ScopedRelationsWithOrderedWitness(ScopedRelationsWithRoleClosure):
+    version = ORDERED_FORMULA_WITNESS_METHOD_VERSION
+    Config = ScopedRelationsOrderedConfig
+
+    def select(self, run, cfg):
+        selected = super().select(run, cfg)
+        if cfg.ordered_formula_witness is None:
+            return selected
+        if cfg.inputs is None:
+            raise ValueError("ordered formula witness requires one original selected passage")
+        (source,) = cfg.inputs.sources
+        exact = tuple(unit for unit in selected if unit.unit_id == source.source_view_id)
+        if len(exact) != 1:
+            raise ValueError("ordered formula witness source is not in the current run")
+        return exact

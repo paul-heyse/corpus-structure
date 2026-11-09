@@ -240,7 +240,7 @@ def _verify_section_report(retained, reports, sources, documents, contract):
         or scoped["project_id"] != retained["project_id"]
         or upstream["source"] != body["source"]
         or upstream["release_id"] != body["release_id"]
-        or upstream["operation_version"] not in {"7", "8", "9", "10"}
+        or upstream["operation_version"] not in {"7", "8", "9", "10", "11"}
     ):
         raise ValueError("section citation lacks its exact scoped source report")
     frame = native_source_frame(_retained_review_source_view(source), ())
@@ -410,7 +410,7 @@ def _retained_alias(reference, reports, sources):
         or origin["runtime_fingerprint"] != reference["runtime_fingerprint"]
         or body["release_id"] != reference["release_id"]
         or body.get("method") != "structure.scoped_relations"
-        or body.get("operation_version") not in {"7", "8", "9", "10"}
+        or body.get("operation_version") not in {"7", "8", "9", "10", "11"}
     ):
         raise ValueError("definition alias differs from its retained origin")
     rows = {row["contribution_id"]: row for row in body["contributions"]}

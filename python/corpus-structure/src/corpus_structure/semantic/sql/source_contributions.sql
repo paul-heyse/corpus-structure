@@ -2854,7 +2854,7 @@ BEGIN
  rows_:=ops.resolve_retained_source_contribution(edge_ref)->'contributions';
  IF NOT EXISTS(SELECT FROM ops.task t JOIN ops.method_config c ON c.id=t.method_config_id
   JOIN ops.method m ON m.id=c.method_id WHERE t.id=(edge_ref->>'origin_task_id')::bigint
-   AND m.name='structure.scoped_relations' AND m.version IN ('7','8','9','10')) THEN RETURN NULL; END IF;
+   AND m.name='structure.scoped_relations' AND m.version IN ('7','8','9','10','11')) THEN RETURN NULL; END IF;
  SELECT r INTO STRICT edge_ FROM jsonb_array_elements(rows_) r
  WHERE r->>'contribution_id'=edge_ref->>'contribution_id';
  IF NOT coalesce(edge_->>'kind'='relation' AND edge_->>'semantic_type'='structural.scoped_attachment'
@@ -3057,12 +3057,12 @@ BEGIN
  IF t.status<>'running' AND NOT EXISTS(SELECT FROM ops.task_result WHERE task_id=t.id AND body=p_envelope) THEN
   RAISE EXCEPTION 'contribution report differs from immutable origin result' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT v FROM kb.source_view WHERE id=t.unit_id;
- IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('3','4','5','6','7','8','9','10') THEN
+ IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('3','4','5','6','7','8','9','10','11') THEN
   PERFORM ops.validate_source_table_note_scope(v,p_envelope->'contributions');
   SELECT params INTO STRICT table_config FROM ops.method_config WHERE id=t.method_config_id;
   table_mode:=table_config->>'interpretation_mode';
   IF table_mode IS NULL OR (table_mode NOT IN ('feasibility','independent','coupled')
-   AND NOT (table_mode='correspondence' AND p_envelope->>'operation_version' IN ('8','9','10')))
+   AND NOT (table_mode='correspondence' AND p_envelope->>'operation_version' IN ('8','9','10','11')))
    OR table_config->>'interpretation_weight_scale' IS NULL
    OR table_config->>'interpretation_weight_scale' NOT IN ('0.5','1','2') THEN
    RAISE EXCEPTION 'invalid registered table interpretation policy' USING ERRCODE='23514';
@@ -3082,7 +3082,7 @@ BEGIN
  IF EXISTS(SELECT FROM jsonb_each(operation_map) o
   WHERE o.value->>'question'='source_formula_occurrences'
    AND (p_envelope->>'method' IS DISTINCT FROM 'structure.scoped_relations'
-    OR p_envelope->>'operation_version' NOT IN ('5','6','7','8','9','10')
+    OR p_envelope->>'operation_version' NOT IN ('5','6','7','8','9','10','11')
     OR o.value->>'operation_version' IS DISTINCT FROM '1')) THEN
   RAISE EXCEPTION 'formula occurrence operation requires its released producer' USING ERRCODE='23514';
  END IF;
@@ -3095,7 +3095,7 @@ BEGIN
   FROM jsonb_array_elements(p_envelope->'contributions') c
   CROSS JOIN LATERAL jsonb_array_elements(COALESCE(c->'endpoints','[]')) e
   WHERE c->>'kind'='relation'
-   AND (p_envelope->>'operation_version' NOT IN ('6','7','8','9','10') OR
+   AND (p_envelope->>'operation_version' NOT IN ('6','7','8','9','10','11') OR
     operation_map->(c->>'operation_key')->>'question' IS DISTINCT FROM 'source_witnessed_links');
  END IF;
  SELECT COALESCE(jsonb_object_agg(key,n),'{}') INTO output_counts FROM (
@@ -3564,7 +3564,7 @@ BEGIN
     FROM ops.task selected JOIN ops.task_result upstream ON upstream.task_id=coalesce(selected.reused_task_id,selected.id)
     JOIN ops.method_config cfg ON cfg.id=selected.method_config_id JOIN ops.method method ON method.id=cfg.method_id
     WHERE selected.run_id=t.run_id AND selected.unit_id=v.id AND selected.unit_type='source_view'
-     AND selected.status IN ('done','empty','reused') AND method.name='structure.scoped_relations' AND method.version IN ('7','8','9','10');
+     AND selected.status IN ('done','empty','reused') AND method.name='structure.scoped_relations' AND method.version IN ('7','8','9','10','11');
     heading_constraints:=jsonb_build_array(jsonb_build_object(
      'constraint_id','section-citation','relation_kinds',jsonb_build_array('cites-section'),
      'occurrence_role','citation','target_role','heading','multiplicity','one','exhaustive',false));
@@ -4328,7 +4328,7 @@ BEGIN
  END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(p_envelope->'contributions') c
   WHERE c->'component'->>'kind' IN ('predicate_frame','predicate_reading','predicate_cue','predicate_qualifier')) THEN
-  IF p_envelope->>'method'<>'structure.scoped_relations' OR p_envelope->>'operation_version' NOT IN ('4','5','6','7','8','9','10') THEN
+  IF p_envelope->>'method'<>'structure.scoped_relations' OR p_envelope->>'operation_version' NOT IN ('4','5','6','7','8','9','10','11') THEN
    RAISE EXCEPTION 'predicate evidence requires its released producer' USING ERRCODE='23514';
   END IF;
   SELECT jsonb_object_agg(c->>'contribution_id',c) INTO predicate_population
@@ -4337,49 +4337,49 @@ BEGIN
    'structural.predicate_cue','structural.predicate_reading','structural.predicate_qualification');
   PERFORM ops.validate_source_predicates(
    t,v,predicate_population,table_config||jsonb_build_object('_predicate_operations',operation_map,
-    '_predicate_version',CASE WHEN p_envelope->>'operation_version'='10' THEN '5'
+    '_predicate_version',CASE WHEN p_envelope->>'operation_version' IN ('10','11') THEN '5'
      WHEN p_envelope->>'operation_version'='9' THEN '4'
      WHEN p_envelope->>'operation_version' IN ('5','6','7','8') THEN '3' ELSE '2' END));
  END IF;
- IF (p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('9','10')
+ IF (p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('9','10','11')
     AND table_config->>'inputs' IS NOT NULL)
   OR EXISTS(SELECT FROM jsonb_each(operation_map) o WHERE o.value->>'question'='source_witnessed_links') THEN
   IF p_envelope->>'method' IS DISTINCT FROM 'structure.scoped_relations'
-   OR p_envelope->>'operation_version' NOT IN ('6','7','8','9','10') THEN
+   OR p_envelope->>'operation_version' NOT IN ('6','7','8','9','10','11') THEN
    RAISE EXCEPTION 'witnessed links require their released source producer' USING ERRCODE='23514'; END IF;
   IF table_config->>'ordered_formula_witness' IS NOT NULL THEN
-   IF p_envelope->>'operation_version' IS DISTINCT FROM '10'
+   IF p_envelope->>'operation_version' IS DISTINCT FROM '11'
     OR NOT ops.ordered_formula_report(v,table_config,p_envelope->'contributions',operation_map,p_envelope->>'source') THEN
     RAISE EXCEPTION 'ordered formula witness differs from retained source and dependencies' USING ERRCODE='23514';
    END IF;
   ELSE
-   IF EXISTS(SELECT FROM jsonb_each(operation_map) o
+   IF p_envelope->>'operation_version'='11' OR EXISTS(SELECT FROM jsonb_each(operation_map) o
     WHERE o.value->>'question'='source_witnessed_links' AND o.value->>'operation_version' IS DISTINCT FROM '1') THEN
     RAISE EXCEPTION 'versioned formula witness requires its explicit released input' USING ERRCODE='23514';
    END IF;
    PERFORM ops.validate_witnessed_formula_links(v,table_config||jsonb_build_object(
-    '_current_witness_version',p_envelope->>'operation_version' IN ('9','10')),p_envelope->'contributions',operation_map);
+    '_current_witness_version',p_envelope->>'operation_version' IN ('9','10','11')),p_envelope->'contributions',operation_map);
   END IF;
  END IF;
- IF (p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('7','8','9','10')
+ IF (p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('7','8','9','10','11')
     AND table_config->>'inputs' IS NOT NULL)
   OR EXISTS(SELECT FROM jsonb_each(operation_map) o WHERE o.value->>'question'='source_named_links') THEN
   IF p_envelope->>'method' IS DISTINCT FROM 'structure.scoped_relations'
-   OR p_envelope->>'operation_version' NOT IN ('6','7','8','9','10') THEN
+   OR p_envelope->>'operation_version' NOT IN ('6','7','8','9','10','11') THEN
    RAISE EXCEPTION 'named links require their released source producer' USING ERRCODE='23514'; END IF;
-  IF p_envelope->>'operation_version' IN ('7','8','9','10') THEN
+  IF p_envelope->>'operation_version' IN ('7','8','9','10','11') THEN
    PERFORM ops.validate_named_annotation_links(t,v,table_config||jsonb_build_object(
-    '_current_witness_version',p_envelope->>'operation_version' IN ('9','10'),
-    '_named_version',CASE WHEN p_envelope->>'operation_version'='10' THEN '3' ELSE '2' END),p_envelope->'contributions',operation_map);
+    '_current_witness_version',p_envelope->>'operation_version' IN ('9','10','11'),
+    '_named_version',CASE WHEN p_envelope->>'operation_version' IN ('10','11') THEN '3' ELSE '2' END),p_envelope->'contributions',operation_map);
   ELSE
    PERFORM ops.validate_named_source_links(v,table_config,p_envelope->'contributions',operation_map);
   END IF;
  END IF;
- IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('7','8','9','10')
+ IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('7','8','9','10','11')
   AND table_config->>'inputs' IS NOT NULL THEN
   PERFORM ops.validate_scope_inheritance(p_envelope->'contributions',operation_map);
  END IF;
- IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('6','7','8','9','10')
+ IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('6','7','8','9','10','11')
   AND (COALESCE(table_config->'classification_refs','[]')<>'[]'::jsonb
    OR data.record_source_json(p_envelope->'parse_detail') ? 'clause_model_concordance') THEN
   IF EXISTS(SELECT FROM jsonb_array_elements(COALESCE(table_config->'classification_refs','[]')) ref

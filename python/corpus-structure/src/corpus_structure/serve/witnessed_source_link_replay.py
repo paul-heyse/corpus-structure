@@ -28,6 +28,8 @@ from corpus_structure.semantic.observations import source_python
 
 
 def verify_witnessed_links(report, source, pin, inputs, ordered_formula_witness=None):
+    from corpus_structure.methods.scoped_relations import ORDERED_FORMULA_WITNESS_METHOD_VERSION
+
     body = report["body"]
     context, text = source["context"], source["text"]
     pieces = context["pieces"]
@@ -36,7 +38,7 @@ def verify_witnessed_links(report, source, pin, inputs, ordered_formula_witness=
         (ref,) = [r for r in inputs.sources if r.source_view_id == source["source_view_id"]]
         selection = tuple(p for p in inputs.passages if p.source_ref == ref.identity)
     if ordered_formula_witness is not None:
-        if body["operation_version"] != "10":
+        if body["operation_version"] != ORDERED_FORMULA_WITNESS_METHOD_VERSION:
             raise ValueError("ordered formula witness requires the current scoped producer")
         (query,) = selection
         inspected, expected = ordered_recapped_declarations(
@@ -254,7 +256,7 @@ def verify_witnessed_links(report, source, pin, inputs, ordered_formula_witness=
             )
             and r["component"]["scope"] == link.scope
             and (
-                body["operation_version"] not in {"9", "10"}
+                body["operation_version"] not in {"9", "10", "11"}
                 or r["component"].get("effective_version") == link.effective_version
             )
             and {cue["contribution_id"], prior["contribution_id"]}
@@ -423,7 +425,7 @@ def _verify_named_population(
             "named_link_cue", link.pointer, link.cue, link.passage, versioned, dependencies
         )
         if (
-            body.get("operation_version") in {"9", "10"}
+            body.get("operation_version") in {"9", "10", "11"}
             and link.kind == "definition_reference"
             and link.resolution == "target_selection_required"
             and (
@@ -447,7 +449,7 @@ def _verify_named_population(
                 else versioned,
                 [*dependencies, subject, cue],
             )
-        if body.get("operation_version") in {"9", "10"} and artifacts:
+        if body.get("operation_version") in {"9", "10", "11"} and artifacts:
             binding = procedure_artifact_endpoint(
                 rows, link, annotation_by_dependency[link.witness.annotation], artifacts[0]
             )
@@ -532,7 +534,7 @@ def verify_annotated_named_links(report, source, producers):
     body, cfg = report["body"], report["configuration"]
     if cfg.get("inputs") is None:
         return
-    if body["operation_version"] not in {"7", "8", "9", "10"} or body[
+    if body["operation_version"] not in {"7", "8", "9", "10", "11"} or body[
         "configuration_hash"
     ] != config_key("structure.scoped_relations", body["operation_version"], cfg):
         raise ValueError("named links differ from their retained configuration")
@@ -542,7 +544,7 @@ def verify_annotated_named_links(report, source, producers):
     passages = tuple(p for p in inputs.passages if p.source_ref == ref.identity)
     operations = [op for op in body["contribution_operations"] if op["question"] == NAMED_QUESTION]
     (operation,) = operations
-    version = NAMED_COVERAGE_VERSION if body["operation_version"] == "10" else NAMED_VERSION
+    version = NAMED_COVERAGE_VERSION if body["operation_version"] in {"10", "11"} else NAMED_VERSION
     origin_id = operation.get("annotation_origin_task_id")
     frame = native_source_frame(view, ())
     if origin_id is None:

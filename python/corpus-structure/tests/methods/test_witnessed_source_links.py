@@ -8,6 +8,7 @@ import pytest
 from corpus_structure.methods.scoped_relations import (
     ScopedRelationsConfig,
     ScopedRelationsMethod,
+    ScopedRelationsOrderedConfig,
     discover_relations,
 )
 from corpus_structure.semantic.identity import canonical_bytes
@@ -285,7 +286,7 @@ def ordered_run(view, query, wider):
         passages=(query,),
         dependencies=("fixture",),
     )
-    config = ScopedRelationsConfig(
+    config = ScopedRelationsOrderedConfig(
         inputs=inputs, structural_input_digest=inputs.identity, ordered_formula_witness=wider
     )
     output = discover_relations(
@@ -303,7 +304,7 @@ def ordered_run(view, query, wider):
             dict(
                 configuration=config.model_dump(mode="json"),
                 body=dict(
-                    operation_version="10",
+                    operation_version="11",
                     contribution_operations=operations,
                     contributions=output["contributions"],
                     parse_detail=source_value({"formula_syntax": output["formula_diagnostics"]}),
@@ -426,6 +427,35 @@ def test_ordered_formula_witness_uses_one_physical_target_for_two_inspected_reca
     ]
     assert len({row["members"][0] for row in links}) == 2
     assert len({row["members"][1] for row in links}) == 1
+
+
+def test_ordered_witness_is_a_new_opt_in_method_contract(tmp_path):
+    from corpus_structure.orchestrate.phase0 import registry
+
+    method_name = "structure.scoped_relations"
+    default = registry(tmp_path).method(method_name)
+    assert default.version == "10"
+    assert default.Config is ScopedRelationsConfig
+    assert "ordered_formula_witness" not in default.Config.model_fields
+    _, report, _ = ordered_run(*ordered_fixture())
+    (tmp_path / "methods.yaml").write_text(
+        json.dumps({"configs": {method_name: {"witness": report["configuration"]}}})
+    )
+    selected = registry(tmp_path)
+    method = selected.method(method_name)
+    assert method.version == "11"
+    assert method.Config is ScopedRelationsOrderedConfig
+    cfg = selected.overlay(method_name, "witness")
+    run = SimpleNamespace(
+        reader=SimpleNamespace(
+            source_views=lambda: (
+                SimpleNamespace(id=7, key="source:7"),
+                SimpleNamespace(id=8, key="source:8"),
+            )
+        )
+    )
+    (source,) = method.select(run, cfg)
+    assert source.unit_id == 7
 
 
 def test_named_links_use_literal_anchors_and_never_choose_first_section():
