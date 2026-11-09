@@ -32,6 +32,7 @@ def compare(monkeypatch, text, rules):
     (baseline,) = method.run((unit,), cfg, ctx)
     (captured,) = method.run_source_rule_capture_comparison((unit,), cfg, ctx, rules)
     assert not baseline.records
+    assert baseline.parse_detail is not None and captured.parse_detail is not None
     assert "comparison_arm" not in baseline.parse_detail
     assert captured.parse_detail["comparison_arm"] == "exact-source-rule-capture-1"
     return tuple(captured.records or ())
@@ -54,10 +55,13 @@ def test_nominal_content_is_bound_with_its_restrictive_clause(monkeypatch, rules
     )
 
 
-@pytest.mark.parametrize("text", [
-    "The audit team does not publish reports about vendors whose contracts expire.",
-    "The audit team publishes reports. A reviewer wrote about vendors whose contracts expire.",
-    "Chapter 1",
-])
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The audit team does not publish reports about vendors whose contracts expire.",
+        "The audit team publishes reports. A reviewer wrote about vendors whose contracts expire.",
+        "Chapter 1",
+    ],
+)
 def test_source_rule_refuses_negated_disjoint_or_heading_like_inputs(monkeypatch, rules, text):
     assert compare(monkeypatch, text, rules) == ()

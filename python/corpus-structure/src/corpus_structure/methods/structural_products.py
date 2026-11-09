@@ -15,6 +15,7 @@ from pydantic import Field, model_validator
 
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 from corpus_structure.semantic.structural_parsing import (
     COMPARISON_BASIS,
@@ -1477,36 +1478,55 @@ def condition_qualification(inputs, attachment, retained):
     def locations(row):
         locations = []
         for anchor in row["anchors"]:
-            if anchor["pin"] != pin or anchor["space"] != "native" or anchor["precision"] != "exact":
+            if (
+                anchor["pin"] != pin
+                or anchor["space"] != "native"
+                or anchor["precision"] != "exact"
+            ):
                 raise ValueError("condition role requires exact original source anchors")
             pointer = anchor["pointer"]
             (piece,) = (
-                piece for piece in projection["pieces"]
+                piece
+                for piece in projection["pieces"]
                 if piece["kind"] == "native_text"
-                and piece["item_ref"] + (
-                    f"/data/table_cells/{piece['cell_index']}" if piece.get("cell_index") is not None else ""
-                ) == pointer
+                and piece["item_ref"]
+                + (
+                    f"/data/table_cells/{piece['cell_index']}"
+                    if piece.get("cell_index") is not None
+                    else ""
+                )
+                == pointer
             )
             start, end = piece["start"] + anchor["start"], piece["start"] + anchor["end"]
             if not piece["start"] <= start < end <= piece["end"]:
                 raise ValueError("condition role exceeds its original source item")
             (passage,) = (
-                p for p in inputs.passages
-                if p.source_ref == source.identity and p.scope == inputs.scope
-                and p.effective_version == effective and p.start <= start < end <= p.end
+                p
+                for p in inputs.passages
+                if p.source_ref == source.identity
+                and p.scope == inputs.scope
+                and p.effective_version == effective
+                and p.start <= start < end <= p.end
             )
-            text = passage.text[start - passage.start:end - passage.start]
+            text = passage.text[start - passage.start : end - passage.start]
             if text != anchor["source_piece"] or projection["text"][start:end] != text:
                 raise ValueError("condition role differs from the original source text")
-            locations.append(ConditionRoleCitation(
-                source_pointer=pointer,
-                span=LocatedDefinitionSpan(passage_id=passage.passage_id, start=start, end=end, text=text),
-            ))
+            locations.append(
+                ConditionRoleCitation(
+                    source_pointer=pointer,
+                    span=LocatedDefinitionSpan(
+                        passage_id=passage.passage_id, start=start, end=end, text=text
+                    ),
+                )
+            )
         return tuple(locations)
 
     return ConditionQualificationProduct(
-        relation=relation_kind, attachment=attachment, effective_version=effective,
-        qualifier=locations(cue), host_predicate=locations(member),
+        relation=relation_kind,
+        attachment=attachment,
+        effective_version=effective,
+        qualifier=locations(cue),
+        host_predicate=locations(member),
     )
 
 
@@ -1538,12 +1558,14 @@ class ConditionQualificationMethod:
             raise ValueError("condition attachment belongs to another release")
         retained = ctx.reader.retained_source_contribution(cfg.attachment)
         report = StructuralProductReport(
-            kind="condition_qualification", inputs=cfg.inputs,
+            kind="condition_qualification",
+            inputs=cfg.inputs,
             condition_qualification=condition_qualification(cfg.inputs, cfg.attachment, retained),
         )
         return tuple(
             UnitResult(
-                ref=unit.ref, outcome=ObservationOutcome.PRODUCED,
+                ref=unit.ref,
+                outcome=ObservationOutcome.PRODUCED,
                 structural_product=report.model_dump(mode="json", exclude_none=True),
             )
             for unit in units

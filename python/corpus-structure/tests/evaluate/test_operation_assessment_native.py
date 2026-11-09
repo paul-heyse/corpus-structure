@@ -437,7 +437,8 @@ def test_same_operation_comparison_authenticates_each_completed_configuration(
         created, unit, frame, payload = freeze(
             conn, source, frame_version=2, comparison={"baseline": literal, "revised": enriched}
         )
-        payload["cases"][0].update(
+        expected: dict[str, Any] = payload["cases"][0]
+        expected.update(
             contribution_kind="occurrence",
             alternatives=[{"semantic_type": "table.cell_value", "source_pieces": ["12"]}],
         )

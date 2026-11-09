@@ -594,6 +594,17 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                         **custody,
                         "product_id": report.product_id,
                         "report": report.model_dump(mode="json"),
+                        **(
+                            {
+                                "condition_publication_ids": sorted(
+                                    str(a["assertion_id"]) for a in published
+                                )
+                                if original.include_publication
+                                else None
+                            }
+                            if report.condition_qualification is not None
+                            else {}
+                        ),
                     },
                 )
                 if selection.completeness == "inventory":
@@ -2541,25 +2552,44 @@ def _verify_comparison_closure(root, manifest, products, structural_scopes, scop
             raise ValueError("comparison differs from its exact retained predicate evidence")
 
 
-def _verify_condition_closure(root, manifest, products, structural_scopes, scopes, inventory):
+def _verify_condition_closure(
+    root,
+    manifest,
+    products,
+    structural_scopes,
+    scopes,
+    inventory,
+    selection,
+    condition_publication,
+    assertions,
+):
     from corpus_structure.core.evidence import config_key
     from corpus_structure.methods.structural_products import (
         ConditionQualificationConfig,
         ConditionQualificationMethod,
         condition_qualification,
     )
+    from corpus_structure.semantic.structural_admission import (
+        POLICIES,
+        StructuralAssertionRow,
+        structural_claim_id,
+        structural_statement,
+    )
     from corpus_structure.semantic.structural_products import StructuralProductReport
 
-    reports = {item[2]: item for item in products}
+    origins = {item[2] for item in products}
     captured = {}
     for raw in _detached_relation(root, manifest, "reports"):
         origin = raw["origin_task_id"]
-        if origin in reports and (raw.get("body") or {}).get("method") == ConditionQualificationMethod.name:
+        if (
+            origin in origins
+            and (raw.get("body") or {}).get("method") == ConditionQualificationMethod.name
+        ):
             if origin in captured:
                 raise ValueError("condition producer raw result repeats")
             captured[origin] = raw
     requested = []
-    for origin, (index, _selected, _, origin_run, origin_project, runtime, report) in reports.items():
+    for index, _selected, origin, origin_run, origin_project, runtime, report in products:
         raw, product = captured.get(origin), report.condition_qualification
         if raw is None and product is None:
             continue
@@ -2576,7 +2606,8 @@ def _verify_condition_closure(root, manifest, products, structural_scopes, scope
             or raw.get("runtime_fingerprint") != runtime
             or body.get("release_id") != structural_scopes[index]["release_id"]
             or body.get("configuration_hash") != raw.get("config_hash")
-            or body.get("configuration_hash") != config_key(
+            or body.get("configuration_hash")
+            != config_key(
                 ConditionQualificationMethod.name, ConditionQualificationMethod.version, config
             )
             or not raw.get("input_hash")
@@ -2596,13 +2627,99 @@ def _verify_condition_closure(root, manifest, products, structural_scopes, scope
     for (report, reference), payload in zip(
         requested,
         _retained_contribution_payloads(
-            root, manifest, requested, scopes, inventory, origin_sources=True,
+            root,
+            manifest,
+            requested,
+            scopes,
+            inventory,
+            origin_sources=True,
             require_cut_member=True,
         ),
         strict=True,
     ):
-        if condition_qualification(report.inputs, reference, payload) != report.condition_qualification:
+        if (
+            condition_qualification(report.inputs, reference, payload)
+            != report.condition_qualification
+        ):
             raise ValueError("condition differs from its exact retained endpoints")
+    condition_tasks = {
+        (index, selected): (origin, report)
+        for index, selected, origin, *_custody, report in products
+        if report.condition_qualification is not None
+    }
+    if set(condition_publication) != set(condition_tasks):
+        raise ValueError("condition publication membership is missing from the selected report")
+    condition_products = {report.product_id for _, report in condition_tasks.values()}
+    captured_assertions = {}
+    for assertion in assertions:
+        key = (assertion["selection_index"], assertion["selected_task_id"])
+        if (
+            key not in condition_tasks
+            and assertion["product_id"] not in condition_products
+            and assertion.get("product_kind") != "condition_qualification"
+        ):
+            continue
+        if (
+            key not in condition_tasks
+            or not selection.structural_selections[key[0]].include_publication
+        ):
+            raise ValueError("condition public assertion is outside the selected task")
+        origin, report = condition_tasks[key]
+        statement = structural_statement(report)
+        sources = [s.model_dump(mode="json", exclude_none=True) for s in report.inputs.sources]
+        if (
+            assertion.get("cut_id") != structural_scopes[key[0]]["cut_id"]
+            or assertion.get("origin_task_id") != origin
+            or assertion.get("product_id") != report.product_id
+            or assertion.get("product_kind") != report.kind
+            or assertion.get("policy_id") != POLICIES[report.kind]
+            or assertion.get("policy_version") != "1"
+            or assertion.get("standing") != "admitted_structural_statement"
+            or assertion.get("statement") != statement
+            or ("sources" in assertion and assertion["sources"] != sources)
+            or assertion.get("claim_id") != structural_claim_id(statement)
+            or assertion.get("assessment_id") != assertion.get("assertion_id")
+        ):
+            raise ValueError("condition public assertion differs from exact statement or custody")
+        values = {
+            field: assertion.get(field)
+            for field in StructuralAssertionRow.__dataclass_fields__
+            if field not in {"assertion_id", "statement_json", "sources_json"}
+        }
+        if (
+            any(type(values[key]) is not int or values[key] <= 0 for key in ("set_id", "c_pass_id"))
+            or not isinstance(values["case_id"], str)
+            or not values["case_id"]
+            or any(
+                not isinstance(values[key], str)
+                or re.fullmatch(r"[0-9a-f]{64}", values[key]) is None
+                for key in ("c_content_digest", "frame_digest")
+            )
+        ):
+            raise ValueError("condition public assertion lacks exact protected assessment custody")
+        values.update(
+            statement_json=canonical_bytes(statement).decode(),
+            sources_json=canonical_bytes(sources).decode(),
+        )
+        if (
+            assertion["assertion_id"]
+            != "structural-assertion:" + sha256(canonical_bytes(values)).hexdigest()
+        ):
+            raise ValueError(
+                "condition public assertion differs from its exact assessment identity"
+            )
+        captured_assertions.setdefault(key, []).append(assertion["assertion_id"])
+    for key, expected in condition_publication.items():
+        if not selection.structural_selections[key[0]].include_publication:
+            if expected is not None:
+                raise ValueError("condition publication was not selected")
+        elif (
+            not isinstance(expected, list)
+            or any(not isinstance(item, str) for item in expected)
+            or len(set(expected)) != len(expected)
+            or expected != sorted(captured_assertions.get(key, ()))
+        ):
+            raise ValueError("condition public assertion membership differs from selected report")
 
 
 def _verify_dossier_contribution_closure(root, manifest, members, scopes, inventory, roots):
@@ -2954,6 +3071,7 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
     structural_members: set[tuple[int, str]] = set()
     structural_products = []
     structural_assertions = []
+    condition_publication = {}
     dossier_reports = []
     dossier_source_members = []
     contribution_scopes = {}
@@ -3086,6 +3204,11 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
                             report = StructuralProductReport.model_validate(payload["report"])
                             if report.product_id != payload["product_id"]:
                                 raise ValueError("structural product identity differs")
+                            if "condition_publication_ids" in payload:
+                                key = (index, payload["selected_task_id"])
+                                if key in condition_publication:
+                                    raise ValueError("condition publication membership repeats")
+                                condition_publication[key] = payload["condition_publication_ids"]
                             structural_product_ids.add(report.product_id)
                             structural_members.add((payload["selection_index"], report.product_id))
                             structural_products.append(
@@ -3294,7 +3417,14 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
                 contribution_scopes,
                 contribution_inventory,
             )
-        if any(item[-1].condition_qualification is not None for item in structural_products):
+        if (
+            condition_publication
+            or any(item[-1].condition_qualification is not None for item in structural_products)
+            or any(
+                row.get("product_kind") == "condition_qualification"
+                for row in structural_assertions
+            )
+        ):
             _verify_condition_closure(
                 root,
                 manifest,
@@ -3302,6 +3432,9 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
                 structural_scopes,
                 contribution_scopes,
                 contribution_inventory,
+                selection,
+                condition_publication,
+                structural_assertions,
             )
         if structural_products:
             _verify_comparison_closure(

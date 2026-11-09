@@ -200,6 +200,7 @@ def test_condition_host_preserves_located_parts_after_declaration_refusal(
         if reading == "prescribed_action":
             assert "qualification" not in relation["component"]
         assert interpretation["outcome"] == "succeeded"
+        _assert_public_condition_projection(view, relation, rows, host)
     else:
         assert not condition_relations
         assert interpretation["outcome"] == "limited" and emitted_count > 0
@@ -795,3 +796,94 @@ def test_named_coverage_counts_selected_blocks_once_and_does_not_assume_absence(
         version="3",
     )
     assert (unselected.inspected_count, unselected.outcome()) == (0, "empty")
+
+
+def _assert_public_condition_projection(view, relation, rows, predicate):
+    from copy import deepcopy
+
+    from corpus_structure.methods.structural_products import condition_qualification
+    from corpus_structure.semantic.retained_contributions import RetainedContributionRef
+    from corpus_structure.semantic.structural_admission import structural_statement
+    from corpus_structure.semantic.structural_products import StructuralProductReport
+
+    pin = relation["pin"]
+    scope = relation["component"]["scope"]
+    ref = RetainedContributionRef(
+        contribution_id=relation["contribution_id"],
+        project_id="control",
+        run_id=1,
+        cut_id=2,
+        release_id="control-release",
+        result_revision=1,
+        selected_task_id=3,
+        origin_task_id=4,
+        runtime_fingerprint="control-runtime",
+    )
+    selected = ExternalSourceRef(
+        project_id=ref.project_id,
+        run_id=ref.run_id,
+        cut_id=ref.cut_id,
+        release_id=ref.release_id,
+        result_revision=ref.result_revision,
+        source_view_id=pin["source_view_id"],
+        native_task_id=pin["native_product_task_id"],
+        native_product_key=pin["product_key"],
+        native_content_digest=pin["product_digest"],
+        projection_digest=pin["projection_digest"],
+        recipe_digest=pin["recipe_digest"],
+        coordinate_version=2,
+    )
+    inputs = StructuralInput(
+        question="Which condition limits this predicate?",
+        scope=scope,
+        inventory_id="frozen",
+        policy_id="source-only",
+        sources=(selected,),
+        dependencies=("source",),
+        passages=(
+            StructuralPassage(
+                passage_id=scope,
+                source_ref=selected.identity,
+                start=0,
+                end=len(view.text),
+                text=view.text,
+                scope=scope,
+            ),
+        ),
+    )
+    payload = {
+        "contributions": tuple(rows.values()),
+        "sources": [{"pin": pin, "projection": {"text": view.text, "pieces": view.pieces}}],
+    }
+    projected = condition_qualification(inputs, ref, payload)
+    report = StructuralProductReport(
+        kind="condition_qualification",
+        inputs=inputs,
+        condition_qualification=projected,
+    )
+    statement = structural_statement(report)["condition_qualification"]
+    assert statement["relation"] == "condition"
+    assert statement["qualifier"][0]["passage"]["text"].startswith("If ")
+    assert statement["host_predicate"][0]["passage"]["text"] == predicate
+    assert "attachment" not in statement
+
+    changed = deepcopy(payload)
+    (cue,) = [
+        row
+        for row in changed["contributions"]
+        if row["contribution_id"] == relation["component"]["qualifier_contribution_id"]
+    ]
+    cue["component"]["candidate_tokens"] = (*cue["component"]["candidate_tokens"], 1000)
+    with pytest.raises(ValueError, match="uniquely located host"):
+        condition_qualification(inputs, ref, changed)
+
+    # An assumption in the condition family remains an assumption in public
+    # meaning; the cue and relation must declare the same subtype.
+    changed = deepcopy(payload)
+    for row in changed["contributions"]:
+        if row["contribution_id"] == ref.contribution_id:
+            row["component"]["qualifier_kind"] = "assumption"
+        if row["contribution_id"] == relation["component"]["qualifier_contribution_id"]:
+            row["component"]["cue_kind"] = "assumption"
+    assumption = condition_qualification(inputs, ref, changed)
+    assert assumption.relation == "assumption"
