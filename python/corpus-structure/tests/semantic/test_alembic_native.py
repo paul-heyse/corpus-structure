@@ -264,6 +264,43 @@ def test_identity_callable_default_upstream_defect_and_retained_adapter(semantic
         ).is_empty()
 
 
+def test_computed_range_bypasses_callable_default_comparison(semantic_bare_engine):
+    from sqlalchemy import BigInteger, Computed
+    from sqlalchemy.dialects.postgresql import INT8RANGE
+
+    from corpus_structure.semantic.alembic_defaults import plugin as defaults_plugin
+
+    def declared(increment):
+        metadata = MetaData()
+        Table(
+            "locator",
+            metadata,
+            Column("task_id", BigInteger, primary_key=True),
+            Column(
+                "scope",
+                INT8RANGE,
+                Computed(f"int8range(task_id, task_id + {increment}, '[)')", persisted=True),
+            ),
+        )
+        return metadata
+
+    with semantic_bare_engine.begin() as conn:
+        metadata = declared(1)
+        metadata.create_all(conn)
+        opts = {
+            "compare_server_default": lambda *args: None,
+            "autogenerate_plugins": ["alembic.autogenerate.*"],
+        }
+        with pytest.raises(AttributeError, match=r"Computed.*arg"):
+            produce_migrations(MigrationContext.configure(conn, opts=opts), metadata)
+        opts["autogenerate_plugins"].append(defaults_plugin.name)
+        assert upgrades(
+            produce_migrations(MigrationContext.configure(conn, opts=opts), metadata)
+        ).is_empty()
+        with pytest.warns(UserWarning, match=r"Computed default on locator.scope"):
+            produce_migrations(MigrationContext.configure(conn, opts=opts), declared(2))
+
+
 def test_result_recreation_orders_explicit_dependents_and_preserves_reverse(semantic_bare_engine):
     from sqlalchemy.exc import DBAPIError
 

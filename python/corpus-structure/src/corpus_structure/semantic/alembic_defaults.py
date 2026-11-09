@@ -1,15 +1,18 @@
-"""Pinned Alembic 1.20.1 identity/default comparison integration.
+"""Pinned Alembic 1.20.1 generated/default comparison integration.
 
-Its callable-default path reads Identity.arg before dispatching identity comparison. Route
-identity columns to the existing dialect comparer first; all other defaults retain normal
-comparison. Remove this adapter when a pinned Alembic release fixes that ordering.
+Its callable-default path reads `arg` before dispatching Identity and Computed comparison.
+Route both to Alembic's specialized comparers first. Frozen native admission still verifies
+exact generated expressions. Remove this adapter when the pinned release fixes that ordering.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from alembic.autogenerate.compare.server_defaults import _compare_identity_default
+from alembic.autogenerate.compare.server_defaults import (
+    _compare_computed_default,
+    _compare_identity_default,
+)
 from alembic.runtime.plugins import Plugin
 from alembic.util import DispatchPriority, PriorityDispatchResult
 from sqlalchemy import ARRAY
@@ -25,7 +28,7 @@ def compare_type(ctx, inspected_column, metadata_column, inspected_type, metadat
     return None
 
 
-def compare_identity(
+def compare_generated_default(
     autogen_context: Any,
     alter_column_op: Any,
     schema: Any,
@@ -34,6 +37,10 @@ def compare_identity(
     inspected: Any,
     declared: Any,
 ) -> PriorityDispatchResult:
+    if inspected.computed is not None or declared.computed is not None:
+        return _compare_computed_default(
+            autogen_context, alter_column_op, schema, tname, cname, inspected, declared
+        )
     if inspected.identity is None and declared.identity is None:
         return PriorityDispatchResult.CONTINUE
     _compare_identity_default(
@@ -77,7 +84,7 @@ def compare_default(
 
 plugin = Plugin("corpus.semantic.defaults")
 plugin.add_autogenerate_comparator(
-    compare_identity,
+    compare_generated_default,
     "column",
     "server_default",
     qualifier="postgresql",
