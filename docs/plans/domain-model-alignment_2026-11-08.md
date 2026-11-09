@@ -1,6 +1,6 @@
 # Domain-model alignment plan series
 
-**Status:** In progress · 2026-11-08, after the [completion audit](#completion-audit). Owns the corrections and
+**Status:** Development implementation deployed · qualification paused on 2026-11-08 pending the operator's Chandra change. Owns the corrections and
 investigations arising from the November 8 domain-model alignment review.
 The coordinator owns combined disposition, dependencies, cutover and
 qualification. The supporting plans own their local target and implementation
@@ -88,10 +88,10 @@ evidence rather than changing another plan's obligations. The
 | DA-061 · [DMA-07](domain-model-alignment/source-projection.md#DMA-07) | Formula witness and exact read | Both independently corroborated formula witnesses passed current Reader, source search and packet checks on cut 514. |
 | DA-059/060 · [DMA-08](domain-model-alignment/operational-custody.md#DMA-08) | Managed outcomes and evidence | Current receipt checkpoints and exact effect reconciliation passed focused commit and cleanup fault controls. The development receipt settles all four known deployment effects. |
 | DA-064 and [review F01](../design_review/reviews/design_review_domain-model-alignment_2026-11-08.md#F01) · [DMA-09](domain-model-alignment/visual-evidence.md#DMA-09) | Routing and native decision custody | Current crop assessments and native progress projection passed focused controls, including forged raw pin refusal. |
-| DA-058 · [DMA-10](domain-model-alignment/visual-evidence.md#DMA-10) | Group recovery and original custody | Live crops at cut 519 reused both exact raw responses from cut 518 with provider files unavailable. Recognition standing remained `unknown`. Live cancellation preserved a settled mapping and restored Nemotron. |
+| DA-058 · [DMA-10](domain-model-alignment/visual-evidence.md#DMA-10) | Group recovery and original custody | Live crops at cut 519 reused both exact raw responses from cut 518 with provider files unavailable. Recognition standing remained `unknown`. Live cancellation restored Nemotron. These results are scoped to the tested Chandra runtime. |
 | DA-066 · [DMA-11](domain-model-alignment/visual-evidence.md#DMA-11) | Typed visual Reader | The typed spatial locator and near-limit sparse and empty regional checks passed focused native controls. The frozen descriptor verifies the access path. |
 | [DMA-12](#dma-12) | Coordinator and affected authorities | Bounded investigations delivered. Final-source reference-path coverage remains open. The second-pack control establishes only its scoped transfer case. |
-| [DMA-13](#dma-13) | Native migration and assembled acceptance | Development migration, archive and admission verified. The replacement full-book candidate run finished privately at cut 517. Evaluated acceptance and selected cutover remain open. |
+| [DMA-13](#dma-13) | Native migration and assembled acceptance | Development migration, archive and admission verified. The replacement full-book candidate run finished privately at cut 517. Final functional qualification is paused pending the Chandra change. Evaluated acceptance and selected cutover remain open. |
 
 Source-view coverage, source-value validity, numerical consistency, derivation
 and target identity have priority by consequence. Start the release compiler
@@ -712,3 +712,34 @@ Nemotron service remained available after replay. In run 411 a subsequent
 managed cancellation preserved settled mapping task 2023, cancelled active
 rotated inference task 2024 and restored the incumbent service.
 [Retained live and book evidence](../design_review/evidence/2026-11-08_dma-audit-repair/README.md)
+
+#### Qualification pause · 2026-11-08
+
+The broad `uv run ci test --json` campaign exposed an Alembic authoring
+failure when its ordinary default callback received a generated column.
+Commit `488f7456f` routes generated columns through the pinned Alembic
+specialized comparator. Exact generated-expression verification remains
+with native admission. The original failing evaluator test and two focused
+controls passed in `ea45739940f741339edff81fc5842a5b`. A nine-test
+`uv run ci test --json --` selection covering the affected authoring paths
+passed on the committed source in `9b02472ce4d84420a954aae4de4f33c5`.
+`uv run ci check --json` passed on that source.
+
+The operator asked to stop the campaign pending a Chandra change. Managed
+result `be2af476275746c08c3eab8e9a7d5cf0` settled as `interrupted` with its
+worker processes drained and its receipt held. The ordinary lane selected
+5,454 tests and recorded 3,477 passed, one failed, 16 incomplete and 1,960
+`not_run`. The one failure is the authoring issue that passed on retry.
+The bounded `uv run ci test coverage --view unresolved` reconciliation of
+the campaign and nine-test receipt observed 3,485 covered and 1,969
+unresolved ordinary identities. It also reported differing native bindings.
+The fault and Rust functional lanes were `not_run`. The installed Rust
+toolchain was `rustc 1.101.0-nightly (2d20b42b8 2026-11-04)`.
+
+After the Chandra change is available, determine which recognition,
+mapping, reuse and cancellation checks apply to that runtime. Reconcile
+the remaining ordinary, fault and applicable Rust coverage on the resulting
+source. Current-scope live evidence remains with runs 408, 410 and 411.
+Evaluated acceptance still needs independent references corresponding to
+the prediction scope. Activation, selection and derived retirement remain
+open.
