@@ -2759,9 +2759,16 @@ def _verify_predicate_closure(root, manifest):
             max_pieces=max(1, len(view.pieces)),
         )
         method_version = row["body"].get("operation_version")
-        version = {"4": "2", "5": "3", "6": "3", "7": "3", "8": "3", "9": "4", "10": "5"}.get(
-            method_version
-        )
+        version = {
+            "4": "2",
+            "5": "3",
+            "6": "3",
+            "7": "3",
+            "8": "3",
+            "9": "4",
+            "10": "5",
+            "11": "5",
+        }.get(method_version)
         predicate_operations = [
             op
             for op in row["body"].get("contribution_operations", ())

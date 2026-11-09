@@ -719,6 +719,7 @@ def verify_model_concordance_closure(root, manifest):
             "8",
             "9",
             "10",
+            "11",
         }:
             raise ValueError("model concordance uses the wrong producing method")
         expected = []
