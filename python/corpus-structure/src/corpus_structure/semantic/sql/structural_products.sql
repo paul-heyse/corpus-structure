@@ -2167,9 +2167,8 @@ BEGIN
  term_key:=CASE WHEN names ? 'definition_label_required' THEN 'nominal_subject' ELSE config_->>'term_role' END;
  cue_key:=CASE WHEN names ? 'definition_label_required' THEN 'copular_cue' ELSE 'defining_cue' END;
  cue:=tokens->((indexes->>(names->cue_key->>'node'))::integer);
- SELECT convert_from(content,'UTF8')::jsonb INTO STRICT scope_recipe FROM sem.input
- WHERE release_id=config_->>'_release' AND input_kind='dependency'
-  AND input_name='execution/implementation/operations/predicate-interpretation.json';
+ scope_recipe:=ops.predicate_interpretation_recipe(config_->>'_release');
+ IF scope_recipe IS NULL THEN RAISE no_data_found; END IF;
  IF policy#>>'{definition_witness,scope}' IS DISTINCT FROM scope_recipe#>>'{definition_scope,version}'
   OR scope_recipe#>>'{definition_scope,version}' IS DISTINCT FROM 'definition-scope-1'
   OR ops.definition_scope_supported(view_.projection,annotation,rule_,indexes,

@@ -607,7 +607,10 @@ def series_native_definitions(connection, *, include_selected=True):
         )
         for name in ("claim_tasks", "renew_claim")
     )
-    from .native_consumer_native import native_task_completion_sql
+    from .native_consumer_native import (
+        native_task_completion_sql,
+        predicate_interpretation_recipe_sql,
+    )
 
     record_publication = (
         Path(__file__).with_name("sql").joinpath("record_publication.sql").read_text()
@@ -843,8 +846,12 @@ def series_native_definitions(connection, *, include_selected=True):
                 else (),
             )
         )
-    structural_sql = Path(__file__).with_name("sql").joinpath("structural_products.sql").read_text()
+    structural_sql = (
+        predicate_interpretation_recipe_sql()
+        + Path(__file__).with_name("sql").joinpath("structural_products.sql").read_text()
+    )
     for name in (
+        "predicate_interpretation_recipe",
         "validate_structural_source",
         "validate_structural_input",
         "resolve_retained_component",

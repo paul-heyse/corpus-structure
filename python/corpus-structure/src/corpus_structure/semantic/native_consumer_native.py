@@ -3,6 +3,32 @@
 from pathlib import Path
 
 
+def predicate_interpretation_recipe_sql() -> str:
+    """Lower the shared exact release input lookup into a private native function."""
+    from sqlalchemy import cast, func, literal_column, select
+    from sqlalchemy.dialects.postgresql import JSONB, dialect
+
+    from .metadata import table
+
+    release_input = table("sem.input")
+    statement = select(cast(func.convert_from(release_input.c.content, "UTF8"), JSONB)).where(
+        release_input.c.release_id
+        == literal_column("p_release", type_=release_input.c.release_id.type),
+        release_input.c.input_kind == "dependency",
+        release_input.c.input_name
+        == "execution/implementation/operations/predicate-interpretation.json",
+    )
+    body = statement.compile(
+        dialect=dialect(paramstyle="named"), compile_kwargs={"literal_binds": True}
+    )
+    return f"""
+CREATE OR REPLACE FUNCTION ops.predicate_interpretation_recipe(p_release text)
+RETURNS jsonb LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog,pg_temp
+BEGIN ATOMIC {body}; END;
+REVOKE ALL ON FUNCTION ops.predicate_interpretation_recipe(text) FROM PUBLIC;
+"""
+
+
 def native_task_completion_sql(context=None) -> str:
     """One rendered completion source for normal products and native authoring."""
     from .native_shapes import record_shape_guards
@@ -22,7 +48,8 @@ def native_task_completion_sql(context=None) -> str:
         )
     )
     return (
-        sql.joinpath("source_record_recognition.sql").read_text()
+        predicate_interpretation_recipe_sql()
+        + sql.joinpath("source_record_recognition.sql").read_text()
         + sql.joinpath("source_anchor_coordinates.sql").read_text()
         + sql.joinpath("source_record_coordinates.sql").read_text()
         + sql.joinpath("source_contributions.sql").read_text()

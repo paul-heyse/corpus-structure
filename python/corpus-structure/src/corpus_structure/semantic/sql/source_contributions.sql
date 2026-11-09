@@ -1563,9 +1563,8 @@ BEGIN
  SELECT convert_from(content,'UTF8')::json INTO condition_schema
  FROM sem.artifact WHERE release_id=p_task.release_id AND artifact_name='json_schema/Condition';
  IF predicate_version IN ('4','5') THEN
-  SELECT convert_from(content,'UTF8')::jsonb INTO STRICT interpretation_recipe FROM sem.input
-  WHERE release_id=p_task.release_id AND input_kind='dependency'
-   AND input_name='execution/implementation/operations/predicate-interpretation.json';
+  interpretation_recipe:=ops.predicate_interpretation_recipe(p_task.release_id);
+  IF interpretation_recipe IS NULL THEN RAISE no_data_found; END IF;
   SELECT coalesce(jsonb_object_agg(native_json->>'self_ref',native_json),'{}') INTO source_layout_items
   FROM ops.read_pdf_published_items(p_view.native_task_id,p_view.native_product_key,p_view.native_content_digest,
    ARRAY(SELECT DISTINCT p->>'item_ref' FROM jsonb_array_elements(p_view.projection->'pieces') p
