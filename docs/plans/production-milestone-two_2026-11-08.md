@@ -14,6 +14,13 @@ owns the implementation and scoped assessment for PM2-03–05. The
 records the paired scope and the limits on qualification. The [completion audit](#completion-audit)
 reconciles the delivered private scopes with the remaining acceptance work. The project remains unselected.
 
+**Proposed extraction amendments · 2026-11-09.** This revision consumes the
+[GLiNER2 and spaCy improvement review](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md)
+at `d4a40cd6e`, the clean source baseline for the revision. It develops the remaining
+work within PM2-00–12. The [improvement disposition](#extraction-improvement-disposition)
+distinguishes proposed work from conditional and outside-scope alternatives. It does
+not change the verified development scope or the adoption gates.
+
 ## Target and foundation
 
 Deliver a reusable pipeline for located linguistic structure, local reference resolution,
@@ -45,6 +52,7 @@ on this exposed source establish textbook behavior within the tested release.
 | --- | --- |
 | Current v10 selected source views, ordered native fields, atom-preserving layouts and authenticated projection proofs | Use these coordinates for provider maps and the existing native and detached completeness checks. A provider rendering can supply a candidate while an ambiguous mapping withholds an exact witness. [Source projection owner](domain-model-alignment/source-projection.md) |
 | M1 literal-only GLiNER extraction and retained predicate-frame qualification, with the released `definition-scope-1` witness guard | Use scoped M1 execution evidence as a comparator. Preserve the strong retained-annotation route and qualify a scheme-aware HanLP route before migrating a consumer that relies on it. [Definition admission](domain-model-alignment/semantic-admission.md#DMA-05) |
+| WCE named rules and overlapping candidates; NCE release-bound model observations and replay | Reuse the retained annotation view and NCE execution and replay rather than adding another candidate engine. The preset suggester does not establish learned classification; native GLiNER2 proposals, decoded observations and semantic support need separate comparisons. [Located candidates](production-milestone-two/linguistic-referential-discourse.md#shared-located-candidates) · [Interpretation](production-milestone-two/gliner-and-d1-interpretation.md#same-question-extraction-and-interpretation) |
 | Released operation/dependency model, immutable native task receipts, shared PostgreSQL admission, and protected references | Use these owners for effective profiles, operation outputs, retained witnesses and assessment. Keep observation, selection and admission separate. Maintain the current-only producer/consumer rule with supported archived reads. [Current-only decision](../adr/0067-witnessed-current-only-cutover.md) · [Semantic admission](domain-model-alignment/semantic-admission.md) |
 | E5 and Qwen role-aware encoders, frozen candidate inventories, typed relationship selection, and contribution and dossier reads | Extend anchored context and candidate availability through the same pipeline. A model score or extra candidate does not confer semantic standing. Make a separate consumer only if existing typed reads cannot deliver the required product. [Architecture map](../design/README.md) |
 
@@ -85,6 +93,18 @@ alongside native profile work. One early integrated journey consumes only the mi
 working slices, while later adoption requires every selected package and its evidence.
 [Execution and source contracts](production-milestone-two/source-contracts-and-model-execution.md)
 
+**Extraction amendment sequence.** Establish the PM2-01/02 source, outcome and reuse
+contracts and the released parser payload boundary first. PM2-03/07 can compare located
+candidates and same-question interpretation as their inputs become available; the PM2-11
+independent frame can be authored in parallel. Recover definition targets and affine
+occurrence carriers independently. PM2-08 can build its typed producer and selector
+against retained private inputs while those producers are being repaired. A positive
+admission journey still needs a qualified contribution and witness. PM2-09 consumes
+both eligible inventories before ranking; PM2-07 only needs that frozen list for the
+contextual-link question. Keep ordinary discovery independent of the retrieval arm.
+Use the [learned extraction companion](production-milestone-two/learned-extraction-investigations.md)
+only when the bounded diagnostics isolate an error that justifies a challenger.
+
 Apply the [selected standard](../design_review/design_principles/standard.toml) to scoped
 authority, typed fidelity, locality, recoverable evidence, and execution fit. Use focused
 assessment inside these packages. Schedule the binding's design/target reviews before
@@ -106,9 +126,9 @@ implementation or evidence, rather than making a whole companion a prerequisite.
 | [PM2-04](production-milestone-two/linguistic-referential-discourse.md#PM2-04) · Maverick | PM2-01 and own PM2-02 profile | Mention inventory, section-local candidates and supplied-mention diagnostic pass. |
 | [PM2-05](production-milestone-two/linguistic-referential-discourse.md#PM2-05) · Dipo | PM2-01 and own PM2-02 profile | Source-aligned ordered binary trees, section coverage and reviewed-EDU diagnostic. |
 | [PM2-06](production-milestone-two/linguistic-referential-discourse.md#PM2-06) · Extended parsing modes | Relevant PM2-03–05 route and independent error cases | Conditional mode is qualified or disposition records why it remains off and when to reconsider. |
-| [PM2-07](production-milestone-two/gliner-and-d1-interpretation.md#PM2-07) · GLiNER and d1 | PM2-01 and own PM2-02 profile. Candidate-dependent tasks need the relevant producer or PM2-09 inventory. | Versioned task outputs, source-first recovery, grounded typed reads and exact candidate alternatives. |
-| [PM2-08](production-milestone-two/retrieval-composition-and-delivery.md#PM2-08) · Composition and delivery | Minimal PM2-03–05 and PM2-07 outputs, current admission and read contracts | Early partial product through private Reader/MCP. Extend to selected product families and qualified admission. |
-| [PM2-09](production-milestone-two/retrieval-composition-and-delivery.md#PM2-09) · Contextual retrieval | PM2-01, current retrieval and anchored upstream context | Existing and richer contexts compared. Typed link candidate path feeds PM2-07 interpretation and PM2-08 selection. |
+| [PM2-07](production-milestone-two/gliner-and-d1-interpretation.md#PM2-07) · GLiNER and d1 | PM2-01 and own PM2-02 profile. Candidate-dependent tasks need the relevant producer; only contextual-link interpretation needs the PM2-09 list. | Versioned source-first and candidate-centered outputs, with matched capture, function and fixed-candidate comparisons. |
+| [PM2-08](production-milestone-two/retrieval-composition-and-delivery.md#PM2-08) · Composition and delivery | Minimal PM2-03–05 and PM2-07 outputs, released payloads and current admission and read contracts | Typed producer and selector deliver a qualified attachment and preserve a useful part with a failed sibling. Extend to selected families. |
+| [PM2-09](production-milestone-two/retrieval-composition-and-delivery.md#PM2-09) · Contextual retrieval | PM2-01, eligible definition targets and exact affine carriers, current retrieval and anchored upstream context | Compare v10 with each applicable enriched recipe after coverage. Deliver an authenticated bounded list to PM2-07 and preserve qualified selection and detached replay. |
 | [PM2-10](production-milestone-two/retrieval-composition-and-delivery.md#PM2-10) · Visual inspection | Exact visual custody, PM2-07, named ambiguity | Conditional typed location or classification with incremental utility and crop mapping, or an explicit reason to leave off. |
 | [PM2-11](production-milestone-two/textbook-assessment-and-adoption.md#PM2-11) · Operation assessment | PM2-00 source-only frame. Predictions join as package results settle. | Paired native comparisons, independent dispositions and release-eligible event evidence. |
 | [PM2-12](production-milestone-two/textbook-assessment-and-adoption.md#PM2-12) · Adopt selected scope | PM2-08–11 outputs as selected, eligible predecessor, required union and effect authority | Qualified textbook release through normal entry points, with retry, preservation and verified selection. |
@@ -191,6 +211,25 @@ a useful independently inspectable partial result and evidence of better named o
 with preservation on their paired controls. The assessment companion owns exact
 release criteria and separates qualification, measured benefit, and live selection.
 The next work is recorded in the [completion audit](#completion-audit).
+
+## Extraction improvement disposition
+
+These dispositions govern the proposed amendments, not execution progress. The
+source review owns the rationale and [deferred or low-fit capability families](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#capability-dispositions-beyond-the-recommended-first-slice). WCE03, NCE-M03/M06
+and DMA-05/13 retain their existing authority and receipts.
+
+| Review | Plan disposition and owner |
+| --- | --- |
+| [I01](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I01) | Proposed PM2-03/07 producer work and PM2-08 qualification feed the [PM2-09 coverage gate](production-milestone-two/retrieval-composition-and-delivery.md#producer-coverage-before-ranking): a supported definition target plus exact affine carriers before ranking. |
+| [I02](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I02) | Proposed [PM2-03–06 role and context composition](production-milestone-two/linguistic-referential-discourse.md#shared-located-candidates), reusing WCE03 and retaining the strong definition witness. |
+| [I03](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I03) | Bounded [PM2-07 proposal diagnostic](production-milestone-two/gliner-and-d1-interpretation.md#proposal-loss-diagnostic), with PM2-01/02 mapping and identity and PM2-11 separate scoring. Supply explicit spans only for a diagnosed aligned proposal miss. |
+| [I04](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I04) | Proposed [PM2-07 same-question comparisons](production-milestone-two/gliner-and-d1-interpretation.md#same-question-extraction-and-interpretation), with PM2-08 selection and PM2-11 assessment. More complex decoding needs a named residual and consumer. |
+| [I05](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I05) | Conditional [span modeling](production-milestone-two/learned-extraction-investigations.md#span-labeling-and-proposal-recall) for independently demonstrated label or proposal loss. |
+| [I06](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I06) | Conditional [typed binding modeling](production-milestone-two/learned-extraction-investigations.md#typed-binding-scorer) for recurring errors with the correct candidates already present and usable supervision. |
+| [I07](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I07) | Proposed [PM2-08 partial delivery](production-milestone-two/retrieval-composition-and-delivery.md#typed-partial-delivery) with PM2-01 coverage and PM2-11 same-path qualification. |
+| [I08](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I08) | Conditional [PM2-02 execution challengers](production-milestone-two/source-contracts-and-model-execution.md#conditional-context-and-execution) for measured operating need or a named scope-coverage loss. PM2-09 owns contextual retrieval recipes. |
+| [I09](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I09) | Conditional [GLiNER2 specialization](production-milestone-two/learned-extraction-investigations.md#gliner2-specialization) after alignment, proposal and configuration remedies, with NCE-M03/M06 and PM2-07/11. |
+| [I10](../plan_improvement_reviews/pm2-extraction-gliner2-spacy_2026-11-09.md#I10) | Outside PM2 beyond existing declared products and the alternate-vocabulary control. Revisit broader insight discovery only for a named consumer; a canonical linker needs stable independently owned IDs, scoped candidates, an explicit NIL outcome and separate qualification. |
 
 ## Completion audit
 

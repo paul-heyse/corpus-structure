@@ -77,7 +77,9 @@ matched-cue witnesses. A d1 output cannot substitute for the retained annotation
 or the independently protected public eligibility decision. PM2-03 and PM2-08 own
 the witness and composition boundaries. [DMA-05](../domain-model-alignment/semantic-admission.md#DMA-05)
 
-Use schema descriptions and ordered field definitions as versioned inference inputs.
+### Proposal loss diagnostic
+
+**Proposed.** Use schema descriptions and ordered field definitions as versioned inference inputs.
 Capture observed proposal availability separately from thresholding, classification and
 record assignment. Keep any added natural-formation candidate schema literal-only where the
 selected decoder mixes prefix choices with source tokens. Verify other packs with natural
@@ -86,32 +88,65 @@ reusing them. Discard or flag any proposed source anchor outside the source coor
 before a downstream mapper can turn it into evidence. Keep duplicate literal spellings
 distinct by occurrence. Use `SchemaTransformer.transform_record` for bounded diagnostics
 when the public output cannot explain omission or offset drift, accounting for normalized or
-appended punctuation. Inspect the pinned checkpoint's effective shared-pool settings rather
-than using dataclass defaults as evidence. Where located spans are available from HanLP or
-another producer, compare `score_explicit_spans()` only when a source-backed proposal was
-missed and the retained pool can hold the supplied spans. Keep supplied and native proposals
-separate so the comparison reveals discovery failure. An oversized pool request is explicit
-unsupported work.
+appended punctuation. Inspect ordinary `score_candidates(..., return_auxiliary_logits=True)`
+on the bounded failed scope before changing decoder settings. The pinned Base checkpoint
+uses a shared pool of 192 (minimum eight per query, pool boundary top-k 32, start/end top-k 24);
+count guidance is off. Change one effective input or decoding control per arm. Test count
+guidance only for a post-proposal selection loss with an explicit false-positive control.
+
+If an exact independently grounded span was missed, compare native discovery with the
+same schema and encoded scope scoring exact spaCy or HanLP spans through
+`score_explicit_spans()`, then their union through the same role consumer. Bind the
+[PM2-01 map](source-contracts-and-model-execution.md#PM2-01) and preserve ordinary versus
+supplied populations. Explicit scoring injects half-open word-token spans into the shared
+pool and returns logits; it does not run normal record assignment or score a directed
+host pair. Confirm actual pool retention and record overflow as unsupported for that scope.
+Smaller batch size does not cure a per-document overflow. Establish score comparability
+on surviving native spans before using the same threshold. Grade exact recovery rather than
+proposal count; include nested/repeated text, wrong endpoint, unalignable input and a case
+where the correct span was already present. Keep raw diagnostic tensors out of ordinary reads.
 [GLiNER schema](https://github.com/fastino-ai/GLiNER2/blob/v2.1.0/gliner2/inference/schema.py) ·
 [Native preprocessing](https://github.com/fastino-ai/GLiNER2/blob/v2.1.0/gliner2/processor.py) ·
 [Explicit-span scoring](https://github.com/fastino-ai/GLiNER2/blob/v2.1.0/gliner2/models/boundary/model.py) ·
 [Checkpoint configuration](https://huggingface.co/fastino/gliner2.5-base-v1/blob/54785d51df8d86a0d8f2eb212fec15871aad2c4d/config.json)
 
-For genuinely common classification questions, compare deterministic cues, the existing
-GLiNER classification capability as an evaluated arm, and d1 on the same authorized
-source scopes and frozen opportunities. A GLiNER classification arm declares stable
+### Same-question extraction and interpretation
+
+**Proposed.** Freeze the eligible source and question through PM2-11. Compare the current
+literal GLiNER pack plus spaCy-backed qualification, d1 source discovery and the applicable
+fixed-candidate arms. Measure literal capture separately from typed normalization. On
+roulette, compare exact amount and unit spans (including a named-rule candidate) and the
+existing typed normalizer against d1 on the same loss question. A located compound string
+does not establish the amount's role or a released unit interpretation. Preserve the
+supported fair-coin `1/8` to `0.125` case.
+
+For passage function, compare deterministic cues, native GLiNER classification and d1
+on the same authorized focus. Reuse the
+[NCE clause operation's request and replay custody](../../../python/corpus-structure/src/corpus_structure/methods/clause_classification.py#L294),
+while PM2 compiles its own question and labels. A classification arm declares stable
 label descriptions, prompt, activation semantics, thresholds and any examples in its
 release-bound request. Keep evidence examples separate from held-out assessment cases.
 Classification supplies its own observation and cannot serve as a literal span or
 automatically qualify an assertion field. Start with ordinary independent or exclusive
-classification as the question requires. Only use `Classifier` constraints or `JointIE`
-if a concrete mutually compatible output set is needed and the native search and retention
-behavior qualifies. Revisit `fastino/GLiNER2.5-Decide-1B` for a named unresolved
-classification weakness after fair comparisons. It is a separate span-architecture profile.
-Latent grouping, native long-document merging, or the standard Transformers schema-extraction
-facade would also be separate challengers, with exact source maps and family-level equivalence
-before use. Broader packaging, training and multilingual expansion need their own supported
-population and diagnosed gap.
+classification as the question requires. Retain any native below-floor argmax as an
+observation and apply released withholding independently. Span attributes apply to
+already located mentions; a directed relation proposal still needs exact typed endpoints.
+
+For hosts and referents, compare scoped deterministic selection with d1 on the same
+frozen ordinary candidate list. Keep the reviewed-only diagnostic separate; it did not
+settle the fair-coin host or gambler referent. Count explicit no-match separately from a
+missed answer. Pass the supported result or inspectable alternatives to PM2-08. If a
+recurring error remains on fixed candidates, use the
+[conditional binding investigation](learned-extraction-investigations.md#typed-binding-scorer).
+
+Keep natural literal anchoring for explicit records. Reopen cardinality, exclusivity or
+latent/anchorless grouping only for a reviewed repeated-record or missing-anchor case;
+grade record existence and field assignment separately. Reopen `Classifier` constraints
+only for a declared cross-label need, and `JointIE` only for a typed selection problem
+with adequate endpoint capture and a real consumer. Bound search and record feasible empty,
+infeasible and semantically unsupported outcomes separately. Earlier coherent but unsupported
+edges and the prefix-anchor failure remain negative controls. Keep wider checkpoints,
+Transformers facade, training and multilingual expansion behind their separate triggers.
 [GLiNER constrained decoding and advanced profiles](../../libraries/parsing/gliner2.md) ·
 [Decide-1B](https://huggingface.co/fastino/GLiNER2.5-Decide-1B)
 

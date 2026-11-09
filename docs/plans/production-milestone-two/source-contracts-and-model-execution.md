@@ -58,6 +58,17 @@ identity. [Transformers guide §§3.1–3.3](../../libraries/parsing/transformer
 [Canonical layout](../../../python/corpus-structure/src/corpus_structure/ingest/sentences.py) ·
 [Source anchor owner](../../../python/corpus-structure/src/corpus_structure/semantic/source_contexts.py)
 
+**Proposed extraction mapping.** For PM2-07 diagnostics, project an exact candidate from
+the authenticated selected field into the model's half-open word-token bounds, with the
+same splitter, encoded text, schema prefix, masks and synthetic punctuation as ordinary
+discovery. Strictly recheck the mapped extent in the source direction. An exactly readable
+selected projection can lack a physical occurrence binding; retain that distinction.
+Refuse clipped atoms, synthetic spans and unalignable candidates as exact evidence without
+rounding or searching for the same string elsewhere. Record unavailable alignment and its
+reason on the attempted scope. PM2-08 consumes the retained coverage states above rather
+than reconstructing them from emitted rows.
+[Proposal diagnostic](gliner-and-d1-interpretation.md#proposal-loss-diagnostic)
+
 **Reuse.** Bind operation version, scope, actual source and prepared input, model,
 tokenizer/renderer, task order and definitions, candidate order and definitions,
 effective inference settings, and exact runtime to the existing dependency projection.
@@ -68,6 +79,13 @@ permit. A changed input, requested head, representation, question or effective
 runtime invalidates the affected provider operation. Preserve exact producing
 origins. An evaluation-reference compatibility finding does not license producer
 reuse across releases. [D6 local publication and reuse](../../design/D6-orchestration-metrics-policies.md)
+
+Include the effective schema order, word splitter, supplied candidates and masks, model and
+adapter artifacts, and isolated worker dependencies when they affect execution. Bind the
+separately provisioned lock and verified runtime determinants before looking for an exact
+reuse hit. Qualify a batch packing change as physical only if effective inputs, per-scope
+results and refusal behavior are preserved. Changed windows, truncation, pool composition
+or conditioning require distinct identities. PM2-R02 retains this obligation.
 
 **Closure.** Independently specified source slices round-trip through all four maps.
 Keep the p416 and p418 original-spelling Reader, search and packet checks at their
@@ -147,6 +165,27 @@ contention, expiry and reassignment. Verify preservation of another provider's
 completed result. A proposed profile may remain blocked
 with the missing asset, compatible lock or device prerequisite recorded. Only
 its dependent scope waits. [D6 orchestration and GPU sharing](../../design/D6-orchestration-metrics-policies.md)
+
+### Conditional context and execution
+
+**Proposed.** Keep sentence, clause or coherent section inputs as the ordinary route. If a
+named opportunity misses evidence beyond that scope, compare one bounded context addition
+with the original scope. For demonstrated window loss, compare native GLiNER2 long
+extraction with the existing prepared-window route. Verify actual word/subword lengths and
+schema prefix budget; retain window coverage and exact occurrence identity across overlaps.
+Neither overlapping windows nor their merge can nominate a relation whose endpoints never
+share a window. Use the existing typed retrieval and attachment path for distant relations.
+[GLiNER2 long-context limits](../../libraries/parsing/gliner2.md#5-long-context-extraction-and-document-scale-semantics)
+
+Keep `Language.pipe(as_tuples=True)` and GLiNER2 `batch_extract` as the baseline.
+For a measured operating need compare necessary component selection, compatible combined
+schemas and length-aware batching before smaller models, precision, alternate attention or
+compilation. Do not add a persistent hidden-state cache to compare decoders. Use spaCy
+`doc_cleaner` only after the last tensor consumer and `memory_zone()` only where no
+zone-owned objects escape; lowering to detached products comes first. A challenger needs
+actual workload benefit, exact custody and parity on success, refusal and partial recovery.
+Retain the incumbent if these conditions fail.
+[spaCy execution and lifetime](../../libraries/parsing/spacy.md#9-runtime-performance-batching-and-memory-control)
 
 ## Foundation execution evidence
 

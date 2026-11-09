@@ -30,6 +30,40 @@ supplies milestone assessment, and authored transfer controls exercise the same 
 different domain configuration. Model limitations such as English checkpoint coverage or lack of
 layout evidence are profile conditions.
 
+### Shared located candidates
+
+**Proposed.** Reuse [WCE03](../witnessed-corpus-enrichment/witness-and-parser-composition.md#wce03--native-candidate-collections-and-named-bindings)
+and the retained annotation view. Prepare released, named `Matcher`, `PhraseMatcher` and
+`DependencyMatcher` patterns once per compatible vocabulary/rule identity where this avoids
+repeated work. Preserve overlapping contiguous candidates in native span groups and keep
+all generating bases on the existing typed located products. Discontinuous roles retain their
+ordered pieces and relations retain directed endpoints. The raw and reconciled groups and
+unused preset suggester do not provide learned output. Retained column availability determines
+each rule's prerequisites; an unavailable dependency rule does not erase valid phrase/token
+work. Use a separately versioned annotation recipe for a demonstrated `AttributeRuler`
+correction; do not mutate incumbent witness annotations or equate a token attribute change
+with arc repair.
+[Native rule owner](../../../python/corpus-structure/src/corpus_structure/methods/annotation_rules.py) ·
+[spaCy rule and span mechanisms](../../libraries/parsing/spacy.md#4-rule-based-matching-and-structured-extraction)
+
+Compare retained spaCy syntax, then HanLP syntax/constituency, then added SRL at the same
+consumer. Map roles by explicit released bindings; HanLP UD, Penn tags and SRL roles do not
+become spaCy dependency labels. Preserve the retained `definition-scope-1` witness route.
+HanLP alternatives can improve a candidate without replacing its independently required basis.
+For the inherited positive-variance premise, compare a named exact cue and a bounded
+cross-sentence/layout host policy before adding a head. The local UD marker path does not
+cover that construction. Preserve the incumbent anchors, formula seam and alternative hosts;
+reuse the [cross-block attachment pattern](../../../python/corpus-structure/src/corpus_structure/methods/predicate_cross_block.py)
+only where its contract fits. Verify reported and conditional definitions, passives,
+coordination, discontinuous roles and competing hosts as separate cases.
+
+Use Maverick mentions or Dipo context only for named referent and attachment questions.
+Preserve local scope, native labels and proposal identity; a cluster or rhetorical edge is
+not an asserted corpus identity or semantic relation. On the fair-coin host and gambler
+referent cases, reviewed alternatives did not fix d1 selection. Compare the existing scoped
+deterministic route on the same candidates before broadening discovery. Refer residual
+label or binding errors to the [learned extraction companion](learned-extraction-investigations.md).
+
 <a id="PM2-03"></a>
 
 ## PM2-03 · Sentence structure and frame candidates with HanLP

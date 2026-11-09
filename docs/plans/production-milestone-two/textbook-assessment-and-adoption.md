@@ -118,6 +118,23 @@ diagnostic groups of one exposed origin. [D7 evaluation design](../../design/D7-
 [p416 and p418 source custody](../domain-model-alignment/source-projection.md#DMA-07) ·
 [p151 typed visual reads](../domain-model-alignment/visual-evidence.md#DMA-11)
 
+### Extraction amendment controls
+
+**Proposed.** Freeze the named primary decision and the applicable arms before opening
+outputs. Reuse source-first opportunities for capture and output-first review for unsupported
+emissions; include independently specified missing and ambiguous evidence. Keep ordinary
+discovery, fixed-candidate scoring and reviewed-candidate diagnostics separate. Do not
+exclude unalignable or uncovered references from the coverage denominator. Report
+source alignment, candidate recall, label or rank given available candidates, exact
+binding or normalization, and qualified consumer result separately.
+
+| Protected question | Required comparison or preservation |
+| --- | --- |
+| Definition and formula carriers · PM2-03/07/08/09 | Freeze defining act versus naming/explanation, exact term/content/cue and authority, and in-equation `X`/`Z` extents. Preserve an independently valid explanation, the rejected `X` link, witnessed `Z` and the existing definition control. Compare ranking only after eligibility and exact carrier coverage; keep the fixed top-10 cutoff and separate the three enriched signals. |
+| Capture and typed interpretation · PM2-07 | Grade fair-coin exact normalization and roulette amount, original literal, unit and loss role separately. Compare equivalent passage-function questions only. Use repeated/nested spans, misleading attribution, explicit no-match, synthetic and clipped atom refusal, an unalignable span and explicit pool overflow. Record a native surviving span as a comparability control for supplied-span scoring. |
+| Binding and partial delivery · PM2-08 | Compare the same ordinary host/referent candidates, including wrong, ambiguous or absent choices. Require a supported textbook attachment and an authored business instruction through the same released relation operation and admission. Refuse an incompatible declaration, retain competing alternatives and preserve a useful qualified part after sibling failure through Reader, CLI, fresh MCP and exact detached proof. |
+| Conditional learned alternatives · PM2-03/07/11 | Select only on the [diagnosis and data gates](learned-extraction-investigations.md). Keep source-group holdouts out of training, prompt examples and oracle candidate injection. Grade discovery, span label or typed binding, abstention and delivered meaning independently. Failure, ties or unavailable supervision retain the simpler route. |
+
 ### Decide what is good enough to activate
 
 Before opening candidate results, name the operation, primary decision dimension,
@@ -227,6 +244,11 @@ separately attributable. Use the existing owner to confirm a qualified replaceme
 and dependency closure before retiring any incompatible derived results. A configured
 target, purpose roles and authority are prerequisites for a live promotion. If unavailable,
 leave live adoption open and report the independently qualified boundary.
+
+Optional extraction models do not enter this gate unless selected under PM2-11.
+The extraction amendment does not qualify DMA-13 or change the recognition source.
+Once scoped acceptance and predecessor eligibility settle, qualify the selected derivations
+over the existing authenticated Standard and Nemotron source.
 
 Use focused compile checks and `uv run ci test -- PATH` during an affected package.
 Follow the existing binding for formal target reviews and their evidence.

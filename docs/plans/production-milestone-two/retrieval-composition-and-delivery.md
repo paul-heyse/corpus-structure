@@ -85,12 +85,27 @@ still requires the independent protected evidence bound to the contribution.
 [DMA definition basis](../domain-model-alignment/semantic-admission.md#DMA-05) ·
 [Public eligibility](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_publication.sql)
 
+### Typed partial delivery
+
+**Proposed.** Extend the existing release payload, operation and selector owners before
+adding read-side interpretation. The producer consumes source-bound provider products
+and publishes independently useful located parts and typed proposals with exact endpoint,
+role and provenance references. The selector may bind a relation only with the released
+scope and required witness; public admission retains its independent eligibility decision.
+Keep native scores, proposals, assessed answers, selection and public standing distinct.
+A failed, limited, cancelled, ineligible or unattempted sibling retains its scoped reason;
+it must not suppress a qualified independent part or appear as a completed empty result.
+Use release declarations and existing generated/native validation and replay tooling for
+changed contracts; keep the same evidence owner across ordinary and detached consumers.
+
 **Delivery and closure.** Use the existing contribution read facets and exact
 source and contextual readers. Expose operation outcomes, selected meanings,
 alternatives and public standing with bounded continuation under the same selection.
 Keep large raw provider output behind its existing explicit read path. An initial
 journey follows a located condition and host through the native observations,
-d1 candidate choice, contribution, and Reader and fresh external MCP. For example,
+d1 candidate decision, including any refusal, qualified selection, contribution, and Reader
+and fresh external MCP. A selector may use an independently supported deterministic attachment
+on the same candidates while preserving a d1 no-match as a separate result. For example,
 the textbook's positive-variance premise is a control for attaching a condition
 to the intended predicate. Use an independently reviewed missed source opportunity
 to show that source-first discovery can add a different useful part. Withhold
@@ -104,6 +119,14 @@ delivery scope. Report larger requests that exceed hydration or row budgets expl
 [D8 contribution inspection](../../design/D8-agent-and-query-interfaces.md#independent-contribution-inspection) ·
 [Bundle verification](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py) ·
 [Current Reader controls](../../examples/README.md)
+
+Use a textbook condition on an assertion and an authored business condition on an
+instruction (such as releasing a payment) through the same selector, adapters, payload,
+admission and Reader, CLI, fresh MCP and detached path. Change only the source and
+released vocabulary, criteria and relation declaration. Preserve a competing host,
+refuse a missing or incompatible declaration and verify an admitted useful part
+survives a failed sibling. PM2-11 owns the independent expectations. The business case
+establishes contract configurability within its fixture, not cross-corpus qualification.
 
 <a id="PM2-09"></a>
 
@@ -133,6 +156,33 @@ v11 retrieval and paired grading were `not_run`.
 The bounded producer also missed the two in-equation carriers. Qualify those
 upstream populations before retrying. Hold source, targets, scope and encoder
 profile fixed in both arms, and compare candidate availability before selection.
+
+### Producer coverage before ranking
+
+**Proposed.** Resolve two independent gaps under the same release and authenticated source.
+
+1. **Definition target.** PM2-03/07 supply exact named term/content/cue and scope candidates;
+   PM2-08 qualifies a directed defining-content component through the existing
+   [definition producer](../../../python/corpus-structure/src/corpus_structure/methods/definition_applicability.py)
+   and `definition-scope-1` witness where applicable. Compare the incumbent with a bounded
+   named construction for the binomial definition. Preserve valid naming/explanation,
+   reported and conditional forms and competing bindings as controls. A located standalone
+   term can remain useful privately; do not relabel it or relax admission to fill the target list.
+2. **Affine carriers.** Use the
+   [retained formula/occurrence route](../../../python/corpus-structure/src/corpus_structure/methods/math/native.py)
+   and authenticated primary-field mapping to bind the exact in-equation `X` and `Z`
+   occurrences before projecting them into retrieval. Term projection does not discover
+   missing source evidence. Preserve repeated symbols at distinct extents; if the exact
+   map is unavailable, retain the upstream coverage gap rather than guessing or initiating
+   recognition. Keep the rejected `X` relation unselected and the witnessed `Z` relation intact.
+
+PM2-09 checks both products in the ordinary eligible inventory before invoking ranking.
+If either is missing, retain the blocked preflight. Once both qualify, use the frozen
+top-10 frame with the same source, target set, encoder and bounds for v10 and each
+applicable v11 signal separately. Report membership, rank and final selected meaning
+separately. Pass an authenticated list within d1's 12-alternative limit to PM2-07.
+Require exact detached replay of the enriched rendering and preserved selection/refusal
+before proposing an ordinary default change. Ties or regressions retain v10.
 
 Reuse the existing contextual encoder, target registry, lexical channel, dense
 channels, bounded fusion and witnessed selection. The current profiles use
