@@ -215,6 +215,45 @@ def test_finite_feature_instance_scores_final_reading_without_repeating_extracti
     assert row["standing"] == "candidate"
 
 
+@pytest.mark.parametrize(
+    "applicability_update",
+    [
+        {"release_id": "release:other"},
+        {"family": "assertion"},
+        {"subset": "other-reading-subset"},
+    ],
+)
+def test_reading_fit_is_not_applied_outside_exact_release_family_and_subset(
+    monkeypatch, applicability_update
+):
+    import json
+
+    from semantic.test_record_policy import fitted
+
+    unit, ctx, _upstream, _worker = retained_fixture(monkeypatch)
+    base = PolicyApplicability(
+        release_id=ctx.reader.prepared.release_id,
+        family="definition",
+        subset="statistics-m1-source-readings-2",
+        assumptions="controlled mismatch fixture",
+    )
+    applicability = base.model_copy(update=applicability_update)
+    instance = fitted().model_copy(update={"applicability": applicability})
+    cfg = M1ReadingConfig.model_validate_json(
+        json.dumps({"feature_instances": [instance.model_dump(mode="json")]})
+    )
+
+    (result,) = M1Readings().run((unit,), cfg, ctx)
+    assert result.records and result.parse_detail is not None
+    events = result.parse_detail["record_policy_events"]
+    assert isinstance(events, list) and len(events) == 1
+    event = events[0]
+    assert isinstance(event, dict)
+    assert event["feature_instance_digest"] is None
+    assert event["outcome"] == "not_run"
+    assert event["diagnostics"] == ["applicable fitted feature instance unavailable"]
+
+
 def test_resolver_decodes_archived_source_product_json_before_completion(monkeypatch):
     import json
 

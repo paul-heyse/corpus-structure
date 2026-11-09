@@ -225,29 +225,50 @@ class M1Config(BaseModel):
         )
 
 
-def configured_packs(prepared, cfg):
+def configured_packs(prepared, cfg, *, generic_role_guidance: bool = False):
     """Release-owned roles plus explicit extraction instructions, prepared once per source."""
-    from corpus_structure.methods.record_packs import family_pack
+    from corpus_structure.methods.record_packs import family_pack, family_roles, field_kind
 
     combined = "native-combined-v2" if cfg.policy == POLICY_V6 else "native-combined-v1"
-    return {
-        family: family_pack(
+    packs = {}
+    for family, (contract, anchor) in FAMILIES.items():
+        descriptions = dict(cfg.pack_descriptions.get(family, {}))
+        if generic_role_guidance:
+            _, roles = family_roles(prepared, contract)
+            for role in roles:
+                kind = field_kind(prepared, role)
+                if kind == "literal":
+                    descriptions.setdefault(
+                        role.name,
+                        f"Exact source wording for the {role.name} role of this {family} "
+                        "reading. Keep it attached to this same local occurrence; do not borrow "
+                        "nearby wording or infer an unstated value.",
+                    )
+                elif kind == "classified":
+                    descriptions.setdefault(
+                        role.name,
+                        f"Choose a released category for the {role.name} role only when an "
+                        f"explicit source cue supports it for this same {family} reading. "
+                        "Do not infer a category from a missing field or a nearby occurrence.",
+                    )
+        packs[family] = family_pack(
             prepared,
             contract=contract,
             anchor_role=anchor,
-            descriptions=cfg.pack_descriptions.get(family),
+            descriptions=descriptions,
             source_inspection=cfg.source_inspection,
             pack_version=ASSERTION_LITERAL_PACK if family == "assertion" else combined,
         )
-        for family, (contract, anchor) in FAMILIES.items()
-    }
+    return packs
 
 
-def configured_pack_variants(prepared, cfg):
+def configured_pack_variants(prepared, cfg, *, generic_role_guidance: bool = False):
     """Policies5/6 add a natural binding request, sharing the resident model."""
     from corpus_structure.methods.record_packs import formula_pack_variants
 
-    packs = configured_packs(prepared, cfg)
+    packs = configured_packs(
+        prepared, cfg, generic_role_guidance=generic_role_guidance
+    )
     variants: dict[str, tuple[tuple[str, str, GlinerPack], ...]] = {
         family: (("default", FAMILIES[family][1], pack),) for family, pack in packs.items()
     }
@@ -323,11 +344,17 @@ class M1Candidates:
     def run(self, units, cfg, ctx):
         return tuple(self._source(unit, cfg, ctx) for unit in units)
 
+    def run_generic_role_guidance_comparison(self, units, cfg, ctx):
+        """Run the detached opt-in prompt arm without changing registered method config."""
+        return tuple(
+            self._source(unit, cfg, ctx, generic_role_guidance=True) for unit in units
+        )
+
     def interpretation_request(self, group):
         """Actual retained groups reach the interpreter only with an applicable factor policy."""
         return None
 
-    def _source(self, unit, cfg, ctx):
+    def _source(self, unit, cfg, ctx, *, generic_role_guidance: bool = False):
         from threadpoolctl import ThreadpoolController
 
         from corpus_structure.methods.assertion_qualification import AssertionQualification
@@ -344,7 +371,9 @@ class M1Candidates:
         if unit.ref.unit_id is None:
             raise ValueError("M1 requires a selected source view")
         ctx.check_active()
-        packs = configured_pack_variants(ctx.reader.prepared, cfg)
+        packs = configured_pack_variants(
+            ctx.reader.prepared, cfg, generic_role_guidance=generic_role_guidance
+        )
         view = ctx.reader.source_view(unit.ref.unit_id)
         if (
             cfg.source_projection_digest is not None
@@ -425,6 +454,8 @@ class M1Candidates:
                 ordinary_workload="unqualified",
             ),
         )
+        if generic_role_guidance:
+            details["comparison_arm"] = "generic-source-role-guidance-1"
         from corpus_structure.methods.contribution_adapter import (
             ADAPTER_VERSION,
             LOCAL_ADAPTER_VERSION,

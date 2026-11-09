@@ -233,6 +233,64 @@ def test_local_schema_and_retained_lower_rule_products_survive_empty_record_outp
     assert result.parse_detail is not None and result.parse_detail["local_reports"]
 
 
+def test_generic_role_guidance_is_an_explicit_pack_identity_with_configured_precedence():
+    from corpus_structure.methods.m1_source import configured_packs
+    from corpus_structure.orchestrate.m1 import registry
+    from methods.test_record_assembly import release
+
+    method = m1_source.M1Candidates()
+    cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
+    prepared = release()
+    baseline = configured_packs(prepared, cfg)
+    guided = configured_packs(prepared, cfg, generic_role_guidance=True)
+
+    baseline_assertion = json.loads(baseline["assertion"].declaration_json)["structures"][
+        "assertion"
+    ]
+    guided_assertion = json.loads(guided["assertion"].declaration_json)["structures"][
+        "assertion"
+    ]
+    baseline_fields = {field["name"]: field for field in baseline_assertion["fields"]}
+    guided_fields = {field["name"]: field for field in guided_assertion["fields"]}
+    assert "generic_role_guidance" not in cfg.model_dump(mode="json")
+    assert not any("description" in field for field in baseline_fields.values())
+    assert guided["assertion"].fingerprint != baseline["assertion"].fingerprint
+    assert "same local occurrence" in guided_fields["subject"]["description"]
+    assert "same assertion" not in guided_fields["subject"]["description"]
+
+    described_cfg = cfg.model_copy(
+        update={
+            "pack_descriptions": {"assertion": {"subject": "explicit reviewer wording"}},
+        }
+    )
+    described = configured_packs(prepared, described_cfg, generic_role_guidance=True)
+    described_fields = json.loads(described["assertion"].declaration_json)["structures"][
+        "assertion"
+    ]["fields"]
+    described_fields = {field["name"]: field for field in described_fields}
+    assert described_fields["subject"]["description"] == "explicit reviewer wording"
+    assert "same local occurrence" in described_fields["object"]["description"]
+
+
+def test_generic_role_guidance_runs_only_through_explicit_detached_helper(monkeypatch):
+    from corpus_structure.orchestrate.m1 import registry
+
+    source = view()
+    method = m1_source.M1Candidates()
+    monkeypatch.setattr(method, "_resident", lambda _: ControlledDecoder("empty"))
+    cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
+    unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
+    ctx = SimpleNamespace(reader=owned_reader(source), check_active=lambda: None)
+
+    (baseline,) = method.run((unit,), cfg, ctx)
+    (guided,) = method.run_generic_role_guidance_comparison((unit,), cfg, ctx)
+
+    assert baseline.parse_detail is not None and guided.parse_detail is not None
+    assert "comparison_arm" not in baseline.parse_detail
+    assert guided.parse_detail["comparison_arm"] == "generic-source-role-guidance-1"
+    assert "generic_role_guidance" not in cfg.model_dump(mode="json")
+
+
 @pytest.mark.parametrize("fatal", [False, True])
 def test_request_limit_continues_independent_context_but_worker_fault_fences_it(monkeypatch, fatal):
     from dataclasses import replace
