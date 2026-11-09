@@ -903,9 +903,7 @@ class ConditionRoleCitation(StructuralValue):
 class ConditionQualificationProduct(StructuralValue):
     relation: Literal["condition", "assumption"]
     attachment: RetainedContributionRef
-    effective_version: Nonempty | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
+    effective_version: Nonempty | None = Field(default=None, exclude_if=lambda value: value is None)
     qualifier: tuple[ConditionRoleCitation, ...] = Field(min_length=1)
     host_predicate: tuple[ConditionRoleCitation, ...] = Field(min_length=1)
 

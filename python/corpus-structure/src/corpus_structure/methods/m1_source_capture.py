@@ -50,15 +50,20 @@ class RecordCaptureRule(BaseModel):
             raise ValueError("a captured role cannot be both literal and classified")
         roles = self.match.bindings.keys()
         inputs = [*self.literals.values(), *(field.cues for field in self.classifications.values())]
-        if any(not bindings or len(set(bindings)) != len(bindings) or set(bindings) - roles
-               for bindings in inputs):
+        if any(
+            not bindings or len(set(bindings)) != len(bindings) or set(bindings) - roles
+            for bindings in inputs
+        ):
             raise ValueError("record capture requires distinct declared source bindings")
         return self
 
 
 def _extent(
-    names: tuple[str, ...], roles: Mapping[str, LocatedRole],
-    tokens: tuple[TokenAnnotation, ...], offset: int, text: str,
+    names: tuple[str, ...],
+    roles: Mapping[str, LocatedRole],
+    tokens: tuple[TokenAnnotation, ...],
+    offset: int,
+    text: str,
 ) -> LiteralSpan | None:
     nodes = tuple(node for name in names for node in roles[name].nodes)
     if not nodes or any(left + 1 != right for left, right in pairwise(nodes)):
@@ -68,7 +73,10 @@ def _extent(
 
 
 def hanlp_condition_groups(
-    mapping: PM2TokenMap, products: ParserProducts, *, request_digest: str,
+    mapping: PM2TokenMap,
+    products: ParserProducts,
+    *,
+    request_digest: str,
 ) -> tuple[NativeRecordGroup, ...]:
     """Compose a private assertion from a unique, exactly located HanLP condition and host."""
     source_map = mapping.mapping
@@ -97,10 +105,7 @@ def hanlp_condition_groups(
     selected = []
     candidate_counts: Counter[str] = Counter()
     for row in products.products:
-        if (
-            row.semantic_type != "linguistic.qualifier_cue"
-            or row.value.get("kind") != "condition"
-        ):
+        if row.semantic_type != "linguistic.qualifier_cue" or row.value.get("kind") != "condition":
             continue
         cue = CueView.model_validate_json(canonical_bytes(row.value))
         candidate_counts.update(cue.candidates)
@@ -125,26 +130,40 @@ def hanlp_condition_groups(
             continue
         fields = tuple(spans(key) for key in locations)
         marker = spans(cue.marker)
-        if any(not field for field in fields) or not marker or any(
-            not any(start.start <= part.start < part.end <= start.end for start in fields[-1])
-            for part in marker
+        if (
+            any(not field for field in fields)
+            or not marker
+            or any(
+                not any(start.start <= part.start < part.end <= start.end for start in fields[-1])
+                for part in marker
+            )
         ):
             continue
         ordered = sorted((span.start, span.end) for field in fields for span in field)
         if any(left[1] > right[0] for left, right in pairwise(ordered)):
             continue
-        selected.append((host_key, NativeRecordGroup(
-            tuple(RoleInput(role, spans=field) for role, field in zip(
-                ("subject", "predicate", "object", "condition"), fields, strict=True,
-            )),
-            "one HanLP condition cue and its uniquely located active host",
+        selected.append(
             (
-                "source-parser-input:" + mapping.input_digest,
-                "source-parser-request:" + request_digest,
-                "source-parser-products:"
-                + sha256(canonical_bytes([asdict(row), asdict(host)])).hexdigest(),
-            ),
-        )))
+                host_key,
+                NativeRecordGroup(
+                    tuple(
+                        RoleInput(role, spans=field)
+                        for role, field in zip(
+                            ("subject", "predicate", "object", "condition"),
+                            fields,
+                            strict=True,
+                        )
+                    ),
+                    "one HanLP condition cue and its uniquely located active host",
+                    (
+                        "source-parser-input:" + mapping.input_digest,
+                        "source-parser-request:" + request_digest,
+                        "source-parser-products:"
+                        + sha256(canonical_bytes([asdict(row), asdict(host)])).hexdigest(),
+                    ),
+                ),
+            )
+        )
     return tuple(group for key, group in selected if candidate_counts[key] == 1)
 
 
@@ -178,8 +197,12 @@ class SourceRecordCapture:
         self._contracts = {rule.contract for rule in rules}
 
     def capture(
-        self, context: NativeSourceContext, contract: str,
-        blocks: tuple[AnnotationProduct, ...], start: int, end: int,
+        self,
+        context: NativeSourceContext,
+        contract: str,
+        blocks: tuple[AnnotationProduct, ...],
+        start: int,
+        end: int,
     ) -> tuple[NativeRecordGroup, ...]:
         if contract not in self._contracts:
             return ()
@@ -191,8 +214,12 @@ class SourceRecordCapture:
         )
 
     def candidates(
-        self, block: AnnotationProduct, context: NativeSourceContext, contract: str,
-        start: int, end: int,
+        self,
+        block: AnnotationProduct,
+        context: NativeSourceContext,
+        contract: str,
+        start: int,
+        end: int,
     ) -> tuple[NativeRecordGroup, ...]:
         """Only exact, ordered spans inside one inspected primary-source sentence may bind."""
         from .assertion_qualification import _sentence_model_start
@@ -241,17 +268,23 @@ class SourceRecordCapture:
                     cue = _extent(binding.cues, roles, tokens, offset, context.primary.text)
                     if cue is None:
                         break
-                    fields.append(RoleInput(
-                        name, label=binding.label, cues=(cue,),
-                        reason="explicit source cue in the matched dependency construction",
-                    ))
+                    fields.append(
+                        RoleInput(
+                            name,
+                            label=binding.label,
+                            cues=(cue,),
+                            reason="explicit source cue in the matched dependency construction",
+                        )
+                    )
                 else:
-                    candidates.append(NativeRecordGroup(
-                        tuple(fields),
-                        "exact primary source spans in one declared annotation construction",
-                        (
-                            "annotation:" + match.dependency_digest,
-                            "source-record-capture:" + self._digests[key],
-                        ),
-                    ))
+                    candidates.append(
+                        NativeRecordGroup(
+                            tuple(fields),
+                            "exact primary source spans in one declared annotation construction",
+                            (
+                                "annotation:" + match.dependency_digest,
+                                "source-record-capture:" + self._digests[key],
+                            ),
+                        )
+                    )
         return tuple(candidates)

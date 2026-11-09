@@ -77,7 +77,9 @@ def structural_statement(
     }
 
     if report.kind in {
-        "definition_components", "definition_applicability", "condition_qualification",
+        "definition_components",
+        "definition_applicability",
+        "condition_qualification",
     }:
         statement.pop("inventory_id")
         statement.pop("input_policy_id")

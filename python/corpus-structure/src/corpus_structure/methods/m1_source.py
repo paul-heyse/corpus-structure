@@ -362,7 +362,12 @@ class M1Candidates:
         return None
 
     def _source(
-        self, unit, cfg, ctx, *, generic_role_guidance: bool = False,
+        self,
+        unit,
+        cfg,
+        ctx,
+        *,
+        generic_role_guidance: bool = False,
         source_capture_rules: tuple[RecordCaptureRule, ...] = (),
     ):
         from threadpoolctl import ThreadpoolController
@@ -713,8 +718,11 @@ class M1Candidates:
                 for family in selection.families:
                     contract, anchor = FAMILIES[family]
                     captured = source_capture.capture(
-                        context, contract, prepared_source.annotations,
-                        selection.start, selection.end,
+                        context,
+                        contract,
+                        prepared_source.annotations,
+                        selection.start,
+                        selection.end,
                     )
                     if not captured:
                         continue
@@ -730,16 +738,22 @@ class M1Candidates:
                     assemblies.append(assembled)
                     contribution_batches.append(
                         adapt_native_groups(
-                            context, family=family, groups=captured,
+                            context,
+                            family=family,
+                            groups=captured,
                             item_key=f"source-capture/{index}/{family}",
                         )
                     )
-                    details["reports"].append(dict(
-                        context=index, family=family, operation="exact_source_rule_capture",
-                        context_digest=context.dependency_digest,
-                        groups=[asdict(group) for group in captured],
-                        diagnostics=[asdict(item) for item in assembled.diagnostics],
-                    ))
+                    details["reports"].append(
+                        dict(
+                            context=index,
+                            family=family,
+                            operation="exact_source_rule_capture",
+                            context_digest=context.dependency_digest,
+                            groups=[asdict(group) for group in captured],
+                            diagnostics=[asdict(item) for item in assembled.diagnostics],
+                        )
+                    )
             if cfg.formula_syntax and selection.families == ("formula_context",):
                 from corpus_structure.methods.contribution_adapter import adapt_formula_syntax
                 from corpus_structure.methods.math.pdf import FormulaOccurrence
