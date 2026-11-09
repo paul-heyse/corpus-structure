@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "id": "pm2.native-declaration-chain-private-qualification",
+  "title": "Deployed private declaration chain and matched offline refusal",
+  "group": "pm2-remediation",
+  "package": "PM2-09",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the deployed private release settle the exact source-backed HanLP declaration and preserve the same binding guard in detached replay?",
+  "answers": [
+    "I01",
+    "I02",
+    "PM2-03",
+    "PM2-09"
+  ],
+  "method": "Archive and admit the exact staged release against the settled native revision without activation. Run CPU HanLP v2 over the frozen source extent, settle the declaration-only method using the exact completed parser task, and verify its Reader output and detached source closure. Exercise the same one-token binding alteration through the deployed native guard and detached replay.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-native-definition/private_definition.py stage-pack domains/statistics build/models/pm2/definition-private-staging-01",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-native-definition/private_definition.py archive-private --stage-receipt build/models/pm2/definition-private-stage.json --deployment build/models/pm2/definition-deploy.json --native-revision semantic_pm2_definition_chain --project nce-grinstead-snell-full-book",
+    "uv run ci run parsers --request build/models/pm2/definition-private-parser-request.json --json",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-native-definition/private_definition.py run-chain --parser-receipt build/models/pm2/definition-private-parser-result.json --naming-frame s2/predicate/12 --output-directory build/models/pm2/definition-private-staging-01 --inputs docs/design_review/evidence/2026-11-09_pm2-adoption/raw/target-inputs.json --passage binomial-distribution --realization source:pm2-private-definition:release:18959753ce4d11969f53ef9c7499bcea88b25c3df8c1492e3b586f88d4d4bb31",
+    "uv run ci run finalize 445 --output-realization private:pm2-definition:445 --json",
+    "uv run ci structure list --run 445 --cut 548 --kind definition_components --limit 1 --json",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-native-definition/private_definition.py native-qualification --selection build/models/pm2/definition-private-review-selection.json --deployment build/models/pm2/definition-deploy.json --native-revision semantic_pm2_definition_chain",
+    "uv run ci review export build/models/pm2/definition-private-review-selection.json build/models/pm2/definition-private-detached --exact-closure --json",
+    "uv run ci review verify build/models/pm2/definition-private-detached --manifest-sha256 33c4cf99402830baf10079c8adbc58e19667db4d52ef0546088e63e99ad6dd4b --json",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-native-definition/private_definition.py detached-qualification --bundle build/models/pm2/definition-private-detached --manifest-sha256 33c4cf99402830baf10079c8adbc58e19667db4d52ef0546088e63e99ad6dd4b"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "private_definition.py",
+      "role": "Private archive, native run, Reader selection and parity driver",
+      "sha256": "139a559d81ecc7c2f4494039a6c44593d0d3613c9f9f0b1704303d5f383f9393"
+    },
+    {
+      "path": "raw/parser-request.json",
+      "role": "Frozen native CPU HanLP v2 request",
+      "sha256": "4ac7fa92ab1f6dacad4e59b7a260d55e6b0502db198c5a41f19a9e6704002631"
+    },
+    {
+      "path": "raw/review-selection.json",
+      "role": "Exact two-cut selected source closure request",
+      "sha256": "2c71b836ad5afd7f42200361b4f7c0014a17928421db06e042945e942eaa114a"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/private-release.json",
+      "role": "Exact archived and admitted private release and active input realization",
+      "sha256": "f52ca50f5d7b1179210539b1739ac5c6f5d9535f1316d124837c1d81d2adafe7"
+    },
+    {
+      "path": "raw/parser-result.json",
+      "role": "Completed CPU HanLP v2 task, scope and cut",
+      "sha256": "b536f847fded4198e554508e143baa2cbf7508c3fbd1c312c3bd30ea3e222104"
+    },
+    {
+      "path": "raw/chain-completed.json",
+      "role": "Completed private structural result",
+      "sha256": "ab966a36d03b49b0cced6a7c97f68005e66a52b6565e1bfc001e997e19f0e882"
+    },
+    {
+      "path": "raw/reader.json",
+      "role": "Exact accepted definition component and native parser lineage",
+      "sha256": "509422f51fbdd341c27ed4ba93e4d78d838c69959fb87363ed6c520da4ee354a"
+    },
+    {
+      "path": "raw/native-qualification.json",
+      "role": "Deployed native positive and altered-use refusal",
+      "sha256": "1d7efbb51b3fd5ee9bd4b0ef97da19aaa640276f1fd799ce2e1a273de0d790d5"
+    },
+    {
+      "path": "raw/review-result.json",
+      "role": "Managed detached export and manifest custody",
+      "sha256": "76e5e63f0ca400e31b805a7d1f25694a690ac20a45fb72900a1908c37fd628c3"
+    },
+    {
+      "path": "raw/review-verified.json",
+      "role": "Bound offline verification of the exact selected source closure",
+      "sha256": "0344e7e6a354183f2e7d0c73e6ccb1fbdf8b9582bea33a9c0c87fda4b1df0160"
+    },
+    {
+      "path": "raw/detached-attempt-01.txt",
+      "role": "Initial diagnostic failure before semantic replay",
+      "sha256": "526fe120cbdb5d4bf87cb6e43062940b469f76493908dbc01bdd3a15649ff283"
+    },
+    {
+      "path": "raw/detached-qualification.json",
+      "role": "Offline positive and identical altered-use refusal",
+      "sha256": "266b7a53be482f054a2dfde9835df0e97faa85d71f5d7b7cef40c159c38e67d0"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-definition-chain/pm2.definition-chain-source-replay",
+    "2026-11-09_pm2-native-definition/pm2.native-definition-development-deployment"
+  ],
+  "results": [
+    {
+      "name": "Completed HanLP v2 task",
+      "value": 2152,
+      "of": null,
+      "unit": "task",
+      "note": "Run 444, cut 546; 175 retained contributions"
+    },
+    {
+      "name": "Completed private declaration task",
+      "value": 2153,
+      "of": null,
+      "unit": "task",
+      "note": "Run 445, final cut 548"
+    },
+    {
+      "name": "Matched native and detached refusals",
+      "value": 2,
+      "of": 2,
+      "unit": "checks",
+      "note": "The same single altered declaration use was refused; exact retained component accepted"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "One exact private declaration and its CPU HanLP v2 predecessor settled through the deployed native and detached paths. The frozen term, content and role basis matched; both guards refused the same altered binding. This does not establish independent semantic grading, broader adoption or whole-book completeness.",
+  "consumed_by": [
+    "PM2-03",
+    "PM2-09",
+    "PM2-11",
+    "PM2-12"
+  ]
+}

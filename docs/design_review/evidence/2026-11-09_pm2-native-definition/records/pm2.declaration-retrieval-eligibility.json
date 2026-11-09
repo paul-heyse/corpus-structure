@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "id": "pm2.declaration-retrieval-eligibility",
+  "title": "Exact native definition target eligibility",
+  "group": "pm2-native-definition",
+  "package": "PM2-09",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the native contextual target owner resolve the private declaration as one eligible definition?",
+  "answers": [
+    "I01",
+    "I02",
+    "PM2-09"
+  ],
+  "method": "Read the completed scope through the structural Reader, then verify exact task and component custody using the native retrieval registry.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-native-definition/read_target.py 445"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "Target eligibility is checked by the retrieval owner independently of producer completion."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "read_target.py",
+      "role": "Read-only native registry check",
+      "sha256": "735c21645b862f1cf55317c102de26d58e69552178b72cfc2796781e9fe45855"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/eligible-target.json",
+      "role": "Exact released component reference and authenticated target identity",
+      "sha256": "b564ed6417a1e880005b2e4b41fab17185c765ee83cf438f2b667041e7867c14"
+    }
+  ],
+  "depends_on": [
+    "pm2.native-declaration-chain-private-qualification"
+  ],
+  "results": [
+    {
+      "name": "Eligible definitions",
+      "value": 1,
+      "of": 1,
+      "unit": "targets",
+      "note": "Run 445/cut 548/task 2153; original source and complete directed defining content."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The native registry resolves the exact private binomial definition. This establishes target eligibility; paired ranking, retrieval benefit and public standing are separate.",
+  "consumed_by": [
+    "PM2-09",
+    "PM2-11"
+  ]
+}

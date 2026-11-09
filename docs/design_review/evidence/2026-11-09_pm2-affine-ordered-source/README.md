@@ -21,18 +21,40 @@ The existing inline formula producer independently recovers `X` and `Z` in
 candidate, for `Z`; it supplies no outside binding for `X`. This is evidence for
 the source and layout prerequisites, not a retained or admitted relation.
 
-**Remaining integration.** Keep the old direct-parent witness version and its
-detached semantics. Introduce the ordered path as a separately identified
-configuration and question version. Bind an exact wider producer passage, use
-the original scoped `declares` premise for the single-piece symbol and
-description, and carry the declared name with ordered anchors in both native
-items. Keep the original equation scope and occurrence IDs for ranking. In the
-existing native guard, recompute the exact wrapper chain, selected sibling order,
-complete source spans and unique prior binding from retained source. Apply the
-same decision in detached replay, rejecting an omitted or reordered name anchor,
-foreign wrapper, duplicate declaration or altered recap. A managed native
-candidate and a new native producer run must pass before this becomes the
-affirmative control in the paired retrieval.
+**Tested native retention · 2026-11-09.** The [generated native guard and
+rollback controls](../2026-11-09_pm2-ordered-native/README.md) independently
+recompute the ordered owner, native name pieces, exact prior declaration and
+complete inspected population. Development deployment
+`c99b549f146a4662b1fccb1521922efb` reached `semantic_pm2_ordered_witness`.
+The ordinary scoped method remains version 10; the explicit ordered config
+uses method version 11 and `source_witnessed_links` version 2. The original
+formula operation remains version 1.
+
+The [custody receipts](raw/settled-native.json) distinguish the annotation
+rebind (run 441, final cut 543, task 2150) from source origin. PostgreSQL
+refused the rebind as the origin of immutable view 391. The [replay
+driver](run_ordered_witness.py) then retained original source run 407/cut 517
+as its authenticated input and produced the witness under the admitted
+development release at run 443/final cut 545/task 2151. Neither route
+re-recognized the PDF or used Chandra.
+
+The [witness Reader result](raw/links-readback.json) inspected one recap and
+retained three rows: the recap cue, the ordered declared name and the directed
+`Z` link. The name anchors are `#/texts/4476` [0,8) and `#/texts/4477` [0,23).
+The [formula Reader result](raw/formula-readback.json) retains the four exact
+syntax symbols at the original equation; `X` has no declaration edge. This
+qualifies the private affine witness and its protected negative control. It
+does not grade paired retrieval or confer public semantic standing.
+
+**Tested detached replay · 2026-11-09.** The first export exceeded its combined
+JSONL and Parquet budget. A one-operation selection with a 512 MiB cap exposed
+a missing version 11 dispatch in detached predicate replay. Both refusals are
+in the custody receipts. After the dispatch was corrected, managed export
+`c62de8a5d65340c89a898ade57adb7cb` retained the complete producer and annotation
+reports for the selected witness. It carries about 336 MB of relation files.
+The [offline verification receipt](raw/detached-review.json) records manifest
+binding and successful replay of the witness, formula syntax and their exact
+source dependencies. The detached claim applies only to this selected closure.
 
 ## Records
 

@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "id": "pm2.affine-ordered-witness-retention",
+  "title": "Native retention and detached replay of the ordered affine witness",
+  "group": "pm2-affine-ordered-source",
+  "package": "PM2-09",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the released ordered producer retain and replay the bounded positive Z declaration while leaving X syntax-only at the original non-Chandra source coordinates?",
+  "answers": [
+    "I01",
+    "PM2-09",
+    "PM2-11"
+  ],
+  "method": "Execute scoped relation method 11 under the admitted development release on original authenticated Standard and Nemotron source run 407/cut 517/view 391. Compare the two complete native operation populations and verify their exact retained report closure offline against the published manifest digest.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-affine-ordered-source/run_ordered_witness.py prepare --release release:0fea02616c97367ad658fefee131b01855c8c20a4e9bd40b3e97c1b0c4e0aca3",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-affine-ordered-source/run_ordered_witness.py rebind build/pm2-affine-ordered-witness/rebind-request.json",
+    "uv run ci run finalize 441 --output-realization private:pm2-affine-rebind:441 --json",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-affine-ordered-source/run_ordered_witness.py run build/pm2-affine-ordered-witness/rebind-request.json",
+    "uv run ci run finalize 443 --output-realization private:pm2-affine-witness:443 --json",
+    "uv run ci contributions list --run 443 --source-view 391 --selected-task-id 2151 --method structure.scoped_relations --operation contribution-operation:a77faea223729bd4a4c8c0316c99ce89bdbab1513f9f817aaea3834c7065fef1 --include-details --json",
+    "uv run ci contributions list --run 443 --source-view 391 --selected-task-id 2151 --method structure.scoped_relations --operation contribution-operation:790a176e51cd04ab3aaf08b194cee9ad180855ce85c1ca8d6275a1678ad24aed --include-details --json",
+    "uv run ci review retry e8c033c6d69143f3a886f9a7589d57f0 --json",
+    "uv run ci review verify build/ci/c62de8a5d65340c89a898ade57adb7cb/bundle --manifest-sha256 bc0601e81438bbda04f8f8e4b87df0d41bca1f6a6ada40092d9de6cb8ba1620d --json"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "Source query and protected controls were frozen before the ordered producer and detached verifier were implemented."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "run_ordered_witness.py",
+      "role": "Exact retained run and review request preparer",
+      "sha256": "25bca4b76a210eebbe39e3f4f1483b71150a4059aba0280e1405408a879f0c17"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/settled-native.json",
+      "role": "Native run/cut custody and refused alternatives",
+      "sha256": "f5a8ee321061576683ccca3655cf453fea3bf587e38cee1a02fe5724b6392147"
+    },
+    {
+      "path": "raw/links-readback.json",
+      "role": "Complete exact private ordered witness operation",
+      "sha256": "f8585f1a649cfca565a48aa07bbbcdc28cd21b31ebe4a3d6b5013a536c928ed6"
+    },
+    {
+      "path": "raw/formula-readback.json",
+      "role": "Complete original-scope syntax population",
+      "sha256": "e95dd95a3fa45912a75970c7d60e996a732b89a923d8158c46af97c81885d529"
+    },
+    {
+      "path": "raw/detached-review.json",
+      "role": "Managed publication and independent manifest-bound verification",
+      "sha256": "fa374952d5d1e9c16781fec643ddd5c7ae8b0b5b210b361c9e47b589a4f16980"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-affine-ordered-source/pm2.affine-ordered-source",
+    "2026-11-09_pm2-ordered-native/pm2.ordered-witness-native-guard"
+  ],
+  "results": [
+    {
+      "name": "Qualified exact source controls",
+      "value": 2,
+      "of": 2,
+      "unit": "cases",
+      "note": "Z alone retains the two ordered declared-name anchors; X retains only syntax."
+    },
+    {
+      "name": "Offline manifest-bound review",
+      "value": 1,
+      "of": 1,
+      "unit": "bundle",
+      "note": "The exact selection carries the complete retained producer and annotation reports."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The native Reader and independent offline verifier establish the private affine declaration witness and its X refusal at unchanged source coordinates. They do not grade the paired retrieval or establish public semantic standing.",
+  "consumed_by": [
+    "PM2-09",
+    "PM2-11"
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "id": "pm2.native-definition-development-deployment",
+  "title": "Native definition chain guard development deployment",
+  "group": "pm2-native-definition",
+  "package": "PM2-03",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the versioned definition and layout guards be deployed without enabling the optional policy in the ordinary release?",
+  "answers": [
+    "I02",
+    "PM2-03",
+    "PM2-08",
+    "PM2-09"
+  ],
+  "method": "Inspect the managed rollback candidate and register and deploy its exact native revision to the acquired development database.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-09_pm2-native-definition/model-change.yaml --json",
+    "uv run ci model change candidate 57fa2f0f8e254266a39582aede04c168 --json",
+    "uv run ci model change register 9c6a314310864b669077f9b61e83ff2f --json",
+    "uv run ci model change deploy 9c6a314310864b669077f9b61e83ff2f --json"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "PostgreSQL and the managed target check independently bind the native guards."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "model-change.yaml",
+      "role": "Frozen development change",
+      "sha256": "a58d2490b63787be7e8ff43255073caaaa327f3786b40be93ac71d9e1fdbe28e"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/preview.json",
+      "role": "Managed candidate workflow receipt",
+      "sha256": "99bec2e7f3d36861bda49b0ac650dc4c33e1559be2cbb1a970f0fa0e3ec53bb6"
+    },
+    {
+      "path": "raw/candidate.json",
+      "role": "Managed candidate workflow receipt",
+      "sha256": "7f6ff71fb5642c63068949ca7c1efdb20842e14a7be2fee73d62d095143991c1"
+    },
+    {
+      "path": "raw/register.json",
+      "role": "Managed candidate workflow receipt",
+      "sha256": "17e68bbd79488ada19124e9710022a1e8e535fab4fe7d324f8c754047fa67939"
+    },
+    {
+      "path": "raw/deploy.json",
+      "role": "Managed candidate workflow receipt",
+      "sha256": "0ca95df40e51d88b90830e968aff905429e9a6eee6567761e7c64107c6820cf2"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-definition-chain/pm2.definition-chain-source-replay",
+    "2026-11-09_pm2-ordered-native/pm2.ordered-witness-deployment"
+  ],
+  "results": [
+    {
+      "name": "Native changes",
+      "value": 15,
+      "of": null,
+      "unit": "functions",
+      "note": "No physical table changes."
+    },
+    {
+      "name": "Reached revision",
+      "value": "semantic_pm2_definition_chain",
+      "of": null,
+      "unit": null,
+      "note": "The ordinary release is admitted; project remains unselected."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Rollback authoring, registration, development migration, archive and admission passed. The new policy remains absent from the ordinary pack. This does not establish the staged parser/definition journey or paired ranking.",
+  "consumed_by": [
+    "PM2-03",
+    "PM2-09",
+    "PM2-12"
+  ]
+}

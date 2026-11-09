@@ -231,8 +231,14 @@ assessed under [PM2-11](textbook-assessment-and-adoption.md#exact-affine-qualifi
 **Settled ordered witness · 2026-11-09.** The [native development run](../../design_review/evidence/2026-11-09_pm2-ordered-native/README.md)
 settled the /11 producer at run 443/cut 545/task 2151. It retains the original
 formula scope and both occurrence identities, and attaches only Z using the
-version-2 ordered declaration. The formal affine control passed. The binomial
-definition inventory still needs released native admission before paired ranking.
+version-2 ordered declaration. The formal affine control passed. The
+[native definition registry read](../../design_review/evidence/2026-11-09_pm2-native-definition/records/pm2.declaration-retrieval-eligibility.json)
+also accepted the exact binomial target from run 445/cut 548. Both remain private.
+The affine report contains 389 located participants, beyond the 256-item encoder
+population bound. Its bounded carrier field changed the stored /10 configuration schema,
+so an unchanged /10 contract cannot express the needed exact selection. The paired
+control must use the incumbent literal rendering with the same exact carrier input
+contract as the enriched arm; preserve the earlier frozen reference and its blocked attempt.
 
 Run the affine pair separately from the binomial pair, whose carrier remains
 `extract.m1_candidates`. Use the same authenticated eligible definition inventory and keep the

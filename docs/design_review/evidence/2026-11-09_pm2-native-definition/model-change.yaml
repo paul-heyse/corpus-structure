@@ -1,0 +1,6 @@
+baseline: 0ec4e2b2d
+packs: [statistics]
+native_predecessor: semantic_pm2_ordered_witness
+native_revision: semantic_pm2_definition_chain
+deployment: true
+deployment_profile: development

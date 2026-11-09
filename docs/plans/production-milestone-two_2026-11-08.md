@@ -330,7 +330,10 @@ The [declaration-chain replay](../design_review/evidence/2026-11-09_pm2-definiti
 reused the genuine retained HanLP reply after independently reconstructing its
 exact repaired inputs. Both local parameter bindings and the unique constructed
 antecedent were found; an alternate predicate was refused and the punctuation
-preservation case was unchanged. The [native verifier](../design_review/evidence/2026-11-09_pm2-native-definition/README.md) also passed isolated PostgreSQL checks on that input. The private policy is staged separately; actual parser and definition settlement and detached closure remain open.
+preservation case was unchanged. The [native verifier](../design_review/evidence/2026-11-09_pm2-native-definition/README.md) passed isolated PostgreSQL checks on that input, then deployed at `semantic_pm2_definition_chain`.
+A separately admitted private release settled HanLP at run 444/cut 546 and the exact
+definition at run 445/cut 548. Native and detached readers accepted the exact chain
+and refused the same altered binding. The native registry accepted one eligible target.
 
 The [ordered witness guard](../design_review/evidence/2026-11-09_pm2-ordered-native/README.md)
 accepts the exact retained Z population in a rollback transaction and rejects
@@ -338,4 +341,6 @@ altered anchors, omitted eligible rows and mismatched scope. The distinct /11 pr
 privately deployed at `semantic_pm2_ordered_witness`. It settled Z on run 443/cut 545
 and preserved the unlinked X. The exact symbolic assessment passed on that retained
 result. Historical source and witness identities are preserved. Definition admission
-still gates paired ranking; public partial delivery and DMA-13 eligibility remain open.
+and ordered affine producer coverage have settled at their private scopes. Paired ranking
+still needs an exact-carrier control with a compatible registered schema. Public partial
+delivery and DMA-13 eligibility remain open.
