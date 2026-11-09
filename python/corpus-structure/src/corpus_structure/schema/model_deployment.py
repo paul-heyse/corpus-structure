@@ -762,7 +762,12 @@ def deploy_candidate(
                 settled=settled,
             ):
                 verify(writer, "admit")
-                persist_release(writer, bundle, deps, profile, prepared)
+                release_fence(writer)
+                archived = exact_archive(writer)
+                if archived is None:
+                    raise ModelError(["archived release differs from the candidate"])
+                if not archived:
+                    persist_release(writer, bundle, deps, profile, prepared)
             with _commit_deployment_effect(
                 writer,
                 "admission",
