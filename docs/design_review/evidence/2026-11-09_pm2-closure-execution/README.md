@@ -1,0 +1,83 @@
+# PM2 closure execution: retained source and bounded provider results
+
+**Partial · 2026-11-09.** The [PM2 coordinator](../../../plans/production-milestone-two_2026-11-08.md#closure-execution--2026-11-09)
+owns disposition. This execution used the retained Standard and Nemotron
+integrated product (task 1627, key `integrated`) and its exact source views.
+No Chandra, recognition, activation, selection, or retirement ran.
+
+- [Source preservation](raw/source-controls.json): Reader, installed CLI and
+  fresh MCP agreed at run 478/cut 595. The exact p416 and p418 formulas
+  matched the retained run 404 originals after allowing only run and view
+  identities to differ. The bounded manifest page retained p151's
+  Nemotron-pass-C partial coverage; it does not establish manifest exhaustiveness.
+  Reproduce with `uv run python docs/design_review/evidence/2026-11-09_pm2-closure-execution/source_controls.py`.
+- [Bounded parser panel](raw/parser-panel.json): `uv run ci run parsers --request … --json`
+  settled run 485/cut 598 using the archived scope request under the current
+  admitted release. It includes ordinary, supplied-mention, layout-forced and
+  supplied-EDU arms; two empty scopes, one limited parent and two successful
+  HanLP children, and one ineligible and one unscheduled scope remain distinct.
+  This is operating evidence. It does not independently grade the parsed
+  frames, clusters, or discourse relations. The first attempt (483) refused
+  a changed runtime pin and was retained without a completed cut; its 15 open
+  tasks were cancelled after its supervisor was orphaned. The ordinary
+  [coverage readback](raw/coverage-controls.json) matches all 11 scope rows for
+  view 383 across Reader, installed CLI and fresh MCP.
+- [First split-loss native read](raw/split-loss-first-native.json): CUDA d1
+  run 484/cut 597 preserved `1/8` → `0.125` and returned the source cue
+  `losing`. Both the amount and unit questions returned `1 dollar` instead
+  of their separate requested spans; amount normalization correctly remained
+  unresolved. These are private observations, not a supported three-part
+  loss assertion. The first prototype prompted review of default question
+  selection. The [final native retry](raw/split-loss-final-native.json) on
+  run 486/cut 599 confirmed the same bounded outcome with explicitly opt-in
+  questions under the admitted successor release.
+- [Same-question GLiNER loss comparison](raw/split-loss-gliner.json): on the
+  identical source scope and three released instructions, native GLiNER
+  proposed `1 dollar` for amount, no unit and `failure` for the role cue.
+  Neither arm isolated both numeric and unit spans. No protected grade ran.
+  Reproduce with `split_loss_gliner.py` and the installed CLI readback of
+  run 486 with `--include-interpretation`.
+- [Detached loss read](raw/split-loss-detached.json): the default export
+  budget refused the exact task selection. An explicit 512 MiB bound
+  produced managed bundle `7d72cf7fc14e49c1a8bc2118492c3b8f`.
+  `ci review verify` passed at selected-source closure with internal
+  consistency standing. It verifies the retained proposals and source
+  custody, without qualifying the amount, unit or complete worklist.
+- [Cross-chapter preservation](raw/cross-chapter-preservation.json):
+  `uv run ci contributions list --run 327 --selected-task-id 1528 --method retrieve.contextual --include-details --json`
+  returned the retained explicit Section 5.1 citation at cut 447.
+  `uv run ci review export … --exact-closure --json` refused the archived
+  source projection recipe. Offline verification was `not_run`. Preserve
+  the historical edge and regenerate the case on compatible source for current
+  detached delivery; do not relax the proof check.
+- [Source-only workflow references](../2026-11-09_pm2-workflow-references/README.md)
+  bind the exact definition-use, condition, referent and quantity opportunities.
+  [The native GLiNER comparison](../2026-11-09_pm2-protected-classification/README.md)
+  establishes one protected definition preservation case. A managed GLiNER
+  producer and broader same-question comparisons remain open.
+
+Private full-book run 482 [refused its changed runtime](raw/run-482-runtime-refusal.json)
+after 44 settled tasks. It has no completed cut. [Run 487](raw/run-487-checkpoint.json)
+reuses the authenticated source and uses the newly admitted runtime. The
+active managed invocation will finalize it on successful settlement and attempt
+the set 34 regression grade. It does not select a release or run.
+
+The parser request starts from the
+[previously frozen scope panel](../2026-11-08_pm2-parsers/raw/book-parser-request.json).
+Rebind only its admitted release and realization, and add an unscheduled
+HanLP scope at `[811,842)` and an ineligible HanLP scope at `[843,873)` in
+view 383. The coverage parity probe takes the settled run receipt and view ID.
+
+## Records
+
+<!-- evidence-index:start -->
+Generated by `just evidence index` from `records/`; do not edit by hand. 2 current, 0 superseded.
+
+
+**pm2-adoption**
+
+| Record | Package | Outcome | Informs | Finalized |
+|---|---|---|---|---|
+| [Retained source preservation across ordinary readers](records/pm2.source-preservation-closure.json) | PM2-01 | passed | PM2-01, PM2-12 | 2026-11-09 |
+| [Bounded native parser panel and ordinary scope coverage](records/pm2.parser-coverage-closure.json) | PM2-02 | passed | PM2-01, PM2-02, PM2-03, PM2-04, PM2-05 | 2026-11-09 |
+<!-- evidence-index:end -->

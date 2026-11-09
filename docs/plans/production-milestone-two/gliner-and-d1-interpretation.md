@@ -161,6 +161,15 @@ located a compound span and the shared normalizer left it unresolved. A
 released comparison that separates amount, unit and loss role is still open;
 this diagnostic has no new protected grade or admission standing.
 
+**Explicit loss questions · 2026-11-09.** The release can now declare opt-in
+number, unit and exact role-cue questions without changing ordinary requests.
+The [native split-loss result](../../design_review/evidence/2026-11-09_pm2-closure-execution/README.md)
+found the cue and preserved fair-coin normalization, but did not isolate the
+roulette amount and unit. Do not assert a combined loss result. A
+[protected passage-function control](../../design_review/evidence/2026-11-09_pm2-protected-classification/README.md)
+found GLiNER and d1 agree on one exact definition case. The managed GLiNER arm
+and broader like-for-like comparisons remain open.
+
 **Proposed.** Freeze the eligible source and question through PM2-11. Compare the current
 literal GLiNER pack plus spaCy-backed qualification, d1 source discovery and the applicable
 fixed-candidate arms. Measure literal capture separately from typed normalization. On

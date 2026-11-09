@@ -281,8 +281,11 @@ to the staged candidate. Keep effect authority separate from a plan or assessmen
 ### Named workflow qualification
 
 **Staging in progress · [Structuring I07](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I07).**
-The [coordinator](../production-milestone-two_2026-11-08.md#structuring-execution--2026-11-09)
-records the retained source cut and private derivation. Once the private cut is
+The [coordinator](../production-milestone-two_2026-11-08.md#closure-execution--2026-11-09)
+records the retained source, the refused derivation and its private successor.
+The [source-only reference account](../../design_review/evidence/2026-11-09_pm2-workflow-references/README.md)
+provides the new exact opportunities; register comparable arms and protected
+judgments before qualifying them. Once the private cut is
 finalized, run set 34 to check for regressions. That grade does not settle the
 named workflows below. Assess the staged candidate
 against the best compatible retained comparator for each selected workflow, even if

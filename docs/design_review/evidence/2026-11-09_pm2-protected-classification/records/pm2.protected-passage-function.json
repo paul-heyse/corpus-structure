@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "id": "pm2.protected-passage-function",
+  "title": "Exact GLiNER2 passage-function answer against protected d1 reference",
+  "group": "pm2-adoption",
+  "package": "PM2-07",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the release-bound GLiNER2 source-only classification preserve the protected passage-function result at its exact source scope?",
+  "answers": [
+    "PM2-07",
+    "PM2-11"
+  ],
+  "method": "Use the same authenticated source extent and released question as retained d1. Verify native GLiNER request and reply digests before decoding. Then read the immutable d1 evaluation and its protected C pass and compare the accepted labels with the adjudicated alternatives.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-protected-classification/compare.py",
+    "uv run ruff check --no-force-exclude docs/design_review/evidence/2026-11-09_pm2-protected-classification/classification.py docs/design_review/evidence/2026-11-09_pm2-protected-classification/compare.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "compare.py",
+      "role": "Exact source, native inference and protected comparison driver",
+      "sha256": "3e1a6abbd3f930a1cbaf072c36ef0a40988dd32e4e0909b49717ce4a7f93f6a2"
+    },
+    {
+      "path": "classification.py",
+      "role": "Diagnostic release-question request and reply custody adapter",
+      "sha256": "24e2ec91daf45f4af57d45d44a1dd3b44196faa40ac442774098166744159c93"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/comparison.json",
+      "role": "Native GLiNER envelope, protected d1 reference and matched outcome",
+      "sha256": "77ff9081502615d879eea286f7350adb84110dac2e7961b7f389ce8bc01254a5"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_pm2-interpretation-pair/pm2.matched-interpretation-development"
+  ],
+  "results": [
+    {
+      "name": "Protected definition facet preserved",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": "Set 36, unit 54; native GLiNER and retained d1 evaluation 40"
+    },
+    {
+      "name": "Altered source-scope envelope refused",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": "Driver checked refusal on a copy of the native reply with a substituted source digest."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "One exact GLiNER2.5 native CPU result preserves the protected definition facet; the comparison establishes parity in an exposed development control. The managed GLiNER producer, broader population and equivalent deterministic comparator remain open.",
+  "consumed_by": [
+    "PM2-07",
+    "PM2-11"
+  ]
+}

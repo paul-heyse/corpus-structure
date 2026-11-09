@@ -301,8 +301,13 @@ PM2-11 owns paired release-level assessment.
 | Package | Implemented private scope | Qualification boundary |
 | --- | --- | --- |
 | PM2-03 | Located UD and SRL predicate frames, constituency spans and candidate qualifier hosts. spaCy remains the producer for the released strong definition witness. | The matched M1 → HanLP syntax → SRL comparison at the released consumer is open. The expanded variance case still missed the cue. Additional heads and consumer migration belong to PM2-06. |
-| PM2-04 | Separate detection, supplied mentions and local cluster memberships. A supplied-only unclustered mention remains inspectable. The common scope path preserves a limited parent when smaller scopes run. | The native competing-mention, cross-section coverage and Maverick-specific bounded fallback journey and local-reference comparison remain open. The retained book fallback was HanLP. Local clusters do not establish broader identity or calibrated ranking. |
-| PM2-05 | Ordered native trees, post-merge boundary provenance, reviewed-EDU pairing and a bounded context selector used by private reads and contextual query rendering. | The named cases distinguish segmentation, ordered split and labels. Native coherent-scope fallback and independent downstream improvement remain open. PM2-08 owns the typed composed context product. |
+| PM2-04 | Separate detection, supplied mentions and local cluster memberships. A supplied-only unclustered mention remains inspectable. Native Maverick fallback retained a limited parent and two successful coherent children. | The competing-mention and cross-section consumer controls and independent local-reference comparison remain open. Local clusters do not establish broader identity or calibrated ranking. |
+| PM2-05 | Ordered native trees, post-merge boundary provenance, reviewed-EDU pairing and a bounded context selector. Native coherent fallback retained separate tokenizer and EDU limits and successful leaves. | The named cases distinguish segmentation, ordered split and labels. Independent downstream improvement remains open. PM2-08 owns the typed composed context product. |
+
+The [current native panel](../../design_review/evidence/2026-11-09_pm2-closure-execution/README.md)
+replayed these ordinary and diagnostic scopes in run 485/cut 598. It verifies
+execution and typed worklist readback at the covered scope; it does not grade
+semantic output or select a parser mode.
 
 The [parser design review](../../design_review/reviews/design_review_pm2-parsers_2026-11-08.md)
 owns the reviewed reasoning. The execution disposition is here.

@@ -1,0 +1,307 @@
+{
+  "review": "independent-source-only-second-reading",
+  "actor": "source_second",
+  "source": "raw/source-windows.json",
+  "project": "nce-grinstead-snell-full-book",
+  "run_id": 478,
+  "cut_id": 595,
+  "release_id": "release:b9c6801274e6e3b2aa0bd456ad8c66128478b7f5b132fea548f4b84c85f9056f",
+  "partition": "development",
+  "evaluator_status": "not_run",
+  "cases": {
+    "definition_use": {
+      "judgment": "supported",
+      "meaning": "The focal occurrence uses the concept random variable and introduces a local notation X for the value of this outcome. The separate target sentence explicitly states the general concept's meaning.",
+      "focus": {
+        "focal": {
+          "source_view_id": 417,
+          "projection_extent": [
+            648,
+            663
+          ],
+          "literal": "random variable",
+          "anchor_ids": [
+            "record-anchor:57cad67fae4d9c80fb2b155c1c7b5c707b80933601c710e1983923d45d4f11c9"
+          ]
+        },
+        "local_variable": {
+          "source_view_id": 417,
+          "projection_extent": [
+            664,
+            665
+          ],
+          "literal": "X",
+          "anchor_ids": [
+            "record-anchor:294ca7f4450ca1fd2c2cb7419e74d874f8792a3bdaf6e1aa45dbd973eb7ff440"
+          ]
+        }
+      },
+      "target": {
+        "term": {
+          "source_view_id": 415,
+          "projection_extent": [
+            813,
+            828
+          ],
+          "literal": "random variable",
+          "anchor_ids": [
+            "record-anchor:6838885b8630916111b42d74372a9b240604747e54a34f5d0972cc0e7d029964"
+          ]
+        },
+        "cue": {
+          "source_view_id": 415,
+          "projection_extent": [
+            829,
+            838
+          ],
+          "literal": "is simply",
+          "anchor_ids": [
+            "record-anchor:a1f364dce39849c1e2fbe66ec2d9dfdbb06d127d7331f1c38e35f9c46c5066e2"
+          ]
+        },
+        "content": {
+          "source_view_id": 415,
+          "projection_extent": [
+            839,
+            906
+          ],
+          "literal": "an expression whose value is the outcome of a particular experiment",
+          "anchor_ids": [
+            "record-anchor:44082573dcdc3d73c09835e05b58e5fbcc3931902fa52bcd8f0ed6e533cf0fdc"
+          ]
+        }
+      },
+      "refuse": [
+        "Classifying the focal sentence as a general definition of random variable.",
+        "Treating the letter X as a term in the cited definition or unifying X with a variable in another example."
+      ],
+      "limit": "The target is an exact, supported citation among the supplied windows; this reading does not assert that the whole book has no other definition."
+    },
+    "conditional_frequency": {
+      "judgment": "supported",
+      "meaning": "The outer premise introduces outcome A with probability p. The inner repetition premise governs what we should expect: the fraction of times A occurs is about p. The lexical host is expect.",
+      "accepted": {
+        "inner_premise": {
+          "source_view_id": 415,
+          "projection_extent": [
+            2504,
+            2556
+          ],
+          "literal": "if we repeat this experiment a large number of times",
+          "anchor_ids": [
+            "record-anchor:cde491e18afbc52bfe9a309df40433394e57c954bd543b15b84a44e4e90e5ae3"
+          ]
+        },
+        "lexical_host": {
+          "source_view_id": 415,
+          "projection_extent": [
+            2567,
+            2573
+          ],
+          "literal": "expect",
+          "anchor_ids": [
+            "record-anchor:c6135c584572257516f5d2931460204fddf3bb228df704a8fdd4f8761e276286"
+          ]
+        },
+        "outer_premise": {
+          "source_view_id": 415,
+          "projection_extent": [
+            2427,
+            2497
+          ],
+          "literal": "if we have a probability p that an experiment will result in outcome A",
+          "anchor_ids": [
+            "record-anchor:3e543da81d3ff17dccf2d94b8e9d40a5794aab7da536566020a4a40cd6bdbaae",
+            "record-anchor:f6e18e9b4af63dc319d326275454381c0453b203a5f8f301934749b4688d843d",
+            "record-anchor:0aa503b06d6300ea8c5be2bd066b0a89c44b35e447338058640953dd6beadc54",
+            "record-anchor:4e1d4675fcb88c0d5e3647c3661ead5ed58d87c072871f4a00e3d8eceb11f9db"
+          ]
+        },
+        "modality": {
+          "source_view_id": 415,
+          "projection_extent": [
+            2560,
+            2573
+          ],
+          "literal": "should expect",
+          "anchor_ids": [
+            "record-anchor:e37c33bca26540a626ba0e3f414e04cf9c435eb38e5cfaf0c709ab882b79eca7"
+          ]
+        },
+        "approximation": {
+          "source_view_id": 415,
+          "projection_extent": [
+            2622,
+            2629
+          ],
+          "literal": "about p",
+          "anchor_ids": [
+            "record-anchor:fc550eab4bfe050a0f00e31494225b416a45602337748675ec08a60045f4a2bf",
+            "record-anchor:850fd85dd26fd1e2f0d699df85696471d261825bab40f710f23c594ed9c13297"
+          ]
+        }
+      },
+      "refuse": [
+        "Attaching the inner premise to the embedded result/occur verb rather than the expectation.",
+        "Turning should expect into a guarantee, or about p into exact equality.",
+        "Inventing a sample size or tolerance for large or about."
+      ],
+      "limit": "The target is clear; the passage leaves the required number of repetitions and tolerance unspecified."
+    },
+    "gambler": {
+      "judgment": "supported",
+      "meaning": "She denotes the previously introduced gambler. The possessive her refers to that gambler; her capital is the thing she owns, and M and 0 are alternative capital values.",
+      "accepted": {
+        "focal": {
+          "source_view_id": 437,
+          "projection_extent": [
+            27893,
+            27896
+          ],
+          "literal": "She",
+          "anchor_ids": [
+            "record-anchor:def1d5fef778332c7461a3dd94c9aa47ec4e66210ee2373f5a1d132658fd29b9"
+          ]
+        },
+        "antecedent": {
+          "source_view_id": 437,
+          "projection_extent": [
+            27850,
+            27859
+          ],
+          "literal": "A gambler",
+          "anchor_ids": [
+            "record-anchor:b36e15a7689933cb2e26b0a10492da5d1c4298f0e8f6dd6a1a92a9a30c0f158b"
+          ]
+        },
+        "possessive": {
+          "source_view_id": 437,
+          "projection_extent": [
+            27909,
+            27912
+          ],
+          "literal": "her",
+          "anchor_ids": [
+            "record-anchor:269129c7f33dc8439c04bcb1c395b988eb68b1e78c6de8e941fba36c614dab41"
+          ]
+        }
+      },
+      "refused_targets": {
+        "distinct_owned_entity": {
+          "source_view_id": 437,
+          "projection_extent": [
+            27909,
+            27920
+          ],
+          "literal": "her capital",
+          "anchor_ids": [
+            "record-anchor:c6ec32a2a862b7cd0a90b021e943df0c38d7c0f55e6244ca6ef6ab7299d1791e"
+          ]
+        },
+        "first_value": {
+          "source_view_id": 437,
+          "projection_extent": [
+            27939,
+            27940
+          ],
+          "literal": "M",
+          "anchor_ids": [
+            "record-anchor:8604461b84268bec19e9b0f61d290108b318a4c164b81a0547d17c5bfe48a99a"
+          ]
+        },
+        "second_value": {
+          "source_view_id": 437,
+          "projection_extent": [
+            27954,
+            27955
+          ],
+          "literal": "0",
+          "anchor_ids": [
+            "record-anchor:8015376b912c373ea05b1bf0ce9c618198999ef474237a914641e254cb3f8411"
+          ]
+        }
+      },
+      "limit": "The source supports local coreference only. A candidate list without the antecedent does not establish a different referent."
+    },
+    "roulette": {
+      "judgment": "supported",
+      "meaning": "Failure is described as losing 1 dollar. The amount, unit, and loss role are parts of this same phrase, with the role cue before a projected line break and the amount and unit after it.",
+      "accepted": {
+        "amount": {
+          "source_view_id": 419,
+          "projection_extent": [
+            47336,
+            47337
+          ],
+          "literal": "1",
+          "anchor_ids": [
+            "record-anchor:7994ada1934b2bd5d9372a6be9506979da29eb3c3017f894226af358e90810cb"
+          ]
+        },
+        "unit": {
+          "source_view_id": 419,
+          "projection_extent": [
+            47338,
+            47344
+          ],
+          "literal": "dollar",
+          "anchor_ids": [
+            "record-anchor:f26996237601cca758c8284a6f93ba8224590df70a2c7e43f439df8cac8be01a"
+          ]
+        },
+        "loss_role": {
+          "source_view_id": 419,
+          "projection_extent": [
+            47329,
+            47335
+          ],
+          "literal": "losing",
+          "anchor_ids": [
+            "record-anchor:9b615fa58d0f072bf8a30c35b938930a716814bd5590a6d57fac0481e9686bb6"
+          ]
+        }
+      },
+      "normalized_magnitude": "1",
+      "refuse": [
+        "Using the entire '1 dollar' span as either the number-only or unit-only field.",
+        "Citing a signed negative literal, or interpreting the amount as a win, stake, or probability.",
+        "Citing the loss cue and magnitude as one continuous native span."
+      ],
+      "limit": "Loss direction is conveyed by the predicate, not a numeric sign in the source."
+    },
+    "fair_coin": {
+      "judgment": "supported",
+      "meaning": "For a fair coin, the source says to assign probability 1/8 to each of eight possible outcomes. The source fraction normalizes exactly to 0.125.",
+      "accepted": {
+        "literal": {
+          "source_view_id": 421,
+          "projection_extent": [
+            18150,
+            18153
+          ],
+          "literal": "1/8",
+          "anchor_ids": [
+            "record-anchor:7d3fd726f139f35140bf9d8205b728ada14f34700f325c1db4e81e6a1303e223"
+          ]
+        },
+        "qualifier": {
+          "source_view_id": 421,
+          "projection_extent": [
+            18091,
+            18110
+          ],
+          "literal": "If the coin is fair",
+          "anchor_ids": [
+            "record-anchor:0e80c04ba698c5c5277b18a40f65947b4ef2e9e0583bfab5bb63c6b542d9479f"
+          ]
+        }
+      },
+      "normalized_magnitude": "0.125",
+      "refuse": [
+        "Reporting eight (the outcome count) as the probability.",
+        "Dropping the fairness premise, generalizing to a biased coin, or reporting the decimal as the literal source spelling."
+      ],
+      "limit": "The normalized value preserves the magnitude; it does not replace the exact source fraction."
+    }
+  }
+}

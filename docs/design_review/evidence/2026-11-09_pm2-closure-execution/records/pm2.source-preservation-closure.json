@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "id": "pm2.source-preservation-closure",
+  "title": "Retained source preservation across ordinary readers",
+  "group": "pm2-adoption",
+  "package": "PM2-01",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do Reader, CLI and fresh MCP preserve the pinned book originals and report partial visual coverage?",
+  "answers": [
+    "PM2-01",
+    "PM2-12"
+  ],
+  "method": "Read one authenticated Standard and Nemotron product through each ordinary surface; compare exact p416 and p418 formula contents with run 404 and inspect bounded p151 manifest coverage.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-closure-execution/source_controls.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "source_controls.py",
+      "role": "Source preservation probe",
+      "sha256": "9a5acd27fc77c1796a5493263131f090d6952fce9b88c6808ce447291051beff"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/source-controls.json",
+      "role": "Parity and preserved source summary",
+      "sha256": "5968a8f0bba9294756e4c3666c1c41a7ccd1efdc25d800887dd82ff15e2e25b3"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "The exact formulas and source locations agree; p151 retains a partial coverage entry. This is not whole-manifest exhaustiveness.",
+  "consumed_by": [
+    "PM2-01",
+    "PM2-12"
+  ]
+}

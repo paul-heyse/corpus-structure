@@ -181,7 +181,7 @@ The existing task, result and host GPU owners retain their custody.
 | PM2-09 | The protected competitive `/11` pair found all three expected definitions at rank 1 in both arms; the negative remained unlinked. Dipo context rendered on two cases and enriched detached replay passed. Keep `/10`; wider interpretation and book export remain open. |
 | PM2-10 | Visual interpretation remains off. No selected case justifies an additional visual question. The [revisit trigger](production-milestone-two/retrieval-composition-and-delivery.md#PM2-10) requires a named material ambiguity on an authorized region. |
 | PM2-11 | The prior protected d1 pair improved exact fair-coin normalization. The new competitive frame preserved all four protected retrieval outcomes and found no gain. Native d1 missed the exponential-density link in both arms. Native exact affine assessment passed. Wider interpretation remains open. |
-| PM2-12 | Stage selected full-book derivations privately from the authenticated Standard and Nemotron source. [DMA-13](domain-model-alignment_2026-11-08.md#dma-13) requires useful, source-faithful improvement and operational qualification before selection. Evaluations 42 and 43 remain regression evidence. Full-book staging and selection have not run; no new recognition is indicated. Chandra is excluded. |
+| PM2-12 | Private full-book staging was attempted from authenticated Standard and Nemotron source. The [closure execution](#closure-execution--2026-11-09) owns the failed attempt, successor and remaining qualification. [DMA-13](domain-model-alignment_2026-11-08.md#dma-13) requires useful, source-faithful improvement for selection. Evaluations 42 and 43 remain regression evidence. Chandra is excluded. |
 
 | Review opportunity | Proposed disposition and closure owner |
 | --- | --- |
@@ -297,13 +297,57 @@ the owner of the package boundaries.
   compression preserved exact offline proof with smaller transport only. Do not
   change numerical policy, retrieval defaults or logical proof completeness.
 - **I07 · Private source-ready.** Run 478/cut 595 resolved all 29 views under
-  the same authenticated Standard and Nemotron product. Derived run 482 is
-  active under the current runtime. At the 2026-11-09 handoff, `uv run ci status
-  482 --project nce-grinstead-snell-full-book --json` reported 39 of 58 derivation
-  tasks done, one running and 18 pending, with no completed cut. Finalize the
-  private run after settlement and grade the existing set 34 as a regression
-  check. No Chandra, new recognition, activation or selection ran. The named
-  workflow comparisons and final applicable test union remain open.
+  the same authenticated Standard and Nemotron product. The [closure execution](#closure-execution--2026-11-09)
+  records the outcome of derived run 482 and its successor. The named workflow
+  comparisons and final applicable test union remain open.
+
+### Closure execution · 2026-11-09
+
+The [closure evidence](../design_review/evidence/2026-11-09_pm2-closure-execution/README.md)
+records the exact attempts and preservation checks.
+
+- **PM2-01/02 and PM2-03–05 · Scoped native verification.** Reader, CLI and
+  fresh MCP agreed on p416 and p418 originals and bounded p151 manifest
+  coverage. Parser run 485/cut 598 settled 17 successful, two empty, one
+  limited, one ineligible and one unscheduled scope. Reader, CLI and fresh
+  MCP agreed on all 11 worklist rows for the exercised view. This does not grade
+  frames, referents, discourse structure or downstream usefulness.
+- **PM2-07 · Implemented opt-in loss questions.** Release declarations separate
+  the exact number, unit and source cue without changing ordinary requests.
+  Native run 486/cut 599 kept fair-coin normalization and located the loss
+  cue, but did not isolate amount or unit. Native GLiNER likewise failed
+  to separate the amount and unit under the same questions. One protected definition case
+  matched between GLiNER and d1; broader equivalence and an ordinary managed
+  GLiNER arm remain open.
+- **PM2-08/09 · Scoped implementation and preservation.** Interpretation
+  preparation reuses repeated exact retained references within one read
+  snapshot; coverage refuses a different task view. The historical cross-chapter
+  citation remains readable; its detached export refused an incompatible
+  archived source recipe. Run 486's exact loss proposal bundle verified
+  offline at internal consistency standing. Current cross-chapter replay,
+  detached worklist proof and the
+  assembled ordinary release journey remain open. Keep `/10`.
+- **PM2-11/12 · Private staging and source-only expectations.** The
+  [source-only references](../design_review/evidence/2026-11-09_pm2-workflow-references/README.md)
+  freeze five decisions with exact anchors, two readings and source-only
+  adjudication. Protected arm registration and
+  grading remain open. Run 482 settled 44 tasks and cancelled 14 after refusing
+  the changed runtime; it has no completed cut and set 34 could not grade it.
+  Private successor run 487 uses the same source with the newly admitted
+  runtime. It is active without a cut. Finalize on settlement and grade set
+  34 as a regression check; assemble the selected parser and interpretation
+  dependencies separately.
+  No workflow selection, live activation or retirement ran.
+
+**Scoped tests.** The ordinary managed selection
+`dd8884976e304744813c5346e649a96a` failed on a fixture's logical source key.
+The exact retry `df94eeb83a4946108fe266e05ef1aab9` passed that case and
+retained the opt-in provider block. With locked assets, the affected native
+read and alternate-vocabulary parser controls passed in
+`8ea5699ffa504463a59e34be051dac37` and `547a0868c4874807a7d36ac6d5952724`.
+`uv run ci test coverage` accounted for 13 selected nodes with zero unresolved;
+source differs by the fixture correction. `uv run ci check --only types` passed.
+The assembled review and full applicable qualification remain open.
 
 ## Completion audit
 

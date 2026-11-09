@@ -1,0 +1,148 @@
+{
+  "guideline": "pm2-named-workflow-source-1",
+  "stage": "source-only first reading; independent protected A/B and C still required",
+  "source_origin": "grinstead-snell",
+  "partition": "development",
+  "workflows": {
+    "definition_use": {
+      "focus": "definition_use.anchors.focal",
+      "allowed_target": "definition_target",
+      "required_target_roles": [
+        "term",
+        "cue",
+        "content"
+      ],
+      "expected_relation": "definition use",
+      "refuse": [
+        "classifying spinner use as a new general definition",
+        "same-passage concepts without an exact witness",
+        "linking negative binomial to ordinary binomial"
+      ],
+      "baseline": {
+        "method": "retrieve.contextual",
+        "version": "10",
+        "m1_run": 407,
+        "m1_cut": 517,
+        "source_view": 385,
+        "definition_view": 383,
+        "exact_output_at_new_focus": "unverified"
+      },
+      "reason": "The spinner passage assigns a value to the local variable X; the earlier chapter defines what a random variable is. This link does not identify X with a variable in the earlier example."
+    },
+    "conditional_frequency": {
+      "focus": "conditional_frequency.anchors.inner_premise",
+      "allowed_host": "conditional_frequency.anchors.lexical_host",
+      "preserve": [
+        "outer_premise",
+        "modality",
+        "approximation"
+      ],
+      "refuse": [
+        "attaching the repetition clause to result",
+        "attaching it to will occur rather than the expectation",
+        "representing a guarantee or exact equality"
+      ],
+      "baseline": {
+        "route": "ordinary scoped located relation and retained M1 annotations",
+        "m1_run": 407,
+        "m1_cut": 517,
+        "source_view": 383,
+        "exact_output_at_new_focus": "unverified"
+      },
+      "reason": "The two premises condition the expectation about relative frequency. The source says should expect and about p; it does not state that any finite run must give equality."
+    },
+    "gambler": {
+      "focus": "gambler.anchors.focal",
+      "allowed_referent": "gambler.anchors.antecedent",
+      "reject_as_person": [
+        "distinct_owned_entity",
+        "first_value",
+        "second_value"
+      ],
+      "missing_offer_disposition": "missing_candidate",
+      "baseline": {
+        "nearest_prior": "same exact independently frozen ordinary candidate population",
+        "d1_run": 431,
+        "d1_cut": 531,
+        "d1_task": 2131,
+        "source_view": 405,
+        "historical_set": 37
+      },
+      "reason": "She plays; the earlier subject is A gambler. Capital is something she owns, and M and 0 are values of that capital, not people."
+    },
+    "roulette": {
+      "amount": {
+        "anchor": "roulette.anchors.amount",
+        "literal": "1",
+        "normalized_decimal": "1"
+      },
+      "unit": {
+        "anchor": "roulette.anchors.unit",
+        "literal": "dollar"
+      },
+      "role": {
+        "anchor": "roulette.anchors.loss_role",
+        "literal": "losing"
+      },
+      "refuse": [
+        "asserting a signed negative literal",
+        "citing the preceding winning amount",
+        "citing the earlier stake",
+        "asserting one native span across the projected newline"
+      ],
+      "baseline": {
+        "d1_run": 431,
+        "d1_cut": 531,
+        "d1_task": 2129,
+        "source_view": 387,
+        "historical_set": 36,
+        "historical_facet": "focal quantity magnitude only"
+      },
+      "reason": "The text separately provides the loss cue, written number and unit. Number normalization does not establish either the unit or the loss role."
+    },
+    "fair_coin": {
+      "literal": "1/8",
+      "normalized_decimal": "0.125",
+      "required_qualifier": "fair_coin.anchors.qualifier",
+      "refuse": [
+        "using the eight outcomes as the probability",
+        "omitting the fairness premise"
+      ],
+      "baseline": {
+        "d1_run": 431,
+        "d1_cut": 531,
+        "d1_task": 2128,
+        "source_view": 389,
+        "historical_set": 36
+      }
+    }
+  },
+  "controls_at_original_scope": {
+    "p289_public_condition": {
+      "run": 477,
+      "cut": 594,
+      "set": 18,
+      "source_run": 474,
+      "source_cut": 588,
+      "source_view": 410,
+      "native_product_task": 1566,
+      "native_product": "organized"
+    },
+    "competitive_retrieval": {
+      "evaluations": [
+        44,
+        45
+      ],
+      "controls": [
+        "positive binomial",
+        "positive normal density",
+        "positive exponential density",
+        "negative-binomial refusal"
+      ]
+    },
+    "book_regression": {
+      "set": 34,
+      "qualifies_named_workflows": false
+    }
+  }
+}

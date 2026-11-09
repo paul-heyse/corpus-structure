@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "id": "pm2.parser-coverage-closure",
+  "title": "Bounded native parser panel and ordinary scope coverage",
+  "group": "pm2-adoption",
+  "package": "PM2-02",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the admitted parser panel preserve successful and incomplete scopes through ordinary readback?",
+  "answers": [
+    "PM2-01",
+    "PM2-02",
+    "PM2-03",
+    "PM2-04",
+    "PM2-05"
+  ],
+  "method": "Run the archived source panel under the current admitted runtime, add explicit ineligible and unscheduled scopes, and verify worklist parity for view 383 across the ordinary Reader, CLI and fresh MCP.",
+  "commands": [
+    "uv run ci run parsers --request build/models/pm2/closure-execution/verified-parser-request.json --json",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-closure-execution/coverage_controls.py build/models/pm2/closure-execution/verified-parser.json 383"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "coverage_controls.py",
+      "role": "Ordinary scope coverage comparison",
+      "sha256": "501720ba8b69d30dda2e2ce5c0e1dcfef16943c31a68be04884317e4485f85f1"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/parser-panel.json",
+      "role": "Managed parser panel report",
+      "sha256": "2331657392a64b537ba6b6e906d172afadef4feef05f6b30db429242ae173998"
+    },
+    {
+      "path": "raw/coverage-controls.json",
+      "role": "Scope-level parity summary",
+      "sha256": "1909cc682e77bee2a67796ab00100e1191984e1fd7276d2999954d33a488ad1c"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Run 485/cut 598 preserves bounded scope outcomes; the coverage probe verifies view 383. Parser and workflow quality are not assessed by this operating result.",
+  "consumed_by": [
+    "PM2-01",
+    "PM2-02",
+    "PM2-03",
+    "PM2-04",
+    "PM2-05"
+  ]
+}

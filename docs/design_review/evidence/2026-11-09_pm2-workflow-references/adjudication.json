@@ -1,0 +1,317 @@
+{
+  "kind": "source-only-adjudication-material",
+  "scope": "Five named PM2 workflows on the supplied development source windows. The extra control windows are outside the paired reading.",
+  "evaluator_c_status": "not_run",
+  "status_note": "This is source-only adjudication material, not a registered evaluator C pass. It establishes no model or qualification outcome.",
+  "inputs": [
+    "raw/source-windows.json",
+    "judgments.json",
+    "second-reading.json"
+  ],
+  "guideline": "pm2-named-workflow-source-1",
+  "project": "nce-grinstead-snell-full-book",
+  "run_id": 478,
+  "cut_id": 595,
+  "release_id": "release:b9c6801274e6e3b2aa0bd456ad8c66128478b7f5b132fea548f4b84c85f9056f",
+  "partition": "development",
+  "reconciliation": "The two readings agree on all five focal judgments. Additional source-backed details in the second reading do not conflict with the first. Projection extents are half-open; anchor IDs refer to exact native pieces in the source windows.",
+  "cases": {
+    "definition_use": {
+      "agreed_fact": "The spinner passage uses the concept random variable and lets its local X denote the value of this outcome. It can cite the earlier general definition of random variable, with distinct term, cue, and content witnesses.",
+      "focus": {
+        "focal": {
+          "source_view_id": 417,
+          "projection_extent": [
+            648,
+            663
+          ],
+          "literal": "random variable",
+          "anchor_ids": [
+            "record-anchor:57cad67fae4d9c80fb2b155c1c7b5c707b80933601c710e1983923d45d4f11c9"
+          ]
+        },
+        "local_variable": {
+          "source_view_id": 417,
+          "projection_extent": [
+            664,
+            665
+          ],
+          "literal": "X",
+          "anchor_ids": [
+            "record-anchor:294ca7f4450ca1fd2c2cb7419e74d874f8792a3bdaf6e1aa45dbd973eb7ff440"
+          ]
+        }
+      },
+      "definition_target": {
+        "term": {
+          "source_view_id": 415,
+          "projection_extent": [
+            813,
+            828
+          ],
+          "literal": "random variable",
+          "anchor_ids": [
+            "record-anchor:6838885b8630916111b42d74372a9b240604747e54a34f5d0972cc0e7d029964"
+          ]
+        },
+        "cue": {
+          "source_view_id": 415,
+          "projection_extent": [
+            829,
+            838
+          ],
+          "literal": "is simply",
+          "anchor_ids": [
+            "record-anchor:a1f364dce39849c1e2fbe66ec2d9dfdbb06d127d7331f1c38e35f9c46c5066e2"
+          ]
+        },
+        "content": {
+          "source_view_id": 415,
+          "projection_extent": [
+            839,
+            906
+          ],
+          "literal": "an expression whose value is the outcome of a particular experiment",
+          "anchor_ids": [
+            "record-anchor:44082573dcdc3d73c09835e05b58e5fbcc3931902fa52bcd8f0ed6e533cf0fdc"
+          ]
+        }
+      },
+      "refuse": [
+        "Treating the spinner sentence as a new general definition.",
+        "Treating local X as the definition term, identifying it with X in another example, or linking a nearby concept without an exact witness."
+      ],
+      "residual_ambiguities": [
+        "The supplied windows establish this exact definition target; they do not establish whether the full book contains other valid targets."
+      ]
+    },
+    "conditional_frequency": {
+      "agreed_fact": "The outer premise gives outcome A probability p. The inner premise about repeating the experiment attaches to expect, the head of should expect; the expectation concerns a relative frequency about p.",
+      "anchors": {
+        "inner_premise": {
+          "source_view_id": 415,
+          "projection_extent": [
+            2504,
+            2556
+          ],
+          "literal": "if we repeat this experiment a large number of times",
+          "anchor_ids": [
+            "record-anchor:cde491e18afbc52bfe9a309df40433394e57c954bd543b15b84a44e4e90e5ae3"
+          ]
+        },
+        "lexical_host": {
+          "source_view_id": 415,
+          "projection_extent": [
+            2567,
+            2573
+          ],
+          "literal": "expect",
+          "anchor_ids": [
+            "record-anchor:c6135c584572257516f5d2931460204fddf3bb228df704a8fdd4f8761e276286"
+          ]
+        },
+        "outer_premise": {
+          "source_view_id": 415,
+          "projection_extent": [
+            2427,
+            2497
+          ],
+          "literal": "if we have a probability p that an experiment will result in outcome A",
+          "anchor_ids": [
+            "record-anchor:3e543da81d3ff17dccf2d94b8e9d40a5794aab7da536566020a4a40cd6bdbaae",
+            "record-anchor:f6e18e9b4af63dc319d326275454381c0453b203a5f8f301934749b4688d843d",
+            "record-anchor:0aa503b06d6300ea8c5be2bd066b0a89c44b35e447338058640953dd6beadc54",
+            "record-anchor:4e1d4675fcb88c0d5e3647c3661ead5ed58d87c072871f4a00e3d8eceb11f9db"
+          ]
+        },
+        "modality": {
+          "source_view_id": 415,
+          "projection_extent": [
+            2560,
+            2573
+          ],
+          "literal": "should expect",
+          "anchor_ids": [
+            "record-anchor:e37c33bca26540a626ba0e3f414e04cf9c435eb38e5cfaf0c709ab882b79eca7"
+          ]
+        },
+        "approximation": {
+          "source_view_id": 415,
+          "projection_extent": [
+            2622,
+            2629
+          ],
+          "literal": "about p",
+          "anchor_ids": [
+            "record-anchor:fc550eab4bfe050a0f00e31494225b416a45602337748675ec08a60045f4a2bf",
+            "record-anchor:850fd85dd26fd1e2f0d699df85696471d261825bab40f710f23c594ed9c13297"
+          ]
+        }
+      },
+      "refuse": [
+        "Attaching the repetition premise to result or will occur.",
+        "Turning the expectation into a guarantee or the approximation into equality."
+      ],
+      "residual_ambiguities": [
+        "The passage does not specify the number of repetitions or the tolerance around p; the lexical host is clear."
+      ]
+    },
+    "gambler": {
+      "agreed_fact": "She refers to A gambler. The possessive her denotes the same gambler; her capital is the owned entity and M and 0 are values of that capital.",
+      "anchors": {
+        "focal": {
+          "source_view_id": 437,
+          "projection_extent": [
+            27893,
+            27896
+          ],
+          "literal": "She",
+          "anchor_ids": [
+            "record-anchor:def1d5fef778332c7461a3dd94c9aa47ec4e66210ee2373f5a1d132658fd29b9"
+          ]
+        },
+        "antecedent": {
+          "source_view_id": 437,
+          "projection_extent": [
+            27850,
+            27859
+          ],
+          "literal": "A gambler",
+          "anchor_ids": [
+            "record-anchor:b36e15a7689933cb2e26b0a10492da5d1c4298f0e8f6dd6a1a92a9a30c0f158b"
+          ]
+        },
+        "possessive": {
+          "source_view_id": 437,
+          "projection_extent": [
+            27909,
+            27912
+          ],
+          "literal": "her",
+          "anchor_ids": [
+            "record-anchor:269129c7f33dc8439c04bcb1c395b988eb68b1e78c6de8e941fba36c614dab41"
+          ]
+        }
+      },
+      "refused_targets": {
+        "distinct_owned_entity": {
+          "source_view_id": 437,
+          "projection_extent": [
+            27909,
+            27920
+          ],
+          "literal": "her capital",
+          "anchor_ids": [
+            "record-anchor:c6ec32a2a862b7cd0a90b021e943df0c38d7c0f55e6244ca6ef6ab7299d1791e"
+          ]
+        },
+        "first_value": {
+          "source_view_id": 437,
+          "projection_extent": [
+            27939,
+            27940
+          ],
+          "literal": "M",
+          "anchor_ids": [
+            "record-anchor:8604461b84268bec19e9b0f61d290108b318a4c164b81a0547d17c5bfe48a99a"
+          ]
+        },
+        "second_value": {
+          "source_view_id": 437,
+          "projection_extent": [
+            27954,
+            27955
+          ],
+          "literal": "0",
+          "anchor_ids": [
+            "record-anchor:8015376b912c373ea05b1bf0ce9c618198999ef474237a914641e254cb3f8411"
+          ]
+        }
+      },
+      "missing_offer_disposition": "missing_candidate",
+      "residual_ambiguities": [
+        "The referent is clear locally. Whether a particular candidate set contains that exact antecedent is outside this source reading; if it does not, the disposition is missing_candidate."
+      ]
+    },
+    "roulette": {
+      "agreed_fact": "Failure is described as losing 1 dollar. The amount, unit, and loss role are separate exact witnesses; the projected newline lies between the role and the amount.",
+      "anchors": {
+        "amount": {
+          "source_view_id": 419,
+          "projection_extent": [
+            47336,
+            47337
+          ],
+          "literal": "1",
+          "anchor_ids": [
+            "record-anchor:7994ada1934b2bd5d9372a6be9506979da29eb3c3017f894226af358e90810cb"
+          ]
+        },
+        "unit": {
+          "source_view_id": 419,
+          "projection_extent": [
+            47338,
+            47344
+          ],
+          "literal": "dollar",
+          "anchor_ids": [
+            "record-anchor:f26996237601cca758c8284a6f93ba8224590df70a2c7e43f439df8cac8be01a"
+          ]
+        },
+        "loss_role": {
+          "source_view_id": 419,
+          "projection_extent": [
+            47329,
+            47335
+          ],
+          "literal": "losing",
+          "anchor_ids": [
+            "record-anchor:9b615fa58d0f072bf8a30c35b938930a716814bd5590a6d57fac0481e9686bb6"
+          ]
+        }
+      },
+      "normalized_magnitude": "1",
+      "refuse": [
+        "Reporting a signed negative literal or treating the amount as a prior winning amount, stake, or probability.",
+        "Using the whole amount-plus-unit phrase as a number-only or unit-only witness, or claiming one continuous native span across the newline."
+      ],
+      "residual_ambiguities": [
+        "The source expresses loss through the role cue and does not supply a signed numeric spelling; any signed accounting representation would be derived."
+      ]
+    },
+    "fair_coin": {
+      "agreed_fact": "Under the fairness premise, the passage assigns probability 1/8 to each of the eight possible outcomes. The exact decimal normalization is 0.125.",
+      "anchors": {
+        "literal": {
+          "source_view_id": 421,
+          "projection_extent": [
+            18150,
+            18153
+          ],
+          "literal": "1/8",
+          "anchor_ids": [
+            "record-anchor:7d3fd726f139f35140bf9d8205b728ada14f34700f325c1db4e81e6a1303e223"
+          ]
+        },
+        "qualifier": {
+          "source_view_id": 421,
+          "projection_extent": [
+            18091,
+            18110
+          ],
+          "literal": "If the coin is fair",
+          "anchor_ids": [
+            "record-anchor:0e80c04ba698c5c5277b18a40f65947b4ef2e9e0583bfab5bb63c6b542d9479f"
+          ]
+        }
+      },
+      "normalized_magnitude": "0.125",
+      "refuse": [
+        "Using the number of outcomes as the probability, dropping the fairness premise, extending the claim to biased coins, or treating the normalized decimal as the source spelling."
+      ],
+      "residual_ambiguities": [
+        "No material ambiguity within the supplied window; the value is exact under the stated premise."
+      ]
+    }
+  }
+}
