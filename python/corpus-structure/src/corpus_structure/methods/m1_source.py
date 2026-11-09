@@ -6,7 +6,7 @@ import json
 from dataclasses import asdict
 from hashlib import sha256
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -37,6 +37,9 @@ from corpus_structure.semantic.source_contexts import (
     NativeSourcePin,
     NativeSpanEvidence,
 )
+
+if TYPE_CHECKING:
+    from corpus_structure.methods.m1_source_capture import RecordCaptureRule
 
 FAMILIES = {
     "definition": ("DefinitionRecordFields", "term"),
@@ -346,11 +349,22 @@ class M1Candidates:
         """Run the detached opt-in prompt arm without changing registered method config."""
         return tuple(self._source(unit, cfg, ctx, generic_role_guidance=True) for unit in units)
 
+    def run_source_rule_capture_comparison(
+        self, units, cfg, ctx, rules: tuple[RecordCaptureRule, ...]
+    ):
+        """Run an explicit candidate capture arm without altering the registered default."""
+        if not rules:
+            raise ValueError("source capture comparison requires declared rules")
+        return tuple(self._source(unit, cfg, ctx, source_capture_rules=rules) for unit in units)
+
     def interpretation_request(self, group):
         """Actual retained groups reach the interpreter only with an applicable factor policy."""
         return None
 
-    def _source(self, unit, cfg, ctx, *, generic_role_guidance: bool = False):
+    def _source(
+        self, unit, cfg, ctx, *, generic_role_guidance: bool = False,
+        source_capture_rules: tuple[RecordCaptureRule, ...] = (),
+    ):
         from threadpoolctl import ThreadpoolController
 
         from corpus_structure.methods.assertion_qualification import AssertionQualification
@@ -452,6 +466,17 @@ class M1Candidates:
         )
         if generic_role_guidance:
             details["comparison_arm"] = "generic-source-role-guidance-1"
+        source_capture = None
+        if source_capture_rules:
+            from corpus_structure.methods.m1_source_capture import SourceRecordCapture
+
+            source_capture = SourceRecordCapture(
+                ctx.reader.prepared, pipeline(cfg.sentences).vocab, source_capture_rules
+            )
+            details["comparison_arm"] = "exact-source-rule-capture-1"
+            details["source_capture_rules"] = [
+                rule.model_dump(mode="json") for rule in source_capture_rules
+            ]
         from corpus_structure.methods.contribution_adapter import (
             ADAPTER_VERSION,
             LOCAL_ADAPTER_VERSION,
@@ -684,6 +709,37 @@ class M1Candidates:
                 max_pieces=context.max_pieces,
                 max_sources=context.max_sources,
             )
+            if source_capture is not None:
+                for family in selection.families:
+                    contract, anchor = FAMILIES[family]
+                    captured = source_capture.capture(
+                        context, contract, prepared_source.annotations,
+                        selection.start, selection.end,
+                    )
+                    if not captured:
+                        continue
+                    assembled = assemble_native_records(
+                        ctx.reader.prepared,
+                        context,
+                        contract=contract,
+                        occurrence_roles=(anchor,),
+                        policy_version=cfg.record_policy_version,
+                        occurrence_policy=cfg.occurrence_policy,
+                        groups=captured,
+                    )
+                    assemblies.append(assembled)
+                    contribution_batches.append(
+                        adapt_native_groups(
+                            context, family=family, groups=captured,
+                            item_key=f"source-capture/{index}/{family}",
+                        )
+                    )
+                    details["reports"].append(dict(
+                        context=index, family=family, operation="exact_source_rule_capture",
+                        context_digest=context.dependency_digest,
+                        groups=[asdict(group) for group in captured],
+                        diagnostics=[asdict(item) for item in assembled.diagnostics],
+                    ))
             if cfg.formula_syntax and selection.families == ("formula_context",):
                 from corpus_structure.methods.contribution_adapter import adapt_formula_syntax
                 from corpus_structure.methods.math.pdf import FormulaOccurrence

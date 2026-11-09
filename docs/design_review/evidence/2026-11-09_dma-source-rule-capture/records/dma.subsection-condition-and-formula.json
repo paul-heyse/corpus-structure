@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "id": "dma.subsection-condition-and-formula",
+  "title": "Exact HanLP subsection condition capture and native formula limits",
+  "group": "dma-predecessor",
+  "package": "DMA-13",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the locked HanLP profile locate the exact compound condition and its host, and what do the two retained formula displays support?",
+  "answers": [
+    "DMA-13"
+  ],
+  "method": "Read the exact completed source and its retained token coordinates. Compare unchanged and explicitly split layouts with the locked CPU provider. Replay original responses through exact input identity and typed condition-to-host assembly, refuse competing hosts and source substitutions, and exercise both native formula syntax input policies without binding unproved symbol meaning.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_dma-source-rule-capture/replay_hanlp.py",
+    "uv run python docs/design_review/evidence/2026-11-09_dma-source-rule-capture/replay_hanlp.py --assemble-retained",
+    "uv run python docs/design_review/evidence/2026-11-09_dma-source-rule-capture/formula_probe.py",
+    "uv run ci test --json -- python/corpus-structure/tests/methods/test_m1_source_capture.py python/corpus-structure/tests/methods/test_pm2_hanlp_products.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "replay_hanlp.py",
+      "role": "Paired CPU HanLP replay and exact private candidate assembly",
+      "sha256": "2447b59167bec189b51bf921491db53e033b414f5343b05fed6159ee55a803cb"
+    },
+    {
+      "path": "formula_probe.py",
+      "role": "Exact native formula syntax boundary check",
+      "sha256": "e5bf1c5dd683e287612ecfa07666c550e321635a336516510f69f01d971765c3"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/probe-refusals.json",
+      "role": "Preserved initial diagnostic failures and exact retry reasons",
+      "sha256": "93f95493655922b78fc411a28067475906074020b4a123655cc0112eccef9c9e"
+    },
+    {
+      "path": "raw/hanlp-subsection.json",
+      "role": "Actual paired CPU native responses and typed located products",
+      "sha256": "6b2c00ab6cf567ffc73a4345595c5142c39f48a62627987a401429ce951c34cc"
+    },
+    {
+      "path": "raw/hanlp-assembly.json",
+      "role": "Typed private assertion and substitution controls for each arm",
+      "sha256": "44988cedf2d4929c09a972881a5e338ad884f58dffc9bd62cc457ffa826730a1"
+    },
+    {
+      "path": "raw/formula-boundary.json",
+      "role": "Native syntax admission and diagnostic outcomes for both original displays",
+      "sha256": "9380360b1b638800d7374cc4530b70f728c7cc8a9a0578762269834b4a696c8d"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_dma-source-rule-capture/dma.exact-source-rule-capture"
+  ],
+  "results": [
+    {
+      "name": "Native CPU layouts",
+      "value": 2,
+      "of": 2,
+      "unit": "passed",
+      "note": "Same exact condition and unique consequent host on both layouts."
+    },
+    {
+      "name": "Private assertions per arm",
+      "value": 1,
+      "of": null,
+      "unit": "candidates",
+      "note": "Required subject, predicate and object located; full condition retained. Other roles unresolved."
+    },
+    {
+      "name": "Formula native syntax",
+      "value": "not_run",
+      "of": null,
+      "unit": "outcome",
+      "note": "Both formula recognition outcomes are unknown; captured-text syntax also refused both exact strings."
+    },
+    {
+      "name": "Focused rule and HanLP tests",
+      "value": 10,
+      "of": 10,
+      "unit": "passed",
+      "note": "Managed result 6ad259f2dbca4006b4f382dcc3b7e24a."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "HanLP supports the exact private host and compound condition without a sentence seam change. Native task integration, complete adjudicated readings, ordered formula symbol meaning, and applicable resolver policy remain open. No public assertion or predecessor eligibility follows.",
+  "consumed_by": [
+    "DMA-13"
+  ]
+}

@@ -1,0 +1,51 @@
+- contract: AssertionRecordFields
+  match:
+    rule: finite_nominal_content_assertion
+    variant: root_object_about
+    mechanism: dependency
+    pattern:
+      - {RIGHT_ID: predicate, RIGHT_ATTRS: {DEP: ROOT, POS: VERB, TAG: {IN: [VBD, VBP, VBZ]}}}
+      - {LEFT_ID: predicate, REL_OP: '>', RIGHT_ID: subject, RIGHT_ATTRS: {DEP: nsubj, POS: {IN: [NOUN, PROPN]}}}
+      - {LEFT_ID: predicate, REL_OP: '>', RIGHT_ID: nominal, RIGHT_ATTRS: {DEP: dobj, POS: NOUN}}
+      - {LEFT_ID: nominal, REL_OP: '>', RIGHT_ID: about, RIGHT_ATTRS: {DEP: prep, LOWER: about}}
+      - {LEFT_ID: about, REL_OP: '>', RIGHT_ID: content, RIGHT_ATTRS: {DEP: pobj, POS: {IN: [NOUN, PROPN]}}}
+    bindings:
+      subject: {node: subject, expansion: noun_chunk, max_tokens: 24}
+      verb: {node: predicate}
+      nominal: {node: nominal}
+      about: {node: about}
+      content: {node: content, expansion: subtree, max_tokens: 36}
+  literals:
+    subject: [subject]
+    predicate: [verb, nominal, about]
+    object: [content]
+  classifications:
+    polarity: {label: positive, cues: [verb, nominal]}
+    modality: {label: asserted, cues: [verb, nominal]}
+- contract: MeasurementRecordFields
+  match:
+    rule: explicit_count_limit
+    variant: up_to_counted_items_for_referent
+    mechanism: dependency
+    pattern:
+      - {RIGHT_ID: activity, RIGHT_ATTRS: {POS: VERB}}
+      - {LEFT_ID: activity, REL_OP: '>', RIGHT_ID: property, RIGHT_ATTRS: {DEP: dobj, POS: NOUN}}
+      - {LEFT_ID: activity, REL_OP: '>', RIGHT_ID: for, RIGHT_ATTRS: {DEP: prep, LOWER: for}}
+      - {LEFT_ID: for, REL_OP: '>', RIGHT_ID: referent, RIGHT_ATTRS: {DEP: pobj, POS: {IN: [NOUN, PROPN]}}}
+      - {LEFT_ID: property, REL_OP: '>', RIGHT_ID: amount, RIGHT_ATTRS: {DEP: nummod, POS: NUM}}
+      - {LEFT_ID: amount, REL_OP: '>', RIGHT_ID: up, RIGHT_ATTRS: {DEP: quantmod, LOWER: up}}
+      - {LEFT_ID: amount, REL_OP: '>', RIGHT_ID: to, RIGHT_ATTRS: {DEP: quantmod, LOWER: to}}
+    bindings:
+      referent: {node: referent}
+      up: {node: up}
+      to: {node: to}
+      amount: {node: amount}
+      property: {node: property}
+  literals:
+    referent: [referent]
+    property: [property]
+    original_value: [amount]
+    unit: [property]
+    comparator: [up, to]
+  classifications:
+    value_role: {label: bound, cues: [up, to, amount, property]}

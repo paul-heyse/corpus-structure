@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "id": "dma.exact-source-rule-capture",
+  "title": "Bounded source-rule candidate capture on the retained predecessor",
+  "group": "dma-predecessor",
+  "package": "DMA-13",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can source-anchored rules recover decoder-missing Preface roles while preserving the exact heading and subsection limitations?",
+  "answers": [
+    "DMA-13"
+  ],
+  "method": "Reopen immutable source and retained annotation columns. Run native M1 with the explicit source-rule comparison, using named linguistic constructions, exact primary-source spans, and the released candidate assembler. Keep records private; do not read evaluation labels or fit a policy.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_dma-source-rule-capture/replay.py",
+    "uv run ci test --json -- python/corpus-structure/tests/methods/test_m1_source_capture.py python/corpus-structure/tests/methods/test_m1_producer.py python/corpus-structure/tests/methods/test_m1_assertion_qualification.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "replay.py",
+      "role": "Read-only capture and retained annotation replay",
+      "sha256": "59a22cc2f9679c05d5a341c98073ccb8018022725adb690ca76d03bcebae7c01"
+    },
+    {
+      "path": "capture-rules.yaml",
+      "role": "Exact source rule and released role mappings",
+      "sha256": "68d04ecd1e527f7762f574743ac2ddc8c16d70029cda6927cb6cb2db8351cb50"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/initial-refusal.json",
+      "role": "Preserved initial script-path failure",
+      "sha256": "3e40cdde1460c4d834f252ed09ec4eb0f5721d877b472c48c449b1e7b38befdb"
+    },
+    {
+      "path": "raw/replay-initial.json",
+      "role": "Initial successful comparison before input identity cleanup",
+      "sha256": "85f71fbcd494065059ca87c2db941405bdabded24819a08f933197c342fcc865"
+    },
+    {
+      "path": "raw/replay.json",
+      "role": "Final exact source-bound private candidates and subsection diagnostics",
+      "sha256": "67f835367b4b36236ec6676aee57b2ac6a93078fadee33f774c592d90745a0c6"
+    }
+  ],
+  "depends_on": [
+    "2026-11-09_dma-producer-gap/dma.predecessor-producer-gap"
+  ],
+  "results": [
+    {
+      "name": "Preface rule candidates",
+      "value": 2,
+      "of": null,
+      "unit": "candidates",
+      "note": "One exact assertion core and one explicit count bound."
+    },
+    {
+      "name": "Heading rule candidates",
+      "value": 0,
+      "of": null,
+      "unit": "candidates",
+      "note": "The earlier private definition proposal from the ordinary decoder remains observable."
+    },
+    {
+      "name": "Subsection assembled records",
+      "value": 0,
+      "of": null,
+      "unit": "records",
+      "note": "Both native displays retained; no fabricated symbol binding or condition host."
+    },
+    {
+      "name": "Focused M1 tests",
+      "value": 33,
+      "of": 33,
+      "unit": "passed",
+      "note": "Managed result fc9c1266b95e49769793898827f1015b."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The source-rule arm recovered the two exact missing Preface candidate cores without changing the incumbent registered configuration. Unobserved roles and subsection condition, definition, and formula meanings remain unresolved. This is candidate capture evidence and does not establish a supported full reading, applicable resolver, or eligible predecessor.",
+  "consumed_by": [
+    "DMA-13"
+  ]
+}
