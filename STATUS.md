@@ -56,5 +56,5 @@ _Updated 2026-11-08. Development runs `semantic_dma_audit_current`. The private 
   The p416 Reader, source search and packet passed.
 - The [repaired shadow execution](docs/plans/chandra-2-post-nemotron_2026-11-08.md#repaired-comparator-shadow-execution) owns the 535-request frozen scope and its settled results.
   Run 381 sealed cut 496 with its settled p416 inference. The 63 affected CI checks, retry fixture, types, live dispatch and explicit MCP packet passed.
-  The uncollected scopes remain unassessed under the DMA cutover decision.
+  Uncollected shadow scopes remain unassessed. Chandra now requires explicit scopes. Legacy dispatch and shadow recovery are retired, with historical evidence still readable. On 2026-11-08, the focused `uv run ci test` selection passed 98 tests (`40732331fec849e1b1f62f5a2e4c7d3c`). Type and lint checks passed. Full-book GPU and resumed DMA qualification were `not_run`.
 - Settle the WCE source and factor obligations. Live CLI qualification needs a configured production target, purpose roles and effect authority.

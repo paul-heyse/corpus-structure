@@ -326,31 +326,6 @@ class Invocation:
         else:
             self.stage(effect, settled_effects=list(known))
 
-    def record_routing(
-        self,
-        nomination_run_id: int,
-        group_run_ids: tuple[int, ...] = (),
-        *,
-        projection: dict[str, Any] | None = None,
-    ) -> None:
-        account = self.manifest.operation_account
-        assert account is not None
-        previous = account.routing
-        if previous is not None and (
-            previous.nomination_run_id != nomination_run_id
-            or group_run_ids[: len(previous.group_run_ids)] != previous.group_run_ids
-        ):
-            raise ResultError("routing progress differs from the recorded nomination or groups")
-        self._update_account(
-            routing=RoutingProgress(
-                nomination_run_id=nomination_run_id,
-                group_run_ids=group_run_ids,
-                native_status="verified" if projection is not None else None,
-                projection=projection,
-            )
-        )
-        self._write()
-
     def mark_cleanup(self, error: BaseException) -> None:
         from corpus_structure.core.db.store import cleanup_unresolved
 

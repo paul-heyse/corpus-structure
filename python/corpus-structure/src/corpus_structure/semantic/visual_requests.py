@@ -59,6 +59,7 @@ VISUAL_GROUP_VERSION = "chandra-visual-group-v1"
 VISUAL_NOMINATION_VERSION = "visual-nomination-v2"
 MAX_VISUAL_GROUP = 4
 _INFERENCE_RECIPE_VERSION = "chandra-inference-v2"
+_EXPLICIT_GROUP_ORIGIN = "explicit"
 
 
 class VisualSelection(BaseModel):
@@ -857,6 +858,9 @@ def _bind_visual_run(
 ):
     from .runtime_bindings import require_installed_runtime
 
+    retained = _visual_run(conn, resume_run_id) if resume_run_id is not None else None
+    if retained is not None:
+        _require_explicit_visual_resume(retained.options)
     realizations = table("data.realization")
     revision = conn.execute(
         select(realizations.c.data_revision).where(
@@ -894,7 +898,6 @@ def _bind_visual_run(
         )
     else:
         run_id = resume_run_id
-        retained = _visual_run(conn, run_id)
         if (
             retained is None
             or retained.project_id != project_id
@@ -1095,9 +1098,8 @@ def request_visual_group(
     holder: str = "visual-source-request",
     resume_run_id: int | None = None,
     campaign_group: str | None = None,
-    nomination_run_id: int | None = None,
 ) -> VisualGroupResult:
-    """Run a finite group, optionally recovering a retained campaign demand."""
+    """Run an explicit group, optionally recovering the same retained demand."""
     from corpus_structure.orchestrate.liveness import (
         run_supervisor,
         supervisor_connection,
@@ -1119,16 +1121,11 @@ def request_visual_group(
     if campaign_group is not None:
         if re.fullmatch(r"[0-9a-f]{64}", campaign_group) is None:
             raise ValueError("visual campaign group requires a SHA-256 key")
+        options["visual_group_origin"] = _EXPLICIT_GROUP_ORIGIN
         options["visual_campaign_group"] = campaign_group
-    if nomination_run_id is not None:
-        options["visual_nomination_run_id"] = nomination_run_id
     with supervisor_connection(engine) as supervisor, _source_supervisor(supervisor, source):
         with engine.begin() as conn:
             project_id, document_id, original, reader = _load_visual_source(conn, source)
-            if nomination_run_id is not None:
-                _require_group_nomination(
-                    conn, nomination_run_id, project_id, semantic_release, realization, scopes
-                )
             if campaign_group is not None:
                 retained_id = _campaign_group_run(conn, project_id, source, campaign_group)
                 if resume_run_id is not None and resume_run_id != retained_id:
@@ -1138,6 +1135,8 @@ def request_visual_group(
                 else:
                     resume_run_id = retained_id
                     retained = _visual_run(conn, retained_id)
+                    if retained is not None:
+                        _require_explicit_visual_resume(retained.options)
                     if (
                         retained is None
                         or retained.release_id != semantic_release
@@ -1264,27 +1263,6 @@ def request_visual_group(
             )
 
 
-def _require_group_nomination(conn, nomination, project, release, realization, scopes):
-    runs = table("ops.run")
-    options = conn.scalar(
-        select(runs.c.options).where(
-            runs.c.id == nomination,
-            runs.c.project_id == project,
-            runs.c.release_id == release,
-            runs.c.input_realization_id == realization,
-            runs.c.code_commit == VISUAL_REQUEST_CODE_COMMIT,
-            runs.c.sealed,
-        )
-    )
-    retained = options.get("visual_nomination") if options else None
-    if (
-        retained is None
-        or retained.get("version") != VISUAL_NOMINATION_VERSION
-        or any(scope not in retained["selections"] for scope in scopes)
-    ):
-        raise OperationConflict("visual group differs from the frozen nomination")
-
-
 def _campaign_group_run(conn, project_id, source, key):
     """Find the demand while holding the exact source supervisor lock."""
     runs = table("ops.run")
@@ -1317,6 +1295,8 @@ def _require_no_pending_group_overlap(conn, project_id, selections):
             ~runs.c.sealed,
             ~final,
             runs.c.options["visual_campaign_group"].astext.is_not(None),
+            runs.c.options.contains({"visual_group_origin": _EXPLICIT_GROUP_ORIGIN}),
+            ~runs.c.options.has_key("visual_nomination_run_id"),
             runs.c.options.contains(
                 {"visual_group": {"selections": [{"source": source.model_dump(mode="json")}]}},
             ),
@@ -1503,9 +1483,20 @@ def _visual_run(conn, run_id: int):
     ).one_or_none()
     return (
         row
-        if row is not None and ("visual_request" in row.options or "visual_group" in row.options)
+        if row is not None
+        and {"visual_request", "visual_group", "visual_nomination"}.intersection(row.options)
         else None
     )
+
+
+def _require_explicit_visual_resume(options: dict[str, Any]) -> None:
+    if "visual_nomination" in options or "visual_nomination_run_id" in options:
+        raise OperationConflict("deficiency-driven visual work is retired")
+    if (
+        "visual_campaign_group" in options
+        and options.get("visual_group_origin") != _EXPLICIT_GROUP_ORIGIN
+    ):
+        raise OperationConflict("legacy visual campaign lacks an explicit scope origin")
 
 
 def resume_visual_observation(
@@ -1526,6 +1517,7 @@ def resume_visual_observation(
         return None
     if retained.project_id != project:
         raise OperationConflict("resume run has another project")
+    _require_explicit_visual_resume(retained.options)
     if prepare_only or select_result or activate_release:
         raise OperationConflict("visual resume accepts only the retained recognition effect")
     recovery = retained.options.get("visual_recovery")
@@ -1546,7 +1538,6 @@ def resume_visual_observation(
             nemotron_endpoint=nemotron_endpoint,
             resume_run_id=run_id,
             campaign_group=retained.options.get("visual_campaign_group"),
-            nomination_run_id=retained.options.get("visual_nomination_run_id"),
         )
     return request_visual_observation(
         engine,

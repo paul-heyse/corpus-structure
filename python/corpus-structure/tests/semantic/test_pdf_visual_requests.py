@@ -21,8 +21,7 @@ from corpus_structure.semantic.operation_results import ClaimedTask
 from corpus_structure.semantic.operations import OperationConflict, end_source_run
 from corpus_structure.serve.pdf_visual_evidence import VisualEvidencePin
 
-from .pdf_integration_support import IMAGE, integrated, prepare, publish
-from .pdf_integration_support import native_source as native_source
+from .pdf_integration_support import IMAGE, integrated, make_native_source, prepare, publish
 from .pdf_integration_support import pdf13_db as pdf13_db
 
 _HTML = '<div data-label="Formula" data-bbox="100 200 900 800">x^2</div>'
@@ -40,6 +39,20 @@ _TRANSFORM = {
     "crop_bottom": 300,
     "affine": [0.02, 0, 0, 0.02, 0, 0],
 }
+
+
+@pytest.fixture
+def native_source():
+    from contextlib import closing
+
+    from pypdfium2 import PdfDocument
+
+    with PdfDocument.new() as document, BytesIO() as output:
+        for _ in range(2):
+            with closing(document.new_page(200, 300)):
+                pass
+        document.save(output)
+        return make_native_source(output.getvalue())
 
 
 @pytest.mark.parametrize(
@@ -100,27 +113,34 @@ def test_visual_group_renders_compatible_page_once(monkeypatch, tmp_path):
     assert (crop, transform) == pdf_visual_mapping.render_visual_input(original, 1, region, 90)
 
 
-def test_visual_nomination_keeps_empty_decision_and_refuses_a_forged_source_cut(
-    pdf13_db, tmp_path, monkeypatch
+def test_diagnostics_and_retired_campaigns_cannot_start_chandra(
+    pdf13_db, semantic_reader_engine, tmp_path, monkeypatch
 ):
-    from functools import partial
+    from contextlib import contextmanager
 
     from sqlalchemy.exc import DBAPIError
+    from typer.testing import CliRunner
 
-    from corpus_structure.semantic import visual_dispatch
-    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.cli import managed
+    from corpus_structure.cli.app import app
+    from corpus_structure.semantic import runtime, visual_routing
     from corpus_structure.semantic.operations import (
         OperationBinding,
         complete_task,
         create_run,
         seal_cut,
     )
-    from corpus_structure.semantic.visual_routing import (
-        VisualPageRoute,
-        VisualRouteReason,
-        VisualRouteReport,
-    )
+    from corpus_structure.semantic.storage_target import acquired_target
+    from corpus_structure.semantic.visual_dispatch import read_visual_dispatch_progress
+    from corpus_structure.semantic.visual_routing import VisualRouteReason, VisualRouteReport
 
+    def unexpected_chandra(*args, **kwargs):
+        pytest.fail(
+            "diagnostics or retired work tried to initialize Chandra or acquire its GPU lease"
+        )
+
+    monkeypatch.setattr(pdf_chandra, "ChandraRuntime", unexpected_chandra)
+    monkeypatch.setattr(pdf_capacity, "pdf_gpu_slot", unexpected_chandra)
     db = pdf13_db
     digest = publish(db, prepare(integrated(db.source, db.inputs), db.source))
     source = VisualEvidencePin(
@@ -137,70 +157,65 @@ def test_visual_nomination_keeps_empty_decision_and_refuses_a_forged_source_cut(
             outcome="empty",
         )
         cut = seal_cut(conn, db.job.run, "source-ready")
-    routes = VisualRouteReport(
-        source=source,
-        structural_input=None,
-        page_count=1,
-        pages=(
-            VisualPageRoute(
-                page_no=1, action="unresolved", reasons=(VisualRouteReason(code="unassessed"),)
-            ),
-        ),
+
+    page_signals = visual_routing._page_signals
+
+    def with_deficiency(*args, **kwargs):
+        signals = page_signals(*args, **kwargs)
+        signals.requests.append(VisualRouteReason(code="incomplete_ocr_region"))
+        return signals
+
+    @contextmanager
+    def diagnostic_engine(settings, application_name, *, purpose):
+        assert purpose == "read"
+        yield semantic_reader_engine
+
+    monkeypatch.setattr(visual_routing, "_page_signals", with_deficiency)
+    monkeypatch.setattr(runtime, "open_runtime_engine", diagnostic_engine)
+    runner = CliRunner()
+    retired = runner.invoke(app, ["source", "visual-dispatch", "--help"])
+    assert retired.exit_code == 2 and "No such command" in retired.output
+    diagnostic = runner.invoke(
+        app,
+        [
+            "source",
+            "visual-route",
+            str(source.run_id),
+            "--producing-task",
+            str(source.task_id),
+            "--product",
+            source.product_key,
+            "--native-digest",
+            digest,
+            "--limit",
+            "1",
+            "--json",
+        ],
     )
-    monkeypatch.setattr(visual_dispatch, "read_visual_routes", lambda *args, **kwargs: routes)
-    dispatch = partial(
-        visual_dispatch.dispatch_visual_work,
-        db.writer,
-        source=source,
-        source_cut=cut,
-        semantic_release=db.prepared.release_id,
-        realization="z",
-        mode="selective",
-        first=1,
-        limit=1,
-        artifacts=tmp_path,
-        receipts=tmp_path,
-        nemotron_endpoint=None,
-    )
-    result = dispatch()
-    assert result.groups == ()
-    assert result.progress.routes == routes and result.progress.groups == ()
-    assert dispatch(nomination_run_id=result.nomination_run_id) == result
-    runs = table("ops.run")
-    with db.writer.connect() as conn:
-        options = conn.scalar(select(runs.c.options).where(runs.c.id == result.nomination_run_id))
-    assert options["visual_nomination"]["selections"] == []
-    other_routes = routes.model_copy(
-        update={"pages": (routes.pages[0].model_copy(update={"action": "skip"}),)}
-    )
-    other_nomination = {
-        **options["visual_nomination"],
-        "routes": other_routes.model_dump(mode="json"),
+    assert diagnostic.exit_code == 0, diagnostic.output
+    routes = VisualRouteReport.model_validate_json(diagnostic.stdout)
+    assert routes.pages[0].action == "recognize"
+    assert "incomplete_ocr_region" in {reason.code for reason in routes.pages[0].reasons}
+
+    selection = visual_requests.VisualSelection(source=source, page_no=1)
+    nomination = {
+        "version": "visual-nomination-v2",
+        "demand": {
+            "source": source.model_dump(mode="json"),
+            "source_cut": int(cut),
+            "release": db.prepared.release_id,
+            "realization": "z",
+            "mode": "selective",
+            "first": 1,
+            "limit": 1,
+            "artifacts": str(tmp_path),
+        },
+        "routes": routes.model_dump(mode="json"),
+        "selections": [selection.scope()],
     }
-    claimed_digest = sha256(canonical_bytes(other_nomination)).hexdigest()
-    with db.writer.begin() as conn:
-        collision = create_run(
-            conn,
-            project_id="p",
-            binding=OperationBinding(db.prepared.release_id, "z", 0, b"{}"),
-            kind="slice",
-            options={**options, "visual_nomination_id": claimed_digest},
-            code_commit=visual_requests.VISUAL_REQUEST_CODE_COMMIT,
-            prepared=db.prepared,
-        )
-        seal_cut(conn, collision, "visual-nomination", final=True)
-    monkeypatch.setattr(visual_dispatch, "read_visual_routes", lambda *args, **kwargs: other_routes)
-    other = dispatch()
-    assert other.nomination_run_id not in {collision, result.nomination_run_id}
-    assert dispatch(nomination_run_id=other.nomination_run_id) == other
-    options["visual_nomination"]["demand"]["source_cut"] = cut + 100000
-    with (
-        pytest.raises(
-            DBAPIError, match="visual nomination differs from its exact source-ready cut"
-        ),
-        db.writer.begin() as conn,
-    ):
-        create_run(
+
+    def retain(conn, options):
+        return create_run(
             conn,
             project_id="p",
             binding=OperationBinding(db.prepared.release_id, "z", 0, b"{}"),
@@ -209,6 +224,97 @@ def test_visual_nomination_keeps_empty_decision_and_refuses_a_forged_source_cut(
             code_commit=visual_requests.VISUAL_REQUEST_CODE_COMMIT,
             prepared=db.prepared,
         )
+
+    runs, tasks = map(table, ("ops.run", "ops.task"))
+    group = {
+        "visual_group": {"version": "chandra-visual-group-v1", "selections": [selection.scope()]},
+        "visual_recovery": {"artifacts": str(tmp_path), "replay": None},
+    }
+    with db.writer.begin() as conn:
+        assert conn.execute(select(runs.c.id).order_by(runs.c.id)).scalars().all() == [db.job.run]
+        nomination_id = retain(conn, {"visual_nomination": nomination})
+        seal_cut(conn, nomination_id, "visual-nomination", final=True)
+        nominated = retain(
+            conn,
+            {**group, "visual_campaign_group": "a" * 64, "visual_nomination_run_id": nomination_id},
+        )
+        legacy = retain(conn, {**group, "visual_campaign_group": "b" * 64})
+
+    args = dict(
+        selections=(selection,),
+        semantic_release=db.prepared.release_id,
+        realization="z",
+        receipts=tmp_path,
+        artifacts=tmp_path,
+    )
+    for run_id, reason in (
+        (nomination_id, "deficiency-driven visual work is retired"),
+        (nominated, "deficiency-driven visual work is retired"),
+        (legacy, "legacy visual campaign lacks an explicit scope origin"),
+    ):
+        with pytest.raises(OperationConflict, match=reason):
+            visual_requests.resume_visual_observation(
+                db.writer,
+                run_id,
+                project="p",
+                receipts=tmp_path,
+                nemotron_endpoint=None,
+                prepare_only=False,
+                select_result=False,
+                activate_release=False,
+            )
+        with pytest.raises(OperationConflict, match=reason):
+            visual_requests.request_visual_group(db.writer, **args, resume_run_id=run_id)
+    for key, reason in (
+        ("a" * 64, "deficiency-driven visual work is retired"),
+        ("b" * 64, "legacy visual campaign lacks an explicit scope origin"),
+    ):
+        with pytest.raises(OperationConflict, match=reason):
+            visual_requests.request_visual_group(db.writer, **args, campaign_group=key)
+
+    with db.writer.connect() as conn:
+        progress = read_visual_dispatch_progress(conn, nomination_id)
+        assert progress.routes == routes
+        assert [item.run_id for item in progress.groups] == [nominated]
+        assert progress.groups[0].members[0].selection == selection
+        assert conn.execute(select(tasks.c.run_id)).scalars().all() == [db.job.run]
+        assert conn.execute(select(runs.c.id).order_by(runs.c.id)).scalars().all() == [
+            db.job.run,
+            nomination_id,
+            nominated,
+            legacy,
+        ]
+        visual_requests._require_no_pending_group_overlap(conn, "p", (selection,))
+
+    store = managed.ResultStore(tmp_path / "results")
+    monkeypatch.setattr(managed, "result_store", lambda ctx: store)
+    with (
+        store.operation("source.visual-dispatch", account=True) as receipt,
+        db.writer.connect() as conn,
+    ):
+        account = receipt.manifest.operation_account
+        assert account is not None
+        account.routing = managed.RoutingProgress(
+            nomination_run_id=nomination_id, group_run_ids=(nominated,)
+        )
+        receipt.record_target(
+            acquired_target(conn, purpose="write"), None, None, db.prepared.release_id
+        )
+        receipt.settle("interrupted")
+    history = runner.invoke(app, ["results", "show", receipt.id, "--json"])
+    assert history.exit_code == 0, history.output
+    historical_routing = json.loads(history.stdout)["operation_account"]["routing"]
+    assert historical_routing["native_status"] == "verified"
+    assert historical_routing["projection"] == progress.model_dump(mode="json")
+
+    nomination["demand"]["source_cut"] = cut + 100000
+    with (
+        pytest.raises(
+            DBAPIError, match="visual nomination differs from its exact source-ready cut"
+        ),
+        db.writer.begin() as conn,
+    ):
+        retain(conn, {"visual_nomination": nomination})
 
 
 def test_visual_attempt_receipt_marks_an_interruption_without_response(tmp_path):
@@ -248,6 +354,8 @@ def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
     tmp_path,
     monkeypatch,
 ):
+    from corpus_structure.semantic.visual_routing import read_visual_routes
+
     db = pdf13_db
     integrated_values = integrated(db.source, db.inputs)
     digest = publish(db, prepare(integrated_values, db.source))
@@ -260,6 +368,8 @@ def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
         content_digest=digest,
     )
     selection = visual_requests.VisualSelection(source=source, page_no=1)
+    with db.writer.connect() as conn:
+        assert read_visual_routes(conn, source, first=1, limit=1).pages[0].action != "recognize"
     args = dict(
         selection=selection,
         semantic_release=db.prepared.release_id,
@@ -751,7 +861,17 @@ def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
         db.writer, **{**args, "selections": requests[:1], "campaign_group": "d" * 64}
     )
     assert settled_only.members[0].mapped == first.mapped
-    resumed = visual_requests.request_visual_group(db.writer, **args)
+    resumed = visual_requests.resume_visual_observation(
+        db.writer,
+        run_id,
+        project="p",
+        receipts=args["receipts"],
+        nemotron_endpoint=None,
+        prepare_only=False,
+        select_result=False,
+        activate_release=False,
+    )
+    assert isinstance(resumed, visual_requests.VisualGroupResult)
     assert resumed.run_id == run_id
     assert resumed.status == "source_ready" and resumed.cut_id is not None
     assert resumed.members[0].mapped == first.mapped

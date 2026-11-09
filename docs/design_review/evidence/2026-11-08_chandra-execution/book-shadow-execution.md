@@ -19,20 +19,15 @@ difference between the work union and the physical book. The 15-page,
 10-group mixed cohort is exact retained evidence with separately pinned
 incumbent sources. [Mixed cohort assessment](mixed-cohort/assessment.md)
 
-Use the frozen source and manifest after interruption. The campaign
-stores the group key in the managed run before inference starts. Restart
-reads exact settled custody from that run and recovers only unsettled
-members. Groups hold at most four requests and release shared GPU capacity
-between groups. The source and the published Reader remain available
-during optional recognition. A cancelled group stops campaign dispatch.
-The existing claim lease fences an interrupted in-flight attempt until
-release or expiry.
+The retired campaign stored the group key before inference and released
+shared GPU capacity between groups of at most four requests. Its frozen
+manifest and settled results remain available for comparison. New Chandra
+requests require operator-supplied scopes.
 
 ```sh
 ev=docs/design_review/evidence/2026-11-08_chandra-execution
 book=build/chandra-execution/book-shadow-377
-uv run python "$ev/group_shadow.py" "$book/manifest.json" "$book/groups"
-uv run python "$ev/group_shadow_compare.py" "$book/groups" --require-complete > "$book/comparison.jsonl"
+uv run python "$ev/group_shadow_compare.py" "$book/groups" > "$book/comparison.jsonl"
 ```
 
 The comparer checks ordered group scope, protected pins, original and

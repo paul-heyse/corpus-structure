@@ -69,6 +69,10 @@ def pdf13_context():
 
 @pytest.fixture
 def native_source():
+    return make_native_source(b"%PDF-1.7\nindependent integrated lineage original")
+
+
+def make_native_source(original: bytes):
     from docling_core.types.doc import (
         BoundingBox,
         DocItemLabel,
@@ -83,7 +87,6 @@ def native_source():
     from corpus_structure.ingest.pdf import PdfConversion, publication_payload
     from corpus_structure.ingest.pdf_hierarchy import snapshot
 
-    original = b"%PDF-1.7\nindependent integrated lineage original"
     recipe = b'{"fixture":"native-retained"}'
     schema = (
         files("corpus_structure")
