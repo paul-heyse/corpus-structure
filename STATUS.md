@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-08. Development runs `semantic_pm2_parser_methods`. The private full-book M1 result reached cut 517 and the private parser run reached cut 520. The project remains unselected._
+_Updated 2026-11-09. Development runs `semantic_pm2_contextual_queries`. Private interpretation and assessment reached cut 526 over unchanged Standard and Nemotron source. The project remains unselected._
 
 ## Current authority
 
@@ -8,11 +8,12 @@ _Updated 2026-11-08. Development runs `semantic_pm2_parser_methods`. The private
   owns findings, package states and combined qualification. ADR-0067 governs current-only
   migration. ADR-0070 selects all 518 Grinstead–Snell pages. WCE receipts still cover pages 191–310.
   WCE baseline `07d25b840` retains `semantic_wce_lineage_20261107` and `retrieve.contextual/5`.
-- The [DMA audit repairs](docs/plans/domain-model-alignment_2026-11-08.md#qualification-pause--2026-11-08) are deployed to development. Run 407 completed all 29 views. On 2026-11-08, `uv run ci test --json` was interrupted at the operator's request pending a Chandra change. The focused authoring tests and `uv run ci check --json` passed. Evaluation and selection remain open.
+- The [DMA audit repairs](docs/plans/domain-model-alignment_2026-11-08.md#dma-13) are deployed to development. Run 407 completed all 29 views. The operator excluded Chandra from remaining qualification on 2026-11-09. Evaluation and an eligible predecessor for PM2 selection remain open.
 - The [broad design audit](docs/design_review/audit/README.md#baseline) records diagnostic source inspection at `67cbe680e` on 2026-11-08. `uv run ci docs check` and `just turn-end` passed. Product qualification was `not_run`.
 - The [GitHub visitor follow-on](docs/plans/github-visitor-experience_2026-11-08.md#ghv-follow-on-acceptance) is live. On 2026-11-08, the docs workflow and both live browser sizes passed. The corpus index links to 1,409 verified source files in Git LFS. The supplied How it works image passed desktop and mobile preview checks in the local revision.
 - The [M2 foundation](docs/plans/production-milestone-two_2026-11-08.md#foundation-execution) uses cut 514 for source-only expectations and cut 517 for the finished private M1 comparator over the same views. On 2026-11-08 all four CUDA profiles ran under the shared handoff, and the private d1/Dipo Reader journey passed claim reassignment and exact reuse. The [foundation evidence](docs/design_review/evidence/2026-11-08_pm2-foundation/README.md) owns the scoped checks. DMA-13 owns evaluated cutover.
-- The [M2 parser execution](docs/plans/production-milestone-two/linguistic-referential-discourse.md#parser-execution) sealed cut 520, verified exact replay at cut 521, and produced fresh HanLP results at cut 522 after migration. On 2026-11-08 the focused parser, witness, native closure, fault and repository checks passed. The [qualification account](docs/design_review/evidence/2026-11-08_pm2-parsers/README.md#development-deployment-and-qualification) records three remaining ordinary failures. PM2-07 is the next independent provider package.
+- The [M2 parser execution](docs/plans/production-milestone-two/linguistic-referential-discourse.md#parser-execution) sealed cut 520 and verified replay at cut 521. Same-release HanLP and Maverick inputs for d1 reached cut 524 without repeating source recognition.
+- The [M2 interpretation disposition](docs/plans/production-milestone-two_2026-11-08.md#review-disposition) records private d1 results, CLI/MCP and detached proof, richer retrieval options, and exposed evaluation 37. Next: improve the observed misses, run matched comparisons, then regenerate selected derivations. No new intake or recognition run is needed.
 
 ## Delivered and assessed
 
@@ -38,7 +39,6 @@ _Updated 2026-11-08. Development runs `semantic_pm2_parser_methods`. The private
 - The [CLI audit disposition](docs/plans/cli-operations_2026-11-07.md#completion-audit) owns the
   verified development repairs and live prerequisite. ADR-0069 governs routing, retention and
   explicit effects. Typer 0.28.0 retains the workspace override for Docling Core's CLI dependency.
-- Operational revision `semantic_cli_run_supervisor` preceded the NCE development migration.
 - The [reconciled CLI qualification](docs/plans/cli-operations_2026-11-07.md#reconciled-functional-and-nonfunctional-results)
   covers 5,119 required nodes with zero unresolved after the affected checks and exact retry.
   Rust was `not_run` with an empty selection. `uv run ci check --json` passed.

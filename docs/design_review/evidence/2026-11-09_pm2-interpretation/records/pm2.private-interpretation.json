@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "id": "pm2.private-interpretation",
+  "title": "Private same-release d1 and exact composition",
+  "group": "pm2-interpretation",
+  "package": "PM2-07",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the locked private d1 path settle released questions and deliver their exact source, parser alternatives and unresolved states?",
+  "answers": [
+    "PM2-07"
+  ],
+  "method": "Deploy the bound native descriptor on development. Reuse the native book source, derive parser inputs on two views, run seven d1 scopes and verify the Reader, MCP and selected exact detached proof.",
+  "commands": [
+    "uv run ci model change deploy 65faefe54c214af79541357fd9082c1d --json",
+    "uv run ci run parsers --request docs/design_review/evidence/2026-11-09_pm2-interpretation/raw/development-parser-request.json --json",
+    "uv run ci run interpret --request docs/design_review/evidence/2026-11-09_pm2-interpretation/raw/development-interpretation-request.json --json",
+    "uv run ci contributions list --run 422 --method extract.pm2_d1 --include-details --include-interpretation --limit 100 --page-bytes 4000000 --json",
+    "uv run ci review inspect --result a96885c8f28f409da4547ac540de87d1 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "model-change.yaml",
+      "role": "Bound development descriptor request",
+      "sha256": "033a79352e81a962ba574a1ef78007cdf8d53b46260c464bc1a013566e28232a"
+    },
+    {
+      "path": "raw/development-parser-request.json",
+      "role": "Exact retained source parser request",
+      "sha256": "7bcbde54270f282667d3f0f3f5b34df702f389c986d41ee03d64d7ebc490dc83"
+    },
+    {
+      "path": "raw/development-interpretation-request.json",
+      "role": "Exact released interpretation scopes",
+      "sha256": "9b8d9e4c9bd2f1033aa80492a679e4c8c91fcebefc58385b71eb42f4dea12c84"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/development-deployment.json",
+      "role": "Managed development deployment",
+      "sha256": "1fbd5d3a74fd4b7fbc03e7316ab6ef02b5c02f9e7548c9fcf8061e16ebe00f53"
+    },
+    {
+      "path": "raw/development-parser-run.json",
+      "role": "Same-release parser result",
+      "sha256": "ffd3831c5cb592985fc4a386bedc4cc5e120b608695f4d7939bfd19670f57fcf"
+    },
+    {
+      "path": "raw/development-interpretation-run.json",
+      "role": "Native private run and cut",
+      "sha256": "d63da7597a80e4ba8f30b0d6ec6e1636a938ac0ab0ae70e5b7278d94004af679"
+    },
+    {
+      "path": "raw/development-reader-summary.json",
+      "role": "Scoped outcomes, exact composition and detached custody",
+      "sha256": "7f5714367edeb5c57ec73aaf5bdb2ae542469a2c06b185ebe6394283d99fdd39"
+    }
+  ],
+  "depends_on": [
+    "pm2.native-d1-batch",
+    "pm2.interpretation-source-frame"
+  ],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Seven scopes settled and selected delivery/closure passed. Passage function and exact literal location survived. Numeric normalization, qualifier host recovery and local referent recovery did not. This does not qualify adoption.",
+  "consumed_by": [
+    "PM2-07",
+    "PM2-08",
+    "PM2-11",
+    "PM2-12"
+  ]
+}

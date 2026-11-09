@@ -240,6 +240,17 @@ owns the reviewed reasoning. The execution disposition is here.
 
 ## PM2-06 · Qualify extended parser modes only for demonstrated gaps
 
+**Disposition · 2026-11-09.** Keep the ordinary bounded profiles. The observed
+variance passage exposes a missing cue in the expanded HanLP scope, but does
+not establish that a new head repairs the premise or its attachment. Retain the
+separate strong definition witness. The supplied Maverick arm adds “her capital”
+as a distinct unclustered candidate; no independently supported downstream
+participant gain has qualified the mode. Retain Dipo's learned, layout and
+supplied arms as controlled diagnostics; no paired result yet shows that a larger
+scope improves an accepted reading. Revisit each mode when a frozen operation
+case isolates the respective failure and the proposed mode changes the consumer's
+answer within the operating bounds below.
+
 PM2-06 consumes the ordinary provider profile and the relevant operation-level
 comparison. Record the unmet source opportunity or operating need and its present
 failure mode before choosing a challenger. A failed or unavailable investigation

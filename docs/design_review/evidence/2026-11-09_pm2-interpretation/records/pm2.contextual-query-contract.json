@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "id": "pm2.contextual-query-contract",
+  "title": "Versioned private retrieval context",
+  "group": "pm2-interpretation",
+  "package": "PM2-09",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can richer query rendering preserve the incumbent method contract and native target custody?",
+  "answers": [
+    "PM2-09"
+  ],
+  "method": "Verify the installed incumbent method schema against its database registration. Author and deploy the separate v11 native validator. Exercise the explicitly selected rich-context method with controlled encoder inputs and check the exact frozen-list Reader against retained source.",
+  "commands": [
+    "uv run ci model change deploy 98469a11b356487a804b1fd8286dcfb3 --json",
+    "uv run ci test --json -- python/corpus-structure/tests/methods/test_contextual_candidates.py python/corpus-structure/tests/methods/test_contextual_query.py python/corpus-structure/tests/semantic/test_contextual_enrichment.py",
+    "uv run ci test retry b27de9fe0ad94d30b9954ceb9a284bab --lane ordinary --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "contextual-model-change.yaml",
+      "role": "Exact native predecessor and development target",
+      "sha256": "07a6649ba3af8f190397173121495a2021441ba823a07496c35c1eb8fd67a493"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/contextual-method-contracts.json",
+      "role": "Existing v10 and distinct v11 schema identities",
+      "sha256": "613217fe483f64c79cf0a6d5fba3a9fdd173432069cbee2cd832865959b660f8"
+    },
+    {
+      "path": "raw/contextual-development-deployment.json",
+      "role": "Verified development deployment",
+      "sha256": "b8d77e86c0831bb5ad7a558708c803fc23bd8c6a9640a2a4fb4b0b518c8c4ff2"
+    }
+  ],
+  "depends_on": [
+    "pm2.private-interpretation"
+  ],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "The incumbent configuration contract is unchanged. The explicit v11 method can render exact parser context without changing the focal literal or target encoding, and preserves the bounded encoder-unavailable outcome. Deployment and the archived frozen-list lookup passed. A native paired comparison of richer-context quality and enriched detached proof remain open.",
+  "consumed_by": [
+    "PM2-07",
+    "PM2-09",
+    "PM2-11",
+    "PM2-12"
+  ]
+}

@@ -1,6 +1,6 @@
 # Domain-model alignment plan series
 
-**Status:** Development implementation deployed · qualification paused on 2026-11-08 pending the operator's Chandra change. Owns the corrections and
+**Status:** Development implementation deployed · evaluated acceptance and selection open as of 2026-11-09. Owns the corrections and
 investigations arising from the November 8 domain-model alignment review.
 The coordinator owns combined disposition, dependencies, cutover and
 qualification. The supporting plans own their local target and implementation
@@ -91,7 +91,7 @@ evidence rather than changing another plan's obligations. The
 | DA-058 · [DMA-10](domain-model-alignment/visual-evidence.md#DMA-10) | Group recovery and original custody | Live crops at cut 519 reused both exact raw responses from cut 518 with provider files unavailable. Recognition standing remained `unknown`. Live cancellation restored Nemotron. These results are scoped to the tested Chandra runtime. |
 | DA-066 · [DMA-11](domain-model-alignment/visual-evidence.md#DMA-11) | Typed visual Reader | The typed spatial locator and near-limit sparse and empty regional checks passed focused native controls. The frozen descriptor verifies the access path. |
 | [DMA-12](#dma-12) | Coordinator and affected authorities | Bounded investigations delivered. Final-source reference-path coverage remains open. The second-pack control establishes only its scoped transfer case. |
-| [DMA-13](#dma-13) | Native migration and assembled acceptance | Development migration, archive and admission verified. The replacement full-book candidate run finished privately at cut 517. Final functional qualification is paused pending the Chandra change. Evaluated acceptance and selected cutover remain open. |
+| [DMA-13](#dma-13) | Native migration and assembled acceptance | Development migration, archive and admission verified. The replacement full-book candidate run finished privately at cut 517. Qualification uses the retained Standard and Nemotron source. Evaluated acceptance and selected cutover remain open. |
 
 Source-view coverage, source-value validity, numerical consistency, derivation
 and target identity have priority by consequence. Start the release compiler
@@ -736,10 +736,12 @@ unresolved ordinary identities. It also reported differing native bindings.
 The fault and Rust functional lanes were `not_run`. The installed Rust
 toolchain was `rustc 1.101.0-nightly (2d20b42b8 2026-11-04)`.
 
-After the Chandra change is available, determine which recognition,
-mapping, reuse and cancellation checks apply to that runtime. Reconcile
-the remaining ordinary, fault and applicable Rust coverage on the resulting
-source. Current-scope live evidence remains with runs 408, 410 and 411.
-Evaluated acceptance still needs independent references corresponding to
-the prediction scope. Activation, selection and derived retirement remain
-open.
+On 2026-11-09 the operator excluded Chandra data from the remaining milestone
+qualification. Runs 408, 410 and 411 keep their historical scope. The ordinary,
+fault and applicable Rust results still need reconciliation on the selected
+source and context. The Standard and Nemotron source used by cut 517 remains
+readable after the migration; its native product and projection identities
+still match the source-only cut 514. The known grading refusal against set 32
+requires independently authored full-view references for the run's full-view
+predictions, or a supported bounded run with matching reference scope. An eligible
+predecessor for PM2-12, activation, selection and derived retirement remain open.

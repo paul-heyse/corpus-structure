@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "id": "pm2.native-d1-batch",
+  "title": "Typed CUDA d1 batch and isolated limit",
+  "group": "pm2-interpretation",
+  "package": "PM2-07",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the pinned d1 adapter preserve mixed native answer kinds and request association?",
+  "answers": [
+    "PM2-07"
+  ],
+  "method": "Use the BF16 CUDA worker and configured Nemotron handoff, grouping compatible independent requests with one deliberately oversize question population.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-interpretation/native_batch_probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "native_batch_probe.py",
+      "role": "Exact native reproduction script",
+      "sha256": "812fbf5ba8d4da5014ca726a67b4e96ac184b43167fa5d78042d0f966c9d2730"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/native-batch.jsonl",
+      "role": "Staged startup and native results",
+      "sha256": "558b8d59601abf9b8701b0923ae2d68089b5bba6faf32fe7fe6f65d9d9943656"
+    }
+  ],
+  "depends_on": [
+    "2026-11-08_pm2-foundation/pm2.development-baseline"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Three requests retained text, number, date, multilabel Choice and noul outputs under their own identities. A fourth request returned question_count limited. This is native execution evidence only.",
+  "consumed_by": [
+    "PM2-07",
+    "PM2-12"
+  ]
+}

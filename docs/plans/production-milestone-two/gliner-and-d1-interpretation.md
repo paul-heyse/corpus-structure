@@ -1,6 +1,6 @@
 # GLiNER and d1 interpretation
 
-**Proposed · 2026-11-08.** This plan owns the interpretation provider work for
+**Private implementation · 2026-11-09.** This plan owns the interpretation provider work for
 [PM2-07](#PM2-07) and consumes [review O05](../../functional_reviews/production-milestone-two_2026-11-08.md#O05).
 The [coordinator](../production-milestone-two_2026-11-08.md) owns disposition and adoption.
 Use the same execution, input, witness and admission contracts for any domain. The selected
@@ -11,6 +11,22 @@ a fact, authorizes an effect, or changes the eligibility of another provider's i
 <a id="PM2-07"></a>
 
 ## PM2-07 · Retain grounded extraction and add bounded interpretation
+
+**Tested · 2026-11-09.** `ci run interpret` resolves named question definitions
+from the archived release. It accepts exact source selections and retained
+contribution or frozen list references. Only the authorized source field can
+yield literal evidence. d1 batches compatible requests on the staged CUDA
+profile and retains typed answers, scope and coverage under the existing claim
+and result owners. Current statistics questions are [release inputs](../../../domains/statistics/interpretation-questions.yaml);
+the implementation does not read textbook terms or reference answers.
+
+The [native run](../../design_review/evidence/2026-11-09_pm2-interpretation/README.md)
+located the fair-coin literal `1/8` without a numeric normalization, retained
+an independent definition function and a binary relation observation, returned
+no match for the fair-coin host, and returned missing candidate on the gambler
+referent with a grounded candidate available. Preserve those gaps as development
+findings. The contextual list consumer is wired to PM2-09; its same-release
+native journey and the paired comparisons below remain open.
 
 ### Reuse GLiNER extraction and the current source qualification route
 

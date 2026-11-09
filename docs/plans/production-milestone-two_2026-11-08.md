@@ -1,6 +1,6 @@
 # Production milestone two implementation plan
 
-**Status: Private parser execution · 2026-11-08.** This coordinator owns PM2-00–PM2-12, shared decisions,
+**Status: Private interpretation execution · 2026-11-09.** This coordinator owns PM2-00–PM2-12, shared decisions,
 scheduled M2 review disposition and milestone qualification. The [functional review](../functional_reviews/production-milestone-two_2026-11-08.md)
 at `971111baf` governs the recommendation baseline. Its [two-pass design input](../target-pipeline-design/production-milestone-two.md)
 was recorded at `4c71fa3f4`. The five model guides were inspected at
@@ -9,7 +9,9 @@ The Transformers and Sentence Transformers guides were recorded at
 `f6b8612be`. Consuming packages cite their mechanisms and source. This
 series records the operator's corpus and design boundary. The foundation receipts
 record the qualified scope of PM2-00–02. The [parser execution account](production-milestone-two/linguistic-referential-discourse.md#parser-execution)
-owns the implementation and scoped assessment for PM2-03–05. PM2-06 onward remains proposed.
+owns the implementation and scoped assessment for PM2-03–05. The
+[interpretation account](../design_review/evidence/2026-11-09_pm2-interpretation/README.md)
+records the retained-source run and the limits on qualification. The project remains unselected.
 
 ## Target and foundation
 
@@ -147,6 +149,16 @@ The existing task, result and host GPU owners retain their custody.
 
 ## Review disposition
 
+| Package | Current execution disposition · 2026-11-09 |
+| --- | --- |
+| PM2-06 | Ordinary bounded parser modes remain selected for development. The [optional-mode disposition](production-milestone-two/linguistic-referential-discourse.md#PM2-06) records the observed gaps and the evidence needed to revisit them. |
+| PM2-07 | Release-owned d1 questions, private CUDA batch execution and located typed reads are implemented. Native run 422/cut 525 settled seven scopes. The host and referent choices and quantity normalization need improvement before adoption. The d1 frozen retrieval question still needs a same-release native journey. |
+| PM2-08 | Private Reader, CLI, MCP and exact detached proof passed for the fair-coin scope and its retained upstream alternatives. The result was a no-match proposal; it verifies custody and partial delivery. Broader composed and admission qualification remains open. |
+| PM2-09 | Three opt-in query context recipes and a typed frozen-list reader are implemented. The incumbent remains the default. A same-release paired comparison and detached replay of enriched rendering remain open. |
+| PM2-10 | Visual interpretation remains off. No selected case justifies an additional visual question. The [revisit trigger](production-milestone-two/retrieval-composition-and-delivery.md#PM2-10) requires a named material ambiguity on an authorized region. |
+| PM2-11 | Same-release exposed development set 33 froze on five exact source views and received separate A/B/C passes. Evaluation 37 supported the definition function, found an incomplete normalized quantity, and left three cases unassessed. An eligible paired baseline, protected gain and broader matching prediction scopes remain open. |
+| PM2-12 | The interpretation and enriched-query descriptors were deployed to development. Full derived qualification and selection remain open pending PM2-11 and the [eligible DMA-13 predecessor](domain-model-alignment_2026-11-08.md#dma-13). The existing Standard and Nemotron source still resolves, so no book intake or recognition rerun is required. Chandra is outside qualification. |
+
 | Review opportunity | Proposed disposition and closure owner |
 | --- | --- |
 | PM2-R01 | Addressed by PM2-01. Retain exact selected projection separately from physical occurrence and test the admitted result path. |
@@ -175,5 +187,6 @@ Completion requires a qualified four-profile release within the declared textboo
 a useful independently inspectable partial result and evidence of better named operations
 with preservation on their paired controls. The assessment companion owns exact
 release criteria and separates qualification, measured benefit, and live selection.
-PM2-07 is the next independent provider package. The parser execution account identifies
-the remaining evidence for PM2-03–05 and the boundary with PM2-06, PM2-08 and PM2-11.
+The next work is a like-for-like assessment on selected qualified scopes. Resolve the
+observed d1 misses and evaluate the richer query variants on frozen inventories before
+regenerating the selected full-book derivations. Reuse the retained source views.

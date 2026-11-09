@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "id": "pm2.interpretation-source-frame",
+  "title": "Private same-release source frame freeze",
+  "group": "pm2-interpretation",
+  "package": "PM2-11",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the existing operation reference owner freeze exposed development opportunities on unchanged retained source under the candidate release?",
+  "answers": [
+    "PM2-11"
+  ],
+  "method": "Bind five exact views without a new provider or source projection run and freeze version-2 frames through the operation reference CLI.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-interpretation/prepare_development.py RELEASE",
+    "uv run ci golden operation-create --from-run 419 --source-cut 523 --label pm2-interpretation-development --split dev --guideline pm2-interpretation-dev-1 --guideline-text docs/design_review/evidence/2026-11-09_pm2-interpretation/development-guideline.md --partition development --sample docs/design_review/evidence/2026-11-09_pm2-interpretation/raw/development-operation-sample.json --project nce-grinstead-snell-full-book --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/source-panel.json",
+      "role": "Exposed source-only development controls",
+      "sha256": "83770a3a100e16c6e6a228b7f741c3995c53538530a6764fda08aae37c79a82e"
+    },
+    {
+      "path": "development-guideline.md",
+      "role": "Frozen development rubric",
+      "sha256": "feb9c91ad266e74ac21437f6a2b060e82b5aea3fb776b7aa52c5337102089e04"
+    },
+    {
+      "path": "raw/development-operation-sample.json",
+      "role": "Exact v2 frames and sampling metadata",
+      "sha256": "5ded6256f29d30abb1271fa532a74b8c918c57abd4c5247b2b9f1ed903825d10"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/development-operation-set.json",
+      "role": "Frozen set 33 in the candidate release",
+      "sha256": "b72635c6307cd75529af920b038824fff9bc81abdf578145e37173b736ca76cb"
+    }
+  ],
+  "depends_on": [
+    "2026-11-08_pm2-foundation/pm2.development-baseline"
+  ],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "The five source-only units froze at run 419/cut 523 in set 33 before private d1 task outputs. Independently authored A/B/C passes and an eligible paired comparator remain open; this freeze does not qualify the release.",
+  "consumed_by": [
+    "PM2-11",
+    "PM2-12"
+  ]
+}

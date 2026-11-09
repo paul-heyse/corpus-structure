@@ -1,6 +1,6 @@
 # Production milestone two assessment and adoption
 
-**Proposed · 2026-11-08.** This companion develops PM2-11 and PM2-12. The
+**Development assessment · 2026-11-09.** This companion develops PM2-11 and PM2-12. The
 [coordinator](../production-milestone-two_2026-11-08.md) owns their disposition and overall
 acceptance. It carries the [assessment opportunity](../../functional_reviews/production-milestone-two_2026-11-08.md#O07)
 into the existing operation reference, evaluation and release routes.
@@ -20,6 +20,17 @@ statements about the selected operation and opportunity frame in this book.
 <a id="PM2-11"></a>
 
 ## PM2-11 · Measure incremental value and preserve valid contributions
+
+**Tested development freeze · 2026-11-09.** Set 33 contains five immutable
+version-2 opportunity frames from source-only run 419/cut 523. This cut
+selects existing authenticated source views under the interpretation release
+and performed no source extraction or recognition. Two separate source-only
+readers and adjudication recorded A/B/C. The exposed set tests private passage
+function and quantity; it leaves the unresolved variance host, unspecified
+gambler focal mention and non-unique roulette amount outside the graded scope.
+The [development account](../../design_review/evidence/2026-11-09_pm2-interpretation/README.md)
+owns the scoped findings. An eligible paired predecessor and broader
+matched prediction scopes remain open.
 
 **Prerequisites.** Start source-only reference preparation with PM2-00's eligible source
 pins and the applicable existing coordinate contract. Settle any new coordinate or coverage
@@ -94,7 +105,7 @@ diagnostic groups of one exposed origin. [D7 evaluation design](../../design/D7-
 | Discourse and attachments, PM2-05 and relevant PM2-06 modes | Pair learned versus layout-forced parsing of the same raw source. Separately compare supplied and predicted EDUs through `predict_both()` under its reconstructed input. Independently grade boundary/coverage, parent yield, ordered split, nuclearity and relation. Include a missing child and a wrong split to distinguish the causes. Keep unavailable trees in the frame. Measure whether discourse helps downstream premise or explanation attachment. |
 | Source-only capture, typed reads and interpretation, PM2-07 | Compare the current literal-only GLiNER plus grounded predicate-frame route, d1 source discovery, d1 on supplied current candidates and d1 on reviewed candidates, each where it answers the same named question. Review capture, candidate availability, choice, no-match, abstention, literal span, normalization and qualification separately. Include a source-backed missed candidate, candidate text that repeats a literal, ambiguous or unstated qualifiers, order/wording changes, and a misleading attribution. Inspect exact source evidence even when conversion fails. |
 | Scoped composition and contextual retrieval, PM2-08/09 | Compare independently correct anchored parts and complete products separately. Review a premise, a reference, and a locally resolvable occurrence when one downstream contribution fails or an attachment stays unresolved. Preserve Section 5.1's typed citation, the unresolved affine `X` with its candidate list, and `Z`'s witnessed declaration. Compare candidate availability and rank before interpretation on paired target inventories, then assess selected relation and provenance independently. A correctly rejected top-ranked candidate remains unselected. |
-| Conditional visual ambiguity, PM2-10 | Compare the current typed visual or text route with an authorized d1 question over the same authenticated region. Use Chandra only as an explicit comparator if selected. Verify wrong-crop refusal, sparse and empty bounded reads, read-only diagnostics, retired-resume refusal, preservation on interruption and the p151 artifact binding. Review location and interpretation independently. Qualify only a supported distinction that changes the intended consumer's answer. |
+| Conditional visual ambiguity, PM2-10 | If a named ambiguity warrants it, compare the existing Standard and Nemotron source or geometry route with an authorized d1 question over the same authenticated region. Verify wrong-crop refusal, sparse and empty bounded reads, read-only diagnostics, preservation on interruption and exact artifact binding. Review location and interpretation independently. Chandra is outside the milestone qualification. |
 
 [Retained textbook examples and scope limits](../../examples/README.md) ·
 [p416 and p418 source custody](../domain-model-alignment/source-projection.md#DMA-07) ·
@@ -149,6 +160,13 @@ retaining the earlier route with its reason and trigger.
 <a id="PM2-12"></a>
 
 ## PM2-12 · Adopt a qualified release for the textbook
+
+**Development only · 2026-11-09.** The acquired development database reached
+`semantic_pm2_contextual_queries` through the reviewed frozen candidates. Its
+private result does not satisfy paired preservation or gain. The retained
+Standard and Nemotron native product is intact; regenerate only selected
+derivations for the full-book release once their qualification scope is settled.
+Chandra data is excluded. No activation, selection or retirement occurred.
 
 **Prerequisites.** Consume the exact PM2-11 assessment and final native execution evidence
 for every selected operation, including required Reader/MCP journeys and any optional mode

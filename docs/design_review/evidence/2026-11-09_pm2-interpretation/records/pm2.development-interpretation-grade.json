@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "id": "pm2.development-interpretation-grade",
+  "title": "Adjudicated exposed interpretation assessment",
+  "group": "pm2-interpretation",
+  "package": "PM2-11",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which scoped outputs satisfy the frozen source-only development cases?",
+  "answers": [
+    "PM2-11"
+  ],
+  "method": "Use two independent source-only readings and adjudication on the frozen exposed partition. Grade the candidate release at matching source extent and leave unresolved question/candidate scopes unassessed.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-interpretation/record_development_passes.py",
+    "uv run ci eval run --run 423 --set-id 33 --project nce-grinstead-snell-full-book --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/reviewer-source-only.json",
+      "role": "Exact sources supplied to reviewers without prediction or expectation fields",
+      "sha256": "b4a58b4e45aa048b53492a32fd1c33dae0a82528ef882e1cc22e7aba9f9b9b9c"
+    },
+    {
+      "path": "reference-pass-notes.json",
+      "role": "Separate author and adjudication notes",
+      "sha256": "3fa5680276d7e77e761a457c2e065a6c375a0bd09a80b756753a6ad69600921b"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/development-reference-passes.json",
+      "role": "Protected A/B/C pass IDs and payloads",
+      "sha256": "34c842746ed62168e436002337428c842b2397ca5de7d7e78e02d29983eb08b3"
+    },
+    {
+      "path": "raw/development-assessment-run.json",
+      "role": "Completed candidate prediction run",
+      "sha256": "ccd3b76d1985d2764325a638c5eda8164be123484d34151e7c0606c03ae6816f"
+    },
+    {
+      "path": "raw/development-evaluation.json",
+      "role": "Evaluation 37 exact case outcomes",
+      "sha256": "3d4b6749cc7a2e4b2aace07002d6af89434e7728f41ee6e5824a047578f431cc"
+    },
+    {
+      "path": "raw/development-evaluation-capture-defect.json",
+      "role": "Preserved evaluation 36 before scoped capture repair",
+      "sha256": "a39ecec31c0865c467c8b8b90a2d524f14f077f1d91ade0c3de94310a6ee9c31"
+    }
+  ],
+  "depends_on": [
+    "pm2.native-d1-batch",
+    "pm2.interpretation-source-frame"
+  ],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Definition function supported; fair-coin complete quantity unsupported because numeric normalization remained unresolved; three cases unassessed. A paired incumbent and full released scope remain open.",
+  "consumed_by": [
+    "PM2-11",
+    "PM2-12"
+  ]
+}

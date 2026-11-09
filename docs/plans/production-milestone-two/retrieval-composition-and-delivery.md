@@ -1,6 +1,6 @@
 # M2 retrieval, composition, and delivery
 
-**Proposed · 2026-11-08.** Owns PM2-08–PM2-10. Realizes
+**Private implementation · 2026-11-09.** Owns PM2-08–PM2-10. Realizes
 [O06](../../functional_reviews/production-milestone-two_2026-11-08.md#O06),
 the candidate route for [O05](../../functional_reviews/production-milestone-two_2026-11-08.md#O05),
 and conditional [O09](../../functional_reviews/production-milestone-two_2026-11-08.md#O09).
@@ -9,6 +9,14 @@ The [coordinator](../production-milestone-two_2026-11-08.md) owns scope and disp
 <a id="PM2-08"></a>
 
 ## PM2-08 · Compose located evidence and deliver independently useful parts
+
+**Tested · 2026-11-09.** The private Reader preserves parser-native roles,
+bounded Dipo context, the assessed interpretation extent, and exact candidate
+and witness references. On run 422/cut 525, CLI and MCP agreed on the fair-coin
+condition scope and both host alternatives. The exact detached proof resolved
+the original parser task under run 421/cut 524. The no-match result preserved
+both candidates without admitting an attachment. Wider composition and
+assessment still need qualification.
 
 **Inputs and result.** Consume selected source and exact upstream observations or
 coverage outcomes, using PM2-01 bindings. Join by authenticated occurrence, local
@@ -93,6 +101,26 @@ delivery scope. Report larger requests that exceed hydration or row budgets expl
 
 ## PM2-09 · Improve candidate context using Sentence Transformers
 
+**Implemented · 2026-11-09.** The opt-in `retrieve.contextual/11` renderers add one exact parser
+signal: a frame, a preceding local referent, or a Dipo neighbor. They preserve
+the original lexical literal, target encoding/cache and witnessed selection.
+The stored configuration contract for `retrieve.contextual/10` is unchanged.
+Use separate explicit method registries for the incumbent and the enriched
+arm of a private comparison; both use the existing source-method runner.
+The frozen-list Reader resolved 14 exact definition alternatives in retained
+run 258 and refused a changed source. That verifies lookup. The same-release
+paired comparison, d1 consumption on that paired path and offline replay of
+the enriched rendering remain open. Exact detached export refuses the richer
+rendering until its proof can be replayed. The existing rendering stays the
+default.
+
+For the next comparison, the retained book view 391 has the affine `X`
+and the standard-normal `Z` definition on the same native item
+`#/texts/11503`. Narrow the upstream occurrence producer to that exact
+item. The full-view occurrence and target pools exceed the configured
+256-input encoder bound. Keep the same source, targets, scope and encoder
+profile in both arms; compare candidate availability before selection.
+
 Reuse the existing contextual encoder, target registry, lexical channel, dense
 channels, bounded fusion and witnessed selection. The current profiles use
 `sentence-transformers==6.2.0` with E5-small-v2
@@ -157,6 +185,14 @@ remains deferred. [Frozen inventory and fusion](../../../python/corpus-structure
 <a id="PM2-10"></a>
 
 ## PM2-10 · Inspect an exact retained visual region when needed
+
+**Disposition · 2026-11-09.** The current milestone cases use authenticated
+Standard and Nemotron source. No selected case has shown a material ambiguity
+that those source and geometry reads cannot settle, so the d1 visual route
+remains off. Revisit on a named unanswered location or classification question
+with an exact retained region, crop authority, and a consumer whose result
+would change. Chandra data and recognition are outside current qualification;
+the routes below describe historical or separately scoped work.
 
 Run only for an explicitly authorized question over an authenticated region
 where the existing text, geometry and candidates are insufficient. Start with a
