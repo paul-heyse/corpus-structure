@@ -3,6 +3,17 @@ model = "gpt-6-astra"
 model_reasoning_effort = "high"
 plan_mode_reasoning_effort = "high"
 
+# Workstation Bash bridge reloads approved direnv settings for the command directory.
+# Keep the shared daemon; do not replay its captured shell environment.
+allow_login_shell = false
+
+[features]
+shell_snapshot = false
+
+[shell_environment_policy.set]
+BASH_ENV = "/home/paul/.config/codex/bash-env.bash"
+UV_LOCKED = "1"
+
 [agents]
 enabled = true
 default_subagent_model = "gpt-6.1-sol"

@@ -33,6 +33,11 @@ _Updated 2026-11-09. Development runs `semantic_pm2_condition_admission`. The pr
 
 ## CLI operations — 2026-11-07
 
+- On 2026-11-09, [project Codex settings](.codex/config.toml) restored per-command approved
+  direnv refresh through the installed workstation Bash bridge while retaining the shared
+  daemon. Live daemon shell checks passed for this checkout and `pse-arrow`; the existing
+  workstation environment suite passed all 14 tests. Exit/resume existing CLI sessions to
+  load the settings. Product qualification was `not_run` for this configuration change.
 - The [ci skill](.claude/skills/ci/SKILL.md) documents routine routes and repair ownership.
 - The [CLI reporting repairs](docs/plans/cli-reporting_2026-11-07.md#merged-source-verification)
   passed targeted main verification, including the installed native journeys.
