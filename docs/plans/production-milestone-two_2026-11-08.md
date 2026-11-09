@@ -266,6 +266,40 @@ The package owners below define inputs, decisions and evidence.
 | [I09](../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I09) | Conditional measurement | [PM2-02](production-milestone-two/source-contracts-and-model-execution.md#staged-workload-operating-comparisons) | PM2-08/12 own smaller exact proof; stage workload evidence first, select only on parity and measured benefit. |
 | [I10](../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I10) | Deferred outside immediate PM2 | [PM2-08 (revisit only)](production-milestone-two/retrieval-composition-and-delivery.md#artifact-identity-revisit) | Reviewed title/alias identity miss and a selected linkage question; no staging or selection dependency. |
 
+### Structuring execution · 2026-11-09
+
+The [execution evidence](../design_review/evidence/2026-11-09_pm2-structuring-execution/README.md)
+records the current scoped work. The structuring review's dispositions above remain
+the owner of the package boundaries.
+
+- **I01/I02 · Implemented and scoped Tested.** Native d1 v3 run 481/cut 596
+  retained provider `empty` with successful projection of one private unresolved
+  question, no answer anchor or occurrence, and matching CLI and fresh MCP. The
+  maintained-claim native and interpretation selection passed seven tests
+  (`bdb7cf2b077a44bb9d243f3747069b7e`). The protected evaluator selection passed
+  65 tests (`ba17547dabd14dda8f663dbf33ce65af`). Evaluations 39 and 41 still report
+  two unchanged transitions and now also show two persistent unsupported cases.
+- **I03 · Implemented private projections.** Returned GLiNER assertion associations,
+  HanLP qualifier-host and modifier facets, and local Maverick candidate facets
+  preserve exact members and producer attribution. The scoped composition tests passed
+  57 (`14e1fc8a8aa44da590f446ffb0f7750d`), with 12 follow-up tests
+  (`e19e1be54cdf4af09d747322000bfd15`). Independent workflow gain remains open.
+- **I04/I05 · Diagnostics settled at their recorded scope.** Packed GLiNER scoring
+  preserved authored score identity under reversal where admissible; protected
+  source and native alignment guards refused other populations. The predicate
+  attribute challenger did not recover the intended spans. The native d1 screen
+  left the fixed-offer misses and lost the fair-coin control in the split quantity
+  arm. Keep the incumbent. Neither result establishes a protected structure gain.
+- **I06/I08/I09/I10 · Incumbents retained.** No new discriminating discourse
+  frame or selected identity-linkage question was established. The repeated-support
+  fixture exposes the effect of duplicate factors; no staged production decision
+  is shown to consume them. Batching failed exact native output parity, and
+  compression preserved exact offline proof with smaller transport only. Do not
+  change numerical policy, retrieval defaults or logical proof completeness.
+- **I07 · Private source-ready.** Run 478/cut 595 resolved all 29 views under
+  the same authenticated Standard and Nemotron product. No Chandra, recognition,
+  activation or selection ran. The derived workflow qualification remains open.
+
 ## Completion audit
 
 **2026-11-09 · Inspected source `c86e5c90a`, clean before audit edits.** Two

@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "id": "pm2.repeated-support-diagnostic",
+  "title": "Repeated support in the finite interpreter",
+  "group": "pm2-structuring-execution",
+  "package": "PM2-08",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does declaring dependence prevent duplicate attributed factors from gaining a second vote?",
+  "answers": [
+    "I08"
+  ],
+  "method": "Compare four two-reading cases against hand-computed support, preserving event-union semantics.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-structuring-execution/dependence_probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "dependence_probe.py",
+      "role": null,
+      "sha256": "ce19b1f423ac00a47e366bbafa7ddfa0b7a92db271f13e8344dd50ef7351f482"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/dependence.json",
+      "role": null,
+      "sha256": "35f7d899ea8859e6f4920d9a617f4f5ecfdbb93a128c717f0e13a41cf64c7548"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "fixed cases",
+      "value": 4,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Explicit duplicate factors inflate support even with dependence metadata. Existing table assembly groups attributed support; the control does not establish duplicated production evidence. No arithmetic change selected.",
+  "consumed_by": [
+    "PM2-11",
+    "PM2-12"
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "id": "pm2.completed-empty-d1",
+  "title": "Native completed empty d1 read and unresolved delivery",
+  "group": "pm2-structuring-execution",
+  "package": "PM2-07",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can an attempted absent span remain visible without claiming an occurrence?",
+  "answers": [
+    "I01"
+  ],
+  "method": "Run the pinned CUDA provider on an exact retained p289 window and check the result through managed coverage, CLI and fresh MCP.",
+  "commands": [
+    "uv run ci run interpret --request REQUEST.json --json",
+    "uv run ci contributions list --json"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/d1-empty-request.json",
+      "role": null,
+      "sha256": "3de2ad393949e9100825e3770ec7f52fc70441b66d4b9ae153d78c59114fd6dd"
+    },
+    {
+      "path": "raw/d1-empty-result.json",
+      "role": null,
+      "sha256": "5f0241aa522dd5b906afe50e851e057ba007b36007e4de839c23eeb4950ac511"
+    },
+    {
+      "path": "raw/d1-empty-cli.json",
+      "role": null,
+      "sha256": "7c07afa70ef95f87180e59eaef8a7637d333964f0c89b6e0ab299c91750effd2"
+    },
+    {
+      "path": "raw/d1-empty-mcp.json",
+      "role": null,
+      "sha256": "0ff0286667c60cc42118ee2c02945b36d5d63471581832711e8a3691a3ebf546"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "run",
+      "value": 481,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "cut",
+      "value": 596,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "typed unresolved questions",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Provider empty and successful question projection remain separate. The ordinary consumers agreed on the unresolved date, found value 0.0 and no anchor or occurrence.",
+  "consumed_by": [
+    "PM2-11",
+    "PM2-12"
+  ]
+}

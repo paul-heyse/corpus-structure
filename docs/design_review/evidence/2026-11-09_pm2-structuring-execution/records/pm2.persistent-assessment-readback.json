@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "pm2.persistent-assessment-readback",
+  "title": "Persistent unsupported cases on frozen evaluations",
+  "group": "pm2-structuring-execution",
+  "package": "PM2-11",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does current state remain visible without changing the transition grade?",
+  "answers": [
+    "I02"
+  ],
+  "method": "Read exact stored evaluations through the installed evaluator CLI and compare shared review composition.",
+  "commands": [
+    "uv run ci eval operation-compare --baseline 39 --revised 41 --project nce-grinstead-snell-full-book --json"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/assessment-summary.json",
+      "role": null,
+      "sha256": "c0f6d9d2674abd773a3cf7f9c3ef21a0bb0c3eee47e32e0faf98d090c5b65ddf"
+    },
+    {
+      "path": "raw/assessment-review-readback.json",
+      "role": null,
+      "sha256": "8b1686fe03e1ab42804f80bb5984187108fa12b788433c5fdfbb893d2b37006d"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "unchanged transitions",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "persistent unsupported cases",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Both historical transitions remain unchanged; the host and referent are explicitly persistently unsupported and cause is unknown. No historical grade was rewritten.",
+  "consumed_by": [
+    "PM2-11",
+    "PM2-12"
+  ]
+}

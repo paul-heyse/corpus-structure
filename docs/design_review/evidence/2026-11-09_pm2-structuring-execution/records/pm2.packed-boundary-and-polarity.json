@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "id": "pm2.packed-boundary-and-polarity",
+  "title": "Packed GLiNER boundaries and local polarity",
+  "group": "pm2-structuring-execution",
+  "package": "PM2-07",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do jointly scored exact candidates and predicate-local polarity offer a basis for adopting a challenger?",
+  "answers": [
+    "I04"
+  ],
+  "method": "Replay retained exact windows using the pinned CPU boundary checkpoint and vary explicit span populations; compare the presence of one local attribute on authored diagnostic cases.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-structuring-execution/packed_gliner.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "packed_gliner.py",
+      "role": null,
+      "sha256": "5e9c7f735f2de63fc1725c15c01090ffd86f3f849c6fbbac7f79b230b95a3f5b"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/packed-gliner.json",
+      "role": null,
+      "sha256": "0d2930e84aaabed01d233a07b8a98c58011406bd2c70fda57d730230cd21ce4a"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "independent populations scored",
+      "value": 5,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unions scored",
+      "value": 3,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "order-invariant query/span scores",
+      "value": 133,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Packed diagnostic scores were order-invariant on admitted authored cases. Several union and alignment refusals remain, and the polarity arm did not recover the intended predicates. No independent structure gain or mode change was established.",
+  "consumed_by": [
+    "PM2-11",
+    "PM2-12"
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "id": "pm2.gliner-batch-parity",
+  "title": "Exact retained GLiNER batch versus singleton output",
+  "group": "pm2-structuring-execution",
+  "package": "PM2-02",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does compatible batching preserve the native singleton outputs on the retained windows?",
+  "answers": [
+    "I09"
+  ],
+  "method": "Compare two warm singleton and batch passes over the same six exact windows and pinned ordered schema; test bounded refusal and recovery.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-structuring-execution/gliner_batch_probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "gliner_batch_probe.py",
+      "role": null,
+      "sha256": "df6bd970f1a5fbf4d8340aff7578dacde2f63ddc5d7b6f44efa50cc430471484"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/gliner-batch.json",
+      "role": null,
+      "sha256": "494c24cada30a401bea9548463ddb2b520817771c77f9118a18f5c5d5f9114aa"
+    },
+    {
+      "path": "raw/gliner-batch-initial-refusal.txt",
+      "role": null,
+      "sha256": "0a0a60a60dbebfee674fb0ec9c3277b063f1a4fe91d44779b4e039e7a6b3637a"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Exact native responses per pass",
+      "value": 2,
+      "of": 6,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "failed",
+  "conclusion": "Batching preserved source order but four exact native responses per pass differed. Keep the singleton route; timing is inconclusive.",
+  "consumed_by": [
+    "PM2-02",
+    "PM2-12"
+  ]
+}

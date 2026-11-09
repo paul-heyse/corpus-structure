@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "id": "pm2.retained-composition-reader",
+  "title": "Private parser composition through ordinary readers",
+  "group": "pm2-structuring-execution",
+  "package": "PM2-08",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do retained role and local referent proposals survive ordinary Reader, CLI and fresh MCP delivery?",
+  "answers": [
+    "I03"
+  ],
+  "method": "Read exact retained HanLP and Maverick cuts and compare ordinary transports, omitting only the request capture UUID. Read p289 against its exact prior public receipt.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-structuring-execution/retained_composition_reader.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "retained_composition_reader.py",
+      "role": null,
+      "sha256": "b4e3ee1b12225eaea8f18151e7bb52057ce372ed2cfac1580bbfec3cf9828fce"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/retained-composition-reader.json",
+      "role": null,
+      "sha256": "c6e8068ca095ab46a83cf4e52011de6aff8d67c72cacb9bfc387c9cfe7d965c5"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Located HanLP qualifier-host facets",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Local Maverick candidates",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Ordinary transports agree; the earlier p289 admission remains exactly readable. The retained Maverick scope lacks compatible nominal evidence. No new protected semantic gain or admission was established.",
+  "consumed_by": [
+    "PM2-11",
+    "PM2-12"
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "id": "pm2.fixed-offer-structuring",
+  "title": "Fixed-offer native d1 wording and literal parts",
+  "group": "pm2-structuring-execution",
+  "package": "PM2-07",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does task-specific d1 rendering improve the known misses with the exact same offered evidence?",
+  "answers": [
+    "I05"
+  ],
+  "method": "Read authenticated settled inputs and compare incumbent and candidate renderings using the pinned CUDA worker. Keep this private screen separate from protected grading.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-structuring-execution/fixed_offer_d1.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "fixed_offer_d1.py",
+      "role": null,
+      "sha256": "d1e0ca0c25922c55da7f26627b5df3df3807752108b93b62f6c81063574f8d4f"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/d1-fixed-offer-screen.json",
+      "role": null,
+      "sha256": "80bcc5eb39f5bd6410f8ab9aeea0d88940378d1a34beda8308a421d6fd83f7ff"
+    },
+    {
+      "path": "raw/d1-fixed-offer-initial-refusal.json",
+      "role": null,
+      "sha256": "f243203e7d2111f279eb887673bd44abc912592958cbe2c95c6b69092a3b0d56"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "settled native replies",
+      "value": 15,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The host, referent and exponential-density misses persisted; decomposed quantity lost the exact fair-coin control. Retain the incumbent. No new protected grade was run.",
+  "consumed_by": [
+    "PM2-11",
+    "PM2-12"
+  ]
+}

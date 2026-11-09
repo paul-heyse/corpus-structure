@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "pm2.exact-closure-transport",
+  "title": "Smaller transfer of the same exact affine closure",
+  "group": "pm2-structuring-execution",
+  "package": "PM2-08",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the retained exact affine proof transfer in fewer bytes without changing its manifest or refusal behavior?",
+  "answers": [
+    "I09"
+  ],
+  "method": "Measure the managed manifest, compress the original tree, unpack and verify it with the original manifest hash. Exercise omission, substitution and changed-member refusal.",
+  "commands": [
+    "uv run ci review verify BUNDLE --manifest-sha256 EXPECTED --json"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/affine-transport.json",
+      "role": null,
+      "sha256": "c657794c92ad507e2980509a518ba75efcbda820b40db02b6fe7b323dcf16d0c"
+    },
+    {
+      "path": "raw/affine-verified.json",
+      "role": null,
+      "sha256": "063279141f5f4a9c198590611d38148ca9a8ce1583e3cc504eb05ce87212a716"
+    },
+    {
+      "path": "raw/affine-omission.json",
+      "role": null,
+      "sha256": "9afa356f4bacd591ccc02e822f498b79061c6eb2ec3d6a6ff386d3f3244e07c8"
+    },
+    {
+      "path": "raw/affine-substitution.json",
+      "role": null,
+      "sha256": "4b38933d273892eced7f6df45448b9e104c604710c67a5f4f2675acc160af154"
+    },
+    {
+      "path": "raw/affine-changed-sibling.json",
+      "role": null,
+      "sha256": "4b38933d273892eced7f6df45448b9e104c604710c67a5f4f2675acc160af154"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "relation bytes",
+      "value": 335644868,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "compressed transfer bytes",
+      "value": 103073275,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The restored exact closure and refusal checks pass. Compression reduces transfer bytes only; it does not reduce logical proof dependencies. Keep the incumbent verifier and closure.",
+  "consumed_by": [
+    "PM2-11",
+    "PM2-12"
+  ]
+}
