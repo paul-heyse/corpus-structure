@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "id": "dma.predecessor-bounded-grade",
+  "title": "Current admitted bounded DMA predecessor replay and grade",
+  "group": "dma-predecessor",
+  "package": "DMA-13",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can a bounded exact native subsection resolve the archived run's scope limitation and preserve independently identified definition and qualified-assertion readings?",
+  "answers": [
+    "DMA-13"
+  ],
+  "method": "Freeze a complete native subsection from the retained integrated product before grading; replay ordinary CPU M1 methods on the admitted release and grade the uniquely corresponding physical view.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-09_dma-predecessor/replay_section.py source-only --section '#/groups/590'",
+    "uv run python docs/design_review/evidence/2026-11-09_dma-predecessor/replay_section.py default --section '#/groups/590' --release release:d79e9a624e59a449d549a933bc512c3fed2780c1198276596a486696084b727f --realization source:pm2-interpretation:release:d79e9a624e59a449d549a933bc512c3fed2780c1198276596a486696084b727f",
+    "uv run ci run finalize 437 --output-realization result:dma-adoption-current:moment-generating-functions --json",
+    "uv run ci eval run --run 437 --set-id 35 --project nce-grinstead-snell-full-book --json",
+    "uv run ci records list --run 437 --project nce-grinstead-snell-full-book --source-view 409 --include-diagnostics --limit 10 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/section-source-run.json",
+      "role": "Source-only section run 424/cut 527",
+      "sha256": "0214e3781d4ae0e117b7db9f7e45570892e02dc80435cf6e6e5d42034e5a53dd"
+    },
+    {
+      "path": "raw/section-sample.json",
+      "role": "Exact native subsection source-only extent",
+      "sha256": "592a247bc16b623cf8517086979166055b1f46593baeedd43b837abcf8c3e1bb"
+    },
+    {
+      "path": "raw/section-freeze.json",
+      "role": "Protected development set 35",
+      "sha256": "8ef218365e93f91a6201363138ea6967e05a89fab070ed86e40157aa89643058"
+    },
+    {
+      "path": "raw/adjudication-53.json",
+      "role": "Exact source-only adjudication input",
+      "sha256": "70d04f81bb88c1b5dde2d17c2062dc8bcc1e8d5d32e5fce6e9c4848d467f46b8"
+    },
+    {
+      "path": "raw/authored-53-c.json",
+      "role": "Adjudicated definition, conditional assertion and formula bindings",
+      "sha256": "4baf429d2376049814b68b02a05dbf51237fa7cc6163457e846dfbf637e8d7c4"
+    },
+    {
+      "path": "raw/post-repair-development.json",
+      "role": "Acquired development target after native guard deployment",
+      "sha256": "e5ecc6ffb01174b4712c93266f3e8559a27f6407ead8f61557712e8cda361f0f"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/section-derived-source.json",
+      "role": "Exact current selected source view",
+      "sha256": "ed294a7beb62607431a84069a39d2ccb39d1cf7042a107120de09f66be393772"
+    },
+    {
+      "path": "raw/section-task-settlement.json",
+      "role": "Native retained projection, CPU annotation and candidate settlement",
+      "sha256": "c879811f7cbb0876abab8aa467f21acc7a8188ccaeab6c83e8afd169e857b629"
+    },
+    {
+      "path": "raw/section-finalize.json",
+      "role": "Private completion run 437/cut 537",
+      "sha256": "c8fa3d2cf6eaa09a567f89b93c3957cd01ee4d449f0adfb81d8aa3468c78559e"
+    },
+    {
+      "path": "raw/section-grade.json",
+      "role": "Native evaluation 43 with exact cross-release applicability and no-output diagnostics",
+      "sha256": "018a70ab167a79b51b1b9a9c65cf4f12f9262aabebca502b53930dc50178e4de"
+    },
+    {
+      "path": "raw/section-reader.json",
+      "role": "Explicit completed Reader route, zero records with report coverage",
+      "sha256": "620717143de992825f6f35261c52189230145e9ddbcac6ca9cb07c436ef3abc8"
+    }
+  ],
+  "depends_on": [
+    "dma.predecessor-whole-view-grade"
+  ],
+  "results": [
+    {
+      "name": "Exact cross-release views mapped",
+      "value": 1,
+      "of": 1,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Protected readings reported as no output",
+      "value": 5,
+      "of": 5,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Accepted full-tier matches",
+      "value": 0,
+      "of": 5,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The normal CPU incumbent completed the exact retained subsection and the native evaluator accepted the old-to-current physical source correspondence. Evaluation 43 found no output for all five independent source readings. The ordinary Reader reports zero records with the exact producer coverage. The bounded run and older full-book run are not eligible DMA-13 predecessors.",
+  "consumed_by": [
+    "DMA-13",
+    "PM2-12"
+  ]
+}

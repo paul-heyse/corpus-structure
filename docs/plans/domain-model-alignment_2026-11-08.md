@@ -91,7 +91,7 @@ evidence rather than changing another plan's obligations. The
 | DA-058 · [DMA-10](domain-model-alignment/visual-evidence.md#DMA-10) | Group recovery and original custody | Live crops at cut 519 reused both exact raw responses from cut 518 with provider files unavailable. Recognition standing remained `unknown`. Live cancellation restored Nemotron. These results are scoped to the tested Chandra runtime. |
 | DA-066 · [DMA-11](domain-model-alignment/visual-evidence.md#DMA-11) | Typed visual Reader | The typed spatial locator and near-limit sparse and empty regional checks passed focused native controls. The frozen descriptor verifies the access path. |
 | [DMA-12](#dma-12) | Coordinator and affected authorities | Bounded investigations delivered. Final-source reference-path coverage remains open. The second-pack control establishes only its scoped transfer case. |
-| [DMA-13](#dma-13) | Native migration and assembled acceptance | Development migration, archive and admission verified. The replacement full-book candidate run finished privately at cut 517. Qualification uses the retained Standard and Nemotron source. Evaluated acceptance and selected cutover remain open. |
+| [DMA-13](#dma-13) | Native migration and assembled acceptance | Evaluation 42 on retained cut 517 missed both protected Preface readings. Evaluation 43 on admitted bounded cut 537 matched exact source scope but found no outputs for five protected readings. Neither result qualifies as a predecessor. Selected cutover remains open. |
 
 Source-view coverage, source-value validity, numerical consistency, derivation
 and target identity have priority by consequence. Start the release compiler
@@ -745,3 +745,51 @@ still match the source-only cut 514. The known grading refusal against set 32
 requires independently authored full-view references for the run's full-view
 predictions, or a supported bounded run with matching reference scope. An eligible
 predecessor for PM2-12, activation, selection and derived retirement remain open.
+
+#### Non-Chandra predecessor assessment · 2026-11-09
+
+The retained [whole-view grade and source journey](../design_review/evidence/2026-11-09_dma-predecessor/README.md)
+use the exact Standard and Nemotron integrated product, task 1627, shared by
+all 29 source views in runs 404 and 407. Protected set 34 freezes the
+complete Preface and Chapter 1 heading views with separate A/B/C readings.
+`uv run ci eval run --run 407 --set-id 34 --project nce-grinstead-snell-full-book --json`
+passed and persisted evaluation 42. It found neither protected Preface
+reading among the retained predictions and no accepted matches. The
+heading had zero eligible readings but one private false definition
+proposal; no proposal advanced to accepted standing. This resolves the
+scope mismatch for these two controls. It does not establish quality or
+make run 407 an eligible predecessor.
+
+On the acquired development target at `semantic_pm2_contextual_queries`,
+the archived DMA release passed `ci release check`. Its ordinary native
+`ci db check` refused because its archived admission does not bind the
+current guard descriptor. The explicit PM2 release passed the same native
+check. The pinned p416 CLI and fresh MCP Reader responses agreed, a
+changed native digest refused, and the detached heading proof for cut 517
+verified. The focused record reference and CLI selection passed 41 tests
+in `647b994391b343e6a29b7fb3b278b859`. These are bounded checks; the
+final ordinary, fault, applicable Rust and provider union remains open.
+
+Protected set 35 uses a complete native subsection projected from the
+same retained product through source-only run 424/cut 527. That exact
+scope supplies definition and qualified-assertion controls without
+cropping the old prediction scope or repeating recognition. Its separate
+A/B/C passes settled before replay. On the reached development revision
+`semantic_pm2_definition_scope`, the already admitted PM2 release's
+ordinary CPU annotation and candidate route settled run 437, and
+`ci run finalize` published six private reports and zero occurrences at
+cut 537. `uv run ci eval run --run 437 --set-id 35 --project nce-grinstead-snell-full-book --json`
+passed and persisted evaluation 43. Native applicability mapped the
+reference view 408 to current-release view 409 under the exact same
+native product, projection and recipe. The producer reported
+`produced`, but the grade recorded `no_output` for each of five
+independent readings: the definition, qualified assertion and three
+located formula bindings. The matching development scope is now usable;
+the protected reading preservation failed. Neither run is eligible.
+
+Resolve the affected candidate/reading behavior against fresh exact
+controls before a full predecessor campaign; do not turn an attempted
+no-output into an accepted match or widen the proof to the book. Keep the
+private results, source and protected evidence under their original
+bindings. Activation, selection, derived retirement and the final
+qualification union remain open.

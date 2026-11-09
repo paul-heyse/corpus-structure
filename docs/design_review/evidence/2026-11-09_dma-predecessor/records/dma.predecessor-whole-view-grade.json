@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "id": "dma.predecessor-whole-view-grade",
+  "title": "Protected whole-view grading of the retained DMA predecessor",
+  "group": "dma-predecessor",
+  "package": "DMA-13",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does exact whole-view grading of the retained non-Chandra result satisfy the source-preservation controls for predecessor eligibility?",
+  "answers": [
+    "DMA-13"
+  ],
+  "method": "Freeze two complete source-selected views, retain independent source readings and adjudication, then grade existing predictions under the released exact-cut validator. Check the archived target and private native source closure separately.",
+  "commands": [
+    "uv run ci golden record-create --from-run 404 --source-cut 514 --label 'DMA-13 full preface and heading controls' --split dev --guideline statistics-m1-reference-3 --guideline-text domains/statistics/m1-reference-guideline.md --partition development --reference-policy statistics-reading-occurrence-2 --prediction-policy m1-grouped-reading-logistic-1 --sample docs/design_review/evidence/2026-11-09_dma-predecessor/raw/full-view-sample.json --project nce-grinstead-snell-full-book --json",
+    "uv run ci eval run --run 407 --set-id 34 --project nce-grinstead-snell-full-book --json",
+    "uv run ci records list --run 407 --project nce-grinstead-snell-full-book --source-view 382 --standing candidate --limit 2 --json",
+    "uv run ci db check --release release:675b5f723ce83aadf7b8b1df7f0784fdc2c455d02b3979f1eae2cec30c352a56 --json",
+    "uv run ci release check --release release:675b5f723ce83aadf7b8b1df7f0784fdc2c455d02b3979f1eae2cec30c352a56 --project nce-grinstead-snell-full-book --json",
+    "uv run ci review inspect --result ea341ab7e1164874b00f6a3c1c44fa31 --json",
+    "uv run ci test --json -- python/corpus-structure/tests/evaluate/test_record_reference_cli.py python/corpus-structure/tests/evaluate/test_record_references_native.py"
+  ],
+  "agents": [
+    {
+      "role": "A author",
+      "model": "Inherited session model (exact setting not recorded)",
+      "brief": null,
+      "separation": "Coordinator working context read the frozen packets and source guideline before this grade; no run 407 predictions."
+    },
+    {
+      "role": "B author",
+      "model": "gpt-6.1-sol high",
+      "brief": null,
+      "separation": "Fresh /root/source_reader_b context read only frozen source packets and released guideline/contracts."
+    },
+    {
+      "role": "C adjudicator",
+      "model": "Inherited session model (exact setting not recorded)",
+      "brief": null,
+      "separation": "Separate /root/dma_gate context used source frames and independent A/B before opening predictions."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "raw/full-view-sample.json",
+      "role": "Exact source-only frame sample",
+      "sha256": "4c6e422bf4410f0a2cf5526f9ffc5267bbeb0e0831a3c9555a5d1d2f2638b92b"
+    },
+    {
+      "path": "raw/full-view-freeze.json",
+      "role": "Protected set 34",
+      "sha256": "2ab4f99064b88b77b78c95e2a49bc918ac78682780570d86d4846f9614c9b2ed"
+    },
+    {
+      "path": "raw/adjudication-51.json",
+      "role": "Exact preface adjudication input",
+      "sha256": "c238504d151527e792c06ccac35dffff4ef64231caeb312db8c29ae04e4d8fd3"
+    },
+    {
+      "path": "raw/adjudication-52.json",
+      "role": "Exact heading adjudication input",
+      "sha256": "677b9beba7bf1cc7b524cbb3327149867eace1800f0e1511442f678e0ce1b93d"
+    },
+    {
+      "path": "pass-c-adjudication.md",
+      "role": "Reasoned source dispositions",
+      "sha256": "95c435f978c639745b86b1e1132be4daf0da19eb187442e29258f2c21c3a936f"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/full-view-grade.json",
+      "role": "Native protected evaluation 42",
+      "sha256": "0b302531b689d2ffb67b2a7bbb2c5cf414742606ec9124a8540173c53b500941"
+    },
+    {
+      "path": "raw/records-381.json",
+      "role": "Exact preface private candidate",
+      "sha256": "a9260b0d7fb22bae688e150e7d3b36b835bd52b31481e013fd95f51d1d575ebd"
+    },
+    {
+      "path": "raw/records-382.json",
+      "role": "Exact heading private candidate",
+      "sha256": "a3f8b53ae5fb657098f5d8660ef8f0544cb41e3f026388fae5c1af0a91ff64bb"
+    },
+    {
+      "path": "raw/dma-release-native-check.json",
+      "role": "Archived-release current-admission refusal",
+      "sha256": "77c486f06ebadc51976abf53d2ee0620a5a5353c1c8906509dbd3e5c0561ebf5"
+    },
+    {
+      "path": "raw/dma-release-archive-check.json",
+      "role": "Successful immutable archive verification",
+      "sha256": "ec8b9f8a69b279253733f7a900433bef211a8c586eaac096d9e2c88357a47f2e"
+    },
+    {
+      "path": "raw/retained-detached-inspect.json",
+      "role": "Verified detached heading source closure",
+      "sha256": "21187f2b39968069b8439d595ebc5b8b34e33347b8349991ee57f5ab06e1946a"
+    },
+    {
+      "path": "raw/source-p416-mcp.json",
+      "role": "Fresh MCP source read and changed-digest refusal",
+      "sha256": "6b70276e38120fc774e5fd49c25210636d413fb7598e94ddaf5c37df70f4bba0"
+    },
+    {
+      "path": "raw/record-reference-tests.json",
+      "role": "Managed focused CLI and native record tests",
+      "sha256": "5df8d0a1c4cfb234623f789a00afa29e7e64813191066497caf023be85c23e98"
+    }
+  ],
+  "depends_on": [
+    "2026-11-08_dma-audit-repair/dma.audit-full-book-candidate"
+  ],
+  "results": [
+    {
+      "name": "Whole-view development units graded",
+      "value": 2,
+      "of": 2,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Accepted full-tier matches",
+      "value": 0,
+      "of": 2,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Focused tests passed",
+      "value": 41,
+      "of": 41,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Native evaluation 42 scored both exact whole-view units without replay. Both protected preface readings were missing, and the heading emitted a private false definition candidate without acceptance. The archived release remains readable but did not pass current native admission on the acquired target. Run 407 therefore remains private comparator evidence, not an eligible DMA-13 predecessor.",
+  "consumed_by": [
+    "DMA-13",
+    "PM2-12"
+  ]
+}
