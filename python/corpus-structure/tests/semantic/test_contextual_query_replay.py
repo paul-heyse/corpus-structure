@@ -6,7 +6,10 @@ from hashlib import sha256
 import pytest
 
 from corpus_structure.core.evidence import config_key
-from corpus_structure.methods.contextual_candidates import ContextualQueryConfig
+from corpus_structure.methods.contextual_candidates import (
+    ContextualCandidateConfig,
+    ContextualQueryConfig,
+)
 from corpus_structure.methods.contextual_embeddings import E5, identity
 from corpus_structure.semantic.contributions import (
     contribution_identity,
@@ -17,6 +20,7 @@ from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.record_contracts import anchor_identity
 from corpus_structure.semantic.source_contexts import record_source_pin
+from corpus_structure.serve.contextual_query_replay import retained_query_selection
 from corpus_structure.serve.contributions import ContributionRequest
 from corpus_structure.serve.review_bundle import (
     ReviewSelection,
@@ -135,6 +139,20 @@ def test_detached_v11_query_receipt_uses_original_context(
             ),
         )
     ).model_dump(mode="json")
+    if substitution is None:
+        bounded = {k: v for k, v in cfg.items() if k != "query_context"}
+        legacy = ContextualCandidateConfig.model_validate(bounded)
+        assert "required_occurrence_ids" not in legacy.model_json_schema()["properties"]
+        with pytest.raises(ValueError, match="requires explicit exact carriers"):
+            retained_query_selection("retrieve.contextual", "11", bounded)
+        bounded["required_occurrence_ids"] = [occurrence_id]
+        assert retained_query_selection("retrieve.contextual", "11", bounded) is None
+        with pytest.raises(ValueError, match="requires distinct component query carriers"):
+            retained_query_selection(
+                "retrieve.contextual",
+                "11",
+                {**bounded, "required_occurrence_ids": [occurrence_id, occurrence_id]},
+            )
     key = operation_identity("retrieve.contextual", "11", cfg, pin)
     carrier = occurrence("request", "focal", "contextual.located_mention", key)
     receipt = dict(

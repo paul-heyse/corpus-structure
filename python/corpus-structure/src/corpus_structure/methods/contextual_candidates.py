@@ -553,11 +553,6 @@ class ContextualCandidateConfig(BaseModel):
     source_dependencies: Literal["source_view_product"] = "source_view_product"
     source_dependency_method: str = Field(default="extract.m1_candidates", min_length=1)
     semantic_types: tuple[str, ...] = ()
-    # The selected producer still supplies each occurrence and every native anchor.
-    # An omitted selection retains the historical population and configuration digest.
-    required_occurrence_ids: tuple[
-        Annotated[str, Field(pattern=r"^source-occurrence:[0-9a-f]{64}$")], ...
-    ] = Field(default=(), max_length=256, exclude_if=lambda value: not value)
     target_components: tuple[ExtractedComponentTarget, ...] = Field(default=(), max_length=256)
     section_sources: tuple[ExternalSourceRef, ...] = Field(
         default=(), max_length=256, exclude_if=lambda value: not value
@@ -583,13 +578,6 @@ class ContextualCandidateConfig(BaseModel):
     def exclusive_target_scope(self):
         if bool(self.target_components) == bool(self.section_sources):
             raise ValueError("choose exactly one component or section target inventory")
-        if self.required_occurrence_ids and (
-            self.section_sources
-            or len(set(self.required_occurrence_ids)) != len(self.required_occurrence_ids)
-        ):
-            raise ValueError(
-                "exact occurrence selection requires distinct component query carriers"
-            )
         if self.definition_alias_refs and (
             len({ref.contribution_id for ref in self.definition_alias_refs})
             != len(self.definition_alias_refs)
@@ -826,7 +814,7 @@ class ContextualCandidates:
                 operation_key,
                 cfg.semantic_types,
                 canonical_producer=bool(cfg.section_sources),
-                required_occurrence_ids=cfg.required_occurrence_ids,
+                required_occurrence_ids=getattr(cfg, "required_occurrence_ids", ()),
             )
             heading_mentions = defaultdict(list)
             heading_ids = defaultdict(list)
@@ -1339,12 +1327,24 @@ class ContextualCandidatesWithNamedBindings(ContextualCandidatesWithNeighborhood
 class ContextualQueryConfig(ContextualCandidateConfig):
     """Separate persisted configuration for the opt-in query context operation."""
 
-    query_context: QueryContextSelection
+    # A literal-only control uses the same exact carrier population as the enriched arm.
+    required_occurrence_ids: tuple[
+        Annotated[str, Field(pattern=r"^source-occurrence:[0-9a-f]{64}$")], ...
+    ] = Field(default=(), max_length=256, exclude_if=lambda value: not value)
+    query_context: QueryContextSelection | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def component_context(self):
         if self.section_sources:
-            raise ValueError("located query context requires a component retrieval inventory")
+            raise ValueError("bounded query context requires a component retrieval inventory")
+        if len(set(self.required_occurrence_ids)) != len(self.required_occurrence_ids):
+            raise ValueError(
+                "exact occurrence selection requires distinct component query carriers"
+            )
+        if self.query_context is None and not self.required_occurrence_ids:
+            raise ValueError("the literal-only control requires explicit exact carriers")
         return self
 
 

@@ -3503,6 +3503,14 @@ BEGIN
   BEGIN
    SELECT params INTO STRICT contextual_config FROM ops.method_config WHERE id=t.method_config_id;
    IF p_envelope->>'method'='retrieve.contextual'
+    AND p_envelope->>'operation_version'='11' AND NOT contextual_config ? 'query_context' THEN
+    IF jsonb_typeof(contextual_config->'required_occurrence_ids') IS DISTINCT FROM 'array'
+     OR jsonb_array_length(contextual_config->'required_occurrence_ids') NOT BETWEEN 1 AND 256
+     OR jsonb_array_length(coalesce(contextual_config->'section_sources','[]'))<>0
+     OR data.record_source_json(p_envelope->'parse_detail') ? 'query_context' THEN
+     RAISE EXCEPTION 'literal-only contextual control requires exact carriers and no parser signal' USING ERRCODE='23514';
+    END IF;
+   ELSIF p_envelope->>'method'='retrieve.contextual'
     AND p_envelope->>'operation_version'='11' THEN
     IF jsonb_typeof(contextual_config->'query_context') IS DISTINCT FROM 'object'
      OR jsonb_typeof(contextual_config->'query_context'->'bindings') IS DISTINCT FROM 'array'
@@ -3531,6 +3539,21 @@ BEGIN
        AND c->>'occurrence_id'=b->>'occurrence_id')
     ) THEN
      RAISE EXCEPTION 'enriched query context lacks its exact parser and focal source' USING ERRCODE='23514';
+    END IF;
+   END IF;
+   IF contextual_config ? 'required_occurrence_ids' THEN
+    IF p_envelope->>'method' IS DISTINCT FROM 'retrieve.contextual'
+     OR p_envelope->>'operation_version' IS DISTINCT FROM '11'
+     OR jsonb_typeof(contextual_config->'required_occurrence_ids') IS DISTINCT FROM 'array'
+     OR jsonb_array_length(contextual_config->'required_occurrence_ids') NOT BETWEEN 1 AND 256
+     OR EXISTS(SELECT FROM jsonb_array_elements_text(contextual_config->'required_occurrence_ids') r(id)
+      GROUP BY r.id HAVING count(*)<>1 OR r.id !~ '^source-occurrence:[0-9a-f]{64}$')
+     OR (SELECT array_agg(r.id ORDER BY r.id)
+      FROM jsonb_array_elements_text(contextual_config->'required_occurrence_ids') r(id))
+      IS DISTINCT FROM (SELECT array_agg(DISTINCT c->>'occurrence_id' ORDER BY c->>'occurrence_id')
+       FROM jsonb_array_elements(p_envelope->'contributions') c
+       WHERE c->>'semantic_type'='contextual.located_mention') THEN
+     RAISE EXCEPTION 'contextual report differs from its exact configured carrier population' USING ERRCODE='23514';
     END IF;
    END IF;
    IF contextual_config ? 'definition_alias_refs' THEN

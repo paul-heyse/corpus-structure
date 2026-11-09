@@ -34,7 +34,10 @@ def retained_query_selection(method, version, configuration):
         return None
     raw = configuration.get("query_context")
     if version == "11":
-        return QueryContextSelection.model_validate(raw)
+        if raw is not None:
+            return QueryContextSelection.model_validate(raw)
+        ContextualQueryConfig.model_validate(configuration)
+        return None
     if raw is not None:
         raise ValueError("retained query context differs from contextual operation 11")
     return None
@@ -212,9 +215,26 @@ def verify_contextual_query_closure(root, manifest, scopes, inventory, report_in
         body = row.get("body") or {}
         if not body and row.get("task_status") in {"failed", "skipped", "cancelled"}:
             continue
+        config = row.get("configuration") or {}
         selection = retained_query_selection(
-            row.get("method"), body.get("operation_version"), row.get("configuration") or {}
+            row.get("method"), body.get("operation_version"), config
         )
+        if row.get("method") == "retrieve.contextual" and body.get("operation_version") == "11":
+            expected = set(config.get("required_occurrence_ids", ()))
+            actual = {
+                c.get("occurrence_id")
+                for c in body.get("contributions", ())
+                if c.get("semantic_type") == "contextual.located_mention"
+            }
+            if expected and expected != actual:
+                raise ValueError("detached report differs from its exact carrier population")
+            detail = body.get("parse_detail")
+            if (
+                selection is None
+                and detail is not None
+                and "query_context" in source_python(detail)
+            ):
+                raise ValueError("detached literal-only control contains a parser signal")
         if selection is not None:
             enriched.append((origin, row, selection))
     if not enriched:
