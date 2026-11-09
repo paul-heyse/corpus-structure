@@ -151,9 +151,9 @@ interruption matters. Apply the project's preservation and retirement policy; th
 do not imply universal requirements for compatibility paths or deployment stages.
 
 Separate future acceptance requirements from actual evidence. Identify local checks, assembled
-journeys and measurements by what they establish and when they are needed. Follow repository
-policy for execution timing and evidence reporting. Optional or deferred measurements should have
-a clear purpose and trigger, without obscuring required completion evidence. Relevant growth,
+journeys by what they establish and when they are needed. Follow repository policy for execution
+timing, validation judgment and evidence reporting. Consider performance experiments for serious
+regression concerns; expected gains need no routine measurement task or deferred obligation. Relevant growth,
 skew, concurrency and failure scenarios can establish execution fit by qualitative assessment.
 
 Assess execution fit qualitatively and explain material tradeoffs in plain language. This
@@ -175,7 +175,8 @@ and move enduring meaning to its established owner before retiring the plan unde
 When a dedicated [completion audit](../../plan-completion-audit/SKILL.md) is performed, maintain
 its current conclusion in this same plan, with date, inspected source baseline, claimed scope and
 evidence limits. Explain what is functionally delivered, what required qualification remains and
-what benefit measurements are required or deliberately deferred. Connect gaps to their existing
+what evidence supports benefit claims. Missing improvement benchmarks alone do not indicate
+incomplete work. Connect gaps to their existing
 package/finding owners and actionable next scope, preserving stable identities.
 
 Reconcile completion summaries, package state and finding disposition rather than leaving a

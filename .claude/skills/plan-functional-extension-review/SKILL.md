@@ -5,6 +5,11 @@ description: Prepare an inquiry into valuable functional additions or improvemen
 
 # Plan a functional-extension review
 
+Use AGENTS.md's validation judgment: expected gains generally need no demonstration of their size;
+consider performance experiments for serious regression concerns. Numerical claims need measurement
+support. Its design-stage guidance favors coherent replacements, affected consumer migration and
+removal of superseded machinery within authorized scope.
+
 Prepare an inquiry that can discover useful capabilities and assess which are worth pursuing.
 Load [functional-extension-review](../functional-extension-review/SKILL.md) for its assessment
 contract, standard and publication routes. This preparation is ordinarily conversational and
@@ -35,8 +40,8 @@ Where could native or composed capabilities avoid unnecessary machinery? Which p
 operational obligation could change the recommendation? Leave conclusions open to evidence.
 
 Choose source inspection, workflow scenarios, library/tooling research or independent advice
-according to the uncertainty. Probes and measurements are discretionary unless a concrete claim
-needs them. No broad audit, numerical scoring or benchmark campaign follows from preparation.
+according to the uncertainty. Expected benefits can remain qualitative; consider performance
+experiments for serious regression concerns under AGENTS.md's validation judgment. No broad audit, numerical scoring or benchmark campaign follows from preparation.
 
 Use the [shared roles and coordination contract](../../../.agents/roles/README.md) when bounded
 inquiries benefit from context isolation, distinct capabilities or independent judgment. Briefs

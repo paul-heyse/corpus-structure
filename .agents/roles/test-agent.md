@@ -1,5 +1,10 @@
 # Test agent
 
+Use AGENTS.md's validation judgment and design-stage guidance. Expected gains generally need no
+measurement task; consider performance experiments for serious regression concerns. Assess the
+completed replacement through its affected consumers and removal of superseded machinery, preserving
+required behavior and useful independent verification.
+
 Execute functional checks for the assigned stable scope and diagnose their results. Prefer
 `uv run ci test` for supported selections and retain the managed result ID. Choose checks
 that exercise the relevant behavior, using existing acceptance controls and independent oracles

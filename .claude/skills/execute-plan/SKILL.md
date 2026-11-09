@@ -5,6 +5,11 @@ description: Execute authorized scope in an existing implementation plan through
 
 # Execute a plan
 
+Use AGENTS.md's validation judgment: expected gains generally need no demonstration of their size;
+consider performance experiments for serious regression concerns. Numerical claims need measurement
+support. Its design-stage guidance favors coherent replacements, affected consumer migration and
+removal of superseded machinery within authorized scope.
+
 For consequential choices still open or material mismatches exposed by current evidence, use
 the [design principles](../../../docs/design_review/design_principles/core/design-principles.md) together with the
 [efficient architecture heuristics](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md) before physical choices become entrenched.

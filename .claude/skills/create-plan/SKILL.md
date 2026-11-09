@@ -5,6 +5,11 @@ description: Create or revise an implementation plan from a design, functional-e
 
 # Create a plan
 
+Use AGENTS.md's validation judgment: expected gains generally need no demonstration of their size;
+consider performance experiments for serious regression concerns. Numerical claims need measurement
+support. Its design-stage guidance favors coherent replacements, affected consumer migration and
+removal of superseded machinery within authorized scope.
+
 Use the [design principles](../../../docs/design_review/design_principles/core/design-principles.md) together with the
 [efficient architecture heuristics](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md) before material physical choices become entrenched.
 Select relevant patterns for qualitative assessment of consequential choices and alternatives;
@@ -106,8 +111,9 @@ capabilities and alternatives where they affect the design, using the repository
 guidance to choose sources for the uncertainty being resolved. Preserve enough rationale for an
 implementer to recognize evidence that would reopen a decision. Relate an expected benefit to its
 mechanism and workload or conditions, and consider material integration, lifecycle and maintenance
-obligations qualitatively. Quantitative benefits need a baseline and measurement route; unmeasured
-benefits remain hypotheses.
+obligations qualitatively. Engineering reasoning can support expected benefits without demonstrating
+their size. Include measurement work where serious regression concerns warrant it under AGENTS.md's
+validation judgment; an expected gain need not become a deferred obligation.
 
 Explain each pivotal library capability in the target design or work package that owns its use,
 whether it comes from a review, an existing integration, or new research. A capability is pivotal
@@ -213,6 +219,9 @@ a revealing failure case often settles ambiguity better than an exhaustive imple
 Distinguish illustrative consumers from the actual migration scope so an example does not become
 an accidental completion boundary.
 
+Favor a coherent target over preserving existing structure or minimizing the diff. Consider direct
+cutover before adding intermediate interfaces, compatibility layers or staged adoption. Include
+affected consumers and removal of superseded machinery in the replacement's acceptance.
 Describe preservation and retirement with replacement, following the project's migration policy.
 Explain meaningful intermediate states: which capabilities become usable, which consumers have
 moved and which constraints remain. Where adoption requires data migration, activation, rebuilding
@@ -227,11 +236,12 @@ capable of exposing a wrong implementation or premise; expected results produced
 questionable transformation may only reproduce its defect. Explain suitable independent evidence
 where that risk matters, without requiring a new oracle for every change.
 
-Local verification, assembled-system qualification and benefit measurement establish different
-claims. Give each relevant scope an owner and deliberate timing under the repository's execution
-policy. Package and document boundaries do not automatically require full campaigns. Make clear
-which evidence is necessary for completion and which measurements are deferred, with their purpose
-and trigger. Retain source-review finding identifiers and link to the single disposition owner;
+Local verification and assembled-system qualification establish different claims from expected
+benefits. Give required verification appropriate scope and timing under the repository's execution
+policy. Package and document boundaries do not automatically require full campaigns. Benefit
+measurement need not be a work package, deferred obligation or completion criterion. Where a serious
+regression concern warrants an experiment, explain what uncertainty its result would settle. Retain source-review finding identifiers and link to the single
+disposition owner;
 a package can finish while a broader finding still has other contributors or evidence obligations.
 
 Keep design intent, current progress and completed evidence distinguishable. A checkpoint explains

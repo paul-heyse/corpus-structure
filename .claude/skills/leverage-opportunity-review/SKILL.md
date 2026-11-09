@@ -5,6 +5,11 @@ description: Compare complete options for identified codebase opportunities usin
 
 # Review library leverage options
 
+Use AGENTS.md's validation judgment: expected gains generally need no demonstration of their size;
+consider performance experiments for serious regression concerns. Numerical claims need measurement
+support. Its design-stage guidance favors coherent replacements, affected consumer migration and
+removal of superseded machinery within authorized scope.
+
 Recommend the best ways to address selected codebase opportunities. Use the opportunity account
 and accumulated library applicability as challengeable inputs, then investigate enough to judge
 complete options and their interactions. The result is a comparative judgment and bounded target

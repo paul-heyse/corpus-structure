@@ -5,6 +5,11 @@ description: Prepare a solution-oriented design review from the refreshed audit 
 
 # Plan a design review
 
+Use AGENTS.md's validation judgment: expected gains generally need no demonstration of their size;
+consider performance experiments for serious regression concerns. Numerical claims need measurement
+support. Its design-stage guidance favors coherent replacements, affected consumer migration and
+removal of superseded machinery within authorized scope.
+
 Prepare an inquiry that can produce a well-supported correction, a useful comparison of
 alternatives or a reason to retain the existing design. Build on the operator's intended outcome
 and incoming hypotheses. The refreshed audit supplies the starting diagnostic account; preparation

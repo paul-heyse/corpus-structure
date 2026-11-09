@@ -5,6 +5,11 @@ description: Audit test code, test evidence and shared test infrastructure again
 
 # Audit test design and evidence
 
+Use AGENTS.md's validation judgment: expected gains generally need no demonstration of their size;
+consider performance experiments for serious regression concerns. Numerical claims need measurement
+support. Its design-stage guidance favors coherent replacements, affected consumer migration and
+removal of superseded machinery within authorized scope.
+
 Audit test code and its supporting system against the full selected design standard: core
 foundations and operational refinements, applicable domain profiles and the repository binding.
 The test-assessment companion supplements that standard; assessing its topics alone does not

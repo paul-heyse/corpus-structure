@@ -6,6 +6,11 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit, Agent
 
 # Design review
 
+Use AGENTS.md's validation judgment: expected gains generally need no demonstration of their size;
+consider performance experiments for serious regression concerns. Numerical claims need measurement
+support. Its design-stage guidance favors coherent replacements, affected consumer migration and
+removal of superseded machinery within authorized scope.
+
 Use the [design principles](../../../docs/design_review/design_principles/core/design-principles.md) together with the
 [efficient architecture heuristics](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md) before material physical choices become entrenched.
 Select relevant patterns for qualitative assessment of consequential choices and alternatives;
@@ -151,7 +156,6 @@ question about ownership, behavior or change remains unresolved; no complete flo
    concrete opportunities, focused applicability and comparative reasoning. Consume relevant
    revisions as challengeable evidence, reconciling source and library changes; these accounts
    do not replace the applicable refreshed diagnostic audit or determine the selected remedy.
-
 
 5. **Independent judgments.** Settle A1–A4 from scenario evidence, G1–G8 and profile gates from
    their own evidence, and applicable foundation/supporting-rule verdicts. A2 requires both an

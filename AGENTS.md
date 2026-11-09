@@ -13,6 +13,31 @@ This is a personal project with one operator. Process is deliberately light (ADR
 it that way: before adding a hook, gate, register or new document type, check that it has a
 real consumer.
 
+**Design-stage development.** This is a personal project under one operator, with Codex
+supplying the edits. Favor a coherent target design when integrating improvements or new
+features. Interfaces, representations and component boundaries remain available for substantial
+revision; minimizing the diff or preserving the existing implementation is usually less valuable
+than reaching the better design.
+
+Treat affected consumer changes and removal of superseded machinery as part of delivering the
+replacement. The completed result has one authoritative implementation, with obsolete code,
+compatibility adapters, fallback paths, configuration and mechanism-specific tests removed.
+Preserve required behavior and useful independent verification. Compatibility and staged
+transitions can be appropriate where an actual consumer, durable-data obligation or recovery
+requirement warrants them. Assess those needs from this project's circumstances rather than
+assuming the obligations of a released product or multi-operator service. Use the existing scope
+and decision routes for consequential changes.
+
+**Validation judgment.** Aim validation at plausible failures and consequential uncertainty.
+Engineering reasoning, source inspection and established library behavior are generally sufficient
+grounds for expecting an improvement; demonstrating the size of that improvement is usually
+unnecessary. Reserve benchmarking and profiling for serious risks of performance or correctness
+degradation where an experiment would materially inform the implementation or acceptance decision.
+Choose evidence suited to the concern: functional or numerical checks often answer correctness
+questions more directly than timing comparisons. Expected improvements still receive appropriate
+correctness validation. Describe benefits at the strength the available evidence supports; a
+reasonable qualitative expectation need not become a measurement task or deferred obligation.
+
 ## Start of session
 
 The root agent reads the current checkpoint and authorities relevant to the task. Delegated

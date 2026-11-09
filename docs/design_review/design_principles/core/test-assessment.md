@@ -1,5 +1,9 @@
 # Assessing test code and test evidence
 
+Expected gains can remain qualitative without a measurement task. Consider performance experiments
+for serious regression concerns under DP-23 and the repository's validation guidance. Existing
+correctness requirements remain.
+
 **Version 1.2 · 2026-10-23 · Assessment guidance.** Repository- and domain-agnostic
 companion to the [core principles](design-principles.md), selected through the repository's
 standard declaration. Applicable domain profiles continue to supply scientific and other

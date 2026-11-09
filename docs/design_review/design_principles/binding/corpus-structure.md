@@ -1,5 +1,10 @@
 # corpus-structure binding
 
+AGENTS.md owns local validation judgment and design-stage development. Expected gains generally
+need no demonstration of their size. Favor coherent replacements with affected consumers migrated
+and superseded machinery removed; assess compatibility against actual consumer, durable-data and
+recovery obligations.
+
 Apply the [design principles](../core/design-principles.md) and [efficient-architecture heuristics](../core/efficient-architecture-heuristics.md) together
 for consequential architectural choices. Use qualitative judgment before physical organization,
 interfaces, preparation, assurance and lifecycle choices become entrenched. During execution,
@@ -235,7 +240,8 @@ The coordinator owns a series' combined conclusion; supporting plans retain affe
 details and source finding identities. Git holds prior accounts and receipts keep their original
 dates and scope. No separate completion report, folder or progress register is introduced.
 
-Distinguish functional implementation, required qualification and benefit measurements. Use
+Distinguish functional implementation, required qualification and evidence supporting benefit claims.
+Absent improvement benchmarks alone do not indicate incomplete work. Use
 existing applicable evidence and targeted investigation as warranted; no automatic full test
 campaign follows. Missing required evidence remains outstanding under the existing qualification
 policy. A fresh `implementation-reviewer` can return the judgment and proposed plan corrections

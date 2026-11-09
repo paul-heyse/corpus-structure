@@ -5,6 +5,11 @@ description: Plan how to create an implementation-plan document from a design, f
 
 # Plan the creation of a plan
 
+Use AGENTS.md's validation judgment: expected gains generally need no demonstration of their size;
+consider performance experiments for serious regression concerns. Numerical claims need measurement
+support. Its design-stage guidance favors coherent replacements, affected consumer migration and
+removal of superseded machinery within authorized scope.
+
 Use the [design principles](../../../docs/design_review/design_principles/core/design-principles.md) together with the
 [efficient architecture heuristics](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md) before material physical choices become entrenched.
 Select relevant patterns for qualitative assessment of consequential choices and alternatives;

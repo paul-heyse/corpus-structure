@@ -5,6 +5,11 @@ description: Audit the codebase broadly against the design principles and refres
 
 # Audit design principle alignment
 
+Use AGENTS.md's validation judgment: expected gains generally need no demonstration of their size;
+consider performance experiments for serious regression concerns. Numerical claims need measurement
+support. Its design-stage guidance favors coherent replacements, affected consumer migration and
+removal of superseded machinery within authorized scope.
+
 Develop a current, evidence-grounded account of design principle misalignment across the codebase,
 without an incoming remediation objective, library preference or principle subset. The system's
 functional target supplies the context for judgment. An audit can establish a structural problem

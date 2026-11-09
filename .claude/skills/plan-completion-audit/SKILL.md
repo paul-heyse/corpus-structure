@@ -5,6 +5,10 @@ description: Independently assess scope claimed complete against the accepted pl
 
 # Audit plan completion
 
+Assess whether affected consumers reach the target and whether superseded machinery remains.
+Distinguish unfinished replacement from compatibility serving a concrete requirement under AGENTS.md's
+design-stage guidance.
+
 Determine whether the claimed scope actually delivers the accepted plan, and correct its current
 account in place. Completed packages, confident summaries and successful local reviews are useful
 leads; none alone establishes that the intended capability and its consumers are complete.
@@ -62,8 +66,10 @@ Separate three questions in the conclusion:
   applicable integration and transition obligations?
 - **Verification and qualification:** does applicable evidence cover the required scope on the
   relevant source and execution context, and what remains failed, blocked, unknown or not run?
-- **Benefit claims:** what is established about the intended improvement, and which measurements
-  are required for completion versus explicitly deferred or optional?
+- **Benefit claims:** what does the available evidence support? An unmeasured expected improvement
+  can be a sound engineering judgment; absent improvement benchmarks alone do not indicate
+  incomplete work. Consider measurement for serious regression concerns under AGENTS.md's
+  validation judgment.
 
 A source-inspected missing consumer can establish incomplete implementation without a test run.
 Passing tests cannot establish an obligation their selected scope does not exercise. Read the

@@ -1,5 +1,10 @@
 # Executor
 
+Use AGENTS.md's validation judgment and design-stage guidance. Expected gains generally need no
+measurement task; consider performance experiments for serious regression concerns. Assess the
+completed replacement through its affected consumers and removal of superseded machinery, preserving
+required behavior and useful independent verification.
+
 Use the [design principles](../../docs/design_review/design_principles/core/design-principles.md) together with
 the [heuristic companion](../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
 for consequential open choices or material mismatches, before physical choices become entrenched.

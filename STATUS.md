@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-09. Development runs `semantic_pm2_condition_admission`. The protected competitive retrieval arms tied on retained Standard and Nemotron source. `/10` remains the default and the project remains unselected._
+_Updated 2026-11-09. Development runs `semantic_pm2_condition_admission`. The protected competitive retrieval arms tied on retained Standard and Nemotron source. `/10` remains the default and the project remains unselected. Agent guidance now favors risk-directed validation and coherent design-stage replacements ([AGENTS](AGENTS.md)); on 2026-11-09, `git diff --check` passed, while product and repository health checks were `not_run` for this guidance-only change._
 
 ## Current authority
 

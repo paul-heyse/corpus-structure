@@ -1,5 +1,9 @@
 # Design review template
 
+Expected gains can remain qualitative without a measurement task. Consider performance experiments
+for serious regression concerns under DP-23 and the repository's validation guidance. Existing
+correctness requirements remain.
+
 **Version 3.3 · 2026-10-05** · Core layer: repository- and domain-agnostic.
 Standard: [design principles](design-principles.md): FP-01–FP-07 organize architectural
 assessment; DP-01–DP-24 support it; A1–A4 and G1–G8 remain separate judgments.

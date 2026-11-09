@@ -1,5 +1,10 @@
 # Shared worker contract
 
+Use AGENTS.md's validation judgment and design-stage guidance. Expected gains generally need no
+measurement task; consider performance experiments for serious regression concerns. Assess the
+completed replacement through its affected consumers and removal of superseded machinery, preserving
+required behavior and useful independent verification.
+
 Use applicable instructions already supplied in context; if AGENTS.md is absent, load it before
 acting. Load the common and assigned role contracts once, plus relevant process skills and the repository's library documentation routes.
 The root's general startup tour is not repeated by workers: use the brief and relevant owners,

@@ -1,5 +1,9 @@
 # Skills
 
+AGENTS.md owns validation judgment and design-stage development. Expected gains need no routine
+measurement task; completed replacements include affected consumers and deletion of superseded
+machinery. Skills apply those defaults without adding a checklist or approval step.
+
 **Shared design guidance:** the [design principles](../../docs/design_review/design_principles/core/design-principles.md) and [efficient-architecture heuristics](../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
 are used together by review, planning, execution and ADR workflows. Consider relevant patterns
 before physical choices become entrenched; reuse settled decisions during execution and address

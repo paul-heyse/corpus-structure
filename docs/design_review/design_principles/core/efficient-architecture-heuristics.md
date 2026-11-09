@@ -81,7 +81,7 @@ These are conditional defaults, not maxims such as “always batch,” “always
 
 “Semantically sufficient scope” is not synonymous with the requested output subset. An exact global analysis, a negative answer or a relationship whose path crosses outside the output region can require broader input. Likewise, an unchanged identifier or a matching digest is not independent evidence that semantics, interpretation or required premises are unchanged.
 
-A material structural cost can be challenged without first building a benchmark. A proposed improvement must still distinguish work demonstrably removed from latency, throughput or capacity benefits that remain unmeasured. The purpose is to select a better architecture, not to require a performance experiment for every change.
+A material structural cost can be challenged without first building a benchmark. A proposed improvement must still distinguish work demonstrably removed from latency, throughput or capacity benefits that remain unmeasured. Engineering reasoning can justify an expected improvement without demonstrating its size. Reserve benchmarking and profiling for serious regression risks where an experiment would resolve consequential uncertainty (DP-23); an expected gain need not become a measurement task.
 
 ## Relationship to the design principles
 

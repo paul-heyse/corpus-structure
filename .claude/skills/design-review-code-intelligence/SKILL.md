@@ -6,6 +6,9 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit, Agent
 
 # Design review — code-intelligence profile
 
+Follow AGENTS.md's validation judgment for performance experiments. Qualitative expectations need
+no measurement task; scientific and semantic correctness obligations remain.
+
 Use the [design principles](../../../docs/design_review/design_principles/core/design-principles.md) and [efficient-architecture heuristics](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md) together
 with the core review and this profile. Apply relevant qualitative guidance before physical
 choices become entrenched; it adds no checklist, cost model or proof machinery.

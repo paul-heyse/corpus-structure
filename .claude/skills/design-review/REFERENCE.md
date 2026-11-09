@@ -217,8 +217,9 @@ round trip per semantic kind before fetching the records. More unrelated catalog
 kinds therefore increase work for the same answer. **Consequence:** unnecessary global work and
 crossings in a supported repeated-small-request workload. **Correction:** establish immutable
 validity at sealing, retain its premises, use indexed batch access, and keep checks for new trust
-boundaries. **Verification:** inspect the new access and validity lifetimes; benchmark separately
-before claiming latency or capacity. FP-07, DP-03, DP-10, DP-23, A4."
+boundaries. **Verification:** inspect the new access and validity lifetimes. Expected gains can
+remain qualitative; consider benchmarking for serious regression concerns under AGENTS.md's
+validation judgment. FP-07, DP-03, DP-10, DP-23, A4."
 
 A global SCC computation can legitimately need all nodes and edges even when returning one node's
 component. An output selector cannot justify shrinking the semantic universe. A single native

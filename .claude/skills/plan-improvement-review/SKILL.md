@@ -5,6 +5,11 @@ description: Review the remaining change footprint of an implementation plan or 
 
 # Review plan improvements
 
+Use AGENTS.md's validation judgment: expected gains generally need no demonstration of their size;
+consider performance experiments for serious regression concerns. Numerical claims need measurement
+support. Its design-stage guidance favors coherent replacements, affected consumer migration and
+removal of superseded machinery within authorized scope.
+
 Investigate how the remaining changes could produce a better system and a better route to
 delivery. Give the selected change footprint comprehensive consideration, including opportunities
 to improve design-principle alignment and the general quality and capabilities of affected

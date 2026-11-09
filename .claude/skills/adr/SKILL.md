@@ -5,6 +5,11 @@ description: Record, supersede or check an architectural decision, including own
 
 # ADR
 
+Use AGENTS.md's validation judgment: expected gains generally need no demonstration of their size;
+consider performance experiments for serious regression concerns. Numerical claims need measurement
+support. Its design-stage guidance favors coherent replacements, affected consumer migration and
+removal of superseded machinery within authorized scope.
+
 Compare consequential alternatives using the [design principles](../../../docs/design_review/design_principles/core/design-principles.md) and [efficient-architecture heuristics](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
 together, before physical organization, interfaces, preparation, assurance and lifecycle choices
 become entrenched. Explain material tradeoffs qualitatively; no exhaustive checklist, cost model

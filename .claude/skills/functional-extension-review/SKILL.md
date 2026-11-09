@@ -5,6 +5,11 @@ description: Discover and assess valuable additions or improvements to product, 
 
 # Review functional extensions
 
+Use AGENTS.md's validation judgment: expected gains generally need no demonstration of their size;
+consider performance experiments for serious regression concerns. Numerical claims need measurement
+support. Its design-stage guidance favors coherent replacements, affected consumer migration and
+removal of superseded machinery within authorized scope.
+
 Explore what valuable capabilities the system could gain and which additions or improvements
 are worth pursuing. Functional value includes product behavior, developer workflows, operational
 control and research capabilities. Useful opportunities can address design gaps, enable new
