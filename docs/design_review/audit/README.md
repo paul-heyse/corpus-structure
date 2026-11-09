@@ -8,6 +8,88 @@ reasoning, and implementation plans own scheduled work and closure evidence.
 
 <a id="baseline"></a>
 
+<a id="pm2-foundation-refresh"></a>
+
+## Production milestone two foundation refresh · 2026-11-08
+
+**Implemented source inspected.** This refresh examines committed `main` at
+`9bdb0996e47d459b0be01e74ede4d2b5ec5c0b45`. It excludes concurrent working-tree
+edits. The source baseline and publication revision are separate. The preceding
+broad refresh below supplies the inherited account. This delta follows changes in
+source preparation and delivery, executable semantics, native admission,
+managed work and visual evidence. The applied standard is core 3.3,
+efficient-architecture heuristics 1.0, code-intelligence 1.4, the repository
+binding and test-assessment 1.2 for evidence bearing on production behavior.
+
+- **Source fidelity and reuse.** The released `native-section-text-v10` route
+  binds the ordered native field inventory and its selected spelling. An original
+  formula witness binds original digest, pointer, parent, provenance and `orig`
+  digest. The exact Reader retrieves the requested release's retained policy.
+  `progressive-review-bundle-2` separately verifies the archived policy and
+  complete source proof for selected native products. `NativeSourceContext`
+  refuses synthetic crossings even with multiple anchors enabled. The canonical
+  bridge requires unchanged complete native text, and occurrence identity refuses
+  selected-projection coordinates. These checks distinguish provider input
+  coordinates, selected field spelling and canonical occurrence identity
+  (`ingest/pdf_hierarchy.py:252–334`, `serve/review_source_projection.py:72–218`,
+  `semantic/source_contexts.py:484–503,819–868`, `semantic/contributions.py:23–35`;
+  FP-02/04/05, DP-04/08, CI-01/02/11/13). DA-061's former installed-policy
+  premise is superseded. Retained checks cover p416 and p418 at an explicit
+  8 MiB Reader budget and detached exact closure for view 382. Default Reader
+  requests and larger formula-view export attempts refused their respective
+  bounds. The supported workload still has an execution-fit question at these
+  wider delivery sizes (FP-07). [Source projection and delivery evidence](../../plans/domain-model-alignment_2026-11-08.md#audit-repair-execution)
+- **Admission and semantic correspondence.** The native source-value decoder
+  now rejects invalid field positions and repeated names (DA-062). Native
+  verification binds frozen expectations to the acquired revision on the
+  maintenance route and to acquired function and fence digests under restricted
+  principals (DA-063). Projection analysis prepares from retained physical and
+  recipe inputs (DA-067). The current native and detached definition checks bind
+  `definition-scope-1` to `extract.m1_annotations/2`, the source and cue roles,
+  including refusal of competing bindings (DA-065). A new annotation producer
+  needs its own qualified contract. Public eligibility independently requires
+  the governed witness (`semantic/sql/record_publication.sql:26–61`,
+  `semantic/execution_admission.py:184–224`, `semantic/projection_analysis_products.py:118–189`,
+  `semantic/sql/structural_products.sql:2092–2205`; FP-02/04/05, DP-03/08/21,
+  CI-01/02). [Focused DMA evidence and owners](../../plans/domain-model-alignment_2026-11-08.md#execution-queue-and-disposition)
+- **Operation and worker custody.** `semantic/operations.py:create_task`
+  matches project, release, runtime, input realization and revision, method
+  configuration, input, unit and packet, with a declared method dependency
+  projection. `semantic/claim_lifetime.py` retries an eligible rolled-back lease
+  renewal once after checking the same running task attempt, holder and remaining
+  lease. This retry covers only the database renewal transaction. The
+  reviewed PDF slot serializes participating local processes and its Nemotron
+  handoff validates and restores one dedicated service. The independent runtime
+  and resource ownership of future PM2 model workers remains Proposed
+  (`semantic/operations.py:267–325`, `semantic/claim_lifetime.py:124–157,187–256`,
+  `ingest/pdf_capacity.py:22–120`; FP-01/02/05/07, DP-09/18/19/20,
+  H21/H23/H24). [Lease and managed deployment controls](../../plans/domain-model-alignment_2026-11-08.md#audit-repair-execution)
+- **Visual evidence.** `fc111e466` removed the automatic Chandra inference
+  entry point. The explicit request pins the source-ready native product and
+  records private recognition evidence. DA-064 retains its original dry
+  routing scope, with current production inference exposure removed. Retained
+  crop replay and cancellation receipts apply to their captured runtime. The
+  Docling document adapter at this source is called by a separate trial. Its
+  five-page matched comparison observed different rendered pixels and a
+  length-stopped partial response, so the trial leaves same-frame equivalence
+  and whole-book behavior unresolved (FP-02/05/07, DP-15/20/23, CI-02/04).
+  [Matched Chandra trial](../evidence/2026-11-08_chandra-execution/docling-pdf-trial-comparison.md)
+- **Evaluation and serving standing.** The current full-book candidate run
+  settled 29 annotation and 29 candidate tasks and published a private cut.
+  The independent reference set froze one sentence. Grading full-view
+  predictions refused anchors outside that cut, leaving independent evaluation
+  at the declared prediction scope unresolved. Candidate execution, protected
+  selection and public eligibility remain separate (FP-04/05, DP-05/22/23,
+  CI-04/11/12). [Run and evaluation evidence](../../plans/domain-model-alignment_2026-11-08.md#audit-repair-execution)
+
+This is a source inspection and reassessment of retained evidence. Fresh
+product, provider and fault tests and integrated qualification were `not_run`.
+The separate test audit retains its baseline. Provider transfer between document
+domains, abrupt worker death, full production test architecture and assembled
+qualification remain outside this refresh. The DMA and Chandra plans retain
+disposition and qualification ownership. Source paths above are relative to
+`python/corpus-structure/src/corpus_structure/`.
+
 ## Broad refresh · 2026-11-08
 
 **Implemented source inspected.** Audited source
@@ -33,6 +115,10 @@ release supply the operational premises.
 [Functional scope](../../design/DESIGN.md#section-1) · [Full-book decision](../../adr/0070-full-book-method-development.md)
 
 ## Diagnostic synthesis
+
+The observations below describe the preceding broad baseline. The
+[foundation refresh](#pm2-foundation-refresh) records changes relevant to the
+current source.
 
 - **Semantic results.** [DA-055 and DA-057](witnessed-enrichment.md#reconciliation-at-the-november-8-baseline)
   retain the source-based corrections for table multiplicity and dossier
