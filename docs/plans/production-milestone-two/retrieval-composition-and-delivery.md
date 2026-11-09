@@ -18,6 +18,10 @@ the original parser task under run 421/cut 524. The no-match result preserved
 both candidates without admitting an attachment. Wider composition and
 assessment still need qualification.
 
+The [exact detached quantity proof](../../design_review/evidence/2026-11-09_pm2-adoption/README.md)
+also verified the revised run 431/cut 531 result at task 2128, with private standing
+and the unchanged integrated source.
+
 **Inputs and result.** Consume selected source and exact upstream observations or
 coverage outcomes, using PM2-01 bindings. Join by authenticated occurrence, local
 scope, and declared endpoint and witness roles. Preserve each original product
@@ -114,12 +118,14 @@ the enriched rendering remain open. Exact detached export refuses the richer
 rendering until its proof can be replayed. The existing rendering stays the
 default.
 
-For the next comparison, the retained book view 391 has the affine `X`
-and the standard-normal `Z` definition on the same native item
-`#/texts/11503`. Narrow the upstream occurrence producer to that exact
-item. The full-view occurrence and target pools exceed the configured
-256-input encoder bound. Keep the same source, targets, scope and encoder
-profile in both arms; compare candidate availability before selection.
+The [blocked matched attempt](../../design_review/evidence/2026-11-09_pm2-adoption/README.md)
+froze the affine controls and cross-chapter binomial use in view 391. The bounded
+producer located the binomial use and Dipo supplied an exact context binding, but
+the target producer classified the source-labeled definition as an explanation.
+The common eligible target inventory was empty, and neither arm ran retrieval.
+The bounded producer also missed the two in-equation carriers. Qualify those
+upstream populations before retrying. Hold source, targets, scope and encoder
+profile fixed in both arms, and compare candidate availability before selection.
 
 Reuse the existing contextual encoder, target registry, lexical channel, dense
 channels, bounded fusion and witnessed selection. The current profiles use

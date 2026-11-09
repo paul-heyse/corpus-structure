@@ -1,6 +1,6 @@
 # Production milestone two implementation plan
 
-**Status: Private interpretation execution · 2026-11-09.** This coordinator owns PM2-00–PM2-12, shared decisions,
+**Status: Private paired qualification · 2026-11-09.** This coordinator owns PM2-00–PM2-12, shared decisions,
 scheduled M2 review disposition and milestone qualification. The [functional review](../functional_reviews/production-milestone-two_2026-11-08.md)
 at `971111baf` governs the recommendation baseline. Its [two-pass design input](../target-pipeline-design/production-milestone-two.md)
 was recorded at `4c71fa3f4`. The five model guides were inspected at
@@ -10,8 +10,8 @@ The Transformers and Sentence Transformers guides were recorded at
 series records the operator's corpus and design boundary. The foundation receipts
 record the qualified scope of PM2-00–02. The [parser execution account](production-milestone-two/linguistic-referential-discourse.md#parser-execution)
 owns the implementation and scoped assessment for PM2-03–05. The
-[interpretation account](../design_review/evidence/2026-11-09_pm2-interpretation/README.md)
-records the retained-source run and the limits on qualification. The project remains unselected.
+[adoption qualification account](../design_review/evidence/2026-11-09_pm2-adoption/README.md)
+records the paired scope and the limits on qualification. The project remains unselected.
 
 ## Target and foundation
 
@@ -53,8 +53,10 @@ Run 404 at cut 514 supplies the source-only view used to write expectations.
 Private run 407 at cut 517 selected the same retained views and settled all 29
 annotation and 29 candidate tasks. It supplies the authenticated completed-source
 references for parser execution and M1 execution evidence at those scopes.
-Its grading attempt paired the full selected
-view's predictions with a one-sentence reference and produced no evaluation.
+The first grading attempt paired the full selected view's predictions with a one-sentence
+reference and produced no evaluation. A new exact full-view reference graded two views
+successfully as an evaluation operation, but the semantic result missed both adjudicated
+Preface readings. It does not qualify run 407 for adoption.
 The project has no active release or selected result. Final qualification and
 evaluated cutover remain with DMA-13 after the explicit-only Chandra change.
 [Parser development deployment](../design_review/evidence/2026-11-08_pm2-parsers/records/pm2.parser-development-deployment.json) ·
@@ -156,8 +158,8 @@ The existing task, result and host GPU owners retain their custody.
 | PM2-08 | Private Reader, CLI, MCP and exact detached proof passed for the fair-coin scope and its retained upstream alternatives. The result was a no-match proposal; it verifies custody and partial delivery. Broader composed and admission qualification remains open. |
 | PM2-09 | Three opt-in query context recipes and a typed frozen-list reader are implemented. The incumbent remains the default. A same-release paired comparison and detached replay of enriched rendering remain open. |
 | PM2-10 | Visual interpretation remains off. No selected case justifies an additional visual question. The [revisit trigger](production-milestone-two/retrieval-composition-and-delivery.md#PM2-10) requires a named material ambiguity on an authorized region. |
-| PM2-11 | Same-release exposed development set 33 froze on five exact source views and received separate A/B/C passes. Evaluation 37 supported the definition function, found an incomplete normalized quantity, and left three cases unassessed. An eligible paired baseline, protected gain and broader matching prediction scopes remain open. |
-| PM2-12 | The interpretation and enriched-query descriptors were deployed to development. Full derived qualification and selection remain open pending PM2-11 and the [eligible DMA-13 predecessor](domain-model-alignment_2026-11-08.md#dma-13). The existing Standard and Nemotron source still resolves, so no book intake or recognition rerun is required. Chandra is outside qualification. |
+| PM2-11 | The [paired d1 runs](../design_review/evidence/2026-11-09_pm2-interpretation-pair/README.md) used the same protected opportunities and inputs. Exact fair-coin probability normalization improved; the definition control held; roulette loss, host and referent remain unsupported. The [bounded retrieval comparison](../design_review/evidence/2026-11-09_pm2-adoption/README.md) was blocked by an empty eligible definition inventory and missing affine occurrence carriers; v10 remains the default. |
+| PM2-12 | Full derived qualification and selection remain open pending PM2-11 and an [eligible DMA-13 predecessor](domain-model-alignment_2026-11-08.md#dma-13). Evaluation 42 showed why completed private run 407 is ineligible. All 29 Standard and Nemotron source views still resolve identically; no book intake or recognition rerun is required. Chandra is outside qualification. |
 
 | Review opportunity | Proposed disposition and closure owner |
 | --- | --- |

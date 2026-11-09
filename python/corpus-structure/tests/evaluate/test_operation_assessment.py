@@ -114,9 +114,7 @@ def test_retrieval_membership_and_witnessed_selection_grade_separately(frame):
     assert [row["judgment"] for row in supported["cases"]] == ["supported", "supported"]
     wrong_relation = dict(
         decision,
-        retrieval_selected_edges=[
-            {"member_target_ids": ["target-b"], "relation": "compares-with"}
-        ],
+        retrieval_selected_edges=[{"member_target_ids": ["target-b"], "relation": "compares-with"}],
     )
     unsupported = score_cases(frame, (available, selected), (candidates, wrong_relation))
     assert [row["judgment"] for row in unsupported["cases"]] == ["supported", "unsupported"]

@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-09. Development runs `semantic_pm2_contextual_queries`. Private interpretation and assessment reached cut 526 over unchanged Standard and Nemotron source. The project remains unselected._
+_Updated 2026-11-09. Development runs `semantic_pm2_def_scope_vars`. The private d1 pair improved exact probability normalization on unchanged Standard and Nemotron source. The project remains unselected._
 
 ## Current authority
 
@@ -8,12 +8,12 @@ _Updated 2026-11-09. Development runs `semantic_pm2_contextual_queries`. Private
   owns findings, package states and combined qualification. ADR-0067 governs current-only
   migration. ADR-0070 selects all 518 Grinstead–Snell pages. WCE receipts still cover pages 191–310.
   WCE baseline `07d25b840` retains `semantic_wce_lineage_20261107` and `retrieve.contextual/5`.
-- The [DMA audit repairs](docs/plans/domain-model-alignment_2026-11-08.md#dma-13) are deployed to development. Run 407 completed all 29 views. The operator excluded Chandra from remaining qualification on 2026-11-09. Evaluation and an eligible predecessor for PM2 selection remain open.
+- [DMA-13](docs/plans/domain-model-alignment_2026-11-08.md#dma-13) owns predecessor eligibility. Protected evaluations 42 and 43 completed at their exact scopes and found missing supported readings in run 407 and bounded replay 437. Neither qualifies. Chandra is excluded.
 - The [broad design audit](docs/design_review/audit/README.md#baseline) records diagnostic source inspection at `67cbe680e` on 2026-11-08. `uv run ci docs check` and `just turn-end` passed. Product qualification was `not_run`.
 - The [GitHub visitor follow-on](docs/plans/github-visitor-experience_2026-11-08.md#ghv-follow-on-acceptance) is live. On 2026-11-08, the docs workflow and both live browser sizes passed. The corpus index links to 1,409 verified source files in Git LFS. The supplied How it works image passed desktop and mobile preview checks in the local revision.
 - The [M2 foundation](docs/plans/production-milestone-two_2026-11-08.md#foundation-execution) uses cut 514 for source-only expectations and cut 517 for the finished private M1 comparator over the same views. On 2026-11-08 all four CUDA profiles ran under the shared handoff, and the private d1/Dipo Reader journey passed claim reassignment and exact reuse. The [foundation evidence](docs/design_review/evidence/2026-11-08_pm2-foundation/README.md) owns the scoped checks. DMA-13 owns evaluated cutover.
 - The [M2 parser execution](docs/plans/production-milestone-two/linguistic-referential-discourse.md#parser-execution) sealed cut 520 and verified replay at cut 521. Same-release HanLP and Maverick inputs for d1 reached cut 524 without repeating source recognition.
-- The [M2 interpretation disposition](docs/plans/production-milestone-two_2026-11-08.md#review-disposition) records private d1 results, CLI/MCP and detached proof, richer retrieval options, and exposed evaluation 37. Next: improve the observed misses, run matched comparisons, then regenerate selected derivations. No new intake or recognition run is needed.
+- The [M2 adoption disposition](docs/plans/production-milestone-two_2026-11-08.md#review-disposition) records matched d1 results and the generated native lookup repair. The [adoption evidence](docs/design_review/evidence/2026-11-09_pm2-adoption/README.md) owns the 78 focused checks, exact detached proof and retrieval block. Qualify the missing upstream definition targets and affine carriers and resolve DMA-13 before the full-book derived run. All 29 retained source views still match.
 
 ## Delivered and assessed
 

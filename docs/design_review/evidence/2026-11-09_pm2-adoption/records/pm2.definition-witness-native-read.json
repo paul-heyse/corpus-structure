@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "id": "pm2.definition-witness-native-read",
+  "title": "Generated release recipe lookup and native definition validation",
+  "group": "pm2-adoption",
+  "package": "PM2-09",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the ordinary target producer validate native definition scope against its exact released recipe without a procedural name collision?",
+  "answers": [
+    "PM2-09",
+    "PM2-12"
+  ],
+  "method": "Generate the shared release input SELECT from the modeled SQLAlchemy table, parse and bind it through native authoring, deploy the frozen function and narrow procedural rename in development, and repeat the original six-window target job.",
+  "commands": [
+    "uv run ci model change candidate fff0fe9e834944de88926ab1fe3782a5 --json",
+    "uv run ci model change deploy e28ced9c82be4119a90cb3540e7e2353 --json",
+    "uv run ci model change candidate a7a2f7fe89004b5b8d15fbb53c6e6dc1 --json",
+    "uv run ci model change deploy faf765b502b14dcca545e5890e0a9c25 --json",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-adoption/prepare_retrieval.py targets",
+    "uv run ci run finalize 438 --output-realization private:pm2-retrieval-targets:438 --json",
+    "uv run ci test --json -- python/corpus-structure/tests/evaluate/test_operation_assessment.py python/corpus-structure/tests/evaluate/test_operation_assessment_native.py python/corpus-structure/tests/semantic/test_definition_model_native.py python/corpus-structure/tests/methods/test_inline_formula_occurrences.py python/corpus-structure/tests/methods/test_witnessed_source_links.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/target-inputs.json",
+      "role": "Original pinned target windows",
+      "sha256": "42cf8418be665efee31a264ce5b5e70fc5be167f9e4af30af68056bf5cdd07e5"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/preflight-outcomes.json",
+      "role": "Original target failures and scoped interruptions",
+      "sha256": "3528c8166b3609f561ba8ac8b473e6bd596adb074cd40d716a1e68cc2a79cbb4"
+    },
+    {
+      "path": "raw/definition-witness-deployment.json",
+      "role": "Development deployment of generated relational lookup",
+      "sha256": "656d13ec27605c76c198d3ce3eef16d938d0449cdfb0d587c2f3a0c58bbfd2d5"
+    },
+    {
+      "path": "raw/definition-witness-locals-deployment.json",
+      "role": "Development deployment eliminating remaining procedural shadowing",
+      "sha256": "fda71c26f80de6aa07fe8eb3f7672ac02cfa60ef24400d42b4d4ea7deb77c620"
+    },
+    {
+      "path": "raw/targets-final.json",
+      "role": "Retained native target producer run 438/cut 539",
+      "sha256": "690ff9b74864e37654683f7eea2f99591bf048f07eb04b6b70220d141eacaa77"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Focused tests passed (managed 2f7f898ec7094d42af0bd0c5d8d449f2)",
+      "value": 78,
+      "of": 78,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Run 438 completed and sealed on the same release and retained source after the two native validator fixes. The generated read has one modeled owner; exact source proof checks are preserved. Development admission did not activate the release or select the run.",
+  "consumed_by": [
+    "PM2-09",
+    "PM2-12"
+  ]
+}

@@ -1,0 +1,6 @@
+baseline: 2c7aa3e07
+packs: [statistics]
+native_predecessor: semantic_pm2_definition_scope
+native_revision: semantic_pm2_def_scope_vars
+deployment: true
+deployment_profile: development

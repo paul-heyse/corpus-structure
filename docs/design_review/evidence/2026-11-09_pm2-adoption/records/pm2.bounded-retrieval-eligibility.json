@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "id": "pm2.bounded-retrieval-eligibility",
+  "title": "Bounded matched retrieval prerequisite and coverage",
+  "group": "pm2-adoption",
+  "package": "PM2-11",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the two contextual arms be compared on the frozen cross-chapter target and affine preservation controls?",
+  "answers": [
+    "PM2-09",
+    "PM2-11",
+    "PM2-12"
+  ],
+  "method": "Freeze the exposed source-only V2 frame and independent expectations. Run the same-release bounded source carrier, retained Dipo context and six-window native target producer. Require the complete common eligible target population before either ranking arm.",
+  "commands": [
+    "uv run ci run parsers --request docs/design_review/evidence/2026-11-09_pm2-adoption/raw/retrieval-dipo-request.json --json",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-adoption/prepare_retrieval.py carrier",
+    "uv run ci contributions list --run 435 --source-view 391 --method extract.m1_candidates --kind occurrence --include-details --limit 200 --json",
+    "uv run ci structure list --run 438 --cut 539 --kind definition_components --json",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-adoption/protect_retrieval.py",
+    "uv run python docs/design_review/evidence/2026-11-09_pm2-adoption/prepare_retrieval.py baseline --target-run 438"
+  ],
+  "agents": [
+    {
+      "role": "A source author",
+      "model": "Codex",
+      "brief": null,
+      "separation": "Source-only and no paired predictions."
+    },
+    {
+      "role": "B source author",
+      "model": "Codex",
+      "brief": null,
+      "separation": "Independent source-only windows before ranking."
+    },
+    {
+      "role": "C adjudicator",
+      "model": "Codex",
+      "brief": null,
+      "separation": "Exact source and both opinions; no ranking results."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "raw/retrieval-reference-set.json",
+      "role": "Frozen protected source and explicit arm bindings",
+      "sha256": "a285308ff8823640281a70100e202be4960ab31ac8ba75b4e1dc3c0720108129"
+    },
+    {
+      "path": "retrieval-reference.md",
+      "role": "Source-only rubric and A",
+      "sha256": "b6f229fe32d522dab57fc561621d47c63e231ead70002c50e092c1834de076d1"
+    },
+    {
+      "path": "retrieval-pass-b.md",
+      "role": "Independent B",
+      "sha256": "1a0bc220bb04a412f7057af058e6f6f195a6b39384a8b5675a3f1da7c9efe9fb"
+    },
+    {
+      "path": "retrieval-adjudication.md",
+      "role": "C source adjudication",
+      "sha256": "7056b3f268f5024d0b863e2eecd0901af3e2e2697b7a1d0b5421b49d2b336bde"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/retrieval-reference-passes.json",
+      "role": "Protected source judgments for set 38",
+      "sha256": "66298f99dfc938a6ca3dd27e3f0e5625acc9dc36ad4dc653dc03934059b6f458"
+    },
+    {
+      "path": "raw/carrier-readback.json",
+      "role": "Exact bounded incumbent occurrences",
+      "sha256": "d075e8f89becccf8d046d21cb3ef3977a194dabf7e740734ef0d0a3349621e8d"
+    },
+    {
+      "path": "raw/retrieval-dipo-context.json",
+      "role": "Exact retained context binding for the binomial use",
+      "sha256": "cf0975b11d3fd0b770e255cc1d8f90ad6f8ea9eb7e7688a6d20150ff5502c0f0"
+    },
+    {
+      "path": "raw/targets-reader.json",
+      "role": "Native target producer terms, scope and dispositions",
+      "sha256": "54d4692934b8b8353eaf713033e5ddca6f3404a249758af23c5cb2f4b41f27d2"
+    },
+    {
+      "path": "raw/retrieval-target-inventory.json",
+      "role": "Empty eligible definition target inventory",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "raw/retrieval-gate.json",
+      "role": "Baseline refusal and unattempted revised comparison",
+      "sha256": "b0d66aa191c56e7e194f9bd40b01b9af8378df775ee7844fadc6616547b1f183"
+    }
+  ],
+  "depends_on": [
+    "pm2.definition-witness-native-read"
+  ],
+  "results": [
+    {
+      "name": "Eligible definition targets",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": "Two located naming components were retained as explanations."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The binomial use and exact Dipo context were available. Both arms lack the required eligible target inventory, and the exact affine controls also lack occurrence carriers. No paired ranking gain is established; v10 remains the default.",
+  "consumed_by": [
+    "PM2-09",
+    "PM2-11",
+    "PM2-12"
+  ]
+}

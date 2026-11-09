@@ -29,8 +29,15 @@ readers and adjudication recorded A/B/C. The exposed set tests private passage
 function and quantity; it leaves the unresolved variance host, unspecified
 gambler focal mention and non-unique roulette amount outside the graded scope.
 The [development account](../../design_review/evidence/2026-11-09_pm2-interpretation/README.md)
-owns the scoped findings. An eligible paired predecessor and broader
-matched prediction scopes remain open.
+owns the original scoped findings. The [matched interpretation account](../../design_review/evidence/2026-11-09_pm2-interpretation-pair/README.md)
+records run 429/cut 529 versus 431/cut 531 on protected sets 36 and 37. Exact normalization
+of the fair-coin probability improved and the definition control held; loss, host and
+referent remained unsupported. Those misses survived a separate candidate diagnostic
+for the host and referent. The result supports the bounded literal change without
+qualifying interpretation as a whole. The [adoption account](../../design_review/evidence/2026-11-09_pm2-adoption/README.md)
+records the blocked retrieval comparison: the matched target producer ran but
+returned no eligible definition inventory. This is a producer coverage gap,
+so v10 remains the default and v11 is not qualified.
 
 **Prerequisites.** Start source-only reference preparation with PM2-00's eligible source
 pins and the applicable existing coordinate contract. Settle any new coordinate or coverage
@@ -162,11 +169,14 @@ retaining the earlier route with its reason and trigger.
 ## PM2-12 · Adopt a qualified release for the textbook
 
 **Development only · 2026-11-09.** The acquired development database reached
-`semantic_pm2_contextual_queries` through the reviewed frozen candidates. Its
-private result does not satisfy paired preservation or gain. The retained
+`semantic_pm2_def_scope_vars` through reviewed frozen candidates, with the same
+semantic release admitted. The paired results do not establish the required
+preservation and gain across selected operations. DMA-13's exact native grades
+did not qualify an eligible predecessor. The retained
 Standard and Nemotron native product is intact; regenerate only selected
 derivations for the full-book release once their qualification scope is settled.
-Chandra data is excluded. No activation, selection or retirement occurred.
+Full-book derived qualification was `not_run` while these prerequisites remain
+open. Chandra data is excluded. No activation, selection or retirement occurred.
 
 **Prerequisites.** Consume the exact PM2-11 assessment and final native execution evidence
 for every selected operation, including required Reader/MCP journeys and any optional mode

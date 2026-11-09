@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "id": "pm2.adoption-source-worklist",
+  "title": "Exact source worklist and detached revised quantity",
+  "group": "pm2-adoption",
+  "package": "PM2-12",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can PM2 retain the same Standard and Nemotron book source and verify a revised exact numeric result without new source recognition?",
+  "answers": [
+    "PM2-00",
+    "PM2-07",
+    "PM2-12"
+  ],
+  "method": "Compare the installed CLI's two immutable view manifests, then export and inspect exact source closure of the revised private quantity task.",
+  "commands": [
+    "uv run ci source views 404 --json",
+    "uv run ci source views 407 --json",
+    "uv run ci review export docs/design_review/evidence/2026-11-09_pm2-adoption/raw/exact-normalization-selection.json --exact-closure --json",
+    "uv run ci review inspect --result dddb654819ed4e73a31a733ad17d377d --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/exact-normalization-selection.json",
+      "role": "Exact private v2 task and evidence closure selection",
+      "sha256": "d6158063e81363358203093cb1829b68cfba4ca791d13555c344c579d1277fb5"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/source-cut-514-views.json",
+      "role": "Reference-only source worklist",
+      "sha256": "100d24224565b0354184bcb1917cf30014e38157011d196d4e6ff7a38d8e19f1"
+    },
+    {
+      "path": "raw/m1-cut-517-views.json",
+      "role": "Completed private M1 source worklist",
+      "sha256": "100d24224565b0354184bcb1917cf30014e38157011d196d4e6ff7a38d8e19f1"
+    },
+    {
+      "path": "raw/exact-normalization-inspection.json",
+      "role": "Detached exact closure verification",
+      "sha256": "840bd6582919ad41913099df5fcfcac063981c1eef666c9bb08db65458b42a45"
+    }
+  ],
+  "depends_on": [
+    "pm2.matched-interpretation-development"
+  ],
+  "results": [
+    {
+      "name": "Identical selected source views",
+      "value": 29,
+      "of": 29,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The identical 29 views still bind to integrated task 1627, and the selected v2 result can be verified through its exact detached closure. Neither result qualifies the full-book derivations or selects the project.",
+  "consumed_by": [
+    "PM2-12"
+  ]
+}

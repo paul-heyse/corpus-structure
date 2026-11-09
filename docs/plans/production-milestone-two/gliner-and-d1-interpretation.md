@@ -25,8 +25,12 @@ located the fair-coin literal `1/8` without a numeric normalization, retained
 an independent definition function and a binary relation observation, returned
 no match for the fair-coin host, and returned missing candidate on the gambler
 referent with a grounded candidate available. Preserve those gaps as development
-findings. The contextual list consumer is wired to PM2-09; its same-release
-native journey and the paired comparisons below remain open.
+findings. The [protected paired interpretation](../../design_review/evidence/2026-11-09_pm2-interpretation-pair/README.md)
+supports the v2 change to exact source-backed probability normalization and preserves
+the definition control. Roulette loss, condition host and local referent stayed
+unsupported. The changed-candidate diagnostic kept the attachment misses separate
+from candidate availability. A matching GLiNER/spaCy comparison and wider d1
+interpretation qualification remain open.
 
 ### Reuse GLiNER extraction and the current source qualification route
 

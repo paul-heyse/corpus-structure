@@ -1,0 +1,6 @@
+baseline: bcbb16695
+packs: [statistics]
+native_predecessor: semantic_pm2_contextual_queries
+native_revision: semantic_pm2_definition_scope
+deployment: true
+deployment_profile: development
