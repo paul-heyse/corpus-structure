@@ -866,6 +866,12 @@ def _assert_public_condition_projection(view, relation, rows, predicate):
     assert statement["qualifier"][0]["passage"]["text"].startswith("If ")
     assert statement["host_predicate"][0]["passage"]["text"] == predicate
     assert "attachment" not in statement
+    original = inputs.passages[0]
+    other_version = original.model_copy(
+        update={"passage_id": "same-physical-source-other-version", "effective_version": "revision-2"}
+    )
+    versioned = inputs.model_copy(update={"passages": (original, other_version)})
+    assert condition_qualification(versioned, ref, payload) == projected
 
     changed = deepcopy(payload)
     (cue,) = [
