@@ -280,7 +280,11 @@ to the staged candidate. Keep effect authority separate from a plan or assessmen
 
 ### Named workflow qualification
 
-**Scheduled · [Structuring I07](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I07).** Assess the staged candidate
+**Staging in progress · [Structuring I07](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I07).**
+The [coordinator](../production-milestone-two_2026-11-08.md#structuring-execution--2026-11-09)
+records the retained source cut and private derivation. Once the private cut is
+finalized, run set 34 to check for regressions. That grade does not settle the
+named workflows below. Assess the staged candidate
 against the best compatible retained comparator for each selected workflow, even if
 the comparator was never selected. Freeze source, question, operation version, arms and
 independent expectations before opening new output. Keep staging separate from qualification

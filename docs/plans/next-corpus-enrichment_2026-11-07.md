@@ -529,6 +529,12 @@ named-link admission, exact identifier and alias binding, indexed anchor lookups
 within native scoped validation, and segmented custody for large PDF relations.
 The full-book replay and affected tests determine verification standing.
 
+On 2026-11-09, the detached integration, named-link, sparse-role and PDF
+worktrees were reconciled with `main`. Their repairs were already integrated
+in `00ca29618`, which also updated PDF publication for deployment. Later native
+validation changes remain in place. This cleanup did not change product code
+or the verification standing below.
+
 On 2026-11-08, scoped runs 310 and 311 stopped during native admission. The
 first exposed missing deployed helper functions. The second exposed an ambiguous
 SQL reference in the role inventory. Managed deployment

@@ -298,10 +298,12 @@ the owner of the package boundaries.
   change numerical policy, retrieval defaults or logical proof completeness.
 - **I07 · Private source-ready.** Run 478/cut 595 resolved all 29 views under
   the same authenticated Standard and Nemotron product. Derived run 482 is
-  active under the current runtime, with 29 annotations and six candidate tasks
-  completed at the checkpoint. Finalization and the existing set 34 regression
-  grade follow settlement. No Chandra, recognition, activation or selection ran.
-  Full-book workflow qualification and the final applicable test union remain open.
+  active under the current runtime. At the 2026-11-09 handoff, `uv run ci status
+  482 --project nce-grinstead-snell-full-book --json` reported 39 of 58 derivation
+  tasks done, one running and 18 pending, with no completed cut. Finalize the
+  private run after settlement and grade the existing set 34 as a regression
+  check. No Chandra, new recognition, activation or selection ran. The named
+  workflow comparisons and final applicable test union remain open.
 
 ## Completion audit
 

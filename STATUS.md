@@ -13,7 +13,7 @@ _Updated 2026-11-09. Development runs `semantic_pm2_condition_admission`. The pr
 - The [GitHub visitor follow-on](docs/plans/github-visitor-experience_2026-11-08.md#ghv-follow-on-acceptance) is live. On 2026-11-08, the docs workflow and both live browser sizes passed. The corpus index links to 1,409 verified source files in Git LFS. The supplied How it works image passed desktop and mobile preview checks in the local revision.
 - The [M2 foundation](docs/plans/production-milestone-two_2026-11-08.md#foundation-execution) uses cut 514 for source-only expectations and cut 517 for the finished private M1 comparator over the same views. On 2026-11-08 all four CUDA profiles ran under the shared handoff, and the private d1/Dipo Reader journey passed claim reassignment and exact reuse. The [foundation evidence](docs/design_review/evidence/2026-11-08_pm2-foundation/README.md) owns the scoped checks. DMA-13 owns evaluated cutover.
 - The [M2 parser execution](docs/plans/production-milestone-two/linguistic-referential-discourse.md#parser-execution) sealed cut 520 and verified replay at cut 521. Same-release HanLP and Maverick inputs for d1 reached cut 524 without repeating source recognition.
-- The [M2 coordinator](docs/plans/production-milestone-two_2026-11-08.md#structuring-execution--2026-11-09) owns current qualification. On 2026-11-09, CUDA run 481/cut 596 preserved an empty provider reply as a typed unresolved question through CLI and fresh MCP; protected comparison readback now exposes persistent failures. Private source-ready cut 595 reused all 29 Standard and Nemotron views; derived run 482 is active. Fixed-offer d1 and GLiNER diagnostics did not justify a default change. Workflow selection remains open.
+- The [M2 coordinator](docs/plans/production-milestone-two_2026-11-08.md#structuring-execution--2026-11-09) owns current qualification. On 2026-11-09, CUDA run 481/cut 596 preserved an empty provider reply as a typed unresolved question through CLI and fresh MCP; comparison readback exposes persistent failures. Private source-ready cut 595 reused all 29 Standard and Nemotron views. Derived run 482 is active (39 of 58 tasks complete at handoff). Finalization, the set 34 regression grade and named workflow comparisons remain open.
 
 ## Delivered and assessed
 
@@ -33,11 +33,7 @@ _Updated 2026-11-09. Development runs `semantic_pm2_condition_admission`. The pr
 
 ## CLI operations — 2026-11-07
 
-- On 2026-11-09, [project Codex settings](.codex/config.toml) restored per-command approved
-  direnv refresh through the installed workstation Bash bridge while retaining the shared
-  daemon. Live daemon shell checks passed for this checkout and `pse-arrow`; the existing
-  workstation environment suite passed all 14 tests. Exit/resume existing CLI sessions to
-  load the settings. Product qualification was `not_run` for this configuration change.
+- On 2026-11-09, [project Codex settings](.codex/config.toml) restored per-command approved direnv refresh through the workstation Bash bridge with the shared daemon. Live shell checks passed for this checkout and `pse-arrow`, and all 14 workstation environment tests passed. Exit/resume existing CLI sessions to load the settings. Product qualification was `not_run` for this change.
 - The [ci skill](.claude/skills/ci/SKILL.md) documents routine routes and repair ownership.
 - The [CLI reporting repairs](docs/plans/cli-reporting_2026-11-07.md#merged-source-verification)
   passed targeted main verification, including the installed native journeys.
@@ -50,15 +46,14 @@ _Updated 2026-11-09. Development runs `semantic_pm2_condition_admission`. The pr
 
 ## NCE development and next work
 
-- The [NCE audit gap execution](docs/plans/next-corpus-enrichment_2026-11-07.md#audit-gap-execution)
-  owns exact receipts for the `semantic_nce_gs518_discourse` development baseline.
+- The [NCE audit gap execution](docs/plans/next-corpus-enrichment_2026-11-07.md#audit-gap-execution) owns exact receipts for the `semantic_nce_gs518_discourse` baseline. Four detached NCE worktrees were removed on 2026-11-09 after confirming their repairs were already on `main`.
+- On 2026-11-09, `uv run ci docs check` passed for the checkpoint update; product tests were `not_run` because product source did not change.
 - On 2026-11-07, qualifier replay, artifact delivery, both table Reader controls and seven model arms completed.
   Protected fit 3 passed on set 30 and evaluation 35. Reader, repository and eight native fault checks passed.
 - [Full-book intake](docs/plans/next-corpus-enrichment_2026-11-07.md#full-book-execution)
   completed Standard cut 413 and combined cut 431. All 29 scoped views and nine contextual
   cues published. LLM review covers all 518 pages and retained definition and artifact outputs.
-- The [Chandra comparator follow-up](docs/plans/chandra-2-post-nemotron_2026-11-08.md#comparator-execution-fit-follow-up) owns `semantic_chandra_pdf_ancestry`, book run 377 at cut 492 and projection adoption 378 at cut 493.
-  The p416 Reader, source search and packet passed.
+- The [Chandra comparator follow-up](docs/plans/chandra-2-post-nemotron_2026-11-08.md#comparator-execution-fit-follow-up) owns historical cuts 492 and 493. The p416 Reader, source search and packet passed.
 - The [repaired shadow execution](docs/plans/chandra-2-post-nemotron_2026-11-08.md#repaired-comparator-shadow-execution) owns the 535-request frozen scope and its settled results.
   Run 381 sealed cut 496 with its settled p416 inference. The 63 affected CI checks, retry fixture, types, live dispatch and explicit MCP packet passed.
   Uncollected shadow scopes remain unassessed. Chandra now requires explicit scopes. Legacy dispatch and shadow recovery are retired, with historical evidence still readable. On 2026-11-08, the focused `uv run ci test` selection passed 98 tests (`40732331fec849e1b1f62f5a2e4c7d3c`). Type and lint checks passed. Full-book GPU and resumed DMA qualification were `not_run`.
