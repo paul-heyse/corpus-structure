@@ -2242,7 +2242,7 @@ EXCEPTION WHEN no_data_found OR too_many_rows OR invalid_text_representation OR 
 END $$;
 REVOKE ALL ON FUNCTION ops.validate_definition_basis(jsonb,jsonb,jsonb,jsonb,jsonb) FROM PUBLIC;
 
-CREATE OR REPLACE FUNCTION ops.condition_role_citations(inputs jsonb, retained jsonb, row_ jsonb)
+CREATE OR REPLACE FUNCTION ops.condition_role_citations(inputs jsonb, retained jsonb, row_ jsonb, effective text)
 RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
 DECLARE a jsonb; src jsonb; view_ jsonb; piece jsonb; passage jsonb; source_id text;
  lo integer; hi integer; result jsonb:='[]'; pin jsonb:=row_->'pin';
@@ -2272,6 +2272,7 @@ BEGIN
    RAISE EXCEPTION 'condition role differs from native source item' USING ERRCODE='23514'; END IF;
   SELECT p INTO STRICT passage FROM jsonb_array_elements(inputs->'passages') p
    WHERE p->>'source_ref'=source_id AND p->>'scope'=inputs->>'scope'
+   AND p->>'effective_version' IS NOT DISTINCT FROM effective
    AND (p->>'start')::integer<=lo AND hi<=(p->>'end')::integer;
   IF substring(passage->>'text' FROM lo-(passage->>'start')::integer+1 FOR hi-lo) IS DISTINCT FROM a->>'source_piece' THEN
    RAISE EXCEPTION 'condition role differs from the exact source passage' USING ERRCODE='23514'; END IF;
@@ -2282,7 +2283,7 @@ BEGIN
   RAISE EXCEPTION 'condition role repeats source evidence' USING ERRCODE='23514'; END IF;
  RETURN result;
 END $$;
-REVOKE ALL ON FUNCTION ops.condition_role_citations(jsonb,jsonb,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ops.condition_role_citations(jsonb,jsonb,jsonb,text) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.validate_condition_qualification(inputs jsonb, ref jsonb, product jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
@@ -2342,8 +2343,8 @@ BEGIN
   OR member->'pin' IS DISTINCT FROM relation_->'pin'
   OR data.record_source_json(member->'value')->>'role' IS DISTINCT FROM 'predicate' THEN
   RAISE EXCEPTION 'condition host requires its complete declared predicate member' USING ERRCODE='23514'; END IF;
- qualifier_citations:=ops.condition_role_citations(inputs,retained,cue);
- predicate_citations:=ops.condition_role_citations(inputs,retained,member);
+ qualifier_citations:=ops.condition_role_citations(inputs,retained,cue,component->>'effective_version');
+ predicate_citations:=ops.condition_role_citations(inputs,retained,member,component->>'effective_version');
  IF EXISTS(SELECT FROM jsonb_array_elements(qualifier_citations||predicate_citations) c
   JOIN LATERAL jsonb_array_elements(inputs->'passages') p ON p->>'passage_id'=c->'span'->>'passage_id'
   WHERE p->>'effective_version' IS DISTINCT FROM component->>'effective_version')
