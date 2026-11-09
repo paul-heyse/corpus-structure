@@ -171,7 +171,7 @@ class InterpretationScope(BaseModel):
     extent: Extent
     profile: InterpretationProfile
     family: Family
-    version: Literal["1", "2"] = "1"
+    version: Literal["1", "2", "3"] = "1"
     schedule: bool = True
     questions: tuple[str, ...] = Field(default=(), max_length=16)
     focus: RetainedContributionRef | None = None
@@ -520,7 +520,7 @@ def _interpretation_work(scope, view, source, preparation, prepared, project, co
                 }
             )
     option_aliases = None
-    if scope.version == "2" and rendered:
+    if scope.version in ("2", "3") and rendered:
         from corpus_structure.methods.pm2_interpretation_products import render_candidate_options
 
         rendered, option_aliases = render_candidate_options(family, rendered)
@@ -550,7 +550,7 @@ def _interpretation_work(scope, view, source, preparation, prepared, project, co
             "retrieval": retrieval,
         },
     }
-    if scope.version == "2":
+    if scope.version in ("2", "3"):
         request["interpretation"]["version"] = scope.version
         request["interpretation"]["option_aliases"] = option_aliases or {}
     method = OperationDescriptor(

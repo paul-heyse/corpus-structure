@@ -171,6 +171,117 @@ def test_discourse_returns_only_located_members_of_the_selected_ordered_arm():
     }
 
 
+def _located(op, key, start, end, literal):
+    row = _row(op, key, "source_occurrence", located=True)
+    row["anchors"][0].update(pointer="#/texts/0", start=start, end=end, source_piece=literal)
+    return row
+
+
+def test_retained_host_and_srl_modifier_do_not_require_complete_svo():
+    op = _operation(10, "pm2.hanlp.frames")
+    verb = _located(op, "verb", 10, 14, "wait")
+    qualifier = _located(op, "qualifier", 20, 27, "if busy")
+    marker = _located(op, "marker", 20, 22, "if")
+    temporal = _located(op, "temporal", 15, 19, "soon")
+    clause_extent = _located(op, "extent", 0, 19, "Operators wait soon")
+    frame = _row(
+        op,
+        "frame",
+        "linguistic.predicate_frame",
+        value={
+            "sentence": 0,
+            "predicate": "verb",
+            "focus": "verb",
+            "dependency_arguments": [],
+            "srl_frames": [
+                {"predicate": "verb", "arguments": [{"role": "ARGM-TMP", "location": "temporal"}]}
+            ],
+        },
+        members=("verb", "temporal"),
+    )
+    cue = _row(
+        op,
+        "cue",
+        "linguistic.qualifier_cue",
+        value={
+            "kind": "condition",
+            "location": "qualifier",
+            "marker": "marker",
+            "candidates": ["frame"],
+        },
+        members=("qualifier", "marker", "frame"),
+    )
+    clause = _row(
+        op,
+        "clause",
+        "linguistic.constituent",
+        value={"sentence": 0, "label": "S", "location": "extent"},
+        members=("extent",),
+    )
+    selected = (frame, cue, clause, verb, qualifier, marker, temporal, clause_extent)
+    result = _facets((op,), selected)
+    (association,) = result["cue-id"]["qualifier_host_candidates"]
+    assert association["status"] == "candidate"
+    assert association["host"]["anchor_ids"] == ("verb-anchor",)
+    assert association["qualifier"]["anchor_ids"] == ("qualifier-anchor",)
+    (modifier,) = result["frame-id"]["modifier_candidates"]
+    assert modifier["modifier"]["role"] == "ARGM-TMP"
+    assert modifier["modifier"]["anchor_ids"] == ("temporal-anchor",)
+    assert result["frame-id"]["clause_containment"][0]["clause"]["contribution_id"] == "clause-id"
+    without_host = _facets((op,), tuple(row for row in selected if row is not verb))
+    assert "qualifier_host_candidates" not in without_host["cue-id"]
+    assert "modifier_candidates" not in without_host["frame-id"]
+
+
+def test_maverick_nominal_comparator_reuses_only_exact_selected_phrase_evidence():
+    maverick = _operation(10, "pm2.maverick.coreference")
+    hanlp = _operation(20, "pm2.hanlp.frames")
+    earliest = _located(maverick, "earliest-extent", 0, 12, "A supervisor")
+    nearest = _located(maverick, "near-extent", 17, 20, "She")
+    focal = _located(maverick, "focal-extent", 24, 27, "her")
+    mentions = tuple(
+        _row(
+            maverick,
+            key,
+            "maverick.mention",
+            value={"first": i, "last": i + length},
+            members=(extent["item_key"],),
+        )
+        for key, extent, i, length in (
+            ("earliest", earliest, 0, 1),
+            ("near", nearest, 4, 0),
+            ("focal", focal, 7, 0),
+        )
+    )
+    cluster = _row(
+        maverick,
+        "cluster",
+        "maverick.cluster",
+        value={"member_keys": [row["item_key"] for row in mentions]},
+        members=tuple(row["item_key"] for row in mentions),
+    )
+    phrase_extent = _located(hanlp, "phrase-extent", 0, 12, "A supervisor")
+    phrase_extent["anchors"][0]["anchor_id"] = earliest["anchors"][0]["anchor_id"]
+    phrase = _row(
+        hanlp,
+        "phrase",
+        "linguistic.constituent",
+        value={"sentence": 0, "label": "NP", "location": "phrase-extent"},
+        members=("phrase-extent",),
+    )
+    cluster_rows = (cluster, *mentions, earliest, nearest, focal)
+    result = _facets((maverick, hanlp), (*cluster_rows, phrase_extent, phrase))
+    comparison = result["focal-id"]["local_referent_candidates"]
+    assert comparison["nearest"]["mention"]["contribution_id"] == "near-id"
+    assert comparison["nominal"]["mention"]["contribution_id"] == "earliest-id"
+    assert comparison["nominal"]["phrase"]["origin_task_id"] == 19
+    assert comparison["status"] == "candidate"
+    assert (
+        _facets((maverick,), cluster_rows)["focal-id"]["local_referent_candidates"]["nominal"]
+        is None
+    )
+
+
 def test_interpretation_projects_exact_focus_and_candidates_without_admission():
     op = _operation(10, "qualification_scope_v1")
 

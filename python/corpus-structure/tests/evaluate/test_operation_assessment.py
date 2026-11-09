@@ -308,6 +308,91 @@ def test_paired_changes_preserve_stale_reference_refusals(frame):
         compare_assessments(empty, changed)
 
 
+def test_revised_state_distinguishes_persistent_unsupported_from_pairing_and_regression(frame):
+    grade = assessment(frame, ())
+
+    def arm(name, judgments):
+        return {
+            **grade,
+            "run_id": 10 if name == "baseline" else 11,
+            "comparison_arm": {"name": name, "binding_digest": "frozen-pair"},
+            "units": [
+                {
+                    "unit_id": 2,
+                    "cases": [
+                        {
+                            "case_id": case_id,
+                            "judgment": judgment,
+                            "error_category": error,
+                        }
+                        for case_id, judgment, error in judgments
+                    ],
+                },
+                {
+                    "unit_id": 9,
+                    "cases": [
+                        {"case_id": "persistent", "judgment": "supported", "error_category": None}
+                    ],
+                },
+            ],
+        }
+
+    baseline = arm(
+        "baseline",
+        (
+            ("persistent", "unsupported", "missing_output"),
+            ("regression", "supported", None),
+            ("ambiguous", "ambiguous", "permissible_alternatives"),
+            ("unassessed", "supported", None),
+            ("incomparable", "unassessed", "uninspected"),
+        ),
+    )
+    revised = arm(
+        "revised",
+        (
+            ("persistent", "unsupported", "wrong_structure"),
+            ("regression", "unsupported", "wrong_structure"),
+            ("ambiguous", "ambiguous", "permissible_alternatives"),
+            ("unassessed", "unassessed", "prediction_scope_unavailable"),
+            ("incomparable", "unsupported", "missing_output"),
+        ),
+    )
+
+    result = compare_assessments(baseline, revised)
+    assert result["protocol"] == "source-operation-comparison-1"
+    assert [(row["unit_id"], row["case_id"]) for row in result["changes"]["unchanged"]] == [
+        (2, "persistent"),
+        (9, "persistent"),
+    ]
+    assert [row["case_id"] for row in result["changes"]["regressed"]] == [
+        "regression",
+        "unassessed",
+    ]
+    summary = result["revised_state"]
+    assert summary["judgment_counts"] == {
+        "supported": 1,
+        "unsupported": 3,
+        "ambiguous": 1,
+        "unassessed": 1,
+    }
+    assert summary["persistent_unsupported_count"] == 1
+    assert summary["newly_unsupported_count"] == 1
+    assert summary["not_comparable_count"] == 1
+    cases = {(row["unit_id"], row["case_id"]): row for row in summary["cases"]}
+    assert cases[2, "persistent"] == {
+        "unit_id": 2,
+        "case_id": "persistent",
+        "judgment": "unsupported",
+        "pairing": "comparable",
+        "unsupported_state": "persistent",
+        "error_category": "wrong_structure",
+        "cause": "unknown",
+    }
+    assert cases[2, "regression"]["unsupported_state"] == "newly_unsupported"
+    assert cases[2, "incomparable"]["pairing"] == "not_comparable"
+    assert cases[2, "incomparable"]["unsupported_state"] == "unknown"
+
+
 def test_exact_relation_direction_and_order_cannot_be_renamed_as_match(frame):
     relation = replace(
         case(),

@@ -40,6 +40,8 @@ from corpus_structure.semantic.types import PreparedRelease
 
 _CONTEXT_EDUS = 4
 _CONTEXT_OMISSIONS = 8
+_CLAUSE_LABELS = frozenset({"S", "SBAR", "SBARQ", "SINV", "SQ"})
+_MODIFIER_ROLES = frozenset({"TMP", "PNC", "PRP", "MNR", "CAU"})
 
 Row = Mapping[str, Any]
 Custody = tuple[int, int, str]
@@ -209,6 +211,144 @@ def _parser_roles(value: ParserValue, parts: _Parts) -> list[dict[str, Any]]:
             raise SemanticRefusal("retained PM2 product lacks an extent member")
         return [parts.role("source", "extent", key)]
     return []
+
+
+def _frame_associations(frame: FrameView, parts: _Parts) -> list[dict[str, Any]]:
+    """Expose explicit SRL modifiers without turning native roles into semantic claims."""
+    host = parts.role("frame", "predicate", frame.predicate)
+    if host["state"] != "source_located":
+        return []
+    result = []
+    for group, reading in enumerate(frame.srl_frames):
+        for argument in reading.arguments:
+            # PropBank continuation and reference roles keep their native spelling.
+            role = argument.role.removeprefix("C-").removeprefix("R-")
+            scheme, _, modifier_role = role.partition("-")
+            if scheme not in {"ARGM", "AM"} or modifier_role not in _MODIFIER_ROLES:
+                continue
+            modifier = parts.role("native_srl", argument.role, argument.location, group=group)
+            if modifier["state"] == "source_located":
+                result.append(
+                    dict(basis="native_srl_group", status="candidate", host=host, modifier=modifier)
+                )
+    return result
+
+
+def _cue_associations(cue: CueView, parts: _Parts) -> list[dict[str, Any]]:
+    qualifier = parts.role("qualifier", "cue", cue.location)
+    marker = parts.role("qualifier", "marker", cue.marker)
+    if qualifier["state"] != "source_located" or marker["state"] != "source_located":
+        return []
+    result = []
+    for key in cue.candidates:
+        _, frame = parts.resolve(key, "linguistic.predicate_frame")
+        if frame is None:
+            continue
+        value = parser_view(frame)
+        if not isinstance(value, FrameView):
+            raise SemanticRefusal("retained qualifier candidate is not a predicate frame")
+        frame_parts = _Parts.read(
+            frame, value.location_keys, value.unlocated_members, parts.selection
+        )
+        host = frame_parts.role("qualifier_candidate", "host_predicate", value.predicate)
+        if host["state"] == "source_located":
+            result.append(
+                dict(
+                    basis="native_qualifier_cue",
+                    status="candidate",
+                    qualifier_kind=cue.kind,
+                    qualifier=qualifier,
+                    marker=marker,
+                    host_frame=_reference(frame),
+                    host=host,
+                )
+            )
+    return result
+
+
+def _located_member(parts: _Parts, key: str) -> Row | None:
+    _, member = parts.resolve(key, "source_occurrence")
+    if (
+        member is not None
+        and member["anchors"]
+        and len(_exact_anchors(member)) == len(member["anchors"])
+    ):
+        return member
+    return None
+
+
+def _contains_source(container: Row, contained: Row) -> bool:
+    """Check authenticated native source extents, never equality of display strings."""
+    if container["pin"] != contained["pin"]:
+        return False
+    outer = [a for a in container["anchors"] if "pointer" in a and "start" in a and "end" in a]
+    inner = [a for a in contained["anchors"] if "pointer" in a and "start" in a and "end" in a]
+    return (
+        bool(inner)
+        and len(inner) == len(contained["anchors"])
+        and all(
+            any(
+                a["space"] == b["space"] == "native"
+                and a["precision"] == b["precision"] == "exact"
+                and a["pointer"] == b["pointer"]
+                and a["start"] <= b["start"] < b["end"] <= a["end"]
+                for a in outer
+            )
+            for b in inner
+        )
+    )
+
+
+def _local_referents(
+    clusters: Sequence[tuple[Row, ClusterView, _Parts]],
+    nominal_phrases: Mapping[tuple[int, tuple[str, ...]], Row],
+    facets: Mapping[tuple[Custody, str], dict[str, Any]],
+) -> None:
+    for cluster, value, parts in clusters:
+        located: list[tuple[MentionView, Row, Row]] = []
+        for key in value.member_keys:
+            _, member = parts.resolve(key, "maverick.mention")
+            if member is None:
+                continue
+            mention = parser_view(member)
+            if not isinstance(mention, MentionView) or len(mention.location_keys) != 1:
+                raise SemanticRefusal("retained local referent lacks one exact mention extent")
+            mention_parts = _Parts.read(
+                member, mention.location_keys, mention.unlocated_members, parts.selection
+            )
+            location = _located_member(mention_parts, mention.location_keys[0])
+            if location is not None:
+                located.append((mention, member, location))
+        located.sort(key=lambda entry: (entry[0].first, entry[0].last))
+        for mention, focal, location in located:
+            earlier = [row for row in located if row[0].last < mention.first]
+            if not earlier:
+                continue
+            _, nearest, nearest_extent = earlier[-1]
+            nominal = None
+            for _, candidate, extent in reversed(earlier):
+                phrase = nominal_phrases.get((extent["source_view_id"], _exact_anchors(extent)))
+                if phrase is not None and phrase["pin"] == extent["pin"]:
+                    nominal = {
+                        "mention": _reference(candidate),
+                        "anchor_ids": _exact_anchors(extent),
+                        "phrase": _reference(phrase),
+                    }
+                    break
+            facet = facets[(_custody(focal), focal["contribution_id"])]
+            if "local_referent_candidates" in facet:
+                raise SemanticRefusal("one local mention has competing retained clusters")
+            facet["local_referent_candidates"] = {
+                "basis": "native_local_cluster",
+                "status": "candidate",
+                "cluster": _reference(cluster),
+                "focal_anchor_ids": _exact_anchors(location),
+                "nearest": {
+                    "mention": _reference(nearest),
+                    "anchor_ids": _exact_anchors(nearest_extent),
+                },
+                "nominal": nominal,
+            }
 
 
 def interpretation_predecessors(
@@ -524,6 +664,10 @@ def composition_facets(
     facets: dict[tuple[Custody, str], dict[str, Any]] = {}
     edus: dict[tuple[Custody, str], EDUView] = {}
     trees: dict[tuple[Custody, str], tuple[Row, TreeView, _Parts]] = {}
+    frames: list[tuple[tuple[Custody, str], FrameView, _Parts]] = []
+    clauses: dict[tuple[Custody, int], list[tuple[Row, Row]]] = {}
+    nominals: dict[tuple[int, tuple[str, ...]], Row] = {}
+    clusters: list[tuple[Row, ClusterView, _Parts]] = []
     payload_contracts = contribution_payload_contracts(prepared.definitions) if prepared else {}
     predicate_parts = None
     for ref, row in by_ref.items():
@@ -614,7 +758,55 @@ def composition_facets(
             }
         elif isinstance(parser_value, TreeView):
             trees[ref] = (row, parser_value, parts)
+        elif isinstance(parser_value, FrameView):
+            associations = _frame_associations(parser_value, parts)
+            if associations:
+                facets[ref]["modifier_candidates"] = associations
+            if parser_value.sentence is not None:
+                frames.append((ref, parser_value, parts))
+        elif isinstance(parser_value, CueView):
+            associations = _cue_associations(parser_value, parts)
+            if associations:
+                facets[ref]["qualifier_host_candidates"] = associations
+        elif isinstance(parser_value, PhraseView):
+            location = _located_member(parts, parser_value.location)
+            if location is not None and parser_value.sentence is not None:
+                if parser_value.label in _CLAUSE_LABELS:
+                    clauses.setdefault((ref[0], parser_value.sentence), []).append((row, location))
+                elif (
+                    parser_value.label == "NP"
+                    and sum(
+                        len(anchor.get("source_piece", "").split())
+                        for anchor in location["anchors"]
+                    )
+                    > 1
+                ):
+                    # A singleton PTB NP can be a bare pronoun. This bounded
+                    # comparator claims only longer, exactly supported phrases.
+                    key = (location["source_view_id"], _exact_anchors(location))
+                    # Several retained runs can have the same phrase; preserve the exact
+                    # selected reference and make the choice independent of row order.
+                    previous = nominals.get(key)
+                    if previous is None or (_custody(row), row["contribution_id"]) < (
+                        _custody(previous),
+                        previous["contribution_id"],
+                    ):
+                        nominals[key] = row
+        elif isinstance(parser_value, ClusterView):
+            clusters.append((row, parser_value, parts))
 
+    for ref, frame, parts in frames:
+        host = _located_member(parts, frame.predicate)
+        if host is None or frame.sentence is None:
+            continue
+        containing = [
+            {"clause": _reference(clause), "anchor_ids": _exact_anchors(location)}
+            for clause, location in clauses.get((ref[0], frame.sentence), ())
+            if _contains_source(location, host)
+        ]
+        if containing:
+            facets[ref]["clause_containment"] = containing
+    _local_referents(clusters, nominals, facets)
     for ref, (tree, value, parts) in trees.items():
         located = {}
         if len(value.location_keys) != value.root[1]:

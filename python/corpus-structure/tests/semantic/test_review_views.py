@@ -120,12 +120,20 @@ def test_explicit_comparison_uses_frozen_reference_compatibility():
     changes = next(row for name, row in values if name == "changes")
     assert changes["outcome"] == "comparable"
     assert len(changes["changes"]["newly_captured"]) == 1
+    assert changes["revised_state"]["judgment_counts"]["supported"] == 1
+    rows[1] = ("assessment_history", evaluation(2, judgment="unsupported", error="wrong_structure"))
+    changes = next(
+        row for name, row in compose_review_views(selection, iter(rows)) if name == "changes"
+    )
+    assert changes["revised_state"]["persistent_unsupported_count"] == 1
+    assert changes["revised_state"]["cases"][0]["cause"] == "unknown"
     rows[1] = ("assessment_history", evaluation(2, frame="different-grain"))
     changes = next(
         row for name, row in compose_review_views(selection, iter(rows)) if name == "changes"
     )
     assert changes["outcome"] == "incomparable"
     assert "same frozen" in changes["reason"]
+    assert "revised_state" not in changes
 
 
 def test_selected_grade_unavailable_is_refused_without_fallback():

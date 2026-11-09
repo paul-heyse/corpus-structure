@@ -5,7 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy import and_, case, cast, func, literal, or_, select
+from sqlalchemy.dialects.postgresql import JSONB, JSONPATH
 
 from corpus_structure.semantic.metadata import table
 
@@ -61,6 +62,9 @@ class ScopeCoverage(BaseModel):
     input_digest: str | None = None
     parent_input_digest: str | None = None
     outcome: ScopeOutcome
+    provider_outcome: Literal["succeeded", "empty", "limited", "failed"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     task_id: int | None = None
     origin_task_id: int | None = None
     inspected_count: int | None = Field(default=None, ge=0)
@@ -80,6 +84,21 @@ def scope_coverage(conn: Connection, run_id: int, intents: object) -> tuple[Scop
         operation = table("kb.source_contribution_operation")
         result = table("ops.task_result")
         origin = func.coalesce(task.c.reused_task_id, task.c.id)
+        # Read just the provider settlement from the lossless native report. Do not
+        # hydrate complete rendered states, prompts or answer payloads for coverage.
+        provider_outcome = cast(
+            func.jsonb_path_query_first(
+                result.c.body["parse_detail"],
+                cast(
+                    literal(
+                        '$.fields[*] ? (@.name == "pm2_native").value.fields[*]'
+                        ' ? (@.name == "native").value.fields[*] ? (@.name == "outcome").value'
+                    ),
+                    JSONPATH,
+                ),
+            ),
+            JSONB,
+        )["text"].astext
         task_rows = conn.execute(
             select(
                 task.c.input_hash,
@@ -91,6 +110,9 @@ def scope_coverage(conn: Connection, run_id: int, intents: object) -> tuple[Scop
                 operation.c.question,
                 operation.c.operation_version,
                 operation.c.outcome,
+                case((operation.c.operation_version == "3", provider_outcome)).label(
+                    "provider_outcome"
+                ),
                 operation.c.inspected_count.label("inspected"),
                 operation.c.emitted_count.label("emitted"),
                 case(
@@ -107,7 +129,11 @@ def scope_coverage(conn: Connection, run_id: int, intents: object) -> tuple[Scop
                 ).outerjoin(
                     result,
                     and_(
-                        result.c.task_id == origin, operation.c.outcome.in_(("limited", "failed"))
+                        result.c.task_id == origin,
+                        or_(
+                            operation.c.outcome.in_(("limited", "failed")),
+                            operation.c.operation_version == "3",
+                        ),
                     ),
                 )
             )
@@ -180,6 +206,7 @@ def scope_coverage(conn: Connection, run_id: int, intents: object) -> tuple[Scop
             ScopeCoverage(
                 **common,
                 outcome=outcome,
+                provider_outcome=row.provider_outcome if outcome != "cancelled" else None,
                 task_id=row.id,
                 origin_task_id=row.reused_task_id or row.id if row.outcome is not None else None,
                 inspected_count=row.inspected if outcome != "cancelled" else None,

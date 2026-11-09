@@ -847,6 +847,7 @@ def compare_assessments(baseline: Mapping[str, Any], revised: Mapping[str, Any])
     }
     if bound:
         changes["not_comparable"] = []
+    revised_cases: list[dict[str, Any]] = []
     for identity in sorted(a):
         old, new = a[identity], b[identity]
         if bound and old["judgment"] == "unassessed":
@@ -870,8 +871,43 @@ def compare_assessments(baseline: Mapping[str, Any], revised: Mapping[str, Any])
         changes[category].append(
             dict(unit_id=identity[0], case_id=identity[1], baseline=old, revised=new)
         )
+        unsupported_state = None
+        if new["judgment"] == "unsupported":
+            unsupported_state = (
+                "persistent"
+                if old["judgment"] == "unsupported"
+                else "unknown"
+                if old["judgment"] == "unassessed"
+                else "newly_unsupported"
+            )
+        revised_cases.append(
+            dict(
+                unit_id=identity[0],
+                case_id=identity[1],
+                judgment=new["judgment"],
+                pairing="not_comparable" if category == "not_comparable" else "comparable",
+                unsupported_state=unsupported_state,
+                error_category=new.get("error_category"),
+                # The frozen error category describes the grade, not the producer's failure stage.
+                cause="unknown" if new["judgment"] != "supported" else None,
+            )
+        )
+    judgments = Counter(case["judgment"] for case in revised_cases)
     result: dict[str, Any] = dict(
-        protocol="source-operation-comparison-1", changes=changes, quality_claim="not_established"
+        protocol="source-operation-comparison-1",
+        changes=changes,
+        revised_state=dict(
+            judgment_counts={judgment: judgments[judgment] for judgment in JUDGMENTS},
+            persistent_unsupported_count=sum(
+                case["unsupported_state"] == "persistent" for case in revised_cases
+            ),
+            newly_unsupported_count=sum(
+                case["unsupported_state"] == "newly_unsupported" for case in revised_cases
+            ),
+            not_comparable_count=len(changes.get("not_comparable", ())),
+            cases=revised_cases,
+        ),
+        quality_claim="not_established",
     )
     if isinstance(baseline_arm, Mapping) and isinstance(revised_arm, Mapping):
         result["comparison_arms"] = [

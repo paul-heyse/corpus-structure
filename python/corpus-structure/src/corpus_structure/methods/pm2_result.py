@@ -18,7 +18,7 @@ from corpus_structure.semantic.contributions import (
     validate_contribution_semantics,
 )
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.interpretation_questions import declared_families
+from corpus_structure.semantic.interpretation_questions import ANSWER_READS, declared_families
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
@@ -79,7 +79,7 @@ def d1_evidence(
     if (field.path if field is not None else None) != source_path:
         raise ValueError("d1 rendered field differs from the authorized source path")
     rendered = mapping.provider_text if field is None else field.rendered_state
-    if reply.get("outcome") == "succeeded" and rendered != reply.get("rendered_state"):
+    if reply.get("outcome") in ("succeeded", "empty") and rendered != reply.get("rendered_state"):
         raise ValueError("d1 returned a different rendered state")
     located: dict[str, MappedSource | SourceMapRefused] = {}
     for key, answer in reply.get("native", {}).get("answers", {}).items():
@@ -100,6 +100,18 @@ def d1_evidence(
     return located
 
 
+def projects_completed_empty_d1(
+    provider: str, operation_version: str, request: Mapping[str, Any], reply: Mapping[str, Any]
+) -> bool:
+    """A successor interpretation retains missing answers from a completed empty read."""
+    return (
+        provider == "d1"
+        and operation_version == "3"
+        and "interpretation" in request
+        and reply.get("outcome") == "empty"
+    )
+
+
 def _native_evidence(
     mapping: PM2SourceMap | PM2TokenMap,
     provider: str,
@@ -118,7 +130,7 @@ def _native_evidence(
             reply,
             field=field,
             source_path=source_path,
-            native=request.get("interpretation", {}).get("version") == "2",
+            native=request.get("interpretation", {}).get("version") in ("2", "3"),
         )
 
     located: dict[str, MappedSource | SourceMapRefused] = {}
@@ -249,7 +261,25 @@ def pm2_unit_result(
         raise ValueError("native parser version differs from its exact layout policy")
     products = ()
     evidence = {}
-    if outcome == "succeeded":
+    project_empty = not parser_operation and projects_completed_empty_d1(
+        provider, operation_version, request, reply
+    )
+    if project_empty:
+        native_reply = reply.get("native")
+        answers = native_reply.get("answers") if isinstance(native_reply, Mapping) else None
+        if (
+            not isinstance(answers, Mapping)
+            or not answers
+            or any(
+                not isinstance(answer, Mapping)
+                or "span" not in answer
+                or answer["span"] is not None
+                or answer.get("type") not in ANSWER_READS
+                for answer in answers.values()
+            )
+        ):
+            raise ValueError("d1 empty reply differs from completed absent span answers")
+    if outcome == "succeeded" or project_empty:
         if parser_operation:
             parsed = _parser_products(provider, mapping, request, reply, prepared)
             evidence, products = parsed.locations, parsed.products
@@ -402,7 +432,9 @@ def pm2_unit_result(
         "operation_key": operation_key,
         "question": question,
         "operation_version": operation_version,
-        "outcome": outcome,
+        # The provider's empty reply is retained verbatim in the report.
+        # Projection succeeds when it produces independently readable question states.
+        "outcome": "succeeded" if project_empty else outcome,
         "inspected_count": 0 if outcome in {"limited", "failed"} else 1,
         "emitted_count": len(rows),
         "report_digest": sha256(canonical_bytes(report)).hexdigest(),

@@ -70,7 +70,7 @@ def interpretation_products(
     if context["declaration_digest"] != family.digest:
         raise ValueError("d1 request differs from its archived question declaration")
     candidates = context["candidates"]
-    revised = context.get("version") == "2"
+    revised = context.get("version") in ("2", "3")
     aliases = context.get("option_aliases", {})
     if revised and any(q.candidate_options for q in family.questions):
         reserved = {option.key for q in family.questions for option in q.options}

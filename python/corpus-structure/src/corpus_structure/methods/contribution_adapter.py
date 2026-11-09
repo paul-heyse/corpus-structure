@@ -795,6 +795,10 @@ def _with_group_attachments(batch, *, schema_packs=None):
     supported = {
         "table": ("cell_value", {"row_label", "header_path", "unit", "note", "caption"}),
         "definition": ("term", {"alias", "defining_text"}),
+        "assertion": (
+            "predicate",
+            {"subject", "object", "condition", "attribution", "quantification", "scope"},
+        ),
     }
     packs, mismatched_packs = {}, {}
     for identity, declaration in (schema_packs or {}).items():
@@ -851,6 +855,10 @@ def _with_group_attachments(batch, *, schema_packs=None):
         family = group["semantic_type"].removesuffix(suffix)
         if family not in supported:
             continue
+        if family == "assertion" and native:
+            # This proposal interprets the released extraction group, not co-location
+            # within a different producer's native report.
+            continue
         source_operation = by_operation[group["operation_key"]]
         primary_role, attachment_roles = supported[family]
         mode = "native_geometry" if native else None
@@ -891,6 +899,8 @@ def _with_group_attachments(batch, *, schema_packs=None):
             continue
         if not inspection and primary.get("anchor_role") == "inspection_subject":
             continue
+        if family == "assertion" and primary.get("source_field_state", "present") != "present":
+            continue
         if family == "table" and (
             len({anchor["pointer"] for anchor in primary["anchors"]}) != 1
             or "/data/table_cells/" not in primary["anchors"][0]["pointer"]
@@ -900,7 +910,8 @@ def _with_group_attachments(batch, *, schema_packs=None):
         for target in members:
             role = target["semantic_type"].removeprefix(family + ".")
             if (
-                role not in attachment_roles
+                not target["semantic_type"].startswith(family + ".")
+                or role not in attachment_roles
                 or target["kind"] != "proposal"
                 or not target["anchors"]
                 or target.get("anchor_role") == "inspection_subject"
@@ -940,7 +951,11 @@ def _with_group_attachments(batch, *, schema_packs=None):
         )
         operation = dict(
             question="propose_returned_role_attachments",
-            operation_version="retained-group-attachments-1",
+            operation_version=(
+                "retained-assertion-attachments-1"
+                if family == "assertion"
+                else "retained-group-attachments-1"
+            ),
             outcome="succeeded",
             inspected_count=len(targets),
             emitted_count=len(targets),

@@ -81,6 +81,7 @@ class SRLView(ProductView):
 
 
 class FrameView(ParserView):
+    sentence: int | None = None
     predicate: str
     focus: str | None = None
     dependency_arguments: tuple[ArgumentView, ...]
@@ -88,6 +89,7 @@ class FrameView(ParserView):
 
 
 class CueView(ParserView):
+    kind: str | None = None
     location: str
     marker: str
     candidates: tuple[str, ...]
@@ -95,6 +97,8 @@ class CueView(ParserView):
 
 
 class PhraseView(ParserView):
+    sentence: int | None = None
+    label: str | None = None
     location: str
 
 

@@ -9,7 +9,11 @@ from sqlalchemy import func, select
 
 from corpus_structure.core.method import UnitRef
 from corpus_structure.methods.pm2_products import PARSER_QUESTIONS
-from corpus_structure.methods.pm2_result import pm2_input_digest, pm2_unit_result
+from corpus_structure.methods.pm2_result import (
+    pm2_input_digest,
+    pm2_unit_result,
+    projects_completed_empty_d1,
+)
 from corpus_structure.methods.pm2_source import D1SourceField, PM2SourceMap, PM2TokenMap
 from corpus_structure.methods.pm2_worker import Pm2WorkerError
 from corpus_structure.semantic.metadata import table
@@ -86,9 +90,14 @@ def settle_pm2_claim(
             owner()
             reply = {"outcome": "failed", "reason": str(exc)}
 
+    def completed_product(reply):
+        return reply.get("outcome") == "succeeded" or projects_completed_empty_d1(
+            str(expected_profile["provider"]), operation_version, request, reply
+        )
+
     def bind(reply):
         field = None
-        if source_path is not None and reply["outcome"] == "succeeded":
+        if source_path is not None and completed_product(reply):
             ((start, end, _),) = (row for row in reply["state_fields"] if row[2] == source_path)
             if type(start) is not int or type(end) is not int:
                 raise ValueError("d1 returned noninteger rendered source bounds")
@@ -111,7 +120,7 @@ def settle_pm2_claim(
         result = bind(reply)
     except (IndexError, KeyError, TypeError, ValueError) as exc:
         handles_product = question in PARSER_QUESTIONS.values() or "interpretation" in request
-        if not handles_product or reply.get("outcome") != "succeeded":
+        if not handles_product or not completed_product(reply):
             raise
         result = bind(
             {

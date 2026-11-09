@@ -5,6 +5,7 @@ import os
 import sys
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
@@ -15,12 +16,13 @@ from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.methods import pm2_native
 from corpus_structure.methods.pm2_result import pm2_input_digest, pm2_unit_result
 from corpus_structure.methods.pm2_source import D1SourceField, PM2SourceMap, SourceMapSegment
-from corpus_structure.methods.pm2_worker import open_pm2_worker
+from corpus_structure.methods.pm2_worker import Pm2Worker, open_pm2_worker
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.orchestrate.pm2 import settle_pm2_claim
 from corpus_structure.semantic._operation_calls import select_source_view
 from corpus_structure.semantic.claim_lifetime import maintained_claims
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.interpretation_questions import QUESTION_INPUT, declared_families
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.operations import (
@@ -32,15 +34,26 @@ from corpus_structure.semantic.operations import (
     create_run,
     create_task,
 )
+from corpus_structure.semantic.pm2_coverage import scope_coverage
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.query import read_snapshot
-from corpus_structure.semantic.source_contexts import NativeSourceContext, SourceSlice
+from corpus_structure.semantic.source_contexts import (
+    NativeSourceContext,
+    SourceSlice,
+    record_source_pin,
+)
+from corpus_structure.semantic.types import SourceArtifact
 from corpus_structure.serve.contributions import ContributionRequest, serve_contributions
 from corpus_structure.settings import Settings
 from semantic.native_record_fixtures import private_source as private_source
 from semantic.native_record_fixtures import private_source_options as private_source_options
 
-from .native_record_fixtures import complete_contributions
+from .native_record_fixtures import (
+    build_record_source,
+    complete_contributions,
+    prepare_record_source,
+)
 
 SOURCE_PATH = "/source"
 
@@ -61,6 +74,205 @@ def _claim(case, digest, *, view_id=None, unit_key="private-unit"):
         (held,) = claim_tasks(conn, run_id=case.run, config_id=config, holder="records")
     assert held.task_id == task
     return held
+
+
+@pytest.fixture
+def literal_question_source(semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch):
+    declaration = {
+        "family": "literal_completion_v1",
+        "questions": [
+            {"key": "missing", "kind": "text", "instructions": "Copy the document's color."},
+            {"key": "value", "kind": "number", "instructions": "Copy the numeral."},
+        ],
+    }
+    base = prepare_record_source()
+    artifact = SourceArtifact(QUESTION_INPUT, canonical_bytes([declaration]))
+    dependencies = replace(base.dependencies, artifacts=(*base.dependencies.artifacts, artifact))
+    preparation = replace(
+        base,
+        dependencies=dependencies,
+        prepared=prepare_release(base.bundle, dependencies, base.profile),
+    )
+    return build_record_source(
+        semantic_db_engine, semantic_writer_engine, tmp_path, preparation, monkeypatch=monkeypatch
+    )
+
+
+def test_completed_empty_d1_keeps_native_empty_and_publishes_unresolved_question(
+    literal_question_source,
+):
+    case = literal_question_source
+    family = declared_families(case.prepared.registry_rows)["literal_completion_v1"]
+    with case.writer.connect() as conn:
+        view = BoundReader(conn, case.run, case.prepared, analysis=False).source_view(case.view)
+    source = replace(native_source_frame(view, ()), unit_ref="private-unit")
+    cell = next(piece for piece in view.pieces if piece.get("cell_index") == 0)
+    context = NativeSourceContext(
+        source,
+        (),
+        (SourceSlice(case.view, cell["start"], cell["end"]),),
+        "exact read",
+        "native-test",
+        "independently specified first cell",
+    )
+    mapping = PM2SourceMap(context, context.text, (SourceMapSegment(0, 2, 0),), ())
+    assert context.text == "12"
+    pin = record_source_pin(source)
+    rendered = '{"source":"12"}'
+    field = D1SourceField(rendered, SOURCE_PATH, 11, 13)
+    ref = UnitRef(TaskUnitType.SOURCE_VIEW, case.view, "private-unit")
+    profile = {"provider": "d1", "checkpoint": "controlled-test"}
+    options = {
+        "question": family.family,
+        "operation_version": "3",
+        "source_path": SOURCE_PATH,
+    }
+    with case.writer.begin() as conn:
+        complete_contributions(case, conn, UnitResult(ref=ref, outcome=ObservationOutcome.EMPTY))
+
+    def request_for(*keys):
+        return {
+            "state": {"source": "12"},
+            "questions": {q.key: q.native([]) for q in family.questions if q.key in keys},
+            "interpretation": {
+                "version": "3",
+                "declaration_digest": family.digest,
+                "assessed_scope": {
+                    "pin": pin,
+                    "scope_digest": mapping.scope_digest,
+                    "projection_extent": [cell["start"], cell["end"]],
+                },
+                "candidates": [],
+            },
+        }
+
+    empty_request = request_for("missing")
+    mixed_request = request_for("missing", "value")
+    absent = {"type": "text", "found": 0.2, "span": None, "text": None}
+    located = {
+        "type": "number",
+        "found": 0.98,
+        "span": [11, 13],
+        "text": "12",
+        "number": 12,
+        "path": SOURCE_PATH,
+    }
+    empty_reply = {
+        "outcome": "empty",
+        "rendered_state": rendered,
+        "state_fields": [[11, 13, SOURCE_PATH]],
+        "native": {"answers": {"missing": absent}},
+    }
+    mixed_reply = {
+        "outcome": "succeeded",
+        "rendered_state": rendered,
+        "state_fields": [[11, 13, SOURCE_PATH]],
+        "native": {"answers": {"missing": absent, "value": located}},
+    }
+
+    def project(request, reply, *, version="3"):
+        selected = options | {"operation_version": version}
+        digest = pm2_input_digest(mapping, profile, request, **selected)
+        return digest, pm2_unit_result(
+            ref,
+            mapping,
+            profile=profile,
+            request=request,
+            reply=reply,
+            field=field,
+            input_digest=digest,
+            prepared=case.prepared,
+            **selected,
+        )
+
+    for corrupted, expected in (
+        (empty_reply | {"rendered_state": '{"source":"21"}'}, "admitted request"),
+        (empty_reply | {"native": {"answers": {"wrong": absent}}}, "question population"),
+        (empty_reply | {"native": {"answers": {"missing": located}}}, "absent span"),
+    ):
+        with pytest.raises(ValueError, match=expected):
+            project(empty_request, corrupted)
+    _, legacy = project(
+        empty_request | {"interpretation": empty_request["interpretation"] | {"version": "2"}},
+        empty_reply,
+        version="2",
+    )
+    assert legacy.contribution_operations
+    assert legacy.contribution_operations[0]["outcome"] == "empty"
+    assert not legacy.contributions
+    _, limited = project(empty_request, {"outcome": "limited", "reason": "question_count"})
+    assert limited.contribution_operations
+    assert limited.contribution_operations[0]["outcome"] == "limited"
+    assert not limited.contributions
+
+    intents = []
+    for request, reply in ((empty_request, empty_reply), (mixed_request, mixed_reply)):
+        digest = pm2_input_digest(mapping, profile, request, **options)
+        held = _claim(case, digest)
+        with maintained_claims(case.writer, (held,), held.holder) as owner:
+            settle_pm2_claim(
+                owner,
+                held,
+                cast(Pm2Worker, SimpleNamespace(startup=profile)),
+                mapping,
+                request,
+                expected_profile=profile,
+                prepared=case.prepared,
+                method=case.method,
+                configuration_hash="private-config",
+                prefetched_reply=reply,
+                **options,
+            )
+        intents.append(
+            dict(
+                source_view_id=case.view,
+                extent=(cell["start"], cell["end"]),
+                question=family.family,
+                operation_version="3",
+                disposition="scheduled",
+                input_digest=digest,
+            )
+        )
+    finalize_bound_run(case.writer, case.run, "pm2-empty-question-read")
+    with read_snapshot(case.writer) as conn:
+        coverage = scope_coverage(conn, case.run, intents)
+        page = serve_contributions(
+            conn,
+            ContributionRequest(
+                run_id=case.run,
+                source_view_id=case.view,
+                include_details=True,
+                include_interpretation=True,
+            ),
+        )
+    assert [(row.outcome, row.provider_outcome, row.emitted_count) for row in coverage] == [
+        ("succeeded", "empty", 1),
+        ("succeeded", "succeeded", 3),
+    ]
+    rows = [
+        cast(dict[str, Any], item["row"])
+        for item in page.items
+        if item["population"] == "contribution"
+    ]
+    unresolved = [row for row in rows if row["item_key"] == "interpretation:missing"]
+    assert len(unresolved) == 2
+    assert all(not row["anchors"] and not row.get("occurrence_id") for row in unresolved)
+    values = [source_python(row["value"]) for row in unresolved]
+    assert values[0] == values[1]
+    assert values[0]["state"] == "unresolved"
+    assert values[0]["native_answer"] == absent
+    interpretations = [
+        cast(dict[str, Any], item["row"])
+        for item in page.items
+        if item["population"] == "interpretation"
+    ]
+    facets = [
+        row["composition"]
+        for row in interpretations
+        if row["semantic_type"] == f"interpretation.{family.family}"
+    ]
+    assert len(facets) == 3
+    assert sum(facet["interpretation_state"] == "unresolved" for facet in facets) == 2
 
 
 @pytest.mark.parametrize(

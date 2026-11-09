@@ -931,6 +931,72 @@ def test_missing_primary_never_invents_alias_attachment_from_group_cooccurrence(
     assert any(row["kind"] == "composite" for row in batch.contributions)
 
 
+@pytest.mark.parametrize("located_predicate", [True, False])
+def test_partial_assertion_keeps_exact_attributed_roles_without_inventing_a_record(
+    located_predicate,
+):
+    from corpus_structure.semantic.contributions import bind_contributions
+
+    ctx = context("Operators wait if busy")
+    pack = family_pack(release(), contract="AssertionRecordFields", anchor_role="predicate")
+    batch = adapt_report(
+        report(
+            ctx,
+            pack,
+            "assertion",
+            [
+                {
+                    "subject": span(0, 9, "Operators"),
+                    "predicate": span(10, 14, "wait")
+                    if located_predicate
+                    else span(80, 84, "wait"),
+                    "condition": span(15, 22, "if busy"),
+                }
+            ],
+        ),
+        ctx,
+        pack=pack,
+        item_key="partial-assertion",
+    )
+    (predicate,) = proposals(batch, "assertion.predicate")
+    (condition,) = proposals(batch, "assertion.condition")
+    (subject,) = proposals(batch, "assertion.subject")
+    (group,) = [row for row in batch.contributions if row["kind"] == "composite"]
+    relations = [row for row in batch.contributions if row["kind"] == "relation"]
+    assert condition["anchors"][0]["source_piece"] == "if busy"
+    assert not proposals(batch, "assertion.object")
+    if not located_predicate:
+        assert not relations
+        return
+    assert {row["semantic_type"] for row in relations} == {
+        "assertion.condition_attachment",
+        "assertion.subject_attachment",
+    }
+    _, bound = bind_contributions(
+        release(),
+        source=ctx.primary.unit_ref,
+        operations=batch.operations,
+        contributions=batch.contributions,
+        coordinate_texts=batch.coordinate_texts,
+    )
+    assert {row["contribution_id"] for row in bound if row["kind"] == "relation"} == {
+        row["contribution_id"] for row in relations
+    }
+    for row in relations:
+        role = row["semantic_type"].removeprefix("assertion.").removesuffix("_attachment")
+        assert row["endpoints"] == (
+            dict(role="predicate", contribution_id=predicate["contribution_id"]),
+            dict(
+                role=role,
+                contribution_id={"condition": condition, "subject": subject}[role][
+                    "contribution_id"
+                ],
+            ),
+        )
+        assert row["standing"] == "retained_private" and row["score_state"] == "missing"
+        assert "returned-group:" + group["contribution_id"] in row["computation_dependencies"]
+
+
 def test_actual_blank_native_cell_retains_inspection_subject_without_text_occurrence():
     from corpus_structure.methods.record_assembly import native_table_groups
 
