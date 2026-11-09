@@ -50,15 +50,14 @@ independently after their shared meanings are settled.
 
 ### Paired state readback
 
-**Scheduled · [Structuring I02](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I02).** Extend the existing shared
-comparison used by managed CLI and review views. Preserve transition categories and
-add an orthogonal revised-state summary keyed by existing unit/case identity. Derive
-persistent unsupported from both grades; keep newly unsupported, ambiguity, unassessed
-and pairing non-comparability distinct. Use observed stage/reason when available and
-unknown otherwise. Do not reinterpret historical grades or change their protected custody.
-Check whether the comparison delivery contract needs a new version; keep the old meaning
-readable. Mixed transitions, persistent failures and non-comparability must agree across
-CLI and review views. Changed configuration, scope, rubric or grain must still refuse.
+**Implemented and scoped Tested · [Structuring I02](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I02).**
+The shared comparison used by CLI and review preserves transition counts and
+adds a separate revised-state view. Persistent unsupported is distinct from
+regression, ambiguity, unassessed scope and non-comparability; unrecorded causes
+remain unknown. Historical grades and protected custody are unchanged.
+The [scoped readback](../production-milestone-two_2026-11-08.md#structuring-execution--2026-11-09)
+shows two persistent unsupported cases in evaluations 39/41. This change
+exposes failures; it does not correct the underlying readings.
 
 ### Freeze the reference and comparator
 
@@ -230,15 +229,15 @@ incompatible relation to check explicit refusal. The fixture checks configurabil
 authority. Its output is outside the textbook comparison and supplies no new corpus
 qualification.
 
-**Completion audit · 2026-11-09.** Native alternate-vocabulary parser execution
+**Bounded alternate-vocabulary controls · 2026-11-09.** The parser fixture
 reached the private Reader with a failed sibling profile. The alternate d1
-fixture exercises release-declared questions and response conversion using a
-supplied reply. Keep both controls. Neither establishes the required alternate
-declared relation through operation selection, admission or explicit refusal,
-Reader and fresh MCP. PM2-11 retains that shared journey and the protected
-comparisons in the table above. The d1 v1/v2 pair qualifies one probability
-normalization gain at its frozen scope; the blocked retrieval comparison
-qualifies no ranking or selection change.
+fixture uses a supplied reply and checks released questions and conversion.
+Later [F03 native condition admission](../production-milestone-two_2026-11-08.md#adoption-follow-up-execution)
+verified the same released condition and assumption route, refusal and partial
+delivery in textbook-style and business controls through the ordinary reads
+and detached proof. This settles that contract's control, not broader
+cross-provider composition or named workflow qualification. The d1 v1/v2 pair
+qualifies one probability normalization gain at its frozen scope.
 
 **Tested competitive follow-up · 2026-11-09.** The [eight-target protected frame](../../design_review/evidence/2026-11-09_pm2-adoption-preflight/README.md#native-competitive-comparison)
 compared exact registered literal and Dipo configurations under `/11`. All three
@@ -259,13 +258,15 @@ retaining the earlier route with its reason and trigger.
 
 ## PM2-12 · Adopt a qualified release for the textbook
 
-**Development only · 2026-11-09.** The acquired development database reached
+**Initial development receipt · 2026-11-09.** The acquired development database reached
 `semantic_pm2_parser_payloads` through the frozen candidate for release-owned
 parser payloads. The [development receipt](../../design_review/evidence/2026-11-09_pm2-contract-remediation/README.md)
 records the acquired target and archived private release. The paired results do not
 establish broad preservation and gain. Evaluations 42 and 43 are regression evidence,
-not a staging gate. Full-book staging and qualification were `not_run`. Chandra data is
-excluded. No activation, selection or retirement occurred.
+not a staging gate. That receipt predates the full-book attempts. See the
+[current audit](../production-milestone-two_2026-11-08.md#completion-audit)
+for the derived run and outstanding qualification. Chandra data is excluded.
+No activation, selection or retirement occurred.
 
 **Private staging.** Establish the acquired development target, authenticated Standard
 and Nemotron source and compatible release and operation contracts under the existing

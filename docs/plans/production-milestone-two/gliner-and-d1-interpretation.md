@@ -30,9 +30,10 @@ supports the v2 change to exact source-backed probability normalization of
 `1/8` as `0.125` and preserves the definition control. v1 remains the default
 for the current private runner. Roulette loss, condition host and local referent stayed
 unsupported. The changed-candidate diagnostic kept the attachment misses separate
-from candidate availability. A like-for-like GLiNER/spaCy comparison, a real
-d1 run from a qualified frozen retrieval list, and the successful composed
-attachment and selected-family consumer journeys remain open.
+from candidate availability. Native d1 consumed authenticated frozen lists
+on the bounded binomial control and the four-case competitive frame. Both
+competitive arms missed the exponential-density link. The broader like-for-like
+GLiNER/spaCy comparison and selected-family consumer journeys remain open.
 
 ### Reuse GLiNER extraction and the current source qualification route
 
@@ -158,8 +159,9 @@ paired arms and remaining quantity, host, and referent comparisons stay open.
 used the exact released instruction and source scopes from the retained d1 v2
 pair. Both paths recovered the exact fair-coin magnitude. On roulette both
 located a compound span and the shared normalizer left it unresolved. A
-released comparison that separates amount, unit and loss role is still open;
-this diagnostic has no new protected grade or admission standing.
+protected comparison that separates amount, unit and loss role is still open;
+the later same-question split-loss diagnostic below has no protected grade
+or admission standing.
 
 **Explicit loss questions · 2026-11-09.** The release can now declare opt-in
 number, unit and exact role-cue questions without changing ordinary requests.
@@ -317,20 +319,18 @@ not qualify source evidence.
 
 ### Completed empty interpretation
 
-**Scheduled · [Structuring I01](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I01).** The native d1 route settles an
-all-missing span request as `empty`, but the result adapter currently projects typed
-questions only for `succeeded`. Use the same released question projector and
-authenticated scope, rendered-state and question-population checks for both completed
-paths. Preserve request `empty`, each question identity, native `found` and typed
-`unresolved` with no answer span or minted occurrence. Reject an inconsistent empty
-reply; failed, limited, cancelled and unattempted requests do not acquire completed
-question results. PM2-01 owns source binding and PM2-08 owns ordinary readback.
+**Implemented and scoped Tested · [Structuring I01](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I01).**
+The v3 adapter applies the released question projector to both completed paths.
+It retains an authenticated all-missing request as provider `empty` and projects
+a typed `unresolved` question with no answer anchor or minted occurrence.
+Failed, limited, cancelled and unattempted work does not acquire completed
+question results. Archived versions keep their recorded meaning.
 
-Keep archived empty results at their recorded meaning. Give changed derived products
-new versioned identity under the existing release owner and regenerate affected results
-only; retain the raw replies. Close with the same absent question in mixed and
-all-empty replies, an altered source or question refusal, and agreement through the
-ordinary contribution Reader and its CLI/MCP consumers.
+[Run 481/cut 596](../../design_review/evidence/2026-11-09_pm2-structuring-execution/d1-empty-projection.md)
+verified the completed-empty case through the ordinary contribution Reader, CLI
+and fresh MCP. The linked native and interpretation checks exercise inconsistent
+empty and altered source or question evidence. This qualifies the scoped v3
+projection, not every interpretation family or detached worklist coverage.
 
 ### Fixed-candidate rendering and quantity
 

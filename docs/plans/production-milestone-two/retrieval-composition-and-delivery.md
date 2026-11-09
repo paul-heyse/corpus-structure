@@ -86,9 +86,10 @@ still requires the independent protected evidence bound to the contribution.
 
 ### Compose retained parts
 
-**Scheduled · [Structuring I03](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I03).** Use the existing returned-group
-and released located-contribution owners to expose useful GLiNER predicate-to-subject,
-object, condition, attribution and quantification candidates. A group association is
+**Implemented private facets; qualification open · [Structuring I03](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I03).**
+The returned-group and located-contribution readers expose GLiNER associations,
+HanLP qualifier and modifier facets, and Maverick local referent candidates.
+A group association is
 one attributed model observation; it carries no independent confirmation or fabricated
 relationship score. Consume exact PM2-03 modifier/host and PM2-04 local referent products.
 A qualifier-to-host candidate does not require a complete SVO record. Compare active
@@ -107,7 +108,10 @@ request empty, absent answer anchor, and the distinct unattempted/failed states.
 
 ### Dependence and finite support
 
-**Scheduled diagnostic; remedy conditional · [Structuring I08](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I08).**
+**Scoped diagnostic settled; remedy conditional · [Structuring I08](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I08).**
+The [fixed dependence probe](../../design_review/evidence/2026-11-09_pm2-structuring-execution/README.md#repeated-support-and-portable-closure)
+distinguished duplicate replay, independent corroboration and conflict. No
+staged production decision was shown to consume duplicated support.
 The finite interpreter uses dependence scopes for connectivity; they do not change the
 sum of log potentials. Trace repeated evidence from shared windows/native groups and
 deduplicate only equivalent attributed support at assembly, preserving distinct roles,
@@ -341,9 +345,10 @@ both returned the sole exact definition at rank 1 and selected no retrieval edge
 consumed each exact list through the ordinary interpretation runner and proposed the
 same target. The enriched exact closure passed offline verification. These results
 establish availability and delivery at the frozen scope. The one-target inventory
-cannot discriminate rankings, and the development opportunity is already exposed.
-Keep a new protected comparison, a competitive eligible inventory and ordinary book
-delivery open. The `/10` default stays selected.
+could not discriminate rankings. The [later protected competitive pair](../production-milestone-two_2026-11-08.md#adoption-follow-up-execution)
+settled a bounded ordering comparison and tied. Its eight targets do not test
+top-10 recall; ordinary book delivery and current cross-chapter replay remain
+open. The `/10` default stays selected.
 
 The same evidence folder records the affine control: both exact /11 arms reached
 completed cuts after projecting only the requested carriers in PostgreSQL. The

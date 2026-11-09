@@ -130,7 +130,7 @@ as declared. Report native and transformed errors separately. [Multitask executi
 
 ### Located modifiers and clause scope
 
-**Proposed · [Structuring I03](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I03).** Reuse HanLP 2.1.7 retained
+**Implemented private facets; comparison open · [Structuring I03](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I03).** The Reader uses HanLP 2.1.7 retained
 dependency, SRL and constituency results to project temporal, purpose, manner and causal
 modifier candidates and clause containment where it changes a consumer's answer. Keep
 native scheme, predicate member, exact extent and scope. Do not promote a temporal
@@ -196,7 +196,7 @@ membership available to PM2-08, including honest noncoverage of pairs outside sc
 
 ### Informative local referent candidates
 
-**Proposed · [Structuring I03](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I03).** Reuse retained Maverick mention
+**Implemented private facets; comparison open · [Structuring I03](../../plan_improvement_reviews/pm2-structuring-and-dma13_2026-11-09.md#I03).** The Reader uses retained Maverick mention
 and cluster products. Compare the current nearest earlier located member with a name
 or nominal selected from retained syntax, with the nearer mention retained separately
 if it helps the same question. Preserve scope, cluster provenance and the representative

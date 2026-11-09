@@ -185,7 +185,9 @@ Neither overlapping windows nor their merge can nominate a relation whose endpoi
 share a window. Use the existing typed retrieval and attachment path for distant relations.
 [GLiNER2 long-context limits](../../libraries/parsing/gliner2.md#5-long-context-extraction-and-document-scale-semantics)
 
-Keep `Language.pipe(as_tuples=True)` and GLiNER2 `batch_extract` as the baseline.
+Keep `Language.pipe(as_tuples=True)` and singleton GLiNER2 requests through
+`batch_extract` as the baseline. The recorded multi-item comparison failed
+exact native output parity.
 For a measured operating need compare necessary component selection, compatible combined
 schemas and length-aware batching before smaller models, precision, alternate attention or
 compilation. Do not add a persistent hidden-state cache to compare decoders. Use spaCy
@@ -250,6 +252,16 @@ at cut 540 distinguishes successful, empty, unscheduled, ineligible and limited
 scopes. Two successful child scopes preserve the failed-to-cover parent's bounds
 and identity. The detached bundle refuses coverage without worklist custody.
 
+**Open PM2-R01 refusal boundary · Source-inspected 2026-11-09.**
+The [PM2 scope preparer](../../../python/corpus-structure/src/corpus_structure/orchestrate/pm2_stage.py)
+can raise a plain `ValueError` for an authenticated pin with an out-of-range
+extent before creating a run. The [parser CLI refusal boundary](../../../python/corpus-structure/src/corpus_structure/cli/orchestrate.py)
+does not translate that exception to its typed JSON response. The live worklist
+controls exercise admitted work and do not cover this path. Close at the existing
+PM2 request boundary with a typed invalid-extent refusal. Use a valid-pin,
+invalid-extent installed CLI control that confirms no run, task, or witness is
+created. Keep detached worklist custody separate.
+
 **PM2-02 · Passed for the initial development profiles · 2026-11-08.** The resident supervisor
 holds the shared local device slot through native child teardown. Each runtime
 uses its configured interpreter and provisioned worker lock, with verified
@@ -274,8 +286,9 @@ and binds interpreter, lock and installed distribution-record identities before
 admitting work or allowing exact reuse. That preflight does not load a model or
 reserve the GPU. Worker startup rechecks the identity before inference.
 An unavailable or mismatched preflight retains its failed scope and reason; it
-does not prevent independent verified profiles from running. Provider-specific
-operating bounds, cancellation and recovery remain separate qualification work.
+does not prevent independent verified profiles from running. The recovery and
+fallback evidence below settles scoped operating controls; it does not settle
+assembled or production qualification.
 The bounded [retained-source replay](../../design_review/evidence/2026-11-09_pm2-contract-remediation/raw/book-reuse.json)
 sealed cut 541 with selected HanLP task 2149 reusing exact origin 2143.
 [Native profile identity](../../../python/corpus-structure/src/corpus_structure/methods/pm2_native.py)
