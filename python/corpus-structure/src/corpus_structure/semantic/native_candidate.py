@@ -326,6 +326,8 @@ _CURRENT_SOURCE_GUARDS = {
     ("data", "begin_stage"): "transport.sql",
     ("data", "publish_contract_batch"): "transport.sql",
     ("data", "end_stage"): "closure.sql",
+    ("data", "begin_inference_workspace"): "closure.sql",
+    ("data", "end_inference_workspace"): "closure.sql",
     ("data", "validate_state"): "source_record_graph.sql",
     ("data", "publish_batch"): "record_publication.sql",
     ("eval", "guard_scientific_decisions"): "execution_projection.sql",

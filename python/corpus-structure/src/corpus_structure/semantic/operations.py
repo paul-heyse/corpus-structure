@@ -47,8 +47,8 @@ from .operation_results import (
 from .types import PreparedRelease
 
 if TYPE_CHECKING:
-    from .runtime_bindings import RuntimeBinding
     from .contextual_storage import PreparedContextualInventory
+    from .runtime_bindings import RuntimeBinding
 
 _SOURCE_RESULT_MAX_BYTES = 64 * 1024**2
 
@@ -1383,9 +1383,16 @@ class BoundReader:
         from .contextual_retrieval import retrieve_candidates
         from .contextual_storage import prepare_contextual_inventory
 
-        binding = (self.run_id, self.cut_id, self.prepared.release_id, self.prepared.execution_model_id)
+        binding = (
+            self.run_id,
+            self.cut_id,
+            self.prepared.release_id,
+            self.prepared.execution_model_id,
+        )
         entry = self._contextual_preparation
-        if entry is None or not entry.matches(binding, inventory, target_vectors, query.profile_id, dimension):
+        if entry is None or not entry.matches(
+            binding, inventory, target_vectors, query.profile_id, dimension
+        ):
             entry = prepare_contextual_inventory(
                 binding, inventory, target_vectors, profile_id=query.profile_id, dimension=dimension
             )

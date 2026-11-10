@@ -99,7 +99,6 @@ def test_derive_refuses_invalid_model_without_partial_output(cli, tmp_path, monk
     assert not target.exists()
 
 
-
 @pytest.mark.parametrize("command", ("compile", "check"))
 def test_schema_validation_cli_requests_bounded_dependency_detail(cli, command):
     compact = cli("schema", command, "--json")
@@ -108,12 +107,20 @@ def test_schema_validation_cli_requests_bounded_dependency_detail(cli, command):
     assert value["report_version"] == 3
     assert value.get("projection_dependencies") is None
     detailed = cli(
-        "schema", command, "--dependency-detail", "--dependency-family", "input",
-        "--dependency-limit", "1", "--json",
+        "schema",
+        command,
+        "--dependency-detail",
+        "--dependency-family",
+        "input",
+        "--dependency-limit",
+        "1",
+        "--json",
     )
     assert detailed.exit_code == 0, detailed.output
     report = json.loads(detailed.stdout)["validation"]
-    assert report["observations"] == value["observations"] and report["complete"] == value["complete"]
+    assert (
+        report["observations"] == value["observations"] and report["complete"] == value["complete"]
+    )
     page = report["projection_dependencies"]
     assert page["total"] > 1 and page["next_after"] == 1
     assert len(page["items"]) == 1 and page["items"][0]["family"] == "input"
@@ -122,12 +129,17 @@ def test_schema_validation_cli_requests_bounded_dependency_detail(cli, command):
     assert "bounds" in json.loads(refused.stdout)["error"]["message"]
 
 
-
 def test_schema_compile_invalid_detail_does_not_publish_output(cli, tmp_path):
     target = tmp_path / "invalid-detail"
     result = cli(
-        "schema", "compile", "--out", str(target), "--dependency-detail",
-        "--dependency-limit", "1001", "--json",
+        "schema",
+        "compile",
+        "--out",
+        str(target),
+        "--dependency-detail",
+        "--dependency-limit",
+        "1001",
+        "--json",
     )
     assert result.exit_code == 1, result.output
     assert not target.exists()
@@ -145,9 +157,17 @@ def test_schema_check_archived_release_forwards_dependency_request(
     with semantic_db_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, prepared)
     result = cli(
-        "schema", "check", "--release", prepared.release_id,
-        "--dependency-detail", "--dependency-family", "relation", "--dependency-limit", "1",
-        "--json", settings=lambda: semantic_application_settings,
+        "schema",
+        "check",
+        "--release",
+        prepared.release_id,
+        "--dependency-detail",
+        "--dependency-family",
+        "relation",
+        "--dependency-limit",
+        "1",
+        "--json",
+        settings=lambda: semantic_application_settings,
     )
     assert result.exit_code == 0, result.output
     report = json.loads(result.stdout)["validation"]

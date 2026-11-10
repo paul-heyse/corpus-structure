@@ -253,7 +253,9 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
         content_digest="a" * 64,
     )
     spec = projection("input")
-    primary, writer_failure, reader_failure, cursor_failure, rollback_failure, close_failure = (RuntimeError(name) for name in ("body", "writer", "reader", "cursor", "rollback", "close"))
+    primary, writer_failure, reader_failure, cursor_failure, rollback_failure, close_failure = (
+        RuntimeError(name) for name in ("body", "writer", "reader", "cursor", "rollback", "close")
+    )
 
     class Cursor:
         adbc_statement = SimpleNamespace(set_options=lambda **options: events.append(options))
@@ -279,10 +281,12 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
                 ],
             )
             if fault:
+
                 def close():
                     reader.close()
                     events.append("reader_close")
                     raise reader_failure
+
                 return SimpleNamespace(schema=reader.schema, close=close)
             return reader
 
@@ -346,11 +350,18 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
 
         def refuse(*args):
             raise primary
+
         monkeypatch.setattr(export, "_admit_schema", refuse)
         with pytest.raises(RuntimeError) as caught:
             export.export_companion_parquet(request, settings, cancellation=cancellation)
         assert caught.value is primary
-        assert primary.__dict__["adbc_cleanup_failures"] == (writer_failure, reader_failure, cursor_failure, rollback_failure, close_failure)
+        assert primary.__dict__["adbc_cleanup_failures"] == (
+            writer_failure,
+            reader_failure,
+            cursor_failure,
+            rollback_failure,
+            close_failure,
+        )
         assert not destination.exists()
     elif cancel:
         with pytest.raises(DatabaseOperationCancelled):

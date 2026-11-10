@@ -6,7 +6,7 @@ import json
 import keyword
 from dataclasses import asdict, replace
 from hashlib import sha256
-from typing import Any
+from typing import Any, cast
 
 import yaml
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
@@ -176,20 +176,40 @@ def source_bindings(model, inputs):
     def qualified(reference):
         return reference if ":" in reference else "model:" + reference
 
+    def declared_type_edge(definition, name):
+        attributes = cast(dict[str, Any], definition.attributes or {})
+        usage = cast(dict[str, Any], definition.slot_usage or {})
+        for declared in (attributes.get(name), usage.get(name)):
+            if declared is not None and (edge := ci_annotations(declared).get("cp:type_source")):
+                return edge
+        if name in (definition.slots or ()):
+            declared = view.get_slot(name)
+            if declared is not None:
+                return ci_annotations(declared).get("cp:type_source")
+        return None
+
     def field_annotations(reference, slot):
         annotations = ci_annotations(slot)
         if reference.startswith("physical:") and annotations.get("cp:type_source") == reference:
             schema, cls, name = reference.removeprefix("physical:").split(".")
+            ancestors = []
             for ancestor in view.class_ancestors(cls, reflexive=True):
                 definition = view.get_class(ancestor)
-                if schema not in (definition.in_subset or ()):
-                    continue
-                declared = definition.attributes.get(name) or definition.slot_usage.get(name)
-                if declared is not None and ci_annotations(declared).get("cp:type_source"):
-                    break
-            else:
-                # A model field can point to its own physical projection. Inheriting
-                # that edge back onto the projection does not declare a physical cycle.
+                if definition is None:
+                    _fail("operation_source", reference, "type correspondence field is unavailable")
+                ancestors.append(definition)
+            if any(
+                schema in (definition.in_subset or ()) and declared_type_edge(definition, name)
+                for definition in ancestors
+            ):
+                return annotations
+            if any(
+                schema not in (definition.in_subset or ())
+                and declared_type_edge(definition, name) == reference
+                for definition in ancestors
+            ):
+                # Only a positively identified model-to-physical backreference is
+                # inherited without declaring a reflexive physical correspondence.
                 annotations.pop("cp:type_source")
         return annotations
 
@@ -230,8 +250,10 @@ def source_bindings(model, inputs):
     def correspond(reference, local, inherited):
         if inherited.kind != local.kind or inherited.multivalued != local.multivalued:
             _fail("operation_source", reference, "type correspondence encoding differs")
-        if local.enum_values and inherited.enum_values and set(local.enum_values) != set(
-            inherited.enum_values
+        if (
+            local.enum_values
+            and inherited.enum_values
+            and set(local.enum_values) != set(inherited.enum_values)
         ):
             _fail("operation_source", reference, "type correspondence members differ")
         return replace(local, enum_values=local.enum_values or inherited.enum_values)

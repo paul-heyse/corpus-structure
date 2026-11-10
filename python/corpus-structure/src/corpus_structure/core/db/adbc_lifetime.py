@@ -133,7 +133,6 @@ def owned_adbc_read(
         settled = True
         return failures
 
-
     try:
         with cancellation.borrow(connection) if cancellation is not None else nullcontext():
             try:

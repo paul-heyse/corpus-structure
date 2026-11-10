@@ -121,6 +121,14 @@ def test_protected_workspace_and_no_writer_temp(
                 "context')"
             )
         )
+        assert conn.scalar(text("SELECT generation FROM pg_temp.semantic_inference_work")) == 0
+        with pytest.raises(DBAPIError, match="check constraint"), conn.begin_nested():
+            conn.execute(
+                text(
+                    "INSERT INTO pg_temp.semantic_inference_work "
+                    "VALUES('c','p','d',NULL,NULL,'other',-1)"
+                )
+            )
         conn.execute(text("UPDATE pg_temp.semantic_inference_work SET qualification='q'"))
         with pytest.raises(DBAPIError), conn.begin_nested():
             conn.execute(text("UPDATE pg_temp.semantic_inference_work SET predicate='forged'"))
@@ -399,7 +407,7 @@ def test_current_frozen_head_witness_records_current_authoring_provenance():
     )
 
     current = current_authoring_provenance()
-    assert recorded["execution_abi"] == EXECUTION_COMPILER_VERSION == "27"
+    assert recorded["execution_abi"] == EXECUTION_COMPILER_VERSION == "28"
     assert recorded["model_id"] == current.model_id
     assert recorded["inputs"] == [
         {"name": name, "sha256": digest} for name, digest in current.inputs

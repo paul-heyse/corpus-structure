@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 from functools import lru_cache
+from typing import Any, cast
 
 import psycopg
 import pytest
@@ -944,13 +945,18 @@ def test_projection_validation_reuses_retained_detail_and_keeps_compact_complete
         unknown_reason: str | None = None
 
     analysis = SimpleNamespace(
-        detail_status="available", unknowns=(),
+        detail_status="available",
+        unknowns=(),
         occurrences=(Occurrence("right", "/fields/0/right"), Occurrence("left", "/fields/0/left")),
     )
     product = SimpleNamespace(
-        complete=True, unknowns=(), projections=(SimpleNamespace(family="input", analysis=analysis),)
+        complete=True,
+        unknowns=(),
+        projections=(SimpleNamespace(family="input", analysis=analysis),),
     )
-    context = SimpleNamespace(release_id="release:validation", execution_model_id="model:validation")
+    context: Any = SimpleNamespace(
+        release_id="release:validation", execution_model_id="model:validation"
+    )
     monkeypatch.setattr(products, "read_projection_analysis", lambda _: product)
     compact = projection_validation_report(context).model_dump(mode="json")
     assert compact["report_version"] == 3
@@ -980,26 +986,35 @@ def test_projection_validation_reuses_retained_detail_and_keeps_compact_complete
 
     analysis.detail_status = "unavailable"
     analysis.occurrences = ()
-    unavailable = projection_validation_report(context, dependency_detail=True).model_dump(mode="json")
+    unavailable = projection_validation_report(context, dependency_detail=True).model_dump(
+        mode="json"
+    )
     assert unavailable["complete"] is True and unavailable["observations"] == []
-    assert unavailable["projection_dependencies"]["items"] == [{
-        "side": "current", "family": "input", "status": "unavailable",
-        "reason": "Archived analysis does not retain occurrence detail.",
-    }]
+    assert unavailable["projection_dependencies"]["items"] == [
+        {
+            "side": "current",
+            "family": "input",
+            "status": "unavailable",
+            "reason": "Archived analysis does not retain occurrence detail.",
+        }
+    ]
     assert not unavailable["projection_dependencies"]["coverage_complete"]
     monkeypatch.setattr(products, "read_projection_analysis", lambda _: None)
     missing = projection_validation_report(context, dependency_detail=True).model_dump(mode="json")
     assert not missing["complete"]
-    assert missing["projection_dependencies"]["items"][0]["reason"] == "Retained projection analysis unavailable."
+    assert (
+        missing["projection_dependencies"]["items"][0]["reason"]
+        == "Retained projection analysis unavailable."
+    )
 
 
 def test_validation_v3_registration_preserves_other_report_versions():
-    schema = report_schema("LocatedValidationReport")
+    schema = cast(dict[str, Any], report_schema("LocatedValidationReport"))
     assert schema["properties"]["report_version"]["minimum"] == 3
     assert schema["properties"]["report_version"]["maximum"] == 3
     assert "projection_dependencies" in schema["properties"]
     assert "projection_dependencies" not in schema["required"]
     for name in ("OperationExplanation", "SemanticImpactReport"):
-        other = report_schema(name)
+        other = cast(dict[str, Any], report_schema(name))
         assert other["properties"]["report_version"]["minimum"] == 2
         assert other["properties"]["report_version"]["maximum"] == 2

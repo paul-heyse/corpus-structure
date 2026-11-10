@@ -242,7 +242,8 @@ def _changed_correspondence_inputs(mutate):
         inputs,
         implementations=tuple(
             SourceArtifact(source.name, yaml.safe_dump(changed, sort_keys=False).encode())
-            if source.name == artifact else source
+            if source.name == artifact
+            else source
             for source in inputs.implementations
         ),
     )
@@ -296,8 +297,11 @@ def test_type_correspondence_keeps_local_nullable_and_constraints():
 
 
 def test_type_correspondence_rejects_conflicting_closed_members():
-    from corpus_structure.semantic.contracts import OperationFieldBinding, compile_execution_model
-    from corpus_structure.semantic.contracts import trusted_execution_inputs
+    from corpus_structure.semantic.contracts import (
+        OperationFieldBinding,
+        compile_execution_model,
+        trusted_execution_inputs,
+    )
     from corpus_structure.semantic.operation_call_generation import source_bindings
     from corpus_structure.semantic.types import PreparationError
 
@@ -317,12 +321,17 @@ def test_type_correspondence_rejects_conflicting_closed_members():
     model = compile_execution_model(trusted_execution_inputs())
     _, _, _, resolve = source_bindings(model, inputs)
     with pytest.raises(PreparationError, match="members differ"):
-        resolve(OperationFieldBinding("members", "physical:data.occurrence.local_members", False), {})
+        resolve(
+            OperationFieldBinding("members", "physical:data.occurrence.local_members", False), {}
+        )
 
 
 def test_type_correspondence_cannot_hide_behind_value_projection():
-    from corpus_structure.semantic.contracts import OperationFieldBinding, compile_execution_model
-    from corpus_structure.semantic.contracts import trusted_execution_inputs
+    from corpus_structure.semantic.contracts import (
+        OperationFieldBinding,
+        compile_execution_model,
+        trusted_execution_inputs,
+    )
     from corpus_structure.semantic.operation_call_generation import source_bindings
     from corpus_structure.semantic.types import PreparationError
 
@@ -357,8 +366,11 @@ def test_generators_cannot_bypass_invalid_anchored_correspondence(consumer, monk
 
 
 def test_correspondence_preserves_value_projection_lineage_and_rejects_collection_mismatch():
-    from corpus_structure.semantic.contracts import OperationFieldBinding, compile_execution_model
-    from corpus_structure.semantic.contracts import trusted_execution_inputs
+    from corpus_structure.semantic.contracts import (
+        OperationFieldBinding,
+        compile_execution_model,
+        trusted_execution_inputs,
+    )
     from corpus_structure.semantic.operation_call_generation import source_bindings
     from corpus_structure.semantic.types import PreparationError
 
@@ -384,3 +396,26 @@ def test_correspondence_preserves_value_projection_lineage_and_rejects_collectio
     assert facts["type_source"]["reference"] == "physical:sem.release.release_id"
     with pytest.raises(PreparationError, match="encoding differs"):
         resolve(OperationFieldBinding("id", "physical:data.occurrence.bad_release_id", False), {})
+
+
+@pytest.mark.parametrize("declaration", ["slot", "inherited_slot"])
+def test_schema_slot_cannot_hide_anchored_self_correspondence(declaration):
+    from corpus_structure.semantic.contracts import compile_execution_model
+    from corpus_structure.semantic.types import PreparationError
+
+    def mutate(model):
+        release = model["classes"]["release"]
+        field = release["attributes"].pop("release_id")
+        field.setdefault("annotations", {})["cp:type_source"] = "physical:sem.release.release_id"
+        model.setdefault("slots", {})["release_id"] = field
+        if declaration == "slot":
+            release.setdefault("slots", []).append("release_id")
+        else:
+            model["classes"]["PhysicalReleaseBase"] = {
+                "in_subset": ["sem"],
+                "slots": ["release_id"],
+            }
+            release["is_a"] = "PhysicalReleaseBase"
+
+    with pytest.raises(PreparationError, match="cyclic"):
+        compile_execution_model(_changed_correspondence_inputs(mutate))

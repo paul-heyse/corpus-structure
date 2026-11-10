@@ -137,7 +137,10 @@ def check_(
 
     if release is None:
         return compile_(
-            domain or ["statistics"], domains, None, json_,
+            domain or ["statistics"],
+            domains,
+            None,
+            json_,
             dependency_detail=dependency_detail,
             dependency_family=dependency_family,
             dependency_output=dependency_output,

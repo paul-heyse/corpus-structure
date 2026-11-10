@@ -370,13 +370,13 @@ def test_child_retirement_preserves_body_and_all_nested_cleanup(primary):
             raise failures["rollback"]
 
     token = ADBCBorrowerCancellation()
-    with pytest.raises(type(primary)) as caught:
-        with (
-            owned_adbc_read(cast(Any, Connection("connection")), token),
-            owned_adbc_child(Child("cursor")),
-            owned_adbc_child(Child("reader")),
-        ):
-            raise primary
+    with (
+        pytest.raises(type(primary)) as caught,
+        owned_adbc_read(cast(Any, Connection("connection")), token),
+        owned_adbc_child(Child("cursor")),
+        owned_adbc_child(Child("reader")),
+    ):
+        raise primary
     assert caught.value is primary
     assert calls == ["reader", "cursor", "rollback", "connection"]
     assert primary.__dict__["adbc_cleanup_failures"] == tuple(failures[name] for name in calls)
@@ -393,8 +393,11 @@ def test_child_cleanup_only_raises_first_failure_and_retains_subsequent_failures
         def close(self):
             raise self.error
 
-    with pytest.raises(RuntimeError) as caught:
-        with owned_adbc_child(Child(second)), owned_adbc_child(Child(first)):
-            pass
+    with (
+        pytest.raises(RuntimeError) as caught,
+        owned_adbc_child(Child(second)),
+        owned_adbc_child(Child(first)),
+    ):
+        pass
     assert caught.value is first
     assert first.__dict__["adbc_cleanup_failures"] == (second,)

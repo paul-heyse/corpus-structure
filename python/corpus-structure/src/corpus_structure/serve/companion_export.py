@@ -17,7 +17,11 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import String, text
 from sqlalchemy.dialects import postgresql
 
-from corpus_structure.core.db.adbc_lifetime import open_adbc_connection, owned_adbc_child, owned_adbc_read
+from corpus_structure.core.db.adbc_lifetime import (
+    open_adbc_connection,
+    owned_adbc_child,
+    owned_adbc_read,
+)
 from corpus_structure.core.db.cancellation import OperationCancellation
 from corpus_structure.semantic._operation_ids import (
     ContentDigest,

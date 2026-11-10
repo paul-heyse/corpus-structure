@@ -13,7 +13,11 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import make_url
 
-from corpus_structure.core.db.adbc_lifetime import open_adbc_connection, owned_adbc_child, owned_adbc_read
+from corpus_structure.core.db.adbc_lifetime import (
+    open_adbc_connection,
+    owned_adbc_child,
+    owned_adbc_read,
+)
 from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.runtime import connection_settings, open_runtime_engine
 from corpus_structure.settings import Settings
@@ -292,7 +296,9 @@ def describe_database(
                                             "default": item.get("default"),
                                         }
                                         for index, item in enumerate(
-                                            catalog_inspector.get_columns(name, schema=selected_schema)
+                                            catalog_inspector.get_columns(
+                                                name, schema=selected_schema
+                                            )
                                         )
                                     ]
                                 columns_remaining[0] -= len(columns or [])
@@ -347,7 +353,9 @@ def describe_database(
                                                     remaining=remaining,
                                                     columns=columns_remaining,
                                                 ),
-                                                "schema_metadata": _metadata(shape.metadata, remaining),
+                                                "schema_metadata": _metadata(
+                                                    shape.metadata, remaining
+                                                ),
                                             }
                                         except adbc_driver_manager.NotSupportedError:
                                             shape_item = {
@@ -384,7 +392,8 @@ def describe_database(
                                             if root.get("catalog_name") == database
                                             for schema_row in root.get("catalog_db_schemas") or []
                                             if schema_row.get("db_schema_name") == selected_schema
-                                            for entry in schema_row.get("db_schema_statistics") or []
+                                            for entry in schema_row.get("db_schema_statistics")
+                                            or []
                                             if entry.get("table_name") == name
                                         ]
                                         observe(

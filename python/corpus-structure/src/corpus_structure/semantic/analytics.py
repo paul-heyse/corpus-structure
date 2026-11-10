@@ -38,7 +38,11 @@ from sqlalchemy import (
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql import Select
 
-from corpus_structure.core.db.adbc_lifetime import open_adbc_connection, owned_adbc_child, owned_adbc_read
+from corpus_structure.core.db.adbc_lifetime import (
+    open_adbc_connection,
+    owned_adbc_child,
+    owned_adbc_read,
+)
 from corpus_structure.core.db.cancellation import OperationCancellation
 
 from ._typed_columns import data_occurrence_columns

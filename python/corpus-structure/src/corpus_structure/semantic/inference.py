@@ -261,9 +261,11 @@ def derive(connection: Connection, binding: SnapshotBinding) -> InferenceResult:
             raise ValueError(f"unsupported inference rule {kind}")
 
         while True:
-            delta = select(*(work.c[name] for name in names)).where(
-                work.c.generation == generation
-            ).subquery("frontier")
+            delta = (
+                select(*(work.c[name] for name in names))
+                .where(work.c.generation == generation)
+                .subquery("frontier")
+            )
             inserted_count = 0
             for rule in rules:
                 candidates = conclusions(rule, delta).subquery("conclusions")
