@@ -1,9 +1,9 @@
 # Native evolution and bounded operational control
 
-**Status: Planned; execution not started · 2026-11-09.** Target design is Proposed. The
+**Status: PTD-09 implemented and scoped tests passed; investigations/PTD-10 planned · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
-below, not another status table. No product or database changes were made while authoring.
+below, not another status table. The coordinator records execution separately from original authoring.
 
 ## PTD-09 · Governed candidate transformations
 
@@ -78,3 +78,18 @@ Sources: [native candidate](../../../python/corpus-structure/src/corpus_structur
 [Alembic rewrite API](https://alembic.sqlalchemy.org/en/latest/api/autogenerate.html),
 [pool3.3.3 source](https://github.com/psycopg/psycopg/tree/pool-3.3.3/psycopg_pool/psycopg_pool),
 [operational review](../../functional_reviews/postgresql-typed-domain/operational-control.md).
+
+## PTD-09 selected mechanism · 2026-11-09
+
+Retain the explicit operation walk at Alembic1.20.1. Public Rewriter.rewrites/chain supports recursive
+replacement but does not remove shared created-table/privilege context or global retirement order;
+callback conversion adds machinery for this selected workload. Retain defaults/ARRAY/index adapters
+and independent actual-state observation. This closes the rewrite lead by assessed retention.
+
+Add bounded typed inspect-candidate --view operations from verified frozen native JSON, retaining
+sequence, qualified overload/trigger identity, create/change/retire/recreate, owner/ACL/property
+differences and available dependency facts. Missing dependency/source detail stays unavailable.
+Share inspection ownership with PTD05; large bodies are not emitted by default. Deliver the actual
+composed overloaded-function/dependent-trigger/retirement journey under a restricted principal,
+stale-state/ACL and recreation refusals, and successful/refused rollback-only authoring. Existing
+isolated controls remain useful but do not substitute for that composed acceptance.

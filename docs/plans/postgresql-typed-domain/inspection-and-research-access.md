@@ -1,6 +1,6 @@
 # Explicit acquisition, honest inspection and research access
 
-**Status: PTD-02 implemented and scoped tests passed; PTD-03/investigations planned · 2026-11-09.** Target design is Proposed. The
+**Status: PTD-02/03 implemented and scoped tests passed; investigations planned · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
 below, not another status table. The coordinator records execution and native delivery separately from original authoring.
@@ -96,3 +96,14 @@ Focused checks include actual configured-driver parity, server custom-type resol
 roles, session isolation, snapshot/COPY controls, cancellation and no surviving owned sessions.
 Mock factory checks establish unit behavior only. ADBC1.13.0 contracts are checked against installed
 sources and the [selected upstream implementation](https://github.com/apache/arrow-adbc/tree/apache-arrow-adbc-25).
+
+## PTD-03 execution contract · 2026-11-09
+
+Emit database-description-v2. Attribute Inspector/GetObjects/GetTableSchema/ExecuteSchema/
+GetStatistics observations to their interfaces and separate sessions. Retain recursive Arrow
+storage/extension fields, arrow_nullable and arbitrary metadata as base64; interpret recognized
+POSTGRESQL:type/typmod and Arrow extension keys without synthesizing unavailable native identity,
+constraints or domain meaning. Preserve signed numeric typmod; no new decoder or parameter profile.
+Count children/metadata under existing object/byte bounds. Selected ADBC1.13 sources add metadata
+independently of Arrow storage and can expose different table/expression facts. Reader-purpose
+ownership, server resolver, parameter-free admission and actual CLI JSON remain acceptance boundaries.

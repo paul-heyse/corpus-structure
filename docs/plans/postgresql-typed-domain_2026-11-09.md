@@ -1,6 +1,6 @@
 # PostgreSQL typed-domain implementation series
 
-**Status: PTD-00–02 complete with scoped verification; PTD-03–11 and investigations remain planned · 2026-11-09.** Target design is Proposed. This coordinator
+**Status: PTD-00–09 complete with scoped verification; investigations and PTD-10–11 remain planned · 2026-11-09.** Target design is Proposed. This coordinator
 owns PTD-00–11, PTD-I01–06, selected branch delivery, review O01–O13 disposition and combined
 qualification. It does not supersede any existing plan. Production milestone two remains separate.
 
@@ -68,7 +68,7 @@ to finish when one implemented prerequisite slice suffices.
 
 ## Execution queue
 
-PTD-00–02 are **complete at their scoped boundary** (receipts below); all other rows remain **planned**. Full-series qualification remains PTD-11.
+PTD-00–09 are **complete at their scoped boundaries** (receipts below); investigations and PTD-10–11 remain **planned**. Full-series qualification remains PTD-11.
 
 | ID | Responsible boundary | Required input and delivered capability | Completion evidence |
 | --- | --- | --- | --- |
@@ -102,15 +102,15 @@ specific unmet premise and revisit condition; unperformed investigation cannot b
 | --- | --- | --- | --- |
 | [O01](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O01) | Closed · selected generated boundary | PTD-01 | Closed at selected boundary · 181 affected tests passed; constraints and determinants preserved |
 | [O02](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O02) | Open · investigate adaptation, native invariants and ORM separately | I01 → PTD-10 where selected | Each branch decided; selected full value lifecycle delivered |
-| [O03](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O03) | Open · selected attributed explanations | PTD-04 | Current impact/report/archive consumers use supported detail; unknowns remain explicit |
-| [O04](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O04) | Open · selected diagnostics/impact; language/procedural/lab branches undecided | PTD-05, I02 →10 | All named branches decided; selected profiles and consumers delivered |
-| [O05](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O05) | Open · selected coverage comparison; resident write/preparation alternatives undecided | PTD-06, I03 →10 | Bound report delivered; all additional mechanism/consumer decisions resolved |
-| [O06](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O06) | Open · selected exact composition and transient binding | PTD-07 | Full membership/channel correctness preserved across migrated consumers |
+| [O03](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O03) | Closed · attributed explanations implemented | PTD-04 | Current impact/report/archive consumers use supported detail; unknowns remain explicit |
+| [O04](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O04) | Open · selected diagnostics/impact complete; I02 branches undecided | PTD-05, I02 →10 | All named branches decided; selected profiles and consumers delivered |
+| [O05](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O05) | Open · coverage comparison complete; I03 alternatives undecided | PTD-06, I03 →10 | Bound report delivered; all additional mechanism/consumer decisions resolved |
+| [O06](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O06) | Closed · exact composition and typed binding implemented | PTD-07 | Full membership/channel correctness preserved across migrated consumers |
 | [O07](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O07) | Open · sparse, multivector, ANN/precision and reranking decisions | I04 →10 | Named consumer/policy or reasoned closure per branch; selected journeys evaluated |
-| [O08](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O08) | Open · selected companion output; new input/nested routes undecided | PTD-08, I01/I05 →10 | Independent faithful output; each input/representation branch resolved |
+| [O08](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O08) | Open · selected companion output complete; I01/I05 input routes undecided | PTD-08, I01/I05 →10 | Independent faithful output; each input/representation branch resolved |
 | [O09](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O09) | Open · detached default; capsule/bound/offline/ingest/federation/lab choices | I05 →10, PTD-08 | Selected actual research consumer with custody; all alternatives decided |
-| [O10](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O10) | Open · selected observed metadata; parameter extension undecided | PTD-03, I05 →10 | Actual description consumer; parameter branch delivered or rule retained by decision |
-| [O11](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O11) | Open · selected native workflow; traversal/hook/lifecycle choices | PTD-09, I06 →10 | Frozen drift/ACL/order guarantees and selected native journey; variants decided |
+| [O10](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O10) | Open · observed metadata complete; I05 parameter extension undecided | PTD-03, I05 →10 | Actual description consumer; parameter branch delivered or rule retained by decision |
+| [O11](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O11) | Open · native workflow complete; explicit walk/adapters retained; I06 choices remain | PTD-09, I06 →10 | Frozen drift/ACL/order guarantees and selected native journey; variants decided |
 | [O12](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O12) | Closed · shared explicit acquisition | PTD-02 | All current ADBC callers migrated; no second pool/settings authority |
 | [O13](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O13) | Open · preview, sessions, capacity, streams, wakeups, diagnosis/remote and async/distributed decisions | I06 →10 | Every named workflow resolved; selected lifetimes and failures qualified |
 
@@ -218,7 +218,7 @@ future work, not a claim that the proposed system already exists.
 
 Operator instruction to implement follows the finalized PM2 checkpoint at `dde4594e6`; the tree
 was clean and no matching active run/test supervisor was observed. PTD-00 acquired development
-`corpus_structure_dev`, PostgreSQL18.6, socket port5434, database OID25921445, system identifier
+`corpus_structure_dev`, PostgreSQL18.6, socket port5434, database OID 25921445, system identifier
 7701811359771751232, maintenance principal paul, revision/head `semantic_pm2_named_pieces` using
 `uv run ci db status --maintenance --json` (**passed**, 2026-11-09). Retain run487/cut604 and its
 authenticated source pins, current defaults and execution compiler27. PM2 qualification/selection
@@ -244,7 +244,7 @@ uses the explicit core factory; existing cleanup/cancellation/snapshot/COPY cont
 The child-cleanup and synchronous-acquisition limits remain documented in the companion.
 
 The [delivery evidence](../design_review/evidence/2026-11-09_postgresql-typed-domain/README.md)
-records two frozen native transitions, including the compiler28 runtime-validator integration
+records two frozen native transitions, including the compiler 28 runtime-validator integration
 repair. Development head is semantic_ptd_runtime_compiler; release2498340837f5 retains the exact
 full identity in that evidence. No project activation, run promotion or default change occurred.
 
@@ -257,3 +257,51 @@ for this plan. Independent source reviews found no material issues; reviewers ra
 source. Final lint/docs/turn-end results are recorded in STATUS. Full-series broad qualification,
 benchmarks and Rust tests are **not_run** for this scoped work. PTD-03 and the remaining queue are
 next; PM2 remains separate. O01/O12 are closed only for their selected package obligations.
+
+## PTD-03–09 execution entry · 2026-11-09
+
+Execution starts at clean 8afc18ad9 (only discovery documentation changed since 464078de2), preserving
+completed PTD00–02 and acquired native predecessor semantic_ptd_runtime_compiler. PTD03/08 own
+attributed Arrow metadata and independent detached consumption. PTD04 owns checked-recipe
+occurrences, v3 artifacts/v2 readers, compiler 19 and typed bounded reports; PTD05/09 share retained
+SQL/frozen operation inspection. PTD06 compares exact same-release/source/extent/question scopes,
+keeping unmatched/incomparable outcomes explicit. PTD07 composes one materialized eligible set and
+tagged channels, using typed VECTOR binds plus native casts (plain typed VALUES resolves as text).
+ADR0074 records occurrence/archive ownership; public Alembic Rewriter was assessed and the existing
+explicit privilege/global-order walk retained. All selected library mechanisms and acceptance
+remain as specified in the conversational execution plan; package completion awaits integration.
+
+<a id="ptd-03-09-completion"></a>
+
+## PTD-03–09 completion · 2026-11-09
+
+**Implemented; scoped functional/native controls Tested.** PTD-03 delivers database-description-v2,
+recursive attributed Arrow metadata, independently reflected ENUM/DOMAIN identities and mixed-field
+provenance, without inferring unavailable native constraints or domain meaning. PTD-04 delivers
+checked recipe occurrences, v3 analysis/v2 truthful archive reading and bounded report-version2
+consumers, including CLI/MCP. PTD-05 retains exact before/after SQL and failed diagnostics, stable
+structural references and source-text change locations. PTD-09 explains byte-bound ordered native
+operations while retaining the existing explicit Alembic traversal and adapters.
+
+PTD-06 delivers typed completed-run coverage comparison with resident root/split selection and
+stable both-pin continuations; ephemeral capture IDs remain displayed but are excluded from cursor
+identity. Cross-release/changed-question correspondence remains explicitly incomparable or unmatched.
+PTD-07 uses typed native-cast vector binds and one materialized eligible relation with tagged bounded
+channels, preserving membership, ranks, scores and existing Python fusion. PTD-08 independently
+consumes all four families after disconnect, including exact values/types/nullability/metadata/pins.
+
+The [delivery evidence](../design_review/evidence/2026-11-09_postgresql-typed-domain/README.md)
+records the exact selected tests, original failed attempts, qualification limits and frozen transition.
+Final applicable scope **passed 220 tests**: analysis/retrieval/reporting135, read/exchange29,
+authoring27, native authoring23 and reader regressions6. These are distinct node selections;
+earlier partial runs are not added to this count. The opt-in locked-native-assets transfer case
+is outside this provider-free package scope; its extra invocation was blocked and retained.
+No extraction-quality or live-provider qualification follows. PTD-11 reassesses the series union.
+
+Development is semantic_ptd_explanations under semantic compiler 19 (18 readable), execution
+compiler 28. Native migration/archive/admission/verification passed; owners/ACLs and table shapes
+are preserved. No activation, promotion or default change occurred. Types/lint/model/docs and root
+turn-end results are recorded in STATUS. Benchmarks, Rust and full-series qualification are not_run.
+The next work is the bounded investigation decisions and selected PTD-10 slices, then PTD-11;
+PM2 remains separate and its plan is unchanged. O03/O06 close their selected obligations; multi-branch
+O04/O05/O08/O10/O11 remain open only for their separately owned investigation branches.

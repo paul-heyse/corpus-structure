@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-09. Development runs `semantic_ptd_runtime_compiler`. The protected competitive retrieval arms tied on retained Standard and Nemotron source. `/10` remains the default and the project remains unselected._
+_Updated 2026-11-09. Development runs `semantic_ptd_explanations`. The protected competitive retrieval arms tied on retained Standard and Nemotron source. `/10` remains the default and the project remains unselected._
 
 ## Current authority
 
@@ -16,7 +16,7 @@ _Updated 2026-11-09. Development runs `semantic_ptd_runtime_compiler`. The prote
 
 - On 2026-11-09, the [library-discovery skill](.claude/skills/leverage-library-discovery/SKILL.md) and its guide, framework and index now allow a complete briefing or a summary with focused briefings, with organization and sufficient detail chosen by the agent. Skill metadata validation (`uv run --project . python "${CODEX_HOME:-$HOME/.codex}/skills/.system/skill-creator/scripts/quick_validate.py" .claude/skills/leverage-library-discovery`) passed. Repository health checks and product qualification were `not_run` for this documentation-only change during parallel work. Existing research organization and plan disposition remain unchanged.
 
-- On 2026-11-09, [PTD-00–02](docs/plans/postgresql-typed-domain_2026-11-09.md#ptd-00-02-completion) completed shared typed generation and explicit ADBC acquisition under ADR-0073. Two frozen development migrations archived/admitted the new release and repaired the compiler28 runtime fence; defaults and PM2 selection remain unchanged. Focused `uv run ci test --json -- …` selections passed **181 tests** (135 contracts/runtime controls +46 native journeys). Types, model consistency, lint, docs and `just turn-end` passed; full-series qualification is `not_run` until PTD-11. The owning plan/evidence retains exact result IDs and repaired failures. Next: PTD-03 and remaining PTD packages/investigations; PM2 plan remains unchanged.
+- On 2026-11-09, [PTD-03–09](docs/plans/postgresql-typed-domain_2026-11-09.md#ptd-03-09-completion) delivered attributed metadata, occurrence-aware explanations, retained SQL/frozen native inspection, typed coverage comparison, composed exact retrieval and independent four-family exchange under ADR-0074. Final scoped `uv run ci test --json -- …` selections passed **220 tests**. Compiler19 native migration/archive/admission/verification passed; types, lint, model consistency, docs and `just turn-end` passed. The owning plan/evidence retains repaired failures and the excluded opt-in transfer prerequisite. Full-series qualification is not_run until PTD-11. PTD-00–02 retains its earlier181-test receipt. Next: investigation decisions and selected PTD-10 delivery, then PTD-11; PM2 plan/defaults remain unchanged.
 
 - On 2026-11-09, the [PostgreSQL functional review](docs/functional_reviews/postgresql-typed-domain_2026-11-09.md) delivered O01–O13 with six detailed companions and a complete discovery crosswalk (38 shortlist entries,23 retained families and inline observations). Recommended and conditional capabilities remain Proposed; existing plans retain scope/disposition. `uv run ci docs check` passed; product tests/native probes/benchmarks were `not_run` for this source-based review. Next: select opportunities for create-plan using their stable O references.
 

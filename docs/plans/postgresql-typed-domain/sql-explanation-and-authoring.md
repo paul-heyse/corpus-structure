@@ -1,9 +1,9 @@
 # SQL explanation and source-aware authoring
 
-**Status: Planned; execution not started · 2026-11-09.** Target design is Proposed. The
+**Status: PTD-04/05 implemented and scoped tests passed; investigations planned · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
-below, not another status table. No product or database changes were made while authoring.
+below, not another status table. The coordinator records execution separately from original authoring.
 
 ## Basis and focused foundation assessment
 
@@ -83,3 +83,22 @@ Sources: [projection analysis](../../../python/corpus-structure/src/corpus_struc
 [SQLGlot30.27 lineage](https://github.com/tobymao/sqlglot/blob/v30.27.0/sqlglot/lineage.py),
 [scope](https://github.com/tobymao/sqlglot/blob/v30.27.0/sqlglot/optimizer/scope.py),
 [pglast8.7 visitors](https://github.com/lelit/pglast/blob/v8.7/pglast/visitors.py).
+
+## PTD-04/05 execution mechanisms · 2026-11-09
+
+Selected SQLGlot30.27 lineage deduplicates equal Column expressions; checked recipe structural
+occurrences own multiplicity. Capture value/membership(where/join)/ordering roles, relationship
+identity, local derived edges and explicit unknown boundaries. Qualification/explicit helper typing
+and annotate_types(overwrite_types=False) remain; helper body meaning stays unknown. Summaries
+project the same occurrence authority without all-path expansion or richer IR language adoption.
+
+Write projection-analysis-3 / companion-query-analysis-3; normalize archived2/3 reads with v2 detail
+unavailable and no contemporary reanalysis. Semantic compiler19 retains18 reading; native current/
+readable guards change together, independently of execution compiler28. Reportversion2/schema/
+registered consumers migrate with bounded family/output/occurrence detail and deterministic paging.
+
+Model-change SQL explanation retains original PreparedSQL source/slices/parser/digest/coordinates
+and private pglast trees. SQLGlot diff(delta_only=True) describes supported SELECT edits without
+establishing equivalence. model-change-explanation-1 publishes under managed sql_explanation;
+preview/candidate --view sql can read settled failed diagnostics without effect eligibility.
+Captured before-source remains the authority during later inspection; no submitted data query runs.

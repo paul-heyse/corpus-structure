@@ -1,6 +1,6 @@
 # Released types and faithful exchange
 
-**Status: PTD-01 implemented and scoped tests passed; PTD-08/investigations planned · 2026-11-09.** Target design is Proposed. The
+**Status: PTD-01/08 implemented and scoped tests passed; investigations planned · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
 below, not another status table. The coordinator records execution and native delivery separately from original authoring.
@@ -147,3 +147,13 @@ Version typed products with semantic/physical/renderer determinants without inje
 identity into companion runtime identities. Preserve current source hashing; annotations can
 change existing source IDs. Regenerate affected bindings and inspect candidate effects; preserve
 compiler27 retained readability if execution compilation changes for identical inputs.
+
+## PTD-08 execution contract · 2026-11-09
+
+Retain current exporter/profiles unless independent consumption reveals an actual contract gap.
+An independently specified four-family fixture supplies full expected fields/values/metadata;
+after actual protected export and disconnect, a separate isolated Python process importing only
+PyArrow/DuckDB consumes Parquet and manifest IPC schema. Check repeated/ordered references,
+original payloads, complete pins, multiset differences and metadata independently of generated
+materializers. Whole-field JSON null remains forbidden where the model forbids it; transport
+SQL-null/JSON-null controls stay separate. Existing atomic/cancellation/tampering tests retain scope.

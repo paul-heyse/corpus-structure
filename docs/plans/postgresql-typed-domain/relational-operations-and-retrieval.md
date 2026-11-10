@@ -1,9 +1,9 @@
 # Complete relational operations and exact retrieval
 
-**Status: Planned; execution not started · 2026-11-09.** Target design is Proposed. The
+**Status: PTD-06/07 implemented and scoped tests passed; investigations planned · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
-below, not another status table. No product or database changes were made while authoring.
+below, not another status table. The coordinator records execution separately from original authoring.
 
 ## PTD-06 · Bound comparison of contribution coverage
 
@@ -82,3 +82,22 @@ Sources: [current retrieval](../../../python/corpus-structure/src/corpus_structu
 [VECTOR0.5.1](https://github.com/pgvector/pgvector-python/blob/v0.5.1/pgvector/sqlalchemy/vector.py),
 [pgvector0.8.7](https://github.com/pgvector/pgvector/blob/v0.8.7/README.md),
 [Core composition](https://docs.sqlalchemy.org/en/21/core/selectable.html).
+
+## PTD-06/07 execution contracts · 2026-11-09
+
+Coverage comparison accepts two completed run/cut/release pins in one reader snapshot and emits
+coverage-comparison-1 through ci contributions compare-coverage. Match exact same release,
+immutable source view, extent and question/version; cross-release correspondence is incomparable,
+not inferred from spelling. Keep configuration/runtime/task identities as side provenance. Reuse
+completed_scope_worklist/derive_scope_coverage; select root intents before task hydration through
+Core JSON table-valued expressions and typed resident sets, preserving split descendants/ancestors
+and current work bounds. Outcomes retain limited/failed/empty/succeeded/unscheduled/ineligible/
+cancelled meaning; ambiguous keys never zip or merge. Continuations bind both complete contexts.
+
+Retrieval uses one MATERIALIZED eligible CTE and tagged UNION ALL membership +bounded dense/
+lexical/alias hits, with stable ranks/ties and full membership validation before unchanged Python
+fusion. Selected pgvector0.5.1 bind processing serializes text and does not validate profile or
+dimension. A read-only planning probe observed typed VALUES alone resolving as text (42883), while
+an official VECTOR typed bind with explicit native cast succeeded. Remove manual str(list) and
+vector_text, retain native casts on typed expressions and domain validation. Stored/transient
+routes preserve exact FP32/cosine, candidate identity, RRF60, witnesses, snapshot and cancellation.
