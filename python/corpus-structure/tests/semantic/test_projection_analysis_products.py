@@ -190,8 +190,8 @@ def with_product(release, artifact):
 def test_supplied_recipe_closure_yields_all_four_typed_qualified_products():
     value = read_projection_analysis(with_product(prepared(), product()))
     assert value is not None
-    assert value.version == "projection-analysis-2"
-    assert all(item.analysis.profile == "companion-query-analysis-2" for item in value.projections)
+    assert value.version == "projection-analysis-3"
+    assert all(item.analysis.profile == "companion-query-analysis-3" for item in value.projections)
     assert {entry.family for entry in value.projections} == {
         "input",
         "relation",
@@ -341,3 +341,27 @@ def test_retained_nested_query_expansion_reaches_impact_and_located_validation()
     advice = compatibility_advice(impact)
     assert any("Regenerate and qualify" in message for message in advice)
     assert any("unknown" in message for message in advice)
+
+
+def test_v2_archive_preserves_summaries_without_fabricated_occurrence_detail(monkeypatch):
+    from corpus_structure.semantic import projection_analysis_products
+
+    body = json.loads(product().content)
+    body["version"] = "projection-analysis-2"
+    for entry in body["projections"]:
+        entry["analysis"]["profile"] = "companion-query-analysis-2"
+        entry["analysis"].pop("occurrences")
+        entry["analysis"].pop("detail_status")
+    archive = with_product(prepared(), PreparedArtifact(ARTIFACT, canonical_bytes(body)))
+    monkeypatch.setattr(
+        projection_analysis_products,
+        "analyze_recipe",
+        lambda *args: pytest.fail("reanalyzed archive"),
+    )
+    value = read_projection_analysis(archive)
+    assert value is not None
+    assert all(
+        entry.analysis.detail_status == "unavailable" and not entry.analysis.occurrences
+        for entry in value.projections
+    )
+    assert next(e.analysis for e in value.projections if e.family == "relation").value_dependencies

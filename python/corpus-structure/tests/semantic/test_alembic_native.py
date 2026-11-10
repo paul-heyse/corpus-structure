@@ -465,3 +465,133 @@ def test_out_result_slots_are_compared_beyond_record_return_type(semantic_bare_e
         assert after.catalog["arguments"] == "p integer, OUT n integer, OUT label integer"
         with pytest.raises(ValueError, match="argument change requires explicit recreation"):
             NativeTransitionOp(before, after)
+
+
+def test_composed_frozen_overload_trigger_retirement_and_restricted_principal(semantic_bare_engine):
+    """One authoring route retains ordering, rollback, overload and actual reader custody."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.exc import DBAPIError
+
+    from corpus_structure.schema.model_explanation import explain_native_operations
+
+    md = MetaData()
+    Table("items", md, Column("n", Integer), schema="native test")
+    with semantic_bare_engine.begin() as conn:
+        conn.exec_driver_sql('CREATE SCHEMA "native test"')
+        md.create_all(conn)
+        conn.exec_driver_sql(
+            'CREATE FUNCTION "native test".f(text) RETURNS text LANGUAGE sql AS $$SELECT $1$$'
+        )
+        owner = conn.scalar(text("SELECT current_user"))
+
+        def selected(increment, threshold):
+            return tuple(
+                definition_from_sql(
+                    conn,
+                    sql,
+                    source=name,
+                    owner=owner,
+                    grants=(("corpus_sem_reader", "EXECUTE", False),)
+                    if name == "reader.sql"
+                    else (),
+                )
+                for name, sql in (
+                    (
+                        "reader.sql",
+                        'CREATE OR REPLACE FUNCTION "native test".f(n integer) RETURNS integer '
+                        f"LANGUAGE sql AS $$SELECT n+{increment}$$",
+                    ),
+                    (
+                        "guard.sql",
+                        'CREATE OR REPLACE FUNCTION "native test".guard() RETURNS trigger '
+                        f"LANGUAGE plpgsql AS $$BEGIN NEW.n := NEW.n + {increment}; "
+                        "RETURN NEW; END$$",
+                    ),
+                    (
+                        "trigger.sql",
+                        'CREATE TRIGGER guarded BEFORE INSERT ON "native test".items FOR EACH ROW '
+                        f'WHEN (NEW.n>{threshold}) EXECUTE FUNCTION "native test".guard()',
+                    ),
+                )
+            )
+
+        before_definitions = selected(1, 1)
+        retired = definition_from_sql(
+            conn,
+            'CREATE OR REPLACE FUNCTION "native test".obsolete() RETURNS integer '
+            "LANGUAGE sql AS $$SELECT 0$$",
+            source="obsolete.sql",
+            owner=owner,
+        )
+        before = prepare_native_authoring(
+            conn, (*before_definitions, retired), owned_authoring=True
+        ).desired
+        install(conn, before)
+        conn.exec_driver_sql('INSERT INTO "native test".items VALUES (0)')
+        conn.exec_driver_sql('GRANT USAGE ON SCHEMA "native test" TO corpus_sem_reader')
+        conn.exec_driver_sql('GRANT SELECT ON "native test".items TO corpus_sem_reader')
+        untouched = conn.exec_driver_sql(
+            "SELECT oid,proacl FROM pg_proc WHERE oid='\"native test\".f(text)'::regprocedure"
+        ).one()
+
+        authoring = prepare_native_authoring(
+            conn,
+            selected(2, 0),
+            predecessor=before,
+            retire=frozenset({retired.identity}),
+            owned_authoring=True,
+        )
+        migration = context(conn)
+        migration.opts["native_authoring"] = authoring
+        frozen = [
+            op
+            for op in upgrades(produce_migrations(migration, md)).ops
+            if isinstance(op, NativeTransitionOp)
+        ]
+        raw = json.dumps(dict(version=1, operations=[op.payload() for op in frozen])).encode()
+        explanation = explain_native_operations(raw, "controlled-candidate")
+        assert {item.action for item in explanation.items} == {"change", "retire"}
+        assert [(item.identity["name"], item.action) for item in explanation.items].count(
+            ("obsolete", "retire")
+        ) == 1
+        assert all(item.identity.get("arguments") != ["text"] for item in explanation.items)
+        assert [item.ordinal for item in explanation.items] == list(range(1, len(frozen) + 1))
+        # Frozen directives retain the caller transaction; rollback restores all effects.
+        with conn.begin_nested() as preview:
+            for operation in frozen:
+                Operations(migration).invoke(NativeTransitionOp.from_payload(operation.payload()))
+            assert conn.exec_driver_sql('SELECT "native test".f(3)').scalar_one() == 5
+            conn.exec_driver_sql('INSERT INTO "native test".items VALUES (1)')
+            assert conn.exec_driver_sql('SELECT max(n) FROM "native test".items').scalar_one() == 3
+            assert observe_native(conn, retired.identity) is None
+            preview.rollback()
+        assert conn.exec_driver_sql('SELECT "native test".f(3)').scalar_one() == 4
+        assert conn.exec_driver_sql('SELECT count(*) FROM "native test".items').scalar_one() == 1
+        assert observe_native(conn, retired.identity) is not None
+        # Independent catalog corruption is refused before the frozen operation changes anything.
+        function_op = next(op for op in frozen if op.identity.name == "f")
+        with conn.begin_nested() as refused:
+            conn.exec_driver_sql('ALTER FUNCTION "native test".f(integer) SET search_path=public')
+            with pytest.raises(ValueError, match="stale native before-state"):
+                Operations(migration).invoke(NativeTransitionOp.from_payload(function_op.payload()))
+            assert conn.exec_driver_sql('SELECT "native test".f(3)').scalar_one() == 4
+            refused.rollback()
+        for operation in frozen:
+            Operations(migration).invoke(NativeTransitionOp.from_payload(operation.payload()))
+        assert (
+            conn.exec_driver_sql(
+                "SELECT oid,proacl FROM pg_proc WHERE oid='\"native test\".f(text)'::regprocedure"
+            ).one()
+            == untouched
+        )
+    reader = create_engine(semantic_bare_engine.url.set(username="corpus_sem_reader"))
+    try:
+        with reader.connect() as conn:
+            assert conn.exec_driver_sql('SELECT "native test".f(3)').scalar_one() == 5
+            assert conn.exec_driver_sql('SELECT n FROM "native test".items').all() == [(0,)]
+            with pytest.raises(DBAPIError), conn.begin_nested():
+                conn.exec_driver_sql('INSERT INTO "native test".items VALUES (8)')
+            with pytest.raises(DBAPIError), conn.begin_nested():
+                conn.exec_driver_sql('ALTER FUNCTION "native test".f(integer) IMMUTABLE')
+    finally:
+        reader.dispose()

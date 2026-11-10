@@ -562,6 +562,13 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
 
+**Implemented; scoped functional/native controls Tested,2026-11-09.** Checked recipe occurrences
+own value/membership/ordering explanations; archived unavailable detail remains unavailable.
+Model-change SQL diagnostics and native operation views consume retained source/frozen facts;
+failed diagnostics confer no effect authority. D8 owns presentation and the PTD series owns delivery.
+
+> Decision: [ADR-0074](../adr/0074-attributed-projection-explanations.md)
+
 **Implemented; selected generated/native controls Tested, 2026-11-09.** Selected generated calls,
 Core columns and companion results reuse explicit semantic correspondence and existing nominal
 anchors. Type-only correspondence preserves local physical constraints. D2 §3.4 owns the declaration

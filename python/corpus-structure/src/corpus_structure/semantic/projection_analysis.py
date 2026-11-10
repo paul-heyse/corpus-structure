@@ -9,6 +9,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import lru_cache
+from hashlib import sha256
+from typing import Literal
 
 import sqlglot
 from sqlalchemy.dialects.postgresql import dialect
@@ -21,7 +23,21 @@ from sqlglot.schema import MappingSchema
 
 from . import projection_recipe as ir
 from .determinants import analysis_runtime
+from .identity import canonical_bytes
 from .refusals import SemanticRefusal
+
+
+@dataclass(frozen=True)
+class ProjectionDependencyOccurrence:
+    identity: str
+    structural_path: str
+    role: Literal["value", "membership", "ordering", "unknown"]
+    clause: str
+    source_ref: str
+    target_ref: str
+    output: str | None = None
+    relationship: str | None = None
+    unknown_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -40,6 +56,8 @@ class ProjectionAnalysis:
     helpers: tuple[str, ...]
     unknowns: tuple[str, ...]
     logical_sources: tuple[tuple[str, str], ...]
+    occurrences: tuple[ProjectionDependencyOccurrence, ...] = ()
+    detail_status: Literal["available", "unavailable"] = "unavailable"
 
 
 class ProjectionAnalysisUnavailable(SemanticRefusal):
@@ -261,6 +279,177 @@ def recipe_expression(recipe: ir.ProjectionRecipe) -> exp.Select:
     return expanded
 
 
+def dependency_occurrences(
+    recipe: ir.ProjectionRecipe,
+) -> tuple[ProjectionDependencyOccurrence, ...]:
+    """Inventory checked structural uses before SQLGlot can merge equal expressions.
+
+    Derived definitions are visited once and uses retain local edges. This is not
+    path enumeration or an assertion about the body of a native helper.
+    """
+    sources = {item.name: item for item in recipe.sources}
+    helpers = {item.name: item for item in recipe.helpers}
+    reachable = set()
+
+    def include(name):
+        if name in reachable:
+            return
+        reachable.add(name)
+        selected = sources[name]
+        if selected.input is not None:
+            include(selected.input.name)
+
+    include(recipe.source.name)
+    for join in recipe.joins:
+        include(join.source.name)
+    result = []
+    base = "projection:" + recipe.family
+
+    def emit(path, role, clause, source, target, output=None, relationship=None, reason=None):
+        identity = (
+            "projection-occurrence:"
+            + sha256(
+                canonical_bytes((recipe.projection_id, path, role, source, target, relationship))
+            ).hexdigest()
+        )
+        result.append(
+            ProjectionDependencyOccurrence(
+                identity, path, role, clause, source, target, output, relationship, reason
+            )
+        )
+
+    def walk(node, path, role, clause, target, aliases, output=None, relationship=None):
+        if isinstance(node, ir.Field):
+            definition = sources.get(aliases.get(node.source, ""))
+            if definition is None or node.name not in {f.name for f in definition.fields}:
+                raise ProjectionAnalysisUnavailable("missing checked source field: " + path)
+            source = (
+                "physical:" + definition.relation + "." + node.name
+                if definition.relation
+                else base + "/sources/" + definition.name + "/fields/" + node.name
+            )
+            emit(path, role, clause, source, target, output, relationship)
+            return
+        if isinstance(node, ir.Parameter):
+            parameter = next((p for p in recipe.parameters if p.name == node.name), None)
+            if parameter is None:
+                raise ProjectionAnalysisUnavailable("missing checked parameter: " + path)
+            emit(path, role, clause, "parameter:" + node.name, target, output, relationship)
+            return
+        if isinstance(node, ir.HelperCall):
+            helper = helpers[node.helper]
+            emit(
+                path + "/body",
+                "unknown",
+                clause,
+                helper.result_source,
+                target,
+                output,
+                relationship,
+                "helper body not analyzed: " + helper.function_name,
+            )
+            children = [("arguments/" + str(i), value) for i, value in enumerate(node.arguments)]
+        elif isinstance(node, (ir.JsonPath, ir.Cast, ir.OneOf)):
+            children = [("value", node.value)]
+        elif isinstance(node, ir.Equal):
+            children = [("left", node.left), ("right", node.right)]
+        elif isinstance(node, ir.All):
+            children = [("values/" + str(i), value) for i, value in enumerate(node.values)]
+        elif isinstance(node, ir.Conditional):
+            children = [("when", node.when), ("then", node.then), ("otherwise", node.otherwise)]
+        elif isinstance(node, (ir.Constant, ir.ContextValue, ir.InternalBinding)):
+            children = []
+        else:
+            raise ProjectionAnalysisUnavailable("unsupported occurrence node: " + path)
+        for suffix, child in children:
+            walk(child, path + "/" + suffix, role, clause, target, aliases, output, relationship)
+
+    aliases = {
+        recipe.source.alias: recipe.source.name,
+        **{j.source.alias: j.source.name for j in recipe.joins},
+    }
+    for field in recipe.fields:
+        if not field.source:
+            raise ProjectionAnalysisUnavailable("missing checked output origin: " + field.name)
+        path = base + "/fields/" + field.name
+        walk(field.expression, path, "value", "output", path, aliases, field.name)
+    walk(recipe.predicate, base + "/where", "membership", "where", base + "/where", aliases)
+    for index, join in enumerate(recipe.joins):
+        path = base + "/joins/" + str(index)
+        for key_index, key in enumerate(join.keys):
+            for side in ("left", "right"):
+                walk(
+                    getattr(key, side),
+                    path + "/keys/" + str(key_index) + "/" + side,
+                    "membership",
+                    "join",
+                    path,
+                    aliases,
+                    relationship=join.relationship,
+                )
+        if join.predicate is not None:
+            walk(
+                join.predicate,
+                path + "/predicate",
+                "membership",
+                "join",
+                path,
+                aliases,
+                relationship=join.relationship,
+            )
+    by_output = {field.name: field for field in recipe.fields}
+    for index, order in enumerate(recipe.order):
+        field = by_output.get(order.field)
+        if field is None:
+            raise ProjectionAnalysisUnavailable("missing ordered output: " + order.field)
+        path = base + "/order/" + str(index)
+        walk(field.expression, path, "ordering", "order", path, aliases, field.name)
+    for source in recipe.sources:
+        if source.relation is not None or source.name not in reachable:
+            continue
+        if source.input is None:
+            raise ProjectionAnalysisUnavailable("derived source lacks input: " + source.name)
+        local = {source.input.alias: source.input.name}
+        for field in source.fields:
+            path = base + "/sources/" + source.name + "/fields/" + field.name
+            walk(field.expression, path, "value", "source", path, local)
+        if source.predicate is not None:
+            path = base + "/sources/" + source.name + "/where"
+            walk(source.predicate, path, "membership", "where", path, local)
+    return tuple(result)
+
+
+def occurrence_summaries(recipe, occurrences):
+    """Compact physical summaries project the same local occurrence authority."""
+    definitions = {}
+    for item in occurrences:
+        if item.clause == "source" and item.role == "value":
+            definitions.setdefault(item.target_ref, []).append(item.source_ref)
+
+    def leaves(reference, trail=()):
+        if reference.startswith("physical:"):
+            return {reference}
+        if reference in trail:
+            raise ProjectionAnalysisUnavailable("cyclic occurrence source definition")
+        return {
+            leaf
+            for child in definitions.get(reference, ())
+            for leaf in leaves(child, (*trail, reference))
+        }
+
+    values = {field.name: set() for field in recipe.fields}
+    relations = {}
+    for item in occurrences:
+        if item.role == "value" and item.clause == "output":
+            values[item.output].update(leaves(item.source_ref))
+        elif item.role in {"membership", "ordering"}:
+            relations.setdefault(item.clause, set()).update(leaves(item.source_ref))
+    return (
+        tuple((name, tuple(sorted(fields))) for name, fields in values.items()),
+        tuple((name, tuple(sorted(fields))) for name, fields in sorted(relations.items())),
+    )
+
+
 def analyze_recipe(recipe: ir.ProjectionRecipe) -> ProjectionAnalysis:
     return _analyze_recipe_cached(recipe, analysis_runtime())
 
@@ -294,29 +483,6 @@ def _analyze_recipe_cached(
         raise ProjectionAnalysisUnavailable(
             "named output lineage differs from required model fields"
         )
-    dependencies = []
-    for name, root in nodes.items():
-        leaves = set()
-        for node in root.walk():
-            if isinstance(node.expression, exp.Table):
-                table = node.expression
-                column = exp.to_column(node.name, dialect="postgres").name
-                leaves.add("physical:" + ".".join(filter(None, (table.db, table.name, column))))
-        dependencies.append((name, tuple(sorted(leaves))))
-    # Reuse each already-qualified scope for all outputs. Predicates and joins can
-    # depend on fields which are absent from the public value projections.
-    scope_nodes = {id(scope): nodes}
-
-    def leaves(root):
-        result = set()
-        for item in root.walk():
-            if isinstance(item.expression, exp.Table):
-                table = item.expression
-                name = exp.to_column(item.name, dialect="postgres").name
-                result.add("physical:" + ".".join(filter(None, (table.db, table.name, name))))
-        return result
-
-    kinds: dict[str, set[str]] = {}
     expressions = [
         (
             f"projection:{recipe.family}/fields/{value.alias_or_name}",
@@ -337,26 +503,6 @@ def _analyze_recipe_cached(
                     clause.sql(dialect="postgres"),
                 )
             )
-            found = kinds.setdefault(kind, set())
-            for column in clause.find_all(exp.Column):
-                source = selected_scope.sources.get(column.table)
-                if isinstance(source, exp.Table):
-                    found.add(
-                        "physical:" + ".".join(filter(None, (source.db, source.name, column.name)))
-                    )
-                elif source is not None:
-                    if id(source) not in scope_nodes:
-                        scope_nodes[id(source)] = lineage(
-                            None, source.expression, schema=schema, scope=source, dialect="postgres"
-                        )
-                    source_nodes = scope_nodes[id(source)]
-                    if isinstance(source_nodes, dict) and column.name in source_nodes:
-                        found.update(leaves(source_nodes[column.name]))
-                elif not column.table and column.name in nodes:
-                    found.update(leaves(nodes[column.name]))
-    relational_dependencies = tuple(
-        (kind, tuple(sorted(fields))) for kind, fields in sorted(kinds.items())
-    )
     types = tuple(
         (value.alias_or_name, value.type.sql(dialect="postgres") if value.type else "UNKNOWN")
         for value in qualified.selects
@@ -372,13 +518,18 @@ def _analyze_recipe_cached(
             unknowns.append("missing output model origin: " + field.name)
     for value in qualified.selects:
         if value.this.meta.get("model_source") != expected_origins[value.alias_or_name]:
-            unknowns.append("transformed output model origin unavailable: " + value.alias_or_name)
+            raise ProjectionAnalysisUnavailable(
+                "transformed output model origin differs from checked recipe: "
+                + value.alias_or_name
+            )
     unknowns.extend(
         "helper body not analyzed: " + helper.function_name for helper in recipe.helpers
     )
+    occurrences = dependency_occurrences(recipe)
+    dependencies, relational_dependencies = occurrence_summaries(recipe, occurrences)
     return ProjectionAnalysis(
         recipe.projection_id,
-        "companion-query-analysis-2",
+        "companion-query-analysis-3",
         sqlglot.__version__,
         recipe.consumers,
         tuple((field.name, field.source) for field in recipe.fields),
@@ -403,4 +554,6 @@ def _analyze_recipe_cached(
             for source in recipe.sources
             if source.relation is None
         ),
+        occurrences,
+        "available",
     )

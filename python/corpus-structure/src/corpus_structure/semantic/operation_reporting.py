@@ -34,7 +34,7 @@ _SCHEMA_PATH = "model/semantic/operation-report-schemas.json"
 
 class _ReportSchemaProduct(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
-    profile: Literal["operation-report-schema-1"]
+    profile: Literal["operation-report-schema-2"]
     source_id: str
     schemas: dict[str, dict[str, JsonValue]]
 
@@ -125,7 +125,7 @@ def _report(name: str, data: dict) -> BaseModel:
         return value
 
     return boundary.validate_json(
-        name, canonical_bytes(supplied(dict(report_version=1, report_schema_digest=digest, **data)))
+        name, canonical_bytes(supplied(dict(report_version=2, report_schema_digest=digest, **data)))
     )
 
 
@@ -150,6 +150,12 @@ def explain_operation(
     *,
     subject: ProductReference | PublishedDocumentSubject | SnapshotBinding | None = None,
     connection: Connection | None = None,
+    dependency_detail: bool = False,
+    dependency_family: str | None = None,
+    dependency_output: str | None = None,
+    dependency_occurrence: str | None = None,
+    dependency_after: int = 0,
+    dependency_limit: int = 100,
 ) -> BaseModel:
     from .product_reference import ProductReference
     from .query import SnapshotBinding
@@ -307,6 +313,17 @@ def explain_operation(
         dict(
             release_id=prepared.release_id,
             model_id=model.model_id,
+            projection_dependencies=projection_dependency_detail(
+                prepared,
+                operation=found.id,
+                family=dependency_family,
+                output=dependency_output,
+                occurrence=dependency_occurrence,
+                after=dependency_after,
+                limit=dependency_limit,
+            )
+            if dependency_detail
+            else None,
             operation=found.id,
             implementation=found.implementation,
             inputs=list(found.inputs),
@@ -571,6 +588,12 @@ def compare_semantic_releases(
     *,
     before_runtime: RuntimeBinding | None = None,
     after_runtime: RuntimeBinding | None = None,
+    dependency_detail: bool = False,
+    dependency_family: str | None = None,
+    dependency_output: str | None = None,
+    dependency_occurrence: str | None = None,
+    dependency_after: int = 0,
+    dependency_limit: int = 100,
 ) -> BaseModel:
     """Compare declared meaning, with optional separately identified runtime provenance."""
     old_model, new_model = bound_execution_model(before), bound_execution_model(after)
@@ -783,6 +806,16 @@ def compare_semantic_releases(
         dict(
             before_release=before.release_id,
             after_release=after.release_id,
+            projection_dependencies=_dependency_page(
+                (("before", before), ("after", after)),
+                family=dependency_family,
+                output=dependency_output,
+                occurrence=dependency_occurrence,
+                after=dependency_after,
+                limit=dependency_limit,
+            )
+            if dependency_detail
+            else None,
             changes=changes,
             unknowns=sorted(unknowns),
             complete=not unknowns,
@@ -865,6 +898,8 @@ def _projection_impact(before: PreparedRelease, after: PreparedRelease, changes,
             continue
         unknowns.update(f"{side}: {message}" for message in product.unknowns)
         for entry in product.projections:
+            if entry.analysis.detail_status != "available":
+                unknowns.add(f"{side}: projection:{entry.family}: occurrence detail unavailable")
             unknowns.update(
                 f"{side}: projection:{entry.family}: {message}"
                 for message in entry.analysis.unknowns
@@ -907,10 +942,19 @@ def _projection_impact(before: PreparedRelease, after: PreparedRelease, changes,
             "helpers",
             "projection_id",
             "logical_sources",
+            "occurrences",
+            "detail_status",
         )
         for aspect in aspects:
+            if aspect == "occurrences" and any(
+                row is not None and row.detail_status != "available" for row in (left, right)
+            ):
+                continue
             old_value = getattr(left, aspect) if left else None
             new_value = getattr(right, aspect) if right else None
+            if aspect == "occurrences":
+                old_value = [asdict(item) for item in old_value] if old_value is not None else None
+                new_value = [asdict(item) for item in new_value] if new_value is not None else None
             if old_value == new_value:
                 continue
             changes.append(
@@ -927,6 +971,88 @@ def _projection_impact(before: PreparedRelease, after: PreparedRelease, changes,
                     ),
                 )
             )
+
+
+def _dependency_page(
+    contexts, *, family=None, output=None, occurrence=None, after=0, limit=100, operation=None
+):
+    """Page retained occurrence facts without reconstructing unavailable analysis."""
+    from .projection_analysis_products import read_projection_analysis
+
+    if type(after) is not int or after < 0 or type(limit) is not int or not 1 <= limit <= 1000:
+        raise SemanticRefusal("invalid dependency detail bounds")
+    entries, complete = [], True
+    for side, prepared in contexts:
+        product = read_projection_analysis(prepared)
+        if product is None:
+            entries.append(
+                dict(
+                    side=side,
+                    family=family or "*",
+                    status="unavailable",
+                    reason="Retained projection analysis unavailable.",
+                )
+            )
+            complete = False
+            continue
+        complete = complete and product.complete
+        for entry in sorted(product.projections, key=lambda row: row.family):
+            if family is not None and entry.family != family:
+                continue
+            analysis = entry.analysis
+            if operation is not None and operation not in analysis.consumers:
+                continue
+            complete = complete and not analysis.unknowns
+            if analysis.detail_status != "available":
+                entries.append(
+                    dict(
+                        side=side,
+                        family=entry.family,
+                        status="unavailable",
+                        reason="Archived analysis does not retain occurrence detail.",
+                    )
+                )
+                complete = False
+                continue
+            selected = [
+                item
+                for item in analysis.occurrences
+                if (output is None or item.output == output)
+                and (occurrence is None or item.identity == occurrence)
+            ]
+            entries.extend(
+                dict(side=side, family=entry.family, status="available", occurrence=asdict(item))
+                for item in sorted(selected, key=lambda item: item.structural_path)
+            )
+    if after > len(entries):
+        raise SemanticRefusal("dependency detail position exceeds selected population")
+    end = min(after + limit, len(entries))
+    result = dict(
+        items=entries[after:end],
+        total=len(entries),
+        after=after,
+        next_after=end if end < len(entries) else None,
+        paging_complete=end == len(entries),
+        coverage_complete=complete,
+    )
+    if len(canonical_bytes(result)) > 1_000_000:
+        raise SemanticRefusal("dependency detail exceeds byte bound; narrow the selection")
+    return result
+
+
+def projection_dependency_detail(
+    prepared, *, family=None, output=None, occurrence=None, after=0, limit=100, operation=None
+):
+    """Bounded current-side view of the archived dependency authority."""
+    return _dependency_page(
+        (("current", prepared),),
+        family=family,
+        output=output,
+        occurrence=occurrence,
+        after=after,
+        limit=limit,
+        operation=operation,
+    )
 
 
 def compatibility_advice(impact: BaseModel) -> tuple[str, ...]:
@@ -1020,7 +1146,7 @@ def write_report_schemas(destination: Path) -> None:
         Draft202012Validator.check_schema(schema)
     content = canonical_bytes(
         dict(
-            profile="operation-report-schema-1",
+            profile="operation-report-schema-2",
             source_id=_report_schema_source_id(),
             schemas=schemas,
         )

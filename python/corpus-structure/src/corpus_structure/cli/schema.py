@@ -465,6 +465,12 @@ def explain_operation_(
     operation: str,
     release: Annotated[str, typer.Option("--release")],
     subject: Annotated[Path | None, typer.Option("--subject")] = None,
+    dependency_detail: bool = False,
+    dependency_family: str | None = None,
+    dependency_output: str | None = None,
+    dependency_occurrence: str | None = None,
+    dependency_after: int = 0,
+    dependency_limit: int = 100,
     json_: JsonOpt = False,
 ):
     """Explain a declared operation; an observation never authorizes later effects."""
@@ -493,12 +499,34 @@ def explain_operation_(
                 if raw_subject is not None
                 else None
             )
-            report = explain_operation(prepared, operation, subject=reference, connection=conn)
+            report = explain_operation(
+                prepared,
+                operation,
+                subject=reference,
+                connection=conn,
+                dependency_detail=dependency_detail,
+                dependency_family=dependency_family,
+                dependency_output=dependency_output,
+                dependency_occurrence=dependency_occurrence,
+                dependency_after=dependency_after,
+                dependency_limit=dependency_limit,
+            )
         emit(report, json=json_)
 
 
 @schema_app.command("diff")
-def diff_(ctx: typer.Context, before: str, after: str, json_: JsonOpt = False):
+def diff_(
+    ctx: typer.Context,
+    before: str,
+    after: str,
+    dependency_detail: bool = False,
+    dependency_family: str | None = None,
+    dependency_output: str | None = None,
+    dependency_occurrence: str | None = None,
+    dependency_after: int = 0,
+    dependency_limit: int = 100,
+    json_: JsonOpt = False,
+):
     """Explain declared semantic changes with unknown dependency coverage explicit."""
     from corpus_structure.cli.output import state
     from corpus_structure.semantic.operation_reporting import compare_semantic_releases
@@ -507,7 +535,7 @@ def diff_(ctx: typer.Context, before: str, after: str, json_: JsonOpt = False):
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
 
-    with refusal(json_, expected=(SemanticRefusal,)) as failure:
+    with refusal(json_, expected=(SemanticRefusal, ValueError)) as failure:
         with (
             open_runtime_engine(
                 state(ctx).settings(), "ci-semantic-diff", purpose="read"
@@ -516,7 +544,16 @@ def diff_(ctx: typer.Context, before: str, after: str, json_: JsonOpt = False):
         ):
             old, new = open_release(conn, before), open_release(conn, after)
             failure.bind(new, "compare_semantic_releases")
-            report = compare_semantic_releases(old, new)
+            report = compare_semantic_releases(
+                old,
+                new,
+                dependency_detail=dependency_detail,
+                dependency_family=dependency_family,
+                dependency_output=dependency_output,
+                dependency_occurrence=dependency_occurrence,
+                dependency_after=dependency_after,
+                dependency_limit=dependency_limit,
+            )
         emit(report, json=json_)
 
 

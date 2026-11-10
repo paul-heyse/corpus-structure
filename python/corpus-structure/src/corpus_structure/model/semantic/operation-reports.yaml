@@ -19,6 +19,12 @@ types:
     base: bool
     uri: xsd:boolean
 enums:
+  ProjectionDependencyRole:
+    permissible_values: {value: {}, membership: {}, ordering: {}, unknown: {}}
+  ProjectionDetailStatus:
+    permissible_values: {available: {}, unavailable: {}}
+  ProjectionDetailSide:
+    permissible_values: {current: {}, before: {}, after: {}}
   OperationApplicability:
     permissible_values:
       applicable: {}
@@ -88,13 +94,17 @@ classes:
       report_version:
         range: UrInteger
         required: true
-        minimum_value: 1
-        maximum_value: 1
+        minimum_value: 2
+        maximum_value: 2
         slot_uri: ur:OperationExplanation_report_version
       report_schema_digest:
         range: UrString
         required: true
         slot_uri: ur:OperationExplanation_report_schema_digest
+      projection_dependencies:
+        range: ProjectionDependencyPage
+        inlined: true
+        slot_uri: ur:OperationExplanation_projection_dependencies
       release_id:
         range: UrString
         required: true
@@ -203,8 +213,8 @@ classes:
       report_version:
         range: UrInteger
         required: true
-        minimum_value: 1
-        maximum_value: 1
+        minimum_value: 2
+        maximum_value: 2
         slot_uri: ur:LocatedValidationReport_report_version
       report_schema_digest:
         range: UrString
@@ -306,13 +316,17 @@ classes:
       report_version:
         range: UrInteger
         required: true
-        minimum_value: 1
-        maximum_value: 1
+        minimum_value: 2
+        maximum_value: 2
         slot_uri: ur:SemanticImpactReport_report_version
       report_schema_digest:
         range: UrString
         required: true
         slot_uri: ur:SemanticImpactReport_report_schema_digest
+      projection_dependencies:
+        range: ProjectionDependencyPage
+        inlined: true
+        slot_uri: ur:SemanticImpactReport_projection_dependencies
       before_release:
         range: UrString
         required: true
@@ -338,3 +352,63 @@ classes:
         range: UrBoolean
         required: true
         slot_uri: ur:SemanticImpactReport_complete
+
+  ProjectionDependencyOccurrence:
+    attributes:
+      identity:
+        range: UrString
+        required: true
+        slot_uri: ur:ProjectionDependencyOccurrence_identity
+      structural_path:
+        range: UrString
+        required: true
+        slot_uri: ur:ProjectionDependencyOccurrence_structural_path
+      role:
+        range: ProjectionDependencyRole
+        required: true
+        slot_uri: ur:ProjectionDependencyOccurrence_role
+      clause:
+        range: UrString
+        required: true
+        slot_uri: ur:ProjectionDependencyOccurrence_clause
+      source_ref:
+        range: UrString
+        required: true
+        slot_uri: ur:ProjectionDependencyOccurrence_source_ref
+      target_ref:
+        range: UrString
+        required: true
+        slot_uri: ur:ProjectionDependencyOccurrence_target_ref
+      output:
+        range: UrString
+        slot_uri: ur:ProjectionDependencyOccurrence_output
+      relationship:
+        range: UrString
+        slot_uri: ur:ProjectionDependencyOccurrence_relationship
+      unknown_reason:
+        range: UrString
+        slot_uri: ur:ProjectionDependencyOccurrence_unknown_reason
+  ProjectionDependencyEntry:
+    attributes:
+      side: {range: ProjectionDetailSide, required: true, slot_uri: 'ur:ProjectionDependencyEntry_side'}
+      family: {range: UrString, required: true, slot_uri: 'ur:ProjectionDependencyEntry_family'}
+      status: {range: ProjectionDetailStatus, required: true, slot_uri: 'ur:ProjectionDependencyEntry_status'}
+      reason: {range: UrString, slot_uri: 'ur:ProjectionDependencyEntry_reason'}
+      occurrence:
+        range: ProjectionDependencyOccurrence
+        inlined: true
+        slot_uri: ur:ProjectionDependencyEntry_occurrence
+  ProjectionDependencyPage:
+    attributes:
+      items:
+        range: ProjectionDependencyEntry
+        multivalued: true
+        inlined: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+        slot_uri: ur:ProjectionDependencyPage_items
+      total: {range: UrInteger, required: true, minimum_value: 0, slot_uri: 'ur:ProjectionDependencyPage_total'}
+      after: {range: UrInteger, required: true, minimum_value: 0, slot_uri: 'ur:ProjectionDependencyPage_after'}
+      next_after: {range: UrInteger, minimum_value: 0, slot_uri: 'ur:ProjectionDependencyPage_next_after'}
+      paging_complete: {range: UrBoolean, required: true, slot_uri: 'ur:ProjectionDependencyPage_paging_complete'}
+      coverage_complete: {range: UrBoolean, required: true, slot_uri: 'ur:ProjectionDependencyPage_coverage_complete'}

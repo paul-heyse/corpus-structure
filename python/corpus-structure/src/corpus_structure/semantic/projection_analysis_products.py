@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from hashlib import sha256
 from typing import Any, Literal
 
@@ -44,7 +44,7 @@ class ProjectionEntry:
 
 @dataclass(frozen=True, config=ConfigDict(extra="forbid", strict=True))
 class ProjectionAnalysisProduct:
-    version: Literal["projection-analysis-2"]
+    version: Literal["projection-analysis-2", "projection-analysis-3"]
     complete: bool
     projections: tuple[ProjectionEntry, ...]
     physical_id: str | None = None
@@ -68,9 +68,28 @@ def read_projection_analysis(prepared: PreparedRelease) -> ProjectionAnalysisPro
         raise SemanticRefusal("Unsupported retained projection analysis product") from exc
     families = tuple(item.family for item in value.projections)
     if len(set(families)) != len(families) or any(
-        item.analysis.profile != "companion-query-analysis-2" for item in value.projections
+        item.analysis.profile
+        != (
+            "companion-query-analysis-3"
+            if value.version == "projection-analysis-3"
+            else "companion-query-analysis-2"
+        )
+        for item in value.projections
     ):
         raise SemanticRefusal("Unsupported retained projection analysis profile")
+    if value.version == "projection-analysis-2":
+        value = replace(
+            value,
+            projections=tuple(
+                replace(
+                    item,
+                    analysis=replace(item.analysis, occurrences=(), detail_status="unavailable"),
+                )
+                for item in value.projections
+            ),
+        )
+    elif any(item.analysis.detail_status != "available" for item in value.projections):
+        raise SemanticRefusal("Retained v3 projection analysis lacks occurrence detail")
     return value
 
 
@@ -110,7 +129,7 @@ def _unavailable(*unknowns: str) -> PreparedArtifact:
     return PreparedArtifact(
         ARTIFACT,
         canonical_bytes(
-            dict(version="projection-analysis-2", complete=False, unknowns=unknowns, projections=[])
+            dict(version="projection-analysis-3", complete=False, unknowns=unknowns, projections=[])
         ),
     )
 
@@ -159,7 +178,7 @@ def prepare_projection_analysis(dependencies: ResolvedDependencies) -> PreparedA
     )
     view = _projection_view(bundle)
     source_id = sha256(
-        b"corpus-projection-analysis-sources-2\0"
+        b"corpus-projection-analysis-sources-3\0"
         + canonical_bytes(
             {
                 "recipe": {source.name: source.digest for source in bundle.sources},
@@ -186,7 +205,7 @@ def prepare_projection_analysis(dependencies: ResolvedDependencies) -> PreparedA
         ARTIFACT,
         canonical_bytes(
             dict(
-                version="projection-analysis-2",
+                version="projection-analysis-3",
                 physical_id=physical_id,
                 source_id=source_id,
                 complete=complete,

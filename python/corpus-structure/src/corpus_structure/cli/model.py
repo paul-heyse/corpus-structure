@@ -160,6 +160,134 @@ def _load_artifact(store, result_id: str, action: str, role: str) -> bytes:
     return raw
 
 
+def _publish_sql_explanation(result, explanation):
+    path = result.directory / "sql-explanation.json"
+    raw = explanation.model_dump_json().encode()
+    if len(raw) > 32 * 1024 * 1024:
+        raise ValueError("retained SQL explanation exceeds 32 MiB")
+    path.write_bytes(raw)
+    result.publish("sql_explanation", path)
+    result.stage(result.manifest.stage, sql_explanation_sha256=sha256(raw).hexdigest())
+
+
+@contextmanager
+def _retained_sql_explanation(result, explanation):
+    """Retain diagnostics before managed failure settlement, preserving primary errors."""
+    from corpus_structure.schema.model_explanation import sql_source_fact
+
+    holder = [explanation]
+    _publish_sql_explanation(result, explanation)
+    try:
+        yield holder
+    except Exception as error:
+        changes = holder[0].changes
+        sql = getattr(error, "sql", None)
+        if isinstance(sql, str):
+            from corpus_structure.schema.model_explanation import SQLChangeFact
+
+            changes = (
+                *changes,
+                SQLChangeFact(
+                    identity="refused-input",
+                    after=sql_source_fact(getattr(error, "source", "refused input"), sql),
+                ),
+            )
+        diagnostic = dict(
+            kind=type(error).__name__,
+            message=safe_text(str(error)),
+            source=getattr(error, "source", None),
+            position=getattr(error, "position", getattr(error, "location", None)),
+            coordinate_space="original_source" if sql is not None else "unavailable",
+        )
+        try:
+            _publish_sql_explanation(
+                result,
+                holder[0].model_copy(
+                    update={"changes": changes, "diagnostics": (*holder[0].diagnostics, diagnostic)}
+                ),
+            )
+        except Exception as publication_error:
+            error.add_note(f"SQL diagnostic publication also failed: {publication_error!r}")
+        raise
+    else:
+        if result.manifest.outcome == "running":
+            _publish_sql_explanation(result, holder[0])
+
+
+def _retain_authored_sql(holder, dependencies, before=None, *, preserve=False):
+    from corpus_structure.schema.model_explanation import sql_change
+
+    current = {
+        item.name: item.content
+        for item in dependencies.artifacts
+        if item.name.startswith("authored-sql/")
+    }
+    prior = {item.identity: item for item in holder[0].changes}
+    if preserve:
+        for name, item in prior.items():
+            if not name.startswith("authored-sql/"):
+                continue
+            captured = item.after.text.encode() if item.after is not None else None
+            if captured != current.get(name):
+                raise ValueError("authored SQL differs from retained preview source")
+        return
+    if before is None:
+        changes = list(holder[0].changes)
+        for name, content in sorted(current.items()):
+            if name in prior:
+                captured = prior[name].after
+                if captured is None or captured.text.encode() != content:
+                    raise ValueError("authored SQL differs from retained preview source")
+            else:
+                changes.append(sql_change(name, None, content.decode()))
+    else:
+        names = before.keys() | current.keys()
+        changes = [item for item in holder[0].changes if item.identity not in names]
+        changes.extend(
+            sql_change(
+                name,
+                before[name].decode() if name in before else None,
+                current[name].decode() if name in current else None,
+            )
+            for name in sorted(names)
+            if before.get(name) != current.get(name)
+        )
+    holder[0] = holder[0].model_copy(update={"changes": tuple(changes)})
+
+
+def _read_sql_explanation(store, result_id):
+    from corpus_structure.cli.managed import ResultError
+    from corpus_structure.schema.model_explanation import ModelChangeExplanation
+
+    manifest = store.show(result_id)
+    if manifest.action not in {"model.preview", "model.candidate"} or manifest.outcome not in {
+        "passed",
+        "failed",
+    }:
+        raise ResultError("SQL explanation requires a settled model preview or candidate")
+    raw = store.read_artifact(result_id, "sql_explanation")
+    if sha256(raw).hexdigest() != manifest.details.get("sql_explanation_sha256"):
+        raise ResultError("SQL explanation differs from its settled digest")
+    return ModelChangeExplanation.model_validate_json(raw)
+
+
+def _explanation_view(report) -> Table:
+    values = report.model_dump(mode="json") if isinstance(report, BaseModel) else report
+    import json
+
+    return report_fields(
+        *(
+            (
+                key,
+                json.dumps(value, ensure_ascii=False, indent=2)
+                if isinstance(value, (dict, list, tuple))
+                else str(value),
+            )
+            for key, value in values.items()
+        )
+    )
+
+
 _HUNK = re.compile(r"@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@[^\n]*\n")
 _NO_FINAL_NEWLINE = "\\ No newline at end of file\n"
 _PATCH_STREAM_LIMIT = 8 * 1024 * 1024
@@ -417,9 +545,10 @@ def _discovery_view(report: PreviewDiscoveryReport) -> Table:
 def inspect_preview(
     ctx: typer.Context,
     preview_id: Annotated[str, typer.Argument(metavar="PREVIEW_ID")],
-    view: Annotated[Literal["effects", "patch", "discovery"], typer.Option()] = "effects",
+    view: Annotated[Literal["effects", "patch", "discovery", "sql"], typer.Option()] = "effects",
     limit: Annotated[int | None, typer.Option(min=1, max=20, help="Maximum hunks.")] = None,
     after_hunk: Annotated[int, typer.Option(min=0, help="Continue after this hunk ordinal.")] = 0,
+    after: Annotated[int, typer.Option(min=0, help="Continue SQL detail after this ordinal.")] = 0,
     stdout: Annotated[
         bool, typer.Option(help="Write the exact safe patch bytes to stdout.")
     ] = False,
@@ -432,11 +561,27 @@ def inspect_preview(
 
     if stdout and (view != "patch" or json_ or limit is not None or after_hunk):
         raise typer.BadParameter("--stdout requires --view patch without JSON or hunk selection")
-    if view != "patch" and (limit is not None or after_hunk):
+    if view not in {"patch", "sql"} and (limit is not None or after_hunk):
         raise typer.BadParameter("hunk selection requires --view patch")
-    with refusal(json_, expected=(ResultError, ModelError, OSError)):
+    if (after and view != "sql") or (after_hunk and view == "sql"):
+        raise typer.BadParameter("SQL paging and patch-hunk paging are separate")
+    with refusal(json_, expected=(ResultError, ModelError, OSError, ValueError)):
         store = result_store(ctx)
         with store.lease(preview_id):
+            if view == "sql":
+                from corpus_structure.schema.model_explanation import explanation_page
+
+                emit(
+                    explanation_page(
+                        _read_sql_explanation(store, preview_id),
+                        preview_id,
+                        after=after,
+                        limit=limit or 8,
+                    ),
+                    json=json_,
+                    render=_explanation_view,
+                )
+                return
             staged = ChangePreview.model_validate_json(
                 _load_artifact(store, preview_id, "model.preview", "preview")
             )
@@ -536,6 +681,9 @@ def _candidate_view(report: CandidateInspection) -> Table:
 def inspect_candidate(
     ctx: typer.Context,
     candidate_id: Annotated[str, typer.Argument(metavar="CANDIDATE_ID")],
+    view: Annotated[Literal["summary", "operations", "sql"], typer.Option()] = "summary",
+    after: Annotated[int, typer.Option(min=0)] = 0,
+    limit: Annotated[int, typer.Option(min=1, max=100)] = 20,
     json_: JsonOpt = False,
 ) -> None:
     """Inspect a settled candidate and its registration in the bound checkout."""
@@ -551,15 +699,68 @@ def inspect_candidate(
         migration_wrapper,
     )
 
-    with refusal(json_, expected=(ResultError, OSError)):
+    with refusal(json_, expected=(ResultError, OSError, ValueError)):
         store = result_store(ctx)
         status: Literal["verified", "unverified", "not_applicable"] = "unverified"
         detail = None
         guidance = EffectGuidance()
         with store.lease(candidate_id):
+            if view == "sql":
+                from corpus_structure.schema.model_explanation import explanation_page
+
+                emit(
+                    explanation_page(
+                        _read_sql_explanation(store, candidate_id),
+                        candidate_id,
+                        after=after,
+                        limit=limit,
+                    ),
+                    json=json_,
+                    render=_explanation_view,
+                )
+                return
             binding = Candidate.model_validate_json(
                 _load_artifact(store, candidate_id, "model.candidate", "deployment")
             )
+            if view == "operations":
+                import os
+
+                from corpus_structure.schema.model_explanation import explain_native_operations
+
+                with store.open_artifact(candidate_id, "candidate") as (_, directory):
+                    fd = os.open(
+                        "native_operations.json", os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory
+                    )
+                    with os.fdopen(fd, "rb") as stream:
+                        raw = stream.read()
+                if sha256(raw).hexdigest() != binding.hashes.get("native_operations.json"):
+                    raise ResultError("frozen native operations differ from candidate binding")
+                emit(
+                    explain_native_operations(
+                        raw,
+                        candidate_id,
+                        after=after,
+                        limit=limit,
+                        binding=binding.model_dump(
+                            mode="json",
+                            include={
+                                "predecessor",
+                                "release",
+                                "release_manifest_sha256",
+                                "release_artifacts_sha256",
+                                "target",
+                                "target_profile",
+                                "target_identity",
+                                "authoring_identity",
+                                "hashes",
+                                "revision",
+                            },
+                        ),
+                    ),
+                    json=json_,
+                    render=_explanation_view,
+                )
+                return
             scope = store.show(candidate_id).scope
             dependency_available = store.dependency_available(candidate_id)
             try:
@@ -693,85 +894,131 @@ def preview(
             else:
                 raw = read_request_bytes(request)
                 bound = ChangeRequest.model_validate(yaml.safe_load(raw.decode("utf-8")))
-            target = None
-            profile: DeploymentProfile = "development"
-            authoring_target = None
-            target_identity = None
-            authoring_identity = None
-            if bound.native_predecessor or bound.deployment:
-                model_stage(result, "bind deployment target")
-                settings = state(ctx).settings()
-                profile, destination = deployment_settings(settings, bound.deployment_profile)
-                target = target_fingerprint(destination)
-                if bound.native_predecessor:
-                    authoring_target = target_fingerprint(settings)
-                    authoring_identity = verify_predecessor(
-                        settings, authoring_target, bound.native_predecessor
+            from corpus_structure.schema.model_explanation import capture_sql_changes
+
+            with _retained_sql_explanation(
+                result, capture_sql_changes(root, bound.baseline, bound.packs)
+            ) as sql_holder:
+                target = None
+                profile: DeploymentProfile = "development"
+                authoring_target = None
+                target_identity = None
+                authoring_identity = None
+                if bound.native_predecessor or bound.deployment:
+                    model_stage(result, "bind deployment target")
+                    settings = state(ctx).settings()
+                    profile, destination = deployment_settings(settings, bound.deployment_profile)
+                    target = target_fingerprint(destination)
+                    if bound.native_predecessor:
+                        authoring_target = target_fingerprint(settings)
+                        authoring_identity = verify_predecessor(
+                            settings, authoring_target, bound.native_predecessor
+                        )
+                    target_identity = (
+                        authoring_identity
+                        if profile == "development" and authoring_identity is not None
+                        else capture_target(destination, purpose="maintenance")
                     )
-                target_identity = (
-                    authoring_identity
-                    if profile == "development" and authoring_identity is not None
-                    else capture_target(destination, purpose="maintenance")
+                    result.record_target(target_identity, bound.native_predecessor, None, None)
+                sql_holder[0] = sql_holder[0].model_copy(
+                    update={
+                        "custody": dict(
+                            baseline=bound.baseline,
+                            target=target,
+                            target_profile=profile,
+                            acquired_target=target_identity.model_dump(mode="json")
+                            if target_identity
+                            else None,
+                            predecessor=bound.native_predecessor,
+                        )
+                    }
                 )
-                result.record_target(target_identity, bound.native_predecessor, None, None)
-            impact = None
-            local = None
-            release = None
-            physical_id = None
-            if bound.archive_release or target is not None:
-                from corpus_structure.schema.physical import physical_sources_id
+                impact = None
+                local = None
+                dependencies = None
+                release = None
+                physical_id = None
+                if bound.archive_release or target is not None:
+                    from corpus_structure.schema.physical import physical_sources_id
 
-                physical_sources = physical_release_sources(root, bound.physical)
-                if physical_sources is not None:
-                    physical_id = physical_sources_id(physical_sources)
-                _, _, _, local = _prepare_release(
-                    root, bound.packs, physical_sources=physical_sources
+                    physical_sources = physical_release_sources(root, bound.physical)
+                    if physical_sources is not None:
+                        physical_id = physical_sources_id(physical_sources)
+                    _, dependencies, _, local = _prepare_release(
+                        root, bound.packs, physical_sources=physical_sources
+                    )
+                    _retain_authored_sql(sql_holder, dependencies)
+                    release = local.release_id
+                    sql_holder[0] = sql_holder[0].model_copy(
+                        update={
+                            "custody": dict(
+                                **sql_holder[0].custody,
+                                release=release,
+                                release_artifacts_sha256=local.artifacts_sha256,
+                            )
+                        }
+                    )
+                    if target_identity is not None:
+                        result.record_target(
+                            target_identity, bound.native_predecessor, None, release
+                        )
+                if bound.archive_release:
+                    model_stage(result, "compare archived release")
+                    from corpus_structure.semantic.operation_reporting import (
+                        compare_semantic_releases,
+                    )
+                    from corpus_structure.semantic.query import read_snapshot
+                    from corpus_structure.semantic.releases import open_release
+                    from corpus_structure.semantic.runtime import open_runtime_engine
+
+                    assert local is not None and dependencies is not None
+                    with (
+                        open_runtime_engine(
+                            state(ctx).settings(), "ci-model-compare", purpose="read"
+                        ) as engine,
+                        read_snapshot(engine) as connection,
+                    ):
+                        before = open_release(connection, bound.archive_release)
+                        from corpus_structure.semantic.authored_sql import _archive_inputs
+
+                        _retain_authored_sql(
+                            sql_holder,
+                            dependencies,
+                            _archive_inputs(
+                                connection, bound.archive_release, include_physical=False
+                            ),
+                        )
+                        impact = compare_semantic_releases(
+                            before, local, dependency_detail=True
+                        ).model_dump(mode="json")
+                        sql_holder[0] = sql_holder[0].model_copy(update={"impact": impact})
+                model_stage(result, "validate and stage")
+                staged = prepare_preview(
+                    root,
+                    bound,
+                    target=target,
+                    target_profile=profile,
+                    authoring_target=authoring_target,
+                    target_identity=target_identity,
+                    authoring_identity=authoring_identity,
+                    comparison=impact,
+                    local_release=release,
+                    expected_physical=physical_id,
+                    release_manifest_sha256=sha256(local.manifest).hexdigest()
+                    if local is not None
+                    else None,
+                    release_artifacts_sha256=local.artifacts_sha256 if local is not None else None,
                 )
-                release = local.release_id
-                if target_identity is not None:
-                    result.record_target(target_identity, bound.native_predecessor, None, release)
-            if bound.archive_release:
-                model_stage(result, "compare archived release")
-                from corpus_structure.semantic.operation_reporting import compare_semantic_releases
-                from corpus_structure.semantic.query import read_snapshot
-                from corpus_structure.semantic.releases import open_release
-                from corpus_structure.semantic.runtime import open_runtime_engine
-
-                assert local is not None
-                with (
-                    open_runtime_engine(
-                        state(ctx).settings(), "ci-model-compare", purpose="read"
-                    ) as engine,
-                    read_snapshot(engine) as connection,
-                ):
-                    before = open_release(connection, bound.archive_release)
-                    impact = compare_semantic_releases(before, local).model_dump(mode="json")
-            model_stage(result, "validate and stage")
-            staged = prepare_preview(
-                root,
-                bound,
-                target=target,
-                target_profile=profile,
-                authoring_target=authoring_target,
-                target_identity=target_identity,
-                authoring_identity=authoring_identity,
-                comparison=impact,
-                local_release=release,
-                expected_physical=physical_id,
-                release_manifest_sha256=sha256(local.manifest).hexdigest()
-                if local is not None
-                else None,
-                release_artifacts_sha256=local.artifacts_sha256 if local is not None else None,
-            )
-            artifact = result.directory / "preview.json"
-            artifact.write_text(staged.model_dump_json(), encoding="utf-8")
-            patch = result.directory / "model.patch"
-            patch.write_text(staged.patch, encoding="utf-8")
-            result.publish("preview", artifact)
-            result.publish("patch", patch)
-            result.settle(
-                sha256=sha256(artifact.read_bytes()).hexdigest(), revision=staged.revision
-            )
+                artifact = result.directory / "preview.json"
+                artifact.write_text(staged.model_dump_json(), encoding="utf-8")
+                patch = result.directory / "model.patch"
+                patch.write_text(staged.patch, encoding="utf-8")
+                result.publish("preview", artifact)
+                result.publish("patch", patch)
+                _publish_sql_explanation(result, sql_holder[0])
+                result.settle(
+                    sha256=sha256(artifact.read_bytes()).hexdigest(), revision=staged.revision
+                )
         emit(
             ModelResult(
                 result_id=result.id,
@@ -906,86 +1153,122 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
             staged = ChangePreview.model_validate_json(
                 _load_artifact(store, change, "model.preview", "preview")
             )
-            record = staged.request.change
-            revision = staged.request.native_revision or (
-                record.alembic_revision if record else None
-            )
-            if (
-                not staged.effects.admission
-                or not staged.target
-                or not staged.target_profile
-                or staged.target_identity is None
-            ):
-                raise ModelError(["preview does not authorize a target-bound candidate"])
-            with writer_lock(root):
-                model_stage(result, "verify preview and prepare release")
-                check_preview(root, staged, applied=True)
-                _, dependencies, _, prepared = _prepare_release(root, staged.request.packs)
-                staged.verify_release(prepared)
-                sql_inputs = prepare_release_sql(prepared, dependencies)
-                products: dict[str, bytes] = {}
-                if staged.effects.native:
-                    settings = state(ctx).settings()
-                    if (
-                        staged.authoring_identity is None
-                        or target_fingerprint(settings) != staged.authoring_target
-                    ):
-                        raise ModelError(["development authoring target differs from the preview"])
-                    retired, recreated = native_intent(
-                        staged.request.retire, staged.request.recreate
-                    )
-                    model_stage(result, "rollback-only authoring")
-                    target_metadata = approved_physical_metadata(root, staged)
-                    if (
-                        sql_inputs is not None
-                        and sql_inputs.physical_id != target_metadata.info["physical_model_id"]
-                    ):
-                        raise SQLAdmissionError(
-                            "authored SQL physical model differs from the approved revision"
-                        )
-                    native, products = author_native_candidate(
-                        settings,
-                        None,
-                        None,
-                        expected_predecessor=staged.request.native_predecessor,
-                        expected_target=staged.authoring_identity,
-                        target_metadata=target_metadata,
-                        retire=retired,
-                        recreate=recreated,
-                    )
-                    report = publish_native_candidate(result, native, products)
-                    if native.acquired_target is not None:
-                        result.record_target(
-                            native.acquired_target,
-                            staged.request.native_predecessor,
-                            None,
-                            prepared.release_id,
-                        )
-                else:
-                    report = ModelResult(
-                        result_id=result.id,
-                        stage="release candidate",
-                        revision=staged.revision,
-                        release=prepared.release_id,
+            from corpus_structure.schema.model_explanation import ModelChangeExplanation
+
+            if "sql_explanation" in store.show(change).artifacts:
+                retained = _read_sql_explanation(store, change)
+            else:
+                retained = ModelChangeExplanation(
+                    source_basis="historical preview; SQL detail unavailable"
+                )
+            retained = retained.model_copy(
+                update={
+                    "custody": dict(
+                        preview_id=change,
+                        predecessor=staged.request.native_predecessor,
+                        release=staged.local_release,
+                        release_artifacts_sha256=staged.release_artifacts_sha256,
+                        target=staged.target,
                         target_profile=staged.target_profile,
+                        acquired_target=staged.target_identity.model_dump(mode="json")
+                        if staged.target_identity
+                        else None,
                     )
-                model_stage(result, "bind and publish candidate")
-                binding = Candidate.from_preview(staged, revision, prepared, products)
-                if revision:
-                    wrapper = result.directory / "migration.py"
-                    wrapper.write_bytes(migration_wrapper(binding))
-                    result.publish("wrapper", wrapper)
-            artifact = result.directory / "deployment.json"
-            artifact.write_text(binding.model_dump_json(), encoding="utf-8")
-            result.publish("deployment", artifact)
-            result.settle(
-                sha256=sha256(artifact.read_bytes()).hexdigest(),
-                target=binding.target,
-                target_profile=binding.target_profile,
-                authoring_target=binding.authoring_target,
-                release=binding.release,
-                predecessor=binding.predecessor,
+                }
             )
+            with _retained_sql_explanation(result, retained) as sql_holder:
+                record = staged.request.change
+                revision = staged.request.native_revision or (
+                    record.alembic_revision if record else None
+                )
+                if (
+                    not staged.effects.admission
+                    or not staged.target
+                    or not staged.target_profile
+                    or staged.target_identity is None
+                ):
+                    raise ModelError(["preview does not authorize a target-bound candidate"])
+                with writer_lock(root):
+                    model_stage(result, "verify preview and prepare release")
+                    check_preview(root, staged, applied=True)
+                    _, dependencies, _, prepared = _prepare_release(root, staged.request.packs)
+                    staged.verify_release(prepared)
+                    _retain_authored_sql(sql_holder, dependencies, preserve=True)
+                    sql_inputs = prepare_release_sql(prepared, dependencies)
+                    products: dict[str, bytes] = {}
+                    if staged.effects.native:
+                        settings = state(ctx).settings()
+                        if (
+                            staged.authoring_identity is None
+                            or target_fingerprint(settings) != staged.authoring_target
+                        ):
+                            raise ModelError(
+                                ["development authoring target differs from the preview"]
+                            )
+                        retired, recreated = native_intent(
+                            staged.request.retire, staged.request.recreate
+                        )
+                        model_stage(result, "rollback-only authoring")
+                        target_metadata = approved_physical_metadata(root, staged)
+                        if (
+                            sql_inputs is not None
+                            and sql_inputs.physical_id != target_metadata.info["physical_model_id"]
+                        ):
+                            raise SQLAdmissionError(
+                                "authored SQL physical model differs from the approved revision"
+                            )
+                        native, products = author_native_candidate(
+                            settings,
+                            None,
+                            None,
+                            expected_predecessor=staged.request.native_predecessor,
+                            expected_target=staged.authoring_identity,
+                            target_metadata=target_metadata,
+                            retire=retired,
+                            recreate=recreated,
+                        )
+                        report = publish_native_candidate(result, native, products)
+                        if native.acquired_target is not None:
+                            result.record_target(
+                                native.acquired_target,
+                                staged.request.native_predecessor,
+                                None,
+                                prepared.release_id,
+                            )
+                    else:
+                        report = ModelResult(
+                            result_id=result.id,
+                            stage="release candidate",
+                            revision=staged.revision,
+                            release=prepared.release_id,
+                            target_profile=staged.target_profile,
+                        )
+                    model_stage(result, "bind and publish candidate")
+                    if "native_operations.json" in products:
+                        from corpus_structure.schema.model_explanation import (
+                            explanation_from_native,
+                        )
+
+                        sql_holder[0] = explanation_from_native(
+                            products["native_operations.json"], sql_holder[0]
+                        )
+                    binding = Candidate.from_preview(staged, revision, prepared, products)
+                    if revision:
+                        wrapper = result.directory / "migration.py"
+                        wrapper.write_bytes(migration_wrapper(binding))
+                        result.publish("wrapper", wrapper)
+                artifact = result.directory / "deployment.json"
+                artifact.write_text(binding.model_dump_json(), encoding="utf-8")
+                result.publish("deployment", artifact)
+                _publish_sql_explanation(result, sql_holder[0])
+                result.settle(
+                    sha256=sha256(artifact.read_bytes()).hexdigest(),
+                    target=binding.target,
+                    target_profile=binding.target_profile,
+                    authoring_target=binding.authoring_target,
+                    release=binding.release,
+                    predecessor=binding.predecessor,
+                )
         emit(
             report.model_copy(update={"operation_account": result.manifest.operation_account}),
             json=json_,

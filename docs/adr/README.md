@@ -51,6 +51,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0071](0071-github-pages-publication.md) | Publish the checked documentation on GitHub Pages | 2026-11-08 | [§2](../design/DESIGN.md#section-2) | Implemented | [ADR-0003](0003-publish-docs-site.md) |
 | [ADR-0072](0072-library-led-discovery.md) | Add optional library-led discovery briefings | 2026-11-08 | [§2](../design/DESIGN.md#section-2) | Implemented |  |
 | [ADR-0073](0073-generated-type-correspondence.md) | Derive static relational types from explicit semantic correspondence | 2026-11-09 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0074](0074-attributed-projection-explanations.md) | Retain attributed projection occurrences and frozen model-change explanations | 2026-11-09 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

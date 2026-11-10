@@ -12,7 +12,7 @@ from pglast.parser import Displacements, ParseError, split
 
 class SQLSyntaxError(ValueError):
     def __init__(self, source: str, sql: str, message: str, position: int | None):
-        self.source, self.position = source, position
+        self.source, self.position, self.sql = source, position, sql
         self.excerpt = None
         suffix = ""
         if position is not None:

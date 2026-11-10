@@ -422,3 +422,179 @@ def test_apply_records_stale_refusal_and_partial_effect_from_actual_files(
     assert failed["failure"]["kind"] == "execution"
     assert failed["known_effects"] == ["one.txt"]
     assert one.read_text() == "new\n" and not two.exists()
+
+
+def test_failed_preparation_retains_unicode_sql_diagnostics_without_effect_authority(model_results):
+    from corpus_structure.schema.model_explanation import ModelChangeExplanation
+    from corpus_structure.semantic.prepared_sql import SQLSyntaxError, prepare_sql
+
+    with (
+        pytest.raises(SQLSyntaxError),
+        model_results.operation("model.preview") as invocation,
+        model._retained_sql_explanation(
+            invocation, ModelChangeExplanation(source_basis="captured")
+        ),
+    ):
+        prepare_sql("SELECT 'é'; SELECT FROM", source="original.sql")
+    assert model_results.show(invocation.id).outcome == "failed"
+    inspected = _inspect(invocation.id, "--view", "sql", "--json")
+    assert inspected.exit_code == 0, inspected.output
+    body = json.loads(inspected.stdout)
+    assert body["diagnostics"][0]["source"] == "original.sql"
+    assert body["diagnostics"][0]["coordinate_space"] == "original_source"
+    assert body["items"][0]["after"]["position"] == 22
+    assert "successful model.preview" in _inspect(invocation.id, "--json").stdout
+    human = _inspect(invocation.id, "--view", "sql")
+    assert human.exit_code == 0 and "original.sql" in human.stdout
+    path = invocation.directory / "sql-explanation.json"
+    path.write_bytes(b"{}")
+    assert "settled digest" in _inspect(invocation.id, "--view", "sql").stderr
+
+
+def test_candidate_operation_view_uses_frozen_hash_without_current_generators(
+    model_results, tmp_path, monkeypatch
+):
+    operation = dict(
+        version=1,
+        recreate=False,
+        before=None,
+        after=dict(
+            identity=dict(kind="function", schema="selected", name="f", arguments=["integer"]),
+            catalog=dict(owner="publisher", acl=[["reader", "EXECUTE", False]], body="opaque"),
+            statements=["SELECT 1"],
+            source="native.sql",
+        ),
+    )
+    raw = json.dumps(dict(version=1, operations=[operation])).encode()
+    binding = Candidate(
+        workspace=str(tmp_path),
+        model_revision="model",
+        generator="old",
+        revision="native",
+        predecessor="previous",
+        target="target",
+        release="release",
+        packs=(),
+        files={},
+        hashes={"native_operations.json": sha256(raw).hexdigest()},
+    )
+    with model_results.operation("model.candidate") as invocation:
+        artifact = invocation.directory / "deployment.json"
+        artifact.write_text(binding.model_dump_json())
+        invocation.publish("deployment", artifact)
+        directory = invocation.directory / "native"
+        directory.mkdir()
+        (directory / "native_operations.json").write_bytes(raw)
+        invocation.publish("candidate", directory)
+        invocation.settle(sha256=sha256(artifact.read_bytes()).hexdigest())
+    from corpus_structure.schema import model_deployment
+
+    monkeypatch.setattr(
+        model_deployment,
+        "_verify_installed_revision",
+        lambda *args: pytest.fail("must not rebuild current state"),
+    )
+    args = ["model", "change", "inspect-candidate", invocation.id, "--view", "operations"]
+    inspected = CliRunner().invoke(app, [*args, "--json"])
+    assert inspected.exit_code == 0, inspected.output
+    body = json.loads(inspected.stdout)
+    assert body["items"][0]["identity"]["arguments"] == ["integer"]
+    assert body["items"][0]["action"] == "create"
+    assert body["binding"]["release"] == "release"
+    assert body["binding"]["predecessor"] == "previous"
+    assert body["binding"]["hashes"]["native_operations.json"] == sha256(raw).hexdigest()
+    assert CliRunner().invoke(app, args).exit_code == 0
+    (directory / "native_operations.json").write_bytes(b"{}")
+    assert "differ from candidate" in CliRunner().invoke(app, args).stderr
+
+
+def test_real_preview_refusal_publishes_inspectable_original_sql(model_results, monkeypatch):
+    from corpus_structure.cli import recipes
+    from corpus_structure.semantic.prepared_sql import prepare_sql
+
+    root = Path(__file__).parents[3]
+    monkeypatch.setattr(recipes, "checkout", lambda ctx: root)
+
+    def refused(*args, **kwargs):
+        prepare_sql("SELECT 'Ω'; SELLECT 1", source="captured-authored.sql")
+
+    monkeypatch.setattr(model, "_prepare_release", refused)
+    output = CliRunner().invoke(
+        app,
+        ["model", "change", "preview", "-", "--json"],
+        input=json.dumps({"archive_release": "release:before"}),
+    )
+    assert output.exit_code == 1
+    results = model_results.list(None, 10, None).results
+    assert len(results) == 1 and results[0].outcome == "failed"
+    shown = _inspect(results[0].id, "--view", "sql", "--json")
+    assert shown.exit_code == 0, shown.output
+    body = json.loads(shown.stdout)
+    refused_input = next(item for item in body["items"] if item["identity"] == "refused-input")
+    assert refused_input["after"]["position"] == 11
+    assert refused_input["after"]["source"] == "captured-authored.sql"
+    assert body["diagnostics"][-1]["kind"] == "SQLSyntaxError"
+
+
+def test_sql_publication_failure_cannot_settle_preview_passed(model_results, monkeypatch):
+    from corpus_structure.cli import recipes
+    from corpus_structure.schema import model_change, model_explanation
+
+    monkeypatch.setattr(recipes, "checkout", lambda ctx: Path(__file__).parents[3])
+    monkeypatch.setattr(
+        model_explanation,
+        "capture_sql_changes",
+        lambda *args: model_explanation.ModelChangeExplanation(source_basis="captured"),
+    )
+    monkeypatch.setattr(model_change, "prepare_preview", lambda *args, **kwargs: _preview())
+    publish = model._publish_sql_explanation
+    calls = 0
+
+    def refused(result, explanation):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("SQL explanation publication failed")
+        publish(result, explanation)
+
+    monkeypatch.setattr(model, "_publish_sql_explanation", refused)
+    output = CliRunner().invoke(app, ["model", "change", "preview", "-", "--json"], input="{}")
+    assert output.exit_code == 1, output.output
+    invocation = model_results.list(None, 10, None).results[0]
+    assert invocation.outcome == "failed"
+    assert "SQL explanation publication failed" in output.stdout
+    assert "successful model.preview" in _inspect(invocation.id, "--json").stdout
+
+
+def test_candidate_authored_capture_preserves_preview_before_source_and_refuses_drift():
+    from types import SimpleNamespace
+
+    from corpus_structure.schema.model_explanation import ModelChangeExplanation, sql_change
+    from corpus_structure.semantic import SourceArtifact
+
+    original = "SELECT n FROM data.items WHERE n > 1"
+    changed = "SELECT n FROM data.items WHERE n > 2"
+    name = "authored-sql/selected.sql"
+    captured = sql_change(name, original, changed)
+    holder = [ModelChangeExplanation(source_basis="retained preview", changes=(captured,))]
+    dependencies = SimpleNamespace(artifacts=(SourceArtifact(name, changed.encode()),))
+    model._retain_authored_sql(holder, dependencies, preserve=True)
+    assert holder[0].changes == (captured,)
+    with pytest.raises(ValueError, match="differs from retained"):
+        model._retain_authored_sql(
+            holder, SimpleNamespace(artifacts=(SourceArtifact(name, b"SELECT 9"),)), preserve=True
+        )
+    # A concrete archive comparison also removes initial unknown-before facts when unchanged.
+    model._retain_authored_sql(holder, dependencies, {name: changed.encode()})
+    assert not holder[0].changes
+
+    model._retain_authored_sql(holder, dependencies, preserve=True)
+    assert not holder[0].changes
+    unchanged_sibling = SimpleNamespace(
+        artifacts=(
+            *dependencies.artifacts,
+            SourceArtifact("authored-sql/unchanged.sql", b"SELECT 1"),
+        )
+    )
+    model._retain_authored_sql(holder, unchanged_sibling, preserve=True)
+    assert not holder[0].changes

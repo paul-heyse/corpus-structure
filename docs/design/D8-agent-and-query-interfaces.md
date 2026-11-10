@@ -727,11 +727,27 @@ occurrences, qualified endpoint counts, own/external product targets and scoped 
 outcomes. `companion-compare` checks comparability before multiset differences; it does not infer
 cross-product occurrence equivalence from local IDs. Empty, unrequested and unknown are distinct.
 
-`ci db describe` reports bounded physical observations under the actual restricted reader, with
-literal name filtering and explicit unsupported/unavailable estimates. ADBC supplies hierarchy,
-Arrow types and supported statistics; SQLAlchemy Inspector supplies exact columns/constraints.
-A parameter-free admitted SELECT may supply prospective query-output shape within read-only
-ownership. Physical observations and estimates never become inferred domain declarations.
+`ci db describe` emits database-description-v2 under the actual restricted reader, with literal
+selectors and bounded recursive Arrow/native observations. Interfaces and separate sessions are
+attributed, including mixed-field provenance. Inspector-reflected ENUM/DOMAIN identity remains
+separate from display types; Arrow nullability/typmod/extensions do not infer native constraints
+or released meaning. ADBC server resolution honors the configured driver. Parameter-free admitted
+SELECT describes prospective output without admitting a general query executor.
+
+`ci contributions compare-coverage` binds two completed run/cut/release contexts in one reader
+snapshot. It compares exact same-release source/extent/question scopes, preserves task/origin and
+split custody, and reports unmatched/incomparable/ambiguous cases without a quality ranking.
+Cursor identity retains stable contexts while each response reports its own capture ID.
+
+Operation explanation/diff version2 exposes bounded checked-recipe value/membership/ordering
+occurrences. Archived analysis2 retains summaries with unavailable detail; new analysis3 carries
+source/structural identity and explicit unknown helper boundaries. `ci model change inspect --view
+sql` reads retained source/excerpts, located failures and descriptive edits without executing data
+queries. Candidate SQL inspection preserves before-source; `--view operations` reads verified frozen
+native identities/order/ACL facts. Failed SQL diagnostics confer no apply/deploy authority.
+> Decision: [ADR-0074](../adr/0074-attributed-projection-explanations.md)
+> Status: **Implemented; scoped controls Tested,2026-11-09.** The PTD coordinator owns exact evidence.
+
 
 `ci source native-export --format selected-source-v1` exports one intact native section under
 `section-source-context-v1`. The current record hierarchy selects members, preserving original

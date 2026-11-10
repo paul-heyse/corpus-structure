@@ -37,12 +37,19 @@ def test_actual_cli_and_mcp_reports_share_archived_meaning_and_located_refusal(
         "claim",
         "--release",
         release.release_id,
+        "--dependency-detail",
+        "--dependency-family",
+        "input",
+        "--dependency-limit",
+        "1",
         "--json",
         settings=lambda: settings,
     )
     assert explained.exit_code == 0, explained.output
     observation = json.loads(explained.stdout)
     assert observation["operation"] == "claim"
+    assert "projection_dependencies" in observation
+    assert len(observation["projection_dependencies"]["items"]) <= 1
     assert not observation["complete"]
     assert any(c["status"] == "unresolved" for c in observation["checks"])
     # Frozen84 supplies the required native realization. Observation alone still
@@ -56,6 +63,11 @@ def test_actual_cli_and_mcp_reports_share_archived_meaning_and_located_refusal(
         "diff",
         release.release_id,
         release.release_id,
+        "--dependency-detail",
+        "--dependency-family",
+        "input",
+        "--dependency-limit",
+        "1",
         "--json",
         settings=lambda: settings,
     )
@@ -86,6 +98,9 @@ def test_actual_cli_and_mcp_reports_share_archived_meaning_and_located_refusal(
                 {
                     "release": release.release_id,
                     "operation": "claim",
+                    "dependency_detail": True,
+                    "dependency_family": "input",
+                    "dependency_limit": 1,
                 },
             )
             assert answer.structured_content is not None
@@ -97,6 +112,9 @@ def test_actual_cli_and_mcp_reports_share_archived_meaning_and_located_refusal(
                 {
                     "before": release.release_id,
                     "after": release.release_id,
+                    "dependency_detail": True,
+                    "dependency_family": "input",
+                    "dependency_limit": 1,
                 },
             )
             assert difference.structured_content == impact

@@ -601,6 +601,12 @@ def build_semantic_server(
         section_pointer: str | None = None,
         pointer: str | None = None,
         region_index: int | None = None,
+        dependency_detail: bool = False,
+        dependency_family: str | None = None,
+        dependency_output: str | None = None,
+        dependency_occurrence: str | None = None,
+        dependency_after: int = 0,
+        dependency_limit: int = 100,
     ) -> dict:
         """Explain the exact operation contract and qualified observed prerequisites."""
         from corpus_structure.semantic.identity import canonical_bytes
@@ -648,15 +654,34 @@ def build_semantic_server(
                     if raw_subject is not None
                     else None
                 )
-                return explain(prepared, operation, subject=reference, connection=conn).model_dump(
-                    mode="json"
-                )
+                return explain(
+                    prepared,
+                    operation,
+                    subject=reference,
+                    connection=conn,
+                    dependency_detail=dependency_detail,
+                    dependency_family=dependency_family,
+                    dependency_output=dependency_output,
+                    dependency_occurrence=dependency_occurrence,
+                    dependency_after=dependency_after,
+                    dependency_limit=dependency_limit,
+                ).model_dump(mode="json")
 
     @server.tool(
         annotations={"readOnlyHint": True}, output_schema=report_schema("SemanticImpactReport")
     )
     @tool_refusals(ValueError)
-    def compare_semantic_releases(ctx: Context, before: str, after: str) -> dict:
+    def compare_semantic_releases(
+        ctx: Context,
+        before: str,
+        after: str,
+        dependency_detail: bool = False,
+        dependency_family: str | None = None,
+        dependency_output: str | None = None,
+        dependency_occurrence: str | None = None,
+        dependency_after: int = 0,
+        dependency_limit: int = 100,
+    ) -> dict:
         """Compare supported immutable releases and retain unknown impact explicitly."""
         from corpus_structure.semantic.operation_reporting import (
             compare_semantic_releases as compare,
@@ -666,7 +691,16 @@ def build_semantic_server(
         with reader_snapshot(ctx) as conn:
             old, new = open_release(conn, before), open_release(conn, after)
             with located_failure_context(new, "compare_semantic_releases"):
-                return compare(old, new).model_dump(mode="json")
+                return compare(
+                    old,
+                    new,
+                    dependency_detail=dependency_detail,
+                    dependency_family=dependency_family,
+                    dependency_output=dependency_output,
+                    dependency_occurrence=dependency_occurrence,
+                    dependency_after=dependency_after,
+                    dependency_limit=dependency_limit,
+                ).model_dump(mode="json")
 
     @server.tool(
         annotations={"readOnlyHint": True},

@@ -820,3 +820,105 @@ def test_semantic_release_change_does_not_imply_executable_runtime_change():
     assert not any(
         "Executable runtime changed independently" in value for value in report["unknowns"]
     )
+
+
+def test_retained_dependency_detail_keeps_repeated_occurrences_and_pages(monkeypatch):
+    from dataclasses import dataclass
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic import projection_analysis_products as products
+    from corpus_structure.semantic.operation_reporting import projection_dependency_detail
+
+    @dataclass(frozen=True)
+    class Occurrence:
+        identity: str
+        structural_path: str
+        role: str = "value"
+        clause: str = "output"
+        source_ref: str = "physical:kb.source.id"
+        target_ref: str = "projection:test/fields/id"
+        output: str = "id"
+        relationship: str | None = None
+        unknown_reason: str | None = None
+
+    analysis = SimpleNamespace(
+        consumers=("read",),
+        detail_status="available",
+        unknowns=(),
+        occurrences=(
+            Occurrence("occurrence:second", "/fields/0/right"),
+            Occurrence("occurrence:first", "/fields/0/left"),
+        ),
+    )
+    product = SimpleNamespace(
+        complete=True, projections=(SimpleNamespace(family="input", analysis=analysis),)
+    )
+    monkeypatch.setattr(products, "read_projection_analysis", lambda _: product)
+    first = projection_dependency_detail(None, limit=1, operation="read")
+    assert first["total"] == 2
+    assert first["items"][0]["occurrence"]["identity"] == "occurrence:first"
+    assert first["next_after"] == 1 and not first["paging_complete"]
+    second = projection_dependency_detail(None, after=first["next_after"], limit=1)
+    assert second["items"][0]["occurrence"]["identity"] == "occurrence:second"
+    assert second["paging_complete"] and second["coverage_complete"]
+    assert projection_dependency_detail(None, output="other")["total"] == 0
+    assert projection_dependency_detail(None, occurrence="occurrence:first")["total"] == 1
+    assert projection_dependency_detail(None, operation="unrelated")["total"] == 0
+    with pytest.raises(SemanticRefusal, match="bounds"):
+        projection_dependency_detail(None, limit=1001)
+    with pytest.raises(SemanticRefusal, match="position"):
+        projection_dependency_detail(None, after=3)
+
+
+def test_archived_detail_unavailable_is_not_empty_or_reanalyzed(monkeypatch):
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic import projection_analysis_products as products
+    from corpus_structure.semantic.operation_reporting import projection_dependency_detail
+
+    old = SimpleNamespace(
+        complete=True,
+        projections=(
+            SimpleNamespace(
+                family="coverage",
+                analysis=SimpleNamespace(
+                    consumers=("read",), detail_status="unavailable", unknowns=(), occurrences=()
+                ),
+            ),
+        ),
+    )
+    monkeypatch.setattr(products, "read_projection_analysis", lambda _: old)
+    page = projection_dependency_detail(None, output="unknown-output")
+    assert page["total"] == 1
+    assert page["items"][0]["status"] == "unavailable"
+    assert "occurrence" not in page["items"][0]
+    assert not page["coverage_complete"]
+    monkeypatch.setattr(products, "read_projection_analysis", lambda _: None)
+    assert (
+        projection_dependency_detail(None)["items"][0]["reason"]
+        == "Retained projection analysis unavailable."
+    )
+
+
+def test_report_v2_exposes_typed_optional_dependency_page():
+    schema = report_schema("OperationExplanation")
+    properties = schema["properties"]
+    required = schema["required"]
+    assert isinstance(properties, dict) and isinstance(required, list)
+    assert properties["report_version"]["minimum"] == 2
+    assert properties["report_version"]["maximum"] == 2
+    assert "projection_dependencies" in properties
+    assert "projection_dependencies" not in required
+    definitions = schema["$defs"]
+    assert isinstance(definitions, dict)
+    occurrence = next(
+        value
+        for name, value in definitions.items()
+        if name.endswith("ProjectionDependencyOccurrence")
+    )
+    assert set(occurrence["properties"]["role"]["enum"]) == {
+        "value",
+        "membership",
+        "ordering",
+        "unknown",
+    }

@@ -231,3 +231,80 @@ def test_opaque_and_incomplete_nested_type_sources_refuse(type_name):
         expand_sources(
             exp.select("x").from_("a"), {"a": source}, physical_sources=frozenset({"ops.run"})
         )
+
+
+def test_occurrences_preserve_repeated_endpoints_and_structural_role():
+    recipe = run_recipe()
+    recipe = replace(recipe, predicate=ir.Equal(ir.Field("r", "id"), ir.Field("r", "id")))
+    result = analyze_recipe(recipe)
+    uses = [item for item in result.occurrences if item.clause == "where"]
+    assert [item.source_ref for item in uses] == ["physical:ops.run.id"] * 2
+    assert len({item.identity for item in uses}) == 2
+    assert [item.structural_path for item in uses] == [
+        "projection:input/where/left",
+        "projection:input/where/right",
+    ]
+    assert {item.role for item in uses} == {"membership"}
+    assert [item.role for item in result.occurrences if item.clause == "order"] == ["ordering"]
+    assert result.detail_status == "available"
+
+
+def test_occurrence_unknown_helper_body_retains_checked_signature_inputs():
+    recipe = run_recipe()
+    helper = ir.HelperDefinition(
+        "opaque", "ops.opaque", ("value",), "model:Opaque.result", (Text(),), Text()
+    )
+    output = replace(
+        recipe.fields[0], expression=ir.HelperCall("opaque", (ir.Field("r", "project_id"),))
+    )
+    result = analyze_recipe(replace(recipe, helpers=(helper,), fields=(output,)))
+    boundary = [item for item in result.occurrences if item.role == "unknown"]
+    assert boundary and boundary[0].source_ref == "model:Opaque.result"
+    assert boundary[0].unknown_reason == "helper body not analyzed: ops.opaque"
+    assert result.value_dependencies == (("project", ("physical:ops.run.project_id",)),)
+
+
+def test_missing_checked_origin_refuses_occurrence_generation():
+    recipe = run_recipe()
+    with pytest.raises(ProjectionAnalysisUnavailable, match="missing checked output origin"):
+        analyze_recipe(replace(recipe, fields=(replace(recipe.fields[0], source=""),)))
+
+
+def test_join_relationships_with_equal_endpoints_retain_independent_uses():
+    recipe = run_recipe()
+    joins = tuple(
+        ir.Join(
+            ir.SourceReference("runs", alias),
+            (ir.JoinKey(ir.Field("r", "id"), ir.Field(alias, "id")),),
+            relationship,
+            "parent",
+            "child",
+            "one_to_many",
+        )
+        for alias, relationship in (("a", "declared:first"), ("b", "declared:second"))
+    )
+    result = analyze_recipe(replace(recipe, joins=joins))
+    uses = [item for item in result.occurrences if item.clause == "join"]
+    assert [item.source_ref for item in uses] == ["physical:ops.run.id"] * 4
+    assert [item.relationship for item in uses] == ["declared:first"] * 2 + ["declared:second"] * 2
+    assert len({item.identity for item in uses}) == 4
+
+
+@pytest.mark.parametrize("corruption", [None, "model:Foreign.field"])
+def test_transformed_origin_loss_or_corruption_refuses_attributed_occurrences(
+    monkeypatch, corruption
+):
+    from corpus_structure.semantic import projection_analysis
+
+    original = projection_analysis.qualify
+
+    def corrupt(*args, **kwargs):
+        tree = original(*args, **kwargs)
+        for item in tree.selects:
+            item.this.meta["model_source"] = corruption
+        return tree
+
+    monkeypatch.setattr(projection_analysis, "qualify", corrupt)
+    recipe = replace(run_recipe(), projection_id="origin-corruption-" + str(corruption))
+    with pytest.raises(ProjectionAnalysisUnavailable, match="origin differs from checked recipe"):
+        analyze_recipe(recipe)
