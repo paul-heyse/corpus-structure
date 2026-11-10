@@ -280,18 +280,55 @@ def check_contract(
         )
 
 
-@db_app.command("describe")
+@db_app.command(
+    "describe",
+    epilog=(
+        "Example: ci db describe --schema data --depth columns "
+        "--json\n\nDomain contract: [domain "
+        "reader](docs/design/D8-agent-and-query-interfaces.md)"
+    ),
+)
 def describe(
     ctx: typer.Context,
-    schemas: Annotated[list[str], typer.Option("--schema")],
-    relations: Annotated[list[str] | None, typer.Option("--relation")] = None,
-    depth: Annotated[DescriptionDepth, typer.Option("--depth")] = DescriptionDepth.COLUMNS,
-    estimates: Annotated[bool, typer.Option("--estimates")] = False,
-    query: Annotated[str | None, typer.Option("--query")] = None,
+    schemas: Annotated[
+        list[str],
+        typer.Option(
+            "--schema",
+            help="Literal visible schema; repeat for multiple schemas.",
+            rich_help_panel="Inputs",
+        ),
+    ],
+    relations: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--relation",
+            help="Literal relation name; repeat to select several.",
+            rich_help_panel="Inputs",
+        ),
+    ] = None,
+    depth: Annotated[
+        DescriptionDepth, typer.Option("--depth", help="Deepest physical description level.")
+    ] = DescriptionDepth.COLUMNS,
+    estimates: Annotated[
+        bool, typer.Option("--estimates", help="Include approximate catalog estimates.")
+    ] = False,
+    query: Annotated[
+        str | None,
+        typer.Option(
+            "--query", help="Parameter-free SELECT; requires --release.", rich_help_panel="Inputs"
+        ),
+    ] = None,
     release: Annotated[str | None, typer.Option("--release")] = None,
-    max_objects: int = 1000,
-    max_columns: int = 10000,
-    max_bytes: int = 4 * 1024 * 1024,
+    max_objects: Annotated[
+        int, typer.Option(min=1, help="Maximum described objects.", rich_help_panel="Delivery")
+    ] = 1000,
+    max_columns: Annotated[
+        int, typer.Option(min=1, help="Maximum described columns.", rich_help_panel="Delivery")
+    ] = 10000,
+    max_bytes: Annotated[
+        int,
+        typer.Option(min=1, help="Maximum description output bytes.", rich_help_panel="Delivery"),
+    ] = 4 * 1024 * 1024,
     json_: JsonOpt = False,
 ) -> None:
     """Describe literal visible objects or an admitted parameter-free SELECT's output."""

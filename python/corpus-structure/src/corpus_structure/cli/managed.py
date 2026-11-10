@@ -11,7 +11,7 @@ import stat
 import tempfile
 import time
 from collections.abc import Generator
-from contextlib import contextmanager, suppress
+from contextlib import ExitStack, contextmanager, nullcontext, suppress
 from pathlib import Path
 from typing import Annotated, Any, BinaryIO, Literal
 from uuid import uuid4
@@ -19,8 +19,17 @@ from uuid import uuid4
 import typer
 from pydantic import BaseModel, Field
 
+from corpus_structure.cli.observations import (
+    Journal,
+    ObservationError,
+    ObservationPage,
+    ObservationReader,
+    ObservationSelection,
+    ObservationWriter,
+)
 from corpus_structure.cli.output import JsonOpt, diagnostic, emit, safe_text, state
 from corpus_structure.cli.recipes import RecipeError, checkout
+from corpus_structure.cli.result_inspection import ResultInspection
 from corpus_structure.core.db.store import EffectKnowledge
 from corpus_structure.semantic.storage_target import StorageTarget
 
@@ -78,6 +87,7 @@ class Manifest(BaseModel):
     details: dict[str, Any] = Field(default_factory=dict)
     holds: tuple[str, ...] = ()
     operation_account: OperationAccount | None = None
+    observations: Journal | None = None
 
     def custody_settled(self) -> bool:
         if self.settled is None or self.details.get("custody_unsettled"):
@@ -95,8 +105,9 @@ class Manifest(BaseModel):
             return role
         if "bundle" in self.artifacts:
             return "bundle"
-        if len(self.artifacts) == 1:
-            return next(iter(self.artifacts))
+        primary = {key: value for key, value in self.artifacts.items() if key != "observations"}
+        if len(primary) == 1:
+            return next(iter(primary))
         raise ResultError("select one named artifact with --role")
 
 
@@ -130,6 +141,7 @@ class ResultStatus(Manifest):
     custody: Literal["settled", "unsettled"]
     next_action: str | None
     diagnostics: Diagnostics
+    inspection: ResultInspection | None = None
 
 
 class ResultError(ValueError):
@@ -241,6 +253,7 @@ class Invocation:
     def __init__(self, directory: Path, manifest: Manifest):
         self.directory = directory
         self.manifest = manifest
+        self.observation_writer: ObservationWriter | None = None
 
     @property
     def id(self) -> str:
@@ -253,7 +266,50 @@ class Invocation:
     def stage(self, name: str, **details: Any) -> None:
         self.manifest.stage = name
         self.manifest.details.update(details)
+        self.observe("stage", name, stage=name, **details)
         self._write()
+
+    def observe(self, kind: str, message: str, **fields: Any) -> None:
+        if self.observation_writer is not None:
+            from corpus_structure.cli.observation_logging import current_writer, event
+
+            if current_writer() is self.observation_writer:
+                event(
+                    kind,
+                    message,
+                    **{**self.manifest.details.get("observation_bindings", {}), **fields},
+                )
+            else:
+                self.observation_writer.append(
+                    {
+                        "kind": kind,
+                        "message": message,
+                        "bindings": {
+                            "invocation_id": self.id,
+                            **self.manifest.details.get("observation_bindings", {}),
+                        },
+                        **fields,
+                    }
+                )
+
+    def bind_observations(self, **bindings: Any) -> None:
+        """Record acquired native bindings without changing their owning operation."""
+        self.manifest.details.setdefault("observation_bindings", {}).update(bindings)
+        self._write()
+
+    def _start_observations(self) -> None:
+        try:
+            self.observation_writer = ObservationWriter(self.directory / "observations.jsonl")
+            self.manifest.observations = self.observation_writer.journal
+            self.publish("observations", self.observation_writer.path)
+        except Exception as error:
+            self.manifest.observations = Journal(
+                standing="unavailable", unavailable_reason=type(error).__name__
+            )
+
+    def _close_observations(self) -> None:
+        if self.observation_writer is not None:
+            self.manifest.observations = self.observation_writer.close()
 
     def publish(self, role: str, path: Path) -> None:
         if not _ROLE.fullmatch(role):
@@ -339,6 +395,9 @@ class Invocation:
         *,
         error: BaseException | None = None,
     ) -> dict[str, Any]:
+        self.observe(
+            "failure", detail["message"], severity="error", failure_kind=kind, code=detail["code"]
+        )
         # Redact the complete string before bounding it so clipping cannot expose a credential.
         reason = detail.get("reason")
         native = detail.get("failure") or {}
@@ -400,6 +459,8 @@ class Invocation:
     def settle(self, outcome: str = "passed", **details: Any) -> None:
         if outcome not in _TERMINAL:
             raise ResultError(f"invalid terminal outcome: {outcome}")
+        self.observe("settlement", outcome, outcome=outcome)
+        self._close_observations()
         self.manifest.outcome = outcome
         self.manifest.settled = time.time()
         self.manifest.details = {**self.manifest.details, **details}
@@ -469,7 +530,12 @@ class ResultStore:
 
     @contextmanager
     def operation(
-        self, action: str, *, scope: dict[str, Any] | None = None, account: bool = False
+        self,
+        action: str,
+        *,
+        scope: dict[str, Any] | None = None,
+        account: bool = False,
+        observations: bool = False,
     ) -> Generator[Invocation]:
         manifest = Manifest(id=uuid4().hex, action=action, scope=scope or {}, started=time.time())
         if account:
@@ -487,10 +553,46 @@ class ResultStore:
                 fcntl.flock(stream, fcntl.LOCK_SH)
         with stream:
             result = Invocation(directory, manifest)
+            if observations:
+                result._start_observations()
             result._write()
             diagnostic(f"Result {manifest.id}")
+            import sys
+
+            from corpus_structure.cli.observation_logging import capture
+
+            observation_context = (
+                capture(result.observation_writer, stream=sys.stderr, invocation_id=result.id)
+                if observations
+                else nullcontext()
+            )
             try:
-                yield result
+                with observation_context:
+                    try:
+                        result.observe("invocation", action, action=action)
+                        yield result
+                    except BaseException as failure:
+                        if not isinstance(failure, (typer.Exit, KeyboardInterrupt, SystemExit)):
+                            from corpus_structure.cli.observation_logging import logger
+
+                            try:
+                                logger().error(
+                                    "Unexpected operation failure",
+                                    kind="unexpected_exception",
+                                    exc_info=(type(failure), failure, failure.__traceback__),
+                                    stage=manifest.stage,
+                                    **manifest.details.get("observation_bindings", {}),
+                                )
+                            except Exception as observation_error:
+                                if result.observation_writer is not None:
+                                    result.observation_writer.unavailable(
+                                        type(observation_error).__name__
+                                    )
+                        elif not isinstance(failure, typer.Exit):
+                            result.observe(
+                                "interruption", type(failure).__name__, stage=manifest.stage
+                            )
+                        raise
             except BaseException as error:
                 if manifest.outcome == "running":
                     outcome = "interrupted" if isinstance(error, KeyboardInterrupt) else "failed"
@@ -510,12 +612,20 @@ class ResultStore:
 
     @contextmanager
     def recovery_operation(
-        self, action: str, source_id: str, *, source_role: str, account: bool = False
+        self,
+        action: str,
+        source_id: str,
+        *,
+        source_role: str,
+        account: bool = False,
+        observations: bool = False,
     ) -> Generator[Invocation]:
         """Keep an exact source usable while a dependent may still need recovery."""
         with (
             self.lease(source_id),
-            self.operation(action, scope={source_role: source_id}, account=account) as result,
+            self.operation(
+                action, scope={source_role: source_id}, account=account, observations=observations
+            ) as result,
         ):
             with self._namespace():
                 self._dependency_source(source_id)
@@ -736,6 +846,46 @@ class ResultStore:
                 raise ResultError("artifact differs from its owner publication")
             yield directory / relative, fd
 
+    @contextmanager
+    def open_observations(self, result_id: str) -> Generator[ObservationReader]:
+        """Lease only the designated live role, retaining settled artifact semantics elsewhere."""
+        with self.lease(result_id):
+            directory = self._directory(result_id)
+            manifest = self._read(directory, role="observations")
+            journal = manifest.observations
+            relative = manifest.artifacts.get("observations")
+            if journal is None or relative is None:
+                raise ResultError("observations unavailable for this invocation")
+            with self._owned_directory(result_id) as owner, _artifact_fd(directory, relative) as fd:
+                registration = _publication_records(owner).roles.get("observations")
+                if (
+                    registration is None
+                    or registration.path != relative
+                    or registration.identity != _identity(fd)
+                    or not stat.S_ISREG(os.fstat(fd).st_mode)
+                ):
+                    raise ResultError("observation journal differs from its owner publication")
+                yield ObservationReader(result_id, journal, fd)
+
+    def read_observations(
+        self,
+        result_id: str,
+        selection: ObservationSelection | None = None,
+        *,
+        after: str | None = None,
+    ) -> ObservationPage:
+        try:
+            with self.open_observations(result_id) as reader:
+                manifest = self._read(self._directory(result_id), role="observations")
+                return reader.read(
+                    selection or ObservationSelection(),
+                    after=after,
+                    running=manifest.settled is None,
+                    journal=manifest.observations,
+                )
+        except ObservationError as error:
+            raise ResultError(str(error)) from error
+
     def artifact(self, result_id: str, role: str) -> Path:
         with self.open_artifact(result_id, role) as (source, _):
             return source
@@ -929,9 +1079,11 @@ def managed_operation(
     from corpus_structure.cli.failures import failure_boundary
 
     context = (
-        store.operation(action, scope=scope, account=True)
+        store.operation(action, scope=scope, account=True, observations=True)
         if source is None
-        else store.recovery_operation(action, source[1], source_role=source[0], account=True)
+        else store.recovery_operation(
+            action, source[1], source_role=source[0], account=True, observations=True
+        )
     )
     expected = (ResultError, *expected)
     with (
@@ -962,7 +1114,9 @@ def result_boundary(json: bool) -> Generator[None]:
     from corpus_structure.cli.failures import failure_boundary
 
     with failure_boundary(
-        json, expected=(ResultError, RecipeError, OSError), report_expected_validation=False
+        json,
+        expected=(ResultError, ObservationError, RecipeError, OSError),
+        report_expected_validation=False,
     ):
         yield
 
@@ -1004,6 +1158,75 @@ def show_result(ctx: typer.Context, result: str, json: JsonOpt = False) -> None:
             emit(_status(manifest, diagnostics), json=json)
 
 
+@app.command("output")
+def recipe_output_command(
+    ctx: typer.Context,
+    result: str,
+    stream: Annotated[Literal["stdout", "stderr"], typer.Option()] = "stdout",
+    step: Annotated[str | None, typer.Option(help="Exact native step for a recipe bundle.")] = None,
+    after: Annotated[
+        int, typer.Option(min=0, help="Offset in retained safe Unicode codepoints.")
+    ] = 0,
+    max_bytes: Annotated[int, typer.Option(min=4096, max=1048576)] = 262144,
+    json: JsonOpt = False,
+) -> None:
+    """Read bounded authenticated recipe output by result ID, without rerunning the recipe."""
+    from corpus_structure.cli.recipe_output import read_output, render_output
+
+    with result_boundary(json):
+        emit(
+            read_output(
+                result_store(ctx),
+                result,
+                stream=stream,
+                step=step,
+                after=after,
+                max_bytes=max_bytes,
+            ),
+            json=json,
+            render=render_output,
+        )
+
+
+@app.command("inspect")
+def inspect_result_command(
+    ctx: typer.Context,
+    result: str,
+    view: Annotated[Literal["summary", "observations", "timeline"], typer.Option()] = "summary",
+    severity: Annotated[
+        Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], typer.Option()
+    ] = "DEBUG",
+    stage: str | None = None,
+    method: str | None = None,
+    provider_invocation: str | None = None,
+    task: Annotated[int | None, typer.Option(min=1)] = None,
+    attempt: Annotated[int | None, typer.Option(min=1)] = None,
+    after: str | None = None,
+    limit: Annotated[int, typer.Option(min=1, max=1000)] = 100,
+    max_bytes: Annotated[int, typer.Option(min=65536, max=1048576)] = 262144,
+    examined_bytes: Annotated[int, typer.Option(min=65536, max=1048576)] = 262144,
+    json: JsonOpt = False,
+) -> None:
+    """Inspect owned outcome, observations and exact recorded native relationships."""
+    from corpus_structure.cli.result_inspection import inspect_result, render_inspection
+
+    with result_boundary(json):
+        selection = ObservationSelection(
+            severity=severity,
+            stage=stage,
+            method=method,
+            provider_invocation=provider_invocation,
+            task=task,
+            attempt=attempt,
+            limit=limit,
+            max_bytes=max_bytes,
+            examined_bytes=examined_bytes,
+        )
+        selection.require_qualified_attempt()
+        report = inspect_result(ctx, result_store(ctx), result, selection, after=after, view=view)
+        emit(report, json=json, render=render_inspection)
+
+
 @app.command("watch")
 def watch_result(
     ctx: typer.Context,
@@ -1018,7 +1241,13 @@ def watch_result(
         lane_counts: dict[str, dict[str, int]] = {}
         cursors: dict[str, tuple[int, bool]] = {}
         diagnostics = Diagnostics()
-        with store.lease(result):
+        observation_reader = None
+        observation_cursor = None
+        observation_stopped = False
+        latest_page = None
+        latest_rows = []
+        window_evicted = 0
+        with store.lease(result), ExitStack() as observation_scope:
             directory = store._directory(result)
             while True:
                 item = store._inspection(directory)
@@ -1039,6 +1268,37 @@ def watch_result(
                             if summary:
                                 diagnostic(f"Result {result} · {lane} · {summary}")
                 done = item.settled is not None or time.monotonic() >= deadline
+                if (
+                    item.observations is not None
+                    and "observations" in item.artifacts
+                    and not observation_stopped
+                ):
+                    if observation_reader is None:
+                        observation_reader = observation_scope.enter_context(
+                            store.open_observations(result)
+                        )
+                    latest_page = observation_reader.read(
+                        ObservationSelection(limit=100),
+                        after=observation_cursor,
+                        running=item.settled is None,
+                        journal=item.observations,
+                    )
+                    observation_cursor = latest_page.next_after
+                    for row in latest_page.rows:
+                        if seconds:
+                            diagnostic(
+                                f"Result {result} · {row.sequence} · {row.severity} · {row.message}"
+                            )
+                    combined_rows = [*latest_rows, *latest_page.rows]
+                    window_evicted += max(0, len(combined_rows) - 10)
+                    latest_rows = combined_rows[-10:]
+                    observation_stopped = (
+                        latest_page.corrupt or latest_page.availability == "unavailable"
+                    )
+                    # Settlement may leave several bounded pages. Drain without waiting while
+                    # keeping the latest view bounded; corruption is terminal for this stream.
+                    if done and latest_page.continuation:
+                        done = False
                 for lane in _diagnostic_lanes(item):
                     cursors[lane] = _receipt_events(
                         store,
@@ -1052,12 +1312,41 @@ def watch_result(
                         announce=True,
                     )
                 if done:
-                    emit(_status(item, diagnostics), json=json)
+                    inspection = None
+                    if latest_page is not None:
+                        from corpus_structure.cli.result_inspection import inspect_result
+
+                        latest_page = latest_page.model_copy(
+                            update={
+                                "rows": latest_rows,
+                                "selected_count": len(latest_rows),
+                                "coverage": "latest_window"
+                                if not latest_page.corrupt
+                                and latest_page.availability == "available"
+                                else latest_page.coverage,
+                                "selection_kind": "latest_window",
+                                "position_semantics": "watch_scan_progress",
+                                "window_limit": 10,
+                                "window_evicted": window_evicted,
+                                "returned_sequence_range": (
+                                    latest_rows[0].sequence,
+                                    latest_rows[-1].sequence,
+                                )
+                                if latest_rows
+                                else None,
+                            }
+                        )
+                        inspection = inspect_result(
+                            ctx, store, result, ObservationSelection(), page=latest_page
+                        )
+                    emit(_status(item, diagnostics, inspection), json=json)
                     return
                 time.sleep(0.2)
 
 
-def _status(manifest: Manifest, diagnostics: Diagnostics) -> ResultStatus:
+def _status(
+    manifest: Manifest, diagnostics: Diagnostics, inspection: ResultInspection | None = None
+) -> ResultStatus:
     unsettled = not manifest.custody_settled()
     next_action = manifest.details.get("next_action")
     if unsettled and manifest.action in {"test", "test.retry"} and manifest.stage in _TEST_LANES:
@@ -1075,6 +1364,7 @@ def _status(manifest: Manifest, diagnostics: Diagnostics) -> ResultStatus:
         custody="unsettled" if unsettled else "settled",
         next_action=next_action,
         diagnostics=diagnostics,
+        inspection=inspection,
     )
 
 

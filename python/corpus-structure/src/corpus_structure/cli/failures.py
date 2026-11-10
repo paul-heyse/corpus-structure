@@ -119,6 +119,34 @@ def failure_boundary(
             )
         else:
             diagnostic(f"refused: {detail['message']}")
-            for item in detail.get("validation", {}).get("observations", ()):
-                diagnostic(f"{item['code']}: {item.get('input_path') or item['model_path']}")
+            validation = detail.get("validation")
+            if validation is not None and context.correction_detail:
+                try:
+                    from corpus_structure.cli.correction_rendering import render_correction
+                    from corpus_structure.cli.diagnostic_artifacts import diagnostic_document
+                    from corpus_structure.cli.output import stderr_console
+                    from corpus_structure.semantic.diagnostic_selection import select_diagnostic
+
+                    document = diagnostic_document(
+                        validation,
+                        prepared=context.prepared,
+                        sources=context.sources,
+                        raw_evidence=context.raw_evidence,
+                    )
+                    selected = select_diagnostic(
+                        document,
+                        "correction",
+                        max_errors=context.max_errors,
+                        max_depth=context.max_depth,
+                        max_bytes=context.max_bytes,
+                        raw_evidence=context.raw_evidence,
+                    )
+                    stderr_console().print(render_correction(selected))
+                except Exception as presentation_error:
+                    diagnostic(
+                        "Detailed correction unavailable: " + type(presentation_error).__name__
+                    )
+            else:
+                for item in detail.get("validation", {}).get("observations", ()):
+                    diagnostic(f"{item['code']}: {item.get('input_path') or item['model_path']}")
         raise typer.Exit(1) from None

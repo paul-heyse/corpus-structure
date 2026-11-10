@@ -17,7 +17,7 @@ from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
 from corpus_structure.core.db.store import operation_failure
 
 if TYPE_CHECKING:
-    from .types import PreparedRelease
+    from .types import PreparedRelease, SourceArtifact
 
 
 class SemanticRefusal(ValueError):
@@ -101,6 +101,7 @@ class FailureContext:
     retained_validation: Any = None
     retained_error: BaseException | None = None
     diagnostic_unavailable: str | None = None
+    sources: tuple[SourceArtifact, ...] = ()
 
     def bind(
         self, prepared: PreparedRelease, operation: str | None = None, *, scope: str = "boundary"

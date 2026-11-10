@@ -9,6 +9,7 @@ import signal
 import subprocess
 import tempfile
 import threading
+import time
 from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
@@ -72,6 +73,16 @@ def extract_run(
     Interruption leaves native run/task/attempt identities intact. The caller resumes this run;
     native claim/reclaim owns retries, and this process adds no retry loop.
     """
+    from structlog.contextvars import get_contextvars
+
+    from corpus_structure.cli.observation_logging import (
+        INVOCATION_ENV,
+        RUN_ENV,
+        SPOOL_ENV,
+        ChildDrain,
+        current_writer,
+        event,
+    )
     from corpus_structure.methods.llm.producer import SUPPORTED_PRODUCERS, producer_binding
 
     tasks, configs, methods = table("ops.task"), table("ops.method_config"), table("ops.method")
@@ -154,6 +165,26 @@ def extract_run(
             / (datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ-") + uuid4().hex[:12])
         )
         receipt.mkdir(parents=True, mode=0o700, exist_ok=False)
+        spool = Path(directory) / "observations.jsonl"
+        observation_writer = current_writer()
+        drain = ChildDrain(spool, observation_writer)
+        transfer_environment = (
+            {
+                SPOOL_ENV: str(spool),
+                INVOCATION_ENV: get_contextvars().get("invocation_id", ""),
+                RUN_ENV: str(run_id),
+            }
+            if observation_writer is not None
+            else {}
+        )
+        event(
+            "provider_started",
+            "Automated provider starting",
+            run_id=run_id,
+            provider_invocation=receipt.name,
+            provider_receipt=str(receipt),
+            assurance="provider_reported",
+        )
         config = Path(directory) / "mcp.json"
         config.write_text(
             json.dumps(
@@ -178,6 +209,7 @@ def extract_run(
                                 "CORPUS_DATABASE__URL": settings.database.url,
                                 "CORPUS_AGENT_INVOCATION_ID": receipt.name,
                                 "CORPUS_AGENT_RECEIPTS": str(receipt.resolve()),
+                                **transfer_environment,
                             },
                         }
                     }
@@ -240,7 +272,17 @@ def extract_run(
             reader.start()
         failure = None
         try:
-            process.wait(timeout=timeout)
+            deadline = time.monotonic() + timeout
+            while True:
+                drain.drain()
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise subprocess.TimeoutExpired(process.args, timeout)
+                try:
+                    process.wait(timeout=min(0.2, remaining))
+                    break
+                except subprocess.TimeoutExpired:
+                    continue
         except BaseException as error:
             failure = error
         finally:
@@ -257,6 +299,21 @@ def extract_run(
                 os.killpg(process.pid, signal.SIGKILL)
             for reader in readers:
                 reader.join()
+            drain.drain(final=True)
+            event(
+                "provider_finished",
+                "Automated provider process drained",
+                run_id=run_id,
+                provider_invocation=receipt.name,
+                provider_receipt=str(receipt),
+                returncode=process.returncode,
+                process_outcome="interrupted"
+                if failure is not None
+                else "completed"
+                if process.returncode == 0
+                else "failed",
+                assurance="provider_reported",
+            )
             (receipt / "invocation.json").write_text(
                 json.dumps(
                     dict(

@@ -1,12 +1,8 @@
 """Process-level controls for report output, including interpreter shutdown."""
 
-import json
 import os
-import signal
 import subprocess
 import sys
-import time
-from pathlib import Path
 
 import pytest
 
@@ -86,53 +82,10 @@ typer.run(report)
     assert process.returncode == (operation_exit or 74)
 
 
-@pytest.mark.parametrize("direct", [False, True])
-def test_installed_reference_preserves_cancellation_and_custody(tmp_path, direct):
-    (tmp_path / "scripts").mkdir()
-    (tmp_path / "scripts/setup-env").touch()
-    (tmp_path / "justfile").write_text(
-        "ci-reference:\n    #!/usr/bin/env bash\n    touch started\n    exec sleep 60\n"
-    )
-    ci = Path(sys.executable).with_name("ci")
-    env = {**os.environ, "CORPUS_CI_RESULTS": str(tmp_path / "results")}
-    with subprocess.Popen(
-        [ci, "docs", "commands", "--stdout" if direct else "--json"],
-        cwd=tmp_path,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    ) as command:
-        try:
-            deadline = time.monotonic() + 15
-            while not (tmp_path / "started").exists() and command.poll() is None:
-                assert time.monotonic() < deadline, "command reference recipe did not start"
-                time.sleep(0.02)
-            command.send_signal(signal.SIGTERM)
-            output, errors = command.communicate(timeout=15)
-        finally:
-            if command.poll() is None:
-                command.kill()
-        assert command.returncode == 143, errors
-    if direct:
-        assert output == ""
-        assert not (tmp_path / "results").exists()
-        return
-    result_id = json.loads(output)["error"]["invocation_id"]
-    assert result_id in errors
-    retained = subprocess.run(
-        [ci, "results", "show", result_id, "--json"],
-        cwd=tmp_path,
-        env=env,
-        capture_output=True,
-        check=True,
-        timeout=15,
-    )
-    report = json.loads(retained.stdout)
-    assert report["outcome"] == "interrupted"
-    assert report["settled"] is not None
-    assert report["details"]["signal"] == signal.SIGTERM
-    assert report["artifacts"] == {}
+def test_installed_reference_honors_closed_stdout():
+    process = _closed_pipe("docs", "commands", "schema", "inspect", "--stdout")
+    assert process.returncode == 74
+    assert process.stderr == b"ci: stdout closed before report delivery completed\n"
 
 
 def test_headless_json_keeps_terminal_stage_diagnostics_separate(tmp_path, monkeypatch):

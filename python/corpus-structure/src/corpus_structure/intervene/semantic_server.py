@@ -4,15 +4,16 @@ from __future__ import annotations
 
 import secrets
 import threading
-from collections.abc import AsyncIterator, Callable, Generator
+from collections.abc import AsyncIterator, Generator
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastmcp import Context, FastMCP
 from fastmcp import __version__ as FASTMCP_VERSION
 from fastmcp.exceptions import ToolError
 from fastmcp.server.lifespan import lifespan
+from fastmcp.server.middleware import Middleware
 from fastmcp.tools import ToolResult
 from fastmcp.utilities.json_schema import compress_schema
 from mcp.types import CallToolResult, Implementation
@@ -69,11 +70,16 @@ def _stamp_mcp_result(wire: CallToolResult) -> CallToolResult:
     return wire.model_copy(update={"meta": meta})
 
 
-def _bounded_mcp_result(value: BaseModel, max_bytes: int) -> ToolResult:
+def _bounded_mcp_result(
+    value: BaseModel, max_bytes: int, *, presentation: str | None = None
+) -> ToolResult:
     """Admit the actual full text-plus-structured result, retaining its exact wire form."""
     from corpus_structure.semantic.query import ReadLimit
 
-    encoded = ToolResult(content=value, structured_content=value.model_dump(mode="json"))
+    encoded = ToolResult(
+        content=presentation if presentation is not None else value,
+        structured_content=value.model_dump(mode="json"),
+    )
     # The pinned SDK stamps this identity after dispatch on modern protocols. Author
     # that same SDK-shaped metadata here so admission includes the final stamp, and
     # the runner preserves it. Legacy protocols can carry this optional metadata;
@@ -119,6 +125,75 @@ def _invocation_event(task_id, attempt, holder, binding, event, **details):
         stream.write("\n")
         stream.flush()
         os.fsync(stream.fileno())
+    from corpus_structure.cli.observation_logging import event as observe
+
+    observe(
+        "mcp_attempt_" + event,
+        "Native semantic attempt " + event,
+        task_id=task_id,
+        attempt=attempt,
+        provider_invocation=invocation,
+        method=binding.get("method") if isinstance(binding, dict) else None,
+        producer_binding=binding,
+        holder=holder,
+        provider_receipt=str(path),
+        assurance="provider_reported",
+        **details,
+    )
+
+
+class ObservationMiddleware(Middleware):
+    """Bind/reset each actual request; FastMCP carries this context into sync tool threads."""
+
+    def __init__(self, run_id: int | None = None):
+        self.run_id = run_id
+
+    async def on_call_tool(self, context, call_next):
+        import os
+
+        from corpus_structure.cli.observation_logging import (
+            INVOCATION_ENV,
+            PROVIDER_ENV,
+            bound,
+            capture,
+            event,
+            logger,
+        )
+
+        request = context.fastmcp_context
+        request_id = str(request.request_id) if request is not None else secrets.token_hex(12)
+        arguments = context.message.arguments or {}
+        task_id = arguments.get("task_id")
+        bindings = {"request_id": request_id, "stage": context.message.name}
+        if type(task_id) is int and task_id > 0:
+            bindings["task_id"] = task_id
+        endpoint = (
+            request.lifespan_context.get("observation_writer") if request is not None else None
+        )
+        with (
+            capture(
+                endpoint,
+                stream=None,
+                invocation_id=os.environ.get(INVOCATION_ENV),
+                provider_invocation=os.environ.get(PROVIDER_ENV),
+                run_id=self.run_id,
+            ),
+            bound(**bindings),
+        ):
+            event("mcp_tool_started", "MCP tool started", tool=context.message.name)
+            try:
+                result = await call_next(context)
+            except Exception as error:
+                logger().error(
+                    "MCP tool failed",
+                    kind="mcp_tool_failed",
+                    tool=context.message.name,
+                    exc_info=(type(error), error, error.__traceback__),
+                )
+                raise
+            else:
+                event("mcp_tool_finished", "MCP tool finished", tool=context.message.name)
+                return result
 
 
 def _rendered_artifact_result(engine, result, max_bytes):
@@ -386,6 +461,7 @@ class SemanticAgentSession:
                 binding.values(),
                 "leased",
                 packet_hash=packet_hash,
+                run_id=self.run_id,
             )
         return response
 
@@ -475,35 +551,44 @@ def build_semantic_server(
     @lifespan
     async def open_session(
         server: FastMCP,
-    ) -> AsyncIterator[dict[str, Callable[[], SemanticSession] | Settings]]:
-        if session is not None:
-            yield {"queue": lambda: session}
-            return
-        from corpus_structure.semantic.runtime import open_runtime_engine
-        from corpus_structure.settings import Settings
+    ) -> AsyncIterator[dict[str, Any]]:
+        from corpus_structure.cli.observation_logging import child_capture
 
-        selected = settings if settings is not None else Settings()
-        active: SemanticSession | None = None
-        lock = threading.Lock()
-        with ExitStack() as resources:
+        with child_capture(run_id=run_id) as observation_writer:
+            if session is not None:
+                yield {"queue": lambda: session, "observation_writer": observation_writer}
+                return
+            from corpus_structure.semantic.runtime import open_runtime_engine
+            from corpus_structure.settings import Settings
 
-            def queue() -> SemanticSession:
-                nonlocal active
-                with lock:
-                    if active is None:
-                        engine = resources.enter_context(
-                            open_runtime_engine(
-                                selected, "ci-mcp-semantic", max_size=4, purpose="write"
+            selected = settings if settings is not None else Settings()
+            active: SemanticSession | None = None
+            lock = threading.Lock()
+            with ExitStack() as resources:
+
+                def queue() -> SemanticSession:
+                    nonlocal active
+                    with lock:
+                        if active is None:
+                            engine = resources.enter_context(
+                                open_runtime_engine(
+                                    selected, "ci-mcp-semantic", max_size=4, purpose="write"
+                                )
                             )
-                        )
-                        active = (
-                            SemanticAgentSession(engine, run_id)
-                            if run_id is not None
-                            else SemanticProjectSession(engine, selected.runtime.default_project)
-                        )
-                    return active
+                            active = (
+                                SemanticAgentSession(engine, run_id)
+                                if run_id is not None
+                                else SemanticProjectSession(
+                                    engine, selected.runtime.default_project
+                                )
+                            )
+                        return active
 
-            yield {"queue": queue, "settings": selected}
+                yield {
+                    "queue": queue,
+                    "settings": selected,
+                    "observation_writer": observation_writer,
+                }
 
     server = FastMCP(
         MCP_SERVER_NAME,
@@ -523,6 +608,8 @@ def build_semantic_server(
         ),
         lifespan=open_session,
     )
+
+    server.add_middleware(ObservationMiddleware(run_id))
 
     def current(ctx: Context) -> SemanticSession:
         return ctx.lifespan_context["queue"]()
@@ -629,7 +716,31 @@ def build_semantic_server(
                 max_depth=max_depth,
                 max_bytes=max_bytes,
             )
-        return _bounded_mcp_result(report, 8 * 1024 * 1024)
+        presentation = None
+        if correction_detail:
+            data = report.model_dump(mode="json", exclude_none=True)
+            validation = data.get("validation_report")
+            if validation is not None:
+                from corpus_structure.cli.correction_rendering import correction_text
+                from corpus_structure.semantic.diagnostic_selection import select_diagnostic
+
+                try:
+                    selected = select_diagnostic(
+                        dict(version=1, report=validation, members=[]),
+                        "correction",
+                        max_errors=max_errors,
+                        max_depth=max_depth,
+                        max_bytes=max_bytes,
+                        raw_evidence=raw_evidence,
+                    )
+                    presentation = correction_text(selected)
+                except Exception as presentation_error:
+                    # Optional readable text cannot replace a successful native inspection.
+                    presentation = (
+                        "Correction presentation unavailable: " + type(presentation_error).__name__
+                    )
+
+        return _bounded_mcp_result(report, 8 * 1024 * 1024, presentation=presentation)
 
     @server.tool(
         annotations={"readOnlyHint": True}, output_schema=report_schema("OperationExplanation")
@@ -1024,6 +1135,7 @@ def build_semantic_server(
                 result.producer_binding,
                 "completed",
                 receipt=result.completion.receipt.model_dump(mode="json"),
+                **({"run_id": session.run_id} if isinstance(session, SemanticAgentSession) else {}),
             )
             data = {} if isinstance(checked, RefusedProposal) else checked.stored.model_dump()
             return submission.SubmissionResult(

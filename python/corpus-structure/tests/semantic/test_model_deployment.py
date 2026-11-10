@@ -436,6 +436,10 @@ def test_exact_native_deployment_resumes_before_separate_activation(
         cache.unlink()
         result = json.loads(deployed.stdout)
         assert result["acquired_target"]["database_oid"] == identity.database_oid
+        assert result["selection"]["standing"] == "configured_unobserved"
+        assert result["selection"]["profile"] == "deployment"
+        assert result["selection"]["observed_binding"] is None
+        assert result["selection"]["settings_section"] == "deployment"
         account = result["operation_account"]
         assert account["acquired_target"] == identity.model_dump(mode="json")
         assert account["predecessor"] == predecessor
@@ -479,7 +483,11 @@ def test_exact_native_deployment_resumes_before_separate_activation(
             "release", "check", "--target", "deployment", "--release", prepared.release_id
         )
         assert checked.exit_code == 0, checked.output
-        assert json.loads(checked.stdout)["acquired"]["database_oid"] == identity.database_oid
+        checked_report = json.loads(checked.stdout)
+        assert checked_report["acquired"]["database_oid"] == identity.database_oid
+        assert checked_report["selection"]["standing"] == "configured_unobserved"
+        assert checked_report["selection"]["target_parameter_source"] == "commandline"
+        assert checked_report["selection"]["observed_binding"] is None
         activation = (
             "release",
             "activate",

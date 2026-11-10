@@ -199,7 +199,7 @@ def test_cli_retention_preserves_failed_outcome_and_safe_outer_message(tmp_path)
             "schema",
             "compile",
             "--domain",
-            "../outside",
+            "missing-valid-pack",
             "--retain-diagnostics",
             "--correction-detail",
             "--json",

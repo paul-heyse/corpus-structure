@@ -170,7 +170,9 @@ def test_native_interpretation_source_field_span_and_vocabulary_closure(
                 )
 
 
-def test_authored_review_completion_filter_and_selected_root_ambiguity(private_source, tmp_path):
+def test_authored_review_completion_filter_and_selected_root_ambiguity(
+    private_source, tmp_path, cli
+):
     from typing import Any
 
     from sqlalchemy import select
@@ -268,13 +270,43 @@ def test_authored_review_completion_filter_and_selected_root_ambiguity(private_s
         source=original.model_dump(mode="json"),
         reviews=reviews,
     )
-    authored = author_interpretations(
-        case.writer,
-        case.prepared,
-        kind="terminology",
-        configuration=configuration,
-        settings=Settings(paths={"data_dir": tmp_path, "model_cache": tmp_path / "models"}),
+    reference = cli("docs", "commands", "interpretations", "author", "--stdout")
+    assert reference.exit_code == 0, reference.output
+    assert "private knowledge" in reference.stdout
+    selected = Settings(
+        database={
+            "url": case.writer.url.set(drivername="postgresql").render_as_string(
+                hide_password=False
+            )
+        },
+        paths={"data_dir": tmp_path, "model_cache": tmp_path / "models"},
     )
+    contract_path = tmp_path / "portable-contract"
+    contract = cli(
+        "interpretations",
+        "export-contract",
+        case.prepared.release_id,
+        str(contract_path),
+        "--json",
+        settings=lambda: selected,
+    )
+    assert contract.exit_code == 0, contract.output
+    manifest = json.loads((contract_path / "manifest.json").read_bytes())
+    assert manifest["release_id"] == case.prepared.release_id
+    assert "structural_preflight_only" in manifest["limitations"]
+    input_path = tmp_path / "authored-review.json"
+    input_path.write_text(json.dumps(configuration))
+    completed = cli(
+        "interpretations",
+        "author",
+        case.prepared.release_id,
+        "terminology",
+        str(input_path),
+        "--json",
+        settings=lambda: selected,
+    )
+    assert completed.exit_code == 0, completed.output
+    authored = json.loads(completed.stdout)["body"]
     selection = TerminologySelection(
         review_run_id=authored["run_id"],
         review_cut_id=authored["cut_id"],

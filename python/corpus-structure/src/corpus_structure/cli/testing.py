@@ -446,7 +446,9 @@ def run_tests(
         declared = lane or ("ordinary" if narrowed else "all")
         required_lanes = ["ordinary", "fault"] if declared == "all" else [declared]
         with result_store(ctx).operation(
-            "test", scope={"lane": declared, "required_lanes": required_lanes, "narrowed": narrowed}
+            "test",
+            scope={"lane": declared, "required_lanes": required_lanes, "narrowed": narrowed},
+            observations=True,
         ) as result:
             outcomes: dict[str, str] = {}
             if lane != "fault":
@@ -837,6 +839,7 @@ def retry(
             receipts = _receipts(store, manifest, receipts_open, lane=lane)
             with store.operation(
                 "test.retry",
+                observations=True,
                 scope={
                     "retry_of": original,
                     "required_lanes": [],

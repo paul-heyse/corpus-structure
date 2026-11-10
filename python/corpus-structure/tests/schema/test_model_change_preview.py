@@ -305,6 +305,9 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     assert staged.exit_code == 0, staged.output
     preview = json.loads(staged.stdout)
     assert preview["target_profile"] == "deployment"
+    assert preview["selection"]["profile"] == "deployment"
+    assert preview["selection"]["standing"] == "configured_unobserved"
+    assert preview["acquired_target"] == destination_identity.model_dump(mode="json")
     assert checked == [(settings.database.url, development, "before")]
     assert physical_path.read_bytes() == before
     assert run(["candidate", preview["result_id"]], settings).exit_code == 1

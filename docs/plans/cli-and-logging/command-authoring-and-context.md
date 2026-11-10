@@ -23,6 +23,9 @@ test its selected native behavior; no alternate command schema or handwritten re
 [group](https://github.com/fastapi/typer/blob/0.28.0/typer/core.py).
 
 Direct `--stdout` returns Markdown through existing delivery without managed acquisition.
+Execution clarification,2026-11-10: zero-settings acquisition applies to native generation and
+direct help/reference. Explicit managed delivery acquires the canonical result store/settings
+once; preserving that owner is preferable to a second environment/default resolver.
 Default/JSON delivery retains `commands.md`, selected tokens and existing Delivery identity/path.
 Keep `--stdout --json` invalid. Make `just ci-reference` call the direct route; remove the reverse
 recipe subprocess from command_reference, obsolete reference subprocess/cancellation branches and

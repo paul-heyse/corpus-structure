@@ -17,7 +17,14 @@ from typing import Literal
 import typer
 from pydantic import TypeAdapter, ValidationError
 
-from corpus_structure._diagnostic_capture import EXCERPT_CHARS, StepExcerpt, StepExit
+from corpus_structure._diagnostic_capture import (
+    EXCERPT_CHARS,
+    MAX_RECIPE_STEPS,
+    STEP_CHANNEL_BYTES,
+    StepExcerpt,
+    StepExit,
+    valid_step_output,
+)
 
 
 class RecipeError(ValueError):
@@ -41,7 +48,7 @@ class RecipeStep:
 
 
 _STEP_FD = "CORPUS_CI_STEP_FD"
-_STEP_BYTES = 256 * 1024
+_STEP_BYTES = STEP_CHANNEL_BYTES
 _STEP_EXIT = TypeAdapter(StepExit)
 
 
@@ -63,7 +70,6 @@ def run_owned(
     cwd: Path,
     env: dict[str, str] | None = None,
     pass_fds: tuple[int, ...] = (),
-    verify_cancelled_group: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     """Give recipe supervisors time to settle their own child process groups."""
     proc = subprocess.Popen(
@@ -108,18 +114,6 @@ def run_owned(
                         proc.wait(timeout=5)
                     assert signum is not None
                     raise RecipeCancellation(signum) from None
-        if verify_cancelled_group and signum is not None:
-            assert deadline is not None
-            while True:
-                try:
-                    os.killpg(proc.pid, 0)
-                except ProcessLookupError:
-                    break
-                if time.monotonic() >= deadline:
-                    with contextlib.suppress(ProcessLookupError):
-                        os.killpg(proc.pid, signal.SIGKILL)
-                    raise RecipeCancellation(signum)
-                time.sleep(0.05)
         return subprocess.CompletedProcess(
             argv, proc.returncode if signum is None else 128 + signum, stdout, stderr
         )
@@ -136,7 +130,6 @@ def run_recipe(
     *args: str,
     env: dict[str, str] | None = None,
     pass_fds: tuple[int, ...] = (),
-    verify_cancelled_group: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     root = checkout()
     return run_owned(
@@ -152,23 +145,36 @@ def run_recipe(
         cwd=root,
         env=env,
         pass_fds=pass_fds,
-        verify_cancelled_group=verify_cancelled_group,
     )
+
+
+@dataclass(frozen=True)
+class RecipeCapture:
+    availability: Literal["available", "unavailable"]
+    reason: str | None = None
+    records: tuple[StepExit, ...] = ()
+    missing_steps: tuple[str, ...] = ()
 
 
 def run_recipe_steps(
     name: str,
     *args: str,
-) -> tuple[subprocess.CompletedProcess[str], tuple[RecipeStep, ...], tuple[StepExcerpt, ...]]:
+) -> tuple[
+    subprocess.CompletedProcess[str], tuple[RecipeStep, ...], tuple[StepExcerpt, ...], RecipeCapture
+]:
     """Drain the owned side channel independently of the recipe's ordinary streams."""
     read_fd, write_fd = os.pipe()
     body = bytearray()
+    read_failure: list[str] = []
 
     def drain() -> None:
-        with os.fdopen(read_fd, "rb") as stream:
-            while chunk := stream.read1(8192):
-                remaining = _STEP_BYTES + 1 - len(body)
-                body.extend(chunk[:remaining])
+        try:
+            with os.fdopen(read_fd, "rb") as stream:
+                while chunk := stream.read1(8192):
+                    remaining = max(0, _STEP_BYTES + 1 - len(body))
+                    body.extend(chunk[:remaining])
+        except OSError as error:
+            read_failure.append(type(error).__name__)
 
     reader = threading.Thread(target=drain, daemon=True)
     reader.start()
@@ -186,48 +192,61 @@ def run_recipe_steps(
     finally:
         os.close(write_fd)
         reader.join(timeout=2)
-    if reader.is_alive():
-        return process, (), ()
+    if reader.is_alive() or read_failure:
+        return process, (), (), RecipeCapture("unavailable", "step channel reader did not settle")
     interrupted = process.returncode in (130, 143, -signal.SIGINT, -signal.SIGTERM)
-    steps, excerpts = _recipe_steps(bytes(body), interrupted=interrupted)
-    return process, steps, excerpts
+    steps, excerpts, captured = _recipe_steps(bytes(body), interrupted=interrupted)
+    return process, steps, excerpts, captured
 
 
 def _recipe_steps(
     body: bytes, *, interrupted: bool
-) -> tuple[tuple[RecipeStep, ...], tuple[StepExcerpt, ...]]:
-    if not body.endswith(b"\n") or len(body) > _STEP_BYTES:
-        return (), ()
+) -> tuple[tuple[RecipeStep, ...], tuple[StepExcerpt, ...], RecipeCapture]:
+    if len(body) > _STEP_BYTES:
+        return (), (), RecipeCapture("unavailable", "step channel byte limit exceeded")
+    if not body.endswith(b"\n"):
+        return (), (), RecipeCapture("unavailable", "step channel is incomplete")
     header, *records = body.rstrip(b"\n").split(b"\n")
     if not header.startswith(b"plan ") or not header.isascii():
-        return (), ()
+        return (), (), RecipeCapture("unavailable", "step channel is invalid")
     names = header.decode("ascii").split()[1:]
-    if len(names) > 24 or len(names) != len(set(names)):
-        return (), ()
+    if len(names) > MAX_RECIPE_STEPS or len(names) != len(set(names)):
+        return (), (), RecipeCapture("unavailable", "step channel is invalid")
     if any(not re.fullmatch(r"[a-zA-Z0-9_-]{1,40}", name) for name in names):
-        return (), ()
+        return (), (), RecipeCapture("unavailable", "step channel is invalid")
     events = iter(records)
     steps = []
     excerpts = []
+    captured = []
+    missing = []
     for name in names:
         start = next(events, None)
         if start is None:
+            missing.append(name)
             steps.append(RecipeStep(name, "not_started" if interrupted else "unobserved"))
             continue
         if start != f"start {name}".encode():
-            return (), ()
+            return (), (), RecipeCapture("unavailable", "step channel is invalid")
         end = next(events, None)
         if end is None:
+            missing.append(name)
             steps.append(RecipeStep(name, "interrupted" if interrupted else "unobserved"))
             continue
         try:
             exit = _STEP_EXIT.validate_json(end, strict=True)
         except ValidationError:
-            return (), ()
+            return (), (), RecipeCapture("unavailable", "step channel is invalid")
         if exit.name != name or not 0 <= exit.status <= 255:
-            return (), ()
+            return (), (), RecipeCapture("unavailable", "step channel is invalid")
         if any(item.step != name or len(item.text) > EXCERPT_CHARS for item in exit.excerpts):
-            return (), ()
+            return (), (), RecipeCapture("unavailable", "step channel is invalid")
+        if (
+            {item.stream for item in exit.outputs} != {"stdout", "stderr"}
+            or len(exit.outputs) != 2
+            or not all(valid_step_output(item) for item in exit.outputs)
+        ):
+            return (), (), RecipeCapture("unavailable", "step output accounting is invalid")
+        captured.append(exit)
         if exit.interrupted:
             steps.append(RecipeStep(name, "interrupted"))
         elif exit.status:
@@ -237,4 +256,10 @@ def _recipe_steps(
         else:
             steps.append(RecipeStep(name, "passed", 0))
         excerpts.extend(exit.excerpts)
-    return (tuple(steps), tuple(excerpts)) if next(events, None) is None else ((), ())
+    if next(events, None) is not None:
+        return (), (), RecipeCapture("unavailable", "step channel has unexpected records")
+    return (
+        tuple(steps),
+        tuple(excerpts),
+        RecipeCapture("available", records=tuple(captured), missing_steps=tuple(missing)),
+    )

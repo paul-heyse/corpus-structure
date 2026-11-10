@@ -26,6 +26,15 @@ coordinated declaration, generated or native effects. Include the applicable bas
 proposed inputs, native predecessor, revision and deployment profile in the request.
 See the [request model](../../../../python/corpus-structure/src/corpus_structure/schema/model_change.py).
 
+Use `ci schema check --correction-detail --retain-diagnostics --json` for bounded attributed
+failure evidence. `ci schema diagnostic RESULT_ID --view correction --json` selects captured
+corrections; `--view summary` preserves outcome and original operation/scope bindings. Default
+JSON returns the original document. Human output defaults to correction. Reads do not rerun
+compilation or validation. Source excerpts require raw collection and retrieval opt-in:
+`ci schema diagnostic RESULT_ID --view correction --source MODULE --raw-evidence`.
+Choose an actual `--source-line`; logical declaration paths do not imply physical lines.
+`--projection-bytes` bounds the selected view separately from `--max-bytes` retained input.
+
 ```sh
 uv run ci model change preview CHANGE.yaml --json
 uv run ci model change inspect PREVIEW_ID

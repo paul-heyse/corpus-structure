@@ -31,6 +31,17 @@ uv run ci test coverage ORIGINAL_ID RETRY_ID --view unresolved --limit 20 --json
 - Use `test failures` for the exact failed node, phase and lane from the classifier.
   Use `results show` for outcome, custody, expiry, published roles, diagnostic availability
   and the next action. Use `results watch ID` for bounded progress on an active invocation.
+  `results inspect ID --view observations --json` reads safe collected events; use
+  `--view timeline` for their parent-journal order. Severity/stage/method selectors filter
+  collected rows; they cannot recover events omitted at collection. Continue using the
+  returned `--after` cursor. A task-attempt filter supplies `--provider-invocation`,
+  `--task` and `--attempt` together. Native state and availability remain separate from
+  provider-reported observations; follow the returned owner-specific actions.
+- Check/recipe reports include a retained-output read hint. Use
+  `ci results output ID --stream stdout --json` for the safe retained output, adding the
+  exact `--step STEP` from the hint for a bundle. Select stderr independently. Continue with
+  returned `--after`; its coordinate is retained safe Unicode codepoints, not native bytes.
+  Collection truncation and native byte counts remain explicit. Reading never reruns the check.
 - Use an exact retry for a settled result with eligible unresolved pytest identities.
   The supervisor recollects the required selection before running those nodes. Each retry
   has a new managed ID. If no authoritative collection survived or the failure is outside

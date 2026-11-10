@@ -16,6 +16,12 @@ from rich.syntax import Syntax
 from rich.table import Table
 from rich.text import Text
 
+from corpus_structure.cli.declarations import (
+    ContractInput,
+    ContractKind,
+    ContractView,
+    ValidationPurposeOption,
+)
 from corpus_structure.cli.managed import OperationAccount, managed_operation
 from corpus_structure.cli.output import (
     JsonOpt,
@@ -29,6 +35,7 @@ from corpus_structure.cli.output import (
     write_report_text,
 )
 from corpus_structure.cli.schema import model_stage, refusal
+from corpus_structure.cli.target import ConfiguredSelection, current_selection, selection_summary
 from corpus_structure.semantic.storage_target import StorageTarget
 from corpus_structure.settings import DeploymentProfile
 
@@ -48,6 +55,7 @@ class ModelResult(BaseModel):
     release: str | None = None
     target_profile: DeploymentProfile | None = None
     acquired_target: StorageTarget | None = None
+    selection: ConfiguredSelection | None = None
     operation_account: OperationAccount | None = None
 
 
@@ -71,6 +79,7 @@ class PreviewEffectsReport(EffectGuidance):
     target: str | None
     target_profile: DeploymentProfile | None
     acquired_target: StorageTarget | None
+    selection: ConfiguredSelection | None = None
     authoring_target: StorageTarget | None
     predecessor: str | None
     release: str | None
@@ -102,6 +111,7 @@ class PreviewPatchReport(BaseModel):
     target: str | None
     target_profile: DeploymentProfile | None
     acquired_target: StorageTarget | None
+    selection: ConfiguredSelection | None = None
     changed_paths: tuple[str, ...]
     total_hunks: int
     hunks: list[PatchHunk]
@@ -120,6 +130,7 @@ class CandidateInspection(EffectGuidance):
     target: str
     target_profile: DeploymentProfile
     acquired_target: StorageTarget | None
+    selection: ConfiguredSelection | None = None
     authoring_target: StorageTarget | None
     registration: Literal["verified", "unverified", "not_applicable"]
     registration_detail: str | None
@@ -466,6 +477,7 @@ def _effects_view(report: PreviewEffectsReport) -> Table:
         ("Preview", report.preview_id),
         ("Revision", report.revision),
         ("Target", _target_summary(report.target_profile, report.acquired_target)),
+        ("Current configuration", selection_summary(report.selection)),
         ("Target fingerprint", report.target or "unbound"),
         ("Authoring target", _target_summary(None, report.authoring_target)),
         ("Predecessor", report.predecessor or "not applicable"),
@@ -486,6 +498,7 @@ def _patch_view(report: PreviewPatchReport) -> Group:
     summary = report_fields(
         ("Preview", report.preview_id),
         ("Target", _target_summary(report.target_profile, report.acquired_target)),
+        ("Current configuration", selection_summary(report.selection)),
         ("Target fingerprint", report.target or "unbound"),
         ("Changed paths", _path_summary(report.changed_paths)),
         ("Selected hunks", f"{len(report.hunks)} of {report.total_hunks}"),
@@ -541,7 +554,14 @@ def _discovery_view(report: PreviewDiscoveryReport) -> Table:
     )
 
 
-@changes.command("inspect")
+@changes.command(
+    "inspect",
+    epilog=(
+        "Example: ci model change inspect PREVIEW_ID --view effects "
+        "--json\n\nDomain contract: [domain "
+        "reader](docs/design/D8-agent-and-query-interfaces.md)"
+    ),
+)
 def inspect_preview(
     ctx: typer.Context,
     preview_id: Annotated[str, typer.Argument(metavar="PREVIEW_ID")],
@@ -605,6 +625,7 @@ def inspect_preview(
                     target=staged.target,
                     target_profile=staged.target_profile,
                     acquired_target=staged.target_identity,
+                    selection=current_selection(ctx, staged.target_profile),
                     changed_paths=paths,
                     total_hunks=total,
                     hunks=hunks,
@@ -638,6 +659,7 @@ def inspect_preview(
                 target=staged.target,
                 target_profile=staged.target_profile,
                 acquired_target=staged.target_identity,
+                selection=current_selection(ctx, staged.target_profile),
                 authoring_target=staged.authoring_identity,
                 predecessor=staged.request.native_predecessor,
                 release=staged.local_release,
@@ -662,8 +684,11 @@ def inspect_preview(
 def _candidate_view(report: CandidateInspection) -> Table:
     return report_fields(
         ("Candidate", report.candidate_id),
+        ("Target", _target_summary(report.target_profile, report.acquired_target)),
+        ("Current configuration", selection_summary(report.selection)),
         ("Preview", report.preview_id or "unavailable"),
         ("Target", _target_summary(report.target_profile, report.acquired_target)),
+        ("Current configuration", selection_summary(report.selection)),
         ("Target fingerprint", report.target),
         ("Authoring target", _target_summary(None, report.authoring_target)),
         ("Release", report.release),
@@ -677,7 +702,15 @@ def _candidate_view(report: CandidateInspection) -> Table:
     )
 
 
-@changes.command("inspect-candidate")
+@changes.command(
+    "inspect-candidate",
+    epilog=(
+        "Example: ci model change inspect-candidate CANDIDATE_ID --view "
+        "contract --subject-kind operation --subject OPERATION "
+        "--json\n\nDomain contract: [domain "
+        "reader](docs/design/D8-agent-and-query-interfaces.md)"
+    ),
+)
 def inspect_candidate(
     ctx: typer.Context,
     candidate_id: Annotated[str, typer.Argument(metavar="CANDIDATE_ID")],
@@ -686,19 +719,15 @@ def inspect_candidate(
     ] = "summary",
     after: Annotated[int, typer.Option(min=0)] = 0,
     limit: Annotated[int, typer.Option(min=1, max=100)] = 20,
-    subject_kind: Annotated[
-        Literal["class", "property", "operation"] | None, typer.Option("--subject-kind")
-    ] = None,
+    subject_kind: Annotated[ContractKind | None, typer.Option("--subject-kind")] = None,
     subject: Annotated[str | None, typer.Option("--subject")] = None,
     property_: Annotated[str | None, typer.Option("--property")] = None,
     contract_view: Annotated[
-        Literal["summary", "detail"], typer.Option("--contract-view")
+        ContractView, typer.Option("--contract-view", help="Contract summary or paged detail.")
     ] = "summary",
     contract_after: Annotated[str | None, typer.Option("--contract-after")] = None,
-    input_: Annotated[Path | None, typer.Option("--input")] = None,
-    validation_purpose: Annotated[
-        Literal["structural", "accepted"] | None, typer.Option("--validation-purpose")
-    ] = None,
+    input_: ContractInput = None,
+    validation_purpose: ValidationPurposeOption = None,
     json_: JsonOpt = False,
 ) -> None:
     """Inspect a settled candidate and its registration in the bound checkout."""
@@ -870,6 +899,7 @@ def inspect_candidate(
                 target=binding.target,
                 target_profile=binding.target_profile,
                 acquired_target=binding.target_identity,
+                selection=current_selection(ctx, binding.target_profile),
                 authoring_target=binding.authoring_identity,
                 registration=status,
                 registration_detail=detail,
@@ -896,7 +926,14 @@ def _prepare_release(root, names, *, physical_sources: dict[str, bytes] | None =
     return prepare_packs(tuple(root / "domains" / name for name in names), execution=execution)
 
 
-@changes.command("preview")
+@changes.command(
+    "preview",
+    epilog=(
+        "Example: ci model change preview change.yaml --json\n\nDomain "
+        "contract: [domain reader](docs/design/D8-agent-and-query-interfac"
+        "es.md)"
+    ),
+)
 def preview(
     ctx: typer.Context,
     request: Annotated[
@@ -1072,14 +1109,26 @@ def preview(
                 release=release,
                 target_profile=staged.target_profile,
                 acquired_target=staged.target_identity,
+                selection=current_selection(ctx, staged.target_profile),
                 operation_account=result.manifest.operation_account,
             ),
             json=json_,
         )
 
 
-@changes.command("apply")
-def apply(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
+@changes.command(
+    "apply",
+    epilog=(
+        "Example: ci model change apply PREVIEW_ID --json\n\nDomain "
+        "contract: [domain reader](docs/design/D8-agent-and-query-interfac"
+        "es.md)"
+    ),
+)
+def apply(
+    ctx: typer.Context,
+    change: Annotated[str, typer.Argument(metavar="CHANGE", help="Managed preview result ID.")],
+    json_: JsonOpt = False,
+) -> None:
     """Apply exactly the reviewed change; repeat with the same ID to resume."""
     from corpus_structure.cli.managed import ResultError, result_store
     from corpus_structure.cli.recipes import checkout
@@ -1151,8 +1200,19 @@ def apply(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
         )
 
 
-@changes.command("candidate")
-def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
+@changes.command(
+    "candidate",
+    epilog=(
+        "Example: ci model change candidate PREVIEW_ID --json\n\nDomain "
+        "contract: [domain reader](docs/design/D8-agent-and-query-interfac"
+        "es.md)"
+    ),
+)
+def candidate(
+    ctx: typer.Context,
+    change: Annotated[str, typer.Argument(metavar="CHANGE", help="Managed preview result ID.")],
+    json_: JsonOpt = False,
+) -> None:
     """Author a rollback-only candidate for an applied preview on its bound database."""
     from corpus_structure.cli.managed import ResultError, result_store
     from corpus_structure.cli.recipes import checkout
@@ -1273,6 +1333,9 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                             recreate=recreated,
                         )
                         report = publish_native_candidate(result, native, products)
+                        report = report.model_copy(
+                            update={"selection": current_selection(ctx, "development")}
+                        )
                         if native.acquired_target is not None:
                             result.record_target(
                                 native.acquired_target,
@@ -1287,6 +1350,8 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                             revision=staged.revision,
                             release=prepared.release_id,
                             target_profile=staged.target_profile,
+                            acquired_target=staged.target_identity,
+                            selection=current_selection(ctx, staged.target_profile),
                         )
                     model_stage(result, "bind and publish candidate")
                     if "native_operations.json" in products:
@@ -1329,8 +1394,21 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
         )
 
 
-@changes.command("register")
-def register_native(ctx: typer.Context, candidate: str, json_: JsonOpt = False) -> None:
+@changes.command(
+    "register",
+    epilog=(
+        "Example: ci model change register CANDIDATE_ID --json\n\nDomain "
+        "contract: [domain reader](docs/design/D8-agent-and-query-interfac"
+        "es.md)"
+    ),
+)
+def register_native(
+    ctx: typer.Context,
+    candidate: Annotated[
+        str, typer.Argument(metavar="CANDIDATE", help="Managed candidate result ID.")
+    ],
+    json_: JsonOpt = False,
+) -> None:
     """Register the candidate's frozen Alembic revision in the selected checkout."""
     from corpus_structure.cli.managed import ResultError, result_store
     from corpus_structure.cli.recipes import checkout
@@ -1375,8 +1453,21 @@ def register_native(ctx: typer.Context, candidate: str, json_: JsonOpt = False) 
         )
 
 
-@changes.command("deploy")
-def deploy(ctx: typer.Context, candidate: str, json_: JsonOpt = False) -> None:
+@changes.command(
+    "deploy",
+    epilog=(
+        "Example: ci model change deploy CANDIDATE_ID --json\n\nDomain "
+        "contract: [domain reader](docs/design/D8-agent-and-query-interfac"
+        "es.md)"
+    ),
+)
+def deploy(
+    ctx: typer.Context,
+    candidate: Annotated[
+        str, typer.Argument(metavar="CANDIDATE", help="Managed candidate result ID.")
+    ],
+    json_: JsonOpt = False,
+) -> None:
     """Deploy a registered native candidate on its exact configured target."""
     from corpus_structure.cli.managed import ResultError, result_store
     from corpus_structure.cli.recipes import checkout
@@ -1443,6 +1534,7 @@ def deploy(ctx: typer.Context, candidate: str, json_: JsonOpt = False) -> None:
                 predecessor=binding.predecessor,
                 release=binding.release,
                 target_profile=binding.target_profile,
+                selection=current_selection(ctx, binding.target_profile),
                 acquired_target=result.manifest.operation_account.acquired_target
                 if result.manifest.operation_account is not None
                 else None,

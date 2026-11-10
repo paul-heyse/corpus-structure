@@ -869,42 +869,72 @@ def run_source_methods(
                                         published.logical_digest,
                                     )
 
-                                results = method.run(
-                                    units,
-                                    config.config,
-                                    MethodContext(
-                                        method_view,
-                                        scoped_reader,
-                                        method_settings,
-                                        logging.getLogger(method.name),
-                                        check_active=check_active,
-                                        retain_pdf_records=retain_pdf_records,
-                                        produce_pdf_records=produce_pdf_records,
-                                        retain_pdf_observation=retain_pdf_observation,
-                                    ),
+                                from corpus_structure.cli.observation_logging import (
+                                    bound,
+                                    event,
+                                    routes,
                                 )
-                                for task, result in zip(claimed, results, strict=True):
-                                    from corpus_structure.semantic.operations import (
-                                        prepare_unit_completion,
-                                    )
-                                    from corpus_structure.semantic.query import read_snapshot
 
-                                    with read_snapshot(engine) as preparation_conn:
-                                        intent = prepare_unit_completion(
-                                            preparation_conn,
-                                            task_id=task.task_id,
-                                            attempt=task.attempt,
-                                            holder=holder,
-                                            prepared=prepared,
-                                            result=result,
-                                            method=method,
-                                            configuration_hash=config.config_hash,
-                                            source=result.ref.unit_key or "run",
-                                            records=result.records,
+                                selected_task = claimed[0] if len(claimed) == 1 else None
+                                with (
+                                    routes(method.name),
+                                    bound(
+                                        method=method.name,
+                                        run_id=rid,
+                                        task_id=selected_task.task_id
+                                        if selected_task is not None
+                                        else None,
+                                        attempt=selected_task.attempt
+                                        if selected_task is not None
+                                        else None,
+                                    ),
+                                ):
+                                    event(
+                                        "method_started",
+                                        "Source method started",
+                                        selected_tasks=len(claimed),
+                                    )
+                                    results = method.run(
+                                        units,
+                                        config.config,
+                                        MethodContext(
+                                            method_view,
+                                            scoped_reader,
+                                            method_settings,
+                                            logging.getLogger(method.name),
+                                            check_active=check_active,
+                                            retain_pdf_records=retain_pdf_records,
+                                            produce_pdf_records=produce_pdf_records,
+                                            retain_pdf_observation=retain_pdf_observation,
+                                        ),
+                                    )
+                                    for task, result in zip(claimed, results, strict=True):
+                                        from corpus_structure.semantic.operations import (
+                                            prepare_unit_completion,
                                         )
-                                    check_active.settle(task, intent.apply)
-                                    if result.error is not None:
-                                        raise OperationConflict(result.error)
+                                        from corpus_structure.semantic.query import read_snapshot
+
+                                        with read_snapshot(engine) as preparation_conn:
+                                            intent = prepare_unit_completion(
+                                                preparation_conn,
+                                                task_id=task.task_id,
+                                                attempt=task.attempt,
+                                                holder=holder,
+                                                prepared=prepared,
+                                                result=result,
+                                                method=method,
+                                                configuration_hash=config.config_hash,
+                                                source=result.ref.unit_key or "run",
+                                                records=result.records,
+                                            )
+                                        check_active.settle(task, intent.apply)
+                                        if result.error is not None:
+                                            raise OperationConflict(result.error)
+                                    event(
+                                        "method_finished",
+                                        "Source method finished",
+                                        selected_tasks=len(claimed),
+                                    )
         finally:
             import sys
 

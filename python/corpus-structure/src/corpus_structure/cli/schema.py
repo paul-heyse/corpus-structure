@@ -9,9 +9,32 @@ import typer
 from pydantic import BaseModel
 from rich.table import Table
 
+from corpus_structure.cli.declarations import (
+    ContractInput,
+    ContractKindOption,
+    ContractLimit,
+    ContractViewOption,
+    CorrectionBytes,
+    CorrectionDepth,
+    CorrectionDetail,
+    CorrectionErrors,
+    DependencyAfter,
+    DependencyDetail,
+    DependencyFamily,
+    DependencyLimit,
+    DependencyOccurrence,
+    DependencyOutput,
+    DiagnosticBytes,
+    Domain,
+    Domains,
+    RawEvidence,
+    RetainDiagnostics,
+    ValidationPurposeOption,
+)
 from corpus_structure.cli.failures import failure_boundary
 from corpus_structure.cli.managed import OperationAccount
 from corpus_structure.cli.output import JsonOpt, diagnostic, emit
+from corpus_structure.cli.target import ConfiguredSelection, current_selection, selection_summary
 from corpus_structure.semantic.storage_target import StorageTarget
 
 if TYPE_CHECKING:
@@ -62,36 +85,89 @@ def _render(result):
     return table
 
 
-@schema_app.command("compile")
+@schema_app.command(
+    "compile",
+    epilog=(
+        "Example: ci schema compile --domain statistics "
+        "--correction-detail --json\n\nDomain contract: [domain "
+        "reader](docs/design/D2-schema-and-guidelines.md)"
+    ),
+)
 def compile_(
     ctx: typer.Context,
-    domain: Annotated[list[str] | None, typer.Option("--domain")] = None,
-    domains: Annotated[Path, typer.Option("--domains")] = Path("domains"),
-    out: Annotated[Path | None, typer.Option("--out")] = None,
+    domain: Domain = None,
+    domains: Domains = Path("domains"),
+    out: Annotated[
+        Path | None,
+        typer.Option("--out", help="Artifact output directory.", rich_help_panel="Delivery"),
+    ] = None,
     json_: JsonOpt = False,
-    retain_diagnostics: bool = False,
-    correction_detail: bool = False,
-    raw_evidence: bool = False,
-    max_errors: int = 100,
-    max_depth: int = 8,
-    max_bytes: int = 262144,
-    dependency_detail: bool = False,
-    dependency_family: str | None = None,
-    dependency_output: str | None = None,
-    dependency_occurrence: str | None = None,
-    dependency_after: int = 0,
-    dependency_limit: int = 100,
+    retain_diagnostics: RetainDiagnostics = False,
+    correction_detail: CorrectionDetail = False,
+    raw_evidence: RawEvidence = False,
+    max_errors: CorrectionErrors = 100,
+    max_depth: CorrectionDepth = 8,
+    max_bytes: CorrectionBytes = 262144,
+    dependency_detail: DependencyDetail = False,
+    dependency_family: DependencyFamily = None,
+    dependency_output: DependencyOutput = None,
+    dependency_occurrence: DependencyOccurrence = None,
+    dependency_after: DependencyAfter = 0,
+    dependency_limit: DependencyLimit = 100,
+):
+    """Prepare composed packs and optionally write artifacts; never admit or select a release."""
+    _compile_packs(
+        ctx,
+        domain,
+        domains,
+        out,
+        json_,
+        action="schema.compile",
+        retain_diagnostics=retain_diagnostics,
+        correction_detail=correction_detail,
+        raw_evidence=raw_evidence,
+        max_errors=max_errors,
+        max_depth=max_depth,
+        max_bytes=max_bytes,
+        dependency_detail=dependency_detail,
+        dependency_family=dependency_family,
+        dependency_output=dependency_output,
+        dependency_occurrence=dependency_occurrence,
+        dependency_after=dependency_after,
+        dependency_limit=dependency_limit,
+    )
+
+
+def _compile_packs(
+    ctx,
+    domain,
+    domains,
+    out,
+    json_,
+    *,
+    action,
+    retain_diagnostics,
+    correction_detail,
+    raw_evidence,
+    max_errors,
+    max_depth,
+    max_bytes,
+    dependency_detail,
+    dependency_family,
+    dependency_output,
+    dependency_occurrence,
+    dependency_after,
+    dependency_limit,
 ):
     from corpus_structure.semantic.operation_reporting import projection_validation_report
-    from corpus_structure.semantic.refusals import SemanticRefusal
-    from corpus_structure.semantic.regeneration import prepare_packs
+    from corpus_structure.semantic.regeneration import acquire_packs, prepare_release
 
     domain = domain or ["statistics"]
     from corpus_structure.cli.diagnostic_artifacts import diagnostic_scope, publish_diagnostic
 
     with diagnostic_scope(
         ctx,
-        action="schema.compile",
+        action=action,
         json=json_,
         retain=retain_diagnostics,
         detail=correction_detail,
@@ -100,10 +176,10 @@ def compile_(
         max_depth=max_depth,
         max_bytes=max_bytes,
     ) as (failure, invocation):
-        if any(Path(name).name != name for name in domain):
-            raise SemanticRefusal("domain must name a pack under --domains")
-        bundle, _deps, _profile, prepared = prepare_packs(tuple(domains / name for name in domain))
-        failure.bind(prepared, "schema_compile")
+        bundle, _deps, _profile = acquire_packs(tuple(domains / name for name in domain))
+        failure.sources = bundle.sources
+        prepared = prepare_release(bundle, _deps, _profile)
+        failure.bind(prepared, action.replace(".", "_"))
         validation_model = projection_validation_report(
             prepared,
             detail=correction_detail,
@@ -118,7 +194,13 @@ def compile_(
             dependency_limit=dependency_limit,
         )
         if invocation is not None:
-            validation_model = publish_diagnostic(invocation, validation_model)
+            validation_model = publish_diagnostic(
+                invocation,
+                validation_model,
+                prepared=prepared,
+                sources=bundle.sources,
+                raw_evidence=raw_evidence,
+            )
         validation = validation_model.model_dump(mode="json")
         if out is not None:
             out.mkdir(parents=True, exist_ok=True)
@@ -144,37 +226,48 @@ def compile_(
         )
 
 
-@schema_app.command("check")
+@schema_app.command(
+    "check",
+    epilog=(
+        "Example: ci schema check --domain statistics "
+        "--retain-diagnostics --json\n\nDomain contract: [domain "
+        "reader](docs/design/D2-schema-and-guidelines.md)"
+    ),
+)
 def check_(
     ctx: typer.Context,
-    domain: Annotated[list[str] | None, typer.Option("--domain")] = None,
-    release: Annotated[str | None, typer.Option("--release")] = None,
-    domains: Annotated[Path, typer.Option("--domains")] = Path("domains"),
+    domain: Domain = None,
+    release: Annotated[
+        str | None,
+        typer.Option("--release", help="Archived semantic release ID.", rich_help_panel="Inputs"),
+    ] = None,
+    domains: Domains = Path("domains"),
     json_: JsonOpt = False,
-    retain_diagnostics: bool = False,
-    correction_detail: bool = False,
-    raw_evidence: bool = False,
-    max_errors: int = 100,
-    max_depth: int = 8,
-    max_bytes: int = 262144,
-    dependency_detail: bool = False,
-    dependency_family: str | None = None,
-    dependency_output: str | None = None,
-    dependency_occurrence: str | None = None,
-    dependency_after: int = 0,
-    dependency_limit: int = 100,
+    retain_diagnostics: RetainDiagnostics = False,
+    correction_detail: CorrectionDetail = False,
+    raw_evidence: RawEvidence = False,
+    max_errors: CorrectionErrors = 100,
+    max_depth: CorrectionDepth = 8,
+    max_bytes: CorrectionBytes = 262144,
+    dependency_detail: DependencyDetail = False,
+    dependency_family: DependencyFamily = None,
+    dependency_output: DependencyOutput = None,
+    dependency_occurrence: DependencyOccurrence = None,
+    dependency_after: DependencyAfter = 0,
+    dependency_limit: DependencyLimit = 100,
 ):
     """Check candidate packs or fully verify an archived release without changing it."""
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.refusals import SemanticRefusal
 
     if release is None:
-        return compile_(
+        return _compile_packs(
             ctx,
             domain or ["statistics"],
             domains,
             None,
             json_,
+            action="schema.check",
             retain_diagnostics=retain_diagnostics,
             correction_detail=correction_detail,
             raw_evidence=raw_evidence,
@@ -241,11 +334,20 @@ def check_(
         )
 
 
-@schema_app.command("derive")
+@schema_app.command(
+    "derive",
+    epilog=(
+        "Example: ci schema derive --domain statistics --out "
+        "build/derived-model --json\n\nDomain contract: [domain "
+        "reader](docs/design/D2-schema-and-guidelines.md)"
+    ),
+)
 def derive_(
-    out: Annotated[Path, typer.Option("--out")],
-    domain: Annotated[list[str] | None, typer.Option("--domain")] = None,
-    domains: Annotated[Path, typer.Option("--domains")] = Path("domains"),
+    out: Annotated[
+        Path, typer.Option("--out", help="Artifact output directory.", rich_help_panel="Delivery")
+    ],
+    domain: Domain = None,
+    domains: Domains = Path("domains"),
     json_: JsonOpt = False,
 ):
     """Export composed model artifacts; use native-candidate for native authoring."""
@@ -256,8 +358,6 @@ def derive_(
         if out.exists():
             raise SemanticRefusal("derivation requires a new --out directory")
         selected = domain or ["statistics"]
-        if any(Path(name).name != name for name in selected):
-            raise SemanticRefusal("domain must name a pack under --domains")
         bundle, _deps, _profile, prepared = prepare_packs(
             tuple(domains / name for name in selected)
         )
@@ -291,6 +391,7 @@ class NativeCandidateResult(BaseModel):
     products: list[ArtifactRow]
     result_id: str | None = None
     acquired_target: StorageTarget | None = None
+    selection: ConfiguredSelection | None = None
     operation_account: OperationAccount | None = None
 
 
@@ -298,6 +399,8 @@ def _render_native_candidate(result):
     table = Table("field", "value", title="native candidate")
     for key in ("database", "predecessor", "output", "native_operations", "ordinary_operations"):
         table.add_row(key, str(getattr(result, key)))
+    table.add_row("current configuration", selection_summary(result.selection))
+    table.add_row("acquired target", str(result.acquired_target or "unavailable"))
     return table
 
 
@@ -489,10 +592,20 @@ def publish_native_candidate(result, report: NativeCandidateResult, products: di
     return report.model_copy(update={"output": str(directory), "result_id": result.id})
 
 
-@schema_app.command("native-candidate")
+@schema_app.command(
+    "native-candidate",
+    epilog=(
+        "Example: ci schema native-candidate --out build/native-candidate "
+        "--json\n\nDomain contract: [domain "
+        "reader](docs/design/D2-schema-and-guidelines.md)"
+    ),
+)
 def native_candidate_(
     ctx: typer.Context,
-    out: Annotated[Path | None, typer.Option("--out")] = None,
+    out: Annotated[
+        Path | None,
+        typer.Option("--out", help="Artifact output directory.", rich_help_panel="Delivery"),
+    ] = None,
     authoring_database: Annotated[
         str | None,
         typer.Option(
@@ -500,10 +613,27 @@ def native_candidate_(
             help="Rollback-only authoring database; defaults to the configured target.",
         ),
     ] = None,
-    predecessor_state: Annotated[Path | None, typer.Option("--predecessor-state")] = None,
+    predecessor_state: Annotated[
+        Path | None,
+        typer.Option(
+            "--predecessor-state",
+            exists=True,
+            dir_okay=False,
+            readable=True,
+            help="Prior native state declaration JSON.",
+            rich_help_panel="Inputs",
+        ),
+    ] = None,
     intent: Annotated[
         Path | None, typer.Option(help="YAML retirement and recreation declaration.")
     ] = None,
+    observations: Annotated[
+        bool,
+        typer.Option(
+            "--observations/--no-observations",
+            help="Retain safe structured native-authoring observations.",
+        ),
+    ] = False,
     json_: JsonOpt = False,
 ):
     """Compare/render a managed native candidate with rollback-only maintenance authority."""
@@ -531,7 +661,7 @@ def native_candidate_(
         if out is not None and out.exists():
             raise SemanticRefusal("native authoring delivery requires a new directory")
         store = result_store(ctx)
-        with store.operation("schema.native-candidate") as result:
+        with store.operation("schema.native-candidate", observations=observations) as result:
             model_stage(result, "resolve native authoring intent")
             requested = (
                 NativeIntent()
@@ -549,6 +679,7 @@ def native_candidate_(
             )
             model_stage(result, "publish native candidate")
             report = publish_native_candidate(result, report, products)
+            report = report.model_copy(update={"selection": current_selection(ctx, "development")})
             result.settle(predecessor=report.predecessor, target=report.database)
         if out is not None:
             out.parent.mkdir(parents=True, exist_ok=True)
@@ -557,18 +688,37 @@ def native_candidate_(
         emit(report, json=json_, render=_render_native_candidate)
 
 
-@schema_app.command("explain-operation")
+@schema_app.command(
+    "explain-operation",
+    epilog=(
+        "Example: ci schema explain-operation OPERATION --release RELEASE "
+        "--dependency-detail --json\n\nDomain contract: [domain "
+        "reader](docs/design/D2-schema-and-guidelines.md)"
+    ),
+)
 def explain_operation_(
     ctx: typer.Context,
-    operation: str,
-    release: Annotated[str, typer.Option("--release")],
-    subject: Annotated[Path | None, typer.Option("--subject")] = None,
-    dependency_detail: bool = False,
-    dependency_family: str | None = None,
-    dependency_output: str | None = None,
-    dependency_occurrence: str | None = None,
-    dependency_after: int = 0,
-    dependency_limit: int = 100,
+    operation: Annotated[
+        str, typer.Argument(metavar="OPERATION", help="Declared operation identifier.")
+    ],
+    release: Annotated[
+        str,
+        typer.Option("--release", help="Archived semantic release ID.", rich_help_panel="Inputs"),
+    ],
+    subject: Annotated[
+        Path | None,
+        typer.Option(
+            "--subject",
+            help="JSON file containing the operation subject.",
+            rich_help_panel="Inputs",
+        ),
+    ] = None,
+    dependency_detail: DependencyDetail = False,
+    dependency_family: DependencyFamily = None,
+    dependency_output: DependencyOutput = None,
+    dependency_occurrence: DependencyOccurrence = None,
+    dependency_after: DependencyAfter = 0,
+    dependency_limit: DependencyLimit = 100,
     json_: JsonOpt = False,
 ):
     """Explain a declared operation; an observation never authorizes later effects."""
@@ -612,23 +762,48 @@ def explain_operation_(
         emit(report, json=json_)
 
 
-@schema_app.command("diff")
+@schema_app.command(
+    "diff",
+    epilog=(
+        "Example: ci schema diff BEFORE_RELEASE AFTER_RELEASE "
+        "--dependency-detail --json\n\nDomain contract: [domain "
+        "reader](docs/design/D2-schema-and-guidelines.md)"
+    ),
+)
 def diff_(
     ctx: typer.Context,
-    before: str,
-    after: str,
-    source_run_id: int | None = None,
-    review_run_id: int | None = None,
-    review_cut_id: int | None = None,
-    use_limit: int = 100,
-    use_after: str | None = None,
-    use_side: str = "before",
-    dependency_detail: bool = False,
-    dependency_family: str | None = None,
-    dependency_output: str | None = None,
-    dependency_occurrence: str | None = None,
-    dependency_after: int = 0,
-    dependency_limit: int = 100,
+    before: Annotated[str, typer.Argument(metavar="BEFORE", help="Before semantic release ID.")],
+    after: Annotated[str, typer.Argument(metavar="AFTER", help="After semantic release ID.")],
+    source_run_id: Annotated[
+        int | None,
+        typer.Option(
+            min=1,
+            help="Pinned source run for interpretation-use comparison.",
+            rich_help_panel="Inputs",
+        ),
+    ] = None,
+    review_run_id: Annotated[
+        int | None, typer.Option(min=1, help="Pinned private review run.", rich_help_panel="Inputs")
+    ] = None,
+    review_cut_id: Annotated[
+        int | None, typer.Option(min=1, help="Pinned review cut.", rich_help_panel="Inputs")
+    ] = None,
+    use_limit: Annotated[
+        int, typer.Option(min=1, max=1000, help="Maximum retained use entries.")
+    ] = 100,
+    use_after: Annotated[
+        str | None,
+        typer.Option(
+            help="Opaque continuation for retained interpretation uses.", rich_help_panel="Inputs"
+        ),
+    ] = None,
+    use_side: Literal["before", "after"] = "before",
+    dependency_detail: DependencyDetail = False,
+    dependency_family: DependencyFamily = None,
+    dependency_output: DependencyOutput = None,
+    dependency_occurrence: DependencyOccurrence = None,
+    dependency_after: DependencyAfter = 0,
+    dependency_limit: DependencyLimit = 100,
     json_: JsonOpt = False,
 ):
     """Explain declared semantic changes with unknown dependency coverage explicit."""
@@ -672,25 +847,49 @@ def register(app: typer.Typer):
     app.add_typer(schema_app, name="schema")
 
 
-@schema_app.command("inspect")
+@schema_app.command(
+    "inspect",
+    epilog=(
+        "Example: ci schema inspect --release RELEASE --subject-kind "
+        "operation --subject OPERATION --view detail --json\n\nDomain "
+        "contract: [domain reader](docs/design/D2-schema-and-guidelines.md"
+        ")"
+    ),
+)
 def inspect_contract_command(
     ctx: typer.Context,
-    release: Annotated[str, typer.Option("--release")],
-    subject_kind: Annotated[
-        Literal["class", "property", "operation"], typer.Option("--subject-kind")
+    release: Annotated[
+        str,
+        typer.Option("--release", help="Archived semantic release ID.", rich_help_panel="Inputs"),
     ],
-    subject: Annotated[str, typer.Option("--subject")],
-    property_: Annotated[str | None, typer.Option("--property")] = None,
-    view: Literal["summary", "detail"] = "summary",
-    after: str | None = None,
-    limit: Annotated[int, typer.Option(min=1, max=100)] = 20,
-    input_: Annotated[Path | None, typer.Option("--input")] = None,
-    validation_purpose: Literal["structural", "accepted"] | None = None,
-    correction_detail: bool = False,
-    raw_evidence: bool = False,
-    max_errors: int = 100,
-    max_depth: int = 8,
-    max_bytes: int = 262144,
+    subject_kind: ContractKindOption,
+    subject: Annotated[
+        str,
+        typer.Option("--subject", help="Released subject identifier.", rich_help_panel="Inputs"),
+    ],
+    property_: Annotated[
+        str | None,
+        typer.Option(
+            "--property",
+            help="Released property identifier for property inspection.",
+            rich_help_panel="Inputs",
+        ),
+    ] = None,
+    view: ContractViewOption = "summary",
+    after: Annotated[
+        str | None,
+        typer.Option(
+            help="Opaque cursor returned by the selected contract page.", rich_help_panel="Inputs"
+        ),
+    ] = None,
+    limit: ContractLimit = 20,
+    input_: ContractInput = None,
+    validation_purpose: ValidationPurposeOption = None,
+    correction_detail: CorrectionDetail = False,
+    raw_evidence: RawEvidence = False,
+    max_errors: CorrectionErrors = 100,
+    max_depth: CorrectionDepth = 8,
+    max_bytes: CorrectionBytes = 262144,
     json_: JsonOpt = False,
 ) -> None:
     """Inspect a selected archived contract; validate optional input without effects."""
@@ -733,23 +932,91 @@ def inspect_contract_command(
         emit(result, json=json_, render=render)
 
 
-@schema_app.command("diagnostic")
+@schema_app.command(
+    "diagnostic",
+    epilog=(
+        "Example: ci schema diagnostic RESULT_ID --json\n\nDomain contract: "
+        "[domain reader](docs/design/D2-schema-and-guidelines.md)"
+    ),
+)
 def inspect_diagnostic_command(
     ctx: typer.Context,
-    result_id: str,
-    raw_evidence: bool = False,
-    max_bytes: int = 8 * 1024 * 1024,
+    result_id: Annotated[
+        str, typer.Argument(metavar="RESULT_ID", help="Managed diagnostic result ID.")
+    ],
+    raw_evidence: RawEvidence = False,
+    max_bytes: DiagnosticBytes = 8 * 1024 * 1024,
+    view: Annotated[
+        Literal["summary", "correction", "document"] | None,
+        typer.Option(help="Default: correction for human output; original document for JSON."),
+    ] = None,
+    max_errors: CorrectionErrors = 100,
+    max_depth: CorrectionDepth = 8,
+    projection_bytes: Annotated[
+        int,
+        typer.Option(
+            min=1024,
+            max=1048576,
+            help="Selected summary/correction byte budget; separate from retained read bytes.",
+        ),
+    ] = 262144,
+    source: Annotated[
+        str | None,
+        typer.Option(
+            help="Exact retained source module; requires correction view and raw collection."
+        ),
+    ] = None,
+    source_line: Annotated[
+        int,
+        typer.Option(
+            min=1, help="Actual starting source line, never inferred from a logical path."
+        ),
+    ] = 1,
+    source_lines: Annotated[int, typer.Option(min=1, max=100)] = 20,
+    source_bytes: Annotated[int, typer.Option(min=1024, max=65536)] = 16384,
     json_: JsonOpt = False,
 ):
     """Read retained correction evidence under its original immutable binding."""
     import json
 
+    from corpus_structure.cli.correction_rendering import render_correction
     from corpus_structure.cli.diagnostic_artifacts import read_diagnostic
-    from corpus_structure.cli.managed import result_boundary, result_store
-    from corpus_structure.cli.output import write_report_text
+    from corpus_structure.cli.managed import ResultError, result_boundary, result_store
+    from corpus_structure.cli.output import stdout_console, write_report_text
+    from corpus_structure.semantic.diagnostic_selection import select_diagnostic
 
+    selected_view = view or ("document" if json_ else "correction")
+    if source is not None and selected_view != "correction":
+        raise typer.BadParameter("--source requires --view correction")
     with result_boundary(json_):
-        document = read_diagnostic(
-            result_store(ctx), result_id, raw_evidence=raw_evidence, max_bytes=max_bytes
-        )
-        write_report_text(json.dumps(document, indent=None if json_ else 2) + "\n")
+        store = result_store(ctx)
+        with store.lease(result_id):
+            document = read_diagnostic(
+                store, result_id, raw_evidence=raw_evidence, max_bytes=max_bytes
+            )
+            manifest = store.show(result_id)
+            try:
+                selected = select_diagnostic(
+                    document,
+                    selected_view,
+                    result_id=result_id,
+                    invocation={
+                        "id": result_id,
+                        "action": manifest.action,
+                        "outcome": manifest.outcome,
+                    },
+                    max_errors=max_errors,
+                    max_depth=max_depth,
+                    max_bytes=projection_bytes,
+                    source=source,
+                    raw_evidence=raw_evidence,
+                    source_line=source_line,
+                    source_lines=source_lines,
+                    source_bytes=source_bytes,
+                )
+            except ValueError as error:
+                raise ResultError(str(error)) from error
+        if json_ or selected_view == "document":
+            write_report_text(json.dumps(selected, indent=None if json_ else 2) + "\n")
+        else:
+            stdout_console().print(render_correction(selected))

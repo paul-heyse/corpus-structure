@@ -598,3 +598,95 @@ def test_candidate_authored_capture_preserves_preview_before_source_and_refuses_
     )
     model._retain_authored_sql(holder, unchanged_sibling, preserve=True)
     assert not holder[0].changes
+
+
+@pytest.mark.parametrize("view", ["effects", "patch"])
+@pytest.mark.parametrize("configured", [False, True])
+def test_archived_deployment_selection_serializes_current_availability(
+    model_results, view, configured
+):
+    from corpus_structure.cli.output import CliState
+    from corpus_structure.semantic.storage_target import StorageTarget
+    from corpus_structure.settings import Settings
+
+    identity = StorageTarget(
+        database="historical",
+        database_oid=42,
+        system_identifier="1",
+        host="old-socket",
+        port=5434,
+        purpose="read",
+    )
+    preview = _preview().model_copy(
+        update={"target_profile": "deployment", "target_identity": identity}
+    )
+    id_, _ = _publish(model_results, "model.preview", "preview", preview.model_dump_json().encode())
+    selected = Settings(
+        deployment={"url": "postgresql://user:private@localhost/current"} if configured else None
+    )
+    result = CliRunner().invoke(
+        app,
+        ["model", "change", "inspect", id_, "--view", view, "--json"],
+        obj=CliState(settings_factory=lambda: selected),
+    )
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.stdout)
+    assert report["acquired_target"] == identity.model_dump(mode="json")
+    selection = report["selection"]
+    assert selection["profile"] == "deployment" and selection["observed_binding"] is None
+    assert selection["standing"] == (
+        "configured_unobserved" if configured else "configuration_unavailable"
+    )
+    if not configured:
+        assert selection["reason"] == "current deployment profile is not configured"
+        assert selection["resources"] == {}
+    assert "private" not in result.stdout
+    human = CliRunner().invoke(
+        app,
+        ["model", "change", "inspect", id_, "--view", view],
+        obj=CliState(settings_factory=lambda: selected),
+    )
+    assert human.exit_code == 0, human.output
+    assert "Current configuration" in human.stdout
+
+
+def test_candidate_summary_retains_historical_identity_without_current_deployment(model_results):
+    from corpus_structure.cli.output import CliState
+    from corpus_structure.semantic.storage_target import StorageTarget
+    from corpus_structure.settings import Settings
+
+    identity = StorageTarget(
+        database="historical",
+        database_oid=42,
+        system_identifier="1",
+        host="old-socket",
+        port=5434,
+        purpose="maintenance",
+    )
+    binding = Candidate(
+        workspace="/bound",
+        model_revision="model",
+        generator="generator",
+        revision=None,
+        predecessor=None,
+        target="bound",
+        target_profile="deployment",
+        target_identity=identity,
+        release="release",
+        packs=(),
+        files={},
+        hashes={},
+    )
+    id_, _ = _publish(
+        model_results, "model.candidate", "deployment", binding.model_dump_json().encode()
+    )
+    result = CliRunner().invoke(
+        app,
+        ["model", "change", "inspect-candidate", id_, "--json"],
+        obj=CliState(settings_factory=lambda: Settings(deployment=None)),
+    )
+    assert result.exit_code == 0, result.output
+    body = json.loads(result.stdout)
+    assert body["acquired_target"] == identity.model_dump(mode="json")
+    assert body["selection"]["standing"] == "configuration_unavailable"
+    assert body["selection"]["reason"] == "current deployment profile is not configured"

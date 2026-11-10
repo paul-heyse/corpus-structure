@@ -76,7 +76,10 @@ share lifetime; no process-global Console or generic render registry is selected
 
 Pure presenters accept decoded retained typed selections. Reopening old data uses its declared
 supported decoder; incompatible/corrupt/expired evidence becomes unavailable without recompilation,
-validation or provider execution. Filters/views cannot recover observations omitted at collection.
+validation or provider execution. Elapsed managed expiry blocks new dependency acquisition and
+makes unheld data eligible for collection; existing retained reads remain available until the owner
+actually retires that custody. Test unavailable expired data after authorized collection rather
+than introducing immediate read revocation. Filters/views cannot recover observations omitted at collection.
 Pin binding/outcome/coverage once and carry them into every representation. Use the same selection
 for immediate/retained text/JSON; do not rerun per-field validation to enrich display.
 

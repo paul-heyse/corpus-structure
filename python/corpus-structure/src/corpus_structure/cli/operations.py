@@ -6,9 +6,11 @@ import json as jsonlib
 import os
 import sys
 import tempfile
+from collections.abc import Generator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 
 import typer
 from pydantic import BaseModel
@@ -26,6 +28,7 @@ from corpus_structure.cli.output import (
     state,
     write_report_text,
 )
+from corpus_structure.cli.recipe_output import RecipeOutputReference, retain_output
 from corpus_structure.cli.recipes import (
     RecipeCancellation,
     RecipeStep,
@@ -34,6 +37,7 @@ from corpus_structure.cli.recipes import (
     run_recipe,
     run_recipe_steps,
 )
+from corpus_structure.cli.target import ConfiguredSelection, configured_selection
 from corpus_structure.settings import DeploymentProfile, SettingsReport
 
 context_app = typer.Typer(help="Inspect invocation context.")
@@ -62,21 +66,26 @@ class ContextReport(BaseModel):
     interpreter: str
     python_version: str
     target: DeploymentProfile
+    selection: ConfiguredSelection
     observed_binding: None = None
 
 
 class RecipeReport(BaseModel):
+    invocation_id: str | None = None
     recipe: str
     exit_code: int
     output: str
     diagnostic: str
+    retained_output: RecipeOutputReference | None = None
 
 
 class RecipeStepsReport(BaseModel):
+    invocation_id: str | None = None
     recipe: str
     exit_code: int
     steps: tuple[RecipeStep, ...]
     excerpts: tuple[StepExcerpt, ...]
+    retained_output: RecipeOutputReference | None = None
 
 
 def _render_steps(report: RecipeStepsReport) -> Group:
@@ -102,20 +111,81 @@ def _render_steps(report: RecipeStepsReport) -> Group:
         parts.append(Text("Step outcomes unavailable"))
     for excerpt in report.excerpts:
         suffix = " (truncated)" if excerpt.truncated else ""
-        parts.extend((Text(f"{excerpt.step} {excerpt.stream}{suffix}"), Text(excerpt.text)))
+        basis = (
+            "retained safe output"
+            if excerpt.basis == "retained_safe_output"
+            else "selection unspecified"
+        )
+        parts.extend(
+            (Text(f"{excerpt.step} {excerpt.stream} · {basis}{suffix}"), Text(excerpt.text))
+        )
+    if report.retained_output is not None:
+        parts.append(
+            Text(
+                report.retained_output.read_command
+                or report.retained_output.reason
+                or "Recipe output unavailable"
+            )
+        )
     return Group(*parts)
 
 
+@contextmanager
+def _recipe_observations(name: str) -> Generator:
+    from typer.main import get_current_context
+
+    from corpus_structure.cli.managed import result_store
+
+    ctx = get_current_context(silent=True)
+    if ctx is None:
+        yield None
+        return
+    with result_store(cast(typer.Context, ctx)).operation(
+        "recipe." + name, observations=True
+    ) as invocation:
+        invocation.stage("recipe", recipe=name)
+        yield invocation
+
+
 def recipe_action(name: str, json: bool, *args: str, no_sync: bool = False) -> None:
-    with result_boundary(json):
+    with result_boundary(json), _recipe_observations(name) as invocation:
         env = {**os.environ, "UV_NO_SYNC": "1"} if no_sync else None
-        process = run_recipe(name, *args, env=env)
+        try:
+            process = run_recipe(name, *args, env=env)
+        except RecipeCancellation as error:
+            if invocation is not None:
+                invocation.defer_settlement()
+                invocation.settle("interrupted", exit_code=128 + error.signum)
+            diagnostic(str(error))
+            raise typer.Exit(128 + error.signum) from None
+        stdout, stderr = safe_text(process.stdout), safe_text(process.stderr)
+        retained = None
+        if invocation is not None:
+            retained = retain_output(
+                invocation,
+                name,
+                process.returncode,
+                stdout=stdout,
+                stderr=stderr,
+                stdout_source_bytes=len(process.stdout.encode("utf-8", errors="replace")),
+                stderr_source_bytes=len(process.stderr.encode("utf-8", errors="replace")),
+            )
+            invocation.settle(
+                "interrupted"
+                if process.returncode in (130, 143, -2, -15)
+                else "passed"
+                if process.returncode == 0
+                else "failed",
+                exit_code=process.returncode,
+            )
         emit(
             RecipeReport(
+                invocation_id=invocation.id if invocation is not None else None,
                 recipe=name,
                 exit_code=process.returncode,
-                output=safe_text(process.stdout)[-12000:],
-                diagnostic=safe_text(process.stderr)[-6000:],
+                output=stdout[-12000:],
+                diagnostic=stderr[-6000:],
+                retained_output=retained,
             ),
             json=json,
             exit_code=process.returncode,
@@ -151,6 +221,7 @@ def context_show(
                 interpreter=sys.executable,
                 python_version=sys.version,
                 target=target,
+                selection=configured_selection(ctx, configured, target, report=explanation),
             ),
             json=json,
         )
@@ -179,26 +250,74 @@ def check(
 ) -> None:
     """Run read-only repository checks and show which steps settled."""
     name = _CHECK_RECIPES[only] if only else "ci-check"
-    if json and view is None:
+    compact = json and view is None
+    if compact and only is not None:
         recipe_action(name, json)
         return
-    with result_boundary(json):
+    with result_boundary(json), _recipe_observations(name) as invocation:
         try:
             if only:
-                process, steps, excerpts = run_recipe_steps("ci-check-only", name)
+                process, steps, excerpts, captured = run_recipe_steps("ci-check-only", name)
             else:
-                process, steps, excerpts = run_recipe_steps(name)
+                process, steps, excerpts, captured = run_recipe_steps(name)
         except RecipeCancellation as error:
+            if invocation is not None:
+                invocation.defer_settlement()
+                invocation.settle("interrupted", exit_code=128 + error.signum)
             diagnostic(str(error))
             raise typer.Exit(128 + error.signum) from None
-        emit(
-            RecipeStepsReport(
-                recipe=name, exit_code=process.returncode, steps=steps, excerpts=excerpts
-            ),
-            json=json,
-            render=_render_steps,
-            exit_code=process.returncode,
-        )
+        retained = None
+        stdout, stderr = safe_text(process.stdout), safe_text(process.stderr)
+        if invocation is not None:
+            retained = retain_output(
+                invocation,
+                name,
+                process.returncode,
+                stdout=stdout,
+                stderr=stderr,
+                stdout_source_bytes=len(process.stdout.encode("utf-8", errors="replace")),
+                stderr_source_bytes=len(process.stderr.encode("utf-8", errors="replace")),
+                captured=captured,
+            )
+            for step in steps:
+                invocation.observe(
+                    "recipe_step", step.name, outcome=step.outcome, exit_code=step.exit_code
+                )
+            invocation.settle(
+                "interrupted"
+                if process.returncode in (130, 143, -2, -15)
+                else "passed"
+                if process.returncode == 0
+                else "failed",
+                exit_code=process.returncode,
+            )
+        if compact:
+            emit(
+                RecipeReport(
+                    invocation_id=invocation.id if invocation is not None else None,
+                    recipe=name,
+                    exit_code=process.returncode,
+                    output=stdout[-12000:],
+                    diagnostic=stderr[-6000:],
+                    retained_output=retained,
+                ),
+                json=True,
+                exit_code=process.returncode,
+            )
+        else:
+            emit(
+                RecipeStepsReport(
+                    invocation_id=invocation.id if invocation is not None else None,
+                    recipe=name,
+                    exit_code=process.returncode,
+                    steps=steps,
+                    excerpts=excerpts,
+                    retained_output=retained,
+                ),
+                json=json,
+                render=_render_steps,
+                exit_code=process.returncode,
+            )
         if process.returncode:
             raise typer.Exit(process.returncode)
 
@@ -216,6 +335,12 @@ def docs_check(json: JsonOpt = False) -> None:
 @docs_app.command("commands")
 def command_reference(
     ctx: typer.Context,
+    command: Annotated[
+        list[str] | None,
+        typer.Argument(
+            metavar="COMMAND", help="Exact command path; omit for the complete reference."
+        ),
+    ] = None,
     json: JsonOpt = False,
     stdout: Annotated[
         bool,
@@ -225,55 +350,24 @@ def command_reference(
     ] = False,
 ) -> None:
     """Generate the installed command reference for reading or managed retrieval."""
-    from corpus_structure.cli.managed import Delivery, ResultError
+    from corpus_structure.cli.managed import Delivery
 
     if stdout and json:
         raise typer.BadParameter("choose --stdout or --json", param_hint="--stdout")
+    from corpus_structure.cli.app import app
+    from corpus_structure.cli.reference import command_markdown
+
+    markdown = command_markdown(app, tuple(command or ()))
     if stdout:
         with result_boundary(False):
-            try:
-                process = run_recipe("ci-reference", verify_cancelled_group=True)
-            except RecipeCancellation as error:
-                diagnostic(str(error))
-                raise typer.Exit(128 + error.signum) from None
-            if process.returncode:
-                diagnostic(safe_text(process.stderr).strip()[-2000:])
-                raise typer.Exit(process.returncode)
-            write_report_text(process.stdout)
+            write_report_text(markdown)
         return
-    with result_boundary(json), result_store(ctx).operation("docs.commands") as result:
-        signal = None
-        process = None
-        try:
-            process = run_recipe("ci-reference", verify_cancelled_group=True)
-        except RecipeCancellation as error:
-            signal = error.signum
-            result.defer_settlement()
-        else:
-            if process.returncode in (130, 143):
-                signal = process.returncode - 128
-        if signal is not None:
-            next_action = (
-                "Inspect recipe process custody before retry"
-                if result.manifest.details.get("custody_unsettled")
-                else "ci docs commands"
-            )
-            result.settle("interrupted", signal=signal, next_action=next_action)
-            diagnostic(f"Reference generation interrupted · {next_action}")
-            if json:
-                write_report_text(
-                    jsonlib.dumps(
-                        {"error": {"code": "reference_interrupted", "invocation_id": result.id}}
-                    )
-                    + "\n",
-                    exit_code=128 + signal,
-                )
-            raise typer.Exit(128 + signal)
-        assert process is not None
-        if process.returncode:
-            raise ResultError(safe_text(process.stderr.strip())[-2000:])
+    with (
+        result_boundary(json),
+        result_store(ctx).operation("docs.commands", scope={"command": command or []}) as result,
+    ):
         artifact = result.directory / "commands.md"
-        artifact.write_text(process.stdout, encoding="utf-8")
+        artifact.write_text(markdown, encoding="utf-8")
         result.publish("commands", artifact)
         result.settle()
         emit(Delivery(id=result.id, path=artifact), json=json)
@@ -419,6 +513,7 @@ def release_check(
         generation: int | None
         target: DeploymentProfile
         acquired: StorageTarget
+        selection: ConfiguredSelection
 
     with result_boundary(json):
         selected, settings = select_target(ctx, target)
@@ -456,6 +551,7 @@ def release_check(
                     generation=generation,
                     target=selected,
                     acquired=acquired,
+                    selection=configured_selection(ctx, state(ctx).settings(), selected),
                 ),
                 json=json,
             )

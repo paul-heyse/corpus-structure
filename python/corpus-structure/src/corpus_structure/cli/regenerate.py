@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, JsonValue, RootModel
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 
@@ -18,6 +18,7 @@ from corpus_structure.semantic.refusals import SemanticRefusal
 
 class RegenerationReport(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
+    invocation_id: str | None = None
     project: str
     release_id: str
     source_realization_id: str
@@ -133,6 +134,8 @@ def regenerate(
     prepared: PreparedRelease | None = None
     source_id: str | None = None
     impact, advice = None, ()
+    from corpus_structure.cli.managed import result_store
+    from corpus_structure.cli.observation_logging import bound
     from corpus_structure.orchestrate.commands import CommandError
     from corpus_structure.orchestrate.project import ProjectError
     from corpus_structure.semantic.authored_sql import SQLAdmissionError
@@ -141,20 +144,27 @@ def regenerate(
     from corpus_structure.semantic.publication import PublicationConflict
     from corpus_structure.semantic.releases import ActivationConflict, ReleaseConflict
 
-    with failure_boundary(
-        json,
-        expected=(
-            CommandError,
-            ProjectError,
-            OperationConflict,
-            SQLAdmissionError,
-            DomainOperationRefused,
-            ExecutionAdmissionError,
-            PublicationConflict,
-            ActivationConflict,
-            ReleaseConflict,
-        ),
-    ) as failure:
+    with (
+        result_store(ctx).operation(
+            "run.resume" if resume_run is not None else "regenerate",
+            scope={"resume_run": resume_run},
+            observations=True,
+        ) as invocation,
+        failure_boundary(
+            json,
+            expected=(
+                CommandError,
+                ProjectError,
+                OperationConflict,
+                SQLAdmissionError,
+                DomainOperationRefused,
+                ExecutionAdmissionError,
+                PublicationConflict,
+                ActivationConflict,
+                ReleaseConflict,
+            ),
+        ) as failure,
+    ):
         settings = state(ctx).settings()
         project = project or settings.runtime.default_project
         if not automated and (select_result or activate):
@@ -196,6 +206,19 @@ def regenerate(
                     admit_release(prepared, connection=admission_conn)
         purpose = "read" if resume_run is not None and not automated else "write"
         with open_runtime_engine(settings, "ci-regenerate", purpose=purpose) as engine:
+            from corpus_structure.semantic.storage_target import acquired_target
+
+            try:
+                with engine.connect() as target_connection:
+                    target = acquired_target(target_connection, purpose=purpose)
+                invocation.manifest.details["observation_target"] = target.model_dump(mode="json")
+            except Exception as binding_error:
+                invocation.observe(
+                    "binding_unavailable",
+                    "Native inspection storage binding unavailable",
+                    reason=type(binding_error).__name__,
+                )
+            invocation.stage("native_run", project=project)
             if resume_run is not None:
                 from corpus_structure.semantic.visual_requests import resume_visual_observation
 
@@ -210,8 +233,19 @@ def regenerate(
                     activate_release=activate,
                 )
                 if visual is not None:
+                    invocation.bind_observations(run_id=resume_run, project=project)
+                    invocation.observe(
+                        "native_visual_resume",
+                        "Native visual resume returned",
+                        run_id=resume_run,
+                        status=visual.status,
+                    )
                     failed = visual.status == "failed"
-                    emit(visual, json=json, exit_code=int(failed))
+                    # CLI custody is a projection over the native result, never a native field.
+                    observed = RootModel[dict[str, JsonValue]](
+                        {**visual.model_dump(mode="json"), "invocation_id": invocation.id}
+                    )
+                    emit(observed, json=json, exit_code=int(failed))
                     if failed:
                         raise typer.Exit(1)
                     return
@@ -272,6 +306,10 @@ def regenerate(
                     failure.bind(prepared, "regenerate")
                     source_id = row["input_realization_id"]
             assert prepared is not None and source_id is not None
+            invocation.bind_observations(
+                run_id=run_id, project=project, release_id=prepared.release_id
+            )
+            invocation.stage("source_ready", run_id=run_id)
             # Report meaning changes from the retained selected release even when
             # the caller leaves the new result unselected. This grants no admission.
             with engine.connect() as conn:
@@ -294,6 +332,7 @@ def regenerate(
             if not automated:
                 emit(
                     RegenerationReport(
+                        invocation_id=invocation.id,
                         project=project,
                         release_id=prepared.release_id,
                         source_realization_id=source_id,
@@ -309,11 +348,16 @@ def regenerate(
                 return
             provider = None
             if completed is None and run_state != "consolidating":
-                with supervise_run(engine, run_id):
+                invocation.stage("provider", run_id=run_id)
+                with (
+                    bound(run_id=run_id, project=project, release_id=prepared.release_id),
+                    supervise_run(engine, run_id),
+                ):
                     extracted = extract_run(engine, settings, run_id)
                     provider = extracted.model_dump(mode="json") if extracted is not None else None
             output = completed or f"result:{project}:{run_id}"
             if completed is None:
+                invocation.stage("finalizing", run_id=run_id)
                 finalize_bound_run(engine, run_id, output, analytics=settings.analytics)
         generation = None
         if activate or select_result:
@@ -353,6 +397,7 @@ def regenerate(
                         )
         emit(
             RegenerationReport(
+                invocation_id=invocation.id,
                 project=project,
                 release_id=prepared.release_id,
                 source_realization_id=source_id,

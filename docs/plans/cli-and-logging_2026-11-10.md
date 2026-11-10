@@ -1,8 +1,8 @@
 # Agent CLI and diagnostic capability series
 
-**Status: Planned; CLD-00–10 not started · 2026-11-10.** This coordinator owns the combined
+**Status: Functional scope implemented; CLD-10 qualification/review in progress · 2026-11-10.** This coordinator owns the combined
 target, packages, source opportunity/investigation disposition and qualification. Supporting
-plans own design explanations, not duplicate execution state. Authoring changes documentation only.
+plans own design explanations, not duplicate execution state.
 
 ## Basis, selection and execution entry
 
@@ -51,7 +51,7 @@ Core3.3, heuristics1.0, code-intelligence1.4 and test-assessment1.2 are selected
 [standard.toml](../design_review/design_principles/standard.toml). FP-01/03/06 favor ordinary
 functions and operation-local state; FP-04/05 and CI-01/02/04/13 preserve attributed meaning,
 unknowns and pinned evidence; FP-07/A4 favors selected reads and preparation at useful lifetimes.
-No per-event manifest rewrite, whole-file rescan per page, repeated validation during replay,
+No per-event manifest rewrite, unbounded whole-file rescan, repeated validation during replay,
 global tracing service or framework per semantic distinction is intended. Benefits are Proposed
 and qualitative; no benchmark or numerical benefit obligation is created.
 
@@ -70,7 +70,19 @@ applicable audit route. Do not add recommendation/completion audits as routine s
 
 ## Execution queue
 
-All packages are **planned**. This table owns package state until replaced by dated receipts.
+CLD-00–09 are implemented at the selected boundaries. CLD-10 owns assembled qualification,
+final target review and handoff. Scoped passes below do not establish whole-series qualification.
+This table and the receipts below own package state.
+
+### Entry and operator testing decision · 2026-11-10
+
+Acquired clean `42d20a2ab`, completed DMC-17 and closed DMC-CA01–04 dispositions.
+Impact4/Validation5/Inspection3 and semantic22/readers14–22/execution28/boundary12/archive3
+are the execution foundation. Prior DMC qualification remains dated, not proof of CLD behavior.
+The operator explicitly excludes execution of the real Claude CLI provider journey. Validate its
+integration through controlled subprocesses, actual local stdio MCP and native receipt controls;
+all other applicable testing remains in scope. This is an unselected external-provider obligation,
+not a blocked or failed test. No activation or project selection is authorized by this series.
 
 | Package | Required input → delivered capability and completion boundary |
 | --- | --- |
@@ -100,6 +112,20 @@ independence does not remove file contention. Consumer migrations belong with ea
 | CLD-I02 | Qualify complete processor/sink/context lifetime against actual producer closure | structlog26.1 stdlib bridge selected; a focused configured-chain check is required only for unresolved ordering/lifetime behavior before CLD-06 acceptance |
 | CLD-I03 | Assess TTY/task display against captured-agent needs | Retain headless default; CLD-09 records whether a concrete multi-task terminal consumer warrants optional native Rich presentation |
 | CLD-I04 | Assess saved HTML/SVG against actual review/sharing consumer | Text/JSON replay selected; styled export conditional in CLD-09 with explicit custody/limits |
+
+### Conditional presentation decisions · 2026-11-10
+
+CLD-I03/09 retains headless stderr updates and typed final stdout. The selected consumer is Codex
+reading captured process output; no concrete multi-task terminal consumer requires redraws, a
+progress denominator or alternate display lifetime. Native Rich Group/Text/Table/Tree/Syntax
+remain useful for static selected views. Revisit optional Live/Progress when an actual terminal
+workflow needs simultaneous task display, with explicit stderr ownership and redirect flags off.
+
+CLD-I04/09 retains text/JSON replay. No named sharing consumer requires styled HTML/SVG, so
+recording every presentation or creating derivative artifacts would add custody without a current
+reader. Revisit for a concrete saved review/sharing workflow; choose width, byte/disclosure bounds
+and a linked derived invocation then. This completes these conditional decisions; it does not
+claim implementation or qualification of the selected text/JSON functionality.
 
 | Source | Scheduled disposition and closure evidence |
 | --- | --- |
@@ -135,13 +161,110 @@ open. Do not claim a mocked provider journey as passed. Use existing dedicated d
 where native behavior is relevant; do not create disposable databases merely for ordinary work.
 
 Required journeys: unfamiliar DMC command discovery/authoring; same-snapshot profile explanation;
-nested correction → authenticated source → recheck; grouped unexpected failure; interrupted real
-provider → attempt/receipt → correct action; normal and corrupt/expired replay; sequential and
+nested correction → authenticated source → recheck; grouped unexpected failure; controlled interrupted
+provider process → native attempt/receipt → correct action; normal and corrupt/expired replay; sequential and
 concurrent context isolation; JSON/MCP output with diagnostics and broken pipes. PTY checks apply
 when terminal behavior is selected. Independent expected fields challenge meaning, not the same
 validator on both sides. Expected usability benefits need no measurement campaign.
 
 Completion requires every selected package, consumer removal/migration and investigation disposition;
 applicable final qualification and assembled review; D8/D9/report owner updates and useful ci skill
-examples; and a current handoff. Plans/evidence are retained under repository policy. Until then
-this document describes Proposed work, not implementation or verified closure.
+examples; and a current handoff. Plans/evidence are retained under repository policy. Functional
+implementation and scoped evidence are recorded below; assembled qualification remains separate.
+Expected usability benefits remain Proposed and qualitative.
+
+## Execution receipts · 2026-11-10
+
+Entry consumed clean `42d20a2ab` and completed DMC-17. The scoped audit publication is
+`f25d427ed`; the [entry target review](../design_review/reviews/design_review_cli-and-logging-entry_2026-11-10.md)
+accepted the Proposed target with bounded sealed-read authentication. ADR-0078/D8 own the decision.
+All implementation findings below are corrected and independently source-reviewed. Scoped tests
+support their closure; final-source qualification remains CLD-10-owned.
+
+### Scoped acceptance
+
+These selections overlap and are not summed. Native cases predating subsequent owned-package
+changes retain their original runtime identity; the final campaign must cover assembled source.
+
+| Scope | Outcome and receipt | Applicability |
+| --- | --- | --- |
+| Native references/shared grammar/context | passed137 `98da0fa38ffd43cdba5a370164380845`; focused passed55 `d88f65442eca484fa5984ff9cee3af65` | Initial contribution; later integration supersedes source |
+| Observation pipeline/native controlled process | passed59 `f2e52a5318a342a4b8de8d8cc18173da` | Genuine fresh stdio MCP/native join; later safety/bounds refinements followed |
+| Correction/model/watch | passed166 `f93cb0a1572349949201dabbfb9345d2`; SHACL passed1 `7c4e0903de9b422f96fefc9d87a1f0d4` | Once-acquired failed compile→authenticated source→recheck, literal selection/replay, actual pySHACL path evidence, O03 fields and watch window |
+| Final support/native isolation | passed73 `8d982cba664848aea0d00ccde7392633` | Genuine simultaneous fresh stdio calls, readiness-controlled interruption, native visual CLI resume, output/cancellation; predates only compact-excerpt replacement |
+| Final safe excerpt/output/report delivery | passed43 `c256f0485e184ba1a27e5ea8351222cd` | Final production source; actual subprocess credential-boundary controls |
+| Final typing | passed `fa9288d87e4347978c6f9e19f4c77531` | `uv run ci check --only types --view steps --json` |
+| Final lint | passed `3d8db192decd4dcca4dd0cf3b8f939e5` | `uv run ci check --only lint --view steps --json` |
+
+Final43 command: `uv run ci test --json -- python/corpus-structure/tests/test_cli_recipe_output.py python/corpus-structure/tests/test_cli_recipe_reporting.py python/corpus-structure/tests/test_cli_report_delivery.py`.
+The final correction/native selections and original failures are retained by their managed IDs.
+Root `just turn-end` **passed**, with1036 Python files unchanged, before assembled qualification.
+
+| Finding | Disposition/owner | Correction and scoped closure evidence |
+| --- | --- | --- |
+| CLD-IR01 | Closed · CLD-04 | Historical deployment reads preserve acquired identity when current configuration is unavailable; final166 |
+| CLD-IR02 | Closed · CLD-04 | Actual preview/effects/patch/candidate contracts serialize current selection and presenters expose it; final166 |
+| CLD-IR03 | Closed · CLD-06 | Canonical direct-path severity preserves retained failure rows; observation/native and final166 controls |
+| CLD-IR04 | Closed · CLD-06 | Acquired run/task bindings reach active rows with scoped context restoration; native73 |
+| CLD-IR05 | Closed · CLD-05/06 | Thin typed native exception adapter bounds grouped traversal/frames and preserves original exceptions; observation and renderer controls |
+| CLD-IR06 | Closed · CLD-06 | Child descriptor/read failures become transfer-unavailable diagnostics without replacing provider outcomes; observation controls |
+| CLD-IR07 | Closed · CLD-06 | No-destination and concurrent routes preserve prior method warning behavior; final166/native73 |
+| CLD-IR08 | Closed · CLD-07/08 | Resume guidance carries safely quoted recorded project; final166 |
+| CLD-IR09 | Closed · CLD-07 | Whole joined response admission covers zero rows and preserves cursor before withheld sole row; final166 |
+| CLD-IR10 | Closed · CLD-08 | Watch declares latest-window basis, scan extents, sequence range and separate window/budget evictions; final166 |
+| CLD-IR11 | Closed · CLD-10 | Existing bounded step side channel supplies one authenticated recipe-output artifact and typed paged ID reads; native73/final43 and installed read below |
+| CLD-IR12 | Closed · CLD-05 | Optional MCP selector/renderer failure preserves original structured result; independent final166 controls |
+| CLD-IR13 | Closed · CLD-05 | Summary preserves distinct original operation/scope bindings with captured-only standing; final166 |
+| CLD-IR14 | Closed · CLD-06/07 | CLI visual resume adds wrapper ID beside unchanged native fields; actual once-only native CLI case in73 |
+| CLD-IR15 | Closed · CLD-10 | Complete protected-prefix selection handles quoted/env/OSC boundaries; compact excerpts derive from that same safe product with explicit basis; final43 |
+| CLD-IR16 | Closed · CLD-10 | Both recipe routes preserve130/143 and defer unresolved custody; native73/final43 |
+
+The compact-excerpt replacement intentionally retires raw8KiB tail collection and its second
+sanitizer. Oversized excerpts identify retained-safe selection and truncation rather than claiming
+the native end tail. Missing historical basis stays unspecified. No generic recovery, dependency
+or expiry policy changed. Elapsed expiry permits collection/blocks new dependency acquisition;
+read unavailability is tested after authorized retirement, not by inventing immediate revocation.
+
+### Preserved failures and replacements
+
+Original outcomes remain failed; later evidence replaces applicable identities, not their history.
+
+- Initial command fixture assumptions: `aebbe32d91f041e4a73dc267d93e6d23`; replaced by137/55 scopes.
+  Initial type reports were direct, without managed IDs, and are not claimed retained attempts.
+- Observation assumptions: `563682bc124041cc84f87914d1fda550` (34 passed/two failed), followed by59.
+  `f8476fd67d754b639f97cedf57c6fe46` (60 passed/one runtime-pin mismatch) still requires the
+  stable assembled-source default-status identity; concurrent mutation is a possible cause only.
+- Type iterations: `6caecbfeca204c5c8b1af2546a9573c2` (redundant pool exception catches),
+  `442aa24f7c7f47d38e3a9181d48d77da`, `3537bf4175ac4eb1bee4dfb691c458de` and
+  `d19365581e85419cb7a48af656fc6fbc` (new-test Optional reason guard); final typing above replaces them.
+- Correction/test iterations: `9f748e3f42364ccc95a9a82c4100b191`, `18cc2eccc9954d1c8e0a582e15e67f49`,
+  `be974c8ba3ab48f5a94d914bac772472` (162 passed/one expiry expectation); final166/SHACL replace them.
+  Lint `ca1c31317aef4164bbf339192935a2b7` retains its subsequently split long literal.
+- Native support setup: `d0a8e9503f5848d291e73b5686def770` (65 passed/two setup failures): a12-second
+  startup timeout before concurrent calls and a second resume of a terminal visual run. Native73
+  replaces these with readiness-controlled interruption and one actual CLI resume.
+
+Intermediate passing receipts `5e2bfd6c3a854c86b682e9cf6ad3f1c6` (160),
+`97506ad6c39a49dda1ec2dcb9ec0927b` (165), `9f6ea32dcde241adb3eeb40be9e64b9a`,
+`db0adb03d36b4f20869a44ac8003a540`, `891f8fc48edd40ff9a18b4646433f67e`,
+`61e4df63c3284c118ff583c42a4c053d`, `d8cb512fa43a4198b847776f1240f777`,
+`981d69123abc4e3aa31fe98c4238858f`, `9194b971c6b84b508bc49cc0e559f337`,
+`adcbdd18daf04c02b205f3b9f2b0f6ce`, `3e67f7b2d3b64b8a98eb7159d629b6f4` and
+`764913313ca54853a2c595399f344e88` retain their original scope/source, not assembled qualification.
+
+### Installed operational checks
+
+`uv run ci doctor --json` **passed** after the structlog addition and again after ci-skill updates
+(`25d5d66aa23c41479e929bbba1ff86ee`). `uv run ci docs commands schema check --stdout` **passed**.
+Installed sealed inspection of59's result **passed**, exposing separate authentication/examined
+extents and native unavailability for an invocation without a run binding.
+
+`uv run ci results output d19365581e85419cb7a48af656fc6fbc --step types --stream stdout --max-bytes 4096 --json`
+**passed**, delivering the original failure text/exit_code1 with source-byte accounting and digest
+authentication, without rerun/export. The earlier direct fallback
+`uv run pyrefly check --min-severity warn --summary=none` exposed IR11; it is not final qualification.
+
+### Assembled qualification
+
+**Pending.** No real Claude CLI provider was invoked. Its journey is operator-unselected;
+controlled process, actual local MCP/native and all other applicable testing remain required.

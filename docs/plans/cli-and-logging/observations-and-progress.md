@@ -41,6 +41,14 @@ shortening and incompatible reuse. A response includes observed/examined extents
 pending tail, collection omissions and running/unsealed/sealed standing. Live growth can continue
 after the cursor. Close producers, drain channels, close journal and record final length/digest
 before ordinary settlement; sealed replay pins that digest and uses authenticated settled access.
+Execution decision, 2026-11-10: verify the complete bounded sealed journal (at most8MiB) once per
+independent read operation before selecting its page; a held read/watch scope can reuse that
+authenticated input. Each new CLI process rechecks bytes. Inode identity alone is not content
+authentication. This bounded integrity work is preferred to another authenticated chunk/index
+scheme; live prefix reads remain unsealed and make no digest-authenticated content claim.
+Report authentication_bytes separately from examined page bytes. The64KiB record ceiling includes
+its newline, ensuring progress at the minimum examination budget. Complete corrupt rows stop that
+stream with explicit corruption rather than repeatedly polling an unchanged cursor.
 Do not rewrite the manifest on every row. If sealing fails, preserve native outcome and report
 diagnostic custody unavailable. A killed owner leaves partial unsealed observations and an unsettled
 workspace under existing protection; no automatic semantic recovery is inferred.
@@ -143,12 +151,26 @@ custom wrappers and remote telemetry remain retained with coordinator triggers.
 
 ## Acceptance and migration boundary
 
+Execution exposed a concrete report-read gap (CLD-IR11): compact check excerpts cannot supply
+earlier native diagnostics by result ID. Extend the existing bounded step side channel with safe
+stream payloads and exact collection/omission counters, retaining one versioned recipe-output
+artifact before settlement. A bounded typed `results output` read selects step/stream and a
+declared retained-text cursor without exporting files or rerunning checks. Default compact
+reports remain available. This is an additional consumer of existing managed custody, not a new
+log store. Interrupted/failed native checks keep their original outcome when output retention fails.
+Compact excerpts derive from the same already-safe retained selection. For oversized output this
+is explicitly an excerpt of the retained prefix, with truncation disclosed; it is not represented
+as the native end tail. Retire the separate raw-tail sanitizer, whose clipped multiline credentials
+could bypass complete-token redaction. Preserve compact bounds and useful complete-fit output.
+
 Exercise same-process concurrent producers, partial UTF-8/JSON rows, malformed complete rows,
 filtered examined-byte exhaustion, cursor replacement/shortening, sealed digest mismatch and
 retention overflow. Check safe nested secret-bearing foreign extras and grouped exceptions,
 sequential CLI/concurrent MCP isolation, interrupted child final draining, killed owner partial
-reads and replay with producer execution disabled. Include one actual interrupted-provider journey
-from managed identity through native run/attempt/receipt; a fixture alone cannot qualify that claim.
+reads and replay with producer execution disabled. The operator waived the real Claude CLI provider
+journey on2026-11-10. Use controlled interrupted subprocesses and actual local stdio MCP/native
+integration for identity/receipt behavior; do not label that evidence external-model execution.
+All other applicable tests remain in scope.
 
 Configured-chain/backend capture verifies processors and streams; capture_logs alone bypasses
 processors and is insufficient. Use independent expected identities/assurance and exact stream

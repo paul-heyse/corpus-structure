@@ -13,8 +13,9 @@ boundaries. Here `ci` is the installed project CLI. Hosted CI is a separate veri
 ## Choose the route
 
 - Use `uv run ci --help` or the relevant subcommand's `--help` when you need syntax. Use
-  `uv run ci docs commands --stdout` to read the full current reference directly. Use
-  `uv run ci docs commands --json` when a managed reference is needed.
+  `uv run ci docs commands --stdout` to read the full current reference directly, or
+  `uv run ci docs commands schema check --stdout` for one command's exact options,
+  bounds and examples. Use `uv run ci docs commands --json` when a managed reference is needed.
 - Use `uv run ci context show --json` to inspect resolved settings and their origins when the
   checkout, profile, or environment is in doubt. Use `uv run ci doctor` for tool prerequisites.
   Use `uv run ci setup` to synchronize an already prepared checkout when needed. For

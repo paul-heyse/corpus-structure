@@ -261,7 +261,7 @@ docs-check:
 
 # Derive the command reference from the installed registry.
 ci-reference:
-    @uv run typer --app app corpus_structure.cli.app utils docs --name ci
+    @uv run ci docs commands --stdout
 
 # Focused documentation/ADR regressions only
 docs-test:

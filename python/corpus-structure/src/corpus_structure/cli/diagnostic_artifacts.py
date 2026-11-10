@@ -6,6 +6,7 @@ import json
 import os
 from contextlib import contextmanager
 from hashlib import sha256
+from typing import Any
 
 from corpus_structure.semantic.identity import canonical_bytes
 
@@ -13,24 +14,114 @@ ROLE = "diagnostic-report"
 MAX_ARTIFACT_BYTES = 8 * 1024 * 1024
 
 
-def publish_diagnostic(invocation, report):
-    from corpus_structure.semantic.operation_reporting import _validation_presentation
-
-    data = report.model_dump(mode="json", exclude_none=True)
+def diagnostic_document(report, *, prepared=None, sources=(), raw_evidence=False) -> dict[str, Any]:
+    """Retain exact supplied inputs; current checkout files are never a substitute."""
+    data = (
+        report.model_dump(mode="json", exclude_none=True)
+        if hasattr(report, "model_dump")
+        else report
+    )
     evidence = data.get("evidence", {})
     members = []
     if evidence.get("content") is not None:
-        content = evidence["content"]
+        text = evidence["content"]
         members.append(
             dict(
                 name="engine",
                 media_type=evidence["media_type"],
                 sensitivity=evidence["sensitivity"],
-                content=content,
-                digest=sha256(content.encode()).hexdigest(),
+                content=text,
+                digest=sha256(text.encode()).hexdigest(),
             )
         )
     document = dict(version=1, report=data, members=members)
+    if not sources and prepared is None:
+        return document
+    expected = dict(json.loads(prepared.manifest)["sources"]) if prepared is not None else None
+    provenance = dict(
+        sources=[],
+        contributors=[],
+        contributors_status="unavailable",
+        source_binding="prepared_manifest" if prepared is not None else "acquired_input",
+    )
+    if prepared is not None:
+        metadata = prepared.inspection_metadata
+        provenance["contributors_status"] = metadata.get("status", "unavailable")
+        seen = set()
+        for item in metadata.get("classes", {}).values():
+            for owner in (item, *item.get("properties", {}).values()):
+                for row in owner.get("contributors", ()):
+                    selected = {
+                        key: row[key] for key in ("module", "path", "source_digest", "role")
+                    }
+                    identity = canonical_bytes(selected)
+                    if identity not in seen:
+                        provenance["contributors"].append(selected)
+                        seen.add(identity)
+    for index, source in enumerate(sources):
+        if expected is not None and expected.get(source.name) != source.digest:
+            raise ValueError("diagnostic source differs from prepared manifest")
+        record = dict(
+            module=source.name,
+            digest=source.digest,
+            availability="withheld",
+            reason="Raw source bytes were not requested at collection.",
+        )
+        if raw_evidence:
+            try:
+                text = source.content.decode("utf-8")
+            except UnicodeDecodeError:
+                record.update(availability="unavailable", reason="Source is not UTF-8 text.")
+            else:
+                member = dict(
+                    name=f"source:{index}",
+                    media_type="text/yaml",
+                    sensitivity="raw",
+                    content=text,
+                    digest=source.digest,
+                )
+                if (
+                    len(canonical_bytes(document)) + len(canonical_bytes(member))
+                    < MAX_ARTIFACT_BYTES - 65536
+                ):
+                    members.append(member)
+                    record.update(
+                        availability="available",
+                        reason="Exact acquired bytes retained.",
+                        member=member["name"],
+                    )
+                else:
+                    record.update(
+                        availability="omitted",
+                        reason="Source exceeds remaining custody byte budget.",
+                    )
+        provenance["sources"].append(record)
+    # Bound descriptive provenance independently; never shorten source identities.
+    if len(canonical_bytes(provenance)) > 32768:
+        provenance["contributors"] = []
+        provenance["contributors_status"] = "omitted"
+        provenance["reason"] = "Contributor detail exceeds custody metadata bound."
+    text = canonical_bytes(provenance).decode()
+    members.append(
+        dict(
+            name="provenance",
+            media_type="application/json",
+            sensitivity="safe",
+            content=text,
+            digest=sha256(text.encode()).hexdigest(),
+        )
+    )
+    return document
+
+
+def publish_diagnostic(invocation, report, *, prepared=None, sources=(), raw_evidence=False):
+    from corpus_structure.semantic.operation_reporting import _validation_presentation
+
+    document = diagnostic_document(
+        report, prepared=prepared, sources=sources, raw_evidence=raw_evidence
+    )
+    data = document["report"]
+    evidence = data.get("evidence", {})
     content = canonical_bytes(document)
     if len(content) > MAX_ARTIFACT_BYTES:
         raise ValueError("diagnostic artifact exceeds the custody byte limit")
@@ -80,12 +171,9 @@ def read_diagnostic(store, result_id, *, raw_evidence=False, max_bytes=MAX_ARTIF
             raise ResultError("diagnostic bytes exceed the limit or differ from retained digest")
         try:
             document = json.loads(content)
-            if (
-                type(document["version"]) is not int
-                or document["version"] != 1
-                or set(document) != {"version", "report", "members"}
-            ):
-                raise ValueError("unsupported diagnostic artifact")
+            from corpus_structure.semantic.diagnostic_selection import decode_diagnostic_document
+
+            decode_diagnostic_document(document)
             if (
                 document["report"].get("evidence", {}).get("sensitivity") == "raw"
                 and not raw_evidence
@@ -163,7 +251,11 @@ def diagnostic_scope(
                 if invocation is not None:
                     try:
                         failure.retained_validation = publish_diagnostic(
-                            invocation, failure.report(error)
+                            invocation,
+                            failure.report(error),
+                            prepared=failure.prepared,
+                            sources=failure.sources,
+                            raw_evidence=raw_evidence,
                         )
                         failure.retained_error = error
                     except Exception as publication_error:
@@ -172,8 +264,14 @@ def diagnostic_scope(
                             + type(publication_error).__name__
                             + ")."
                         )
-                        invocation.stage(
-                            "diagnostic-publication-failed",
-                            diagnostic_unavailable=type(publication_error).__name__,
-                        )
+                        try:
+                            invocation.stage(
+                                "diagnostic-publication-failed",
+                                diagnostic_unavailable=type(publication_error).__name__,
+                            )
+                        except Exception as stage_error:
+                            error.add_note(
+                                "Diagnostic failure stage unavailable: "
+                                + type(stage_error).__name__
+                            )
                 raise

@@ -11,17 +11,52 @@ from corpus_structure.cli.output import JsonOpt, emit, state
 app = typer.Typer(help="Compare explicitly pinned research inputs.", no_args_is_help=True)
 
 
-@app.command("compare-exclusions")
+@app.command(
+    "compare-exclusions",
+    epilog=(
+        "Example: ci research compare-exclusions --before-run 10 "
+        "--after-run 11 --json\n\nDomain contract: [domain "
+        "reader](docs/design/D8-agent-and-query-interfaces.md)"
+    ),
+)
 def compare_exclusions(
     ctx: typer.Context,
-    before_run: Annotated[int, typer.Option()],
-    after_run: Annotated[int, typer.Option()],
-    limit: int = 100,
-    max_rows: int = 1000,
-    max_bytes: int = 1024**2,
-    retain: bool = False,
+    before_run: Annotated[
+        int, typer.Option(help="Pinned source run ID.", rich_help_panel="Inputs")
+    ],
+    after_run: Annotated[int, typer.Option(help="Pinned source run ID.", rich_help_panel="Inputs")],
+    limit: Annotated[
+        int,
+        typer.Option(
+            min=1, max=1000, help="Maximum changed exclusion entries.", rich_help_panel="Delivery"
+        ),
+    ] = 100,
+    max_rows: Annotated[
+        int,
+        typer.Option(
+            min=1, max=10000, help="Maximum examined rows per input.", rich_help_panel="Inputs"
+        ),
+    ] = 1000,
+    max_bytes: Annotated[
+        int,
+        typer.Option(
+            min=1,
+            max=8 * 1024**2,
+            help="Byte bound for captures and response.",
+            rich_help_panel="Delivery",
+        ),
+    ] = 1024**2,
+    retain: Annotated[
+        bool,
+        typer.Option(
+            "--retain/--no-retain",
+            help="Publish the comparison in managed storage.",
+            rich_help_panel="Delivery",
+        ),
+    ] = False,
     json: JsonOpt = False,
 ):
+    """Compare exclusions in two pinned runs; optionally retain the bounded read result."""
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.cli.managed import result_store
     from corpus_structure.semantic.query import read_snapshot

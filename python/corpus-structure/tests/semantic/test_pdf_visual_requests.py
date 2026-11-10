@@ -683,21 +683,50 @@ def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
             ),
             {"id": claim.task_id},
         )
-    recovered = visual_requests.resume_visual_observation(
-        db.writer,
-        claim.run_id,
-        project="p",
-        receipts=args["receipts"],
-        nemotron_endpoint=None,
-        prepare_only=False,
-        select_result=False,
-        activate_release=False,
-    )
-    assert (
-        isinstance(recovered, visual_requests.VisualRequestResult)
-        and recovered.status == "source_ready"
-    )
-    assert recovered.run_id == claim.run_id
+    # The CLI adds only its observational identity to the already-owned native wire result.
+    from contextlib import contextmanager
+
+    from typer.testing import CliRunner
+
+    from corpus_structure.cli.app import app
+    from corpus_structure.cli.managed import ResultStore
+    from corpus_structure.cli.output import CliState
+    from corpus_structure.semantic import runtime
+    from corpus_structure.settings import Settings
+
+    native_resume = visual_requests.resume_visual_observation
+    returned = []
+
+    def observe_resume(*values, **options):
+        result = native_resume(*values, **options)
+        returned.append(result)
+        return result
+
+    @contextmanager
+    def visual_resume_engine(settings, application_name, *, purpose):
+        assert purpose == "write"
+        yield db.writer
+
+    results_root = tmp_path / "visual-cli-results"
+    cli_settings = Settings(ci_results=results_root, nemotron={"receipts": args["receipts"]})
+    with monkeypatch.context() as cli_environment:
+        cli_environment.setattr(runtime, "open_runtime_engine", visual_resume_engine)
+        cli_environment.setattr(visual_requests, "resume_visual_observation", observe_resume)
+        response = CliRunner().invoke(
+            app,
+            ["run", "resume", str(claim.run_id), "--project", "p", "--json"],
+            obj=CliState(settings_factory=lambda: cli_settings),
+        )
+    assert response.exit_code == 0, response.output
+    (recovered,) = returned
+    assert isinstance(recovered, visual_requests.VisualRequestResult)
+    assert recovered.status == "source_ready" and recovered.run_id == claim.run_id
+    wire = json.loads(response.stdout)
+    wrapper_id = wire.pop("invocation_id")
+    assert wire == recovered.model_dump(mode="json")
+    wrapper = ResultStore(results_root).show(wrapper_id)
+    assert wrapper.action == "run.resume" and wrapper.outcome == "passed"
+    assert wrapper.details["observation_bindings"] == {"run_id": claim.run_id, "project": "p"}
     assert recovered.raw is not None and recovered.raw.task_id == claim.task_id
     assert recovered.mapped is not None
     assert generation == ["first prompt", "changed prompt", "response before interruption"]

@@ -196,6 +196,35 @@ def test_cli_and_mcp_share_explicit_release_read_only_result(monkeypatch, cli):
             )
             assert not answer.is_error
             assert answer.structured_content == expected
+            detailed = await client.call_tool(
+                "inspect_contract",
+                dict(
+                    release=prepared.release_id,
+                    subject_kind="class",
+                    subject_id="Base",
+                    input_json='{"value":"private-input"}',
+                    validation_purpose="structural",
+                    correction_detail=True,
+                    max_errors=10,
+                    max_depth=4,
+                    max_bytes=16384,
+                ),
+            )
+            assert not detailed.is_error
+            structured = detailed.structured_content
+            assert structured is not None
+            assert structured["report_version"] == 3
+            nested = structured["validation_report"]
+            assert nested["report_version"] == 5
+            assert nested["validation_outcome"] == "nonconformant"
+            assert nested["presentation"]["max_errors"] == 10
+            assert nested["presentation"]["max_depth"] == 4
+            assert "private-input" not in str(structured)
+            assert any(
+                "Original-engine detail" in block.text
+                for block in detailed.content
+                if hasattr(block, "text")
+            )
 
     anyio.run(journey)
     assert purposes == ["read"]
@@ -254,3 +283,62 @@ def test_input_limit_counts_encoded_unicode_bytes():
         inspect_contract(
             release(), "class", "Base", input_json="λ" * 600_000, validation_purpose="structural"
         )
+
+
+@pytest.mark.parametrize("refusal", ["selection", "render"])
+def test_mcp_optional_presentation_failure_preserves_native_report(monkeypatch, refusal):
+    from contextlib import nullcontext
+
+    import anyio
+    from fastmcp import Client
+
+    from corpus_structure.intervene.semantic_server import build_semantic_server
+    from corpus_structure.semantic import query, releases, runtime
+
+    prepared = release()
+    monkeypatch.setattr(
+        runtime, "open_runtime_engine", lambda *args, **kwargs: nullcontext(object())
+    )
+    monkeypatch.setattr(query, "read_snapshot", lambda engine: nullcontext(object()))
+    monkeypatch.setattr(releases, "open_release", lambda *args: prepared)
+    expected = inspect_contract(
+        prepared,
+        "class",
+        "Base",
+        input_json='{"value":"bad"}',
+        validation_purpose="structural",
+        correction_detail=True,
+    ).model_dump(mode="json")
+
+    def fail(*args, **kwargs):
+        raise ValueError("optional presentation could not fit")
+
+    route = (
+        "corpus_structure.semantic.diagnostic_selection.select_diagnostic"
+        if refusal == "selection"
+        else "corpus_structure.cli.correction_rendering.correction_text"
+    )
+    monkeypatch.setattr(route, fail)
+
+    async def journey():
+        async with Client(build_semantic_server(read_engine=cast(Any, object()))) as client:
+            result = await client.call_tool(
+                "inspect_contract",
+                dict(
+                    release=prepared.release_id,
+                    subject_kind="class",
+                    subject_id="Base",
+                    input_json='{"value":"bad"}',
+                    validation_purpose="structural",
+                    correction_detail=True,
+                ),
+            )
+            assert not result.is_error
+            assert result.structured_content == expected
+            assert any(
+                "Correction presentation unavailable: ValueError" in block.text
+                for block in result.content
+                if hasattr(block, "text")
+            )
+
+    anyio.run(journey)

@@ -382,12 +382,21 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
     return bundle, deps, PreparationProfile(version="semantic-2")
 
 
+def acquire_packs(
+    packs: tuple[Path, ...],
+    *,
+    execution: ExecutionModelInputs | None = None,
+) -> tuple[SourceBundle, ResolvedDependencies, PreparationProfile]:
+    """Acquire/compose the actual bytes once, before pure preparation may refuse them."""
+    packs = tuple(sorted({pack.resolve() for pack in packs}))
+    acquired = tuple(acquire_pack(pack, execution=execution) for pack in packs)
+    return compose_pack_inputs(acquired)
+
+
 def prepare_packs(
     packs: tuple[Path, ...],
     *,
     execution: ExecutionModelInputs | None = None,
 ) -> tuple[SourceBundle, ResolvedDependencies, PreparationProfile, PreparedRelease]:
-    packs = tuple(sorted({pack.resolve() for pack in packs}))
-    acquired = tuple(acquire_pack(pack, execution=execution) for pack in packs)
-    bundle, deps, profile = compose_pack_inputs(acquired)
+    bundle, deps, profile = acquire_packs(packs, execution=execution)
     return bundle, deps, profile, prepare_release(bundle, deps, profile)
