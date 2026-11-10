@@ -9,6 +9,64 @@ reasoning, and implementation plans own scheduled work and closure evidence.
 <a id="baseline"></a>
 
 
+<a id="domain-data-model-assembled-refresh"></a>
+
+## Domain-data-model assembled refresh · 2026-11-10
+
+**Source-inspected, 2026-11-10.** Baseline `d38402708`; publication is separate.
+An independent reviewer inspected the settled DMC construction, terminology, private
+interpretation, diagnostic, research, independent-consumer and settings boundaries and
+reconciled the final repair diff. Core3.3, heuristics1.0, code-intelligence1.4, binding and
+test-assessment1.2 apply. Earlier broad/PTD/DMC accounts retain their original dates and
+coverage. Concurrent coordinator/evidence prose, CLD planning and unrelated PM2 work are
+excluded. Native adoption and final qualification are separate observations.
+
+**Source-inspected.** Exact archived-field recipe guards compose with the actual class's
+cached Pydantic adapter and constructor invariants. Directional cattrs reconstruction retains
+strict primitives, tuple shape, byte/hex conversion and omissions; authentication and independent
+exact reconstruction remain distinct. Release-local subtree normalization preserves semantic
+and outer validators. Inspection and detached candidates consume authenticated retained products
+(FP-01–06; DP-01/03/08/15/24).
+
+**Source-inspected.** Vocabulary metadata preserves source digests, original predicates and
+projection limits. Lexical lookup proposes candidates; retained interpretations preserve examined
+candidates, explicit decisions, mapping direction and original record references. Native completion
+authenticates result, record, span and vocabulary pins before compact projection. Later authored
+results do not acquire original coordinate custody. Unit/quantity grouping preserves stated or
+unknown basis and unassessed numerical equivalence; external mappings do not become corpus
+denotes or global identity (FP-04/05; DP-02/04/07; CI-01/02/06/10/11).
+
+**Source-inspected.** Selected review populations filter before hydration. Comparison attributes
+one before/after vocabulary-use survey with comparison/population-bound continuation; unknown
+populations remain unknown. SQL result labels become ordinary text at the report boundary without
+weakening source-value key validation. Pinned exclusion comparison distinguishes declarations,
+resolution and evidence under a common release. Incomplete populations do not establish absence
+(FP-03/05/07; DP-08/20; CI-03/04/05/08/13).
+
+**Source-inspected.** One whole-report allocation boundary covers observations, optional detail
+and inline evidence. Outcome/assessment precede truncation; compact reports retain captured
+inventory and rendering coverage. Wrappers preserve typed paths through actual nested lowering,
+relative input paths versus nonroot native locators, schema references, scalar kinds, nonfinite
+values and transport ranges. Membership/containment failures retain state-violation meaning.
+Outer CLI reporting no longer repeats unbounded error lists. Managed publication reuses bounded
+presentation; leased retrieval authenticates original bytes/sensitivity without revalidation.
+Admitted RDFLib path display preserves grammar/list/cycle bounds and native witnesses/conformance
+(FP-01–06; DP-03/15/19/21/24; CI-02/04/08/11).
+
+**Source-inspected.** Independent preflight consumes exact archived schema bytes with explicit
+dialect, local closure and digest checks; structural validity does not imply source support or
+admission. Settings explanation observes actual constructor/environment acquisition, preserves
+source state/merging and masks credentials; later ambient state does not rewrite its snapshot
+(FP-02/03/05/06; DP-15/18/21; CI-10/13).
+
+No additional demonstrated structural violation was established in this inspected footprint.
+Inherited findings retain their primary homes. The [DMC coordinator](../../plans/domain-data-model_2026-11-10.md#completion-audit)
+owns DMC-CA01–04 disposition and DMC-17 acceptance. This static account certifies neither the
+whole codebase nor deployment, provider behavior or scientific benefit. Preparation reuse and
+reduced duplicate conversion remain qualitative expectations. Tests, database commands, providers
+and benchmarks: **not_run** by the audit contributor. Independent implementation review and its
+bounded production probes have separate coordinator-owned evidence.
+
 <a id="domain-data-model-interpretation-correction-refresh"></a>
 
 ## Domain-data-model interpretation and correction refresh · 2026-11-10
