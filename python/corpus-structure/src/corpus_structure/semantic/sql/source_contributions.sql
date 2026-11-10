@@ -2518,7 +2518,8 @@ BEGIN
    owner_:=piece_owners->(anchor_->>'pointer');
    piece_index:=(owner_->>'piece_index')::integer;
    annotation:=annotated->((owner_->>'annotation_index')::integer);
-   IF piece_index IS NULL OR annotation IS NULL
+   IF piece_index IS NULL OR annotation->>'dependency_digest' IS NULL
+    OR annotation->>'block_id' IS NULL
     OR 'annotation:'||(annotation->>'dependency_digest') IS DISTINCT FROM proof->>'annotation'
     OR annotation->>'block_id' IS DISTINCT FROM proof->>'block' THEN
     RAISE EXCEPTION 'named cue lacks its unique retained native piece owner' USING ERRCODE='23514';
@@ -2553,6 +2554,7 @@ BEGIN
    sentence_:=token->'sentence'; prior_idx:=idx;
    lo:=(token->>'start')::integer; hi:=(token->>'end')::integer;
    IF native_pieces_ AND (token->'piece_indices' IS DISTINCT FROM jsonb_build_array(piece_index)
+    OR lo IS NULL OR hi IS NULL
     OR lo<(piece->>'start')::integer OR hi>(piece->>'end')::integer OR lo>=hi) THEN
     RAISE EXCEPTION 'named cue token differs from its exact retained native piece' USING ERRCODE='23514';
    END IF;
