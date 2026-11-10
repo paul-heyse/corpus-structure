@@ -405,7 +405,7 @@ evidence by itself.
 ### Post-audit execution checkpoint · 2026-11-09
 
 - **Private book staging.** `uv run ci status 487 --project
-  nce-grinstead-snell-full-book --json` read back an active supervisor, 51 of
+  nce-grinstead-snell-full-book --json` read back an active supervisor, 55 of
   58 extraction tasks done and no completed cut. Leave the executing checkout
   and runtime inputs in place through managed settlement and finalization.
   The earlier run 482 refusal remains a terminal record. Set 34 grading and
@@ -464,11 +464,17 @@ evidence by itself.
   confirmed that outcome through the installed Reader path. The retained
   annotation's explicit native piece map proves that both citation tokens belong
   to the correct native item. The operator selected that mapping as the proof
-  boundary for joined annotation blocks. Implement it in a new named-link
-  version, with producer, native and detached checks preserving the annotation
-  block identity and independent physical citation. Reject unmapped or ambiguous
-  text; preserve older released behavior. Exact positive replay and detached
-  citation export remain open.
+  boundary for joined annotation blocks. The isolated `pm2/integration` at
+  `9fbd5c7dc` implements it in scoped method `/12`, named-link `/4`, with native
+  and detached checks preserving both identities. The [real-cue control](../design_review/evidence/2026-11-09_pm2-closure-execution/raw/cross-chapter-mapped-cue.json)
+  recovered the exact `see` cue and `Section 5.1` on the retained item while
+  `/3` remained unsupported. The 65 selected test identities are covered by
+  `1df13f4a90f34676afd9cc1c200c54bb` and exact retry
+  `4f83a2c163b54e85b8323c722562f0ba`; the original two formula failures remain
+  visible. Native model candidate `d1eef86361c94c83810c48ad52d53f1d` was
+  authored with rollback and registered as `semantic_pm2_named_pieces`.
+  Development deployment, the full citation selection, and detached citation
+  export remain open pending run 487 finalization.
   The [ordinary-baseline inventory](../design_review/evidence/2026-11-09_pm2-workflow-references/ordinary-baselines.md)
   found no exact completed ordinary predictions for the new definition and
   nested-condition cases. Reproduce the bounded incumbents on the same final

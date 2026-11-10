@@ -58,8 +58,12 @@ No Chandra, recognition, activation, selection, or retirement ran.
   [corrected empty result](raw/cross-chapter-empty-retry.json) completed as
   run 490/cut 602 and preserved the operation with no contribution. Both cue
   tokens are in the exact retained native piece despite the block ID difference.
-  The operator selected piece-based proof for a joined annotation; qualify the
-  new producer, native admission, and detached replay together under the new policy.
+  The operator selected piece-based proof for a joined annotation. The
+  [mapped cue control](raw/cross-chapter-mapped-cue.json) recovered the actual
+  citation from the retained annotation under named-link `/4`; `/3` still
+  withheld the same cue. The result only identifies the source citation and
+  designator. Full selection and exact detached replay await deployment and
+  a completed scoped run using `replay_section_citation.py --mapped-pieces`.
 - [Source-only workflow references](../2026-11-09_pm2-workflow-references/README.md)
   bind the exact definition-use, condition, referent and quantity opportunities.
   [The native GLiNER comparison](../2026-11-09_pm2-protected-classification/README.md)
