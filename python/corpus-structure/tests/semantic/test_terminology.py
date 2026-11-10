@@ -202,12 +202,33 @@ def test_conversion_qualification_refuses_changed_selected_meaning():
 
 
 def test_mult_pack_composition_retains_terminology_sources():
+    from corpus_structure.semantic.alias_policy import RULE_INPUT
     from corpus_structure.semantic.regeneration import acquire_pack, compose_pack_inputs
     from corpus_structure.semantic.terminology import CONVERTED, ORIGINAL, PROFILE
 
-    bundle, deps, _profile = compose_pack_inputs(
-        (acquire_pack(PACK), acquire_pack(ROOT / "domains/toy"))
+    statistics = acquire_pack(PACK)
+    toy = acquire_pack(ROOT / "domains/toy")
+    shared = {
+        artifact.name: artifact
+        for artifact in statistics.dependencies.artifacts
+        if artifact.name
+        in {
+            RULE_INPUT,
+            "operation/rule-view.yaml",
+            "operation/scientific-policy.json",
+            "operation/scientific.yaml",
+            "operation/scientific-policies.yaml",
+        }
+    }
+    # Composition requires one operation policy; the schema packs remain distinct.
+    toy = replace(
+        toy,
+        dependencies=replace(
+            toy.dependencies,
+            artifacts=tuple(shared.get(a.name, a) for a in toy.dependencies.artifacts),
+        ),
     )
+    bundle, deps, _profile = compose_pack_inputs((statistics, toy))
     names = {artifact.name for artifact in deps.artifacts}
     assert {ORIGINAL, CONVERTED, PROFILE} <= names
     assert CONVERTED in deps.ontology_sources

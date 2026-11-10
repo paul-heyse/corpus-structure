@@ -1,14 +1,14 @@
 # Status
 
-_Updated 2026-11-10. Development runs `semantic_dmc_compiler20`. `/10` remains the default;
+_Updated 2026-11-10. Development runs `semantic_dmc_terminology`. `/10` remains the default;
 the project remains unselected. Protected Standard and Nemotron retrieval arms retain their tie._
 
 ## Current work and authority
 
-- [Domain-data-model DMC-00–02](docs/plans/domain-data-model_2026-11-10.md#dmc-0002-execution-receipt--2026-11-10) owns the current inspection delivery, findings and acceptance. Entry review accepted scoped; compiler20 inspection metadata, shared CLI/MCP explorer and frozen candidate custody are implemented. Live development archive/admission and CLI/MCP journey passed. Scoped acceptance passed all 232 affected tests. DMC-03–17 remain planned.
-- DMC-03–17 and I01–09 remain planned. The operator selected the full review and conditional investigations; return to PM2 follows the DMC series, not this tranche. The [authoring companion](docs/plans/domain-data-model/authoring-and-release-products.md) retains selected library mechanisms and limits.
-- [PTD-11](docs/plans/postgresql-typed-domain_2026-11-09.md#final-qualification-and-series-closure--2026-11-10) completed before DMC. Its 5,709-identity union and eight fault checks retain their original source/context. DMC's successor baseline uses semantic20/execution28/boundary12; retained run487/cut604 and original source pins remain preserved. Older execution inputs require actual-source regeneration/admission.
-- The [design audit](docs/design_review/audit/README.md#domain-data-model-entry-refresh) retains inherited broad coverage and the DMC entry refresh. The [entry review](docs/design_review/reviews/design_review_domain-data-model-entry_2026-11-10.md) accepts the selected target without blocking findings. ADR-0075 owns immutable inspection/read-boundary rationale; D2/D8 own its architecture.
+- [Domain-data-model DMC-03–06](docs/plans/domain-data-model_2026-11-10.md#dmc-0306-execution-receipt--2026-11-10) owns current delivery, findings and acceptance. Recipe reconstruction, typed directional archive3, released structural-subtree normalization and qualified STATO metadata/enum-PV locators are implemented. Scoped acceptance covers all 426 affected identities and the live CLI/MCP/candidate journey. DMC-00–06 are complete at their selected scope.
+- DMC-07–17 remain planned. I02/I03 are resolved; I01 has its source/field foundation with populated-consumer/measurement work remaining; I04–09 stay open. Return to PM2 follows the DMC series. The [construction](docs/plans/domain-data-model/construction-and-archives.md) and [terminology](docs/plans/domain-data-model/terminology-and-measurements.md) companions retain selected mechanisms and limits.
+- [PTD-11](docs/plans/postgresql-typed-domain_2026-11-09.md#final-qualification-and-series-closure--2026-11-10) completed before DMC. Its 5,709-identity union and eight fault checks retain their original source/context. DMC's successor baseline is semantic21/readers14–21/execution28/boundary12/archive3; run487/cut604 and original source pins remain preserved. Older execution inputs require actual-source regeneration/admission.
+- The [audit refresh](docs/design_review/audit/README.md#domain-data-model-construction-terminology-refresh) and [scoped target review](docs/design_review/reviews/design_review_domain-data-model-construction-terminology_2026-11-10.md) accept these boundaries without blocking findings. ADR-0075 owns inspection custody; ADR-0076 owns qualified terminology projections. D2/D8/§B5 own architecture.
 
 ## Other current scopes
 
@@ -17,17 +17,18 @@ the project remains unselected. Protected Standard and Nemotron retrieval arms r
 - [PM2](docs/plans/production-milestone-two_2026-11-08.md#post-audit-execution-checkpoint--2026-11-09) retains run487/cut604 and its source/model handoffs. Deployed citation replay, ordinary assembly of archived dependencies, protected comparisons, final qualification and selection remain open. DMC execution does not activate a release or select a run.
 - [GitHub visitor follow-on](docs/plans/github-visitor-experience_2026-11-08.md#ghv-follow-on-acceptance) remains live; its prior local/live browser evidence and 1,409 verified LFS source links retain their dated scope.
 - [CLI operations](docs/plans/cli-operations_2026-11-07.md#completion-audit) owns deployment-profile qualification limits. ADR-0069 governs effects/custody. The [CLI reporting receipt](docs/plans/cli-reporting_2026-11-07.md#merged-source-verification) owns the earlier repaired installed journeys.
-- [NCE](docs/plans/next-corpus-enrichment_2026-11-07.md#audit-gap-execution) and the [Chandra follow-up](docs/plans/chandra-2-post-nemotron_2026-11-08.md#comparator-execution-fit-follow-up) retain their bounded completed work and outstanding scopes. No new corpus/provider run occurred in DMC-00–02.
+- [NCE](docs/plans/next-corpus-enrichment_2026-11-07.md#audit-gap-execution) and the [Chandra follow-up](docs/plans/chandra-2-post-nemotron_2026-11-08.md#comparator-execution-fit-follow-up) retain their bounded completed work and outstanding scopes. No new corpus/provider run occurred in DMC-00–06.
 
 ## Delivered and assessed
 
-- On 2026-11-10, native deployment `8791940484e64d9ab4162e94d7f17a19`, `ci db check`, `ci release check` and maintenance status passed for the new release. The [live journey](docs/design_review/evidence/2026-11-10_dmc-contract-inspection/README.md) passed inherited provenance, frozen candidate, CLI/MCP equality, valid/invalid input, finite skeleton and operation explanation checks.
-- The grouped 232-test selection passed all 232 (`a772719b2d8544219c427786fd27e948`). The owning coordinator records final source/context applicability and required scope. Original failed tests and the partially applied first native deployment are retained, not reclassified as passes.
-- The encountered failure-diagnostic repair passed 108 script/CLI evidence tests (`9124043b15e944aa80bd59f330aba115`). Types, lint, model consistency and docs passed at their recorded scopes; final handoff checks passed.
+- On 2026-11-10, native deployment `b83986b697504bbb845009fd795407cf`, `uv run ci db check --release RELEASE --json`, `uv run ci release check --release RELEASE --json` and `uv run ci db status --maintenance --json` passed. The [live journey](docs/design_review/evidence/2026-11-10_dmc-construction-terminology/README.md) passed rich vocabulary/origin, CLI/MCP/frozen-candidate parity, strict-value and compiler20-read checks.
+- Grouped `uv run ci test --json -- PATH...` passed 346 (`5e48ca24388548d58723428d228af46c`); adjacent selection passed 79 of 80 (`9b5824e481b64535a08fd17fd0ceaba6`) and exact retry passed 1 (`784c5f2ff29a49c2b0310da9fae10dc4`). The coordinator accounts for all 426 identities, native scope and final-source applicability. Original failures remain held; the corrected guard still forbids ambient source reads while allowing operation-created captured-byte ontology files.
+- `uv run ci doctor --json`, dependency checks, types/lint, model consistency and docs passed at recorded endpoints. Pronto2.7.4/Fastobo0.14.2 became direct exact dependencies without a resolved-version change. Final handoff checks are recorded by the coordinator.
 - Full-series functional/provider/nonfunctional qualification is `not_run` for this tranche; DMC-17 owns it. No benchmark or quantitative benefit claim is made.
 
 ## Next
 
-Begin DMC-I02/DMC-03–04 under their construction/archive owner.
+Begin DMC-07 from the terminology foundation; settle its populated source-binding/filter consumer
+and I01/I04 dependent task slices before grounding and measurement delivery.
 Use grouped semantic file selections before parent-directory CLI tests with the installed pytest 9.1.1;
 interleaving those directories can lose nested fixtures. The final DMC assembled review remains DMC-17-owned.

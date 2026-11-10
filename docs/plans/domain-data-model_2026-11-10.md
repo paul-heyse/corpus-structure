@@ -1,6 +1,6 @@
 # Integrated domain-data-model capability series
 
-**Status: DMC-00–02 complete with scoped acceptance; DMC-03–06 executing; DMC-07–17 planned · 2026-11-10.**
+**Status: DMC-00–06 complete with scoped acceptance; DMC-07–17 planned · 2026-11-10.**
 This coordinator owns DMC-00–17, DMC-I01–09, source opportunity disposition, selected branch
 delivery and combined qualification. Supporting plans own target explanations and package
 contracts, not duplicate progress. Existing PTD, DMA, WCE and PM2 scopes remain with their owners.
@@ -79,8 +79,8 @@ independent work may still contend for those files.
 
 ## Execution queue
 
-DMC-00–02 delivery and scoped acceptance are recorded in the execution receipt below;
-DMC-03–17 remain **planned**. This table and receipt are the current package-state owner. Investigations may finish during execution entry where source inspection
+DMC-00–06 delivery and scoped acceptance are recorded in the execution receipts below;
+DMC-07–17 remain **planned**. This table and receipt are the current package-state owner. Investigations may finish during execution entry where source inspection
 settles their question; no experiment quota applies.
 
 | Package | Required input → delivered capability and completion boundary |
@@ -115,15 +115,16 @@ owning selected behavior. Native versioned effects serialize through their actua
 
 Every branch receives a decision: implement with defined consumer/delivery checks, retain with
 reason, reject on corrected premises, or defer with a specific unmet premise and revisit trigger.
-All are **open** initially. Decisions and supporting evidence live in the owning companion;
+I02/I03 are resolved; I01 has a selected source/field slice and remaining consumer/measurement
+work. I04–09 remain open. Decisions and supporting evidence live in the owning companion;
 this coordinator records their current disposition and selected package scope. A source/doc read
 may suffice; an unresolved pivotal library behavior can justify a bounded probe.
 
 | ID | Question and sufficient decision output | Dependent delivery |
 | --- | --- | --- |
 | <a id="DMC-I01"></a>DMC-I01 | Select scientific terminology source/revision/format, two useful fields and actual source-grounded measurement/inspection consumers. Resolve metadata versus enforced semantics, import closure, missing/obsolete terms and corpus applicability. Deliver named inputs and acceptance examples, not a test-only toy standing in for use | 06/07/10 |
-| <a id="DMC-I02"></a>DMC-I02 | Settle strict recipe annotation/constructor/subclass behavior and cattrs required/default/hex/byte reconstruction. Separately decide whether replacing publication JSON conversion removes useful work without changing accepted inputs/nonfinite/key semantics | 03/04 |
-| <a id="DMC-I03"></a>DMC-I03 | Choose a credible nested-product extension; compare targeted loops with prepared subtree normalization under explicit release. Preserve source tags/variant/citation closure; select only a materially simpler complete route | 05 |
+| <a id="DMC-I02"></a>DMC-I02 | **Resolved, selected/retained mechanisms in the DMC-03–06 receipt.** Settle strict recipe annotation/constructor/subclass behavior and cattrs required/default/hex/byte reconstruction. Separately decide whether replacing publication JSON conversion removes useful work without changing accepted inputs/nonfinite/key semantics | 03/04 |
+| <a id="DMC-I03"></a>DMC-I03 | **Resolved, subtree normalization selected and delivered.** Choose a credible nested-product extension; compare targeted loops with prepared subtree normalization under explicit release. Preserve source tags/variant/citation closure; select only a materially simpler complete route | 05 |
 | <a id="DMC-I04"></a>DMC-I04 | Compare read-only terminology lookup, separate candidate product and explicit contextual-contract extension. Qualify field/case/offset/all-occurrence behavior before relying on OAK search/annotation; consider similarity only with declared ranking premises | 08 |
 | <a id="DMC-I05"></a>DMC-I05 | Decide identification versus physical/contextual compatibility, numerical classification and actual conversion. Select established engine only for a named comparison, including basis/precision/affine/context obligations; no executable annotation strings | 10 |
 | <a id="DMC-I06"></a>DMC-I06 | Select useful navigation/repeated invariant and research comparison questions. Compare indexed/native SQL, supported RDFLib paths/queries/compare, Core/SPARQL components, then SHACL-AF/OWL-RL/Datalog only for their actual semantics. Decide each family including stores/remote/patch/visualization with reasons | 12/14 |
@@ -138,14 +139,16 @@ the owning target and this table before implementation, and add their required e
 
 ## Source disposition and complete correspondence
 
-All rows are **open**; they preserve functional opportunity identities, not new defect IDs.
+Rows preserve functional opportunity identities, not new defect IDs. O02/O03/O04 are complete
+at their selected scope; O01 core inspection is delivered with conditional I07/I09 branches open;
+O05 foundation is delivered with DMC-07 pending. Other rows remain open through their stated routes.
 
 | Source review item | Responsible boundary and closure route |
 | --- | --- |
 | O01 / DDM-01/02 | Release/compiler/read owners → DMC-01/02; origin/effective/enforcement distinction, faithful source/operation lookup |
-| O02 / DDM-03/13 | Recipe owner → I02/03; complete strict archived reconstruction, exact identity and callers |
-| O03 / DDM-04 | Archive owner → I02/04; directional typed wire, byte parity, authenticity; publication conversion separately decided |
-| O04 / DDM-14 | Structural observation owner → I03/05; existing nested schemas preserved, selected normalization or retain conclusion |
+| O02 / DDM-03/13 | **Complete, DMC-03–06 receipt.** Recipe owner → I02/03; complete strict archived reconstruction, exact identity and callers |
+| O03 / DDM-04 | **Complete, typed reconstruction delivered; publication conversion retained.** Archive owner → I02/04; directional typed wire, byte parity, authenticity; publication conversion separately decided |
+| O04 / DDM-14 | **Complete, selected DMC-05 subtree normalization.** Structural observation owner → I03/05; existing nested schemas preserved, selected normalization or retain conclusion |
 | O05 / DDM-05/11 | Vocabulary preparation/read owners → I01/06/07; useful terms/fields, retained meaning/provenance and shared scoped preparation |
 | O06 / DDM-06 candidate branch | Candidate/selection owners → I04/08; external mapping never relabelled source support/identity |
 | O07 / DDM-06 lifecycle branch | Semantic-diff owner →06/09; exact membership/metadata change, consumer coverage and old meaning retained |
@@ -302,7 +305,7 @@ That investigation exposed a CLI reporting defect: string pytest longreprs were 
 trailing source location. `scripts/test_receipts.py` now preserves exception lines while excluding
 fixture inventories; two independent regression cases cover fixture/collection/fallback detail.
 `uv run ci test --json -- tests/scripts/test_test_receipts.py python/corpus-structure/tests/test_cli_test_evidence.py`
-passed108 (`9124043b15e944aa80bd59f330aba115`). This diagnostic-only change does not alter
+passed 108 (`9124043b15e944aa80bd59f330aba115`). This diagnostic-only change does not alter
 semantic test behavior or native bindings. The grouped full affected rerun passed all 232 selected identities, as recorded below.
 
 ### Scoped completion and successor handoff
@@ -340,7 +343,7 @@ PM2 stays suspended until the selected DMC series handoff.
 Baseline403822dfb was clean; development acquired `semantic_dmc_compiler20`. The
 [scoped target review](../design_review/reviews/design_review_domain-data-model-construction-terminology_2026-11-10.md)
 accepts the selected boundaries at Proposed strength, with no blocking finding or rule impact.
-ADR-0076 and D2/D8/§B5 own terminology projection/metadata authority. DMC-03–06 are executing.
+ADR-0076 and D2/D8/§B5 own terminology projection/metadata authority. Final scoped completion is below.
 
 I02 resolved: keep exact archived recipe presence plus actual-class cached TypeAdapter. The
 single-parse BeforeValidator candidate loses strict JSON tuple behavior on Pydantic2.14.1.
@@ -360,7 +363,7 @@ and measurement source/consumer work remain DMC-07/08/10 and the remaining I01 s
 The new metadata/locator products require compiler21;20 remains readable. Archive3, boundary12
 and execution28 remain unchanged. Both native compiler guards move together through the normal
 frozen candidate route. Pronto2.7.4 is now a direct dependency without changing its resolved version;
-lock changes are limited to that declaration. `uv run ci doctor --json` passed.
+lock changes are limited to the direct declarations. `uv run ci doctor --json` passed.
 
 Source conversion qualification corrected the planning observation: two dumps in one process
 were identical, but independent processes produced different clause/frame order. Acquisition
@@ -372,4 +375,95 @@ Fastobo is declared directly at its existing resolved version; no dependency was
 
 Pure construction/archive/capsule/locator selection passed43 in managed result
 `f888af1d985a43e48d73a573a234c04e`; prior recipe/subtree46 and finalrecipe15 receipts remain
-bounded worker evidence. Full integrated scope and native handoff are pending.
+bounded worker evidence. Integrated scope and native handoff are recorded below.
+
+
+### Scoped completion and successor handoff
+
+**Implemented; scoped Tested, 2026-11-10. DMC-03, DMC-04, DMC-05 and DMC-06 complete.**
+Complete actual-class recipe reconstruction preserves constructor/default/archive distinctions,
+strict tuple handling, accepted timeout values and canonical identity. The typed directional
+archive3 root/rows now share read/write mapping and located diagnostics while authentication,
+exact historical/current bytes and publication conversion remain independent. Structural binding
+uses the released subtree adapter and retains handwritten closure and SourceValue semantics.
+Superseded representation-specific retrieval/contribution traversal is removed.
+
+STATO acquisition, original OWL qualification, deterministic OBO projection, shared operation-owned
+OAK preparation, two optional controlled field declarations, immutable rich metadata and enum/PV
+locators are delivered. Ordinary archived and candidate inspection consumes retained products.
+Known contributors do not claim an inferred unique winner; unsupported ontology semantics,
+unchecked facts and unavailable historical detail stay explicit. O05's populated source-record
+inspection/filtering remains DMC-07; located external-term review is DMC-08 and measurement
+recognition/compatibility is DMC-10. I01 is only partially resolved by this foundation.
+
+Forward preview `0bd5580f5a414d4baeca9d38c47656d1`, apply
+`7299c781a82541cda8b49efacb860407`, candidate `b0c20388a4174c49842c289804a7a667`,
+registration `68933185e70a4ae89a11ec4ea1cc0657` and deployment
+`b83986b697504bbb845009fd795407cf` passed. The candidate contains exactly three function-body
+changes: both native compiler guards and `data.execution_contract_descriptor()`. Owners/ACLs
+are unchanged; there are no ordinary relational operations. The dedicated development database
+now runs `semantic_dmc_terminology`; migration, archive, admission and verified reader stages passed.
+
+- Release: `release:61d19b6ff98f69e0b0363500ff1b9867ecb044dc912e71d87bcbb5f643a01c72`.
+- Execution: `execution:95216c8a88030e4674446ef58f8a4d2e9354c516b5a378c6c83eb3a79e159904`.
+- Artifact-set: `441bf231af2cd0ef2adb0c7367091345759aca94300c19f38c20d42e5c1d42f6`.
+- Physical: `physical:89a7c561254db10003b43437832e1188e02ccfebe68e00913b1f40e6fbce7e52`.
+
+`uv run ci db status --maintenance --json`, `uv run ci db check --release RELEASE --json`
+and `uv run ci release check --release RELEASE --json` passed. The
+[live acceptance](../design_review/evidence/2026-11-10_dmc-construction-terminology/README.md)
+passed explicit variance definition/meaning and enum/PV origin checks, CLI/MCP/frozen-candidate
+equality, valid/invalid controlled-field validation and compiler20 archive reading. Its record is
+`dmc.terminology-native-inspection`. Ordinary opening does not acquire current ontology sources.
+No activation or run selection occurred; `/10`, run487/cut604 and original source pins remain preserved.
+
+The declared affected union is the construction/archive/locator/terminology modules and their
+prepare, release, reporting, structural observation, worker and CLI consumers, plus pack acquisition,
+execution contracts/projection, native reporting and retained regeneration. Grouped semantic files
+precede ingest/parent CLI selections to avoid the known installed pytest fixture-order limitation.
+Main campaign `5e48ca24388548d58723428d228af46c` passed **346 selected identities**, with real native
+contexts. Adjacent campaign `9b5824e481b64535a08fd17fd0ceaba6` selected 80 and passed 79; the sole
+failure was an overbroad test prohibition on every post-acquisition `Path.read_bytes` call, now
+reached by the existing temporary ontology bridge. Focused reproduction `5bbb011920af46b5a635ac68b8925f7f`
+retains the same failure. The corrected test permits only exact paths written during the operation
+from acquired ontology bytes, still refuses ambient source reads, prohibits component compilation
+and compares repeated composition. Independent source review confirmed the captured-input contract.
+Original failures remain held. Exact retry `784c5f2ff29a49c2b0310da9fae10dc4` supplies the affected
+replacement; final coverage accounting follows below.
+
+Earlier terminology campaign `52f94fceda9940c69810e2bab5840566` passed 41 of 42 with one fixture
+using incompatible statistics/toy operation policies. A compatible explicit shared policy corrects
+the multi-pack fixture while production conflicting-policy refusal stays intact; exact retry
+`e7f00be0b6f44832bde7f8d99d3b2a26` passed, and the final346 campaign includes that corrected case.
+No production behavior changed after its registration/deployment: subsequent edits affect test
+fixtures, evidence and owner prose. The registered native migration is present in the final tests.
+
+Pronto2.7.4 and Fastobo0.14.2 are direct exact dependencies at their already-resolved versions.
+`uv run ci doctor --json`, `uv run ci check --only deps --json`, types/lint and
+`uv run ci model check --json` passed. Final docs/maintenance checks and retry coverage are recorded
+at the endpoint below. Rust, external inference providers, fault-lane changes and benchmarks are
+not selected by this tranche. Whole-series functional/provider/nonfunctional qualification and
+assembled review remain DMC-17-owned. Expected preparation reuse/simplification is qualitative;
+no quantitative performance or scientific-fidelity benefit is claimed.
+
+
+Final source/context account: the main 346 identity coverage is complete, with 29 native-required
+identities and zero native unresolved. The adjacent 80 identity coverage is complete after its
+one-node retry, with 17 native-required identities and zero native unresolved. `ci test coverage`
+retains the original adjacent attempt's failed status while reporting all 80 nodes covered, no
+unresolved nodes and no missing lanes. `sources_differ=true` is accounted for: only the selected
+acquisition test guard and owner/evidence prose changed; production modules, frozen migration bytes,
+Python3.14.10, library versions and native target remain identical. Formatting only wrapped that
+test's comprehension. The accepted scoped union is **426 identities**, all covered by applicable
+passes, including 46 native-required identities. The coverage delivery is not itself an automatic
+whole-series qualification. DMC-07–17 and the remaining I01/I04–09 obligations stay open.
+
+
+Final endpoint, 2026-11-10: `uv run ci check --only types --json`,
+`uv run ci check --only lint --json`, `uv run ci check --only deps --json`,
+`uv run ci model check --json` and `uv run ci docs check` passed. Publication checked 825 canonical
+pages and 73 ADRs with no broken links. `uv run ci evidence finalize` and `uv run ci evidence index`
+passed; `uv run ci evidence check --json` passed with zero errors and 41 inherited warnings outside
+this record. Root `just turn-end` completes maintenance; it introduces no functional-source change.
+The current native/release identifiers above and the held managed selection/retry receipts are the
+successor baseline for DMC-07. Whole-series qualification remains explicitly `not_run` until DMC-17.

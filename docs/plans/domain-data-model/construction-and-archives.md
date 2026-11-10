@@ -1,12 +1,12 @@
 # Complete construction and directional archives
 
-**Proposed implementation design, 2026-11-10.** This supporting document develops
+**Selected implementation design, 2026-11-10.** This supporting document develops
 [DMC-03](../domain-data-model_2026-11-10.md#DMC-03),
 [DMC-04](../domain-data-model_2026-11-10.md#DMC-04) and
 [DMC-05](../domain-data-model_2026-11-10.md#DMC-05) for the domain-data-model coordinator.
 The coordinator owns execution order, package state, investigation decisions and qualification.
-I02 and I03 below are bounded questions with concrete delivery/retain outcomes, not duplicate
-status records. No production changes or compatibility claims follow from writing this plan.
+I02 and I03 below retain the delivery contracts and selected mechanisms. The coordinator
+records their decisions, package states and evidence; this companion does not duplicate status.
 
 ## Purpose, sources and existing owners
 
@@ -73,6 +73,33 @@ SourceContribution. O04 corrects the discovery's missing-outer-schema premise. T
 passes may bridge representations; they are not evidence that the nested schema is absent.
 `StructuralProductReport.closure` additionally checks variants/source/citation closure, and
 product identity deliberately excludes retrieval derivation. Those are distinct semantic rules.
+
+## Selected realization · 2026-11-10
+
+I02 selects a cached `TypeAdapter(actual_cls)` behind the exact archived-field guard in
+`PdfRecipe.from_bytes`. The attempted high-level `BeforeValidator` receives Python lists and
+loses strict JSON tuple behavior under Pydantic2.14.1, so the strict second JSON parse remains.
+Ordinary constructor defaults and `__post_init__` remain authoritative; archived fields remain
+complete. The operator selected the existing timeout acceptance, including NaN, positive infinity
+and integer-to-float validation. Actual worker startup already receives a typed recipe; no byte
+conversion caller is added there.
+
+`semantic/archive_wire.py` owns a frozen `ArchiveProducts` wire root, `RegistryWireRow` and
+artifact references with scoped generated cattrs hooks. Its `body_hex` hook yields bytes on read
+and canonical lowercase hex on write. Required root fields, strict primitives, heterogeneous
+versus variadic tuples and selective nullable Diagnostic omissions are explicit. The reader
+wraps detailed cattrs errors as located `ArchiveDecodeError` diagnostics while retaining the
+original exception cause. Authentication, finalized/unfinalized coherence, exact reconstruction,
+duplicate identity/reference checks and lazy release adapters stay in their existing owners.
+Publication `_archive_wire_payload` retains its JSON round trip and nonfinite refusal; archive
+cleanup does not change that accepted-input contract or introduce a binary transport.
+
+I03 selects one canonical-JSON structural-subtree bridge through the supplied release's
+`property_adapter("SourceObservationBatch", "structural_product")`. It replaces retrieval-report
+and artifact-contribution traversal. The handwritten StructuralProductReport validator,
+comparison SourceValue semantic round trip and final outer-batch validation remain because they
+establish different properties. A test-only deeper nested extension and two concurrently open
+releases with different bounds challenge the replacement without adding another production schema.
 
 ## Common construction principles
 

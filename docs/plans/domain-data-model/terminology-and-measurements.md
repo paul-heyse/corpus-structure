@@ -1,6 +1,6 @@
 # Terminology, located grounding and measurement interpretation
 
-**Implementation plan, Proposed, 2026-11-10.** This companion develops DMC-06–DMC-10
+**Implementation plan; DMC-06 mechanism selected, remaining targets Proposed, 2026-11-10.** This companion develops DMC-06–DMC-10
 and investigations I01/I04/I05 for the [DMC coordinator](../domain-data-model_2026-11-10.md).
 The coordinator owns execution state, source correspondence and scheduled disposition;
 the package descriptions here define delivery rather than another progress ledger.
@@ -131,13 +131,55 @@ the [0.4.5 source-inspected ordering account](../../library_leverage/libraries/o
 and [current repository composition](../../../python/corpus-structure/src/corpus_structure/semantic/ontology.py).
 Removing all repeated preparation is not a reason to write a second enum interpreter.
 
-I01 must compare source routes before delivery: retain the current import-free OBO profile;
-use an explicit, qualified converted snapshot if scientifically and technically appropriate;
-or select retained local source definitions with external meanings only where their support is
-honest. STATO is a candidate to inspect, not the selected ontology, an assumed OBO distribution
-or a promise of scientific fit. No arbitrary remote OAK selector or aggregate Valuesets import
-becomes an ambient input. If a needed format cannot be faithfully acquired, choose another
-suitable source or return the missing profile decision to the coordinator before dependent work.
+I01's source/field slice selects STATO v2026-04-20, commit
+`a5910e6115217a88ee86e2666e12983ef2ef2a42`. Explicit acquisition retains the original OWL,
+qualified OBO membership projection and `source.json` conversion profile under
+`domains/statistics/terminology/sources`. The original OWL digest is
+`7e8f945ee30c6b24139f0064d57c2edbcfc988f3f74811cad6b5c84819ce1494`; qualified OBO digest is
+`2e4438fb7246e7dc53a90fa04d79eda423b4906910c101608614e4289d9c6581`.
+Pronto2.7.4 converts; Fastobo0.14.2 orders the OBO AST deterministically across processes and
+reparses it to compare semantic clause sets. Original RDF independently supplies all nine selected
+labels, full definitions and asserted named parents for conversion qualification. Imports refuse.
+Coverage is this selected metadata/membership profile, not complete OWL equivalence. Conversion
+warnings retain stable content while removing incidental XML element memory addresses. ADR-0076
+and D2 own this source/projection distinction.
+
+`domains/statistics/terminology.yaml` is a local declaration module imported by the statistics
+pack. Its `StatisticalTerminologyFields` offers independent optional `distribution_family`
+(hypergeometric, normal, binomial, poisson, gamma, exponential) and `distribution_attribute`
+(expected_value, variance, standard_deviation). Meanings identify distribution families and
+moments, with no distribution parameterization, sample-estimator or global-identity implication.
+They remain separate from MeasurementValueRoleName. The existing explicit-release explorer is
+the first real consumer: inspect variance's definition and source declaration, and validate the
+controlled value while refusing `sample_variance`. Populated source bindings/filtering, located
+term review and the quantity/unit consumer remain the DMC-07/08/10 contracts; this foundation does
+not pretend those populations are already bound. I01's measurement slice remains open.
+
+One operation-owned `OntologyPreparation` reuses wrapped Pronto OAK adapters, prefix ownership
+and metadata/traversal preparation per captured source; its immutable source map must match the
+operation. Public Term Validator leaves keep their supported temporary-file route. Multi-pack
+acquisition coalesces the shared terminology namespace and source mapping, refusing conflicting
+bytes rather than silently choosing one pack's declarations. No arbitrary remote selector or
+aggregate Valuesets schema becomes an ambient preparation input.
+
+### Immutable metadata realization
+
+Compiler21 emits `vocabularies/metadata.json` version1 and inspection locator version2. The
+vocabulary artifact preserves member value/meaning, labels, full definitions, synonym scope,
+original relationship/mapping predicates, annotations, obsoletion/replacements, source/profile
+hashes and separate membership/check/coverage facts. A dbxref remains a dbxref; unavailable
+synonym scope remains unclassified. Enum/PV declaration locators preserve module, logical path,
+source hash and known contributors; they do not invent a unique inherited winner.
+
+`PreparedRelease.vocabulary_metadata` decodes authenticated retained bytes once per prepared
+release. It corroborates enum/member universes, snapshots, unchecked status and definition/source
+hashes without opening current files or OAK. Compiler21 missing metadata is corrupt; an older
+supported archive reports unavailable new detail. Inspection artifact version1 keeps existing
+class detail and honestly reports unavailable enum locators. Existing ContractInspection v1
+entries carry the richer metadata through `metadata_json`, keeping its published wire contract.
+Archive3, execution28 and boundary12 are unchanged. Exact native compiler guards and the descriptor
+advance together through a frozen model-change candidate; that does not activate the release or
+select a retained run.
 
 ### Rich source metadata and lookup
 
@@ -425,6 +467,6 @@ all affected lowerings before effects. Do not infer approval from a library's ca
 
 **Checks during plan authoring:** source/reference inspection only; functional, native/provider
 tests, probes, installs and benchmarks **not_run**. Documentation publication checks and final
-maintenance belong to the coordinator. Source selection (I01), grounding backend (I04), numerical
-branch (I05), DMC-01's implemented locator slice and the completed PTD-11 handoff remain execution
-prerequisites; none is claimed satisfied merely by this document.
+maintenance belong to the coordinator. The coordinator records source/field selection, completed prerequisites and actual execution
+evidence. I01's remaining consumer/measurement slice, I04 and I05 stay prerequisites of their
+dependent consumers; plan prose alone does not establish delivery.

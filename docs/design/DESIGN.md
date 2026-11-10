@@ -562,7 +562,7 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
 
-**Accepted target, 2026-11-10; DMC-06 owns delivery.** Qualified terminology source projections
+**Implemented; scoped Tested, 2026-11-10; DMC-06 owns the acceptance receipt.** Qualified terminology source projections
 and descriptive metadata retain source custody without becoming another enforcement authority.
 
 > Decision: [ADR-0076](../adr/0076-qualified-terminology-products.md)

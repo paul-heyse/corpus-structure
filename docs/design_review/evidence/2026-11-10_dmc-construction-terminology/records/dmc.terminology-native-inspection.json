@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "id": "dmc.terminology-native-inspection",
+  "title": "Qualified terminology native and archived inspection acceptance",
+  "group": "dmc-construction-terminology",
+  "package": "DMC-06",
+  "finalized": "2026-11-10",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the qualified terminology products be admitted and inspected consistently from archived and frozen candidate custody without current source acquisition?",
+  "answers": [
+    "DMC-06",
+    "DMC-I01",
+    "ADR-0076"
+  ],
+  "method": "Deploy the exact reviewed frozen candidate to development; check maintenance and reader bindings; compare real CLI, MCP and candidate reports with independent term and strict-value expectations.",
+  "commands": [
+    "uv run ci model change deploy b0c20388a4174c49842c289804a7a667 --json",
+    "uv run ci db status --maintenance --json",
+    "uv run ci db check --release release:61d19b6ff98f69e0b0363500ff1b9867ecb044dc912e71d87bcbb5f643a01c72 --json",
+    "uv run ci release check --release release:61d19b6ff98f69e0b0363500ff1b9867ecb044dc912e71d87bcbb5f643a01c72 --json",
+    "uv run python docs/design_review/evidence/2026-11-10_dmc-construction-terminology/journey.py release:61d19b6ff98f69e0b0363500ff1b9867ecb044dc912e71d87bcbb5f643a01c72 b0c20388a4174c49842c289804a7a667"
+  ],
+  "agents": [
+    {
+      "role": "Executor",
+      "model": "Codex",
+      "brief": null,
+      "separation": "The managed native workflow checks frozen bytes and acquired catalog; explicit STATO meaning and invalid local value expectations challenge inspection output."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "Development model-change request",
+      "sha256": "d9fc724e3cb30e5dff1acb7ba69c04cb71416e4fe3a818b89a59930e13f37142"
+    },
+    {
+      "path": "journey.py",
+      "role": "Read-only CLI/MCP/candidate acceptance source",
+      "sha256": "09662110c686db992d31801f7c41e46c25270bd272a3eb35a8d64d9359b56f80"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/live-journey.json",
+      "role": "Observed live journey JSON result",
+      "sha256": "d8912cd44e899a369f1f08633f513a6047da0c37c1a59c9cb7b95bef4fac0a51"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Native deployment",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": "Held managed result b83986b697504bbb845009fd795407cf: migration, archive, admission, verified."
+    },
+    {
+      "name": "Development native revision",
+      "value": "semantic_dmc_terminology",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Native function body changes",
+      "value": 3,
+      "of": null,
+      "unit": "functions",
+      "note": "Both compiler guards and execution descriptor; ownership and ACLs unchanged."
+    },
+    {
+      "name": "Live reader checks",
+      "value": 5,
+      "of": 5,
+      "unit": "checks",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Compiler21 release was deployed and admitted on the dedicated development target. CLI, MCP and retained candidate detail agree, known definition and enum/PV source location survive, strict controlled values behave as expected and compiler20 remains readable. This establishes the foundation/read slice, not populated source filtering, grounding, measurement or whole-series qualification.",
+  "consumed_by": [
+    "DMC-06",
+    "DMC-07",
+    "DMC-17",
+    "ADR-0076"
+  ]
+}

@@ -2,9 +2,9 @@
 
 ## Qualified terminology products
 
-**Accepted target, 2026-11-10; DMC-06 owns implementation and verification.** Explicitly acquired
+**Implemented; scoped Tested, 2026-11-10; DMC-06 owns the acceptance receipt.** Explicitly acquired
 STATO source and qualified OBO projection supply two optional controlled statistics fields.
-Versioned vocabulary metadata and enum/PV declaration locators accompany existing membership;
+Version1 `vocabularies/metadata.json` and version2 inspection enum/PV locators accompany membership;
 ordinary release and candidate readers use retained products, never a current ontology endpoint.
 Mappings preserve predicates and source checks remain distinct from membership and native admission.
 DMC-07/08 own populated source bindings/filtering and review; DMC-10 owns measurement interpretation.
@@ -18,8 +18,9 @@ DMC-07/08 own populated source bindings/filtering and review; DMC-10 owns measur
 retains compact declaration references before contextual induction in version1
 `inspection/effective-model.json`. Supplied module/path/digest and contributor roles explain
 existing normalized definitions and boundary/operation products; they do not establish another
-executable authority. Compiler20 versions this product addition; archive3 and boundary ABI12
-remain unchanged. Older supported releases expose unavailable provenance honestly. Ordinary
+executable authority. Compiler20 introduced version1; compiler21 adds enum/PV contributors
+in version2 and vocabulary metadata. Class detail remains readable from version1 while its
+new enum detail is unavailable. Archive3 and boundary ABI12 remain unchanged. Older supported releases expose unavailable provenance honestly. Ordinary
 opening authenticates retained bytes without recompiling current sources. Detached managed
 candidate inspection shares the same archive authentication and reconstruction owner.
 
@@ -74,7 +75,7 @@ a compiler number alone does not establish their compatibility. AC13 owns the co
 transition and final applicability evidence. Older numbered compiler descriptions below record
 their dated realization only and do not select a competing present runtime.
 
-The current producing semantic compiler is20; immutable product readers cover14–20. Execution
+The current producing semantic compiler is21; immutable product readers cover14–21. Execution
 compiler28, RuleValue ABI2 and query coverage recipe4 are separate contracts. The exact recognized
 coverage recipe3 retains its historical producer universe. Native source inspection/search use
 request/cursor version4; incompatible old requests and query bindings refuse. These version
