@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
-from pathlib import Path
 
 import anyio
 from fastmcp import Client
@@ -38,6 +37,8 @@ async def main(release, candidate):
             assert value['skeleton_json'] == '{}'
         operation = await client.call_tool('inspect_contract', dict(release=release, subject_kind='operation', subject_id='archive'))
         assert not operation.is_error and operation.structured_content['operation_explanation']['operation'] == 'archive'
+    assert 'docling.document_converter' not in sys.modules
+    assert not any(name == 'gliner' or name.startswith('gliner.') for name in sys.modules)
     print(json.dumps(dict(outcome='passed', release=release, candidate=candidate,
         checks=['inherited-origin','frozen-candidate','cli-mcp-parity','valid-invalid-input','finite-skeleton','operation-explanation'])))
 

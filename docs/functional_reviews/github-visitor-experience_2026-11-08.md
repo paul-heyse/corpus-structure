@@ -64,7 +64,7 @@ condition at `#/texts/5253[3:57)` is attached to the defining predicate at `[89:
 by edge `1407260e0e7e6a`. A deeper example can contrast the withheld affine-`X` link
 with the recovered and linked `Z` occurrence. Describe these as separate cases with their
 own evidence. An enterprise policy illustration belongs deeper in the docs and needs an
-explicit illustrative label. [Qualification example](../design_review/evidence/2026-11-08_nce-full-book/review/scoped-outputs.md#source-checks-on-cut-441) · [Retained X and Z outcomes](../../STATUS.md#delivered-and-assessed)
+explicit illustrative label. [Qualification example](../design_review/evidence/2026-11-08_nce-full-book/review/scoped-outputs.md#source-checks-on-cut-441) · [Retained X and Z outcomes](../examples/README.md#candidates-and-selected-relationships)
 
 Offer three levels of use. A public reader follows the static result and evidence. A
 development checkout with the producing release can attempt inspection by exact run and task

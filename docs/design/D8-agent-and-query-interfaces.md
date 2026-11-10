@@ -2,7 +2,7 @@
 
 ## Release contract exploration
 
-**Accepted target, 2026-11-10; DMC-02 owns implementation and verification.** CLI `schema inspect`,
+**Implemented; scoped Tested, 2026-11-10; DMC-02 owns the acceptance receipt.** CLI `schema inspect`,
 MCP `inspect_contract` and model candidate `--view contract` compose one explicit-release domain
 reader. Summary/detail distinguish effective constraints, descriptive facts, known contributors,
 projection support and observed deployment admission. Bound continuations retain release,

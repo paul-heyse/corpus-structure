@@ -1089,9 +1089,22 @@ def _failure_diagnostic(report: dict[str, Any]) -> dict[str, Any]:
         crash = representation.get("reprcrash")
         message = crash.get("message") if isinstance(crash, dict) else None
     elif isinstance(representation, str):
-        # CollectReport may have only a rendered exception. Omit source and captured streams.
-        message = next(
-            (line for line in reversed(representation.splitlines()) if line.strip()), None
+        # FixtureLookupError and some collection errors are rendered strings with
+        # a location footer. Prefer pytest's error lines over that footer, while
+        # continuing to omit source listings and captured streams.
+        lines = representation.splitlines()
+        errors = [
+            line[1:].strip()
+            for raw in lines
+            if (line := raw.lstrip()).startswith("E")
+            and len(line) > 1
+            and line[1].isspace()
+            and line[1:].strip()
+        ]
+        message = (
+            "\n".join(errors)
+            if errors
+            else next((line for line in reversed(lines) if line.strip()), None)
         )
     else:
         message = None

@@ -18,12 +18,41 @@ import pytest
 
 from test_receipts import (
     _complete_native_context,
+    _failure_diagnostic,
     classify,
     classify_receipt,
     classify_rust,
     run_process,
     run_python,
 )
+
+
+def test_rendered_fixture_failure_keeps_cause_instead_of_location_footer() -> None:
+    rendered = (
+        "file /checkout/tests/test_example.py, line 35\n"
+        "  def test_example(required_fixture):\n"
+        "E       fixture 'required_fixture' not found\n"
+        ">       available fixtures: tmp_path, monkeypatch\n"
+        "/checkout/tests/test_example.py:35"
+    )
+    assert _failure_diagnostic({"longrepr": rendered}) == {
+        "diagnostic": "fixture 'required_fixture' not found"
+    }
+
+
+def test_rendered_collection_error_retains_multiline_exception_detail() -> None:
+    rendered = (
+        "    import unavailable\n"
+        "E   ImportError: unavailable module\n"
+        "E   Install the selected optional provider.\n"
+        "tests/test_example.py:4"
+    )
+    assert _failure_diagnostic({"longrepr": rendered}) == {
+        "diagnostic": "ImportError: unavailable module\nInstall the selected optional provider."
+    }
+    assert _failure_diagnostic(
+        {"longrepr": "collection failed\nValueError: invalid selection"}
+    ) == {"diagnostic": "ValueError: invalid selection"}
 
 
 def stream(path: Path, events: list[dict[str, object]]) -> None:

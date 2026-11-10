@@ -1,6 +1,6 @@
 # Integrated domain-data-model capability series
 
-**Status: DMC-00–02 execution in progress · 2026-11-10.**
+**Status: DMC-00–02 complete with scoped acceptance; DMC-03–17 planned · 2026-11-10.**
 This coordinator owns DMC-00–17, DMC-I01–09, source opportunity disposition, selected branch
 delivery and combined qualification. Supporting plans own target explanations and package
 contracts, not duplicate progress. Existing PTD, DMA, WCE and PM2 scopes remain with their owners.
@@ -79,8 +79,8 @@ independent work may still contend for those files.
 
 ## Execution queue
 
-All packages below are **planned**, not implemented or qualified. This table is the current
-package-state owner. Investigations may finish during execution entry where source inspection
+DMC-00–02 delivery and scoped acceptance are recorded in the execution receipt below;
+DMC-03–17 remain **planned**. This table and receipt are the current package-state owner. Investigations may finish during execution entry where source inspection
 settles their question; no experiment quota applies.
 
 | Package | Required input → delivered capability and completion boundary |
@@ -236,7 +236,8 @@ run487/cut604, `/10` and the unselected project posture remain preserved. The
 [entry target review](../design_review/reviews/design_review_domain-data-model-entry_2026-11-10.md)
 and ADR-0075 govern the new boundaries. This receipt owns current package disposition.
 
-DMC-00: complete; entry target review accepted scoped with no blocking finding or rule impact. DMC-01/02: implementation in progress.
+DMC-00: complete; entry target review accepted scoped with no blocking finding or rule impact.
+DMC-01/02: implemented and scoped acceptance complete; final evidence is below.
 The operator selected newly archived development release demonstration and exact admission where
 required, without activation or run selection. Named-type pattern plus inherited slot bounds
 replaces the unsupported named-type numeric-bound acceptance example; the profile is unchanged.
@@ -263,3 +264,73 @@ Failed/intermediate receipts remain available: `a3c0e3d9115c40b29e5d3ead45810254
 managed-test settlement fixture). The fixture is repaired; registered migration qualification
 must replace the affected native failures. Additional development test receipts from workers
 retain their original bounded source applicability and do not close combined qualification.
+
+The first deploy `2314363a4986466bb4dd668197344129` established migration
+`semantic_dmc_inspection` but refused archive/admission at the separate producing-compiler
+execution-projection guard. Its known migration effect and failed receipt are preserved.
+The forward correction changes `sem.require_execution_projection(text)` from compiler19 to20
+and regenerates its descriptor; it does not rewrite the deployed migration. Replacement preview
+`9fcb2b3baf534147b2d309fc5ec9c292`, apply `a824b0f6a242486689e1f2cebf66c9e9`, candidate
+`53d8c6b524a2466a877282680549185d`, registration `6d8edda51aef419488db2943ecc0e372` passed.
+The intermediate retry `1d7a6215b70b4f40a2f456620e70dfb0` passed the managed-capsule fixture
+and retained25 producing-compiler native refusals before this second migration existed.
+The final grouped affected selection against the registered source supersedes that context.
+
+Live old-archive inspection passed for PTD's compiler19 release: `Formula.language` remains
+required, with explicit unavailable authoring detail. This uses archived products, without
+backfilling today's source provenance. Types, lint, docs and `ci model check` passed at their
+recorded intermediate source; final checks remain due after handoff edits.
+
+Native deployment `8791940484e64d9ab4162e94d7f17a19` passed migration/archive/admission/verified
+at `semantic_dmc_compiler20`. Release `release:4b5fd49b3879d7628e80a5feb78607b3cdc327ce223e37a5827f517f44d822f3`
+uses execution `execution:7bf8d8d78f16df38f1454ed81b5ce64e9ad4d3ab72de2f3226a36266b996754c`
+and artifact-set `226906703a28a535f8304ea70a62802aabb74dcbedffb9a8b933d3b622c18ec2`.
+`uv run ci db check --release RELEASE --json`, `uv run ci release check --release RELEASE --json`,
+maintenance status and the [actual CLI/MCP journey](../design_review/evidence/2026-11-10_dmc-contract-inspection/README.md)
+passed on2026-11-10. The journey also excludes converter/GLiNER imports. Project selection/defaults
+and original source custody remain unchanged.
+
+Expanded affected campaign `8976b4b19cfb4f0aa7bd004ab188db4c` selected232 IDs, passed230 and
+retained two setup failures. Exact retry `9c6113768e5c4129b9c8a842e80c312f` passed both with
+real native contexts. Collection-only inspection identified an installed pytest9.1.1 ordering
+limitation: semantic file selections followed by a parent-directory CLI file and then more semantic
+files can lose the nested semantic fixture definitions. Group semantic files contiguously before
+parent CLI files; the ordinary whole-tree route does not interleave those explicit file arguments.
+No production model failure was found in those cases. The original failure receipts are held.
+
+That investigation exposed a CLI reporting defect: string pytest longreprs were reduced to a
+trailing source location. `scripts/test_receipts.py` now preserves exception lines while excluding
+fixture inventories; two independent regression cases cover fixture/collection/fallback detail.
+`uv run ci test --json -- tests/scripts/test_test_receipts.py python/corpus-structure/tests/test_cli_test_evidence.py`
+passed108 (`9124043b15e944aa80bd59f330aba115`). This diagnostic-only change does not alter
+semantic test behavior or native bindings. The grouped full affected rerun passed all 232 selected identities, as recorded below.
+
+### Scoped completion and successor handoff
+
+**Implemented; scoped Tested, 2026-11-10. DMC-00, DMC-01 and DMC-02 complete.**
+The accepted entry review and ADR-0075, immutable artifact/archive reader, shared report and
+both transports, bounded skeleton/input validation and frozen candidate authoring loop are delivered.
+Known contributors preserve unresolved precedence rather than becoming another enforcement model.
+Compiler20 is producing;14–19 remain readable; archive3/boundary12/execution28 are unchanged.
+
+Final grouped `uv run ci test --json -- PATH...` passed **232/232**, held result
+`a772719b2d8544219c427786fd27e948`. The declared required selection is the three new inspection
+modules plus prepare, archive reader/wire, release/compatibility/publication, operation reporting,
+published reports, review-bundle and model-inspect consumers. All semantic file selections precede
+the parent CLI selection. This covers all affected identities, including the two earlier fixture
+setup failures, with real native-required outcomes at `semantic_dmc_compiler20`. There is no
+unresolved identity in this selected scope. The original failed campaigns remain held as failures.
+
+The diagnostic repair's separate108-test selection passed in held result
+`9124043b15e944aa80bd59f330aba115`; formatting preserved its behavior. Final types/lint,
+`uv run ci model check --json`, `uv run ci docs check` and root `just turn-end` passed at this
+tranche endpoint. The final test tree contains the registered compiler20 migrations and diagnostic
+fix; later handoff edits affect prose only. No dependency/toolchain change, Rust behavior, provider
+run or benchmark is selected. Whole-series qualification and assembled target review remain
+DMC-17 obligations, not claims made by this scoped completion.
+
+DMC-03–17 and all conditional investigation contracts retain their planned states. O01's core
+inspection delivery is complete; additional authoring/generator branches remain with I07/I09 as
+already scheduled. DMC-04's typed directional/archive work and DMC-11's retained diagnostic custody
+were not pulled into these packages. Next is I02/DMC-03–04 at the construction/archive owner;
+PM2 stays suspended until the selected DMC series handoff.

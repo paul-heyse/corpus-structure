@@ -2,7 +2,7 @@
 
 ## Immutable effective-model inspection
 
-**Accepted target, 2026-11-10; DMC-01/02 own implementation and verification.** Preparation
+**Implemented; scoped Tested, 2026-11-10; DMC-01/02 own the acceptance receipt.** Preparation
 retains compact declaration references before contextual induction in version1
 `inspection/effective-model.json`. Supplied module/path/digest and contributor roles explain
 existing normalized definitions and boundary/operation products; they do not establish another
@@ -62,8 +62,8 @@ a compiler number alone does not establish their compatibility. AC13 owns the co
 transition and final applicability evidence. Older numbered compiler descriptions below record
 their dated realization only and do not select a competing present runtime.
 
-The current producing semantic compiler is17; immutable product readers cover14/15/16/17. Execution
-compiler27, RuleValue ABI2 and query coverage recipe4 are separate contracts. The exact recognized
+The current producing semantic compiler is20; immutable product readers cover14–20. Execution
+compiler28, RuleValue ABI2 and query coverage recipe4 are separate contracts. The exact recognized
 coverage recipe3 retains its historical producer universe. Native source inspection/search use
 request/cursor version4; incompatible old requests and query bindings refuse. These version
 declarations do not establish final native, provider or assembled consumer qualification.
