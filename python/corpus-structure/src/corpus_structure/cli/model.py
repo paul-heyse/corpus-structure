@@ -406,7 +406,9 @@ def _apply_view(report: ModelResult) -> Table:
         ("Changed paths", _path_summary(report.changed)),
         (
             "Operation account",
-            report.operation_account.model_dump_json() if report.operation_account else "unavailable",
+            report.operation_account.model_dump_json()
+            if report.operation_account
+            else "unavailable",
         ),
     )
 
@@ -746,25 +748,47 @@ def inspect_candidate(
         typer.Option(help="Select candidate summary, native operations, SQL changes or contract."),
     ] = "summary",
     after: Annotated[
-        int, typer.Option(min=0, help="Continue operations or SQL after this ordinal; not a contract cursor.")
+        int,
+        typer.Option(
+            min=0, help="Continue operations or SQL after this ordinal; not a contract cursor."
+        ),
     ] = 0,
     limit: Annotated[
-        int, typer.Option(min=1, max=100, help="Maximum operation, SQL change or contract detail entries for the selected view.")
+        int,
+        typer.Option(
+            min=1,
+            max=100,
+            help="Maximum operation, SQL change or contract detail entries for the selected view.",
+        ),
     ] = 20,
     subject_kind: Annotated[
-        ContractKind | None, typer.Option("--subject-kind", help="Required contract subject kind with --view contract.")
+        ContractKind | None,
+        typer.Option("--subject-kind", help="Required contract subject kind with --view contract."),
     ] = None,
     subject: Annotated[
-        str | None, typer.Option("--subject", help="Required exact contract subject identifier with --view contract.")
+        str | None,
+        typer.Option(
+            "--subject", help="Required exact contract subject identifier with --view contract."
+        ),
     ] = None,
     property_: Annotated[
-        str | None, typer.Option("--property", help="Optional contract property selector with --view contract.")
+        str | None,
+        typer.Option(
+            "--property", help="Optional contract property selector with --view contract."
+        ),
     ] = None,
     contract_view: Annotated[
         ContractView, typer.Option("--contract-view", help="Contract summary or paged detail.")
     ] = "summary",
     contract_after: Annotated[
-        str | None, typer.Option("--contract-after", help="Opaque contract-detail continuation returned by the same bound request; distinct from --after.")
+        str | None,
+        typer.Option(
+            "--contract-after",
+            help=(
+                "Opaque contract-detail continuation returned by the same bound request; "
+                "distinct from --after."
+            ),
+        ),
     ] = None,
     input_: ContractInput = None,
     validation_purpose: ValidationPurposeOption = None,

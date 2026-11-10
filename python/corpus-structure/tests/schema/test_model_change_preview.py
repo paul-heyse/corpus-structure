@@ -287,7 +287,9 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     applied_report = json.loads(applied.stdout)
     assert applied_report["target_profile"] == "development"
     assert applied_report["acquired_target"] == source_identity.model_dump(mode="json")
-    assert applied_report["operation_account"]["acquired_target"] == applied_report["acquired_target"]
+    assert (
+        applied_report["operation_account"]["acquired_target"] == applied_report["acquired_target"]
+    )
     assert applied_report["selection"]["profile"] == "development"
     assert applied_report["selection"]["settings_section"] == "database"
     assert applied_report["selection"]["standing"] == "configured_unobserved"
@@ -392,7 +394,11 @@ def test_non_native_apply_does_not_acquire_a_target(model_checkout, monkeypatch,
     monkeypatch.setattr(model_deployment, "predecessor_fence", forbidden)
     monkeypatch.setattr(recipes, "checkout", lambda _: root)
     result = cli(
-        "model", "change", "apply", retained.id, "--json",
+        "model",
+        "change",
+        "apply",
+        retained.id,
+        "--json",
         settings=lambda: Settings(ci_results=store.root),
     )
     assert result.exit_code == 0, result.output

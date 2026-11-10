@@ -57,9 +57,7 @@ def test_success_survives_optional_publication_failure(
     target = tmp_path / "output"
     if command == "compile":
         arguments += ["--out", str(target)]
-    result = cli(
-        *arguments, "--retain-diagnostics", "--json", env={"CORPUS_CI_RESULTS": str(root)}
-    )
+    result = cli(*arguments, "--retain-diagnostics", "--json", env={"CORPUS_CI_RESULTS": str(root)})
     assert result.exit_code == 0, result.output
     report = json.loads(result.stdout)
     for key in ("release_id", "execution_model_id", "artifacts"):
@@ -157,8 +155,15 @@ def test_required_output_write_failure_keeps_original_error(
     monkeypatch.setattr(Path, "write_bytes", fail)
     root = tmp_path / "results"
     result = cli(
-        "schema", "compile", "--domain", "toy", "--out", str(target),
-        "--retain-diagnostics", "--json", env={"CORPUS_CI_RESULTS": str(root)}
+        "schema",
+        "compile",
+        "--domain",
+        "toy",
+        "--out",
+        str(target),
+        "--retain-diagnostics",
+        "--json",
+        env={"CORPUS_CI_RESULTS": str(root)},
     )
     assert result.exit_code != 0 and result.exception is primary
     assert not result.stdout
@@ -231,7 +236,10 @@ def test_failed_optional_report_construction_keeps_original_preparation_diagnost
     monkeypatch.setattr(regeneration, "acquire_packs", fail_inputs)
     monkeypatch.setattr(FailureContext, "report", fail_report)
     result = cli(
-        "schema", "check", "--retain-diagnostics", "--json",
+        "schema",
+        "check",
+        "--retain-diagnostics",
+        "--json",
         env={"CORPUS_CI_RESULTS": str(tmp_path)},
     )
     assert result.exit_code == 1
@@ -254,11 +262,13 @@ def test_secondary_reporting_failure_preserves_refusal_once(
 
     primary = (
         PreparationError((Diagnostic("original_invalid", "original.path", "original"),))
-        if preparation else SemanticRefusal("original refusal")
+        if preparation
+        else SemanticRefusal("original refusal")
     )
     secondary = (
         PreparationError((Diagnostic("secondary_invalid", "report.path", "secondary"),))
-        if secondary_preparation else RuntimeError("password=private-report-failure")
+        if secondary_preparation
+        else RuntimeError("password=private-report-failure")
     )
     reports = []
 
@@ -284,7 +294,12 @@ def test_secondary_reporting_failure_preserves_refusal_once(
     assert account.failure.kind == "refusal" and account.failure.code == type(primary).__name__
     assert manifest.outcome == "failed"
     inspected = cli(
-        "results", "inspect", manifest.id, "--view", "observations", "--json",
+        "results",
+        "inspect",
+        manifest.id,
+        "--view",
+        "observations",
+        "--json",
         env={"CORPUS_CI_RESULTS": str(tmp_path)},
     )
     assert inspected.exit_code == 0, inspected.output
@@ -361,9 +376,13 @@ def test_actual_retained_unraised_cause_has_explicit_original_link_omission(
     assert manifest.outcome == "failed" and "diagnostic-report" not in manifest.artifacts
     inspected = cli("results", "inspect", manifest.id, "--view", "observations", "--json", env=env)
     assert inspected.exit_code == 0, inspected.output
-    traces = [row["exception"] for row in json.loads(inspected.stdout)["observations"]["rows"]
-              if row["exception"]]
+    traces = [
+        row["exception"]
+        for row in json.loads(inspected.stdout)["observations"]["rows"]
+        if row["exception"]
+    ]
     (trace,) = traces
     path = "$.original.exceptions[0].__cause__" if nested else "$.original.__cause__"
-    assert any(item["path"] == path and "no traceback" in item["reason"]
-               for item in trace["omissions"])
+    assert any(
+        item["path"] == path and "no traceback" in item["reason"] for item in trace["omissions"]
+    )

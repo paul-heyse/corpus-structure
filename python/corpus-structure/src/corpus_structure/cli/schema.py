@@ -197,6 +197,8 @@ def _compile_packs(
             dependency_limit=dependency_limit,
         )
         validation_model = retain_optional_diagnostic(invocation, validation_model, context=failure)
+        # A supplied success report always survives optional custody.
+        assert validation_model is not None
         validation = validation_model.model_dump(mode="json")
         if out is not None:
             out.mkdir(parents=True, exist_ok=True)
@@ -319,6 +321,8 @@ def check_(
             dependency_limit=dependency_limit,
         )
         validation_model = retain_optional_diagnostic(invocation, validation_model, context=failure)
+        # A supplied success report always survives optional custody.
+        assert validation_model is not None
         emit(
             CompileResult(
                 packs=[],

@@ -109,10 +109,8 @@ def retained_integrated_cli(semantic_db_engine, tmp_path, monkeypatch, domain, s
 def test_retained_integrated_cli_lifecycle(
     semantic_db_engine, tmp_path, monkeypatch, domain, scope_name
 ):
-    case = retained_integrated_cli(
-        semantic_db_engine, tmp_path, monkeypatch, domain, scope_name
-    )
-    settings, domains, corpus, pin = case.settings, case.domains, case.corpus, case.pin
+    case = retained_integrated_cli(semantic_db_engine, tmp_path, monkeypatch, domain, scope_name)
+    settings, domains, pin = case.settings, case.domains, case.pin
     pin_path = case.pin_path
 
     def forbidden_reselection(*args, **kwargs):
@@ -409,7 +407,8 @@ def test_initial_source_failure_retains_committed_run(
             created.append(identity)
             callback(identity)
 
-        return native_start(*args, **{**kwargs, "on_created": acquired})
+        kwargs["on_created"] = acquired
+        return native_start(*args, **kwargs)
 
     def groups(*args, **kwargs):
         assert len(created) == 1

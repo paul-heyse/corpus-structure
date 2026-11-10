@@ -211,9 +211,7 @@ def transform_exception(exc_info: Any) -> ExceptionTrace:
             raw = _NATIVE(exc_info)
         safe, omissions = normalize(raw, max_bytes=24000)
         selected = select_exception(safe, normalization_omissions=omissions)
-        selected = selected.model_copy(
-            update={"omissions": (*selected.omissions, *link_omissions)}
-        )
+        selected = selected.model_copy(update={"omissions": (*selected.omissions, *link_omissions)})
         if omitted:
             selected = selected.model_copy(
                 update={

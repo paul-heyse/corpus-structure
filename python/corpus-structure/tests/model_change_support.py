@@ -35,4 +35,3 @@ def model_checkout(tmp_path):
         check=True,
     )
     return tmp_path, location
-

@@ -2,7 +2,11 @@
 
 import pytest
 
-from corpus_structure.cli.exception_observations import transform_exception
+from corpus_structure.cli.exception_observations import (
+    ExceptionStack,
+    ExceptionTrace,
+    transform_exception,
+)
 
 
 @pytest.mark.parametrize("nested", (False, True))
@@ -16,12 +20,16 @@ def test_native_unrepresented_original_link_is_located_without_invented_frames(n
     trace = transform_exception((type(error), error, None))
     path = ("$.original.exceptions[0]." if nested else "$.original.") + link
     assert any(item.path == path and "no traceback" in item.reason for item in trace.omissions)
-    assert trace.stacks[0].frames == ()
+    root = trace.stacks[0]
+    assert isinstance(root, ExceptionStack) and root.frames == ()
     if nested:
-        branch = trace.stacks[0].exceptions[0]
-        assert branch.stacks[0].exc_type == "RuntimeError" and branch.stacks[0].frames == ()
+        branch = root.exceptions[0]
+        assert isinstance(branch, ExceptionTrace)
+        child_stack = branch.stacks[0]
+        assert isinstance(child_stack, ExceptionStack)
+        assert child_stack.exc_type == "RuntimeError" and child_stack.frames == ()
     else:
-        assert len(trace.stacks) == 1 and trace.stacks[0].exc_type == "RuntimeError"
+        assert len(trace.stacks) == 1 and root.exc_type == "RuntimeError"
 
 
 def test_unrepresented_link_subtree_is_disclosed_without_reconstructing_it():
@@ -35,7 +43,8 @@ def test_unrepresented_link_subtree_is_disclosed_without_reconstructing_it():
     (omission,) = trace.omissions
     assert omission.path == "$.original.__cause__" and "subtree" in omission.reason
     assert "traversal limit" not in omission.reason
-    assert trace.stacks[0].frames == ()
+    root = trace.stacks[0]
+    assert isinstance(root, ExceptionStack) and root.frames == ()
 
 
 def raised(error):
@@ -70,7 +79,8 @@ def test_native_reachable_oversized_group_is_bounded_before_native_walk(monkeypa
     trace = transform_exception((type(error), error, None))
     assert len(calls) == 1 and calls[0] is not error
     assert any("traversal limit" in item.reason for item in trace.omissions)
-    assert trace.stacks[0].exc_type == "RuntimeError"
+    root = trace.stacks[0]
+    assert isinstance(root, ExceptionStack) and root.exc_type == "RuntimeError"
     if branch == "fallback_context":
         assert any(item.path == "$.original.__cause__" for item in trace.omissions)
 
@@ -83,9 +93,13 @@ def test_bounded_fallback_context_keeps_native_group_and_original_cause_omission
     error.__suppress_context__ = False
     trace = transform_exception((type(error), error, None))
     root, linked = trace.stacks
+    assert isinstance(root, ExceptionStack) and isinstance(linked, ExceptionStack)
     assert root.exc_type == "RuntimeError"
     assert linked.exc_type == "ExceptionGroup" and linked.is_group and not linked.is_cause
-    assert linked.exceptions[0].stacks[0].exc_type == "LookupError"
+    branch = linked.exceptions[0]
+    assert isinstance(branch, ExceptionTrace)
+    member = branch.stacks[0]
+    assert isinstance(member, ExceptionStack) and member.exc_type == "LookupError"
     (omission,) = trace.omissions
     assert omission.path == "$.original.__cause__" and "no traceback" in omission.reason
 
@@ -97,7 +111,9 @@ def test_suppressed_context_does_not_inflate_native_traversal():
     error.__context__ = context
     assert error.__suppress_context__
     trace = transform_exception((type(error), error, None))
-    assert len(trace.stacks) == 1 and trace.stacks[0].exc_type == "RuntimeError"
+    assert len(trace.stacks) == 1
+    root = trace.stacks[0]
+    assert isinstance(root, ExceptionStack) and root.exc_type == "RuntimeError"
     (omission,) = trace.omissions
     assert omission.path == "$.original.__cause__" and "no traceback" in omission.reason
 
@@ -109,6 +125,11 @@ def test_native_child_before_shared_context_preserves_original_omission_location
     error.__context__ = child
     trace = transform_exception((type(error), error, None))
     assert len(trace.stacks) == 1
-    assert trace.stacks[0].exceptions[0].stacks[0].exc_type == "RuntimeError"
+    root = trace.stacks[0]
+    assert isinstance(root, ExceptionStack)
+    branch = root.exceptions[0]
+    assert isinstance(branch, ExceptionTrace)
+    child_stack = branch.stacks[0]
+    assert isinstance(child_stack, ExceptionStack) and child_stack.exc_type == "RuntimeError"
     (omission,) = trace.omissions
     assert omission.path == "$.original.exceptions[0].__cause__"

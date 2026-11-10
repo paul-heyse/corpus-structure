@@ -29,10 +29,12 @@ def test_native_apply_reports_actual_authoring_acquisition(
         deployment={"url": "postgresql://unopened:deployment-secret@localhost:5434/destination"},
         ci_results=root / "results",
     )
-    with open_runtime_engine(configured, "ca04-preview", purpose="maintenance") as engine:
-        with engine.connect() as conn:
-            identity = acquired_target(conn, purpose="maintenance")
-            predecessor = current_revision(conn)
+    with (
+        open_runtime_engine(configured, "ca04-preview", purpose="maintenance") as engine,
+        engine.connect() as conn,
+    ):
+        identity = acquired_target(conn, purpose="maintenance")
+        predecessor = current_revision(conn)
     with semantic_db_engine.connect() as conn:
         expected_database, expected_oid = conn.exec_driver_sql(
             "SELECT datname, oid FROM pg_database WHERE datname = current_database()"
@@ -106,4 +108,3 @@ def test_native_apply_reports_actual_authoring_acquisition(
     assert "Current configuration" in human.stdout and "configured, unobserved" in human.stdout
     assert "maintenance" in human.stdout and expected_database in human.stdout
     assert "deployment-secret" not in human.stdout
-
