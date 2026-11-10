@@ -62,8 +62,9 @@ No Chandra, recognition, activation, selection, or retirement ran.
   [mapped cue control](raw/cross-chapter-mapped-cue.json) recovered the actual
   citation from the retained annotation under named-link `/4`; `/3` still
   withheld the same cue. The result only identifies the source citation and
-  designator. Full selection and exact detached replay await deployment and
-  a completed scoped run using `replay_section_citation.py --mapped-pieces`.
+  designator. Development deployed and verified the candidate. Full selection
+  and exact detached replay still require a scoped run using
+  `replay_section_citation.py --mapped-pieces`.
 - [Source-only workflow references](../2026-11-09_pm2-workflow-references/README.md)
   bind the exact definition-use, condition, referent and quantity opportunities.
   [The native GLiNER comparison](../2026-11-09_pm2-protected-classification/README.md)
@@ -80,8 +81,8 @@ No Chandra, recognition, activation, selection, or retirement ran.
 Private full-book run 482 [refused its changed runtime](raw/run-482-runtime-refusal.json)
 after 44 settled tasks. It has no completed cut. [Run 487](raw/run-487-checkpoint.json)
 reuses the authenticated source and uses the newly admitted runtime. The
-active managed invocation will finalize it on successful settlement and attempt
-the set 34 regression grade. It does not select a release or run.
+managed invocation finalized cut 604 and scored set 34 as evaluation 48.
+It did not select a release or run.
 
 The parser request starts from the
 [previously frozen scope panel](../2026-11-08_pm2-parsers/raw/book-parser-request.json).

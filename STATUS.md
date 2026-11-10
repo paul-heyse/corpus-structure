@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-09. Development runs `semantic_pm2_condition_admission`. The protected competitive retrieval arms tied on retained Standard and Nemotron source. `/10` remains the default and the project remains unselected. Agent guidance now favors risk-directed validation and coherent design-stage replacements ([AGENTS](AGENTS.md)); on 2026-11-09, `git diff --check` passed, while product and repository health checks were `not_run` for this guidance-only change._
+_Updated 2026-11-09. Development runs `semantic_pm2_named_pieces`. The protected competitive retrieval arms tied on retained Standard and Nemotron source. `/10` remains the default and the project remains unselected._
 
 ## Current authority
 
@@ -10,7 +10,7 @@ _Updated 2026-11-09. Development runs `semantic_pm2_condition_admission`. The pr
 - The [GitHub visitor follow-on](docs/plans/github-visitor-experience_2026-11-08.md#ghv-follow-on-acceptance) is live. On 2026-11-08, the docs workflow and both live browser sizes passed. The corpus index links to 1,409 verified source files in Git LFS. The supplied How it works image passed desktop and mobile preview checks in the local revision.
 - The [M2 foundation](docs/plans/production-milestone-two_2026-11-08.md#foundation-execution) uses cut 514 for source-only expectations and cut 517 for the finished private M1 comparator over the same views. On 2026-11-08 all four CUDA profiles ran under the shared handoff, and the private d1/Dipo Reader journey passed claim reassignment and exact reuse. The [foundation evidence](docs/design_review/evidence/2026-11-08_pm2-foundation/README.md) owns the scoped checks. DMA-13 owns evaluated cutover.
 - The [M2 parser execution](docs/plans/production-milestone-two/linguistic-referential-discourse.md#parser-execution) sealed cut 520 and verified replay at cut 521. Same-release HanLP and Maverick inputs for d1 reached cut 524 without repeating source recognition.
-- The [M2 post-audit checkpoint](docs/plans/production-milestone-two_2026-11-08.md#post-audit-execution-checkpoint--2026-11-09) records the repairs and generated migration merged to `main` at `f1dc0b949`. Run 487 settled all 58 extraction tasks and is finalizing from the pinned `pm2/run-487-runtime` checkout. Development deployment and citation replay, ordinary assembly of archived PM2 dependencies, protected comparisons, final qualification and selection remain open.
+- The [M2 post-audit checkpoint](docs/plans/production-milestone-two_2026-11-08.md#post-audit-execution-checkpoint--2026-11-09) records the repairs merged at `f1dc0b949`, run 487 finalized at cut 604, and the verified development migration. Deployed citation replay, ordinary assembly of archived PM2 dependencies, protected comparisons, final qualification and selection remain open.
 
 ## Delivered and assessed
 

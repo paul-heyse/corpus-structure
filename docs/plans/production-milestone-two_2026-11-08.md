@@ -405,23 +405,26 @@ evidence by itself.
 ### Post-audit execution checkpoint · 2026-11-09
 
 - **Private book staging.** Run 487 settled all 58 extraction tasks on its
-  original runtime and produced source-ready cut 603. During finalization,
-  `uv run ci status 487 --project nce-grinstead-snell-full-book --json` read
-  back consolidation cut 604 without an output realization. Keep the original
-  checkout on `pm2/run-487-runtime` through finalization.
-  The earlier run 482 refusal remains a terminal record. Set 34 grading and
-  the assembled parser and interpretation journey are separate obligations.
+  original runtime and produced source-ready cut 603. Finalization sealed
+  cut 604 as `private:pm2-closure-full-book:487`; `uv run ci status 487
+  --project nce-grinstead-snell-full-book --json` confirmed the run finished.
+  Set 34 completed as evaluation 48, scoring two reference units and reporting
+  no established quality claim. This staging run covers annotation and GLiNER
+  extraction; the assembled parser and interpretation journey remains open.
+  Run 482 remains a separate terminal refusal.
 - **Main integration.** Merge `f1dc0b949` brings the PM2 repairs and registered
-  migration `semantic_pm2_named_pieces` onto `main`. The merged worktree is
-  `build/pm2-execution-worktrees/refusal`; this merge left the executing
-  checkout and the development database revision unchanged.
+  migration `semantic_pm2_named_pieces` onto `main`. The merge left the
+  executing checkout and development database unchanged until run 487 finished.
+  The temporary worktree receipts are retained under
+  `build/pm2-worktree-receipts/`; each subdirectory retains its own `ci` result
+  store for inspection with `CORPUS_CI_RESULTS`.
 - **PM2-R01 · Merged.** Commit `bb035e57d` returns a structured refusal for invalid extents and canonical
   boundaries in the shared PM2 preparation path. The isolated native-backed
   CLI controls passed and checked that refusal creates no run or task.
   The installed command also returned `Pm2ScopeRefused` with
   `invalid_source_extent` for a retained pin.
   The committed-source managed rerun `1de606f99be44f75ab9e0e9c7c1e3281`
-  passed both focused controls; its receipt is in the refusal worktree.
+  passed both focused controls; its receipt is in the retained `refusal` store.
 - **PM2-01/08 · Detached worklist repair merged.** Commits
   `8c4e5b561` and `e1409ebac` on `pm2/detached-worklist` add exact-cut worklist export
   and shared coverage replay. Managed export and bound receipt inspection
@@ -476,8 +479,11 @@ evidence by itself.
   `4f83a2c163b54e85b8323c722562f0ba`; the original two formula failures remain
   visible. Native model candidate `d1eef86361c94c83810c48ad52d53f1d` was
   authored with rollback and registered as `semantic_pm2_named_pieces`.
-  Development deployment, the full citation selection, and detached citation
-  export remain open pending run 487 finalization.
+  After run 487 finalized, `ci model change deploy` passed in development
+  (receipt `d7a0c6fd7063421985c0bd0210a820bd`), reaching that revision and
+  admitting release `c6e16e9930ea4…`. `ci db status --maintenance` and
+  `ci db check` independently confirmed the revision and release correspondence.
+  The full citation selection and detached citation export remain open.
   The [ordinary-baseline inventory](../design_review/evidence/2026-11-09_pm2-workflow-references/ordinary-baselines.md)
   found no exact completed ordinary predictions for the new definition and
   nested-condition cases. Reproduce the bounded incumbents on the same final
