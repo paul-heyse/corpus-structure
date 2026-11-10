@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "id": "pm2.joined-citation-candidate",
+  "title": "Joined annotation pieces recover an exact retained citation cue",
+  "group": "pm2-adoption",
+  "package": "PM2-09",
+  "finalized": "2026-11-09",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the named citation producer authenticate the exact source item when the retained annotation groups it under a different block ID?",
+  "answers": [
+    "PM2-09",
+    "PM2-12"
+  ],
+  "method": "Use the original source cut and annotation task with both recipe versions. Compare the cue extent and native pointer, exercise producer, native negative controls and archived replay, and generate the development candidate in a rollback-only transaction.",
+  "commands": [
+    "uv run ci test retry 1df13f4a90f34676afd9cc1c200c54bb --lane ordinary --json",
+    "uv run ci test coverage 1df13f4a90f34676afd9cc1c200c54bb 4f83a2c163b54e85b8323c722562f0ba --json",
+    "uv run ci model change candidate b2dac999737744109adb4155e4e533c7 --json",
+    "uv run ci model change register d1eef86361c94c83810c48ad52d53f1d --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "joined-citation-model-change.yaml",
+      "role": "Exact development native predecessor and planned revision",
+      "sha256": "5325fadca74389ef4cd749801aebd2c80682041fad526ea11c7aa0b017b2636f"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/cross-chapter-mapped-cue.json",
+      "role": "Read-only comparison using the exact retained source and annotation",
+      "sha256": "da6992b288e19c07ef7a07da15dcb6024eb127f3dcc53916b82b15732055e4a5"
+    },
+    {
+      "path": "raw/cross-chapter-empty-retry.json",
+      "role": "Completed empty predecessor-policy control",
+      "sha256": "f9b3edddb856e82e2fb9c45c693d18f6536fcf4b2b5a1f2b798baefa5e6ef06e"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "The new recipe finds the exact Section 5.1 citation on native item #/texts/21384 using the explicit piece map of retained annotation block #/texts/21382. The focused receipts cover 65 selected identities after retry. Candidate registration passed; development deployment, native citation selection and the exact detached citation are separate obligations.",
+  "consumed_by": [
+    "PM2-09",
+    "PM2-12"
+  ]
+}
