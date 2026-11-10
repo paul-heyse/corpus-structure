@@ -14,7 +14,7 @@ the project is unselected. Protected Standard/Nemotron arms retain their recorde
 
 ## Last verified · 2026-11-10
 
-- Text-characterization discovery publication: `uv run ci docs check --json` **passed**bc75b24d55454ab9bc3701cecbe0c246 (853 pages, zero link errors); `just turn-end` **passed**. Later edits record receipts only. Product tests/provider runs/benchmarks **not_run**: source/reference discovery only; prior product receipts below retain their original scope.
+- Repeated text-characterization discovery: `uv run ci docs check --json` **passed**4ff45c99f64442379c7007b9f5a56d24 (857 pages, zero link errors); `just turn-end` **passed**. Source/reference review and independent coverage corrections are documentary evidence; product tests/provider runs/benchmarks **not_run**. Later edits record receipts/source-scope facts only; old product receipts below keep their scope.
 
 - Full `uv run ci test --json` **failed** b8225463a9d44668a86d6e7dce6cd5c3: ordinary5978 passed/four obsolete test consumers failed/two opt-in cases blocked; fault8 passed. Test-only migration's complete file **passed**8 ae7083f718e147f3b558cc29596ac764. All failed/interrupted originals are held in the coordinator; none is relabelled passed.
 - `CORPUS_GLINER_DIAGNOSTIC=1 CORPUS_PM2_NATIVE_TEST_ASSETS="$PWD/build/models/pm2" uv run ci test retry b8225463a9d44668a86d6e7dce6cd5c3 --lane ordinary --json` **passed**6/6 in3e3fd9c9315e4b33b5208984b6f2eab6 at clean629d3b41f, including actual GLiNER CPU and HanLP/Maverick/Dipo CUDA transfer. Prefixes select required existing model assets.
@@ -25,7 +25,7 @@ the project is unselected. Protected Standard/Nemotron arms retain their recorde
 
 ## Other current scopes
 
-- [spaCy/Lark discovery](docs/library_leverage/libraries/text-characterization/briefing.md) completes the selected characterization-first inquiry: eight integrated leads, complete overview coverage and five textbook journeys. Benefits remain Proposed; contextual fit, comparative selection and production changes remain follow-up work. This documentation pass does not recertify PM2 or change selection.
+- [Repeated spaCy/Lark discovery](docs/library_leverage/libraries/text-characterization/briefing.md) replaces the earlier account with seven integrated topic briefings and feature-level judgments/sources. It recommends full formal sentence characterization in primary extraction and treats forest processing as a primary representation/computation candidate. Recommendations remain Proposed; production adoption remains open.
 
 - [PM2](docs/plans/production-milestone-two_2026-11-08.md#post-audit-execution-checkpoint--2026-11-09) retains run487/cut604. Deployed citation replay, ordinary archived-dependency assembly, protected comparisons, final qualification and selection remain its work; return follows CLD without automatic activation.
 - [WCE](docs/plans/witnessed-corpus-enrichment_2026-11-05.md#repair-disposition--2026-11-07) owns source/factor repairs. ADR-0070 selects all518 Grinstead–Snell pages; WCE receipts cover191–310. DMA-13's bounded acceptance and evaluations42/43 retain their stated limits; Chandra stays excluded.

@@ -20,10 +20,10 @@ Neither is a comparative preference. Choosing between options belongs to
 ## Library-led briefings
 
 The [spaCy and Lark text-characterization discovery](text-characterization/briefing.md) (2026-11-10)
-explores a comprehensive source-aligned foundation of fundamental language and formal units,
-followed by conceptual composition and analytics. Eight integrated leads connect complete
-overview coverage, current retained products, five textbook journeys and broader library
-compositions. Benefits remain Proposed; current plans retain their own dispositions.
+repeats the inquiry for maximal formal primary characterization, including sentence
+interpretation and ambiguity. Seven integrated topic briefings give feature-level judgments,
+primary sources and current integration evidence. Recommendations remain Proposed; the account
+permits substantial redesign and leaves production adoption to existing decision routes.
 
 The [agent CLI and diagnostics discovery](cli-and-logging/briefing.md) (2026-11-10)
 combines full Typer/Rich/structlog overview coverage with current command, report, logging

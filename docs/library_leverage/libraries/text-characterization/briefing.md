@@ -1,105 +1,117 @@
-# Text characterization: integrated spaCy and Lark discovery
+# spaCy and Lark: maximal primary text characterization
 
-**Discovery, 2026-11-10; benefits Proposed.** This account investigates a comprehensive
-source-aligned representation of fundamental textual and mathematical units, followed by
-composition into conceptual relationships, higher-level labels/groups and analytics. Several
-ordered characterization passes are appropriate. The operator selected a full target-design
-inquiry, including substantial replacement of current boundaries; PM2 scope is evidence, not
-the ceiling for discovery. This publication selects research directions, not adoption.
+**Repeated discovery, 2026-11-10; recommendations and benefits Proposed.** The target is a
+comprehensive, formally structured primary representation of the text, including sentence
+interpretations, from which later conceptual relationships and analytics can be composed.
+The scope permits substantial replacement of current representations and pipeline boundaries.
 
-## Target and authority
+## Judgment
 
-Characterize language and formal notation richly enough that later consumers combine explicit
-units and annotations instead of independently extracting them from raw text. When a consumer
-reveals a missing characterization, investigate extending its upstream producer. Raw source
-remains available for attribution and inspection. A new analytical question can require a new
-characterization revision; this is not a promise to anticipate every future interpretation.
+**Recommended target direction:** primary extraction should own the complete supported language
+characterization, including predicates, arguments, complements, modifiers, clause structure,
+coordination, voice, polarity, modality, quantification, attribution, scope and sentence function.
+These interpretations should be explicit products expressed through library-native annotations,
+patterns, grammars, transformations and trainable components, rather than privately reconstructed
+by downstream consumers. Several dependent passes can form that primary layer.
 
-The proposed separation concerns meaning, not a fixed number of tasks, processes or persisted
-objects. Linguistic dependency edges are characterizations of syntax; inferred domain edges have
-different meaning and authority. A learned annotation remains a producer observation. Neither a
-complete parse nor a maximally populated annotation object establishes conceptual truth.
+The capabilities support a materially richer target than token/sentence segmentation followed by
+scattered extraction rules. The principal recommendations are:
 
-The [knowledge owner](../../../design/D1-knowledge-representation.md),
-[method owner](../../../design/D4-method-catalog.md),
-[ADR-0062](../../../adr/0062-progressive-contributions.md) and
-[full-book authority](../../../adr/0070-full-book-method-development.md) supply current contracts.
-The [PM2 coordinator](../../../plans/production-milestone-two_2026-11-08.md) retains its own
-dispositions and qualification. Its learned-model triggers do not prohibit broader discovery;
-this account does not change those implementation selections. WCE's 120-page evidence retains
-its original extent; the intended proving source here is the authenticated 518-page
-Grinstead–Snell parent.
-
-## Baseline and evidence
-
-| Item | Inspected scope |
-| --- | --- |
-| Source | `0da4f8e614b162b791ac19dcb63f6cd33178377b`, main, 2026-11-10 |
-| Worktree | Concurrent untracked `docs/design_review/evidence/2026-11-10_schema-diagnostic-failure-boundaries/` preserved; concurrent CLI/logging coordinator and command-authoring companion edits arose during research and are excluded from this account's analysis; tracked tree initially clean |
-| Context | Root uv workspace/default groups, Linux x86_64/glibc2.39, Python3.14.10; independently locked model/provider projects not separately audited |
-| Selected and installed | spaCy3.8.18, en_core_web_sm3.8.0, Lark1.3.1, SymPy1.14.0; spaCy/Lark/model are direct product dependencies; Lark also has an OAK/KGCL dependency path |
-| Companion metadata | No installed distribution metadata for spacy-transformers, curated-transformers, experimental, layout, llm, scispacy, spacy-stanza, interegular or lark-cython in this interpreter; this does not establish their unavailability elsewhere |
-| Overview coverage | Both supplied guides read end to end during planning, including addenda: spaCy2782 lines, Lark2223 lines. Execution researchers revisit them and deepen consequential mechanisms; coverage tables are in their topic briefings |
-| Evidence strength | Current source, installed implementation, primary references and explicitly dated retained evidence. No new model inference, fitting, runtime probes or performance measurements |
-
-Selection command: `uv tree --locked --offline --no-python-downloads --invert --package spacy
---package lark --package en-core-web-sm`. Installation/platform metadata was read with
-`uv run --locked --offline --no-sync --no-python-downloads python -B` using
-`importlib.metadata` and `platform`. Neither operation synchronized or installed packages.
-Overview claims about latest releases are dated orientation; selected-release source governs
-the mechanisms discussed here. Installed metadata is not runtime execution evidence.
-
-## Reading route and research priorities
-
-| Topic | Responsibility and question |
-| --- | --- |
-| [Consumer journeys](briefings/consumer-journeys.md) | What is already retained, what later consumers reconstruct, and what still requires context-dependent inference? |
-| [spaCy](briefings/spacy.md) | How much richer can the shared linguistic annotation foundation become through native analysis, matching, span models and lifecycle facilities? |
-| [Lark](briefings/lark.md) | Which lexical/formal structures and ambiguity-aware products could shared grammars expose beyond the current math and literal fields? |
-| [Composition and interfaces](briefings/composition.md) | How should independent characterizers compose, which representations must survive, and what would distinguish a better foundation? |
-
-Investigate the following together first. Priority is attention order, not an implementation queue.
-
-| Lead | Proposed research direction | Decisive question |
+| Recommendation | Library functionality and contribution | Judgment |
 | --- | --- | --- |
-| TC-01 | Shared source-aligned characterization products, extending retained columns with reusable phrases/clauses/cues and formal units | Which later consumer operations would become composition over retained units, and which still need genuinely new characterization? |
-| TC-02 | Broader native spaCy linguistic analysis and declarative matching, preserving overlapping candidates and named role geometry | Can the required fundamental units be represented faithfully, including discontinuous roles and alternative boundaries? |
-| TC-03 | Lark lexical and grammar families for references, numeric/interval forms, enumerations and bounded language constructions | Which current string recognizers encode a reusable syntax, and which are already the simplest sufficient mechanism? |
-| TC-04 | Independent and candidate-guided spaCy/Lark composition | Does guidance improve useful characterization without allowing one provider's missed candidate to suppress another's discovery? |
-| TC-05 | Preserved ambiguity, annotation availability and exact source correspondence | Can downstream operations consume alternatives and partial products without treating unexamined scope as absent? |
-| TC-06 | Learned span proposal/classification and structured tasks over shared representations | Is the missing capability boundary proposal, linguistic label, conceptual label or typed binding, and what supervision would address it? |
-| TC-07 | Shared configuration, preparation, annotation interchange, batching and useful lifetime | What generic machinery and repeated work disappear after accounting for conversion, persistence, opening and change? |
-| TC-08 | Complementary linking, classification and ecosystem capabilities | Which enrich fundamental characterization, which belong downstream, and which introduce redundant authority or lifecycle? |
+| Retain rich linguistic units and attributes | spaCy [Token/Doc annotations](https://spacy.io/api/doc), dependency traversal, noun chunks and pattern-based constructions expose lexical, morphological and grammatical structure | **Recommended.** Expand the shared primary products beyond the columns already retained |
+| Formalize sentence interpretation | [DependencyMatcher](https://spacy.io/api/dependencymatcher) and contextual token patterns, configured [TrainablePipe](https://spacy.io/api/pipe) components, and Lark grammar rules plus typed transformations can represent predicates, roles, qualifiers and scopes | **Recommended direction.** Some semantics need authored rules or learned tasks; formalization is broader than adopting a stock parser |
+| Preserve simultaneous characterizations | spaCy [SpanGroup](https://spacy.io/api/spangroup)/[SpanRuler](https://spacy.io/api/spanruler) and multilabel span tasks retain nested/overlapping units and labels | **Recommended.** A single non-overlapping entity sequence cannot express the intended depth |
+| Preserve correlated alternative readings and compute over them | Lark [explicit ambiguity/SPPF and forest processing](https://lark-parser.readthedocs.io/en/stable/forest.html), including ForestVisitor, ForestTransformer and TreeForestTransformer expose alternative derivations and direct transformations | **Primary candidate, promising with unresolved realization.** Assess as representation and computation, not merely a speed optimization |
+| Compose formal languages with language analysis | Lark lexical/contextual/generalized parsing, [modular grammars](https://lark-parser.readthedocs.io/en/stable/grammar.html), custom typed input and AST construction can combine linguistic and formal constituents | **Recommended to develop in the target.** Select grammar/annotation boundaries by the structure preserved, not current module layout |
+| Learn additional characterizations where useful | [SpanFinder](https://spacy.io/api/spanfinder), [SpanCategorizer](https://spacy.io/api/spancategorizer), custom suggesters, shared encoders and custom trainable tasks extend proposal, label and structured-output capabilities | **Promising.** Review usefulness now; supervision, model suitability and artifact qualification determine realization |
+| Carry the useful structure into later consumption | Native [annotation interchange](https://spacy.io/api/docbin), positioned ASTs, controlled serialization and reusable preparation retain characterized products | **Recommended supporting capability.** Choose retention by the meaning consumers require rather than forcing all results into one native object type |
 
-The library briefings deepen these leads into concrete mechanisms, counterconditions and next
-questions. All potentially beneficial guide families receive a disposition, including ones with
-no present production caller. Existing usage and hypothetical broader value are kept separate.
+These are discovery recommendations, not accepted implementation or measured efficacy claims.
+Sentence-internal relationships such as predicate–argument structure belong to the characterization
+model. A later edge between independently characterized concepts/assertions has a different role.
+A source interpretation also remains distinguishable from an admitted scientific assertion.
 
-## Judgment, handoff and limits
+## Topic briefings and feature index
 
-Apply [core3.3, heuristics and code-intelligence1.4](../../../design_review/design_principles/standard.toml).
-FP-03/04 favor composition through explicit units and scoped meanings; FP-05 preserves dependency,
-availability and alternative structure; FP-06 favors consumers understandable from retained
-contracts; FP-07/H6/H12/H15/H16 challenge unnecessary eager work and repeated preparation without
-shrinking the intended functional target. Rich characterization can be shared or prepared on
-demand under one owner. It need not force every optional model to execute on every passage.
+All substantive content is directly in this folder. Each feature entry states functionality,
+contribution, judgment/reason, prerequisites or residual authored work, and direct primary sources.
+Current call sites appear beside relevant capabilities, not in separate journey narratives.
 
-Relevant [patterns](../../patterns.md) are LOP-01/03/04/05/06/07/09/10/12.
-[LOP-X004](../../assessment-patterns.md#lop-x004) is especially useful: a prepared product may
-omit stable derivations its consumers repeatedly reconstruct. X007/X009 warn that copying or
-opening a retained product can lose required state or recreate its producer. No new pattern or
-alignment lint is needed.
+| Topic | Feature coverage |
+| --- | --- |
+| [Segmentation and lexical analysis](segmentation-and-lexical-analysis.md) | Tokenization/customization, sentence alternatives, POS/morphology/lemma, contextual correction; lexical-only/basic/contextual/dynamic/exhaustive/custom lexing, priorities, Unicode, callbacks, postlex, indentation and ignored material |
+| [Sentence structure and interpretation](sentence-structure-and-interpretation.md) | Native dependency queries and operator families; predicates/arguments, clauses, coordination and qualified interpretation; recursive grammars, templates, imports/extensions, starts, aliases and semantic handlers |
+| [Ambiguity and alternative interpretations](ambiguity-and-alternative-interpretations.md) | Overlapping annotation states, explicit alternatives and SPPFs; forest nodes, traversal, direct transformation, ambiguity handlers, prioritization/caching/cycles and expansion |
+| [Extraction, classification and normalization](extraction-classification-and-normalization.md) | Matcher families/rulers, fuzzy/regex/morphological/custom predicates, NER, finders/categorizers/suggesters, score/candidate retention, passage labels and canonical-ID proposals |
+| [Representations and composition](representations-and-composition.md) | Native document/tree models, custom annotations, token/node filtering and positions, ASTs, traversal/transformation variants, structural matching/rewriting/reconstruction and compositions across libraries |
+| [Models, supervision and evaluation](models-supervision-and-evaluation.md) | Lexical/contextual encoders, listeners/transformers/Thinc/custom tasks; initialization, freezing/sourcing, supervision/alignment/readers, augmentation/adaptation/scoring and companion producers |
+| [Execution, retention and tools](execution-retention-and-tools.md) | Configuration/component lifecycle, batching/errors/memory/hardware, arrays/JSON/binary/DocBin, grammar loading/caching/deployment, diagnostics/interactive recovery, visualization/workflows and ecosystem tooling |
 
-Next, establish concrete opportunities for TC-01–05 through the codebase-audit route where
-needed; use library-assessment for contextual fit and opportunity-review for complete options.
-TC-06–08 remain active discovery leads, not automatically deferred by current PM2 decisions.
-Compare the enriched foundation with the current retained-column/demand-driven route, including
-which specialized consumers can disappear and which policies remain separately authoritative.
-Accepted contract changes use existing planning, review and ADR routes; no second task ledger is
-created here. The [composition briefing](briefings/composition.md) records proposed interface
-effects and the concrete next questions rather than inventing a final universal schema.
+Judgments distinguish **Recommended**, **Promising with unresolved questions**, **Supporting** and
+**Not advantageous for this target**. A recommendation concerns functional/design value, not
+permission to deploy. Compatibility restrictions are recorded separately from usefulness. A missing
+current caller, a missing training set or the absence of a diagnosed defect does not exclude a
+capability from this review. Features not selected for the primary layer still receive a reasoned
+brief disposition, including features whose value is downstream or operational.
 
-Functional tests, model/provider runs, probes and benchmarks: **not_run**, deliberately; source
-and reference evidence suffice for these discovery conclusions. Prior successful cases retain
-their dated, bounded meaning. No new efficacy, speed, full-book qualification, deployment,
-activation or selection claim follows. Publication verification is recorded in STATUS.
+## Research basis and current integration
+
+Both complete supplied guides were reread end to end during the replacement planning: the
+[spaCy guide](../../../libraries/parsing/spacy.md), 2,782 lines, and
+[Lark guide](../../../libraries/parsing/lark.md), 2,223 lines, including both addenda.
+Topic briefings map the relevant guide sections to their feature judgments. Addendum corrections
+prevail over earlier guide statements; mutable documentation is checked against selected-version
+source where the distinction matters. These guides orient the inquiry; adjacent official API,
+reference and implementation links establish the specific mechanisms discussed.
+
+Source baseline is `e283a63c09c8881698a51495c9dbe48f757b44f3`, main, 2026-11-10. The pending
+previous discovery revisions were source notes for reassessment and are replaced by this account.
+Earlier retained evidence keeps its original dates and limits. Concurrent CLI/refusal/reporting
+repairs, D8/DESIGN edits and ADR-0080 arose during publication; they are preserved and excluded
+from this discovery's source assessment. Publication page counts include the shared tree. The root uv selection is
+spaCy3.8.18, en_core_web_sm3.8.0, Lark1.3.1 and SymPy1.14.0 on Python3.14.10/Linux; companion
+installation, configured activation and actual runtime execution are distinct facts. No new
+provider run, model fitting or performance measurement was performed for this documentary review.
+
+Current source already has source-aligned token layouts, richer retained linguistic columns,
+consumer-local spaCy views, named token/phrase/dependency rules, predicate interpretation recipes,
+positioned mathematical parsing and bounded nonmath field grammars. That is useful existing
+integration, not the intended ceiling. The review asks which interpretations should move into
+coherent primary characterization and which native capabilities should reshape its representation.
+The relevant owners remain [D1](../../../design/D1-knowledge-representation.md),
+[D4](../../../design/D4-method-catalog.md), [ADR-0062](../../../adr/0062-progressive-contributions.md)
+and the [full-book benchmark decision](../../../adr/0070-full-book-method-development.md).
+PM2 and WCE retain their execution/qualification dispositions; their immediate scope does not
+limit these research judgments.
+
+## Integrated consequences and next decisions
+
+A full target design should determine the typed sentence-characterization products, including
+predicate/argument/qualifier structures and alternative interpretations, before preserving the
+current division between annotation, rules, frames and later extraction. It should examine native
+spaCy annotations, positioned Lark structures and shared alternatives together. Library mechanisms
+supply representation and processing; authored linguistic/domain declarations still define the
+specific interpretations, constraints and label meanings.
+
+The most consequential unresolved choice is how far a common ambiguity-aware representation
+should extend across linguistic and formal analysis. An SPPF represents derivations of a declared
+grammar; a spaCy dependency tree is a predicted analysis, and overlapping spans are different again.
+The review recommends preserving these distinctions while investigating a coherent primary product,
+not pretending that one format automatically subsumes all three.
+
+Follow-up applicability/comparative work should develop this complete target and its consumer
+migration, including removal of superseded private recognition/interpretation mechanisms. It need
+not begin by finding a small defect in today's pipeline. The chosen design should explain how a
+new sentence characterization is added once and then reused, and how alternative readings remain
+available without converting them prematurely into accepted knowledge links.
+
+The [selected principles and heuristics](../../../design_review/design_principles/standard.toml)
+favor explicit semantic models, scoped authority, composition and a credible execution route.
+Relevant leverage patterns are LOP-03/06/07/09/12 and LOP-X004: broader adopted capability, faithful
+representations, reusable preparation, shared characterization and complete prepared products.
+No new process gate or alignment lint is introduced.
+
+Publication checks are recorded in STATUS. Product tests, runtime probes, model/provider runs and
+benchmarks are **not_run**: this review establishes capability and design judgments through source
+and reference investigation, with efficacy and any unresolved realization questions kept explicit.
