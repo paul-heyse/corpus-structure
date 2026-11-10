@@ -22,7 +22,7 @@ can iterate or enter directly at the stage warranted by the question.
 
 | Stage and skill | Main judgment | Owns | Leaves for later |
 | --- | --- | --- | --- |
-| Optional `leverage-library-discovery` | Which capability families merit investigation here? | Contextual briefing, usage interpretation and proposed research priorities | Concrete opportunity evidence, applicability and comparative choice |
+| Optional `leverage-library-discovery` | Which capability families merit investigation here? | Contextual briefings, usage interpretation and proposed research priorities | Concrete opportunity evidence, applicability and comparative choice |
 | 1. `leverage-codebase-audit` | A concrete responsibility or activity is worth investigating for library leverage | Current codebase opportunities, their evidence, preservation constraints and coverage | Whether a candidate capability fits, and which option is best |
 | 2. `leverage-library-assessment` | Particular library capabilities could address an opportunity under stated conditions | Reusable library opportunity types and context-specific applicability assessments | Comparative selection of the best complete option |
 | 3. `leverage-opportunity-review` | A particular realization is preferable here, or a decision remains unsettled | Comparative reasoning, recommended target, interactions and decisive unknowns | Accepted implementation scope, detailed work packages and execution status |
@@ -61,7 +61,7 @@ adoption can introduce one.
 | --- | --- | --- |
 | Leverage pattern | A generally recognizable opportunity shape, from the base framework or assessment discoveries | Base `patterns.md`; additional patterns in output `assessment-patterns.md` |
 | Codebase opportunity | A concrete occurrence or related footprint worth investigating | `codebase/` |
-| Library-led briefing | A family-level view of capabilities, representative usage and proposed research priorities | `libraries/<library>/briefing.md` |
+| Library-led briefings | A family-level view of capabilities, representative usage and proposed research priorities | `libraries/<library>/briefing.md`, optionally supported by `briefings/*.md` |
 | Library opportunity type | A reusable account of a focused capability, needs it can serve, mechanisms and limits | `libraries/<library>/` |
 | Applicability assessment | A context-specific connection between an opportunity and one or more library types | That library's current applicability account |
 | Comparative judgment | A reasoned choice among complete options for an opportunity or coherent group | `reviews/` |
@@ -143,7 +143,9 @@ docs/library_leverage/
     README.md                             researched libraries, type routes, coverage
     <library>/
       README.md                           focused type index and version coverage
-      briefing.md                         contextual discovery, when undertaken
+      briefing.md                         complete discovery or summary and reading route
+      briefings/                          optional focused discovery briefings
+        <topic>.md                        supporting analysis grouped as useful
       <opportunity-type>.md                reusable capability analysis
       applicability.md                    current contextual matches, when large enough
   reviews/                                comparative judgment account
@@ -183,9 +185,11 @@ being prerequisites for identifying an opportunity or binding adoption choices.
 
 ### Library assessment account
 
-The optional [library-led briefing](references/discovery-and-evidence.md) provides contextual
-orientation and proposed questions. It can precede a concrete opportunity and links to reusable
-types when available. Applicability judgments belong to focused assessments.
+Optional [library-led briefings](references/discovery-and-evidence.md) provide contextual
+orientation and proposed questions. The entry `briefing.md` may hold the complete discovery or
+synthesize focused briefings under `briefings/`. Agents choose organization and depth to explain
+the opportunities. Discovery can precede a concrete opportunity and links to reusable types when
+available. Applicability judgments belong to focused assessments.
 
 Research focused capability families in response to codebase opportunity questions. Use the existing
 overviews for awareness and choose reference sources according to
@@ -232,7 +236,7 @@ Git preserves previous accounts. No per-pass directory or accumulating review di
 | Material | Retention and retirement |
 | --- | --- |
 | Codebase opportunity | Keep while the underlying opportunity is relevant, including while work is scheduled. Remove on evidence that it was resolved, withdrawn on corrected premises, superseded or no longer worth retaining. Choosing or rejecting one library does not resolve it. Preserve removal reasoning and evidence in Git; never reuse its ID. |
-| Library-led briefing | Refresh in place when relevant objectives, usage or available capabilities change. Keep inherited evidence dated and explain changes to research priorities. |
+| Library-led briefings | Refresh the summary and affected focused briefings in place when relevant objectives, usage or available capabilities change. Keep inherited evidence dated, make differing source conditions explicit and explain changes to research priorities. |
 | Reusable library type | Prefer growth, correction and deeper explanation. Retain when every current match disappears. Correct, merge or retire a type when its account is false, redundant or obsolete; retain an explicitly version-scoped account when older supported use still has a reader. Current unmatched status is never a retirement reason. |
 | Additional assessment pattern | Retain a useful framing independently of its current occurrences. Refine, merge or retire for substantive reasons; preserve references on manual promotion into the base framework. Its original opportunity retiring is not a retirement reason. |
 | Contextual applicability | Refresh when code, guarantees, configuration, library realization or other consequential premises change. Remove obsolete current matches when their codebase opportunities retire. Carry justified reusable lessons into the type, with their original evidence scope. |

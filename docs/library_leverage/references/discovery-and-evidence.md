@@ -117,14 +117,19 @@ ast-grep run --lang python --kind import_from_statement --json=stream path/to/se
   partial evidence. Qualify the exact binding and grammar before relying on cancellation, given
   the [recorded callback failure](../../design_review/evidence/2026-11-07_cli-typer-028/README.md).
 
-## Write the briefing
+## Write the briefings
 
 Maintain `docs/library_leverage/libraries/<family>/briefing.md` using the existing family account
 when there is one. Add a route from the [briefing index](../libraries/README.md#library-led-briefings)
-when creating a briefing. Keep it short enough to orient a deeper review. Include:
+when creating a discovery account. The entry point may contain the complete discovery or summarize
+and link to focused briefings under `briefings/`. Choose the organization, document boundaries and
+level of detail that sufficiently explain the opportunities, without a fixed segmentation scheme
+or document count. When using multiple briefings, the summary connects findings, explains research
+priorities across topics and identifies useful compositions. Focused briefings carry supporting
+analysis and enough context for selective reading. Across the discovery account, include:
 
 1. **Scope and evidence.** Objective, inspected baseline and selection, evidence used, and limits.
-2. **Capabilities and current use.** A compact map of relevant capabilities and representative uses,
+2. **Capabilities and current use.** A map of relevant capabilities and representative uses,
    with links to original docs, local call sites, configuration or existing evidence. Include
    useful territory outside the current integration.
 3. **Research priorities.** For each direction, name the mechanism, potential value, conditions
@@ -132,6 +137,10 @@ when creating a briefing. Keep it short enough to orient a deeper review. Includ
    reason to retain the current approach.
 4. **Handoff.** Link existing types, opportunities or assessments when they exist. A useful lead
    can remain a proposed question until a concrete responsibility warrants further work.
+
+Refresh the summary and affected focused briefings together. Link shared baseline and coverage
+context where appropriate; make differing dates or source conditions explicit and retain inherited
+evidence dates.
 
 For example, a synthetic family might advertise a batching plugin while an inspected test imports
 an alias from a namespace with multiple possible providers. Record the advertised plugin, the

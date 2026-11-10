@@ -20,7 +20,8 @@ Neither is a comparative preference. Choosing between options belongs to
 ## Library-led briefings
 
 The optional [discovery skill](../../../.claude/skills/leverage-library-discovery/SKILL.md)
-maintains one briefing per investigated family. A briefing records representative local uses,
+maintains discovery accounts with a complete briefing or a summary and focused briefings.
+Agents choose organization and depth to explain the opportunities. The account records representative local uses,
 capability territory and proposed research priorities at an inspected baseline. The
 [discovery and evidence guide](../references/discovery-and-evidence.md) defines its evidence
 and output. The first pilot is the [PostgreSQL typed-domain discovery](postgresql/briefing.md)
