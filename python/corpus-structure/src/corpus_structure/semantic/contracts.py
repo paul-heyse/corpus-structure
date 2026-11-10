@@ -1163,6 +1163,8 @@ def analysis_implementation_inputs(
                 ("parsing/pm2-maverick.py", "methods/pm2_maverick_products.py"),
                 ("parsing/pm2-dipo.py", "methods/pm2_dipo_products.py"),
                 ("parsing/pm2-interpretation.py", "methods/pm2_interpretation_products.py"),
+                ("parsing/pm2-gliner-classification.py", "methods/pm2_gliner_classification.py"),
+                ("operations/model-observation.py", "methods/model_observation.py"),
                 ("parsing/interpretation-questions.py", "semantic/interpretation_questions.py"),
                 ("records/record-contracts.py", "semantic/record_contracts.py"),
                 ("records/observations.py", "semantic/observations.py"),

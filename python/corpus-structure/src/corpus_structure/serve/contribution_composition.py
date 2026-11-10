@@ -13,6 +13,15 @@ from dataclasses import dataclass
 from typing import Any
 
 from corpus_structure.methods.pm2_dipo_products import prepare_dipo_context
+from corpus_structure.methods.pm2_gliner_classification import (
+    FAMILY as CLASSIFICATION_FAMILY,
+)
+from corpus_structure.methods.pm2_gliner_classification import (
+    METHOD as CLASSIFICATION_METHOD,
+)
+from corpus_structure.methods.pm2_gliner_classification import (
+    VERSION as CLASSIFICATION_VERSION,
+)
 from corpus_structure.methods.pm2_products import (
     PARSER_PROVIDER,
     PARSER_QUESTIONS,
@@ -388,7 +397,13 @@ def _interpretation_roles(value: Row, parts: _Parts) -> list[dict[str, Any]]:
     selected = frozenset(value.get("selected_keys", ()))
     states = value.get("alternative_states", {})
     aliases = value.get("option_aliases", {})
-    for native_key in value["native_answer"].get("probabilities", {}):
+    native = value["native_answer"]
+    native_keys = (
+        native["offered_keys"]
+        if native.get("type") == "gliner_classification"
+        else native.get("probabilities", {})
+    )
+    for native_key in native_keys:
         key = aliases.get(native_key, native_key)
         option: dict[str, Any] = {
             "role_family": "released_option",
@@ -396,6 +411,8 @@ def _interpretation_roles(value: Row, parts: _Parts) -> list[dict[str, Any]]:
             "state": "model_selected" if key in selected else states.get(key, "alternative"),
             "option_key": key,
         }
+        if native.get("type") == "gliner_classification" and key in native["scores"]:
+            option["native_score"] = native["scores"][key]
         if candidate := by_key.get(key):
             option.update(role_family="interpretation_candidate", role="candidate")
             option["semantic_type"] = candidate["semantic_type"]
@@ -713,6 +730,18 @@ def composition_facets(
         except (KeyError, ValueError) as error:
             raise SemanticRefusal("retained PM2 payload differs from its released roles") from error
         value = source_python(row["value"]) if interpretation else {}
+        if interpretation:
+            is_classification = row.get("method") == CLASSIFICATION_METHOD
+            if (
+                value["native_answer"].get("type") == "gliner_classification"
+            ) != is_classification or (
+                is_classification
+                and (
+                    operation["operation_version"] != CLASSIFICATION_VERSION
+                    or operation["question"] != CLASSIFICATION_FAMILY
+                )
+            ):
+                raise SemanticRefusal("classification differs from its exact producing method")
         parts = _Parts.read(
             row,
             parser_value.location_keys if parser_value else value.get("location_keys", ()),

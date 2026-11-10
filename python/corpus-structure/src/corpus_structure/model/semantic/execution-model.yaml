@@ -5924,6 +5924,15 @@ operations:
   - id: extract.pm2_d1/result.outcome
     field: outcome
     outcome_domain: source_result_outcome
+  - id: extract.pm2_gliner_classification/family
+    field: family
+    outcome_domain: method_family_extract
+  - id: extract.pm2_gliner_classification/tier
+    field: tier
+    outcome_domain: method_tier_encoder
+  - id: extract.pm2_gliner_classification/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
   - id: extract.m1_annotations/family
     field: family
     outcome_domain: method_family_extract

@@ -157,7 +157,10 @@ def _contract_row(conn, prepared):
         MODEL_OBSERVATION_INPUT,
         private_declaration_enabled,
     )
+    from corpus_structure.methods.pm2_gliner_classification import METHOD as CLASSIFICATION_METHOD
+    from corpus_structure.semantic.contracts import bound_execution_model
     from corpus_structure.semantic.contributions import contribution_payload_contracts
+    from corpus_structure.semantic.interpretation_questions import is_question_input
 
     from .review_source_projection import SECTION_TEXT_INPUT
 
@@ -187,14 +190,8 @@ def _contract_row(conn, prepared):
         else None
     )
     dependencies = dict(json.loads(prepared.manifest).get("dependencies", ()))
-    for input_name, field in (
-        (SECTION_PACKET_INPUT, "section_packets"),
-        (MODEL_OBSERVATION_INPUT, "model_observation_policy"),
-        (SECTION_TEXT_INPUT, "section_text_policy"),
-    ):
-        expected = dependencies.get(input_name)
-        if expected is None:
-            continue
+
+    def archived_input(input_name, expected):
         inputs = table("sem.input")
         content = bytes(
             conn.execute(
@@ -206,10 +203,35 @@ def _contract_row(conn, prepared):
             ).scalar_one()
         )
         if sha256(content).hexdigest() != expected:
-            raise SemanticRefusal(f"archived {field} differs from release")
-        row[field] = {
-            "manifest_base64": base64.b64encode(prepared.manifest).decode(),
-            "input_base64": base64.b64encode(content).decode(),
+            raise SemanticRefusal(f"archived {input_name} differs from release")
+        return base64.b64encode(content).decode()
+
+    for input_name, field in (
+        (SECTION_PACKET_INPUT, "section_packets"),
+        (MODEL_OBSERVATION_INPUT, "model_observation_policy"),
+        (SECTION_TEXT_INPUT, "section_text_policy"),
+    ):
+        expected = dependencies.get(input_name)
+        if expected is not None:
+            row[field] = {
+                "manifest_base64": base64.b64encode(prepared.manifest).decode(),
+                "input_base64": archived_input(input_name, expected),
+            }
+    question_inputs = {
+        name: digest for name, digest in dependencies.items() if is_question_input(name)
+    }
+    if (
+        question_inputs
+        and prepared.execution_model_id is not None
+        and any(
+            dimension.id == f"{CLASSIFICATION_METHOD}/family"
+            for dimension in bound_execution_model(prepared)
+            .operation("configure_method")
+            .result_dimensions
+        )
+    ):
+        row["interpretation_question_inputs"] = {
+            name: archived_input(name, digest) for name, digest in question_inputs.items()
         }
     return row
 
@@ -1363,6 +1385,7 @@ def _exact_closure(
             }
         )
 
+    # Only the d1 family may declare retained interpretation predecessors.
     for request in selection.selections:
         if request.method not in (None, "extract.pm2_d1"):
             continue
@@ -2343,11 +2366,14 @@ def _retained_contribution_payloads(
 
 
 def _verify_interpretation_closure(root, manifest, scopes, inventory):
-    """Replay the exact source-part and candidate references retained by d1."""
+    """Replay source-only model observations and exact retained d1 references."""
+    from corpus_structure.methods.pm2_gliner_classification import METHOD as CLASSIFICATION_METHOD
     from corpus_structure.semantic.contextual_storage import interpretation_candidates
     from corpus_structure.semantic.observations import source_python
     from corpus_structure.semantic.retained_contributions import RetainedContributionRef
     from corpus_structure.serve.contribution_composition import interpretation_predecessors
+
+    from .pm2_classification_replay import verify_classification_replay
 
     readings = {}
     for (index, task, origin, identity), row in inventory.items():
@@ -2365,7 +2391,9 @@ def _verify_interpretation_closure(root, manifest, scopes, inventory):
             origin_task_id=origin,
             runtime_fingerprint=row["runtime_fingerprint"],
         )
-        if row.get("method") != "extract.pm2_d1" or not row.get("cut_member"):
+        if row.get("method") not in ("extract.pm2_d1", CLASSIFICATION_METHOD) or not row.get(
+            "cut_member"
+        ):
             raise ValueError("interpretation differs from exact producing method or cut")
         readings[reference] = row
     if not readings:
@@ -2412,6 +2440,45 @@ def _verify_interpretation_closure(root, manifest, scopes, inventory):
         )
         for ref, payload in payloads.items()
     }
+    classification_refs = {
+        reference for reference, row in readings.items() if row["method"] == CLASSIFICATION_METHOD
+    }
+    if classification_refs:
+        classification_origins = {reference.origin_task_id for reference in classification_refs}
+        classification_sources = {
+            roots[reference]["pin"]["source_view_id"] for reference in classification_refs
+        }
+        classification_releases = {reference.release_id for reference in classification_refs}
+        reports = {
+            row["origin_task_id"]: row
+            for row in _detached_relation(root, manifest, "reports")
+            if row["origin_task_id"] in classification_origins
+        }
+        sources = {
+            row["source_view_id"]: row
+            for row in _detached_relation(root, manifest, "sources")
+            if row["source_view_id"] in classification_sources
+        }
+        contracts = {
+            row["release_id"]: row
+            for row in _detached_relation(root, manifest, "contracts")
+            if row["release_id"] in classification_releases
+        }
+        for reference in classification_refs:
+            row = roots[reference]
+            if (
+                reference.origin_task_id not in reports
+                or row["pin"]["source_view_id"] not in sources
+                or reference.release_id not in contracts
+            ):
+                raise ValueError("classification lacks exact detached source or release inputs")
+            verify_classification_replay(
+                reports[reference.origin_task_id],
+                row,
+                _retained_review_source_view(sources[row["pin"]["source_view_id"]]),
+                contracts[reference.release_id],
+            )
+
     retrieval_origins = {
         retrieval.carrier.origin_task_id
         for _, _, retrieval in needed.values()

@@ -6,6 +6,7 @@ import json
 import sys
 from collections import Counter, defaultdict, deque
 from collections.abc import Callable, Iterable
+from contextlib import closing
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
@@ -19,6 +20,23 @@ from corpus_structure.core.method import UnitRef
 from corpus_structure.core.provenance import code_commit
 from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.ingest.sentences import Block, SentenceConfig, split
+from corpus_structure.methods.gliner import GlinerRefused
+from corpus_structure.methods.model_observation import released_policy
+from corpus_structure.methods.pm2_gliner_classification import (
+    FAMILY as CLASSIFICATION_FAMILY,
+)
+from corpus_structure.methods.pm2_gliner_classification import (
+    METHOD as CLASSIFICATION_METHOD,
+)
+from corpus_structure.methods.pm2_gliner_classification import (
+    VERSION as CLASSIFICATION_VERSION,
+)
+from corpus_structure.methods.pm2_gliner_classification import (
+    ClassificationProfile,
+    ClassificationWorker,
+    classification_mapping,
+    classification_request,
+)
 from corpus_structure.methods.pm2_products import PARSER_QUESTIONS
 from corpus_structure.methods.pm2_result import pm2_input_digest
 from corpus_structure.methods.pm2_source import (
@@ -206,8 +224,23 @@ class InterpretationScope(BaseModel):
         return self
 
 
+class ClassificationScope(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    source: ExternalSourceRef
+    extent: Extent
+    profile: ClassificationProfile
+    family: Literal["passage_function_v1"]
+    version: Literal["1"] = CLASSIFICATION_VERSION
+    schedule: bool = True
+    questions: tuple[str] = Field(min_length=1, max_length=1)
+
+
+InterpretationSelection = InterpretationScope | ClassificationScope
+
+
 class InterpretationRunRequest(_SourceRunRequest):
-    scopes: tuple[InterpretationScope, ...] = Field(min_length=1, max_length=64)
+    scopes: tuple[InterpretationSelection, ...] = Field(min_length=1, max_length=64)
 
 
 class ParserRunReport(BaseModel):
@@ -221,8 +254,8 @@ class ParserRunReport(BaseModel):
 
 @dataclass(frozen=True)
 class _Work:
-    scope: ParserScope | InterpretationScope
-    profile: ParserProfile | InterpretationProfile
+    scope: ParserScope | InterpretationSelection
+    profile: ParserProfile | InterpretationProfile | ClassificationProfile
     mapping: PM2SourceMap | PM2TokenMap
     request: dict[str, Any]
     ref: UnitRef
@@ -628,6 +661,37 @@ def _interpretation_work(
     )
 
 
+def _classification_work(scope, source, preparation, prepared, family):
+    if family is None:
+        raise ValueError("classification question is unavailable in the selected release")
+    mapping = classification_mapping(source, scope.extent, preparation)
+    request = classification_request(
+        prepared.release_id,
+        family,
+        scope.questions[0],
+        mapping,
+        scope.profile,
+        released_policy(prepared)["inference"],
+    )
+    method = OperationDescriptor(
+        CLASSIFICATION_METHOD,
+        CLASSIFICATION_VERSION,
+        "extract",
+        "encoder",
+        TaskUnitType.SOURCE_VIEW,
+        ClassificationProfile,
+    )
+    ref = UnitRef(TaskUnitType.SOURCE_VIEW, source.source_view_id, source.unit_ref)
+    digest = pm2_input_digest(
+        mapping,
+        scope.profile.startup,
+        request,
+        question=CLASSIFICATION_FAMILY,
+        operation_version=CLASSIFICATION_VERSION,
+    )
+    return _Work(scope, scope.profile, mapping, request, ref, method, CLASSIFICATION_FAMILY, digest)
+
+
 def _partition(extent: Extent, sentences: list[tuple[int, int]]) -> tuple[Extent, ...]:
     start, end = extent
     whole = [(left, right) for left, right in sentences if start <= left < right <= end]
@@ -708,11 +772,13 @@ def _run_scopes(
             else root / f"services/pm2-{scope.profile.provider}/.venv/bin/python"
         )
         for scope in request.scopes
+        if not isinstance(scope, ClassificationScope)
     }
     # Verify before deriving task identities or allowing create_task to reuse a result.
     # A GPU worker may never be opened for a reuse hit.
     verified: dict[str, dict[str, Any] | str] = {}
-    scopes: list[ParserScope | InterpretationScope] = []
+    verified_classification: dict[ClassificationProfile, str | None] = {}
+    scopes: list[ParserScope | InterpretationSelection] = []
     scheduled_positions = []
     held: dict[int, ScopeIntent] = {}
     for position, scope in enumerate(request.scopes):
@@ -742,6 +808,22 @@ def _run_scopes(
                 reason="scope retained without requesting execution",
             )
             continue
+        if isinstance(profile, ClassificationProfile):
+            if profile not in verified_classification:
+                try:
+                    profile.verify()
+                except (GlinerRefused, OSError) as exc:
+                    verified_classification[profile] = str(exc)
+                else:
+                    verified_classification[profile] = None
+            failure = verified_classification[profile]
+            if failure is not None:
+                held[position] = ScopeIntent(**intent, disposition="failed", reason=failure)
+            else:
+                scopes.append(scope)
+                scheduled_positions.append(position)
+            continue
+        provider = profile.provider
         if provider not in verified:
             try:
                 verified[provider] = preflight_pm2_runtime(
@@ -781,6 +863,10 @@ def _run_scopes(
         scheduled_positions.append(position)
     with read_snapshot(engine) as conn:
         prepared = open_release(conn, request.release)
+        if any(isinstance(scope, ClassificationScope) for scope in request.scopes):
+            from corpus_structure.semantic.operation_results import validate_method_dimension
+
+            validate_method_dimension(prepared, CLASSIFICATION_METHOD, "family", "extract")
         if isinstance(request, ParserRunRequest) and any(
             scope.layout_policy is not None for scope in request.scopes
         ):
@@ -840,7 +926,15 @@ def _run_scopes(
                 ),
             )
             work = [
-                _interpretation_work(
+                _classification_work(
+                    scope,
+                    sources[scope.source.source_view_id],
+                    preparation,
+                    prepared,
+                    families.get(scope.family),
+                )
+                if isinstance(scope, ClassificationScope)
+                else _interpretation_work(
                     scope,
                     views[scope.source.source_view_id],
                     sources[scope.source.source_view_id],
@@ -851,7 +945,8 @@ def _run_scopes(
                     families.get(scope.family),
                     resolve_dependency,
                 )
-                for scope in interpretation_scopes
+                for scope in scopes
+                if isinstance(scope, (InterpretationScope, ClassificationScope))
             ]
         else:
             token_views = {
@@ -938,17 +1033,17 @@ def _run_scopes(
         profile_path = Path(tmp) / "profile.json"
         for (config, config_hash), items in groups.items():
             profile = next(iter(items.values())).profile
-            profile_path.write_text(
-                json.dumps(
-                    {
-                        "provider": profile.provider,
-                        "device": profile.device,
-                        "assets": str(request.assets.resolve()),
-                        "runtime_identity": profile.startup["runtime_identity"],
-                    }
+            if not isinstance(profile, ClassificationProfile):
+                profile_path.write_text(
+                    json.dumps(
+                        {
+                            "provider": profile.provider,
+                            "device": profile.device,
+                            "assets": str(request.assets.resolve()),
+                            "runtime_identity": profile.startup["runtime_identity"],
+                        }
+                    )
                 )
-            )
-            interpreter = interpreters[profile.provider]
 
             def settle(
                 owner,
@@ -992,21 +1087,26 @@ def _run_scopes(
                     )
                 pending = deque(claims)
                 with maintained_claims(engine, claims, holder) as owner:
-                    allow_batch = interpretation
+                    allow_batch = interpretation and not isinstance(profile, ClassificationProfile)
                     while pending:
                         startup_error = None
                         entered = False
                         try:
-                            with open_pm2_worker(
-                                python=interpreter,
-                                script=script,
-                                profile=profile_path,
-                                device=profile.device,
-                                check_active=owner,
-                                nemotron_endpoint=settings.nemotron.endpoint
-                                if profile.device == "cuda"
-                                else None,
-                            ) as worker:
+                            worker_context = (
+                                closing(ClassificationWorker(profile))
+                                if isinstance(profile, ClassificationProfile)
+                                else open_pm2_worker(
+                                    python=interpreters[profile.provider],
+                                    script=script,
+                                    profile=profile_path,
+                                    device=profile.device,
+                                    check_active=owner,
+                                    nemotron_endpoint=settings.nemotron.endpoint
+                                    if profile.device == "cuda"
+                                    else None,
+                                )
+                            )
+                            with worker_context as worker:
                                 entered = True
                                 if worker.startup != profile.startup:
                                     startup_error = (

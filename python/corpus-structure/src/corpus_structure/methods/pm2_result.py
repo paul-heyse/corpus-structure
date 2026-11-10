@@ -283,6 +283,39 @@ def pm2_unit_result(
         if parser_operation:
             parsed = _parser_products(provider, mapping, request, reply, prepared)
             evidence, products = parsed.locations, parsed.products
+        elif provider == "gliner":
+            from .model_observation import released_policy
+            from .pm2_gliner_classification import (
+                FAMILY,
+                VERSION,
+                ClassificationProfile,
+                classification_product,
+                classification_request,
+                require_classification_request,
+            )
+
+            if (
+                prepared is None
+                or not isinstance(mapping, PM2SourceMap)
+                or (question, operation_version) != (FAMILY, VERSION)
+                or source_path is not None
+                or field is not None
+            ):
+                raise ValueError("GLiNER classification differs from the admitted operation")
+            family = declared_families(prepared.registry_rows).get(question)
+            if family is None:
+                raise ValueError("classification question is not in the selected release")
+            selected = ClassificationProfile.model_validate(profile)
+            expected = classification_request(
+                prepared.release_id,
+                family,
+                request["question_key"],
+                mapping,
+                selected,
+                released_policy(prepared)["inference"],
+            )
+            require_classification_request(dict(request), expected)
+            products = (classification_product(expected, reply["gliner"], selected),)
         else:
             evidence = _native_evidence(mapping, provider, request, reply, field, source_path)
             if provider == "d1" and "interpretation" in request:
