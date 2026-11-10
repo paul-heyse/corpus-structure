@@ -1,6 +1,6 @@
 # Explicit acquisition, honest inspection and research access
 
-**Status: PTD-02/03 implemented and scoped tests passed; investigations planned · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
+**Status: PTD-02/03 implemented and scoped tests passed; investigation decisions recorded · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
 below, not another status table. The coordinator records execution and native delivery separately from original authoring.
@@ -107,3 +107,55 @@ constraints or domain meaning. Preserve signed numeric typmod; no new decoder or
 Count children/metadata under existing object/byte bounds. Selected ADBC1.13 sources add metadata
 independently of Arrow storage and can expose different table/expression facts. Reader-purpose
 ownership, server resolver, parameter-free admission and actual CLI JSON remain acceptance boundaries.
+
+<a id="ptd-i05-decisions"></a>
+## PTD-I05 decision account · 2026-11-09
+
+**Source-inspected at `baea0ed8e`; design judgments Proposed.** The inquiry traced actual database
+description, snapshot capture, AnalysisScope readers/Polars access, companion inventory/comparison,
+source-bound annotations and PDF visual inputs. PTD-08 has already delivered the independent detached
+consumer; that remains the selected research route. The review's suggested capsule/bound-query/import
+journeys are alternatives to assess under the coordinator's conditional scope, not mandatory new
+APIs after this consumer is delivered. No additional PTD-10 research/input slice is selected.
+
+| Branch | Decision and comparison against the actual consumer | Specific revisit condition |
+| --- | --- | --- |
+| Parameter description | **Retain parameter-free authored query description.** `DatabaseDescriptionRequest`/`describe_database` bind a release, admit SQL, then describe its output without executing the query. Existing generated native calls already provide typed bound parameters for supported operations; adding a parallel authored parameter schema would not simplify that contract. The current description caller supplies no parameter values/type declaration. ADBC `adbc_prepare` could describe a finite positional profile, but this is an added D8 capability, not a current type-inspection defect. | An operator-facing query requiring independent typed parameters that cannot be expressed by existing generated calls or the admitted parameter-free query. Then present a concrete bounded positional profile, ambiguity refusal, input/output schema attribution and conforming current alternative under the coordinator's rule-decision route before fixing its target. I02 owns any changed language/analysis semantics. |
+| Bound analytical reads and preparation reuse | **Retain typed Core calls for ordinary bound reads and snapshot-bound literal COPY for bulk capture.** `analytics.capture` sets repeatable-read/read-only, imports its source snapshot, enables COPY and consumes RecordBatchReader results through owned cleanup. Bound ADBC PGresults would introduce different buffering/execution behavior without replacing this custody. Installed DBAPI preparation reuse is on the same cursor for the same query, not a portable prepared object or general cache. | A selected small parameter-bearing research read whose complete bounds and snapshot/role/release admission make PGresult buffering appropriate. Declare consumption-driven later bindings and early-close behavior; do not describe this route as incremental COPY. Couple its profile decision to the row above and its preparation lifetime to I03. |
+| Arrow capsule transfer | **Retain owned RecordBatchReader access.** Current capture already reads batches without compulsory whole-result PyArrow-table hydration; `AnalysisScope.reader` provides an explicitly scoped downstream reader. `BorrowedHandle` deliberately refuses an unowned `__arrow_c_stream__`; direct transfer would remove this lifetime guard while adding no required current consumer. Installed `fetch_arrow` supports one transfer before consumption, with subsequent data inspection forbidden. | A named external Arrow-compatible consumer that cannot use the current reader/detached package and benefits from the C Stream boundary. Specify one owner, retained schema/pins, close/cancel, early termination and closure before cursor/session reuse. |
+| Ordinary Arrow/Polars streams | **Retain current AnalysisScope behavior.** DuckDB handles/readers borrow the scope; materialized Arrow/Python values detach; lazy Polars access is explicitly refused. The existing scope tracks readers and closes them before backing connections/capture leases. A second stream wrapper would duplicate that responsibility. | A real asynchronous/lazy or non-PyArrow consumer requiring a different lifetime. Its contract must extend the current owner rather than bypass it; cancellation and use-after-close cases become delivery obligations. |
+| Offline replay and binary COPY files | **Retain manifest-bound Parquet with IPC schema.** Companion export verifies family files, six-part pins, logical/file identities and independent schemas; inventory and comparison read after disconnection. `FileWriter` binary COPY would add PostgreSQL type/version dependence and a separate replay importer while leaving the manifest/custody work necessary. | A selected PostgreSQL restore/replay consumer that needs COPY bytes rather than independent analytical reading. Deliver type/schema/server compatibility, atomic publication and admitted restoration then; a binary stream alone is not a self-describing dataset. |
+| Target-aware ADBC ingestion | **Retain existing protected Psycopg/pgpq routes for current annotations/publication.** The source-bound annotation and same-session publication inquiry is recorded in the [input-family decisions](released-types-and-exchange.md#i05-input-decisions). ADBC `adbc_ingest` supports target modes, but an independently acquired session cannot borrow the current Core transaction. Creating/replacing tables would also add schema authority that the selected route does not need. | A real external structured dataset with an identified observation owner and one complete independently owned admitted staging transaction. Judge `append`, `create`, `create_append`, `replace` and temporary targets against that operation; generated DDL does not supply migration/admission. |
+| Nested input, arrow-json, spatial and Rust | **Resolved separately in the input-family decisions.** Preserve current JSON directions and typed source geometry; defer nested native fields and Rust transport to their named missing-consumer triggers. These are investigated decisions, not pending unbounded probes. | Triggers and fidelity/lifecycle obligations remain in that one owning input section. |
+| Live federation | **Retain explicit captured inputs and detached comparison.** Current analytical input contracts bind source snapshot, release, policy and declared universe; AnalysisScope can compose those inputs without a live remote table authority. `read_adbc`/remote SQL or community `ATTACH TYPE adbc` could supply interactive remote access, but none of the inspected companion/run-comparison journeys needs a continuously changing remote source. | An actual exploratory join across a live external data source for which fresh remote reads are the desired meaning. Compare explicit remote SQL first, then inspect selected extension pushdown, autocommit/concurrency, metadata cache and snapshot/freshness guarantees before choosing ATTACH. No extension compatibility or native parity is claimed here. |
+| Alternate query laboratory | **Retain Core/Arrow/DuckDB for current released coverage, declared property views and companion comparison.** These workflows already combine bounded captured relations and detach results. SQLFrame or SQLGlot PythonExecutor/optimizer/acceleration would add another semantics/execution surface without a selected destination-specific question. | A concrete notebook or destination-comparison query beyond those facilities. I02 owns language/parity, I05 owns acquisition and result custody; use independently expected destination values and pin dialect/schema/transforms. Performance evidence is needed only if it changes the choice. |
+| Metadata/statistics, driver profiles, resolver and clone extensions | **Retain PTD-02/03's explicit acquisition and attributed observations.** The current describer already requests native objects, Arrow query/table schemas and optional statistics, with unavailable freshness/constraints preserved. A second manifest/profile system would duplicate settings authority; cloning does not copy a snapshot and can share driver database/type caches. | A named missing inspection fact, independent driver deployment or type-generation lifecycle. Add the specific observation/loader at its existing owner; do not expand metadata merely because an API exists. I06 owns any selected long-lived cache-generation replacement. |
+
+### Decisive sources and acceptance boundary
+
+Repository source references above are relative to
+`python/corpus-structure/src/corpus_structure/`. Key paths and inspected responsibilities:
+
+- [Database description](../../../python/corpus-structure/src/corpus_structure/serve/database_description.py),
+  lines29ff,164–190,350–445: explicit request, release/admission, statistics and output schema.
+- [Analytics](../../../python/corpus-structure/src/corpus_structure/semantic/analytics.py),
+  lines421–504,896–935,1199–1245,1457–1470: borrowing, snapshot/COPY capture, cleanup and reader scope.
+- [Capture storage](../../../python/corpus-structure/src/corpus_structure/semantic/capture_storage.py),
+  lines137–220: resident/spooled batching and retained ownership.
+- [Companion export](../../../python/corpus-structure/src/corpus_structure/serve/companion_export.py),
+  lines275–452ff: verified manifest/file/schema inventory and independent detached comparison.
+- [Directional writes](../../../python/corpus-structure/src/corpus_structure/semantic/arrow_transfer.py),
+  lines49–166: profile-derived schema checks, fresh encoder and same-session COPY.
+
+Installed ADBC manager/PostgreSQL1.13.0 (upstream ADBC25) and Psycopg3.3.6 APIs were inspected on
+2026-11-09 using `uv run --no-sync python -B` with `inspect.signature`, `inspect.getdoc` and selected
+source locations. `adbc_prepare` documents same-query cursor-local reuse; `fetch_arrow` documents
+single-use consumption; `adbc_ingest` documents destination modes. Their primary references remain
+the [selected Python APIs](https://arrow.apache.org/adbc/25/python/api/adbc_driver_manager.html) and
+[PostgreSQL result reader](https://github.com/apache/arrow-adbc/blob/apache-arrow-adbc-25/c/driver/postgresql/result_reader.cc).
+These source contracts settle the comparisons above without a new native or performance probe.
+
+**Checks:** source/API inspection **passed** at the stated boundary. Product/native tests and
+benchmarks **not_run** because this investigation selects no changed executable path. No native,
+release, dependency or D8 support change is requested. The coordinator owns publication checks and
+combined I disposition; historical PTD-02/03/08 verification remains historical scoped evidence.

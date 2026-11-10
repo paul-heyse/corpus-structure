@@ -1,6 +1,6 @@
 # SQL explanation and source-aware authoring
 
-**Status: PTD-04/05 implemented and scoped tests passed; investigations planned · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
+**Status: PTD-04/05 implemented and scoped tests passed; PTD-I02 decisions recorded · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
 below, not another status table. The coordinator records execution separately from original authoring.
@@ -102,3 +102,42 @@ and private pglast trees. SQLGlot diff(delta_only=True) describes supported SELE
 establishing equivalence. model-change-explanation-1 publishes under managed sql_explanation;
 preview/candidate --view sql can read settled failed diagnostics without effect eligibility.
 Captured before-source remains the authority during later inspection; no submitted data query runs.
+
+
+## PTD-I02 decision account · 2026-11-09
+
+**Interface-checked / Proposed dispositions.** Source inspection at `baea0ed8e`, including
+`projection_recipe.Expression`/`core_statement`, `pm2_coverage`, `contextual_retrieval`,
+`analytics.AnalysisScope`, `prepared_sql`, `projection_analysis` and `operation_reporting`, settles
+this bounded inquiry. These are current consumer comparisons, not claims that other query needs
+cannot arise. No executable language extension is selected by I02. Existing specialized Core and
+DuckDB operations answer the examined questions without making the model recipe a second general
+SQL language (FP-01/03/04, heuristics H3/H8/H12).
+
+| Named branch | Disposition and consumer/alternative comparison | Revisit condition |
+| --- | --- | --- |
+| Nested/correlated recipe expressions | **Retain** the finite recipe. Existing source qualification and contribution comparisons use specialized Core joins/EXISTS; `core_statement` already lowers declared derived sources to CTEs. Adding general scalar/correlated subqueries would require new scope/cardinality semantics and archived attribution, without removing an examined consumer's custom semantic decision. | A released companion needs a repeated model-authored correlated value/predicate that cannot be represented by current declared sources or a typed operation. |
+| Aggregate recipe expressions | **Retain** specialized Core/DuckDB aggregation. Coverage groups and `AnalysisScope.fact_support`, `value_roles` and `disagreements` already own explicit grouping, empty-list/null and occurrence rules. Moving these distinct products into the recipe would also move their semantic ownership. | A released companion output requires model-authored grouping and a declared typed aggregate contract. |
+| Window recipe expressions | **Retain** specialized Core `row_number().over()` for retrieval ranks and DuckDB windows for analytical alias counts. These are policy/operation-owned ranks, not missing value constructors. | A released recipe declares a window output with partition, tie and frame meaning shared by execution and explanation. |
+| Recursive recipe expressions | **Retain** specialized Core recursion in coverage; resident inference is selected under I03 without expanding recipe syntax. A generic recursive recipe would add cycle/completeness and archive obligations to consumers that do not need them. | A model-owned recursive output, distinct from the existing coverage/inference algorithms, has a concrete consumer and finite edge semantics. |
+| JSON/JSONPath expansion | **Retain** existing `JsonPath` lowering for declared field/index/text paths and specialized native/Core JSON recordset/table-valued operations. General JSONPath predicates/array expansion need distinct missing/SQL-null/JSON-null/cardinality rules; no examined companion requires that expansion. | A concrete released nested-value read cannot preserve its meaning with current paths and needs a typed expansion result. |
+| PIVOT/UNPIVOT, pipe SQL and temporal-format extensions | **Retain** long-form comparison outputs and existing typed kernels. Current coverage and companion comparison do not require a dynamic column universe; PIVOT would obscure explicit unmatched/incomparable rows. | An actual operator report requires a finite declared column set or an unsupported temporal/path construct, with unknown-category and output-type rules. |
+| Procedural helper inspection | **Retain** declared helper signatures, native binding/admission and explicit opaque-body explanation. Native `closure.sql` includes dynamic workspace/DDL operations; dictionary parsing cannot settle their dependency/effect meaning. A second static body account would not replace those authorities. | A concrete helper-body investigation needs a bounded syntactic call/statement inventory; use pglast `parse_plpgsql`, retaining dynamic SQL, exceptions and runtime binding as unknown. |
+| Controlled portability | **Retain** native PostgreSQL operations plus purpose-built detached DuckDB kernels. `AnalysisScope.fact_support/value_roles/views` construct analytical products, rather than promise that arbitrary PostgreSQL text runs unchanged on DuckDB. | A named query must run on a second destination; declare source/destination/schema/transforms and independent expected null/cast/numeric/collation results before using `transpile(..., unsupported_level=RAISE)`. |
+| Alternative query laboratory | **Retain** existing Core → Arrow → `AnalysisScope`/DuckDB. Its owned relations already support scoped composition and detached reproducibility. SQLGlot Plan/PythonExecutor or SQLFrame would add an executor/DataFrame authority without replacing an unmet examined workflow. | A researcher needs a specific alternative plan/DataFrame operation unavailable through the existing scope and can name its input universe and result consumer. |
+| Optimizer passes/compiled acceleration | **Retain** selected current qualification/typing passes and native query planning. No observed semantic need calls for a wholesale optimizer or compiled Python executor. | A concrete unsupported rewrite or serious execution regression remains after operation composition; then compare that one pass/accelerator with the native route. |
+| Cross-language JSON/Protobuf/AST serialization | **Deferred**: current Rust crate is a starter, and inspected SQL producers/consumers are Python/native SQL plus versioned explanation JSON. There is no selected caller needing a PostgreSQL AST interchange. | An actual caller needs syntax trees rather than retained SQL/explanation products; pin parser/grammar/protobuf or SQLGlot dump/load versions and keep original SQL separately. |
+| Fingerprints/canonicalization/anonymization | **Retain** exact PreparedSQL source/digest and structural explanation. A lossy shape key would not identify model semantics, native overloads, release bindings or an admissible cache entry; no examined diagnostic grouping requires it. | A named diagnostic consumer needs shape grouping with explicitly discarded distinctions; never substitute it for semantic or exact source identity. |
+| Custom dialect/parser/printer/compiler extensions | **Retain** supported PostgreSQL pglast printing, checked helper typing and current SQLGlot handling. No inspected current recipe or native authoring fragment needs a new dialect; PTD-05 already supplies supported edit/source diagnostics. | A concrete unsupported construct has a complete typed parse/render/admission consumer. Assess public compiler/GenericFunction or printer extension first, preserve opaque `exp.Command` and original coordinates, and reject silent clause loss. |
+
+Parameter admission is owned by I05; this account accepts no D8 change. Existing internal recipe
+parameters are not an authored-query permission. Selected-version API inspection with
+`uv run --no-sync python -B` confirmed SQLAlchemy2.1.6, Psycopg3.3.6 and pglast8.7;
+`parse_plpgsql(statement)` returns a list of dictionaries, Protobuf parse/deparse are present and
+`parser.normalize` is absent. This is an interface check, not a native procedural or portability pass.
+`get_udf_type` still does not replace checked overload/body authority.
+
+**Outcome:** all named I02 branches have a bounded decision; there is no selected I02 PTD-10 slice.
+The conditions above reopen specific capabilities rather than transfer an unperformed investigation
+to another plan. Product/native tests and performance experiments are **not_run** for this
+source-settled decision account; no product, archive, compiler or database change was made.

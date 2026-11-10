@@ -1,6 +1,6 @@
 # Complete relational operations and exact retrieval
 
-**Status: PTD-06/07 implemented and scoped tests passed; investigations planned · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
+**Status: PTD-06/07 implemented and scoped tests passed; I03/I04 decisions recorded; two PTD-10 slices selected · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
 below, not another status table. The coordinator records execution separately from original authoring.
@@ -49,17 +49,111 @@ if the tagged full-membership result amplifies work, without assuming a benchmar
 
 ## PTD-I03 · Resident transformations and preparation
 
-Inspect actual resident publication/selection transformations before selecting a Core write consumer.
-Current protected native INSERT/SELECT may already be the complete mechanism. Keep it where adequate;
-do not round-trip it through Python simply to adopt Insert.from_select. Select only a transformation
-whose intent/contract becomes simpler through Core from_select/UPSERT/RETURNING; preserve native
-admission, conflict/identity semantics and settlement in PTD-10. No extra migration engine follows.
+### Decision account · 2026-11-09
 
-Decide any remaining prepared-shape, lambda_stmt, server prepare, pipeline/result batch and row-stream
-opportunities at their existing owners. Establish complete determinants and actual repeated work.
-Do not layer four overlapping caches. Pipelines exclude COPY/server cursors and may delay failures;
-server preparation is physical-session scoped. Close each branch using the composed lifecycle and
-an identified consumer or a reason to keep current behavior.
+**Interface-checked; selected delivery remains Proposed.** Inspected `baea0ed8e` at the complete
+current owners: `inference.derive`, native `sql/closure.sql` workspace custody,
+`operations.create_task`/`BoundReader.contextual_candidates`, `orchestrate.semantic.register_ref`,
+`orchestrate.source_reader.ScopedSourceReader`, `methods.contextual_candidates`,
+`contextual_storage.transient_vector_relation`, `analytics.compile_projection`,
+`companion_projection` and current row exports. No product or native change accompanies these
+investigations. FP-03/04/07 and heuristics H8/H12/H14/H16 favor two bounded replacements below,
+with preserved semantic and transaction owners.
+
+| Named branch | Decision and composed rationale | Revisit condition or delivery |
+| --- | --- | --- |
+| Resident inference transformation | **Selected:** generation-tagged resident delta in the existing trusted work relation. Current `derive` hydrates every new frontier via RETURNING and reserializes it through JSONB for each iteration, although accumulated conclusions are already resident. Keep final batch/proof construction, which has an actual detached publication consumer. | `PTD-10/inference-delta` below. |
+| Task admission batching | **Retain** current scalar admission for examined source scheduling; reject a blanket stage-wide batch. `register_ref` computes unit/digest and producer-origin dependencies and immediately uses reuse status to bind downstream source custody. `create_task` locks/adopts current run context and chooses the earliest compatible done/empty twin. A broad batch cannot treat this sequence as independent inserts or replace it with generic UPSERT. | A caller supplies an actual independent batch with all dependency/input pins before registration; then use typed set input and explicit returned request correlation, preserving lock, twin and skipped/fresh/agent behavior. |
+| Other resident publication/selection writes | **Retain** existing protected native INSERT/SELECT and seed `Insert.from_select`. Those inputs already stay resident; routing them through Python or another writer merely to adopt Core DML would add movement/authority. | A concrete remaining read–construct–write loop over resident inputs has simpler complete `from_select`/DML-CTE/conflict semantics. |
+| Stable contextual input preparation | **Selected:** one-entry, run-reader-owned preparation of the immutable transient vector relation. The method passes the same frozen inventory and target-vector tuple for every occurrence; current BoundReader reconstructs and validates that relation on every call. | `PTD-10/contextual-preparation` below. |
+| Structural compiled caches | **Retain** SQLAlchemy caching and existing release-owned projection preparation; add no second statement-cache registry. `analytics.compile_projection` already keys shapes by release, physical model, compiler, analytical profile and contract; companion shapes have bounded existing preparation. VALUES payload cacheability must not be assumed. | A concrete remaining cacheable shape is repeatedly compiled after selected preparation, with complete determinants and a distinct lifetime. |
+| `lambda_stmt` | **Retain** ordinary prepared Core construction. It would overlap the selected immutable relation preparation and existing release caches rather than remove an independent semantic responsibility. | Remaining repeated stable construction, not merely changing data, justifies a closure-tracked lambda with declared invalidation. |
+| Psycopg server preparation | **Retain** selected driver defaults, without explicit forced prepare or a new server-plan owner. Existing physical pool reuse already allows automatic preparation; store configuration does not override that default. This is separate from Python shape reuse. | An actual repeated SQL/physical-session workload needs a different threshold or prepared limit; coordinate native/session replacement with I06 and verify stale-plan behavior for that consumer. |
+| Pipeline | **Retain** current execution and selected set composition. The inference rule loop has data-dependent iterations; scheduling has intervening custody reads. A pipeline does not remove their relational work and changes failure synchronization. | A residual group of independent supported calls remains after composition, with bounded delayed-error/rollback semantics; COPY/server cursors/streaming are excluded. |
+| `executemany(returning=True)` and result navigation | **Retain** current set/single-operation routes. Selected Psycopg already pipelines executemany when supported; a separate wrapper would duplicate that mechanism. No inspected consumer needs a collection of heterogeneous RETURNING result sets. | An actual homogeneous independent batch needs per-request returned identities; specify complete `results()`/`nextset` consumption and failure settlement. |
+| Ordinary row streams/partitions | **Retain** existing Core streaming (`yield_per`32/64/128/256 in record/source/review readers) and ADBC large-capture route. Those are already used capabilities, not missing streaming support. | A named materialization problem remains; assess `partitions`, ServerCursor or `stream` with I06's lifetime/cancellation cases. |
+| RawCursor/ClientCursor/t-strings | **Retain** current Core/Psycopg parameter binding and structural native authoring. No examined protocol or syntax consumer requires another cursor path; authored binding changes remain I05/D8 work. | A concrete protocol/placeholder or client-binding requirement cannot be met by the current typed route. |
+| Typed fragments/compiler extensions | **Retain** checked helper signatures, `func(..., type_=...)` and existing native body construction. No inspected repeated fragment requires a new GenericFunction or compiler construct after completed PTD work. | A repeated fully representable typed fragment has a named consumer and can replace existing independent construction. |
+| CTAS/views/materialized analytical products | **Retain** native governed objects and detached DuckDB analysis. A new resident analysis table has no selected lifetime/publication consumer beyond these routes. | An actual reused analysis product needs residency; specify source binding, observation, history/ACL, cleanup and migration before `Select.into`/CTAS selection. |
+| ADBC prepare reuse | **Retain** current parameter-free literal COPY and current cursor lifecycle; consume I05's parameter/access disposition. Describing inputs does not imply cross-cursor prepared reuse or incremental COPY. | A selected finite bound-read consumer needs same-cursor prepare reuse, with PGresult buffering and consumption-driven later bindings explicitly admitted. |
+
+### PTD-10/inference-delta · Resident inference delivery contract
+
+Keep `derive(connection, binding) -> InferenceResult`, source revision/isolation admission,
+canonical context equality, final deterministic fact/proof identities and protected publication
+unchanged. Replace only the intermediate Python frontier transport:
+
+- Extend the existing native-created `semantic_inference_work` with a nonnegative generation field:
+  seeds use generation0; newly inserted conclusions receive the next generation. Preserve the current
+  unique conclusion key and qualification normalization. Include the column in the trusted native
+  teardown shape check and mirrored Core Table. The same frozen native candidate/evolution route
+  owns declaration and teardown; application roles do not create an unrelated temp workspace.
+- Lower each admitted rule with Core against the current-generation delta subquery and accumulated
+  relation. Keep both transitive join orientations, exact context and context-key checks, and
+  `ON CONFLICT DO NOTHING`. Changes inserted by earlier rules remain visible as accumulated state,
+  matching current behavior, while they become delta only on the next iteration.
+- Use an INSERT/RETURNING DML CTE followed by a scalar count to detect new conclusions; never return
+  the entire next frontier to Python. Stop when an iteration inserts no rows. Do not depend on
+  driver rowcount guarantees for INSERT/SELECT. Do not add a generic recursive-query IR or one
+  recursive CTE that cannot preserve the mutually enabling rule groups.
+- Regenerate affected native/model/runtime products and current-only implementation pins through
+  their existing owners. A changed Python algorithm can require a new runtime binding even without
+  additional persistent DDL. Preserve original source custody; do not relabel historical runtime
+  or qualification receipts as evidence for the replacement.
+- Retain final row hydration and finite direct proof generation needed by `PublicationBatch`;
+  remove the intermediate frontier dictionaries, JSON serialization and `jsonb_to_recordset` path.
+  Cleanup remains with `end_inference_workspace`, including native refusal and transaction errors.
+- Delivery checks use independent finite expected closures: inverse+subproperty enabling
+  transitivity, cycles, duplicates, empty seeds, distinct canonical contexts and equivalent
+  qualification representatives. Challenge both transitive orientations and compare final
+  fact/proof identities and protected publication. Verify actual writer-role workspace
+  creation/shape/refusal/cleanup and a stale source-revision refusal after the native migration.
+
+Expected reduced conversion/movement is qualitative; no benchmark is required to select it.
+Native semantics and final publication remain **Proposed until delivered and tested in PTD-10**.
+
+### PTD-10/contextual-preparation · Contextual preparation delivery contract
+
+Keep the public CandidateList, exact query/channel/fusion/witness policy and per-call read snapshot.
+Prepare only detached immutable target input, not results or mutable native admission:
+
+- Put a bounded one-entry preparation on the existing run-scoped BoundReader. `ScopedSourceReader`
+  retains that owner and swaps its connection under `_read_lock` for each read; the retained Core
+  relation must capture no connection, cursor, transaction or result. Do not extend checkout
+  across the scientific method loop and do not replace calls with a batch whose refusal semantics differ.
+- Reuse only when the same immutable `FrozenInventory` and frozen target-vector tuple objects,
+  profile ID and dimension recur under that reader's existing run/release/runtime context.
+  Strong references to the current entry prevent identity reuse; a distinct object or changed
+  profile/dimension replaces the entry and runs full preparation again, even if a supplied ID
+  repeats. Narrow callers to the existing immutable tuple contract rather than memoizing a mutable
+  Sequence. No content hashing or process-wide LRU is needed for this producer-owned lifetime.
+- Admit deeply immutable prepared inputs before identity reuse: require tuple target/vector collections,
+  tuple aliases and tuple-valued `EncodedVector.values` containing primitive numeric values; reject
+  mutable nested sequences at this internal preparation boundary. Frozen dataclasses alone do not
+  enforce their annotations. Actual `freeze_inventory`/validated encoder outputs supply this shape;
+  migrate direct Reader callers and test doubles to it. Do not cache a caller-owned mutable list.
+- `transient_vector_relation` remains the sole typed VECTOR/ARRAY construction and vector-validation
+  implementation. Its successful immutable preparation can be reused; full eligible-membership,
+  query/profile and native read checks still run for each retrieval. Keep the resident relation
+  route separate. Drop the entry when its reader is released or the input changes.
+- Migrate the Reader protocol annotation and actual method caller/test doubles together. Remove
+  unconditional per-occurrence relation reconstruction; retain no alternate old construction path.
+- Checks independently compare channel membership/ranks and final candidates across repeated queries,
+  empty inventory, different inventory objects with reused IDs, changed tuple/profile/dimension,
+  invalid vectors, deliberately list-valued vector/target inputs refused before caching, and reader/run
+  boundaries. Verify one preparation for repeated identical frozen
+  input, clean connection replacement between calls, and no retained connection after closure.
+  Keep PTD-07 membership/duplicate/witness controls rather than treating a preparation hit as admission.
+
+### Evidence limit
+
+Selected installed-source inspection (`uv run --no-sync python -B`,2026-11-09) confirmed
+SQLAlchemy2.1.6 `lambda_stmt` tracking controls and Psycopg3.3.6 `executemany(returning=...)`,
+`results()` and `stream(size=...)`. `Cursor.executemany` chooses pipeline when supported;
+`Cursor.stream` refuses active pipeline mode and attempts cancellation/drain on early closure.
+These are source/interface observations, not a native cleanup test. Product/native tests and
+benchmarks are **not_run** for the source-settled investigations. All I03 branches are decided;
+its two selected PTD-10 slices remain delivery and qualification obligations in the coordinator.
 
 ## PTD-I04 · Richer retrieval decision
 
@@ -101,3 +195,68 @@ dimension. A read-only planning probe observed typed VALUES alone resolving as t
 an official VECTOR typed bind with explicit native cast succeeded. Remove manual str(list) and
 vector_text, retain native casts on typed expressions and domain validation. Stored/transient
 routes preserve exact FP32/cosine, candidate identity, RRF60, witnesses, snapshot and cancellation.
+
+## PTD-I04 decision account · 2026-11-09
+
+**Decision-complete; source-inspected, capabilities Interface-checked; new retrieval benefits remain
+Proposed.** Baseline `baea0ed8e`. This is a bounded applicability decision, not a claim that richer
+representations cannot help the corpus. No new model was run, no quality or capacity measurement
+was made, and no production policy change is selected.
+
+### Consumers and independent source distinctions
+
+The actual consumers are definition-component/section-heading candidates and exploratory semantic
+neighborhoods, not a general image search service. `semantic/contextual_registry.py:14–125` preserves
+curated descriptors versus retained component/heading references. `methods/contextual_candidates.py:550–604`
+limits the admitted component/section population and `:908–953` binds combined encoding inputs to
+the selected E5/Qwen profile. `methods/contextual_embeddings.py:46–127` declares immutable encoder
+revisions, dimensions, pooling and limits. These are supported-operation bounds, not a measurement
+of every possible future inventory.
+
+Use the already source-first [retrieval reference](../../design_review/evidence/2026-11-09_pm2-adoption/retrieval-reference.md)
+and its [adjudication](../../design_review/evidence/2026-11-09_pm2-adoption/retrieval-adjudication.md)
+as exposed development controls: affine X must not acquire an external referent, affine Z retains
+its local declaration, the Chapter3 binomial definition must retain Bernoulli/n/p qualifications,
+and “above” has no definition target. The [named workflow reference](../../design_review/evidence/2026-11-09_pm2-workflow-references/README.md)
+also identifies the Chapter2 random-variable use and Chapter1 generic definition. These expectations
+predate the respective predictions; they are not newly independent held-out data. No protected
+labels or new predictions were opened for this investigation. They establish useful questions and
+selection/availability distinctions, not measured superiority of a new channel.
+
+The existing source-witness requirement directly answers the local-variable negatives; changing
+embedding representation cannot supply an absent source witness. The binomial and generic-type
+questions are genuine terminology opportunities, but these references alone do not establish a
+fixed-inventory lexical/dense miss or fixed-list ranking error. We therefore retain the completed
+exact eligible retrieval and do not manufacture a new model comparison merely to exercise storage.
+
+### Separate branch dispositions
+
+| Branch | Disposition, alternatives and decisive reason | Concrete revisit premise |
+| --- | --- | --- |
+| Sparse terminology | **Deferred.** Existing alias/full-text+dense search remains selected for current definition questions. A neural sparse channel is a complete alternative only with a vocabulary/weighting profile, not a cast of current dense vectors. The selected-version [sparse example](https://github.com/pgvector/pgvector-python/blob/v0.5.1/examples/sparse_search/example.py) uses a masked-language model, tokenizer and sparse inner-product ranking; that generic example does not establish scientific-domain suitability. | A source-frozen terminology case has its correct target in the admitted inventory but demonstrates an alias/lexical+dense candidate-availability gap. Freeze contrasting qualified definitions before outputs, then pin one suitable encoder/tokenizer and compare exact sparse retrieval over that same inventory. No enterprise corpus prerequisite. |
+| Token multivectors | **Deferred.** Exact late interaction is technically available; compare current one-vector descriptors with qualified per-token rows and explicit MaxSim. The [exact ColBERT example](https://github.com/pgvector/pgvector-python/blob/v0.5.1/examples/colbert/exact.py) composes pairwise matches/reduction in SQL. Arrays are an exact transport alternative, not element ANN or a native MaxSim index. Current consumers select released components/headings rather than token spans. | A named definition/usage case needs token-local distinctions that the current descriptor route demonstrably loses, with retained token positions and a chosen model/reduction. Require independent numerical MaxSim expectations and the same target universe before quality comparison. |
+| Visual page/region multivectors | **Deferred separately.** The nearby real visual consumer already resolves source-bound locators/regions through `serve/pdf_visual_evidence.py:680–725`; semantic neighborhood delivery (`serve/contextual_navigation.py:20–117`) reads retained semantic groups. Neither currently asks image-to-page similarity. Adding visual encoding, patch positions and a second index would introduce a new product rather than simplify those operations. | A concrete source query requires finding visually similar pages/regions beyond explicit locators, with independent page/region relevance examples and coordinate/transform custody. Choose a visual model only after that question exists; preserve qualified source positions, not geographic interpretations. |
+| HNSW | **Deferred.** Retain exact eligible cosine. No newly observed workload in the inspected bounded method requires approximate candidate membership. An exact-order output or later rerank would not establish exact recall. | An actual admitted larger inventory or serious exact-route constraint justifies approximation; compare exact eligible neighbors, filtering/underfill, correct-target availability and index lifecycle at that scope. |
+| IVFFlat | **Deferred separately.** Training/list/probe and update lifecycle is additional machinery with no distinct current consumer benefit established over exact retrieval or HNSW. | The same actual scale premise, with a workload making IVFFlat a credible complete alternative; evaluate its build/training and update requirements rather than inheriting HNSW conclusions. |
+| Half precision | **Deferred separately.** Canonical vectors and current profile meanings remain FP32; lower precision changes numerical behavior and has no measured capacity need here. | A concrete capacity/candidate-generation need warrants a separate precision profile and numerical/neighbor comparison; preserve canonical FP32 for exact reranking and identity. |
+| Binary quantization | **Deferred separately.** A bit representation and Hamming candidate search would introduce a new metric stage, not preserve cosine automatically. | An actual candidate-generation constraint justifies testing candidate recall followed by full-precision reranking under a declared policy. |
+| Subvectors | **Deferred separately.** Truncating dimensions changes the representation; current encoder profiles do not declare a valid prefix representation. | A selected model explicitly supports the intended prefix semantics and a real workload benefits; define a distinct profile and test candidate loss independently. |
+| Vector aggregates | **Retain current per-target semantics; defer aggregate feature.** `semantic/contextual_links.py` preserves semantic groups and source witnesses; neighborhood delivery does not need a centroid. Averaging across local variables/qualified definitions could erase the distinctions above. Native avg/sum/normalization is a mechanism, not a definition of aggregate meaning. | A named section/cluster diagnostic declares compatible membership, profile, weighting, empty-group and normalization semantics. Then compare native aggregation with independent numeric expectations; never relabel a centroid as a canonical entity or confidence. |
+| Cross-encoder reranking | **Deferred.** Compare a bounded pairwise scorer over exactly the same candidates only after a fixed-list error exists. The source references distinguish candidate availability from local referent selection; a scorer cannot create source witnesses or repair an absent inventory target. A cached Qwen3-Reranker snapshot is availability, not integration or quality evidence. | A source-frozen fixed-list case contains the correct eligible target but current ranking causes a useful miss. Pin model/runtime, pair rendering, truncation and score meaning; evaluate that list before changing production ranking. Preserve witness precedence. |
+
+The native extension was freshly observed as **0.8.7** on 2026-11-09 through the configured read
+snapshot; Python adapter **0.5.1** is installed. The [tagged extension contract](https://github.com/pgvector/pgvector/blob/v0.8.7/README.md)
+supplies the representation/index capabilities and limits. Recheck matching query/index expression,
+operator class and filter semantics if a deferred index is selected. Strict/relaxed iterative-scan
+ordering does not remove candidate-loss obligations. No missing feature is inferred from an empty
+repository search.
+
+### Delivery consequence
+
+I04 selects no PTD-10 retrieval slice now. O07 is resolved for this bounded investigation by the
+separate decisions above, with explicit triggers retained here; it is not an implementation or
+quality claim. Exact FP32 eligible cosine, lexical/alias channels, full membership verification,
+RRF60 and witness precedence remain authoritative (`semantic/contextual_retrieval.py:278–360`).
+I03's selected operation-lifetime inventory preparation must preserve these semantics. I01/I06
+retain responsibility for any future codec/session generation, and I06 separately resolves a real
+multi-server participant need. Re-entry requires only the named premise, not another broad review.
