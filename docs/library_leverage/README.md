@@ -34,6 +34,12 @@ ordinary implementation and API questions do not initiate this workflow.
 
 ## Current accounts
 
+The [spaCy and Lark text-characterization discovery](libraries/text-characterization/briefing.md) (2026-11-10)
+explores a comprehensive source-aligned foundation of fundamental language and formal units,
+followed by conceptual composition and analytics. Eight integrated leads connect complete
+overview coverage, current retained products, five textbook journeys and broader library
+compositions. Benefits remain Proposed; current plans retain their own dispositions.
+
 The [agent CLI and diagnostics discovery](libraries/cli-and-logging/briefing.md)
 (2026-11-10) connects Typer, Rich and structlog across command authoring, report delivery,
 failures and execution boundaries. Ten research leads use current code and the active
