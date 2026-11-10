@@ -131,8 +131,10 @@ class ReviewSelection(BaseModel):
             raise ValueError("selected evaluations must have distinct positive identifiers")
         if any(item.cursor is not None for item in self.selections):
             raise ValueError("review selection cannot begin at a continuation")
-        if any(item.include_scope_coverage for item in self.selections):
-            raise ValueError("detached review does not yet authenticate the PM2 scope worklist")
+        if self.completeness != "selected_source_closure" and any(
+            item.include_scope_coverage for item in self.selections
+        ):
+            raise ValueError("detached PM2 scope coverage requires exact retained source closure")
         identities = [canonical_bytes(item.selection()) for item in self.selections]
         if len(identities) != len(set(identities)):
             raise ValueError("review selections must be distinct")
@@ -275,6 +277,7 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
     validated_external: set[str] = set()
     predecessor_readers = {}
     origin_metadata = {}
+    scope_worklists = {}
     budget = PublishedReadBudget(selection.max_source_rows, selection.max_bytes)
     journey_views: dict[int, PreparedSourceView | None] = {
         request.opportunity.source.source_view_id: None
@@ -300,12 +303,42 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
             yield "contracts", _contract_row(conn, session.prepared)
         source_ids: set[int] = set()
         report_ids: set[int] = set()
+        if original.include_scope_coverage:
+            from corpus_structure.semantic.pm2_coverage import completed_scope_worklist
+
+            if original.run_id not in scope_worklists:
+                scope_worklists[original.run_id] = completed_scope_worklist(
+                    conn,
+                    run_id=original.run_id,
+                    cut_id=page.cut_id,
+                    release_id=session.binding.release_id,
+                )
+            worklist = scope_worklists[original.run_id].select(
+                original.source_view_id, original.selected_task_id
+            )
+            source_ids.update(intent.source_view_id for intent in worklist.intents)
+            source_ids.update(row.unit_id for row in worklist.settlements)
+            report_ids.update(row.reused_task_id or row.id for row in worklist.settlements)
+            yield (
+                "pm2_worklists",
+                {
+                    "selection_index": index,
+                    "run_id": original.run_id,
+                    "cut_id": page.cut_id,
+                    "release_id": session.binding.release_id,
+                    "worklist": worklist.model_dump(mode="json"),
+                },
+            )
         for item in page.items:
             row = item["row"]
             if not isinstance(row, dict):
                 raise SemanticRefusal("review inventory row must be an object")
             origin_id = row.get("origin_task_id")
-            if type(origin_id) is int and selection.completeness == "selected_source_closure":
+            if (
+                type(origin_id) is int
+                and item["population"] != "scope_coverage"
+                and selection.completeness == "selected_source_closure"
+            ):
                 if origin_id not in origin_metadata:
                     tasks, producer = table("ops.task"), table("ops.run")
                     origin_metadata[origin_id] = dict(
@@ -1226,6 +1259,14 @@ def write_review_bundle(
             "Unassessed contributions remain unassessed. "
             "Protected labels require a separate "
             "authorized evaluator capture.\n\n"
+            + (
+                "PM2 scope coverage replays the ordered worklist, settled task reports "
+                "and source bounds. Authenticating the complete worklist and recorded "
+                "reasons for work that never ran requires the manifest digest from an "
+                "independently retained export receipt.\n\n"
+                if "pm2_worklists" in relations
+                else ""
+            )
             + "\n".join(
                 f"- [{name}]({name}.jsonl): {spec['rows']} rows" for name, spec in relations.items()
             )
@@ -1331,6 +1372,7 @@ def _exact_closure(
             request.model_copy(
                 update={
                     "method": "extract.pm2_d1",
+                    "include_scope_coverage": False,
                     "include_details": True,
                     "include_interpretation": False,
                     "include_publication": False,
@@ -1393,6 +1435,7 @@ def _exact_closure(
             request.model_copy(
                 update={
                     "method": "locate.definition_terms",
+                    "include_scope_coverage": False,
                     "include_details": True,
                     "include_publication": False,
                     "include_support": False,
@@ -1473,6 +1516,7 @@ def _exact_closure(
             request.model_copy(
                 update={
                     "method": "retrieve.contextual",
+                    "include_scope_coverage": False,
                     "include_details": False,
                     "include_publication": False,
                     "include_support": False,
@@ -3077,6 +3121,7 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
     contribution_scopes = {}
     contribution_inventory = {}
     report_inventory = {}
+    coverage_inventory: dict[int, list[dict[str, Any]]] = {}
     required_contracts: set[str] = set()
     captured_contracts: set[str] = set()
     closure_reasons: set[bytes] = set()
@@ -3271,11 +3316,21 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
                         elif name == "inventory":
                             item = payload["row"]
                             index = payload.get("selection_index")
+                            is_coverage = payload.get("population") == "scope_coverage"
                             if type(index) is int and 0 <= index < len(selection.selections):
                                 request = selection.selections[index]
+                                if is_coverage:
+                                    if not request.include_scope_coverage:
+                                        raise ValueError(
+                                            "PM2 coverage row has no selected worklist"
+                                        )
+                                    coverage_inventory.setdefault(index, []).append(item)
+                                selected_task = item.get(
+                                    "task_id" if is_coverage else "selected_task_id"
+                                )
                                 if (
                                     request.selected_task_id is not None
-                                    and item.get("selected_task_id") != request.selected_task_id
+                                    and selected_task != request.selected_task_id
                                 ):
                                     raise ValueError(
                                         "contribution row differs from exact selected task"
@@ -3288,7 +3343,7 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
                                     raise ValueError(
                                         "contribution row is outside exact selected IDs"
                                     )
-                            elif exact_contributions:
+                            elif exact_contributions or is_coverage:
                                 raise ValueError("contribution row has no selected scope")
                             if type(item.get("source_view_id")) is int:
                                 needed_sources.add(item["source_view_id"])
@@ -3496,6 +3551,17 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
     if set(os.listdir(root)) != expected:
         raise ValueError("review package has undeclared or missing members")
     _verify_structural_gaps(root, manifest, selection)
+    from .pm2_coverage_replay import verify_scope_worklists
+
+    verify_scope_worklists(
+        selection.selections,
+        contribution_scopes,
+        coverage_inventory,
+        report_inventory,
+        _detached_relation(root, manifest, "pm2_worklists"),
+        _detached_relation(root, manifest, "sources"),
+        _detached_relation(root, manifest, "reports"),
+    )
     decision_evidence = iter(_detached_relation(root, manifest, "source_decision_evidence"))
     decisions = iter(_detached_relation(root, manifest, "source_decisions"))
     reports = {}

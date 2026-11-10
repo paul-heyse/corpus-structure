@@ -130,8 +130,18 @@ def test_alternate_domain_parser_run_retains_siblings_after_profile_refusal(
 def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions(
     private_source, parser_samples, tmp_path
 ):
+    from copy import deepcopy
+    from hashlib import sha256
+
+    from corpus_structure.core.db.cancellation import OperationCancellation
     from corpus_structure.orchestrate.commands import bound_status
     from corpus_structure.semantic.operations import BoundReader
+    from corpus_structure.serve.review_bundle import (
+        ReviewSelection,
+        capture_review_relations,
+        verify_review_bundle,
+        write_review_bundle,
+    )
 
     case = private_source
     with case.writer.begin() as conn:
@@ -180,10 +190,12 @@ def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions
         reader_coverage = BoundReader(
             conn, report.run_id, case.prepared, report.cut_id
         ).pm2_scope_coverage()
-        inspection = serve_contributions(
-            conn,
-            ContributionRequest(run_id=report.run_id, include_scope_coverage=True),
+        selection = ContributionRequest(
+            run_id=report.run_id, source_view_id=case.other_view, include_scope_coverage=True
         )
+        inspection = serve_contributions(conn, selection)
+        review = ReviewSelection(selections=(selection,))
+        captured = list(capture_review_relations(conn, review, OperationCancellation()))
     assert progress is not None
     assert progress.pm2_scope_coverage == reader_coverage == report.scope_coverage
     assert [entry.outcome for entry in report.scope_coverage] == ["ineligible", "unscheduled"]
@@ -192,6 +204,36 @@ def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions
     assert [item["row"] for item in inspection.items if item["population"] == "scope_coverage"] == [
         entry.model_dump(mode="json") for entry in report.scope_coverage
     ]
+
+    bundle = tmp_path / "review"
+    manifest = write_review_bundle(review, bundle, captured)
+    expected_digest = sha256((bundle / "manifest.json").read_bytes()).hexdigest()
+    assert verify_review_bundle(bundle, manifest_digest=expected_digest) == manifest
+
+    with pytest.raises(ValueError, match="lacks its selected PM2 worklist"):
+        write_review_bundle(
+            review,
+            tmp_path / "missing",
+            ((relation, row) for relation, row in captured if relation != "pm2_worklists"),
+        )
+    changed: list[tuple[str, dict[str, Any]]] = [
+        (relation, deepcopy(dict(row))) for relation, row in captured
+    ]
+    for relation, row in changed:
+        if relation == "inventory" and row["row"]["outcome"] == "ineligible":
+            row["row"]["reason"] = "different recorded refusal"
+    with pytest.raises(ValueError, match="differs from worklist replay"):
+        write_review_bundle(review, tmp_path / "mismatch", changed)
+
+    # A detached reader cannot independently run eligibility or know that the
+    # producer recorded every refusal. The export digest binds that history.
+    (worklist,) = [row["worklist"] for relation, row in changed if relation == "pm2_worklists"]
+    worklist["intents"][0]["reason"] = "different recorded refusal"
+    rewritten = tmp_path / "rewritten"
+    new_manifest = write_review_bundle(review, rewritten, changed)
+    assert verify_review_bundle(rewritten) == new_manifest
+    with pytest.raises(ValueError, match="integrity differs"):
+        verify_review_bundle(rewritten, manifest_digest=expected_digest)
 
 
 def test_pm2_cli_refuses_invalid_extent_before_run_admission(

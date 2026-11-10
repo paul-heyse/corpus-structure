@@ -1495,3 +1495,127 @@ def test_source_decision_keeps_the_witness_kind_under_its_delivery_kind():
             "witness_kind": "reference_target",
         },
     )
+
+
+def test_detached_pm2_split_child_checks_its_retained_source_extent():
+    from corpus_structure.semantic.observations import source_value
+    from corpus_structure.serve.pm2_coverage_replay import verify_scope_worklists
+
+    first, second = "a" * 64, "b" * 64
+    parent = {
+        "source_view_id": 5,
+        "extent": [0, 10],
+        "question": "pm2.hanlp.frames",
+        "operation_version": "2",
+        "disposition": "scheduled",
+        "input_digest": first,
+    }
+    child = {**parent, "extent": [0, 5], "input_digest": second, "parent_input_digest": first}
+
+    def settlement(task, digest, outcome, split=None):
+        return {
+            "id": task,
+            "unit_type": "source_view",
+            "unit_id": 5,
+            "input_hash": digest,
+            "reused_task_id": None,
+            "status": "empty",
+            "reason": None,
+            "split_scope": split,
+            "question": "pm2.hanlp.frames",
+            "operation_version": "2",
+            "outcome": outcome,
+            "provider_outcome": None,
+            "inspected": 1 if outcome == "empty" else 0,
+            "emitted": 0,
+            "result_reason": "scope limit" if outcome == "limited" else None,
+            "cut_origin": task,
+        }
+
+    def report(task, digest, end, outcome, inspected, reason=None):
+        return {
+            "origin_task_id": task,
+            "input_hash": digest,
+            "unit_type": "source_view",
+            "origin_unit_id": 5,
+            "task_status": "empty",
+            "body": {
+                "contribution_operations": [
+                    dict(
+                        question="pm2.hanlp.frames",
+                        operation_version="2",
+                        outcome=outcome,
+                        inspected_count=inspected,
+                        emitted_count=0,
+                        reason=reason,
+                    )
+                ],
+                "parse_detail": source_value(
+                    {
+                        "pm2_native": {
+                            "input_digest": digest,
+                            "source_map": {
+                                "context_pieces": [dict(source_view_id=5, start=0, end=end)],
+                            },
+                        }
+                    }
+                ),
+            },
+        }
+
+    rows = [
+        {
+            "source_view_id": 5,
+            "extent": [0, 5],
+            "question": "pm2.hanlp.frames",
+            "operation_version": "2",
+            "input_digest": second,
+            "parent_input_digest": first,
+            "outcome": "empty",
+            "task_id": 42,
+            "origin_task_id": 42,
+            "inspected_count": 1,
+            "emitted_count": 0,
+            "reason": None,
+        }
+    ]
+    proof = dict(
+        selection_index=0,
+        run_id=12,
+        cut_id=16,
+        release_id="release:test",
+        worklist=dict(
+            intents=[parent],
+            settlements=[settlement(41, first, "limited"), settlement(42, second, "empty", child)],
+        ),
+    )
+
+    def replay():
+        verify_scope_worklists(
+            (ContributionRequest(run_id=12, selected_task_id=42, include_scope_coverage=True),),
+            {
+                0: dict(
+                    run_id=12,
+                    cut_id=16,
+                    binding={"release_id": "release:test"},
+                    inventory_counts={"scope_coverage": 1},
+                )
+            },
+            {0: rows},
+            {(0, 42, 42): dict(source_view_id=5, task_status="empty", cut_member=True)},
+            [proof],
+            [dict(source_view_id=5, text="abcdefghij")],
+            [report(41, first, 10, "limited", 0, "scope limit"), report(42, second, 5, "empty", 1)],
+        )
+
+    replay()
+    proof["cut_id"] = 17
+    with pytest.raises(ValueError, match="selected run, cut or release"):
+        replay()
+    proof["cut_id"] = 16
+
+    # A matching input digest and an internally consistent worklist cannot
+    # substitute for the recorded source extent in the settled native result.
+    rows[0]["extent"] = child["extent"] = [0, 6]
+    with pytest.raises(ValueError, match="retained native source map"):
+        replay()
