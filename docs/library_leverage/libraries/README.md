@@ -19,6 +19,12 @@ Neither is a comparative preference. Choosing between options belongs to
 
 ## Library-led briefings
 
+The [agent CLI and diagnostics discovery](cli-and-logging/briefing.md) (2026-11-10)
+combines full Typer/Rich/structlog overview coverage with current command, report, logging
+and cross-process consumers. Three topic briefings develop ten research leads, including
+release-matched stream, lifecycle and renderer-composition constraints. It changes no adoption
+or historical applicability judgment; older CLI plans are complete/legacy.
+
 The optional [discovery skill](../../../.claude/skills/leverage-library-discovery/SKILL.md)
 maintains discovery accounts with a complete briefing or a summary and focused briefings.
 Agents choose organization and depth to explain the opportunities. The account records representative local uses,

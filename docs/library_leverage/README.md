@@ -34,6 +34,11 @@ ordinary implementation and API questions do not initiate this workflow.
 
 ## Current accounts
 
+The [agent CLI and diagnostics discovery](libraries/cli-and-logging/briefing.md)
+(2026-11-10) connects Typer, Rich and structlog across command authoring, report delivery,
+failures and execution boundaries. Ten research leads use current code and the active
+domain-data-model series; older CLI plans are complete/legacy. Benefits remain Proposed.
+
 The [integrated domain-data-model discovery](libraries/domain-data-model/briefing.md)
 (2026-11-10) connects nine data-model overviews to current executable declarations, typed
 boundaries, ontology/vocabulary use, qualified graphs, portable validation and settings.

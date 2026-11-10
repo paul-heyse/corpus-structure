@@ -1,5 +1,9 @@
 # Typer
 
+For current code and Typer0.28.0/Rich15 capability discovery, see the
+[integrated CLI and diagnostics briefing](../cli-and-logging/briefing.md), dated2026-11-10.
+The assessment below retains its original realization, baseline and evidence limits.
+
 **Realization assessed:** Typer 0.27.3, which ships a vendored Click.
 
 **Researched:** 2026-10-29 by the R6 cluster. The [overview](../../../libraries/python_introspection/typer.md) was read
