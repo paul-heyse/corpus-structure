@@ -404,22 +404,25 @@ evidence by itself.
 
 ### Post-audit execution checkpoint · 2026-11-09
 
-- **Private book staging.** `uv run ci status 487 --project
-  nce-grinstead-snell-full-book --json` read back an active supervisor, 56 of
-  58 extraction tasks done and no completed cut. Leave the executing checkout
-  and runtime inputs in place through managed settlement and finalization.
+- **Private book staging.** Run 487 settled all 58 extraction tasks on its
+  original runtime and produced source-ready cut 603. During finalization,
+  `uv run ci status 487 --project nce-grinstead-snell-full-book --json` read
+  back consolidation cut 604 without an output realization. Keep the original
+  checkout on `pm2/run-487-runtime` through finalization.
   The earlier run 482 refusal remains a terminal record. Set 34 grading and
   the assembled parser and interpretation journey are separate obligations.
-- **PM2-R01 · Candidate ready off main.** Commit `bb035e57d` on
-  `pm2/refusal` returns a structured refusal for invalid extents and canonical
+- **Main integration.** Merge `f1dc0b949` brings the PM2 repairs and registered
+  migration `semantic_pm2_named_pieces` onto `main`. The merged worktree is
+  `build/pm2-execution-worktrees/refusal`; this merge left the executing
+  checkout and the development database revision unchanged.
+- **PM2-R01 · Merged.** Commit `bb035e57d` returns a structured refusal for invalid extents and canonical
   boundaries in the shared PM2 preparation path. The isolated native-backed
   CLI controls passed and checked that refusal creates no run or task.
   The installed command also returned `Pm2ScopeRefused` with
-  `invalid_source_extent` for a retained pin. Integration on `main` waits
-  for run 487 settlement and finalization under its pinned runtime.
+  `invalid_source_extent` for a retained pin.
   The committed-source managed rerun `1de606f99be44f75ab9e0e9c7c1e3281`
   passed both focused controls; its receipt is in the refusal worktree.
-- **PM2-01/08 · Detached worklist candidate ready off main.** Commits
+- **PM2-01/08 · Detached worklist repair merged.** Commits
   `8c4e5b561` and `e1409ebac` on `pm2/detached-worklist` add exact-cut worklist export
   and shared coverage replay. Managed export and bound receipt inspection
   `c17fee3f00274e32b26aa11b97f40b80` passed for the 11 rows in run 485/cut 598,
@@ -427,7 +430,7 @@ evidence by itself.
   export used a 384 MiB bound. The independent manifest receipt is needed
   for worklist completeness. The candidate does not establish assembled
   coverage or workflow qualification.
-- **PM2-07/12 · Isolated product integration.** `pm2/integration` at
+- **PM2-07/12 · Product integration.** `pm2/integration` at
   `e46a8eabd` combined the typed refusal, detached worklist, exact ordinary
   scheduler dependency, and opt-in managed GLiNER passage-function producer.
   The targeted `uv run ci test` receipt `99b7271de688406a8a9de7c371106527`
@@ -464,7 +467,7 @@ evidence by itself.
   confirmed that outcome through the installed Reader path. The retained
   annotation's explicit native piece map proves that both citation tokens belong
   to the correct native item. The operator selected that mapping as the proof
-  boundary for joined annotation blocks. The isolated `pm2/integration` at
+  boundary for joined annotation blocks. The integrated branch at
   `9fbd5c7dc` implements it in scoped method `/12`, named-link `/4`, with native
   and detached checks preserving both identities. The [real-cue control](../design_review/evidence/2026-11-09_pm2-closure-execution/raw/cross-chapter-mapped-cue.json)
   recovered the exact `see` cue and `Section 5.1` on the retained item while
