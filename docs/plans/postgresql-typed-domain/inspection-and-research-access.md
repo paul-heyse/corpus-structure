@@ -1,6 +1,6 @@
 # Explicit acquisition, honest inspection and research access
 
-**Status: CA02/04 repaired and scoped controls passed; PTD-02/03 delivered; investigations decided · 2026-11-10.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
+**Status: Complete for selected delivery; investigation decisions retained, combined PTD-11 acceptance recorded · 2026-11-10.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
 below, not another status table. The coordinator records execution and native delivery separately from original authoring.
@@ -183,3 +183,11 @@ owned_adbc_child now retains body identity across reader/cursor/writer retiremen
 nested cleanup errors before existing rollback/close settlement. Description metadata readers are
 lexically owned; _rows no longer owns generator cleanup. The actual reader/CLI denied-version-table
 control passed, distinguishing refused Arrow shape, available catalog facts and a missing literal.
+
+
+## Final selected-scope adoption · 2026-11-10
+
+The [PTD-11 closure](../postgresql-typed-domain_2026-11-09.md#final-qualification-and-series-closure--2026-11-10)
+owns the final applicable functional/provider/native/nonfunctional union and adoption handoff.
+Selected delivery is complete; conditional branches retain their recorded decisions and revisit
+premises. Earlier receipts remain dated evidence, not new qualification by republication.

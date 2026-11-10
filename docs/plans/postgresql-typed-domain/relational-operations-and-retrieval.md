@@ -1,6 +1,6 @@
 # Complete relational operations and exact retrieval
 
-**Status: PTD-06/07 implemented and scoped tests passed; I03/I04 decisions recorded; both PTD-10 slices delivered with scoped controls · 2026-11-10.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
+**Status: Complete for selected delivery; investigation decisions retained, combined PTD-11 acceptance recorded · 2026-11-10.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
 below, not another status table. The coordinator records execution separately from original authoring.
@@ -290,3 +290,11 @@ per-query native membership and query validation remain. The actual reader conti
 borrowed connection per snapshot; cached preparation owns no connection or result. Independent
 mutation, reuse, native channel/rank/witness and mixed-rule closure cases cover delivery. Earlier
 Proposed labels describe the accepted target before this scoped receipt, not current non-delivery.
+
+
+## Final selected-scope adoption · 2026-11-10
+
+The [PTD-11 closure](../postgresql-typed-domain_2026-11-09.md#final-qualification-and-series-closure--2026-11-10)
+owns the final applicable functional/provider/native/nonfunctional union and adoption handoff.
+Selected delivery is complete; conditional branches retain their recorded decisions and revisit
+premises. Earlier receipts remain dated evidence, not new qualification by republication.

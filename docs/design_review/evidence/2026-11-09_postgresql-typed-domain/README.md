@@ -333,7 +333,55 @@ identity; held exact retry `2d6039412c9041c0931ab084a12f36ed` validly refused st
 rather than executing a different node. A precise typing annotation on normalized vector kwargs repaired the endpoint type diagnostic.
 All named functional results are held, including failures/refusals.
 
-Fresh full campaign `ca15c575254346db8552f611bdd5f071` is running with both explicit opt-ins:
+Fresh full campaign `ca15c575254346db8552f611bdd5f071` ran with both explicit opt-ins:
 `CORPUS_GLINER_DIAGNOSTIC=1 CORPUS_PM2_NATIVE_TEST_ASSETS="$PWD/build/models/pm2" uv run ci test --json`.
-Its final selected scope and outcome remain pending. Source differences during qualification are
+Its settled scope/outcome and affected replacement are recorded below. Source differences during qualification are
 recorded by managed invocations; no native migration/default/project activation is performed here.
+
+### Live-campaign GLiNER protocol timeout repair
+
+While the full campaign remained active it reported the controlled production-child-loop test.
+The ordinary managed failure view was legitimately partial until settlement. A bounded read of
+that node's provisional crash message (no source/captured streams) established `native GLiNER
+operation timed out` for context one. This diagnostic fallback was not used as final qualification.
+An unchanged isolated reproduction passed one in held `117e8de814a74ce4a27fb23ce3d714b2`, consistent
+with load-sensitive startup rather than a deterministic protocol error.
+
+The positive recovery test allowed five seconds for spawn, imports, native preparation and IPC.
+Its local profile now allows 60 seconds, because its assertion concerns continued protocol use after
+preparation refusal, not startup latency. Production deadlines and the explicit 0.5-second timeout/
+kill/join test are unchanged. This test-only repair is committed as `8ae0b9617`.
+`CORPUS_GLINER_DIAGNOSTIC=1 uv run ci test --json -- python/corpus-structure/tests/methods/test_gliner.py`
+passed all 34 tests in held `37900849e37a4208b7cf2219555aa70a`, including the real checkpoint diagnostic,
+protocol recovery and strict timeout controls. The running broad attempt retains its original failure;
+final settled coverage will account for the affected replacement and its exact source footprint.
+
+### Final PTD-11 qualification · 2026-11-10
+
+Broad `ca15c575254346db8552f611bdd5f071` settled failed with 5,701 ordinary selected/5,700 passed/
+one failed, and all eight exclusive fault checks passed. There were no blocked nodes or unsettled
+custody. Both required real provider cases and the added native scoped-reader case passed in this
+fresh campaign. The settled `ci test failures --diagnostic-chars 32768 --json` report confirmed the
+single protocol startup timeout. Held passing module `37900849e37a4208b7cf2219555aa70a` supplies the
+final affected source after the isolated test budget repair.
+
+`uv run ci test coverage ca15c575254346db8552f611bdd5f071 37900849e37a4208b7cf2219555aa70a
+--view unresolved --limit 20 --json` passed delivery of the bounded report: 5,709 required/covered,
+zero unresolved, no missing lanes, two complete native observations plus one not_required context,
+no context unknowns. The aggregate status remains failed from preserved attempt history. Source
+and native-context differences are exposed; the coordinator's final qualification section explicitly
+accepts the scoped union and final-source applicability. The test budget change is the only executable
+mutation during broad execution; no production/native/schema/runtime implementation changed.
+
+Final repository check passed types/lint/docs/dependencies/clippy and process checks; empty rules
+were not_run. Model consistency passed 0.6.5/89b083ed4152. Fresh post-campaign maintenance status
+again observed semantic_ptd_completion_repairs and the original OID/system identity. Rust context
+remained 1.101.0-nightly (2d20b42b8,2026-11-04); Rust functional selection was empty/not_run. No
+benefit benchmark or broad quality claim follows. Final publication and handoff checks are recorded
+in the coordinator/STATUS. The selected series is complete at that declared boundary.
+
+Required native observations: ordinary 963 and fault 7, each with zero native unresolved. The
+GLiNER module replacement requires no database observation; real CPU provider behavior is exercised.
+
+Final publication `uv run ci docs check --json` and root `just turn-end` passed, 2026-11-10;
+zero link errors. The two pre-existing phase-0 descriptor-tag warnings remain outside this scope.

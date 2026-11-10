@@ -1,6 +1,6 @@
 # PostgreSQL typed-domain implementation series
 
-**Status: CA01–04 repaired and PTD-10 delivered; PTD-11 assembled review, native qualification and adoption in progress · 2026-11-10.** Conditional target design is Proposed. This coordinator
+**Status: Complete for selected PTD-00–11 scope and investigation decisions · 2026-11-10.** Conditional target design is Proposed. This coordinator
 owns PTD-00–11, PTD-I01–06, selected branch delivery, review O01–O13 disposition and combined
 qualification. It does not supersede any existing plan. Production milestone two remains separate.
 
@@ -68,7 +68,7 @@ to finish when one implemented prerequisite slice suffices.
 
 ## Execution queue
 
-The [completion audit](#completion-audit) identified CA01–04; their repairs and the two PTD-10 slices now have scoped acceptance below. PTD-00–10 implementation and investigation decisions are delivered at those boundaries. Broad verification and its two blocked opt-in cases are reconciled below. PTD-11 remains open for assembled review, remaining qualification/adoption and the return handoff.
+The [completion audit](#completion-audit) identified CA01–04; their repairs and the two PTD-10 slices now have scoped acceptance below. PTD-00–10 implementation and investigation decisions are delivered at those boundaries. PTD-11 now supplies assembled review, full applicable qualification, native opt-in closure and the adoption/return handoff below.
 
 | ID | Responsible boundary | Required input and delivered capability | Completion evidence |
 | --- | --- | --- | --- |
@@ -104,7 +104,7 @@ specific unmet premise and revisit condition; unperformed investigation cannot b
 | [O02](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O02) | Decided · retain explicit value codecs, native invariants and private operations | I01 | Decision-complete; native/ORM expansion has concrete value/workflow triggers in the released-types companion |
 | [O03](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O03) | Closed scoped · CA03 validation detail delivered | PTD-04 | Validation v3 delegates retained paging; compact completeness and other report versions preserved |
 | [O04](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O04) | Decided · diagnostics delivered; retain finite language and current research routes | PTD-05, I02 | PTD-05 delivered; I02 branches decided separately in SQL companion; no additional language slice selected |
-| [O05](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O05) | Closed scoped · coverage and both PTD-10 improvements delivered | PTD-06, I03 →10 | Native delta/workspace and immutable preparation controls covered; combined PTD-11 qualification remains |
+| [O05](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O05) | Closed scoped · coverage and both PTD-10 improvements delivered | PTD-06, I03 →10 | Native delta/workspace and immutable preparation controls covered by the final PTD-11 qualification union |
 | [O06](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O06) | Closed · exact composition and typed binding implemented | PTD-07 | Full membership/channel correctness preserved across migrated consumers |
 | [O07](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O07) | Decided · retain exact baseline; richer representations/policies deferred individually | I04 | Concrete terminology, token/visual, scale, aggregate or fixed-list premises retained in operations/retrieval companion; no quality claim |
 | [O08](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O08) | Decided · faithful output delivered; current input/value routes retained | PTD-08, I01/I05 | I01/I05 input/nested/spatial/Rust branches decided; no alternate publication path selected |
@@ -597,5 +597,60 @@ fixture declaration correction preserved in failed `843fe40c43804d2091606401e62a
 passed the existing composed retrieval control. The new test independently checks actual channels,
 per-call query admission, released snapshots and reader-owned preparation. Final source is committed
 as `dfe77f5a3` (test/review only, no production implementation change).
-Fresh broad campaign `ca15c575254346db8552f611bdd5f071` includes both native opt-ins and is running.
-PTD-11 is not yet closed; final campaign and repository checks must settle first.
+Fresh broad campaign `ca15c575254346db8552f611bdd5f071` included both required native opt-ins.
+Its settled outcome and final qualification judgment are recorded below.
+
+## Final qualification and series closure · 2026-11-10
+
+**PTD-11 and the selected PTD-00–11 series scope are complete.** The assembled target review is
+accepted at its four-scenario architectural boundary; CA01–04 repairs, both selected PTD-10 slices,
+ordinary combined consumers, retirement obligations and all I01–06 decisions are delivered. No
+required selected investigation or qualification obligation remains unowned or blocked. Conditional
+library branches retain their decisions/revisit premises; this is not whole-project conformance or
+PM2 workflow/quality acceptance.
+
+Fresh broad command, with the required native opt-ins enabled:
+
+```sh
+CORPUS_GLINER_DIAGNOSTIC=1 CORPUS_PM2_NATIVE_TEST_ASSETS="$PWD/build/models/pm2" uv run ci test --json
+```
+
+Held result `ca15c575254346db8552f611bdd5f071` selected 5,701 ordinary nodes: 5,700 passed and one
+controlled GLiNER protocol test timed out. Both real provider cases and the new native reader case
+passed; none was blocked. The exclusive fault lane passed all eight. The settled typed failure
+report confirmed the provisional timeout diagnostic exactly. No worker loss or unsettled custody
+was reported. The failure is preserved, not relabelled as a passing campaign.
+
+Test-only commit `8ae0b9617` gives that positive protocol-recovery case 60 seconds for spawn/import/
+preparation rather than five. Production deadlines and the explicit 0.5-second kill/join test remain
+unchanged. The affected full GLiNER module, with its real native diagnostic enabled, passed all 34
+in held result `37900849e37a4208b7cf2219555aa70a`. Coverage over the broad result first and this
+replacement reports **5,709 required identities covered, zero unresolved, no missing lanes, complete
+required native observations and no unknown execution contexts**. Its aggregate status retains
+original failed-attempt history; successful report delivery is not the acceptance decision.
+
+This coordinator accepts final-source applicability for the declared union. Production code remained
+unchanged throughout PTD-11; the added native integration test was present before the broad run.
+The only executable change during that run was the local budget/comment for the already-failed
+protocol test; its module replacement covers the final test source, including strict timeout and
+real-provider controls. Other changes were documentation/commits. Observed native context differences
+are intentionally isolated historical/bare/restricted-principal test contexts, not evidence of a
+production-head substitution. Required native observations are complete at their own contexts.
+No obsolete provider-free exclusion is carried into this final required scope.
+
+Final `uv run ci check --json` passed all applicable steps; empty rule lanes were not_run.
+`uv run ci model check --json` passed at revision 0.6.5, digest 89b083ed4152. Post-campaign
+`uv run ci db status --maintenance --json` passed at the unchanged acquired development target/head.
+Rust context: rustc 1.101.0-nightly (2d20b42b8,2026-11-04); functional selection was empty, not_run.
+Earlier intermediate docs/type failures and functional failures/refusals remain documented in the
+[evidence account](../design_review/evidence/2026-11-09_postgresql-typed-domain/README.md#ptd-11-assembled-acceptance--2026-11-10).
+No benchmark, measured speed/memory improvement or extraction-quality claim is made.
+
+The adoption table above is the return handoff: installed current implementation, report versions,
+release/execution/physical/native pins and regeneration obligations are explicit. Reusable source
+custody/run487/cut604 remain intact. Project activation/promotion, `/10`, and the separate PM2 plan
+are unchanged. The concurrently authored DMC series consumes this completed handoff through its
+own DMC-00; this closure does not execute or revise that series. All plans and evidence are retained.
+
+Final publication `uv run ci docs check --json` and root `just turn-end` passed, 2026-11-10;
+zero link errors. The two pre-existing phase-0 descriptor-tag warnings remain outside this scope.

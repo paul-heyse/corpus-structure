@@ -1,6 +1,6 @@
 # Native evolution and bounded operational control
 
-**Status: PTD-09 implemented and scoped tests passed; I06 decisions recorded, selected PTD-10 delivery remains coordinator-owned · 2026-11-10.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
+**Status: Complete for selected delivery; investigation decisions retained, combined PTD-11 acceptance recorded · 2026-11-10.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
 below, not another status table. The coordinator records execution separately from original authoring.
@@ -204,3 +204,11 @@ execution contract descriptor. Both workspace functions now have explicit curren
 through the existing source-guard route. Temporary generation/index details do not create a second
 migration lifecycle. The [coordinator receipt](../postgresql-typed-domain_2026-11-09.md#completion-repairs-and-ptd-10-delivery--2026-11-10)
 owns exact IDs, qualification and remaining PTD-11 work; I06 choices remain unchanged.
+
+
+## Final selected-scope adoption · 2026-11-10
+
+The [PTD-11 closure](../postgresql-typed-domain_2026-11-09.md#final-qualification-and-series-closure--2026-11-10)
+owns the final applicable functional/provider/native/nonfunctional union and adoption handoff.
+Selected delivery is complete; conditional branches retain their recorded decisions and revisit
+premises. Earlier receipts remain dated evidence, not new qualification by republication.

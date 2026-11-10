@@ -1,6 +1,6 @@
 # Released types and faithful exchange
 
-**Status: CA01 repaired; PTD-01/08 scoped delivery verified; investigations decided · 2026-11-10.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
+**Status: Complete for selected delivery; investigation decisions retained, combined PTD-11 acceptance recorded · 2026-11-10.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
 below, not another status table. The coordinator records execution and native delivery separately from original authoring.
@@ -223,3 +223,11 @@ audit descriptions above identify the inspected baseline, not an unrepaired curr
 Shared correspondence validation now includes explicit anchored and schema-level/physical-ancestor
 edges. Positive model-to-physical backreferences preserve shipped nominal output. Independent
 compilation, column/companion generation and real typing consumers cover the repaired boundary.
+
+
+## Final selected-scope adoption · 2026-11-10
+
+The [PTD-11 closure](../postgresql-typed-domain_2026-11-09.md#final-qualification-and-series-closure--2026-11-10)
+owns the final applicable functional/provider/native/nonfunctional union and adoption handoff.
+Selected delivery is complete; conditional branches retain their recorded decisions and revisit
+premises. Earlier receipts remain dated evidence, not new qualification by republication.
