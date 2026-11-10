@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import ExitStack
+from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel, JsonValue, TypeAdapter
@@ -46,6 +47,15 @@ class BoundRunReport(BaseModel):
     release_id: str
     realization_id: str
     cut_id: CutId | None = None
+
+
+@dataclass(frozen=True)
+class SourceRunCreated:
+    """Committed native identity; neither source readiness nor effect permission."""
+
+    run_id: RunId
+    project: str
+    release_id: str
 
 
 def _source_configurations(registry, graph, overrides):
@@ -153,6 +163,7 @@ def run_source_methods(
     local_semantic_admission: Sequence[Mapping[str, Any]] = (),
     structural_admission: Sequence[Mapping[str, Any]] = (),
     selected_sources: Sequence[ExternalSourceRef] = (),
+    on_created: Callable[[SourceRunCreated], None] | None = None,
 ) -> BoundRunReport:
     """Run the current source graph; hand its immutable cut to consolidation/proposal owners.
 
@@ -480,6 +491,8 @@ def run_source_methods(
     holder = f"semantic-source:{rid}"
     try:
         try:
+            if on_created is not None:
+                on_created(SourceRunCreated(RunId(rid), project_id, prepared.release_id))
             registered = {}
             for stage, steps in graph.stages:
                 for group in _source_step_groups(steps, configs, prepared):

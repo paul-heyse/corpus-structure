@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, Field, JsonValue
 from sqlalchemy import Connection, Engine
@@ -15,6 +15,9 @@ from corpus_structure.core.vocab import TaskStatus
 from corpus_structure.semantic.pm2_coverage import ScopeCoverage, scope_coverage
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.settings import AnalyticsSettings
+
+if TYPE_CHECKING:
+    from corpus_structure.orchestrate.semantic import SourceRunCreated
 
 
 class CommandError(ValueError):
@@ -102,6 +105,7 @@ def start_bound_run(
     m1_configuration: str = "default",
     record_policy: dict[str, Any] | None = None,
     source_only: bool = False,
+    on_created: Callable[[SourceRunCreated], None] | None = None,
 ):
     """Explicit semantic source execution through the current command entry point."""
     from sqlalchemy import select
@@ -260,6 +264,7 @@ def start_bound_run(
             selected_registry = bind_record_policy(selected_registry, prepared, record_policy)
     return run_source_methods(
         engine,
+        on_created=on_created,
         project_id=project_id,
         domain=domain,
         prepared=prepared,

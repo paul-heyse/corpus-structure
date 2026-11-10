@@ -188,7 +188,7 @@ child transfer. Native settlement, purpose roles, effects and raw disclosure ret
 [D8](D8-agent-and-query-interfaces.md#safe-operation-observation-custody) owns the interface detail;
 the CLI plan owns implementation and qualification separately from the accepted decision.
 
-> Decision: ADR-0001, ADR-0002, ADR-0071, ADR-0006, ADR-0007, ADR-0008, ADR-0010, ADR-0069, ADR-0079
+> Decision: ADR-0001, ADR-0002, ADR-0071, ADR-0006, ADR-0007, ADR-0008, ADR-0010, ADR-0069, ADR-0079, ADR-0080
 
 
 Product binding decisions follow. Each is `### §Bn <decision stated as a sentence>` with a

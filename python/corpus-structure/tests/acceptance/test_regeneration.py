@@ -19,14 +19,9 @@ from corpus_structure.settings import Settings
 ROOT = Path(__file__).resolve().parents[4]
 
 
-@pytest.mark.parametrize(
-    "domain,scope_name",
-    [("statistics", "acceptance-native"), ("toy", "transfer")],
-)
-def test_retained_integrated_cli_lifecycle(
-    semantic_db_engine, tmp_path, monkeypatch, domain, scope_name
-):
+def retained_integrated_cli(semantic_db_engine, tmp_path, monkeypatch, domain, scope_name):
     settings = Settings(
+        ci_results=tmp_path / "cli-results",
         database={
             "url": semantic_db_engine.url.set(
                 drivername="postgresql", username="corpus_sem_writer"
@@ -87,19 +82,6 @@ def test_retained_integrated_cli_lifecycle(
     pin_path = tmp_path / "retained-integrated.json"
     pin_path.write_text(json.dumps(pin))
 
-    def forbidden_reselection(*args, **kwargs):
-        raise AssertionError("retained integrated input must not repeat reconciliation")
-
-    monkeypatch.setattr(
-        "corpus_structure.ingest.pdf_reconciliation.select_pdf_integration", forbidden_reselection
-    )
-    with semantic_db_engine.connect() as conn:
-        before = conn.execute(
-            text(
-                "SELECT table_schema,table_name FROM information_schema.tables "
-                "WHERE table_schema IN ('data','sem','kb','ops','eval') ORDER BY 1,2"
-            )
-        ).all()
     args = [
         "regenerate",
         "--domain",
@@ -115,6 +97,38 @@ def test_retained_integrated_cli_lifecycle(
         "--prepare-only",
         "--json",
     ]
+    return SimpleNamespace(
+        settings=settings, domains=domains, corpus=corpus, pin=pin, pin_path=pin_path, args=args
+    )
+
+
+@pytest.mark.parametrize(
+    "domain,scope_name",
+    [("statistics", "acceptance-native"), ("toy", "transfer")],
+)
+def test_retained_integrated_cli_lifecycle(
+    semantic_db_engine, tmp_path, monkeypatch, domain, scope_name
+):
+    case = retained_integrated_cli(
+        semantic_db_engine, tmp_path, monkeypatch, domain, scope_name
+    )
+    settings, domains, corpus, pin = case.settings, case.domains, case.corpus, case.pin
+    pin_path = case.pin_path
+
+    def forbidden_reselection(*args, **kwargs):
+        raise AssertionError("retained integrated input must not repeat reconciliation")
+
+    monkeypatch.setattr(
+        "corpus_structure.ingest.pdf_reconciliation.select_pdf_integration", forbidden_reselection
+    )
+    with semantic_db_engine.connect() as conn:
+        before = conn.execute(
+            text(
+                "SELECT table_schema,table_name FROM information_schema.tables "
+                "WHERE table_schema IN ('data','sem','kb','ops','eval') ORDER BY 1,2"
+            )
+        ).all()
+    args = case.args
     result = CliRunner().invoke(app, args, obj=CliState(settings_factory=lambda: settings))
     assert result.exit_code == 0, (result.output, result.exception)
     report = json.loads(result.stdout)
@@ -351,6 +365,169 @@ def test_retained_integrated_cli_lifecycle(
         assert prepared_only["release_id"] == report["release_id"]
         assert prepared_only["realization_id"] == output
         assert prepared_only["status"] == "source_ready" and prepared_only["cut_id"] > 0
+
+
+@pytest.mark.parametrize("failure_kind", ["failure", "interruption"])
+def test_initial_source_failure_retains_committed_run(
+    semantic_db_engine, tmp_path, monkeypatch, failure_kind
+):
+    from structlog.contextvars import get_contextvars
+
+    from corpus_structure.cli.managed import ResultStore
+    from corpus_structure.ingest.pdf_recognition_methods import IngestPdfIntegrated
+    from corpus_structure.orchestrate import commands, semantic
+    from corpus_structure.orchestrate.liveness import observe_supervisor
+
+    case = retained_integrated_cli(semantic_db_engine, tmp_path, monkeypatch, "toy", "transfer")
+    store = ResultStore(case.settings.ci_results)
+    baseline_context = get_contextvars()
+    runs = table("ops.run")
+    with semantic_db_engine.connect() as conn:
+        before = set(conn.scalars(select(runs.c.id)))
+    created, selected, closed = [], [], []
+    native_start = commands.start_bound_run
+    native_groups = semantic._source_step_groups
+    native_close = IngestPdfIntegrated.close
+    primary = (
+        RuntimeError("controlled initial source failure")
+        if failure_kind == "failure"
+        else KeyboardInterrupt("controlled initial source interruption")
+    )
+
+    def start(*args, **kwargs):
+        callback = kwargs["on_created"]
+
+        def acquired(identity):
+            with semantic_db_engine.connect() as conn:
+                row = conn.execute(
+                    select(runs.c.id, runs.c.project_id, runs.c.release_id).where(
+                        runs.c.id == identity.run_id
+                    )
+                ).one()
+            assert (identity.run_id, identity.project, identity.release_id) == tuple(row)
+            assert identity.run_id not in before
+            created.append(identity)
+            callback(identity)
+
+        return native_start(*args, **{**kwargs, "on_created": acquired})
+
+    def groups(*args, **kwargs):
+        assert len(created) == 1
+        (item,) = store.list(None, 20, "regenerate").results
+        identity = created[0]
+        expected = {
+            "run_id": identity.run_id,
+            "project": "acceptance",
+            "release_id": identity.release_id,
+        }
+        assert item.details["observation_bindings"] == expected
+        assert item.stage == "source_running" and item.outcome == "running"
+        assert {key: get_contextvars().get(key) for key in expected} == expected
+        selected.append(identity.run_id)
+        return native_groups(*args, **kwargs)
+
+    def stop(self, units, cfg, ctx):
+        assert selected and len(created) == 1
+        raise primary
+
+    def close(self):
+        closed.append(self.name)
+        return native_close(self)
+
+    monkeypatch.setattr(commands, "start_bound_run", start)
+    monkeypatch.setattr(semantic, "_source_step_groups", groups)
+    monkeypatch.setattr(IngestPdfIntegrated, "run", stop)
+    monkeypatch.setattr(IngestPdfIntegrated, "close", close)
+    result = CliRunner().invoke(app, case.args, obj=CliState(lambda: case.settings))
+    assert result.exit_code == (1 if failure_kind == "failure" else 130), result.output
+    if failure_kind == "failure":
+        assert result.exception is primary
+    assert get_contextvars() == baseline_context
+    assert len(created) == 1 and "ingest.pdf_integrated" in closed
+    with semantic_db_engine.connect() as conn:
+        after = set(conn.scalars(select(runs.c.id))) - before
+        assert after == {created[0].run_id}
+        native = conn.execute(
+            select(runs.c.id, runs.c.project_id, runs.c.release_id, runs.c.status).where(
+                runs.c.id == created[0].run_id
+            )
+        ).one()
+        assert native.status == ("failed" if failure_kind == "failure" else "cancelled")
+        assert observe_supervisor(conn, native.id)[0] is False
+    (item,) = store.list(None, 20, "regenerate").results
+    assert item.outcome == ("failed" if failure_kind == "failure" else "interrupted")
+    inspected = CliRunner().invoke(
+        app,
+        ["results", "inspect", item.id, "--json"],
+        obj=CliState(lambda: case.settings),
+    )
+    assert inspected.exit_code == 0, inspected.output
+    report = json.loads(inspected.stdout)
+    assert report["native"]["availability"] == "available", report["native"]
+    assert report["native"]["run"]["run_id"] == native.id
+    assert report["native"]["run"]["status"] == native.status
+    assert report["bindings"] == {
+        "invocation_id": item.id,
+        "run_id": native.id,
+        "project": native.project_id,
+        "release_id": native.release_id,
+        "provider_invocation": None,
+        "task_id": None,
+        "attempt": None,
+        "request_id": None,
+        "method": None,
+    }
+    assert any(action["command"] == f"ci status {native.id}" for action in report["next_actions"])
+    assert not any(action["kind"] == "recover_result" for action in report["next_actions"])
+
+
+@pytest.mark.parametrize("source_fails", [False, True])
+def test_initial_source_diagnostic_binding_failure_preserves_native_outcome(
+    semantic_db_engine, tmp_path, monkeypatch, source_fails
+):
+    from structlog.contextvars import get_contextvars
+
+    from corpus_structure.cli.managed import Invocation, ResultStore
+    from corpus_structure.ingest.pdf_recognition_methods import IngestPdfIntegrated
+
+    case = retained_integrated_cli(semantic_db_engine, tmp_path, monkeypatch, "toy", "transfer")
+    before_context = get_contextvars()
+    binding_calls, calls = [], []
+    primary = RuntimeError("controlled source failure after unavailable diagnostics")
+    native_run = IngestPdfIntegrated.run
+
+    def unavailable(self, **bindings):
+        binding_calls.append(bindings)
+        raise OSError("controlled observation publication failure")
+
+    def run(self, units, cfg, ctx):
+        calls.append(self.name)
+        if source_fails:
+            raise primary
+        return native_run(self, units, cfg, ctx)
+
+    monkeypatch.setattr(Invocation, "bind_observations", unavailable)
+    monkeypatch.setattr(IngestPdfIntegrated, "run", run)
+    result = CliRunner().invoke(app, case.args, obj=CliState(lambda: case.settings))
+    assert result.exit_code == int(source_fails), result.output
+    assert calls == ["ingest.pdf_integrated"] and len(binding_calls) == 1
+    if source_fails:
+        assert result.exception is primary
+    else:
+        assert json.loads(result.stdout)["status"] == "prepared"
+    assert get_contextvars() == before_context
+    (item,) = ResultStore(case.settings.ci_results).list(None, 20, "regenerate").results
+    assert item.outcome == ("failed" if source_fails else "passed")
+    assert item.details["observation_binding_unavailable"] == "OSError"
+    assert "observation_bindings" not in item.details
+    assert "Native run observation binding unavailable: OSError" in result.stderr
+    with semantic_db_engine.connect() as conn:
+        row = conn.execute(
+            select(table("ops.run").c.status).where(
+                table("ops.run").c.id == binding_calls[0]["run_id"]
+            )
+        ).one()
+        assert row.status == ("failed" if source_fails else "running")
 
 
 @pytest.mark.parametrize(

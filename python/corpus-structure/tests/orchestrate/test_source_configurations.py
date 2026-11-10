@@ -50,6 +50,7 @@ def test_conflicting_step_defaults_refuse_before_database_work(monkeypatch):
         def begin(self):
             raise AssertionError("configuration conflict created a run")
 
+    created = []
     with pytest.raises(OperationConflict, match=r"one effective configuration.*source\.example"):
         run_source_methods(
             NoDatabase(),
@@ -59,7 +60,9 @@ def test_conflicting_step_defaults_refuse_before_database_work(monkeypatch):
             registry=registry(),
             graph=graph("source.example/default", "source.example/other"),
             method_settings=None,
+            on_created=created.append,
         )
+    assert created == []
 
 
 def test_equivalent_named_aliases_share_effective_configuration():

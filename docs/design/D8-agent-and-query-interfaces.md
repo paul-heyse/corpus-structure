@@ -52,6 +52,18 @@ terminal or sharing consumer before adding their display/custody lifetimes.
 
 > Decision: [ADR-0079](../adr/0079-safe-observation-custody-authority.md)
 
+## Committed source creation notification
+
+**Implemented; scoped Tested, 2026-11-10.** Initial source execution publishes a frozen native
+run/project/release identity through an optional synchronous callback after commit and supervisor
+adoption, before source selection/effects. The native function retains its resource and cleanup
+lifetime. CLI observation custody persists that association beside acquired storage and scopes
+logging context through the call. Ordinary diagnostic errors remain optional; cancellation and
+native settlement retain their owners. This does not promise cross-store crash atomicity.
+The [CLD coordinator](../plans/cli-and-logging_2026-11-10.md#CLD-CA03) owns delivery and qualification.
+
+> Decision: [ADR-0080](../adr/0080-observe-committed-source-run.md)
+
 ## Attributed interpretations and correction custody
 
 The [completion repair receipt](../plans/domain-data-model_2026-11-10.md#completion-repair-acceptance)

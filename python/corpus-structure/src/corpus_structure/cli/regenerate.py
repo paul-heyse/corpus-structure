@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Annotated
 
@@ -11,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 
 from corpus_structure.cli.failures import failure_boundary
-from corpus_structure.cli.output import JsonOpt, emit, state, stderr_console
+from corpus_structure.cli.output import JsonOpt, diagnostic, emit, state, stderr_console
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.refusals import SemanticRefusal
 
@@ -164,6 +165,7 @@ def regenerate(
                 ReleaseConflict,
             ),
         ) as failure,
+        ExitStack() as source_observations,
     ):
         settings = state(ctx).settings()
         project = project or settings.runtime.default_project
@@ -277,8 +279,35 @@ def regenerate(
                         release_id=prepared.release_id,
                         realization_id=source_id,
                     )
+                from corpus_structure.orchestrate.semantic import SourceRunCreated
+
+                def source_created(created: SourceRunCreated) -> None:
+                    bindings = {
+                        "run_id": created.run_id,
+                        "project": created.project,
+                        "release_id": created.release_id,
+                    }
+                    try:
+                        invocation.bind_observations(**bindings)
+                        source_observations.enter_context(bound(**bindings))
+                        invocation.stage("source_running", run_id=created.run_id)
+                    except Exception as binding_error:
+                        # Optional diagnostics cannot replace native source work or its failure.
+                        reason = type(binding_error).__name__
+                        invocation.manifest.details["observation_binding_unavailable"] = reason
+                        try:
+                            invocation.observe(
+                                "binding_unavailable",
+                                "Native run observation binding unavailable",
+                                reason=reason,
+                            )
+                            diagnostic("Native run observation binding unavailable: " + reason)
+                        except Exception:
+                            pass
+
                 run = start_bound_run(
                     engine,
+                    on_created=source_created,
                     release_id=prepared.release_id,
                     realization_id=source_id,
                     project_id=project,
@@ -322,9 +351,10 @@ def regenerate(
                     failure.bind(prepared, "regenerate")
                     source_id = row["input_realization_id"]
             assert prepared is not None and source_id is not None
-            invocation.bind_observations(
-                run_id=run_id, project=project, release_id=prepared.release_id
-            )
+            if resume_run is not None:
+                invocation.bind_observations(
+                    run_id=run_id, project=project, release_id=prepared.release_id
+                )
             invocation.stage("source_ready", run_id=run_id)
             # Report meaning changes from the retained selected release even when
             # the caller leaves the new result unselected. This grants no admission.
