@@ -8,7 +8,7 @@ reasoning, and implementation plans own scheduled work and closure evidence.
 
 <a id="baseline"></a>
 
-<a id="cld-entry-refresh"></a>
+<a id="cld-assembled-refresh"></a>
 
 ## CLI assembled reconciliation · 2026-11-10
 
@@ -52,6 +52,8 @@ the new helpers; changed source changes runtime identity without changing semant
 Assembled target judgment and full final-source functional/nonfunctional qualification remain
 separate. No external Claude execution, broad test-architecture audit or benefit measurement is
 claimed by this source account.
+
+<a id="cld-entry-refresh"></a>
 
 ## CLI and observation entry refresh · 2026-11-10
 
