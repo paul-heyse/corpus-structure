@@ -175,6 +175,11 @@ Each grouped row has a common functional decision, rather than treating every AP
 
 ## Evidence and next decisions
 
+The [domain-data-model plan series](../plans/domain-data-model_2026-11-10.md) now owns planned
+disposition of O01–O13 and every additional branch above. Its coordinator owns investigations,
+selected delivery and qualification; this review retains the functional argument and source
+correspondence without duplicating package status. Plan publication establishes no implementation.
+
 Select O01/O02/O03/O09's authoring/diagnostic/construction loop first for implementation planning, while
 developing a concrete vocabulary or measurement consumer alongside it if desired. O05/O08 are
 credible functional extensions, not claims that a named external vocabulary already matches the
