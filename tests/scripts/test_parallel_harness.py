@@ -332,13 +332,30 @@ def test_actual_math_collection_preparation_inventory(tmp_path):
     result = classify_receipt(output)
     assert result["process"]["returncode"] == 0
     manifest = next(e for e in events(output) if e["event"] == "collection_finish")
+    aliases = manifest["nodeid_aliases"]
+    selected = set(aliases.values())
     grouped = {
-        node for node, groups in manifest["affinity_groups"].items() if "math_preparation" in groups
+        aliases[node]
+        for node, groups in manifest["affinity_groups"].items()
+        if "math_preparation" in groups
     }
     assert grouped
     assert len(grouped) < len(manifest["selected"])
-    assert any("test_staged_corpus_relations" in node for node in grouped)
-    assert any("test_core_standing_contexts" in node for node in grouped)
+    # Session reading, extraction and transitive scope consumers still share preparation.
+    shared = {
+        "python/corpus-structure/tests/math/test_property.py::test_corpus_layer_on_the_spike_pages",
+        "python/corpus-structure/tests/math/test_spans.py::test_m09_on_the_spike_pages",
+        "python/corpus-structure/tests/math/test_scope.py::test_core_standing_contexts",
+    }
+    assert shared <= grouped
+    # The controlled transport oracle takes retained content only and prepares its own Normal
+    # page with an explicit budget; it does not consume the shared session reading/extraction.
+    parity = (
+        "python/corpus-structure/tests/math/test_workers.py::"
+        "test_staged_corpus_relations_preserve_direct_page_semantics"
+    )
+    assert parity in selected
+    assert parity not in grouped
     assert not any(
         "test_real_spawn_transports" in node or "test_m13_rebuilds" in node for node in grouped
     )

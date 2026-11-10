@@ -517,3 +517,62 @@ def test_installed_native_traceback_marks_rendered_only_format_unavailable(tmp_p
     assert item["diagnostic"] == "ValueError: original rendered summary"
     assert item["native_traceback"]["availability"] == "unavailable"
     assert item["native_traceback"]["omissions"][0]["native_path"] == "$.longrepr"
+
+
+def test_observation_journal_is_ancillary_to_test_receipts_coverage_and_retry(tmp_path, cli):
+    from contextlib import ExitStack
+
+    from corpus_structure.cli import testing
+
+    store = ResultStore(tmp_path)
+    node = "tests/test_sample.py::test_observed_case"
+    # Use the real owner/writer/publication lifecycle and exercise the legacy scope
+    # fallback as well as installed report consumers of the same retained result.
+    with store.operation("test", observations=True) as original:
+        lane = original.directory / "ordinary"
+        _receipt(lane, [node], fail=False)
+        original.publish("ordinary", lane)
+        original.settle("passed")
+    manifest = store.show(original.id)
+    assert set(manifest.artifacts) == {"ordinary", "observations"}
+    with ExitStack() as leases:
+        assert set(testing._receipts(store, manifest, leases)) == {"ordinary"}
+    assert testing._required_lanes(manifest) == {"ordinary"}
+    full = json.loads(_run(store, "coverage", original.id, "--json").stdout)
+    assert full["node_coverage"]["required"] == [node]
+    assert full["node_coverage"]["unresolved"] == []
+    assert full["missing_lanes"] == []
+    summary = json.loads(
+        _run(
+            store, "coverage", original.id, "--view", "unresolved", "--limit", "1", "--json"
+        ).stdout
+    )
+    assert {
+        key: summary["node_coverage"][key] for key in ("required", "covered", "unresolved")
+    } == {"required": 1, "covered": 1, "unresolved": 0}
+    assert summary["selected_lanes"] == ["ordinary"]
+    assert set(full["lane_selections"]) == {"ordinary"}
+    assert summary["missing_lanes"] == [] and summary["status"] == "passed"
+    report = json.loads(_run(store, "failures", original.id, "--json").stdout)
+    assert set(report["lanes"]) == {"ordinary"} and report["items"] == []
+    retry = _run(store, "retry", original.id, "--json", check=False)
+    assert retry.returncode == 1
+    assert json.loads(retry.stdout)["error"]["message"] == "no unresolved test selection"
+    (attempt,) = store.list(None, 10, "test.retry").results
+    assert attempt.scope["required_lanes"] == []
+    assert set(attempt.artifacts) == {"observations"}
+    exported = cli(
+        "results",
+        "export",
+        original.id,
+        "--role",
+        "observations",
+        "--json",
+        env={"CORPUS_CI_RESULTS": str(tmp_path)},
+    )
+    assert exported.exit_code == 0, exported.output
+    assert Path(json.loads(exported.stdout)["path"]) == original.directory / "observations.jsonl"
+    journal = store.read_observations(original.id)
+    assert journal.standing == "sealed" and journal.authentication_bytes > 0
+    assert {item.kind for item in journal.rows} == {"invocation", "settlement"}
+    assert store.deliver(original.id, None, None) == lane

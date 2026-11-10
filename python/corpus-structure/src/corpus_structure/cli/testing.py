@@ -605,7 +605,7 @@ def _receipts(
     return {
         role: stack.enter_context(store.open_artifact(result.id, role))
         for role in result.artifacts
-        if lane is None or role == lane
+        if role in _LANES and (lane is None or role == lane)
     }
 
 
@@ -618,7 +618,7 @@ def _required_lanes(manifest: Manifest) -> set[str]:
             if declared == "all"
             else [declared]
             if declared
-            else manifest.artifacts
+            else [role for role in manifest.artifacts if role in _LANES]
         )
     )
 
