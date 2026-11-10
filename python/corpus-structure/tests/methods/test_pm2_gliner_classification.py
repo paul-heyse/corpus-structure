@@ -259,6 +259,7 @@ def test_managed_choice_keeps_raw_scores_and_release_order(
     case, labels, observed, selected, states
 ):
     result, _ = _result(case, _reply(case, labels))
+    assert result.contributions is not None
     (row,) = result.contributions
     assert row["kind"] == "proposal"
     assert row["standing"] == "retained_private"
@@ -271,10 +272,11 @@ def test_managed_choice_keeps_raw_scores_and_release_order(
         item["label"]: item["confidence"] for item in labels
     }
     assert "probabilities" not in value["native_answer"]
-    assert (
-        result.parse_detail["pm2_native"]["native"]["gliner"]["preparation"]["synthetic_suffix"]
-        == "."
-    )
+    detail = result.parse_detail
+    for key in ("pm2_native", "native", "gliner", "preparation"):
+        assert isinstance(detail, dict)
+        detail = detail[key]
+    assert isinstance(detail, dict) and detail["synthetic_suffix"] == "."
     meta = dict(
         method=METHOD,
         source_view_id=case.view.ref.id,
@@ -283,8 +285,10 @@ def test_managed_choice_keeps_raw_scores_and_release_order(
         selected_task_id=11,
         origin_task_id=11,
     )
+    assert result.contribution_operations is not None
+    (operation,) = result.contribution_operations
     facets = composition_facets(
-        [{**result.contribution_operations[0], **meta}],
+        [{**operation, **meta}],
         [{**row, **meta}],
     )
     (facet,) = facets.values()
@@ -312,6 +316,7 @@ def test_custody_refuses_changed_source_question_order_profile_or_reply(case, ch
 
 def test_detached_replay_verifies_archived_question_and_raw_task_custody(case):
     result, digest = _result(case, _reply(case, [{"label": "schedule", "confidence": 0.8}]))
+    assert result.contributions is not None
     (row,) = result.contributions
     config_hash = profile_digest(case.profile)
     raw = {

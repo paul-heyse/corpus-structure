@@ -305,7 +305,7 @@ def test_pm2_cli_refuses_invalid_extent_before_run_admission(
         ("parsers", [0, 2], "partial_canonical_sentence"),
     ):
         provider = "hanlp" if command == "parsers" else "d1"
-        scope = {
+        scope: dict[str, Any] = {
             "source": source.model_dump(mode="json"),
             "extent": extent,
             "profile": {
