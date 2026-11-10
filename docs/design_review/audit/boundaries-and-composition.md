@@ -58,55 +58,25 @@ The finite implemented support set is honest; arbitrary new providers still requ
 
 <a id="da-059"></a>
 
-## DA-059 — Managed model receipts omit facts present in immediate reports
+## DA-059 — Model-receipt facts now retain their operation account
 
-**Implemented source inspected, 2026-11-08.** FP-02/04/06, DP-02/08/19/21,
-G2/G7. Exact apply checks the preview's workspace, toolchain and file digests
-before writing. It reports stale inputs as `ModelError`
-(`schema/model_change.py:459–494`). The CLI records a generic `failed` outcome,
-the exception class and paths written so far. The outer refusal adapter emits
-the actionable reason to the original caller after the managed result has been
-settled. A later read by ID can see the recorded paths and class, but cannot
-recover which input was stale or the reason for the refusal
-(`cli/model.py:774–815`; `cli/failures.py:75–115`).
-
-The managed fallback also settles escaping exceptions with their class alone
-(`cli/managed.py:310–339`). In the inspected apply route, a protective refusal
-before any writes and an execution failure have the same retained outcome even
-when recovery calls for different action. Existing exact-preview fences,
-progress receipts and richer immediate output still protect and inform the
-original invocation. Some owners settle richer outcomes explicitly. The
-demonstrated footprint is model apply and its managed fallback, with other
-callers unassessed.
-
-The successful deploy path similarly stores effects and release in its
-managed result, while the immediate report also carries target profile,
-acquired target and predecessor. Success releases the candidate holds.
-If the candidate is collected while the deployment result remains
-available, the result ID alone cannot identify the target it affected
-(`cli/model.py:1004–1044`; `cli/managed.py:342–356,611–649`).
-This concerns managed operation receipts. The semantic deployment
-history and exact target fences still have their own authority.
-[CLI operations custody](../../adr/0069-cli-operations-custody.md)
+**Source-inspected correction, 2026-11-10, `8e69e2b5f`.** FP-02/04/06, DP-02/08/19/21.
+`cli/model.py` composes model preview/apply/candidate/deploy through `managed_operation`, records
+acquired target and deployment checkpoints, and returns the same OperationAccount as the retained
+manifest. `cli/managed.py:279–396,476–478` retains classified failure, cleanup, known effects,
+predecessor/reached revision, release and acquired target; failure publication no longer depends
+only on the immediate envelope. Deploy retains this account after releasing candidate registration
+holds (`cli/model.py:1330–1396`). The earlier omission manifestation is corrected, not freshly
+runtime-qualified here. Independent exact apply/deployment tests challenge stale and partial effects;
+the current CLI/PTD plans retain execution disposition and original receipts.
 
 <a id="da-060"></a>
 
-## DA-060 — Evidence retention loses unresolved cleanup custody
+## DA-060 — Evidence promotion now requires established cleanup custody
 
-**Implemented source inspected, 2026-11-08.** FP-04/05, DP-02/03/19/21/22,
-G2/G3/G5/G7. The review exporter publishes its selection before capture
-starts. Cleanup uncertainty marks custody unsettled, and the managed
-exception handler can then record a terminal timestamp and failed outcome
-while leaving that flag in place
-(`cli/review.py:84–111,120–131`; `cli/managed.py:237–243,328–335`).
-
-Artifact delivery requires a terminal timestamp and verifies the
-publication. `ci evidence retain` can promote the copied selection
-without checking or carrying forward `custody_unsettled`. It writes a
-finalized record saying the invocation settled as failed, even though
-`ci results show` still reports custody as unresolved
-(`cli/managed.py:554–590,859–877`; `cli/operations.py:298–379`).
-The lease and publication checks protect the copy. The retained record
-loses the distinction between execution outcome and known cleanup,
-which can affect later recovery or reliance on the receipt.
-[Evidence retention decision](../../adr/0069-cli-operations-custody.md)
+**Source-inspected correction, 2026-11-10, `8e69e2b5f`.** FP-04/05, DP-02/03/19/21/22.
+`cli/managed.py:82–88` distinguishes settlement time, explicit unsettled custody and operation-account
+cleanup. `cli/operations.py:315–321` refuses evidence promotion unless `manifest.custody_settled()`.
+A terminal failed result with uncertain cleanup therefore cannot become finalized evidence through
+this route. The old November8 loss-of-custody example is corrected. This is source evidence; no
+artifact promotion, cleanup fault or qualification command ran during this refresh.

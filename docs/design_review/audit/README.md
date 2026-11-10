@@ -8,6 +8,62 @@ reasoning, and implementation plans own scheduled work and closure evidence.
 
 <a id="baseline"></a>
 
+<a id="ptd-assembled-refresh"></a>
+
+## PostgreSQL typed-domain assembled refresh · 2026-11-10
+
+**Implemented source inspected.** Source baseline is committed
+`8e69e2b5f6dc56bd01c3a63b27b0a7ee28d313da`; publication is a separate commit. Concurrent PTD-11
+qualification, the new native reader-cache test and coordinator/architecture amendments are excluded.
+Core 3.3, heuristics 1.0, code-intelligence 1.4 and the repository binding apply; test-assessment 1.2
+informs the interpretation of inspected test evidence. No test, provider, database or benchmark
+command was run for this audit refresh.
+
+The prior broad and PM2 refreshes below remain the inherited account. This refresh follows the
+intervening PTD contracts across semantic declaration, generation, native evolution, operational
+custody, retrieval and detached serving; it is not a fresh verdict on all intervening PM2 semantic
+work or the unrelated outstanding findings. Current references below are source paths beneath
+`python/corpus-structure/src/corpus_structure/`.
+
+- **Semantic model and generated representations.** `semantic/operation_call_generation.py`
+  resolves qualified correspondence once for calls, columns and companion materializers. Anchors
+  cannot suppress edge validation; induced and schema-level slots preserve declaration provenance.
+  The typed relation remains distinct from local value projection and nullable/SQL representation.
+  This supplies a concrete scoped realization for DA-012's operational-correspondence question;
+  it does not prove arbitrary SQL operators or runtime NewType identity (FP-04/05, DP-01/02/03).
+- **Retained analysis and native expectations.** Projection analysis compiles captured physical
+  sources and recipe closure, including runtime/library determinants; historical analysis v2
+  remains unavailable for occurrence detail instead of being recomputed. Frozen native verification
+  resolves acquired revisions or authenticated function/fence fingerprints, not checkout head.
+  The previous DA-063/067 manifestations are corrected in their existing primary home
+  ([native integrity](native-integrity.md#da-063)); exact catalog/role qualification remains separate.
+- **Boundaries and effect custody.** `core/db/adbc_lifetime.py` owns explicit configured driver and
+  resolver acquisition, child cleanup, connection rollback/close and borrower cancellation.
+  Analytics, export and description compose that owner; Parquet publication follows reader/writer
+  retirement. Managed operation accounts now retain failure, target and known effects, and evidence
+  promotion requires settled custody. DA-059/060's earlier examples are corrected in
+  [their existing home](boundaries-and-composition.md#da-059) (FP-01/02/05/06, DP-18/19/21).
+- **Execution and serving.** `semantic/contextual_retrieval.py` composes exact membership and three
+  channels over one MATERIALIZED eligible relation; full membership evidence remains distinct from
+  top-k output. `semantic/inference.py` retains generation-tagged delta/accumulated state natively
+  with scalar insertion counts and unchanged final proof/publication. `contextual_storage.py` caches
+  only one detached immutable target relation under complete reader/input/profile/dimension bindings;
+  `orchestrate/source_reader.py` retains per-call snapshots. These remove identified transport and
+  reconstruction work without weakening admission or inventing a second transaction/cache owner
+  (FP-03/07, DP-08/09/10/12/19/20). This is qualitative work-shape evidence, not measured speed.
+- **Meaning served to consumers.** Validation v3 delegates bounded occurrence detail to the retained
+  pager while compact completeness remains independent. Coverage comparison retains exact run/cut/
+  release/source/question contexts and does not infer quality. Four-family export authenticates six-part
+  pins, declares directional Arrow schemas and publishes atomically before independent detached reads
+  (`semantic/operation_reporting.py`, `serve/coverage_comparison.py`, `serve/companion_export.py`;
+  FP-02/04/05, CI-01/02/04/05/06/11).
+
+No new demonstrated architectural violation was established in this inspected assembled footprint.
+This conclusion does not close inherited audit findings or certify complete qualification. The
+scheduled assembled target review
+assesses alternatives and named change scenarios; the PTD coordinator owns implementation and the
+provider/native/nonfunctional qualification union.
+
 <a id="pm2-parser-refresh"></a>
 
 ## Production milestone two parser refresh · 2026-11-08
