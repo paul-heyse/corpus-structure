@@ -6,6 +6,7 @@ semantic pivot series was added on 2026-10-29:
 
 | Plan | Owns |
 |---|---|
+| [Agent CLI and diagnostics](cli-and-logging_2026-11-10.md) | Planned CLD-00–10: O01–O08, all ten discovery leads and conditional decisions; focused native references, invocation explanation, correction/replay, scoped structured observations, correlation and progress. Execution follows DMC-17 and precedes PM2. |
 | [Integrated domain-data-model capabilities](domain-data-model_2026-11-10.md) | Proposed DMC-00–17 and DMC-I01–09: full November10 functional-review scope, bounded branch decisions and selected delivery across authoring, archives, terminology, measurements, diagnostics and independent consumers. Execution follows completed PTD-11 and precedes PM2. |
 | [design-phase](design-phase_2026-10-28.md) | Design findings and the disposition of OPEN items; the design queue |
 | [design-spikes series](design-spikes-s0-s1_2026-10-28.md) | Spike execution, spike evidence and its findings |

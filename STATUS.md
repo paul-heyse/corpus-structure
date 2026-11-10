@@ -13,7 +13,8 @@ the project remains unselected. Protected Standard and Nemotron retrieval arms r
 
 ## Other current scopes
 
-- [CLI functional review](docs/functional_reviews/cli-and-logging_2026-11-10.md), 2026-11-10, develops eight Proposed opportunities covering ten discovery leads and conditional territory. Its `94f960c11` baseline precedes the new DMC delivery; selection/planning remains next. No dependency or broad CLI adoption occurred in that review.
+- [CLI and logging plan series](docs/plans/cli-and-logging_2026-11-10.md), 2026-11-10, owns planned CLD-00–10/O01–O08 and all conditional dispositions. Operator-selected queue: complete DMC-17 and handoff, execute CLD, then return to PM2. Documents only; no product/dependency adoption or qualification is claimed.
+- [CLI functional review](docs/functional_reviews/cli-and-logging_2026-11-10.md), 2026-11-10, supplies O01–O08 and full discovery/conditional coverage to the CLD coordinator above. Its `94f960c11` source baseline is reconciled against delivered DMC in that series; the review remains evidence, not an execution ledger.
 - [CLI and diagnostics discovery](docs/library_leverage/libraries/cli-and-logging/briefing.md), 2026-11-10, covers Typer/Rich/structlog with ten Proposed research leads and complete overview coverage. Applicability and comparative selection remain follow-up work; older CLI plans are complete/legacy for that inquiry.
 - [WCE](docs/plans/witnessed-corpus-enrichment_2026-11-05.md#repair-disposition--2026-11-07) owns source/factor repairs and qualification. ADR-0067 governs current-only migration; ADR-0070 selects all 518 Grinstead–Snell pages, while WCE receipts cover 191–310. Its retained baseline remains `07d25b840` / `semantic_wce_lineage_20261107` / `retrieve.contextual/5`.
 - [DMA-13](docs/plans/domain-model-alignment_2026-11-08.md#dma-13) qualified improvement at its selected scope. Evaluations 42/43 retain coverage misses; unresolved formulas and unavailable calibration bound claims without blocking private staging. Chandra stays excluded.
@@ -24,6 +25,7 @@ the project remains unselected. Protected Standard and Nemotron retrieval arms r
 
 ## Last verified · 2026-11-10
 
+- CLD documentation: `uv run ci docs check` **passed** (841 canonical pages, zero link errors); product/provider tests and benchmarks **not_run**, because this turn authors the plan series only. CLD-00 awaits the completed DMC-17 handoff; no new native or provider result is claimed.
 - Selected `uv run ci test --json -- PATH...` passed 753 (`f2c72f64326c4322845dcb2550e43940`), followed by 84 response-consumer and 157 method/record/native/CLI replacements. The scoped required union is754 identities. Coverage reports no unresolved nodes/missing lanes and complete native observations; the coordinator judges final-source/context applicability and retains original failures.
 - Native deployment `a6e9f688d5634726b1b4d0935b6fb644`, `ci db status --maintenance`, `ci db check --release RELEASE` and `ci release check --release RELEASE` passed. Actual CLI/MCP source journeys, bound use surveys, HOUR/TIME grouping and independent offline preflight passed. Genuine exclusion comparison has an explicitly empty population; populated behavior has separate native-fixture evidence.
 - `uv run ci check --view steps --json` passed all applicable checks; rules checks were not_run because none are registered. Final method types/lint and `uv run ci model check --json` passed. Both accepted evidence records are finalized; `uv run ci evidence index/check --json` passed with zero errors and 41 inherited warnings. Final publication/maintenance endpoints are recorded by the coordinator.
@@ -31,7 +33,8 @@ the project remains unselected. Protected Standard and Nemotron retrieval arms r
 
 ## Next
 
-Plan and execute DMC-17's final-source qualification and assembled target review, then return to PM2.
+Resolve the DMC coordinator's current repair obligations and complete DMC-17 qualification/review, then acquire its
+handoff for CLD-00 and execute the CLI/logging series before returning to PM2.
 Use the [terminology](docs/plans/domain-data-model/terminology-and-measurements.md),
 [diagnostic](docs/plans/domain-data-model/diagnostics-and-graph-workflows.md) and
 [independent-consumer](docs/plans/domain-data-model/independent-consumers-and-configuration.md)

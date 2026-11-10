@@ -131,6 +131,10 @@ The case is plausible usefulness for repeated editing/investigation, not fabrica
 
 ## Delivery criteria and handoff
 
+The [CLI and logging series](../plans/cli-and-logging_2026-11-10.md) owns scheduled O01–O08
+scope, conditional decisions and future qualification. It follows DMC-17 before PM2; this review
+remains recommendation evidence, not a duplicate execution ledger.
+
 A delivered target lets Codex find exact DMC controls without reading implementation source,
 inspect a located correction and its original binding, distinguish managed results from semantic
 runs, retrieve a filtered diagnostic selection with honest collection coverage, and compare
