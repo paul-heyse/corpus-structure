@@ -59,6 +59,7 @@ def setup(
     modality="asserted",
     establishment="stated",
     selected=True,
+    subproperty=False,
 ):
     if prepared is None:
         from corpus_structure.semantic import (
@@ -82,6 +83,11 @@ def setup(
                 "q": {"range": "Thing", "multivalued": True},
             },
         }
+        if subproperty:
+            schema["classes"]["Thing"]["slots"].append("child")
+            schema["slots"]["child"] = {
+                "range": "Thing", "multivalued": True, "subproperty_of": "p"
+            }
         for kind in rules:
             if kind == "inverse":
                 schema["slots"]["p"]["inverse"] = "q"
@@ -510,3 +516,25 @@ def test_direct_proof_cannot_cross_canonical_contexts(semantic_db_engine, semant
     )
     with pytest.raises(DBAPIError, match="head/context"):
         publish_batch(semantic_writer_engine, bad)
+
+
+def test_empty_seed_closure_retires_workspace(semantic_db_engine, semantic_writer_engine):
+    binding, _ = setup(semantic_db_engine, semantic_writer_engine, [])
+    with semantic_writer_engine.connect().execution_options(isolation_level='REPEATABLE READ') as conn, conn.begin():
+        result = derive(conn, binding)
+        assert result.batch.fact == ()
+        assert result.batch.derivation == ()
+        assert conn.scalar(text("SELECT to_regclass('pg_temp.semantic_inference_work')")) is None
+
+
+def test_subproperty_inverse_and_transitivity_share_fixed_point(semantic_db_engine, semantic_writer_engine):
+    child = "https://example/child"
+    binding, _ = setup(semantic_db_engine, semantic_writer_engine,
+                       [("a", "b"), ("b", "c")], predicate=child, subproperty=True)
+    result = compute(semantic_writer_engine, binding)
+    publish_inference(semantic_writer_engine, result)
+    assert projected(semantic_writer_engine) == {
+        ("a", child, "b"), ("b", child, "c"),
+        ("a", P, "b"), ("b", P, "c"), ("a", P, "c"),
+        ("b", Q, "a"), ("c", Q, "b"), ("c", Q, "a"),
+    }

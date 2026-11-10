@@ -493,7 +493,7 @@ class SourcePreparationReader(Protocol):
         occurrence_id: str,
         query: EncodedVector,
         inventory: FrozenInventory,
-        target_vectors: Sequence[EncodedVector],
+        target_vectors: tuple[EncodedVector, ...],
         lexical_query: str,
         dimension: int,
         budget: int,

@@ -12,6 +12,7 @@ from hashlib import sha256
 from typing import Any
 
 from sqlalchemy import (
+    BigInteger,
     Column,
     MetaData,
     Table,
@@ -161,6 +162,7 @@ def derive(connection: Connection, binding: SnapshotBinding) -> InferenceResult:
         Column("context", Text),
         Column("qualification", Text),
         Column("context_key", Text, primary_key=True),
+        Column("generation", BigInteger, nullable=False, server_default="0"),
         schema="pg_temp",
         prefixes=["TEMPORARY"],
     )
@@ -187,7 +189,7 @@ def derive(connection: Connection, binding: SnapshotBinding) -> InferenceResult:
             if rule["kind"] not in {"subproperty", "inverse", "symmetric", "transitive"}:
                 raise ValueError(f"unsupported inference rule {rule['kind']}")
         names = ("subject", "predicate", "object", "context", "qualification", "context_key")
-        frontier = [dict(row) for row in connection.execute(select(work)).mappings()]
+        generation = 0
 
         def conclusions(rule: dict[str, Any], delta):
             a, b = delta, work.alias("accumulated")
@@ -258,26 +260,30 @@ def derive(connection: Connection, binding: SnapshotBinding) -> InferenceResult:
                 return forward.union(backward)
             raise ValueError(f"unsupported inference rule {kind}")
 
-        while frontier:
-            # One JSONB parameter avoids PostgreSQL's parameter-count limit for large
-            # frontiers. The native workspace remains the accumulated indexed authority;
-            # no second temporary-table lifecycle or publication transaction is introduced.
-            delta = (
-                func.jsonb_to_recordset(literal(frontier, type_=JSONB()))
-                .table_valued(*(column(name, Text()) for name in names))
-                .render_derived(name="frontier", with_types=True)
-            )
-            next_frontier = []
+        while True:
+            delta = select(*(work.c[name] for name in names)).where(
+                work.c.generation == generation
+            ).subquery("frontier")
+            inserted_count = 0
             for rule in rules:
-                stmt = (
+                candidates = conclusions(rule, delta).subquery("conclusions")
+                inserted = (
                     pg_insert(work)
-                    .from_select(list(names), conclusions(rule, delta))
+                    .from_select(
+                        [*names, "generation"],
+                        select(*candidates.c, literal(generation + 1, type_=BigInteger())),
+                    )
                     .on_conflict_do_nothing()
-                    .returning(*work.c)
+                    .returning(literal(1).label("inserted"))
+                    .cte("inserted_conclusions")
                 )
-                next_frontier.extend(dict(row) for row in connection.execute(stmt).mappings())
-            frontier = next_frontier
-        rows = connection.execute(select(work)).mappings().all()
+                inserted_count += connection.execute(
+                    select(func.count()).select_from(inserted)
+                ).scalar_one()
+            if not inserted_count:
+                break
+            generation += 1
+        rows = connection.execute(select(*(work.c[name] for name in names))).mappings().all()
         existing = set(
             connection.execute(
                 select(table("data.fact").c.fact_id).where(

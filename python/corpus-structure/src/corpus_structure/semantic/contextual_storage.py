@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 from sqlalchemy import Connection, select
+from sqlalchemy.sql.selectable import FromClause
 
 from corpus_structure.methods.contextual_embeddings import (
     EncodedVector,
@@ -470,6 +471,47 @@ def eligible_vector_relation(task_id: int):
     if type(task_id) is not int or task_id <= 0:
         raise ValueError("vector relation requires an actual producing task")
     return select(relation).where(relation.c.task_id == task_id).subquery("owned_target_vectors")
+
+
+@dataclass(frozen=True)
+class PreparedContextualInventory:
+    binding: tuple[int, int | None, str, str | None]
+    inventory: FrozenInventory
+    vectors: tuple[EncodedVector, ...]
+    profile_id: str
+    dimension: int
+    relation: FromClause
+
+    def matches(self, binding, inventory, vectors, profile_id, dimension):
+        return (
+            self.binding == binding
+            and self.inventory is inventory
+            and self.vectors is vectors
+            and self.profile_id == profile_id
+            and self.dimension == dimension
+        )
+
+
+def prepare_contextual_inventory(binding, inventory, vectors, *, profile_id, dimension):
+    """Own one deeply immutable input preparation, without a borrowed database handle."""
+    if type(inventory.targets) is not tuple or type(vectors) is not tuple:
+        raise ValueError("contextual preparation requires immutable tuples")
+    for target in inventory.targets:
+        if type(target.aliases) is not tuple or any(type(a) is not str for a in target.aliases):
+            raise ValueError("contextual preparation requires immutable aliases")
+        if any(type(getattr(target, name)) is not str for name in (
+            "target_id", "representation_digest", "source_binding", "label", "description"
+        )):
+            raise ValueError("contextual preparation requires immutable target fields")
+    for vector in vectors:
+        if type(vector.values) is not tuple or any(type(v) not in (int, float) for v in vector.values):
+            raise ValueError("contextual preparation requires immutable vector values")
+        if any(type(getattr(vector, name)) is not str for name in (
+            "vector_id", "object_id", "source_binding", "profile_id", "input_digest", "representation_digest"
+        )):
+            raise ValueError("contextual preparation requires immutable vector fields")
+    relation = transient_vector_relation(inventory, vectors, profile_id=profile_id, dimension=dimension)
+    return PreparedContextualInventory(binding, inventory, vectors, profile_id, dimension, relation)
 
 
 def transient_vector_relation(

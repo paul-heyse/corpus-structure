@@ -104,7 +104,8 @@ BEGIN
   RAISE EXCEPTION 'preexisting inference workspace'; END IF;
  CREATE TEMP TABLE semantic_inference_binding(release_id text,realization_id text,data_revision bigint,snapshot text) ON COMMIT DROP;
  INSERT INTO pg_temp.semantic_inference_binding VALUES(r,z,revision,snapshot);
- CREATE TEMP TABLE semantic_inference_work(subject text NOT NULL,predicate text NOT NULL,object text NOT NULL,context text,qualification text,context_key text NOT NULL,PRIMARY KEY(subject,predicate,object,context_key)) ON COMMIT DROP;
+ CREATE TEMP TABLE semantic_inference_work(subject text NOT NULL,predicate text NOT NULL,object text NOT NULL,context text,qualification text,context_key text NOT NULL,generation bigint NOT NULL DEFAULT 0 CHECK(generation>=0),PRIMARY KEY(subject,predicate,object,context_key)) ON COMMIT DROP;
+ CREATE INDEX ON pg_temp.semantic_inference_work(generation,predicate);
  GRANT SELECT,INSERT ON pg_temp.semantic_inference_work TO corpus_sem_writer;
  GRANT UPDATE(qualification) ON pg_temp.semantic_inference_work TO corpus_sem_writer;
 END
@@ -120,7 +121,7 @@ BEGIN
  END LOOP;
  IF (SELECT array_agg(attname||':'||format_type(atttypid,atttypmod) ORDER BY attnum) FROM pg_attribute
       WHERE attrelid='pg_temp.semantic_inference_work'::regclass AND attnum>0 AND NOT attisdropped)
-    IS DISTINCT FROM ARRAY['subject:text','predicate:text','object:text','context:text','qualification:text','context_key:text']
+    IS DISTINCT FROM ARRAY['subject:text','predicate:text','object:text','context:text','qualification:text','context_key:text','generation:bigint']
  OR (SELECT array_agg(attname||':'||format_type(atttypid,atttypmod) ORDER BY attnum) FROM pg_attribute
       WHERE attrelid='pg_temp.semantic_inference_binding'::regclass AND attnum>0 AND NOT attisdropped)
     IS DISTINCT FROM ARRAY['release_id:text','realization_id:text','data_revision:bigint','snapshot:text'] THEN
