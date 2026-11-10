@@ -1,5 +1,17 @@
 # D2 · Schema conventions, compilers and the statistics pack
 
+## Qualified terminology products
+
+**Accepted target, 2026-11-10; DMC-06 owns implementation and verification.** Explicitly acquired
+STATO source and qualified OBO projection supply two optional controlled statistics fields.
+Versioned vocabulary metadata and enum/PV declaration locators accompany existing membership;
+ordinary release and candidate readers use retained products, never a current ontology endpoint.
+Mappings preserve predicates and source checks remain distinct from membership and native admission.
+DMC-07/08 own populated source bindings/filtering and review; DMC-10 owns measurement interpretation.
+
+> Decision: [ADR-0076](../adr/0076-qualified-terminology-products.md)
+
+
 ## Immutable effective-model inspection
 
 **Implemented; scoped Tested, 2026-11-10; DMC-01/02 own the acceptance receipt.** Preparation

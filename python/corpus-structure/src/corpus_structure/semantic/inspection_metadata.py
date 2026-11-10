@@ -50,6 +50,12 @@ _FIELDS = _METADATA | {
     "transitive",
     "unique_keys",
     "rules",
+    "meaning",
+    "inherits",
+    "include",
+    "minus",
+    "concepts",
+    "reachable_from",
 }
 
 
@@ -79,6 +85,9 @@ def capture_declarations(index: dict[str, Any], source: SourceArtifact, body: di
         for name, value in (body.get(kind) or {}).items():
             value = value or {}
             retain(f"{kind}/{name}", value)
+            if kind == "enums":
+                for member, declaration in (value.get("permissible_values") or {}).items():
+                    retain(f"enums/{name}/permissible_values/{member}", declaration or {})
             if kind == "classes":
                 for layer in ("attributes", "slot_usage"):
                     for slot, usage in (value.get(layer) or {}).items():
@@ -200,8 +209,20 @@ def prepare_inspection(
             "contributors": class_contributors,
             "properties": properties,
         }
+    enums = {}
+    for name in sorted(view.all_enums()):
+        enum_path = f"enums/{name}"
+        records = [
+            dict(record, role="enum_declaration")
+            for path, record in declarations.items()
+            if path == enum_path or path.startswith(enum_path + "/")
+        ]
+        enums[name] = {"contributors": records}
     return PreparedArtifact(
-        ARTIFACT, canonical_bytes({"version": 1, "sources": index["sources"], "classes": classes})
+        ARTIFACT,
+        canonical_bytes(
+            {"version": 2, "sources": index["sources"], "classes": classes, "enums": enums}
+        ),
     )
 
 
@@ -223,10 +244,15 @@ def _decode_inspection(prepared: PreparedRelease) -> dict[str, Any]:
         body = json.loads(artifact.content)
         if not isinstance(body, dict) or type(body.get("version")) is not int:
             raise ValueError("invalid inspection header")
-        if body["version"] != 1:
+        if body["version"] not in {1, 2}:
             return dict(base, status="unsupported", reason="unsupported inspection payload version")
         if (
-            set(body) != {"version", "sources", "classes"}
+            set(body)
+            != (
+                {"version", "sources", "classes", "enums"}
+                if body["version"] == 2
+                else {"version", "sources", "classes"}
+            )
             or not isinstance(body["sources"], dict)
             or not isinstance(body["classes"], dict)
         ):
@@ -287,7 +313,36 @@ def _decode_inspection(prepared: PreparedRelease) -> dict[str, Any]:
                 source = body["sources"][record["module"]]
                 if record["source_digest"] != source["source_digest"]:
                     raise ValueError("contributor source digest differs")
-        return dict(body, status="available", reason=None, artifact_digest=artifact.digest)
+        if body["version"] == 2:
+            if not isinstance(body["enums"], dict) or set(body["enums"]) != {
+                v.enum for v in prepared.vocabularies
+            }:
+                raise ValueError("inspection enum universe differs")
+            for item in body["enums"].values():
+                if (
+                    not isinstance(item, dict)
+                    or set(item) != {"contributors"}
+                    or not isinstance(item["contributors"], list)
+                ):
+                    raise ValueError("invalid enum locator")
+                for record in item["contributors"]:
+                    if (
+                        set(record) != {"module", "path", "source_digest", "role", "declaration"}
+                        or record["source_digest"] != manifest_sources[record["module"]]
+                        or not isinstance(record["declaration"], dict)
+                        or not all(
+                            isinstance(record[key], str)
+                            for key in ("module", "path", "source_digest", "role")
+                        )
+                    ):
+                        raise ValueError("invalid enum contributor")
+        return dict(
+            body,
+            status="available",
+            reason=None,
+            artifact_digest=artifact.digest,
+            enum_detail_status="available" if body["version"] == 2 else "unavailable",
+        )
     except (ValueError, TypeError, KeyError, AttributeError) as exc:
         return dict(base, status="corrupt", reason=f"invalid inspection detail: {exc}")
 

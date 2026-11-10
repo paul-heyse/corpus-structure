@@ -336,22 +336,20 @@ def bind_result(
         structural = StructuralProductReport.model_validate(result.structural_product).model_dump(
             mode="python", exclude_none=True
         )
-        if "retrieval_report" in structural:
-            structural["retrieval_report"] = prepared.validate_json(
-                "ContextualEnrichmentReport", canonical_bytes(structural["retrieval_report"])
-            ).model_dump(mode="python")
-        if "artifact_identity" in structural:
-            for record in structural["artifact_identity"]["records"]:
-                record["source_contribution"] = prepared.validate_json(
-                    "SourceContribution", canonical_bytes(record["source_contribution"])
-                ).model_dump(mode="python", exclude_none=True)
         if "comparison" in structural:
             for dimension in structural["comparison"]["dimensions"]:
                 for side in ("left_group", "right_group"):
                     for member in dimension.get(side, {}).get("members", ()):
                         if "condition" in member:
                             member["condition"] = source_value(source_python(member["condition"]))
-        payload["structural_product"] = structural
+        # Normalize the declared subtree once. The handwritten model above owns
+        # source/variant closure; the codec round trip owns canonical source values.
+        # Outer validation still establishes enclosing constraints and source fields.
+        payload["structural_product"] = prepared.property_adapter(
+            "SourceObservationBatch", "structural_product"
+        ).validate_json(
+            canonical_bytes(structural), strict=True, context={"validation_purpose": "structural"}
+        )
     for measurement in result.measurements:
         validate_measurement(prepared, measurement)
     payload["measurements"] = tuple(

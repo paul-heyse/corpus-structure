@@ -405,6 +405,7 @@ def _view_and_vocabularies(
     profile: PreparationProfile | None = None,
     *,
     inspection_index: dict | None = None,
+    ontology_preparation=None,
 ) -> tuple[SchemaView, tuple[VocabularySnapshot, ...], tuple[Diagnostic, ...]]:
     view = _view(bundle, profile, inspection_index=inspection_index)
     supplied = {s.enum: s for s in dependencies.vocabularies}
@@ -431,6 +432,7 @@ def _view_and_vocabularies(
             for v in resolve_vocabularies_from_bytes(
                 view,
                 {a.name: a.content for a in dependencies.artifacts if a.name in ontology_names},
+                preparation=ontology_preparation,
             )
         }
     except Exception as exc:
@@ -592,9 +594,22 @@ def _prepare_release_uncached(
             if not isinstance(declared, dict):
                 _fail("operation_rules", dependency.name, "rules must be a mapping")
             operation_inputs[dependency.name] = declared
+    from .ontology import OntologyPreparation
+
+    ontology_preparation = OntologyPreparation(
+        {
+            source.name: source.content
+            for source in dependencies.artifacts
+            if source.name in dependencies.ontology_sources
+        }
+    )
     inspection_index: dict = {}
     view, vocabularies, diagnostics = _view_and_vocabularies(
-        bundle, dependencies, profile, inspection_index=inspection_index
+        bundle,
+        dependencies,
+        profile,
+        inspection_index=inspection_index,
+        ontology_preparation=ontology_preparation,
     )
     rule_fragments = compile_conditional_rules(view) if profile.version == "semantic-2" else {}
     enum_types = {s.enum: tuple(m.value for m in s.members) for s in vocabularies}
@@ -857,6 +872,13 @@ def _prepare_release_uncached(
     from .inspection_metadata import prepare_inspection
 
     artifacts.append(prepare_inspection(inspection_index, view, tuple(definitions)))
+    from .terminology import build_vocabulary_metadata
+
+    artifacts.append(
+        build_vocabulary_metadata(
+            view, vocabularies, dependencies, preparation=ontology_preparation
+        )
+    )
     from .contributions import prepare_contribution_projection
 
     contribution_projection = prepare_contribution_projection(tuple(definitions))

@@ -9,6 +9,39 @@ reasoning, and implementation plans own scheduled work and closure evidence.
 <a id="baseline"></a>
 
 
+<a id="domain-data-model-construction-terminology-refresh"></a>
+
+## Domain-data-model construction and terminology refresh · 2026-11-10
+
+**Implemented source inspected.** Baseline is committed
+`403822dfb6bca2e0fbc1167ebcefc913eccdbccb`; publication is separate. Core3.3,
+heuristics1.0, code-intelligence1.4 and the binding apply; test-assessment1.2 informs
+inspection of verification. The preceding broad/PTD/DMC accounts remain inherited with
+their original limits. This scoped refresh follows the intervening DMC-00–02 boundaries,
+not unrelated PM2 work. Concurrent DMC-03–06 implementation and dependency changes are excluded.
+
+**Source-inspected, 2026-11-10.** `semantic/inspection_metadata.py` captures module/path/digest
+and selected raw declarations during the existing source load; effective constraints remain in
+normalized definitions/recipes. Its release-cached decoded tree is recursively immutable and
+missing/unsupported/corrupt detail is distinct from known absence. The artifact retains only
+class/property detail in v1 despite internal enum capture; enum/PV locators are therefore a
+new capability premise for DMC-06, not an implemented v1 promise (FP-04/05, CI-01/02/04).
+
+**Source-inspected, 2026-11-10.** `semantic/archive_reader.py` factors complete byte/input/manifest
+and product authentication into `open_release_parts`; its database wrapper retains observed
+header, finalization/cache and relational coherence checks. `inspection_capsule.py` composes
+that same authentication before hydration, with a separately bound managed envelope. Candidate
+inspection does not reconstruct from current checkout sources. `contract_inspection.py`, CLI
+and read-only MCP share explicit-release reads, bounded cursors, unresolved scaffolding and
+existing operation/validation reports. Semantic compiler20, archive3/boundary12 and the two
+forward native compatibility guards retain their distinct purposes (FP-02/03/05/06, CI-10/13).
+
+The inspected delta establishes no additional demonstrated architectural violation. The
+[construction/terminology target review](../reviews/design_review_domain-data-model-construction-terminology_2026-11-10.md)
+assesses the new directional-wire, subtree and qualified-source target independently. Inherited
+findings retain their primary homes; the DMC coordinator owns scheduled implementation and
+acceptance. No test, database, provider or benchmark command was run for this static refresh.
+
 <a id="domain-data-model-entry-refresh"></a>
 
 ## Domain-data-model execution entry refresh · 2026-11-10

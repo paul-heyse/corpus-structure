@@ -1217,9 +1217,10 @@ def validation_failure_report(
     from .operation_value_types import NativeResultViolation
     from .projection_analysis import ProjectionAnalysisUnavailable
     from .refusals import DATABASE_ERRORS
+    from .releases import ArchiveDecodeError
     from .types import PreparationError
 
-    if isinstance(error, PreparationError):
+    if isinstance(error, (PreparationError, ArchiveDecodeError)):
         return validation_report(error.diagnostics, prepared=prepared, operation=operation)
 
     if prepared is not None:

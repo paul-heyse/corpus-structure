@@ -114,3 +114,8 @@ docs/design_review/evidence/2026-11-06_wce-gs120/assessment/protected-current/na
 
 # Frozen WCE relation-lineage native transition.
 python/corpus-structure/semantic_alembic/versions/semantic_wce_lineage_20261107_* filter=lfs diff=lfs merge=lfs -text
+
+# Exact external terminology source/projection bytes.
+domains/statistics/terminology/sources/*.owl filter=lfs diff=lfs merge=lfs -text
+domains/statistics/terminology/sources/*.obo filter=lfs diff=lfs merge=lfs -text
+python/corpus-structure/semantic_alembic/versions/semantic_dmc_terminology_* filter=lfs diff=lfs merge=lfs -text

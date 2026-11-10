@@ -1,6 +1,6 @@
 # Integrated domain-data-model capability series
 
-**Status: DMC-00–02 complete with scoped acceptance; DMC-03–17 planned · 2026-11-10.**
+**Status: DMC-00–02 complete with scoped acceptance; DMC-03–06 executing; DMC-07–17 planned · 2026-11-10.**
 This coordinator owns DMC-00–17, DMC-I01–09, source opportunity disposition, selected branch
 delivery and combined qualification. Supporting plans own target explanations and package
 contracts, not duplicate progress. Existing PTD, DMA, WCE and PM2 scopes remain with their owners.
@@ -334,3 +334,42 @@ inspection delivery is complete; additional authoring/generator branches remain 
 already scheduled. DMC-04's typed directional/archive work and DMC-11's retained diagnostic custody
 were not pulled into these packages. Next is I02/DMC-03–04 at the construction/archive owner;
 PM2 stays suspended until the selected DMC series handoff.
+
+## DMC-03–06 execution receipt · 2026-11-10
+
+Baseline403822dfb was clean; development acquired `semantic_dmc_compiler20`. The
+[scoped target review](../design_review/reviews/design_review_domain-data-model-construction-terminology_2026-11-10.md)
+accepts the selected boundaries at Proposed strength, with no blocking finding or rule impact.
+ADR-0076 and D2/D8/§B5 own terminology projection/metadata authority. DMC-03–06 are executing.
+
+I02 resolved: keep exact archived recipe presence plus actual-class cached TypeAdapter. The
+single-parse BeforeValidator candidate loses strict JSON tuple behavior on Pydantic2.14.1.
+Operator selected preservation of accepted NaN/positive-infinity/integer timeout behavior.
+Directional archive3 root/rows use scoped cattrs, independent authentication and exact writer
+omission rules. Publication JSON conversion is retained, including nonfinite refusal/key behavior.
+I03 selects one structural-subtree JSON bridge through the released property adapter; handwritten
+closure and comparison SourceValue semantic checks remain independent.
+
+I01 source/field slice selects STATO v2026-04-20 at commit a5910e6115217a88ee86e2666e12983ef2ef2a42.
+The qualified projection retains original OWL, converted OBO, converter identity/warnings and
+selected RDF metadata; no full OWL equivalence or checked source binding is claimed. Fields are
+optional independent distribution_family and distribution_attribute, distinct from global identity,
+parameterization, sample statistics and MeasurementValueRoleName. Populated filtering/grounding
+and measurement source/consumer work remain DMC-07/08/10 and the remaining I01 slice.
+
+The new metadata/locator products require compiler21;20 remains readable. Archive3, boundary12
+and execution28 remain unchanged. Both native compiler guards move together through the normal
+frozen candidate route. Pronto2.7.4 is now a direct dependency without changing its resolved version;
+lock changes are limited to that declaration. `uv run ci doctor --json` passed.
+
+Source conversion qualification corrected the planning observation: two dumps in one process
+were identical, but independent processes produced different clause/frame order. Acquisition
+therefore canonicalizes the OBO AST through pinned Fastobo0.14.2 and verifies semantic clause
+sets and selected original RDF facts independently. The qualified OBO digest is
+`2e4438fb7246e7dc53a90fa04d79eda423b4906910c101608614e4289d9c6581`; the original OWL digest
+remains `7e8f945ee30c6b24139f0064d57c2edbcfc988f3f74811cad6b5c84819ce1494`.
+Fastobo is declared directly at its existing resolved version; no dependency was upgraded.
+
+Pure construction/archive/capsule/locator selection passed43 in managed result
+`f888af1d985a43e48d73a573a234c04e`; prior recipe/subtree46 and finalrecipe15 receipts remain
+bounded worker evidence. Full integrated scope and native handoff are pending.

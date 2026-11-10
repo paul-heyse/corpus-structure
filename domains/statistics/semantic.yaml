@@ -7,6 +7,7 @@ default_prefix: stat
 default_range: string
 imports:
 - semantic_core
+- statistics_terminology
 classes:
   MeasurementValueRole:
     is_a: RecordClassification

@@ -49,6 +49,8 @@ dependencies = [
     "sentence-transformers==6.2.0",
     "pgvector==0.5.1",
     "splink==5.0.0",
+    "pronto==2.7.4",
+    "fastobo==0.14.2",
 ]
 
 [project.scripts]

@@ -14,9 +14,9 @@ from pydantic import BaseModel, TypeAdapter
 
 from .refusals import SemanticRefusal
 
-SEMANTIC_COMPILER_VERSION: Literal["20"] = "20"
+SEMANTIC_COMPILER_VERSION: Literal["21"] = "21"
 READABLE_COMPILER_VERSIONS = frozenset(
-    {"14", "15", "16", "17", "18", "19", SEMANTIC_COMPILER_VERSION}
+    {"14", "15", "16", "17", "18", "19", "20", SEMANTIC_COMPILER_VERSION}
 )
 BOUNDARY_ABI_VERSION = "12"
 
@@ -277,6 +277,14 @@ class PreparedRelease:
         from .inspection_metadata import _decode_inspection, freeze_inspection
 
         return freeze_inspection(_decode_inspection(self))
+
+    @cached_property
+    def vocabulary_metadata(self) -> Mapping[str, Any]:
+        """Descriptive terminology detail from authenticated immutable artifacts."""
+        from .inspection_metadata import freeze_inspection
+        from .terminology import decode_vocabulary_metadata
+
+        return freeze_inspection(decode_vocabulary_metadata(self))
 
     @cached_property
     def artifacts_sha256(self) -> str:

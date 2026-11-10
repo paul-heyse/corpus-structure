@@ -7,6 +7,7 @@ import pytest
 import yaml
 
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.inspection_metadata import ARTIFACT, get_inspection
 from corpus_structure.semantic.types import PreparationError, PreparedArtifact
 
@@ -120,7 +121,7 @@ def test_missing_and_invalid_detail_does_not_reprepare_or_remove_effective_facts
     assert older.definitions == prepared.definitions
     for payload, expected in [
         (b"{", "corrupt"),
-        (b'{"version":2}', "unsupported"),
+        (b'{"version":3}', "unsupported"),
         (b'{"version":1,"sources":{},"classes":{}}', "corrupt"),
     ]:
         release = replace(prepared, artifacts=(*absent, PreparedArtifact(ARTIFACT, payload)))
@@ -199,3 +200,84 @@ def test_local_attribute_marks_unused_reusable_slot_as_shadowed():
     detail = get_inspection(prepared)["classes"]["Derived"]["properties"]["code"]
     global_slot = next(item for item in detail["contributors"] if item["path"] == "slots/code")
     assert global_slot["role"] == "shadowed_declaration"
+
+
+def test_enum_locators_and_v1_class_detail_remain_available():
+    import json
+    from dataclasses import replace
+
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.types import PreparedArtifact
+
+    prepared = prepare_release(source_bundle())
+    artifact = next(a for a in prepared.artifacts if a.kind == ARTIFACT)
+    body = json.loads(artifact.content)
+    assert body["version"] == 2
+    assert get_inspection(prepared)["enum_detail_status"] == "available"
+    body.pop("enums")
+    body["version"] = 1
+    old = replace(
+        prepared,
+        artifacts=tuple(
+            PreparedArtifact(a.kind, canonical_bytes(body)) if a.kind == ARTIFACT else a
+            for a in prepared.artifacts
+        ),
+    )
+    assert get_inspection(old)["status"] == "available"
+    assert get_inspection(old)["enum_detail_status"] == "unavailable"
+
+
+def test_enum_member_locator_retains_exact_source_path_and_meaning():
+    source = SourceArtifact(
+        "terms",
+        b"""id: https://example.org/terms
+name: terms
+prefixes: {ex: 'https://example.org/'}
+default_prefix: ex
+types: {string: {base: str, uri: 'xsd:string'}}
+enums:
+  Category:
+    permissible_values:
+      first: {meaning: 'ex:First', description: selected concept}
+classes:
+  Thing:
+    attributes:
+      category: {range: Category}
+""",
+    )
+    detail = get_inspection(prepare_release(SourceBundle("terms", (source,))))
+    records = detail["enums"]["Category"]["contributors"]
+    member = next(r for r in records if r["path"] == "enums/Category/permissible_values/first")
+    assert member["module"] == "terms" and member["source_digest"] == source.digest
+    assert member["declaration"]["meaning"] == "ex:First"
+
+
+def test_invalid_enum_contributor_scalar_is_corrupt():
+    prepared = prepare_release(source_bundle())
+    artifact = next(a for a in prepared.artifacts if a.kind == ARTIFACT)
+    body = json.loads(artifact.content)
+    # Supply an existing enum universe independently when the fixture has no enum.
+    if not body["enums"]:
+        from corpus_structure.semantic.types import VocabularySnapshot
+
+        prepared = replace(prepared, vocabularies=(VocabularySnapshot("Example", (), "test"),))
+        body["enums"] = {"Example": {"contributors": []}}
+    enum = next(iter(body["enums"]))
+    module = next(iter(body["sources"]))
+    body["enums"][enum]["contributors"] = [
+        dict(
+            module=module,
+            path=[],
+            source_digest=body["sources"][module]["source_digest"],
+            role="enum_declaration",
+            declaration={},
+        )
+    ]
+    corrupt = replace(
+        prepared,
+        artifacts=tuple(
+            PreparedArtifact(a.kind, canonical_bytes(body)) if a.kind == ARTIFACT else a
+            for a in prepared.artifacts
+        ),
+    )
+    assert get_inspection(corrupt)["status"] == "corrupt"

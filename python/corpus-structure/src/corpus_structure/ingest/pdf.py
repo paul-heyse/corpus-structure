@@ -7,11 +7,12 @@ import json
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from functools import cache
 from hashlib import sha256
 from importlib.metadata import version
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 from .pdf_assets import PreparedPdfAssets
 from .pdf_candidates import CandidatePage, capture_candidates
@@ -19,6 +20,8 @@ from .pdf_health import FormulaOutcome, FormulaPageLifetime, ObservedFormulaStag
 from .pdf_hierarchy import NativeSnapshot, native_nodes, snapshot
 
 if TYPE_CHECKING:
+    from pydantic import TypeAdapter
+
     from .pdf_candidate_source import CandidatePageSource
 
 PDF_PACKAGE_FAMILY = (
@@ -95,13 +98,20 @@ class PdfRecipe:
         return json.dumps(dataclasses.asdict(self), sort_keys=True, separators=(",", ":")).encode()
 
     @classmethod
-    def from_bytes(cls, payload: bytes) -> PdfRecipe:
-        from pydantic import TypeAdapter
-
+    def from_bytes(cls, payload: bytes) -> Self:
         values = json.loads(payload)
-        if not isinstance(values, dict) or set(values) != {f.name for f in dataclasses.fields(cls)}:
-            raise ValueError("archived PDF recipe fields differ from this admitted recipe")
-        return TypeAdapter(cls).validate_json(payload, strict=True)
+        if not isinstance(values, dict):
+            raise ValueError("archived PDF recipe must be an object")
+        expected = {f.name for f in dataclasses.fields(cls)}
+        if set(values) != expected:
+            missing, extra = sorted(expected - values.keys()), sorted(values.keys() - expected)
+            raise ValueError(
+                "archived PDF recipe fields differ from this admitted recipe: "
+                f"missing={missing}, extra={extra}"
+            )
+        # A before-validator would change strict nested JSON tuple handling. Keep
+        # the complete-presence guard and let the actual dataclass adapter parse JSON.
+        return _recipe_adapter(cls).validate_json(payload, strict=True)
 
     @property
     def digest(self) -> str:
@@ -163,6 +173,14 @@ class PdfRecipe:
             table_batch_size=self.stage_batch_size,
             document_timeout=self.timeout_seconds,
         )
+
+
+@cache
+def _recipe_adapter[T: PdfRecipe](cls: type[T]) -> TypeAdapter[T]:
+    """Prepare reconstruction once per actual recipe class, including subclasses."""
+    from pydantic import TypeAdapter
+
+    return TypeAdapter(cls)
 
 
 @dataclass(frozen=True, slots=True)

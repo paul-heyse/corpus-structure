@@ -146,6 +146,8 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("invocation/operation-reporting.py", "semantic/operation_reporting.py"),
     ("invocation/contract-inspection.py", "semantic/contract_inspection.py"),
     ("invocation/inspection-metadata.py", "semantic/inspection_metadata.py"),
+    ("invocation/archive-wire.py", "semantic/archive_wire.py"),
+    ("invocation/terminology.py", "semantic/terminology.py"),
     ("invocation/alias-policy.py", "semantic/alias_policy.py"),
     ("capture/operation-report-schemas.json", "model/semantic/operation-report-schemas.json"),
     ("capture/companion-columns.py", "semantic/_companion_columns.py"),

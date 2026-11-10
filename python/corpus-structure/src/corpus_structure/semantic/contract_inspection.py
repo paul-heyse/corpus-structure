@@ -150,6 +150,7 @@ def inspect_contract(
             vocab_names = {
                 p.range for p in definition.properties if property is None or p.name == property
             }
+            vocabulary_detail = prepared.vocabulary_metadata
             for vocabulary in prepared.vocabularies:
                 if vocabulary.enum in vocab_names:
                     # Page membership separately from the field describing its range.
@@ -158,7 +159,40 @@ def inspect_contract(
                             dict(
                                 category="vocabulary_member",
                                 name=f"{vocabulary.enum}/{member.value}",
-                                metadata_json=canonical_bytes(asdict(member)).decode(),
+                                metadata_json=canonical_bytes(
+                                    _jsonable(
+                                        dict(
+                                            **asdict(member),
+                                            detail_status=vocabulary_detail["status"],
+                                            detail=next(
+                                                (
+                                                    row
+                                                    for row in vocabulary_detail.get("enums", {})
+                                                    .get(vocabulary.enum, {})
+                                                    .get("members", ())
+                                                    if row["value"] == member.value
+                                                ),
+                                                None,
+                                            ),
+                                            enum_provenance={
+                                                "contributors": [
+                                                    row
+                                                    for row in metadata.get("enums", {})
+                                                    .get(vocabulary.enum, {})
+                                                    .get("contributors", ())
+                                                    if row["path"]
+                                                    in {
+                                                        f"enums/{vocabulary.enum}",
+                                                        f"enums/{vocabulary.enum}/permissible_values/{member.value}",
+                                                    }
+                                                ]
+                                            },
+                                            enum_provenance_status=metadata.get(
+                                                "enum_detail_status", "unavailable"
+                                            ),
+                                        )
+                                    )
+                                ).decode(),
                             )
                         )
             if prepared.execution_model_id:

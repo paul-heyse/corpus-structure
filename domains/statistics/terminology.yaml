@@ -1,0 +1,33 @@
+id: https://corpus-structure.dev/domains/statistics/terminology
+name: statistics_terminology
+imports:
+- semantic_core
+prefixes:
+  st: https://corpus-structure.dev/domains/statistics/terminology/
+  STATO: http://purl.obolibrary.org/obo/STATO_
+default_prefix: st
+default_range: string
+classes:
+  StatisticalTerminologyFields:
+    description: Optional source-located statistical interpretations. These fields neither identify parameterizations nor merge global corpus entities. Populated bindings require independent source evidence.
+    attributes:
+      distribution_family:
+        range: StatisticalDistributionFamily
+        description: Which mathematical probability distribution a source-located record discusses.
+      distribution_attribute:
+        range: StatisticalDistributionAttribute
+        description: A characteristic of a mathematical probability distribution; sample estimators and local measurement roles remain distinct.
+enums:
+  StatisticalDistributionFamily:
+    permissible_values:
+      hypergeometric: {meaning: 'STATO:0000060'}
+      normal: {meaning: 'STATO:0000227'}
+      binomial: {meaning: 'STATO:0000276'}
+      poisson: {meaning: 'STATO:0000051'}
+      gamma: {meaning: 'STATO:0000268'}
+      exponential: {meaning: 'STATO:0000160'}
+  StatisticalDistributionAttribute:
+    permissible_values:
+      expected_value: {meaning: 'STATO:0000692'}
+      variance: {meaning: 'STATO:0000693'}
+      standard_deviation: {meaning: 'STATO:0000694'}

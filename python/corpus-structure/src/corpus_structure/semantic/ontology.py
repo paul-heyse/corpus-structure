@@ -11,7 +11,7 @@ import hashlib
 import json
 import math
 import warnings
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, MutableMapping
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
@@ -41,7 +41,6 @@ from linkml_term_validator.plugins import (
     DynamicEnumPlugin,
     PermissibleValueMeaningPlugin,
 )
-from oaklib import get_adapter
 from pydantic import BaseModel
 from pyshacl import validate
 from rdflib import BNode, Graph, Literal, Namespace, URIRef
@@ -289,8 +288,69 @@ def _local_path(path: Path) -> Path:
     return path.resolve()
 
 
+class OntologyPreparation:
+    """One immutable-input operation's application-owned adapters and prefix inventory."""
+
+    def __init__(self, sources: Mapping[str, bytes]):
+        self.sources = MappingProxyType(dict(sources))
+        self._adapters: Mapping[str, Any] | None = None
+        self._prefixes: dict[str, str] | None = None
+
+    def require_sources(self, sources: Mapping[str, bytes]) -> None:
+        if dict(sources) != dict(self.sources):
+            raise OntologyError("ontology preparation source bytes differ from supplied inputs")
+
+    @property
+    def adapters(self) -> Mapping[str, Any]:
+        if self._adapters is None:
+            from io import BytesIO
+
+            from oaklib.implementations.pronto.pronto_implementation import ProntoImplementation
+            from pronto import Ontology
+
+            adapters = {}
+            for name, content in sorted(self.sources.items()):
+                ontology = Ontology(BytesIO(content), import_depth=0)
+                adapter = ProntoImplementation(wrapped_ontology=ontology)
+                # The wrapped-ontology constructor bypasses the resource prefix initialization.
+                prefixes = adapter.prefix_map()
+                if not isinstance(prefixes, MutableMapping):
+                    raise OntologyError("Pronto adapter prefix map is not mutable")
+                for prefix, expansion in ontology.metadata.idspaces.items():
+                    prefixes[prefix] = expansion[0]
+                adapters[name] = adapter
+            self._adapters = MappingProxyType(adapters)
+        return self._adapters
+
+    @property
+    def prefixes(self) -> dict[str, str]:
+        if self._prefixes is None:
+            prefixes: dict[str, str] = {}
+            for source, adapter in self.adapters.items():
+                for entity in adapter.entities():
+                    prefix = str(entity).partition(":")[0]
+                    previous = prefixes.setdefault(prefix, source)
+                    if previous != source:
+                        raise OntologyError(f"ambiguous ontology source for prefix {prefix!r}")
+            self._prefixes = prefixes
+        return self._prefixes
+
+
 def expand_enum(
     view: SchemaView, enum_name: str, ontology_sources: Mapping[str, Path]
+) -> tuple[VocabularyMember, ...]:
+    preparation = OntologyPreparation(
+        {name: _local_path(path).read_bytes() for name, path in ontology_sources.items()}
+    )
+    return _expand_enum(view, enum_name, ontology_sources, preparation=preparation)
+
+
+def _expand_enum(
+    view: SchemaView,
+    enum_name: str,
+    ontology_sources: Mapping[str, Path],
+    *,
+    preparation: OntologyPreparation | None = None,
 ) -> tuple[VocabularyMember, ...]:
     """Resolve supported enum composition using local OAK and Term Validator leaves.
 
@@ -299,15 +359,15 @@ def expand_enum(
     """
     if _schema(view).imports:
         raise OntologyError("vocabulary expansion requires merged schema imports")
-    adapters: dict[str, Any] = {}
+    preparation = preparation or OntologyPreparation(
+        {name: _local_path(path).read_bytes() for name, path in ontology_sources.items()}
+    )
 
     def adapter_for(source: str) -> tuple[Any, Path]:
         if source not in ontology_sources:
             raise OntologyError(f"ontology source {source!r} has no supplied local artifact")
         path = _local_path(ontology_sources[source])
-        if source not in adapters:
-            adapters[source] = get_adapter(f"pronto:{path}")
-        return adapters[source], path
+        return preparation.adapters[source], path
 
     def walk(expr: Any, stack: tuple[str, ...]) -> dict[str, VocabularyMember]:
         if getattr(expr, "matches", None):
@@ -361,7 +421,10 @@ def expand_enum(
 
 
 def resolve_vocabularies(
-    view: SchemaView, ontology_sources: Mapping[str, Path]
+    view: SchemaView,
+    ontology_sources: Mapping[str, Path],
+    *,
+    preparation: OntologyPreparation | None = None,
 ) -> tuple[ResolvedVocabulary, ...]:
     """Acquire immutable enum snapshots from explicit artifacts, without file caches."""
     hashes = tuple(
@@ -370,15 +433,21 @@ def resolve_vocabularies(
             for name, path in ontology_sources.items()
         )
     )
+    preparation = preparation or OntologyPreparation(
+        {name: _local_path(path).read_bytes() for name, path in ontology_sources.items()}
+    )
+    preparation.require_sources(
+        {name: _local_path(path).read_bytes() for name, path in ontology_sources.items()}
+    )
     snapshots = tuple(
         ResolvedVocabulary(
             name,
-            expand_enum(view, name, ontology_sources),
+            _expand_enum(view, name, ontology_sources, preparation=preparation),
             hashes,
             (
                 "membership:complete",
                 "not4curation:unchecked",
-                *_meaning_checks(view, name, ontology_sources),
+                *_meaning_checks(view, name, ontology_sources, preparation=preparation),
             ),
         )
         for name in sorted(view.all_enums())
@@ -801,7 +870,10 @@ def validate_enum_meanings(view: SchemaView, ontology_path: Path) -> tuple[str, 
 
 
 def resolve_vocabularies_from_bytes(
-    view: SchemaView, ontology_sources: Mapping[str, bytes]
+    view: SchemaView,
+    ontology_sources: Mapping[str, bytes],
+    *,
+    preparation: OntologyPreparation | None = None,
 ) -> tuple[ResolvedVocabulary, ...]:
     """Expand supplied immutable artifacts in an owned temporary directory.
 
@@ -815,23 +887,23 @@ def resolve_vocabularies_from_bytes(
             path = Path(directory) / f"ontology-{index}.obo"
             path.write_bytes(content)
             paths[name] = path
-        return resolve_vocabularies(view, paths)
+        return resolve_vocabularies(view, paths, preparation=preparation)
 
 
 def _meaning_checks(
-    view: SchemaView, enum_name: str, ontology_sources: Mapping[str, Path]
+    view: SchemaView,
+    enum_name: str,
+    ontology_sources: Mapping[str, Path],
+    *,
+    preparation: OntologyPreparation | None = None,
 ) -> tuple[str, ...]:
     definition = view.get_enum(enum_name)
     if definition is None:
         raise OntologyError(f"unknown enum {enum_name!r}")
-    prefixes = {}
-    for source, path in ontology_sources.items():
-        adapter = get_adapter(f"pronto:{_local_path(path)}")
-        for entity in adapter.entities():
-            prefix = str(entity).partition(":")[0]
-            previous = prefixes.setdefault(prefix, source)
-            if previous != source:
-                raise OntologyError(f"ambiguous ontology source for prefix {prefix!r}")
+    preparation = preparation or OntologyPreparation(
+        {name: _local_path(path).read_bytes() for name, path in ontology_sources.items()}
+    )
+    prefixes = preparation.prefixes
     checks = []
 
     def expression_meanings(

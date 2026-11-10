@@ -271,3 +271,85 @@ def test_bind_grouped_comparison_preserves_encoded_condition_fields():
         if item["dimension"] == "condition"
     )
     assert source_python(dimension["left_group"]["members"][0]["condition"]) == condition
+
+
+def test_structural_subtree_extension_uses_each_release_without_new_traversal():
+    """An existing opaque producer subtree gains a nested contract through declarations."""
+    import yaml
+    from pydantic import ValidationError
+
+    from corpus_structure.methods.structural_products import compare_clauses
+    from corpus_structure.semantic.structural_products import ClauseReading
+
+    from .test_structural_products import inputs
+
+    model_path = Path(__file__).parents[2] / "src/corpus_structure/model/semantic"
+
+    def boundary(minimum):
+        schema = yaml.safe_load((model_path / "observations.yaml").read_bytes())
+        schema["classes"]["DmcNestedDetail"] = {
+            "attributes": {
+                "values": {
+                    "range": "integer",
+                    "multivalued": True,
+                    "required": True,
+                    "minimum_value": minimum,
+                }
+            }
+        }
+        schema["classes"]["ContextualEnrichmentReport"]["attributes"]["extension"] = {
+            "range": "DmcNestedDetail",
+            "inlined": True,
+            "required": True,
+        }
+        bundle = SourceBundle(
+            "core", (SourceArtifact("core", (model_path / "core.yaml").read_bytes()),)
+        )
+        return prepare_release(
+            observation_inputs(bundle, model_content=yaml.safe_dump(schema).encode())
+        )
+
+    looser, stricter = boundary(2), boundary(5)
+    basis = inputs()
+    product = compare_clauses(
+        basis, left=ClauseReading(passage_id="a"), right=ClauseReading(passage_id="b")
+    ).model_dump(mode="json")
+    product["retrieval_report"] = {
+        "version": "contextual-enrichment-2",
+        "product_counts": dict(
+            profiles=0, vectors=0, inventories=0, candidate_lists=0, relationship_decisions=0
+        ),
+        "extension": {"values": [3]},
+    }
+
+    def bind(release):
+        return bind_result(
+            release,
+            source="source",
+            method="structure.compare",
+            operation_version="3",
+            configuration_hash="configuration",
+            input_hash="input",
+            invocation_key="invocation",
+            result=UnitResult(
+                ref=UnitRef(TaskUnitType.RUN, unit_key=basis.identity),
+                outcome=ObservationOutcome.PRODUCED,
+                structural_product=product,
+            ),
+        )
+
+    assert bind(looser).model_dump(mode="python")["structural_product"]["retrieval_report"][
+        "extension"
+    ]["values"] == (3,)
+    with pytest.raises(ValidationError) as failure:
+        bind(stricter)
+    location = failure.value.errors()[0]["loc"]
+    assert location == ("retrieval_report", "extension", "values", 0)
+    product["retrieval_report"]["extension"]["values"] = [7]
+    assert bind(stricter).model_dump(mode="python")["structural_product"]["retrieval_report"][
+        "extension"
+    ]["values"] == (7,)
+    product["retrieval_report"]["extension"]["values"] = [3]
+    assert bind(looser).model_dump(mode="python")["structural_product"]["retrieval_report"][
+        "extension"
+    ]["values"] == (3,)

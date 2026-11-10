@@ -14,22 +14,16 @@ from typing import Any
 from weakref import WeakKeyDictionary
 
 import yaml
-from cattrs import Converter
 from cattrs.errors import BaseValidationError
 from pydantic import AwareDatetime
 
 from .types import (
     BOUNDARY_ABI_VERSION,
-    ClassDefinition,
-    Diagnostic,
     PreparationProfile,
     PreparedArtifact,
     PreparedRelease,
-    QueryDescriptor,
-    RegistryRow,
     SourceArtifact,
     SourceBundle,
-    VocabularySnapshot,
 )
 
 # Engine lifetime bounds database authority; keys bind observed immutable archive headers
@@ -51,65 +45,34 @@ _PRIMITIVES: dict[str, Any] = {
 }
 
 
-def _converter() -> Converter:
-    converter = Converter(forbid_extra_keys=True, detailed_validation=True)
-
-    def exact(value: Any, expected: type) -> Any:
-        if type(value) is not expected:
-            raise TypeError(f"expected {expected.__name__}")
-        return value
-
-    for primitive in (str, int, bool, float, bytes):
-        converter.register_structure_hook(primitive, exact)
-    return converter
-
-
-_CONVERTER = _converter()
-
-
 def reconstruct_release(
-    products: dict[str, Any],
+    products: Any,
     manifest: bytes,
     bundle: SourceBundle,
     profile: PreparationProfile,
     artifacts: tuple[PreparedArtifact, ...],
 ) -> PreparedRelease:
     """Hydrate a supported archived ABI without preparing or admitting its release."""
+    from .archive_wire import ArchiveProducts, decode_products
     from .boundary import build_boundary_adapters
     from .identity import canonical_bytes
 
-    allowed = {
-        "release_id",
-        "definitions",
-        "vocabularies",
-        "registry_rows",
-        "queries",
-        "artifacts",
-        "required_capabilities",
-        "diagnostics",
-        "execution_model_id",
-    }
-    if set(products) - allowed or allowed - {"execution_model_id"} - set(products):
-        raise ValueError("unsupported archived product fields")
-    definitions = _CONVERTER.structure(products["definitions"], tuple[ClassDefinition, ...])
-    vocabularies = _CONVERTER.structure(products["vocabularies"], tuple[VocabularySnapshot, ...])
-    rows = tuple(
-        RegistryRow(row["kind"], row["name"], bytes.fromhex(row["body_hex"]))
-        for row in products["registry_rows"]
-        if set(row) == {"kind", "name", "body_hex"}
-    )
-    if len(rows) != len(products["registry_rows"]) or len({(r.kind, r.name) for r in rows}) != len(
-        rows
-    ):
-        raise ValueError("invalid archived registry rows")
+    products = products if isinstance(products, ArchiveProducts) else decode_products(products)
+    definitions = products.definitions
+    vocabularies = products.vocabularies
+    rows = tuple(row.semantic_row() for row in products.registry_rows)
+    if len({(r.kind, r.name) for r in rows}) != len(rows):
+        raise ValueError("duplicate archived registry rows")
     artifact_map = {artifact.kind: artifact for artifact in artifacts}
-    if len(artifact_map) != len(artifacts) or len(products["artifacts"]) != len(artifacts):
+    descriptors = {item.kind: item for item in products.artifacts}
+    if (
+        len(artifact_map) != len(artifacts)
+        or len(descriptors) != len(products.artifacts)
+        or descriptors.keys() != artifact_map.keys()
+    ):
         raise ValueError("duplicate or missing archived artifacts")
-    for expected in products["artifacts"]:
-        if (
-            set(expected) != {"kind", "digest"}
-            or artifact_map[expected["kind"]].digest != expected["digest"]
-        ):
+    for expected in products.artifacts:
+        if artifact_map[expected.kind].digest != expected.digest:
             raise ValueError("archived artifact digest differs")
     fragments = (
         json.loads(artifact_map["conditional_rules.json"].content)
@@ -188,19 +151,17 @@ def reconstruct_release(
         return adapter
 
     prepared = PreparedRelease(
-        release_id=products["release_id"],
+        release_id=products.release_id,
         manifest=manifest,
         definitions=definitions,
         vocabularies=vocabularies,
         registry_rows=rows,
-        queries=_CONVERTER.structure(products["queries"], tuple[QueryDescriptor, ...]),
+        queries=products.queries,
         artifacts=artifacts,
-        required_capabilities=_CONVERTER.structure(
-            products["required_capabilities"], tuple[str, ...]
-        ),
-        diagnostics=_CONVERTER.structure(products["diagnostics"], tuple[Diagnostic, ...]),
+        required_capabilities=products.required_capabilities,
+        diagnostics=products.diagnostics,
         _adapters=adapters,
-        execution_model_id=products.get("execution_model_id"),
+        execution_model_id=products.execution_model_id,
         _boundary_models=models,
         _adapter_loader=load_adapter,
     )
@@ -264,6 +225,11 @@ def open_release_parts(
             manifest["libraries"], str(manifest["profile"]["compiler_version"])
         ):
             raise ReleaseConflict("archived boundary library versions differ")
+        from dataclasses import asdict as product_dict
+
+        from .archive_wire import decode_products, decode_vocabularies
+
+        products = decode_products(archive["products"])
         source: dict[tuple[str, str], bytes] = {}
         for item in input_rows:
             content = bytes(item["content"])
@@ -294,9 +260,9 @@ def open_release_parts(
             "ontology_sources": sorted(json.loads(source["ontology_sources", "ontology_sources"])),
             # The input contains supplied dependency snapshots; the manifest contains
             # resolved vocabularies, including enums authored in the source schema.
-            "vocabularies": archive["products"]["vocabularies"],
+            "vocabularies": [product_dict(v) for v in products.vocabularies],
         }
-        execution_id = archive["products"].get("execution_model_id")
+        execution_id = products.execution_model_id
         if profile.version == "semantic-2":
             if not execution_id:
                 raise ReleaseConflict("composed archive lacks execution identity")
@@ -315,15 +281,18 @@ def open_release_parts(
                 raise ReleaseConflict("artifact bytes or media type differ")
             artifacts.append(PreparedArtifact(item["artifact_name"], content))
         by_name = {item.kind: item for item in artifacts}
-        ordered = tuple(by_name[item["kind"]] for item in archive["products"]["artifacts"])
+        descriptor_names = {item.kind for item in products.artifacts}
+        if (
+            len(by_name) != len(artifacts)
+            or len(descriptor_names) != len(products.artifacts)
+            or descriptor_names != by_name.keys()
+        ):
+            raise ReleaseConflict("duplicate or missing archived artifacts")
+        ordered = tuple(by_name[item.kind] for item in products.artifacts)
         if len(ordered) != len(artifacts):
             raise ReleaseConflict("unexpected archived artifacts")
-        prepared = reconstruct_release(
-            archive["products"], manifest_bytes, bundle, profile, ordered
-        )
-        supplied = _CONVERTER.structure(
-            json.loads(source["vocabulary", "vocabulary"]), tuple[VocabularySnapshot, ...]
-        )
+        prepared = reconstruct_release(products, manifest_bytes, bundle, profile, ordered)
+        supplied = decode_vocabularies(json.loads(source["vocabulary", "vocabulary"]))
         if len({item.enum for item in supplied}) != len(supplied):
             raise ReleaseConflict("duplicate supplied vocabulary snapshots")
         declarations = {

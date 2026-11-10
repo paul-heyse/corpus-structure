@@ -15,6 +15,8 @@ _BASE_BYTE_LIBRARIES = (
     "rdflib",
     "pyshacl",
     "oaklib",
+    "pronto",
+    "fastobo",
     "linkml-term-validator",
     "valuesets",
     "pyoxigraph",

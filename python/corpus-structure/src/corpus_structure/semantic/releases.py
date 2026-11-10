@@ -38,6 +38,14 @@ class ReleaseConflict(ValueError):
     """An identity already denotes different bytes or an archive is inconsistent."""
 
 
+class ArchiveDecodeError(ReleaseConflict):
+    """Typed archive shape failure retaining wire locations and its original cause."""
+
+    def __init__(self, diagnostics):
+        self.diagnostics = diagnostics
+        super().__init__("; ".join(f"{d.location}: {d.message}" for d in diagnostics))
+
+
 class ActivationConflict(ValueError):
     """The project's active release/generation differs from the expected token."""
 
@@ -81,25 +89,9 @@ def _archive_wire_payload(relations: Mapping[str, Sequence[Mapping[str, Any]]]) 
 
 
 def _products(prepared: PreparedRelease) -> dict[str, Any]:
-    products = {
-        "release_id": prepared.release_id,
-        "definitions": [asdict(x) for x in prepared.definitions],
-        "vocabularies": [asdict(x) for x in prepared.vocabularies],
-        "registry_rows": [
-            {"kind": x.kind, "name": x.name, "body_hex": x.body.hex()}
-            for x in prepared.registry_rows
-        ],
-        "queries": [asdict(x) for x in prepared.queries],
-        "artifacts": [{"kind": x.kind, "digest": x.digest} for x in prepared.artifacts],
-        "required_capabilities": prepared.required_capabilities,
-        "diagnostics": [
-            {key: value for key, value in asdict(item).items() if value is not None}
-            for item in prepared.diagnostics
-        ],
-    }
-    if prepared.execution_model_id is not None:
-        products["execution_model_id"] = prepared.execution_model_id
-    return products
+    from .archive_wire import encode_products
+
+    return encode_products(prepared)
 
 
 def _archive_bytes(

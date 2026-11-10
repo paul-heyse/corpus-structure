@@ -96,6 +96,10 @@ def acquire_pack(pack: Path, *, execution: ExecutionModelInputs | None = None) -
             SourceArtifact("semantic_core", core.read_bytes()),
         ),
     )
+    from .terminology import acquire_terminology
+
+    terminology_sources, terminology_artifacts, ontology_names = acquire_terminology(pack)
+    bundle = SourceBundle(bundle.root, (*bundle.sources, *terminology_sources))
     execution = trusted_execution_inputs() if execution is None else execution
     from .contracts import compile_execution_model
 
@@ -130,7 +134,9 @@ def acquire_pack(pack: Path, *, execution: ExecutionModelInputs | None = None) -
     if split_policy.is_file():
         artifacts += (SourceArtifact("operation/evaluation-split.yaml", split_policy.read_bytes()),)
     deps = ResolvedDependencies(
-        (*deps.artifacts, *artifacts), deps.vocabularies, deps.ontology_sources
+        (*deps.artifacts, *artifacts, *terminology_artifacts),
+        deps.vocabularies,
+        (*deps.ontology_sources, *ontology_names),
     )
     qualifiers = [
         key
@@ -201,8 +207,15 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
         # These remain one operation's inputs. Equal inputs coalesce; incompatible
         # policies require an explicit future operation binding, not an order winner.
         shared_artifacts: dict[str, SourceArtifact] = {}
+        ontology_names: set[str] = set()
+        supplied_vocabularies = {}
         for inputs in acquired:
             bundle, deps = inputs.bundle, inputs.dependencies
+            ontology_names.update(deps.ontology_sources)
+            for snapshot in deps.vocabularies:
+                previous = supplied_vocabularies.setdefault(snapshot.enum, snapshot)
+                if previous != snapshot:
+                    raise PackInputError(f"packs disagree on vocabulary snapshot {snapshot.enum}")
             for source in bundle.sources:
                 if source.name in {
                     "agent",
@@ -247,6 +260,14 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
             # Operation configuration remains pack-scoped, not a merged executable graph.
             for artifact in deps.artifacts:
                 if artifact.name.startswith(("execution/", "operation/analytical")):
+                    continue
+                if (
+                    artifact.name.startswith("terminology/")
+                    or artifact.name in deps.ontology_sources
+                ):
+                    previous = shared_artifacts.setdefault(artifact.name, artifact)
+                    if previous != artifact:
+                        raise PackInputError(f"packs disagree on terminology input {artifact.name}")
                     continue
                 if artifact.name in {
                     "operation/rule-view.yaml",
@@ -293,7 +314,9 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
                 *composed_artifacts.values(),
                 *shared_artifacts.values(),
                 SourceArtifact(RULE_INPUT, yaml.safe_dump(shared_policy, sort_keys=True).encode()),
-            )
+            ),
+            tuple(supplied_vocabularies.values()),
+            tuple(sorted(ontology_names)),
         )
     bundle = proposal_inputs(
         bundle,
