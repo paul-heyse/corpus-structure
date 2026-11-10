@@ -57,7 +57,7 @@ _NATIVE = structlog.tracebacks.ExceptionDictTransformer(
 def _inspect_transform_graph(
     error: BaseException,
 ) -> tuple[bool, tuple[OmittedExceptionDetail, ...]]:
-    """Bound native traversal and name original links its traceback-only chain omits."""
+    """Mirror native traversal; disclose unrepresented original-link subtrees."""
     pending = [(error, 0, "$.original")]
     seen: set[int] = set()
     omissions = []
@@ -68,27 +68,42 @@ def _inspect_transform_graph(
         seen.add(id(current))
         if len(seen) > 32 or depth > 4 or len(getattr(current, "__notes__", ())) > 16:
             return False, tuple(omissions)
-        if isinstance(current, BaseExceptionGroup):
-            if len(current.exceptions) > 16:
-                return False, tuple(omissions)
-            pending.extend(
-                (child, depth + 1, f"{path}.exceptions[{index}]")
-                for index, child in enumerate(current.exceptions)
-            )
-        link = "__cause__" if current.__cause__ is not None else "__context__"
-        linked = current.__cause__ or (
-            None if current.__suppress_context__ else current.__context__
-        )
-        if linked is not None:
+        # structlog 26.1 extract selects a traceback-bearing cause first, then an
+        # unsuppressed traceback-bearing context, even when a no-traceback cause exists.
+        # Rejected links represent whole omitted subtrees: do not reconstruct them.
+        chain = None
+        for link in ("__cause__", "__context__"):
+            if link == "__context__" and current.__suppress_context__:
+                break
+            linked = getattr(current, link)
+            if linked is None:
+                continue
             linked_path = f"{path}.{link}"
-            if linked.__traceback__ is None:
+            if linked and linked.__traceback__:
+                chain = (linked, depth + 1, linked_path)
+                break
+            else:
                 omissions.append(
                     OmittedExceptionDetail(
                         path=linked_path,
-                        reason="Original link has no traceback; native transformation omits it.",
+                        reason=(
+                            "Original link has no traceback; native transformation omits subtree."
+                            if linked.__traceback__ is None
+                            else "Native chain selection excludes this original-link subtree."
+                        ),
                     )
                 )
-            pending.append((linked, depth + 1, linked_path))
+        if chain is not None:
+            pending.append(chain)
+        if isinstance(current, BaseExceptionGroup):
+            if len(current.exceptions) > 16:
+                return False, tuple(omissions)
+            # Native extraction visits children in order before continuing the chain,
+            # sharing its seen set across both paths. LIFO therefore enqueues them last.
+            pending.extend(
+                (child, depth + 1, f"{path}.exceptions[{index}]")
+                for index, child in reversed(tuple(enumerate(current.exceptions)))
+            )
     return True, tuple(omissions)
 
 
