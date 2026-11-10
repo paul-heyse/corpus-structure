@@ -1,6 +1,6 @@
 # Owned observations, correlation and progress
 
-**Proposed delivery design, 2026-11-10.** [Coordinator](../cli-and-logging_2026-11-10.md)
+**Implemented delivery design, 2026-11-10.** [Coordinator](../cli-and-logging_2026-11-10.md#final-acceptance)
 owns CLD-01/06/07/08 and relevant CLD-09 decisions. This plan develops O05/06 and supports O04/07/08.
 
 ## CLD-01 / I01 — One bounded journal, distinct live reads

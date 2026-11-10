@@ -1,6 +1,6 @@
 # Agent CLI and diagnostic capability series
 
-**Status: Functional scope implemented; CLD-10 qualification/review in progress · 2026-11-10.** This coordinator owns the combined
+**Status: Completed · CLD-00–10 · 2026-11-10.** This coordinator owns the combined
 target, packages, source opportunity/investigation disposition and qualification. Supporting
 plans own design explanations, not duplicate execution state.
 
@@ -40,7 +40,7 @@ supplement native outcomes and assurance; they do not establish successful effec
 | DMC correction reports and digest-verified optional custody | Render those products and replay them; add separately typed unexpected-exception evidence rather than recreating validation semantics |
 | Managed result leases, publication identities and settled artifact reads | Keep settled publication intact. Give live observations a distinct narrow owner/read contract; publication of an inode is not immutable appended content |
 | Native run/provider/task/request identities and receipts | Link explicitly from managed observational invocations; preserve identity types, assurance and native settlement |
-| Stdlib notice/method producers; no installed structlog | Select structlog26.1 stdlib adaptation for this richer consumer closure, one final renderer per destination; exact dependency addition waits for execution |
+| Stdlib notice/method producers; initially no installed structlog | Delivered pinned structlog26.1.0 stdlib adaptation for this richer consumer closure, one final renderer per destination |
 
 The [authoring plan](cli-and-logging/command-authoring-and-context.md) owns O01/02/03 and
 authoring examples. The [correction/replay plan](cli-and-logging/correction-and-replay.md) owns
@@ -70,9 +70,10 @@ applicable audit route. Do not add recommendation/completion audits as routine s
 
 ## Execution queue
 
-CLD-00–09 are implemented at the selected boundaries. CLD-10 owns assembled qualification,
-final target review and handoff. Scoped passes below do not establish whole-series qualification.
-This table and the receipts below own package state.
+CLD-00–10 are complete at the selected boundaries. All consumer migrations, investigation
+dispositions, assembled target review, final-source qualification and handoff are delivered.
+The [final acceptance](#final-acceptance) accounts for the required union and its limits;
+earlier scoped passes and superseded attempts retain their original outcomes.
 
 ### Entry and operator testing decision · 2026-11-10
 
@@ -108,10 +109,10 @@ independence does not remove file contention. Consumer migrations belong with ea
 
 | ID | Decision/output | State and dependent delivery |
 | --- | --- | --- |
-| CLD-I01 | Settle live-file versus sealed snapshot read, availability/cursor/corruption bounds and process ownership | Selected baseline design in observation plan; confirm against final DMC owner at CLD-01. Refusal of a current API is not reason to weaken settled artifacts |
-| CLD-I02 | Qualify complete processor/sink/context lifetime against actual producer closure | structlog26.1 stdlib bridge selected; a focused configured-chain check is required only for unresolved ordering/lifetime behavior before CLD-06 acceptance |
-| CLD-I03 | Assess TTY/task display against captured-agent needs | Retain headless default; CLD-09 records whether a concrete multi-task terminal consumer warrants optional native Rich presentation |
-| CLD-I04 | Assess saved HTML/SVG against actual review/sharing consumer | Text/JSON replay selected; styled export conditional in CLD-09 with explicit custody/limits |
+| CLD-I01 | Bounded owned live journal and authenticated sealed read selected | Closed: delivered separate live/read custody, cursor/corruption/availability contracts and owner process; generic settled artifacts unchanged |
+| CLD-I02 | structlog26.1.0 stdlib processor/sink/context lifetime selected | Closed: configured-chain, nested ownership, sequential/concurrent isolation and original-outcome controls delivered and qualified |
+| CLD-I03 | Retain headless default | Closed retain decision: no concrete multi-task terminal consumer; revisit trigger below |
+| CLD-I04 | Retain text/JSON replay | Closed retain decision: no concrete styled sharing consumer; revisit trigger below |
 
 ### Conditional presentation decisions · 2026-11-10
 
@@ -170,7 +171,7 @@ validator on both sides. Expected usability benefits need no measurement campaig
 Completion requires every selected package, consumer removal/migration and investigation disposition;
 applicable final qualification and assembled review; D8/D9/report owner updates and useful ci skill
 examples; and a current handoff. Plans/evidence are retained under repository policy. Functional
-implementation and scoped evidence are recorded below; assembled qualification remains separate.
+implementation and scoped evidence are recorded below; final assembled acceptance follows them.
 Expected usability benefits remain Proposed and qualitative.
 
 ## Execution receipts · 2026-11-10
@@ -178,8 +179,9 @@ Expected usability benefits remain Proposed and qualitative.
 Entry consumed clean `42d20a2ab` and completed DMC-17. The scoped audit publication is
 `f25d427ed`; the [entry target review](../design_review/reviews/design_review_cli-and-logging-entry_2026-11-10.md)
 accepted the Proposed target with bounded sealed-read authentication. ADR-0079/D8 own the unchanged decision; the predecessor was retired after correcting its invalid design metadata.
-Implementation findings IR01–16 are corrected and independently source-reviewed; assembled and qualification findings below remain separately owned. Scoped tests
-support their closure; final-source qualification remains CLD-10-owned.
+Implementation findings IR01–18, AR01 and Q01–03 are closed at their stated boundaries.
+Independent source review and scoped tests support those dispositions; CLD-10's final union below
+establishes selected whole-series qualification separately from expected qualitative benefits.
 
 ### Scoped acceptance
 
@@ -223,6 +225,7 @@ Root `just turn-end` **passed**, with1036 Python files unchanged, before assembl
 | CLD-Q02 | Closed at scoped boundary · CLD-10 | Cleanup-before-ACK and successful terminal exit preserve owner cancellation/reaping; actual native27 passed7c87d3cacaba4ff3919e3d838f1f5fdd |
 | CLD-IR17 | Closed at scoped boundary · CLD-10 | Opt-in retained native frame/chain projection, real transport encoding, whole-field omissions and privacy;19 tests6ba6c5b7b41c4cadb89966c764137c07 and installed old-result replay passed |
 | CLD-IR18 | Closed at scoped boundary · CLD-06/10 | Receipt readers/fallback required lanes select existing domain lanes, excluding ancillary journals; actual27 coverage and observation-enabled regression0607345fa6d544c8906972205b8a60b2 passed |
+| CLD-Q03 | Closed · CLD-03/10 | Remaining schema CLI test consumers use the actual acquired preparation seam and native parser exit2; complete file8 passed ae7083f718e147f3b558cc29596ac764 and exact retry6 passed3e3fd9c9315e4b33b5208984b6f2eab6 |
 
 The compact-excerpt replacement intentionally retires raw8KiB tail collection and its second
 sanitizer. Oversized excerpts identify retained-safe selection and truncation rather than claiming
@@ -269,9 +272,9 @@ extents and native unavailability for an invocation without a run binding.
 authentication, without rerun/export. The earlier direct fallback
 `uv run pyrefly check --min-severity warn --summary=none` exposed IR11; it is not final qualification.
 
-### Assembled qualification
+### Superseded assembled qualification attempts
 
-**In progress.** Original full functional `3aa043f0a0554bbca925f77f09ab27fa` was deliberately
+Original full functional `3aa043f0a0554bbca925f77f09ab27fa` was deliberately
 interrupted/drained after AR01 was identified; custody is settled, exit130. Ordinary selected5967:
 3343 passed, nine failed,16 incomplete,2598 not_run, one blocked; fault/Rust were not reached.
 The receipt remains interrupted and cannot qualify the assembly. Seven failure observations were
@@ -292,14 +295,15 @@ Final doctor `e1217b8696654ca8a55b518098f09987` **passed**; Rust context is
 
 The [assembled review](../design_review/reviews/design_review_cli-and-logging-assembled_2026-11-10.md)
 initially required AR01; independent source follow-up supports its corrected acquisition/dispatch
-boundary at Implemented strength. Root still owns its targeted execution, remaining qualification
-repairs and a fresh final-source campaign. No real Claude CLI provider was invoked. Its journey is operator-unselected;
-controlled process, actual local MCP/native and all other applicable testing remain required.
+boundary at Implemented strength. The final acceptance below supplies execution and qualification
+after those repairs. No real Claude CLI provider was invoked. Its journey is operator-unselected;
+controlled process, actual local MCP/native and all other applicable testing were required and
+are accounted for in the final acceptance below.
 
 
 ### Final repair source · 2026-11-10
 
-Production is frozen at `123dc1b50`, following test-only `5a84662a4` and native `c7960b724`.
+This repair checkpoint used production `123dc1b50`, following test-only `5a84662a4` and native `c7960b724`.
 AR01's original `dc44f3ecaa1742a585fa640e928d1048` passed9/10; its new cancellation expectation
 was corrected to the preserved native exit130, then `f01e1963df604953bd65cf386b35c4a6` passed
 against real acquisition/effect fences and native reader inspection. Q01's independent30s parity
@@ -309,7 +313,7 @@ allowance preserves production defaults and separate actual deadline/retry/memo/
 Q02 has a source-inspected correction: child cleanup before acknowledgement; terminal exit0 before
 success; existing cancellation lifetime and terminate/grace/kill/reap. Types
 `3193d98b6f1246aab2f36cfa7a12b4ee` and lint `d7232e0fc29446ab8abe6fcce3a43be3` passed before IR17.
-Its prepared native scope remains required on the combined frozen package.
+Its prepared native scope was subsequently qualified on the combined frozen package below.
 
 IR17 first run `e7522015b35447e389bacf0e66901012` passed16/17, exposing a clipped human filename.
 Literal folding and emitted-encoding/invalid-Unicode controls passed in19's final scope.
@@ -341,7 +345,8 @@ The final independent source reconciliation accepts A1–A4 and applicable gates
 no rule impact or further material finding. Reviewer execution remains not_run, not these receipts.
 All53 previously referenced managed receipts were explicitly held for this coordinator, preserving
 failed/interrupted outcomes. New final receipts are added to that retention before handoff.
-A fresh full default functional campaign remains required; these targeted passes are not its union.
+At this checkpoint a fresh full default functional campaign remained required; the final acceptance
+below supplies that campaign and its exact affected replacement.
 
 
 ### Ancillary consumer closure and fresh full entry · 2026-11-10
@@ -371,3 +376,82 @@ native nodes, zero unresolved, four native bindings. Those facts describe the re
 execution, not a rerun under the current reader. No native producer repeated for this reader-only
 correction; the fresh full campaign covers the final package. Root maintenance passed again with
 1036 Python files unchanged; source is frozen at fe5f3b281 before restarting the default campaign.
+
+<a id="final-acceptance"></a>
+
+## Final acceptance · 2026-11-10
+
+**Implemented; Tested for the selected scope.** CLD-00–10, O01–O08, all ten research families,
+I01–04 and the findings above are complete. The accepted assembled review, D8/ADR-0079,
+updated ci skill and this retained series carry the enduring mechanisms and limits. I03/04 are
+completed retain decisions with the concrete revisit triggers above, not undelivered packages.
+Expected usability and execution-fit benefits remain Proposed and qualitative; no measured
+improvement is claimed. The next separate work owner is PM2; no activation/selection follows.
+
+### Required functional and provider union
+
+`uv run ci test --json` **failed** in held `b8225463a9d44668a86d6e7dce6cd5c3` at clean
+`bdaa82560`: ordinary5984 selected,5978 passed, four failed and two blocked; fault8/8 passed.
+Both lanes completed reporting and native observation, with zero reporting errors and settled
+custody. Rust is **not_run**, empty selection (zero listed tests); no Rust functional coverage
+is inferred. The four failures were the remaining schema CLI test consumer migrations, not
+new production defects. Three expected the former exit1/JSON scalar-bound refusal instead of
+Typer's pre-acquisition exit2; one injected diagnostics at the retired check preparation seam.
+
+Test-only `629d3b41f` updates that one file. Independent model/input/consumer/code/remedy and
+raw-withholding assertions remain; the test now asserts once-acquired exact preparation inputs.
+Invalid bounds assert native flag/value/range, empty stdout, zero settings/input acquisition and
+no output publication. The complete file **passed**8/8 in held
+`ae7083f718e147f3b558cc29596ac764`. Root maintenance left1036 Python files unchanged before
+the clean final retry. No production, shared fixture, collection identity or policy changed.
+
+The two initially blocked tests explicitly require the pinned Base GLiNER checkpoint and locked
+native parser assets. Both prerequisites are present. This command **passed** the exact six
+unresolved identities,6/6, in held `3e3fd9c9315e4b33b5208984b6f2eab6`, at clean `629d3b41f`:
+
+```sh
+CORPUS_GLINER_DIAGNOSTIC=1 CORPUS_PM2_NATIVE_TEST_ASSETS="$PWD/build/models/pm2" uv run ci test retry b8225463a9d44668a86d6e7dce6cd5c3 --lane ordinary --json
+```
+
+The prefixes select actual existing model assets, so they are required for reproduction. The
+real GLiNER CPU boundary/rescore diagnostic and alternate-domain HanLP/Maverick/Dipo CUDA parser
+transfer, including retained successful siblings after the deliberate profile refusal, **passed**.
+Neither was replaced with a mock or waived. The real Claude CLI journey remains operator-unselected
+and **not_run**; actual local stdio MCP, controlled subprocess/cancellation and native associations
+are covered by the selected suite.
+
+`ci test coverage b8225463a9d44668a86d6e7dce6cd5c3 3e3fd9c9315e4b33b5208984b6f2eab6 --view unresolved --limit 20 --json`
+and its full JSON view **passed**:5992 required/5992 covered, zero unresolved, no missing lanes,
+unknown contexts, active attempts or unsettled attempts. Aggregate attempt status deliberately
+remains `failed` because the original failed attempt is preserved; node coverage is `covered`.
+This is qualified union acceptance, not relabelling the broad attempt as passed.
+
+Source applicability is explicit: `git diff bdaa82560 629d3b41f` contains only the57 additions/
+nine removals in that schema CLI test file. Its complete file and exact formerly failed nodes
+were rerun; unchanged functional source remains production `fe5f3b281`. The other5986 passing
+identities remain applicable. Later acceptance/handoff edits are documentation only. Contexts
+report complete native observation with967/zero unresolved for broad ordinary,7/zero for fault
+and1/zero for retry, respectively. The reported native-binding differences reflect the test
+selections' distinct purpose roles and deliberate historical/isolated migration contexts on the
+same dedicated PostgreSQL18/corpus; they are not unknown provenance or mismatched run pins.
+Python3.14.10 and dependency/toolchain selections are unchanged across these attempts.
+
+### Nonfunctional acceptance and handoff
+
+`uv run ci check --view steps --json` **passed** in held `5ee8c88584544b0da981dff20f726e47`
+on the frozen full-campaign source: agent/ADR/Ruff/typing/docs/dependencies/Clippy passed;
+empty rule scan/test were **not_run**. Doctor `98302a2aa35447fbaa46d29a3e27ed20` **passed**;
+Rust is1.101.0-nightly(2d20b42b8 2026-11-04). The final documentation/test-only maintenance
+and repository check are recorded below. All named failed/interrupted receipts remain held;
+successful final receipts are held as well. DMC/protected comparison and private-run evidence
+retain their prior dates and scope; this qualification does not recertify their old corpus results.
+
+Final `uv run ci check --view steps --json` **passed** in held
+`7d471afb441c4be29213c73927ec8431` after the test-only migration and acceptance documentation:
+agent/ADR/Ruff/typing/docs/dependencies/Clippy passed; empty rule scan/test remain **not_run**.
+Root `just turn-end` **passed**, leaving1036 Python files unchanged. Final
+`uv run ci docs check --json` **passed** in held `e685c99b26734f83aadfa299e9d740d7`:
+847 canonical pages, zero link errors. Subsequent edits record these receipt facts only.
+All selected functional, applicable-provider and nonfunctional obligations are qualified. No CLD
+implementation or qualification obligation remains open. This is a PM2 return checkpoint,
+without starting PM2 execution or changing its effect authority.

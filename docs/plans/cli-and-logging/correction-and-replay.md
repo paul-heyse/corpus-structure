@@ -1,6 +1,6 @@
 # Attributed correction and retained replay
 
-**Proposed delivery design, 2026-11-10.** [Coordinator](../cli-and-logging_2026-11-10.md)
+**Implemented delivery design, 2026-11-10.** [Coordinator](../cli-and-logging_2026-11-10.md#final-acceptance)
 owns CLD-05 and the presentation part of CLD-09; O04/07/08 are the source opportunities.
 
 ## Reuse delivered DMC meaning and custody

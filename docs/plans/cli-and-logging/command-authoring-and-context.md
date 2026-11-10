@@ -1,6 +1,6 @@
 # Command knowledge, native authoring and context
 
-**Proposed delivery design, 2026-11-10.** [Coordinator](../cli-and-logging_2026-11-10.md)
+**Implemented delivery design, 2026-11-10.** [Coordinator](../cli-and-logging_2026-11-10.md#final-acceptance)
 owns CLD-02/03/04 state and acceptance, O01/02/03/08 disposition and execution entry.
 
 ## CLD-02 — Focused native references

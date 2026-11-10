@@ -2,13 +2,14 @@
 
 ## Safe operation observation custody
 
-**Accepted target; Proposed, 2026-11-10.** Managed invocations own bounded safe observation
+**Implemented; scoped Tested, 2026-11-10.** Managed invocations own bounded safe observation
 journals and a designated authenticated live-read route, distinct from settled artifact reads.
 Sealed replay preserves original identities and coverage without producer execution. Process-owned
 logging routes dispatch through scoped invocation context; parent-owned transfer preserves child
 assurance without making observations native settlement. Raw disclosure, expiry and effects retain
-their existing owners. The [CLD coordinator](../plans/cli-and-logging_2026-11-10.md) owns
-implementation and qualification.
+their existing owners. The [CLD acceptance](../plans/cli-and-logging_2026-11-10.md#final-acceptance)
+owns the qualified functional/native/nonfunctional union and its provider limits. Expected usability
+benefits remain Proposed and qualitative.
 
 `ci results inspect` selects summary, observations or local timeline with severity/stage/method
 filters and qualified provider/task/attempt identities. A timeline is parent-journal sequence;
@@ -81,7 +82,7 @@ preserve relative input paths, separate native locators and finite/type/referenc
 Direct and retained outer messages remain compact. ContractInspection3 reserves envelope space from the same
 capture. Historical diagnostic artifact-v1 documents retain original authenticated report versions.
 
-The CLD presentation target adds `summary|correction|document` selections over this same product.
+The implemented CLD presentation adds `summary|correction|document` selections over this same product.
 Human replay defaults to correction, while default JSON preserves the original document.
 Immediate requested detail and retained/MCP presentation share a pure selector; presentation
 failure preserves original operation meaning and outcome. Summary keeps original observation
@@ -612,7 +613,9 @@ outcomes and refusals from the owners, with machine output separate from human d
 Invocation results carry their own custody and references to native identities. Managed
 publication and expiry follow ADR-0069. Explicit preview/apply and deployment bind effects to
 their exact inputs. Activation and selection stay with their purpose-bound operations.
-The [CLI plan](../plans/cli-operations_2026-11-07.md) owns the current cutover and verification.
+The [CLI plan](../plans/cli-operations_2026-11-07.md) retains its original cutover evidence;
+the [CLD coordinator](../plans/cli-and-logging_2026-11-10.md#final-acceptance) owns the November10
+capability extensions and their qualification.
 
 > Decision: ADR-0069
 
