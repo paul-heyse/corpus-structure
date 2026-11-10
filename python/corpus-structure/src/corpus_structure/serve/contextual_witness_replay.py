@@ -20,6 +20,7 @@ from corpus_structure.methods.contextual_candidates import (
     section_definition_subject_witnesses,
 )
 from corpus_structure.methods.contextual_embeddings import EncodedVector, identity
+from corpus_structure.methods.witnessed_source_links import NAMED_PIECE_VERSION
 from corpus_structure.semantic.contextual_links import RelationshipWitness, select_relationships
 from corpus_structure.semantic.contextual_registry import (
     ExtractedComponentTarget,
@@ -240,7 +241,7 @@ def _verify_section_report(retained, reports, sources, documents, contract):
         or scoped["project_id"] != retained["project_id"]
         or upstream["source"] != body["source"]
         or upstream["release_id"] != body["release_id"]
-        or upstream["operation_version"] not in {"7", "8", "9", "10", "11"}
+        or upstream["operation_version"] not in {"7", "8", "9", "10", "11", "12"}
     ):
         raise ValueError("section citation lacks its exact scoped source report")
     frame = native_source_frame(_retained_review_source_view(source), ())
@@ -410,18 +411,19 @@ def _retained_alias(reference, reports, sources):
         or origin["runtime_fingerprint"] != reference["runtime_fingerprint"]
         or body["release_id"] != reference["release_id"]
         or body.get("method") != "structure.scoped_relations"
-        or body.get("operation_version") not in {"7", "8", "9", "10", "11"}
+        or body.get("operation_version") not in {"7", "8", "9", "10", "11", "12"}
     ):
         raise ValueError("definition alias differs from its retained origin")
     rows = {row["contribution_id"]: row for row in body["contributions"]}
     edge = rows[reference["contribution_id"]]
     component = edge.get("component", {})
+    named_versions = {NAMED_PIECE_VERSION} if body["operation_version"] == "12" else {"2", "3"}
     if (
         edge["kind"] != "relation"
         or edge["semantic_type"] != "structural.scoped_attachment"
         or component.get("question") != "source_named_links"
         or component.get("attachment_kind") != "alias"
-        or component.get("question_version") not in {"2", "3"}
+        or component.get("question_version") not in named_versions
         or len(edge["endpoints"]) != 2
     ):
         return None

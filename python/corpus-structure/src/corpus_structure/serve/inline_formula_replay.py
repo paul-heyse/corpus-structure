@@ -85,7 +85,7 @@ def verify_inline_formula_report(report, source):
         d for d in detail["formula_syntax"] if d.get("input_policy") == INLINE_FORMULA_POLICY
     ]
     actual = [row for row in body["contributions"] if row["operation_key"] == op_key]
-    if body.get("operation_version") in {"6", "7", "8", "9", "10", "11"}:
+    if body.get("operation_version") in {"6", "7", "8", "9", "10", "11", "12"}:
         from .witnessed_source_link_replay import verify_named_links, verify_witnessed_links
 
         verify_witnessed_links(report, source, pin, cfg.inputs, ordered_formula_witness)
@@ -143,7 +143,7 @@ def verify_inline_formula_report(report, source):
             for op in body["contribution_operations"]
             if op["question"] == QUESTION
         }
-        if body.get("operation_version") in {"6", "7", "8", "9", "10", "11"}
+        if body.get("operation_version") in {"6", "7", "8", "9", "10", "11", "12"}
         else set()
     )
     formula_ids = {row["contribution_id"] for row in actual}
@@ -198,7 +198,10 @@ def verify_inline_formula_report(report, source):
 
 def verify_inline_formula_closure(root, manifest):
     from .review_bundle import _detached_relation
-    from .witnessed_source_link_replay import verify_annotated_named_links
+    from .witnessed_source_link_replay import (
+        archived_named_link_native_pieces,
+        verify_annotated_named_links,
+    )
 
     if "reports" not in manifest["relations"]:
         return
@@ -210,7 +213,7 @@ def verify_inline_formula_closure(root, manifest):
         for row in all_reports.values()
         if row.get("method") == "structure.scoped_relations"
         and (row.get("body") or {}).get("operation_version")
-        in {"5", "6", "7", "8", "9", "10", "11"}
+        in {"5", "6", "7", "8", "9", "10", "11", "12"}
         and (row.get("body") or {}).get("outcome") in {"produced", "empty"}
     ]
     if not reports:
@@ -221,10 +224,31 @@ def verify_inline_formula_closure(root, manifest):
         for row in _detached_relation(root, manifest, "sources")
         if row["source_view_id"] in ids
     }
+    joined_releases = {
+        report["body"]["release_id"]
+        for report in reports
+        if report["body"]["operation_version"] == "12"
+    }
+    policies = (
+        {
+            contract["release_id"]: archived_named_link_native_pieces(contract)
+            for contract in _detached_relation(root, manifest, "contracts")
+            if contract["release_id"] in joined_releases
+        }
+        if joined_releases
+        else {}
+    )
+    if set(policies) != joined_releases:
+        raise ValueError("joined named links lack their archived release policy")
     for report in reports:
         source = sources.get(report["origin_unit_id"])
         if source is None:
             raise ValueError("inline formula verification lacks exact retained source")
         verify_inline_formula_report(report, source)
-        if report["body"]["operation_version"] in {"7", "8", "9", "10", "11"}:
-            verify_annotated_named_links(report, source, all_reports)
+        if report["body"]["operation_version"] in {"7", "8", "9", "10", "11", "12"}:
+            verify_annotated_named_links(
+                report,
+                source,
+                all_reports,
+                native_piece_policy=policies.get(report["body"]["release_id"]),
+            )

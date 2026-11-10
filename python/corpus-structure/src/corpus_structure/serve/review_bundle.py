@@ -158,11 +158,13 @@ def _contract_row(conn, prepared):
         private_declaration_enabled,
     )
     from corpus_structure.methods.pm2_gliner_classification import METHOD as CLASSIFICATION_METHOD
+    from corpus_structure.methods.witnessed_source_links import NAMED_NATIVE_PIECES_INPUT
     from corpus_structure.semantic.contracts import bound_execution_model
     from corpus_structure.semantic.contributions import contribution_payload_contracts
     from corpus_structure.semantic.interpretation_questions import is_question_input
 
     from .review_source_projection import SECTION_TEXT_INPUT
+    from .witnessed_source_link_replay import NAMED_LINK_NATIVE_PIECES_FIELD
 
     row: dict[str, Any] = {
         "release_id": prepared.release_id,
@@ -210,6 +212,7 @@ def _contract_row(conn, prepared):
         (SECTION_PACKET_INPUT, "section_packets"),
         (MODEL_OBSERVATION_INPUT, "model_observation_policy"),
         (SECTION_TEXT_INPUT, "section_text_policy"),
+        (NAMED_NATIVE_PIECES_INPUT, NAMED_LINK_NATIVE_PIECES_FIELD),
     ):
         expected = dependencies.get(input_name)
         if expected is not None:
