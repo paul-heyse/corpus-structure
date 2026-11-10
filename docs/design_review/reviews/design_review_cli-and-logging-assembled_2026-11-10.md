@@ -2,11 +2,10 @@
 
 **Independent design/target review · combined agent-usability, Typer/Rich/structlog and principle focus · 2026-11-10.**
 
-**Decision: Revise CLD-AR01, the visual-resume acquisition boundary.** The remaining inspected
-architecture supports the selected captured-agent workflow at Implemented strength. Native
-authority, bounded observation custody, retained correction replay and process-context isolation
-have coherent owners. Visual resume records its native association after execution, leaving it
-unavailable during the interruption the wrapper should help investigate.
+**Decision: Accept the assembled architecture at Implemented strength for the named scenarios,
+following the CLD-AR01 correction.** Native authority, bounded observation custody, retained
+correction replay and process-context isolation have coherent owners. Execution evidence and
+final-source qualification remain coordinator-owned.
 
 ## 1. Scope, baseline and evidence
 
@@ -16,6 +15,16 @@ was published at `540393c70`, reconciling entry publication `f25d427ed`. The
 [entry review](design_review_cli-and-logging-entry_2026-11-10.md) is a prior target judgment,
 not assembled implementation evidence. This publication condenses the returned assessment while
 preserving its finding, independent judgments, gates and limits.
+
+**Independent follow-up, 2026-11-10; Implemented, source-inspected.** The reviewer examined the
+owned acquisition/dispatch changes after that baseline and verified this condensed publication
+faithful to the original Revise judgment (preserved in Git at `5677d6819`). Frozen finite single/group
+handles validate retained run/project/options/recovery and retain their originating Engine. CLI
+durably binds acquired run/project/release and stage before dispatch; existing native fences stay
+with request execution. No collapsed API/callers remain. A3 is satisfied and G7 passes for the
+corrected visual interruption scenario; FP-03/05/06 and DP-08/21 are satisfied. Other judgments
+remain unchanged. Reviewer checks remain not_run; the coordinator owns targeted outcomes and the
+separate PDF-validation, test-oracle and diagnostic-view qualification repairs.
 
 Core3.3, heuristics1.0, code-intelligence1.4, binding and test-assessment1.2 apply through
 [standard.toml](../design_principles/standard.toml). The test companion informs selected controls;
@@ -125,7 +134,7 @@ capacity or measured improvement is claimed.
 | Change deployment configuration | Historical identity survives unavailable current configuration |
 | Concurrent MCP/unbound method logging | Request context and endpoint lifetime are explicit; prior logging survives absent capture |
 | Torn/corrupt/filtered/oversized input | Pending/corrupt/continued/omitted/unavailable remain distinct |
-| Interrupt visual recognition/recovery | Association is unavailable before return: CLD-AR01 |
+| Interrupt visual recognition/recovery | Acquired association is published before dispatch; interruption/failure tests reach the native effect boundary |
 
 ## 6. Independent gates
 
@@ -137,7 +146,7 @@ capacity or measured improvement is claimed.
 | G4 Hidden behavior | pass | Reference/selection/replay do not execute producers or grant effects |
 | G5 Consistency/recovery | pass | Live/sealed/digest/native/unresolved custody distinct; AR01 loses association without falsely claiming settlement |
 | G6 Transformation/reuse | pass | Retained products/held input and pinned source/runtime identities are reused |
-| G7 Truthful capability | fail for visual interruption | Native association has no executing route before return |
+| G7 Truthful capability | pass after AR01 correction | Validated association is published before effects; requested IDs are not promoted |
 | G8 Library leverage | pass | Native construction/rendering/processing discharge their responsibilities; custom code supplies local safety/custody |
 | CI-G1 Fidelity | pass | Provider reports do not become native completion; partial/unknown remain explicit |
 | CI-G2 Evidence closure | pass | Correction/source/observation claims use identified authenticated input or disclose unavailability |
@@ -151,11 +160,11 @@ These gates cover this assembly, not unrelated extraction, graph or scientific c
 
 ### CLD-AR01 — Publish acquired visual-resume association before its effect
 
-**Implemented defect; source-inspected 2026-11-10.** Owner: native visual acquisition/dispatch and
+**Original defect at6c867bdb6; corrected source independently inspected2026-11-10.** Owner: native visual acquisition/dispatch and
 CLI composition. Criteria: FP-03/05/06, DP-08/21, A3 and G7.
 
 [`cli/regenerate.py`](../../../python/corpus-structure/src/corpus_structure/cli/regenerate.py)
-calls resume_visual_observation before binding run/project. The dispatcher in
+at the original baseline called resume_visual_observation before binding run/project. The dispatcher in
 [`semantic/visual_requests.py`](../../../python/corpus-structure/src/corpus_structure/semantic/visual_requests.py)
 reads/validates retained ownership/options, then executes single/group recognition, recovery and
 settlement before returning. Interruption/failure leaves no observation_bindings.
@@ -166,17 +175,18 @@ successful visual wire test does not establish the earlier interruption boundary
 The acquisition/effect composition is incomplete, while native settlement stays authoritative.
 This matters because interrupted-operation investigation is the wrapper's purpose.
 
-**Proposed correction:** split native resolution from dispatch using an ordinary finite acquired
+**Implemented correction:** split native resolution from dispatch using an ordinary finite acquired
 resume value. The resolver validates exact run/project/recovery, returns None for nonvisual work,
 and lets CLI publish acquired run/project/release before dispatch. Native runtime/task/claim/purpose
 and effect fences remain authoritative. Acquisition grants no extra permission. An optional callback
 is smaller but introduces timing/failure policy in semantic dispatch; a duplicate CLI query/classifier
 repeats native meaning. No generic observer/workflow registry is justified.
 
-**Closure:** source must record validated acquired identity before effects. A focused interruption
-after acquisition must leave the wrapper correlated with exact run/target while preserving original
-cancellation, native state and receipt custody. Keep wire-equivalence/nonvisual controls. Never
-promote merely requested scope.resume_run to acquired identity.
+**Closure evidence inspected:** source records validated acquired identity before effects. Native
+KeyboardInterrupt/RuntimeError controls assert durable association inside the effect callee and
+restricted-reader inspection/actions; wrong-project work acquires no binding or effect. Successful
+wire/receipt/generation controls remain. Targeted execution is recorded by the coordinator. Merely
+requested scope.resume_run is not promoted to acquired identity.
 
 The [CLD coordinator](../../plans/cli-and-logging_2026-11-10.md) solely owns scheduled disposition.
 
@@ -231,14 +241,14 @@ AR01 and existing IR dispositions; this review does not duplicate their mutable 
 | --- | --- | --- |
 | A1 Localize change | satisfied | Grammar/reporting/safety/custody/presentation have coherent change reasons |
 | A2 Explicit domain meaning | satisfied | Configured/acquired, original/derived, provider/native, live/sealed, complete/omitted govern operations; AR01 lacks composition, not meaning |
-| A3 Composition | violated for visual interruption | Collapsed acquisition/effect gives CLI no publication point before effects; other compositions hold |
+| A3 Composition | satisfied after AR01 correction | Finite acquired handle gives CLI a publication point before effects without another classifier or weakened fence |
 | A4 Execution fit | satisfied qualitatively | Bounded append/coarse transfer/selected hydration/held reads/safe capture fit one host |
 
 FP-01/02/04/07 and inspected DP-01/02/03/04/05/15/18/19/20/23/24 responsibilities hold within scope.
-FP-03/05/06 and DP-08/21 require AR01. Applicable CI attribution/fidelity/unknown/bounded/evidence/
+FP-03/05/06 and DP-08/21 are satisfied by the AR01 correction. Applicable CI attribution/fidelity/unknown/bounded/evidence/
 pinned-serving obligations hold; no graph or heuristic-analysis capability is introduced.
 
-**Bounded decision: Revise.** Correct AR01 and independently reassess actual closure. The local
-correction fits the assembly; storage/native settlement need no redesign. The remaining assembly
-is supported at Implemented strength. Whole-project architecture, release qualification and
-external-provider behavior are not certified.
+**Bounded decision: Accept at Implemented strength for the named scenarios.** The independently
+reassessed correction fits the assembly; storage/native settlement need no redesign. Final-source
+qualification and current finding disposition remain with the coordinator. Whole-project
+architecture, release qualification and external-provider behavior are not certified.

@@ -218,10 +218,10 @@ Root `just turn-end` **passed**, with1036 Python files unchanged, before assembl
 | CLD-IR14 | Closed · CLD-06/07 | CLI visual resume adds wrapper ID beside unchanged native fields; actual once-only native CLI case in73 |
 | CLD-IR15 | Closed · CLD-10 | Complete protected-prefix selection handles quoted/env/OSC boundaries; compact excerpts derive from that same safe product with explicit basis; final43 |
 | CLD-IR16 | Closed · CLD-10 | Both recipe routes preserve130/143 and defer unresolved custody; native73/final43 |
-| CLD-AR01 | In progress · CLD-06/07 | Split native visual acquisition from effects; record validated association before interruption. Source independently reassessed; targeted execution pending |
-| CLD-Q01 | In progress · CLD-10 | Separate exact math-worker parity from acknowledged independent2s timing variability using equal explicit test budgets; retain all position/value/relation and timeout controls |
-| CLD-Q02 | In progress · CLD-10 | Native PDF validation acknowledges after owned cleanup and requires successful terminal exit; preserve cancellation/reaping |
-| CLD-IR17 | Open · CLD-10 | Provide bounded opt-in retained native pytest frame context by result ID without reopening reportlog files |
+| CLD-AR01 | Closed at scoped boundary · CLD-06/07 | Finite acquired visual handles record identity before effects; independent source reassessment and actual native interruption/wrong-project control f01e1963df604953bd65cf386b35c4a6 |
+| CLD-Q01 | Closed at scoped boundary · CLD-10 | Equal explicit30s test budgets preserve exact parity and default production deadlines;14 controls ee7c96d7e51a40479bf047caacbb4ab6 plus final parity e3dd460bc27248d583293ba5ed0da736 passed |
+| CLD-Q02 | Source corrected; native qualification pending · CLD-10 | Cleanup precedes ACK; existing owner lifetime governs terminal wait/exit0; independent source review and prepared actual-spawn controls |
+| CLD-IR17 | Closed at scoped boundary · CLD-10 | Opt-in retained native frame/chain projection, real transport encoding, whole-field omissions and privacy;19 tests6ba6c5b7b41c4cadb89966c764137c07 and installed old-result replay passed |
 
 The compact-excerpt replacement intentionally retires raw8KiB tail collection and its second
 sanitizer. Oversized excerpts identify retained-safe selection and truncation rather than claiming
@@ -294,3 +294,28 @@ initially required AR01; independent source follow-up supports its corrected acq
 boundary at Implemented strength. Root still owns its targeted execution, remaining qualification
 repairs and a fresh final-source campaign. No real Claude CLI provider was invoked. Its journey is operator-unselected;
 controlled process, actual local MCP/native and all other applicable testing remain required.
+
+
+### Final repair source · 2026-11-10
+
+Production is frozen at `123dc1b50`, following test-only `5a84662a4` and native `c7960b724`.
+AR01's original `dc44f3ecaa1742a585fa640e928d1048` passed9/10; its new cancellation expectation
+was corrected to the preserved native exit130, then `f01e1963df604953bd65cf386b35c4a6` passed
+against real acquisition/effect fences and native reader inspection. Q01's independent30s parity
+allowance preserves production defaults and separate actual deadline/retry/memo/pool controls;
+14 focused cases and final parity passed at the IDs above. Neither timeouts nor differences are skipped.
+
+Q02 has a source-inspected correction: child cleanup before acknowledgement; terminal exit0 before
+success; existing cancellation lifetime and terminate/grace/kill/reap. Types
+`3193d98b6f1246aab2f36cfa7a12b4ee` and lint `d7232e0fc29446ab8abe6fcce3a43be3` passed before IR17.
+Its prepared native scope remains required on the combined frozen package.
+
+IR17 first run `e7522015b35447e389bacf0e66901012` passed16/17, exposing a clipped human filename.
+Literal folding and emitted-encoding/invalid-Unicode controls passed in19's final scope.
+Final types `c32d384f26b8407e841a77ad35e84f06` and lint
+`6c2a5dc4c4e54f2abfd41f17dbdb4d61` passed. Installed
+`ci test failures 3aa043f0a0554bbca925f77f09ab27fa --after 1 --limit 1 --native-traceback --diagnostic-chars 32768 --json`
+passed with actual retained helper file locations and original chain paths, excluding source,
+locals and captured streams; no export/re-execution. Earlier typing `a279cb7886dc419097b091cbc11e6a52`
+and lint `b8692cf07d684e56831864d159b03c87` keep their pre-bound-repair scope.
+The root maintenance repeat left1036 Python files unchanged before final native qualification.

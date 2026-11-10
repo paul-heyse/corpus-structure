@@ -49,8 +49,16 @@ Independent implementation review identified corrected boundary defects; the
 owns their dispositions and scoped test receipts. No additional demonstrated architectural
 violation remains in this inspected footprint. Complete package runtime capture already includes
 the new helpers; changed source changes runtime identity without changing semantic identity.
-Assembled target judgment and full final-source functional/nonfunctional qualification remain
-separate. No external Claude execution, broad test-architecture audit or benefit measurement is
+Final source reconciliation at `123dc1b50` includes the finite visual acquisition/dispatch split:
+validated run/project/release is durable before effects, with originating engine and native fences
+preserved. The independent target follow-up supports AR01 closure. Native validation now acknowledges
+after cleanup and requires successful terminal exit, sharing existing cancellation authority.
+Retained native pytest locations/chain descriptions are opt-in projections with unknown-format,
+traversal/transport/display omissions; no source/locals or inferred group relations. Implementation
+review and focused controls support these boundaries; prepared native and full final qualification
+remain separate. Math parity's explicit equal test budgets preserve all exact assertions and the
+separate production-deadline controls. Assembled target judgment and full final-source
+functional/nonfunctional qualification remain separate. No external Claude execution, broad test-architecture audit or benefit measurement is
 claimed by this source account.
 
 <a id="cld-entry-refresh"></a>

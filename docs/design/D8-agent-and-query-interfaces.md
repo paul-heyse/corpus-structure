@@ -40,6 +40,10 @@ selection, while source byte counts and collection omissions remain separate. A 
 rerun the check or recover uncollected output. Forced recipe cancellation preserves the original
 signal exit and unresolved custody when the owner could not establish draining; ordinary drained
 interruptions can settle normally.
+`ci test failures --native-traceback` additionally selects retained pytest file locations and
+native chain descriptions under transport/traversal/display bounds. It excludes source listings,
+locals and captured streams; rendered-only native formats are not parsed into invented frames or
+group relations. This product remains distinct from live structlog exception observations.
 
 Headless output and text/JSON replay serve the captured-agent workflow. Rich static renderables
 compose selected human views. Dynamic terminal displays and HTML/SVG exports need an actual

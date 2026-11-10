@@ -1,37 +1,35 @@
 # Status
 
-_Updated 2026-11-10. Development runs `semantic_dmc_completion_repairs`. `/10` remains the default;
-the project remains unselected. Protected Standard and Nemotron retrieval arms retain their tie._
+_Updated 2026-11-10. Development runs `semantic_dmc_completion_repairs`. `/10` remains default;
+the project is unselected. Protected Standard/Nemotron arms retain their recorded tie._
 
 ## Current work and authority
 
-- [DMC repair acceptance](docs/plans/domain-data-model_2026-11-10.md#completion-repair-acceptance) closes DMC-CA01–03 and restores DMC-09/11 scoped completion. DMC-00–16 are complete at selected boundaries. DMC-17 is complete at applicable qualification scope:5882 identities reconciled from retained full evidence and affected replacements, with two unselected opt-in provider/asset diagnostics explicit. The coordinator owns actual source/context accounting.
-- Source `a262e476f` includes repaired comparison, bounded reports, typed wrapper paths and one-normalization allocation. Impact4/Validation5/Inspection3 accompany semantic22/readers14–22/execution28/boundary12/archive3. [Assembled review](docs/design_review/reviews/design_review_domain-data-model-assembled_2026-11-10.md) accepts scoped/source-inspected, with F01 corrected and no rule impact; its audit refresh is published from177fa8ff7 with final reconciliation.
-- Native deploy `cf159140c2704ce28e01b83cd570142c` admitted `release:a3e72c1d8e735c63f05912491677e872bde03c2b156b7cb72a7e8330f9f2ee2c`, execution311cb8…, physical164682… unchanged. Current runtime `runtime:5471b4b4a8eb87b61c9c490e6c62b111b1ad149c9dbcb2243fea23f14370c01f` is archived/read back against five actual corrected source files; this proves prepared custody, not execution.
-- [Execution evidence](docs/design_review/evidence/2026-11-10_dmc-completion-repairs/README.md) retains direct audit controls, archived explorer/frozen-candidate parity and genuine before-side CLI/MCP surveys (Normal and HOUR/TIME). Protected runs/project rows match pre/post; source487/cut604, private491/492/493/495, `/10`, unselected project, retrieval tie and failed494 residue remain preserved.
-- [PTD-11](docs/plans/postgresql-typed-domain_2026-11-09.md#final-qualification-and-series-closure--2026-11-10) completed before DMC; its 5,709-identity union/eight fault checks retain their original source/context. DMC-03–06's 426-identity acceptance likewise remains dated evidence, not whole-series qualification.
-
-## Other current scopes
-
-- [CLI and logging plan series](docs/plans/cli-and-logging_2026-11-10.md), 2026-11-10, owns planned CLD-00–10/O01–O08 and all conditional dispositions. Operator-selected queue: complete DMC-17 and handoff, execute CLD, then return to PM2. Documents only; no product/dependency adoption or qualification is claimed.
-- [CLI functional review](docs/functional_reviews/cli-and-logging_2026-11-10.md), 2026-11-10, supplies O01–O08 and full discovery/conditional coverage to the CLD coordinator above. Its `94f960c11` source baseline is reconciled against delivered DMC in that series; the review remains evidence, not an execution ledger.
-- [CLI and diagnostics discovery](docs/library_leverage/libraries/cli-and-logging/briefing.md), 2026-11-10, covers Typer/Rich/structlog with ten Proposed research leads and complete overview coverage. Applicability and comparative selection remain follow-up work; older CLI plans are complete/legacy for that inquiry.
-- [WCE](docs/plans/witnessed-corpus-enrichment_2026-11-05.md#repair-disposition--2026-11-07) owns source/factor repairs and qualification. ADR-0067 governs current-only migration; ADR-0070 selects all 518 Grinstead–Snell pages, while WCE receipts cover 191–310. Its retained baseline remains `07d25b840` / `semantic_wce_lineage_20261107` / `retrieve.contextual/5`.
-- [DMA-13](docs/plans/domain-model-alignment_2026-11-08.md#dma-13) qualified improvement at its selected scope. Evaluations 42/43 retain coverage misses; unresolved formulas and unavailable calibration bound claims without blocking private staging. Chandra stays excluded.
-- [PM2](docs/plans/production-milestone-two_2026-11-08.md#post-audit-execution-checkpoint--2026-11-09) retains run487/cut604 and source/model handoffs. Deployed citation replay, ordinary assembly of archived dependencies, protected comparisons, final qualification and selection remain open. Return follows DMC-17, without automatic activation/selection.
-- [GitHub visitor follow-on](docs/plans/github-visitor-experience_2026-11-08.md#ghv-follow-on-acceptance) retains local/live browser evidence and 1,409 verified LFS source links at their dated scope.
-- [CLI operations](docs/plans/cli-operations_2026-11-07.md#completion-audit) owns deployment-profile qualification limits; ADR-0069 governs effects/custody. The [CLI reporting receipt](docs/plans/cli-reporting_2026-11-07.md#merged-source-verification) owns earlier installed journeys.
-- [NCE](docs/plans/next-corpus-enrichment_2026-11-07.md#audit-gap-execution) and the [Chandra follow-up](docs/plans/chandra-2-post-nemotron_2026-11-08.md#comparator-execution-fit-follow-up) retain their completed bounded work and outstanding scopes. DMC used local authored methods, not a new inference-provider/corpus rerun.
+- [CLI/logging coordinator](docs/plans/cli-and-logging_2026-11-10.md) owns CLD-00–10, conditional dispositions and current findings. Main implementation landed in84564b757/c5e464aba/6c867bdb6; qualification repairs are currently dirty. Selected capabilities are implemented; final qualification/handoff remain active. Execute CLD before returning to PM2.
+- [Assembled review](docs/design_review/reviews/design_review_cli-and-logging-assembled_2026-11-10.md) identified CLD-AR01: publish acquired visual association before effects. Independent source follow-up accepts the implemented finite acquisition/dispatch split; execution and final source remain coordinator-owned. The original Revise judgment is preserved at5677d6819.
+- ADR-0079 restates unchanged safe observation custody under canonical §2/D8. Its invalid-metadata predecessor was retired through the existing supersession route. Native outcomes, purpose roles, raw gates, expiry and holds remain with their owners. Real Claude CLI execution is operator-unselected; other applicable testing stays in scope.
+- [DMC acceptance](docs/plans/domain-data-model_2026-11-10.md#completion-repair-acceptance) retains completed DMC-00–17/CA01–04 and5882-identity dated qualification. Impact4/Validation5/Inspection3 accompany semantic22/readers14–22/execution28/boundary12/archive3. CLD does not recertify those old receipts.
+- DMC native deploy cf159140c2704ce28e01b83cd570142c admitted release:a3e72c1d8e735c63f05912491677e872bde03c2b156b7cb72a7e8330f9f2ee2c; runtime5471b4… remains historical prepared custody. Complete package source changes create new runtime identities; immutable old run pins are not rewritten.
+- [DMC execution evidence](docs/design_review/evidence/2026-11-10_dmc-completion-repairs/README.md) retains source487/cut604, private491/492/493/495, `/10`, unselected project and failed494 residue. CLD authorizes no activation/selection.
 
 ## Last verified · 2026-11-10
 
-- Applicable functional qualification **passed** by actual identity union:5882. Retained full90a34… has5857 passed/nine failed/one opt-in blocked, complete reporting and zero not_run. Failed identities and affected neighbors **passed** in ca7ae72443b74205bd0778d7e6695e29 (117), with direct graph replacements4ea4… (7) and a75b… (2). Original outcomes stay held; no additional full run after operator scope instruction.
-- Original fault8 **passed**, with unchanged native-auth/SQL/toolchain context; current native observations are complete and context unknowns absent. Rust functional discovery is empty/not_run; Clippy **passed**. GLiNER checkpoint and parser CUDA assets remain explicitly unselected/not_run, not fake provider passes.
-- Final typing/lint **passed**; `uv run ci check --view steps --json` passed applicable unaffected steps, rules not_run (empty registry). Model revision0.6.5, native deployment/db/release checks and final runtime archive/source-byte readback **passed** at their recorded scopes.
-- Archived explorer/frozen-candidate, direct bounds/path controls, genuine CLI/MCP before-side surveys and final protected-state equality **passed**. `ci evidence check --json` **passed** (367 records, zero errors/41 inherited warnings); `ci docs check` **passed** (844 canonical pages, zero link errors). No quantitative benefit claim.
+- Correction/model/watch scoped166 **passed** f93cb0a1572349949201dabbfb9345d2; actual SHACL selector/render case **passed**7c4e0903de9b422f96fefc9d87a1f0d4. Final safe output/excerpt43 **passed**c256f0485e184ba1a27e5ea8351222cd; types/lint passed at that source.
+- Native support73 **passed**8d982cba664848aea0d00ccde7392633, including genuine concurrent fresh stdio MCP and controlled interruption plus native visual resume. It predates later package changes. AR01 actual effect interruption/failure/wrong-project/wire case **passed**f01e1963df604953bd65cf386b35c4a6 before PDF-settlement changes.
+- Original full `uv run ci test --json` 3aa043f0a0554bbca925f77f09ab27fa was deliberately interrupted/drained for AR01 repair:3343 passed/nine failed; ordinary incomplete/not_run and fault remain unqualified. Custody settled. Seven legacy taxonomy/parser failures have a44-case replacement5d319a6bd3c741f49bee7cbf0cefcac5. Math parity has14 focused controls plus a final exact repeat; coordinator owns source applicability.
+- Original `ci check --view steps --json` f6204cb7089446d49bb342fa0974127c failed ADR/docs only; other applicable steps passed, empty rules not_run. Corrected documentation **passed**4970847441624b81805c0a1dd9b82a0c (846 pages/zero errors). Doctor **passed**e1217b8696654ca8a55b518098f09987. Original failures remain preserved; no assembled qualification claim.
+- Root `just turn-end` passed before initial qualification;1036 Python files were unchanged. It must run again after remaining source/doc edits. Rust context:1.101.0-nightly(2d20b42b8 2026-11-04).
+
+## Other current scopes
+
+- [PM2](docs/plans/production-milestone-two_2026-11-08.md#post-audit-execution-checkpoint--2026-11-09) retains run487/cut604. Deployed citation replay, ordinary archived-dependency assembly, protected comparisons, final qualification and selection remain its work; return follows CLD without automatic activation.
+- [WCE](docs/plans/witnessed-corpus-enrichment_2026-11-05.md#repair-disposition--2026-11-07) owns source/factor repairs. ADR-0070 selects all518 Grinstead–Snell pages; WCE receipts cover191–310. DMA-13's bounded acceptance and evaluations42/43 retain their stated limits; Chandra stays excluded.
+- [CLI functional review](docs/functional_reviews/cli-and-logging_2026-11-10.md) and [discovery](docs/library_leverage/libraries/cli-and-logging/briefing.md) are CLD source evidence, not duplicate execution ledgers. Earlier CLI plans are completed/legacy for this engagement.
+- PTD-11's5709 union, earlier DMC426 and GitHub visitor1409-link receipts retain dated scope. NCE/Chandra follow-ups remain with their existing owners; no new real inference-provider/corpus rerun was performed by CLD.
 
 ## Next
 
-CLD-00 can acquire the completed DMC handoff. Execute the queued CLI/logging series before PM2.
-Use the coordinator's final source/native/runtime/report versions, qualified evidence and retained
-limits; keep semantic pytest selections before parent paths for affected future checks.
+Finish bounded qualification repairs in the CLD coordinator: native PDF child settlement and native
+pytest frame inspection, then freeze source and run the prepared native scope plus final full
+`uv run ci test`/`uv run ci check`. Retain original outcomes, update assembled review/source account,
+complete CLD handoff, then return to PM2. Do not treat this checkpoint as task completion.

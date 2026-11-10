@@ -29,6 +29,10 @@ uv run ci test coverage ORIGINAL_ID RETRY_ID --view unresolved --limit 20 --json
 ```
 
 - Use `test failures` for the exact failed node, phase and lane from the classifier.
+  Add `--native-traceback --diagnostic-chars 32768` for retained pytest file locations and native
+  chain descriptions. Source listings, locals and captured streams are excluded; unsupported
+  native-only representations remain explicitly unavailable/partial. This view cannot recover
+  assertion detail pytest did not record.
   Use `results show` for outcome, custody, expiry, published roles, diagnostic availability
   and the next action. Use `results watch ID` for bounded progress on an active invocation.
   `results inspect ID --view observations --json` reads safe collected events; use
