@@ -149,7 +149,14 @@ def _run_source_view_dependency_case(admin, writer, directory, monkeypatch, *, r
 
     from corpus_structure.core.method import ObservationDraft
     from corpus_structure.semantic import claim_lifetime, operations
-    from corpus_structure.semantic.operations import OperationConflict, claim_tasks, complete_task
+    from corpus_structure.semantic.operations import (
+        BoundReader,
+        OperationConflict,
+        claim_tasks,
+        complete_task,
+        complete_unit_result,
+        create_task,
+    )
 
     class PublicationConfig(BaseModel):
         pass
@@ -244,6 +251,12 @@ def _run_source_view_dependency_case(admin, writer, directory, monkeypatch, *, r
             )
 
         def input_digest(self, unit: UnitView, cfg: C) -> Digest:
+            if self.name == "normalize.formula":
+                assert unit.ref.unit_id is not None
+                reader = unit.run.reader
+                assert isinstance(reader, BoundReader)
+                upstream = reader.source_result(unit.ref.unit_id, "extract.math")
+                assert upstream is not None and upstream["input_hash"] != "decoy"
             return Digest(f"actual-native-view:{unit.ref.unit_key}".encode())
 
         def run(
@@ -253,7 +266,8 @@ def _run_source_view_dependency_case(admin, writer, directory, monkeypatch, *, r
                 rows = (
                     conn.execute(
                         text(
-                            "SELECT t.id,t.attempt,t.claimed_by,m.name,t.method_config_id "
+                            "SELECT t.id,t.attempt,t.claimed_by,m.name,t.method_config_id,"
+                            "c.config_hash "
                             "FROM ops.task t JOIN ops.method_config c ON c.id=t.method_config_id "
                             "JOIN ops.method m ON m.id=c.method_id "
                             "WHERE t.run_id=:run AND t.status='running' ORDER BY t.id"
@@ -296,6 +310,48 @@ def _run_source_view_dependency_case(admin, writer, directory, monkeypatch, *, r
             assert isinstance(batch, MathReadingsBatch)
             batch.bind(ctx.reader)
             preparations.append(batch)
+            if not reclaim and self.name == "extract.math" and done == 4:
+                # A second valid completed invocation of the producer method for this
+                # view must not make the ordinary child's declared dependency ambiguous.
+                ref = units[0].ref
+                assert ref.unit_key is not None
+                with writer.begin() as conn:
+                    decoy_config = rows[0]["method_config_id"]
+                    decoy = create_task(
+                        conn,
+                        run_id=RunId(ctx.run.run_id),
+                        config_id=decoy_config,
+                        stage="extract",
+                        unit_type="source_view",
+                        unit_id=ref.unit_id,
+                        unit_key=ref.unit_key,
+                        input_hash="decoy",
+                    )
+                    (decoy_claim,) = claim_tasks(
+                        conn,
+                        run_id=RunId(ctx.run.run_id),
+                        config_id=decoy_config,
+                        holder="scheduler-decoy",
+                        limit=1,
+                        prepared=prepared,
+                    )
+                    assert decoy_claim.task_id == decoy
+                    complete_unit_result(
+                        conn,
+                        task_id=decoy,
+                        attempt=decoy_claim.attempt,
+                        holder="scheduler-decoy",
+                        prepared=prepared,
+                        result=UnitResult(ref=ref, outcome=ObservationOutcome.EMPTY),
+                        method=self,
+                        configuration_hash=rows[0]["config_hash"],
+                        source=ref.unit_key,
+                    )
+            if self.name == "normalize.formula":
+                for unit in units:
+                    assert unit.ref.unit_id is not None
+                    upstream = ctx.reader.source_result(unit.ref.unit_id, "extract.math")
+                    assert upstream is not None and upstream["input_hash"] != "decoy"
             if reclaim and self.name == "extract.math" and done == 4:
                 assert ready == 4
                 victim = rows[0]

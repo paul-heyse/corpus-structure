@@ -8,7 +8,7 @@ from contextlib import ExitStack
 from typing import Any
 
 from pydantic import BaseModel, JsonValue, TypeAdapter
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from corpus_structure.core.method import MethodContext, UnitRef, UnitView
 from corpus_structure.core.vocab import TaskUnitType
@@ -20,9 +20,10 @@ from corpus_structure.orchestrate.liveness import (
 from corpus_structure.semantic._operation_ids import CutId, DocumentId
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.operation_results import MethodConfigId, RunId, TaskId
+from corpus_structure.semantic.operation_results import ClaimedTask, MethodConfigId, RunId, TaskId
 from corpus_structure.semantic.operations import (
     BoundReader,
+    BoundSourceProducer,
     OperationBinding,
     OperationConflict,
     claim_tasks,
@@ -34,6 +35,9 @@ from corpus_structure.semantic.operations import (
     start_run,
 )
 from corpus_structure.semantic.structural_products import ExternalSourceRef
+
+_SAME_VIEW_DEPENDENCIES = {"source_view_interpretation", "source_view_product"}
+_READY_SOURCE_TASKS = {"done", "empty", "reused"}
 
 
 class BoundRunReport(BaseModel):
@@ -63,6 +67,64 @@ def _source_configurations(registry, graph, overrides):
                 )
             configs.setdefault(method, resolved)
     return configs
+
+
+def _claimed_source_producers(
+    conn,
+    claims: Sequence[ClaimedTask],
+    params: Mapping[str, Any],
+) -> dict[tuple[int, str], BoundSourceProducer]:
+    kind = params.get("source_dependencies")
+    if kind not in _SAME_VIEW_DEPENDENCIES:
+        return {}
+    method_name = params["source_dependency_method"]
+    edge, task, config, method = map(
+        table, ("ops.task_dependency", "ops.task", "ops.method_config", "ops.method")
+    )
+    parents = (
+        conn.execute(
+            select(
+                edge.c.task_id.label("consumer_id"),
+                task.c.id,
+                task.c.reused_task_id,
+                task.c.unit_id,
+                task.c.unit_key,
+                task.c.run_id,
+                task.c.release_id,
+            )
+            .select_from(edge)
+            .join(task, task.c.id == edge.c.dependency_task_id)
+            .join(config, config.c.id == task.c.method_config_id)
+            .join(method, method.c.id == config.c.method_id)
+            .where(
+                edge.c.task_id.in_([claim.task_id for claim in claims]),
+                edge.c.kind == kind,
+                task.c.status.in_(_READY_SOURCE_TASKS),
+                task.c.unit_type == "source_view",
+                method.c.name == method_name,
+            )
+        )
+        .mappings()
+        .all()
+    )
+    by_consumer = {parent["consumer_id"]: parent for parent in parents}
+    if len(parents) != len(by_consumer) or len(by_consumer) != len(claims):
+        raise OperationConflict("claimed source task requires one exact same-view producer")
+    bindings = {}
+    for claim in claims:
+        parent = by_consumer[claim.task_id]
+        if (
+            claim.unit_id is None
+            or parent["unit_id"] != claim.unit_id
+            or parent["unit_key"] != claim.unit_key
+            or parent["run_id"] != claim.run_id
+            or parent["release_id"] != claim.release_id
+        ):
+            raise OperationConflict("source producer differs from the claimed run or source view")
+        bindings[(claim.unit_id, method_name)] = BoundSourceProducer(
+            parent["id"], parent["reused_task_id"] or parent["id"]
+        )
+    return bindings
 
 
 def run_source_methods(
@@ -423,7 +485,15 @@ def run_source_methods(
                 for group in _source_step_groups(steps, configs, prepared):
                     scheduled = []
 
-                    def register_ref(conn, view, method, config, cid, ref, stage=stage):
+                    def register_ref(
+                        conn, view, method, config, cid, ref, stage=stage, *, producer=None
+                    ):
+                        if producer is not None:
+                            if not isinstance(view.reader, BoundReader):
+                                raise TypeError("source dependency requires BoundReader")
+                            view.reader.source_producers = {
+                                (ref.unit_id, config.params["source_dependency_method"]): producer
+                            }
                         unit = _unit(conn, view, ref)
                         digest = method.input_digest(unit, config.config)
                         from sqlalchemy import func, literal
@@ -437,20 +507,21 @@ def run_source_methods(
                                 )
                             )
                         ).scalar_one()
-                        ih = sha256(
-                            canonical_bytes(
-                                [
-                                    prepared.release_id,
-                                    binding.input_realization_id,
-                                    binding.input_revision,
-                                    sha256(canonical_bytes(scoped_dependencies)).hexdigest(),
-                                    method.name,
-                                    method.version,
-                                    config.config_hash,
-                                    digest.bytes.hex(),
-                                ]
-                            )
-                        ).hexdigest()
+                        inputs = [
+                            prepared.release_id,
+                            binding.input_realization_id,
+                            binding.input_revision,
+                            sha256(canonical_bytes(scoped_dependencies)).hexdigest(),
+                            method.name,
+                            method.version,
+                            config.config_hash,
+                            digest.bytes.hex(),
+                        ]
+                        if producer is not None:
+                            # Reused parent invocations share the same immutable producer.
+                            # A fresh origin invalidates the child even if its digest omits custody.
+                            inputs.append(["source_producer_origin", producer.origin_task_id])
+                        ih = sha256(canonical_bytes(inputs)).hexdigest()
                         task_id = create_task(
                             conn,
                             run_id=rid,
@@ -531,10 +602,9 @@ def run_source_methods(
                                         registered[(cid, identity)] = register_ref(
                                             conn, view, method, config, cid, ref
                                         )
-                            elif config.params.get("source_dependencies") in {
-                                "source_view_interpretation",
-                                "source_view_product",
-                            }:
+                            elif (
+                                config.params.get("source_dependencies") in _SAME_VIEW_DEPENDENCIES
+                            ):
                                 prerequisite_name = config.params.get("source_dependency_method")
                                 if prerequisite_name not in configs:
                                     raise OperationConflict(
@@ -601,29 +671,43 @@ def run_source_methods(
                                         continue
                                     parent_tasks = [registered[parent] for parent in parents]
                                     task_table = table("ops.task")
-                                    statuses = list(
-                                        dependency_conn.execute(
-                                            select(task_table.c.status).where(
-                                                task_table.c.id.in_(parent_tasks)
-                                            )
-                                        ).scalars()
-                                    )
-                                    if not all(
-                                        status in {"done", "empty", "reused"} for status in statuses
+                                    parent_rows = dependency_conn.execute(
+                                        select(
+                                            task_table.c.id,
+                                            task_table.c.status,
+                                            task_table.c.reused_task_id,
+                                        ).where(task_table.c.id.in_(parent_tasks))
+                                    ).all()
+                                    if len(parent_rows) != len(parent_tasks) or not all(
+                                        row.status in _READY_SOURCE_TASKS for row in parent_rows
                                     ):
                                         continue
                                     dependency_view = run_view(dependency_conn, rid, prepared)
+                                    producer = None
+                                    if (
+                                        config.params.get("source_dependencies")
+                                        in _SAME_VIEW_DEPENDENCIES
+                                    ):
+                                        (parent,) = parent_rows
+                                        producer = BoundSourceProducer(
+                                            parent.id, parent.reused_task_id or parent.id
+                                        )
                                     task_id = register_ref(
-                                        dependency_conn, dependency_view, method, config, cid, ref
+                                        dependency_conn,
+                                        dependency_view,
+                                        method,
+                                        config,
+                                        cid,
+                                        ref,
+                                        producer=producer,
                                     )
                                     for parent_task in parent_tasks:
                                         dependency_conn.execute(
-                                            __import__("sqlalchemy").text(
-                                                "SELECT "
-                                                "ops.add_source_task_dependency"
-                                                "(:child,:parent)"
-                                            ),
-                                            dict(child=task_id, parent=parent_task),
+                                            select(
+                                                func.ops.add_source_task_dependency(
+                                                    task_id, parent_task
+                                                )
+                                            )
                                         )
                                     registered[(cid, ref.unit_id)] = task_id
                                     ready.append(entry)
@@ -645,7 +729,7 @@ def run_source_methods(
                         if not work:
                             if deferred:
                                 raise OperationConflict(
-                                    "required native ancestor context is not ready"
+                                    "required native source context is not ready"
                                 )
                             break
                         for method, config, claimed in work:
@@ -663,6 +747,9 @@ def run_source_methods(
                                 )
                                 with engine.connect() as conn:
                                     bound_reader.conn = conn
+                                    bound_reader.source_producers = _claimed_source_producers(
+                                        conn, claimed, config.params
+                                    )
                                     bound_reader.bind_source_tasks(
                                         {
                                             int(
