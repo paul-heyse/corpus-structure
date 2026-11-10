@@ -129,19 +129,9 @@ class FailureContext:
             max_bytes=self.max_bytes,
         )
         if self.diagnostic_unavailable:
-            from .operation_reporting import _report
+            from .operation_reporting import unavailable_validation_evidence
 
-            fields = report.model_dump(
-                mode="json", exclude={"report_version", "report_schema_digest"}
-            )
-            fields["evidence"] = dict(
-                kind="marker",
-                engine="boundary",
-                media_type="application/json",
-                sensitivity="safe",
-                reason=self.diagnostic_unavailable,
-            )
-            report = _report("LocatedValidationReport", fields)
+            report = unavailable_validation_evidence(report, self.diagnostic_unavailable)
         return report
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from hashlib import sha256
 from typing import Any
 
@@ -155,6 +155,37 @@ def publish_diagnostic(invocation, report, *, prepared=None, sources=(), raw_evi
     )
 
 
+def retain_optional_diagnostic(invocation, report=None, *, context, error=None):
+    """Retain an optional report; custody failure never replaces its operation outcome."""
+    if invocation is None:
+        return report
+    try:
+        if error is not None:
+            report = context.report(error)
+        return publish_diagnostic(
+            invocation,
+            report,
+            prepared=context.prepared,
+            sources=context.sources,
+            raw_evidence=context.raw_evidence,
+        )
+    except Exception as publication_error:
+        from corpus_structure.cli.output import diagnostic
+        from corpus_structure.semantic.operation_reporting import unavailable_validation_evidence
+
+        reason = "Diagnostic publication unavailable (" + type(publication_error).__name__ + ")."
+        context.diagnostic_unavailable = reason
+        # The managed owner retains published residue; no valid reference is invented.
+        with suppress(Exception):
+            invocation.stage(invocation.manifest.stage, diagnostic_unavailable=reason)
+        with suppress(Exception):
+            diagnostic(reason)
+        if report is not None:
+            with suppress(Exception):
+                return unavailable_validation_evidence(report, reason)
+        return report
+
+
 def read_diagnostic(store, result_id, *, raw_evidence=False, max_bytes=MAX_ARTIFACT_BYTES):
     from corpus_structure.cli.managed import ResultError
 
@@ -207,7 +238,7 @@ def diagnostic_scope(
 ):
     from contextlib import ExitStack
 
-    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.cli.failures import expected_refusal_types, failure_boundary
     from corpus_structure.cli.managed import result_store
     from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
     from corpus_structure.semantic.refusals import FailureContext
@@ -221,20 +252,18 @@ def diagnostic_scope(
         max_depth=max_depth,
         max_bytes=max_bytes,
     )
+    expected = (PreparationError, ReleaseConflict, ExecutionAdmissionError, *expected)
     with ExitStack() as stack:
         invocation = (
-            stack.enter_context(result_store(ctx).operation(action, account=True))
+            stack.enter_context(
+                result_store(ctx).operation(action, account=True, observations=True)
+            )
             if retain
             else None
         )
         with failure_boundary(
             json,
-            expected=(
-                PreparationError,
-                ReleaseConflict,
-                ExecutionAdmissionError,
-                *expected,
-            ),
+            expected=expected,
             context=failure,
             operation=invocation,
         ):
@@ -247,31 +276,12 @@ def diagnostic_scope(
                 raise SemanticRefusal("Invalid correction presentation limits.") from error
             try:
                 yield failure, invocation
-            except Exception as error:
-                if invocation is not None:
-                    try:
-                        failure.retained_validation = publish_diagnostic(
-                            invocation,
-                            failure.report(error),
-                            prepared=failure.prepared,
-                            sources=failure.sources,
-                            raw_evidence=raw_evidence,
-                        )
-                        failure.retained_error = error
-                    except Exception as publication_error:
-                        failure.diagnostic_unavailable = (
-                            "Diagnostic retrieval was not established: publication failed ("
-                            + type(publication_error).__name__
-                            + ")."
-                        )
-                        try:
-                            invocation.stage(
-                                "diagnostic-publication-failed",
-                                diagnostic_unavailable=type(publication_error).__name__,
-                            )
-                        except Exception as stage_error:
-                            error.add_note(
-                                "Diagnostic failure stage unavailable: "
-                                + type(stage_error).__name__
-                            )
+            except expected_refusal_types(expected) as error:
+                from corpus_structure.semantic.refusals import DATABASE_ERRORS
+
+                if invocation is not None and not isinstance(error, DATABASE_ERRORS):
+                    failure.retained_validation = retain_optional_diagnostic(
+                        invocation, context=failure, error=error
+                    )
+                    failure.retained_error = error
                 raise

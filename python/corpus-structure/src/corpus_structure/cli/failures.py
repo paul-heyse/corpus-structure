@@ -34,6 +34,15 @@ def _safe_diagnostic(value: Any) -> Any:
     return value
 
 
+def expected_refusal_types(
+    expected: tuple[type[Exception], ...] = (),
+) -> tuple[type[Exception], ...]:
+    """The deliberate refusal classes shared by translation and optional custody."""
+    from corpus_structure.semantic.operation_value_types import NativeResultViolation
+
+    return (SemanticRefusal, ValidationError, NativeResultViolation, *expected)
+
+
 @contextmanager
 def failure_boundary(
     json: bool,
@@ -44,8 +53,6 @@ def failure_boundary(
     operation: Invocation | None = None,
 ) -> Generator[FailureContext]:
     """Report deliberate failures; programming errors and cancellation retain their identity."""
-    from corpus_structure.semantic.operation_value_types import NativeResultViolation
-
     context = context or FailureContext()
     try:
         yield context
@@ -78,7 +85,7 @@ def failure_boundary(
                     f"(usage_scope={database['usage_scope']})"
                 )
         raise typer.Exit(1) from error
-    except (SemanticRefusal, ValidationError, NativeResultViolation, *expected) as error:
+    except expected_refusal_types(expected) as error:
         from corpus_structure.semantic.types import PreparationError
 
         detail: dict[str, Any] = {

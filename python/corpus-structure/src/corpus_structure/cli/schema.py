@@ -163,7 +163,10 @@ def _compile_packs(
     from corpus_structure.semantic.regeneration import acquire_packs, prepare_release
 
     domain = domain or ["statistics"]
-    from corpus_structure.cli.diagnostic_artifacts import diagnostic_scope, publish_diagnostic
+    from corpus_structure.cli.diagnostic_artifacts import (
+        diagnostic_scope,
+        retain_optional_diagnostic,
+    )
 
     with diagnostic_scope(
         ctx,
@@ -193,14 +196,7 @@ def _compile_packs(
             dependency_after=dependency_after,
             dependency_limit=dependency_limit,
         )
-        if invocation is not None:
-            validation_model = publish_diagnostic(
-                invocation,
-                validation_model,
-                prepared=prepared,
-                sources=bundle.sources,
-                raw_evidence=raw_evidence,
-            )
+        validation_model = retain_optional_diagnostic(invocation, validation_model, context=failure)
         validation = validation_model.model_dump(mode="json")
         if out is not None:
             out.mkdir(parents=True, exist_ok=True)
@@ -281,7 +277,10 @@ def check_(
             dependency_after=dependency_after,
             dependency_limit=dependency_limit,
         )
-    from corpus_structure.cli.diagnostic_artifacts import diagnostic_scope, publish_diagnostic
+    from corpus_structure.cli.diagnostic_artifacts import (
+        diagnostic_scope,
+        retain_optional_diagnostic,
+    )
     from corpus_structure.cli.output import state
     from corpus_structure.semantic.operation_reporting import projection_validation_report
     from corpus_structure.semantic.releases import verify_release
@@ -319,8 +318,7 @@ def check_(
             dependency_after=dependency_after,
             dependency_limit=dependency_limit,
         )
-        if invocation is not None:
-            validation_model = publish_diagnostic(invocation, validation_model)
+        validation_model = retain_optional_diagnostic(invocation, validation_model, context=failure)
         emit(
             CompileResult(
                 packs=[],

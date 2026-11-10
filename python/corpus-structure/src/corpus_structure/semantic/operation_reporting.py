@@ -483,6 +483,27 @@ def _document_subject_checks(
             )
 
 
+def unavailable_validation_evidence(report, reason: str):
+    """Project unavailable optional custody without changing validation meaning or disclosure."""
+    fields = report.model_dump(mode="json", exclude={"report_version", "report_schema_digest"})
+    evidence = fields.get("evidence") or {}
+    fields["evidence"] = dict(
+        kind="marker",
+        engine=evidence.get("engine", "boundary"),
+        media_type=evidence.get("media_type", "application/json"),
+        sensitivity=evidence.get("sensitivity", "safe"),
+        reason=reason,
+    )
+    limits = fields["presentation"]
+    return _validation_presentation(
+        fields,
+        detail="correction_detail" in fields,
+        max_errors=limits["max_errors"],
+        max_depth=limits["max_depth"],
+        max_bytes=limits["max_bytes"],
+    )
+
+
 def _validation_presentation(data, *, detail=False, max_errors=100, max_depth=8, max_bytes=262144):
     """Bound the complete report, preserving assessment independently of rendering."""
     from pydantic import MISSING

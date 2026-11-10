@@ -61,6 +61,15 @@ uv run ci test coverage ORIGINAL_ID RETRY_ID --view unresolved --limit 20 --json
   A coverage report's successful delivery does not establish qualification by itself.
   Use the owning plan to judge applicability and record omitted or blocked obligations.
 
+## Retained schema diagnostics
+
+`ci schema check --retain-diagnostics --json` preserves its operation outcome when optional
+validation-document publication is unavailable. Read expected validation with
+`ci schema diagnostic ID --view correction`; default JSON returns the original document.
+Unexpected defects retain their original exception and use the separate safe exception journal:
+`ci results inspect ID --view observations --json`. A validation-document refusal does not
+establish that exception observations are absent. Respect the returned availability and bounds.
+
 ## Retrieve and retain
 
 Default to managed storage and record IDs in the consuming plan or evidence. Use
