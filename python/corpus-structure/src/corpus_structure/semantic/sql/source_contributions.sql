@@ -1,3 +1,79 @@
+CREATE OR REPLACE FUNCTION ops.require_source_interpretation(p_task bigint,c jsonb,p jsonb)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE ref jsonb:=p->'source_record'; task_project text; body jsonb; member jsonb; d jsonb; candidate jsonb; focus jsonb; a data.record_anchor; field_name text; enum_name text; selected text; count_ integer;
+BEGIN
+ SELECT r.project_id INTO task_project FROM ops.task t JOIN ops.run r ON r.id=t.run_id WHERE t.id=p_task;
+ IF NOT EXISTS(SELECT FROM ops.completed_result cr JOIN ops.run r ON r.id=cr.run_id
+  JOIN ops.input_cut ic ON ic.id=cr.cut_id AND ic.run_id=r.id
+  JOIN data.realization z ON z.release_id=cr.release_id AND z.realization_id=cr.output_realization_id
+  JOIN data.source_record sr ON sr.release_id=cr.release_id AND sr.realization_id=cr.output_realization_id
+  WHERE cr.run_id=(ref->>'run_id')::bigint AND cr.cut_id=(ref->>'cut_id')::bigint
+   AND cr.release_id=ref->>'release_id' AND cr.output_realization_id=ref->>'realization_id'
+   AND z.data_revision=(ref->>'data_revision')::bigint AND r.project_id=ref->>'project_id'
+   AND r.project_id=task_project AND r.status='finished' AND r.sealed AND ic.final
+   AND sr.record_id=ref->>'record_id' AND sr.interpretation_id=ref->>'interpretation_id'
+   AND sr.source_view_id=(ref->>'source_view_id')::bigint
+   AND sr.source_view_id=(c->'pin'->>'source_view_id')::bigint
+   AND EXISTS(SELECT FROM data.record_report_member rm JOIN data.record_report rr
+    ON rr.release_id=rm.release_id AND rr.realization_id=rm.realization_id AND rr.selected_task_id=rm.selected_task_id
+    WHERE rm.release_id=sr.release_id AND rm.realization_id=sr.realization_id AND rm.record_id=sr.record_id
+     AND rm.interpretation_id=sr.interpretation_id AND rr.cut_id=cr.cut_id))
+ THEN RAISE EXCEPTION 'interpretation source record differs from completed pinned result' USING ERRCODE='23514'; END IF;
+ SELECT convert_from(content,'UTF8')::jsonb INTO body FROM sem.artifact
+  WHERE release_id=p->>'vocabulary_release' AND release_id=(SELECT release_id FROM ops.task WHERE id=p_task) AND artifact_name='vocabularies/metadata.json'
+   AND encode(sha256(content),'hex')=p->>'metadata_digest';
+ IF body IS NULL THEN RAISE EXCEPTION 'interpretation vocabulary metadata pins differ' USING ERRCODE='23514'; END IF;
+ IF c->>'semantic_type'='terminology.interpretation' THEN
+  SELECT count(DISTINCT value->>'field') INTO count_ FROM jsonb_array_elements(p->'decisions');
+  IF count_<>jsonb_array_length(p->'decisions') THEN RAISE EXCEPTION 'duplicate terminology field decision' USING ERRCODE='23514'; END IF;
+ END IF;
+ FOR d IN SELECT value FROM jsonb_array_elements(CASE WHEN c->>'semantic_type'='terminology.interpretation' THEN p->'decisions' ELSE jsonb_build_array(p) END) LOOP
+  focus:=d->'focus';
+  SELECT ra.* INTO a FROM data.record_anchor ra
+   JOIN data.record_evidence_member em ON em.release_id=ra.release_id AND em.realization_id=ra.realization_id AND em.record_id=ra.record_id AND em.interpretation_id=ra.interpretation_id AND em.anchor_id=ra.anchor_id
+   JOIN data.record_field_evidence fe ON fe.release_id=em.release_id AND fe.realization_id=em.realization_id AND fe.record_id=em.record_id AND fe.interpretation_id=em.interpretation_id AND fe.set_id=em.set_id
+   WHERE ra.release_id=ref->>'release_id' AND ra.realization_id=ref->>'realization_id'
+    AND ra.record_id=ref->>'record_id' AND ra.interpretation_id=ref->>'interpretation_id'
+    AND ra.anchor_id=focus->>'anchor_id' AND fe.role=focus->>'role' AND ra.precision='exact' LIMIT 1;
+  IF a.anchor_id IS NULL OR (focus->>'start')::bigint<a.start OR (focus->>'end')::bigint>a."end"
+   OR (focus->>'start')::bigint>=(focus->>'end')::bigint
+   OR substring(a.source_piece FROM (focus->>'start')::integer-a.start::integer+1 FOR (focus->>'end')::integer-(focus->>'start')::integer) IS DISTINCT FROM focus->>'source_piece'
+   OR a.source_view_id IS DISTINCT FROM (ref->>'source_view_id')::bigint
+   OR a.native_product_task_id IS DISTINCT FROM (c->'pin'->>'native_product_task_id')::bigint
+   OR a.product_key IS DISTINCT FROM c->'pin'->>'product_key' OR a.product_digest IS DISTINCT FROM c->'pin'->>'product_digest'
+   OR a.projection_digest IS DISTINCT FROM c->'pin'->>'projection_digest' OR a.recipe_digest IS DISTINCT FROM c->'pin'->>'recipe_digest'
+   OR (CASE WHEN jsonb_array_length(coalesce(c->'anchors','[]'))=0 THEN c->>'kind' IS DISTINCT FROM 'proposal' OR c ? 'occurrence_id'
+    ELSE NOT EXISTS(SELECT FROM jsonb_array_elements(c->'anchors') ca WHERE ca->>'pointer'=a.pointer AND ca->>'space'=a.space AND ca->>'source_piece'=focus->>'source_piece' AND (ca->>'start')::bigint=(focus->>'start')::bigint AND (ca->>'end')::bigint=(focus->>'end')::bigint) END)
+  THEN RAISE EXCEPTION 'interpretation focus does not authenticate record field source span' USING ERRCODE='23514'; END IF;
+  IF c->>'semantic_type'='terminology.interpretation' THEN
+   field_name:=d->>'field'; enum_name:=CASE field_name WHEN 'distribution_family' THEN 'StatisticalDistributionFamily' WHEN 'distribution_attribute' THEN 'StatisticalDistributionAttribute' END;
+   IF enum_name IS NULL THEN RAISE EXCEPTION 'unsupported terminology field' USING ERRCODE='23514'; END IF;
+   SELECT count(DISTINCT value->>'value') INTO count_ FROM jsonb_array_elements(d->'candidates');
+   IF count_<>jsonb_array_length(d->'candidates') THEN RAISE EXCEPTION 'duplicate terminology candidate' USING ERRCODE='23514'; END IF;
+   FOR candidate IN SELECT value FROM jsonb_array_elements(d->'candidates') LOOP
+    SELECT m INTO member FROM jsonb_array_elements(body->'enums'->enum_name->'members') m WHERE m->>'value'=candidate->>'value';
+    IF member IS NULL OR member->>'meaning' IS DISTINCT FROM candidate->>'meaning' OR coalesce(member->>'label',member->>'value') IS DISTINCT FROM candidate->>'label' THEN RAISE EXCEPTION 'candidate differs from released vocabulary' USING ERRCODE='23514'; END IF;
+    IF NOT coalesce(candidate->>'matching_field'=ANY(ARRAY['value','label','synonym','browse']),false)
+     OR (candidate->>'matching_field'='synonym' AND NOT EXISTS(SELECT FROM jsonb_array_elements(coalesce(member->'synonyms','[]')) sy WHERE sy->>'predicate'=candidate->>'matching_predicate'))
+     OR (candidate->>'matching_field'<>'synonym' AND candidate->>'matching_predicate' IS DISTINCT FROM '')
+    THEN RAISE EXCEPTION 'candidate matching field or predicate differs from source metadata' USING ERRCODE='23514'; END IF;
+   END LOOP;
+   IF d->>'outcome'='selected' THEN
+    IF NOT EXISTS(SELECT FROM jsonb_array_elements(d->'candidates') x WHERE x->>'value'=d->>'selected_value')
+     OR d->>'mapping_direction' IS DISTINCT FROM 'source_to_term' OR NOT coalesce(d->>'mapping_predicate'=ANY(ARRAY['http://www.w3.org/2004/02/skos/core#exactMatch','http://www.w3.org/2004/02/skos/core#closeMatch','http://www.w3.org/2004/02/skos/core#broadMatch','http://www.w3.org/2004/02/skos/core#narrowMatch','http://www.w3.org/2004/02/skos/core#relatedMatch']),false)
+    THEN RAISE EXCEPTION 'selected terminology mapping lacks examined candidate or predicate' USING ERRCODE='23514'; END IF;
+   ELSIF d ? 'selected_value' OR d ? 'mapping_predicate' OR d ? 'mapping_direction' THEN RAISE EXCEPTION 'unresolved terminology claims selected mapping' USING ERRCODE='23514'; END IF;
+   IF d->>'outcome'='no_match' AND jsonb_array_length(d->'candidates')<>0 THEN RAISE EXCEPTION 'no-match terminology has candidates' USING ERRCODE='23514'; END IF;
+  ELSE
+   IF d->>'outcome'='selected' THEN
+    IF NOT EXISTS(SELECT FROM jsonb_array_elements(body->'enums'->'RecognizedTimeUnit'->'members') x WHERE x->>'value'=d->>'unit') OR NOT EXISTS(SELECT FROM jsonb_array_elements(body->'enums'->'RecognizedQuantityKind'->'members') x WHERE x->>'value'=d->>'quantity_kind') THEN RAISE EXCEPTION 'measurement unit or quantity is outside released vocabulary' USING ERRCODE='23514'; END IF;
+   ELSIF d ? 'unit' OR d ? 'quantity_kind' THEN RAISE EXCEPTION 'unresolved measurement claims recognized identifiers' USING ERRCODE='23514'; END IF;
+   IF (d->>'basis_status'='identified') IS DISTINCT FROM (coalesce(d->>'basis','')<>'') THEN RAISE EXCEPTION 'measurement basis status differs' USING ERRCODE='23514'; END IF;
+  END IF;
+ END LOOP;
+END $$;
+REVOKE ALL ON FUNCTION ops.require_source_interpretation(bigint,jsonb,jsonb) FROM PUBLIC;
+
 -- Numeric product identity shares the native_float64 spelling used by PDF custody.
 CREATE OR REPLACE FUNCTION ops.contextual_identity_value(p jsonb) RETURNS jsonb
 LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
@@ -4331,6 +4407,9 @@ BEGIN
     'native_product_task_id',v.native_task_id,'product_key',v.native_product_key,'product_digest',v.native_content_digest,
     'projection_digest',v.projection_digest,'recipe_digest',v.recipe_digest,'source_view_id',v.id) THEN
    RAISE EXCEPTION 'contribution pin differs from exact selected source view' USING ERRCODE='23514'; END IF;
+  IF contribution->>'semantic_type' IN ('terminology.interpretation','measurement.interpretation') THEN
+   PERFORM ops.require_source_interpretation(t.id,contribution,data.record_source_json(contribution->'value'));
+  END IF;
   anchors:=COALESCE(contribution->'anchors','[]'); previous_ends:='{}';
   IF contribution->>'kind'='occurrence' AND jsonb_array_length(anchors)=0 THEN
    RAISE EXCEPTION 'located contribution occurrence requires source pieces' USING ERRCODE='23514'; END IF;
@@ -4562,6 +4641,16 @@ BEGIN
  SELECT p_task,c->>'contribution_id',n-1,e->>'role',e->>'contribution_id'
  FROM jsonb_array_elements(p_envelope->'contributions') c,
  LATERAL jsonb_array_elements(COALESCE(c->'endpoints','[]')) WITH ORDINALITY x(e,n);
+ INSERT INTO kb.terminology_interpretation_field(task_id,contribution_id,source_run_id,source_cut_id,source_release_id,realization_id,data_revision,record_id,interpretation_id,vocabulary_release,metadata_digest,outcome,field,selected_value,meaning,mapping_predicate,mapping_direction)
+ SELECT p_task,c->>'contribution_id',(p->'source_record'->>'run_id')::bigint,(p->'source_record'->>'cut_id')::bigint,p->'source_record'->>'release_id',p->'source_record'->>'realization_id',(p->'source_record'->>'data_revision')::bigint,p->'source_record'->>'record_id',p->'source_record'->>'interpretation_id',p->>'vocabulary_release',p->>'metadata_digest',d->>'outcome',d->>'field',d->>'selected_value',
+ (SELECT m->>'meaning' FROM jsonb_array_elements(d->'candidates') m WHERE m->>'value'=d->>'selected_value'),d->>'mapping_predicate',d->>'mapping_direction'
+ FROM jsonb_array_elements(p_envelope->'contributions') c,
+ LATERAL (SELECT data.record_source_json(c->'value') AS p) pp,
+ LATERAL jsonb_array_elements(p->'decisions') d WHERE c->>'semantic_type'='terminology.interpretation';
+ INSERT INTO kb.measurement_interpretation(task_id,contribution_id,source_run_id,source_cut_id,source_release_id,realization_id,data_revision,record_id,interpretation_id,vocabulary_release,metadata_digest,outcome,unit,quantity_kind,basis_status,basis)
+ SELECT p_task,c->>'contribution_id',(p->'source_record'->>'run_id')::bigint,(p->'source_record'->>'cut_id')::bigint,p->'source_record'->>'release_id',p->'source_record'->>'realization_id',(p->'source_record'->>'data_revision')::bigint,p->'source_record'->>'record_id',p->'source_record'->>'interpretation_id',p->>'vocabulary_release',p->>'metadata_digest',p->>'outcome',p->>'unit',p->>'quantity_kind',p->>'basis_status',p->>'basis'
+ FROM jsonb_array_elements(p_envelope->'contributions') c,
+ LATERAL (SELECT data.record_source_json(c->'value') AS p) pp WHERE c->>'semantic_type'='measurement.interpretation';
  -- Contextual derived indexes are projections of the already validated immutable report.
  INSERT INTO kb.contextual_profile(task_id,profile_id,dimension,detail)
  SELECT p_task,p->>'profile_id',(p->>'dimension')::integer,p

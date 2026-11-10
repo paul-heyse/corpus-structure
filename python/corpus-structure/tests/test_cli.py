@@ -333,3 +333,50 @@ for name in ("sympy", "scipy", "spacy", "pyarrow", "duckdb", "corpus_structure.s
 """
     result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
+
+
+def test_context_uses_names_from_settings_snapshot(cli, tmp_path, monkeypatch):
+    monkeypatch.setenv("corpus_database__pool_max_size", "5")
+    snapshot = Settings(ci_results=tmp_path)
+    monkeypatch.delenv("corpus_database__pool_max_size")
+    result = cli(
+        "context",
+        "show",
+        "--json",
+        settings=lambda: snapshot,
+        env={"CORPUS_GPU__MODE": "exclusive"},
+    )
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.stdout)
+    assert "CORPUS_DATABASE__POOL_MAX_SIZE" in report["environment_fields"]
+    assert "CORPUS_GPU__MODE" not in report["environment_fields"]
+    assert report["settings"]["resolved"]["gpu.mode"] == "auto"
+
+
+@pytest.mark.parametrize("oversized", [False, True])
+def test_authored_input_refuses_before_database_acquisition(cli, tmp_path, monkeypatch, oversized):
+    from corpus_structure.semantic import runtime
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("invalid authored input must not acquire a database")
+
+    monkeypatch.setattr(runtime, "open_runtime_engine", unexpected)
+    path = tmp_path / "input.json"
+    path.write_bytes(b"x" * (4 * 1024**2 + 1) if oversized else b"not-json-input-sentinel")
+    result = cli(
+        "interpretations",
+        "author",
+        "unused",
+        "terminology",
+        str(path),
+        "--json",
+    )
+    assert result.exit_code == 1, result.output
+    error = json.loads(result.stdout)["error"]
+    assert error["code"] == "SemanticRefusal"
+    assert error["message"] == (
+        "authored review input exceeds 4MiB"
+        if oversized
+        else "authored review input must contain valid JSON"
+    )
+    assert "not-json-input-sentinel" not in result.stdout

@@ -328,6 +328,9 @@ class OntologyPreparation:
             prefixes: dict[str, str] = {}
             for source, adapter in self.adapters.items():
                 for entity in adapter.entities():
+                    # A URI scheme is not an ontology's CURIE namespace ownership.
+                    if "://" in str(entity):
+                        continue
                     prefix = str(entity).partition(":")[0]
                     previous = prefixes.setdefault(prefix, source)
                     if previous != source:

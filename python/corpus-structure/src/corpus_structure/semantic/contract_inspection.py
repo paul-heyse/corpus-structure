@@ -28,6 +28,11 @@ def inspect_contract(
     limit: int = 20,
     input_json: str | bytes | None = None,
     validation_purpose: Literal["structural", "accepted"] | None = None,
+    correction_detail: bool = False,
+    raw_evidence: bool = False,
+    max_errors: int = 100,
+    max_depth: int = 8,
+    max_bytes: int = 262144,
 ) -> BaseModel:
     """Inspect effective products; successful input validation grants no effect authority.
 
@@ -235,7 +240,14 @@ def inspect_contract(
                 validator(subject_id, input_json)
             except ValidationError as error:
                 validated = validation_failure_report(
-                    error, prepared=prepared, scope=validation_purpose
+                    error,
+                    prepared=prepared,
+                    scope=validation_purpose,
+                    detail=correction_detail,
+                    raw_evidence=raw_evidence,
+                    max_errors=max_errors,
+                    max_depth=max_depth,
+                    max_bytes=max_bytes,
                 ).model_dump(mode="json")
             else:
                 validated = validation_report((), prepared=prepared).model_dump(mode="json")

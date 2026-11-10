@@ -1,0 +1,8 @@
+baseline: HEAD
+archive_release: release:c0c3e69fd95117bfa614014448c36c1aedf009ba4d00a6e6fe512380699b6747
+packs:
+- statistics
+native_predecessor: semantic_dmc_interpretations
+native_revision: semantic_dmc_unit_references
+deployment: true
+deployment_profile: development

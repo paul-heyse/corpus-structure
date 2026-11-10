@@ -5,7 +5,6 @@ from __future__ import annotations
 import json as jsonlib
 from collections.abc import Generator
 from contextlib import contextmanager
-from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
 import typer
@@ -17,6 +16,7 @@ from corpus_structure.semantic.refusals import (
     FailureContext,
     SemanticRefusal,
     database_failure_report,
+    safe_failure_message,
     semantic_refusal_report,
 )
 
@@ -98,7 +98,10 @@ def failure_boundary(
             diagnostic(f"{detail['message']}: {', '.join(fields)}")
             raise typer.Exit(1) from None
         if json or operation:
-            detail: dict[str, Any] = {"code": type(error).__name__, "message": str(error)}
+            detail: dict[str, Any] = {
+                "code": type(error).__name__,
+                "message": safe_failure_message(error, context=context),
+            }
             if report_expected_validation or not isinstance(error, expected):
                 try:
                     detail = semantic_refusal_report(error, context=context)
@@ -111,8 +114,16 @@ def failure_boundary(
             if getattr(error, "reason", None) is not None:
                 detail["reason"] = safe_text(str(error.reason))
             if isinstance(error, PreparationError):
+                from corpus_structure.semantic.correction_detail import preparation_diagnostic
+
                 detail["diagnostics"] = [
-                    {key: value for key, value in asdict(item).items() if value is not None}
+                    {
+                        key: value
+                        for key, value in preparation_diagnostic(
+                            item, raw_evidence=context.raw_evidence
+                        ).items()
+                        if value is not None
+                    }
                     for item in error.diagnostics
                 ]
             kind = (
@@ -129,5 +140,5 @@ def failure_boundary(
             else:
                 diagnostic(f"refused: {detail['message']}")
         else:
-            diagnostic(f"refused: {error}")
+            diagnostic(f"refused: {safe_failure_message(error, context=context)}")
         raise typer.Exit(1) from None

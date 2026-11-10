@@ -205,7 +205,9 @@ class RawReport(BaseModel):
     source_text: str
 
 
-def prepare_record_source(*, bundle_transform=None, additional_methods=()):
+def prepare_record_source(
+    *, bundle_transform=None, dependencies_transform=None, additional_methods=()
+):
     """Pure original inputs and prepared release; no database, PDF or task effects."""
     schema = dict(
         id="https://example/private-records",
@@ -268,6 +270,8 @@ def prepare_record_source(*, bundle_transform=None, additional_methods=()):
             *additional_methods,
         ),
     )
+    if dependencies_transform is not None:
+        dependencies = dependencies_transform(dependencies)
     profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(bundle, dependencies, profile)
     return RecordPreparation(bundle, dependencies, profile, prepared)
@@ -784,6 +788,7 @@ def private_source(
     method = options.get("record_method")
     preparation = prepare_record_source(
         bundle_transform=options.get("bundle_transform"),
+        dependencies_transform=options.get("dependencies_transform"),
         additional_methods=options.get("additional_methods", ()),
     )
     return build_record_source(

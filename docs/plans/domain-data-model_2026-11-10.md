@@ -1,6 +1,6 @@
 # Integrated domain-data-model capability series
 
-**Status: DMC-00–06 complete with scoped acceptance; DMC-07–17 planned · 2026-11-10.**
+**Status: DMC-00–16 complete with scoped acceptance; DMC-17 planned · 2026-11-10.**
 This coordinator owns DMC-00–17, DMC-I01–09, source opportunity disposition, selected branch
 delivery and combined qualification. Supporting plans own target explanations and package
 contracts, not duplicate progress. Existing PTD, DMA, WCE and PM2 scopes remain with their owners.
@@ -79,8 +79,8 @@ independent work may still contend for those files.
 
 ## Execution queue
 
-DMC-00–06 delivery and scoped acceptance are recorded in the execution receipts below;
-DMC-07–17 remain **planned**. This table and receipt are the current package-state owner. Investigations may finish during execution entry where source inspection
+DMC-00–16 delivery and scoped acceptance are recorded in the execution receipts below;
+DMC-17 remains **planned**. This table and receipt are the current package-state owner. Investigations may finish during execution entry where source inspection
 settles their question; no experiment quota applies.
 
 | Package | Required input → delivered capability and completion boundary |
@@ -115,8 +115,9 @@ owning selected behavior. Native versioned effects serialize through their actua
 
 Every branch receives a decision: implement with defined consumer/delivery checks, retain with
 reason, reject on corrected premises, or defer with a specific unmet premise and revisit trigger.
-I02/I03 are resolved; I01 has a selected source/field slice and remaining consumer/measurement
-work. I04–09 remain open. Decisions and supporting evidence live in the owning companion;
+I01–09 are resolved at their selected scope: delivered branches and reasoned retained branches
+with concrete triggers are detailed in the owning companions and the DMC-07–16 receipt. Decisions
+and supporting evidence live in the owning companion;
 this coordinator records their current disposition and selected package scope. A source/doc read
 may suffice; an unresolved pivotal library behavior can justify a bounded probe.
 
@@ -139,9 +140,10 @@ the owning target and this table before implementation, and add their required e
 
 ## Source disposition and complete correspondence
 
-Rows preserve functional opportunity identities, not new defect IDs. O02/O03/O04 are complete
-at their selected scope; O01 core inspection is delivered with conditional I07/I09 branches open;
-O05 foundation is delivered with DMC-07 pending. Other rows remain open through their stated routes.
+Rows preserve functional opportunity identities, not new defect IDs. O01–O13 are complete at
+their selected scope through DMC-00–16. Conditional alternatives have explicit retained outcomes
+and revisit triggers in the companions; they are not implementation claims. DMC-17 still owns
+whole-series qualification and assembled review.
 
 | Source review item | Responsible boundary and closure route |
 | --- | --- |
@@ -373,7 +375,7 @@ sets and selected original RDF facts independently. The qualified OBO digest is
 remains `7e8f945ee30c6b24139f0064d57c2edbcfc988f3f74811cad6b5c84819ce1494`.
 Fastobo is declared directly at its existing resolved version; no dependency was upgraded.
 
-Pure construction/archive/capsule/locator selection passed43 in managed result
+Pure construction/archive/capsule/locator selection passed 43 in managed result
 `f888af1d985a43e48d73a573a234c04e`; prior recipe/subtree46 and finalrecipe15 receipts remain
 bounded worker evidence. Integrated scope and native handoff are recorded below.
 
@@ -467,3 +469,312 @@ passed; `uv run ci evidence check --json` passed with zero errors and 41 inherit
 this record. Root `just turn-end` completes maintenance; it introduces no functional-source change.
 The current native/release identifiers above and the held managed selection/retry receipts are the
 successor baseline for DMC-07. Whole-series qualification remains explicitly `not_run` until DMC-17.
+
+
+## DMC-07–16 execution receipt · 2026-11-10
+
+Execution starts at clean `0a384a64e`, development `semantic_dmc_terminology`, semantic21,
+readers14–21/execution28/boundary12/archive3. The accepted conversational execution approach
+selects typed private post-extraction terminology and measurement contributions, exact source
+references and dual source/review result pins, compact native selection/group indices, local
+released vocabulary lookup, member/metadata/source-aware diff, bounded correction capture and
+optional managed custody, structural SHACL path display, offline terminology-input preflight,
+pinned identity-exclusion comparison and snapshot-tied settings explanation.
+
+Operator choices: recognition/grouping only (no numerical conversion/classification), deliver
+pinned-input comparison, safe diagnostic detail with explicit raw-evidence opt-in. Existing
+record families/GLiNER fields remain authoritative original extraction; external interpretations
+are separately reviewed contributions. Corpus-local denotes and global identity are unchanged.
+I01/I04 select captured STATO fields and direct retained named-parent display; transitive hierarchy
+requests refuse. I05 retains numerical branches. I06 selects typed pinned comparison and path
+display while retaining occurrence-witness native navigation, unique Core/SPARQL constraints and
+current inference. I07 selects the new TerminologyInterpretationV1 validation-mode offline authoring
+consumer. I08 selects snapshot explanation under init/env acquisition. I09 retains alternate
+codecs/lifecycles, provisional parsing, generic stores/workflows and domain-specific enrichment
+until a concrete transport, source-import, streaming-preview or matching research task supplies
+its stated consumer. Detailed retained triggers remain in the supporting plans and final receipt.
+
+Shared product integration targets semantic22, vocabulary metadata2, validation report4,
+semantic-impact report3 and corresponding inspection/report-schema updates; existing execution28,
+boundary12 and archive3 remain. Both native compiler guards and descriptor move together through
+a reviewed frozen forward candidate. No activation, run selection or original-source replacement
+is authorized by this delivery. Run487/cut604, `/10` and the unselected project remain protected.
+
+The [independent entry target review](../design_review/reviews/design_review_domain-data-model-interpretation-correction_2026-11-10.md) accepted scoped Proposed targets before substantial boundary edits, without blocking findings or rule impact. At entry, package execution
+and selected branch implementation were not yet qualified; original DMC-00–06 receipts retain
+their dated scopes. DMC-17 remains the whole-series qualification/assembled-review owner.
+
+
+### Current integration findings and preserved intermediate evidence
+
+Independent implementation review identified safe preparation-diagnostic leakage, root alias
+explanation mismatch, ambiguity checks outside selected roots and unbounded offline examination.
+Their final closure is established by the selected-scope acceptance and replacement evidence below. The safe compiler/wire
+presentation now withholds library message/expected/actual values, including the outer envelope;
+sentinel direct/retained checks passed exact retry `fe5091157d304b7ea2a18526bbffd37b` after
+`781a047b957a46a38f2d1a3621046f80` exposed a duplicate-evidence keyword bug, which is fixed.
+Settings alias and record-root fixes retain their independent known-answer checks.
+
+Pure vocabulary-facet checks passed 4 in `535a39dd121f4f519e5970792be7bade`. Worker correction/PDF
+selection passed 121 `06f7655531a84b1a929d32ebbfa2a5c0`; correction/report/custody/inspection passed 69
+`25dbb572df2946e4b25490a70b24118d`. These are bounded development evidence, not final integrated
+qualification. Original report failures `0fa93282387c4e22ac11337f38f993fa` and
+`69c21a7a212c461e9dc0f6fb393ef899` remain failures. Settings 64 passed
+`2ccfd7468e3747b9afe15c55ee5a26af`, final alias 22 passed `cd2575ae157c48e3a442e19db974cf75`;
+comparison 12 passed `501a981b20f8497bab72ddf1116c5ac5`. At that point, new native tests were due after registration; final coverage is recorded below.
+
+Provisional previews `056bc0455c7640a2ad343a659eadd94b` and
+`fe5114e86045424dbe26b42922ab4dd1` passed; apply `3c9c3a764aa046c1a76d4c49b543b180` passed.
+Rollback candidate `2794fe0fec514a22a7cc0ec09c70034f` refused an unresolved method-family dimension
+for the newly added authored source-record enabler before any database effects. All are retained
+as intermediate evidence; the final authored producer requires a fresh source-bound preview.
+These provisional attempts made no deployment effects. The subsequent frozen candidate and partially completed deployment are recorded below.
+
+Genuine record inspection found normal-distribution evidence in run487/cut604 and a captured
+lightbulb lifetime example in view456 with 1000 hours. Existing extracted records have no positive
+hour-unit field. I09/DMC16 therefore selects one narrow additional authored-source-record method
+through existing record schemas, ordinary source completion/coordinates and unchanged original
+source custody. This enables an independently evidenced new measurement record and its reviewed
+recognition without fabricating data, remapping coordinates, changing GLiNER or adding a provider.
+The generic grammar/ETL/workflow alternatives remain retained. Final real recognized-unit/grouping
+acceptance remains required; unresolved-only grouping does not complete DMC10.
+
+
+### Forward adoption and source-contract correction
+
+Rollback candidate `7e515c6de9ca4e469e4b6bb7942d625f` passed ten native changes and eleven ordinary
+operations; registration `03f65b2180ff4c588dff02c9f2d9365b` froze them. Deployment
+`529d94f0aad2425e90c0c8878de28209` **failed** after committed migration/archive effects:
+`semantic_dmc_interpretations` was reached and release
+`release:c0c3e69fd95117bfa614014448c36c1aedf009ba4d00a6e6fe512380699b6747` was archived,
+but admission correctly refused four unchecked external unit/quantity meaning assertions.
+The frozen migration/archive remain intact; that release is not admitted for execution.
+
+The accepted DMC10 scope is recognition/grouping, with captured Valuesets0.4.2 DRAFT reference
+metadata and unassessed numerical equivalence. The correction keeps SECOND/MILLISECOND/HOUR/TIME
+as finite local admitted identifiers and derives separate unchecked `source_identifier` metadata
+from captured source declarations. It adds no UO/QUDT semantic authority and does not weaken
+native/Python admission. The metadata writer establishes the captured association; authenticated
+archived products, finite profile/status/provenance and manifest source digests govern reads.
+An attempted PV annotation was refused by the closed authoring grammar (preview
+`8651dca64d104285aaa9a39b77625946`, test `742f945c667f4b688f3223c42cb92264`); no grammar expansion was introduced.
+The focused replacement passed two identities in `0fbd9c3c05dd4fa49b9a3c6da9a9c6be`.
+
+Settings re-review found a same-name AliasPath head attribution edge. Native alias/name validation
+policy and ordered AliasChoices now govern canonical attribution; 27 known-answer cases passed
+`8fd347cf0df64759b1ce0ac477a68e6a`. The fixture's ConfigDict type was replaced with SettingsConfigDict;
+`ci check` originally failed only that typing declaration while lint/ADR/docs/deps/Clippy passed,
+and `uv run ci check --only types --json` then passed. Clippy used
+`rustc 1.101.0-nightly (2d20b42b8 2026-11-04)`; no Rust behavior changed.
+Independent offline bounds/closure tests passed eight in `cd09dec1460a4f63bd1a18936bea4fa5`,
+including unknown dialect/vocabulary, missing local/external resources, anchors, wrong mode/digest
+and honest nested truncation. These are focused evidence pending the integrated affected union.
+
+Successor preview `2ee8b383d2ff4e38a1871caa1bfe6174` and apply
+`31b835e228714e97b59345c25d53eb96` passed for the same development target, bound predecessor
+`semantic_dmc_interpretations` and proposed `semantic_dmc_unit_references`.
+It prepares `release:5ba61afbc134e99edf2c131b3eb0ee506eb2a52f0232c8d65b426728b885dc0a`.
+That intermediate stage still required successor registration/deployment and final acceptance, recorded below.
+
+
+Candidate `5ed2c6bfadff45089fd16b1e04c315b0` passed rollback execution but omitted the new helper
+from the explicit native-function inventory; it was never registered/deployed. The inventory
+was corrected. Candidate `0ebe6a4e8b66421f8012099425ce91de` then **failed** SQL42601 in the helper's
+IF/CASE expression, with established rollback cleanup and unchanged development head. Parenthesizing
+the CASE expression corrected the parse; a direct forced-rollback parse and the subsequent full
+candidate7e515 passed. These receipts preserve the difference between rollback candidate success,
+review acceptance, actual native effects and execution admission.
+
+Successor rollback candidate `f191397d83424e04be5f23ed5d896e6e` **passed** with zero native and zero
+ordinary changes against the already installed22 catalog. Registration
+`c9a1983327c54c57b3a9f3d2f5938323` froze `semantic_dmc_unit_references`; its no-op forward revision
+preserves the installed functions/tables and binds corrected release archival/admission. The
+original `semantic_dmc_interpretations` frozen bytes remain untouched. Integrated affected
+campaign `40ffc0b783d14331ba579b1438ed13bd` then ran against registered head fixtures; its failures and replacements follow.
+
+
+The second deployment `c8f0361d4e8f47d1b07818386ad99689` **failed** after reaching
+`semantic_dmc_unit_references` and archiving5ba61. Admission found the two new metadata-digest
+regex declarations unsupported by native lowering. They are removed; existing Python/native
+checks compare the supplied digest to the exact authenticated metadata SHA, stronger than shape
+matching. Wrong-but-hexadecimal digest negative controls remain. Native admission is unchanged.
+The [bounded static preflight](../design_review/evidence/2026-11-10_dmc-interpretation-correction/admission-preflight.py)
+settled native lowering/inference/scope/pattern/diagnostic readiness for7caa at partial strength;
+full admission still requires actual archived binding/deployment, so this is not a deployment pass.
+
+Initial affected campaign `40ffc0b783d14331ba579b1438ed13bd` **failed**, 749 selected/693 passed/56 failed.
+Forty-seven method-consumer failures shared a missing terminology import in a handwritten test
+bundle. Three terminology fixtures lacked observation product ancestry; two new native fixtures
+lacked captured ontology dependencies. Their actual closure is now supplied without waiving
+checked STATO meanings. Four old assertions assumed raw graph messages/untyped report markers
+or message text instead of safe diagnostic codes/paths. Updated expectations preserve source
+paths, report digests, original exception causes and explicit custody. Exact retry
+`f2098422cae34d40a7a09a593b5043db` passed55/56; its remaining case used an ordinary writer connection
+for a read-only repeatable-read consumer. The test now uses the established read_snapshot owner,
+and exact retry `d19c12eed0d44339adb11a373232d83e` passed. No isolation refusal was weakened.
+Additional overlapping worker selection `7173766187684a06b1286247200f8c7b` passed4/5 with that same
+transaction-fixture failure; it is not a distinct qualification claim.
+
+The graph error outer envelope also withheld raw engine messages only after a final correction
+to `safe_failure_message`; actual shape/runtime exceptions retain their in-call cause. Sentinel
+safe/raw checks passed2 `b1a7351b4a5948a1a7b0bbc2d3d0e0c8`. This source edit caused registration
+`c780a5ebc3f84aa396195afa218452a5` to correctly refuse the stale candidate input, with no effects.
+Candidates `13c78d48da2843f4bb7cc6dc5ec51266` and `1ac7592025ab43be90602f65aee672e0` passed rollback
+checks but are superseded source-bound attempts, not deployed deliveries.
+
+Authoring input now performs an actual bounded4MiB read and refuses oversized/invalid JSON
+before database acquisition through the existing structured failure boundary. The first two
+CLI guard tests used nonexistent option flags (`29e82944637f4ffdba666b0bdaa97ace`, failed); only
+the test invocation changed to the installed positional command contract. These changes require
+a fresh final-source test selection and source-bound native registration. The later genuine journey revealed the two bounded source corrections described below.
+
+
+### Final native/source endpoint
+
+The final frozen source preview `9196f1de7d28405ebdb6b78c4ed94631`, apply
+`ceff731f083643e18da0789399d57b72`, rollback candidate
+`8b565ecef55f4fddbd4db6329404557c` and registration
+`7dc9572d6cad4a8a80390f71131dab9e` **passed**. The successor candidate has zero native/ordinary
+changes, preserving the installed22 functions/tables; its final source binding includes the
+safe outer graph envelope and bounded authoring input. Deployment
+`a6e9f688d5634726b1b4d0935b6fb644` **passed** migration, archive, admission and verified stages.
+
+- Native head: `semantic_dmc_digest_binding`, dedicated development database, system7701811359771751232,
+  databaseOID25921445, PostgreSQL18.6 socket/port5434.
+- Release: `release:7caa087c2b31e65c316fc3224b6fe236d93a68a817ea10f5745bcd9c88464fa1`.
+- Execution model: `execution:cd35ef5b79a2fd4cb8bcfe46dd29ff26272997062abe6a3131e15d7b9456b0dc`.
+- Artifact set: `df5df9675984fa8d65fd5d89769d368343361846ecca136b0bcf05356c703fdb`.
+- Physical: `physical:164682ca970e6043c952756038ef64099e7e32dc8e1e90fd4215c816e261bb41`.
+
+`uv run ci db status --maintenance --json` and `uv run ci db check --release RELEASE --json`
+**passed**. No activation or selection occurred. The final affected campaign is
+`f2c72f64326c4322845dcb2550e43940`; its result and the subsequent genuine source/response/method evidence follow below.
+Authoring guard retry `5df1a4fd90a14a8c9def0b85489842fe` **passed** both cases. Final types/lint
+passed on frozen functional source; documentation publication passed837 canonical pages/74ADRs
+with no link errors before final acceptance/handoff prose. Earlier failed candidates, deployments,
+tests and stale registration remain held and retain their actual outcomes.
+
+
+The complete affected campaign `f2c72f64326c4322845dcb2550e43940` **passed753/753**, with real native
+observations. `ci test coverage ... --view unresolved` reports753 covered, zero unresolved,
+zero missing lanes and no source/context difference within that attempt. It covers all declared
+semantic/archive/terminology/diagnostic/review/record/native publication consumers and adjacent
+method/settings/CLI scope; the original749 campaign and its retries remain held failures/passes,
+not relabelled as one successful invocation.
+
+The genuine source journey subsequently exposed an untested review-detail response boundary:
+retained tuples inside source contributions were passed to JsonValue through Python validation.
+Normal review run491/cut606 was already sealed/projected correctly; its first CLI detail read
+failed. The owning `serve.interpretations.answer` now uses Pydantic's JSON-context validation of
+bounded canonical response bytes. No declaration, SQL, source record or semantic release changes.
+The independent tuple/empty-anchor/nested-field and byte-refusal regression passed
+`4a0a47b988da4cb89baa6e963dc24474`. The earlier753 pass retains its pre-bridge source scope;
+affected response consumers and the genuine read/authoring journey are being rechecked on the
+one-file replacement. Types passed after this correction. Failed journey attempts retain logs
+and the original successful authored result; no duplicate normal review is needed.
+
+
+Post-bridge archive verification `uv run ci release check --release RELEASE --json` **passed**
+for the same7caa release. The fix changes the current response reader, with no semantic,
+declaration or native SQL change; ordinary new variance authoring also passed the existing
+execution checks on that release. Original normal review491/cut606 now passes CLI/MCP retained-detail,
+filtered-record and known-use parity. New variance review492/cut608 is private/unselected and
+uses unchanged source487/cut604. Both receipts are retained in the genuine journey outputs;
+measurement source/recognition and follow-up verification were the next work, completed below.
+
+
+The post-response replacement selection `dad36cddbc9a422e846863aa588789de` **passed84/84** on the
+JSON-context response reader. Combined coverage with the753 campaign reports all original753
+identities covered, zero unresolved/missing lanes and complete native observations. Its declared
+source difference is that reader plus its new independent test; context differences reflect
+fresh isolated database bindings under the same native head/server/role policy, not an untested
+physical catalog. The additional tuple-boundary identity extends the required union beyond753.
+`uv run ci check --view steps --json` **passed** all applicable checks (agents, ADR, ruff, types,
+docs, deps and Clippy); rules-scan/test are **not_run**, reason: no rules registered.
+
+The genuine authored measurement source completed as private run493/cut610 from view456's
+captured1000hours passage. Its next review exposed a method dispatch conflation between later
+record-result custody and original coordinate authority. The configuration correctly names
+original487/cut604 while payload.source_record correctly names493/cut610. Method dispatch now
+checks project/view and retains the complete original configuration pin; native completion still
+authenticates the completed record result and exact original product/rendition/anchor/span pins.
+No SQL/authentication check was weakened. A native regression now authors a later record result,
+reviews it using the original coordinate reference and rejects a forged original native digest.
+This second post-campaign source correction is limited to methods/interpretations.py; targeted
+method/record/native/CLI verification and the real measurement review subsequently passed, as recorded below.
+
+
+The final method/record/native/CLI replacement campaign `d98cc498488e4229b4d53b6e0b1a9d10`
+**passed157/157**, including the expanded native dual-authority/forged-digest case. Combined
+`ci test coverage` with753 and84 reports the original753 identities covered, no unresolved nodes,
+no missing lanes, no context unknowns and complete native observations for all three attempts.
+The two post-campaign production edits are confined to response JSON framing and original-source
+versus record-result dispatch. Their selected consumer replacements cover the changed behavior;
+all other functional source, schemas, native SQL, frozen migration bytes, Python/library versions,
+server18.6 and purpose-role policies are unchanged. Isolated databases have fresh bindings under
+`semantic_dmc_digest_binding`; those binding identities differ without changing the physical/native
+contract. The new independent response test is additionally covered, so the scoped required union
+is754 distinct test identities. Types passed after the final method edit; no performance/provider
+claim follows from these functional results.
+
+Genuine measurement review495/cut612 completed against existing record493/cut610 using original
+source487/cut604. HOUR/TIME grouping, CLI/shared grouping parity and bound vocabulary uses passed.
+A subsequent MCP request correctly refused the evidence script's default project; the script now
+supplies the original project explicitly. This is a valid scope refusal, with no product or policy
+change. Successful private results are reused rather than authored again during remaining reads.
+
+
+### Selected scope acceptance and next boundary · 2026-11-10
+
+**DMC-07–16 are complete with scoped functional/native acceptance.** I01/I04–09 have selected
+or retained dispositions, with mechanisms and revisit triggers in the three supporting companions.
+This closes the selected O05–O13 capabilities and remaining independent/tooling branches of O01;
+O02–O04 retain their prior scoped receipts. The four independent implementation-review findings
+are closed by the safe preparation/graph sentinel checks, native selected-root ambiguity check,
+27 settings alias cases and bounded independent offline cases. The genuine journey additionally
+closed the retained-tuple response and dual-authority dispatch defects. No weakening of source,
+project, snapshot, archive or native authentication was used to reach acceptance.
+
+The [genuine acceptance evidence](../design_review/evidence/2026-11-10_dmc-interpretation-correction/README.md)
+passes explicit normal-distribution and variance reviews against unchanged source487/cut604,
+ordinary authoring of a located1000hours record, its HOUR/TIME review/group/use survey, shared
+CLI/MCP parity, exact portable-schema export and independent structural-only preflight. All four
+successful new results are retained_private/selectedfalse: normal491/cut606, variance492/cut608,
+source record493/cut610 and measurement495/cut612. Run494 is an allocation gap after rollback,
+not a missing published result: bounded inspection finds no run/task/cut/result/source-view rows.
+The failed attempt leaves one explicitly recorded empty input realization at revision0, with no
+records or project selection reference. Its custody disposition and failed logs are preserved.
+
+The actual exclusion-comparison CLI/MCP population is0/0, complete with no changes; stable
+run/cut/release/realization/revision pins agree while each read retains its distinct capture UUID.
+The populated native fixture independently covers actual completed declaration comparison and
+bounds. This real empty population does not claim a populated scientific exclusion study.
+Safe/raw correction custody, structural SHACL paths and settings snapshots retain their original
+known-answer/native/managed-artifact checks. Original failed/interrupted receipts and journey
+attempts remain preserved; later passes do not change their outcomes.
+
+The scoped union is754 distinct test identities: the753 campaign plus its additional response
+regression, with affected replacements84 and157 as described above. Coverage is complete for that
+union; final-source applicability rests on the stated two-file corrections and their actual native
+and live consumers. The native head remains semantic_dmc_digest_binding with admitted7caa;
+response/dispatch repairs changed no declaration, semantic release or SQL. No activation,
+run selection, original source replacement, dependency or toolchain move occurred. `/10`, the
+unselected project and the protected Standard/Nemotron tie remain preserved. Expected benefits
+are qualitative; external-provider qualification and benchmarks are **not_run** for this scope.
+
+DMC-17 remains **planned** and owns full-series functional/provider/nonfunctional qualification,
+the assembled target review, remaining series-level acceptance and the subsequent PM2 handoff.
+This tranche does not declare that enclosing exit complete. Its next execution baseline is the
+admitted native/release endpoint and final source plus the held applicable receipts above.
+Final evidence/publication/maintenance checks and commits follow below.
+
+
+Final handoff endpoints, 2026-11-10: both evidence records were finalized through
+`uv run ci evidence finalize FOLDER RECORD`; `uv run ci evidence index --json` and
+`uv run ci evidence check --json` **passed**, 365 records/183 folders, zero errors and 41 inherited
+warnings outside these records. The first finalize invocation used a repository path rather than
+the required folder ID and refused; the initial pre-finalization check found missing hashes/index.
+The corrected owner workflow resolved those conditions without changing raw evidence. `uv run ci docs check` **passed** 837 canonical pages/74 ADRs with zero link errors after
+the handoff prose; root `just turn-end` **passed** with no functional-source edits. No functional source changed
+after the157 replacement campaign; final edits affect owner/evidence/status prose only. The
+implementation and handoff commit names record their actual scoped test outcomes. No push follows.

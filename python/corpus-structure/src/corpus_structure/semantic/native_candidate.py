@@ -979,6 +979,7 @@ def series_native_definitions(connection, *, include_selected=True):
         "validate_named_annotation_links",
         "validate_scope_inheritance",
         "clause_model_concordance",
+        "require_source_interpretation",
         "validate_source_contribution_report",
         "project_source_contributions",
         "contextual_identity_value",

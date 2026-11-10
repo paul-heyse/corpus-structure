@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "id": "dmc.static-admission-preflight",
+  "title": "Read-only partial native admission preflight",
+  "group": "domain-data-model",
+  "package": "DMC-16",
+  "finalized": "2026-11-10",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the current statistics pack retain another unsupported static native-lowering obligation after the selected descriptive-unit and exact-digest corrections?",
+  "answers": [
+    "DMC-07",
+    "DMC-08",
+    "DMC-10",
+    "DMC-16"
+  ],
+  "method": "Prepare the actual statistics pack and call existing native_constraints and inference admission; inspect current property patterns/scopes and required diagnostics. Attempt full admit_release without a database to retain its exact deployment prerequisite. This probe performs no database operations.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-10_dmc-interpretation-correction/admission-preflight.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "admission-preflight.py",
+      "role": "Read-only existing-owner preflight",
+      "sha256": "ecb755c949a350aa695e93da68a04362939bc2302a74d45f0da249ff013fb03f"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/admission-preflight-partial.json",
+      "role": "Accepted partial result for release:7caa087c2b31e65c316fc3224b6fe236d93a68a817ea10f5745bcd9c88464fa1",
+      "sha256": "ace6ee04bb48b1c450b58e7cb1b528fbebe5ad5a31b7d2a3f07127ad22e2b02f"
+    },
+    {
+      "path": "raw/admission-preflight-03.stdout.json",
+      "role": "Partial probe stdout",
+      "sha256": "81a232fe1c685b258283eda1e7232b855f35c9d4347a3c3970bdc638e3fda735"
+    },
+    {
+      "path": "raw/admission-preflight-03.stderr.txt",
+      "role": "Preparation diagnostics",
+      "sha256": "c1cbf9a62ead3519266926e0e75b91d9c20cd3c0e9995fd81708049726b0f52d"
+    },
+    {
+      "path": "raw/admission-preflight.json",
+      "role": "Earlier full admission prerequisite refusal",
+      "sha256": "32ca42bb5e1f5ce208fecb7091168137d0e2195eb914668028660b3fed143145"
+    },
+    {
+      "path": "raw/admission-preflight-02.stderr.txt",
+      "role": "Full admission prerequisite traceback",
+      "sha256": "0fdbb4842f1ed04ee6c0e485396279ecf1ea3683c8bb54b94ed91e0c40b1f966"
+    },
+    {
+      "path": "raw/admission-preflight.stderr.txt",
+      "role": "Interrupted initial probe diagnostics",
+      "sha256": "16ef6e150e9e1de43a9c243b78fd7cc395056272fec14fc8e51a415b8e7fabc8"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "native_constraint_lowerings",
+      "value": 809,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "remaining_property_patterns",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unsupported_constraint_scopes",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unpermitted_diagnostics",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "inference_lowering",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "full_admission",
+      "value": "blocked",
+      "of": null,
+      "unit": null,
+      "note": "composed admission requires verified native deployment"
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "For release:7caa087c2b31e65c316fc3224b6fe236d93a68a817ea10f5745bcd9c88464fa1 static lowering, inference, pattern/scope and required-diagnostic checks pass. Full admit_release is blocked because composed admission requires verified native deployment and the exact archived release binding. No database state, native deployment, functional behavior or later source state is qualified by this read-only result.",
+  "consumed_by": [
+    "DMC-16",
+    "ADR-0077"
+  ]
+}

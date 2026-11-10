@@ -37,6 +37,8 @@ _PRESENCE = "__present"
 class PayloadContractError(ValueError):
     """Located payload or interpretation mismatch; never silently omitted content."""
 
+    validation_capture: Any = None
+
 
 def _error(path: str, message: str) -> NoReturn:
     raise PayloadContractError(f"{path}: {message}")
@@ -227,21 +229,27 @@ class PreparedPayloadFamily:
     schema_digest: str
     validator: Any
 
-    def _validated_row(self, value: Mapping[str, Any]) -> dict[str, Any]:
-        errors = sorted(
-            self.validator.iter_errors(value), key=lambda e: tuple(map(str, e.absolute_path))
-        )
-        if errors:
-            error = errors[0]
-            _error("#/" + "/".join(map(str, error.absolute_path)), error.message)
+    def _validated_row(
+        self, value: Mapping[str, Any], *, detail=False, max_errors=100
+    ) -> dict[str, Any]:
+        from .correction_detail import capture_json_errors
+
+        capture = capture_json_errors(self.validator, value, detail=detail, max_errors=max_errors)
+        if capture.errors:
+            error = capture.errors[0]
+            failure = PayloadContractError(
+                "#/" + "/".join(map(str, error.absolute_path)) + ": " + error.message
+            )
+            failure.validation_capture = capture
+            raise failure from error
         # Strict type/finite checks are not supplied by JSON Schema's integer/number tests.
         row = _to_arrow(value, self.json_schema, self.json_schema, "#")
         if not isinstance(row, dict):
             _error("#", "page payload requires an object")
         return row
 
-    def validate(self, value: Mapping[str, Any]) -> None:
-        self._validated_row(value)
+    def validate(self, value: Mapping[str, Any], *, detail=False, max_errors=100) -> None:
+        self._validated_row(value, detail=detail, max_errors=max_errors)
 
     def logical_digest(self, value: Mapping[str, Any]) -> str:
         self.validate(value)

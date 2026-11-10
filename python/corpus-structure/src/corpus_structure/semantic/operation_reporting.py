@@ -30,9 +30,9 @@ if TYPE_CHECKING:
 
 _REPORT_VERSIONS = {
     "OperationExplanation": 2,
-    "LocatedValidationReport": 3,
-    "SemanticImpactReport": 2,
-    "ContractInspection": 1,
+    "LocatedValidationReport": 4,
+    "SemanticImpactReport": 3,
+    "ContractInspection": 2,
 }
 _SCHEMA_NAMES = tuple(_REPORT_VERSIONS)
 _SCHEMA_PATH = "model/semantic/operation-report-schemas.json"
@@ -488,6 +488,7 @@ def validation_report(
     *,
     prepared: PreparedRelease | None = None,
     operation: str | None = None,
+    raw_evidence: bool = False,
     projection_dependencies: dict[str, Any] | None = None,
 ) -> BaseModel:
     categories = {
@@ -496,6 +497,8 @@ def validation_report(
         "unresolved": "unassessed",
         "unchecked": "unassessed",
     }
+    from .correction_detail import preparation_diagnostic
+
     observations = [
         dict(
             category=categories[item.outcome],
@@ -504,11 +507,10 @@ def validation_report(
             input_path=item.location,
             operation=operation or item.consumer,
             scope="preparation",
-            message=item.message,
-            expected=item.expected,
-            actual=item.actual,
+            message=preparation_diagnostic(item, raw_evidence=raw_evidence)["message"],
+            expected=item.expected if raw_evidence else None,
+            actual=item.actual if raw_evidence else None,
             remedy=item.remedy,
-            original_report=canonical_bytes(asdict(item)).decode(),
         )
         for item in diagnostics
     ]
@@ -518,6 +520,13 @@ def validation_report(
             release_id=prepared.release_id if prepared else None,
             model_id=prepared.execution_model_id if prepared else None,
             observations=observations,
+            evidence=dict(
+                kind="marker",
+                engine="preparation",
+                media_type="application/json",
+                sensitivity="raw" if raw_evidence else "safe",
+                reason="Located model diagnostics; no managed raw evidence is established.",
+            ),
             projection_dependencies=projection_dependencies,
             complete=all(
                 item.outcome not in {"unsupported", "unresolved", "unchecked"}
@@ -603,6 +612,12 @@ def compare_semantic_releases(
     before: PreparedRelease,
     after: PreparedRelease,
     *,
+    connection=None,
+    source_run_id: int | None = None,
+    review_run_id: int | None = None,
+    review_cut_id: int | None = None,
+    use_limit: int = 100,
+    use_after: tuple[int, str, str] | str | None = None,
     before_runtime: RuntimeBinding | None = None,
     after_runtime: RuntimeBinding | None = None,
     dependency_detail: bool = False,
@@ -816,11 +831,59 @@ def compare_semantic_releases(
             + after_runtime.runtime_id
             + "; behavior equivalence is unassessed."
         )
+    from .vocabulary_impact import append_vocabulary_impact
+
+    append_vocabulary_impact(before, after, changes, unknowns, _changed_members, _NO_MEMBER)
+    use_survey = None
+    if any(value is not None for value in (source_run_id, review_run_id, review_cut_id)):
+        if (
+            connection is None
+            or source_run_id is None
+            or review_run_id is None
+            or review_cut_id is None
+        ):
+            raise ValueError(
+                "vocabulary uses require source run, review run/cut and reader snapshot"
+            )
+        from typing import cast
+
+        from .interpretation_queries import collect_interpretation_uses
+        from .observations import source_value
+
+        raw_after = json.loads(use_after) if isinstance(use_after, str) else use_after
+        use_cursor = None
+        if raw_after is not None:
+            if (
+                not isinstance(raw_after, (list, tuple))
+                or len(raw_after) != 3
+                or type(raw_after[0]) is not int
+                or not all(isinstance(v, str) for v in raw_after[1:])
+            ):
+                raise ValueError("invalid vocabulary use continuation")
+            use_cursor = cast(tuple[int, str, str], tuple(raw_after))
+        survey = collect_interpretation_uses(
+            connection,
+            source_run_id=source_run_id,
+            review_run_id=review_run_id,
+            review_cut_id=review_cut_id,
+            vocabulary_release=after.release_id,
+            limit=use_limit,
+            after=use_cursor,
+        )
+        use_survey = source_value(survey)
+        unknowns.discard(
+            "Retained vocabulary uses were not surveyed; supply an "
+            "explicit source/review population for impact assessment."
+        )
+        unknowns.add("Other retained vocabulary populations were not surveyed.")
+        if not survey["complete"]:
+            unknowns.add("Selected vocabulary use survey is incomplete; follow its continuation.")
     _alias_impact(before, after, changes, unknowns)
     _projection_impact(before, after, changes, unknowns)
     return _report(
         "SemanticImpactReport",
         dict(
+            vocabulary_uses=use_survey,
             before_release=before.release_id,
             after_release=after.release_id,
             projection_dependencies=_dependency_page(
@@ -1204,6 +1267,11 @@ def validation_failure_report(
     scope: str = "boundary",
     release_id: str | None = None,
     model_id: str | None = None,
+    detail: bool = False,
+    raw_evidence: bool = False,
+    max_errors: int = 100,
+    max_depth: int = 8,
+    max_bytes: int = 262144,
 ) -> BaseModel:
     """Project known validator/native facts; callers retain the original exception/report."""
     from jsonschema.exceptions import SchemaError
@@ -1221,7 +1289,36 @@ def validation_failure_report(
     from .types import PreparationError
 
     if isinstance(error, (PreparationError, ArchiveDecodeError)):
-        return validation_report(error.diagnostics, prepared=prepared, operation=operation)
+        base = validation_report(
+            error.diagnostics, prepared=prepared, operation=operation, raw_evidence=raw_evidence
+        )
+        if not detail:
+            return base
+        from .correction_detail import error_detail
+
+        correction, evidence = error_detail(
+            error,
+            raw_evidence=raw_evidence,
+            max_errors=max_errors,
+            max_depth=max_depth,
+            max_bytes=max_bytes,
+        )
+        return _report(
+            "LocatedValidationReport",
+            dict(
+                **base.model_dump(
+                    mode="json",
+                    exclude={
+                        "report_version",
+                        "report_schema_digest",
+                        "evidence",
+                        "correction_detail",
+                    },
+                ),
+                correction_detail=correction,
+                evidence=evidence,
+            ),
+        )
 
     if prepared is not None:
         if release_id not in {None, prepared.release_id} or model_id not in {
@@ -1258,7 +1355,9 @@ def validation_failure_report(
                 input_path=pointer(location),
                 operation=error.operation,
                 scope="native_result",
-                message=str(error),
+                message=str(error)
+                if raw_evidence
+                else "Boundary validation failed: " + type(error).__name__,
                 expected=error.expected,
                 actual="null" if error.actual is None else "type:" + type(error.actual).__name__,
                 original_report=(
@@ -1273,6 +1372,21 @@ def validation_failure_report(
             )
             for location in error.locations
         ]
+    elif getattr(error, "validation_capture", None) is not None:
+        observations = [
+            dict(
+                category="invalid_input",
+                code="jsonschema",
+                model_path="boundary",
+                input_path=pointer(item.absolute_path),
+                operation=operation,
+                scope=scope,
+                message=item.message
+                if raw_evidence
+                else "JSON Schema constraint failed: " + str(item.validator),
+            )
+            for item in error.validation_capture.errors
+        ]
     elif isinstance(error, ValidationError):
         observations = [
             dict(
@@ -1282,7 +1396,9 @@ def validation_failure_report(
                 input_path=pointer(item["loc"]),
                 operation=operation,
                 scope=scope,
-                message=item["msg"],
+                message=item["msg"]
+                if raw_evidence
+                else "Validation constraint failed: " + item["type"],
                 original_report="pydantic:" + error.title,
             )
             for item in error.errors(include_url=False, include_input=False)
@@ -1296,7 +1412,9 @@ def validation_failure_report(
                 input_path=pointer(error.absolute_path),
                 operation=operation,
                 scope=scope,
-                message=error.message,
+                message=error.message
+                if raw_evidence
+                else "JSON Schema constraint failed: " + str(error.validator),
                 original_report="jsonschema:" + type(error).__name__,
             )
         ]
@@ -1353,7 +1471,9 @@ def validation_failure_report(
                 else "graph/validator",
                 operation=operation or "graph_validate",
                 scope=scope,
-                message=str(error),
+                message=str(error)
+                if raw_evidence
+                else "Boundary validation failed: " + type(error).__name__,
                 original_report="exception:" + type(error).__name__,
             )
         ]
@@ -1365,7 +1485,9 @@ def validation_failure_report(
                 model_path=error.model_path,
                 operation=operation,
                 scope="projection_analysis",
-                message=str(error),
+                message=str(error)
+                if raw_evidence
+                else "Boundary validation failed: " + type(error).__name__,
                 original_report="exception:" + type(error).__name__,
             )
         ]
@@ -1377,7 +1499,9 @@ def validation_failure_report(
                 model_path="operation/compatibility",
                 operation=operation,
                 scope=scope,
-                message=str(error),
+                message=str(error)
+                if raw_evidence
+                else "Boundary validation failed: " + type(error).__name__,
                 original_report=(
                     canonical_bytes(asdict(error.semantic_reason)).decode()
                     if getattr(error, "semantic_reason", None) is not None
@@ -1393,7 +1517,9 @@ def validation_failure_report(
                 model_path="boundary",
                 operation=operation,
                 scope=scope,
-                message=str(error),
+                message=str(error)
+                if raw_evidence
+                else "Boundary validation failed: " + type(error).__name__,
                 original_report="exception:" + type(error).__name__,
             )
         ]
@@ -1405,16 +1531,31 @@ def validation_failure_report(
                 model_path="validator",
                 operation=operation,
                 scope=scope,
-                message=str(error),
+                message=str(error)
+                if raw_evidence
+                else "Boundary validation failed: " + type(error).__name__,
                 original_report="exception:" + type(error).__name__,
             )
         ]
+    from .correction_detail import error_detail
+
+    correction, evidence = error_detail(
+        error,
+        raw_evidence=raw_evidence,
+        max_errors=max_errors,
+        max_depth=max_depth,
+        max_bytes=max_bytes,
+    )
+    for observation in observations:
+        observation.pop("original_report", None)
     return _report(
         "LocatedValidationReport",
         dict(
             release_id=release_id,
             model_id=model_id,
             observations=observations,
+            correction_detail=correction if detail else None,
+            evidence=evidence,
             complete=all(item["category"] != "unassessed" for item in observations),
         ),
     )
@@ -1426,6 +1567,11 @@ def graph_validation_report(
     prepared: PreparedRelease | None = None,
     binding: GraphProjectionBinding | None = None,
     scope: str,
+    detail: bool = False,
+    raw_evidence: bool = False,
+    max_errors: int = 100,
+    max_depth: int = 8,
+    max_bytes: int = 262144,
 ) -> BaseModel:
     """Keep graph locations and original report custody; completeness is relative to scope."""
     from hashlib import sha256
@@ -1448,10 +1594,12 @@ def graph_validation_report(
             category="state_violation",
             code=item.constraint or "graph_nonconformance",
             model_path=item.source_shape or "graph/shape",
-            input_path=item.focus_node,
+            input_path=item.focus_node
+            if raw_evidence
+            else "graph/focus/" + sha256(item.focus_node.encode()).hexdigest(),
             operation="graph_validate",
             scope=scope,
-            message=item.message,
+            message=item.message if raw_evidence else "Graph constraint failed.",
             actual=canonical_bytes(dict(path=item.path, severity=item.severity)).decode(),
             original_report=reference,
         )
@@ -1464,16 +1612,42 @@ def graph_validation_report(
                 code="graph_nonconformance_unlocated",
                 model_path="graph",
                 scope=scope,
-                message=validation.message,
+                message=validation.message
+                if raw_evidence
+                else "Graph nonconformance has no located detail.",
                 original_report=reference,
             )
         )
+    from .correction_detail import graph_detail
+
+    if detail or raw_evidence:
+        correction, evidence = graph_detail(
+            validation,
+            raw_evidence=raw_evidence,
+            max_errors=max_errors,
+            max_depth=max_depth,
+            max_bytes=max_bytes,
+        )
+    else:
+        correction = None
+        evidence = dict(
+            kind="marker",
+            engine="pyshacl",
+            media_type="application/n-triples",
+            digest=reference.removeprefix("sha256:"),
+            sensitivity="safe",
+            reason="Original graph evidence remains in-call; request detail for a correction view.",
+        )
+    for observation in observations:
+        observation.pop("original_report", None)
     return _report(
         "LocatedValidationReport",
         dict(
             release_id=release_id,
             model_id=model_id,
             observations=observations,
+            correction_detail=correction if detail else None,
+            evidence=evidence,
             complete=validation.conforms or bool(validation.diagnostics),
         ),
     )

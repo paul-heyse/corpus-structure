@@ -208,13 +208,49 @@ classes:
       original_report:
         range: UrString
         slot_uri: ur:LocatedObservation_original_report
+  CorrectionPathSegment:
+    attributes:
+      kind: {range: UrString, required: true}
+      field: {range: UrString}
+      index: {range: UrInteger, minimum_value: 0}
+  CorrectionNode:
+    attributes:
+      ordinal: {range: UrInteger, minimum_value: 0, required: true}
+      parent: {range: UrInteger, minimum_value: 0}
+      engine: {range: UrString, required: true}
+      keyword: {range: UrString, required: true}
+      message: {range: UrString, required: true}
+      input_path: {range: CorrectionPathSegment, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      schema_path: {range: CorrectionPathSegment, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      rdf_json: {range: UrString}
+      path_json: {range: UrString}
+  CorrectionDetail:
+    attributes:
+      engine: {range: UrString, required: true}
+      nodes: {range: CorrectionNode, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      examined_count: {range: UrInteger, minimum_value: 0, required: true}
+      inventory_complete: {range: UrBoolean, required: true}
+      render_complete: {range: UrBoolean, required: true}
+      coverage_note: {range: UrString, required: true}
+  DiagnosticEvidence:
+    attributes:
+      kind: {range: UrString, required: true}
+      engine: {range: UrString, required: true}
+      media_type: {range: UrString, required: true}
+      digest: {range: UrString}
+      content: {range: UrString}
+      sensitivity: {range: UrString, required: true}
+      reason: {range: UrString}
+      result_id: {range: UrString}
+      artifact_role: {range: UrString}
+      member: {range: UrString}
   LocatedValidationReport:
     attributes:
       report_version:
         range: UrInteger
         required: true
-        minimum_value: 3
-        maximum_value: 3
+        minimum_value: 4
+        maximum_value: 4
         slot_uri: ur:LocatedValidationReport_report_version
       report_schema_digest:
         range: UrString
@@ -241,6 +277,8 @@ classes:
         range: ProjectionDependencyPage
         inlined: true
         slot_uri: ur:LocatedValidationReport_projection_dependencies
+      correction_detail: {range: CorrectionDetail, inlined: true}
+      evidence: {range: DiagnosticEvidence, inlined: true}
   SemanticMemberChange:
     abstract: true
     attributes:
@@ -320,13 +358,17 @@ classes:
       report_version:
         range: UrInteger
         required: true
-        minimum_value: 2
-        maximum_value: 2
+        minimum_value: 3
+        maximum_value: 3
         slot_uri: ur:SemanticImpactReport_report_version
       report_schema_digest:
         range: UrString
         required: true
         slot_uri: ur:SemanticImpactReport_report_schema_digest
+      vocabulary_uses:
+        range: SourceValue
+        inlined: true
+        slot_uri: ur:SemanticImpactReport_vocabulary_uses
       projection_dependencies:
         range: ProjectionDependencyPage
         inlined: true
@@ -511,8 +553,8 @@ classes:
         range: UrInteger
         slot_uri: ur:ContractInspection_report_version
         required: true
-        minimum_value: 1
-        maximum_value: 1
+        minimum_value: 2
+        maximum_value: 2
       report_schema_digest:
         range: UrString
         slot_uri: ur:ContractInspection_report_schema_digest

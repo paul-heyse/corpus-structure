@@ -1,6 +1,6 @@
 # Terminology, located grounding and measurement interpretation
 
-**Implementation plan; DMC-06 mechanism selected, remaining targets Proposed, 2026-11-10.** This companion develops DMC-06–DMC-10
+**Accepted implementation design and selected mechanisms, 2026-11-10.** This companion develops DMC-06–DMC-10
 and investigations I01/I04/I05 for the [DMC coordinator](../domain-data-model_2026-11-10.md).
 The coordinator owns execution state, source correspondence and scheduled disposition;
 the package descriptions here define delivery rather than another progress ledger.
@@ -470,3 +470,60 @@ tests, probes, installs and benchmarks **not_run**. Documentation publication ch
 maintenance belong to the coordinator. The coordinator records source/field selection, completed prerequisites and actual execution
 evidence. I01's remaining consumer/measurement slice, I04 and I05 stay prerequisites of their
 dependent consumers; plan prose alone does not establish delivery.
+
+
+## Selected interpretation delivery · 2026-11-10
+
+**Accepted target; implementation qualification pending.** DMC07/08 share a typed
+TerminologyInterpretationV1 private contribution over the unchanged source record. DMC10 uses
+MeasurementInterpretationV1. Existing RetainedContributionSemantics, UnitResult completion,
+sealed task custody and atomic derived projection remain the owners. Authored methods supply
+explicit source references and review tuples; the authoring application creates a bounded private
+run through ordinary run_source_methods, final cut sealing and consolidation, never direct index
+publication. CLI/MCP lookup/detail/filter/group and offline authoring consume those products.
+
+A focus references the original admitted record field/evidence/anchor, including its declared
+coordinate space and rendition/product pins. Selected-projection evidence is not remapped into
+physical/native coordinates. Reference-only proposals carry no invented occurrence or duplicate
+physical anchors. If new contribution anchors are supplied they must independently reconstruct
+and agree with the referenced focus. Completed result/record/interpretation/field/span, actual
+source view and vocabulary metadata remain authenticated by native completion.
+
+Filters bind source result and review result/cut separately, select roots before ambiguity checks,
+then apply terminology predicates before count/paging/hydration. Multiple reviews of the requested
+root require explicit selection; unrelated roots cannot block a query. Exact-mapping filtering
+excludes close/broad/narrow relations. Direct named-parent display is available; transitive
+ancestor requests refuse rather than invent missing closure. Nine released terminology members
+use bounded enumeration over cached metadata rather than an additional index/cache; matching
+policy and examined universe remain explicit and no OAK preparation occurs per read.
+
+Measurement identity uses the captured Valuesets0.4.2 SECOND/MILLISECOND/HOUR and TIME source
+subset. These are finite local identifiers; their captured UO/QUDT IRIs are descriptive
+`source_identifier` metadata with DRAFT/unchecked status, not LinkML semantic `meaning` assertions.
+Metadata preparation derives these informational references directly from the captured Valuesets
+bytes. Reads corroborate their finite enum/member profile, source pins and descriptive status
+under the authenticated archived-product boundary; they do not recheck external ontologies. Required-semantic admission remains strict. This preserves
+the selected identification/grouping target without acquiring new UO/QUDT ontology authority.
+URI schemes are not CURIE prefix ownership.
+Numerical conversion/classification remain retained. Grouping preserves role/referent/basis and
+references, with numerical equivalence unassessed. Source/support and archived membership remain
+separate from external interpretation and accepted knowledge.
+
+DMC09 compares archived member/metadata/source/check facets once. Its optional explicit source/
+review survey retains typed structural facts, bounds and continuation. Other populations stay
+unassessed. DMC13 exports retained validation schema bytes for structural preflight only. The
+coordinator owns final package status and evidence; these mechanism choices do not establish
+native or genuine-corpus acceptance.
+
+
+### Distinct result custody and original coordinate authority
+
+The selected authored-record/review workflow retains two references. A source-record result can be
+completed in a later private run while its anchor/native-product coordinates remain owned by the
+original source run. The review configuration supplies that original ExternalSourceRef; its typed
+payload separately supplies the completed source_record result/run/cut/release/realization/revision.
+Dispatch compares the intended project/view. Native completion authenticates the complete retained
+record result and exact original product/rendition/anchor/span pins independently. It never equates
+these two run identities or remaps an old coordinate into the new run. A later record result does
+not acquire ownership of original source bytes. This is the same dual-authority contract for a
+post-extraction review and for the selected authored-source-record enabler.

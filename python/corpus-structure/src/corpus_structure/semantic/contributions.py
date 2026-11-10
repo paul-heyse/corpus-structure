@@ -125,6 +125,11 @@ def validate_contribution_semantics(prepared, row, *, question, payload_contract
         )
     else:
         prepared.validate_python(row["contract"], bound_contribution_semantics(row))
+    if row["semantic_type"] in {"terminology.interpretation", "measurement.interpretation"}:
+        from .interpretations import validate_interpretation_payload
+        from .observations import source_python
+
+        validate_interpretation_payload(prepared, row["semantic_type"], source_python(row["value"]))
 
 
 def bind_contributions(prepared, *, source, operations, contributions, coordinate_texts=()):

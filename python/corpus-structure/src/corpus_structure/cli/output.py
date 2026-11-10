@@ -154,7 +154,7 @@ def report_fields(*fields: tuple[str, object]) -> Table:
 
 
 def cli_settings_report(settings: Settings) -> SettingsReport:
-    report = settings_report(settings, os.environ)
+    report = settings_report(settings)
     return report.model_copy(
         update={
             "resolved": {name: safe_text(value) for name, value in report.resolved.items()},

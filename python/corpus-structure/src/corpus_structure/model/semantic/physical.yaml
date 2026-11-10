@@ -4465,3 +4465,105 @@ classes:
     annotations:
       ph:immutability: admitted
       ph:foreign_keys: '[{"columns":["realization_id","release_id"],"target":"data.realization.realization_id,release_id"},{"columns":["origin_task_id"],"target":"ops.task.id"},{"columns":["selected_task_id"],"target":"ops.task.id"},{"columns":["cut_id"],"target":"ops.input_cut.id"},{"columns":["set_id"],"target":"eval.structural_reference_set.id"},{"columns":["c_pass_id"],"target":"eval.structural_reference_pass.id"}]'
+
+  terminology_interpretation_field:
+    in_subset:
+    - kb
+    description: Compact derived interpretation index; full reviewed payload remains
+      once in the sealed contribution.
+    attributes:
+      task_id: &id001
+        range: integer
+        required: true
+      contribution_id: &id002
+        range: string
+        required: true
+      source_run_id: &id003
+        range: integer
+        required: true
+      source_cut_id: &id004
+        range: integer
+        required: true
+      source_release_id: &id005
+        range: string
+        required: true
+      realization_id: &id006
+        range: string
+        required: true
+      data_revision: &id007
+        range: integer
+        required: true
+      record_id: &id008
+        range: string
+        required: true
+      interpretation_id: &id009
+        range: string
+        required: true
+      vocabulary_release: &id010
+        range: string
+        required: true
+      metadata_digest: &id011
+        range: string
+        required: true
+      outcome: &id012
+        range: string
+        required: true
+      field:
+        required: true
+        range: string
+      selected_value:
+        range: string
+      meaning:
+        range: string
+      mapping_predicate:
+        range: string
+      mapping_direction:
+        range: string
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - contribution_id
+        - field
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "contribution_id"], "target": "kb.source_contribution.task_id,contribution_id"}]'
+      ph:indexes: '[["source_run_id", "source_cut_id", "record_id", "interpretation_id"],
+        ["vocabulary_release"], ["field", "selected_value", "outcome"]]'
+  measurement_interpretation:
+    in_subset:
+    - kb
+    description: Compact derived interpretation index; full reviewed payload remains
+      once in the sealed contribution.
+    attributes:
+      task_id: *id001
+      contribution_id: *id002
+      source_run_id: *id003
+      source_cut_id: *id004
+      source_release_id: *id005
+      realization_id: *id006
+      data_revision: *id007
+      record_id: *id008
+      interpretation_id: *id009
+      vocabulary_release: *id010
+      metadata_digest: *id011
+      outcome: *id012
+      unit:
+        range: string
+      quantity_kind:
+        range: string
+      basis_status:
+        required: true
+        range: string
+      basis:
+        range: string
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - contribution_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "contribution_id"], "target": "kb.source_contribution.task_id,contribution_id"}]'
+      ph:indexes: '[["source_run_id", "source_cut_id", "record_id", "interpretation_id"],
+        ["vocabulary_release"], ["quantity_kind", "unit", "outcome"]]'

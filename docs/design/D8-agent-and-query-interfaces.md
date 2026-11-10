@@ -1,13 +1,44 @@
 # D8 · Agent and query interfaces
 
+## Attributed interpretations and correction custody
+
+**Implemented; scoped Tested, 2026-11-10.** `ci interpretations` exposes released lookup,
+private authoring, retained review detail, controlled record selection, recognized measurement
+groups and portable contract export; MCP composes the same readers. Source and review results are
+independently pinned in requests/continuations. Compact native indices select before count,
+pagination and evidence hydration. Lookup scans the selected finite released vocabulary, preserving
+matching field/predicate and ambiguity without querying a current ontology or asserting equivalence.
+The new source-record authoring method uses ordinary completion and original coordinate custody.
+JSON-context response validation preserves retained tuple populations as JSON arrays.
+
+Schema compile/check and contract inspection support bounded correction detail with safe default
+messages/values and explicit raw opt-in. Direct detail creates no store. Optional diagnostic
+retention keeps the original failure outcome; `ci schema diagnostic` uses the existing managed
+artifact lease, sensitivity and digest checks. Expired or changed artifacts refuse rather than
+rerun current inputs. SHACL path display preserves admitted structure after list/cycle/size checks;
+existing native occurrence witnesses and Core/SPARQL constraints remain authoritative.
+
+`ci schema diff` can survey explicitly selected source/review vocabulary uses, including recognized
+measurement dimensions and unresolved decisions. `ci research compare-exclusions` and its MCP
+counterpart compare pinned authenticated declarations, resolution bindings and evidence separately.
+Independent offline preflight consumes exact archived validation-schema bytes with finite local
+resource closure and explicit structural-only limits. Settings explanation describes the actual
+constructor/environment acquisition snapshot, including aliases, with credential masking.
+The [DMC receipt](../plans/domain-data-model_2026-11-10.md#dmc-0716-execution-receipt--2026-11-10)
+owns scoped acceptance; whole-series qualification remains DMC-17-owned.
+
+> Decision: [ADR-0077](../adr/0077-attributed-interpretations-and-correction-custody.md)
+
+
 ## Qualified terminology products
 
 **Implemented; scoped Tested, 2026-11-10; DMC-06 owns the acceptance receipt.** Explicitly acquired
 STATO source and qualified OBO projection supply two optional controlled statistics fields.
-Version1 `vocabularies/metadata.json` and version2 inspection enum/PV locators accompany membership;
+Compiler21 introduced version1 `vocabularies/metadata.json`; compiler22 supplies version2, while
+version2 inspection enum/PV locators accompany membership;
 ordinary release and candidate readers use retained products, never a current ontology endpoint.
 Mappings preserve predicates and source checks remain distinct from membership and native admission.
-DMC-07/08 own populated source bindings/filtering and review; DMC-10 owns measurement interpretation.
+The interpretation section above owns the implemented populated bindings/filtering and measurement profile.
 
 > Decision: [ADR-0076](../adr/0076-qualified-terminology-products.md)
 

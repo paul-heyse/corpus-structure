@@ -1,13 +1,42 @@
 # D2 · Schema conventions, compilers and the statistics pack
 
+## Attributed interpretations and correction custody
+
+**Implemented; scoped Tested, 2026-11-10.** Released TerminologyInterpretationV1 and
+MeasurementInterpretationV1 use private retained contributions rather than changing original
+extraction records. A completed record result and its original coordinate/native-product authority
+have distinct references: a later authored result does not acquire ownership of the source bytes.
+Native completion authenticates result/run/cut/release/realization/revision, record/interpretation,
+original field/anchor/span/product pins and vocabulary metadata before compact projection.
+Candidates, explicit assessments and directional SKOS correspondences remain separate from
+corpus denotes and accepted global identity. Competing reviews require explicit selection.
+
+Compiler22 produces vocabulary metadata2 while retaining14–22 immutable readers. Checked STATO
+meaning, labels, asserted direct named parents, predicates and source digests survive the qualified
+projection. Local unit/quantity identifiers retain separately attributed Valuesets0.4.2 DRAFT,
+unchecked external source_identifier metadata; numerical equivalence is unassessed. Grouping uses
+recognized identifiers and stated/unknown basis, with no numerical conversion or classification.
+Archived vocabulary comparison separates membership/meaning, labels, metadata, source/check state
+and explicitly bound retained uses. Other populations remain unknown.
+
+Correction detail preserves actual validator structure under count/depth/byte bounds, with safe
+presentation and explicit raw evidence custody. Retained validation-schema bytes support independent
+structural preflight; they do not establish source support or native admission. The
+[DMC-07–16 receipt](../plans/domain-data-model_2026-11-10.md#dmc-0716-execution-receipt--2026-11-10)
+owns selected functional/native acceptance and its limits; DMC-17 owns assembled qualification.
+
+> Decision: [ADR-0077](../adr/0077-attributed-interpretations-and-correction-custody.md)
+
+
 ## Qualified terminology products
 
 **Implemented; scoped Tested, 2026-11-10; DMC-06 owns the acceptance receipt.** Explicitly acquired
 STATO source and qualified OBO projection supply two optional controlled statistics fields.
-Version1 `vocabularies/metadata.json` and version2 inspection enum/PV locators accompany membership;
+Compiler21 introduced version1 `vocabularies/metadata.json`; compiler22 supplies version2, while
+version2 inspection enum/PV locators accompany membership;
 ordinary release and candidate readers use retained products, never a current ontology endpoint.
 Mappings preserve predicates and source checks remain distinct from membership and native admission.
-DMC-07/08 own populated source bindings/filtering and review; DMC-10 owns measurement interpretation.
+The interpretation section above owns the implemented populated bindings/filtering and measurement profile.
 
 > Decision: [ADR-0076](../adr/0076-qualified-terminology-products.md)
 
@@ -75,7 +104,7 @@ a compiler number alone does not establish their compatibility. AC13 owns the co
 transition and final applicability evidence. Older numbered compiler descriptions below record
 their dated realization only and do not select a competing present runtime.
 
-The current producing semantic compiler is21; immutable product readers cover14–21. Execution
+The current producing semantic compiler is 22; immutable product readers cover 14–22. Execution
 compiler28, RuleValue ABI2 and query coverage recipe4 are separate contracts. The exact recognized
 coverage recipe3 retains its historical producer universe. Native source inspection/search use
 request/cursor version4; incompatible old requests and query bindings refuse. These version

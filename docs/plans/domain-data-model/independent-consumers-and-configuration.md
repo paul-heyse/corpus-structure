@@ -1,6 +1,6 @@
 # Independent contract consumers, configuration and selected tooling
 
-**Status: Proposed implementation design, 2026-11-10.** This supporting plan develops DMC-13,
+**Accepted implementation design and selected mechanisms, 2026-11-10.** This supporting plan develops DMC-13,
 DMC-15 and DMC-16 and the DMC-I07–DMC-I09 decision obligations. The
 [series coordinator](../domain-data-model_2026-11-10.md) owns authorization, branch dispositions,
 execution state, DMC-00's due target review and DMC-17's assembled qualification. Work executes
@@ -336,3 +336,49 @@ using `uv run ci test` and `uv run ci check`; DMC-00 owns formal review timing. 
 publication uses `uv run ci docs check`. Planned acceptance cases above are not executed results.
 Functional tests, native/provider probes, compatibility experiments and benchmarks for this plan
 authoring: **not_run**. All target-benefit claims remain **Proposed, 2026-11-10**.
+
+
+## Selected DMC-07–16 execution mechanisms · 2026-11-10
+
+**Accepted target; Proposed until qualified.** I07 selects TerminologyInterpretationV1's retained
+validation-mode schema as the new independent authoring consumer. A standalone stdlib/jsonschema/
+referencing tool checks structural input only, with subtype/absence fidelity, explicit dialect,
+entry address, finite resource closure and digests. It does not resolve source references or
+establish source support/mapping truth/native admission. Export reads archived bytes; no new SDK
+or second schema authority is selected. The existing report-export candidate is retained until
+an actual report-analysis consumer needs a separately packaged output contract.
+
+I08 selects safe acquisition metadata tied to actual native init/environment source invocations.
+Report normalized accepted names/policy and contribution paths, preserve native merge/source state,
+mask every endpoint including Nemotron, and remove later environment rereads from snapshot claims.
+Native source construction remains once per entry-point snapshot; no provider, cache or reload
+policy changes. Origins describe acquisition contribution, with derived/mixed/unknown attribution
+where no final-field proof is available. A nested BaseModel legitimately supplies its complete
+constructed value; default-filled fields are not automatically an origin defect.
+
+I09 dispositions are retained with the following concrete future consumers/triggers; these are
+reasoned complete decisions, not capability-absence claims:
+
+| Family | Present route and revisit trigger |
+| --- | --- |
+| Documentation, annotator, renderer, JS | Existing bounded inspection/report/schema delivery; revisit for stable linked reference, browser authoring or shareable instance navigation that present delivery cannot supply |
+| Grammar, scaffolding, Rust/PyO3 | YAML/JSON, Copier and existing native owners; revisit for repetitive textual authoring, a separately distributed schema project or specific language client that can retire a maintained representation |
+| Map/YARRRML/conversion/flattening | Existing explicit source transforms and Arrow; revisit for an actual external dataset exchange with precision/presence/order/lineage and declared losses |
+| Excel/DataHarmonizer/Schemasheets | Existing authoring; revisit for a manageable selected tabular curation or schema-authoring family, distinguishing data-entry from schema declarations |
+| ETL/Koza/OntoGPT/Automator | Existing source-bound extraction and authored model authority; revisit for a new heterogeneous dataset/schema-bootstrap activity, with generated output a proposal |
+| Store/generic workflow | SQL/Arrow/managed custody; revisit for a distinct scratch research activity whose useful query/recovery lifecycle justifies another engine |
+| Dynamic schemas/custom vocabularies/formats and broader arrays/extras/logical syntax | Selected finite profile; revisit for a delivered consumer needing a specific construct and all faithful lowerings; hypothesis-jsonschema remains supplemental input diversity |
+| msgspec/MessagePack/Raw/buffers | Prepared Pydantic/cattrs and JSON/Arrow custody; revisit for a whole high-volume transport or opaque forwarding responsibility with constructor/precision/lifetime fidelity |
+| attrs lifecycle/reflection | Existing frozen dataclasses/Pydantic; revisit for a named invariant/object protocol not clearly expressible by current constructors |
+| Partial/lazy/tolerant/fail-fast parsing | Complete parsing and current raw-attempt/failure capture; revisit for a selected JSON-stream preview/recovery task with visible omissions and ordinary complete admission |
+| OAK federation/native OWL/subsetting | Captured preparation and metadata; revisit for an actual multi-source conflict question, lost-axiom inquiry or independently useful source subset with explicit semantics |
+| Associations/enrichment/taxon/statistics | Current captured corpus/term reads; revisit for a meaningful association/background population, biological corpus or source-selection coverage question; no new metrics subsystem |
+| Visualization/plugins/LLM assistance | Existing attributed review/inspection; revisit for an actual graph presentation, required unsupported backend or retained candidate-suggestion task; suggestions remain distinct from selected knowledge |
+
+Files/dotenv/cloud secrets, altered decoding, nested-default partial updates, native CLI/subcommands,
+async acquisition, refresh/reload and class caches remain retained. Revisit respectively for
+secure deployment acquisition unavailable through environment, non-JSON configuration syntax,
+actual nested default editing, a selected CLI replacement, an asynchronous source, or controlled
+between-operation refresh. New providers require explicit precedence/effects/failure/secret/snapshot
+contracts through D8/D9. Current fixes require none of those changes. Coordinator owns delivery
+status and final evidence; this design account does not declare selected implementation complete.

@@ -93,6 +93,14 @@ class FailureContext:
     scope: str = "boundary"
     release_id: str | None = None
     model_id: str | None = None
+    correction_detail: bool = False
+    raw_evidence: bool = False
+    max_errors: int = 100
+    max_depth: int = 8
+    max_bytes: int = 262144
+    retained_validation: Any = None
+    retained_error: BaseException | None = None
+    diagnostic_unavailable: str | None = None
 
     def bind(
         self, prepared: PreparedRelease, operation: str | None = None, *, scope: str = "boundary"
@@ -104,14 +112,36 @@ class FailureContext:
     def report(self, error: BaseException):
         from .operation_reporting import validation_failure_report
 
-        return validation_failure_report(
+        if self.retained_error is error and self.retained_validation is not None:
+            return self.retained_validation
+        report = validation_failure_report(
             error,
             prepared=self.prepared,
             operation=self.operation,
             scope=self.scope,
             release_id=self.release_id,
             model_id=self.model_id,
+            detail=self.correction_detail,
+            raw_evidence=self.raw_evidence,
+            max_errors=self.max_errors,
+            max_depth=self.max_depth,
+            max_bytes=self.max_bytes,
         )
+        if self.diagnostic_unavailable:
+            from .operation_reporting import _report
+
+            fields = report.model_dump(
+                mode="json", exclude={"report_version", "report_schema_digest"}
+            )
+            fields["evidence"] = dict(
+                kind="marker",
+                engine="boundary",
+                media_type="application/json",
+                sensitivity="safe",
+                reason=self.diagnostic_unavailable,
+            )
+            report = _report("LocatedValidationReport", fields)
+        return report
 
 
 @contextmanager
@@ -177,13 +207,37 @@ def _safe_refusal_fields(value):
     return value
 
 
+def safe_failure_message(error, *, context=None):
+    from jsonschema.exceptions import SchemaError
+    from jsonschema.exceptions import ValidationError as JsonError
+    from pydantic import ValidationError
+
+    if context is not None and getattr(context, "raw_evidence", False):
+        return str(error)
+    from .ontology import GraphExecutionError, GraphShapeError
+    from .releases import ArchiveDecodeError
+    from .types import PreparationError
+
+    if isinstance(error, (PreparationError, ArchiveDecodeError)):
+        return "Model preparation failed; request correction detail for structural paths."
+    if isinstance(error, (GraphShapeError, GraphExecutionError)):
+        return "Graph validation failed; request correction detail for structural paths."
+    if isinstance(error, ValidationError):
+        return f"invalid {error.title} input"
+    if (
+        isinstance(error, (JsonError, SchemaError))
+        or getattr(error, "validation_capture", None) is not None
+    ):
+        return "Validation failed; request correction detail for structural paths."
+    return str(error)
+
+
 def semantic_refusal_report(
     error: BaseException, *, context: FailureContext | None = None
 ) -> dict[str, Any]:
     """Project the owned refusal meaning independently of its transport envelope."""
-    from pydantic import ValidationError
 
-    message = f"invalid {error.title} input" if isinstance(error, ValidationError) else str(error)
+    message = safe_failure_message(error, context=context)
     return _safe_refusal_fields(
         {
             "code": type(error).__name__,

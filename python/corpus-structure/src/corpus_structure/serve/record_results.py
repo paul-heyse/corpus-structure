@@ -17,6 +17,7 @@ from sqlalchemy import Connection, select
 
 from corpus_structure.semantic.continuations import decode_continuation, validate_continuation
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.interpretation_queries import TerminologySelection
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.record_projection import (
     ARTIFACT,
@@ -49,6 +50,7 @@ class RecordRequest(BaseModel):
     standing: str | None = None
     record_id: str | None = None
     interpretation_id: str | None = None
+    terminology: TerminologySelection | None = None
     include_diagnostics: bool = Field(default=False, strict=True)
     cursor: str | None = None
     limit: int = Field(default=20, strict=True, ge=1, le=100)
@@ -81,6 +83,7 @@ class RecordAnswer(BaseModel):
     admission: tuple[dict[str, JsonValue], ...]
     assertions: tuple[dict[str, JsonValue], ...]
     source_requests: tuple[NativeSourceRequest, ...]
+    terminology_reviews: tuple[dict[str, JsonValue], ...] = ()
 
 
 class RecordPage(BaseModel):
@@ -215,6 +218,7 @@ def present_record_projection(
         standing=request.standing,
         record_id=request.record_id,
         interpretation_id=request.interpretation_id,
+        terminology=request.terminology,
         after=after,
         limit=request.limit,
     ):
@@ -278,6 +282,12 @@ def present_record_projection(
                     for row in index.rows_for(record_id, interpretation_id, "record_assertion")
                 ),
                 source_requests=tuple(requests[key] for key in sorted(requests)),
+                terminology_reviews=tuple(
+                    _json(dict(row))
+                    for row in projection.terminology_matches
+                    if row["record_id"] == record_id
+                    and row["interpretation_id"] == interpretation_id
+                ),
             )
         )
     more = (
@@ -353,6 +363,7 @@ def read_record_result_projection(
             standing=request.standing,
             record_id=request.record_id,
             interpretation_id=request.interpretation_id,
+            terminology=request.terminology,
             after=after,
             limit=request.limit,
         ),

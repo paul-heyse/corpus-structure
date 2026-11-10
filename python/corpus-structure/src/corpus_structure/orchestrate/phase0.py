@@ -40,6 +40,11 @@ from corpus_structure.methods.definition_applicability import (
 )
 from corpus_structure.methods.definition_declaration import DeclarationComponentsMethod
 from corpus_structure.methods.definition_terms import DefinitionTermsMethod
+from corpus_structure.methods.interpretations import (
+    AuthorSourceRecordsMethod,
+    MeasurementInterpretationMethod,
+    TerminologyInterpretationMethod,
+)
 from corpus_structure.methods.llm.agent_opus import AgentGeneral, AgentOpus
 from corpus_structure.methods.math import methods as math_methods
 from corpus_structure.methods.scoped_relations import (
@@ -121,6 +126,9 @@ METHODS: tuple[Any, ...] = (
     ClauseClassificationMethod(),
     DefinitionApplicabilityMethod(),
     DefinitionTermsMethod(),
+    TerminologyInterpretationMethod(),
+    MeasurementInterpretationMethod(),
+    AuthorSourceRecordsMethod(),
     ContextualCandidatesWithNamedBindings(),
     ConsolidateMethod(),
     RulesMethod(),

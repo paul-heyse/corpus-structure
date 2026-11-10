@@ -132,6 +132,14 @@ def acquire_terminology(
     import yaml
 
     body = yaml.safe_load(module.read_bytes())
+    if "RecognizedTimeUnit" in body.get("enums", {}):
+        for name in ("measurements", "quantity_kinds"):
+            assets.append(
+                SourceArtifact(
+                    "terminology/valuesets/" + name + ".yaml",
+                    (root / (name + "-valuesets-0.4.2.yaml")).read_bytes(),
+                )
+            )
     return (SourceArtifact(body["name"], module.read_bytes()),), tuple(assets), (CONVERTED,)
 
 
@@ -164,6 +172,25 @@ def build_vocabulary_metadata(
         if list(graph.objects(None, OWL.imports)):
             raise ValueError("terminology original has unresolved imports")
         profiles["stato"] = profile
+    import yaml
+
+    unit_sources = {}
+    for local, filename, external in (
+        ("RecognizedTimeUnit", "measurements", "TimeUnitEnum"),
+        ("RecognizedQuantityKind", "quantity_kinds", "QuantityKindEnum"),
+    ):
+        name = "terminology/valuesets/" + filename + ".yaml"
+        if name in inputs:
+            source = inputs[name]
+            unit_sources[local] = (source, yaml.safe_load(source.content)["enums"][external])
+    if unit_sources:
+        profiles["valuesets_units"] = dict(
+            version="0.4.2",
+            status="DRAFT",
+            coverage="selected_unit_quantity_declarations_only",
+            source_digests={source.name: source.digest for source, _ in unit_sources.values()},
+            numerical_equivalence="unassessed",
+        )
     field_bindings: dict[str, list] = {}
     for cls in sorted(view.all_classes()):
         for prop in view.class_induced_slots(cls):
@@ -258,6 +285,40 @@ def build_vocabulary_metadata(
                         detail["obsolete"] = str(value).lower() == "true"
                     if str(predicate) == "http://purl.obolibrary.org/obo/IAO_0100001":
                         detail["replacements"].append(_object(value))
+            if snapshot.enum in unit_sources:
+                source, definition = unit_sources[snapshot.enum]
+                pv = definition["permissible_values"][member.value]
+                document = yaml.safe_load(source.content)
+                prefix, _, local = pv["meaning"].partition(":")
+                canonical_meaning = str(document["prefixes"][prefix]) + local
+                if member.meaning is not None:
+                    raise ValueError(
+                        "local unit identifiers cannot assert unchecked external meanings"
+                    )
+                detail.update(
+                    source="valuesets_units",
+                    source_digest=source.digest,
+                    status="local",
+                    source_identifier=dict(
+                        iri=canonical_meaning,
+                        status="unchecked",
+                        provenance="captured_valuesets_declaration",
+                    ),
+                    label=pv.get("title") or pv.get("description") or member.value,
+                    definitions=[pv["description"]] if pv.get("description") else [],
+                    annotations=[
+                        dict(
+                            predicate=k,
+                            object=dict(kind="literal", value=str(v), language=None, datatype=None),
+                        )
+                        for k, v in sorted(pv.get("annotations", {}).items())
+                    ],
+                    coverage=dict(
+                        source_status="DRAFT",
+                        external_meaning="unchecked",
+                        numerical_equivalence="unassessed",
+                    ),
+                )
             members.append(detail)
         enums[snapshot.enum] = dict(
             fields=field_bindings.get(snapshot.enum, []),
@@ -266,7 +327,7 @@ def build_vocabulary_metadata(
             definition_digest=snapshot.definition_digest,
         )
     return PreparedArtifact(
-        ARTIFACT, canonical_bytes(dict(version=1, sources=profiles, enums=enums))
+        ARTIFACT, canonical_bytes(dict(version=2, sources=profiles, enums=enums))
     )
 
 
@@ -288,7 +349,7 @@ def decode_vocabulary_metadata(prepared) -> dict:
         body = json.loads(artifact.content)
         if type(body.get("version")) is not int:
             raise ValueError("invalid vocabulary metadata version type")
-        if body["version"] != 1:
+        if body["version"] not in (1, 2):
             return dict(
                 base, status="unsupported", reason="unsupported vocabulary metadata version"
             )
@@ -300,6 +361,22 @@ def decode_vocabulary_metadata(prepared) -> dict:
             raise ValueError("invalid vocabulary metadata root")
         dependencies = dict(json.loads(prepared.manifest)["dependencies"])
         for source, profile in body["sources"].items():
+            if source == "valuesets_units" and body["version"] == 2:
+                if (
+                    profile.get("version") != "0.4.2"
+                    or profile.get("status") != "DRAFT"
+                    or profile.get("numerical_equivalence") != "unassessed"
+                    or profile.get("source_digests")
+                    != {
+                        name: dependencies[name]
+                        for name in (
+                            "terminology/valuesets/measurements.yaml",
+                            "terminology/valuesets/quantity_kinds.yaml",
+                        )
+                    }
+                ):
+                    raise ValueError("unit metadata source profile differs")
+                continue
             if (
                 source != "stato"
                 or type(profile.get("version")) is not int
@@ -351,6 +428,25 @@ def decode_vocabulary_metadata(prepared) -> dict:
                     )
                 ):
                     raise ValueError("invalid vocabulary metadata member")
+                if member.get("source") == "valuesets_units" and member["meaning"] is None:
+                    filename = {
+                        "RecognizedTimeUnit": "measurements",
+                        "RecognizedQuantityKind": "quantity_kinds",
+                    }.get(name)
+                    source_name = "terminology/valuesets/" + str(filename) + ".yaml"
+                    identifier = member.get("source_identifier")
+                    if (
+                        filename is None
+                        or member.get("source_digest") != dependencies.get(source_name)
+                        or not isinstance(identifier, dict)
+                        or set(identifier) != {"iri", "status", "provenance"}
+                        or not isinstance(identifier["iri"], str)
+                        or not identifier["iri"].startswith(("http://", "https://"))
+                        or identifier["status"] != "unchecked"
+                        or identifier["provenance"] != "captured_valuesets_declaration"
+                        or member["status"] != "local"
+                    ):
+                        raise ValueError("descriptive unit identifier or captured source differs")
                 if member["status"] == "checked" and (
                     member.get("source") not in body["sources"]
                     or member.get("source_digest")

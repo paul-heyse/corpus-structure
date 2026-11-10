@@ -21,6 +21,7 @@ from sqlalchemy import Connection, func, literal, or_, select, tuple_
 from corpus_structure.core.method import CoverageDraft
 
 from .identity import canonical_bytes
+from .interpretation_queries import TerminologySelection, terminology_selector
 from .metadata import table
 from .query import SnapshotBinding, StaleSnapshot, WrongRelease
 from .record_projection import (
@@ -52,6 +53,7 @@ class RecordReadSelection:
     interpretation_id: str | None = None
     after: tuple[str, str] | None = None
     limit: int = 20
+    terminology: TerminologySelection | None = None
 
 
 @dataclass(frozen=True)
@@ -105,6 +107,7 @@ class CompletedRecordProjection:
     matching_records: int | None = None
     more_records: bool = False
     coverage: tuple[RecordProducerCoverage, ...] = ()
+    terminology_matches: tuple[Mapping[str, Any], ...] = ()
 
     @cached_property
     def record_index(self) -> PreparedRecordProjection:
@@ -399,6 +402,20 @@ def read_completed_record_projection(
                 root_query = root_query.where(
                     (admission.c.decision if column == "standing" else roots.c[column]) == value
                 )
+        if selection.terminology is not None:
+            root_query = root_query.where(
+                terminology_selector(
+                    conn,
+                    selection.terminology,
+                    source_run_id=run_id,
+                    source_cut_id=selected["cut_id"],
+                    release_id=release_id,
+                    realization_id=realization_id,
+                    project_id=selected["project_id"],
+                    roots=roots,
+                    selected_roots=root_query,
+                )
+            )
         matching_records = conn.scalar(select(func.count()).select_from(root_query.subquery()))
         if selection.after is not None:
             if (
@@ -477,6 +494,23 @@ def read_completed_record_projection(
                 remaining_bytes -= size
                 collected.append(payload)
         raw_rows[name] = collected
+    matches = ()
+    if selection is not None and selection.terminology is not None:
+        from .interpretation_queries import terminology_matches
+
+        matches = terminology_matches(
+            conn,
+            selection.terminology,
+            source_run_id=run_id,
+            source_cut_id=selected["cut_id"],
+            record_keys=[
+                (row["record_id"], row["interpretation_id"]) for row in raw_rows["source_record"]
+            ],
+        )
+        remaining_bytes -= len(canonical_bytes(matches))
+        remaining_rows -= len(matches)
+        if remaining_bytes < 0 or remaining_rows < 0:
+            raise RecordReadLimit("terminology references exceed the requested projection budget")
     coverage = _read_producer_coverage(
         conn,
         run_id=run_id,
@@ -511,4 +545,5 @@ def read_completed_record_projection(
         matching_records,
         more_records,
         coverage,
+        matches,
     )

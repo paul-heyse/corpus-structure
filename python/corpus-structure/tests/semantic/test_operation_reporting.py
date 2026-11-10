@@ -104,7 +104,8 @@ def test_cli_boundary_preserves_trusted_context_and_original_validation_error(ca
     assert observation["operation"] == "read_source_view"
     assert observation["input_path"] == "/label"
     assert observation["scope"] == "subject"
-    assert observation["original_report"] == "pydantic:Thing"
+    assert value["evidence"]["kind"] == "marker"
+    assert "original_report" not in observation or observation["original_report"] is None
 
 
 def test_mcp_boundary_preserves_invocation_context_without_leaking_between_calls():
@@ -564,9 +565,12 @@ def test_graph_shape_execution_and_located_nonconformance_stay_distinct():
     ).model_dump(mode="json")
     observation = value["observations"][0]
     assert observation["category"] == "state_violation"
-    assert observation["input_path"] == "urn:item:3"
+    from hashlib import sha256
+
+    assert observation["input_path"] == "graph/focus/" + sha256(b"urn:item:3").hexdigest()
     assert observation["model_path"] == "urn:shape"
-    assert observation["original_report"].startswith("sha256:")
+    assert value["evidence"]["kind"] == "marker"
+    assert len(value["evidence"]["digest"]) == 64
 
 
 def test_actual_schema_check_reports_retained_located_coverage(cli):
@@ -579,7 +583,9 @@ def test_actual_schema_check_reports_retained_located_coverage(cli):
     assert located["model_id"] == json.loads(checked.stdout)["execution_model_id"]
     assert not located["complete"]
     assert any(
-        item["category"] == "unassessed" and "helper body" in item["message"]
+        item["category"] == "unassessed"
+        and item["code"] == "projection_analysis_incomplete"
+        and item["model_path"].startswith("projection:")
         for item in located["observations"]
     )
 
@@ -959,7 +965,7 @@ def test_projection_validation_reuses_retained_detail_and_keeps_compact_complete
     )
     monkeypatch.setattr(products, "read_projection_analysis", lambda _: product)
     compact = projection_validation_report(context).model_dump(mode="json")
-    assert compact["report_version"] == 3
+    assert compact["report_version"] == 4
     assert compact["complete"] is True and compact["observations"] == []
     assert compact.get("projection_dependencies") is None
     first = projection_validation_report(
@@ -1008,13 +1014,13 @@ def test_projection_validation_reuses_retained_detail_and_keeps_compact_complete
     )
 
 
-def test_validation_v3_registration_preserves_other_report_versions():
+def test_validation_v4_registration_preserves_other_report_versions():
     schema = cast(dict[str, Any], report_schema("LocatedValidationReport"))
-    assert schema["properties"]["report_version"]["minimum"] == 3
-    assert schema["properties"]["report_version"]["maximum"] == 3
+    assert schema["properties"]["report_version"]["minimum"] == 4
+    assert schema["properties"]["report_version"]["maximum"] == 4
     assert "projection_dependencies" in schema["properties"]
     assert "projection_dependencies" not in schema["required"]
-    for name in ("OperationExplanation", "SemanticImpactReport"):
+    for name, version in (("OperationExplanation", 2), ("SemanticImpactReport", 3)):
         other = cast(dict[str, Any], report_schema(name))
-        assert other["properties"]["report_version"]["minimum"] == 2
-        assert other["properties"]["report_version"]["maximum"] == 2
+        assert other["properties"]["report_version"]["minimum"] == version
+        assert other["properties"]["report_version"]["maximum"] == version

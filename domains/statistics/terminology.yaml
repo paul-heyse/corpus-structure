@@ -17,6 +17,175 @@ classes:
       distribution_attribute:
         range: StatisticalDistributionAttribute
         description: A characteristic of a mathematical probability distribution; sample estimators and local measurement roles remain distinct.
+  InterpretationSourceRecord:
+    attributes:
+      project_id:
+        range: string
+        required: true
+      run_id:
+        range: integer
+        required: true
+        minimum_value: 1
+      cut_id:
+        range: integer
+        required: true
+        minimum_value: 1
+      release_id:
+        range: string
+        required: true
+      realization_id:
+        range: string
+        required: true
+      data_revision:
+        range: integer
+        required: true
+      record_id:
+        range: string
+        required: true
+      interpretation_id:
+        range: string
+        required: true
+      source_view_id:
+        range: integer
+        required: true
+        minimum_value: 1
+  InterpretationFieldFocus:
+    attributes:
+      role:
+        required: true
+      anchor_id:
+        required: true
+      start:
+        range: integer
+        minimum_value: 0
+        required: true
+      end:
+        range: integer
+        minimum_value: 1
+        required: true
+      source_piece:
+        required: true
+  InterpretationCandidate:
+    attributes:
+      value:
+        required: true
+      meaning:
+        required: true
+      label:
+        required: true
+      matching_field:
+        required: true
+      matching_predicate:
+        required: true
+  TerminologyFieldDecision:
+    attributes:
+      field:
+        range: TerminologyFieldName
+        required: true
+      focus:
+        range: InterpretationFieldFocus
+        inlined: true
+        required: true
+      candidates:
+        range: InterpretationCandidate
+        multivalued: true
+        inlined: true
+        required: true
+        minimum_cardinality: 0
+      outcome:
+        range: InterpretationDecisionOutcome
+        required: true
+      selected_value: {}
+      mapping_predicate: {}
+      mapping_direction: {}
+      assessment:
+        required: true
+      reviewer:
+        required: true
+  TerminologyInterpretationPayload:
+    attributes:
+      source_record:
+        range: InterpretationSourceRecord
+        inlined: true
+        required: true
+      vocabulary_release:
+        required: true
+      metadata_digest:
+        required: true
+      lookup_policy:
+        equals_string: released-lexical-1
+        required: true
+      decisions:
+        range: TerminologyFieldDecision
+        multivalued: true
+        inlined: true
+        minimum_cardinality: 1
+        required: true
+  TerminologyInterpretationV1:
+    is_a: RetainedContributionSemantics
+    attributes:
+      semantic_type:
+        equals_string: terminology.interpretation
+        required: true
+      kind:
+        equals_string: proposal
+        required: true
+      question:
+        equals_string: interpret.terminology
+        required: true
+      value:
+        range: TerminologyInterpretationPayload
+        inlined: true
+        required: true
+  MeasurementInterpretationPayload:
+    attributes:
+      source_record:
+        range: InterpretationSourceRecord
+        inlined: true
+        required: true
+      focus:
+        range: InterpretationFieldFocus
+        inlined: true
+        required: true
+      vocabulary_release:
+        required: true
+      metadata_digest:
+        required: true
+      outcome:
+        range: InterpretationDecisionOutcome
+        required: true
+      unit:
+        range: RecognizedTimeUnit
+      quantity_kind:
+        range: RecognizedQuantityKind
+      basis_status:
+        range: InterpretationBasisStatus
+        required: true
+      basis: {}
+      assessment:
+        required: true
+      reviewer:
+        required: true
+      numerical_equivalence:
+        equals_string: unassessed
+        required: true
+  MeasurementInterpretationV1:
+    is_a: RetainedContributionSemantics
+    attributes:
+      semantic_type:
+        equals_string: measurement.interpretation
+        required: true
+      kind:
+        equals_string: proposal
+        required: true
+      question:
+        equals_string: interpret.measurement
+        required: true
+      value:
+        range: MeasurementInterpretationPayload
+        inlined: true
+        required: true
+
 enums:
   StatisticalDistributionFamily:
     permissible_values:
@@ -31,3 +200,24 @@ enums:
       expected_value: {meaning: 'STATO:0000692'}
       variance: {meaning: 'STATO:0000693'}
       standard_deviation: {meaning: 'STATO:0000694'}
+  TerminologyFieldName:
+    permissible_values:
+      distribution_family: {}
+      distribution_attribute: {}
+  InterpretationDecisionOutcome:
+    permissible_values:
+      selected: {}
+      unresolved: {}
+      no_match: {}
+  InterpretationBasisStatus:
+    permissible_values:
+      identified: {}
+      unknown: {}
+  RecognizedTimeUnit:
+    permissible_values:
+      SECOND: {}
+      MILLISECOND: {}
+      HOUR: {}
+  RecognizedQuantityKind:
+    permissible_values:
+      TIME: {}

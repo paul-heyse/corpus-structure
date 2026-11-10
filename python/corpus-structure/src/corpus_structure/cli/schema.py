@@ -64,10 +64,17 @@ def _render(result):
 
 @schema_app.command("compile")
 def compile_(
+    ctx: typer.Context,
     domain: Annotated[list[str] | None, typer.Option("--domain")] = None,
     domains: Annotated[Path, typer.Option("--domains")] = Path("domains"),
     out: Annotated[Path | None, typer.Option("--out")] = None,
     json_: JsonOpt = False,
+    retain_diagnostics: bool = False,
+    correction_detail: bool = False,
+    raw_evidence: bool = False,
+    max_errors: int = 100,
+    max_depth: int = 8,
+    max_bytes: int = 262144,
     dependency_detail: bool = False,
     dependency_family: str | None = None,
     dependency_output: str | None = None,
@@ -80,11 +87,24 @@ def compile_(
     from corpus_structure.semantic.regeneration import prepare_packs
 
     domain = domain or ["statistics"]
-    with refusal(json_):
+    from corpus_structure.cli.diagnostic_artifacts import diagnostic_scope, publish_diagnostic
+
+    with diagnostic_scope(
+        ctx,
+        action="schema.compile",
+        json=json_,
+        retain=retain_diagnostics,
+        detail=correction_detail,
+        raw_evidence=raw_evidence,
+        max_errors=max_errors,
+        max_depth=max_depth,
+        max_bytes=max_bytes,
+    ) as (failure, invocation):
         if any(Path(name).name != name for name in domain):
             raise SemanticRefusal("domain must name a pack under --domains")
         bundle, _deps, _profile, prepared = prepare_packs(tuple(domains / name for name in domain))
-        validation = projection_validation_report(
+        failure.bind(prepared, "schema_compile")
+        validation_model = projection_validation_report(
             prepared,
             dependency_detail=dependency_detail,
             dependency_family=dependency_family,
@@ -92,7 +112,10 @@ def compile_(
             dependency_occurrence=dependency_occurrence,
             dependency_after=dependency_after,
             dependency_limit=dependency_limit,
-        ).model_dump(mode="json")
+        )
+        if invocation is not None:
+            validation_model = publish_diagnostic(invocation, validation_model)
+        validation = validation_model.model_dump(mode="json")
         if out is not None:
             out.mkdir(parents=True, exist_ok=True)
             (out / "manifest.json").write_bytes(prepared.manifest)
@@ -124,6 +147,12 @@ def check_(
     release: Annotated[str | None, typer.Option("--release")] = None,
     domains: Annotated[Path, typer.Option("--domains")] = Path("domains"),
     json_: JsonOpt = False,
+    retain_diagnostics: bool = False,
+    correction_detail: bool = False,
+    raw_evidence: bool = False,
+    max_errors: int = 100,
+    max_depth: int = 8,
+    max_bytes: int = 262144,
     dependency_detail: bool = False,
     dependency_family: str | None = None,
     dependency_output: str | None = None,
@@ -137,10 +166,17 @@ def check_(
 
     if release is None:
         return compile_(
+            ctx,
             domain or ["statistics"],
             domains,
             None,
             json_,
+            retain_diagnostics=retain_diagnostics,
+            correction_detail=correction_detail,
+            raw_evidence=raw_evidence,
+            max_errors=max_errors,
+            max_depth=max_depth,
+            max_bytes=max_bytes,
             dependency_detail=dependency_detail,
             dependency_family=dependency_family,
             dependency_output=dependency_output,
@@ -148,12 +184,23 @@ def check_(
             dependency_after=dependency_after,
             dependency_limit=dependency_limit,
         )
+    from corpus_structure.cli.diagnostic_artifacts import diagnostic_scope, publish_diagnostic
     from corpus_structure.cli.output import state
     from corpus_structure.semantic.operation_reporting import projection_validation_report
     from corpus_structure.semantic.releases import verify_release
     from corpus_structure.semantic.runtime import open_runtime_engine
 
-    with refusal(json_) as failure:
+    with diagnostic_scope(
+        ctx,
+        action="schema.check",
+        json=json_,
+        retain=retain_diagnostics,
+        detail=correction_detail,
+        raw_evidence=raw_evidence,
+        max_errors=max_errors,
+        max_depth=max_depth,
+        max_bytes=max_bytes,
+    ) as (failure, invocation):
         if domain is not None:
             raise SemanticRefusal("select either --domain or --release")
         with (
@@ -162,21 +209,24 @@ def check_(
         ):
             prepared = verify_release(conn, release)
             failure.bind(prepared, "schema_check")
+        validation_model = projection_validation_report(
+            prepared,
+            dependency_detail=dependency_detail,
+            dependency_family=dependency_family,
+            dependency_output=dependency_output,
+            dependency_occurrence=dependency_occurrence,
+            dependency_after=dependency_after,
+            dependency_limit=dependency_limit,
+        )
+        if invocation is not None:
+            validation_model = publish_diagnostic(invocation, validation_model)
         emit(
             CompileResult(
                 packs=[],
                 release_id=prepared.release_id,
                 execution_model_id=prepared.execution_model_id,
                 artifacts=[ArtifactRow(kind=a.kind, hash=a.digest) for a in prepared.artifacts],
-                validation=projection_validation_report(
-                    prepared,
-                    dependency_detail=dependency_detail,
-                    dependency_family=dependency_family,
-                    dependency_output=dependency_output,
-                    dependency_occurrence=dependency_occurrence,
-                    dependency_after=dependency_after,
-                    dependency_limit=dependency_limit,
-                ).model_dump(mode="json"),
+                validation=validation_model.model_dump(mode="json"),
             ),
             json=json_,
             render=_render,
@@ -559,6 +609,11 @@ def diff_(
     ctx: typer.Context,
     before: str,
     after: str,
+    source_run_id: int | None = None,
+    review_run_id: int | None = None,
+    review_cut_id: int | None = None,
+    use_limit: int = 100,
+    use_after: str | None = None,
     dependency_detail: bool = False,
     dependency_family: str | None = None,
     dependency_output: str | None = None,
@@ -587,6 +642,12 @@ def diff_(
             report = compare_semantic_releases(
                 old,
                 new,
+                connection=conn,
+                source_run_id=source_run_id,
+                review_run_id=review_run_id,
+                review_cut_id=review_cut_id,
+                use_limit=use_limit,
+                use_after=use_after,
                 dependency_detail=dependency_detail,
                 dependency_family=dependency_family,
                 dependency_output=dependency_output,
@@ -615,6 +676,11 @@ def inspect_contract_command(
     limit: Annotated[int, typer.Option(min=1, max=100)] = 20,
     input_: Annotated[Path | None, typer.Option("--input")] = None,
     validation_purpose: Literal["structural", "accepted"] | None = None,
+    correction_detail: bool = False,
+    raw_evidence: bool = False,
+    max_errors: int = 100,
+    max_depth: int = 8,
+    max_bytes: int = 262144,
     json_: JsonOpt = False,
 ) -> None:
     """Inspect a selected archived contract; validate optional input without effects."""
@@ -642,6 +708,11 @@ def inspect_contract_command(
                 limit=limit,
                 input_json=input_.read_bytes() if input_ is not None else None,
                 validation_purpose=validation_purpose,
+                correction_detail=correction_detail,
+                raw_evidence=raw_evidence,
+                max_errors=max_errors,
+                max_depth=max_depth,
+                max_bytes=max_bytes,
             )
 
         def render(report):
@@ -650,3 +721,25 @@ def inspect_contract_command(
             return table
 
         emit(result, json=json_, render=render)
+
+
+@schema_app.command("diagnostic")
+def inspect_diagnostic_command(
+    ctx: typer.Context,
+    result_id: str,
+    raw_evidence: bool = False,
+    max_bytes: int = 8 * 1024 * 1024,
+    json_: JsonOpt = False,
+):
+    """Read retained correction evidence under its original immutable binding."""
+    import json
+
+    from corpus_structure.cli.diagnostic_artifacts import read_diagnostic
+    from corpus_structure.cli.managed import result_boundary, result_store
+    from corpus_structure.cli.output import write_report_text
+
+    with result_boundary(json_):
+        document = read_diagnostic(
+            result_store(ctx), result_id, raw_evidence=raw_evidence, max_bytes=max_bytes
+        )
+        write_report_text(json.dumps(document, indent=None if json_ else 2) + "\n")

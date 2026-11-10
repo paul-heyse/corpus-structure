@@ -1,6 +1,6 @@
 # Diagnostic correction and qualified graph workflows
 
-**Status: Proposed implementation design, 2026-11-10.** This supporting plan owns the design
+**Accepted implementation design and selected mechanisms, 2026-11-10.** This supporting plan owns the design
 and delivery instructions for DMC-11, DMC-12 and DMC-14. The [series coordinator](../domain-data-model_2026-11-10.md)
 owns authorization, execution state, investigation dispositions, formal review points and
 assembled acceptance. Package identifiers below describe work, not a second progress register.
@@ -340,3 +340,35 @@ at coherent endpoints, followed by the coordinator's complete-scope `uv run ci t
 `uv run ci check` accounting. Publication uses `uv run ci docs check`. No functional tests,
 native/provider probes or performance experiments were run to author this document: **not_run**.
 The target and benefits remain **Proposed, 2026-11-10**.
+
+
+## Selected execution · 2026-11-10
+
+**Accepted target; Proposed until qualified.** DMC11 defaults to safe messages and withheld input
+values, with explicit raw-evidence opt-in. Preserve actual errors in-call, serialize bounded facts,
+and distinguish safe presentation from original engine bytes. Managed retention is optional and
+uses leased reads with content-digest verification. Safe/raw, assessment/inventory/render and
+projection-dependency coverage are separately represented. Raw report messages themselves can
+contain input, so withholding only an instance field is insufficient.
+
+I06/DMC12 selects structural SHACL path display through admitted RDFLib forms, bounded before
+recursive parsing. Existing occurrence-witness native walks retain their fact IDs and work bounds.
+Retain the two unique SPARQL invariants/Core checks; revisit a parameterized component only when
+the same invariant actually repeats under parameter changes. No richer executable model syntax,
+SHACL-AF/JS, OWL-RL or Datalog engine is selected.
+
+DMC14 selects a read-only pinned exclusion comparison under the same semantic release and
+compatible operation version. Match authenticated observation key/local declaration ID, preserve
+parallel declarations and unmatched/incomparable cases, and separate source declaration/evidence
+changes from resolution bindings. Typed scoped SQL selects before hydration. Snapshot-generated
+RDF identities are not semantic comparison keys. Partial populations cannot establish absence.
+Optional managed retention captures this reproducible result without changing assertions.
+
+Prepared SPARQL/CONSTRUCT and semantic RDF comparison remain alternatives for a genuinely RDF-shaped
+external/view question; NetworkX awaits a named topology algorithm preserving occurrence identity.
+Rules/OWL/Datalog await named entailment/recursion/premise/rebuild semantics. Alternate stores,
+remote endpoints and patch/events await an actual store/exchange and recovery lifetime. JSON-LD,
+HTML/server, Describer/infixowl and visualization await named interchange/presentation/OWL authoring
+needs. Existing typed reads, export and disposable recomputation serve the selected question.
+Coordinator owns dispositions and accepted evidence; these retained choices are not claims that
+those libraries lack the capabilities.

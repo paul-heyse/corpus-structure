@@ -118,4 +118,9 @@ python/corpus-structure/semantic_alembic/versions/semantic_wce_lineage_20261107_
 # Exact external terminology source/projection bytes.
 domains/statistics/terminology/sources/*.owl filter=lfs diff=lfs merge=lfs -text
 domains/statistics/terminology/sources/*.obo filter=lfs diff=lfs merge=lfs -text
+domains/statistics/terminology/sources/*-valuesets-0.4.2.yaml filter=lfs diff=lfs merge=lfs -text
 python/corpus-structure/semantic_alembic/versions/semantic_dmc_terminology_* filter=lfs diff=lfs merge=lfs -text
+
+python/corpus-structure/semantic_alembic/versions/semantic_dmc_interpretations_* filter=lfs diff=lfs merge=lfs -text
+python/corpus-structure/semantic_alembic/versions/semantic_dmc_unit_references_* filter=lfs diff=lfs merge=lfs -text
+python/corpus-structure/semantic_alembic/versions/semantic_dmc_digest_binding_* filter=lfs diff=lfs merge=lfs -text

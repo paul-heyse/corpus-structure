@@ -1,0 +1,206 @@
+{
+  "schema_version": 1,
+  "id": "dmc.genuine-source-interpretations",
+  "title": "Genuine retained source interpretation and private result custody",
+  "group": "domain-data-model",
+  "package": "DMC-07–16",
+  "finalized": "2026-11-10",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can explicitly authored interpretations reference genuine original field coordinates, retain later record-result custody separately, and support pinned consumer journeys without changing the original completed result or promoting knowledge?",
+  "answers": [
+    "DMC-07",
+    "DMC-08",
+    "DMC-09",
+    "DMC-10",
+    "DMC-13",
+    "DMC-14",
+    "DMC-16"
+  ],
+  "method": "Use immutable run487/cut604 records for normal distribution and distribution variance, and its captured view456 native item#/texts/1775 for an explicitly authored exponential-lifetime record. Complete four new private runs through the ordinary source-task path. Filter/inspect through installed CLI and fresh MCP, survey pinned vocabulary uses, group HOUR/TIME without numeric inference, compare actual scoped exclusions under original bindings, and run an independent isolated structural preflight over exact archived schema bytes. Preserve all unsuccessful attempt logs and the rolled-back494 allocation disposition.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-10_dmc-interpretation-correction/source-journey.py release:7caa087c2b31e65c316fc3224b6fe236d93a68a817ea10f5745bcd9c88464fa1 source-journey-03 docs/design_review/evidence/2026-11-10_dmc-interpretation-correction/raw/source-journey-runs.json",
+    "uv run python docs/design_review/evidence/2026-11-10_dmc-interpretation-correction/source-journey.py release:7caa087c2b31e65c316fc3224b6fe236d93a68a817ea10f5745bcd9c88464fa1 source-journey-04 docs/design_review/evidence/2026-11-10_dmc-interpretation-correction/raw/source-journey-03/source-journey-runs.json",
+    "uv run python docs/design_review/evidence/2026-11-10_dmc-interpretation-correction/source-journey.py release:7caa087c2b31e65c316fc3224b6fe236d93a68a817ea10f5745bcd9c88464fa1 source-journey-05 docs/design_review/evidence/2026-11-10_dmc-interpretation-correction/raw/source-journey-04/source-journey-runs.json",
+    "uv run python docs/design_review/evidence/2026-11-10_dmc-interpretation-correction/source-journey-finish.py source-journey-finish-02",
+    "uv run python docs/design_review/evidence/2026-11-10_dmc-interpretation-correction/failed-custody-disposition.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "source-journey.py",
+      "role": "Reproducible journey and read-only custody inspection",
+      "sha256": "e82c0aeb4c65c5969c670f42f0fdd22e828a7e12234291ddaa5aa422852b9bab"
+    },
+    {
+      "path": "source-journey-finish.py",
+      "role": "Reproducible journey and read-only custody inspection",
+      "sha256": "0052852b5217967da3093c027b6e631455361780c2e529055b94638ba1a4f30d"
+    },
+    {
+      "path": "failed-custody-disposition.py",
+      "role": "Reproducible journey and read-only custody inspection",
+      "sha256": "df0ee16586f3e01e0291e0d9705c1046ab88c5333d86bfa5338c009d9756f7b5"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/source-journey-05",
+      "role": "Successful terminology review/filter/use and measurement group journey; final bounds refusal preserved",
+      "sha256": "e1d795651ef945b849a9aa130e205e36afda76552e23626d079ed555cabf891b"
+    },
+    {
+      "path": "raw/source-journey-finish-02",
+      "role": "Passed comparison, actual MCP group and exact archived independent schema preflight",
+      "sha256": "01ff67d1b6cea14ed634193ec0eb9c720208920b8ea2ebb7e13426f701519f62"
+    },
+    {
+      "path": "raw/source-journey-03/measurement-source-authoring.stdout.json",
+      "role": "Installed ordinary authored source-record completion493/cut610",
+      "sha256": "65077a12a2d29efa25178cc38c5837fd474c19ec2aa7363dc328c9ad02f15938"
+    },
+    {
+      "path": "raw/source-journey-03/measurement-record-input.json",
+      "role": "Explicit genuine located measurement record, no inferred mean/rate/parameter role",
+      "sha256": "4b635f868ca2bcb58bc4ab4dfdf11c229d1d784130eb6293378717e580f29d84"
+    },
+    {
+      "path": "raw/run494-custody-disposition.json",
+      "role": "Rolled-back494 allocation and retained empty input realization",
+      "sha256": "79f145f505a417c4079f33ca466263aadf591a811be8a77c1f705bdfce46ad79"
+    },
+    {
+      "path": "raw/run494-status.stdout.json",
+      "role": "Installed CLI refusal confirms no committed494 run in original project",
+      "sha256": "8141da98df0b29c2afe8820e11a7698ac9b2e22f78a9646be61855df117f292c"
+    },
+    {
+      "path": "raw/normal-cli-review.stdout.json",
+      "role": "Original tuple/JSON transport defect, preserved",
+      "sha256": "a5c313bd6895928f5e079eeecf11ddecf2fe43ec71ff8e9785a61370557d73b5"
+    },
+    {
+      "path": "raw/source-journey-01.stderr.txt",
+      "role": "Unsuccessful attempt retained, not relabeled as a pass",
+      "sha256": "4000be84e1ea3d41b21d0888039a681fa052007b713a2c8939bbbfe473f51148"
+    },
+    {
+      "path": "raw/source-journey-02.stderr.txt",
+      "role": "Unsuccessful attempt retained, not relabeled as a pass",
+      "sha256": "582437464f8200fee242d0f3c3d7242ee7032b8b988c4ce528f1dfca5ef7ca8b"
+    },
+    {
+      "path": "raw/source-journey-03.stderr.txt",
+      "role": "Unsuccessful attempt retained, not relabeled as a pass",
+      "sha256": "d34a3c36089892a113cfc57c4c8d850dcb8adfb039b96815b29a4a9f52f5a8a4"
+    },
+    {
+      "path": "raw/source-journey-04.stderr.txt",
+      "role": "Unsuccessful attempt retained, not relabeled as a pass",
+      "sha256": "20396434bfa607453e970ab58020273c6025643543487d1b054a7af36805d646"
+    },
+    {
+      "path": "raw/source-journey-05.stderr.txt",
+      "role": "Unsuccessful attempt retained, not relabeled as a pass",
+      "sha256": "2d0a4197b86b2e59eec49e840a41a036a6aaa528a40b4b2aa8422c48ca1ce841"
+    },
+    {
+      "path": "raw/source-journey-finish.stderr.txt",
+      "role": "Unsuccessful attempt retained, not relabeled as a pass",
+      "sha256": "dbc7e873d526ba2390361e898d2ff299fd17c81181bce7b4da4706afa7cf349b"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "private_results",
+      "value": "491/606 normal;492/608 variance;493/610 authored record;495/612 measurement recognition",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "normal_filtered_records",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "variance_filtered_records",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "hour_time_groups",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "measurement_vocabulary_uses",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "quantity_role",
+      "value": "unresolved",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "basis_status",
+      "value": "unknown",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "numerical_equivalence",
+      "value": "unassessed",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "scoped_exclusions_before_after",
+      "value": "0/0; changes[]; complete true",
+      "of": null,
+      "unit": null,
+      "note": "Stable typed result and all original pins agree across CLI/MCP; distinct per-read capture UUIDs are retained, not compared for identity."
+    },
+    {
+      "name": "independent_preflight",
+      "value": "passed; structural_preflight_only",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "run494",
+      "value": "allocation rolled back;0 committed run/task/cut/result/view-selection rows",
+      "of": null,
+      "unit": null,
+      "note": "Empty input realization interpretation-input:508f18e994fc3e7579715187360c2419e18726350677a2ce33d3c28872ef0d2e remains active with data_revision0 and0 records; no project field references it; no cleanup or relabeling."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "On admitted release:7caa087c2b31e65c316fc3224b6fe236d93a68a817ea10f5745bcd9c88464fa1 the selected genuine source journeys pass. Runs491,492,493 and495 remain private/unselected. Original coordinate custody stays run487/cut604 while measurement review495 references later record result493/cut610; original native/view pins and pre/post original run/project assertions are retained. Local HOUR/TIME recognition does not infer empirical status, mean/rate/parameter role, basis, conversion or numeric equivalence; draft external identifiers remain descriptive and unchecked. Offline validation establishes structural preflight only. The genuine exclusion population is empty; populated exclusion semantics are separately covered by native fixtures. Failed attempts remain failed artifacts, including the494 allocation rollback and its retained empty input realization.",
+  "consumed_by": [
+    "DMC-07",
+    "DMC-08",
+    "DMC-09",
+    "DMC-10",
+    "DMC-13",
+    "DMC-14",
+    "DMC-16",
+    "ADR-0077"
+  ]
+}

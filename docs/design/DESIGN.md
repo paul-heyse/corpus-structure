@@ -562,6 +562,12 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
 
+**Implemented; scoped Tested, 2026-11-10; the DMC coordinator owns acceptance.** Attributed source interpretations remain private
+released contributions with independent evidence, review selection and vocabulary pins.
+Correction presentation and raw/managed evidence custody remain explicit.
+
+> Decision: [ADR-0077](../adr/0077-attributed-interpretations-and-correction-custody.md)
+
 **Implemented; scoped Tested, 2026-11-10; DMC-06 owns the acceptance receipt.** Qualified terminology source projections
 and descriptive metadata retain source custody without becoming another enforcement authority.
 

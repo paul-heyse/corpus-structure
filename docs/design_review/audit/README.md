@@ -9,6 +9,24 @@ reasoning, and implementation plans own scheduled work and closure evidence.
 <a id="baseline"></a>
 
 
+<a id="domain-data-model-interpretation-correction-refresh"></a>
+
+## Domain-data-model interpretation and correction refresh · 2026-11-10
+
+**Source-inspected, 2026-11-10.** Baseline committed `0a384a64e`; publication is separate.
+Core3.3/heuristics1.0/code-intelligence1.4/binding/test-assessment1.2 apply. Broad/PTD/DMC accounts
+retain their original coverage. This bounded refresh examines contribution, record-query,
+diagnostic, export and settings seams; concurrent coordinator prose is excluded.
+Typed private contributions and native payload/source-anchor validation are usable foundations,
+not delivered terminology authentication/filtering. Record root reads select before hydration.
+PDF/native wrappers flatten original errors; overloaded report strings do not establish custody.
+Managed owner/role/file authentication does not establish content digest. Class schemas are already
+retained. Settings context explanation is case-sensitive and later rereads ambient names; Nemotron
+URL masking is missing. Existing exclusions preserve observation/local identity and evidence closure.
+The [target review](../reviews/design_review_domain-data-model-interpretation-correction_2026-11-10.md)
+accepts the proposed replacements without additional blocking findings. Existing finding homes
+remain authoritative; DMC coordinator owns selected delivery. Tests/DB/providers/benchmarks: not_run.
+
 <a id="domain-data-model-construction-terminology-refresh"></a>
 
 ## Domain-data-model construction and terminology refresh · 2026-11-10

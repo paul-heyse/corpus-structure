@@ -49,7 +49,8 @@ INLINE_SCALAR_BYTES = 512
 class NativeMappingError(ValueError):
     """A precise retained-schema/native-address diagnostic, never an omitted value."""
 
-    def __init__(self, path: str, message: str):
+    def __init__(self, path: str, message: str, *, capture=None):
+        self.validation_capture = capture
         self.path = path
         super().__init__(f"{path}: {message}")
 
@@ -117,11 +118,14 @@ class NativeSchemaMapping:
                 continue
             return schema, schema_path
 
-    def validate(self, value: Any) -> None:
-        error = next(self.validator.iter_errors(value), None)
+    def validate(self, value: Any, *, detail=False, max_errors=100) -> None:
+        from .correction_detail import capture_json_errors
+
+        capture = capture_json_errors(self.validator, value, detail=detail, max_errors=max_errors)
+        error = capture.errors[0] if capture.errors else None
         if error is not None:
             path = "#" + "".join("/" + _escape(str(p)) for p in error.absolute_path)
-            raise NativeMappingError(path, error.message)
+            raise NativeMappingError(path, error.message, capture=capture) from error
         _finite_json(value, "#")
 
 
@@ -323,6 +327,8 @@ def iter_native_records(
     mapping: NativeSchemaMapping | None = None,
     native_type: str = "DoclingDocument",
     native_address: str = "#",
+    detail: bool = False,
+    max_errors: int = 100,
 ) -> Iterator[NativeRow]:
     """Lower native values without constructing or normalizing a DoclingDocument.
 
@@ -334,15 +340,23 @@ def iter_native_records(
     mapping = prepare_native_schema_mapping() if mapping is None else mapping
     if native_type == "DoclingDocument":
         root_schema = mapping.schema
-        mapping.validate(document)
+        mapping.validate(document, detail=detail, max_errors=max_errors)
     elif (
         native_type in mapping.schema["$defs"]
         and "properties" in mapping.schema["$defs"][native_type]
     ):
         root_schema = {"$ref": "#/$defs/" + native_type}
-        error = next(mapping.validator.evolve(schema=root_schema).iter_errors(document), None)
-        if error:
-            raise NativeMappingError(native_address, error.message)
+        from .correction_detail import capture_json_errors
+
+        capture = capture_json_errors(
+            mapping.validator.evolve(schema=root_schema),
+            document,
+            detail=detail,
+            max_errors=max_errors,
+        )
+        if capture.errors:
+            error = capture.errors[0]
+            raise NativeMappingError(native_address, error.message, capture=capture) from error
         _finite_json(document, native_address)
     else:
         raise NativeMappingError(native_address, "unsupported native record class " + native_type)

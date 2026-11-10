@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.observations import observation_inputs
 from corpus_structure.semantic.ontology import (
     OntologyError,
     OntologyPreparation,
@@ -40,7 +41,9 @@ def terminology_release():
         Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     ).read_bytes()
     return prepare_release(
-        SourceBundle(sources[0].name, (*sources, SourceArtifact("semantic_core", core))),
+        observation_inputs(
+            SourceBundle(sources[0].name, (*sources, SourceArtifact("semantic_core", core)))
+        ),
         ResolvedDependencies(artifacts, (), names),
     )
 

@@ -508,7 +508,9 @@ def test_projected_validation_uses_nested_qualified_path():
     assert observation["scope"] == "z@0/graph-validation"
     from hashlib import sha256
 
-    assert observation["original_report"] == "sha256:" + sha256(result.report).hexdigest()
+    assert located["evidence"]["digest"] == sha256(result.report).hexdigest()
+    assert located["evidence"]["kind"] == "marker"
+    assert located["evidence"]["sensitivity"] == "safe"
 
 
 def test_graph_operation_invalid_shape_retains_bound_diagnostic_through_tool_boundary():
@@ -544,9 +546,10 @@ def test_graph_operation_invalid_shape_retains_bound_diagnostic_through_tool_bou
     assert isinstance(raw_cause, ConstraintLoadError)
     assert "sh:minCount" in str(raw_cause) and "xsd:integer" in str(raw_cause)
     failure = json.loads(str(caught.value))
-    message = "invalid SHACL shape: " + str(raw_cause)
     assert failure["code"] == "GraphShapeError"
-    assert failure["message"] == message
+    assert failure["message"] == (
+        "Graph validation failed; request correction detail for structural paths."
+    )
     located = failure["validation"]
     assert located["release_id"] == "release:graph-errors"
     assert located["model_id"] == projection.contract_binding.execution_model_id
@@ -558,8 +561,7 @@ def test_graph_operation_invalid_shape_retains_bound_diagnostic_through_tool_bou
             "model_path": "graph/shapes",
             "operation": "graph_validate",
             "scope": "realization:graph-errors@7/graph-errors",
-            "message": message,
-            "original_report": "exception:GraphShapeError",
+            "message": "Boundary validation failed: GraphShapeError",
         }
     ]
 
@@ -600,9 +602,10 @@ def test_graph_operation_controlled_dependency_failure_reaches_located_cli_bound
     assert isinstance(graph_error, GraphExecutionError)
     assert graph_error.__cause__ is dependency_error
     failure = json.loads(capsys.readouterr().out)["error"]
-    message = "SHACL execution failed: controlled pySHACL dependency failure"
     assert failure["code"] == "GraphExecutionError"
-    assert failure["message"] == message
+    assert failure["message"] == (
+        "Graph validation failed; request correction detail for structural paths."
+    )
     located = failure["validation"]
     assert located["release_id"] == "release:graph-errors"
     assert located["model_id"] == projection.contract_binding.execution_model_id
@@ -614,8 +617,7 @@ def test_graph_operation_controlled_dependency_failure_reaches_located_cli_bound
             "model_path": "graph/validator",
             "operation": "graph_validate",
             "scope": "realization:graph-errors@7/graph-errors",
-            "message": message,
-            "original_report": "exception:GraphExecutionError",
+            "message": "Boundary validation failed: GraphExecutionError",
         }
     ]
 

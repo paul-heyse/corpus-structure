@@ -152,3 +152,171 @@ def test_report_masks_endpoint_url_credentials() -> None:
     settings = Settings(llm={"endpoint": "https://user:secret@example.org/v1?token=opaque"})
     rendered = settings_report(settings, {}).resolved["llm.endpoint"]
     assert "secret" not in rendered and "opaque" not in rendered
+
+
+def test_report_uses_acquired_names_after_environment_changes(monkeypatch):
+    monkeypatch.setenv("corpus_database__url", "postgresql:///captured")
+    monkeypatch.setenv("corpus_unknown_field", "value-must-not-be-retained")
+    settings = Settings()
+    monkeypatch.delenv("corpus_database__url")
+    monkeypatch.delenv("corpus_unknown_field")
+    monkeypatch.setenv("CORPUS_GPU__MODE", "exclusive")
+    report = settings_report(settings)
+    assert report.resolved["database.url"] == "postgresql:///captured"
+    assert report.environment_fields == ("CORPUS_DATABASE__URL",)
+    assert report.unknown_env == ("CORPUS_UNKNOWN_FIELD",)
+    assert report.origins["database.url"] == "environment"
+    assert report.origins["gpu.mode"] == "default"
+    assert "value-must-not-be-retained" not in repr(settings.__pydantic_private__)
+    assert report.source_policy == {"prefix": "CORPUS_", "delimiter": "__", "case_sensitive": False}
+
+
+def test_report_uses_actual_instance_source_policy(monkeypatch):
+    monkeypatch.setenv("CUSTOM_database--url", "postgresql:///custom")
+    monkeypatch.setenv("CORPUS_DATABASE__URL", "postgresql:///ignored")
+    settings = Settings(_env_prefix="CUSTOM_", _env_nested_delimiter="--", _case_sensitive=True)
+    report = settings_report(settings)
+    assert report.resolved["database.url"] == "postgresql:///custom"
+    assert report.environment_fields == ("CUSTOM_database--url",)
+    assert report.unknown_env == ()
+    assert report.source_policy["case_sensitive"] is True
+
+
+def test_report_nested_json_and_override_have_independent_contributions(monkeypatch):
+    monkeypatch.setenv("CORPUS_DATABASE", '{"pool_min_size": 0, "pool_max_size": 6}')
+    monkeypatch.setenv("CORPUS_DATABASE__POOL_MAX_SIZE", "7")
+    settings = Settings(database={"pool_max_size": 8})
+    report = settings_report(settings)
+    assert report.resolved["database.pool_min_size"] == "0"
+    assert report.resolved["database.pool_max_size"] == "8"
+    assert report.origins["database.pool_min_size"] == "environment"
+    assert report.origins["database.pool_max_size"] == "constructor"
+    assert set(report.environment_fields) == {"CORPUS_DATABASE", "CORPUS_DATABASE__POOL_MAX_SIZE"}
+
+
+def test_nemotron_endpoint_credentials_and_queries_are_masked():
+    settings = Settings(
+        nemotron={"endpoint": "https://user:secret@example.test/v1?token=opaque#private"}
+    )
+    rendered = settings_report(settings).model_dump_json()
+    assert all(secret not in rendered for secret in ("secret", "opaque", "private"))
+
+
+def test_root_validation_alias_is_a_full_environment_name(monkeypatch):
+    from pydantic import Field
+
+    class AliasedSettings(Settings):
+        operator_label: str = Field(default="unset", validation_alias="CORPUS_ALIAS")
+
+    monkeypatch.setenv("CORPUS_ALIAS", "selected")
+    configured = AliasedSettings()
+    assert configured.operator_label == "selected"
+    report = settings_report(configured)
+    assert "CORPUS_ALIAS" in report.environment_fields
+    assert "CORPUS_ALIAS" not in report.unknown_env
+    assert report.origins["operator_label"] == "environment"
+    assert "CORPUS_CORPUS_ALIAS" not in configured._known_names
+
+
+def test_alias_outside_custom_prefix_is_still_acquired_and_reported(monkeypatch):
+    from pydantic import Field
+
+    class AliasedSettings(Settings):
+        operator_label: str = Field(default="unset", validation_alias="EXTERNAL_LABEL")
+
+    monkeypatch.setenv("EXTERNAL_LABEL", "selected")
+    monkeypatch.setenv("CUSTOM_BAD_NAME", "ignored")
+    configured = AliasedSettings(_env_prefix="CUSTOM_")
+    assert configured.operator_label == "selected"
+    report = settings_report(configured)
+    assert report.environment_fields == ("EXTERNAL_LABEL",)
+    assert report.origins["operator_label"] == "environment"
+    assert report.unknown_env == ("CUSTOM_BAD_NAME",)
+
+
+def test_nested_alias_stays_relative_and_case_sensitive(monkeypatch):
+    from pydantic import BaseModel, ConfigDict, Field
+
+    class Nested(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+        label: str = Field(default="unset", validation_alias="SelectedLabel")
+
+    class AliasedSettings(Settings):
+        nested: Nested = Nested()
+
+    monkeypatch.setenv("CUSTOM_nested__SelectedLabel", "selected")
+    configured = AliasedSettings(_env_prefix="CUSTOM_", _case_sensitive=True)
+    assert configured.nested.label == "selected"
+    report = settings_report(configured)
+    assert report.environment_fields == ("CUSTOM_nested__SelectedLabel",)
+    assert report.origins["nested.label"] == "environment"
+    assert report.unknown_env == ()
+
+
+def test_root_alias_choices_and_path_keep_canonical_origin(monkeypatch):
+    from pydantic import AliasChoices, AliasPath, Field
+
+    class AliasedSettings(Settings):
+        operator_label: str = Field(
+            default="unset",
+            validation_alias=AliasChoices(AliasPath("EXTERNAL_FIELDS", 0), "EXTERNAL_LABEL"),
+        )
+
+    monkeypatch.setenv("EXTERNAL_FIELDS", '["selected"]')
+    configured = AliasedSettings(_env_prefix="CUSTOM_")
+    report = settings_report(configured)
+    assert configured.operator_label == "selected"
+    assert report.environment_fields == ("EXTERNAL_FIELDS",)
+    assert report.origins["operator_label"] == "environment"
+    assert "0" not in configured._known_names
+
+
+@pytest.mark.parametrize("prefix_target,env_name", [("variable", "TOKEN"), ("all", "CORPUS_TOKEN")])
+def test_alias_path_head_equal_to_field_name_records_canonical_origin(
+    monkeypatch, prefix_target, env_name
+):
+    from pydantic import AliasPath, Field
+
+    class AliasedSettings(Settings):
+        token: int = Field(default=0, validation_alias=AliasPath("token", "value"))
+
+    monkeypatch.setenv(env_name, '{"value":7}')
+    configured = AliasedSettings(_env_prefix_target=prefix_target)
+    report = settings_report(configured)
+    assert configured.token == 7
+    assert report.origins["token"] == "environment"
+    assert "token.value" not in report.origins
+    assert env_name in report.environment_fields
+
+
+@pytest.mark.parametrize("by_alias,by_name", [(True, True), (False, True)])
+def test_alias_path_head_same_name_preserves_native_name_fallback(monkeypatch, by_alias, by_name):
+    from pydantic import AliasPath, Field
+    from pydantic_settings import SettingsConfigDict
+
+    class AliasedSettings(Settings):
+        model_config = SettingsConfigDict(validate_by_alias=by_alias, validate_by_name=by_name)
+        token: int = Field(default=0, validation_alias=AliasPath("token", "value"))
+
+    monkeypatch.setenv("CORPUS_TOKEN", "7")
+    configured = AliasedSettings()
+    report = settings_report(configured)
+    assert configured.token == 7
+    assert report.origins["token"] == "environment"
+
+
+def test_alias_choice_same_name_path_retains_ordered_branch_attribution(monkeypatch):
+    from pydantic import AliasChoices, AliasPath, Field
+
+    class AliasedSettings(Settings):
+        token: int = Field(
+            default=0,
+            validation_alias=AliasChoices(
+                AliasPath("token", "missing"), AliasPath("token", "value"), "OTHER_TOKEN"
+            ),
+        )
+
+    monkeypatch.setenv("TOKEN", '{"value":7}')
+    configured = AliasedSettings()
+    assert configured.token == 7
+    assert settings_report(configured).origins["token"] == "environment"

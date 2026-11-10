@@ -131,7 +131,6 @@ def context_show(
     """Show effective redacted settings without opening a database."""
     with result_boundary(json):
         from corpus_structure.cli.recipes import RecipeError
-        from corpus_structure.settings import known_env_names
 
         try:
             root = checkout(ctx)
@@ -142,12 +141,13 @@ def context_show(
 
         if target == "deployment" and configured.deployment is None:
             raise ResultError("configure CORPUS_DEPLOYMENT__URL for the deployment target")
+        explanation = cli_settings_report(configured)
         emit(
             ContextReport(
                 checkout=root,
                 results=result_store(ctx).root,
-                settings=cli_settings_report(configured),
-                environment_fields=sorted(known_env_names() & os.environ.keys()),
+                settings=explanation,
+                environment_fields=list(explanation.environment_fields),
                 interpreter=sys.executable,
                 python_version=sys.version,
                 target=target,

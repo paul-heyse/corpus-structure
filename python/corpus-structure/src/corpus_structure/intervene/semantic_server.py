@@ -582,6 +582,9 @@ def build_semantic_server(
     from corpus_structure.semantic.operation_reporting import report_schema
 
     register_record_tools(server, source_snapshot)
+    from corpus_structure.intervene.interpretation_tools import register_interpretation_tools
+
+    register_interpretation_tools(server, reader_snapshot, source_snapshot)
 
     @server.tool(
         annotations={"readOnlyHint": True}, output_schema=report_schema("ContractInspection")
@@ -598,6 +601,11 @@ def build_semantic_server(
         limit: int = 20,
         input_json: str | None = None,
         validation_purpose: Literal["structural", "accepted"] | None = None,
+        correction_detail: bool = False,
+        raw_evidence: bool = False,
+        max_errors: int = 100,
+        max_depth: int = 8,
+        max_bytes: int = 262144,
     ) -> ToolResult:
         """Inspect an explicit release and optional class input without authorizing effects."""
         from corpus_structure.semantic.contract_inspection import inspect_contract as inspect
@@ -615,6 +623,11 @@ def build_semantic_server(
                 limit=limit,
                 input_json=input_json,
                 validation_purpose=validation_purpose,
+                correction_detail=correction_detail,
+                raw_evidence=raw_evidence,
+                max_errors=max_errors,
+                max_depth=max_depth,
+                max_bytes=max_bytes,
             )
         return _bounded_mcp_result(report, 8 * 1024 * 1024)
 
@@ -710,6 +723,11 @@ def build_semantic_server(
         ctx: Context,
         before: str,
         after: str,
+        source_run_id: int | None = None,
+        review_run_id: int | None = None,
+        review_cut_id: int | None = None,
+        use_limit: int = 100,
+        use_after: str | None = None,
         dependency_detail: bool = False,
         dependency_family: str | None = None,
         dependency_output: str | None = None,
@@ -729,6 +747,12 @@ def build_semantic_server(
                 return compare(
                     old,
                     new,
+                    connection=conn,
+                    source_run_id=source_run_id,
+                    review_run_id=review_run_id,
+                    review_cut_id=review_cut_id,
+                    use_limit=use_limit,
+                    use_after=use_after,
                     dependency_detail=dependency_detail,
                     dependency_family=dependency_family,
                     dependency_output=dependency_output,
@@ -1074,4 +1098,7 @@ def build_semantic_server(
             run_id=active.run_id if isinstance(active, SemanticAgentSession) else None,
         )
 
+    from corpus_structure.serve.research import register_research_tools
+
+    register_research_tools(server, reader_snapshot, _bounded_mcp_result, tool_refusals)
     return server
