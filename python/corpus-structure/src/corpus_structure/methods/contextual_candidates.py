@@ -1298,7 +1298,7 @@ class ContextualCandidates:
             results.append(
                 UnitResult(
                     ref=unit.ref,
-                    outcome=ObservationOutcome.PRODUCED,
+                    outcome=ObservationOutcome.PRODUCED if products else ObservationOutcome.EMPTY,
                     contribution_operations=(operation, *phases),
                     contributions=tuple(products),
                     contribution_coordinate_texts=coordinates,
