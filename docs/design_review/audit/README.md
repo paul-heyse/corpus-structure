@@ -8,6 +8,29 @@ reasoning, and implementation plans own scheduled work and closure evidence.
 
 <a id="baseline"></a>
 
+<a id="cld-entry-refresh"></a>
+
+## CLI and observation entry refresh · 2026-11-10
+
+**Source-inspected.** Baseline `42d20a2ab`; core3.3, heuristics1.0, code-intelligence1.4,
+binding and test-assessment1.2. A fresh independent reviewer examined CLI output/failure,
+diagnostic custody, managed publication/live test-report reads, provider subprocess ownership
+and semantic MCP event production. Concurrent CLD command changes and ADR/coordinator prose
+are excluded. Earlier broader baselines retain their dates and scope.
+
+Managed publication identity and settled artifact access remain distinct from content digest
+authentication. DMC diagnostic reads compose leases, bounds, retained digests and raw gates.
+Failure translation distinguishes expected refusals from programming defects/cancellation.
+Provider process groups, pipes and receipt links retain their owners; database notice fields
+are copied within callback lifetime. Current safe_text does not establish recursive exception
+disclosure safety. Proposed observation consumers therefore need an owned nested safe boundary
+and explicit live versus sealed semantics, not weaker artifact authentication.
+
+No additional demonstrated production architectural violation was found in this footprint.
+This refresh does not qualify deployment, external-provider behavior or all test architecture.
+Tests/probes/database/provider runs: **not_run**. The CLD coordinator owns scheduled work;
+entry target assessment is published separately.
+
 
 <a id="domain-data-model-assembled-refresh"></a>
 
