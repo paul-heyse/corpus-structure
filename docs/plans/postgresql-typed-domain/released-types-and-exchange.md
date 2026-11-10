@@ -1,9 +1,9 @@
 # Released types and faithful exchange
 
-**Status: Planned; execution not started · 2026-11-09.** Target design is Proposed. The
+**Status: PTD-01 implemented and scoped tests passed; PTD-08/investigations planned · 2026-11-09.** Target design is Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
-below, not another status table. No product or database changes were made while authoring.
+below, not another status table. The coordinator records execution and native delivery separately from original authoring.
 
 ## Basis, foundations and target
 
@@ -125,3 +125,25 @@ and [exchange](../../functional_reviews/postgresql-typed-domain/analytical-excha
 [Psycopg3.3.6 composites](https://github.com/psycopg/psycopg/blob/3.3.6/psycopg/psycopg/types/composite.py),
 [pgpq selected source](https://github.com/adriangb/pgpq/tree/306cdf8cf2b8450a3162a9cd467422cb0849af5a).
 Selected versions and precise limitations are inherited from the dated review, reconciled at PTD-00.
+
+## PTD-01 concrete execution mechanisms · 2026-11-09
+
+Use one pure qualified binding resolver for calls, all seven TYPED_RELATIONS and selected companion
+projections. Existing semantic_type anchors own nominal names; cp:type_source supplies missing
+compatible type correspondences without changing local physical constraints (ADR-0073).
+Collect closed aliases across parameters/results/nested records/columns; coverage_family remains
+open str, while nullable normalization retains its literal union plus None. Add fixed call
+variants for the four existing protected companion batch functions under read_pdf_product,
+retaining six-part pins, result ordering and json-text-v1 materialization. Arrow export remains
+native JSONB, without Python hydration.
+
+Selected SQLAlchemy2.1.6 Named/TypedColumns/with_cols retain the same Core objects; narrowed
+protocols reject unknown names. with_cols performs no runtime validation. NewType is runtime
+primitive identity and Pydantic2.14.1 validates its supertype. Real Pyrefly positive/negative
+consumers establish nominal checking; existing runtime constraints and SQL_NULL handling remain.
+Reference: [selected SQLAlchemy metadata source](https://github.com/sqlalchemy/sqlalchemy/blob/rel_2_1_6/doc/build/core/metadata.rst).
+
+Version typed products with semantic/physical/renderer determinants without injecting their static
+identity into companion runtime identities. Preserve current source hashing; annotations can
+change existing source IDs. Regenerate affected bindings and inspect candidate effects; preserve
+compiler27 retained readability if execution compilation changes for identical inputs.

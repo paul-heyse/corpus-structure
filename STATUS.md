@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-09. Development runs `semantic_pm2_named_pieces`. The protected competitive retrieval arms tied on retained Standard and Nemotron source. `/10` remains the default and the project remains unselected._
+_Updated 2026-11-09. Development runs `semantic_ptd_runtime_compiler`. The protected competitive retrieval arms tied on retained Standard and Nemotron source. `/10` remains the default and the project remains unselected._
 
 ## Current authority
 
@@ -14,7 +14,7 @@ _Updated 2026-11-09. Development runs `semantic_pm2_named_pieces`. The protected
 
 ## Delivered and assessed
 
-- On 2026-11-09, the [PostgreSQL typed-domain plan series](docs/plans/postgresql-typed-domain_2026-11-09.md) scheduled PTD-00–11 and PTD-I01–06 across five companions, covering O01–O13 and all discovery-source branches. Execution is not started; it follows the other session’s current PM2 tranche and finishes before returning to PM2. Existing plans are not superseded or revised. `uv run ci docs check` passed; product tests/native probes were `not_run` for plan authoring. Next: acquire the PM2 handoff baseline, then execute selected targets and resolve every branch.
+- On 2026-11-09, [PTD-00–02](docs/plans/postgresql-typed-domain_2026-11-09.md#ptd-00-02-completion) completed shared typed generation and explicit ADBC acquisition under ADR-0073. Two frozen development migrations archived/admitted the new release and repaired the compiler28 runtime fence; defaults and PM2 selection remain unchanged. Focused `uv run ci test --json -- …` selections passed **181 tests** (135 contracts/runtime controls +46 native journeys). Types, model consistency, lint, docs and `just turn-end` passed; full-series qualification is `not_run` until PTD-11. The owning plan/evidence retains exact result IDs and repaired failures. Next: PTD-03 and remaining PTD packages/investigations; PM2 plan remains unchanged.
 
 - On 2026-11-09, the [PostgreSQL functional review](docs/functional_reviews/postgresql-typed-domain_2026-11-09.md) delivered O01–O13 with six detailed companions and a complete discovery crosswalk (38 shortlist entries,23 retained families and inline observations). Recommended and conditional capabilities remain Proposed; existing plans retain scope/disposition. `uv run ci docs check` passed; product tests/native probes/benchmarks were `not_run` for this source-based review. Next: select opportunities for create-plan using their stable O references.
 

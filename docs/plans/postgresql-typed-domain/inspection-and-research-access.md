@@ -1,9 +1,9 @@
 # Explicit acquisition, honest inspection and research access
 
-**Status: Planned; execution not started · 2026-11-09.** Target design is Proposed. The
+**Status: PTD-02 implemented and scoped tests passed; PTD-03/investigations planned · 2026-11-09.** Target design is Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
-below, not another status table. No product or database changes were made while authoring.
+below, not another status table. The coordinator records execution and native delivery separately from original authoring.
 
 ## PTD-02 · One ADBC acquisition policy owner
 
@@ -74,3 +74,25 @@ Sources: [description](../../../python/corpus-structure/src/corpus_structure/ser
 [ADBC25 APIs](https://arrow.apache.org/adbc/25/python/api/adbc_driver_manager.html),
 [selected result reader](https://github.com/apache/arrow-adbc/blob/apache-arrow-adbc-25/c/driver/postgresql/result_reader.cc),
 [exchange review](../../functional_reviews/postgresql-typed-domain/analytical-exchange.md).
+
+## PTD-02 concrete execution mechanisms · 2026-11-09
+
+The existing core/db/adbc_lifetime owner exposes open_adbc_connection(uri, *, driver_path,
+resolver_mode). URI is already purpose-derived; resolver is explicitly builtin or server and
+validated before driver invocation. Installed acquisition uses postgres dbapi.connect with
+adbc.postgresql.type_resolver_mode; configured acquisition uses manager dbapi.connect with
+AdbcDriverPostgresqlInit and URI/resolver database options. No new settings authority/pool/cache.
+
+Capture/export retain builtin, COPY-disabled snapshot setup then literal bulk COPY; description
+uses server and the configured driver with owned_adbc_read, preserving its current metadata.
+CLI export retains configuration forwarding. The existing ownership helper retains the primary
+exception reaching it, independently attempts rollback/close, attaches cleanup failures and
+synchronizes cancellation retirement. Reader/cursor cleanup can replace an earlier body error
+before reaching that owner; the operator selected preserving this boundary. Synchronous connect
+cannot be interrupted through a borrower registered afterward. Native manager partial-acquisition
+cleanup does not guarantee preserving every acquiring exception. Type-cache clone is not a snapshot.
+
+Focused checks include actual configured-driver parity, server custom-type resolution, read-only
+roles, session isolation, snapshot/COPY controls, cancellation and no surviving owned sessions.
+Mock factory checks establish unit behavior only. ADBC1.13.0 contracts are checked against installed
+sources and the [selected upstream implementation](https://github.com/apache/arrow-adbc/tree/apache-arrow-adbc-25).
