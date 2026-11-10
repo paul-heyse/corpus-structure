@@ -165,7 +165,9 @@ def test_production_child_loop_continues_after_native_preparation_refusal(profil
     class NativeProtocolWorker(GlinerWorker):
         _child_target = staticmethod(native_protocol_child)
 
-    worker = NativeProtocolWorker(profile)
+    # This checks protocol recovery, not startup latency. Real preparation imports
+    # compete with the full suite; the dedicated timeout test retains its short budget.
+    worker = NativeProtocolWorker(replace(profile, timeout_seconds=60))
     pack = GlinerPack.from_declaration("release", {"entities": ["term"]}, version="native-local-v1")
     try:
         with pytest.raises(GlinerRefused, match="subword bound"):
