@@ -125,7 +125,16 @@ def _report(name: str, data: dict) -> BaseModel:
         return value
 
     return boundary.validate_json(
-        name, canonical_bytes(supplied(dict(report_version=2, report_schema_digest=digest, **data)))
+        name,
+        canonical_bytes(
+            supplied(
+                dict(
+                    report_version=3 if name == "LocatedValidationReport" else 2,
+                    report_schema_digest=digest,
+                    **data,
+                )
+            )
+        ),
     )
 
 
@@ -473,6 +482,7 @@ def validation_report(
     *,
     prepared: PreparedRelease | None = None,
     operation: str | None = None,
+    projection_dependencies: dict[str, Any] | None = None,
 ) -> BaseModel:
     categories = {
         "invalid": "invalid_input",
@@ -502,6 +512,7 @@ def validation_report(
             release_id=prepared.release_id if prepared else None,
             model_id=prepared.execution_model_id if prepared else None,
             observations=observations,
+            projection_dependencies=projection_dependencies,
             complete=all(
                 item.outcome not in {"unsupported", "unresolved", "unchecked"}
                 for item in diagnostics
@@ -1083,8 +1094,17 @@ def compatibility_advice(impact: BaseModel) -> tuple[str, ...]:
     return tuple(advice)
 
 
-def projection_validation_report(prepared: PreparedRelease) -> BaseModel:
-    """Expose the retained analysis coverage through maintained schema-check results."""
+def projection_validation_report(
+    prepared: PreparedRelease,
+    *,
+    dependency_detail: bool = False,
+    dependency_family: str | None = None,
+    dependency_output: str | None = None,
+    dependency_occurrence: str | None = None,
+    dependency_after: int = 0,
+    dependency_limit: int = 100,
+) -> BaseModel:
+    """Expose retained coverage and optionally its bounded occurrence detail."""
     from .projection_analysis_products import read_projection_analysis
 
     product = read_projection_analysis(prepared)
@@ -1127,7 +1147,22 @@ def projection_validation_report(prepared: PreparedRelease) -> BaseModel:
                     outcome="unchecked",
                 )
             )
-    return validation_report(tuple(diagnostics), prepared=prepared)
+    return validation_report(
+        tuple(diagnostics),
+        prepared=prepared,
+        projection_dependencies=(
+            projection_dependency_detail(
+                prepared,
+                family=dependency_family,
+                output=dependency_output,
+                occurrence=dependency_occurrence,
+                after=dependency_after,
+                limit=dependency_limit,
+            )
+            if dependency_detail
+            else None
+        ),
+    )
 
 
 def report_schema(name: str) -> dict[str, object]:

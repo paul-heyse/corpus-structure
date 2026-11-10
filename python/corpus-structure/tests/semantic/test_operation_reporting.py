@@ -922,3 +922,84 @@ def test_report_v2_exposes_typed_optional_dependency_page():
         "ordering",
         "unknown",
     }
+
+
+def test_projection_validation_reuses_retained_detail_and_keeps_compact_completeness(monkeypatch):
+    from dataclasses import dataclass
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic import projection_analysis_products as products
+    from corpus_structure.semantic.operation_reporting import projection_validation_report
+
+    @dataclass(frozen=True)
+    class Occurrence:
+        identity: str
+        structural_path: str
+        role: str = "value"
+        clause: str = "output"
+        source_ref: str = "physical:kb.source.id"
+        target_ref: str = "projection:test/fields/id"
+        output: str = "id"
+        relationship: str | None = None
+        unknown_reason: str | None = None
+
+    analysis = SimpleNamespace(
+        detail_status="available", unknowns=(),
+        occurrences=(Occurrence("right", "/fields/0/right"), Occurrence("left", "/fields/0/left")),
+    )
+    product = SimpleNamespace(
+        complete=True, unknowns=(), projections=(SimpleNamespace(family="input", analysis=analysis),)
+    )
+    context = SimpleNamespace(release_id="release:validation", execution_model_id="model:validation")
+    monkeypatch.setattr(products, "read_projection_analysis", lambda _: product)
+    compact = projection_validation_report(context).model_dump(mode="json")
+    assert compact["report_version"] == 3
+    assert compact["complete"] is True and compact["observations"] == []
+    assert compact.get("projection_dependencies") is None
+    first = projection_validation_report(
+        context, dependency_detail=True, dependency_family="input", dependency_limit=1
+    ).model_dump(mode="json")
+    assert first["complete"] is True and first["observations"] == []
+    page = first["projection_dependencies"]
+    assert page["total"] == 2 and page["next_after"] == 1
+    assert page["items"][0]["occurrence"]["identity"] == "left"
+    second = projection_validation_report(
+        context, dependency_detail=True, dependency_after=1, dependency_limit=1
+    ).model_dump(mode="json")["projection_dependencies"]
+    assert second["items"][0]["occurrence"]["identity"] == "right"
+    assert second["paging_complete"] and second["coverage_complete"]
+    selected = projection_validation_report(
+        context, dependency_detail=True, dependency_occurrence="right", dependency_output="id"
+    ).model_dump(mode="json")["projection_dependencies"]
+    assert selected["total"] == 1
+    assert selected["items"][0]["occurrence"]["identity"] == "right"
+    with pytest.raises(SemanticRefusal, match="bounds"):
+        projection_validation_report(context, dependency_detail=True, dependency_limit=1001)
+    with pytest.raises(SemanticRefusal, match="position"):
+        projection_validation_report(context, dependency_detail=True, dependency_after=3)
+
+    analysis.detail_status = "unavailable"
+    analysis.occurrences = ()
+    unavailable = projection_validation_report(context, dependency_detail=True).model_dump(mode="json")
+    assert unavailable["complete"] is True and unavailable["observations"] == []
+    assert unavailable["projection_dependencies"]["items"] == [{
+        "side": "current", "family": "input", "status": "unavailable",
+        "reason": "Archived analysis does not retain occurrence detail.",
+    }]
+    assert not unavailable["projection_dependencies"]["coverage_complete"]
+    monkeypatch.setattr(products, "read_projection_analysis", lambda _: None)
+    missing = projection_validation_report(context, dependency_detail=True).model_dump(mode="json")
+    assert not missing["complete"]
+    assert missing["projection_dependencies"]["items"][0]["reason"] == "Retained projection analysis unavailable."
+
+
+def test_validation_v3_registration_preserves_other_report_versions():
+    schema = report_schema("LocatedValidationReport")
+    assert schema["properties"]["report_version"]["minimum"] == 3
+    assert schema["properties"]["report_version"]["maximum"] == 3
+    assert "projection_dependencies" in schema["properties"]
+    assert "projection_dependencies" not in schema["required"]
+    for name in ("OperationExplanation", "SemanticImpactReport"):
+        other = report_schema(name)
+        assert other["properties"]["report_version"]["minimum"] == 2
+        assert other["properties"]["report_version"]["maximum"] == 2

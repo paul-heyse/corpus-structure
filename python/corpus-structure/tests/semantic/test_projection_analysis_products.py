@@ -365,3 +365,33 @@ def test_v2_archive_preserves_summaries_without_fabricated_occurrence_detail(mon
         for entry in value.projections
     )
     assert next(e.analysis for e in value.projections if e.family == "relation").value_dependencies
+
+
+
+def test_v2_archive_validation_exposes_unavailable_detail_without_reanalysis(monkeypatch):
+    from corpus_structure.semantic import projection_analysis_products
+    from corpus_structure.semantic.operation_reporting import projection_validation_report
+
+    body = json.loads(product().content)
+    body["version"] = "projection-analysis-2"
+    for entry in body["projections"]:
+        entry["analysis"]["profile"] = "companion-query-analysis-2"
+        entry["analysis"].pop("occurrences")
+        entry["analysis"].pop("detail_status")
+    archive = with_product(prepared(), PreparedArtifact(ARTIFACT, canonical_bytes(body)))
+    monkeypatch.setattr(
+        projection_analysis_products, "analyze_recipe",
+        lambda *args: pytest.fail("validation reanalyzed archived detail"),
+    )
+    compact = projection_validation_report(archive).model_dump(mode="json")
+    detailed = projection_validation_report(
+        archive, dependency_detail=True, dependency_family="relation"
+    ).model_dump(mode="json")
+    assert detailed["complete"] == compact["complete"]
+    assert detailed["observations"] == compact["observations"]
+    page = detailed["projection_dependencies"]
+    assert page["items"] == [{
+        "side": "current", "family": "relation", "status": "unavailable",
+        "reason": "Archived analysis does not retain occurrence detail.",
+    }]
+    assert page["paging_complete"] and not page["coverage_complete"]

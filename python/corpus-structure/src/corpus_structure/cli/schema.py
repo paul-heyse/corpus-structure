@@ -68,6 +68,12 @@ def compile_(
     domains: Annotated[Path, typer.Option("--domains")] = Path("domains"),
     out: Annotated[Path | None, typer.Option("--out")] = None,
     json_: JsonOpt = False,
+    dependency_detail: bool = False,
+    dependency_family: str | None = None,
+    dependency_output: str | None = None,
+    dependency_occurrence: str | None = None,
+    dependency_after: int = 0,
+    dependency_limit: int = 100,
 ):
     from corpus_structure.semantic.operation_reporting import projection_validation_report
     from corpus_structure.semantic.refusals import SemanticRefusal
@@ -78,6 +84,15 @@ def compile_(
         if any(Path(name).name != name for name in domain):
             raise SemanticRefusal("domain must name a pack under --domains")
         bundle, _deps, _profile, prepared = prepare_packs(tuple(domains / name for name in domain))
+        validation = projection_validation_report(
+            prepared,
+            dependency_detail=dependency_detail,
+            dependency_family=dependency_family,
+            dependency_output=dependency_output,
+            dependency_occurrence=dependency_occurrence,
+            dependency_after=dependency_after,
+            dependency_limit=dependency_limit,
+        ).model_dump(mode="json")
         if out is not None:
             out.mkdir(parents=True, exist_ok=True)
             (out / "manifest.json").write_bytes(prepared.manifest)
@@ -95,7 +110,7 @@ def compile_(
                 release_id=prepared.release_id,
                 execution_model_id=prepared.execution_model_id,
                 artifacts=[ArtifactRow(kind=a.kind, hash=a.digest) for a in prepared.artifacts],
-                validation=projection_validation_report(prepared).model_dump(mode="json"),
+                validation=validation,
             ),
             json=json_,
             render=_render,
@@ -109,13 +124,27 @@ def check_(
     release: Annotated[str | None, typer.Option("--release")] = None,
     domains: Annotated[Path, typer.Option("--domains")] = Path("domains"),
     json_: JsonOpt = False,
+    dependency_detail: bool = False,
+    dependency_family: str | None = None,
+    dependency_output: str | None = None,
+    dependency_occurrence: str | None = None,
+    dependency_after: int = 0,
+    dependency_limit: int = 100,
 ):
     """Check candidate packs or fully verify an archived release without changing it."""
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.refusals import SemanticRefusal
 
     if release is None:
-        return compile_(domain or ["statistics"], domains, None, json_)
+        return compile_(
+            domain or ["statistics"], domains, None, json_,
+            dependency_detail=dependency_detail,
+            dependency_family=dependency_family,
+            dependency_output=dependency_output,
+            dependency_occurrence=dependency_occurrence,
+            dependency_after=dependency_after,
+            dependency_limit=dependency_limit,
+        )
     from corpus_structure.cli.output import state
     from corpus_structure.semantic.operation_reporting import projection_validation_report
     from corpus_structure.semantic.releases import verify_release
@@ -136,7 +165,15 @@ def check_(
                 release_id=prepared.release_id,
                 execution_model_id=prepared.execution_model_id,
                 artifacts=[ArtifactRow(kind=a.kind, hash=a.digest) for a in prepared.artifacts],
-                validation=projection_validation_report(prepared).model_dump(mode="json"),
+                validation=projection_validation_report(
+                    prepared,
+                    dependency_detail=dependency_detail,
+                    dependency_family=dependency_family,
+                    dependency_output=dependency_output,
+                    dependency_occurrence=dependency_occurrence,
+                    dependency_after=dependency_after,
+                    dependency_limit=dependency_limit,
+                ).model_dump(mode="json"),
             ),
             json=json_,
             render=_render,

@@ -213,8 +213,8 @@ classes:
       report_version:
         range: UrInteger
         required: true
-        minimum_value: 2
-        maximum_value: 2
+        minimum_value: 3
+        maximum_value: 3
         slot_uri: ur:LocatedValidationReport_report_version
       report_schema_digest:
         range: UrString
@@ -237,6 +237,10 @@ classes:
         range: UrBoolean
         required: true
         slot_uri: ur:LocatedValidationReport_complete
+      projection_dependencies:
+        range: ProjectionDependencyPage
+        inlined: true
+        slot_uri: ur:LocatedValidationReport_projection_dependencies
   SemanticMemberChange:
     abstract: true
     attributes:
