@@ -10,6 +10,49 @@ reasoning, and implementation plans own scheduled work and closure evidence.
 
 <a id="cld-entry-refresh"></a>
 
+## CLI assembled reconciliation · 2026-11-10
+
+**Source-inspected.** Source `6c867bdb6`, following the entry account published at `f25d427ed`;
+core3.3, heuristics1.0, code-intelligence1.4, binding and test-assessment1.2 remain selected.
+The scoped engagement includes native reference/grammar/context, correction/source custody,
+managed observation/read/watch, stdlib/structlog exceptions, provider/MCP/method/regeneration
+adapters and retained recipe-output capture. Adjacent native run, runtime-pin, publication and
+purpose-role owners were inspected where those boundaries depend on them. Earlier broader
+accounts retain their dates and scope; this is not a refresh of all production or test architecture.
+
+Native references derive from the constructed Typer tree; lexical declarations do not acquire
+resources or replace domain admission. Configured selection projects one settings snapshot and
+keeps unavailable current configuration separate from historical acquired identity. Correction
+views select original Located5 facts, typed paths and captured-only operation/scope bindings;
+optional source bytes come from actual acquisition and authenticate under existing custody.
+Presentation failures preserve original outcomes. No second validation classifier was introduced
+(FP-01/03/04/05/06; DP-01/02/03/08/15/24; CI-01/02/04/10/11/13).
+
+The observation owner separates unsealed prefixes, sealed authenticated content and native state.
+One parent writer assigns local sequence while preserving producer identity/assurance. Cursor,
+examination and complete-response budgets govern reads; watch declares its latest-window selection
+and evictions separately from scan progress. Process-scoped routes and restored invocation/tool
+context support concurrent producers. One safe owned event and bounded native exception adaptation
+precede destination fan-out; optional sink failures preserve the original operation. Method callers
+without capture retain ordinary logging (FP-01–07; DP-04/05/08/15/18/19/20/21/23; CI-01/02/04/08/13).
+
+Native recipe streams reuse the existing bounded side channel. One safe selection supplies compact
+excerpts and retained output; protected-token truncation, unknown historical basis and collection
+omissions remain explicit. Authenticated paged output does not rerun checks. Cancellation preserves
+signal identity and unresolved custody when draining is unestablished. Full bounded digest scans
+per independent settled read buy content authentication without another chunk/index mechanism;
+held observation readers reuse their authenticated input. This fits the single-host captured-agent
+workload qualitatively, without a speed or capacity claim (FP-03/04/06/07; DP-08/15/18/20/21/23/24).
+
+Independent implementation review identified corrected boundary defects; the
+[CLD coordinator](../../plans/cli-and-logging_2026-11-10.md#execution-receipts--2026-11-10)
+owns their dispositions and scoped test receipts. No additional demonstrated architectural
+violation remains in this inspected footprint. Complete package runtime capture already includes
+the new helpers; changed source changes runtime identity without changing semantic identity.
+Assembled target judgment and full final-source functional/nonfunctional qualification remain
+separate. No external Claude execution, broad test-architecture audit or benefit measurement is
+claimed by this source account.
+
 ## CLI and observation entry refresh · 2026-11-10
 
 **Source-inspected.** Baseline `42d20a2ab`; core3.3, heuristics1.0, code-intelligence1.4,
