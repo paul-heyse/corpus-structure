@@ -2271,6 +2271,17 @@ LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
  WHERE extent IS NOT NULL AND (extent->>1)::integer>(extent->>0)::integer
   AND greatest((piece->>'start')::integer,(passage->>'start')::integer)<=least((extent->>0)::integer,cue_lo)
   AND greatest((extent->>1)::integer,cue_hi)<=least((piece->>'end')::integer,(passage->>'end')::integer)
+  AND (NOT recipe ? '_native_piece_index' OR NOT EXISTS(
+   SELECT FROM jsonb_array_elements(tokens) WITH ORDINALITY t(tok,n)
+   CROSS JOIN LATERAL (SELECT (tok->>'start')::integer AS lo,(tok->>'end')::integer AS hi) pos
+   WHERE (
+    to_jsonb(t.n-1) <@ jsonb_path_query_array(spans.bound,'$.*')
+    OR (pos.lo<(extent->>1)::integer AND (extent->>0)::integer<pos.hi)
+    OR (pos.lo<cue_hi AND cue_lo<pos.hi)
+   ) AND (
+    tok->'piece_indices' IS DISTINCT FROM jsonb_build_array(recipe->'_native_piece_index')
+    OR pos.lo<(piece->>'start')::integer OR pos.hi>(piece->>'end')::integer
+   )))
 $$;
 REVOKE ALL ON FUNCTION ops.named_link_expected_groups(text,jsonb,jsonb,jsonb,jsonb) FROM PUBLIC;
 
@@ -2307,6 +2318,7 @@ CREATE OR REPLACE FUNCTION ops.validate_named_annotation_links(
  t ops.task,v kb.source_view,config_ jsonb,population jsonb,operation_map jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
 DECLARE recipe jsonb; source_ jsonb; source_key text; origin_id bigint; body jsonb; op jsonb;
+ origin_count bigint; piece_owners jsonb; owner_ jsonb; piece_index integer;
  row_ jsonb; meaning jsonb; proof jsonb; annotation jsonb; tokens jsonb; rule jsonb; node jsonb;
  attribute record; token jsonb; idx integer; prior_idx integer; sentence_ jsonb; lo integer; hi integer;
  word_ text; value_ text; cue_span jsonb; subject_span jsonb; arg_span jsonb; piece jsonb; native jsonb;
@@ -2317,7 +2329,8 @@ DECLARE recipe jsonb; source_ jsonb; source_key text; origin_id bigint; body jso
  cue_ids text[]; target_ids text[];
  concept_span jsonb; concept_ids text[]; concept_count integer;
  current_ boolean:=config_->'_current_witness_version'='true'::jsonb;
- coverage_ boolean:=coalesce(config_->>'_named_version'='3',false); coverage_recipe jsonb;
+ coverage_ boolean:=coalesce(config_->>'_named_version' IN ('3','4'),false); coverage_recipe jsonb;
+ native_pieces_ boolean:=coalesce(config_->>'_named_version'='4',false); native_piece_recipe jsonb;
  inspected_count integer; incomplete boolean; expected_outcome text;
  coverage_blocks jsonb; annotated jsonb; expected_subject jsonb; expected_argument jsonb; nominal_complete boolean;
  expected_resolution text; cautious boolean;
@@ -2335,10 +2348,20 @@ BEGIN
    AND input_name='execution/implementation/operations/named-link-coverage.json';
   recipe:=recipe||coverage_recipe;
  END IF;
+ IF native_pieces_ THEN
+  SELECT convert_from(content,'UTF8')::jsonb INTO STRICT native_piece_recipe FROM sem.input
+  WHERE release_id=t.release_id AND input_kind='dependency'
+   AND input_name='execution/implementation/operations/named-link-native-pieces.json';
+  IF native_piece_recipe->>'version' IS DISTINCT FROM '4'
+   OR jsonb_typeof(native_piece_recipe->'joined_piece_kinds') IS DISTINCT FROM 'array' THEN
+   RAISE EXCEPTION 'named native piece policy differs from its released recipe' USING ERRCODE='23514';
+  END IF;
+  recipe:=recipe||native_piece_recipe;
+ END IF;
  SELECT o INTO STRICT op FROM jsonb_each(operation_map) x(key,o) WHERE o->>'question'='source_named_links';
  IF op->>'operation_version' IS DISTINCT FROM recipe->>'version' THEN
   RAISE EXCEPTION 'named cue operation differs from released annotation recipe' USING ERRCODE='23514'; END IF;
- SELECT r.body,r.task_id INTO body,origin_id
+ SELECT r.body,r.task_id,count(*) OVER () INTO body,origin_id,origin_count
  FROM ops.cut_task c JOIN ops.task selected ON selected.id=c.task_id
  JOIN ops.task_result r ON r.task_id=c.origin_task_id
  JOIN ops.method_config cfg ON cfg.id=selected.method_config_id
@@ -2346,13 +2369,43 @@ BEGIN
  WHERE c.cut_id=(source_->>'cut_id')::bigint AND selected.run_id=(source_->>'run_id')::bigint
   AND selected.unit_id=v.id AND selected.unit_type='source_view'
   AND c.origin_task_id=coalesce(selected.reused_task_id,selected.id)
-  AND selected.status IN ('done','reused') AND m.name='extract.m1_annotations' AND m.version='2';
+  AND selected.status IN ('done','reused') AND m.name='extract.m1_annotations' AND m.version='2'
+  AND (NOT native_pieces_ OR r.release_id=source_->>'release_id');
+ IF native_pieces_ AND origin_count>1 THEN
+  RAISE EXCEPTION 'named cue original annotation producer is ambiguous' USING ERRCODE='23514';
+ END IF;
  IF (op->>'annotation_origin_task_id')::bigint IS DISTINCT FROM origin_id
   AND NOT (origin_id IS NULL AND op->>'outcome' IN ('empty','unsupported')) THEN
   RAISE EXCEPTION 'named cue operation lacks original annotation producer' USING ERRCODE='23514'; END IF;
  IF coverage_ THEN
   -- Scope and availability come from original custody, independent of submitted roles.
   annotated:=data.record_source_json(body->'parse_detail')->'annotations';
+  IF native_pieces_ THEN
+   -- Retain only compact ordinals, not repeated copies of a joined annotation block.
+   WITH selected AS MATERIALIZED (
+    SELECT p FROM jsonb_array_elements(v.projection->'pieces') p
+    WHERE p->>'kind'='native_text' AND NOT p ? 'cell_index'
+     AND coalesce(p->>'source_field','text')='text'
+     AND EXISTS(SELECT FROM jsonb_array_elements(config_->'inputs'->'passages') s
+      WHERE s->>'source_ref'=source_key AND (p->>'start')::integer<(s->>'end')::integer
+       AND (s->>'start')::integer<(p->>'end')::integer)
+   ), mapped AS MATERIALIZED (
+    SELECT (a->>'block_start')::integer AS block_start,(a->>'block_end')::integer AS block_end,
+     ap,a_n,p_n FROM jsonb_array_elements(annotated) WITH ORDINALITY annotations(a,a_n)
+    CROSS JOIN LATERAL jsonb_array_elements(a->'native_pieces') WITH ORDINALITY pieces(ap,p_n)
+    WHERE ap->>'kind'='native_text' AND ap->>'cell_index' IS NULL
+     AND coalesce(ap->>'source_field','text')='text'
+   ), owners AS (
+    SELECT p->>'item_ref' AS pointer,
+     jsonb_agg(jsonb_build_object('annotation_index',a_n-1,'piece_index',p_n-1,
+      'start',p->'start','end',p->'end'))->0 AS owner_
+    FROM selected JOIN mapped ON ap->>'item_ref'=p->>'item_ref'
+     AND ap->'start'=p->'start' AND ap->'end'=p->'end'
+    WHERE block_start<=(p->>'start')::integer AND (p->>'end')::integer<=block_end
+    GROUP BY p->>'item_ref' HAVING count(*)=1
+   )
+   SELECT coalesce(jsonb_object_agg(pointer,o.owner_),'{}') INTO piece_owners FROM owners o;
+  END IF;
   WITH selected_pieces AS MATERIALIZED (
    SELECT DISTINCT ON (p->>'item_ref') p
    FROM jsonb_array_elements(v.projection->'pieces') WITH ORDINALITY x(p,n)
@@ -2376,7 +2429,11 @@ BEGIN
      WHERE c->>'status'='complete') AS columns
    FROM selected
    LEFT JOIN LATERAL (SELECT x FROM jsonb_array_elements(annotated) x
-    WHERE x->>'block_id'=p->>'item_ref') annotation_row(a) ON true
+    WHERE NOT native_pieces_ AND x->>'block_id'=p->>'item_ref'
+    UNION ALL
+    SELECT annotated->((piece_owners->(p->>'item_ref')->>'annotation_index')::integer)
+    WHERE native_pieces_ AND piece_owners->(p->>'item_ref')->'start'=p->'start'
+     AND piece_owners->(p->>'item_ref')->'end'=p->'end') annotation_row(a) ON true
   )
   SELECT count(*) FILTER(WHERE ready),
    coalesce(jsonb_object_agg(p->>'item_ref',to_jsonb(columns)) FILTER(WHERE ready),'{}'),
@@ -2397,23 +2454,33 @@ BEGIN
    WHERE item.native_json->>'content_layer'='body'
     AND item.native_json->>'label' IN ('text','paragraph','list_item')
   ), contexts AS MATERIALIZED (
-   SELECT a,pieces.p,s FROM pieces JOIN body_items USING(pointer)
-   JOIN jsonb_array_elements(data.record_source_json(body->'parse_detail')->'annotations') a
-    ON a->>'block_id'=pieces.pointer
+   SELECT a,pieces.p,s,pieces.pointer,piece_owners->pieces.pointer AS owner_ FROM pieces JOIN body_items USING(pointer)
+   CROSS JOIN LATERAL (
+    SELECT x AS a FROM jsonb_array_elements(data.record_source_json(body->'parse_detail')->'annotations') x
+    WHERE NOT native_pieces_ AND x->>'block_id'=pieces.pointer
+    UNION ALL
+    SELECT annotated->((piece_owners->pieces.pointer->>'annotation_index')::integer)
+    WHERE native_pieces_ AND piece_owners->pieces.pointer->'start'=pieces.p->'start'
+     AND piece_owners->pieces.pointer->'end'=pieces.p->'end'
+   ) annotation_row
    JOIN jsonb_array_elements(config_->'inputs'->'passages') s ON s->>'source_ref'=source_key
     AND (pieces.p->>'start')::integer<(s->>'end')::integer
     AND (s->>'start')::integer<(pieces.p->>'end')::integer
    WHERE NOT coverage_ OR coverage_blocks ? pieces.pointer
   ), expected AS MATERIALIZED (
    SELECT 'annotation:'||(ctx.a->>'dependency_digest') AS annotation_id,
-    ctx.s->>'passage_id' AS passage_id,g.rule_name,g.variant,g.nodes
+    ctx.s->>'passage_id' AS passage_id,ctx.pointer,g.rule_name,g.variant,g.nodes
    FROM contexts ctx
-   CROSS JOIN LATERAL ops.named_link_expected_groups(full_text,ctx.a->'tokens',ctx.p,ctx.s,recipe) g
-   WHERE NOT coverage_ OR EXISTS(
+   CROSS JOIN LATERAL ops.named_link_expected_groups(full_text,ctx.a->'tokens',ctx.p,ctx.s,
+    CASE WHEN native_pieces_ THEN recipe||jsonb_build_object('_native_piece_index',ctx.owner_->'piece_index')
+     ELSE recipe END) g
+   WHERE (NOT coverage_ OR EXISTS(
     SELECT FROM jsonb_array_elements(recipe->'rules') r
     WHERE r->>'rule'=g.rule_name AND r->>'variant'=g.variant
-     AND ops.named_link_rule_available(r,coverage_blocks->(ctx.a->>'block_id'))
-   )
+     AND ops.named_link_rule_available(r,coverage_blocks->ctx.pointer)
+     AND (NOT native_pieces_ OR ctx.a->>'block_id'=ctx.pointer
+      OR recipe->'joined_piece_kinds' ? (r->>'kind'))
+   ))
   ), reported AS MATERIALIZED (
    SELECT data.record_source_json(r->'value') AS val FROM jsonb_array_elements(population) r
    WHERE r->>'operation_key'=op->>'operation_key' AND r->>'kind'='occurrence'
@@ -2421,6 +2488,7 @@ BEGIN
   SELECT FROM expected e WHERE NOT EXISTS(
    SELECT FROM reported r
    WHERE r.val->>'role'='named_link_subject' AND r.val->>'region'=e.passage_id
+    AND (NOT native_pieces_ OR r.val->>'source_pointer'=e.pointer)
     AND r.val->'named_cue'->>'annotation'=e.annotation_id
     AND r.val->'named_cue'->>'rule'=e.rule_name AND r.val->'named_cue'->>'variant'=e.variant
     AND r.val->'named_cue'->'tokens'=e.nodes
@@ -2434,15 +2502,31 @@ BEGIN
   IF row_->>'semantic_type' IS DISTINCT FROM 'structural.located_participant'
    OR jsonb_array_length(row_->'anchors') IS DISTINCT FROM 1
    OR anchor_->>'precision' IS DISTINCT FROM 'exact' OR anchor_->>'space' IS DISTINCT FROM 'native'
-   OR origin_id IS NULL OR proof IS NULL OR proof->>'block' IS DISTINCT FROM anchor_->>'pointer' THEN
+   OR origin_id IS NULL OR proof IS NULL
+   OR (proof->>'block' IS DISTINCT FROM anchor_->>'pointer' AND
+    (NOT native_pieces_ OR NOT coalesce(recipe->'joined_piece_kinds' ? (proof->>'kind'),false))) THEN
    RAISE EXCEPTION 'named cue lacks retained source role and annotation' USING ERRCODE='23514'; END IF;
   SELECT p INTO STRICT piece FROM jsonb_array_elements(v.projection->'pieces') p
    WHERE p->>'kind'='native_text' AND NOT p ? 'cell_index' AND coalesce(p->>'source_field','text')='text'
-    AND p->>'item_ref'=proof->>'block';
+    AND p->>'item_ref'=anchor_->>'pointer'
+    AND (NOT native_pieces_ OR (
+     piece_owners->(anchor_->>'pointer')->'start'=p->'start'
+     AND piece_owners->(anchor_->>'pointer')->'end'=p->'end'));
   SELECT native_json INTO STRICT native FROM ops.read_pdf_published_items(
    v.native_task_id,v.native_product_key,v.native_content_digest,ARRAY[piece->>'item_ref']);
-  SELECT a INTO STRICT annotation FROM jsonb_array_elements(data.record_source_json(body->'parse_detail')->'annotations') a
-   WHERE 'annotation:'||(a->>'dependency_digest')=proof->>'annotation' AND a->>'block_id'=proof->>'block';
+  IF native_pieces_ THEN
+   owner_:=piece_owners->(anchor_->>'pointer');
+   piece_index:=(owner_->>'piece_index')::integer;
+   annotation:=annotated->((owner_->>'annotation_index')::integer);
+   IF piece_index IS NULL OR annotation IS NULL
+    OR 'annotation:'||(annotation->>'dependency_digest') IS DISTINCT FROM proof->>'annotation'
+    OR annotation->>'block_id' IS DISTINCT FROM proof->>'block' THEN
+    RAISE EXCEPTION 'named cue lacks its unique retained native piece owner' USING ERRCODE='23514';
+   END IF;
+  ELSE
+   SELECT a INTO STRICT annotation FROM jsonb_array_elements(data.record_source_json(body->'parse_detail')->'annotations') a
+    WHERE 'annotation:'||(a->>'dependency_digest')=proof->>'annotation' AND a->>'block_id'=proof->>'block';
+  END IF;
   SELECT p INTO STRICT passage FROM jsonb_array_elements(config_->'inputs'->'passages') p
    WHERE p->>'source_ref'=source_key AND p->>'passage_id'=meaning->>'region'
     AND p->>'scope'=proof->>'scope'
@@ -2453,7 +2537,7 @@ BEGIN
   IF native->>'content_layer' IS DISTINCT FROM 'body' OR native->>'label' NOT IN ('text','paragraph','list_item')
    OR (SELECT count(*) FROM jsonb_object_keys(proof->'tokens'))<>jsonb_array_length(rule->'nodes') THEN
    RAISE EXCEPTION 'named cue differs from selected native text or recipe nodes' USING ERRCODE='23514'; END IF;
-  IF coverage_ AND NOT ops.named_link_rule_available(rule,coverage_blocks->(annotation->>'block_id')) THEN
+  IF coverage_ AND NOT ops.named_link_rule_available(rule,coverage_blocks->(piece->>'item_ref')) THEN
    RAISE EXCEPTION 'named cue cannot use an unavailable block or rule' USING ERRCODE='23514';
   END IF;
   tokens:=annotation->'tokens'; prior_idx:=NULL; sentence_:=NULL; cue_lo:=NULL; cue_hi:=NULL;
@@ -2468,6 +2552,10 @@ BEGIN
     RAISE EXCEPTION 'named cue differs from retained token sequence or dependency' USING ERRCODE='23514'; END IF;
    sentence_:=token->'sentence'; prior_idx:=idx;
    lo:=(token->>'start')::integer; hi:=(token->>'end')::integer;
+   IF native_pieces_ AND (token->'piece_indices' IS DISTINCT FROM jsonb_build_array(piece_index)
+    OR lo<(piece->>'start')::integer OR hi>(piece->>'end')::integer OR lo>=hi) THEN
+    RAISE EXCEPTION 'named cue token differs from its exact retained native piece' USING ERRCODE='23514';
+   END IF;
    word_:=substring(full_text FROM lo+1 FOR hi-lo);
    FOR attribute IN SELECT * FROM jsonb_each(node->'attrs') LOOP
     value_:=CASE attribute.key WHEN 'ORTH' THEN word_ WHEN 'LOWER' THEN lower(word_)
@@ -2606,6 +2694,14 @@ BEGIN
    AND concept_span IS NULL THEN concept_span:=ops.named_link_definition_subject(
     full_text,greatest((piece->>'start')::integer,(passage->>'start')::integer),cue_lo,
     recipe->>'definition_subject_pattern'); END IF;
+  IF native_pieces_ AND concept_span IS NOT NULL AND EXISTS(
+   SELECT FROM jsonb_array_elements(tokens) tok
+   WHERE (tok->>'start')::integer<(concept_span->>1)::integer
+    AND (concept_span->>0)::integer<(tok->>'end')::integer
+    AND (tok->'piece_indices' IS DISTINCT FROM jsonb_build_array(piece_index)
+     OR (tok->>'start')::integer<(piece->>'start')::integer
+     OR (tok->>'end')::integer>(piece->>'end')::integer)
+  ) THEN concept_span:=NULL; END IF;
   role_span:=CASE meaning->>'role' WHEN 'named_link_subject' THEN subject_span
    WHEN 'named_link_cue' THEN cue_span WHEN 'named_link_target' THEN arg_span
    WHEN 'named_link_definition_subject' THEN concept_span ELSE NULL END;
@@ -2617,6 +2713,13 @@ BEGIN
    OR (anchor_->>'start')::integer+(piece->>'start')::integer<>lo
    OR (anchor_->>'end')::integer+(piece->>'start')::integer<>hi
    OR meaning->>'text' IS DISTINCT FROM substring(full_text FROM lo+1 FOR hi-lo)
+   OR (native_pieces_ AND EXISTS(
+    SELECT FROM jsonb_array_elements(tokens) tok
+    WHERE (tok->>'start')::integer<hi AND lo<(tok->>'end')::integer
+     AND (tok->'piece_indices' IS DISTINCT FROM jsonb_build_array(piece_index)
+      OR (tok->>'start')::integer<(piece->>'start')::integer
+      OR (tok->>'end')::integer>(piece->>'end')::integer)
+   ))
    OR (meaning->>'role'='named_link_target' AND proof->>'resolution'<>'located') THEN
    RAISE EXCEPTION 'named link role differs from exact original scoped extent' USING ERRCODE='23514'; END IF;
   IF meaning->>'role'='named_link_subject' THEN
@@ -2733,9 +2836,7 @@ BEGIN
     jsonb_build_object('role','target','contribution_id',target_row->>'contribution_id')) THEN
    RAISE EXCEPTION 'named declaration edge differs from its exact cue and direction' USING ERRCODE='23514'; END IF;
  END LOOP;
-EXCEPTION WHEN no_data_found OR too_many_rows THEN
- RAISE EXCEPTION 'named annotation link cannot resolve exact released source roles' USING ERRCODE='23514';
- IF coverage_ THEN
+ IF native_pieces_ THEN
   SELECT CASE
    WHEN inspected_count=0 THEN CASE WHEN incomplete THEN 'unsupported' ELSE 'empty' END
    WHEN incomplete OR count(*) FILTER(WHERE m.val->'named_cue'->>'resolution'<>'located')>0 THEN 'limited'
@@ -2748,6 +2849,8 @@ EXCEPTION WHEN no_data_found OR too_many_rows THEN
    RAISE EXCEPTION 'named link outcome differs from original coverage and matches' USING ERRCODE='23514';
   END IF;
  END IF;
+EXCEPTION WHEN no_data_found OR too_many_rows THEN
+ RAISE EXCEPTION 'named annotation link cannot resolve exact released source roles' USING ERRCODE='23514';
 END $$;
 REVOKE ALL ON FUNCTION ops.validate_named_annotation_links(ops.task,kb.source_view,jsonb,jsonb,jsonb) FROM PUBLIC;
 
@@ -2854,13 +2957,13 @@ BEGIN
  rows_:=ops.resolve_retained_source_contribution(edge_ref)->'contributions';
  IF NOT EXISTS(SELECT FROM ops.task t JOIN ops.method_config c ON c.id=t.method_config_id
   JOIN ops.method m ON m.id=c.method_id WHERE t.id=(edge_ref->>'origin_task_id')::bigint
-   AND m.name='structure.scoped_relations' AND m.version IN ('7','8','9','10','11')) THEN RETURN NULL; END IF;
+   AND m.name='structure.scoped_relations' AND m.version IN ('7','8','9','10','11','12')) THEN RETURN NULL; END IF;
  SELECT r INTO STRICT edge_ FROM jsonb_array_elements(rows_) r
  WHERE r->>'contribution_id'=edge_ref->>'contribution_id';
  IF NOT coalesce(edge_->>'kind'='relation' AND edge_->>'semantic_type'='structural.scoped_attachment'
   AND edge_->'component'->>'question'='source_named_links'
   AND edge_->'component'->>'attachment_kind'='alias'
-  AND edge_->'component'->>'question_version' IN ('2','3')
+  AND edge_->'component'->>'question_version' IN ('2','3','4')
   AND jsonb_array_length(edge_->'endpoints')=2,false) THEN RETURN NULL; END IF;
  retained:=ops.resolve_retained_component(ref);
  component:=retained->'component';
@@ -3057,12 +3160,12 @@ BEGIN
  IF t.status<>'running' AND NOT EXISTS(SELECT FROM ops.task_result WHERE task_id=t.id AND body=p_envelope) THEN
   RAISE EXCEPTION 'contribution report differs from immutable origin result' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT v FROM kb.source_view WHERE id=t.unit_id;
- IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('3','4','5','6','7','8','9','10','11') THEN
+ IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('3','4','5','6','7','8','9','10','11','12') THEN
   PERFORM ops.validate_source_table_note_scope(v,p_envelope->'contributions');
   SELECT params INTO STRICT table_config FROM ops.method_config WHERE id=t.method_config_id;
   table_mode:=table_config->>'interpretation_mode';
   IF table_mode IS NULL OR (table_mode NOT IN ('feasibility','independent','coupled')
-   AND NOT (table_mode='correspondence' AND p_envelope->>'operation_version' IN ('8','9','10','11')))
+   AND NOT (table_mode='correspondence' AND p_envelope->>'operation_version' IN ('8','9','10','11','12')))
    OR table_config->>'interpretation_weight_scale' IS NULL
    OR table_config->>'interpretation_weight_scale' NOT IN ('0.5','1','2') THEN
    RAISE EXCEPTION 'invalid registered table interpretation policy' USING ERRCODE='23514';
@@ -3085,7 +3188,7 @@ BEGIN
  IF EXISTS(SELECT FROM jsonb_each(operation_map) o
   WHERE o.value->>'question'='source_formula_occurrences'
    AND (p_envelope->>'method' IS DISTINCT FROM 'structure.scoped_relations'
-    OR p_envelope->>'operation_version' NOT IN ('5','6','7','8','9','10','11')
+    OR p_envelope->>'operation_version' NOT IN ('5','6','7','8','9','10','11','12')
     OR o.value->>'operation_version' IS DISTINCT FROM '1')) THEN
   RAISE EXCEPTION 'formula occurrence operation requires its released producer' USING ERRCODE='23514';
  END IF;
@@ -3098,7 +3201,7 @@ BEGIN
   FROM jsonb_array_elements(p_envelope->'contributions') c
   CROSS JOIN LATERAL jsonb_array_elements(COALESCE(c->'endpoints','[]')) e
   WHERE c->>'kind'='relation'
-   AND (p_envelope->>'operation_version' NOT IN ('6','7','8','9','10','11') OR
+   AND (p_envelope->>'operation_version' NOT IN ('6','7','8','9','10','11','12') OR
     operation_map->(c->>'operation_key')->>'question' IS DISTINCT FROM 'source_witnessed_links');
  END IF;
  SELECT COALESCE(jsonb_object_agg(key,n),'{}') INTO output_counts FROM (
@@ -3590,7 +3693,7 @@ BEGIN
     FROM ops.task selected JOIN ops.task_result upstream ON upstream.task_id=coalesce(selected.reused_task_id,selected.id)
     JOIN ops.method_config cfg ON cfg.id=selected.method_config_id JOIN ops.method method ON method.id=cfg.method_id
     WHERE selected.run_id=t.run_id AND selected.unit_id=v.id AND selected.unit_type='source_view'
-     AND selected.status IN ('done','empty','reused') AND method.name='structure.scoped_relations' AND method.version IN ('7','8','9','10','11');
+     AND selected.status IN ('done','empty','reused') AND method.name='structure.scoped_relations' AND method.version IN ('7','8','9','10','11','12');
     heading_constraints:=jsonb_build_array(jsonb_build_object(
      'constraint_id','section-citation','relation_kinds',jsonb_build_array('cites-section'),
      'occurrence_role','citation','target_role','heading','multiplicity','one','exhaustive',false));
@@ -4354,7 +4457,7 @@ BEGIN
  END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(p_envelope->'contributions') c
   WHERE c->'component'->>'kind' IN ('predicate_frame','predicate_reading','predicate_cue','predicate_qualifier')) THEN
-  IF p_envelope->>'method'<>'structure.scoped_relations' OR p_envelope->>'operation_version' NOT IN ('4','5','6','7','8','9','10','11') THEN
+  IF p_envelope->>'method'<>'structure.scoped_relations' OR p_envelope->>'operation_version' NOT IN ('4','5','6','7','8','9','10','11','12') THEN
    RAISE EXCEPTION 'predicate evidence requires its released producer' USING ERRCODE='23514';
   END IF;
   SELECT jsonb_object_agg(c->>'contribution_id',c) INTO predicate_population
@@ -4363,15 +4466,15 @@ BEGIN
    'structural.predicate_cue','structural.predicate_reading','structural.predicate_qualification');
   PERFORM ops.validate_source_predicates(
    t,v,predicate_population,table_config||jsonb_build_object('_predicate_operations',operation_map,
-    '_predicate_version',CASE WHEN p_envelope->>'operation_version' IN ('10','11') THEN '5'
+    '_predicate_version',CASE WHEN p_envelope->>'operation_version' IN ('10','11','12') THEN '5'
      WHEN p_envelope->>'operation_version'='9' THEN '4'
      WHEN p_envelope->>'operation_version' IN ('5','6','7','8') THEN '3' ELSE '2' END));
  END IF;
- IF (p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('9','10','11')
+ IF (p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('9','10','11','12')
     AND table_config->>'inputs' IS NOT NULL)
   OR EXISTS(SELECT FROM jsonb_each(operation_map) o WHERE o.value->>'question'='source_witnessed_links') THEN
   IF p_envelope->>'method' IS DISTINCT FROM 'structure.scoped_relations'
-   OR p_envelope->>'operation_version' NOT IN ('6','7','8','9','10','11') THEN
+   OR p_envelope->>'operation_version' NOT IN ('6','7','8','9','10','11','12') THEN
    RAISE EXCEPTION 'witnessed links require their released source producer' USING ERRCODE='23514'; END IF;
   IF table_config->>'ordered_formula_witness' IS NOT NULL THEN
    IF p_envelope->>'operation_version' IS DISTINCT FROM '11'
@@ -4384,28 +4487,29 @@ BEGIN
     RAISE EXCEPTION 'versioned formula witness requires its explicit released input' USING ERRCODE='23514';
    END IF;
    PERFORM ops.validate_witnessed_formula_links(v,table_config||jsonb_build_object(
-    '_current_witness_version',p_envelope->>'operation_version' IN ('9','10','11')),p_envelope->'contributions',operation_map);
+    '_current_witness_version',p_envelope->>'operation_version' IN ('9','10','11','12')),p_envelope->'contributions',operation_map);
   END IF;
  END IF;
- IF (p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('7','8','9','10','11')
+ IF (p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('7','8','9','10','11','12')
     AND table_config->>'inputs' IS NOT NULL)
   OR EXISTS(SELECT FROM jsonb_each(operation_map) o WHERE o.value->>'question'='source_named_links') THEN
   IF p_envelope->>'method' IS DISTINCT FROM 'structure.scoped_relations'
-   OR p_envelope->>'operation_version' NOT IN ('6','7','8','9','10','11') THEN
+   OR p_envelope->>'operation_version' NOT IN ('6','7','8','9','10','11','12') THEN
    RAISE EXCEPTION 'named links require their released source producer' USING ERRCODE='23514'; END IF;
-  IF p_envelope->>'operation_version' IN ('7','8','9','10','11') THEN
+  IF p_envelope->>'operation_version' IN ('7','8','9','10','11','12') THEN
    PERFORM ops.validate_named_annotation_links(t,v,table_config||jsonb_build_object(
-    '_current_witness_version',p_envelope->>'operation_version' IN ('9','10','11'),
-    '_named_version',CASE WHEN p_envelope->>'operation_version' IN ('10','11') THEN '3' ELSE '2' END),p_envelope->'contributions',operation_map);
+    '_current_witness_version',p_envelope->>'operation_version' IN ('9','10','11','12'),
+    '_named_version',CASE WHEN p_envelope->>'operation_version'='12' THEN '4'
+     WHEN p_envelope->>'operation_version' IN ('10','11') THEN '3' ELSE '2' END),p_envelope->'contributions',operation_map);
   ELSE
    PERFORM ops.validate_named_source_links(v,table_config,p_envelope->'contributions',operation_map);
   END IF;
  END IF;
- IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('7','8','9','10','11')
+ IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('7','8','9','10','11','12')
   AND table_config->>'inputs' IS NOT NULL THEN
   PERFORM ops.validate_scope_inheritance(p_envelope->'contributions',operation_map);
  END IF;
- IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('6','7','8','9','10','11')
+ IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('6','7','8','9','10','11','12')
   AND (COALESCE(table_config->'classification_refs','[]')<>'[]'::jsonb
    OR data.record_source_json(p_envelope->'parse_detail') ? 'clause_model_concordance') THEN
   IF EXISTS(SELECT FROM jsonb_array_elements(COALESCE(table_config->'classification_refs','[]')) ref
