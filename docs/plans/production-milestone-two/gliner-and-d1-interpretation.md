@@ -169,17 +169,21 @@ The [native split-loss result](../../design_review/evidence/2026-11-09_pm2-closu
 found the cue and preserved fair-coin normalization, but did not isolate the
 roulette amount and unit. Do not assert a combined loss result. A
 [protected passage-function control](../../design_review/evidence/2026-11-09_pm2-protected-classification/README.md)
-found GLiNER and d1 agree on one exact definition case. The managed GLiNER arm
-and broader like-for-like comparisons remain open.
+found GLiNER and d1 agree on one exact definition case. Broader like-for-like
+comparisons remain open.
 
-**Managed passage-function boundary · Proposed.** Use a distinct versioned
-source-only GLiNER method and profile for the released passage-function question.
+**Managed passage-function boundary · Implemented on the isolated integration
+branch, 2026-11-09.** A distinct versioned source-only GLiNER method and profile
+serve the released passage-function question.
 The existing predicate-frame classifier and d1 profile retain their meanings
-and configuration schemas. Bind one exact source slice and the released ordered
-choices to the existing GLiNER request and observation digests. Lower eligible
-choices to the existing private passage-function product; missing labels stay
-unresolved. Read and replay the new method through its own version without
-manufacturing d1 replies, answer spans, or public claims. Freeze protected
+and configuration schemas. The method binds one exact source slice and the
+released ordered choices to the existing GLiNER request and observation digests.
+Eligible choices project to the existing private passage-function product;
+missing labels stay unresolved. Reader and detached replay dispatch by method
+version, retaining the GLiNER reply and source custody. One real CPU task
+settled in managed run 488/cut 600; Reader, CLI and fresh MCP agreed on its
+private definition choice. Bound detached verification passed for that task.
+Freeze protected
 references under the successor release and select the same source views for
 the managed GLiNER and d1 arms.
 

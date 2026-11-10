@@ -405,7 +405,7 @@ evidence by itself.
 ### Post-audit execution checkpoint · 2026-11-09
 
 - **Private book staging.** `uv run ci status 487 --project
-  nce-grinstead-snell-full-book --json` read back an active supervisor, 41 of
+  nce-grinstead-snell-full-book --json` read back an active supervisor, 51 of
   58 extraction tasks done and no completed cut. Leave the executing checkout
   and runtime inputs in place through managed settlement and finalization.
   The earlier run 482 refusal remains a terminal record. Set 34 grading and
@@ -419,19 +419,56 @@ evidence by itself.
   for run 487 settlement and finalization under its pinned runtime.
   The committed-source managed rerun `1de606f99be44f75ab9e0e9c7c1e3281`
   passed both focused controls; its receipt is in the refusal worktree.
-- **PM2-01/08 · Detached worklist candidate ready off main.** Commit
-  `8c4e5b561` on `pm2/detached-worklist` adds exact-cut worklist export
+- **PM2-01/08 · Detached worklist candidate ready off main.** Commits
+  `8c4e5b561` and `e1409ebac` on `pm2/detached-worklist` add exact-cut worklist export
   and shared coverage replay. Managed export and bound receipt inspection
   `c17fee3f00274e32b26aa11b97f40b80` passed for the 11 rows in run 485/cut 598,
   view 383. The earlier default-budget refusal is preserved; the successful
   export used a 384 MiB bound. The independent manifest receipt is needed
   for worklist completeness. The candidate does not establish assembled
   coverage or workflow qualification.
+- **PM2-07/12 · Isolated product integration.** `pm2/integration` at
+  `e46a8eabd` combined the typed refusal, detached worklist, exact ordinary
+  scheduler dependency, and opt-in managed GLiNER passage-function producer.
+  The targeted `uv run ci test` receipt `99b7271de688406a8a9de7c371106527`
+  passed all 26 selected checks. `uv run ci schema check --domain statistics`
+  compiled the integration branch; four calls to `ops.pdf_companion_body`
+  remained unassessed in the static report. The ordinary scheduler now reads the
+  declared producer in preparation and execution and keys reuse to the exact
+  origin. F04 still requires the ordinary assembly to select archived PM2
+  stages under their exact cut, question and runtime. The
+  [native GLiNER control](../design_review/evidence/2026-11-09_pm2-closure-execution/raw/gliner-worker-control.json)
+  passed the real CPU worker and projection for the frozen definition passage.
+  The [managed run 488/cut 600](../design_review/evidence/2026-11-09_pm2-closure-execution/raw/managed-gliner-control.json)
+  then settled one task under the isolated admitted release; Reader, CLI and
+  fresh MCP delivered the same private `definition` choice. The [detached
+  verification](../design_review/evidence/2026-11-09_pm2-closure-execution/raw/managed-gliner-detached.json)
+  passed against the held manifest digest. A test-only typing repair passed
+  Pyrefly and its 10-test retry `274f3c939d364b90829e1fb3ac5ea62e`.
+  The protected same-release comparison remains open.
 - **PM2-09/11 · Exact source and comparator preparation.** The
   [Section 5.1 source read](../design_review/evidence/2026-11-09_pm2-closure-execution/raw/cross-chapter-current-source.json)
   binds a corresponding cue and the section heading on the current integrated
   product. The cue is on a different native item; do not copy the historical
-  citation identity. Ordinary replay and detached export remain open.
+  citation identity. The [native heading inventory](../design_review/evidence/2026-11-09_pm2-closure-execution/raw/cross-chapter-inventory-preflight.json)
+  resolved a single exact Section 5.1 target among 33 headings from 29 views
+  using completed cut 517 and the corresponding integrated cue. The source-only
+  cut 595 cannot supply a completed structural dependency. In the [first ordinary
+  replay](../design_review/evidence/2026-11-09_pm2-closure-execution/raw/cross-chapter-current-replay-first.json),
+  the annotation overlaps the citation extent but names a different block.
+  The cue stays unsupported. Run 489 then exposed a separate failure to settle
+  a contextual task with zero contributions. Commit `35f4c2eed` on the isolated
+  integration branch records an empty result while retaining its operation
+  report; 30 focused controls passed (`bfc014a77c72428da13e28e03383e340`).
+  [Run 490/cut 602](../design_review/evidence/2026-11-09_pm2-closure-execution/raw/cross-chapter-empty-retry.json)
+  confirmed that outcome through the installed Reader path. The retained
+  annotation's explicit native piece map proves that both citation tokens belong
+  to the correct native item. The operator selected that mapping as the proof
+  boundary for joined annotation blocks. Implement it in a new named-link
+  version, with producer, native and detached checks preserving the annotation
+  block identity and independent physical citation. Reject unmapped or ambiguous
+  text; preserve older released behavior. Exact positive replay and detached
+  citation export remain open.
   The [ordinary-baseline inventory](../design_review/evidence/2026-11-09_pm2-workflow-references/ordinary-baselines.md)
   found no exact completed ordinary predictions for the new definition and
   nested-condition cases. Reproduce the bounded incumbents on the same final

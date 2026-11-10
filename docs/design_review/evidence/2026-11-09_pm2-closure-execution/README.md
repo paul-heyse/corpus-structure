@@ -49,12 +49,29 @@ No Chandra, recognition, activation, selection, or retirement ran.
   `uv run ci review export … --exact-closure --json` refused the archived
   source projection recipe. Offline verification was `not_run`. Preserve
   the historical edge and regenerate the case on compatible source for current
-  detached delivery; do not relax the proof check.
+  detached delivery; do not relax the proof check. The
+  [current integrated attempt](raw/cross-chapter-current-replay-first.json)
+  resolved the target inventory and kept the cue unsupported: the annotation
+  spans the citation but has a different block ID from its native text item.
+  `replay_section_citation.py` recorded failed run 489 when the downstream
+  contextual task tried to settle without a contribution. The
+  [corrected empty result](raw/cross-chapter-empty-retry.json) completed as
+  run 490/cut 602 and preserved the operation with no contribution. Both cue
+  tokens are in the exact retained native piece despite the block ID difference.
+  The operator selected piece-based proof for a joined annotation; qualify the
+  new producer, native admission, and detached replay together under the new policy.
 - [Source-only workflow references](../2026-11-09_pm2-workflow-references/README.md)
   bind the exact definition-use, condition, referent and quantity opportunities.
   [The native GLiNER comparison](../2026-11-09_pm2-protected-classification/README.md)
-  establishes one protected definition preservation case. A managed GLiNER
-  producer and broader same-question comparisons remain open.
+  establishes one historical protected definition preservation case. The isolated
+  successor [CPU worker control](raw/gliner-worker-control.json) passed using the
+  new adapter. `uv run ci run interpret --request … --json` settled
+  [managed run 488/cut 600](raw/managed-gliner-control.json). The contribution
+  Reader, `ci contributions list` with task 2384 and interpretation and coverage
+  facets, and a fresh MCP session agreed on the private definition choice.
+  `ci review export --exact-closure` and `ci review verify --manifest-sha256`
+  passed for [the exact detached result](raw/managed-gliner-detached.json).
+  This is one transport control; same-release protected grading was `not_run`.
 
 Private full-book run 482 [refused its changed runtime](raw/run-482-runtime-refusal.json)
 after 44 settled tasks. It has no completed cut. [Run 487](raw/run-487-checkpoint.json)

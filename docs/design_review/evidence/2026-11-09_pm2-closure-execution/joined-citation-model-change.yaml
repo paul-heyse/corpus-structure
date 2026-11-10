@@ -1,0 +1,6 @@
+baseline: 35f4c2eed
+packs: [statistics]
+native_predecessor: semantic_pm2_condition_admission
+native_revision: semantic_pm2_named_pieces
+deployment: true
+deployment_profile: development
