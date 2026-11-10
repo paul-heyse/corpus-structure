@@ -34,6 +34,12 @@ ordinary implementation and API questions do not initiate this workflow.
 
 ## Current accounts
 
+The [integrated domain-data-model discovery](libraries/domain-data-model/briefing.md)
+(2026-11-10) connects nine data-model overviews to current executable declarations, typed
+boundaries, ontology/vocabulary use, qualified graphs, portable validation and settings.
+It includes 14 capability leads, concrete broader-use directions and complete overview coverage.
+Benefits remain Proposed; applicability and comparative selection remain follow-up work.
+
 The [PostgreSQL library-led discovery](libraries/postgresql/briefing.md) (2026-11-09)
 connects nine library overviews to typed-domain design, existing adoption, concrete underuse
 candidates and conditional capabilities. Its own source baseline and seven topic companions

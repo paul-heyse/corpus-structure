@@ -28,6 +28,12 @@ and output. The first pilot is the [PostgreSQL typed-domain discovery](postgresq
 (2026-11-09): nine libraries, seven responsibility topics and complete overview coverage. It has
 its own baseline and does not refresh the October applicability judgments below.
 
+The [integrated domain-data-model discovery](domain-data-model/briefing.md) (2026-11-10)
+covers all nine selected data-model overviews, including msgspec/attrs/cattrs. Five responsibility
+briefings connect 14 unused/underused capability leads, with complete overview coverage,
+current consumer evidence and explicit follow-up questions. It has its own baseline; existing
+applicability accounts and implementation plans retain their authority and evidence dates.
+
 <a id="baseline"></a>
 
 ## Inspected baseline
