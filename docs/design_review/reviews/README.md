@@ -25,3 +25,12 @@ operator-supplied improved-M1 proposals and five new library addenda. Its
 accounts for every original recommendation; the integrated review remains the planning input.
 Target contracts, library mechanisms, assessment deltas and rule impacts remain Proposed; the separate
 test-audit resolution scope is assumed complete for this target, not newly reported as implemented.
+
+
+## PostgreSQL typed-domain assembled target review
+
+[Assembled PostgreSQL typed-domain capabilities](design_review_postgresql-typed-domain-assembled_2026-11-10.md)
+(2026-11-10) assesses the PTD-00–10 implementation and CA01–04 repairs against typed-domain and
+PostgreSQL library-realization change scenarios. It consumes audit publication `044915435` at
+source `8e69e2b5f`. Its architectural decision is Accept scoped; final provider/native qualification
+and adoption remain owned by the PTD coordinator, not established by the review.

@@ -60,7 +60,7 @@ work or the unrelated outstanding findings. Current references below are source 
 
 No new demonstrated architectural violation was established in this inspected assembled footprint.
 This conclusion does not close inherited audit findings or certify complete qualification. The
-scheduled assembled target review
+[assembled target review](../reviews/design_review_postgresql-typed-domain-assembled_2026-11-10.md)
 assesses alternatives and named change scenarios; the PTD coordinator owns implementation and the
 provider/native/nonfunctional qualification union.
 

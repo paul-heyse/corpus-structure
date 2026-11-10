@@ -366,3 +366,114 @@ def test_composed_transient_channels_match_resident_and_refuse_bad_membership(pr
             profile_id=query.profile_id,
             dimension=2,
         )
+
+
+@pytest.mark.parametrize(
+    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
+)
+def test_scoped_reader_reuses_detached_preparation_between_native_snapshots(
+    private_source, semantic_reader_engine, monkeypatch
+):
+    from typing import cast
+
+    from sqlalchemy import Connection, event
+
+    from corpus_structure.methods.contextual_embeddings import EncodedVector
+    from corpus_structure.orchestrate.source_reader import ScopedSourceReader
+    from corpus_structure.semantic import contextual_storage
+    from corpus_structure.semantic.operations import BoundReader
+
+    case = curated_case(private_source)
+    result, query, inventory = contextual_result(case)
+    assert result.contribution_operations is not None
+    report = result.contribution_operations[0]["contextual_enrichment"]
+    vectors = tuple(
+        EncodedVector(**cast(dict[str, Any], dict(row, values=tuple(row["values"]))))
+        for row in report["vectors"]
+        if row["object_id"] != query.object_id
+    )
+    with case.writer.begin() as conn:
+        complete(case, conn, result)
+    with semantic_reader_engine.connect() as setup:
+        owner = BoundReader(setup, case.run, case.prepared)
+    assert setup.closed
+    reader = ScopedSourceReader(semantic_reader_engine, owner)
+    preparations, connections, borrowing = [], [], []
+    original = contextual_storage.transient_vector_relation
+
+    def prepare(*args, **kwargs):
+        preparations.append(args)
+        return original(*args, **kwargs)
+
+    def connected(connection):
+        connections.append(connection)
+
+    def checkout(*args):
+        borrowing.append("checkout")
+
+    def checkin(*args):
+        borrowing.append("checkin")
+
+    monkeypatch.setattr(contextual_storage, "transient_vector_relation", prepare)
+    event.listen(semantic_reader_engine, "engine_connect", connected)
+    event.listen(semantic_reader_engine, "checkout", checkout)
+    event.listen(semantic_reader_engine, "checkin", checkin)
+    request = dict(
+        occurrence_id=query.object_id,
+        query=query,
+        inventory=inventory,
+        target_vectors=vectors,
+        lexical_query="12",
+        dimension=2,
+        budget=10,
+        channel_budget=30,
+    )
+
+    def released(count):
+        assert owner.conn is setup
+        assert len(connections) == count
+        assert all(connection.closed for connection in connections)
+        assert borrowing == ["checkout", "checkin"] * count
+
+    try:
+        first = reader.contextual_candidates(**request)
+        assert [candidate.target_id for candidate in first.candidates] == ["t1", "t2"]
+        channels = {channel.channel: channel.hits for channel in first.channel_results}
+        assert [hit.target_id for hit in channels["dense"]] == ["t1", "t2"]
+        assert [hit.score for hit in channels["dense"]] == pytest.approx([1.0, 0.0])
+        assert [hit.target_id for hit in channels["alias"]] == ["t1"]
+        released(1)
+        entry = owner._contextual_preparation
+        assert entry is not None
+
+        quiet = reader.contextual_candidates(**dict(request, lexical_query="absentlexemezz"))
+        channels = {channel.channel: channel.hits for channel in quiet.channel_results}
+        assert channels["alias"] == () and channels["lexical"] == ()
+        assert [hit.target_id for hit in channels["dense"]] == ["t1", "t2"]
+        assert owner._contextual_preparation is entry and len(preparations) == 1
+        released(2)
+
+        # A preparation hit does not bypass the current query's admission.
+        with pytest.raises(ValueError, match="budgets"):
+            reader.contextual_candidates(**dict(request, budget=0))
+        assert owner._contextual_preparation is entry and len(preparations) == 1
+        released(3)
+        assert reader.contextual_candidates(**request) == first
+        released(4)
+        assert len(preparations) == 1
+        assert not any(isinstance(value, Connection) for value in vars(entry).values())
+        assert not any(
+            value is connection for value in vars(entry).values() for connection in connections
+        )
+
+        other_owner = BoundReader(setup, case.run, case.prepared)
+        other_reader = ScopedSourceReader(semantic_reader_engine, other_owner)
+        assert other_reader.contextual_candidates(**request) == first
+        assert len(preparations) == 2
+        assert other_owner._contextual_preparation is not entry
+        assert other_owner.conn is setup
+        released(5)
+    finally:
+        event.remove(semantic_reader_engine, "engine_connect", connected)
+        event.remove(semantic_reader_engine, "checkout", checkout)
+        event.remove(semantic_reader_engine, "checkin", checkin)
