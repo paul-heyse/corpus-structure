@@ -60,6 +60,7 @@ SEMANTIC_IMPLEMENTATION_NAMES = frozenset(
         "operations/section-packets.json",
         "operations/named-link-rules.json",
         "operations/named-link-coverage.json",
+        "operations/named-link-native-pieces.json",
         "operations/predicate-interpretation.json",
         "operations/model-observation.json",
     }
@@ -1842,6 +1843,14 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         )
     if "operations/named-link-coverage.json" in names:
         required_implementations.add("operations/named-link-coverage.json")
+    if "operations/named-link-native-pieces.json" in names:
+        required_implementations.update(
+            {
+                "operations/named-link-rules.json",
+                "operations/named-link-coverage.json",
+                "operations/named-link-native-pieces.json",
+            }
+        )
     required_implementations.update(
         {
             "pdf/section-text-recipe.json",
