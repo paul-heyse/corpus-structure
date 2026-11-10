@@ -404,3 +404,116 @@ def test_installed_named_reports_wrap_and_sanitize_the_same_ordered_identities(t
             line.split("│")[column].strip() for line in plain.splitlines() if line.startswith("│")
         )
         assert first + second in displayed
+
+
+def test_installed_native_traceback_projects_locations_chain_and_redacts_before_bounds(tmp_path):
+    store = ResultStore(tmp_path)
+    node = "tests/test_example.py::test_example"
+    native = {
+        "reprcrash": {
+            "path": "raised.py",
+            "lineno": 31,
+            "message": "AssertionError: password=fixture-secret",
+        },
+        "reprtraceback": {
+            "reprentries": [
+                {
+                    "type": "ReprEntry",
+                    "data": {
+                        "reprfileloc": {
+                            "path": "native_helper.py",
+                            "lineno": 17,
+                            "message": "helper location password=location-secret",
+                        },
+                        "lines": ["SOURCE-PRIVATE"],
+                        "reprlocals": {"lines": ["LOCALS-PRIVATE"]},
+                        "reprfuncargs": {"args": [["name", "ARGS-PRIVATE"]]},
+                    },
+                }
+            ]
+        },
+        "chain": [
+            [
+                {"reprentries": []},
+                {"path": "cause.py", "lineno": 7, "message": "token=cause-secret"},
+                "native description password=description-secret",
+            ]
+        ],
+        "sections": [["Captured stdout", "STREAM-PRIVATE"]],
+    }
+    with store.operation("test", scope={"lane": "ordinary"}) as result:
+        directory = result.directory / "ordinary"
+        _receipt(directory, [node], fail=True)
+        reportlog = directory / "reportlog.jsonl"
+        reports = [json.loads(line) for line in reportlog.read_text().splitlines()]
+        for report in reports:
+            if report.get("outcome") == "failed":
+                report["longrepr"] = native
+        reportlog.write_text("".join(json.dumps(report) + "\n" for report in reports))
+        result.publish("ordinary", directory)
+        result.settle("failed", lanes={"ordinary": "failed"})
+    default = json.loads(_run(store, "failures", result.id, "--json").stdout)
+    assert "native_traceback" not in default["items"][0]
+    args = ("failures", result.id, "--native-traceback", "--diagnostic-chars", "4096")
+    response = _run(store, *args, "--json")
+    projected = json.loads(response.stdout)["items"][0]["native_traceback"]
+    assert projected["availability"] == "available"
+    assert projected["locations"][1] == {
+        "native_path": "$.longrepr.reprtraceback.reprentries[0].data.reprfileloc",
+        "role": "reprfileloc",
+        "path": "native_helper.py",
+        "lineno": 17,
+        "message": "helper location password=**********",
+    }
+    assert projected["chains"][0]["description"] == "native description password=**********"
+    assert not any(
+        word in response.stdout
+        for word in (
+            "fixture-secret",
+            "location-secret",
+            "cause-secret",
+            "description-secret",
+            "SOURCE-PRIVATE",
+            "LOCALS-PRIVATE",
+            "ARGS-PRIVATE",
+            "STREAM-PRIVATE",
+        )
+    )
+    human = _run(store, *args).stdout
+    assert "Native pytest locations" in human and "native_helper.py" in human and "17" in human
+    clipped = json.loads(
+        _run(
+            store, "failures", result.id, "--native-traceback", "--diagnostic-chars", "20", "--json"
+        ).stdout
+    )["items"][0]["native_traceback"]
+    assert clipped["availability"] == "partial" and clipped["omissions"]
+    assert "secret" not in json.dumps(clipped)
+    assert (
+        sum(
+            len(location[key] or "")
+            for location in clipped["locations"]
+            for key in ("path", "message")
+        )
+        + sum(len(chain["description"] or "") for chain in clipped["chains"])
+        <= 20
+    )
+
+
+def test_installed_native_traceback_marks_rendered_only_format_unavailable(tmp_path):
+    store = ResultStore(tmp_path)
+    with store.operation("test", scope={"lane": "ordinary"}) as result:
+        directory = result.directory / "ordinary"
+        _receipt(directory, ["tests/test_example.py::test_example"], fail=True)
+        reportlog = directory / "reportlog.jsonl"
+        reports = [json.loads(line) for line in reportlog.read_text().splitlines()]
+        for report in reports:
+            if report.get("outcome") == "failed":
+                report["longrepr"] = "ValueError: original rendered summary"
+        reportlog.write_text("".join(json.dumps(report) + "\n" for report in reports))
+        result.publish("ordinary", directory)
+        result.settle("failed", lanes={"ordinary": "failed"})
+    response = json.loads(_run(store, "failures", result.id, "--native-traceback", "--json").stdout)
+    item = response["items"][0]
+    assert item["diagnostic"] == "ValueError: original rendered summary"
+    assert item["native_traceback"]["availability"] == "unavailable"
+    assert item["native_traceback"]["omissions"][0]["native_path"] == "$.longrepr"

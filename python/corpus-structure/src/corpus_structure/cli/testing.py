@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 import typer
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from rich.console import Group
 from rich.table import Table
 from rich.text import Text
@@ -91,6 +91,92 @@ class UnresolvedCoverage(CoverageSummary):
     items: list[UnresolvedNode]
 
 
+class NativePytestLocation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    native_path: str
+    role: Literal["reprcrash", "reprfileloc"]
+    path: str | None
+    lineno: int | None
+    message: str | None
+
+
+class NativePytestChain(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    native_path: str
+    description: str | None
+
+
+class NativePytestOmission(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    native_path: str
+    reason: str
+
+
+class NativePytestTraceback(BaseModel):
+    """Recorded pytest file locations, distinct from live exception observations."""
+
+    model_config = ConfigDict(extra="forbid")
+    version: Literal[1] = 1
+    format: Literal["pytest_report_longrepr"]
+    scope: Literal["structured_file_locations_and_chain_descriptions"]
+    availability: Literal["available", "partial", "unavailable"]
+    locations: list[NativePytestLocation]
+    chains: list[NativePytestChain]
+    omissions: list[NativePytestOmission]
+    omissions_omitted: int
+    location_limit: int
+    traversal_limit: int
+    string_char_limit: int
+    transport_bytes_limit: int
+    display_string_chars: int | None = None
+
+
+def _present_native_traceback(trace: NativePytestTraceback, chars: int) -> NativePytestTraceback:
+    """Normalize complete allowed strings before applying one display-string budget."""
+    selected = trace.model_copy(deep=True)
+    for location in selected.locations:
+        location.native_path = _display_text(location.native_path)
+        location.path = _display_text(location.path) if location.path is not None else None
+        location.message = _display_text(location.message) if location.message is not None else None
+    for chain in selected.chains:
+        chain.native_path = _display_text(chain.native_path)
+        chain.description = (
+            _display_text(chain.description) if chain.description is not None else None
+        )
+    for omission in selected.omissions:
+        omission.native_path = _display_text(omission.native_path)
+        omission.reason = _display_text(omission.reason)
+    remaining = chars
+
+    def bounded(value: str | None, path: str) -> str | None:
+        nonlocal remaining
+        if value is None:
+            return None
+        if len(value) <= remaining:
+            remaining -= len(value)
+            return value
+        if len(selected.omissions) < 16:
+            selected.omissions.append(
+                NativePytestOmission(
+                    native_path=path,
+                    reason="complete redacted string exceeds native display budget",
+                )
+            )
+        else:
+            selected.omissions_omitted += 1
+        if selected.availability == "available":
+            selected.availability = "partial"
+        return None
+
+    for location in selected.locations:
+        location.path = bounded(location.path, location.native_path + ".path")
+        location.message = bounded(location.message, location.native_path + ".message")
+    for chain in selected.chains:
+        chain.description = bounded(chain.description, chain.native_path + "[2]")
+    selected.display_string_chars = chars
+    return selected
+
+
 class FailureEvent(BaseModel):
     lane: Lane
     nodeid: str
@@ -99,6 +185,9 @@ class FailureEvent(BaseModel):
     reason: Literal["collection_failure", "prerequisite", "pytest_failure"]
     diagnostic: str | None = None
     diagnostic_truncated: bool = False
+    native_traceback: NativePytestTraceback | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class RustEvidence(BaseModel):
@@ -273,7 +362,45 @@ def _render_failures(report: Failures) -> Group:
             Text(f"{item.outcome} ({item.reason.replace('_', ' ')})"),
             Text(excerpt),
         )
-    return Group(rows, items)
+    details: list[Text | Table] = []
+    for item in report.items:
+        native = item.native_traceback
+        if native is None:
+            continue
+        details.append(
+            Text(
+                f"Native pytest locations · {item.lane}/{item.phase} · "
+                f"{item.nodeid} · {native.availability}"
+            )
+        )
+        details.append(
+            Text(
+                "Recorded structural paths; chain descriptions are native text, "
+                "not inferred relationships."
+            )
+        )
+        locations = Table.grid(padding=(0, 1))
+        locations.add_column(no_wrap=True)
+        locations.add_column(overflow="fold")
+        for location in native.locations:
+            locations.add_row(Text("Native path"), Text(location.native_path))
+            locations.add_row(
+                Text("File / line"),
+                Text(
+                    f"{location.path or '(path unavailable)'}:"
+                    f"{location.lineno if location.lineno is not None else '?'}"
+                ),
+            )
+            locations.add_row(Text("Message"), Text(location.message or ""))
+        details.append(locations)
+        for chain in native.chains:
+            if chain.description is not None:
+                details.append(Text(f"{chain.native_path}[2]: {chain.description}"))
+        for omission in native.omissions:
+            details.append(Text(f"Omitted {omission.native_path}: {omission.reason}"))
+        if native.omissions_omitted:
+            details.append(Text(f"Additional omission records: {native.omissions_omitted}"))
+    return Group(rows, items, *details)
 
 
 def _supervisor(*args: str, opened: dict[Path, int] | None = None) -> dict[str, Any]:
@@ -700,8 +827,25 @@ def failures(
     ] = 0,
     diagnostic_chars: Annotated[
         int,
-        typer.Option(min=1, max=32768, help="Maximum characters per redacted diagnostic."),
+        typer.Option(
+            min=1,
+            max=32768,
+            help=(
+                "Maximum characters per redacted diagnostic and total native "
+                "location/description string budget."
+            ),
+        ),
     ] = 600,
+    native_traceback: Annotated[
+        bool,
+        typer.Option(
+            "--native-traceback",
+            help=(
+                "Include retained pytest locations and native chain descriptions; "
+                "no source listings, locals or captured streams."
+            ),
+        ),
+    ] = False,
     json: JsonOpt = False,
 ) -> None:
     """Read exact failed pytest observations from a retained attempt."""
@@ -734,6 +878,8 @@ def failures(
                 continue
             path, fd = receipts[name]
             selection = ["--phase", phase] if phase is not None else []
+            if native_traceback:
+                selection.append("--native-traceback")
             report = _supervisor(
                 "classify",
                 "--projection",
@@ -774,6 +920,10 @@ def failures(
                 remaining_after = max(0, remaining_after - report["available"])
                 for raw in report["items"]:
                     item = FailureEvent(lane=name, **raw)
+                    if item.native_traceback is not None:
+                        item.native_traceback = _present_native_traceback(
+                            item.native_traceback, diagnostic_chars
+                        )
                     if item.diagnostic is not None:
                         excerpt = _display_text(item.diagnostic)
                         item.diagnostic_truncated = len(excerpt) > diagnostic_chars

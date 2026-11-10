@@ -1110,21 +1110,190 @@ def _failure_diagnostic(report: dict[str, Any]) -> dict[str, Any]:
         message = None
     if not isinstance(message, str) or not message:
         return {}
+    try:
+        message.encode("utf-8")
+    except UnicodeEncodeError:
+        return {"diagnostic_truncated": True}
     if len(message) > 32768:
         # The CLI redacts before clipping. Never pass a pre-clipped credential there.
         return {"diagnostic_truncated": True}
     return {"diagnostic": message}
 
 
-def _failure_events(receipt: dict[str, Any]) -> Generator[dict[str, Any]]:
+_NATIVE_LOCATION_LIMIT = 64
+_NATIVE_CHAIN_LIMIT = 16
+_NATIVE_VISIT_LIMIT = 256
+_NATIVE_STRING_LIMIT = 32768
+_NATIVE_TRANSPORT_LIMIT = 65536
+
+
+def _native_traceback(report: dict[str, Any]) -> dict[str, Any]:
+    """Select pytest's recorded locations, never rendered source/locals or inferred edges."""
+    selected: dict[str, Any] = dict(
+        version=1,
+        format="pytest_report_longrepr",
+        scope="structured_file_locations_and_chain_descriptions",
+        availability="unavailable",
+        locations=[],
+        chains=[],
+        omissions=[],
+        omissions_omitted=0,
+        location_limit=_NATIVE_LOCATION_LIMIT,
+        traversal_limit=_NATIVE_VISIT_LIMIT,
+        string_char_limit=_NATIVE_STRING_LIMIT,
+        transport_bytes_limit=_NATIVE_TRANSPORT_LIMIT,
+    )
+    visits = 0
+
+    def omit(path: str, reason: str) -> None:
+        if len(selected["omissions"]) < 16:
+            selected["omissions"].append(dict(native_path=path, reason=reason))
+        else:
+            selected["omissions_omitted"] += 1
+
+    def visit(path: str) -> bool:
+        nonlocal visits
+        visits += 1
+        if visits > _NATIVE_VISIT_LIMIT:
+            omit(path, "native traversal limit")
+            return False
+        return True
+
+    def string(value: Any, path: str, *, optional: bool = False) -> str | None:
+        if value is None and optional:
+            return None
+        if not isinstance(value, str):
+            omit(path, "native string unavailable")
+            return None
+        try:
+            value.encode("utf-8")
+        except UnicodeEncodeError:
+            omit(path, "complete native string has unsupported Unicode encoding")
+            return None
+        if len(value) > _NATIVE_STRING_LIMIT:
+            # A cut credential is unsafe to redact. Omit the complete raw field instead.
+            omit(path, "complete native string exceeds transport character limit")
+            return None
+        return value
+
+    def append(kind: str, value: dict[str, Any], path: str) -> None:
+        def fits() -> bool:
+            candidate = {**selected, kind: [*selected[kind], value]}
+            # Match the supervisor's actual json.dumps default ASCII escaping.
+            return len(json.dumps(candidate).encode()) <= _NATIVE_TRANSPORT_LIMIT - 8192
+
+        if not fits():
+            for field in ("message", "description", "path"):
+                if value.get(field) is not None:
+                    value[field] = None
+                    omit(
+                        path + ("[2]" if field == "description" else "." + field),
+                        "complete native field exceeds transport byte limit",
+                    )
+                    if fits():
+                        break
+        if fits():
+            selected[kind].append(value)
+        else:
+            omit(path, "complete native record exceeds transport byte limit")
+
+    def location(value: Any, path: str, role: str) -> None:
+        if not visit(path):
+            return
+        if len(selected["locations"]) >= _NATIVE_LOCATION_LIMIT:
+            omit(path, "native location limit")
+            return
+        if not isinstance(value, dict):
+            omit(path, "structured native location unavailable")
+            return
+        lineno = value.get("lineno")
+        if type(lineno) is not int or lineno < 1:
+            lineno = None
+            omit(path + ".lineno", "native line number unavailable")
+        append(
+            "locations",
+            dict(
+                native_path=path,
+                role=role,
+                path=string(value.get("path"), path + ".path"),
+                lineno=lineno,
+                message=string(value.get("message"), path + ".message"),
+            ),
+            path,
+        )
+
+    def traceback(value: Any, path: str) -> None:
+        if not visit(path):
+            return
+        if not isinstance(value, dict) or not isinstance(value.get("reprentries"), list):
+            omit(path, "structured pytest traceback entries unavailable or unsupported")
+            return
+        entries = value["reprentries"]
+        for index, entry in enumerate(entries[:_NATIVE_LOCATION_LIMIT]):
+            located = f"{path}.reprentries[{index}]"
+            if not visit(located):
+                break
+            if not isinstance(entry, dict) or entry.get("type") != "ReprEntry":
+                omit(located, "native-only or unknown entry; rendered lines are not parsed")
+                continue
+            data = entry.get("data")
+            if not isinstance(data, dict):
+                omit(located, "native entry data unavailable")
+                continue
+            location(data.get("reprfileloc"), located + ".data.reprfileloc", "reprfileloc")
+        if len(entries) > _NATIVE_LOCATION_LIMIT:
+            omit(path + ".reprentries", "native entry traversal limit")
+
+    representation = report.get("longrepr")
+    if not isinstance(representation, dict):
+        omit(
+            "$.longrepr",
+            "structured native representation unavailable; rendered text is not parsed",
+        )
+        return selected
+    location(representation.get("reprcrash"), "$.longrepr.reprcrash", "reprcrash")
+    traceback(representation.get("reprtraceback"), "$.longrepr.reprtraceback")
+    chain = representation.get("chain")
+    if chain is not None:
+        if not isinstance(chain, list):
+            omit("$.longrepr.chain", "native chain format unsupported")
+        else:
+            for index, entry in enumerate(chain[:_NATIVE_CHAIN_LIMIT]):
+                located = f"$.longrepr.chain[{index}]"
+                if not visit(located):
+                    break
+                if not isinstance(entry, (list, tuple)) or len(entry) != 3:
+                    omit(located, "native chain entry format unsupported")
+                    continue
+                append(
+                    "chains",
+                    dict(
+                        native_path=located,
+                        description=string(entry[2], located + "[2]", optional=True),
+                    ),
+                    located,
+                )
+                traceback(entry[0], located + "[0]")
+                location(entry[1], located + "[1]", "reprcrash")
+            if len(chain) > _NATIVE_CHAIN_LIMIT:
+                omit("$.longrepr.chain", "native chain traversal limit")
+    if selected["locations"]:
+        selected["availability"] = "partial" if selected["omissions"] else "available"
+    return selected
+
+
+def _failure_events(receipt: dict[str, Any]) -> Generator[tuple[dict[str, Any], dict[str, Any]]]:
     for report in sorted(receipt["collection_errors"], key=lambda report: report.get("nodeid", "")):
-        yield {
-            "nodeid": report.get("nodeid", ""),
-            "phase": "collection",
-            "outcome": "failed",
-            "reason": "collection_failure",
-            **_failure_diagnostic(report),
-        }
+        yield (
+            {
+                "nodeid": report.get("nodeid", ""),
+                "phase": "collection",
+                "outcome": "failed",
+                "reason": "collection_failure",
+                **_failure_diagnostic(report),
+            },
+            report,
+        )
     if not receipt["identity_valid"]:
         return
     for nodeid, node in receipt["nodes"].items():
@@ -1138,26 +1307,36 @@ def _failure_events(receipt: dict[str, Any]) -> Generator[dict[str, Any]]:
         ):
             phase = report.get("when")
             blocked = _failed_prerequisite(report)
-            yield {
-                "nodeid": nodeid,
-                "phase": phase if phase in _FAILURE_PHASES else "unknown",
-                "outcome": "blocked" if blocked else "failed",
-                "reason": "prerequisite" if blocked else "pytest_failure",
-                **_failure_diagnostic(report),
-            }
+            yield (
+                {
+                    "nodeid": nodeid,
+                    "phase": phase if phase in _FAILURE_PHASES else "unknown",
+                    "outcome": "blocked" if blocked else "failed",
+                    "reason": "prerequisite" if blocked else "pytest_failure",
+                    **_failure_diagnostic(report),
+                },
+                report,
+            )
 
 
 def _failure_projection(
-    result: dict[str, Any], limit: int, phase: str | None, after: int = 0
+    result: dict[str, Any],
+    limit: int,
+    phase: str | None,
+    after: int = 0,
+    *,
+    native_traceback: bool = False,
 ) -> dict[str, Any]:
     (receipt,) = result["receipts"]
     items = []
     available = 0
-    for event in _failure_events(receipt):
+    for event, native_report in _failure_events(receipt):
         if phase is not None and event["phase"] != phase:
             continue
         available += 1
         if available > after and len(items) < limit:
+            if native_traceback:
+                event["native_traceback"] = _native_traceback(native_report)
             items.append(event)
     health = [
         *receipt["stream_errors"],
@@ -1405,6 +1584,7 @@ def main(argv: list[str] | None = None) -> int:
     inspect.add_argument("--limit", type=int, choices=range(101), default=20, metavar="N")
     inspect.add_argument("--phase", choices=_FAILURE_PHASES)
     inspect.add_argument("--after", type=int, default=0)
+    inspect.add_argument("--native-traceback", action="store_true")
     inspect.add_argument(
         "--required-lane", action="append", choices=("ordinary", "fault"), default=[]
     )
@@ -1430,6 +1610,8 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("inspection projections cannot write a retry selection")
         if args.projection == "failures" and len(args.receipt_dir) != 1:
             parser.error("failure projection requires exactly one receipt directory")
+        if args.native_traceback and args.projection != "failures":
+            parser.error("native traceback requires a failure projection")
         if args.phase is not None and args.projection != "failures":
             parser.error("phase requires a failure projection")
         if args.after < 0 or (args.after and args.projection != "failures"):
@@ -1527,7 +1709,9 @@ def main(argv: list[str] | None = None) -> int:
         )
     elif args.action == "classify" and args.projection is not None:
         if args.projection == "failures":
-            report = _failure_projection(result, args.limit, args.phase, args.after)
+            report = _failure_projection(
+                result, args.limit, args.phase, args.after, native_traceback=args.native_traceback
+            )
         else:
             report = _coverage_projection(
                 result, args.limit if args.projection == "unresolved" else None

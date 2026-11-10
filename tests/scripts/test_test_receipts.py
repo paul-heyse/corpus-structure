@@ -19,6 +19,7 @@ import pytest
 from test_receipts import (
     _complete_native_context,
     _failure_diagnostic,
+    _native_traceback,
     classify,
     classify_receipt,
     classify_rust,
@@ -53,6 +54,130 @@ def test_rendered_collection_error_retains_multiline_exception_detail() -> None:
     assert _failure_diagnostic(
         {"longrepr": "collection failed\nValueError: invalid selection"}
     ) == {"diagnostic": "ValueError: invalid selection"}
+
+
+def test_native_traceback_keeps_actual_chain_locations_and_omits_unselected_fields():
+    def entry(path, line):
+        return {
+            "type": "ReprEntry",
+            "data": {
+                "reprfileloc": {"path": path, "lineno": line, "message": "native failure"},
+                "lines": ["SOURCE-PRIVATE"],
+                "reprlocals": {"lines": ["LOCALS-PRIVATE"]},
+                "reprfuncargs": {"args": [["name", "ARGS-PRIVATE"]]},
+            },
+        }
+
+    crash = {"path": "raised.py", "lineno": 31, "message": "outer"}
+    report = {
+        "longrepr": {
+            "reprcrash": crash,
+            "reprtraceback": {"reprentries": [entry("helper.py", 12)]},
+            "sections": [["Captured stdout", "STREAM-PRIVATE"]],
+            "chain": [
+                [
+                    {"reprentries": [entry("cause.py", 7)]},
+                    {"path": "cause.py", "lineno": 7, "message": "inner"},
+                    "original native separator",
+                ],
+                [
+                    {
+                        "reprentries": [
+                            {"type": "ReprEntryNative", "data": {"lines": ["GROUP-PROSE-PRIVATE"]}}
+                        ]
+                    },
+                    crash,
+                    None,
+                ],
+            ],
+        }
+    }
+    projected = _native_traceback(report)
+    assert projected["format"] == "pytest_report_longrepr"
+    assert projected["scope"] == "structured_file_locations_and_chain_descriptions"
+    assert projected["availability"] == "partial"
+    assert projected["locations"][1] == {
+        "native_path": "$.longrepr.reprtraceback.reprentries[0].data.reprfileloc",
+        "role": "reprfileloc",
+        "path": "helper.py",
+        "lineno": 12,
+        "message": "native failure",
+    }
+    assert projected["chains"] == [
+        {"native_path": "$.longrepr.chain[0]", "description": "original native separator"},
+        {"native_path": "$.longrepr.chain[1]", "description": None},
+    ]
+    assert any(
+        item["native_path"] == "$.longrepr.chain[1][0].reprentries[0]"
+        for item in projected["omissions"]
+    )
+    assert not any(
+        word in json.dumps(projected)
+        for word in (
+            "SOURCE-PRIVATE",
+            "LOCALS-PRIVATE",
+            "ARGS-PRIVATE",
+            "STREAM-PRIVATE",
+            "GROUP-PROSE-PRIVATE",
+        )
+    )
+    assert _failure_diagnostic(report) == {"diagnostic": "outer"}
+
+
+@pytest.mark.parametrize("representation", [None, "rendered traceback with a group", ["unknown"]])
+def test_native_traceback_missing_or_rendered_formats_are_honestly_unavailable(representation):
+    projected = _native_traceback({"longrepr": representation})
+    assert projected["availability"] == "unavailable"
+    assert projected["locations"] == projected["chains"] == []
+    assert projected["omissions"][0]["native_path"] == "$.longrepr"
+
+
+def test_native_traceback_older_unknown_entries_keep_crash_and_mark_missing_detail():
+    projected = _native_traceback(
+        {
+            "longrepr": {
+                "reprcrash": {"path": "old.py", "lineno": 9, "message": "known crash"},
+                "reprtraceback": {"entries": ["old native representation"]},
+            }
+        }
+    )
+    assert projected["availability"] == "partial"
+    assert projected["locations"][0]["path"] == "old.py"
+    assert projected["omissions"][0]["native_path"] == "$.longrepr.reprtraceback"
+
+
+def test_native_traceback_bounds_whole_raw_fields_transport_and_traversal():
+    crash = {"path": "raised.py", "lineno": 2, "message": "password=" + "private" * 6000}
+    entries = [
+        {
+            "type": "ReprEntry",
+            "data": {
+                "reprfileloc": {
+                    "path": f"helper-{index}.py",
+                    "lineno": index + 1,
+                    "message": "x" * 8000,
+                }
+            },
+        }
+        for index in range(500)
+    ]
+    projected = _native_traceback(
+        {
+            "longrepr": {
+                "reprcrash": crash,
+                "reprtraceback": {"reprentries": entries},
+                "chain": [[{"reprentries": entries}, crash, "separator"]] * 100,
+            }
+        }
+    )
+    assert projected["availability"] == "partial"
+    assert projected["locations"][0]["message"] is None
+    assert "private" not in json.dumps(projected)
+    assert len(projected["locations"]) <= 64
+    assert len(projected["chains"]) <= 16
+    assert len(json.dumps(projected, ensure_ascii=False).encode()) <= 65536
+    assert all(item["message"] in (None, "x" * 8000) for item in projected["locations"])
+    assert projected["omissions"] and projected["omissions_omitted"] > 0
 
 
 def stream(path: Path, events: list[dict[str, object]]) -> None:
@@ -1400,3 +1525,50 @@ def test_nextest_holds_actual_target_report_lock_through_capture(
     monkeypatch.setattr(shutil, "copyfile", capture)
     test_receipts.run_rust(tmp_path, timeout=2)
     assert (tmp_path / "nextest.junit.xml").read_text() == "<testsuites/>"
+
+
+def test_native_traceback_bounds_the_actual_ascii_escaped_wire_without_cutting_strings():
+    original = "λ" * 12000
+    projected = _native_traceback(
+        {
+            "longrepr": {
+                "reprcrash": {"path": "source.py", "lineno": 12, "message": original},
+                "reprtraceback": {"reprentries": []},
+            }
+        }
+    )
+    assert len(json.dumps(projected).encode()) <= 65536
+    assert projected["locations"][0]["path"] == "source.py"
+    assert projected["locations"][0]["lineno"] == 12
+    assert projected["locations"][0]["message"] is None
+    assert any(
+        item["native_path"] == "$.longrepr.reprcrash.message" for item in projected["omissions"]
+    )
+    assert original[:10] not in json.dumps(projected, ensure_ascii=False)
+
+
+def test_native_traceback_unsupported_unicode_is_an_explicit_whole_field_omission():
+    unsupported = "safe prefix\ud800unrepresentable"
+    report = {
+        "longrepr": {
+            "reprcrash": {"path": "source.py", "lineno": 12, "message": unsupported},
+            "reprtraceback": {
+                "reprentries": [
+                    {
+                        "type": "ReprEntry",
+                        "data": {
+                            "reprfileloc": {"path": unsupported, "lineno": 4, "message": "valid"},
+                        },
+                    }
+                ]
+            },
+        }
+    }
+    projected = _native_traceback(report)
+    assert projected["availability"] == "partial"
+    assert projected["locations"][0]["message"] is None
+    assert projected["locations"][1]["path"] is None
+    assert projected["locations"][1]["message"] == "valid"
+    assert all("unsupported Unicode" in item["reason"] for item in projected["omissions"])
+    assert "safe prefix" not in json.dumps(projected)
+    assert _failure_diagnostic(report) == {"diagnostic_truncated": True}
