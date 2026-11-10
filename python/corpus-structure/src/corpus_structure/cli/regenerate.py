@@ -220,20 +220,36 @@ def regenerate(
                 )
             invocation.stage("native_run", project=project)
             if resume_run is not None:
-                from corpus_structure.semantic.visual_requests import resume_visual_observation
+                from corpus_structure.semantic.visual_requests import (
+                    acquire_visual_resume,
+                    execute_visual_resume,
+                )
 
-                visual = resume_visual_observation(
+                visual_resume = acquire_visual_resume(
                     engine,
                     resume_run,
                     project=project,
-                    receipts=settings.nemotron.receipts,
-                    nemotron_endpoint=settings.nemotron.endpoint,
                     prepare_only=not automated,
                     select_result=select_result,
                     activate_release=activate,
                 )
-                if visual is not None:
-                    invocation.bind_observations(run_id=resume_run, project=project)
+                if visual_resume is not None:
+                    invocation.bind_observations(
+                        run_id=visual_resume.run_id,
+                        project=visual_resume.project,
+                        release_id=visual_resume.release_id,
+                    )
+                    invocation.stage("visual_resume")
+                    with bound(
+                        run_id=visual_resume.run_id,
+                        project=visual_resume.project,
+                        release_id=visual_resume.release_id,
+                    ):
+                        visual = execute_visual_resume(
+                            visual_resume,
+                            receipts=settings.nemotron.receipts,
+                            nemotron_endpoint=settings.nemotron.endpoint,
+                        )
                     invocation.observe(
                         "native_visual_resume",
                         "Native visual resume returned",

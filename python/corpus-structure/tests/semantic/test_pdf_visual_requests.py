@@ -253,12 +253,10 @@ def test_diagnostics_and_retired_campaigns_cannot_start_chandra(
         (legacy, "legacy visual campaign lacks an explicit scope origin"),
     ):
         with pytest.raises(OperationConflict, match=reason):
-            visual_requests.resume_visual_observation(
+            visual_requests.acquire_visual_resume(
                 db.writer,
                 run_id,
                 project="p",
-                receipts=tmp_path,
-                nemotron_endpoint=None,
                 prepare_only=False,
                 select_result=False,
                 activate_release=False,
@@ -351,6 +349,7 @@ def test_visual_attempt_receipt_marks_an_interruption_without_response(tmp_path)
 
 def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
     pdf13_db,
+    semantic_reader_engine,
     tmp_path,
     monkeypatch,
 ):
@@ -694,7 +693,7 @@ def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
     from corpus_structure.semantic import runtime
     from corpus_structure.settings import Settings
 
-    native_resume = visual_requests.resume_visual_observation
+    native_resume = visual_requests.execute_visual_resume
     returned = []
 
     def observe_resume(*values, **options):
@@ -703,15 +702,116 @@ def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
         return result
 
     @contextmanager
-    def visual_resume_engine(settings, application_name, *, purpose):
-        assert purpose == "write"
-        yield db.writer
+    def visual_resume_engine(settings, application_name="ci", *, purpose, **options):
+        assert purpose in {"read", "write"}
+        yield semantic_reader_engine if purpose == "read" else db.writer
+
+    import typer
+
+    from corpus_structure.cli.observations import ObservationSelection
+    from corpus_structure.cli.result_inspection import inspect_result
+
+    expected_bindings = {
+        "run_id": claim.run_id,
+        "project": "p",
+        "release_id": db.prepared.release_id,
+    }
+    for label, interruption, outcome, expected_exit in (
+        (
+            "interrupted",
+            KeyboardInterrupt("controlled visual effect interruption"),
+            "interrupted",
+            130,
+        ),
+        ("failed", RuntimeError("controlled visual effect failure"), "failed", 1),
+    ):
+        control_root = tmp_path / ("visual-cli-" + label)
+        control_store = ResultStore(control_root)
+        control_settings = Settings(
+            ci_results=control_root, nemotron={"receipts": args["receipts"]}
+        )
+        effect_runs = []
+
+        def stop_effect(
+            *values,
+            _expected_store=control_store,
+            _effect_runs=effect_runs,
+            _interruption=interruption,
+            **options,
+        ):
+            # This is the real native effect boundary, after acquisition and native fences.
+            # The independent retained run/release must already be durable at this point.
+            (current,) = _expected_store.list(None, 10, "run.resume").results
+            assert current.details["observation_bindings"] == expected_bindings
+            assert values[1] == claim.run_id
+            _effect_runs.append(values[1])
+            raise _interruption
+
+        with monkeypatch.context() as control:
+            control.setattr(runtime, "open_runtime_engine", visual_resume_engine)
+            control.setattr(visual_requests, "_execute_visual_request", stop_effect)
+            response = CliRunner().invoke(
+                app,
+                ["run", "resume", str(claim.run_id), "--project", "p", "--json"],
+                obj=CliState(settings_factory=lambda selected=control_settings: selected),
+            )
+            assert response.exit_code == expected_exit, response.output
+            (retained_wrapper,) = control_store.list(None, 10, "run.resume").results
+            context = typer.Context(
+                typer.main.get_command(app),
+                obj=CliState(settings_factory=lambda selected=control_settings: selected),
+            )
+            report = inspect_result(
+                context, control_store, retained_wrapper.id, ObservationSelection()
+            )
+        assert effect_runs == [claim.run_id]
+        assert retained_wrapper.outcome == outcome
+        assert retained_wrapper.details["observation_bindings"] == expected_bindings
+        assert report.bindings.run_id == claim.run_id and report.bindings.project == "p"
+        assert report.bindings.release_id == db.prepared.release_id
+        assert report.native.availability == "available", report.native.reason
+        assert report.native.run is not None and report.native.run["run_id"] == claim.run_id
+        assert report.native.run["release_id"] == db.prepared.release_id
+        assert any(
+            action.kind == "native_status" and action.command == f"ci status {claim.run_id}"
+            for action in report.next_actions
+        )
+        assert generation == ["first prompt", "changed prompt", "response before interruption"]
+
+    wrong_root = tmp_path / "visual-cli-wrong-project"
+    wrong_store = ResultStore(wrong_root)
+    wrong_settings = Settings(ci_results=wrong_root, nemotron={"receipts": args["receipts"]})
+
+    def wrong_project_effect(*values, **options):
+        pytest.fail("wrong-project acquisition reached a native effect")
+
+    with monkeypatch.context() as control:
+        control.setattr(runtime, "open_runtime_engine", visual_resume_engine)
+        control.setattr(visual_requests, "_execute_visual_request", wrong_project_effect)
+        response = CliRunner().invoke(
+            app,
+            ["run", "resume", str(claim.run_id), "--project", "another-project", "--json"],
+            obj=CliState(settings_factory=lambda: wrong_settings),
+        )
+        assert (
+            response.exit_code == 1
+            and json.loads(response.stdout)["error"]["code"] == "OperationConflict"
+        )
+        (unbound,) = wrong_store.list(None, 10, "run.resume").results
+        context = typer.Context(
+            typer.main.get_command(app), obj=CliState(settings_factory=lambda: wrong_settings)
+        )
+        rejected = inspect_result(context, wrong_store, unbound.id, ObservationSelection())
+    assert "observation_bindings" not in unbound.details
+    assert rejected.bindings.run_id is None and rejected.bindings.release_id is None
+    assert rejected.native.availability == "unavailable"
+    assert not any(action.owner == "semantic_run" for action in rejected.next_actions)
 
     results_root = tmp_path / "visual-cli-results"
     cli_settings = Settings(ci_results=results_root, nemotron={"receipts": args["receipts"]})
     with monkeypatch.context() as cli_environment:
         cli_environment.setattr(runtime, "open_runtime_engine", visual_resume_engine)
-        cli_environment.setattr(visual_requests, "resume_visual_observation", observe_resume)
+        cli_environment.setattr(visual_requests, "execute_visual_resume", observe_resume)
         response = CliRunner().invoke(
             app,
             ["run", "resume", str(claim.run_id), "--project", "p", "--json"],
@@ -726,7 +826,11 @@ def test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs(
     assert wire == recovered.model_dump(mode="json")
     wrapper = ResultStore(results_root).show(wrapper_id)
     assert wrapper.action == "run.resume" and wrapper.outcome == "passed"
-    assert wrapper.details["observation_bindings"] == {"run_id": claim.run_id, "project": "p"}
+    assert wrapper.details["observation_bindings"] == {
+        "run_id": claim.run_id,
+        "project": "p",
+        "release_id": db.prepared.release_id,
+    }
     assert recovered.raw is not None and recovered.raw.task_id == claim.task_id
     assert recovered.mapped is not None
     assert generation == ["first prompt", "changed prompt", "response before interruption"]
@@ -890,15 +994,19 @@ def test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks(
         db.writer, **{**args, "selections": requests[:1], "campaign_group": "d" * 64}
     )
     assert settled_only.members[0].mapped == first.mapped
-    resumed = visual_requests.resume_visual_observation(
+    acquired = visual_requests.acquire_visual_resume(
         db.writer,
         run_id,
         project="p",
-        receipts=args["receipts"],
-        nemotron_endpoint=None,
         prepare_only=False,
         select_result=False,
         activate_release=False,
+    )
+    assert isinstance(acquired, visual_requests.VisualGroupResume)
+    resumed = visual_requests.execute_visual_resume(
+        acquired,
+        receipts=args["receipts"],
+        nemotron_endpoint=None,
     )
     assert isinstance(resumed, visual_requests.VisualGroupResult)
     assert resumed.run_id == run_id

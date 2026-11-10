@@ -380,6 +380,7 @@ def _native_validation_streams(family: str, row: Mapping[str, Any]) -> Iterable[
 def _native_validation_child(capture: str, projection: str, result: Any) -> None:
     """One explicitly materialized native oracle, no database handles or credentials."""
     store = None
+    outcome: tuple[bool, str | None] = (True, None)
     try:
         from .pdf_payload_validation import FrozenPayloadStore
         from .pdf_records import reconstruct_native_document, validate_native_callbacks
@@ -511,13 +512,23 @@ def _native_validation_child(capture: str, projection: str, result: Any) -> None
                     )
                     out.write(json.dumps({"family": "region", "body": region}) + "\n")
         store.validate(document, Path(projection))
-        result.send((True, None))
     except BaseException as error:
-        result.send((False, f"{type(error).__name__}: {error}"))
+        outcome = (False, f"{type(error).__name__}: {error}")
     finally:
-        if store is not None:
-            store.close()
-        result.close()
+        try:
+            if store is not None:
+                store.close()
+        except BaseException as cleanup_error:
+            cleanup_detail = (
+                f"native validation cleanup failed: {type(cleanup_error).__name__}: {cleanup_error}"
+            )
+            outcome = (False, cleanup_detail if outcome[0] else f"{outcome[1]}; {cleanup_detail}")
+        try:
+            # Native success acknowledges completed owned store/projection cleanup. The
+            # parent also requires terminal process exit, including pipe/interpreter teardown.
+            result.send(outcome)
+        finally:
+            result.close()
 
 
 def _run_native_validation(
@@ -548,11 +559,18 @@ def _run_native_validation(
                 raise RuntimeError("native validation child exited without outcome")
         passed, error = parent.recv()
         check_active()
+        while process.is_alive():
+            process.join(0.2)
+            check_active()
+        process.join()
+        check_active()
         if not passed:
-            raise ValueError(error)
-        process.join(5)
-        if process.is_alive():
-            raise RuntimeError("native validation child did not settle")
+            refusal = ValueError(error)
+            if process.exitcode != 0:
+                refusal.add_note(f"native validation child exited with status {process.exitcode}")
+            raise refusal
+        if process.exitcode != 0:
+            raise RuntimeError(f"native validation child exited with status {process.exitcode}")
     except BaseException as error:
         primary = error
         raise
@@ -566,7 +584,7 @@ def _run_native_validation(
                 cleanup(lambda: process.join(5))
             if process.is_alive():
                 cleanup(process.kill)
-                cleanup(process.join)
+            cleanup(process.join)
         cleanup(parent.close)
         cleanup(process.close)
         if errors:

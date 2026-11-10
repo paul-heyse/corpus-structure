@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from contextlib import ExitStack, contextmanager
+from dataclasses import dataclass, field
 from functools import cache
 from hashlib import sha256
 from io import BytesIO
@@ -1499,18 +1500,47 @@ def _require_explicit_visual_resume(options: dict[str, Any]) -> None:
         raise OperationConflict("legacy visual campaign lacks an explicit scope origin")
 
 
-def resume_visual_observation(
+@dataclass(frozen=True)
+class VisualObservationResume:
+    """An acquired native visual run and its exact retained single-selection demand."""
+
+    engine: Engine = field(repr=False)
+    run_id: int
+    project: str
+    release_id: str
+    realization: str
+    selection: VisualSelection
+    artifacts: Path | None
+    replay: VisualEvidencePin | None
+
+
+@dataclass(frozen=True)
+class VisualGroupResume:
+    """An acquired native visual run and its exact retained explicit group demand."""
+
+    engine: Engine = field(repr=False)
+    run_id: int
+    project: str
+    release_id: str
+    realization: str
+    selections: tuple[VisualSelection, ...]
+    artifacts: Path
+    campaign_group: str | None
+
+
+type VisualResume = VisualObservationResume | VisualGroupResume
+
+
+def acquire_visual_resume(
     engine: Engine,
     run_id: int,
     *,
     project: str,
-    receipts: Path,
-    nemotron_endpoint: str | None,
     prepare_only: bool,
     select_result: bool,
     activate_release: bool,
-) -> VisualRequestResult | VisualGroupResult | None:
-    """Dispatch only runs owned by the visual request operation."""
+) -> VisualResume | None:
+    """Acquire authenticated routing facts before effects; return None for another run owner."""
     with engine.connect() as conn:
         retained = _visual_run(conn, run_id)
     if retained is None:
@@ -1526,31 +1556,61 @@ def resume_visual_observation(
     if group := retained.options.get("visual_group"):
         if group["version"] != VISUAL_GROUP_VERSION:
             raise OperationConflict("unsupported retained visual group version")
-        return request_visual_group(
-            engine,
+        return VisualGroupResume(
+            engine=engine,
+            run_id=run_id,
+            project=retained.project_id,
+            release_id=retained.release_id,
+            realization=retained.input_realization_id,
             selections=tuple(
                 VisualSelection.model_validate(value) for value in group["selections"]
             ),
-            semantic_release=retained.release_id,
-            realization=retained.input_realization_id,
-            receipts=receipts,
             artifacts=Path(recovery["artifacts"]),
-            nemotron_endpoint=nemotron_endpoint,
-            resume_run_id=run_id,
             campaign_group=retained.options.get("visual_campaign_group"),
         )
-    return request_visual_observation(
-        engine,
-        selection=VisualSelection.model_validate(retained.options["visual_request"]),
-        semantic_release=retained.release_id,
+    return VisualObservationResume(
+        engine=engine,
+        run_id=run_id,
+        project=retained.project_id,
+        release_id=retained.release_id,
         realization=retained.input_realization_id,
-        receipts=receipts,
+        selection=VisualSelection.model_validate(retained.options["visual_request"]),
         artifacts=Path(recovery["artifacts"]) if recovery["artifacts"] is not None else None,
         replay=VisualEvidencePin.model_validate(recovery["replay"])
         if recovery["replay"] is not None
         else None,
+    )
+
+
+def execute_visual_resume(
+    resume: VisualResume,
+    *,
+    receipts: Path,
+    nemotron_endpoint: str | None,
+) -> VisualRequestResult | VisualGroupResult:
+    """Dispatch acquired demand on its originating engine, preserving effect-time native fences."""
+    if isinstance(resume, VisualGroupResume):
+        return request_visual_group(
+            resume.engine,
+            selections=resume.selections,
+            semantic_release=resume.release_id,
+            realization=resume.realization,
+            receipts=receipts,
+            artifacts=resume.artifacts,
+            nemotron_endpoint=nemotron_endpoint,
+            resume_run_id=resume.run_id,
+            campaign_group=resume.campaign_group,
+        )
+    return request_visual_observation(
+        resume.engine,
+        selection=resume.selection,
+        semantic_release=resume.release_id,
+        realization=resume.realization,
+        receipts=receipts,
+        artifacts=resume.artifacts,
+        replay=resume.replay,
         nemotron_endpoint=nemotron_endpoint,
-        resume_run_id=run_id,
+        resume_run_id=resume.run_id,
     )
 
 
