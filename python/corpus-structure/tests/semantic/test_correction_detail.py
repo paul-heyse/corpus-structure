@@ -562,3 +562,62 @@ def test_presentation_uses_one_typed_normalization_and_logarithmic_prefix_probes
         normalized.model_dump(mode="json", exclude_none=True)
     )
     assert result.model_dump(mode="json") == normalized.model_dump(mode="json")
+
+
+@pytest.mark.parametrize("raw", [False, True])
+@pytest.mark.parametrize("detail", [False, True])
+@pytest.mark.parametrize("limit", [1, 100])
+def test_graph_observation_locations_follow_selected_result_identity(raw, detail, limit):
+    from hashlib import sha256
+
+    from rdflib import URIRef
+
+    from corpus_structure.semantic.ontology import GraphDiagnostic, GraphValidation
+    from corpus_structure.semantic.operation_reporting import graph_validation_report
+
+    graph = Graph()
+    for index, name in enumerate(("a", "b"), 1):
+        result = URIRef("urn:result/" + name)
+        graph.add((result, RDF.type, SH.ValidationResult))
+        graph.add((result, SH.focusNode, URIRef(f"urn:source/record{index}")))
+        graph.add((result, SH.sourceShape, URIRef(f"urn:shape/{index}")))
+        graph.add((result, SH.resultPath, URIRef(f"urn:field/{index}")))
+        graph.add((result, SH.resultSeverity, SH.Violation))
+        graph.add((result, SH.resultMessage, Literal(f"private-value-{index}")))
+    # Diagnostics use a different order: location matching must follow actual
+    # selected RDF result identity rather than zip/count-based association.
+    diagnostics = tuple(
+        GraphDiagnostic(
+            f"urn:source/record{index}",
+            f"urn:field/{index}",
+            f"urn:shape/{index}",
+            None,
+            str(SH.Violation),
+            f"private-value-{index}",
+        )
+        for index in (2, 1)
+    )
+    validation = GraphValidation(
+        False, graph.serialize(format="nt").encode(), "nonconformant", diagnostics
+    )
+    report = graph_validation_report(
+        validation,
+        prepared=cast(
+            PreparedRelease, SimpleNamespace(release_id="release:original", execution_model_id=None)
+        ),
+        scope="realization@7/qualified-projection",
+        detail=detail,
+        raw_evidence=raw,
+        max_errors=limit,
+    ).model_dump(mode="json")
+    assert len(report["observations"]) == min(limit, 2)
+    for index, observation in enumerate(report["observations"], 1):
+        focus = f"urn:source/record{index}"
+        expected_path = focus if raw else "graph/focus/" + sha256(focus.encode()).hexdigest()
+        assert observation["input_path"] == expected_path
+        assert observation["model_path"] == f"urn:shape/{index}"
+        assert observation["scope"] == "realization@7/qualified-projection"
+        facts = json.loads(observation["actual"])
+        assert facts["source_shape"]["value"] == f"urn:shape/{index}"
+        assert (f"private-value-{index}" in observation["message"]) is raw
+    assert report["validation_outcome"] == "nonconformant"

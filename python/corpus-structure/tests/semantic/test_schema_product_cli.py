@@ -48,10 +48,12 @@ def test_model_diagnostics_remain_actionable_in_cli_json(cli, monkeypatch):
     monkeypatch.setattr(regeneration, "prepare_packs", refuse)
     result = cli("schema", "check", "--json")
     assert result.exit_code == 1
-    item = json.loads(result.stdout)["error"]["diagnostics"][0]
-    assert item["contract_id"] == "statement"
-    assert item["consumer"] == "source_projection"
-    assert item["expected"] == "SourceStatement" and item["actual"] == "Entity"
+    item = json.loads(result.stdout)["error"]["validation"]["observations"][0]
+    assert item["model_path"] == "statement"
+    assert item["input_path"] == "AgentStatementBinding/statement"
+    assert item["operation"] == "source_projection"
+    assert "expected" not in item and "actual" not in item
+    assert item["code"] == "statement_binding"
     assert item["remedy"] == "bind a SourceStatement subtype"
 
 
@@ -95,7 +97,10 @@ def test_derive_refuses_invalid_model_without_partial_output(cli, tmp_path, monk
     target = tmp_path / "invalid-model"
     result = cli("schema", "derive", "--out", str(target), "--json")
     assert result.exit_code == 1
-    assert json.loads(result.stdout)["error"]["diagnostics"][0]["code"] == "invalid_model"
+    assert (
+        json.loads(result.stdout)["error"]["validation"]["observations"][0]["code"]
+        == "invalid_model"
+    )
     assert not target.exists()
 
 
@@ -104,7 +109,7 @@ def test_schema_validation_cli_requests_bounded_dependency_detail(cli, command):
     compact = cli("schema", command, "--json")
     assert compact.exit_code == 0, compact.output
     value = json.loads(compact.stdout)["validation"]
-    assert value["report_version"] == 3
+    assert value["report_version"] == 5
     assert value.get("projection_dependencies") is None
     detailed = cli(
         "schema",
@@ -171,7 +176,7 @@ def test_schema_check_archived_release_forwards_dependency_request(
     )
     assert result.exit_code == 0, result.output
     report = json.loads(result.stdout)["validation"]
-    assert report["report_version"] == 3 and report["release_id"] == prepared.release_id
+    assert report["report_version"] == 5 and report["release_id"] == prepared.release_id
     page = report["projection_dependencies"]
     assert page["total"] > 1 and page["next_after"] == 1
     assert len(page["items"]) == 1 and page["items"][0]["family"] == "relation"

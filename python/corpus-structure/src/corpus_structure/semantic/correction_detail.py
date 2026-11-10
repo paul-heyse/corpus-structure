@@ -367,8 +367,18 @@ def graph_detail(
                 return
             active.add(result)
             ordinal = len(nodes)
+            focus = graph.value(result, SH.focusNode)
             details = dict(
-                focus=rdf_term(graph.value(result, SH.focusNode), values=raw_evidence),
+                focus=rdf_term(focus, values=raw_evidence),
+                focus_location=(
+                    str(focus)
+                    if raw_evidence
+                    else "graph/focus/" + sha256(str(focus).encode()).hexdigest()
+                )
+                if focus is not None
+                else None,
+                source_shape=rdf_term(graph.value(result, SH.sourceShape), values=True),
+                severity=rdf_term(graph.value(result, SH.resultSeverity), values=True),
                 value=rdf_term(graph.value(result, SH.value), values=raw_evidence),
                 source_constraint=rdf_term(graph.value(result, SH.sourceConstraint), values=True),
             )
@@ -380,7 +390,11 @@ def graph_detail(
                 keyword=str(graph.value(result, SH.sourceConstraintComponent) or "SHACL"),
                 input_path=[],
                 schema_path=[],
-                message="Graph constraint failed.",
+                message="; ".join(
+                    sorted(str(value) for value in graph.objects(result, SH.resultMessage))
+                )
+                if raw_evidence
+                else "Graph constraint failed.",
                 rdf_json=canonical_bytes(details).decode(),
                 path_json=canonical_bytes(shacl_path(graph, path, max_depth=max_depth)).decode()
                 if path is not None

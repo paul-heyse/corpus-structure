@@ -50,11 +50,12 @@ def test_exact_native_deployment_resumes_before_separate_activation(
     from corpus_structure.core.db.store import Store
     from corpus_structure.semantic import migrations
 
-    predecessor = "semantic_ptd_explanations"
-    revision = "semantic_ptd_completion_repairs"
+    revision = head_revision()
+    assert revision is not None
     scripts = ScriptDirectory.from_config(alembic_config())
     script = scripts.get_revision(revision)
-    assert script is not None
+    assert script is not None and isinstance(script.down_revision, str)
+    predecessor = script.down_revision
     ancestors = {Path(item.path).name for item in scripts.iterate_revisions(predecessor, "base")}
     products = {
         product: Path(script.path)

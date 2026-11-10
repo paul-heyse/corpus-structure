@@ -200,9 +200,9 @@ def test_current_release_guards_separate_readable_archives_from_current_projecti
     assert "document->>'format' IS DISTINCT FROM 'semantic-release-archive-3'" in archive
     assert (
         "COALESCE(manifest->'profile'->>'compiler_version','') "
-        "NOT IN ('14','15','16','17','18','19')" in archive
+        "NOT IN ('14','15','16','17','18','19','20','21','22')" in archive
     )
-    assert "IS DISTINCT FROM '19' THEN RAISE EXCEPTION" in projection
+    assert "IS DISTINCT FROM '22' THEN RAISE EXCEPTION" in projection
     assert "THEN RETURN;" not in projection
 
 

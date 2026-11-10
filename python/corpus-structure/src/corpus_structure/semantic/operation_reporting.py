@@ -1800,19 +1800,23 @@ def graph_validation_report(
         defer_bytes=True,
     )
     if correction["nodes"]:
-        observations = [
-            dict(
-                category="state_violation",
-                code=node["keyword"],
-                model_path="graph/shape",
-                operation="graph_validate",
-                scope=scope,
-                message=node["message"],
-                actual=node.get("rdf_json"),
+        observations = []
+        for node in correction["nodes"]:
+            if node.get("parent") is not None:
+                continue
+            facts = json.loads(node["rdf_json"])
+            observations.append(
+                dict(
+                    category="state_violation",
+                    code=node["keyword"],
+                    model_path=facts["source_shape"].get("value") or "graph/shape",
+                    input_path=facts["focus_location"],
+                    operation="graph_validate",
+                    scope=scope,
+                    message=node["message"],
+                    actual=node["rdf_json"],
+                )
             )
-            for node in correction["nodes"]
-            if node.get("parent") is None
-        ]
     for observation in observations:
         observation.pop("original_report", None)
     return _validation_presentation(
