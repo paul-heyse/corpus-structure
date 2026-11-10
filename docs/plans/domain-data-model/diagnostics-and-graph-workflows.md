@@ -73,6 +73,20 @@ definition addresses, source locations and graph terms stay separately typed.
 
 ### Result and request flow
 
+**Implemented; scoped Tested, 2026-11-10 (DMC-CA02/03).**
+LocatedValidationReport5 selects one ordered parent-closed diagnostic forest for both
+observations and detail. Count limits apply to logical identities including nested causes;
+the byte limit applies to the whole canonical JSON report. Defaults remain100 errors,
+depth8 and262144 bytes. Outcome and assessment coverage precede selection; inventory and
+rendering coverage remain separately visible even in compact mode. Oversized inline evidence
+becomes a marker before whole trailing facts are removed. A mandatory envelope that cannot
+fit receives an explicit presentation-limit refusal preserving the original cause/outcome.
+CLI/MCP outer summaries remain compact; they do not repeat discarded error lists or raw prose.
+Inspection3 reserves enclosing response space and consumes the same capture without revalidation.
+Existing PDF/native wrappers attach typed paths and owner-assigned finite/reference/closure
+codes/categories; record locators and input locations retain distinct meanings. Historical
+managed artifact-v1 documents remain authenticated original bytes with original report versions.
+
 A caller validates one supplied input or graph under a bound release and operation. Default
 output remains the compact outcome. A detail request selects relevant observations and bounds
 the correction view by returned items, nested depth and encoded bytes. These are explicit

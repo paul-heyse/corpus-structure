@@ -13,7 +13,8 @@ reasoning, and implementation plans own scheduled work and closure evidence.
 
 ## Domain-data-model assembled refresh · 2026-11-10
 
-**Source-inspected, 2026-11-10.** Baseline `d38402708`; publication is separate.
+**Source-inspected, 2026-11-10.** Baseline `d38402708`, with bounded final source reconciliation
+at `a262e476f` (including the F01 correction) and native adoption `4661e5707`; publication is separate.
 An independent reviewer inspected the settled DMC construction, terminology, private
 interpretation, diagnostic, research, independent-consumer and settings boundaries and
 reconciled the final repair diff. Core3.3, heuristics1.0, code-intelligence1.4, binding and
@@ -48,7 +49,10 @@ and inline evidence. Outcome/assessment precede truncation; compact reports reta
 inventory and rendering coverage. Wrappers preserve typed paths through actual nested lowering,
 relative input paths versus nonroot native locators, schema references, scalar kinds, nonfinite
 values and transport ranges. Membership/containment failures retain state-violation meaning.
-Outer CLI reporting no longer repeats unbounded error lists. Managed publication reuses bounded
+One trusted normalization followed by typed parent-closed subset selection avoids repeated whole-report
+validation; generated MISSING/default serialization remains authoritative. The
+[assembled review F01](../reviews/design_review_domain-data-model-assembled_2026-11-10.md#F01)
+owns the reasoning behind that correction. Outer CLI reporting no longer repeats unbounded error lists. Managed publication reuses bounded
 presentation; leased retrieval authenticates original bytes/sensitivity without revalidation.
 Admitted RDFLib path display preserves grammar/list/cycle bounds and native witnesses/conformance
 (FP-01–06; DP-03/15/19/21/24; CI-02/04/08/11).

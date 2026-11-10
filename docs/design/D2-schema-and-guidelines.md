@@ -2,9 +2,10 @@
 
 ## Attributed interpretations and correction custody
 
-The [completion audit](../plans/domain-data-model_2026-11-10.md#completion-audit) qualifies
-current update-impact and correction-detail completion: DMC-09/11 retain the scoped gaps
-DMC-CA01–03. Other implemented capabilities below keep their stated evidence strength.
+The [completion repair receipt](../plans/domain-data-model_2026-11-10.md#completion-repair-acceptance)
+owns DMC-CA01–03 closure and DMC-17 qualification. The
+[assembled review](../design_review/reviews/design_review_domain-data-model-assembled_2026-11-10.md)
+accepts the selected architecture at source-inspected strength.
 
 **Implemented; scoped Tested, 2026-11-10.** Released TerminologyInterpretationV1 and
 MeasurementInterpretationV1 use private retained contributions rather than changing original
@@ -23,8 +24,13 @@ recognized identifiers and stated/unknown basis, with no numerical conversion or
 Archived vocabulary comparison separates membership/meaning, labels, metadata, source/check state
 and explicitly bound retained uses. Other populations remain unknown.
 
-Correction detail preserves actual validator structure under count/depth/byte bounds, with safe
-presentation and explicit raw evidence custody. Retained validation-schema bytes support independent
+LocatedValidationReport5 separates validation outcome, assessment coverage, captured inventory and rendering
+coverage even in compact mode. Its count limit selects logical diagnostic identities; its byte limit
+covers the canonical whole report. One trusted normalization and typed parent-closed subset selection
+preserve generated MISSING/default serialization without repeated whole-report validation. SemanticImpactReport4
+defaults retained-use surveys to the before side, with explicit after selection and comparison/population
+bound continuations. ContractInspection3 reserves its enclosing response space without revalidation.
+Safe presentation and raw evidence custody remain explicit. Retained validation-schema bytes support independent
 structural preflight; they do not establish source support or native admission. The
 [DMC-07–16 receipt](../plans/domain-data-model_2026-11-10.md#dmc-0716-execution-receipt--2026-11-10)
 owns selected functional/native acceptance and its limits; DMC-17 owns assembled qualification.

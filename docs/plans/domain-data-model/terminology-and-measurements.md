@@ -359,6 +359,14 @@ uses its examined candidates and original products rather than rerunning current
 
 ### DMC-09 — explain a proposed vocabulary update
 
+**Implemented; scoped Tested, 2026-11-10 (DMC-CA01).**
+SemanticImpactReport4 surveys one explicitly attributed side per request, with `use_side=before`
+as the default and `after` available explicitly. Continuations bind both compared releases,
+selected side/vocabulary release and complete source/review population pins. An empty or
+completed selected survey leaves other populations unknown. Model preview/regeneration without
+an explicit population retain that unknown; no automatic corpus scan follows. CLI/MCP migrate
+with the shared comparison owner.
+
 **Purpose:** deliver O07 through existing release/model-change reporting. Consume two DMC-06
 products and the DMC-07 declared consumer bindings; DMC-08 retained selections contribute impact
 references once available, but are not a prerequisite for comparing prepared terminology products.

@@ -1,0 +1,320 @@
+{
+  "schema_version": 1,
+  "id": "dmc.completion-repairs-and-exit",
+  "title": "DMC completion repairs and applicable series qualification",
+  "group": "domain-data-model",
+  "package": "DMC-09/11/17",
+  "finalized": "2026-11-10",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the accepted completion repairs reach their consumers and does final selected scope satisfy applicable qualification with explicit source/context limits?",
+  "answers": [
+    "DMC-CA01",
+    "DMC-CA02",
+    "DMC-CA03",
+    "DMC-17",
+    "F01 assembled domain-data-model review"
+  ],
+  "method": "Independent implementation and assembled-source reviews; actual native adoption/readback; read-only archived and genuine CLI/MCP journeys; original controls; full results retained with failed/affected replacements per operator instruction. Final functional source a262e476f. Identity-set reconciliation covers5882 applicable identities; source/native fixture differences are judged in the coordinator. Rust empty and two unselected GPU/checkpoint diagnostics receive no functional pass.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-10_dmc-completion-repairs/diagnostic-controls.py",
+    "uv run python docs/design_review/evidence/2026-11-10_dmc-completion-audit/inspection-journey.py release:4b5fd49b3879d7628e80a5feb78607b3cdc327ce223e37a5827f517f44d822f3 53d8c6b524a2466a877282680549185d",
+    "uv run python docs/design_review/evidence/2026-11-10_dmc-completion-repairs/retained-update-journey.py release:a3e72c1d8e735c63f05912491677e872bde03c2b156b7cb72a7e8330f9f2ee2c",
+    "uv run ci model change preview docs/design_review/evidence/2026-11-10_dmc-completion-repairs/change.yaml --json",
+    "uv run ci model change deploy b542766b981f44cd907494f4988e9ab7 --json",
+    "uv run python docs/design_review/evidence/2026-11-10_dmc-completion-repairs/raw/runtime-custody.py release:a3e72c1d8e735c63f05912491677e872bde03c2b156b7cb72a7e8330f9f2ee2c",
+    "uv run ci test --json",
+    "uv run ci test --lane ordinary --json -- -k 'not test_native_boundary_diagnostic_observes_and_rescores_exact_occurrence'",
+    "uv run ci test --json -- python/corpus-structure/tests/semantic/test_ontology.py python/corpus-structure/tests/semantic/test_correction_detail.py python/corpus-structure/tests/semantic/test_model_deployment.py python/corpus-structure/tests/semantic/test_native_sql_body.py python/corpus-structure/tests/semantic/test_schema_product_cli.py python/corpus-structure/tests/semantic/test_typed_realization.py",
+    "uv run python docs/design_review/evidence/2026-11-10_dmc-completion-repairs/qualification-union.py 90a34e3e1b4e41558c00fc09365f218a ca7ae72443b74205bd0778d7e6695e29 4ea4a42ac5b5420dbb7f46b454199e3a a75b3f85d1ec44208bf4e1df1acfc754",
+    "uv run ci check --view steps --json",
+    "uv run ci model check --json",
+    "uv run ci doctor --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "Execution input/probe source",
+      "sha256": "a08b352165c534f97a0206f7b27078fed44f3c9b6c61612f11b0fd243c23376f"
+    },
+    {
+      "path": "diagnostic-controls.py",
+      "role": "Execution input/probe source",
+      "sha256": "d58dac26e177f570c7336dac7e13ab410ee1e9518a2a88b4c0939912fc1e34e3"
+    },
+    {
+      "path": "protected-state.py",
+      "role": "Execution input/probe source",
+      "sha256": "ba0b37982a52324a3f700a1c44eba48b7ba3ab157471a04d9e396940299baebf"
+    },
+    {
+      "path": "retained-update-journey.py",
+      "role": "Execution input/probe source",
+      "sha256": "9370a2dda665bbabde70209775aceb74782181b77d7eabf5450c887e8d3e64e9"
+    },
+    {
+      "path": "qualification-union.py",
+      "role": "Execution input/probe source",
+      "sha256": "3212aadb68d3933a44c0df5f737995cd56f4d72905413b5ac104814f49a22100"
+    },
+    {
+      "path": "raw/runtime-custody.py",
+      "role": "Execution input/probe source",
+      "sha256": "17ad9cf312a94d0dbd30f4b31c99b51856a192abed2b0c79cc8b5c34ac0c1e20"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/diagnostic-controls.json",
+      "role": "Observed execution output",
+      "sha256": "fba9b82d2983b351621f9cd1a03c2f2bfb97b2bb675daa83d874247e6afde0f0"
+    },
+    {
+      "path": "raw/diagnostic-controls.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "1600052b2f435bf6972da45f523103af326d2cf8a2732e5fc2d2e193d7b81720"
+    },
+    {
+      "path": "raw/inspection-journey.json",
+      "role": "Observed execution output",
+      "sha256": "ce4e6d663c30e7d6bfcb824068db37261261249a2569ef81b6dcf2deeed6be7d"
+    },
+    {
+      "path": "raw/inspection-journey.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "1600052b2f435bf6972da45f523103af326d2cf8a2732e5fc2d2e193d7b81720"
+    },
+    {
+      "path": "raw/native-apply.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "a2a8c66e37e3b5b57c5383862acebb468d33bd6da767abb5b45210c863f9e16a"
+    },
+    {
+      "path": "raw/native-apply.stdout.json",
+      "role": "Observed execution output",
+      "sha256": "676c0e514cbbbe1cc924699822b8816280abc36befbaabfdee70255341b231b7"
+    },
+    {
+      "path": "raw/native-candidate-inspect.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "raw/native-candidate-inspect.stdout.json",
+      "role": "Observed execution output",
+      "sha256": "efe2ff6658d2a8e7069d184a03ca09cd348c5b77009973189d7863c7489e0025"
+    },
+    {
+      "path": "raw/native-candidate.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "49caa7a4339fafdba27bf9e775d200db19e49d55cf0f9b8fd815ee7d2ecb8b9e"
+    },
+    {
+      "path": "raw/native-candidate.stdout.json",
+      "role": "Observed execution output",
+      "sha256": "3dccd62c672b36addaccab4694ad3fc9c91f5fd86e69792c0a1556cf6486b479"
+    },
+    {
+      "path": "raw/native-db-check.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "raw/native-db-check.stdout.json",
+      "role": "Observed execution output",
+      "sha256": "191c3a27aa8b9e6be06fbc5ac64b2fad784042903223a68d5f4744bcc48a9214"
+    },
+    {
+      "path": "raw/native-db-status.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "raw/native-db-status.stdout.json",
+      "role": "Observed execution output",
+      "sha256": "ce9d7af4d22bbce0168895cb1aa9829dbd26909c260be540baa52f6be6d359f3"
+    },
+    {
+      "path": "raw/native-deploy.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "1b85db468eec7bf8ca353bc2d3cb5a9d9e3c92bb401cadf128e9d2035ebfc26f"
+    },
+    {
+      "path": "raw/native-deploy.stdout.json",
+      "role": "Observed execution output",
+      "sha256": "ce16ec4a783d49dcc00199263077b45038f4926c95254deb52a5697cc9e00ea3"
+    },
+    {
+      "path": "raw/native-preview-inspect.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "raw/native-preview-inspect.stdout.json",
+      "role": "Observed execution output",
+      "sha256": "8d0d799bf7b1c6e032ef637aa932fe8b8502a57d5949db32377d5e2293061326"
+    },
+    {
+      "path": "raw/native-preview-patch.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "raw/native-preview-patch.stdout.json",
+      "role": "Observed execution output",
+      "sha256": "23f5a0057ef626a63c98a5a1b754dd0324b3c0d016f61839803e4233801f586c"
+    },
+    {
+      "path": "raw/native-preview.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "fd63df3e317ae2ca8edb30e7d7c3dbd7e7ec64253fa34ca5e810d1a1be15a552"
+    },
+    {
+      "path": "raw/native-preview.stdout.json",
+      "role": "Observed execution output",
+      "sha256": "031a14fcf7817d125d126cbe17a7a4efc1e72f29f3a2f69554216dc0016a06aa"
+    },
+    {
+      "path": "raw/native-register.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "756ad129cb8f71fcbd80603011b10910d2a6783ae5530b59364477c363cd4038"
+    },
+    {
+      "path": "raw/native-register.stdout.json",
+      "role": "Observed execution output",
+      "sha256": "92ef5c25212e3334064d8699feab3ebdb29086b6941067b0fec1c1b79aebb87d"
+    },
+    {
+      "path": "raw/native-release-check.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "3051836f6deb43edda5b1929b913a9bf1bbc3f59945ebd9a0adc88a1de309553"
+    },
+    {
+      "path": "raw/native-release-check.stdout.json",
+      "role": "Observed execution output",
+      "sha256": "ddfda6327f14519749206e11a1e652975fc31e3cd81fa00d7c177ce1b3280086"
+    },
+    {
+      "path": "raw/protected-after.json",
+      "role": "Observed execution output",
+      "sha256": "9b3983aecf1583b9fc3d83d11da0720e5152bd226806e0905569972bcefa18ad"
+    },
+    {
+      "path": "raw/protected-before.json",
+      "role": "Observed execution output",
+      "sha256": "9b3983aecf1583b9fc3d83d11da0720e5152bd226806e0905569972bcefa18ad"
+    },
+    {
+      "path": "raw/protected-handoff.json",
+      "role": "Observed execution output",
+      "sha256": "9b3983aecf1583b9fc3d83d11da0720e5152bd226806e0905569972bcefa18ad"
+    },
+    {
+      "path": "raw/qualification-original-failures-first.json",
+      "role": "Observed execution output",
+      "sha256": "59641633b60be48ba7002d9cb5151152f3e4e867a8fb6add4dfa61fa6f405a30"
+    },
+    {
+      "path": "raw/qualification-original-failures-tail.json",
+      "role": "Observed execution output",
+      "sha256": "300a332d1a513a0364fbaffbb76b3345f87d34cdfde20f36ce26d472a7052de7"
+    },
+    {
+      "path": "raw/qualification-union.json",
+      "role": "Observed execution output",
+      "sha256": "161eb54211451eae4ac7bef64bbe107584f50633f9c7d7177e75aa7168fa7e6a"
+    },
+    {
+      "path": "raw/qualification-union.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "raw/retained-491-page-0.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "1600052b2f435bf6972da45f523103af326d2cf8a2732e5fc2d2e193d7b81720"
+    },
+    {
+      "path": "raw/retained-491-page-0.stdout.json",
+      "role": "Observed execution output",
+      "sha256": "8746af4d502a7618abe7e07f9306b3658d17237aff0118102d1c5425f17f0f3d"
+    },
+    {
+      "path": "raw/retained-495-page-0.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "1600052b2f435bf6972da45f523103af326d2cf8a2732e5fc2d2e193d7b81720"
+    },
+    {
+      "path": "raw/retained-495-page-0.stdout.json",
+      "role": "Observed execution output",
+      "sha256": "d7fffc576b0491909c4240fafb77b9f7dcd0394a54c1aa5464973995f3b75e75"
+    },
+    {
+      "path": "raw/retained-495-page-1.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "1600052b2f435bf6972da45f523103af326d2cf8a2732e5fc2d2e193d7b81720"
+    },
+    {
+      "path": "raw/retained-495-page-1.stdout.json",
+      "role": "Observed execution output",
+      "sha256": "e81b0f30577ace6226563d84a14c4126c5ebeee29b81cbe5ef091b2b6c19b4e9"
+    },
+    {
+      "path": "raw/retained-update-journey.json",
+      "role": "Observed execution output",
+      "sha256": "1a1b1a3b433ce3243772ff95b1ed6f87518c1cd8759ca15f2a00fbdbb54856cf"
+    },
+    {
+      "path": "raw/retained-update-journey.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "1600052b2f435bf6972da45f523103af326d2cf8a2732e5fc2d2e193d7b81720"
+    },
+    {
+      "path": "raw/runtime-custody-final.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "raw/runtime-custody-final.stdout.json",
+      "role": "Observed execution output",
+      "sha256": "ed17f14914d8f640caaf35f1b06a0b22c7e936b8fdb9e6a2a92ef0079ae0cff6"
+    },
+    {
+      "path": "raw/runtime-custody-handoff-typed-columns.stdout.json",
+      "role": "Observed execution output",
+      "sha256": "08408b081c5def10676e2273015ef6dd2d7ad938f95f427ca9982a6c60e5f3d3"
+    },
+    {
+      "path": "raw/runtime-custody-handoff.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "raw/runtime-custody-handoff.stdout.json",
+      "role": "Observed execution output",
+      "sha256": "6b1ad8e9f14f58d7e8b097a2364f4932d6ed83274929fbb61ebc4483d05b20e4"
+    },
+    {
+      "path": "raw/runtime-custody.stderr.txt",
+      "role": "Observed execution output",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "raw/runtime-custody.stdout.json",
+      "role": "Observed execution output",
+      "sha256": "95984ee287a4444eb1f47dce8b2a8c91889d9cfd2052ab35973b9fbf8add2ab0"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "DMC-CA01–03 and assembled F01 are implemented and qualified at selected scope. Actual native successor admission, prepared runtime source custody, before-side retained-use CLI/MCP parity, bounded structured diagnostics and protected-state preservation pass. Applicable5882-identity union is covered by retained full evidence and affected replacements; original failures remain failed. Two unchanged opt-in provider/asset diagnostics are excluded explicitly and Rust discovery is empty/not_run. No new provider/scientific-quality or quantified performance benefit is claimed.",
+  "consumed_by": [
+    "DMC-CA01",
+    "DMC-CA02",
+    "DMC-CA03",
+    "DMC-17"
+  ]
+}

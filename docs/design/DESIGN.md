@@ -565,6 +565,9 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 **Implemented; scoped Tested, 2026-11-10; the DMC coordinator owns acceptance.** Attributed source interpretations remain private
 released contributions with independent evidence, review selection and vocabulary pins.
 Correction presentation and raw/managed evidence custody remain explicit.
+The completion repairs provide attributed before-side update surveys, whole-report bounds and
+structured native wrapper meanings. The [DMC coordinator](../plans/domain-data-model_2026-11-10.md#completion-repair-acceptance)
+owns qualification and the assembled review disposition; these reads confer no selection authority.
 
 > Decision: [ADR-0077](../adr/0077-attributed-interpretations-and-correction-custody.md)
 

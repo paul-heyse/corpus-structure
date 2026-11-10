@@ -2,9 +2,9 @@
 
 ## Attributed interpretations and correction custody
 
-The [completion audit](../plans/domain-data-model_2026-11-10.md#completion-audit) qualifies
-current update-impact and correction-detail completion: DMC-09/11 retain the scoped gaps
-DMC-CA01–03. Other implemented capabilities below keep their stated evidence strength.
+The [completion repair receipt](../plans/domain-data-model_2026-11-10.md#completion-repair-acceptance)
+owns DMC-CA01–03 closure and DMC-17 qualification. Other implemented capabilities below
+keep their stated evidence strength.
 
 **Implemented; scoped Tested, 2026-11-10.** `ci interpretations` exposes released lookup,
 private authoring, retained review detail, controlled record selection, recognized measurement
@@ -22,8 +22,17 @@ artifact lease, sensitivity and digest checks. Expired or changed artifacts refu
 rerun current inputs. SHACL path display preserves admitted structure after list/cycle/size checks;
 existing native occurrence witnesses and Core/SPARQL constraints remain authoritative.
 
+LocatedValidationReport5 bounds the whole canonical report, including observations and inline evidence,
+under the requested byte limit. Logical diagnostic identities and parent-closed causes share the item
+limit; outcome/assessment remain independent of inventory/rendering coverage. Typed wrapper failures
+preserve relative input paths, separate native locators and finite/type/reference/closure meanings.
+Direct and retained outer messages remain compact. ContractInspection3 reserves envelope space from the same
+capture. Historical diagnostic artifact-v1 documents retain original authenticated report versions.
+
 `ci schema diff` can survey explicitly selected source/review vocabulary uses, including recognized
-measurement dimensions and unresolved decisions. `ci research compare-exclusions` and its MCP
+measurement dimensions and unresolved decisions. SemanticImpactReport4 surveys one `use_side` (`before` by default,
+explicit `after` available); its continuation binds compared releases and the full source/review
+population. Unsurveyed populations remain unknown. `ci research compare-exclusions` and its MCP
 counterpart compare pinned authenticated declarations, resolution bindings and evidence separately.
 Independent offline preflight consumes exact archived validation-schema bytes with finite local
 resource closure and explicit structural-only limits. Settings explanation describes the actual

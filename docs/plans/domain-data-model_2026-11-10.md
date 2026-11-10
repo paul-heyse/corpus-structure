@@ -1,6 +1,6 @@
 # Integrated domain-data-model capability series
 
-**Status: DMC-09 and DMC-11 reopened by completion audit; other DMC-00–16 packages complete at scoped boundaries; DMC-17 planned · 2026-11-10.**
+**Status: DMC-00–17 complete at selected scope; applicable qualification and handoff complete · 2026-11-10.**
 This coordinator owns DMC-00–17, DMC-I01–09, source opportunity disposition, selected branch
 delivery and combined qualification. Supporting plans own target explanations and package
 contracts, not duplicate progress. Existing PTD, DMA, WCE and PM2 scopes remain with their owners.
@@ -79,8 +79,8 @@ independent work may still contend for those files.
 
 ## Execution queue
 
-DMC-00–16 delivery receipts are retained below; the completion audit reopens DMC-09/11 and qualifies aggregate acceptance. Other packages retain scoped completion;
-DMC-17 remains **planned**. This table and receipt are the current package-state owner. Investigations may finish during execution entry where source inspection
+DMC-00–16 delivery receipts are retained below; completion-audit repairs restore DMC-09/11 scoped completion. Other packages retain scoped completion;
+DMC-17 is **complete** at the applicable qualification boundary. This table and the completion repair receipt own current package state. Investigations may finish during execution entry where source inspection
 settles their question; no experiment quota applies.
 
 | Package | Required input → delivered capability and completion boundary |
@@ -94,15 +94,15 @@ settles their question; no experiment quota applies.
 | <a id="DMC-06"></a>DMC-06 | I01 source/consumer decision + DMC-01 artifact conventions → richer immutable vocabulary metadata and operation-owned source preparation under explicit supported profile |
 | <a id="DMC-07"></a>DMC-07 | Working DMC-06 → two useful controlled fields, inspection/filter consumer, labels/hierarchy/mapping/check-status fidelity and offline archived reads |
 | <a id="DMC-08"></a>DMC-08 | I04 selected grounding decision + DMC-06 lookup slice → located term candidates with separate mapping kinds, unresolved alternatives and authentic source/vocabulary pins |
-| <a id="DMC-09"></a>DMC-09 | **Reopened: [DMC-CA01](#DMC-CA01).** DMC-06/07 metadata + current semantic-diff owner → membership/meaning/label/mapping update explanation with known consumer scope and explicit unknowns |
+| <a id="DMC-09"></a>DMC-09 | **Repaired; scoped complete: [DMC-CA01](#DMC-CA01).** DMC-06/07 metadata + current semantic-diff owner → membership/meaning/label/mapping update explanation with known consumer scope and explicit unknowns |
 | <a id="DMC-10"></a>DMC-10 | I01 measurement consumer + I05 → recognized unit/quantity interpretations and grouping/compatibility read; selected conversion/classification separately delivered |
-| <a id="DMC-11"></a>DMC-11 | **Reopened: [DMC-CA02](#DMC-CA02), [DMC-CA03](#DMC-CA03).** DMC-00 + current report/managed-result owners → bounded original-engine correction detail, typed reference/custody semantics and selected direct/retained CLI/MCP consumers |
+| <a id="DMC-11"></a>DMC-11 | **Repaired; scoped complete: [DMC-CA02](#DMC-CA02), [DMC-CA03](#DMC-CA03).** DMC-00 + current report/managed-result owners → bounded original-engine correction detail, typed reference/custody semantics and selected direct/retained CLI/MCP consumers |
 | <a id="DMC-12"></a>DMC-12 | I06 selected navigation/component decision → supported paths or recurring constraints preserving qualified occurrences/universe, with readers and diagnostics integrated |
 | <a id="DMC-13"></a>DMC-13 | I07 selected independent consumer + required DMC-01/11 contract slice → self-contained offline contract closure and real independent consumption |
 | <a id="DMC-14"></a>DMC-14 | I06 selected graph-research question → bounded attributed exploratory view/comparison; current production inference/conformance retained |
 | <a id="DMC-15"></a>DMC-15 | I08 selected acquisition/explanation decision → actual-instance source report/consumer change, masking and snapshot semantics preserved |
 | <a id="DMC-16"></a>DMC-16 | I07/I09 selected tooling branches → each explicitly selected generator/transform/codec/provisional workflow and its complete consumer migration |
-| <a id="DMC-17"></a>DMC-17 | All decisions and selected delivery complete → final-source qualification, native adoption where selected, assembled target review, durable owner updates and PM2 return handoff |
+| <a id="DMC-17"></a>DMC-17 | **Complete; final exit below.** All decisions and selected delivery complete → final-source qualification, native adoption where selected, assembled target review, durable owner updates and PM2 return handoff |
 
 DMC-03/04 and early diagnostic work need not wait for all explorer functionality. DMC-06 needs
 the shared artifact convention, not completed UI. Grounding/change impact need vocabulary lookup
@@ -140,7 +140,7 @@ the owning target and this table before implementation, and add their required e
 
 ## Source disposition and complete correspondence
 
-Rows preserve functional opportunity identities, not new defect IDs. O07/O09 are reopened under DMC-09/11; other O01–O13 items retain selected-scope completion. Conditional alternatives have explicit retained outcomes
+Rows preserve functional opportunity identities, not new defect IDs. O07/O09 repairs restore DMC-09/11 scoped completion; other O01–O13 items retain selected-scope completion. Conditional alternatives have explicit retained outcomes
 and revisit triggers in the companions; they are not implementation claims. DMC-17 still owns
 whole-series qualification and assembled review.
 
@@ -152,9 +152,9 @@ whole-series qualification and assembled review.
 | O04 / DDM-14 | **Complete, selected DMC-05 subtree normalization.** Structural observation owner → I03/05; existing nested schemas preserved, selected normalization or retain conclusion |
 | O05 / DDM-05/11 | Vocabulary preparation/read owners → I01/06/07; useful terms/fields, retained meaning/provenance and shared scoped preparation |
 | O06 / DDM-06 candidate branch | Candidate/selection owners → I04/08; external mapping never relabelled source support/identity |
-| O07 / DDM-06 lifecycle branch | **Partial: DMC-CA01.** Semantic-diff owner →06/09; exact membership/metadata change, consumer coverage and old meaning retained |
+| O07 / DDM-06 lifecycle branch | **Repaired; scoped complete: DMC-CA01.** Semantic-diff owner →06/09; exact membership/metadata change, consumer coverage and old meaning retained |
 | O08 / DDM-12 | Measurement owner → I01/I05/10; source/recognized/basis distinction; conversion/classification selected separately |
-| O09 / DDM-08/09 errors | **Partial: DMC-CA02/03.** Report/error/custody owners →11; original errors/detail retained safely, direct versus resolvable reference and complete/partial/unavailable honest |
+| O09 / DDM-08/09 errors | **Repaired; scoped complete: DMC-CA02/03.** Report/error/custody owners →11; original errors/detail retained safely, direct versus resolvable reference and complete/partial/unavailable honest |
 | O10 / DDM-02/07 | Relationship/projection owners → I06/12; admitted path grammar, identity/multiplicity/reference closure |
 | O11 / DDM-03/09 resources | Independent consumer owner → I07/13; actual offline validation, explicit dialect/resource closure and limitations |
 | O12 / DDM-10 | Process settings owner → I08/15; actual snapshot/report use or justified retain outcome |
@@ -781,6 +781,16 @@ implementation and handoff commit names record their actual scoped test outcomes
 
 ## Completion audit
 
+**Execution authorized and completed at applicable scope, 2026-11-10.** The operator accepted the conversational
+execution approach for DMC-CA01–03 and DMC-17. The existing coordinator remains the sole
+disposition owner. Repairs precede independent implementation review, coordinated successor
+adoption, refreshed-audit assembled design/target review and final-source qualification.
+Report contracts advance to impact4/validation5/inspection3; compiler22/execution28/boundary12/
+archive3 retain their algorithms/encodings. The development predecessor was freshly observed
+at `semantic_dmc_digest_binding`; protected state was captured before adoption in
+[execution evidence](../design_review/evidence/2026-11-10_dmc-completion-repairs/README.md).
+The series exit hands off to CLD-00, followed by CLD and then PM2. Current closure and accepted source/context limits are integrated in the final repair receipt below.
+
 **2026-11-10 · source-inspected with focused controls · baseline963543a8a3f97a57332cf031808ea63c523bbec5.**
 Three fresh independent implementation reviewers reconstructed accepted DMC-00–16 scope across
 all five companions, source O01–O13/21 additional branches, current owners/ADR-0075–77, code and
@@ -788,7 +798,7 @@ ordinary consumers. The coordinator integrated their findings. Concurrent CLI/lo
 documents were preserved and excluded. No production, schema, migration or persistent data repair
 was performed. DMC-17 remains planned, rather than being judged against an unclaimed series exit.
 
-### Current conclusion
+### Audit baseline conclusion
 
 **Implementation:** DMC-09 and DMC-11 are incomplete in the three accepted behaviors below.
 Other DMC-00–16 packages retain scoped completion: immutable inspection/provenance and shared
@@ -828,9 +838,9 @@ for these selected promises. Missing benchmarks are not an audit defect.
 
 | Finding | Owner and obligation | Evidence, consequence and closure |
 | --- | --- | --- |
-| <a id="DMC-CA01"></a>DMC-CA01 · OPEN | DMC-09 / O07 · proposed-update retained-use impact | The terminology companion §DMC-09 requires old retained-review uses during an update. `semantic/operation_reporting.py:864` always surveys `after.release_id`; `interpretation_queries.py:189` filters that release exactly. Existing before-bound reviews disappear when before and after differ. CLI/MCP expose no side override; same-release genuine evidence cannot establish this update case. Preserve explicitly attributed before-side uses, migrate comparison consumers, and verify a populated distinct-release change including removed member/mapping change, bounds and unknown populations. Source inspection establishes the gap; no new model/release was created to demonstrate it. |
-| <a id="DMC-CA02"></a>DMC-CA02 · OPEN | DMC-11 / O09 · bounded correction presentation | The diagnostics companion requires bounded returned correction items/bytes and opt-in values. `correction_detail.py:60` bounds only detail/evidence; `operation_reporting.py:1390,1592` copies observations outside that bound. The probe requested1024bytes but emitted17104bytes, including16411 raw-message characters, while bounded nodes were dropped. max_errors1 produced20observations/one node. This is discarded variable detail resurfacing, not fixed-envelope overhead. Bound all correction presentation facts while preserving validation outcome and distinct assessment/inventory/render coverage; verify raw/Pydantic/graph cases through direct, retained and inspection consumers. |
-| <a id="DMC-CA03"></a>DMC-CA03 · OPEN | DMC-11 / O09 · non-schema wrapper diagnostics | The diagnostics companion acceptance requires PDF/native wrapper paths and finite/reference/closure meanings. `pdf_records.py:49,241` preserves NativeMappingError.path, but uncaptured errors reach generic ValueError reporting (`operation_reporting.py:1512`) and empty detail (`correction_detail.py:101`). Actual mapping input items=[infinity] retained#/items/0 in the exception but yielded no typed input_path and no nodes. `pdf_payloads.py:39` similarly flattens non-schema paths into text. Preserve safe structured path/code/category at the owners and in direct/retained presentation; independently verify finite, reference-profile and closure cases without parsing human prose. |
+| <a id="DMC-CA01"></a>DMC-CA01 · CLOSED, 2026-11-10 | DMC-09 / O07 · proposed-update retained-use impact | The terminology companion §DMC-09 requires old retained-review uses during an update. `semantic/operation_reporting.py:864` always surveys `after.release_id`; `interpretation_queries.py:189` filters that release exactly. Existing before-bound reviews disappear when before and after differ. CLI/MCP expose no side override; same-release genuine evidence cannot establish this update case. Preserve explicitly attributed before-side uses, migrate comparison consumers, and verify a populated distinct-release change including removed member/mapping change, bounds and unknown populations. Source inspection establishes the gap; no new model/release was created to demonstrate it.  **Closure:** [repaired scoped acceptance](#completion-repair-acceptance), including independent review and native/direct consumer controls. |
+| <a id="DMC-CA02"></a>DMC-CA02 · CLOSED, 2026-11-10 | DMC-11 / O09 · bounded correction presentation | The diagnostics companion requires bounded returned correction items/bytes and opt-in values. `correction_detail.py:60` bounds only detail/evidence; `operation_reporting.py:1390,1592` copies observations outside that bound. The probe requested1024bytes but emitted17104bytes, including16411 raw-message characters, while bounded nodes were dropped. max_errors1 produced20observations/one node. This is discarded variable detail resurfacing, not fixed-envelope overhead. Bound all correction presentation facts while preserving validation outcome and distinct assessment/inventory/render coverage; verify raw/Pydantic/graph cases through direct, retained and inspection consumers.  **Closure:** [repaired scoped acceptance](#completion-repair-acceptance), including independent review and native/direct consumer controls. |
+| <a id="DMC-CA03"></a>DMC-CA03 · CLOSED, 2026-11-10 | DMC-11 / O09 · non-schema wrapper diagnostics | The diagnostics companion acceptance requires PDF/native wrapper paths and finite/reference/closure meanings. `pdf_records.py:49,241` preserves NativeMappingError.path, but uncaptured errors reach generic ValueError reporting (`operation_reporting.py:1512`) and empty detail (`correction_detail.py:101`). Actual mapping input items=[infinity] retained#/items/0 in the exception but yielded no typed input_path and no nodes. `pdf_payloads.py:39` similarly flattens non-schema paths into text. Preserve safe structured path/code/category at the owners and in direct/retained presentation; independently verify finite, reference-profile and closure cases without parsing human prose.  **Closure:** [repaired scoped acceptance](#completion-repair-acceptance), including independent review and native/direct consumer controls. |
 | <a id="DMC-CA04"></a>DMC-CA04 · CLOSED for current custody,2026-11-10 | DMC-01/02 · accepted result evidence custody | The original contract-inspection evidence folder contained no finalized record or raw journey output despite its Tested claim, contrary to AGENTS/ADR-0010. Original live outputs were not recovered or retroactively certified. A fresh read-only run of its existing journey at archived4b5f release/frozen53d8 candidate passed inherited origin, CLI/MCP/candidate parity, valid/invalid input, finite skeleton and operation explanation. Current hashed custody is supplied by the audit evidence record; original232/108 test receipts retain their original dates. No production repair was required. |
 
 The [focused evidence](../design_review/evidence/2026-11-10_dmc-completion-audit/README.md) records
@@ -839,7 +849,7 @@ field was considered and rejected as a finding: authenticated release manifests 
 relevant library versions. Inherited evidence warnings and DMC-17's planned qualification are
 not relabelled as new implementation defects.
 
-Next: implement DMC-CA01 in the semantic comparison owner and DMC-CA02/03 in wrapper/report/custody
+Audit-time next work (superseded by the repair receipt below): implement DMC-CA01 in the semantic comparison owner and DMC-CA02/03 in wrapper/report/custody
 owners, then verify their affected consumers and reconcile this same plan. Audit authorization
 has not executed those repairs. DMC-17 follows resolved selected scope; it must not absorb these
 unfinished promises through a unilateral deferral. Current package summaries and O07/O09 status
@@ -852,3 +862,141 @@ records/184 folders, zero errors and41 inherited warnings. `uv run ci docs check
 canonical pages/74 ADRs and zero link errors, including concurrently authored CLI/logging plans.
 Root turn-end maintenance introduced no production changes. Those concurrent plans/queue changes
 are preserved; they do not change this audit's implementation baseline or authorize product repairs.
+
+
+<a id="completion-repair-acceptance"></a>
+
+## Completion repair acceptance and DMC-17 exit · 2026-11-10
+
+**Implementation, applicable qualification and handoff: complete for DMC-CA01–03 and DMC-17.**
+Production repairs are committed at `d38402708`; native adoption at `4661e5707`; assembled-review
+F01 correction at `1a3eb79f3`. Report versions are impact4/validation5/inspection3, with
+compiler22/readers14–22/execution28/boundary12/archive3 unchanged. The
+[assembled review](../design_review/reviews/design_review_domain-data-model-assembled_2026-11-10.md)
+accepts the selected architecture at source-inspected strength, without rule impact.
+
+- **DMC-CA01 closed:** a populated native distinct-release control removes HOUR and changes a
+  mapping while retaining four before-side uses, bounded continuation and explicit empty after-side
+  scope. Query column labels normalize to plain strings without weakening SourceValue. Genuine
+  installed CLI/MCP comparison from7caa to the successor retains Normal and pages HOUR/TIME uses.
+- **DMC-CA02 closed:** original 16KiB/20-error controls obey whole-report bytes/items, outcome and
+  independent assessment/inventory/rendering facts. Compact capture, preparation, graph, outer
+  messages, managed replacement and inspector bounds share the repaired presentation.
+- **DMC-CA03 closed:** actual nested native lowering preserves typed relative locations and separate
+  locators. Independent finite/reference/closure and scalar-kind/nonfinite/overflow controls pass.
+- **Assembled review F01 closed at selected scope:** one trusted model normalization and binary
+  typed-prefix selection preserve exact MISSING/default serialization.138 focused identities pass
+  in `7e3f41f02635465187cde6926bffa04e`, including one-normalization and bounded-probe controls.
+
+Focused required union:241 identities covered by failed `fa3675bdd3484d6a82c92948c0daede0`
+(240 passed; quoted SQL column-name failure repaired) and passed exact replacement
+`79628500bb894dbaa2290c462e8e65a2` (one native identity). Coverage reports zero unresolved nodes,
+missing lanes or context unknowns and complete native observations. The query-key source change
+is bounded to SQL/report materialization; the later138 selection replaces affected diagnostic
+evidence. These overlapping selections are not summed or described as whole-series qualification.
+Typing and lint passed on final source. Earlier failed attempts remain held and retain their outcomes.
+
+Native preview12e74550e2a54a7c8421e24f9c151492, candidateb542766b981f44cd907494f4988e9ab7,
+registration3cbbebf97468442fadb04f4bb3c13ced and deploycf159140c2704ce28e01b83cd570142c passed.
+Development head is `semantic_dmc_completion_repairs`, release
+`release:a3e72c1d8e735c63f05912491677e872bde03c2b156b7cb72a7e8330f9f2ee2c`, execution
+`execution:311cb8cabae848214a6dcdb00bd75bd4c83007a6f7648921436d7a2d0d0c7d87`; physical164682…
+is unchanged. Maintenance status, db/release checks passed. Runtime
+`runtime:7bcbf92473f9650f429f455717c0d1ce6b94c017c4c34d6d04e39aa5d0425f06` is durably archived
+at source1a3eb79f3; manifest/archive readback and five corrected source-byte comparisons pass.
+This is authenticated prepared provenance, not a claim those arbitrary archived bytes executed.
+Protected runs/projects match pre/post adoption byte-for-byte; no activation/selection/new corpus run.
+
+`uv run ci check --view steps --json` passed all applicable steps (rules not_run: no registry);
+`uv run ci model check --json` passed revision0.6.5. Rust qualification uses
+`rustc 1.101.0-nightly (2d20b42b8 2026-11-04)`. Full functional campaign
+`5505058f634a4f0ba32aadc474bb8c50` is running; series qualification remains open until ordinary,
+Rust and exclusive fault obligations settle with final-source/context accounting.
+[Execution evidence](../design_review/evidence/2026-11-10_dmc-completion-repairs/README.md) retains
+actual controls, native and runtime receipts. External inference reruns and benchmarks are not_run
+for this scope. After qualified DMC-17 handoff, CLD precedes PM2.
+
+### Whole-series qualification follow-up
+
+Initial full campaign5505058f634a4f0ba32aadc474bb8c50 **failed** ordinary:5866 selected,3462 passed,
+110 failed, one blocked and2293 not_run after a worker loss. Fault **passed**8/8. The repaired
+installed failure view exposes all110 with `--after`:109 share incomplete manual test import
+closure; one is worker gw2 loss in exclusion-tampering collapse. That identity passed in scoped
+replacement6a43009839c0438086db08c676cd69a2. This does not establish its original crash cause.
+
+Follow-up source `f98aadae9` restores plain-string public native addresses/callbacks while retaining
+typed internal diagnostic paths, migrates six fixture constructors to their complete declared module
+closure (the native cut uses the existing authentically qualified pack helper), and repairs CLI
+failure pagination/health/Rust visibility. Strict import, scalar and admission contracts and
+independent expected values remain intact. Scoped6a430… **failed** (291 passed, one failed); its sole remaining qualified
+cut fixture is covered by passed917ae57e4e3347f9b471f2b437608dc9 (110/110, including CLI/receipt
+regressions). Bounded independent implementation review found no remaining material issue.
+
+Final runtime `runtime:b5825d84955d3f63bca0511168230e4ae858a5da76e8d52cf188f4b5e148d34e`,
+archiveSHA e4020258f5c396596890a37827767521254ea6909cbc39650012a838451ee09b, is archived/read back
+againstf98aadae9 and five actual source files. Earlier runtime evidence is preserved. Native
+release/head/physical layout are unchanged; no activation, selection or corpus run follows.
+
+Required applicability: the GLiNER native boundary diagnostic is explicitly opt-in, unchanged
+and unselected by this series. Its original blocked identity is retained, not promoted to pass;
+new inference/provider behavior is not claimed. Original Rust discovery has zero tests and
+**not_run** functional coverage; Clippy **passed**. Whole applicable ordinary replacement
+`90a34e3e1b4e41558c00fc09365f218a` runs all current pytest identities except that named opt-in
+diagnostic. All2293 unattempted identities and newly added controls remain required. Final
+qualification and identity-based coverage are pending; original failures and worker loss remain
+visible. `ci doctor --json` **passed** after the worker failure.
+
+### Final applicable qualification and handoff
+
+**Complete, 2026-11-10 · final functional source `a262e476f`.** The operator explicitly limited
+remaining testing to failures and tests affected by their repairs; no subsequent full run was
+launched. Full ordinary90a34e3e1b4e41558c00fc09365f218a **failed** with5857 passed, nine failed
+and one blocked, zero not_run and complete reporting/native observations. Its nine failures are
+covered by **passed** affected117 selectionca7ae72443b74205bd0778d7e6695e29. Additional direct
+graph callers **passed**7 in4ea4a42ac5b5420dbb7f46b454199e3a and two in
+a75b3f85d1ec44208bf4e1df1acfc754. Original failed attempts keep those outcomes.
+
+The final repairs preserve graph input/source-shape locations and raw/safe messages from the
+same selected RDF result identity, regenerate typed-column physical/type fingerprints through
+the owning generator, and migrate stale report/reader assertions and the deployment lifecycle
+fixture to the valid current-head/predecessor pairing. Historical frozen migrations/archives,
+strict guards and independent expectations remain intact. Independent implementation review and
+assembled-source reconciliation find no material remaining issue or rule impact. Final typing
+and lint **passed**; unaffected Clippy/dependency/tool/ADR checks retain their recorded pass.
+
+`qualification-union.py` **passed**: **5882 applicable identities**, including all5872 applicable
+original identities and ten new regression identities. This is an actual identity-set reconciliation,
+not a sum of overlapping campaigns. All required observations are resolved. Raw original coverage
+retains exactly two out-of-scope opt-in diagnostics: GLiNER native checkpoint and alternate-domain
+parser CUDA/locked assets. Neither provider workflow changed or was selected by DMC; neither is
+reported passed. Original8 native authentication/fault controls retain their actual pass: native
+SQL, roles, auth harness, toolchain and acquired server context are unchanged by later presentation,
+generated-header and fixture fixes. Rust discovery is empty/not_run, not a functional pass.
+
+Source differences are explicit (f98aadae9 full evidence plus a262e476f affected replacements).
+Native-binding differences reflect separately acquired owned fixture databases/scopes; native
+observations are complete where required, with no context unknowns. The working development
+release/admission has separate actual verification. Later changes affect owner/evidence prose only;
+publication verification is separate. No performance measurement or new scientific-fidelity claim.
+
+Handoff runtime is `runtime:5471b4b4a8eb87b61c9c490e6c62b111b1ad149c9dbcb2243fea23f14370c01f`,
+archiveSHA583246fe0888a171f41a4408ee63a2c50721078c23ca736da1832ddf117301b1. Its manifest/archive,
+five corrected sources and the declared generated typed-column runtime source match actual final
+bytes. Earlier prepared runtime records stay retained. This proves archived/prepared custody, not
+arbitrary-byte execution. Native head remains `semantic_dmc_completion_repairs`, semantic releaseA3
+and execution311cb… as specified above, physical164682… unchanged. Final protected-state capture
+matches entry byte-for-byte; original487/cut604, private491/492/493/495, failed494 residue, default/
+selection and retrieval tie remain intact. No activation, selection, new corpus/provider run or push.
+
+Durable meanings are integrated into D2/D8/§B5, with the assembled audit/review and finalized
+[execution evidence](../design_review/evidence/2026-11-10_dmc-completion-repairs/README.md).
+**Next: CLD-00 acquires this completed handoff; execute CLD before returning to PM2.** Retained
+I01–09 triggers and unrelated WCE/PM2 limits remain with their existing owners.
+
+Publication and custody,2026-11-10: evidence record `dmc.completion-repairs-and-exit` finalized;
+`uv run ci evidence index --json` and `uv run ci evidence check --json` **passed** (367 records,
+185 folders, zero errors,41 inherited warnings). Initial finalize/check rejected a malformed F01
+answer reference and unindexed folder; correcting the reference and generating the index resolved
+those conditions without altering raw evidence. `uv run ci docs check` **passed**,844 canonical
+pages/74 ADRs and zero link errors. Final root maintenance left functional source unchanged.
+All source changes and owner/evidence updates are committed on main; no push follows.
