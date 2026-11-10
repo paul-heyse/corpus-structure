@@ -2290,8 +2290,27 @@ uses maintenance authority on the configured persistent development database and
 changes. An explicit alternate database remains optional. `ci schema native-candidate` emits
 reviewable candidate artifacts without editing revision history; source
 preview generation is separate. Committed revisions execute byte-bound payloads, rather than
-calling mutable generators. The new head `semantic_pg_20261101` supplies the current projections
-and compiler18 admission. A head marker alone does not establish native admission.
+calling mutable generators. Historical head `semantic_pg_20261101` supplied projections and
+compiler18 admission at that dated boundary. A head marker alone does not establish native admission.
+
+**Implemented; native correspondence Tested, 2026-11-10.** Development currently runs
+`semantic_ptd_completion_repairs`, with semantic compiler19 and execution compiler28. The
+[typed-domain coordinator](../plans/postgresql-typed-domain_2026-11-09.md#ptd-11-execution-and-adoption--2026-11-10)
+owns combined qualification and exact release/runtime pins. Shared semantic correspondence supplies
+selected generated calls, Core columns and companion materializers without replacing runtime/native
+validation. Type correspondence leaves local value projection and constraints authoritative.
+
+All analytical acquisition selects the configured driver and resolver through `core/db/adbc_lifetime`.
+Driver loading occurs only during acquisition. Child readers/cursors/writers close inside the
+connection lifetime; body exceptions retain their identity and append nested cleanup failures while
+rollback and physical close are independently attempted. Detached companion consumption starts after
+database scopes close. This provides error custody, not a hard cleanup deadline.
+
+Contextual target preparation belongs to one run-scoped BoundReader, using deeply immutable input
+objects and its run/cut/release/execution/profile/dimension binding. The retained Core relation owns
+no borrowed connection or query result. ScopedSourceReader borrows a fresh snapshot per operation;
+every retrieval still validates query and native membership. No process-wide preparation cache or
+transaction spanning scientific/provider computation is selected.
 
 **Implemented; scoped authoring controls Tested (2026-11-01).** Forward authoring resolves one
 declared predecessor for both transitions and admission, including its descriptor, enforcing

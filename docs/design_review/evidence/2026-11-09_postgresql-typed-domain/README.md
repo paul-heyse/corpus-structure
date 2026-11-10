@@ -290,3 +290,50 @@ remaining qualification/adoption and PM2 return handoff remain open in the coord
 Publication and handoff: `uv run ci docs check` and root `just turn-end` **passed**, 2026-11-10.
 The publication check found zero link errors; the two pre-existing phase-0 descriptor-tag warnings
 remain outside this change. Concurrent domain-data-model research/review documentation is preserved.
+
+## PTD-11 assembled acceptance · 2026-11-10
+
+Source entry `8e69e2b5f` was clean. Fresh `uv run ci db status --maintenance --json` passed at
+semantic_ptd_completion_repairs on the original acquired development identity. Native candidate
+`b3d73252b5174fb590f4123312441f0b` operations inspection passed: exactly begin/end inference
+workspace and execution descriptor body changes, preserving owners/ACLs. Retained preview
+`8049ee9347024b9e94bd3e465d2e1029` SQL inspection passed with explicit structural limitations for
+multi-statement PL/pgSQL; this is frozen source inspection, not execution or a fresh candidate.
+
+Fresh `uv run ci schema check --domain statistics --dependency-detail --dependency-limit 2 --json`
+passed and reproduced release40ec92fe2798e6567132154a20f080e6137f956869eb657dbf3973f490c2252b and
+execution19c58f16a1e8d8aacf80cc8553799ea42260467832d74f5fb767a53a0bc11821.
+Validation remains v3; helper bodies are explicitly unassessed and the requested occurrence page
+is bounded rather than a completeness claim. `uv run ci db check --release
+release:40ec92fe2798e6567132154a20f080e6137f956869eb657dbf3973f490c2252b --json` passed through
+the actual reader, matching that execution identity and physical89a7c561254db10003b43437832e1188e02ccfebe68e00913b1f40e6fbce7e52.
+These connect current compilation, retained authoring and actual native admission/read without
+changing project activation, selection, defaults or historical pins. Final test/review receipts follow.
+
+### Assembled review and focused controls
+
+The independent assembled design/target review consumes audit publication044915435 and source8e69e2b5f.
+Its bounded judgment accepts all four change/failure scenarios, with no new blocking finding or rule
+impact. Reviewers ran no product/provider/native tests; actual qualification remains separate.
+The review and new reader acceptance are committed as dfe77f5a3; executable production code is unchanged.
+
+| Result | Scope and actual outcome |
+| --- | --- |
+| `456148ba0629437bb3ea156ba49de628` | **passed one**: real pinned GLiNER CPU boundary diagnostic, explicit CORPUS_GLINER_DIAGNOSTIC=1 |
+| `f126b0c67f8f4d54947de6102c8ef6e0` | **passed one**: actual HanLP/Maverick/Dipo CUDA transfer under locked build/models/pm2, successful siblings plus deliberately wrong-profile refusal |
+| `31f61b3ea77f4d729d8ccf56825ecea6` | **passed 73**: shared generated/call/type controls, actual archived CLI/MCP reporting, composed frozen native changes, exact deployment/resume, completed native coverage and disconnected four-family exchange |
+| `843fe40c43804d2091606401e62a72d0` | **failed**: two selected, existing composed retrieval passed, new native reader case lacked its required private.contextual fixture declaration |
+| `fe2dcae5558145e89655f2f880481711` | **passed one**: corrected parameterized real ScopedSourceReader preparation/snapshot journey |
+
+The new case spies the actual Core relation constructor and runs real native retrieval. Independently
+expected dense/alias/quiet outputs, query refusal on a preparation hit, pool checkout/checkin,
+closed borrowed Connection objects, owner restoration and distinct reader preparation are asserted.
+No retrieval mock or new close lifecycle is introduced. The fixture correction changes collection
+identity; held exact retry `2d6039412c9041c0931ab084a12f36ed` validly refused stale collection
+rather than executing a different node. A precise typing annotation on normalized vector kwargs repaired the endpoint type diagnostic.
+All named functional results are held, including failures/refusals.
+
+Fresh full campaign `ca15c575254346db8552f611bdd5f071` is running with both explicit opt-ins:
+`CORPUS_GLINER_DIAGNOSTIC=1 CORPUS_PM2_NATIVE_TEST_ASSETS="$PWD/build/models/pm2" uv run ci test --json`.
+Its final selected scope and outcome remain pending. Source differences during qualification are
+recorded by managed invocations; no native migration/default/project activation is performed here.

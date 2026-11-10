@@ -1,6 +1,6 @@
 # PostgreSQL typed-domain implementation series
 
-**Status: CA01–04 repaired and PTD-10 delivered; verification reconciled with two opt-in cases blocked, PTD-11 remains open · 2026-11-10.** Conditional target design is Proposed. This coordinator
+**Status: CA01–04 repaired and PTD-10 delivered; PTD-11 assembled review, native qualification and adoption in progress · 2026-11-10.** Conditional target design is Proposed. This coordinator
 owns PTD-00–11, PTD-I01–06, selected branch delivery, review O01–O13 disposition and combined
 qualification. It does not supersede any existing plan. Production milestone two remains separate.
 
@@ -534,3 +534,68 @@ passed all three exact retries before the final successful check. Fresh
 `uv run ci db status --maintenance --json` **passed** at the deployed development head.
 Rust check context is rustc 1.101.0-nightly (2d20b42b8, 2026-11-04); Rust functional selection was
 empty, **not_run**. Benefit benchmarks were **not_run**; no measured speed/quality claim follows.
+
+## PTD-11 execution and adoption · 2026-11-10
+
+Execution acquired clean source `8e69e2b5f` and freshly observed development
+`corpus_structure_dev`, PostgreSQL18.6, port5434, OID25921445, system identifier
+7701811359771751232, head/revision `semantic_ptd_completion_repairs`. The operator selected both
+previously excluded native cases as required PTD-11 scope: pinned CPU GLiNER boundary diagnostics
+and CUDA HanLP/Maverick/Dipo alternate-domain transfer. Local locked assets are available; neither
+an opt-in nor file presence establishes a passing provider result.
+
+One independent engagement refreshes the existing production diagnostic account and assesses the
+assembled target under the original combined PostgreSQL/typed-domain focus. Its findings feed this
+coordinator; new opportunities do not automatically expand accepted scope. A focused native test
+connects contextual preparation to actual ScopedSourceReader snapshots. Existing generated,
+explanation, native authoring/deployment, coverage/retrieval, metadata and disconnected four-family
+exchange journeys provide the other combined acceptance. Final functional/provider/fault and
+repository qualification follows stable integration. Required failures or missing prerequisites stay
+open. Original receipts and investigation decisions retain their dates and limits.
+
+Run487/cut604, source custody, `/10`, project selection and the separate PM2 plan remain unchanged.
+The final handoff will distinguish reusable source evidence from derived/runtime products requiring
+current-only regeneration before new PM2 execution. No project activation/promotion is selected.
+
+### Adoption boundary and PM2 return inputs
+
+| Current input or consumer | Handoff consequence |
+| --- | --- |
+| Authenticated source products, run487/cut604 and original source/extent/product pins | Preserve original identities and source custody. PTD qualification does not rerun or regrade the PM2 book population. |
+| Semantic release `release:40ec92fe2798e6567132154a20f080e6137f956869eb657dbf3973f490c2252b` | Current statistics compilation matches the deployed/admitted release; exact native correspondence was independently read through the restricted principal. |
+| Execution `execution:19c58f16a1e8d8aacf80cc8553799ea42260467832d74f5fb767a53a0bc11821`, semantic compiler19/execution compiler28 | New PM2 execution must prepare and admit current products/runtime bindings through existing owners. Old compiler27 tasks or historical receipts do not qualify a fresh producer; retain their original runtime, never relabel it. |
+| Native `semantic_ptd_completion_repairs`, physical `physical:89a7c561254db10003b43437832e1188e02ccfebe68e00913b1f40e6fbce7e52` | The development native owner is already delivered. A head label alone is insufficient; preserve catalog/role verification and frozen migrations. No additional migration follows merely from documentation/test adoption. |
+| Retained analysis v2 versus current analysis v3 | Supported archived summaries remain readable; historical occurrence detail is unavailable rather than reconstructed. New preparation retains its own analysis/source/library determinants. |
+| Validation v3, explanation/diff v2 and faithful four-family exchange | Consumers use declared report versions and bounded pages. Unknown, unavailable, refused and incomparable remain distinct; detached exchange establishes declared fidelity, not a new importer or public standing. |
+| Current inference and contextual preparation | New work uses resident generation deltas and reader-owned immutable preparation. Existing historical performance/provider evidence is not promoted to evidence for these implementations; no new ranking/default policy is selected. |
+| PM2 outstanding citation replay, dependency assembly, comparisons, qualification and selection | These remain with the unchanged PM2 plan. This handoff supplies current contracts and applicability limits; activation/promotion and `/10` changes are not PTD-11 effects. |
+
+The fresh runtime binding for any subsequent PM2 operation must be produced from its exact final
+installed source and environment. This series does not invent a PM2 runtime ID before that operation
+exists. Source implementation `f56cddc4b` supplies the current Python behavior; later PTD-11 changes
+are separately recorded with their actual footprint and final qualification source identity.
+
+### Assembled target review
+
+The [assembled design/target review](../design_review/reviews/design_review_postgresql-typed-domain-assembled_2026-11-10.md)
+consumes audit publication `044915435` at source `8e69e2b5f`. It accepts the four scoped change/failure
+scenarios with A1–A3 satisfied and A4 satisfied at the stated workload boundary; applicable gates
+pass at source-inspected strength. No new blocking architectural finding, rule impact or production
+redesign is required. The audit corrects stale DA-059/060/063/067 manifestations in their existing
+homes without claiming current runtime qualification or closing unrelated findings. Concurrent
+reader acceptance and final qualification are excluded from that source baseline; the added test
+changes verification only, so its passing native evidence can supplement that architectural account.
+
+Native GLiNER diagnostic passed one in held result `456148ba0629437bb3ea156ba49de628`. Actual CUDA
+parser transfer passed one in held result `f126b0c67f8f4d54947de6102c8ef6e0`, preserving successful
+siblings and the deliberately incorrect profile refusal. The combined generation, reporting,
+frozen-native/deployment, coverage and disconnected-exchange selection passed all 73 tests in held
+result `31f61b3ea77f4d729d8ccf56825ecea6`. These are scoped observations, not yet the final campaign.
+
+New native ScopedSourceReader acceptance passed in held `fe2dcae5558145e89655f2f880481711` after the
+fixture declaration correction preserved in failed `843fe40c43804d2091606401e62a72d0`; the latter also
+passed the existing composed retrieval control. The new test independently checks actual channels,
+per-call query admission, released snapshots and reader-owned preparation. Final source is committed
+as `dfe77f5a3` (test/review only, no production implementation change).
+Fresh broad campaign `ca15c575254346db8552f611bdd5f071` includes both native opt-ins and is running.
+PTD-11 is not yet closed; final campaign and repository checks must settle first.
