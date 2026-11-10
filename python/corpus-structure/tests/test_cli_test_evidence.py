@@ -149,6 +149,33 @@ def test_installed_compact_coverage_and_exact_failures(tmp_path):
     }
     assert "fixture-secret" not in str(failure) and "must stay private" not in str(failure)
     assert failure["next_action"] == f"ci test retry {original.id} --lane ordinary"
+    expanded = json.loads(
+        _run(
+            store,
+            "failures",
+            original.id,
+            "--limit",
+            "1",
+            "--diagnostic-chars",
+            "1024",
+            "--json",
+        ).stdout
+    )
+    assert expanded["items"][0]["diagnostic"] == "AssertionError: password=********** " + "x" * 650
+    assert expanded["items"][0]["diagnostic_truncated"] is False
+    assert "fixture-secret" not in str(expanded) and "must stay private" not in str(expanded)
+    for invalid_bound in ("0", "32769"):
+        assert (
+            _run(
+                store,
+                "failures",
+                original.id,
+                "--diagnostic-chars",
+                invalid_bound,
+                check=False,
+            ).returncode
+            == 2
+        )
     filtered = json.loads(
         _run(
             store, "failures", original.id, "--lane", "ordinary", "--phase", "teardown", "--json"

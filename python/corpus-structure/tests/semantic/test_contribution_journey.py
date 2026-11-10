@@ -147,7 +147,9 @@ def test_v3_selection_is_bound_before_hydration(inventory, change):
 def test_old_release_interpretation_and_absent_public_assessment_do_not_read_private_grades(
     monkeypatch,
 ):
-    session = Session(prepared=SimpleNamespace(index=SimpleNamespace(definitions={})))
+    session = Session(
+        prepared=SimpleNamespace(definitions=(), index=SimpleNamespace(definitions={}))
+    )
     monkeypatch.setattr(journey, "bind_completed_result", lambda *_: session)
     contribution = dict(
         contribution_id="cid",

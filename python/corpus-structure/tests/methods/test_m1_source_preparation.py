@@ -278,6 +278,7 @@ def test_m1_registry_has_no_agent_or_general_llm_route():
         "resolve.m1_readings",
         "structure.clause_classification",
         "structure.definition_components",
+        "structure.definition_declaration_components",
         "structure.definitions",
         "locate.definition_terms",
         "retrieve.contextual",

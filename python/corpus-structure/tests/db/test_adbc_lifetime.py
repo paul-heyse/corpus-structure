@@ -21,7 +21,8 @@ from corpus_structure.core.db.adbc_lifetime import (
 @pytest.mark.parametrize("resolver", ["builtin", "server"])
 @pytest.mark.parametrize("configured", [False, True])
 def test_factory_selects_explicit_driver_and_resolver(monkeypatch, resolver, configured):
-    from corpus_structure.core.db import adbc_lifetime
+    import adbc_driver_manager.dbapi as adbc_manager
+    import adbc_driver_postgresql.dbapi as adbc
 
     observed = []
     connection = object()
@@ -30,8 +31,8 @@ def test_factory_selects_explicit_driver_and_resolver(monkeypatch, resolver, con
         observed.append((args, kwargs))
         return connection
 
-    monkeypatch.setattr(adbc_lifetime.adbc, "connect", connect)
-    monkeypatch.setattr(adbc_lifetime.adbc_manager, "connect", connect)
+    monkeypatch.setattr(adbc, "connect", connect)
+    monkeypatch.setattr(adbc_manager, "connect", connect)
     driver = Path("/configured/postgresql.so") if configured else None
     assert (
         open_adbc_connection(
@@ -55,28 +56,30 @@ def test_factory_selects_explicit_driver_and_resolver(monkeypatch, resolver, con
 
 
 def test_factory_refuses_unsupported_resolver_before_acquisition(monkeypatch):
-    from corpus_structure.core.db import adbc_lifetime
+    import adbc_driver_manager.dbapi as adbc_manager
+    import adbc_driver_postgresql.dbapi as adbc
 
     def forbidden(*args, **kwargs):
         pytest.fail("invalid resolver must not acquire a native session")
 
-    monkeypatch.setattr(adbc_lifetime.adbc, "connect", forbidden)
-    monkeypatch.setattr(adbc_lifetime.adbc_manager, "connect", forbidden)
+    monkeypatch.setattr(adbc, "connect", forbidden)
+    monkeypatch.setattr(adbc_manager, "connect", forbidden)
     with pytest.raises(ValueError, match="unsupported ADBC PostgreSQL resolver"):
         open_adbc_connection("unused", driver_path=None, resolver_mode=cast(Any, "auto"))
 
 
 @pytest.mark.parametrize("configured", [False, True])
 def test_factory_preserves_acquisition_exception(monkeypatch, configured):
-    from corpus_structure.core.db import adbc_lifetime
+    import adbc_driver_manager.dbapi as adbc_manager
+    import adbc_driver_postgresql.dbapi as adbc
 
     failure = RuntimeError("native acquisition failed")
 
     def refused(*args, **kwargs):
         raise failure
 
-    monkeypatch.setattr(adbc_lifetime.adbc, "connect", refused)
-    monkeypatch.setattr(adbc_lifetime.adbc_manager, "connect", refused)
+    monkeypatch.setattr(adbc, "connect", refused)
+    monkeypatch.setattr(adbc_manager, "connect", refused)
     with pytest.raises(RuntimeError) as caught:
         open_adbc_connection(
             "unused",

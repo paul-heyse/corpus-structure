@@ -50,8 +50,8 @@ def test_exact_native_deployment_resumes_before_separate_activation(
     from corpus_structure.core.db.store import Store
     from corpus_structure.semantic import migrations
 
-    predecessor = "semantic_dma_00_04"
-    revision = "semantic_dma_05_13_final"
+    predecessor = "semantic_ptd_explanations"
+    revision = "semantic_ptd_completion_repairs"
     scripts = ScriptDirectory.from_config(alembic_config())
     script = scripts.get_revision(revision)
     assert script is not None
@@ -189,7 +189,7 @@ def test_exact_native_deployment_resumes_before_separate_activation(
         assert f"migrations/versions/{revision}.py" in json.loads(registered.stdout)["changed"]
         # Register an unapplied successor whose descriptor genuinely differs.
         # Neither older reads nor the exact non-head deployment should use it.
-        future_revision = "semantic_dma_test_successor"
+        future_revision = "semantic_ptd_test_successor"
         admission = products["native_admission.sql"]
         different_admission = admission.replace(
             b'"physical_id":"physical:', b'"physical_id":"future:'
@@ -420,12 +420,13 @@ def test_exact_native_deployment_resumes_before_separate_activation(
             assert current_revision(conn) == revision
             assert conn.scalar(select(table("sem.release").c.release_id)) is None
             assert conn.scalar(select(table("sem.deployment_admission").c.release_id)) is None
-            assert (
-                conn.exec_driver_sql(
-                    "SELECT to_regprocedure('ops.dossier_contribution_members(jsonb,jsonb)')"
-                ).scalar_one()
-                is None
-            )
+            observed_physical = conn.exec_driver_sql(
+                "SELECT data.execution_contract_descriptor()->>'physical_id'"
+            ).scalar_one()
+            # The unapplied successor's independently altered descriptor says
+            # future:, while this connection still observes the exact candidate.
+            assert observed_physical.startswith("physical:")
+            assert _verify_deployment_functions(conn) == observed_physical
             assert activation_token(conn, "model-deployment-control").release_id is None
 
         deployed = run("deploy")

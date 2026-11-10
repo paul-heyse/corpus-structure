@@ -4,13 +4,12 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from threading import RLock
-from typing import Literal, Protocol
-
-import adbc_driver_manager.dbapi as adbc_manager
-import adbc_driver_postgresql.dbapi as adbc
-from adbc_driver_manager.dbapi import Connection
+from typing import TYPE_CHECKING, Literal, Protocol
 
 from .lifetime import DatabaseOperationCancelled
+
+if TYPE_CHECKING:
+    from adbc_driver_manager.dbapi import Connection
 
 
 def open_adbc_connection(
@@ -29,7 +28,11 @@ def open_adbc_connection(
         raise ValueError(f"unsupported ADBC PostgreSQL resolver mode: {resolver_mode!r}")
     options = {"adbc.postgresql.type_resolver_mode": resolver_mode}
     if driver_path is None:
+        import adbc_driver_postgresql.dbapi as adbc
+
         return adbc.connect(uri, db_kwargs=options)
+    import adbc_driver_manager.dbapi as adbc_manager
+
     return adbc_manager.connect(
         driver=str(driver_path),
         entrypoint="AdbcDriverPostgresqlInit",

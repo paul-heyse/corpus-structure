@@ -310,11 +310,11 @@ def test_previous_execution_abi_requires_regeneration():
     from corpus_structure.semantic.types import PreparationError
 
     with pytest.raises(
-        PreparationError, match="execution product requires current compiler 27; regenerate"
+        PreparationError, match="execution product requires current compiler 28; regenerate"
     ):
         _bound_execution_model(json.dumps(previous).encode(), current.model_id)
     with pytest.raises(
-        PreparationError, match="execution product requires current compiler 27; regenerate"
+        PreparationError, match="execution product requires current compiler 28; regenerate"
     ):
         require_payload_operation(
             json.dumps(previous).encode(), current.model_id, "publish_integrated_pdf"

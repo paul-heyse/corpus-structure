@@ -665,6 +665,10 @@ def failures(
     lane: Annotated[Lane | None, typer.Option()] = None,
     phase: Annotated[Phase | None, typer.Option()] = None,
     limit: ReportLimit = _DEFAULT_LIMIT,
+    diagnostic_chars: Annotated[
+        int,
+        typer.Option(min=1, max=32768, help="Maximum characters per redacted diagnostic."),
+    ] = 600,
     json: JsonOpt = False,
 ) -> None:
     """Read exact failed pytest observations from a retained attempt."""
@@ -720,11 +724,17 @@ def failures(
                     item = FailureEvent(lane=name, **raw)
                     if item.diagnostic is not None:
                         excerpt = _display_text(item.diagnostic)
-                        item.diagnostic_truncated = len(excerpt) > 600
-                        if item.diagnostic_truncated and "\n" in item.diagnostic:
-                            item.diagnostic = excerpt[:220] + " … " + excerpt[-377:]
+                        item.diagnostic_truncated = len(excerpt) > diagnostic_chars
+                        if (
+                            item.diagnostic_truncated
+                            and "\n" in item.diagnostic
+                            and diagnostic_chars >= 5
+                        ):
+                            head = min(220, (diagnostic_chars - 3) // 2)
+                            tail = diagnostic_chars - head - 3
+                            item.diagnostic = excerpt[:head] + " … " + excerpt[-tail:]
                         else:
-                            item.diagnostic = excerpt[:600]
+                            item.diagnostic = excerpt[:diagnostic_chars]
                     items.append(item)
                 if report["retryable"]:
                     retry_lanes.add(name)

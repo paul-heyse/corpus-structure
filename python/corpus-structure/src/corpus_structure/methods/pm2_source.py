@@ -12,7 +12,6 @@ from itertools import pairwise
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal, Self
 
-from corpus_structure.ingest.sentences import TextToken
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
@@ -26,6 +25,7 @@ from corpus_structure.semantic.source_contexts import (
 
 if TYPE_CHECKING:
     from corpus_structure.ingest.annotations import AnnotationInput
+    from corpus_structure.ingest.sentences import TextToken
     from corpus_structure.semantic.types import PreparedRelease
 
 
@@ -68,6 +68,8 @@ def hanlp_seam_layout(
     native field and a period starting the next native field are different from
     an abbreviation, a protected token, or punctuation guessed from model text.
     """
+    from corpus_structure.ingest.sentences import TextToken
+
     start, end = extent
     covered = tuple((a, b) for a, b in sentences if a < end and start < b)
     if (
