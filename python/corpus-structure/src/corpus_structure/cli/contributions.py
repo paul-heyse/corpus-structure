@@ -147,3 +147,54 @@ def export_contributions(
 
 def register(root: typer.Typer):
     root.add_typer(app, name="contributions")
+
+
+@app.command("compare-coverage")
+def compare_coverage_command(
+    ctx: typer.Context,
+    left_run: Annotated[int, typer.Option()],
+    left_cut: Annotated[int, typer.Option()],
+    left_release: Annotated[str, typer.Option()],
+    right_run: Annotated[int, typer.Option()],
+    right_cut: Annotated[int, typer.Option()],
+    right_release: Annotated[str, typer.Option()],
+    source_view: int | None = None,
+    question: str | None = None,
+    operation_version: str | None = None,
+    cursor: str | None = None,
+    limit: int = 100,
+    max_bytes: int = 8_000_000,
+    page_bytes: int = 1_000_000,
+    json: JsonOpt = False,
+):
+    """Compare declared scope outcomes for two exact completed results."""
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.serve.coverage_comparison import (
+        CoverageComparisonRequest,
+        compare_coverage,
+    )
+
+    with failure_boundary(json):
+        request = CoverageComparisonRequest.model_validate(
+            dict(
+                left=dict(run_id=left_run, cut_id=left_cut, release_id=left_release),
+                right=dict(run_id=right_run, cut_id=right_cut, release_id=right_release),
+                source_view_id=source_view,
+                question=question,
+                operation_version=operation_version,
+                cursor=cursor,
+                limit=limit,
+                max_bytes=max_bytes,
+                page_bytes=page_bytes,
+            )
+        )
+        with (
+            open_runtime_engine(
+                state(ctx).settings(), "ci-coverage-comparison", purpose="read"
+            ) as engine,
+            read_snapshot(engine) as conn,
+        ):
+            result = compare_coverage(conn, request)
+    emit(result, json=json)

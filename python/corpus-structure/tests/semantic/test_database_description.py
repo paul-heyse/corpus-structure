@@ -25,7 +25,11 @@ def test_description_uses_server_type_resolution_with_configured_driver(
     with semantic_db_engine.begin() as conn:
         conn.exec_driver_sql("CREATE SCHEMA describe_types")
         conn.exec_driver_sql("CREATE TYPE describe_types.color AS ENUM ('red', 'blue')")
-        conn.exec_driver_sql("CREATE TABLE describe_types.sample (color describe_types.color)")
+        conn.exec_driver_sql("CREATE DOMAIN describe_types.positive AS numeric CHECK (VALUE > 0)")
+        conn.exec_driver_sql(
+            "CREATE TABLE describe_types.sample (color describe_types.color, amount numeric(12,3), "
+            "identity uuid NOT NULL, payload jsonb, opaque point, positive describe_types.positive)"
+        )
         conn.exec_driver_sql("GRANT USAGE ON SCHEMA describe_types TO corpus_sem_reader")
         conn.exec_driver_sql("GRANT SELECT ON describe_types.sample TO corpus_sem_reader")
     url = make_url(native_settings.database.url).set(database=semantic_db_engine.url.database)
@@ -58,9 +62,40 @@ def test_description_uses_server_type_resolution_with_configured_driver(
     assert result.principal == "corpus_sem_reader"
     shape = next(x for x in result.observations if "arrow_fields" in x)
     assert shape["status"] == "available"
-    assert [(field["name"], field["arrow_type"]) for field in shape["arrow_fields"]] == [
-        ("color", "string")
-    ]
+    fields = {field["name"]: field for field in shape["arrow_fields"]}
+    assert fields["color"]["arrow_type"] == "string"
+    assert fields["amount"]["postgresql_type"] == "numeric"
+    assert fields["amount"].get("storage_type", fields["amount"]["arrow_type"]) == "string"
+    assert fields["amount"]["typmod"] in (-1, 786439, "unavailable")
+    assert fields["identity"]["arrow_nullable"] is True
+    assert fields["identity"]["declared_nullability"] == "unavailable"
+    assert fields["payload"]["metadata"]
+    assert fields["opaque"]["extension_name"] == "arrow.opaque"
+    catalog = next(x for x in result.observations if x.get("interface") == "sqlalchemy.Inspector")
+    assert (
+        next(x for x in catalog["columns"] if x["column_name"] == "identity")["nullable"] is False
+    )
+    assert catalog["field_sources"]["relation_type"] == {
+        "interface": "adbc.GetObjects",
+        "session": "adbc",
+    }
+    assert catalog["field_sources"]["columns"] == {
+        "interface": "sqlalchemy.Inspector",
+        "session": "catalog",
+    }
+    assert catalog["field_sources"]["constraints"] == {"status": "not_requested"}
+    catalog_fields = {column["column_name"]: column for column in catalog["columns"]}
+    assert catalog_fields["color"]["native_type"] == {
+        "kind": "enum",
+        "name": "color",
+        "schema": "describe_types",
+    }
+    assert catalog_fields["positive"]["native_type"] == {
+        "kind": "domain",
+        "name": "positive",
+        "schema": "describe_types",
+    }
+    assert result.snapshot == "separate_sessions"
 
 
 def test_literal_scoped_description(semantic_db_engine, native_settings):
@@ -89,6 +124,18 @@ def test_literal_scoped_description(semantic_db_engine, native_settings):
         ),
         settings,
     )
+    relations_only = describe_database(
+        DatabaseDescriptionRequest(
+            schemas=("describe_scope",), relations=("literal_%",), depth="relations"
+        ),
+        settings,
+    )
+    relation_observation = next(
+        x for x in relations_only.observations if x.get("relation") == "literal_%"
+    )
+    assert relation_observation["interface"] == "adbc.GetObjects"
+    assert relation_observation["session"] == "adbc"
+    assert relation_observation["columns"] == "not_requested"
     assert result.database == semantic_db_engine.url.database
     assert result.principal == "corpus_sem_reader"
     physical = [x for x in result.observations if x["kind"] == "physical"]
@@ -198,6 +245,20 @@ classes: {}
         )
     shape = next(x for x in result.observations if x["kind"] == "query_output")
     assert [(x["name"], x["arrow_type"]) for x in shape["fields"]] == [("answer", "int64")]
+    numeric = describe_database(
+        DatabaseDescriptionRequest(
+            schemas=("missing",),
+            query="SELECT 1::numeric(12,3) AS amount",
+            release_id=prepared.release_id,
+        ),
+        settings,
+    )
+    numeric_field = next(x for x in numeric.observations if x["kind"] == "query_output")["fields"][
+        0
+    ]
+    assert numeric_field["postgresql_type"] == "numeric"
+    assert numeric_field["typmod"] == 786439
+    assert numeric_field.get("storage_type", numeric_field["arrow_type"]) == "string"
     for sql in ["SELECT $1", "SELECT pg_catalog.pg_sleep(1)", "SELECT 1; SELECT 2"]:
         with pytest.raises(SQLAdmissionError):
             describe_database(
@@ -213,5 +274,46 @@ classes: {}
     import json
 
     payload = json.loads(shown.stdout)
+    assert payload["version"] == "database-description-v2"
+    assert payload["snapshot"] == "separate_sessions"
+    assert payload["observations"][0]["interface"] == "adbc.GetObjects"
     assert payload["principal"] == "corpus_sem_reader"
     assert payload["observations"][0]["status"] == "no_visible_match"
+
+
+def test_arrow_metadata_is_lossless_attributed_and_bounded():
+    import base64
+
+    import pyarrow as pa
+
+    from corpus_structure.serve.database_description import _fields
+
+    raw = {
+        b"POSTGRESQL:type": b"numeric",
+        b"POSTGRESQL:typmod": b"-1",
+        b"ARROW:extension:name": b"opaque",
+        b"ARROW:extension:metadata": b'{"vendor":"pg"}',
+        b"binary\xff": b"\x00\xfe",
+    }
+    schema = pa.schema(
+        [
+            pa.field(
+                "nested", pa.struct([pa.field("amount", pa.string(), metadata=raw)]), nullable=False
+            )
+        ]
+    )
+    field = _fields(schema)[0]
+    assert field["arrow_nullable"] is False
+    assert field["declared_nullability"] == "unavailable"
+    nested = field["children"][0]
+    assert nested["typmod"] == -1
+    assert nested["postgresql_type"] == "numeric"
+    assert nested["extension_metadata"] == {"vendor": "pg"}
+    assert {
+        base64.b64decode(x["key_base64"]): base64.b64decode(x["value_base64"])
+        for x in nested["metadata"]
+    } == raw
+    with pytest.raises(ValueError, match="column bound"):
+        _fields(schema, columns=[1])
+    with pytest.raises(ValueError, match="metadata byte bound"):
+        _fields(schema, remaining=[1])

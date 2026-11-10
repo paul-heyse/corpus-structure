@@ -352,7 +352,7 @@ def test_all_typed_families_capture_from_actual_published_rows(
             conn,
             build,
             "mapping_report",
-            [dict(input_index=0, outcome="unresolved", reason="λ:100%")],
+            [dict(input_index=0, outcome="unresolved", reason="λ:100%", coordinate_scale=1.25)],
             "mapping",
         )
         frozen = freeze_pdf_build(conn, build, kind="native")
@@ -396,6 +396,13 @@ def test_all_typed_families_capture_from_actual_published_rows(
         published.logical_digest,
         original.logical_digest,
     }
+    # All database operation scopes are closed before an application-independent consumer.
+    _assert_offline_companion_values(
+        tmp_path / "export",
+        pin.model_dump(mode="json"),
+        build.release_id,
+        original.logical_digest,
+    )
     result = inventory_companion_export(tmp_path / "export/manifest.json")
     assert result["families"]["relation"]["relation_count"] == 2
     assert result["families"]["relation"]["distribution"] == [("correspondence", 2)]
@@ -432,7 +439,7 @@ def test_all_typed_families_capture_from_actual_published_rows(
         ("whole_document", "text", "fixture", "unknown", 1),
     ]
     assert result["families"]["mapping_report"]["scoped_outcomes"]["rows"] == [
-        (0, build.task_id, "native", original.logical_digest, None, None, None, "unresolved", 1)
+        (0, build.task_id, "native", original.logical_digest, None, 1.25, None, "unresolved", 1)
     ]
     assert result["families"]["coverage"]["distribution"] == [("partial", 1), ("unknown", 1)]
     assert pq.read_table(tmp_path / "export/mapping_report.parquet")["reason"].to_pylist() == [
@@ -636,3 +643,250 @@ def test_export_cancellation_spans_actual_metadata_handoff_and_bulk(
             )
             == 0
         )
+
+
+def _assert_offline_companion_values(directory, pin, producer_release, original_digest):
+    import subprocess
+    import sys
+
+    program = r"""
+import base64, json, pathlib, sys
+import pyarrow as pa
+import pyarrow.parquet as pq
+
+root = pathlib.Path(sys.argv[1])
+pin, producer, original = json.loads(sys.argv[2]), sys.argv[3], sys.argv[4]
+manifest = json.loads((root / "manifest.json").read_text())
+assert manifest["pin"] == pin
+assert manifest["producer_release_id"] == producer
+assert manifest["format"] == "pdf-companion-export-v2"
+assert manifest["profile_id"] == "flat-exact-companion-v2"
+common = dict(pin, producer_release_id=producer)
+expected = {
+    "input": [
+        dict(
+            input_ordinal=0,
+            input_role="structural",
+            input_task_id=pin["task_id"],
+            input_product_key="native",
+            input_content_digest=original,
+        )
+    ],
+    "relation": [
+        dict(
+            relation_id=rid,
+            relation_kind="correspondence",
+            relation_outcome="matched",
+            comparison="text",
+            policy="fixture",
+            evidence="same target, distinct endpoint ordinal",
+            endpoint_ordinal=i,
+            endpoint_role=role,
+            target_task_id=pin["task_id"],
+            target_product_key="native" if external else "selected",
+            target_content_digest=original if external else pin["content_digest"],
+            target_occurrence_id="source-o1" if external else "o1",
+        )
+        for rid, i, role, external in [
+            ("r1", 0, "output", False),
+            ("r1", 1, "evidence", False),
+            ("r1", 2, "evidence", True),
+            ("r2", 0, "output", False),
+            ("r2", 1, "evidence", False),
+        ]
+    ],
+    "coverage": [
+        dict(
+            coverage_id="c" + str(i),
+            scope="whole_document",
+            coverage_family="text",
+            discovery_policy="fixture",
+            outcome=outcome,
+            detail="independently partial/unknown",
+            supports_json=supports,
+        )
+        for i, outcome, supports in [(0, "partial", None), (1, "unknown", "[]")]
+    ],
+    "mapping_report": [
+        dict(
+            report_ordinal=0,
+            input_index=0,
+            input_task_id=pin["task_id"],
+            input_product_key="native",
+            input_content_digest=original,
+            occurrence_id=None,
+            outcome="unresolved",
+            label=None,
+            reason="λ:100%",
+            raw_start=None,
+            coordinate_frame=None,
+            coordinate_scale=1.25,
+            normalization=None,
+        )
+    ],
+}
+# Independently authored source correspondences; no generated projection/schema import.
+common_sources = {
+    "project_id": "physical:ops.run.project_id",
+    "run_id": "physical:ops.run.id",
+    "selection_release_id": "physical:ops.run.release_id",
+    "producer_release_id": "PdfPublishedRevision.release_id",
+    "task_id": "PdfPublishedRevision.task_id",
+    "product_key": "PdfPublishedRevision.product_key",
+    "content_digest": "PdfPublishedRevision.logical_digest",
+    "projection_id": "PdfRecordCompanion.product_id",
+}
+input_sources = {
+    "input_ordinal": "PdfRecordCompanion.ordinal",
+    "input_role": "PdfProductInput.role",
+    "input_task_id": "physical:ops.pdf_product_input.input_task_id",
+    "input_product_key": "PdfProductInput.product_key",
+    "input_content_digest": "PdfProductInput.content_digest",
+}
+sources = {
+    "input": input_sources,
+    "relation": {
+        "relation_id": "PdfProductRelation.relation_id",
+        "relation_kind": "PdfProductRelation.kind",
+        "relation_outcome": "PdfProductRelation.outcome",
+        "comparison": "PdfProductRelation.comparison",
+        "policy": "PdfProductRelation.policy",
+        "evidence": "PdfProductRelation.evidence",
+        "endpoint_ordinal": "PdfRecordEndpoint.ordinal",
+        "endpoint_role": "PdfRelationEndpoint.role",
+        "target_task_id": "PdfRecordEndpoint.target_task_id",
+        "target_product_key": "PdfRecordEndpoint.target_product_key",
+        "target_content_digest": "PdfRecordEndpoint.target_content_digest",
+        "target_occurrence_id": "PdfRelationEndpoint.occurrence_id",
+    },
+    "coverage": {
+        "coverage_id": "PdfProductCoverage.coverage_id",
+        "scope": "PdfProductCoverage.scope",
+        "coverage_family": "PdfProductCoverage.family",
+        "discovery_policy": "PdfProductCoverage.discovery_policy",
+        "outcome": "PdfProductCoverage.outcome",
+        "detail": "PdfProductCoverage.detail",
+        "supports_json": "PdfProductCoverage.supports",
+    },
+    "mapping_report": {
+        "report_ordinal": "PdfRecordCompanion.ordinal",
+        "input_index": "PdfMappingDisposition.input_index",
+        "input_task_id": "physical:ops.pdf_product_input.input_task_id",
+        "input_product_key": "PdfProductInput.product_key",
+        "input_content_digest": "PdfProductInput.content_digest",
+        "occurrence_id": "PdfMappingDisposition.occurrence_id",
+        "outcome": "PdfMappingDisposition.outcome",
+        "label": "PdfMappingDisposition.label",
+        "reason": "PdfMappingDisposition.reason",
+        "raw_start": "PdfMappingDisposition.raw_start",
+        "coordinate_frame": "PdfMappingDisposition.coordinate_frame",
+        "coordinate_scale": "PdfMappingDisposition.coordinate_scale",
+        "normalization": "PdfMappingDisposition.normalization",
+    },
+}
+for family, expected_rows in expected.items():
+    entry = manifest["families"][family]
+    schema = pa.ipc.read_schema(pa.BufferReader(base64.b64decode(entry["schema_base64"])))
+    table = pq.read_table(root / entry["path"])
+    assert table.schema.equals(schema, check_metadata=True)
+    metadata = schema.metadata
+    assert json.loads(metadata[b"cs.pin"]) == pin
+    assert metadata[b"cs.family"].decode() == family
+    assert metadata[b"cs.producer_release"].decode() == producer
+    assert metadata[b"cs.selection_release"].decode() == pin["selection_release_id"]
+    assert metadata[b"cs.product"].decode() == pin["content_digest"]
+    assert metadata[b"cs.profile"].decode() == manifest["profile_id"]
+    provenance_names = [
+        "project_id",
+        "run_id",
+        "selection_release_id",
+        "producer_release_id",
+        "task_id",
+        "product_key",
+        "content_digest",
+        "projection_id",
+    ]
+    assert schema.names == [*expected_rows[0], *provenance_names]
+    integer_fields = {
+        "input_ordinal",
+        "input_task_id",
+        "endpoint_ordinal",
+        "target_task_id",
+        "run_id",
+        "task_id",
+        "report_ordinal",
+        "input_index",
+        "raw_start",
+    }
+    for field in schema:
+        assert field.metadata is not None
+        expected_source = {**sources[family], **common_sources}[field.name]
+        expected_wire = (
+            "integer"
+            if field.name in {"raw_start", "input_index"}
+            else "bigint"
+            if field.name in integer_fields
+            else "double precision"
+            if field.name == "coordinate_scale"
+            else "jsonb:utf8"
+            if field.name == "supports_json"
+            else "text"
+        )
+        assert field.metadata == {
+            b"postgresql": expected_wire.encode(),
+            b"source": expected_source.encode(),
+        }
+        expected_type = (
+            pa.int32()
+            if field.name in {"raw_start", "input_index"}
+            else pa.int64()
+            if field.name in integer_fields
+            else pa.float64()
+            if field.name == "coordinate_scale"
+            else pa.json_()
+            if field.name == "supports_json"
+            else pa.string()
+        )
+        assert field.type == expected_type, (family, field)
+        nullable_fields = (
+            {"supports_json"}
+            if family == "coverage"
+            else {
+                "occurrence_id",
+                "label",
+                "reason",
+                "raw_start",
+                "coordinate_frame",
+                "coordinate_scale",
+                "normalization",
+            }
+            if family == "mapping_report"
+            else set()
+        )
+        assert field.nullable == (field.name in nullable_fields), (family, field)
+    projection_id = metadata[b"cs.projection"].decode()
+    rows = table.to_pylist()
+    assert rows == [dict(row, **common, projection_id=projection_id) for row in expected_rows], (
+        family,
+        rows,
+    )
+    assert len(rows) == entry["rows"]
+assert "corpus_structure" not in sys.modules
+"""
+    done = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-c",
+            program,
+            str(directory),
+            json.dumps(pin),
+            producer_release,
+            original_digest,
+        ],
+        cwd=directory,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert done.returncode == 0, done.stdout + done.stderr

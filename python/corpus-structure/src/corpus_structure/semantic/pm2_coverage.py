@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import and_, case, cast, func, literal, or_, select
+from sqlalchemy import and_, case, cast, func, literal, or_, select, true
 from sqlalchemy.dialects.postgresql import JSONB, JSONPATH
 
 from corpus_structure.core.vocab import TaskStatus
@@ -145,18 +145,65 @@ class ScopeWorklist(BaseModel):
 
 
 def read_scope_worklist(
-    conn: Connection, run_id: int, intents: object, *, cut_id: int | None = None
+    conn: Connection,
+    run_id: int,
+    intents: object,
+    *,
+    cut_id: int | None = None,
+    source_view_id: int | None = None,
+    question: str | None = None,
+    operation_version: str | None = None,
+    resident_intents: bool = False,
 ) -> ScopeWorklist:
     """Collect bounded source-task receipts in the caller's snapshot."""
     if not isinstance(intents, list) or len(intents) > 64:
         raise ValueError("invalid PM2 scope worklist")
     worklist = [ScopeIntent.model_validate(item) for item in intents]
+    worklist = [
+        item
+        for item in worklist
+        if (source_view_id is None or item.source_view_id == source_view_id)
+        and (question is None or item.question == question)
+        and (operation_version is None or item.operation_version == operation_version)
+    ]
     hashes = [item.input_digest for item in worklist if item.input_digest is not None]
     settlements = ()
     if hashes:
         task = table("ops.task")
         operation = table("kb.source_contribution_operation")
         result = table("ops.task_result")
+        # Completed reads derive hashes from the retained resident declaration. Live
+        # pre-persistence callers can still supply their bounded initial intents.
+        run = table("ops.run")
+        root_source = (
+            run.c.options["pm2_scope_intents"]
+            if resident_intents
+            else literal([item.model_dump(mode="json") for item in worklist], type_=JSONB)
+        )
+        root_rows = func.jsonb_array_elements(root_source).table_valued("value")
+        seed = select(root_rows.c.value.op("->>")("input_digest").label("input_hash")).where(
+            root_rows.c.value.op("->>")("input_digest").is_not(None)
+        )
+        if resident_intents:
+            seed = seed.select_from(run.join(root_rows, true())).where(run.c.id == run_id)
+            for field, value in (
+                ("source_view_id", source_view_id),
+                ("question", question),
+                ("operation_version", operation_version),
+            ):
+                if value is not None:
+                    seed = seed.where(root_rows.c.value.op("->>")(field) == str(value))
+        # UNION terminates even malformed cycles; shared custody validation refuses them.
+        selected_hashes = seed.cte("selected_scope_hashes", recursive=True)
+        selected_hashes = selected_hashes.union(
+            select(task.c.input_hash)
+            .join(
+                selected_hashes,
+                task.c.trigger["pm2_split_scope"]["parent_input_digest"].astext
+                == selected_hashes.c.input_hash,
+            )
+            .where(task.c.run_id == run_id)
+        )
         origin = func.coalesce(task.c.reused_task_id, task.c.id)
         # Read just the provider settlement from the lossless native report. Do not
         # hydrate complete rendered states, prompts or answer payloads for coverage.
@@ -215,10 +262,7 @@ def read_scope_worklist(
             )
             .where(
                 task.c.run_id == run_id,
-                or_(
-                    task.c.input_hash.in_(hashes),
-                    task.c.trigger["pm2_split_scope"].astext.is_not(None),
-                ),
+                task.c.input_hash.in_(select(selected_hashes.c.input_hash)),
             )
             .order_by(task.c.id)
             .limit(129)
@@ -359,12 +403,19 @@ def scope_coverage(conn: Connection, run_id: int, intents: object) -> tuple[Scop
 
 
 def completed_scope_worklist(
-    conn: Connection, *, run_id: int, cut_id: int, release_id: str
+    conn: Connection,
+    *,
+    run_id: int,
+    cut_id: int,
+    release_id: str,
+    source_view_id: int | None = None,
+    question: str | None = None,
+    operation_version: str | None = None,
 ) -> ScopeWorklist:
     """Capture from the immutable final run and its exact completed cut."""
     run, cut, result = (table("ops.run"), table("ops.input_cut"), table("ops.completed_result"))
     options = conn.scalar(
-        select(run.c.options)
+        select(run.c.options["pm2_scope_intents"])
         .join(cut, and_(cut.c.run_id == run.c.id, cut.c.release_id == run.c.release_id))
         .join(
             result,
@@ -383,10 +434,19 @@ def completed_scope_worklist(
             cut.c.final,
         )
     )
-    if options is None or "pm2_scope_intents" not in options:
+    if options is None:
         raise SemanticRefusal(
             "detached PM2 coverage requires a completed run with a retained worklist"
         )
-    worklist = read_scope_worklist(conn, run_id, options["pm2_scope_intents"], cut_id=cut_id)
+    worklist = read_scope_worklist(
+        conn,
+        run_id,
+        options,
+        cut_id=cut_id,
+        source_view_id=source_view_id,
+        question=question,
+        operation_version=operation_version,
+        resident_intents=True,
+    )
     derive_scope_coverage(worklist, completed=True)
     return worklist

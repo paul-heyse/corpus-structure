@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import base64
+import json
+from contextlib import suppress
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Literal, cast
@@ -44,6 +47,9 @@ class DatabaseDescriptionRequest(BaseModel):
 
 
 class DatabaseDescription(BaseModel):
+    version: Literal["database-description-v2"] = "database-description-v2"
+    observation_sessions: tuple[str, ...] = ("catalog", "adbc")
+    snapshot: Literal["separate_sessions"] = "separate_sessions"
     database: str
     principal: str
     observed_at: datetime
@@ -70,17 +76,83 @@ def _rows(reader, remaining: list[int]):
         reader.close()
 
 
-def _fields(schema):
-    return [
-        {
+def _metadata(metadata, remaining):
+    """Preserve bytes; interpreted conveniences never replace the observed metadata."""
+    encoded = []
+    for key, value in sorted((metadata or {}).items()):
+        remaining[0] -= 4 * ((len(key) + 2) // 3 + (len(value) + 2) // 3)
+        if remaining[0] < 0:
+            raise SemanticRefusal("database description exceeds metadata byte bound")
+        encoded.append(
+            {
+                "key_base64": base64.b64encode(key).decode("ascii"),
+                "value_base64": base64.b64encode(value).decode("ascii"),
+            }
+        )
+    return encoded
+
+
+def _fields(schema, *, remaining=None, columns=None):
+    import pyarrow as pa
+
+    remaining = remaining if remaining is not None else [4 * 1024 * 1024]
+    columns = columns if columns is not None else [10000]
+
+    def field(f):
+        columns[0] -= 1
+        if columns[0] < 0:
+            raise SemanticRefusal("database description exceeds column bound")
+        metadata = f.metadata or {}
+        result: dict[str, Any] = {
             "name": f.name,
             "arrow_type": str(f.type),
+            "arrow_nullable": f.nullable,
             "domain": "unavailable",
             "typmod": "unavailable",
             "declared_nullability": "unavailable",
+            "metadata": _metadata(metadata, remaining),
+            "children": [],
         }
-        for f in schema
-    ]
+        for key, label in (
+            (b"POSTGRESQL:type", "postgresql_type"),
+            (b"ARROW:extension:name", "extension_name"),
+        ):
+            if key in metadata:
+                with suppress(UnicodeDecodeError):
+                    result[label] = metadata[key].decode("utf8")
+        if b"POSTGRESQL:typmod" in metadata:
+            with suppress(ValueError):
+                result["typmod"] = int(metadata[b"POSTGRESQL:typmod"].decode("ascii"))
+        if b"ARROW:extension:metadata" in metadata:
+            with suppress(ValueError):
+                result["extension_metadata"] = json.loads(metadata[b"ARROW:extension:metadata"])
+        typ = f.type
+        if isinstance(typ, pa.BaseExtensionType):
+            result["extension_name"] = typ.extension_name
+            result["storage_type"] = str(typ.storage_type)
+            if isinstance(typ, pa.OpaqueType):
+                result["extension_metadata"] = {
+                    "type_name": typ.type_name,
+                    "vendor_name": typ.vendor_name,
+                }
+            typ = typ.storage_type
+        result["children"] = [field(typ.field(i)) for i in range(typ.num_fields)]
+        return result
+
+    return [field(f) for f in schema]
+
+
+def _native_type(typ):
+    """Qualified identity only when reflected by a public native type object."""
+    from sqlalchemy.dialects.postgresql import DOMAIN, ENUM
+
+    if isinstance(typ, (DOMAIN, ENUM)):
+        return {
+            "kind": "domain" if isinstance(typ, DOMAIN) else "enum",
+            "name": typ.name,
+            "schema": typ.schema,
+        }
+    return "unavailable"
 
 
 def describe_database(
@@ -119,7 +191,35 @@ def describe_database(
     uri = make_url(read.database.url).render_as_string(hide_password=False)
     observations: list[dict[str, Any]] = []
     remaining = [request.max_bytes]
-    object_count = column_count = 0
+    object_count = 0
+    columns_remaining = [request.max_columns]
+
+    def observe(item):
+        if item["kind"] == "query_output":
+            interface = "adbc.ExecuteSchema"
+        elif item["kind"] == "estimate":
+            interface = "adbc.GetStatistics"
+        elif "arrow_fields" in item:
+            interface = "adbc.GetTableSchema"
+        elif isinstance(item.get("columns"), list):
+            interface = "sqlalchemy.Inspector"
+            item["relation_interface"] = "adbc.GetObjects"
+            item["field_sources"] = {
+                **{
+                    field: {"interface": "adbc.GetObjects", "session": "adbc"}
+                    for field in ("schema", "relation", "relation_type")
+                },
+                "columns": {"interface": "sqlalchemy.Inspector", "session": "catalog"},
+                "constraints": {"interface": "sqlalchemy.Inspector", "session": "catalog"}
+                if isinstance(item.get("constraints"), dict)
+                else {"status": "not_requested"},
+            }
+        else:
+            interface = "adbc.GetObjects"
+        item["interface"] = interface
+        item["session"] = "catalog" if interface == "sqlalchemy.Inspector" else "adbc"
+        observations.append(item)
+
     with (
         open_runtime_engine(settings, "description-catalog", purpose="read") as catalog_engine,
         catalog_engine.connect() as catalog_conn,
@@ -167,7 +267,7 @@ def describe_database(
                         if object_count > request.max_objects:
                             raise SemanticRefusal("database description exceeds object bound")
                         if request.depth == "schemas":
-                            observations.append(
+                            observe(
                                 {
                                     "kind": "physical",
                                     "status": "available",
@@ -190,6 +290,7 @@ def describe_database(
                                         "column_name": item["name"],
                                         "ordinal_position": index + 1,
                                         "physical_type": str(item["type"]),
+                                        "native_type": _native_type(item["type"]),
                                         "nullable": item["nullable"],
                                         "default": item.get("default"),
                                     }
@@ -197,11 +298,8 @@ def describe_database(
                                         catalog_inspector.get_columns(name, schema=selected_schema)
                                     )
                                 ]
-                            column_count += len(columns or [])
-                            if (
-                                object_count > request.max_objects
-                                or column_count > request.max_columns
-                            ):
+                            columns_remaining[0] -= len(columns or [])
+                            if object_count > request.max_objects or columns_remaining[0] < 0:
                                 raise SemanticRefusal(
                                     "database description exceeds object/column bound"
                                 )
@@ -230,7 +328,7 @@ def describe_database(
                                 if request.depth == "constraints"
                                 else "not_requested",
                             }
-                            observations.append(item)
+                            observe(item)
                             if request.depth in {"columns", "constraints"}:
                                 permitted = catalog_conn.scalar(
                                     text(
@@ -247,7 +345,12 @@ def describe_database(
                                         )
                                         shape_item = {
                                             "status": "available",
-                                            "arrow_fields": _fields(shape),
+                                            "arrow_fields": _fields(
+                                                shape,
+                                                remaining=remaining,
+                                                columns=columns_remaining,
+                                            ),
+                                            "schema_metadata": _metadata(shape.metadata, remaining),
                                         }
                                     except adbc_driver_manager.NotSupportedError:
                                         shape_item = {
@@ -259,7 +362,7 @@ def describe_database(
                                         "status": "refused",
                                         "arrow_fields": "unavailable",
                                     }
-                                observations.append(
+                                observe(
                                     {
                                         "kind": "physical",
                                         "schema": selected_schema,
@@ -289,7 +392,7 @@ def describe_database(
                                         for entry in schema_row.get("db_schema_statistics") or []
                                         if entry.get("table_name") == name
                                     ]
-                                    observations.append(
+                                    observe(
                                         {
                                             "kind": "estimate",
                                             "schema": selected_schema,
@@ -301,7 +404,7 @@ def describe_database(
                                         }
                                     )
                                 except adbc_driver_manager.NotSupportedError:
-                                    observations.append(
+                                    observe(
                                         {
                                             "kind": "estimate",
                                             "schema": selected_schema,
@@ -310,7 +413,7 @@ def describe_database(
                                         }
                                     )
                         for name in set(request.relations) - matched:
-                            observations.append(
+                            observe(
                                 {
                                     "kind": "physical",
                                     "status": "no_visible_match",
@@ -319,7 +422,7 @@ def describe_database(
                                 }
                             )
                 if not found:
-                    observations.append(
+                    observe(
                         {
                             "kind": "physical",
                             "status": "no_visible_match",
@@ -328,16 +431,14 @@ def describe_database(
                     )
             if request.query is not None:
                 shape = cur.adbc_execute_schema(request.query)
-                column_count += len(shape)
-                if column_count > request.max_columns:
-                    raise SemanticRefusal("query schema exceeds column bound")
-                observations.append(
+                observe(
                     {
                         "kind": "query_output",
                         "status": "available",
                         "release_id": request.release_id,
                         "physical_id": PHYSICAL_MODEL_ID,
-                        "fields": _fields(shape),
+                        "fields": _fields(shape, remaining=remaining, columns=columns_remaining),
+                        "schema_metadata": _metadata(shape.metadata, remaining),
                     }
                 )
     result = DatabaseDescription(

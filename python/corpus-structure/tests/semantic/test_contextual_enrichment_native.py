@@ -1,5 +1,7 @@
 """Real protected report completion and exact pgvector retrieval on controlled source inputs."""
 
+from typing import Any
+
 import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError
@@ -268,3 +270,99 @@ def test_genuine_competing_senses_are_retained_natively(private_source):
         body["contribution_operations"][0]["contextual_enrichment"]["relationship_decisions"][0]
         == decision
     )
+
+
+@pytest.mark.parametrize(
+    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
+)
+def test_composed_transient_channels_match_resident_and_refuse_bad_membership(private_source):
+    from dataclasses import replace
+
+    from corpus_structure.methods.contextual_embeddings import EncodedVector
+    from corpus_structure.semantic.contextual_storage import transient_vector_relation
+
+    case = curated_case(private_source)
+    result, query, inventory = contextual_result(case)
+    assert result.contribution_operations is not None
+    report = result.contribution_operations[0]["contextual_enrichment"]
+    vectors = tuple(
+        EncodedVector(**row) for row in report["vectors"] if row["object_id"] != query.object_id
+    )
+    arguments: dict[str, Any] = dict(
+        occurrence_id=query.object_id,
+        query=query,
+        inventory=inventory,
+        lexical_query="12",
+        dimension=2,
+    )
+    with case.writer.begin() as conn:
+        complete(case, conn, result)
+        resident = retrieve_candidates(
+            conn, relation=eligible_vector_relation(case.task), **arguments
+        )
+        transient = retrieve_candidates(
+            conn,
+            relation=transient_vector_relation(
+                inventory, vectors, profile_id=query.profile_id, dimension=2
+            ),
+            **arguments,
+        )
+        assert transient == resident
+        channels = {channel.channel: channel.hits for channel in transient.channel_results}
+        assert [hit.target_id for hit in channels["dense"]] == ["t1", "t2"]
+        assert [hit.score for hit in channels["dense"]] == pytest.approx([1.0, 0.0])
+        assert [hit.target_id for hit in channels["alias"]] == ["t1"]
+        quiet = retrieve_candidates(
+            conn,
+            relation=transient_vector_relation(
+                inventory, vectors, profile_id=query.profile_id, dimension=2
+            ),
+            occurrence_id=query.object_id,
+            query=query,
+            inventory=inventory,
+            lexical_query="absentlexemezz",
+            dimension=2,
+        )
+        quiet_channels = {channel.channel: channel.hits for channel in quiet.channel_results}
+        assert quiet_channels["alias"] == () and quiet_channels["lexical"] == ()
+        tied_vectors = tuple(replace(vector, values=(1.0, 0.0)) for vector in vectors)
+        tied = retrieve_candidates(
+            conn,
+            relation=transient_vector_relation(
+                inventory, tied_vectors, profile_id=query.profile_id, dimension=2
+            ),
+            **arguments,
+        )
+        tied_dense = next(
+            channel.hits for channel in tied.channel_results if channel.channel == "dense"
+        )
+        assert [hit.target_id for hit in tied_dense] == ["t1", "t2"]
+        assert [hit.score for hit in tied_dense] == pytest.approx([1.0, 1.0])
+        with pytest.raises(ValueError, match="membership"):
+            retrieve_candidates(
+                conn,
+                relation=eligible_vector_relation(case.task),
+                occurrence_id=query.object_id,
+                query=replace(query, profile_id="wrong-profile"),
+                inventory=inventory,
+                lexical_query="12",
+                dimension=2,
+            )
+        for invalid in ((*vectors, vectors[0]),):
+            with pytest.raises(ValueError, match="membership"):
+                retrieve_candidates(
+                    conn,
+                    relation=transient_vector_relation(
+                        inventory, invalid, profile_id=query.profile_id, dimension=2
+                    ),
+                    **arguments,
+                )
+    with pytest.raises(ValueError, match="exact representation"):
+        transient_vector_relation(inventory, vectors[1:], profile_id=query.profile_id, dimension=2)
+    with pytest.raises(ValueError, match="dimension"):
+        transient_vector_relation(
+            inventory,
+            (replace(vectors[0], values=(1.0,)), *vectors[1:]),
+            profile_id=query.profile_id,
+            dimension=2,
+        )

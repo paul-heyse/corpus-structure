@@ -9,9 +9,11 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
+from typing import cast as typing_cast
 
-from sqlalchemy import any_, func, literal, select
+from pgvector.sqlalchemy import VECTOR
+from sqlalchemy import Float, Integer, Text, any_, bindparam, cast, func, literal, select, union_all
 from sqlalchemy.dialects.postgresql import REGCONFIG
 from sqlalchemy.engine import Connection
 from sqlalchemy.sql.selectable import FromClause
@@ -362,6 +364,14 @@ def fuse_candidates(
     return replace(result, list_id=numeric_identity("concept-candidates", meaning))
 
 
+class _RetrievalRow(Protocol):
+    kind: Literal["membership", "hit"]
+    channel: Literal["alias", "lexical", "dense"] | None
+    target_id: str
+    rank: int | None
+    score: float | None
+
+
 def retrieve_candidates(
     conn: Connection,
     *,
@@ -409,35 +419,79 @@ def retrieve_candidates(
         .cte("eligible_concept_vectors")
         .prefix_with("MATERIALIZED")
     )
-    # Storage uniqueness and complete profile coverage are native admission obligations;
-    # refuse an incomplete projection instead of treating missing vectors as retrieval misses.
-    actual = tuple(
-        conn.execute(select(eligible.c.target_id).order_by(eligible.c.target_id)).scalars()
+    distance = eligible.c.vector.cosine_distance(
+        cast(bindparam("query_vector", list(vector), type_=VECTOR(dimension)), VECTOR(dimension))
     )
-    if actual != inventory.target_ids:
-        raise ValueError("eligible inventory vector membership is incomplete or duplicated")
-    distance = eligible.c.vector.cosine_distance(list(vector))
     config = literal("english").cast(REGCONFIG)
     tsquery = func.websearch_to_tsquery(config, lexical_query)
     tsvector = func.to_tsvector(config, eligible.c.search_text)
     lexical_score = func.ts_rank_cd(tsvector, tsquery)
-    statements = {
-        "dense": select(eligible.c.target_id, (1 - distance).label("score"))
-        .order_by(distance, eligible.c.target_id)
-        .limit(channel_budget),
-        "lexical": select(eligible.c.target_id, lexical_score.label("score"))
-        .where(tsvector.op("@@")(tsquery))
-        .order_by(lexical_score.desc(), eligible.c.target_id)
-        .limit(channel_budget),
-        "alias": select(eligible.c.target_id, literal(1.0).label("score"))
-        .where(func.lower(literal(lexical_query)) == any_(eligible.c.exact_forms))
-        .order_by(eligible.c.target_id)
-        .limit(channel_budget),
-    }
-    channels = {
-        name: tuple(ChannelHit(row.target_id, float(row.score)) for row in conn.execute(statement))
-        for name, statement in statements.items()
-    }
+    membership = select(
+        literal("membership").label("kind"),
+        cast(literal(None), Text).label("channel"),
+        eligible.c.target_id,
+        cast(literal(None), Integer).label("rank"),
+        cast(literal(None), Float).label("score"),
+    )
+    branches = [membership]
+    for name, score, ordering, predicate in (
+        ("dense", 1 - distance, (distance, eligible.c.target_id), None),
+        (
+            "lexical",
+            lexical_score,
+            (lexical_score.desc(), eligible.c.target_id),
+            tsvector.op("@@")(tsquery),
+        ),
+        (
+            "alias",
+            literal(1.0),
+            (eligible.c.target_id,),
+            func.lower(literal(lexical_query)) == any_(eligible.c.exact_forms),
+        ),
+    ):
+        hits = select(
+            eligible.c.target_id,
+            score.label("score"),
+            func.row_number().over(order_by=ordering).label("rank"),
+        )
+        if predicate is not None:
+            hits = hits.where(predicate)
+        bounded = hits.order_by(*ordering).limit(channel_budget).subquery(name + "_hits")
+        branches.append(
+            select(
+                literal("hit"),
+                literal(name),
+                bounded.c.target_id,
+                bounded.c.rank,
+                bounded.c.score,
+            )
+        )
+    combined = union_all(*branches).subquery("retrieval_rows")
+    rows = typing_cast(
+        tuple[_RetrievalRow, ...],
+        tuple(
+            conn.execute(
+                select(combined).order_by(
+                    combined.c.kind.desc(),
+                    combined.c.channel,
+                    combined.c.rank,
+                    combined.c.target_id,
+                )
+            )
+        ),
+    )
+    actual = tuple(sorted(row.target_id for row in rows if row.kind == "membership"))
+    if actual != inventory.target_ids:
+        raise ValueError("eligible inventory vector membership is incomplete or duplicated")
+    channels = {name: [] for name in ("alias", "lexical", "dense")}
+    for row in rows:
+        if row.kind == "hit":
+            if row.channel is None or row.score is None:
+                raise ValueError("retrieval hit lacks channel or score")
+            hits = channels[row.channel]
+            if row.rank != len(hits) + 1:
+                raise ValueError("retrieval channel ranks are not contiguous")
+            hits.append(ChannelHit(row.target_id, float(row.score)))
     return fuse_candidates(
         occurrence_id=occurrence_id,
         query=query,

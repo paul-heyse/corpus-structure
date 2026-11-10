@@ -993,11 +993,11 @@ class BoundReader:
 
         run = table("ops.run")
         options = self.conn.execute(
-            select(run.c.options).where(
+            select(run.c.options["pm2_scope_intents"]).where(
                 run.c.id == self.run_id, run.c.release_id == self.prepared.release_id
             )
         ).scalar_one()
-        intents = options.get("pm2_scope_intents")
+        intents = options
         return None if intents is None else scope_coverage(self.conn, self.run_id, intents)
 
     def pm2_projection_locations(self, task_id: int, *, max_bytes: int = 8_388_608):
@@ -1386,7 +1386,9 @@ class BoundReader:
             occurrence_id=occurrence_id,
             query=query,
             inventory=inventory,
-            relation=transient_vector_relation(inventory, target_vectors),
+            relation=transient_vector_relation(
+                inventory, target_vectors, profile_id=query.profile_id, dimension=dimension
+            ),
             lexical_query=lexical_query,
             dimension=dimension,
             budget=budget,
