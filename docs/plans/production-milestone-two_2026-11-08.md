@@ -405,7 +405,7 @@ evidence by itself.
 ### Post-audit execution checkpoint · 2026-11-09
 
 - **Private book staging.** `uv run ci status 487 --project
-  nce-grinstead-snell-full-book --json` read back an active supervisor, 55 of
+  nce-grinstead-snell-full-book --json` read back an active supervisor, 56 of
   58 extraction tasks done and no completed cut. Leave the executing checkout
   and runtime inputs in place through managed settlement and finalization.
   The earlier run 482 refusal remains a terminal record. Set 34 grading and
