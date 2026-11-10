@@ -13,6 +13,12 @@ retains its separate audit prerequisite and review conventions.
 
 ## Outputs and traceability
 
+The [integrated domain-data-model review](domain-data-model_2026-11-10.md) develops O01–O13
+from all 14 DDM discovery leads and the additional conditional opportunities. Five companions
+compare authoring, construction/archive, terminology/measurement, validation/graph and process
+workflows. It corrects source premises about nested schemas and graph-report custody; all
+recommendations remain Proposed and existing plans retain execution disposition.
+
 Use `<subject>_<YYYY-MM-DD>.md` for the principal review, with its scope, inspected source
 baseline and evidence limits near the beginning. Explain current capabilities, useful
 opportunities, resulting behavior, concrete enabling mechanisms and precise sources, alternatives,
