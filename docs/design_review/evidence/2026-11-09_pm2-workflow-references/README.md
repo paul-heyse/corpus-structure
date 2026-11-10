@@ -64,3 +64,7 @@ The [bounded M1 anchor probe](raw/comparator-inventory.json) returned no exact
 candidate on the inspected definition/use or condition anchors, but the
 operation population reached its read limit. This does not establish
 absence of a compatible comparator. Reproduce with `comparator_inventory.py`.
+
+The [follow-up ordinary baseline inventory](ordinary-baselines.md) completed
+the bounded historical lookup without pagination and explains the final-release
+and exact-view requirements for protected registration.

@@ -402,6 +402,41 @@ Apply [DMA-13](domain-model-alignment_2026-11-08.md#incremental-acceptance) to
 named workflow selection; an active or completed private run is not selection
 evidence by itself.
 
+### Post-audit execution checkpoint · 2026-11-09
+
+- **Private book staging.** `uv run ci status 487 --project
+  nce-grinstead-snell-full-book --json` read back an active supervisor, 41 of
+  58 extraction tasks done and no completed cut. Leave the executing checkout
+  and runtime inputs in place through managed settlement and finalization.
+  The earlier run 482 refusal remains a terminal record. Set 34 grading and
+  the assembled parser and interpretation journey are separate obligations.
+- **PM2-R01 · Candidate ready off main.** Commit `bb035e57d` on
+  `pm2/refusal` returns a structured refusal for invalid extents and canonical
+  boundaries in the shared PM2 preparation path. The isolated native-backed
+  CLI controls passed and checked that refusal creates no run or task.
+  The installed command also returned `Pm2ScopeRefused` with
+  `invalid_source_extent` for a retained pin. Integration on `main` waits
+  for run 487 settlement and finalization under its pinned runtime.
+  The committed-source managed rerun `1de606f99be44f75ab9e0e9c7c1e3281`
+  passed both focused controls; its receipt is in the refusal worktree.
+- **PM2-01/08 · Detached worklist candidate ready off main.** Commit
+  `8c4e5b561` on `pm2/detached-worklist` adds exact-cut worklist export
+  and shared coverage replay. Managed export and bound receipt inspection
+  `c17fee3f00274e32b26aa11b97f40b80` passed for the 11 rows in run 485/cut 598,
+  view 383. The earlier default-budget refusal is preserved; the successful
+  export used a 384 MiB bound. The independent manifest receipt is needed
+  for worklist completeness. The candidate does not establish assembled
+  coverage or workflow qualification.
+- **PM2-09/11 · Exact source and comparator preparation.** The
+  [Section 5.1 source read](../design_review/evidence/2026-11-09_pm2-closure-execution/raw/cross-chapter-current-source.json)
+  binds a corresponding cue and the section heading on the current integrated
+  product. The cue is on a different native item; do not copy the historical
+  citation identity. Ordinary replay and detached export remain open.
+  The [ordinary-baseline inventory](../design_review/evidence/2026-11-09_pm2-workflow-references/ordinary-baselines.md)
+  found no exact completed ordinary predictions for the new definition and
+  nested-condition cases. Reproduce the bounded incumbents on the same final
+  release and selected views as the challengers before protected grading.
+
 ## Remediation execution
 
 **2026-11-09.** The bounded [development execution](../design_review/evidence/2026-11-09_pm2-contract-remediation/README.md)

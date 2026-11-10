@@ -172,6 +172,17 @@ roulette amount and unit. Do not assert a combined loss result. A
 found GLiNER and d1 agree on one exact definition case. The managed GLiNER arm
 and broader like-for-like comparisons remain open.
 
+**Managed passage-function boundary · Proposed.** Use a distinct versioned
+source-only GLiNER method and profile for the released passage-function question.
+The existing predicate-frame classifier and d1 profile retain their meanings
+and configuration schemas. Bind one exact source slice and the released ordered
+choices to the existing GLiNER request and observation digests. Lower eligible
+choices to the existing private passage-function product; missing labels stay
+unresolved. Read and replay the new method through its own version without
+manufacturing d1 replies, answer spans, or public claims. Freeze protected
+references under the successor release and select the same source views for
+the managed GLiNER and d1 arms.
+
 **Proposed.** Freeze the eligible source and question through PM2-11. Compare the current
 literal GLiNER pack plus spaCy-backed qualification, d1 source discovery and the applicable
 fixed-candidate arms. Measure literal capture separately from typed normalization. On
