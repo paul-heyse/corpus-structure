@@ -13,6 +13,12 @@ retains its separate audit prerequisite and review conventions.
 
 ## Outputs and traceability
 
+The [agent CLI and diagnostics review](cli-and-logging_2026-11-10.md) develops O01–O08
+from all ten Typer/Rich/structlog discovery leads and their conditional capabilities. Three
+companions compare command authoring, correction/replay and correlated execution inspection.
+Current code and the active DMC series ground the review; older CLI plans are complete/legacy.
+Recommendations and benefits remain Proposed; implementation selection is separate.
+
 The [integrated domain-data-model review](domain-data-model_2026-11-10.md) develops O01–O13
 from all 14 DDM discovery leads and the additional conditional opportunities. Five companions
 compare authoring, construction/archive, terminology/measurement, validation/graph and process

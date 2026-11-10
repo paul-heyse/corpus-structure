@@ -93,7 +93,11 @@ an explicit debugging read.
 **Source observations.** Rich15 `RichHandler.emit` first formats the record, then, if
 `rich_tracebacks` and surviving `exc_info` apply, rebuilds the message through `getMessage` and
 `formatter.formatMessage`. Consequently a ProcessorFormatter-rendered event cannot be assumed to
-survive that branch when combined with `keep_exc_info=True`. Investigate either structlog-owned
+survive that branch. **Refined by the functional review, 2026-11-10:** ProcessorFormatter copies
+the record before clearing exception state, so foreign exceptions can trigger RichHandler's
+branch even with default `keep_exc_info=False`; the earlier warning limited to `True` was too
+narrow. See the [composed target](../../../../functional_reviews/cli-and-logging/execution-and-diagnostic-events.md#corrected-composition-warning).
+Investigate either structlog-owned
 rows/tracebacks or RichHandler-owned presentation with a compatible adapter. Do not stack complete
 renderers on the assumption that they compose. Structlog26.1's exception dictionary transformer
 defaults locals on; any candidate must choose disclosure and bounds deliberately.

@@ -75,6 +75,10 @@ adjacent boundaries. Source inspection can expose composition questions without 
 
 ## Judgment and handoff
 
+The [functional review](../../../functional_reviews/cli-and-logging_2026-11-10.md) develops
+eight Proposed opportunities from all ten leads and conditional territory. It also refines the
+foreign-exception formatter warning. Recommendations do not select implementation scope.
+
 Apply the [selected standard](../../../design_review/design_principles/standard.toml), especially
 FP-01/03/04/06/07, DP-06/13/14/15/21 and heuristics H4/H6/H18/H25/H26/H27. Preserve domain
 authority while delegating generic conversion, rendering and event processing. Judge the whole
