@@ -1326,14 +1326,18 @@ def discover_relations(
                         and link.kind == "definition_reference"
                         and link.resolution == "target_selection_required"
                         and (
-                            concept := named_definition_subject(
-                                frame.text,
-                                max(
-                                    named_piece_starts[link.pointer],
-                                    selected_passages[link.passage].start,
-                                ),
-                                link.cue[0],
-                                version=named_link_version,
+                            concept := (
+                                link.definition_subject
+                                if named_link_version == "4"
+                                else named_definition_subject(
+                                    frame.text,
+                                    max(
+                                        named_piece_starts[link.pointer],
+                                        selected_passages[link.passage].start,
+                                    ),
+                                    link.cue[0],
+                                    version=named_link_version,
+                                )
                             )
                         )
                         is not None
