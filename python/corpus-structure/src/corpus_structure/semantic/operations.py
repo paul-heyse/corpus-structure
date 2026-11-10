@@ -57,6 +57,12 @@ class OperationConflict(ValueError):
 
 
 @dataclass(frozen=True)
+class BoundSourceProducer:
+    task_id: TaskId
+    origin_task_id: TaskId
+
+
+@dataclass(frozen=True)
 class OperationBinding:
     release_id: str
     input_realization_id: str
@@ -966,6 +972,7 @@ class BoundReader:
         self._read_budget = read_budget
         self.math_readings_batch = None
         self.source_tasks: dict[int, int] = {}
+        self.source_producers: Mapping[tuple[int, str], BoundSourceProducer] = {}
 
     @property
     def read_budget(self):
@@ -1502,11 +1509,7 @@ class BoundReader:
                 producer.c.name == method,
             )
         )
-        if self.cut_id is not None:
-            cut = table("ops.cut_task")
-            query = query.join(cut, cut.c.origin_task_id == result.c.task_id).where(
-                cut.c.cut_id == self.cut_id
-            )
+        query = self._source_producer_query(query, task, result, source_view_id, method)
         budget = self._read_budget or PublishedReadBudget(16, _SOURCE_RESULT_MAX_BYTES)
         budget.preflight(self.conn, query)
         rows = tuple(self.conn.execute(query).mappings())
@@ -1535,6 +1538,27 @@ class BoundReader:
         if body.get("parse_detail") is not None:
             body["parse_detail"] = source_python(body["parse_detail"])
         return body
+
+    def _source_producer_query(self, query, task, output, source_view_id: int, method: str):
+        """Use the exact ordinary dependency when preparing or running a declared consumer."""
+        producer = self.source_producers.get((source_view_id, method))
+        if producer is not None:
+            query = query.where(
+                task.c.id == producer.task_id,
+                task.c.unit_type == "source_view",
+                task.c.unit_id == source_view_id,
+                task.c.release_id == self.prepared.release_id,
+                output.c.task_id == producer.origin_task_id,
+                output.c.release_id == self.prepared.release_id,
+            )
+        if self.cut_id is not None:
+            cut = table("ops.cut_task")
+            query = query.join(cut, cut.c.origin_task_id == output.c.task_id).where(
+                cut.c.cut_id == self.cut_id
+            )
+            if producer is not None:
+                query = query.where(cut.c.task_id == producer.task_id)
+        return query
 
     def retained_source_result(self, source_view_id, task_id, method):
         """Read a named immutable producer result, never implicitly search older runs.
@@ -2003,9 +2027,7 @@ class BoundReader:
             )
             .order_by(o.c.ordinal)
         )
-        if self.cut_id is not None:
-            cut = table("ops.cut_task")
-            q = q.join(cut, cut.c.origin_task_id == o.c.task_id).where(cut.c.cut_id == self.cut_id)
+        q = self._source_producer_query(q, t, o, source_id, method)
         if self._read_budget is not None:
             self._read_budget.preflight(self.conn, q)
         out = []
@@ -2073,11 +2095,7 @@ class BoundReader:
                 producer.c.name == method,
             )
         )
-        if self.cut_id is not None:
-            cut = table("ops.cut_task")
-            query = query.join(cut, cut.c.origin_task_id == result.c.task_id).where(
-                cut.c.cut_id == self.cut_id
-            )
+        query = self._source_producer_query(query, task, result, source_view_id, method)
         return tuple(
             SourceCoverageReading(
                 CoverageDraft(**item),

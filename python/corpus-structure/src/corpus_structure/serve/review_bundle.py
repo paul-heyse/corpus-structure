@@ -131,8 +131,10 @@ class ReviewSelection(BaseModel):
             raise ValueError("selected evaluations must have distinct positive identifiers")
         if any(item.cursor is not None for item in self.selections):
             raise ValueError("review selection cannot begin at a continuation")
-        if any(item.include_scope_coverage for item in self.selections):
-            raise ValueError("detached review does not yet authenticate the PM2 scope worklist")
+        if self.completeness != "selected_source_closure" and any(
+            item.include_scope_coverage for item in self.selections
+        ):
+            raise ValueError("detached PM2 scope coverage requires exact retained source closure")
         identities = [canonical_bytes(item.selection()) for item in self.selections]
         if len(identities) != len(set(identities)):
             raise ValueError("review selections must be distinct")
@@ -155,9 +157,14 @@ def _contract_row(conn, prepared):
         MODEL_OBSERVATION_INPUT,
         private_declaration_enabled,
     )
+    from corpus_structure.methods.pm2_gliner_classification import METHOD as CLASSIFICATION_METHOD
+    from corpus_structure.methods.witnessed_source_links import NAMED_NATIVE_PIECES_INPUT
+    from corpus_structure.semantic.contracts import bound_execution_model
     from corpus_structure.semantic.contributions import contribution_payload_contracts
+    from corpus_structure.semantic.interpretation_questions import is_question_input
 
     from .review_source_projection import SECTION_TEXT_INPUT
+    from .witnessed_source_link_replay import NAMED_LINK_NATIVE_PIECES_FIELD
 
     row: dict[str, Any] = {
         "release_id": prepared.release_id,
@@ -185,14 +192,8 @@ def _contract_row(conn, prepared):
         else None
     )
     dependencies = dict(json.loads(prepared.manifest).get("dependencies", ()))
-    for input_name, field in (
-        (SECTION_PACKET_INPUT, "section_packets"),
-        (MODEL_OBSERVATION_INPUT, "model_observation_policy"),
-        (SECTION_TEXT_INPUT, "section_text_policy"),
-    ):
-        expected = dependencies.get(input_name)
-        if expected is None:
-            continue
+
+    def archived_input(input_name, expected):
         inputs = table("sem.input")
         content = bytes(
             conn.execute(
@@ -204,10 +205,36 @@ def _contract_row(conn, prepared):
             ).scalar_one()
         )
         if sha256(content).hexdigest() != expected:
-            raise SemanticRefusal(f"archived {field} differs from release")
-        row[field] = {
-            "manifest_base64": base64.b64encode(prepared.manifest).decode(),
-            "input_base64": base64.b64encode(content).decode(),
+            raise SemanticRefusal(f"archived {input_name} differs from release")
+        return base64.b64encode(content).decode()
+
+    for input_name, field in (
+        (SECTION_PACKET_INPUT, "section_packets"),
+        (MODEL_OBSERVATION_INPUT, "model_observation_policy"),
+        (SECTION_TEXT_INPUT, "section_text_policy"),
+        (NAMED_NATIVE_PIECES_INPUT, NAMED_LINK_NATIVE_PIECES_FIELD),
+    ):
+        expected = dependencies.get(input_name)
+        if expected is not None:
+            row[field] = {
+                "manifest_base64": base64.b64encode(prepared.manifest).decode(),
+                "input_base64": archived_input(input_name, expected),
+            }
+    question_inputs = {
+        name: digest for name, digest in dependencies.items() if is_question_input(name)
+    }
+    if (
+        question_inputs
+        and prepared.execution_model_id is not None
+        and any(
+            dimension.id == f"{CLASSIFICATION_METHOD}/family"
+            for dimension in bound_execution_model(prepared)
+            .operation("configure_method")
+            .result_dimensions
+        )
+    ):
+        row["interpretation_question_inputs"] = {
+            name: archived_input(name, digest) for name, digest in question_inputs.items()
         }
     return row
 
@@ -275,6 +302,7 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
     validated_external: set[str] = set()
     predecessor_readers = {}
     origin_metadata = {}
+    scope_worklists = {}
     budget = PublishedReadBudget(selection.max_source_rows, selection.max_bytes)
     journey_views: dict[int, PreparedSourceView | None] = {
         request.opportunity.source.source_view_id: None
@@ -300,12 +328,42 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
             yield "contracts", _contract_row(conn, session.prepared)
         source_ids: set[int] = set()
         report_ids: set[int] = set()
+        if original.include_scope_coverage:
+            from corpus_structure.semantic.pm2_coverage import completed_scope_worklist
+
+            if original.run_id not in scope_worklists:
+                scope_worklists[original.run_id] = completed_scope_worklist(
+                    conn,
+                    run_id=original.run_id,
+                    cut_id=page.cut_id,
+                    release_id=session.binding.release_id,
+                )
+            worklist = scope_worklists[original.run_id].select(
+                original.source_view_id, original.selected_task_id
+            )
+            source_ids.update(intent.source_view_id for intent in worklist.intents)
+            source_ids.update(row.unit_id for row in worklist.settlements)
+            report_ids.update(row.reused_task_id or row.id for row in worklist.settlements)
+            yield (
+                "pm2_worklists",
+                {
+                    "selection_index": index,
+                    "run_id": original.run_id,
+                    "cut_id": page.cut_id,
+                    "release_id": session.binding.release_id,
+                    "worklist": worklist.model_dump(mode="json"),
+                },
+            )
         for item in page.items:
             row = item["row"]
             if not isinstance(row, dict):
                 raise SemanticRefusal("review inventory row must be an object")
             origin_id = row.get("origin_task_id")
-            if type(origin_id) is int and selection.completeness == "selected_source_closure":
+            if (
+                type(origin_id) is int
+                and item["population"] != "scope_coverage"
+                and selection.completeness == "selected_source_closure"
+            ):
                 if origin_id not in origin_metadata:
                     tasks, producer = table("ops.task"), table("ops.run")
                     origin_metadata[origin_id] = dict(
@@ -1226,6 +1284,14 @@ def write_review_bundle(
             "Unassessed contributions remain unassessed. "
             "Protected labels require a separate "
             "authorized evaluator capture.\n\n"
+            + (
+                "PM2 scope coverage replays the ordered worklist, settled task reports "
+                "and source bounds. Authenticating the complete worklist and recorded "
+                "reasons for work that never ran requires the manifest digest from an "
+                "independently retained export receipt.\n\n"
+                if "pm2_worklists" in relations
+                else ""
+            )
             + "\n".join(
                 f"- [{name}]({name}.jsonl): {spec['rows']} rows" for name, spec in relations.items()
             )
@@ -1322,6 +1388,7 @@ def _exact_closure(
             }
         )
 
+    # Only the d1 family may declare retained interpretation predecessors.
     for request in selection.selections:
         if request.method not in (None, "extract.pm2_d1"):
             continue
@@ -1331,6 +1398,7 @@ def _exact_closure(
             request.model_copy(
                 update={
                     "method": "extract.pm2_d1",
+                    "include_scope_coverage": False,
                     "include_details": True,
                     "include_interpretation": False,
                     "include_publication": False,
@@ -1393,6 +1461,7 @@ def _exact_closure(
             request.model_copy(
                 update={
                     "method": "locate.definition_terms",
+                    "include_scope_coverage": False,
                     "include_details": True,
                     "include_publication": False,
                     "include_support": False,
@@ -1473,6 +1542,7 @@ def _exact_closure(
             request.model_copy(
                 update={
                     "method": "retrieve.contextual",
+                    "include_scope_coverage": False,
                     "include_details": False,
                     "include_publication": False,
                     "include_support": False,
@@ -2299,11 +2369,14 @@ def _retained_contribution_payloads(
 
 
 def _verify_interpretation_closure(root, manifest, scopes, inventory):
-    """Replay the exact source-part and candidate references retained by d1."""
+    """Replay source-only model observations and exact retained d1 references."""
+    from corpus_structure.methods.pm2_gliner_classification import METHOD as CLASSIFICATION_METHOD
     from corpus_structure.semantic.contextual_storage import interpretation_candidates
     from corpus_structure.semantic.observations import source_python
     from corpus_structure.semantic.retained_contributions import RetainedContributionRef
     from corpus_structure.serve.contribution_composition import interpretation_predecessors
+
+    from .pm2_classification_replay import verify_classification_replay
 
     readings = {}
     for (index, task, origin, identity), row in inventory.items():
@@ -2321,7 +2394,9 @@ def _verify_interpretation_closure(root, manifest, scopes, inventory):
             origin_task_id=origin,
             runtime_fingerprint=row["runtime_fingerprint"],
         )
-        if row.get("method") != "extract.pm2_d1" or not row.get("cut_member"):
+        if row.get("method") not in ("extract.pm2_d1", CLASSIFICATION_METHOD) or not row.get(
+            "cut_member"
+        ):
             raise ValueError("interpretation differs from exact producing method or cut")
         readings[reference] = row
     if not readings:
@@ -2368,6 +2443,45 @@ def _verify_interpretation_closure(root, manifest, scopes, inventory):
         )
         for ref, payload in payloads.items()
     }
+    classification_refs = {
+        reference for reference, row in readings.items() if row["method"] == CLASSIFICATION_METHOD
+    }
+    if classification_refs:
+        classification_origins = {reference.origin_task_id for reference in classification_refs}
+        classification_sources = {
+            roots[reference]["pin"]["source_view_id"] for reference in classification_refs
+        }
+        classification_releases = {reference.release_id for reference in classification_refs}
+        reports = {
+            row["origin_task_id"]: row
+            for row in _detached_relation(root, manifest, "reports")
+            if row["origin_task_id"] in classification_origins
+        }
+        sources = {
+            row["source_view_id"]: row
+            for row in _detached_relation(root, manifest, "sources")
+            if row["source_view_id"] in classification_sources
+        }
+        contracts = {
+            row["release_id"]: row
+            for row in _detached_relation(root, manifest, "contracts")
+            if row["release_id"] in classification_releases
+        }
+        for reference in classification_refs:
+            row = roots[reference]
+            if (
+                reference.origin_task_id not in reports
+                or row["pin"]["source_view_id"] not in sources
+                or reference.release_id not in contracts
+            ):
+                raise ValueError("classification lacks exact detached source or release inputs")
+            verify_classification_replay(
+                reports[reference.origin_task_id],
+                row,
+                _retained_review_source_view(sources[row["pin"]["source_view_id"]]),
+                contracts[reference.release_id],
+            )
+
     retrieval_origins = {
         retrieval.carrier.origin_task_id
         for _, _, retrieval in needed.values()
@@ -3077,6 +3191,7 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
     contribution_scopes = {}
     contribution_inventory = {}
     report_inventory = {}
+    coverage_inventory: dict[int, list[dict[str, Any]]] = {}
     required_contracts: set[str] = set()
     captured_contracts: set[str] = set()
     closure_reasons: set[bytes] = set()
@@ -3271,11 +3386,21 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
                         elif name == "inventory":
                             item = payload["row"]
                             index = payload.get("selection_index")
+                            is_coverage = payload.get("population") == "scope_coverage"
                             if type(index) is int and 0 <= index < len(selection.selections):
                                 request = selection.selections[index]
+                                if is_coverage:
+                                    if not request.include_scope_coverage:
+                                        raise ValueError(
+                                            "PM2 coverage row has no selected worklist"
+                                        )
+                                    coverage_inventory.setdefault(index, []).append(item)
+                                selected_task = item.get(
+                                    "task_id" if is_coverage else "selected_task_id"
+                                )
                                 if (
                                     request.selected_task_id is not None
-                                    and item.get("selected_task_id") != request.selected_task_id
+                                    and selected_task != request.selected_task_id
                                 ):
                                     raise ValueError(
                                         "contribution row differs from exact selected task"
@@ -3288,7 +3413,7 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
                                     raise ValueError(
                                         "contribution row is outside exact selected IDs"
                                     )
-                            elif exact_contributions:
+                            elif exact_contributions or is_coverage:
                                 raise ValueError("contribution row has no selected scope")
                             if type(item.get("source_view_id")) is int:
                                 needed_sources.add(item["source_view_id"])
@@ -3496,6 +3621,17 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
     if set(os.listdir(root)) != expected:
         raise ValueError("review package has undeclared or missing members")
     _verify_structural_gaps(root, manifest, selection)
+    from .pm2_coverage_replay import verify_scope_worklists
+
+    verify_scope_worklists(
+        selection.selections,
+        contribution_scopes,
+        coverage_inventory,
+        report_inventory,
+        _detached_relation(root, manifest, "pm2_worklists"),
+        _detached_relation(root, manifest, "sources"),
+        _detached_relation(root, manifest, "reports"),
+    )
     decision_evidence = iter(_detached_relation(root, manifest, "source_decision_evidence"))
     decisions = iter(_detached_relation(root, manifest, "source_decisions"))
     reports = {}

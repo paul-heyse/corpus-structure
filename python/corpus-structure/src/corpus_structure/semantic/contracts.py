@@ -60,6 +60,7 @@ SEMANTIC_IMPLEMENTATION_NAMES = frozenset(
         "operations/section-packets.json",
         "operations/named-link-rules.json",
         "operations/named-link-coverage.json",
+        "operations/named-link-native-pieces.json",
         "operations/predicate-interpretation.json",
         "operations/model-observation.json",
     }
@@ -1163,12 +1164,18 @@ def analysis_implementation_inputs(
                 ("parsing/pm2-maverick.py", "methods/pm2_maverick_products.py"),
                 ("parsing/pm2-dipo.py", "methods/pm2_dipo_products.py"),
                 ("parsing/pm2-interpretation.py", "methods/pm2_interpretation_products.py"),
+                ("parsing/pm2-gliner-classification.py", "methods/pm2_gliner_classification.py"),
+                ("operations/model-observation.py", "methods/model_observation.py"),
                 ("parsing/interpretation-questions.py", "semantic/interpretation_questions.py"),
                 ("records/record-contracts.py", "semantic/record_contracts.py"),
                 ("records/observations.py", "semantic/observations.py"),
                 ("operations/section-packets.json", "model/semantic/nce-section-packets.json"),
                 ("operations/named-link-rules.json", "methods/named_link_rules.json"),
                 ("operations/named-link-coverage.json", "methods/named_link_coverage.json"),
+                (
+                    "operations/named-link-native-pieces.json",
+                    "methods/named_link_native_pieces.json",
+                ),
                 (
                     "operations/predicate-interpretation.json",
                     "methods/predicate_interpretation.json",
@@ -1836,6 +1843,14 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         )
     if "operations/named-link-coverage.json" in names:
         required_implementations.add("operations/named-link-coverage.json")
+    if "operations/named-link-native-pieces.json" in names:
+        required_implementations.update(
+            {
+                "operations/named-link-rules.json",
+                "operations/named-link-coverage.json",
+                "operations/named-link-native-pieces.json",
+            }
+        )
     required_implementations.update(
         {
             "pdf/section-text-recipe.json",

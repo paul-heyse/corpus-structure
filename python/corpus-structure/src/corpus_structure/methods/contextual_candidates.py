@@ -1045,10 +1045,10 @@ class ContextualCandidates:
                                 effective_version=cfg.effective_version,
                                 named_version="3"
                                 if self.version in {"10", "11"}
-                                and upstream.get("operation_version") in {"10", "11"}
+                                and upstream.get("operation_version") in {"10", "11", "12"}
                                 else "2",
                                 aliases=section_aliases
-                                if upstream.get("operation_version") in {"10", "11"}
+                                if upstream.get("operation_version") in {"10", "11", "12"}
                                 else None,
                             )
                         else:
@@ -1298,7 +1298,7 @@ class ContextualCandidates:
             results.append(
                 UnitResult(
                     ref=unit.ref,
-                    outcome=ObservationOutcome.PRODUCED,
+                    outcome=ObservationOutcome.PRODUCED if products else ObservationOutcome.EMPTY,
                     contribution_operations=(operation, *phases),
                     contributions=tuple(products),
                     contribution_coordinate_texts=coordinates,

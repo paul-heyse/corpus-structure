@@ -128,10 +128,20 @@ def test_alternate_domain_parser_run_retains_siblings_after_profile_refusal(
 
 
 def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions(
-    private_source, parser_samples, tmp_path
+    private_source, parser_samples, tmp_path, semantic_reader_engine
 ):
+    from copy import deepcopy
+    from hashlib import sha256
+
+    from corpus_structure.core.db.cancellation import OperationCancellation
     from corpus_structure.orchestrate.commands import bound_status
     from corpus_structure.semantic.operations import BoundReader
+    from corpus_structure.serve.review_bundle import (
+        ReviewSelection,
+        capture_review_relations,
+        verify_review_bundle,
+        write_review_bundle,
+    )
 
     case = private_source
     with case.writer.begin() as conn:
@@ -180,10 +190,13 @@ def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions
         reader_coverage = BoundReader(
             conn, report.run_id, case.prepared, report.cut_id
         ).pm2_scope_coverage()
-        inspection = serve_contributions(
-            conn,
-            ContributionRequest(run_id=report.run_id, include_scope_coverage=True),
+        selection = ContributionRequest(
+            run_id=report.run_id, source_view_id=case.other_view, include_scope_coverage=True
         )
+        inspection = serve_contributions(conn, selection)
+    review = ReviewSelection(selections=(selection,))
+    with read_snapshot(semantic_reader_engine) as conn:
+        captured = list(capture_review_relations(conn, review, OperationCancellation()))
     assert progress is not None
     assert progress.pm2_scope_coverage == reader_coverage == report.scope_coverage
     assert [entry.outcome for entry in report.scope_coverage] == ["ineligible", "unscheduled"]
@@ -192,6 +205,137 @@ def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions
     assert [item["row"] for item in inspection.items if item["population"] == "scope_coverage"] == [
         entry.model_dump(mode="json") for entry in report.scope_coverage
     ]
+
+    bundle = tmp_path / "review"
+    manifest = write_review_bundle(review, bundle, captured)
+    expected_digest = sha256((bundle / "manifest.json").read_bytes()).hexdigest()
+    assert verify_review_bundle(bundle, manifest_digest=expected_digest) == manifest
+
+    with pytest.raises(ValueError, match="lacks its selected PM2 worklist"):
+        write_review_bundle(
+            review,
+            tmp_path / "missing",
+            ((relation, row) for relation, row in captured if relation != "pm2_worklists"),
+        )
+    changed: list[tuple[str, dict[str, Any]]] = [
+        (relation, deepcopy(dict(row))) for relation, row in captured
+    ]
+    for relation, row in changed:
+        if relation == "inventory" and row["row"]["outcome"] == "ineligible":
+            row["row"]["reason"] = "different recorded refusal"
+    with pytest.raises(ValueError, match="differs from worklist replay"):
+        write_review_bundle(review, tmp_path / "mismatch", changed)
+
+    # A detached reader cannot independently run eligibility or know that the
+    # producer recorded every refusal. The export digest binds that history.
+    (worklist,) = [row["worklist"] for relation, row in changed if relation == "pm2_worklists"]
+    worklist["intents"][0]["reason"] = "different recorded refusal"
+    rewritten = tmp_path / "rewritten"
+    new_manifest = write_review_bundle(review, rewritten, changed)
+    assert verify_review_bundle(rewritten) == new_manifest
+    with pytest.raises(ValueError, match="integrity differs"):
+        verify_review_bundle(rewritten, manifest_digest=expected_digest)
+
+
+def test_pm2_cli_refuses_invalid_extent_before_run_admission(
+    private_source, parser_samples, semantic_application_settings, tmp_path, monkeypatch
+):
+    from sqlalchemy import func, select
+    from typer.testing import CliRunner
+
+    from corpus_structure.cli.app import app
+    from corpus_structure.cli.output import CliState
+    from corpus_structure.orchestrate import pm2_stage
+    from corpus_structure.semantic.metadata import table
+
+    case = private_source
+    with case.writer.begin() as conn:
+        complete_contributions(
+            case,
+            conn,
+            UnitResult(
+                ref=UnitRef(TaskUnitType.SOURCE_VIEW, case.view, "private-unit"),
+                outcome=ObservationOutcome.EMPTY,
+            ),
+        )
+    finalize_bound_run(case.writer, case.run, "pm2-scope-refusal-origin")
+    (source,) = prepare_structural_sources(
+        case.writer,
+        (
+            StructuralPassageSelection(
+                run_id=case.run,
+                source_view_id=case.other_view,
+                passage_id="invalid-extent-control",
+                start=0,
+                end=len(parser_samples[0]),
+                scope="coverage",
+            ),
+        ),
+    ).sources
+
+    # Satisfy the profile identity check without launching a provider; the
+    # canonical-boundary controls must reach real source preparation.
+    monkeypatch.setattr(
+        pm2_stage,
+        "preflight_pm2_runtime",
+        lambda **_: {"assets": {}, "runtime_identity": "extent-control"},
+    )
+    run, task = table("ops.run"), table("ops.task")
+
+    def inventory():
+        with case.writer.connect() as conn:
+            return (
+                conn.scalar(
+                    select(func.count()).select_from(run).where(run.c.project_id == case.project_id)
+                ),
+                conn.scalar(
+                    select(func.count())
+                    .select_from(task.join(run, task.c.run_id == run.c.id))
+                    .where(run.c.project_id == case.project_id)
+                ),
+            )
+
+    before = inventory()
+    request_path = tmp_path / "scope-request.json"
+    runner = CliRunner()
+    for command, extent, reason in (
+        ("parsers", [0, 50_000], "invalid_source_extent"),
+        ("interpret", [0, 50_000], "invalid_source_extent"),
+        ("parsers", [1, 2], "partial_canonical_token"),
+        ("parsers", [0, 2], "partial_canonical_sentence"),
+    ):
+        provider = "hanlp" if command == "parsers" else "d1"
+        scope: dict[str, Any] = {
+            "source": source.model_dump(mode="json"),
+            "extent": extent,
+            "profile": {
+                "provider": provider,
+                "device": "cpu",
+                "startup": {"provider": provider, "device": "cpu", "assets": {}},
+            },
+        }
+        if command == "interpret":
+            scope["family"] = "passage_function_v1"
+        request_path.write_text(
+            json.dumps(
+                {
+                    "project": case.project_id,
+                    "release": case.prepared.release_id,
+                    "realization": "private-input",
+                    "assets": str(tmp_path),
+                    "scopes": [scope],
+                }
+            )
+        )
+        result = runner.invoke(
+            app,
+            ["run", command, "--request", str(request_path), "--json"],
+            obj=CliState(lambda: semantic_application_settings),
+        )
+        assert result.exit_code == 1, (result.output, result.exception)
+        error = json.loads(result.stdout)["error"]
+        assert (error["code"], error["reason"]) == ("Pm2ScopeRefused", reason), error
+        assert inventory() == before
 
 
 def test_cancelled_pm2_scope_does_not_gain_an_operation_result(private_source):

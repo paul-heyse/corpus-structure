@@ -9,7 +9,7 @@ import pytest
 
 from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
 from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import TaskUnitType
+from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.methods.contextual_candidates import (
     ContextualCandidateConfig,
     ContextualCandidates,
@@ -180,6 +180,7 @@ def contextual_report_release():
         ((), True, 1, "no_compatible_candidate", False, False, None),
         ((), True, 1, "outside_inventory", False, False, True),
         ((), True, 1, "no_compatible_candidate", False, False, False),
+        (("6.2 Target",), True, 1, "empty", False, False, None),
     ],
 )
 def test_retained_cross_view_heading_coverage_precedes_exploration(
@@ -370,7 +371,10 @@ def test_retained_cross_view_heading_coverage_precedes_exploration(
 
     reader = SimpleNamespace(
         source_view=lambda _: source,
-        source_result=lambda *_: {"contributions": (original,), "origin_task_id": 1},
+        source_result=lambda *_: {
+            "contributions": () if expected == "empty" else (original,),
+            "origin_task_id": 1,
+        },
         contextual_section_headings=heading_inventory,
         cached_contextual_vectors=lambda **_: (),
         contextual_candidates=retrieve,
@@ -383,6 +387,13 @@ def test_retained_cross_view_heading_coverage_precedes_exploration(
     for operation in result.contribution_operations:
         contextual_report_release.validate_python("SourceContributionOperation", operation)
     report = result.contribution_operations[0]["contextual_enrichment"]
+    if expected == "empty":
+        assert result.outcome == ObservationOutcome.EMPTY
+        assert result.contributions == ()
+        assert result.contribution_operations[0]["inspected_count"] == 0
+        assert report["section_targets"] and report["section_resolutions"] == ()
+        assert report["candidate_lists"] == ()
+        return
     (resolution,) = report["section_resolutions"]
     assert resolution["outcome"] == expected
     matching = tuple(sorted(target.target_id for target in targets if target.designator == "6.2"))

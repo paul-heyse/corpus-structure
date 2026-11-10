@@ -8,7 +8,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import and_, case, cast, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import JSONB, JSONPATH
 
+from corpus_structure.core.vocab import TaskStatus
 from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.refusals import SemanticRefusal
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection
@@ -72,13 +74,85 @@ class ScopeCoverage(BaseModel):
     reason: str | None = None
 
 
-def scope_coverage(conn: Connection, run_id: int, intents: object) -> tuple[ScopeCoverage, ...]:
-    """Attach task settlement without inventing an operation result for unattempted work."""
+class ScopeSettlement(BaseModel):
+    """Selected task custody and the first, scope-level operation result."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: int = Field(gt=0)
+    input_hash: str = Field(pattern="^[0-9a-f]{64}$")
+    unit_type: str
+    unit_id: int
+    reused_task_id: int | None
+    status: TaskStatus
+    reason: str | None
+    split_scope: ScopeIntent | None
+    question: str | None
+    operation_version: str | None
+    outcome: Literal["succeeded", "empty", "limited", "failed"] | None
+    provider_outcome: Literal["succeeded", "empty", "limited", "failed"] | None
+    inspected: int | None = Field(ge=0)
+    emitted: int | None = Field(ge=0)
+    result_reason: str | None
+    cut_origin: int | None = None
+
+
+class ScopeWorklist(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    intents: tuple[ScopeIntent, ...] = Field(max_length=64)
+    settlements: tuple[ScopeSettlement, ...] = Field(max_length=128)
+
+    def select(self, source_view_id: int | None, task_id: int | None) -> ScopeWorklist:
+        """Retain only the selected population and any split ancestors."""
+        if task_id is None:
+            return ScopeWorklist(
+                intents=tuple(
+                    intent
+                    for intent in self.intents
+                    if source_view_id is None or intent.source_view_id == source_view_id
+                ),
+                settlements=tuple(
+                    row
+                    for row in self.settlements
+                    if source_view_id is None or row.unit_id == source_view_id
+                ),
+            )
+        by_digest = {row.input_hash: row for row in self.settlements}
+        row = next(
+            (
+                row
+                for row in self.settlements
+                if row.id == task_id and (source_view_id is None or source_view_id == row.unit_id)
+            ),
+            None,
+        )
+        keep = set()
+        while row is not None:
+            if row.input_hash in keep:
+                raise ValueError("PM2 split worklist has a cycle")
+            keep.add(row.input_hash)
+            if row.split_scope is None:
+                break
+            parent = row.split_scope.parent_input_digest
+            row = by_digest.get(parent) if parent is not None else None
+            if row is None:
+                raise ValueError("PM2 split worklist is missing its parent")
+        return ScopeWorklist(
+            intents=tuple(intent for intent in self.intents if intent.input_digest in keep),
+            settlements=tuple(row for row in self.settlements if row.input_hash in keep),
+        )
+
+
+def read_scope_worklist(
+    conn: Connection, run_id: int, intents: object, *, cut_id: int | None = None
+) -> ScopeWorklist:
+    """Collect bounded source-task receipts in the caller's snapshot."""
     if not isinstance(intents, list) or len(intents) > 64:
         raise ValueError("invalid PM2 scope worklist")
     worklist = [ScopeIntent.model_validate(item) for item in intents]
     hashes = [item.input_digest for item in worklist if item.input_digest is not None]
-    rows = {}
+    settlements = ()
     if hashes:
         task = table("ops.task")
         operation = table("kb.source_contribution_operation")
@@ -99,7 +173,7 @@ def scope_coverage(conn: Connection, run_id: int, intents: object) -> tuple[Scop
             ),
             JSONB,
         )["text"].astext
-        task_rows = conn.execute(
+        query = (
             select(
                 task.c.input_hash,
                 task.c.id,
@@ -148,25 +222,71 @@ def scope_coverage(conn: Connection, run_id: int, intents: object) -> tuple[Scop
             )
             .order_by(task.c.id)
             .limit(129)
-        ).all()
+        )
+        if cut_id is not None:
+            member = table("ops.cut_task")
+            query = query.outerjoin(
+                member, and_(member.c.cut_id == cut_id, member.c.task_id == task.c.id)
+            ).add_columns(member.c.origin_task_id.label("cut_origin"))
+        task_rows = conn.execute(query).mappings().all()
         if len(task_rows) > 128:
             raise ValueError("PM2 scope coverage exceeds the admitted work bound")
-        for row in task_rows:
-            parent = None
-            if row.split_scope is not None:
-                item = ScopeIntent.model_validate(row.split_scope)
-                parent = item.parent_input_digest
-                if (
-                    item.disposition != "scheduled"
-                    or item.input_digest != row.input_hash
-                    or not parent
-                ):
-                    raise ValueError("PM2 split scope differs from its admitted task")
-                worklist.append(item)
-            key = (row.input_hash, parent)
-            if key in rows:
-                raise ValueError("PM2 worklist has competing tasks for the same scope")
-            rows[key] = row
+        settlements = tuple(ScopeSettlement.model_validate(row) for row in task_rows)
+    return ScopeWorklist(intents=tuple(worklist), settlements=settlements)
+
+
+def derive_scope_coverage(
+    evidence: ScopeWorklist, *, completed: bool = False
+) -> tuple[ScopeCoverage, ...]:
+    """Derive the same ordered outcome rows for live reads and detached replay."""
+    worklist = list(evidence.intents)
+    intents = {item.input_digest: item for item in worklist if item.input_digest is not None}
+    if len(intents) != sum(item.input_digest is not None for item in worklist):
+        raise ValueError("PM2 worklist has competing scope intents")
+    if any(item.parent_input_digest is not None for item in worklist):
+        raise ValueError("initial PM2 worklist cannot declare split parents")
+    rows: dict[str, ScopeSettlement] = {}
+    previous = 0
+    for row in evidence.settlements:
+        if row.id <= previous:
+            raise ValueError("PM2 task worklist is not in admission order")
+        previous = row.id
+        parent = None
+        if row.split_scope is not None:
+            item = row.split_scope
+            parent = item.parent_input_digest
+            parent_intent = intents.get(parent) if parent is not None else None
+            parent_row = rows.get(parent) if parent is not None else None
+            if (
+                item.disposition != "scheduled"
+                or item.input_digest != row.input_hash
+                or parent_intent is None
+                or parent_row is None
+                or parent_row.outcome != "limited"
+                or (
+                    parent_intent.source_view_id,
+                    parent_intent.question,
+                    parent_intent.operation_version,
+                )
+                != (item.source_view_id, item.question, item.operation_version)
+                or not (
+                    parent_intent.extent[0]
+                    <= item.extent[0]
+                    < item.extent[1]
+                    <= parent_intent.extent[1]
+                )
+                or item.extent == parent_intent.extent
+            ):
+                raise ValueError("PM2 split scope differs from its admitted parent")
+            if row.input_hash in intents:
+                raise ValueError("PM2 worklist has competing scope intents")
+            intents[row.input_hash] = item
+            worklist.append(item)
+        if row.input_hash in rows:
+            raise ValueError("PM2 worklist has competing tasks for the same scope")
+        rows[row.input_hash] = row
+    if set(rows) != set(intents):
+        raise ValueError("PM2 scope worklist differs from its admitted task population")
     output = []
     for item in worklist:
         common = dict(
@@ -188,7 +308,7 @@ def scope_coverage(conn: Connection, run_id: int, intents: object) -> tuple[Scop
                 )
             )
             continue
-        row = rows.get((item.input_digest, item.parent_input_digest))
+        row = rows.get(item.input_digest) if item.input_digest is not None else None
         if row is None:
             raise ValueError("scheduled PM2 scope lacks its admitted task")
         if row.unit_type != "source_view" or row.unit_id != item.source_view_id:
@@ -197,6 +317,18 @@ def scope_coverage(conn: Connection, run_id: int, intents: object) -> tuple[Scop
             row.question != item.question or row.operation_version != item.operation_version
         ):
             raise ValueError("PM2 result question differs from its admitted scope")
+        if completed:
+            if row.status in {"pending", "running", "awaiting_agent"}:
+                raise ValueError("completed PM2 worklist has an unsettled task")
+            if (row.status == "reused") != (row.reused_task_id is not None):
+                raise ValueError("PM2 reused task lacks matching origin custody")
+            if row.status == "cancelled" and row.outcome is not None:
+                raise ValueError("cancelled PM2 task cannot claim an operation result")
+            expected_origin = (
+                row.reused_task_id or row.id if row.status in {"done", "empty", "reused"} else None
+            )
+            if row.cut_origin != expected_origin:
+                raise ValueError("PM2 task origin differs from its completed cut custody")
         outcome: ScopeOutcome
         if row.status == "cancelled":
             outcome = "cancelled"
@@ -219,3 +351,42 @@ def scope_coverage(conn: Connection, run_id: int, intents: object) -> tuple[Scop
             )
         )
     return tuple(output)
+
+
+def scope_coverage(conn: Connection, run_id: int, intents: object) -> tuple[ScopeCoverage, ...]:
+    """Attach task settlement without inventing an operation result for unattempted work."""
+    return derive_scope_coverage(read_scope_worklist(conn, run_id, intents))
+
+
+def completed_scope_worklist(
+    conn: Connection, *, run_id: int, cut_id: int, release_id: str
+) -> ScopeWorklist:
+    """Capture from the immutable final run and its exact completed cut."""
+    run, cut, result = (table("ops.run"), table("ops.input_cut"), table("ops.completed_result"))
+    options = conn.scalar(
+        select(run.c.options)
+        .join(cut, and_(cut.c.run_id == run.c.id, cut.c.release_id == run.c.release_id))
+        .join(
+            result,
+            and_(
+                result.c.run_id == run.c.id,
+                result.c.cut_id == cut.c.id,
+                result.c.release_id == run.c.release_id,
+            ),
+        )
+        .where(
+            run.c.id == run_id,
+            run.c.release_id == release_id,
+            run.c.sealed,
+            run.c.status == "finished",
+            cut.c.id == cut_id,
+            cut.c.final,
+        )
+    )
+    if options is None or "pm2_scope_intents" not in options:
+        raise SemanticRefusal(
+            "detached PM2 coverage requires a completed run with a retained worklist"
+        )
+    worklist = read_scope_worklist(conn, run_id, options["pm2_scope_intents"], cut_id=cut_id)
+    derive_scope_coverage(worklist, completed=True)
+    return worklist

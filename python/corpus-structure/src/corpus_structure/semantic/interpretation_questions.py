@@ -151,6 +151,12 @@ class QuestionFamily(_Declaration):
         return self
 
 
+def is_question_input(name: str) -> bool:
+    return name == QUESTION_INPUT or (
+        name.startswith("pack/") and name.endswith("/" + QUESTION_INPUT)
+    )
+
+
 def compile_question_families(artifacts):
     """Compile pack-owned declarations without consulting the runtime or reference data."""
     import yaml
@@ -162,9 +168,7 @@ def compile_question_families(artifacts):
     adapter = TypeAdapter(tuple[QuestionFamily, ...])
     result: dict[str, RegistryRow] = {}
     for artifact in artifacts:
-        if artifact.name != QUESTION_INPUT and not (
-            artifact.name.startswith("pack/") and artifact.name.endswith("/" + QUESTION_INPUT)
-        ):
+        if not is_question_input(artifact.name):
             continue
         for family in adapter.validate_json(json.dumps(yaml.safe_load(artifact.content))):
             if family.family in result:

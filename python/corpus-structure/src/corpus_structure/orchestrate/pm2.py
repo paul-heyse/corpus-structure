@@ -21,6 +21,7 @@ from corpus_structure.semantic.operations import OperationConflict, complete_uni
 
 if TYPE_CHECKING:
     from corpus_structure.core.method import Method
+    from corpus_structure.methods.pm2_gliner_classification import ClassificationWorker
     from corpus_structure.methods.pm2_worker import Pm2Worker
     from corpus_structure.semantic._operation_calls import ClaimedTask
     from corpus_structure.semantic.claim_lifetime import ClaimOwner
@@ -31,7 +32,7 @@ if TYPE_CHECKING:
 def settle_pm2_claim(
     owner: ClaimOwner,
     claim: ClaimedTask,
-    worker: Pm2Worker | None,
+    worker: Pm2Worker | ClassificationWorker | None,
     mapping: PM2SourceMap | PM2TokenMap,
     request: dict[str, Any],
     *,
@@ -119,7 +120,11 @@ def settle_pm2_claim(
     try:
         result = bind(reply)
     except (IndexError, KeyError, TypeError, ValueError) as exc:
-        handles_product = question in PARSER_QUESTIONS.values() or "interpretation" in request
+        handles_product = (
+            question in PARSER_QUESTIONS.values()
+            or "interpretation" in request
+            or expected_profile["provider"] == "gliner"
+        )
         if not handles_product or not completed_product(reply):
             raise
         result = bind(

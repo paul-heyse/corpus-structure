@@ -1,12 +1,17 @@
 """Detached exact-source verification for named and formula navigation."""
 
+import base64
+import json
 from dataclasses import asdict
+from hashlib import sha256
 
 from corpus_structure.core.evidence import config_key
 from corpus_structure.methods.inline_formula_occurrences import INLINE_FORMULA_QUESTION
 from corpus_structure.methods.witnessed_source_links import (
     NAMED_ANNOTATION_VERSIONS,
     NAMED_COVERAGE_VERSION,
+    NAMED_NATIVE_PIECES_INPUT,
+    NAMED_PIECE_VERSION,
     NAMED_QUESTION,
     NAMED_VERSION,
     ORDERED_LIMIT_REASON,
@@ -256,7 +261,7 @@ def verify_witnessed_links(report, source, pin, inputs, ordered_formula_witness=
             )
             and r["component"]["scope"] == link.scope
             and (
-                body["operation_version"] not in {"9", "10", "11"}
+                body["operation_version"] not in {"9", "10", "11", "12"}
                 or r["component"].get("effective_version") == link.effective_version
             )
             and {cue["contribution_id"], prior["contribution_id"]}
@@ -425,15 +430,19 @@ def _verify_named_population(
             "named_link_cue", link.pointer, link.cue, link.passage, versioned, dependencies
         )
         if (
-            body.get("operation_version") in {"9", "10", "11"}
+            body.get("operation_version") in {"9", "10", "11", "12"}
             and link.kind == "definition_reference"
             and link.resolution == "target_selection_required"
             and (
-                concept := named_definition_subject(
-                    text,
-                    max(native_starts[link.pointer], passage_starts[link.passage]),
-                    link.cue[0],
-                    version=version,
+                concept := (
+                    link.definition_subject
+                    if body["operation_version"] == "12"
+                    else named_definition_subject(
+                        text,
+                        max(native_starts[link.pointer], passage_starts[link.passage]),
+                        link.cue[0],
+                        version=version,
+                    )
                 )
             )
             is not None
@@ -445,11 +454,11 @@ def _verify_named_population(
                 concept[0],
                 link.passage,
                 {**versioned, "definition_subject_kind": concept[1]}
-                if version == NAMED_COVERAGE_VERSION
+                if version in {NAMED_COVERAGE_VERSION, NAMED_PIECE_VERSION}
                 else versioned,
                 [*dependencies, subject, cue],
             )
-        if body.get("operation_version") in {"9", "10", "11"} and artifacts:
+        if body.get("operation_version") in {"9", "10", "11", "12"} and artifacts:
             binding = procedure_artifact_endpoint(
                 rows, link, annotation_by_dependency[link.witness.annotation], artifacts[0]
             )
@@ -521,7 +530,27 @@ def _verify_named_population(
         raise ValueError("named links contain unsupported rows")
 
 
-def verify_annotated_named_links(report, source, producers):
+NAMED_LINK_NATIVE_PIECES_FIELD = "named_link_native_pieces"
+
+
+def archived_named_link_native_pieces(contract):
+    """Check the selected release's retained bytes before replaying piece ownership."""
+    try:
+        archived = contract[NAMED_LINK_NATIVE_PIECES_FIELD]
+        manifest = base64.b64decode(archived["manifest_base64"], validate=True)
+        policy = base64.b64decode(archived["input_base64"], validate=True)
+        expected = dict(json.loads(manifest)["dependencies"])[NAMED_NATIVE_PIECES_INPUT]
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError("joined named links lack their archived native-piece policy") from error
+    if (
+        "release:" + sha256(manifest).hexdigest() != contract["release_id"]
+        or sha256(policy).hexdigest() != expected
+    ):
+        raise ValueError("joined named-link native-piece policy is not bound to its release")
+    return policy
+
+
+def verify_annotated_named_links(report, source, producers, *, native_piece_policy=None):
     from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
     from corpus_structure.ingest.sentences import SentenceConfig
     from corpus_structure.methods.witnessed_source_links import match_named_source_links
@@ -534,7 +563,7 @@ def verify_annotated_named_links(report, source, producers):
     body, cfg = report["body"], report["configuration"]
     if cfg.get("inputs") is None:
         return
-    if body["operation_version"] not in {"7", "8", "9", "10", "11"} or body[
+    if body["operation_version"] not in {"7", "8", "9", "10", "11", "12"} or body[
         "configuration_hash"
     ] != config_key("structure.scoped_relations", body["operation_version"], cfg):
         raise ValueError("named links differ from their retained configuration")
@@ -544,7 +573,16 @@ def verify_annotated_named_links(report, source, producers):
     passages = tuple(p for p in inputs.passages if p.source_ref == ref.identity)
     operations = [op for op in body["contribution_operations"] if op["question"] == NAMED_QUESTION]
     (operation,) = operations
-    version = NAMED_COVERAGE_VERSION if body["operation_version"] in {"10", "11"} else NAMED_VERSION
+    if body["operation_version"] == "12":
+        if native_piece_policy is None:
+            raise ValueError("joined named links require an archived native-piece policy")
+        version = NAMED_PIECE_VERSION
+        policy = {"native_piece_policy": native_piece_policy}
+    else:
+        version = (
+            NAMED_COVERAGE_VERSION if body["operation_version"] in {"10", "11"} else NAMED_VERSION
+        )
+        policy = {}
     origin_id = operation.get("annotation_origin_task_id")
     frame = native_source_frame(view, ())
     if origin_id is None:
@@ -584,6 +622,7 @@ def verify_annotated_named_links(report, source, producers):
         annotations,
         annotation_errors=errors,
         version=version,
+        **policy,
     )
     _verify_named_population(
         body,
