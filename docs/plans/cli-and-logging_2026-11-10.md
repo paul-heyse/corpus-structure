@@ -177,8 +177,8 @@ Expected usability benefits remain Proposed and qualitative.
 
 Entry consumed clean `42d20a2ab` and completed DMC-17. The scoped audit publication is
 `f25d427ed`; the [entry target review](../design_review/reviews/design_review_cli-and-logging-entry_2026-11-10.md)
-accepted the Proposed target with bounded sealed-read authentication. ADR-0078/D8 own the decision.
-All implementation findings below are corrected and independently source-reviewed. Scoped tests
+accepted the Proposed target with bounded sealed-read authentication. ADR-0079/D8 own the unchanged decision; the predecessor was retired after correcting its invalid design metadata.
+Implementation findings IR01–16 are corrected and independently source-reviewed; assembled and qualification findings below remain separately owned. Scoped tests
 support their closure; final-source qualification remains CLD-10-owned.
 
 ### Scoped acceptance
@@ -218,6 +218,10 @@ Root `just turn-end` **passed**, with1036 Python files unchanged, before assembl
 | CLD-IR14 | Closed · CLD-06/07 | CLI visual resume adds wrapper ID beside unchanged native fields; actual once-only native CLI case in73 |
 | CLD-IR15 | Closed · CLD-10 | Complete protected-prefix selection handles quoted/env/OSC boundaries; compact excerpts derive from that same safe product with explicit basis; final43 |
 | CLD-IR16 | Closed · CLD-10 | Both recipe routes preserve130/143 and defer unresolved custody; native73/final43 |
+| CLD-AR01 | In progress · CLD-06/07 | Split native visual acquisition from effects; record validated association before interruption. Source independently reassessed; targeted execution pending |
+| CLD-Q01 | In progress · CLD-10 | Separate exact math-worker parity from acknowledged independent2s timing variability using equal explicit test budgets; retain all position/value/relation and timeout controls |
+| CLD-Q02 | In progress · CLD-10 | Native PDF validation acknowledges after owned cleanup and requires successful terminal exit; preserve cancellation/reaping |
+| CLD-IR17 | Open · CLD-10 | Provide bounded opt-in retained native pytest frame context by result ID without reopening reportlog files |
 
 The compact-excerpt replacement intentionally retires raw8KiB tail collection and its second
 sanitizer. Oversized excerpts identify retained-safe selection and truncation rather than claiming
@@ -266,5 +270,27 @@ authentication, without rerun/export. The earlier direct fallback
 
 ### Assembled qualification
 
-**Pending.** No real Claude CLI provider was invoked. Its journey is operator-unselected;
+**In progress.** Original full functional `3aa043f0a0554bbca925f77f09ab27fa` was deliberately
+interrupted/drained after AR01 was identified; custody is settled, exit130. Ordinary selected5967:
+3343 passed, nine failed,16 incomplete,2598 not_run, one blocked; fault/Rust were not reached.
+The receipt remains interrupted and cannot qualify the assembly. Seven failure observations were
+outdated schema preparation/parser seams; their test-only repair **passed**44/44 in
+`5d319a6bd3c741f49bee7cbf0cefcac5`, with independent taxonomy/admission assertions retained.
+`fca92586c21746e08033c35637d13a8b` preserves the subsequently corrected native parser-message
+expectation. Q01/Q02 own the other two failed nodes, not a presumption of flakiness.
+
+Original repository check `f6204cb7089446d49bb342fa0974127c` **failed** ADR/docs only; typing,
+lint-agents, Ruff, dependencies and Clippy passed, empty rules were not_run. ADR-0078 had invalid
+canonical design metadata. The attempted metadata edit was correctly refused by immutability in
+`a731bc6d30884122b7645bdda2e8c6de`; it was reverted. ADR-0079 now restates every unchanged clause
+under§2, with its governing Decision line, and retires the predecessor to Git through the existing
+supersession route. `uv run ci docs check --json` **passed** in
+`4970847441624b81805c0a1dd9b82a0c` (846 canonical pages, zero link errors). No authority rule changed.
+Final doctor `e1217b8696654ca8a55b518098f09987` **passed**; Rust context is
+`rustc1.101.0-nightly (2d20b42b8 2026-11-04)`.
+
+The [assembled review](../design_review/reviews/design_review_cli-and-logging-assembled_2026-11-10.md)
+initially required AR01; independent source follow-up supports its corrected acquisition/dispatch
+boundary at Implemented strength. Root still owns its targeted execution, remaining qualification
+repairs and a fresh final-source campaign. No real Claude CLI provider was invoked. Its journey is operator-unselected;
 controlled process, actual local MCP/native and all other applicable testing remain required.

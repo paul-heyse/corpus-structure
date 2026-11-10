@@ -1,16 +1,20 @@
 ---
-id: ADR-0078
-title: Keep safe operation observations within managed result custody
+id: ADR-0079
+title: Keep safe observation custody under the canonical interface authority
 status: accepted
 date: 2026-11-10
-supersedes: []
+supersedes: [ADR-0078]
 superseded-by: null
-design: [D8]
+design: [§2]
 evidence: Proposed
 revisit: A supported observation consumer requires multiple writing hosts or independent telemetry retention.
 ---
 
 ## Context
+
+This record restates every decision and consequence of ADR-0078 under canonical workflow
+authority §2. Its predecessor used an unresolvable design metadata reference. No observation,
+effect, retention or verification decision changes; the predecessor is retired to Git.
 
 CLD adds correlated inspection of interrupted operations to the existing CLI result owner.
 Current settled artifact reads authenticate published files; they do not promise that an

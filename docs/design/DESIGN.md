@@ -182,7 +182,13 @@ settlement and retention. Native deployment, activation and selection require ex
 [D8 CLI](D8-agent-and-query-interfaces.md#4-cli) and [D9](D9-repository-and-phase0.md#3-conventions)
 own the integration contract.
 
-> Decision: ADR-0001, ADR-0002, ADR-0071, ADR-0006, ADR-0007, ADR-0008, ADR-0010, ADR-0069
+Safe operation observations remain within managed invocation custody: bounded owner-written
+journals distinguish live prefixes from sealed authenticated replay, with scoped safe logging and
+child transfer. Native settlement, purpose roles, effects and raw disclosure retain their owners.
+[D8](D8-agent-and-query-interfaces.md#safe-operation-observation-custody) owns the interface detail;
+the CLI plan owns implementation and qualification separately from the accepted decision.
+
+> Decision: ADR-0001, ADR-0002, ADR-0071, ADR-0006, ADR-0007, ADR-0008, ADR-0010, ADR-0069, ADR-0079
 
 
 Product binding decisions follow. Each is `### §Bn <decision stated as a sentence>` with a

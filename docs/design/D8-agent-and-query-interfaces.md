@@ -45,7 +45,7 @@ Headless output and text/JSON replay serve the captured-agent workflow. Rich sta
 compose selected human views. Dynamic terminal displays and HTML/SVG exports need an actual
 terminal or sharing consumer before adding their display/custody lifetimes.
 
-> Decision: [ADR-0078](../adr/0078-owned-observation-journals.md)
+> Decision: [ADR-0079](../adr/0079-safe-observation-custody-authority.md)
 
 ## Attributed interpretations and correction custody
 
