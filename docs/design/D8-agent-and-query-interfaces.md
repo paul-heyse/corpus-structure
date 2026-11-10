@@ -2,6 +2,10 @@
 
 ## Attributed interpretations and correction custody
 
+The [completion audit](../plans/domain-data-model_2026-11-10.md#completion-audit) qualifies
+current update-impact and correction-detail completion: DMC-09/11 retain the scoped gaps
+DMC-CA01–03. Other implemented capabilities below keep their stated evidence strength.
+
 **Implemented; scoped Tested, 2026-11-10.** `ci interpretations` exposes released lookup,
 private authoring, retained review detail, controlled record selection, recognized measurement
 groups and portable contract export; MCP composes the same readers. Source and review results are

@@ -1,5 +1,9 @@
 # Terminology, located grounding and measurement interpretation
 
+Current residual delivery and finding disposition are owned by the coordinator
+[completion audit](../domain-data-model_2026-11-10.md#completion-audit), DMC-CA01–03.
+
+
 **Accepted implementation design and selected mechanisms, 2026-11-10.** This companion develops DMC-06–DMC-10
 and investigations I01/I04/I05 for the [DMC coordinator](../domain-data-model_2026-11-10.md).
 The coordinator owns execution state, source correspondence and scheduled disposition;

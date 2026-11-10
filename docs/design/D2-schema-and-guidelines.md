@@ -2,6 +2,10 @@
 
 ## Attributed interpretations and correction custody
 
+The [completion audit](../plans/domain-data-model_2026-11-10.md#completion-audit) qualifies
+current update-impact and correction-detail completion: DMC-09/11 retain the scoped gaps
+DMC-CA01–03. Other implemented capabilities below keep their stated evidence strength.
+
 **Implemented; scoped Tested, 2026-11-10.** Released TerminologyInterpretationV1 and
 MeasurementInterpretationV1 use private retained contributions rather than changing original
 extraction records. A completed record result and its original coordinate/native-product authority

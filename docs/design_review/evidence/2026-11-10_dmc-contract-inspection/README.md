@@ -33,3 +33,9 @@ explicit unavailable authoring detail. No current source is used to fill that hi
 
 The coordinator owns affected-test accounting and remaining series qualification. These checks
 establish the selected authoring/read workflow, not whole-series or provider qualification.
+
+
+Current custody correction: the [completion audit](../../../plans/domain-data-model_2026-11-10.md#DMC-CA04)
+found no finalized record/raw output for this original live claim. A fresh read-only acceptance is
+[recorded separately](../2026-11-10_dmc-completion-audit/records/dmc.completion-audit-controls.json);
+it does not recreate or redate the original outputs. Existing managed test receipts remain unchanged.

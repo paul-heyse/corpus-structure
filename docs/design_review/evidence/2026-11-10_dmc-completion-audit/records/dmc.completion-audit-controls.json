@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "id": "dmc.completion-audit-controls",
+  "title": "Completion audit correction controls and archived explorer recheck",
+  "group": "domain-data-model",
+  "package": "DMC-00–16",
+  "finalized": "2026-11-10",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the selected correction bounds/locations hold, and can archived explorer acceptance receive current hashed custody?",
+  "answers": [
+    "DMC-CA02",
+    "DMC-CA03",
+    "DMC-CA04"
+  ],
+  "method": "Bounded synthetic diagnostics through production owners, and exact copy of the existing read-only CLI/MCP/frozen-candidate journey. Source baseline963543a8a. No production or database mutation.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-10_dmc-completion-audit/diagnostic-probe.py",
+    "uv run python docs/design_review/evidence/2026-11-10_dmc-contract-inspection/journey.py release:4b5fd49b3879d7628e80a5feb78607b3cdc327ce223e37a5827f517f44d822f3 53d8c6b524a2466a877282680549185d"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "diagnostic-probe.py",
+      "role": "Probe source",
+      "sha256": "aea59715a83bae863cea216fb8013e65599f1e73d3c7540fc63a6bb5044a50a0"
+    },
+    {
+      "path": "inspection-journey.py",
+      "role": "Probe source",
+      "sha256": "57511db070ae07a4c5b245fcf5312ff59d2005a75ca2508a2ddf23609e943bbf"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/diagnostic-probe.json",
+      "role": "Observed audit control",
+      "sha256": "26f833237b06d056f1cb1ead61633df514cdc1476e694684ba5477c705c7bc8e"
+    },
+    {
+      "path": "raw/inspection-journey.json",
+      "role": "Observed audit control",
+      "sha256": "ce4e6d663c30e7d6bfcb824068db37261261249a2569ef81b6dcf2deeed6be7d"
+    },
+    {
+      "path": "raw/inspection-journey.stderr.txt",
+      "role": "Observed audit control",
+      "sha256": "1600052b2f435bf6972da45f523103af326d2cf8a2732e5fc2d2e193d7b81720"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Correction output bypasses requested bounds and loses non-schema native path; these remain open product obligations. Fresh read-only archived inspection passes inherited origin, frozen candidate, CLI/MCP parity, valid/invalid input, finite skeleton and operation explanation. This establishes current custody, not recovery or redating of missing original acceptance outputs.",
+  "consumed_by": [
+    "DMC-CA02",
+    "DMC-CA03",
+    "DMC-CA04"
+  ]
+}

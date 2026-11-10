@@ -1,5 +1,9 @@
 # Diagnostic correction and qualified graph workflows
 
+Current residual delivery and finding disposition are owned by the coordinator
+[completion audit](../domain-data-model_2026-11-10.md#completion-audit), DMC-CA01–03.
+
+
 **Accepted implementation design and selected mechanisms, 2026-11-10.** This supporting plan owns the design
 and delivery instructions for DMC-11, DMC-12 and DMC-14. The [series coordinator](../domain-data-model_2026-11-10.md)
 owns authorization, execution state, investigation dispositions, formal review points and

@@ -1,6 +1,6 @@
 # Integrated domain-data-model capability series
 
-**Status: DMC-00–16 complete with scoped acceptance; DMC-17 planned · 2026-11-10.**
+**Status: DMC-09 and DMC-11 reopened by completion audit; other DMC-00–16 packages complete at scoped boundaries; DMC-17 planned · 2026-11-10.**
 This coordinator owns DMC-00–17, DMC-I01–09, source opportunity disposition, selected branch
 delivery and combined qualification. Supporting plans own target explanations and package
 contracts, not duplicate progress. Existing PTD, DMA, WCE and PM2 scopes remain with their owners.
@@ -79,7 +79,7 @@ independent work may still contend for those files.
 
 ## Execution queue
 
-DMC-00–16 delivery and scoped acceptance are recorded in the execution receipts below;
+DMC-00–16 delivery receipts are retained below; the completion audit reopens DMC-09/11 and qualifies aggregate acceptance. Other packages retain scoped completion;
 DMC-17 remains **planned**. This table and receipt are the current package-state owner. Investigations may finish during execution entry where source inspection
 settles their question; no experiment quota applies.
 
@@ -94,9 +94,9 @@ settles their question; no experiment quota applies.
 | <a id="DMC-06"></a>DMC-06 | I01 source/consumer decision + DMC-01 artifact conventions → richer immutable vocabulary metadata and operation-owned source preparation under explicit supported profile |
 | <a id="DMC-07"></a>DMC-07 | Working DMC-06 → two useful controlled fields, inspection/filter consumer, labels/hierarchy/mapping/check-status fidelity and offline archived reads |
 | <a id="DMC-08"></a>DMC-08 | I04 selected grounding decision + DMC-06 lookup slice → located term candidates with separate mapping kinds, unresolved alternatives and authentic source/vocabulary pins |
-| <a id="DMC-09"></a>DMC-09 | DMC-06/07 metadata + current semantic-diff owner → membership/meaning/label/mapping update explanation with known consumer scope and explicit unknowns |
+| <a id="DMC-09"></a>DMC-09 | **Reopened: [DMC-CA01](#DMC-CA01).** DMC-06/07 metadata + current semantic-diff owner → membership/meaning/label/mapping update explanation with known consumer scope and explicit unknowns |
 | <a id="DMC-10"></a>DMC-10 | I01 measurement consumer + I05 → recognized unit/quantity interpretations and grouping/compatibility read; selected conversion/classification separately delivered |
-| <a id="DMC-11"></a>DMC-11 | DMC-00 + current report/managed-result owners → bounded original-engine correction detail, typed reference/custody semantics and selected direct/retained CLI/MCP consumers |
+| <a id="DMC-11"></a>DMC-11 | **Reopened: [DMC-CA02](#DMC-CA02), [DMC-CA03](#DMC-CA03).** DMC-00 + current report/managed-result owners → bounded original-engine correction detail, typed reference/custody semantics and selected direct/retained CLI/MCP consumers |
 | <a id="DMC-12"></a>DMC-12 | I06 selected navigation/component decision → supported paths or recurring constraints preserving qualified occurrences/universe, with readers and diagnostics integrated |
 | <a id="DMC-13"></a>DMC-13 | I07 selected independent consumer + required DMC-01/11 contract slice → self-contained offline contract closure and real independent consumption |
 | <a id="DMC-14"></a>DMC-14 | I06 selected graph-research question → bounded attributed exploratory view/comparison; current production inference/conformance retained |
@@ -140,8 +140,7 @@ the owning target and this table before implementation, and add their required e
 
 ## Source disposition and complete correspondence
 
-Rows preserve functional opportunity identities, not new defect IDs. O01–O13 are complete at
-their selected scope through DMC-00–16. Conditional alternatives have explicit retained outcomes
+Rows preserve functional opportunity identities, not new defect IDs. O07/O09 are reopened under DMC-09/11; other O01–O13 items retain selected-scope completion. Conditional alternatives have explicit retained outcomes
 and revisit triggers in the companions; they are not implementation claims. DMC-17 still owns
 whole-series qualification and assembled review.
 
@@ -153,9 +152,9 @@ whole-series qualification and assembled review.
 | O04 / DDM-14 | **Complete, selected DMC-05 subtree normalization.** Structural observation owner → I03/05; existing nested schemas preserved, selected normalization or retain conclusion |
 | O05 / DDM-05/11 | Vocabulary preparation/read owners → I01/06/07; useful terms/fields, retained meaning/provenance and shared scoped preparation |
 | O06 / DDM-06 candidate branch | Candidate/selection owners → I04/08; external mapping never relabelled source support/identity |
-| O07 / DDM-06 lifecycle branch | Semantic-diff owner →06/09; exact membership/metadata change, consumer coverage and old meaning retained |
+| O07 / DDM-06 lifecycle branch | **Partial: DMC-CA01.** Semantic-diff owner →06/09; exact membership/metadata change, consumer coverage and old meaning retained |
 | O08 / DDM-12 | Measurement owner → I01/I05/10; source/recognized/basis distinction; conversion/classification selected separately |
-| O09 / DDM-08/09 errors | Report/error/custody owners →11; original errors/detail retained safely, direct versus resolvable reference and complete/partial/unavailable honest |
+| O09 / DDM-08/09 errors | **Partial: DMC-CA02/03.** Report/error/custody owners →11; original errors/detail retained safely, direct versus resolvable reference and complete/partial/unavailable honest |
 | O10 / DDM-02/07 | Relationship/projection owners → I06/12; admitted path grammar, identity/multiplicity/reference closure |
 | O11 / DDM-03/09 resources | Independent consumer owner → I07/13; actual offline validation, explicit dialect/resource closure and limitations |
 | O12 / DDM-10 | Process settings owner → I08/15; actual snapshot/report use or justified retain outcome |
@@ -726,9 +725,9 @@ change. Successful private results are reused rather than authored again during 
 
 ### Selected scope acceptance and next boundary · 2026-11-10
 
-**DMC-07–16 are complete with scoped functional/native acceptance.** I01/I04–09 have selected
+**Prior DMC-07–16 scoped acceptance is qualified by the [completion audit](#completion-audit): DMC-09/11 remain incomplete.** I01/I04–09 have selected
 or retained dispositions, with mechanisms and revisit triggers in the three supporting companions.
-This closes the selected O05–O13 capabilities and remaining independent/tooling branches of O01;
+This delivers the selected O05–O13 capabilities except O07/O09, reopened below, and remaining independent/tooling branches of O01;
 O02–O04 retain their prior scoped receipts. The four independent implementation-review findings
 are closed by the safe preparation/graph sentinel checks, native selected-root ambiguity check,
 27 settings alias cases and bounded independent offline cases. The genuine journey additionally
@@ -754,8 +753,8 @@ known-answer/native/managed-artifact checks. Original failed/interrupted receipt
 attempts remain preserved; later passes do not change their outcomes.
 
 The scoped union is754 distinct test identities: the753 campaign plus its additional response
-regression, with affected replacements84 and157 as described above. Coverage is complete for that
-union; final-source applicability rests on the stated two-file corrections and their actual native
+regression, with affected replacements84 and157 as described above. Observed identity coverage is complete for that
+union, but it does not exercise the audit counterexamples; final-source applicability rests on the stated two-file corrections and their actual native
 and live consumers. The native head remains semantic_dmc_digest_binding with admitted7caa;
 response/dispatch repairs changed no declaration, semantic release or SQL. No activation,
 run selection, original source replacement, dependency or toolchain move occurred. `/10`, the
@@ -778,3 +777,78 @@ The corrected owner workflow resolved those conditions without changing raw evid
 the handoff prose; root `just turn-end` **passed** with no functional-source edits. No functional source changed
 after the157 replacement campaign; final edits affect owner/evidence/status prose only. The
 implementation and handoff commit names record their actual scoped test outcomes. No push follows.
+
+
+## Completion audit
+
+**2026-11-10 · source-inspected with focused controls · baseline963543a8a3f97a57332cf031808ea63c523bbec5.**
+Three fresh independent implementation reviewers reconstructed accepted DMC-00–16 scope across
+all five companions, source O01–O13/21 additional branches, current owners/ADR-0075–77, code and
+ordinary consumers. The coordinator integrated their findings. Concurrent CLI/logging planning
+documents were preserved and excluded. No production, schema, migration or persistent data repair
+was performed. DMC-17 remains planned, rather than being judged against an unclaimed series exit.
+
+### Current conclusion
+
+**Implementation:** DMC-09 and DMC-11 are incomplete in the three accepted behaviors below.
+Other DMC-00–16 packages retain scoped completion: immutable inspection/provenance and shared
+explorer, exact recipe construction, cattrs directional reconstruction with independent authenticity,
+subtree normalization, qualified vocabulary preparation, attributed review/native custody, selected
+measurement grouping, SHACL display, offline consumption, pinned comparison and settings snapshots
+reach their intended consumers. Selected/retained I01–09 decisions remain grounded; conversion,
+classification, additional engines/codecs and generic tooling are not silently added obligations.
+No additional missing consumer or superseded replacement path was established in those areas.
+
+**Verification:** existing passing identities remain evidence at their actual source/context, not
+proof of untested narrative requirements. Read-only managed coverage inspection passed232/232 for
+the initial inspection selection; the separate108 diagnostic-repair selection is passed/held and
+its source/tests are unchanged since403822dfb. Construction coverage retains346 and separate80
+with its retry; the original failed attempt stays failed. Latest753 plus84/157 replacements have
+no unresolved original nodes/missing lanes/context unknowns and complete native observations.
+These overlapping selections are not summed. The additional response regression supports the
+prior754-identity declared union; that union omits the new counterexamples below. Applicable
+source replacement evidence supports delivered portions, not completion of DMC-09/11. No broad
+functional/provider/fault campaign was launched during this audit; DMC-17 still owns that boundary.
+
+Actual PostgreSQL18.6 maintenance observation passed at semantic_dmc_digest_binding, dedicated
+socket5434. A bounded read-only runtime query confirmed run495 archives the current corrected
+method source (SHA256 e4c6e06198c6cadff99246e3ffa78bd6212aa0f53ccf9e2149920ffbefc661d2), under
+runtime:5c99e4c3d40c51ec1b9ddc80408f8f0631b8a1903382733b7144b8c64eee9c40. Earlier491/492/493
+retain internally consistent prior method bytes. Runtime Python inputs are correctly excluded
+from semantic assets. This establishes actual source custody, not proof that arbitrary archived
+bytes executed. Existing private results, original487/cut604, selection/default/tie and494 rollback
+residue were inspected through retained evidence; no new authored run or selection was needed.
+
+**Benefits:** useful inspection/review/grouping/correction/offline workflows are demonstrated at
+their stated boundaries. Preparation reuse and simpler conversion remain qualitative engineering
+expectations. No quantitative performance or scientific-quality benefit is established or needed
+for these selected promises. Missing benchmarks are not an audit defect.
+
+### Findings and required next work
+
+| Finding | Owner and obligation | Evidence, consequence and closure |
+| --- | --- | --- |
+| <a id="DMC-CA01"></a>DMC-CA01 · OPEN | DMC-09 / O07 · proposed-update retained-use impact | The terminology companion §DMC-09 requires old retained-review uses during an update. `semantic/operation_reporting.py:864` always surveys `after.release_id`; `interpretation_queries.py:189` filters that release exactly. Existing before-bound reviews disappear when before and after differ. CLI/MCP expose no side override; same-release genuine evidence cannot establish this update case. Preserve explicitly attributed before-side uses, migrate comparison consumers, and verify a populated distinct-release change including removed member/mapping change, bounds and unknown populations. Source inspection establishes the gap; no new model/release was created to demonstrate it. |
+| <a id="DMC-CA02"></a>DMC-CA02 · OPEN | DMC-11 / O09 · bounded correction presentation | The diagnostics companion requires bounded returned correction items/bytes and opt-in values. `correction_detail.py:60` bounds only detail/evidence; `operation_reporting.py:1390,1592` copies observations outside that bound. The probe requested1024bytes but emitted17104bytes, including16411 raw-message characters, while bounded nodes were dropped. max_errors1 produced20observations/one node. This is discarded variable detail resurfacing, not fixed-envelope overhead. Bound all correction presentation facts while preserving validation outcome and distinct assessment/inventory/render coverage; verify raw/Pydantic/graph cases through direct, retained and inspection consumers. |
+| <a id="DMC-CA03"></a>DMC-CA03 · OPEN | DMC-11 / O09 · non-schema wrapper diagnostics | The diagnostics companion acceptance requires PDF/native wrapper paths and finite/reference/closure meanings. `pdf_records.py:49,241` preserves NativeMappingError.path, but uncaptured errors reach generic ValueError reporting (`operation_reporting.py:1512`) and empty detail (`correction_detail.py:101`). Actual mapping input items=[infinity] retained#/items/0 in the exception but yielded no typed input_path and no nodes. `pdf_payloads.py:39` similarly flattens non-schema paths into text. Preserve safe structured path/code/category at the owners and in direct/retained presentation; independently verify finite, reference-profile and closure cases without parsing human prose. |
+| <a id="DMC-CA04"></a>DMC-CA04 · CLOSED for current custody,2026-11-10 | DMC-01/02 · accepted result evidence custody | The original contract-inspection evidence folder contained no finalized record or raw journey output despite its Tested claim, contrary to AGENTS/ADR-0010. Original live outputs were not recovered or retroactively certified. A fresh read-only run of its existing journey at archived4b5f release/frozen53d8 candidate passed inherited origin, CLI/MCP/candidate parity, valid/invalid input, finite skeleton and operation explanation. Current hashed custody is supplied by the audit evidence record; original232/108 test receipts retain their original dates. No production repair was required. |
+
+The [focused evidence](../design_review/evidence/2026-11-10_dmc-completion-audit/README.md) records
+bounds/location counterexamples and fresh explorer acceptance. A missing redundant engine-version
+field was considered and rejected as a finding: authenticated release manifests already bind
+relevant library versions. Inherited evidence warnings and DMC-17's planned qualification are
+not relabelled as new implementation defects.
+
+Next: implement DMC-CA01 in the semantic comparison owner and DMC-CA02/03 in wrapper/report/custody
+owners, then verify their affected consumers and reconcile this same plan. Audit authorization
+has not executed those repairs. DMC-17 follows resolved selected scope; it must not absorb these
+unfinished promises through a unilateral deferral. Current package summaries and O07/O09 status
+above are corrected; earlier successful receipts remain dated and unchanged.
+
+
+Audit publication,2026-11-10: `uv run ci evidence finalize` and `uv run ci evidence index --json`
+**passed** for dmc.completion-audit-controls; `uv run ci evidence check --json` **passed**,366
+records/184 folders, zero errors and41 inherited warnings. `uv run ci docs check` **passed**,842
+canonical pages/74 ADRs and zero link errors, including concurrently authored CLI/logging plans.
+Root turn-end maintenance introduced no production changes. Those concurrent plans/queue changes
+are preserved; they do not change this audit's implementation baseline or authorize product repairs.
