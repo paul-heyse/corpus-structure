@@ -247,7 +247,12 @@ class _SchemaYamlLoader(DupCheckYamlLoader):
         )
 
 
-def _view(bundle: SourceBundle, profile: PreparationProfile | None = None) -> SchemaView:
+def _view(
+    bundle: SourceBundle,
+    profile: PreparationProfile | None = None,
+    *,
+    inspection_index: dict | None = None,
+) -> SchemaView:
     schemas: dict[str, SchemaDefinition] = {}
     elements: dict[tuple[str, str], str] = {}
     prefixes: dict[str, str] = {}
@@ -259,6 +264,10 @@ def _view(bundle: SourceBundle, profile: PreparationProfile | None = None) -> Sc
             if not isinstance(body, dict):
                 _fail("schema", source.name, "schema must be a mapping")
             _inspect(body, source.name, profile)
+            if inspection_index is not None:
+                from .inspection_metadata import capture_declarations
+
+                capture_declarations(inspection_index, source, body)
             schema = cast(SchemaDefinition, yaml_loader.load(body, SchemaDefinition))
         except PreparationError:
             raise
@@ -394,8 +403,10 @@ def _view_and_vocabularies(
     bundle: SourceBundle,
     dependencies: ResolvedDependencies,
     profile: PreparationProfile | None = None,
+    *,
+    inspection_index: dict | None = None,
 ) -> tuple[SchemaView, tuple[VocabularySnapshot, ...], tuple[Diagnostic, ...]]:
-    view = _view(bundle, profile)
+    view = _view(bundle, profile, inspection_index=inspection_index)
     supplied = {s.enum: s for s in dependencies.vocabularies}
     if len(supplied) != len(dependencies.vocabularies):
         _fail("vocabulary", "dependencies", "duplicate vocabulary snapshots")
@@ -581,7 +592,10 @@ def _prepare_release_uncached(
             if not isinstance(declared, dict):
                 _fail("operation_rules", dependency.name, "rules must be a mapping")
             operation_inputs[dependency.name] = declared
-    view, vocabularies, diagnostics = _view_and_vocabularies(bundle, dependencies, profile)
+    inspection_index: dict = {}
+    view, vocabularies, diagnostics = _view_and_vocabularies(
+        bundle, dependencies, profile, inspection_index=inspection_index
+    )
     rule_fragments = compile_conditional_rules(view) if profile.version == "semantic-2" else {}
     enum_types = {s.enum: tuple(m.value for m in s.members) for s in vocabularies}
     definitions: list[ClassDefinition] = []
@@ -840,6 +854,9 @@ def _prepare_release_uncached(
         PreparedArtifact("query_coverage.json", canonical_bytes(coverage_recipe())),
         PreparedArtifact("effective_bindings.json", canonical_bytes(effective_bindings)),
     ]
+    from .inspection_metadata import prepare_inspection
+
+    artifacts.append(prepare_inspection(inspection_index, view, tuple(definitions)))
     from .contributions import prepare_contribution_projection
 
     contribution_projection = prepare_contribution_projection(tuple(definitions))

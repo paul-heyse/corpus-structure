@@ -1,6 +1,6 @@
 # Integrated domain-data-model capability series
 
-**Status: Proposed; plan authored, implementation not started · 2026-11-10.**
+**Status: DMC-00–02 execution in progress · 2026-11-10.**
 This coordinator owns DMC-00–17, DMC-I01–09, source opportunity disposition, selected branch
 delivery and combined qualification. Supporting plans own target explanations and package
 contracts, not duplicate progress. Existing PTD, DMA, WCE and PM2 scopes remain with their owners.
@@ -225,3 +225,19 @@ ADR is not implementation; package completion is not whole-series qualification.
 
 Plan-authoring product tests/native probes/benchmarks: **not_run**; no production effects were
 performed. Documentation checks are recorded in STATUS with actual commands/outcomes.
+
+## DMC-00–02 execution receipt · 2026-11-10
+
+DMC-00 acquired completed PTD-11 at source `7e30c5d167`. Maintenance database observation
+`uv run ci db status --maintenance --json` passed: `corpus_structure_dev`, PostgreSQL18.6,
+`semantic_ptd_completion_repairs`, dedicated socket port5434, purpose maintenance/principal paul.
+PTD handoff retains compiler19/execution28/boundary12 and its exact source/runtime/release pins;
+run487/cut604, `/10` and the unselected project posture remain preserved. The
+[entry target review](../design_review/reviews/design_review_domain-data-model-entry_2026-11-10.md)
+and ADR-0075 govern the new boundaries. This receipt owns current package disposition.
+
+DMC-00: baseline acquired; entry review being published. DMC-01/02: implementation in progress.
+The operator selected newly archived development release demonstration and exact admission where
+required, without activation or run selection. Named-type pattern plus inherited slot bounds
+replaces the unsupported named-type numeric-bound acceptance example; the profile is unchanged.
+Full-series qualification remains DMC-17-owned.

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Literal
 
 import typer
 from pydantic import BaseModel
@@ -599,3 +599,54 @@ def diff_(
 
 def register(app: typer.Typer):
     app.add_typer(schema_app, name="schema")
+
+
+@schema_app.command("inspect")
+def inspect_contract_command(
+    ctx: typer.Context,
+    release: Annotated[str, typer.Option("--release")],
+    subject_kind: Annotated[
+        Literal["class", "property", "operation"], typer.Option("--subject-kind")
+    ],
+    subject: Annotated[str, typer.Option("--subject")],
+    property_: Annotated[str | None, typer.Option("--property")] = None,
+    view: Literal["summary", "detail"] = "summary",
+    after: str | None = None,
+    limit: Annotated[int, typer.Option(min=1, max=100)] = 20,
+    input_: Annotated[Path | None, typer.Option("--input")] = None,
+    validation_purpose: Literal["structural", "accepted"] | None = None,
+    json_: JsonOpt = False,
+) -> None:
+    """Inspect a selected archived contract; validate optional input without effects."""
+    from corpus_structure.cli.output import state
+    from corpus_structure.semantic.contract_inspection import inspect_contract
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.releases import open_release
+    from corpus_structure.semantic.runtime import open_runtime_engine
+
+    with refusal(json_, expected=(ValueError, OSError, KeyError)):
+        with (
+            open_runtime_engine(
+                state(ctx).settings(), "ci-schema-inspect", purpose="read"
+            ) as engine,
+            read_snapshot(engine) as connection,
+        ):
+            prepared = open_release(connection, release)
+            result = inspect_contract(
+                prepared,
+                subject_kind,
+                subject,
+                property=property_,
+                view=view,
+                after=after,
+                limit=limit,
+                input_json=input_.read_bytes() if input_ is not None else None,
+                validation_purpose=validation_purpose,
+            )
+
+        def render(report):
+            table = Table.grid()
+            table.add_row(report.model_dump_json(indent=2))
+            return table
+
+        emit(result, json=json_, render=render)

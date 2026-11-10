@@ -14,8 +14,10 @@ from pydantic import BaseModel, TypeAdapter
 
 from .refusals import SemanticRefusal
 
-SEMANTIC_COMPILER_VERSION: Literal["19"] = "19"
-READABLE_COMPILER_VERSIONS = frozenset({"14", "15", "16", "17", "18", SEMANTIC_COMPILER_VERSION})
+SEMANTIC_COMPILER_VERSION: Literal["20"] = "20"
+READABLE_COMPILER_VERSIONS = frozenset(
+    {"14", "15", "16", "17", "18", "19", SEMANTIC_COMPILER_VERSION}
+)
 BOUNDARY_ABI_VERSION = "12"
 
 
@@ -268,6 +270,13 @@ class PreparedRelease:
     _relational_preparations: dict[str, Any] = field(
         default_factory=dict, repr=False, compare=False, init=False
     )
+
+    @cached_property
+    def inspection_metadata(self) -> Mapping[str, Any]:
+        """Lazy derived authoring detail, separate from effective executable definitions."""
+        from .inspection_metadata import _decode_inspection, freeze_inspection
+
+        return freeze_inspection(_decode_inspection(self))
 
     @cached_property
     def artifacts_sha256(self) -> str:

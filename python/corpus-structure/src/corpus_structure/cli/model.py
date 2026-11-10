@@ -681,9 +681,24 @@ def _candidate_view(report: CandidateInspection) -> Table:
 def inspect_candidate(
     ctx: typer.Context,
     candidate_id: Annotated[str, typer.Argument(metavar="CANDIDATE_ID")],
-    view: Annotated[Literal["summary", "operations", "sql"], typer.Option()] = "summary",
+    view: Annotated[
+        Literal["summary", "operations", "sql", "contract"], typer.Option()
+    ] = "summary",
     after: Annotated[int, typer.Option(min=0)] = 0,
     limit: Annotated[int, typer.Option(min=1, max=100)] = 20,
+    subject_kind: Annotated[
+        Literal["class", "property", "operation"] | None, typer.Option("--subject-kind")
+    ] = None,
+    subject: Annotated[str | None, typer.Option("--subject")] = None,
+    property_: Annotated[str | None, typer.Option("--property")] = None,
+    contract_view: Annotated[
+        Literal["summary", "detail"], typer.Option("--contract-view")
+    ] = "summary",
+    contract_after: Annotated[str | None, typer.Option("--contract-after")] = None,
+    input_: Annotated[Path | None, typer.Option("--input")] = None,
+    validation_purpose: Annotated[
+        Literal["structural", "accepted"] | None, typer.Option("--validation-purpose")
+    ] = None,
     json_: JsonOpt = False,
 ) -> None:
     """Inspect a settled candidate and its registration in the bound checkout."""
@@ -722,6 +737,34 @@ def inspect_candidate(
             binding = Candidate.model_validate_json(
                 _load_artifact(store, candidate_id, "model.candidate", "deployment")
             )
+            if view == "contract":
+                from corpus_structure.semantic.contract_inspection import inspect_contract
+                from corpus_structure.semantic.inspection_capsule import open_capsule
+
+                if not binding.inspection_sha256:
+                    raise ResultError("contract detail unavailable in this retained candidate")
+                if subject_kind is None or subject is None:
+                    raise ResultError("contract inspection requires --subject-kind and --subject")
+                prepared = open_capsule(
+                    store.read_artifact(candidate_id, "inspection"),
+                    digest=binding.inspection_sha256,
+                    release_id=binding.release,
+                    manifest_digest=binding.release_manifest_sha256 or "",
+                    artifacts_digest=binding.release_artifacts_sha256 or "",
+                )
+                report = inspect_contract(
+                    prepared,
+                    subject_kind,
+                    subject,
+                    property=property_,
+                    view=contract_view,
+                    after=contract_after,
+                    limit=limit,
+                    input_json=input_.read_text() if input_ else None,
+                    validation_purpose=validation_purpose,
+                )
+                emit(report, json=json_)
+                return
             if view == "operations":
                 import os
 
@@ -1191,7 +1234,9 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                 with writer_lock(root):
                     model_stage(result, "verify preview and prepare release")
                     check_preview(root, staged, applied=True)
-                    _, dependencies, _, prepared = _prepare_release(root, staged.request.packs)
+                    bundle, dependencies, profile, prepared = _prepare_release(
+                        root, staged.request.packs
+                    )
                     staged.verify_release(prepared)
                     _retain_authored_sql(sql_holder, dependencies, preserve=True)
                     sql_inputs = prepare_release_sql(prepared, dependencies)
@@ -1252,7 +1297,16 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                         sql_holder[0] = explanation_from_native(
                             products["native_operations.json"], sql_holder[0]
                         )
+                    from corpus_structure.semantic.inspection_capsule import make_capsule
+
+                    capsule = make_capsule(bundle, dependencies, profile, prepared)
+                    capsule_path = result.directory / "inspection.json"
+                    capsule_path.write_bytes(capsule)
+                    result.publish("inspection", capsule_path)
                     binding = Candidate.from_preview(staged, revision, prepared, products)
+                    binding = binding.model_copy(
+                        update={"inspection_sha256": sha256(capsule).hexdigest()}
+                    )
                     if revision:
                         wrapper = result.directory / "migration.py"
                         wrapper.write_bytes(migration_wrapper(binding))

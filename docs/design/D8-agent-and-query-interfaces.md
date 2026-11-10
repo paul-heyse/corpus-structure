@@ -1,5 +1,19 @@
 # D8 · Agent and query interfaces
 
+## Release contract exploration
+
+**Accepted target, 2026-11-10; DMC-02 owns implementation and verification.** CLI `schema inspect`,
+MCP `inspect_contract` and model candidate `--view contract` compose one explicit-release domain
+reader. Summary/detail distinguish effective constraints, descriptive facts, known contributors,
+projection support and observed deployment admission. Bound continuations retain release,
+artifact-set, subject and view identity. Finite input scaffolding keeps unresolved placeholders
+outside executable input; supplied JSON is validated with an explicit structural or accepted
+purpose. Retained candidate contracts open authenticated managed archive3 capsules rather than
+current checkout sources. Existing operation explanations retain effect-policy ownership.
+
+> Decision: [ADR-0075](../adr/0075-immutable-contract-inspection.md)
+
+
 ## Witnessed component target
 
 **Implemented; bounded Tested,2026-11-06.** Ordinary Reader, CLI, fresh stdio MCP and portable export preserve component roles, operation versions, source/runtime pins and partial/unavailable outcomes. Public assertions/support appear as separate facets; retained proposals do not acquire their standing. Independent read captures retain distinct capture IDs while their stable binding/content agrees. Protected reference labels remain protected.

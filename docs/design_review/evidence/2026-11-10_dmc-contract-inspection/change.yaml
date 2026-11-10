@@ -1,0 +1,12 @@
+baseline: HEAD
+archive_release: release:40ec92fe2798e6567132154a20f080e6137f956869eb657dbf3973f490c2252b
+packs: [statistics]
+native_predecessor: semantic_ptd_completion_repairs
+native_revision: semantic_dmc_inspection
+recreate:
+  - kind: function
+    schema: sem
+    name: require_archive_bytes
+    arguments: [text]
+deployment: true
+deployment_profile: development

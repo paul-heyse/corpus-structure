@@ -8,6 +8,47 @@ reasoning, and implementation plans own scheduled work and closure evidence.
 
 <a id="baseline"></a>
 
+
+<a id="domain-data-model-entry-refresh"></a>
+
+## Domain-data-model execution entry refresh · 2026-11-10
+
+**Implemented source inspected.** Source baseline is committed
+`7e30c5d167675aa36a3af23464bb5b6dc0f9ddd4`; this documentation publication is separate.
+The preceding PTD refresh below, published at `044915435`, retains its original source baseline
+and limits. Core 3.3, heuristics 1.0, code-intelligence 1.4 and binding apply; test-assessment 1.2
+informs the inspection of changed verification. This refresh adds the intervening PTD closure
+changes and the existing preparation/archive/report/candidate boundaries relevant to DMC entry.
+It does not refresh unrelated PM2 work or the entire inherited finding collection.
+
+**Source-inspected, 2026-11-10.** The `8e69e2b5f…7e30c5d167` delta changes no production
+Python implementation or dependency declaration. Its executable changes are a native scoped-reader
+acceptance test and a GLiNER protocol-recovery test startup budget. The native test independently
+asserts candidate identity/channel scores, detached preparation reuse, query refusal on a cache
+hit, distinct reader ownership and closed per-operation connections. The GLiNER test changes its
+startup allowance while retaining the protocol assertions; the separate timeout test remains.
+These changes do not introduce a new production semantic owner or weaken the declared timeout
+contract. D3 now identifies the completed native baseline and separates detached preparation from
+borrowed snapshots. PTD receipts remain dated evidence owned by its coordinator, not fresh runs here.
+
+**Source-inspected, 2026-11-10.** DMC's current foundations preserve the important authority
+separations: `semantic/prepare.py` validates a supplied closed bundle before import merging and
+contextual induction; `semantic/archive_reader.py` authenticates manifest, inputs, products and
+artifact bytes before exact reconstruction; `semantic/types.py` owns strict structural and
+accepted-value boundaries; `semantic/operation_reporting.py` validates reports against its trusted
+model. `intervene/semantic_server.py` separates reader snapshots from lazy write-queue acquisition.
+The current `schema/model_deployment.py` candidate retains release and product digests but no
+prepared-product bytes. This is a capability premise for the selected authoring extension, not a
+claim that today's deployment inspector violates its existing effects-oriented contract.
+
+The scoped inspection establishes no additional demonstrated production architectural violation.
+Inherited findings retain their primary homes and evidence dates. The
+[entry target review](../reviews/design_review_domain-data-model-entry_2026-11-10.md) compares the
+proposed authoring extension and its failure/change scenarios; the
+[DMC coordinator](../../plans/domain-data-model_2026-11-10.md) owns scheduled disposition,
+implementation and qualification. Tests, database commands, providers and benchmarks: **not_run**
+for this static audit contribution.
+
 <a id="ptd-assembled-refresh"></a>
 
 ## PostgreSQL typed-domain assembled refresh · 2026-11-10

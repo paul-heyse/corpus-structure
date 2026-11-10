@@ -28,7 +28,13 @@ from .types import Diagnostic, PreparedRelease
 if TYPE_CHECKING:
     from .runtime_bindings import RuntimeBinding
 
-_SCHEMA_NAMES = ("OperationExplanation", "LocatedValidationReport", "SemanticImpactReport")
+_REPORT_VERSIONS = {
+    "OperationExplanation": 2,
+    "LocatedValidationReport": 3,
+    "SemanticImpactReport": 2,
+    "ContractInspection": 1,
+}
+_SCHEMA_NAMES = tuple(_REPORT_VERSIONS)
 _SCHEMA_PATH = "model/semantic/operation-report-schemas.json"
 
 
@@ -129,7 +135,7 @@ def _report(name: str, data: dict) -> BaseModel:
         canonical_bytes(
             supplied(
                 dict(
-                    report_version=3 if name == "LocatedValidationReport" else 2,
+                    report_version=_REPORT_VERSIONS[name],
                     report_schema_digest=digest,
                     **data,
                 )

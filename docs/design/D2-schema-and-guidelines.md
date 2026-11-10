@@ -1,5 +1,19 @@
 # D2 · Schema conventions, compilers and the statistics pack
 
+## Immutable effective-model inspection
+
+**Accepted target, 2026-11-10; DMC-01/02 own implementation and verification.** Preparation
+retains compact declaration references before contextual induction in version1
+`inspection/effective-model.json`. Supplied module/path/digest and contributor roles explain
+existing normalized definitions and boundary/operation products; they do not establish another
+executable authority. Compiler20 versions this product addition; archive3 and boundary ABI12
+remain unchanged. Older supported releases expose unavailable provenance honestly. Ordinary
+opening authenticates retained bytes without recompiling current sources. Detached managed
+candidate inspection shares the same archive authentication and reconstruction owner.
+
+> Decision: [ADR-0075](../adr/0075-immutable-contract-inspection.md)
+
+
 ## Witnessed component target
 
 **Implemented; bounded Tested,2026-11-06.** Executable released declarations own component variants, role bindings and operation contracts. Current structural-product-2/contextual-enrichment-2 and structural evaluation frame3 have one go-forward decoder. Generated boundaries and native validators consume the declared meaning. Optional unsupported annotation versions retain custody and explicit unavailability without historical semantic decoding.

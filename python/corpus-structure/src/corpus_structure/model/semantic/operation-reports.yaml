@@ -416,3 +416,183 @@ classes:
       next_after: {range: UrInteger, minimum_value: 0, slot_uri: 'ur:ProjectionDependencyPage_next_after'}
       paging_complete: {range: UrBoolean, required: true, slot_uri: 'ur:ProjectionDependencyPage_paging_complete'}
       coverage_complete: {range: UrBoolean, required: true, slot_uri: 'ur:ProjectionDependencyPage_coverage_complete'}
+
+  ContractContributor:
+    attributes:
+      module:
+        range: UrString
+        slot_uri: ur:ContractContributor_module
+      path:
+        range: UrString
+        slot_uri: ur:ContractContributor_path
+      source_digest:
+        range: UrString
+        slot_uri: ur:ContractContributor_source_digest
+      role:
+        range: UrString
+        slot_uri: ur:ContractContributor_role
+      declaration_json:
+        range: UrString
+        slot_uri: ur:ContractContributor_declaration_json
+  ContractInspectionEntry:
+    attributes:
+      category:
+        range: UrString
+        slot_uri: ur:ContractInspectionEntry_category
+      name:
+        range: UrString
+        slot_uri: ur:ContractInspectionEntry_name
+      iri:
+        range: UrString
+        slot_uri: ur:ContractInspectionEntry_iri
+      range:
+        range: UrString
+        slot_uri: ur:ContractInspectionEntry_range
+      required:
+        range: UrBoolean
+        slot_uri: ur:ContractInspectionEntry_required
+      multivalued:
+        range: UrBoolean
+        slot_uri: ur:ContractInspectionEntry_multivalued
+      minimum_cardinality:
+        range: UrInteger
+        slot_uri: ur:ContractInspectionEntry_minimum_cardinality
+      maximum_cardinality:
+        range: UrInteger
+        slot_uri: ur:ContractInspectionEntry_maximum_cardinality
+      minimum:
+        range: UrString
+        slot_uri: ur:ContractInspectionEntry_minimum
+      maximum:
+        range: UrString
+        slot_uri: ur:ContractInspectionEntry_maximum
+      constraint_scope:
+        range: UrString
+        slot_uri: ur:ContractInspectionEntry_constraint_scope
+      alias:
+        range: UrString
+        slot_uri: ur:ContractInspectionEntry_alias
+      metadata_json:
+        range: UrString
+        slot_uri: ur:ContractInspectionEntry_metadata_json
+      boundary_schema_json:
+        range: UrString
+        slot_uri: ur:ContractInspectionEntry_boundary_schema_json
+      attribution:
+        range: UrString
+        slot_uri: ur:ContractInspectionEntry_attribution
+      patterns:
+        range: UrString
+        slot_uri: ur:ContractInspectionEntry_patterns
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      contributors:
+        range: ContractContributor
+        slot_uri: ur:ContractInspectionEntry_contributors
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+  ContractPlaceholder:
+    attributes:
+      path:
+        range: UrString
+        slot_uri: ur:ContractPlaceholder_path
+      range:
+        range: UrString
+        slot_uri: ur:ContractPlaceholder_range
+      reason:
+        range: UrString
+        slot_uri: ur:ContractPlaceholder_reason
+  ContractInspection:
+    attributes:
+      report_version:
+        range: UrInteger
+        slot_uri: ur:ContractInspection_report_version
+        required: true
+        minimum_value: 1
+        maximum_value: 1
+      report_schema_digest:
+        range: UrString
+        slot_uri: ur:ContractInspection_report_schema_digest
+        required: true
+      release_id:
+        range: UrString
+        slot_uri: ur:ContractInspection_release_id
+        required: true
+      artifacts_sha256:
+        range: UrString
+        slot_uri: ur:ContractInspection_artifacts_sha256
+        required: true
+      subject_kind:
+        range: UrString
+        slot_uri: ur:ContractInspection_subject_kind
+        required: true
+      subject_id:
+        range: UrString
+        slot_uri: ur:ContractInspection_subject_id
+        required: true
+      property:
+        range: UrString
+        slot_uri: ur:ContractInspection_property
+      view:
+        range: UrString
+        slot_uri: ur:ContractInspection_view
+        required: true
+      detail_status:
+        range: UrString
+        slot_uri: ur:ContractInspection_detail_status
+        required: true
+      detail_reason:
+        range: UrString
+        slot_uri: ur:ContractInspection_detail_reason
+      inspection_artifact_digest:
+        range: UrString
+        slot_uri: ur:ContractInspection_inspection_artifact_digest
+      entries:
+        range: ContractInspectionEntry
+        slot_uri: ur:ContractInspection_entries
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      total:
+        range: UrInteger
+        slot_uri: ur:ContractInspection_total
+        required: true
+      next_after:
+        range: UrString
+        slot_uri: ur:ContractInspection_next_after
+      complete:
+        range: UrBoolean
+        slot_uri: ur:ContractInspection_complete
+        required: true
+      skeleton_json:
+        range: UrString
+        slot_uri: ur:ContractInspection_skeleton_json
+      placeholders:
+        range: ContractPlaceholder
+        slot_uri: ur:ContractInspection_placeholders
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      validation_purpose:
+        range: UrString
+        slot_uri: ur:ContractInspection_validation_purpose
+      input_digest:
+        range: UrString
+        slot_uri: ur:ContractInspection_input_digest
+      validation_report:
+        range: LocatedValidationReport
+        slot_uri: ur:ContractInspection_validation_report
+        inlined: true
+      operation_explanation:
+        range: OperationExplanation
+        slot_uri: ur:ContractInspection_operation_explanation
+        inlined: true
+      support_statement:
+        range: UrString
+        slot_uri: ur:ContractInspection_support_statement
+        required: true

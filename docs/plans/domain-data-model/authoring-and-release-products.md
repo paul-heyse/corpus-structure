@@ -191,7 +191,7 @@ parity; OpenAPI/GraphQL remain conditional on a concrete service contract.
 definitions/operation products. **Produces:** the immutable inspection artifact and release-owned
 read access; ordinary archive opening authenticates and exposes it without preparation.
 
-Trace an inherited field whose bound comes from a named type and whose alias/local description
+Trace an inherited field whose pattern comes from a named type and whose numeric bounds come from slots and whose alias/local description
 comes from a derived class. Capture declaration paths before flattening, connect them to the
 effective field, and represent all relevant contributors. Add deterministic product preparation
 at the existing compiler boundary; reuse the current preparation pass and artifact archival.

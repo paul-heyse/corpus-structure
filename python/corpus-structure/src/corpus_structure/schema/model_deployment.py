@@ -64,6 +64,7 @@ class Candidate(BaseModel):
     files: dict[str, str | None]
     hashes: dict[str, str]
     wrapper_sha256: str | None = None
+    inspection_sha256: str | None = None
 
     @classmethod
     def from_preview(

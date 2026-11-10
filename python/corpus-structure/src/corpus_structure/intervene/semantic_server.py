@@ -584,6 +584,41 @@ def build_semantic_server(
     register_record_tools(server, source_snapshot)
 
     @server.tool(
+        annotations={"readOnlyHint": True}, output_schema=report_schema("ContractInspection")
+    )
+    @tool_refusals(ValueError, KeyError)
+    def inspect_contract(
+        ctx: Context,
+        release: str,
+        subject_kind: Literal["class", "property", "operation"],
+        subject_id: str,
+        property: str | None = None,
+        view: Literal["summary", "detail"] = "summary",
+        after: str | None = None,
+        limit: int = 20,
+        input_json: str | None = None,
+        validation_purpose: Literal["structural", "accepted"] | None = None,
+    ) -> ToolResult:
+        """Inspect an explicit release and optional class input without authorizing effects."""
+        from corpus_structure.semantic.contract_inspection import inspect_contract as inspect
+        from corpus_structure.semantic.releases import open_release
+
+        with reader_snapshot(ctx) as conn:
+            prepared = open_release(conn, release)
+            report = inspect(
+                prepared,
+                subject_kind,
+                subject_id,
+                property=property,
+                view=view,
+                after=after,
+                limit=limit,
+                input_json=input_json,
+                validation_purpose=validation_purpose,
+            )
+        return _bounded_mcp_result(report, 8 * 1024 * 1024)
+
+    @server.tool(
         annotations={"readOnlyHint": True}, output_schema=report_schema("OperationExplanation")
     )
     @tool_refusals(ValueError)

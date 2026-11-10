@@ -240,51 +240,17 @@ def _archive_header(conn: Any, release_id: str):
     ).one_or_none()
 
 
-def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
-    """Read a complete archive in one caller-owned snapshot, retaining row coherence checks."""
+def open_release_parts(
+    release_id: str, row: Any, input_rows: Any, artifact_rows: Any
+) -> PreparedRelease:
+    """Authenticate exact archive parts before hydration, independent of storage transport."""
     from dataclasses import asdict
-
-    from sqlalchemy import select
 
     from .determinants import boundary_compatible
     from .identity import canonical_bytes
-    from .releases import (
-        ReleaseConflict,
-        _archive_bytes,
-        _compare_rows,
-        _digest,
-        _projection_rows,
-        _table,
-    )
+    from .releases import ReleaseConflict, _archive_bytes, _digest
     from .types import ResolvedDependencies
 
-    header = _archive_header(conn, release_id)
-    if header is None:
-        raise KeyError(release_id)
-    finalized_digest = header.finalized_digest
-    from .determinants import BOUNDARY_LIBRARIES, determinant_version
-
-    runtime = tuple(
-        (name, determinant_version(name)) for name in (*BOUNDARY_LIBRARIES, "linkml-runtime")
-    )
-    cache_key = (tuple(header), runtime)
-    if finalized_digest == header.content_digest:
-        with _CACHE_LOCK:
-            cache = _OPEN_CACHE.get(conn.engine)
-            if cache is not None and cache_key in cache:
-                cache.move_to_end(cache_key)
-                return cache[cache_key]
-    relation = _table("sem.release")
-    row = (
-        conn.execute(select(relation).where(relation.c.release_id == release_id))
-        .mappings()
-        .one_or_none()
-    )
-    if row is None or (row["profile"], row["content_digest"]) != (
-        header.profile,
-        header.content_digest,
-    ):
-        raise ReleaseConflict("archive header changed during opening")
     try:
         archive_bytes, manifest_bytes = bytes(row["prepared_bytes"]), bytes(row["manifest_bytes"])
         if _digest(archive_bytes) != row["content_digest"]:
@@ -298,11 +264,8 @@ def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
             manifest["libraries"], str(manifest["profile"]["compiler_version"])
         ):
             raise ReleaseConflict("archived boundary library versions differ")
-        relation = _table("sem.input")
         source: dict[tuple[str, str], bytes] = {}
-        for item in conn.execute(
-            select(relation).where(relation.c.release_id == release_id)
-        ).mappings():
+        for item in input_rows:
             content = bytes(item["content"])
             if _digest(content) != item["content_digest"]:
                 raise ReleaseConflict("input digest differs")
@@ -342,11 +305,8 @@ def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
             raise ReleaseConflict("execution model requires semantic-2")
         if canonical_bytes(expected) != manifest_bytes:
             raise ReleaseConflict("archived input manifest differs")
-        relation = _table("sem.artifact")
         artifacts: list[PreparedArtifact] = []
-        for item in conn.execute(
-            select(relation).where(relation.c.release_id == release_id)
-        ).mappings():
+        for item in artifact_rows:
             content = bytes(item["content"])
             if (
                 _digest(content) != item["content_digest"]
@@ -388,6 +348,68 @@ def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
             or _archive_bytes(bundle, ResolvedDependencies(dependencies), prepared) != archive_bytes
         ):
             raise ReleaseConflict("archived products differ")
+        return prepared
+    except ReleaseConflict:
+        raise
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        IndexError,
+        BaseValidationError,
+        yaml.YAMLError,
+    ) as exc:
+        raise ReleaseConflict(f"cannot open exact release {release_id}: {exc}") from exc
+
+
+def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
+    """Read a complete archive in one caller-owned snapshot, retaining row coherence checks."""
+
+    from sqlalchemy import select
+
+    from .releases import (
+        ReleaseConflict,
+        _compare_rows,
+        _projection_rows,
+        _table,
+    )
+
+    header = _archive_header(conn, release_id)
+    if header is None:
+        raise KeyError(release_id)
+    finalized_digest = header.finalized_digest
+    from .determinants import BOUNDARY_LIBRARIES, determinant_version
+
+    runtime = tuple(
+        (name, determinant_version(name)) for name in (*BOUNDARY_LIBRARIES, "linkml-runtime")
+    )
+    cache_key = (tuple(header), runtime)
+    if finalized_digest == header.content_digest:
+        with _CACHE_LOCK:
+            cache = _OPEN_CACHE.get(conn.engine)
+            if cache is not None and cache_key in cache:
+                cache.move_to_end(cache_key)
+                return cache[cache_key]
+    relation = _table("sem.release")
+    row = (
+        conn.execute(select(relation).where(relation.c.release_id == release_id))
+        .mappings()
+        .one_or_none()
+    )
+    if row is None or (row["profile"], row["content_digest"]) != (
+        header.profile,
+        header.content_digest,
+    ):
+        raise ReleaseConflict("archive header changed during opening")
+    try:
+        inputs = _table("sem.input")
+        artifacts = _table("sem.artifact")
+        prepared = open_release_parts(
+            release_id,
+            row,
+            conn.execute(select(inputs).where(inputs.c.release_id == release_id)).mappings(),
+            conn.execute(select(artifacts).where(artifacts.c.release_id == release_id)).mappings(),
+        )
         if finalized_digest != row["content_digest"]:
             # Required historical archives without protected finalization retain the
             # complete snapshot coherence path; they never populate the cache.
