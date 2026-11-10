@@ -27,9 +27,29 @@ def test_candidate_check_and_derive_refuse_existing_output(cli, tmp_path):
 
 def test_model_diagnostics_remain_actionable_in_cli_json(cli, monkeypatch):
     from corpus_structure.semantic import regeneration
-    from corpus_structure.semantic.types import Diagnostic, PreparationError
+    from corpus_structure.semantic.types import (
+        Diagnostic,
+        PreparationError,
+        PreparationProfile,
+        ResolvedDependencies,
+        SourceBundle,
+    )
 
-    def refuse(*args):
+    bundle = SourceBundle("diagnostic-fixture", ())
+    dependencies = ResolvedDependencies()
+    profile = PreparationProfile()
+    calls = []
+
+    def acquire(packs):
+        assert [pack.name for pack in packs] == ["statistics"]
+        calls.append("acquire")
+        return bundle, dependencies, profile
+
+    def refuse(source, supplied_dependencies, supplied_profile):
+        assert source is bundle
+        assert supplied_dependencies is dependencies
+        assert supplied_profile is profile
+        calls.append("prepare")
         raise PreparationError(
             (
                 Diagnostic(
@@ -45,8 +65,10 @@ def test_model_diagnostics_remain_actionable_in_cli_json(cli, monkeypatch):
             )
         )
 
-    monkeypatch.setattr(regeneration, "prepare_packs", refuse)
+    monkeypatch.setattr(regeneration, "acquire_packs", acquire)
+    monkeypatch.setattr(regeneration, "prepare_release", refuse)
     result = cli("schema", "check", "--json")
+    assert calls == ["acquire", "prepare"]
     assert result.exit_code == 1
     item = json.loads(result.stdout)["error"]["validation"]["observations"][0]
     assert item["model_path"] == "statement"
@@ -105,7 +127,9 @@ def test_derive_refuses_invalid_model_without_partial_output(cli, tmp_path, monk
 
 
 @pytest.mark.parametrize("command", ("compile", "check"))
-def test_schema_validation_cli_requests_bounded_dependency_detail(cli, command):
+def test_schema_validation_cli_requests_bounded_dependency_detail(cli, monkeypatch, command):
+    from corpus_structure.semantic import regeneration
+
     compact = cli("schema", command, "--json")
     assert compact.exit_code == 0, compact.output
     value = json.loads(compact.stdout)["validation"]
@@ -129,12 +153,33 @@ def test_schema_validation_cli_requests_bounded_dependency_detail(cli, command):
     page = report["projection_dependencies"]
     assert page["total"] > 1 and page["next_after"] == 1
     assert len(page["items"]) == 1 and page["items"][0]["family"] == "input"
-    refused = cli("schema", command, "--dependency-detail", "--dependency-limit", "1001", "--json")
-    assert refused.exit_code == 1, refused.output
-    assert "bounds" in json.loads(refused.stdout)["error"]["message"]
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("invalid native dependency bound acquired settings or pack inputs")
+
+    monkeypatch.setattr(regeneration, "acquire_packs", forbidden)
+    refused = cli(
+        "schema",
+        command,
+        "--dependency-detail",
+        "--dependency-limit",
+        "1001",
+        "--json",
+        settings=forbidden,
+    )
+    assert refused.exit_code == 2, refused.output
+    assert "Invalid value for '--dependency-limit'" in refused.output
+    assert "1001" in refused.output and "1<=x<=1000" in refused.output
+    assert not refused.stdout
 
 
-def test_schema_compile_invalid_detail_does_not_publish_output(cli, tmp_path):
+def test_schema_compile_invalid_detail_does_not_publish_output(cli, tmp_path, monkeypatch):
+    from corpus_structure.semantic import regeneration
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("invalid native dependency bound acquired settings or pack inputs")
+
+    monkeypatch.setattr(regeneration, "acquire_packs", forbidden)
     target = tmp_path / "invalid-detail"
     result = cli(
         "schema",
@@ -145,8 +190,11 @@ def test_schema_compile_invalid_detail_does_not_publish_output(cli, tmp_path):
         "--dependency-limit",
         "1001",
         "--json",
+        settings=forbidden,
     )
-    assert result.exit_code == 1, result.output
+    assert result.exit_code == 2, result.output
+    assert "Invalid value for '--dependency-limit'" in result.output
+    assert not result.stdout
     assert not target.exists()
 
 
