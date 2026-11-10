@@ -1,5 +1,52 @@
 # D8 · Agent and query interfaces
 
+## Safe operation observation custody
+
+**Accepted target; Proposed, 2026-11-10.** Managed invocations own bounded safe observation
+journals and a designated authenticated live-read route, distinct from settled artifact reads.
+Sealed replay preserves original identities and coverage without producer execution. Process-owned
+logging routes dispatch through scoped invocation context; parent-owned transfer preserves child
+assurance without making observations native settlement. Raw disclosure, expiry and effects retain
+their existing owners. The [CLD coordinator](../plans/cli-and-logging_2026-11-10.md) owns
+implementation and qualification.
+
+`ci results inspect` selects summary, observations or local timeline with severity/stage/method
+filters and qualified provider/task/attempt identities. A timeline is parent-journal sequence;
+timestamps do not establish a global causal order. Native reader joins verify the acquired
+storage target and retain unavailable/unknown standing. Next actions distinguish native resume
+under the recorded project, managed watch and test-only recovery. `results watch` emits bounded
+append-only stderr updates and one final typed stdout result.
+
+The managed owner admits only its registered observation role for live reads. Complete records
+have a64KiB encoded ceiling; the journal has an8MiB cap. A page independently bounds returned
+rows, examined bytes and the complete response including joins. Cursors bind result, journal,
+filesystem identity, offset and sequence. Torn live tails remain pending; malformed complete
+records stop with corruption. Each independent sealed read authenticates the entire bounded
+journal before page selection and reports authentication bytes separately. A held reader can
+reuse those authenticated bytes; generic settled artifact access is unchanged.
+
+structlog26.1 adapts native and approved stdlib producers through ProcessorFormatter and a single
+final destination renderer. Invocation-local context routes one owned safe nested event to its
+sinks. Bounded typed exception traces preserve native chain/group structure and explicit omitted
+detail, with locals disabled; they remain distinct from original-engine validation evidence.
+Child MCP processes own bounded transfer spools; the provider parent drains complete rows during
+waiting and final process-group cleanup before sealing. Original provider receipts and native
+settlement remain authoritative. Optional diagnostic failures do not replace operation outcomes.
+
+Recipe diagnostics reuse the existing bounded native-step side channel and one authenticated
+versioned output artifact. `ci results output` selects step/stream and pages retained safe text
+under a complete-response byte budget. Its cursor names Unicode codepoints in that retained
+selection, while source byte counts and collection omissions remain separate. A read does not
+rerun the check or recover uncollected output. Forced recipe cancellation preserves the original
+signal exit and unresolved custody when the owner could not establish draining; ordinary drained
+interruptions can settle normally.
+
+Headless output and text/JSON replay serve the captured-agent workflow. Rich static renderables
+compose selected human views. Dynamic terminal displays and HTML/SVG exports need an actual
+terminal or sharing consumer before adding their display/custody lifetimes.
+
+> Decision: [ADR-0078](../adr/0078-owned-observation-journals.md)
+
 ## Attributed interpretations and correction custody
 
 The [completion repair receipt](../plans/domain-data-model_2026-11-10.md#completion-repair-acceptance)
@@ -18,8 +65,9 @@ JSON-context response validation preserves retained tuple populations as JSON ar
 Schema compile/check and contract inspection support bounded correction detail with safe default
 messages/values and explicit raw opt-in. Direct detail creates no store. Optional diagnostic
 retention keeps the original failure outcome; `ci schema diagnostic` uses the existing managed
-artifact lease, sensitivity and digest checks. Expired or changed artifacts refuse rather than
-rerun current inputs. SHACL path display preserves admitted structure after list/cycle/size checks;
+artifact lease, sensitivity and digest checks. Retired or changed artifacts refuse rather than
+rerun current inputs. Elapsed expiry blocks new dependencies and permits collection; retained reads
+remain possible until actual retirement. SHACL path display preserves admitted structure after list/cycle/size checks;
 existing native occurrence witnesses and Core/SPARQL constraints remain authoritative.
 
 LocatedValidationReport5 bounds the whole canonical report, including observations and inline evidence,
@@ -28,6 +76,16 @@ limit; outcome/assessment remain independent of inventory/rendering coverage. Ty
 preserve relative input paths, separate native locators and finite/type/reference/closure meanings.
 Direct and retained outer messages remain compact. ContractInspection3 reserves envelope space from the same
 capture. Historical diagnostic artifact-v1 documents retain original authenticated report versions.
+
+The CLD presentation target adds `summary|correction|document` selections over this same product.
+Human replay defaults to correction, while default JSON preserves the original document.
+Immediate requested detail and retained/MCP presentation share a pure selector; presentation
+failure preserves original operation meaning and outcome. Summary keeps original observation
+operation/scope bindings separate from the managed invocation action. Optional source members
+come from once-acquired inputs, authenticated against the prepared manifest when available;
+raw collection and retrieval opt-in remain required for source text. A physical excerpt has an
+explicit module and starting line, never a line invented from a logical address. Rich literal
+Text/Tree/Syntax render selected data without rerunning the producer or validator.
 
 `ci schema diff` can survey explicitly selected source/review vocabulary uses, including recognized
 measurement dimensions and unresolved decisions. SemanticImpactReport4 surveys one `use_side` (`before` by default,
@@ -555,6 +613,14 @@ The [CLI plan](../plans/cli-operations_2026-11-07.md) owns the current cutover a
 > Decision: ADR-0069
 
 For the current installed inventory use `ci --help`, group help and `ci docs commands --stdout`.
+Append native command tokens, for example `ci docs commands schema check --stdout`, to inspect
+one command or subtree with exact options, bounds, examples and domain links. Native generation
+uses the constructed Typer tree without invoking callbacks or acquiring settings. Explicit managed
+reference delivery acquires the canonical result store once. Shared Annotated parameter declarations
+own repeated lexical conversion and bounds; domain owners retain semantic admission.
+`ci context show --target PROFILE` projects the actual settings snapshot and its origins.
+Model reports keep configured selection separate from authenticated acquired bindings; absence of
+current deployment configuration does not invalidate historical evidence.
 Owner-selected reports can be read directly by managed ID. Review inspection verifies the
 bundle against its invocation's settled manifest digest. Model inspection holds the
 lease through authenticated reads and observes whether the result is eligible for a

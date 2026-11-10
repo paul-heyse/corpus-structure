@@ -55,6 +55,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0075](0075-immutable-contract-inspection.md) | Inspect immutable release products through one shared read boundary | 2026-11-10 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0076](0076-qualified-terminology-products.md) | Retain qualified terminology projections and source metadata with each release | 2026-11-10 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0077](0077-attributed-interpretations-and-correction-custody.md) | Retain source interpretations separately and make correction custody explicit | 2026-11-10 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0078](0078-owned-observation-journals.md) | Keep safe operation observations within managed result custody | 2026-11-10 | D8 | Proposed |  |
 
 ## Superseded, still in the tree
 
