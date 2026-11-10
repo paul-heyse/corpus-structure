@@ -1,6 +1,6 @@
 # Released types and faithful exchange
 
-**Status: PTD-01 reopened by completion audit; PTD-08 scoped delivery retained; investigations decided · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
+**Status: CA01 repaired; PTD-01/08 scoped delivery verified; investigations decided · 2026-11-10.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
 below, not another status table. The coordinator records execution and native delivery separately from original authoring.
@@ -206,10 +206,20 @@ from these decisions, and no new input slice is selected for PTD-10.
 
 ## Completion audit · 2026-11-09
 
-PTD-01's generated boundary reaches its intended consumers, but anchored correspondence validation
-is incomplete: source_bindings returns nominal anchors and skips their cp:type_source edges before
+At the audit baseline, PTD-01's generated boundary reached its intended consumers, but anchored
+correspondence validation was incomplete: source_bindings returns nominal anchors and skips their cp:type_source edges before
 checking cycles, encoding or conflicting anchors. Preserve naming authority while validating those
 edges, with independent anchored negative examples. PTD-08 retains its bounded directional and
 independent post-disconnect delivery; shared child-error custody is owned by PTD-02. The coordinator's
 [completion audit](../postgresql-typed-domain_2026-11-09.md#completion-audit) owns CA01/02 and the
 implementation/qualification distinction. No input/ORM/native investigation was reopened.
+
+
+## Repair execution · 2026-11-10
+
+The [coordinator delivery receipt](../postgresql-typed-domain_2026-11-09.md#completion-repairs-and-ptd-10-delivery--2026-11-10)
+closes the local audit obligations at the scoped boundary and owns current disposition. Historical
+audit descriptions above identify the inspected baseline, not an unrepaired current claim.
+Shared correspondence validation now includes explicit anchored and schema-level/physical-ancestor
+edges. Positive model-to-physical backreferences preserve shipped nominal output. Independent
+compilation, column/companion generation and real typing consumers cover the repaired boundary.

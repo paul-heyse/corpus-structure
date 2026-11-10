@@ -147,3 +147,146 @@ Final test/deployment/preview/candidate receipts and the named failed/blocked at
 for the owning plan. Broad series qualification, Rust, live-provider transfer and benefit benchmarks
 are **not_run** for this package boundary. Final formatting/typing/lint/model/docs outcomes are
 recorded in STATUS and the coordinator.
+
+## Completion repairs and PTD-10 execution
+
+Execution began at clean `489e78b06`. The owning coordinator retains CA01–04 and both PTD-10
+slices; investigation dispositions and PM2 defaults remain unchanged. Three isolated implementation
+worktrees were integrated into main and removed after their clean changes were cherry-picked.
+Integrated executable source and frozen native delivery are committed as `4d89b7c3b`.
+
+CA01 validates explicit anchored correspondence edges without treating inherited model-to-physical
+backreferences as physical self-declarations. Independent review identified a schema-level-slot
+bypass in the first repair; direct and inherited schema-slot cases were added and the focused
+managed run `78a96e149215451a915ae04cb5798a67` passed17 after correction. CA02 extends the existing
+connection lifetime with close-only child ownership and append-only cleanup failures. CA03 changes
+only LocatedValidationReport to v3 and delegates optional detail to the existing retained pager.
+CA04 adds an actual reader-role inaccessible-relation control, rather than an invented missing table.
+
+PTD-10 keeps generation-tagged deltas in the existing trusted workspace and counts INSERT/RETURNING
+CTE results; final semantic facts/proofs and publication remain separate. A one-entry reader cache
+retains only deeply immutable contextual preparation, with per-query admission and borrowed snapshots.
+Initial cache controls passed5 (`174dbf24ba06452882627fa19a70b753`), then7 including source-reader
+lifetimes (`99be4c5ef8c74e49abcf68575c3f2bcb`), then10 after rejecting mutable record lookalikes
+(`aa67389e61b346aab81eb8344b30a32f`). These are successive scoped runs, not additive qualification.
+
+### Frozen native delivery
+
+The [completion request](completion-model-change.yaml) binds semantic_ptd_explanations on the
+acquired dedicated development database. Preview `8049ee9347024b9e94bd3e465d2e1029`, rollback-only
+candidate `b3d73252b5174fb590f4123312441f0b`, registration `3a063ff60d574d2f9ba8d6b7fea65417` and
+deployment `e8bfe22b0e9a45b3a054b6fbb4bdd3af` passed through the installed model-change workflow.
+Candidate operations inspection showed exactly three native body changes: begin/end inference
+workspace and execution_contract_descriptor, preserving owners/ACLs and zero ordinary operations.
+The workspace functions now use current source custody under the existing frozen authoring owner.
+Earlier preview `c4a6ad708877408e8579ce652fe9b2a1` and candidate `3df400d617ff48e98b40e05a14f4fe11`
+were superseded before registration when inspection showed the bootstrap workspace functions were
+not yet routed to their changed source. No earlier candidate was deployed or overwritten.
+
+Deployment reached semantic_ptd_completion_repairs and archived/admitted/verified
+`release:40ec92fe2798e6567132154a20f080e6137f956869eb657dbf3973f490c2252b` on
+corpus_structure_dev, PostgreSQL18.6, socket5434, OID25921445, system identifier7701811359771751232.
+Semantic compiler19, execution compiler28 and old readable products remain unchanged. No project
+activation, run promotion or default change occurred. Runtime inputs already capture the changed
+modules through the existing package source footprint; no second provenance registry was added.
+
+Independent implementation reviews found no remaining material issue after the CA01 follow-up;
+reviewers did not run native tests. Initial typing diagnostics caught an erroneous import rewrite,
+missing normalized-library casts and deliberately invalid test inputs without casts; those were
+repaired. The coherent endpoint types, lint and model consistency commands passed before authoring.
+Functional acceptance and final-source qualification are recorded below after their actual runs.
+
+### Scoped functional acceptance · 2026-11-10
+
+`uv run ci test --json --` with the20 affected modules selected306 nodes in managed result
+`41a05bca8d3e4b1bb040352783e270fa`:304 passed,2 failed. These failures were fixture errors:
+subproperty_of was not a supported model key, and the frozen-head provenance witness retained a
+compiler27 expectation. The explicit LinkML is_a/inverse/flag fixture now has a finite independently
+specified nine-edge closure. Retry `d5bffc40ceeb4384817c7c94e96dcec7` passed that case but retained
+the old compiler assertion; retry `d4711850662d41e9b2a3ac2b211ef249` passed the corrected witness.
+No production/native changes occurred between these attempts.
+
+`ci test coverage` over that chain reports306 required node identities covered, zero unresolved,
+no missing required lanes and complete required native observations. Its aggregate status retains
+failed attempt history and marks source differences. The coordinator accepts the two explicit
+fixture corrections/formatting/evidence documentation for this bounded result; a coverage report alone is not complete
+qualification. Original failed attempts and final receipts are held. The current inaccessible
+relation, real ADBC failure custody, validation/archive detail, trusted generation workspace,
+resident/transient retrieval and Reader controls are included in the20 modules.
+
+`uv run ci check --json` passed on integrated production source, including typing, lint, dependency
+policy, docs and clippy. Empty rule lanes report not_run. `uv run ci model check --json` passed.
+Rust context: rustc 1.101.0-nightly (2d20b42b8, 2026-11-04). The broad campaign and affected-source
+replacements are recorded below; PTD-11 adoption remains separate.
+
+### Broad verification and repairs · 2026-11-10
+
+Broad `uv run ci test --json` settled as **failed** in `2f5991c83eef42d98a8c3657c264fc77`:
+ordinary selected 5,700, passed 5,687, failed 11 and blocked two; exclusive fault selected/passed eight.
+No worker loss or interrupted custody was reported. Passing replacements cover all 11 failures;
+the original receipt and all following attempts are held.
+
+| Managed result | Actual selected scope and outcome |
+| --- | --- |
+| `4da4034d3624439da0f951eee0d8f35f` | **passed 53**: full CLI, ADBC lifetime and PM2 source modules; existing fresh CLI/MCP import assertions unchanged |
+| `6e4640940c8d41fd9c4c6abf98a0d4d8` | **passed five**: explicit registry, PreparedRelease fixture, semantic archive/compiler and execution ABI expectations |
+| `9c85162e9d8f46b5bbb872618a4838c3` | **failed one**: added redundant late Alembic lookup encountered the deployment fixture's deliberately poisoned bytecode; no native claim taken from this attempt |
+| `8387b5b538d240238224343e5741844d` | **passed one**: corrected exact non-head deployment, retained resumption, independent successor descriptor and separate activation control |
+| `e1d9a4ec39934413b1a45500269914e8` | **passed six**: installed test-evidence reporting, expanded redacted diagnostics and bounds, custody and coverage controls |
+| `c2b3f0a5e78b4c058e570345d16b20aa` | **failed**: 56 selected, 53 passed, three export acquisition mocks still patched a removed module alias; native analytics/export/description/interop included |
+| `366d5148cd8e4ccf93e8affb62316973` | **passed three**: exact retry of those corrected driver acquisition/cancellation/failure-custody controls |
+
+The CLI import chain loaded PyArrow through database description → shared ADBC acquisition; the
+MCP chain loaded spaCy through contribution composition → PM2 source → sentence preparation.
+Drivers now load during actual acquisition; the sentence-token constructor loads only during the
+HanLP layout operation. Connection/type annotations stay typing-only. Frozen contextual preparation
+and its exact immutable-record guards were not weakened. Consumer mocks patch actual driver modules.
+
+The M1 registry already had `structure.definition_declaration_components`; the contribution fixture
+omitted the public PreparedRelease definitions tuple. Other stale expectations named semantic
+compiler 18/execution ABI 27 instead of current 19/28. The deployment fixture incorrectly combined
+current prepared products with frozen DMA-native 18/27 admission, causing `archive manifest identity
+differs` after migration. It now uses explanations → completion_repairs. Actual selected-revision,
+unapplied independently altered successor, resume and separate activation checks remain. The extra
+late head lookup was redundant with its earlier non-head proof and incompatible with its deliberate
+poisoned bytecode control; removing it changed no production behavior.
+
+`ci test failures` previously clipped the decisive ReleaseConflict message at 600 characters and
+offered no larger typed view. The ordinary managed JUnit role supplied the diagnosis once; the
+owning CLI is now repaired. `uv run ci test failures 2f5991c83eef42d98a8c3657c264fc77 --lane ordinary
+--diagnostic-chars 32768 --json` **passed**, exposing that exact message without exporting artifacts.
+The new bound ranges from 1 to 32,768, defaults to 600, redacts before clipping and excludes source/
+captured streams. The six reporting controls independently check redaction, full text and refusals.
+
+`uv run ci test coverage` with the broad result first and all seven table results then supplied
+**5,706 covered of 5,708 required identities**, no missing lanes and two unresolved nodes. Its
+aggregate outcome remains **failed** with original attempt history; neither delivery of the report
+nor the covered count establishes full-series qualification. Source differences are expected:
+post-broad executable changes are the two import boundaries and the default-preserving diagnostic
+option, plus the stated test fixes/formatting. All affected responsibilities have passing selections.
+These changes are committed as `f56cddc4b`; initial integrated delivery remains `4d89b7c3b`.
+
+Native context differences include intentionally isolated historical migrations and bare/null
+revisions. Broad ordinary observation reports 962 required native nodes, zero native unresolved;
+the fault lane reports seven required, zero unresolved. Passing affected runs report complete native
+observations where required (six, one and 16 respectively, overlapping rather than additive).
+The intermediate deployment attempt alone reports `no_claim` and contributes no native acceptance;
+its successful retry observes explanations/completion_repairs and preserves the isolation boundary.
+The coordinator accepts this source/context applicability only for its declared delivery claim.
+
+Unresolved cases remain **blocked**: the GLiNER native-boundary diagnostic requires explicit
+`CORPUS_GLINER_DIAGNOSTIC=1` with the pinned Base checkpoint; alternate-domain parser transfer
+requires `CORPUS_PM2_NATIVE_TEST_ASSETS` naming locked native assets. Neither opt-in was selected;
+no live-provider/transfer-quality claim is made. Their prior premises remain PTD-11 inputs.
+
+Final `uv run ci check --json` **passed** after fixing the last export mock alias found by its
+earlier type check. Empty rule lanes were **not_run**. `uv run ci model check --json` **passed**
+at revision 0.6.5, digest prefix `89b083ed4152`. Fresh `uv run ci db status --maintenance --json`
+**passed** on corpus_structure_dev at semantic_ptd_completion_repairs, with the same acquired
+database identity listed above. Rust functional selection was empty, **not_run**; rustc context is
+1.101.0-nightly (2d20b42b8, 2026-11-04). Benchmarks were **not_run**. PTD-11 assembled review,
+remaining qualification/adoption and PM2 return handoff remain open in the coordinator.
+
+Publication and handoff: `uv run ci docs check` and root `just turn-end` **passed**, 2026-11-10.
+The publication check found zero link errors; the two pre-existing phase-0 descriptor-tag warnings
+remain outside this change. Concurrent domain-data-model research/review documentation is preserved.

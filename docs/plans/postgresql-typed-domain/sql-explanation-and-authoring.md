@@ -1,6 +1,6 @@
 # SQL explanation and source-aware authoring
 
-**Status: PTD-04 validation consumer reopened; PTD-05 scoped delivery retained; I02 decided · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
+**Status: CA03 validation detail delivered; PTD-04/05 scoped controls passed; I02 decided · 2026-11-10.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
 below, not another status table. The coordinator records execution separately from original authoring.
@@ -146,10 +146,21 @@ source-settled decision account; no product, archive, compiler or database chang
 ## Completion audit · 2026-11-09
 
 PTD-04's occurrence production, truthful v2/v3 reading and explain/diff consumers are delivered,
-but projection_validation_report and ordinary schema compile/check do not expose the accepted
+but projection_validation_report and ordinary schema compile/check did not expose the accepted
 bounded requested occurrence detail. Reuse the retained page authority and migrate the validation
 report/schema/consumer with explicit archived-unavailable detail; do not conflate that status with
 the compact validation complete flag. PTD-05 retains its source/diagnostic delivery. The coordinator's
 [completion audit](../postgresql-typed-domain_2026-11-09.md#completion-audit) owns CA03. Fresh authoring
 selection fa82bd7fb4694834bcfdc3ef03f552cb passed27 on current product source; broader qualification
 remains bounded. I02 decisions were not audited.
+
+
+## Repair execution · 2026-11-10
+
+The [coordinator delivery receipt](../postgresql-typed-domain_2026-11-09.md#completion-repairs-and-ptd-10-delivery--2026-11-10)
+closes the local audit obligations at the scoped boundary and owns current disposition. Historical
+audit descriptions above identify the inspected baseline, not an unrepaired current claim.
+LocatedValidationReport v3 optionally attaches the existing ProjectionDependencyPage through
+projection_validation_report and schema compile/check flags. Compact observations/complete remain
+unchanged; v2 detail stays unavailable without reanalysis. Other report payloads remain v2, and
+the schema bundle envelope remains operation-report-schema-2. Registration was regenerated.

@@ -256,6 +256,12 @@ publisher. Initial premises are selected positive stated asserted/defined facts 
 support; negative assertions, suppositions and unsupported readings do not authorize conclusions.
 Exact qualification, scope and source macro meaning remain visible.
 
+**Implemented; scoped controls Tested,2026-11-10.** Qualified inference retains generation-tagged
+resident deltas in its existing trusted temporary workspace. Each rule reads the same previous-round
+delta and the current accumulated conclusions; scalar insertion counts terminate the finite fixed
+point. Only final semantic facts and direct proofs are hydrated for protected publication. Private
+generation/index layout never enters fact identity or source qualification.
+
 Alternative groups retain sorted distinct canonical fact members, reasons and operation versions
 in compact relational rows. Explanation returns those groups and typed assessments; independent
 source occurrences remain separate. Numerical comparison applies within exact qualification to

@@ -1,6 +1,6 @@
 # PostgreSQL typed-domain implementation series
 
-**Status: PTD-00–09 audited; PTD-01/02/04 implementation reopened and PTD-03 verification outstanding; investigations decided; PTD-10/11 planned · 2026-11-09.** Target design is Proposed. This coordinator
+**Status: CA01–04 repaired and PTD-10 delivered; verification reconciled with two opt-in cases blocked, PTD-11 remains open · 2026-11-10.** Conditional target design is Proposed. This coordinator
 owns PTD-00–11, PTD-I01–06, selected branch delivery, review O01–O13 disposition and combined
 qualification. It does not supersede any existing plan. Production milestone two remains separate.
 
@@ -9,7 +9,7 @@ qualification. It does not supersede any existing plan. Production milestone two
 Consume the [functional review](../functional_reviews/postgresql-typed-domain_2026-11-09.md) and
 six companions at `10e84f34862cc3a6be0becc4c5263a0a7eed53c2`. Its input discovery at `d18183a22`
 and earlier receipts retain original dates and scopes. Source-inspected authoring baseline is
-`10e84f348`, 2026-11-09. Current product/manifests/lock/owners are unchanged from that review;
+`10e84f348`, 2026-11-09. At authoring, product/manifests/lock/owners were unchanged from that review;
 concurrent PM2 STATUS, plans and evidence are excluded and preserved. Execution must reconcile
 against the eventual PM2 handoff revision, not assume this source/native revision remains current.
 
@@ -68,7 +68,7 @@ to finish when one implemented prerequisite slice suffices.
 
 ## Execution queue
 
-The [completion audit](#completion-audit) reopens PTD-01/02/04 implementation and PTD-03 qualification. PTD-00/05/06/07/08/09 retain bounded completion; PTD-03 implementation is delivered. PTD-I01–06 remain decision-complete and outside the audit. Repair obligations precede affected dependent use; the two PTD-10 slices and PTD-11 remain planned.
+The [completion audit](#completion-audit) identified CA01–04; their repairs and the two PTD-10 slices now have scoped acceptance below. PTD-00–10 implementation and investigation decisions are delivered at those boundaries. Broad verification and its two blocked opt-in cases are reconciled below. PTD-11 remains open for assembled review, remaining qualification/adoption and the return handoff.
 
 | ID | Responsible boundary | Required input and delivered capability | Completion evidence |
 | --- | --- | --- | --- |
@@ -100,18 +100,18 @@ specific unmet premise and revisit condition; unperformed investigation cannot b
 
 | Review item | Component and current disposition | Package/decision route | Closure obligation |
 | --- | --- | --- | --- |
-| [O01](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O01) | Reopened · PTD-CA01 correspondence validation | PTD-01 | Retain delivered typing; validate anchored correspondence edges before O01 closes |
+| [O01](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O01) | Closed scoped · CA01 correspondence validation repaired | PTD-01 | Shared declaration validation includes anchored, inherited and schema-slot edges; independent negative controls passed |
 | [O02](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O02) | Decided · retain explicit value codecs, native invariants and private operations | I01 | Decision-complete; native/ORM expansion has concrete value/workflow triggers in the released-types companion |
-| [O03](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O03) | Reopened · PTD-CA03 validation detail consumer | PTD-04 | Deliver requested detail through projection validation; retain existing explain/impact/archive behavior |
+| [O03](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O03) | Closed scoped · CA03 validation detail delivered | PTD-04 | Validation v3 delegates retained paging; compact completeness and other report versions preserved |
 | [O04](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O04) | Decided · diagnostics delivered; retain finite language and current research routes | PTD-05, I02 | PTD-05 delivered; I02 branches decided separately in SQL companion; no additional language slice selected |
-| [O05](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O05) | Open delivery · coverage complete; two resident/preparation improvements selected | PTD-06, I03 →10 | Deliver PTD-10/inference-delta and PTD-10/contextual-preparation; other I03 mechanisms decided |
+| [O05](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O05) | Closed scoped · coverage and both PTD-10 improvements delivered | PTD-06, I03 →10 | Native delta/workspace and immutable preparation controls covered; combined PTD-11 qualification remains |
 | [O06](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O06) | Closed · exact composition and typed binding implemented | PTD-07 | Full membership/channel correctness preserved across migrated consumers |
 | [O07](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O07) | Decided · retain exact baseline; richer representations/policies deferred individually | I04 | Concrete terminology, token/visual, scale, aggregate or fixed-list premises retained in operations/retrieval companion; no quality claim |
 | [O08](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O08) | Decided · faithful output delivered; current input/value routes retained | PTD-08, I01/I05 | I01/I05 input/nested/spatial/Rust branches decided; no alternate publication path selected |
 | [O09](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O09) | Decided · retain detached capture and current owned analytical readers | I05, PTD-08 | Capsule, bound, replay, ingestion, federation and laboratory branches separately decided with triggers |
-| [O10](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O10) | Implementation delivered; PTD-CA04 inaccessible-relation verification open; I05 decided | PTD-03, I05 | Supply independent inaccessible-relation refusal evidence; retain D8 and I05 decisions |
+| [O10](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O10) | Closed scoped · CA04 native reader refusal verified; I05 decided | PTD-03, I05 | Existing denied relation and absent literal remain distinct through actual reader and CLI JSON |
 | [O11](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O11) | Decided · frozen atomic native workflow retained | PTD-09, I06 | PTD-09 delivered; native deployment variants decided separately; no fence, offline or plugin rule change selected |
-| [O12](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O12) | Reopened · PTD-CA02 child cleanup preservation | PTD-02 | Keep shared factory; preserve original failure across cursor/reader retirement in all consumers |
+| [O12](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O12) | Closed scoped · CA02 complete child cleanup preservation | PTD-02 | Original body failure and nested cleanup errors preserved through all three callers, with no published partial export |
 | [O13](../functional_reviews/postgresql-typed-domain_2026-11-09.md#O13) | Decided · retain current operational lifetimes; conditional variants have specific triggers | I06 | Preview/session/pool/read/wakeup/diagnostic/remote/async/distributed branches separately decided; no additional operational delivery selected |
 
 ### Bounded investigation contracts
@@ -384,8 +384,9 @@ implementation reviewers traced accepted narratives, ADR-0073/0074, actual consu
 and independent expectations. The coordinator inspected handoff/native history and acquired managed
 coverage/context reports. No product repair, migration, activation or provider inference occurred.
 
-**Implementation conclusion:** PTD-01/02/04 are incomplete at the specific boundaries below.
-PTD-03 implementation is delivered with a qualification obligation outstanding. No additional
+**Audit conclusion at `489e78b06`:** PTD-01/02/04 were incomplete at the boundaries below and
+PTD-03 verification was outstanding. The authorized repair execution below resolves these four
+obligations with scoped evidence; this does not turn the original audit into a clean verdict. No additional
 material implementation gap was found in PTD-00/05/06/07/08/09. These bounded conclusions do not
 certify the enclosing series or the investigations. Source observations establish the three gaps;
 no claim is made that current shipped correspondences already produce mistyped calls.
@@ -394,10 +395,10 @@ no claim is made that current shipped correspondences already produce mistyped c
 
 | ID | Owning package / source | Current finding and required closure |
 | --- | --- | --- |
-| <a id="PTD-CA01"></a>PTD-CA01 | PTD-01 / O01 | **Open — implementation.** `semantic/operation_call_generation.py:183–184` returns an existing nominal anchor before traversing correspondence, and `:264` skips `cp:type_source` resolution for anchored fields. An anchored release ID can therefore ignore a self-cycle, incompatible integer target or conflicting RealizationId edge. ADR-0073 requires rejection of contradictory declarations. Preserve anchor naming authority while validating every declared edge; independently challenge anchored cycles, primitive/cardinality incompatibility and conflicting anchors, retaining local constraints. Existing invalid-source controls exercise only unanchored occurrence fields. |
-| <a id="PTD-CA02"></a>PTD-CA02 | PTD-02 / O12; analytics/export/description consumers | **Open — implementation.** Plain child contexts in `semantic/analytics.py:901–919`, `serve/companion_export.py:138–175` and `serve/database_description.py:235` can raise during cursor/reader exit and replace the original body refusal/cancellation before `core/db/adbc_lifetime.py:123` receives it. Installed ADBC1.13 `_Closeable.__exit__` directly calls close. The outer helper preserves the replacement and attaches rollback/connection-close failures to it. The original accepted requirement preserves the primary error plus cleanup failures; no separate operator authorization was established for the later narrowing. Extend the existing lifetime ownership through child retirement, migrate all consumers, and test body plus reader/cursor plus rollback/close failures independently, including cleanup-only failures and cancellation. Preserve snapshot, settlement and no-partial-publication behavior. |
-| <a id="PTD-CA03"></a>PTD-CA03 | PTD-04 / O03; validation-report consumers | **Open — implementation.** `semantic/operation_reporting.py:1086–1134` still emits only coverage diagnostics. It accepts no detail request and reads no occurrences/detail status; `LocatedValidationReport` in `model/semantic/operation-reports.yaml:211` and `cli/schema.py:65–139` expose no requested detail route. The accepted PTD-04 narrative explicitly names this consumer. Reuse the retained occurrence/page authority for bounded optional detail and truthful archived-v2 unavailability, migrate registration/schema/ordinary consumers, and verify independent available/unavailable/paging expectations. This does not require changing the compact validation complete flag merely because old products lack occurrence detail. |
-| <a id="PTD-CA04"></a>PTD-CA04 | PTD-03 / O10 | **Open — verification only.** The accepted inaccessible-relation case has no explicit applicable control in the inspected description/interop/export selections. `serve/database_description.py:333–363` supplies the privilege/refusal branch; source inspection alone is not native verification of it. Exercise a genuinely existing relation denied to the actual reader and assert bounded truthful refusal through ordinary description/JSON, distinguishing denied from missing and unknown metadata. No implementation failure is inferred solely from absent evidence. |
+| <a id="PTD-CA01"></a>PTD-CA01 | PTD-01 / O01 | **Closed scoped,2026-11-10.** Shared resolver validates anchored cycles, incompatible encodings/members and conflicting anchors. Model-origin physical backreferences remain valid; explicit class/ancestor/schema-slot self-edges refuse. Call/column/companion generation controls and generated-surface consistency passed. Source-review P2 was repaired; focused17 and integrated acceptance cover the closure. |
+| <a id="PTD-CA02"></a>PTD-CA02 | PTD-02 / O12; analytics/export/description consumers | **Closed scoped,2026-11-10.** Existing lifetime owner now supplies typed child retirement and append-only cleanup error custody. Analytics/export/description, metadata/statistics readers and Parquet writers migrated; body identity, cleanup order, cancellation and no partial publication controls passed, including a real ADBC connection path. |
+| <a id="PTD-CA03"></a>PTD-CA03 | PTD-04 / O03; validation-report consumers | **Closed scoped,2026-11-10.** LocatedValidationReport v3 exposes optional retained dependency pages via schema compile/check. Existing pager supplies bounds/order/v2 unavailability. Compact complete and other report payload versions remain unchanged; independent API/schema/CLI controls passed. |
+| <a id="PTD-CA04"></a>PTD-CA04 | PTD-03 / O10 | **Closed scoped,2026-11-10.** Native control independently establishes public.semantic_alembic_version exists, actual corpus_sem_reader lacks SELECT and direct SELECT gives42501. Ordinary describe/CLI reports refused Arrow shape versus a distinct missing literal; no DDL or reader grants were added. |
 
 Source locations above are relative to `python/corpus-structure/src/corpus_structure/`.
 Repair authorization is separate from this audit. Resolve these obligations in their existing
@@ -454,4 +455,82 @@ or retrieval-quality improvement is promoted to Measured. The audit supplies no 
 conformance verdict. Findings above are the concrete work required before reaffirming package claims.
 
 Audit publication: `uv run ci docs check` and root `just turn-end` **passed**, 2026-11-09.
-No product implementation was changed; CA01–04 remain open with the owners above.
+The audit changed no product implementation; CA01–04 were open at that audited baseline.
+The repair receipt below and the disposition table own their current closure.
+
+
+## Completion repairs and PTD-10 delivery · 2026-11-10
+
+Operator execution authorization covers CA01–04 and both selected PTD-10 slices. Source delivery
+commits include `35e21a0f4`, `5962b2057`, `32ce45899`, `1aad0c596` and integrated source
+`4d89b7c3b`, followed by qualification repairs in `f56cddc4b`. The
+[execution evidence](../design_review/evidence/2026-11-09_postgresql-typed-domain/README.md#completion-repairs-and-ptd-10-execution)
+retains frozen native stages and original failures. Both independent implementation reviews completed;
+one CA01 schema-slot bypass was repaired and reviewed again. Reviews ran no native tests.
+
+Scoped acceptance: original managed selection `41a05bca8d3e4b1bb040352783e270fa` selected 306,
+passed 304 and failed two fixture expectations. The mixed-rule case used unsupported `subproperty_of`;
+it now explicitly declares LinkML `is_a` and inverse/flag semantics, with independent finite closure.
+The frozen-head witness still expected compiler 27; its independent expectation is now 28. Retry
+`d5bffc40ceeb4384817c7c94e96dcec7` passed the mixed-rule case; final retry
+`d4711850662d41e9b2a3ac2b211ef249` passed the remaining witness. Coverage reports all306 required
+identities covered, zero unresolved and complete required native observations. The report retains
+overall failed attempt history and source differences; it is not itself full qualification.
+Changes between these attempts are the two stated test corrections, formatting and evidence
+documentation, not production algorithm or native changes. The ordinary denied-relation, error
+custody, report detail and actual workspace/retrieval controls are included. Cache/source-reader
+controls separately passed 10 in `aa67389e61b346aab81eb8344b30a32f`; CA01 focused controls passed 17 in
+`78a96e149215451a915ae04cb5798a67`. Counts are not added across overlapping selections.
+
+Development reached semantic_ptd_completion_repairs from semantic_ptd_explanations using preview
+8049ee9347024b9e94bd3e465d2e1029, candidate b3d73252b5174fb590f4123312441f0b, registration
+3a063ff60d574d2f9ba8d6b7fea65417 and deployment e8bfe22b0e9a45b3a054b6fbb4bdd3af. Exact candidate
+inspection verified three native changes with preserved owners/ACLs. Native migration/archive/
+admission/verification passed for release40ec92fe2798e6567132154a20f080e6137f956869eb657dbf3973f490c2252b.
+Semantic compiler19 and execution compiler28 remain unchanged; no activation/promotion/default edit.
+
+PTD-10/inference-delta keeps a generation-indexed trusted workspace and scalar INSERT/RETURNING
+counts, retaining mixed-rule visibility, canonical contexts and final direct proofs/publication.
+PTD-10/contextual-preparation owns one detached immutable relation per reader/input binding; every
+query still performs admission/membership/ranking with a newly borrowed snapshot. Mutable inputs
+refuse rather than bypass preparation. No overlapping cache or second transaction authority remains.
+
+### Broad verification and remaining work
+
+On 2026-11-10, broad `uv run ci test --json` result `2f5991c83eef42d98a8c3657c264fc77`
+**failed**: ordinary selected 5,700, passed 5,687, failed 11 and blocked two; the exclusive fault lane
+**passed eight**. The [retained repair account](../design_review/evidence/2026-11-09_postgresql-typed-domain/README.md#broad-verification-and-repairs--2026-11-10)
+names every replacement and preserved failure. All 11 failures now have passing replacement evidence.
+The combined coverage command reports **5,706 covered of 5,708 required identities**, no missing
+lanes and two unresolved opt-in cases. Its status remains failed because original failures remain;
+the coverage report itself is not a passing full-series qualification receipt.
+
+Qualification repairs defer ADBC driver imports until acquisition and sentence-token imports until
+the actual parser operation; existing CLI/MCP lightweight-import assertions remain intact. Six stale
+fixtures now name the already-delivered registry/PreparedRelease/compiler/native contracts. Actual
+deployment still verifies the selected non-head revision, resumption and separate activation against
+an independently altered unapplied successor. `ci test failures --diagnostic-chars 32768` now exposes
+the decisive redacted failure through the owning CLI, with bounded defaults and no captured streams.
+
+Final-source applicability is accepted for this bounded delivery: changes after the broad ordinary
+run are those two import boundaries, the default-preserving diagnostic option, explicit fixture
+corrections and documentation/formatting. Passing affected selections cover all changed executable
+responsibilities; native analytics/export/description and acquisition/error custody were re-exercised.
+Required native observations in the passing replacements are complete. The retained intermediate
+deployment failure has `no_claim` and contributes no native qualification; its passing retry observes
+the expected predecessor/selected revision in its isolated fixture. Historical/isolated/null revision
+observations are preserved as their actual contexts, not relabelled as development-head observations.
+
+The two unresolved nodes remain **blocked**, outside this provider-free repair/PTD-10 claim:
+GLiNER's native boundary diagnostic needs explicit `CORPUS_GLINER_DIAGNOSTIC=1` and its pinned Base
+checkpoint; the alternate-domain parser transfer needs `CORPUS_PM2_NATIVE_TEST_ASSETS` naming the
+locked native assets. Their triggers and original provider limits remain intact; neither is passed.
+PTD-11 still owns assembled review, remaining qualification/adoption and the PM2 return handoff.
+
+Final `uv run ci check --json` **passed**, including types, lint, docs, dependencies and clippy;
+empty rule lanes were **not_run**. `uv run ci model check --json` **passed**. A repeated check's
+temporary failure found the remaining old export mock alias; its corrected acquisition control
+passed all three exact retries before the final successful check. Fresh
+`uv run ci db status --maintenance --json` **passed** at the deployed development head.
+Rust check context is rustc 1.101.0-nightly (2d20b42b8, 2026-11-04); Rust functional selection was
+empty, **not_run**. Benefit benchmarks were **not_run**; no measured speed/quality claim follows.

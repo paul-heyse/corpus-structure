@@ -1,6 +1,6 @@
 # Explicit acquisition, honest inspection and research access
 
-**Status: PTD-02 reopened; PTD-03 implemented with verification outstanding; investigations decided · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
+**Status: CA02/04 repaired and scoped controls passed; PTD-02/03 delivered; investigations decided · 2026-11-10.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
 below, not another status table. The coordinator records execution and native delivery separately from original authoring.
@@ -88,7 +88,7 @@ uses server and the configured driver with owned_adbc_read, preserving its curre
 CLI export retains configuration forwarding. The existing ownership helper retains the primary
 exception reaching it, independently attempts rollback/close, attaches cleanup failures and
 synchronizes cancellation retirement. Reader/cursor cleanup can replace an earlier body error
-before reaching that owner; CA02 reopens this incomplete original-error preservation. No separate
+before reaching that owner; CA02 identified this incomplete original-error preservation, now repaired below. No separate
 operator authorization for narrowing the accepted requirement was established. Synchronous connect
 cannot be interrupted through a borrower registered afterward. Native manager partial-acquisition
 cleanup does not guarantee preserving every acquiring exception. Type-cache clone is not a snapshot.
@@ -166,9 +166,20 @@ combined I disposition; historical PTD-02/03/08 verification remains historical 
 
 Shared acquisition is integrated, but child cursor/reader context exit can replace a body failure
 before the connection owner observes it. The later source-mechanism description did not establish
-an authorized exception to the original primary-error requirement. PTD-02 must preserve the body
+an authorized exception to the original primary-error requirement. The repair requirement was to preserve the body
 error and all child/connection cleanup failures through actual analytics/export/description callers.
-PTD-03 metadata implementation remains delivered; independently exercise an existing inaccessible
+PTD-03 metadata implementation was delivered; its outstanding control was to exercise an existing inaccessible
 relation under the actual reader through ordinary JSON reporting. The coordinator's
 [completion audit](../postgresql-typed-domain_2026-11-09.md#completion-audit) owns CA02/04 and required
 closure evidence. Parameter/capsule/input/lab investigations remain excluded from this audit.
+
+
+## Repair execution · 2026-11-10
+
+The [coordinator delivery receipt](../postgresql-typed-domain_2026-11-09.md#completion-repairs-and-ptd-10-delivery--2026-11-10)
+closes the local audit obligations at the scoped boundary and owns current disposition. Historical
+audit descriptions above identify the inspected baseline, not an unrepaired current claim.
+owned_adbc_child now retains body identity across reader/cursor/writer retirement and appends
+nested cleanup errors before existing rollback/close settlement. Description metadata readers are
+lexically owned; _rows no longer owns generator cleanup. The actual reader/CLI denied-version-table
+control passed, distinguishing refused Arrow shape, available catalog facts and a missing literal.

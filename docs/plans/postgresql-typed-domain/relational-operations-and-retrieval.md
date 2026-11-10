@@ -1,6 +1,6 @@
 # Complete relational operations and exact retrieval
 
-**Status: PTD-06/07 implemented and scoped tests passed; I03/I04 decisions recorded; two PTD-10 slices selected · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
+**Status: PTD-06/07 implemented and scoped tests passed; I03/I04 decisions recorded; both PTD-10 slices delivered with scoped controls · 2026-11-10.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
 below, not another status table. The coordinator records execution separately from original authoring.
@@ -51,7 +51,7 @@ if the tagged full-membership result amplifies work, without assuming a benchmar
 
 ### Decision account · 2026-11-09
 
-**Interface-checked; selected delivery remains Proposed.** Inspected `baea0ed8e` at the complete
+**Interface-checked at decision; selected delivery has scoped acceptance below.** Inspected `baea0ed8e` at the complete
 current owners: `inference.derive`, native `sql/closure.sql` workspace custody,
 `operations.create_task`/`BoundReader.contextual_candidates`, `orchestrate.semantic.register_ref`,
 `orchestrate.source_reader.ScopedSourceReader`, `methods.contextual_candidates`,
@@ -110,7 +110,7 @@ unchanged. Replace only the intermediate Python frontier transport:
   creation/shape/refusal/cleanup and a stale source-revision refusal after the native migration.
 
 Expected reduced conversion/movement is qualitative; no benchmark is required to select it.
-Native semantics and final publication remain **Proposed until delivered and tested in PTD-10**.
+Native semantics and final publication are now implemented with scoped PTD-10 acceptance below.
 
 ### PTD-10/contextual-preparation · Contextual preparation delivery contract
 
@@ -153,7 +153,7 @@ SQLAlchemy2.1.6 `lambda_stmt` tracking controls and Psycopg3.3.6 `executemany(re
 `Cursor.stream` refuses active pipeline mode and attempts cancellation/drain on early closure.
 These are source/interface observations, not a native cleanup test. Product/native tests and
 benchmarks are **not_run** for the source-settled investigations. All I03 branches are decided;
-its two selected PTD-10 slices remain delivery and qualification obligations in the coordinator.
+its two selected PTD-10 slices now have delivery receipts; combined qualification remains coordinator-owned.
 
 ## PTD-I04 · Richer retrieval decision
 
@@ -271,3 +271,22 @@ fusion/witness policy. Superseded statement/literal paths are retired. Historica
 at their recorded source/native boundaries; no new retrieval/provider/quality run was performed.
 The coordinator's [completion audit](../postgresql-typed-domain_2026-11-09.md#completion-audit) owns
 the bounded conclusion. I03/I04 decisions and both pending PTD-10 improvements were excluded.
+
+
+## PTD-10 execution · 2026-11-10
+
+Both selected slices are implemented and scoped controls passed; the
+[coordinator receipt](../postgresql-typed-domain_2026-11-09.md#completion-repairs-and-ptd-10-delivery--2026-11-10)
+owns current state and final-source qualification. Native generation bigint/default/check and
+(generation,predicate) index live in the existing trusted workspace; separate rule statements
+preserve a fixed delta generation and within-round accumulated visibility. Scalar count CTEs replace
+frontier transport, while final fact/proof materialization and publication remain intact. Begin/end
+workspace definitions now enter the existing current-source frozen-authoring route. No old migration
+was regenerated.
+
+PreparedContextualInventory retains one immutable target relation and complete reader/input/profile/
+dimension binding. Primitive tuple values and frozen record classes are admitted before caching;
+per-query native membership and query validation remain. The actual reader continues replacing its
+borrowed connection per snapshot; cached preparation owns no connection or result. Independent
+mutation, reuse, native channel/rank/witness and mixed-rule closure cases cover delivery. Earlier
+Proposed labels describe the accepted target before this scoped receipt, not current non-delivery.

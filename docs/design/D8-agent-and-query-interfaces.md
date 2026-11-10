@@ -745,6 +745,11 @@ source/structural identity and explicit unknown helper boundaries. `ci model cha
 sql` reads retained source/excerpts, located failures and descriptive edits without executing data
 queries. Candidate SQL inspection preserves before-source; `--view operations` reads verified frozen
 native identities/order/ACL facts. Failed SQL diagnostics confer no apply/deploy authority.
+
+**Implemented; scoped controls Tested,2026-11-10.** Schema compile/check validation reports use
+LocatedValidationReport v3. Optional dependency-detail selectors attach the existing bounded retained
+occurrence page; default compact validation is unchanged. Page coverage and unavailable archived-v2
+detail remain separate from compact validation completeness. Explanation/diff payloads remain v2.
 > Decision: [ADR-0074](../adr/0074-attributed-projection-explanations.md)
 > Status: **Implemented; scoped controls Tested,2026-11-09.** The PTD coordinator owns exact evidence.
 

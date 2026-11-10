@@ -1,6 +1,6 @@
 # Native evolution and bounded operational control
 
-**Status: PTD-09 implemented and scoped tests passed; I06 decisions recorded, selected PTD-10 delivery remains coordinator-owned · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
+**Status: PTD-09 implemented and scoped tests passed; I06 decisions recorded, selected PTD-10 delivery remains coordinator-owned · 2026-11-10.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
 below, not another status table. The coordinator records execution separately from original authoring.
@@ -194,3 +194,13 @@ frozen facts without replaying deployment. Fresh current-source authoring checks
 results retain their original contexts. The coordinator's
 [completion audit](../postgresql-typed-domain_2026-11-09.md#completion-audit) owns the bounded judgment.
 I06 decisions and pending PTD-10/11 were excluded.
+
+
+## Selected native delivery · 2026-11-10
+
+semantic_ptd_completion_repairs is deployed on the acquired development target. Exactly three
+frozen body changes preserve before/after owners and ACLs: inference workspace begin/end and the
+execution contract descriptor. Both workspace functions now have explicit current-source custody
+through the existing source-guard route. Temporary generation/index details do not create a second
+migration lifecycle. The [coordinator receipt](../postgresql-typed-domain_2026-11-09.md#completion-repairs-and-ptd-10-delivery--2026-11-10)
+owns exact IDs, qualification and remaining PTD-11 work; I06 choices remain unchanged.
