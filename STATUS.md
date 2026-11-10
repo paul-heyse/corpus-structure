@@ -14,6 +14,8 @@ the project is unselected. Protected Standard/Nemotron arms retain their recorde
 
 ## Last verified · 2026-11-10
 
+- Text-characterization functional review: `uv run ci docs check --json` **passed** b98835dbc9164bd5aa0e1f385f9ba824 (858 canonical pages, zero link errors); `just turn-end` **passed**. Source/reference and independent design/coverage review only; product/provider tests, fitting, probes and benchmarks **not_run**.
+
 - Repeated text-characterization discovery: `uv run ci docs check --json` **passed**4ff45c99f64442379c7007b9f5a56d24 (857 pages, zero link errors); `just turn-end` **passed**. Source/reference review and independent coverage corrections are documentary evidence; product tests/provider runs/benchmarks **not_run**. Later edits record receipts/source-scope facts only; old product receipts below keep their scope.
 
 - Full `uv run ci test --json` **failed** b8225463a9d44668a86d6e7dce6cd5c3: ordinary5978 passed/four obsolete test consumers failed/two opt-in cases blocked; fault8 passed. Test-only migration's complete file **passed**8 ae7083f718e147f3b558cc29596ac764. All failed/interrupted originals are held in the coordinator; none is relabelled passed.
@@ -24,6 +26,8 @@ the project is unselected. Protected Standard/Nemotron arms retain their recorde
 - Audit publication `uv run ci docs check --json` **passed**83879a6cffe14ff7806fe4d406408d71 (853 pages/zero link errors); `just turn-end` **passed**,1036 Python files unchanged. Later edits record receipt facts only. Concurrent discovery checkpoint additions remain preserved.
 
 ## Other current scopes
+
+- [Text-characterization functional review](docs/functional_reviews/text-characterization_2026-11-10.md) selects O01–O07: shared native evidence, primary construction/forest semantics, factorized readings, contextual characterization and complete consumer migration. The integrated target and feature dispositions remain Proposed; implementation planning is next for this scope. PM2/WCE retain execution disposition.
 
 - [Repeated spaCy/Lark discovery](docs/library_leverage/libraries/text-characterization/briefing.md) replaces the earlier account with seven integrated topic briefings and feature-level judgments/sources. It recommends full formal sentence characterization in primary extraction and treats forest processing as a primary representation/computation candidate. Recommendations remain Proposed; production adoption remains open.
 

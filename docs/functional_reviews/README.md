@@ -138,3 +138,11 @@ exchange, native inspection/evolution and operational control. Six companions co
 realizations and conditional future workflows. Its source crosswalk covers all38 discovery
 shortlist entries,23 retained families and the inline observations/corrections. Recommendations
 remain Proposed; active plans retain accepted implementation scope and disposition.
+
+## Integrated primary text characterization — 2026-11-10
+
+The [text-characterization review](text-characterization_2026-11-10.md) selects O01–O07:
+shared linguistic/formal evidence, construction grammars with direct forest semantics, factorized
+source readings, contextual characterization and complete consumer migration. Its feature crosswalk
+disposes the full spaCy/Lark discovery collection, comparing existing HanLP, Maverick, Dipo, GLiNER
+and d1 responsibilities. The finalized target remains Proposed; active plans retain execution scope.

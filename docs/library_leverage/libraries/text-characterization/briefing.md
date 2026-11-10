@@ -87,6 +87,10 @@ limit these research judgments.
 
 ## Integrated consequences and next decisions
 
+The [integrated functional review](../../../functional_reviews/text-characterization_2026-11-10.md)
+now selects a complete proposed target and disposes these discovery leads. It owns comparative
+selection; the capability judgments here remain reusable research context.
+
 A full target design should determine the typed sentence-characterization products, including
 predicate/argument/qualifier structures and alternative interpretations, before preserving the
 current division between annotation, rules, frames and later extraction. It should examine native
