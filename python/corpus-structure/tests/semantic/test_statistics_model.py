@@ -19,6 +19,10 @@ def statistics_inputs():
                     "statistics_semantic", (root / "domains/statistics/semantic.yaml").read_bytes()
                 ),
                 SourceArtifact(
+                    "statistics_terminology",
+                    (root / "domains/statistics/terminology.yaml").read_bytes(),
+                ),
+                SourceArtifact(
                     "semantic_core",
                     (
                         root

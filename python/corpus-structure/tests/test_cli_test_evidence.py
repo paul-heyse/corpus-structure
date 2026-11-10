@@ -149,6 +149,13 @@ def test_installed_compact_coverage_and_exact_failures(tmp_path):
     }
     assert "fixture-secret" not in str(failure) and "must stay private" not in str(failure)
     assert failure["next_action"] == f"ci test retry {original.id} --lane ordinary"
+    first = json.loads(_run(store, "failures", original.id, "--limit", "100", "--json").stdout)
+    assert first["next_after"] == 100
+    tail = json.loads(
+        _run(store, "failures", original.id, "--after", "100", "--limit", "100", "--json").stdout
+    )
+    assert [item["nodeid"] for item in first["items"] + tail["items"]] == nodes
+    assert tail["after"] == 100 and tail["next_after"] is None
     expanded = json.loads(
         _run(
             store,
@@ -187,6 +194,62 @@ def test_installed_compact_coverage_and_exact_failures(tmp_path):
         store, "coverage", original.id, "--view", "unresolved", "--limit", "101", check=False
     )
     assert bad.returncode == 2
+
+
+def test_installed_failure_pagination_crosses_lanes_and_reports_worker_loss(tmp_path):
+    store = ResultStore(tmp_path)
+    with store.operation("test", scope={"lane": "all"}) as original:
+        for name, count in (("ordinary", 3), ("fault", 4)):
+            directory = original.directory / name
+            _receipt(
+                directory, [f"tests/test_{name}.py::test_{n}" for n in range(count)], fail=True
+            )
+            if name == "ordinary":
+                (directory / "rust-state.json").write_text(
+                    json.dumps(
+                        dict(
+                            status="not_run",
+                            applicability="empty-selection",
+                            listed_test_count=0,
+                            functional_coverage=False,
+                            reason="zero Rust tests establish no functional coverage",
+                        )
+                    )
+                )
+                with (directory / "events-controller-12.jsonl").open("a") as stream:
+                    stream.write(
+                        json.dumps(
+                            dict(
+                                event="worker_down",
+                                lost_worker="gw2",
+                                error="SIGKILL password=private",
+                            )
+                        )
+                        + "\n"
+                    )
+            original.publish(name, directory)
+        original.settle("failed", lanes={"ordinary": "failed", "fault": "failed"})
+    page = json.loads(
+        _run(store, "failures", original.id, "--after", "2", "--limit", "3", "--json").stdout
+    )
+    assert [(item["lane"], item["nodeid"].rsplit("::", 1)[1]) for item in page["items"]] == [
+        ("ordinary", "test_2"),
+        ("fault", "test_0"),
+        ("fault", "test_1"),
+    ]
+    assert page["available"] == 7 and page["next_after"] == 5
+    assert page["lanes"]["ordinary"]["reporting_errors"] == [
+        "worker gw2: SIGKILL password=**********"
+    ]
+    assert not page["lanes"]["ordinary"]["reporting_complete"]
+    assert page["lanes"]["ordinary"]["rust"]["listed_test_count"] == 0
+    assert page["lanes"]["ordinary"]["rust"]["status"] == "not_run"
+    assert not page["lanes"]["ordinary"]["rust"]["functional_coverage"]
+    assert "private" not in json.dumps(page)
+    clipped = json.loads(
+        _run(store, "failures", original.id, "--diagnostic-chars", "20", "--json").stdout
+    )
+    assert clipped["lanes"]["ordinary"]["reporting_errors_truncated"]
 
 
 def test_installed_failure_report_identifies_live_and_unsettled_custody(tmp_path):

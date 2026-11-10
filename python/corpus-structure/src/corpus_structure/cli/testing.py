@@ -101,10 +101,24 @@ class FailureEvent(BaseModel):
     diagnostic_truncated: bool = False
 
 
+class RustEvidence(BaseModel):
+    status: str
+    applicability: str
+    functional_coverage: bool
+    listed_test_count: int | None = None
+    reported_test_count: int | None = None
+    reason: str | None = None
+    reason_truncated: bool = False
+
+
 class FailureLane(BaseModel):
     status: str
     reporting_complete: bool
     native_observation: str | None = None
+    reporting_errors: list[str] = []
+    reporting_errors_omitted: int = 0
+    reporting_errors_truncated: bool = False
+    rust: RustEvidence | None = None
 
 
 class Failures(BaseModel):
@@ -115,6 +129,8 @@ class Failures(BaseModel):
     phase: Phase | None
     lanes: dict[Lane, FailureLane]
     limit: int
+    after: int
+    next_after: int | None
     selected: int
     available: int
     omitted: int
@@ -219,11 +235,23 @@ def _render_failures(report: Failures) -> Group:
         if not evidence.reporting_complete:
             status += ", incomplete node reporting"
         rows.add_row(lane, _literal(status))
+        if evidence.rust is not None:
+            rows.add_row(
+                "Rust", _literal(f"{evidence.rust.status} ({evidence.rust.applicability})")
+            )
+            if evidence.rust.reason:
+                rows.add_row("Rust reason", _literal(evidence.rust.reason))
+        for issue in evidence.reporting_errors:
+            rows.add_row("Reporting", _literal(issue))
+        if evidence.reporting_errors_omitted:
+            rows.add_row("Reporting omitted", Text(str(evidence.reporting_errors_omitted)))
     rows.add_row(
         "Showing",
         Text(f"{report.selected}/{report.available} observed failures ({report.omitted} omitted)"),
     )
     rows.add_row("Order", Text("lane (ordinary, fault), then collection errors, node ID and phase"))
+    if report.next_after is not None:
+        rows.add_row("Continue", Text(f"--after {report.next_after}"))
     if report.sanitized_identities:
         rows.add_row("Identities sanitized", Text(str(report.sanitized_identities)))
     if report.next_action:
@@ -665,6 +693,9 @@ def failures(
     lane: Annotated[Lane | None, typer.Option()] = None,
     phase: Annotated[Phase | None, typer.Option()] = None,
     limit: ReportLimit = _DEFAULT_LIMIT,
+    after: Annotated[
+        int, typer.Option(min=0, help="Continue after this many filtered observations.")
+    ] = 0,
     diagnostic_chars: Annotated[
         int,
         typer.Option(min=1, max=32768, help="Maximum characters per redacted diagnostic."),
@@ -686,6 +717,7 @@ def failures(
         receipt_count = 0
         retry_lanes: set[Lane] = set()
         receipt_unsettled = False
+        remaining_after = after
         for name in _LANES:
             if (lane is not None and name != lane) or (lane is None and name not in selected_lanes):
                 continue
@@ -708,18 +740,36 @@ def failures(
                 str(path),
                 "--limit",
                 str(limit - len(items)),
+                "--after",
+                str(remaining_after),
                 *selection,
                 opened={path: fd},
             )
             receipt_count += 1
             receipt_unsettled |= report["custody_unsettled"]
+            rust = RustEvidence.model_validate(report["rust"][0]) if report["rust"] else None
+            if rust is not None and rust.reason is not None:
+                reason = _display_text(rust.reason)
+                rust.reason_truncated = len(reason) > diagnostic_chars
+                rust.reason = reason[:diagnostic_chars]
             lanes[name] = FailureLane(
                 status=report["status"],
                 reporting_complete=report["reporting_complete"] and not report["custody_unsettled"],
                 native_observation=report["native_observation"],
+                rust=rust,
+                reporting_errors=[
+                    _display_text(message)[:diagnostic_chars]
+                    for message in report["reporting_errors"]
+                ],
+                reporting_errors_omitted=report["reporting_errors_omitted"],
+                reporting_errors_truncated=any(
+                    len(_display_text(message)) > diagnostic_chars
+                    for message in report["reporting_errors"]
+                ),
             )
             if not report["custody_unsettled"]:
                 available += report["available"]
+                remaining_after = max(0, remaining_after - report["available"])
                 for raw in report["items"]:
                     item = FailureEvent(lane=name, **raw)
                     if item.diagnostic is not None:
@@ -758,6 +808,8 @@ def failures(
             phase=phase,
             lanes=lanes,
             limit=limit,
+            after=after,
+            next_after=after + len(items) if after + len(items) < available else None,
             selected=len(items),
             available=available,
             omitted=available - len(items),

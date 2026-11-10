@@ -46,6 +46,10 @@ def release():
                         (ROOT / "domains/statistics/semantic.yaml").read_bytes(),
                     ),
                     SourceArtifact("semantic_core", (model / "core.yaml").read_bytes()),
+                    SourceArtifact(
+                        "statistics_terminology",
+                        (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
+                    ),
                 ),
             )
         )

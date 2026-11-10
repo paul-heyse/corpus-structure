@@ -54,6 +54,10 @@ def prepared():
                         (ROOT / "domains/statistics/semantic.yaml").read_bytes(),
                     ),
                     SourceArtifact("semantic_core", (MODEL / "core.yaml").read_bytes()),
+                    SourceArtifact(
+                        "statistics_terminology",
+                        (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
+                    ),
                 ),
             )
         )
@@ -664,6 +668,10 @@ def test_actual_released_role_requiredness_drives_core_scoring():
                 (
                     SourceArtifact("statistics_semantic", yaml.safe_dump(document).encode()),
                     SourceArtifact("semantic_core", (MODEL / "core.yaml").read_bytes()),
+                    SourceArtifact(
+                        "statistics_terminology",
+                        (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
+                    ),
                 ),
             )
         )

@@ -6,18 +6,8 @@ from types import SimpleNamespace
 from pydantic import BaseModel
 from sqlalchemy import insert, select
 
-from corpus_structure.semantic import (
-    PreparationProfile,
-    ResolvedDependencies,
-    SourceArtifact,
-    SourceBundle,
-    prepare_release,
-)
-from corpus_structure.semantic.analytical_profile import analytical_inputs
-from corpus_structure.semantic.composed import composed_dependencies
-from corpus_structure.semantic.domain_operations import consolidate_cut, domain_rule_inputs
+from corpus_structure.semantic.domain_operations import consolidate_cut
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.observations import observation_inputs
 from corpus_structure.semantic.operations import (
     OperationBinding,
     claim_tasks,
@@ -32,7 +22,6 @@ from corpus_structure.semantic.proposals import (
     SEMANTIC_AGENT_VERSION,
     locate_proposal,
     native_source_frame,
-    proposal_inputs,
     proposal_packet,
 )
 from corpus_structure.semantic.query import QuerySpec, read_session
@@ -40,38 +29,16 @@ from corpus_structure.semantic.releases import persist_release
 from corpus_structure.semantic.source_frames import capture_source_frame
 
 from .inventory_reading import inventory_supports
+from .method_dimensions_support import prepare_fixture_pack
 
 
 def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targets(
     semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
 ):
     root = Path(__file__).resolve().parents[4]
-    model = root / "python/corpus-structure/src/corpus_structure/model/semantic"
-    dependencies = domain_rule_inputs(
-        ResolvedDependencies(),
-        (root / "domains/statistics/schema/rules.yaml").read_bytes(),
-        (root / "domains/core/schema/rules.yaml").read_bytes(),
+    bundle, dependencies, profile, prepared = prepare_fixture_pack(
+        root / "domains/statistics", "pdf.controlled-source"
     )
-    bundle = SourceBundle(
-        "statistics_semantic",
-        (
-            SourceArtifact(
-                "statistics_semantic", (root / "domains/statistics/semantic.yaml").read_bytes()
-            ),
-            SourceArtifact("semantic_core", (model / "core.yaml").read_bytes()),
-        ),
-    )
-    bundle = observation_inputs(
-        proposal_inputs(bundle, dependencies, qualification_class="StatisticsQualification")
-    )
-    bundle, dependencies = analytical_inputs(bundle, dependencies)
-    from .method_dimensions_support import fixture_execution_inputs
-
-    dependencies = composed_dependencies(
-        dependencies, fixture_execution_inputs("pdf.controlled-source")
-    )
-    profile = PreparationProfile(version="semantic-2")
-    prepared = prepare_release(bundle, dependencies, profile)
     with semantic_db_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, prepared)
         conn.execute(insert(table("data.project")).values(project_id="p"))

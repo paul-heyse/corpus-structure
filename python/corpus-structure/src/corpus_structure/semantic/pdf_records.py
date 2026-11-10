@@ -420,6 +420,9 @@ def iter_native_records(
         }
 
     def text_projection(owner: str, field: str, value: str):
+        # Traversal paths carry diagnostic metadata only inside this lowering.
+        # Published native text and caller callbacks keep their ordinary str contract.
+        value = str.__str__(value)
         if (
             len(value) > INLINE_SCALAR_BYTES
             or "\x00" in value
@@ -465,7 +468,7 @@ def iter_native_records(
                 "properties" in selected or selected.get("type") == "array"
             ):
                 child = record_id_for(
-                    member_path,
+                    str(member_path),
                     "NativeArray"
                     if isinstance(member, list)
                     else selected.get("title", "NativeObject"),
@@ -510,7 +513,9 @@ def iter_native_records(
                 member_path = child_path(path, field)
                 member_schema, _ = mapping.resolve(declared[field], member, member_path)
                 if isinstance(member, dict) and "properties" in member_schema:
-                    child = record_id_for(member_path, member_schema.get("title", "NativeObject"))
+                    child = record_id_for(
+                        str(member_path), member_schema.get("title", "NativeObject")
+                    )
                     fields[field] = {"kind": "object", "target": child}
                     yield from object_rows(member, declared[field], member_path, child)
                 elif isinstance(member, list) and member_schema.get("type") == "array":

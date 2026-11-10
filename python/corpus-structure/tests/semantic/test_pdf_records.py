@@ -319,6 +319,44 @@ def test_huge_scalar_nul_and_opaque_extension_have_bounded_parts():
     assert all("\\u0000" not in r.values.get("scalars_json", "") for r in records.rows)
 
 
+def test_native_addresses_and_allocator_arguments_are_plain_public_strings():
+    from corpus_structure.semantic.observations import source_value
+    from corpus_structure.semantic.pdf_record_identity import describe_scalar
+
+    expected = {
+        "name": "inline",
+        "texts": [text(0)],
+        "pages": {"1": {"page_no": 1, "size": {"width": 1, "height": 2}}},
+    }
+    records = Records()
+    allocated = []
+
+    def allocate(address, native_type):
+        assert type(address) is str
+        allocated.append(address)
+        return occurrence_id(address, native_type)
+
+    records.rows = list(
+        iter_native_records(
+            expected,
+            product_id="p",
+            revision_id="r",
+            release_id="release",
+            source_digest="a" * 64,
+            record_id_for=allocate,
+            write_scalar=records.write,
+        )
+    )
+    assert {"#", "#/texts/0", "#/pages/1", "#/pages/1/size"} <= set(allocated)
+    for row in records.rows:
+        if row.kind == "native":
+            address = row.values["native_address"]
+            assert type(address) is str
+            assert describe_scalar(address).kind == b"s"
+            assert source_value(dict(row.values))["kind"] == "object"
+    assert records.reconstruct() == expected
+
+
 def test_map_keys_and_native_address_overflow_reconstruct_exactly():
     key = "1" * 1024 + "\x00"
     value = {"name": "key", "pages": {key: {"page_no": 1, "size": {"width": 1, "height": 2}}}}
@@ -326,6 +364,23 @@ def test_map_keys_and_native_address_overflow_reconstruct_exactly():
     assert records.reconstruct() == value
     assert any("member_key_stream_id" in r.values for r in records.rows)
     assert any("native_address_stream_id" in r.values for r in records.rows)
+    addresses = {
+        b"".join(records.streams[row.values["native_address_stream_id"]]).decode("utf-8")
+        for row in records.rows
+        if "native_address_stream_id" in row.values
+    }
+    pointer = "#/pages/" + key.replace("~", "~0").replace("/", "~1")
+    assert addresses == {pointer, pointer + "/size"}
+    assert all(
+        type(row.values["native_address"]) is str
+        for row in records.rows
+        if "native_address" in row.values
+    )
+    assert all(
+        type(part) is bytes and len(part) <= 65536
+        for parts in records.streams.values()
+        for part in parts
+    )
 
 
 def test_unknown_native_field_and_schema_drift_refuse_precisely():

@@ -1147,7 +1147,9 @@ def _failure_events(receipt: dict[str, Any]) -> Generator[dict[str, Any]]:
             }
 
 
-def _failure_projection(result: dict[str, Any], limit: int, phase: str | None) -> dict[str, Any]:
+def _failure_projection(
+    result: dict[str, Any], limit: int, phase: str | None, after: int = 0
+) -> dict[str, Any]:
     (receipt,) = result["receipts"]
     items = []
     available = 0
@@ -1155,12 +1157,41 @@ def _failure_projection(result: dict[str, Any], limit: int, phase: str | None) -
         if phase is not None and event["phase"] != phase:
             continue
         available += 1
-        if len(items) < limit:
+        if available > after and len(items) < limit:
             items.append(event)
+    health = [
+        *receipt["stream_errors"],
+        *[
+            f"worker {event.get('lost_worker', 'unknown')}: {event['error']}"
+            for event in receipt["worker_loss"]
+        ],
+    ]
     return {
         "status": result["status"],
         "items": items,
         "available": available,
+        "reporting_errors": [
+            message
+            if len(message) <= 32768
+            else "Reporting error exceeds diagnostic capture limit."
+            for message in health[:20]
+        ],
+        "reporting_errors_omitted": max(0, len(health) - 20),
+        "rust": [
+            {
+                key: entry[key]
+                for key in (
+                    "status",
+                    "applicability",
+                    "functional_coverage",
+                    "listed_test_count",
+                    "reported_test_count",
+                    "reason",
+                )
+                if key in entry
+            }
+            for entry in result["rust"]
+        ],
         "reporting_complete": receipt["reporting_complete"] and receipt["identity_valid"],
         "custody_unsettled": result["custody_unsettled"],
         "retryable": _retryable(result),
@@ -1373,6 +1404,7 @@ def main(argv: list[str] | None = None) -> int:
     projection.add_argument("--projection", choices=("coverage", "unresolved", "failures"))
     inspect.add_argument("--limit", type=int, choices=range(101), default=20, metavar="N")
     inspect.add_argument("--phase", choices=_FAILURE_PHASES)
+    inspect.add_argument("--after", type=int, default=0)
     inspect.add_argument(
         "--required-lane", action="append", choices=("ordinary", "fault"), default=[]
     )
@@ -1400,6 +1432,8 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("failure projection requires exactly one receipt directory")
         if args.phase is not None and args.projection != "failures":
             parser.error("phase requires a failure projection")
+        if args.after < 0 or (args.after and args.projection != "failures"):
+            parser.error("after requires a failure projection and a nonnegative offset")
         try:
             lanes = {name: [] for name in args.required_lane}
             for name, path in args.required_lane_from:
@@ -1493,7 +1527,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     elif args.action == "classify" and args.projection is not None:
         if args.projection == "failures":
-            report = _failure_projection(result, args.limit, args.phase)
+            report = _failure_projection(result, args.limit, args.phase, args.after)
         else:
             report = _coverage_projection(
                 result, args.limit if args.projection == "unresolved" else None
