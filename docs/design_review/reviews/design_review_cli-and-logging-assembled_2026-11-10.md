@@ -26,6 +26,14 @@ corrected visual interruption scenario; FP-03/05/06 and DP-08/21 are satisfied. 
 remain unchanged. Reviewer checks remain not_run; the coordinator owns targeted outcomes and the
 separate PDF-validation, test-oracle and diagnostic-view qualification repairs.
 
+**Final reconciliation, 2026-11-10:** the independent reviewer inspected clean `9d097aa01`
+(production `123dc1b50`, native repair `c7960b724`) and maintained Accept at Implemented strength.
+Cleanup-before-ACK/terminal-exit validation preserves existing cancellation authority; opt-in
+retained pytest locations preserve native paths/chain descriptions, explicit unknowns and actual
+transport/display bounds without source/locals or inferred relations. Math adjustments are
+test-support only, preserving production defaults and exact parity. No new material finding or
+rule impact; A1–A4 and applicable gates remain satisfied for named scenarios.
+
 Core3.3, heuristics1.0, code-intelligence1.4, binding and test-assessment1.2 apply through
 [standard.toml](../design_principles/standard.toml). The test companion informs selected controls;
 this engagement does not assess the whole test architecture. D8 and adjacent D3/D6/D9,

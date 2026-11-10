@@ -220,7 +220,7 @@ Root `just turn-end` **passed**, with1036 Python files unchanged, before assembl
 | CLD-IR16 | Closed · CLD-10 | Both recipe routes preserve130/143 and defer unresolved custody; native73/final43 |
 | CLD-AR01 | Closed at scoped boundary · CLD-06/07 | Finite acquired visual handles record identity before effects; independent source reassessment and actual native interruption/wrong-project control f01e1963df604953bd65cf386b35c4a6 |
 | CLD-Q01 | Closed at scoped boundary · CLD-10 | Equal explicit30s test budgets preserve exact parity and default production deadlines;14 controls ee7c96d7e51a40479bf047caacbb4ab6 plus final parity e3dd460bc27248d583293ba5ed0da736 passed |
-| CLD-Q02 | Source corrected; native qualification pending · CLD-10 | Cleanup precedes ACK; existing owner lifetime governs terminal wait/exit0; independent source review and prepared actual-spawn controls |
+| CLD-Q02 | Closed at scoped boundary · CLD-10 | Cleanup-before-ACK and successful terminal exit preserve owner cancellation/reaping; actual native27 passed7c87d3cacaba4ff3919e3d838f1f5fdd |
 | CLD-IR17 | Closed at scoped boundary · CLD-10 | Opt-in retained native frame/chain projection, real transport encoding, whole-field omissions and privacy;19 tests6ba6c5b7b41c4cadb89966c764137c07 and installed old-result replay passed |
 
 The compact-excerpt replacement intentionally retires raw8KiB tail collection and its second
@@ -319,3 +319,25 @@ passed with actual retained helper file locations and original chain paths, excl
 locals and captured streams; no export/re-execution. Earlier typing `a279cb7886dc419097b091cbc11e6a52`
 and lint `b8692cf07d684e56831864d159b03c87` keep their pre-bound-repair scope.
 The root maintenance repeat left1036 Python files unchanged before final native qualification.
+
+
+### Frozen-source native and repository qualification · 2026-11-10
+
+`7c87d3cacaba4ff3919e3d838f1f5fdd` **passed**27/27, with settled custody and clean identical
+HEAD `9d097aa01ae816ddad5e731fa0745e9582477c0e` at start/end. The selected union covers actual
+spawned validation cleanup/exit/cancellation, publication and validation policy, both resubmission
+variants, visual acquisition/interruption/failure/wrong-project/wire/group behavior and regular
+regeneration. No source changed during the run. The exact selected command is:
+
+```sh
+uv run ci test --json -- python/corpus-structure/tests/semantic/test_pdf_lifetimes.py python/corpus-structure/tests/semantic/test_pdf_publication.py::test_freeze_prepare_validate_seal_and_replay python/corpus-structure/tests/semantic/test_pdf_publication.py::test_missing_validation_check_refuses_publication_and_can_retry python/corpus-structure/tests/semantic/test_pdf_publication.py::test_validation_cancellation_settles_live_check python/corpus-structure/tests/semantic/test_pdf_validation_policy.py python/corpus-structure/tests/semantic/test_agent_resubmission.py python/corpus-structure/tests/semantic/test_pdf_visual_requests.py::test_diagnostics_and_retired_campaigns_cannot_start_chandra python/corpus-structure/tests/semantic/test_pdf_visual_requests.py::test_visual_effect_retains_raw_before_mapping_and_reuses_only_exact_inputs python/corpus-structure/tests/semantic/test_pdf_visual_requests.py::test_visual_group_resumes_after_first_settlement_and_reuses_exact_tasks python/corpus-structure/tests/acceptance/test_regeneration.py
+```
+
+`uv run ci check --view steps --json` **passed** in `76cb5274048e4271bf0636b44b733b78`:
+agent/ADR/Ruff/typing/docs/dependencies/Clippy all passed; rule scan/test are not_run for the empty
+registry. `uv run ci doctor --json` **passed** in `98302a2aa35447fbaa46d29a3e27ed20`.
+The final independent source reconciliation accepts A1–A4 and applicable gates for named scenarios;
+no rule impact or further material finding. Reviewer execution remains not_run, not these receipts.
+All53 previously referenced managed receipts were explicitly held for this coordinator, preserving
+failed/interrupted outcomes. New final receipts are added to that retention before handoff.
+A fresh full default functional campaign remains required; these targeted passes are not its union.
