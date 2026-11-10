@@ -48,7 +48,9 @@ def test_joined_citation_policy_requires_exact_archived_release_bytes():
     archived = b'{"kept":"unchanged"}'
     contract = _contract(archived)
     assert archived_named_link_native_pieces(contract) == archived
-    contract[NAMED_LINK_NATIVE_PIECES_FIELD]["input_base64"] = b64encode(archived + b"\n").decode()
+    artifact = contract[NAMED_LINK_NATIVE_PIECES_FIELD]
+    assert isinstance(artifact, dict)
+    artifact["input_base64"] = b64encode(archived + b"\n").decode()
     with pytest.raises(ValueError, match="not bound to its release"):
         archived_named_link_native_pieces(contract)
     with pytest.raises(ValueError, match="lack their archived"):
