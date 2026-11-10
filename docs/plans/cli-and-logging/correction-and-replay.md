@@ -1,6 +1,6 @@
 # Attributed correction and retained replay
 
-**Implemented delivery design, 2026-11-10.** [Coordinator](../cli-and-logging_2026-11-10.md#final-acceptance)
+**Delivery target, 2026-11-10.** [Coordinator completion audit](../cli-and-logging_2026-11-10.md#completion-audit)
 owns CLD-05 and the presentation part of CLD-09; O04/07/08 are the source opportunities.
 
 ## Reuse delivered DMC meaning and custody
@@ -65,6 +65,13 @@ programming defect into success because its diagnostic document was written.
 Typed expected refusals continue through existing report owners. Cancellation is interruption,
 not another validation category. The safe exception product is useful even without retained raw
 traceback objects; do not pickle exceptions or reconstruct them by rerunning the producer.
+
+The completion audit identifies two remaining actual schema boundaries. CLD-CA01 requires optional
+diagnostic publication failure after successful pack compile/check or released check to preserve
+the successful report, requested output and outcome while disclosing unavailable custody.
+CLD-CA02 requires unexpected retained schema defects to reach the distinct typed exception
+product rather than the generic validation-report fallback. Existing original-refusal isolation
+and standalone exception-renderer controls do not exercise those producer boundaries.
 [Exception transformer26.1](https://www.structlog.org/en/26.1.0/api.html#structlog.tracebacks.ExceptionDictTransformer).
 
 Final machine results remain on stdout, diagnostics on stderr, MCP stdout protocol-only. Reuse

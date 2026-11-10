@@ -1,8 +1,9 @@
 # Agent CLI and diagnostic capability series
 
-**Status: Completed · CLD-00–10 · 2026-11-10.** This coordinator owns the combined
+**Status: Completion audit found remaining implementation and qualification obligations · 2026-11-10.** This coordinator owns the combined
 target, packages, source opportunity/investigation disposition and qualification. Supporting
-plans own design explanations, not duplicate execution state.
+plans own design explanations, not duplicate execution state. The [completion audit](#completion-audit)
+owns the current conclusion; five accepted obligations remain under CLD-CA01–05.
 
 ## Basis, selection and execution entry
 
@@ -70,10 +71,10 @@ applicable audit route. Do not add recommendation/completion audits as routine s
 
 ## Execution queue
 
-CLD-00–10 are complete at the selected boundaries. All consumer migrations, investigation
-dispositions, assembled target review, final-source qualification and handoff are delivered.
-The [final acceptance](#final-acceptance) accounts for the required union and its limits;
-earlier scoped passes and superseded attempts retain their original outcomes.
+CLD-00/01/03/08/09 are complete at their selected boundaries. CLD-02/04/05/06/07 retain the
+specific consumer obligations identified by the completion audit; CLD-10 remains open for their
+qualification and final handoff. The [qualification evidence](#final-acceptance) accounts for the
+existing test union, not every accepted behavior. Earlier results retain their original outcomes.
 
 ### Entry and operator testing decision · 2026-11-10
 
@@ -85,19 +86,19 @@ integration through controlled subprocesses, actual local stdio MCP and native r
 all other applicable testing remains in scope. This is an unselected external-provider obligation,
 not a blocked or failed test. No activation or project selection is authorized by this series.
 
-| Package | Required input → delivered capability and completion boundary |
-| --- | --- |
-| <a id="CLD-00"></a>CLD-00 | DMC-17 handoff → reconciled final baseline, required consumer/test scope and source disposition; production entry available |
-| <a id="CLD-01"></a>CLD-01 | Current owners + I01/I02 decisions → owned diagnostic/event/selection contracts and due target decision/review; exact retention, bounds and migration semantics settled |
-| <a id="CLD-02"></a>CLD-02 | Native reference route → focused command reference, exact help/examples/domain links and read-only discovery journey |
-| <a id="CLD-03"></a>CLD-03 | Shared grammar inventory → semantic Annotated aliases, pure conversions, actual affected command migration and example-led native tests; superseded conversions removed |
-| <a id="CLD-04"></a>CLD-04 | DMC SettingsReport + selected resource owner → configured invocation explanation and acquired-binding comparison in actual operation results |
-| <a id="CLD-05"></a>CLD-05 | DMC correction/custody + CLD-01 → correction-focused human/JSON views, authenticated source excerpts, retained text/JSON replay and affected CLI/MCP integration |
-| <a id="CLD-06"></a>CLD-06 | CLD-01 producer/read contract + I02 → scoped stdlib/structlog capture, safe exception/event products, bounded direct/retained inspection and first real managed provider association |
-| <a id="CLD-07"></a>CLD-07 | Working CLD-06 slice → correlated inspection over provider/task/native/result owners, filters/continuations, honest availability and interrupted-provider journey |
-| <a id="CLD-08"></a>CLD-08 | CLD-07 selection → headless watch/status with typed identities, scoped counts and owner-specific next actions; existing watch consumers migrated |
-| <a id="CLD-09"></a>CLD-09 | I03/I04 decisions + corresponding working products → selected conditional TTY/export extensions, or completed reasoned retain outcomes; no hidden deferred consumer migration |
-| <a id="CLD-10"></a>CLD-10 | All selected functional scope → final-source qualification, assembled target review, durable owner/skill documentation and PM2 return handoff |
+| Package | Required input → target capability and completion boundary | Current state |
+| --- | --- | --- |
+| <a id="CLD-00"></a>CLD-00 | DMC-17 handoff → reconciled final baseline, required consumer/test scope and source disposition; production entry available | Complete |
+| <a id="CLD-01"></a>CLD-01 | Current owners + I01/I02 decisions → owned diagnostic/event/selection contracts and due target decision/review; exact retention, bounds and migration semantics settled | Complete |
+| <a id="CLD-02"></a>CLD-02 | Native reference route → focused command reference, exact help/examples/domain links and read-only discovery journey | Open: CA05 |
+| <a id="CLD-03"></a>CLD-03 | Shared grammar inventory → semantic Annotated aliases, pure conversions, actual affected command migration and example-led native tests; superseded conversions removed | Complete |
+| <a id="CLD-04"></a>CLD-04 | DMC SettingsReport + selected resource owner → configured invocation explanation and acquired-binding comparison in actual operation results | Open: CA04 |
+| <a id="CLD-05"></a>CLD-05 | DMC correction/custody + CLD-01 → correction-focused human/JSON views, authenticated source excerpts, retained text/JSON replay and affected CLI/MCP integration | Open: CA01/02 |
+| <a id="CLD-06"></a>CLD-06 | CLD-01 producer/read contract + I02 → scoped stdlib/structlog capture, safe exception/event products, bounded direct/retained inspection and first real managed provider association | Open: CA02/03 |
+| <a id="CLD-07"></a>CLD-07 | Working CLD-06 slice → correlated inspection over provider/task/native/result owners, filters/continuations, honest availability and interrupted-provider journey | Open: CA03 |
+| <a id="CLD-08"></a>CLD-08 | CLD-07 selection → headless watch/status with typed identities, scoped counts and owner-specific next actions; existing watch consumers migrated | Complete; missing initial regeneration association stays with CLD-06/07 |
+| <a id="CLD-09"></a>CLD-09 | I03/I04 decisions + corresponding working products → selected conditional TTY/export extensions, or completed reasoned retain outcomes | Complete retain decisions; required replay repairs stay with CLD-05 |
+| <a id="CLD-10"></a>CLD-10 | All selected functional scope → final-source qualification, assembled target review, durable owner/skill documentation and PM2 return handoff | Open: qualify CA01–05 and reconcile affected evidence before PM2 return |
 
 CLD-02/03/04 can be designed independently of observation custody. CLD-05 needs only the shared
 report contract, not all provider correlation. CLD-06 includes a usable bounded read for its own
@@ -179,9 +180,10 @@ Expected usability benefits remain Proposed and qualitative.
 Entry consumed clean `42d20a2ab` and completed DMC-17. The scoped audit publication is
 `f25d427ed`; the [entry target review](../design_review/reviews/design_review_cli-and-logging-entry_2026-11-10.md)
 accepted the Proposed target with bounded sealed-read authentication. ADR-0079/D8 own the unchanged decision; the predecessor was retired after correcting its invalid design metadata.
-Implementation findings IR01–18, AR01 and Q01–03 are closed at their stated boundaries.
+Implementation findings IR01–18, AR01 and Q01–03 remain closed at their stated boundaries.
 Independent source review and scoped tests support those dispositions; CLD-10's final union below
-establishes selected whole-series qualification separately from expected qualitative benefits.
+supports the existing selected tests. The completion audit identifies additional accepted consumer
+obligations in CA01–05; the test union does not establish whole-series qualification for them.
 
 ### Scoped acceptance
 
@@ -226,6 +228,11 @@ Root `just turn-end` **passed**, with1036 Python files unchanged, before assembl
 | CLD-IR17 | Closed at scoped boundary · CLD-10 | Opt-in retained native frame/chain projection, real transport encoding, whole-field omissions and privacy;19 tests6ba6c5b7b41c4cadb89966c764137c07 and installed old-result replay passed |
 | CLD-IR18 | Closed at scoped boundary · CLD-06/10 | Receipt readers/fallback required lanes select existing domain lanes, excluding ancillary journals; actual27 coverage and observation-enabled regression0607345fa6d544c8906972205b8a60b2 passed |
 | CLD-Q03 | Closed · CLD-03/10 | Remaining schema CLI test consumers use the actual acquired preparation seam and native parser exit2; complete file8 passed ae7083f718e147f3b558cc29596ac764 and exact retry6 passed3e3fd9c9315e4b33b5208984b6f2eab6 |
+| <a id="CLD-CA01"></a>CLD-CA01 | Open · CLD-05/10 · CLI schema publication | Preserve successful compile/check result and outcome when optional diagnostic publication fails; declare unavailable custody. Actual-route probe failed; repair and independent success/failure controls required |
+| <a id="CLD-CA02"></a>CLD-CA02 | Open · CLD-05/06/10 · diagnostic boundary/exception capture | Route unexpected retained schema defects to the distinct typed exception product, preserving original exception/outcome. Actual group probe retained boundary validation without an exception journal; group/cause/notes replay controls required |
+| <a id="CLD-CA03"></a>CLD-CA03 | Open · CLD-06/07/10 · regeneration/native source boundary | Persist acquired native association before initial source effects, including failure/interruption; actual CLI-to-native inspection controls required |
+| <a id="CLD-CA04"></a>CLD-CA04 | Open · CLD-04/10 · native model apply report | Expose original-snapshot development/authoring selection beside acquired apply identity; extend actual native apply expectations without reacquisition |
+| <a id="CLD-CA05"></a>CLD-CA05 | Open · CLD-02/10 · model inspection native metadata | Explain selected candidate filters, page units and distinct continuation forms; correct preview SQL limit wording; verify focused native references |
 
 The compact-excerpt replacement intentionally retires raw8KiB tail collection and its second
 sanitizer. Oversized excerpts identify retained-safe selection and truncation rather than claiming
@@ -240,8 +247,10 @@ Original outcomes remain failed; later evidence replaces applicable identities, 
 - Initial command fixture assumptions: `aebbe32d91f041e4a73dc267d93e6d23`; replaced by137/55 scopes.
   Initial type reports were direct, without managed IDs, and are not claimed retained attempts.
 - Observation assumptions: `563682bc124041cc84f87914d1fda550` (34 passed/two failed), followed by59.
-  `f8476fd67d754b639f97cedf57c6fe46` (60 passed/one runtime-pin mismatch) still requires the
-  stable assembled-source default-status identity; concurrent mutation is a possible cause only.
+  `f8476fd67d754b639f97cedf57c6fe46` (60 passed/one runtime-pin mismatch) retains its failed outcome.
+  Its exact default-status/project-selection identity is present and covered in final broad
+  `b8225463a9d44668a86d6e7dce6cd5c3`; the audit verified that replacement. Concurrent mutation
+  remains a possible original cause, not a proven diagnosis.
 - Type iterations: `6caecbfeca204c5c8b1af2546a9573c2` (redundant pool exception catches),
   `442aa24f7c7f47d38e3a9181d48d77da`, `3537bf4175ac4eb1bee4dfb691c458de` and
   `d19365581e85419cb7a48af656fc6fbc` (new-test Optional reason guard); final typing above replaces them.
@@ -379,14 +388,16 @@ correction; the fresh full campaign covers the final package. Root maintenance p
 
 <a id="final-acceptance"></a>
 
-## Final acceptance · 2026-11-10
+## Qualification evidence and current acceptance limits · 2026-11-10
 
-**Implemented; Tested for the selected scope.** CLD-00–10, O01–O08, all ten research families,
-I01–04 and the findings above are complete. The accepted assembled review, D8/ADR-0079,
-updated ci skill and this retained series carry the enduring mechanisms and limits. I03/04 are
-completed retain decisions with the concrete revisit triggers above, not undelivered packages.
-Expected usability and execution-fit benefits remain Proposed and qualitative; no measured
-improvement is claimed. The next separate work owner is PM2; no activation/selection follows.
+**Implemented and Tested in the covered paths; whole-series completion remains open.** The
+completion audit found five missing accepted obligations despite the existing5992-identity test
+union. The accepted assembled review, D8/ADR-0079, updated ci skill and retained series carry
+the enduring contracts; prior review judgments retain their named scenario/source boundaries.
+I01–04 and all ten research-family dispositions remain settled. I03/04 are completed retain
+decisions with concrete revisit triggers. Expected usability and execution-fit benefits remain
+Proposed and qualitative. CLD-CA01–05 and affected qualification precede the PM2 return;
+no activation/selection follows from this audit.
 
 ### Required functional and provider union
 
@@ -424,7 +435,8 @@ are covered by the selected suite.
 and its full JSON view **passed**:5992 required/5992 covered, zero unresolved, no missing lanes,
 unknown contexts, active attempts or unsettled attempts. Aggregate attempt status deliberately
 remains `failed` because the original failed attempt is preserved; node coverage is `covered`.
-This is qualified union acceptance, not relabelling the broad attempt as passed.
+This establishes observed test-identity coverage without relabelling the broad attempt as passed.
+The completion audit separately assesses which accepted behaviors those tests exercise.
 
 Source applicability is explicit: `git diff bdaa82560 629d3b41f` contains only the57 additions/
 nine removals in that schema CLI test file. Its complete file and exact formerly failed nodes
@@ -452,6 +464,165 @@ agent/ADR/Ruff/typing/docs/dependencies/Clippy passed; empty rule scan/test rema
 Root `just turn-end` **passed**, leaving1036 Python files unchanged. Final
 `uv run ci docs check --json` **passed** in held `e685c99b26734f83aadfa299e9d740d7`:
 847 canonical pages, zero link errors. Subsequent edits record these receipt facts only.
-All selected functional, applicable-provider and nonfunctional obligations are qualified. No CLD
-implementation or qualification obligation remains open. This is a PM2 return checkpoint,
-without starting PM2 execution or changing its effect authority.
+Those receipts remain applicable to the behavior they exercised. They do not qualify the missing
+CA01–05 consumer paths. Complete their implementation and affected verification before declaring
+whole-series completion or returning to PM2 execution; its effect authority is unchanged.
+
+<a id="completion-audit"></a>
+
+## Completion audit · 2026-11-10
+
+**Conclusion: implementation incomplete; existing test coverage is supported, but whole-series
+qualification remains incomplete.** Expected usability benefits remain Proposed and qualitative.
+This audit assessed the claim that CLD-00–10, O01–O08 and all selected consumers were complete.
+It did not reopen unselected features, require improvement measurements, or initiate a broad
+design review. Five missing accepted obligations are scheduled in the findings table above.
+
+### Baseline and independent inspection
+
+Inspected product and test source is clean commit `0da4f8e614b162b791ac19dcb63f6cd33178377b`;
+the audit adds only plan/checkpoint corrections and bounded diagnostic evidence. Three fresh,
+read-only implementation reviewers independently reconstructed obligations from this coordinator,
+all three supporting plans and their selected functional-review workflows. Their respective
+scopes were command knowledge/grammar/context; correction/replay and real CLI/MCP consumers;
+and observations/correlation/progress with provider/native and downstream artifact consumers.
+The coordinator reconciled their source evidence and separately inspected qualification, repair
+assertions and the shared failure boundaries. Reviewers ran no tests or provider commands.
+Concurrent documentation-only discovery commit `299a0c255` landed during the audit; its checkpoint
+additions are preserved. It changes no inspected product/test source and is outside this audit.
+
+The implemented foundation is substantial: native Typer tree/reference generation and retirement
+of the reverse recipe subprocess; shared lexical grammar and ordinary compile/check orchestration;
+configured/acquired comparisons in covered model routes; pure correction selection and literal
+Rich presentation; authenticated retained source/report reads; configured structlog/stdlib safe
+fan-out and scoped concurrent MCP contexts; child transfer/draining; bounded live/sealed journals;
+qualified native joins; headless watch; safe recipe output and native pytest detail; and ancillary
+receipt-lane selection. Their substantive tests were inspected, not treated as proof from API names.
+No additional material omission was found in those inspected paths beyond the five below.
+
+### Remaining accepted obligations
+
+**CLD-CA01 — Optional diagnostic publication replaces a successful operation.**
+The common pack compile/check path calls `publish_diagnostic` without isolation in
+[schema.py](../../python/corpus-structure/src/corpus_structure/cli/schema.py), line197, before
+report delivery and requested artifact writes. The released-check path does the same at line323.
+On publication failure, a successful check becomes an exception and a failed managed invocation,
+and its CompileResult is withheld. Existing failure-isolation coverage injects publication failure
+only after an original validation refusal; it cannot establish success preservation. The actual
+CLI probe below confirms exit0/managed-passed with a CompileResult for the control, versus
+exit1/OSError/managed-failed without that result for the publication failure.
+
+CLD-05 must preserve the successful report, requested output and original outcome while exposing
+unavailable optional custody, across pack and released-check consumers. Independently exercise
+successful compile/check publication failure as well as the existing original-failure controls.
+Do not mask primary preparation, validation, publication-of-required-output or cancellation failures.
+
+**CLD-CA02 — Unexpected retained schema defects use validation custody.**
+[diagnostic_artifacts.py](../../python/corpus-structure/src/corpus_structure/cli/diagnostic_artifacts.py),
+lines226–260, opens an accounted operation without observations and publishes `failure.report(error)`
+for every Exception. The generic fallback in `operation_reporting.py`, line1693, turns unexpected
+RuntimeError/ExceptionGroup into a boundary `validator_failure` LocatedValidationReport. The
+injected group's original exception and failed outcome survive, but replay offers validation
+detail without the accepted distinct typed exception/group/cause/notes/frame product.
+
+CLD-05/06 must keep expected refusals with their existing report owners and connect unexpected
+schema defects to the separately typed safe exception custody on the actual retained route.
+Verify independently expected group structure, cause, notes, frame bounds and original exception/
+outcome through ID reads without producer execution. A renderer-only or manually constructed
+exception selection does not close this missing producer/consumer integration.
+
+**CLD-CA03 — Initial regeneration binds its acquired run after source effects.**
+[regenerate.py](../../python/corpus-structure/src/corpus_structure/cli/regenerate.py), line280,
+calls `start_bound_run`, which executes source methods before returning. Native creation commits
+the run in `orchestrate/semantic.py`, lines447–479; wrapper binding occurs only at regenerate.py
+lines325–327. A source-method failure/interruption after commit therefore leaves the managed
+result without its acquired run association. `result_inspection.py`, lines72–77, correctly reports
+no acquired binding, so native state/counts and appropriate actions are unavailable. Method rows
+carrying a run ID do not grant the reader authority to infer that association.
+
+CLD-06/07 must persist exact acquired run/project/release beside the existing storage association
+at the committed native creation boundary, before source work, and retain context during that work. Native
+settlement remains authoritative. Exercise actual ordinary CLI initial regeneration failure and
+interruption, inspecting the wrapper ID against independently read native state. Existing successful
+regeneration tests and manually pre-bound provider tests bypass this seam. CLD-AR01's visual-resume
+correction remains closed; this is a different ordinary producer boundary.
+
+**CLD-CA04 — Native model apply omits the configured/acquired comparison.**
+`predecessor_fence` in `schema/model_deployment.py`, lines168–190, acquires/verifies the development
+authoring StorageTarget. [model.py](../../python/corpus-structure/src/corpus_structure/cli/model.py),
+line1166, records it in the operation account, but ModelResult construction at lines1188–1197
+leaves selection and top-level target fields null. Thus the actual apply consumer exposes acquired
+identity without CLD-04's original-snapshot configuration comparison. The existing native apply
+case in `tests/schema/test_model_change_preview.py`, lines314–316, checks success/files only.
+
+CLD-04 must project development/database authoring selection from the original invocation snapshot
+beside that acquired identity, without reacquisition. The staged deployment destination can differ
+from the development authoring connection; preserve that distinction. Extend actual native apply
+coverage with independent configured standing, masking/origin and acquired-identity expectations.
+CLD-IR02's narrower preview/effects/patch/candidate consumer closure remains valid.
+
+**CLD-CA05 — Selected model inspection inputs remain unexplained or misleading.**
+In model.py, lines716–738, inspect-candidate lacks explanations for its ordinal pagination,
+limit, subject/property selectors and separate opaque contract continuation. Its example does not
+explain those page meanings. Preview inspection's line569 describes limit solely as maximum hunks
+although its SQL view uses it for SQL change entries. Native references accurately reproduce
+these metadata omissions, missing CLD-02's explicit complete-input-description obligation.
+
+CLD-02 must complete view-specific selector/page/continuation descriptions and correct the SQL
+limit wording through native Typer metadata. Preserve existing valid bounds. Add focused reference
+expectations for these meanings; no new command catalog or rendering mechanism is needed.
+
+### Verification, provenance and evidence limits
+
+Read-only installed `ci test coverage` full and bounded unresolved views **passed** on2026-11-10
+for `b8225463a9d44668a86d6e7dce6cd5c3` plus `3e3fd9c9315e4b33b5208984b6f2eab6`:5992 required/
+covered, zero unresolved, no missing lanes, unknown contexts or active/unsettled attempts.
+Aggregate outcome remains failed, correctly preserving the original failed broad attempt.
+The exact retry selects the four previously failed schema nodes and both initially blocked real
+GLiNER/parser cases. Reporting is complete without errors; per-lane native-required/unresolved
+counts are967/0,7/0 and1/0. The recorded purpose-role and deliberate historical/isolated migration
+bindings use the same dedicated PostgreSQL18/corpus, with matching Python and harness versions.
+
+`git diff bdaa82560 629d3b41f` confirms the only replacement-source change is the one schema CLI
+test file. Its original independent diagnostic/no-output assertions remain, with explicit actual
+acquisition/preparation identity and pre-acquisition parser refusal added. The later difference to
+the inspected baseline is documentation only. The source/context explanation supporting unchanged
+passing identities is therefore supported; it does not close behaviors those tests never challenge.
+
+The coordinator also inspected the actual math parity/default-budget controls and native validation
+cleanup-before-ACK, terminal-exit and cancellation/reaping corrections. Exact final broad selection
+contains their cases and the previously failed default-status/project-selection identity; each is
+covered. No new gap was established in Q01–03. The held final check/docs receipts remain passed
+and settled; authenticated `results output` replay was also exercised. These are prior product
+receipts inspected now, not new full campaign execution.
+
+The bounded [schema boundary probe](../design_review/evidence/2026-11-10_schema-diagnostic-failure-boundaries/README.md)
+**failed** its accepted product-contract checks at unchanged product source, confirming CA01/02.
+Its actual preparation, retained CLI routes and replay are real; the two defects alone are injected.
+The positive control passed. The probe establishes the observed loss/classification, not full
+future exception-content acceptance. Its source/output and finalized
+[schema.failure-boundaries](../design_review/evidence/2026-11-10_schema-diagnostic-failure-boundaries/records/schema.failure-boundaries.json)
+record retain that distinction. `uv run ci evidence finalize` **passed** in
+`acaaf8762c4542f5aeb0c14e799c7142`; `uv run ci evidence index --json` **passed** in
+`64d3600502494854a30177f381ac206f`; `uv run ci evidence check --json` **passed** in
+`a36d0973363146248d5aff7ab27ff50c` (368 records, zero errors;41 historical warnings outside this probe).
+
+Fresh full functional/native/provider and repository campaigns are **not_run** by this audit:
+unchanged covered behavior already has applicable receipts, while source inspection and the named
+probe establish the missing paths. The real Claude CLI journey remains operator-unselected/not_run;
+the other required model/provider receipts are not replaced with mocks or waived. No activation,
+selection, corpus rebuild or protected comparison was performed. Benefits remain expected qualitative
+judgments; absent improvement measurements are not completion defects.
+
+### Next work and closure
+
+Audit publication `uv run ci docs check --json` **passed** in held
+`83879a6cffe14ff7806fe4d406408d71`:853 canonical pages, zero link errors. Root `just turn-end`
+**passed**, with1036 Python files unchanged. Later edits record these receipt facts only.
+
+Complete CA01/02 together at the retained schema failure boundary; CA03 at ordinary regeneration's
+native acquisition boundary; CA04 in native apply reporting; and CA05 in native metadata and its
+focused reference expectations. Preserve the existing unaffected mechanisms and accepted I03/04
+retain decisions. CLD-10 then owns affected functional/native verification, source/context
+reassessment and applicable integrated qualification before whole-series completion and PM2 return.
+This audit publishes actionable scope only; production and test repairs were not executed.

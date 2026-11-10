@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "id": "schema.failure-boundaries",
+  "title": "Retained schema success and unexpected-defect boundaries",
+  "group": null,
+  "package": "CLD-05/06",
+  "finalized": "2026-11-10",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does optional diagnostic publication preserve a successful actual schema check, and does an unexpected retained schema group use distinct exception custody?",
+  "answers": [
+    "CLD-CA01",
+    "CLD-CA02"
+  ],
+  "method": "Invoke actual schema check through Typer in temporary managed stores. Compare ordinary retained success with a controlled publication OSError. Inject an ExceptionGroup at actual preparation, preserve its identity, and read the retained diagnostic through the CLI. Product source is 0da4f8e614b162b791ac19dcb63f6cd33178377b; only evidence/documentation changes accompany this audit.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-10_schema-diagnostic-failure-boundaries/probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "reproduction source",
+      "sha256": "6d56aaab559bcc774c386e9173d13556578003e14c5ee687a83dbad903935cf7"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "result.json",
+      "role": "observed product outcomes and independent contract checks",
+      "sha256": "40cecad21609744458e9965c716b64eceed687528d9ac87a4fd370f44198f91a"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "control_exit_code",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "publication_failure_exit_code",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "publication_preserves_compile_result",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unexpected_original_exception_preserved",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unexpected_retained_validation_category",
+      "value": "validator_failure",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unexpected_observation_journal_registered",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "failed",
+  "conclusion": "The positive control succeeds, but both accepted route contracts fail: optional publication replaces successful check outcome/result, and unexpected grouped defects retain boundary validation without typed exception observations. This establishes current CA01/02 behavior, not a full future group/chain/frame acceptance test. No production or test repair was made.",
+  "consumed_by": [
+    "CLD-CA01",
+    "CLD-CA02"
+  ]
+}

@@ -1,6 +1,6 @@
 # Command knowledge, native authoring and context
 
-**Implemented delivery design, 2026-11-10.** [Coordinator](../cli-and-logging_2026-11-10.md#final-acceptance)
+**Delivery target, 2026-11-10.** [Coordinator completion audit](../cli-and-logging_2026-11-10.md#completion-audit)
 owns CLD-02/03/04 state and acceptance, O01/02/03/08 disposition and execution entry.
 
 ## CLD-02 — Focused native references
@@ -40,6 +40,11 @@ research compare-exclusions; db describe; model change inspection/preview/apply/
 registration/deployment. Use public panels for inputs, correction, dependencies and delivery.
 Focused Markdown must retain full dual-flag spellings even when terminal tables abbreviate them.
 Describe read/write behavior accurately without deriving authorization from parser metadata.
+
+The completion audit identifies remaining model inspection metadata under CLD-CA05. Candidate
+inspection must explain ordinal versus opaque contract continuations, selector applicability and
+page units; preview inspection's SQL limit must describe SQL changes rather than only patch hunks.
+These are native metadata obligations within this target; existing reference generation is retained.
 
 Retain local native completion and the installed executable. Typed command inventory is deferred
 until a structured consumer cannot use focused reference; no remote completion, new dispatcher,
@@ -102,6 +107,11 @@ another acquisition. Use that actual operation in acceptance. No new settings pr
 default_map, reload, class caches or native settings CLI resolver is selected. DMC-15 already owns
 faithful acquisition and masking. Invocation resource callbacks are available for a proven shared
 presentation lifetime; current transaction/lease scopes stay explicit.
+
+CLD-CA04 identifies native model apply as an affected consumer still requiring this comparison.
+Its acquired predecessor-fence identity is the development authoring connection, even when the
+staged destination is deployment. Project the original snapshot's development/database selection
+beside that actual identity and independently verify the native apply result without reacquisition.
 [Settings owner](../../../python/corpus-structure/src/corpus_structure/settings.py),
 [profile selection](../../../python/corpus-structure/src/corpus_structure/schema/model_deployment.py),
 [Context API](https://typer.tiangolo.com/reference/context/).

@@ -1,6 +1,6 @@
 # Owned observations, correlation and progress
 
-**Implemented delivery design, 2026-11-10.** [Coordinator](../cli-and-logging_2026-11-10.md#final-acceptance)
+**Delivery target, 2026-11-10.** [Coordinator completion audit](../cli-and-logging_2026-11-10.md#completion-audit)
 owns CLD-01/06/07/08 and relevant CLD-09 decisions. This plan develops O05/06 and supports O04/07/08.
 
 ## CLD-01 / I01 — One bounded journal, distinct live reads
@@ -104,6 +104,14 @@ fresh semantic MCP invocation events. Regeneration/resume need a new managed **o
 wrapper linking their semantic run. Native run creation/completion/cancellation remains native;
 the wrapper reports its invocation and known acquired bindings without absorbing task authority.
 Keep present direct correction retention choice intact. Do not retain every log call by default.
+
+The completion audit identifies two remaining producer integrations. CLD-CA02 covers unexpected
+retained schema defects, whose current diagnostic scope does not enable this exception product.
+CLD-CA03 covers ordinary initial regeneration: source execution currently precedes publication of
+the committed native run association. Persist exact run/project/release beside the existing
+acquired storage binding before source effects, retaining native failure/cancellation authority.
+Do not infer authoritative association later from method observations. The successful regeneration
+and manually pre-bound provider controls do not exercise failure/interruption at this boundary.
 
 Children never append to the parent journal. Pass a named bounded safe spool path in the existing
 explicit child environment; one writer per child process serializes tool threads. Parent drains
