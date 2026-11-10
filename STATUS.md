@@ -14,6 +14,8 @@ _Updated 2026-11-09. Development runs `semantic_pm2_condition_admission`. The pr
 
 ## Delivered and assessed
 
+- On 2026-11-09, the [PostgreSQL functional review](docs/functional_reviews/postgresql-typed-domain_2026-11-09.md) delivered O01–O13 with six detailed companions and a complete discovery crosswalk (38 shortlist entries,23 retained families and inline observations). Recommended and conditional capabilities remain Proposed; existing plans retain scope/disposition. `uv run ci docs check` passed; product tests/native probes/benchmarks were `not_run` for this source-based review. Next: select opportunities for create-plan using their stable O references.
+
 - On 2026-11-09, the [PostgreSQL typed-domain discovery](docs/library_leverage/libraries/postgresql/briefing.md) delivered one family briefing, seven topic documents and full nine-overview section coverage. It identifies unused and underutilized capability leads, with explicit counterconditions and later-assessment questions. `uv run ci docs check` passed; product tests/native probes/benchmarks were `not_run` for this research/documentation scope. Next: select concrete leads for contextual assessment; existing plans retain disposition.
 
 - On 2026-11-09, [resident recovery](docs/design_review/evidence/2026-11-09_pm2-runtime-recovery/README.md), [Maverick and Dipo fallback](docs/design_review/evidence/2026-11-09_pm2-scope-fallback/README.md) and [private condition composition](docs/design_review/evidence/2026-11-09_pm2-condition-composition/README.md) passed at their declared scopes. The original private condition read agreed across CLI and fresh MCP.

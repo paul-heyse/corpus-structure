@@ -117,3 +117,12 @@ both passes of the supplied target and recommends exact candidate profiles for H
 Maverick, Dipo and d1-2B, with source-aligned composition, operation-level assessment,
 and evidence required to enable conditional modes. O01–O09 and the baseline crosswalk
 carry the recommendations into detailed planning.
+
+## PostgreSQL typed-domain capabilities — 2026-11-09
+
+The [PostgreSQL functional review](postgresql-typed-domain_2026-11-09.md) develops O01–O13
+across released types, attributed SQL understanding, relational/retrieval operations, faithful
+exchange, native inspection/evolution and operational control. Six companions compare complete
+realizations and conditional future workflows. Its source crosswalk covers all38 discovery
+shortlist entries,23 retained families and the inline observations/corrections. Recommendations
+remain Proposed; active plans retain accepted implementation scope and disposition.
