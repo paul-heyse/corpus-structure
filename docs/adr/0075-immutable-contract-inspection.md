@@ -50,3 +50,10 @@ preview/admission. Revisit if a real consumer needs exact source-line coordinate
 different archive ABI. Implementation and scoped acceptance are tracked in
 [the DMC coordinator](../plans/domain-data-model_2026-11-10.md); acceptance of this decision does
 not close its packages.
+
+## Amendments
+
+2026-11-10 factual integration note: the installed native archive guard explicitly enumerates
+readable compiler versions. Delivering compiler20 therefore includes a forward compatibility
+update to that guard and its generated descriptor through the ordinary frozen migration route.
+This preserves the archive3/boundary12 decision and adds no new enforcement semantics.

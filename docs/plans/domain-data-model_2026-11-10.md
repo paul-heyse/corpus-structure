@@ -236,8 +236,30 @@ run487/cut604, `/10` and the unselected project posture remain preserved. The
 [entry target review](../design_review/reviews/design_review_domain-data-model-entry_2026-11-10.md)
 and ADR-0075 govern the new boundaries. This receipt owns current package disposition.
 
-DMC-00: baseline acquired; entry review being published. DMC-01/02: implementation in progress.
+DMC-00: complete; entry target review accepted scoped with no blocking finding or rule impact. DMC-01/02: implementation in progress.
 The operator selected newly archived development release demonstration and exact admission where
 required, without activation or run selection. Named-type pattern plus inherited slot bounds
 replaces the unsupported named-type numeric-bound acceptance example; the profile is unchanged.
 Full-series qualification remains DMC-17-owned.
+
+The native archive guard also enumerates compiler compatibility in `closure.sql`. The installed
+PTD guard accepts through19, so compiler20 requires a forward `sem.require_archive_bytes(text)`
+body update and its regenerated descriptor. The frozen candidate has exactly those two native
+changes and no ordinary relational operations. Archive/boundary semantics remain unchanged.
+The initial explicit-recreation request was refused (result `49780e78a3634fd9bec618add7f24f55`);
+ordinary forward source comparison supplies the correct two-change candidate. The replacement
+preview `92646e5f8149439cbd618190d3920da1`, apply `763ceda0c5924074b14caacccd20ccc5`, candidate
+`6beabe05855246af82e180a3e71252a1` and registration `f504f781efb84be590ed4c0091d2fc0a` passed.
+Candidate contract inspection passed before database archival, demonstrating detached custody.
+
+Existing review-bundle contract fields already consume PreparedRelease definitions and selected
+boundary schemas. Their detached format is retained; the explorer does not require exporting
+its entire provenance artifact. Operation explanations remain in their existing owner.
+
+Failed/intermediate receipts remain available: `a3c0e3d9115c40b29e5d3ead45810254` (fixture type),
+`6f718dda5930438887b2ad1d762cee94`, `ccec61edf4584644a7edbf194110e00e`,
+`9d9982eb7fd54cccad07135b47c4ca27`, and integrated `01e422f544a449fea8d8736f58dc99f1`
+(174 selected,148 passed,26 failed:25 installed native compiler-allowlist refusals and one
+managed-test settlement fixture). The fixture is repaired; registered migration qualification
+must replace the affected native failures. Additional development test receipts from workers
+retain their original bounded source applicability and do not close combined qualification.
