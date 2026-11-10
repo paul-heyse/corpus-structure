@@ -225,3 +225,162 @@ def test_explicit_type_correspondence_refuses_invalid_sources(target, message):
             ),
             {},
         )
+
+
+def _changed_correspondence_inputs(mutate):
+    import yaml
+
+    from corpus_structure.semantic.contracts import trusted_execution_inputs
+    from corpus_structure.semantic.types import SourceArtifact
+
+    inputs = trusted_execution_inputs()
+    artifact = "pdf/record-physical.yaml"
+    physical = next(source.content for source in inputs.implementations if source.name == artifact)
+    changed = yaml.safe_load(physical)
+    mutate(changed)
+    return replace(
+        inputs,
+        implementations=tuple(
+            SourceArtifact(source.name, yaml.safe_dump(changed, sort_keys=False).encode())
+            if source.name == artifact else source
+            for source in inputs.implementations
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "target,message",
+    [
+        ("physical:sem.release.release_id", "cyclic"),
+        ("physical:data.occurrence.release_id", "cyclic"),
+        ("physical:data.realization.realization_id", "semantic identifiers differ"),
+        ("physical:ops.task.id", "encoding differs"),
+    ],
+)
+def test_anchored_correspondence_is_validated_during_compilation(target, message):
+    from corpus_structure.semantic.contracts import compile_execution_model
+    from corpus_structure.semantic.types import PreparationError
+
+    def mutate(model):
+        slot = model["classes"]["release"]["attributes"]["release_id"]
+        slot.setdefault("annotations", {})["cp:type_source"] = target
+
+    with pytest.raises(PreparationError, match=message):
+        compile_execution_model(_changed_correspondence_inputs(mutate))
+
+
+def test_type_correspondence_keeps_local_nullable_and_constraints():
+    from corpus_structure.semantic.contracts import (
+        OperationFieldBinding,
+        compile_execution_model,
+        trusted_execution_inputs,
+    )
+    from corpus_structure.semantic.operation_call_generation import source_bindings
+
+    def mutate(model):
+        slot = model["classes"]["occurrence"]["attributes"]["release_id"]
+        slot["required"] = False
+        slot["pattern"] = "local-pattern"
+
+    inputs = _changed_correspondence_inputs(mutate)
+    model = compile_execution_model(trusted_execution_inputs())
+    _, nominal, _, resolve = source_bindings(model, inputs)
+    resolved, facts = resolve(
+        OperationFieldBinding("release_id", "physical:data.occurrence.release_id", False), {}
+    )
+    assert nominal("physical:data.occurrence.release_id") == "ReleaseId"
+    assert resolved.nullable is True
+    assert facts["pattern"] == "local-pattern"
+    assert facts["reference"] == "physical:data.occurrence.release_id"
+    assert facts["type_source"]["reference"] == "physical:sem.release.release_id"
+
+
+def test_type_correspondence_rejects_conflicting_closed_members():
+    from corpus_structure.semantic.contracts import OperationFieldBinding, compile_execution_model
+    from corpus_structure.semantic.contracts import trusted_execution_inputs
+    from corpus_structure.semantic.operation_call_generation import source_bindings
+    from corpus_structure.semantic.types import PreparationError
+
+    def mutate(model):
+        model.setdefault("enums", {})["LocalMembers"] = {
+            "permissible_values": {"one": {}, "two": {}}
+        }
+        model["enums"]["TargetMembers"] = {"permissible_values": {"one": {}}}
+        fields = model["classes"]["occurrence"]["attributes"]
+        fields["local_members"] = {
+            "range": "LocalMembers",
+            "annotations": {"cp:type_source": "physical:data.occurrence.target_members"},
+        }
+        fields["target_members"] = {"range": "TargetMembers"}
+
+    inputs = _changed_correspondence_inputs(mutate)
+    model = compile_execution_model(trusted_execution_inputs())
+    _, _, _, resolve = source_bindings(model, inputs)
+    with pytest.raises(PreparationError, match="members differ"):
+        resolve(OperationFieldBinding("members", "physical:data.occurrence.local_members", False), {})
+
+
+def test_type_correspondence_cannot_hide_behind_value_projection():
+    from corpus_structure.semantic.contracts import OperationFieldBinding, compile_execution_model
+    from corpus_structure.semantic.contracts import trusted_execution_inputs
+    from corpus_structure.semantic.operation_call_generation import source_bindings
+    from corpus_structure.semantic.types import PreparationError
+
+    def mutate(model):
+        field = model["classes"]["occurrence"]["attributes"]["release_id"]
+        field["annotations"]["cp:source"] = "physical:sem.release.release_id"
+        field["annotations"]["cp:type_source"] = "physical:data.realization.realization_id"
+
+    inputs = _changed_correspondence_inputs(mutate)
+    model = compile_execution_model(trusted_execution_inputs())
+    _, _, _, resolve = source_bindings(model, inputs)
+    with pytest.raises(PreparationError, match="semantic identifiers differ"):
+        resolve(OperationFieldBinding("release", "physical:data.occurrence.release_id", False), {})
+
+
+@pytest.mark.parametrize("consumer", ["columns", "companions"])
+def test_generators_cannot_bypass_invalid_anchored_correspondence(consumer, monkeypatch):
+    from corpus_structure.semantic import contracts
+    from corpus_structure.semantic.companion_projection import render_static_columns
+    from corpus_structure.semantic.types import PreparationError
+
+    def mutate(model):
+        field = model["classes"]["release"]["attributes"]["release_id"]
+        field.setdefault("annotations", {})["cp:type_source"] = (
+            "physical:data.realization.realization_id"
+        )
+
+    inputs = _changed_correspondence_inputs(mutate)
+    monkeypatch.setattr(contracts, "trusted_execution_inputs", lambda: inputs)
+    with pytest.raises(PreparationError, match="semantic identifiers differ"):
+        (generated_source if consumer == "columns" else render_static_columns)()
+
+
+def test_correspondence_preserves_value_projection_lineage_and_rejects_collection_mismatch():
+    from corpus_structure.semantic.contracts import OperationFieldBinding, compile_execution_model
+    from corpus_structure.semantic.contracts import trusted_execution_inputs
+    from corpus_structure.semantic.operation_call_generation import source_bindings
+    from corpus_structure.semantic.types import PreparationError
+
+    def mutate(model):
+        fields = model["classes"]["occurrence"]["attributes"]
+        fields["release_id"]["annotations"]["cp:source"] = "physical:sem.release.release_id"
+        fields["many_release_ids"] = {"range": "string", "multivalued": True}
+        fields["bad_release_id"] = {
+            "range": "string",
+            "annotations": {"cp:type_source": "physical:data.occurrence.many_release_ids"},
+        }
+
+    inputs = _changed_correspondence_inputs(mutate)
+    model = compile_execution_model(trusted_execution_inputs())
+    _, nominal, _, resolve = source_bindings(model, inputs)
+    resolved, facts = resolve(
+        OperationFieldBinding("release_id", "physical:data.occurrence.release_id", False), {}
+    )
+    assert nominal("physical:data.occurrence.release_id") == "ReleaseId"
+    assert resolved.kind == "string"
+    assert facts["projection"] == "physical:data.occurrence.release_id"
+    assert facts["source"]["reference"] == "physical:sem.release.release_id"
+    assert facts["type_source"]["reference"] == "physical:sem.release.release_id"
+    with pytest.raises(PreparationError, match="encoding differs"):
+        resolve(OperationFieldBinding("id", "physical:data.occurrence.bad_release_id", False), {})

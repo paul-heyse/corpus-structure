@@ -176,12 +176,31 @@ def source_bindings(model, inputs):
     def qualified(reference):
         return reference if ":" in reference else "model:" + reference
 
+    def field_annotations(reference, slot):
+        annotations = ci_annotations(slot)
+        if reference.startswith("physical:") and annotations.get("cp:type_source") == reference:
+            schema, cls, name = reference.removeprefix("physical:").split(".")
+            for ancestor in view.class_ancestors(cls, reflexive=True):
+                definition = view.get_class(ancestor)
+                if schema not in (definition.in_subset or ()):
+                    continue
+                declared = definition.attributes.get(name) or definition.slot_usage.get(name)
+                if declared is not None and ci_annotations(declared).get("cp:type_source"):
+                    break
+            else:
+                # A model field can point to its own physical projection. Inheriting
+                # that edge back onto the projection does not declare a physical cycle.
+                annotations.pop("cp:type_source")
+        return annotations
+
+    semantic_types = {}
+
     def semantic_type(reference, stack=()):
         reference = qualified(reference)
         if reference in stack:
             _fail("operation_source", reference, "cyclic type correspondence")
-        if reference in semantic_sources:
-            return semantic_sources[reference]
+        if reference in semantic_types:
+            return semantic_types[reference]
         if not reference.startswith(("physical:", "model:")):
             return None
         parts = reference.split(":", 1)[1].split(".")
@@ -189,15 +208,33 @@ def source_bindings(model, inputs):
         slot = next((s for s in view.class_induced_slots(cls) if s.name == name), None)
         if slot is None:
             _fail("operation_source", reference, "type correspondence field is unavailable")
-        annotations = ci_annotations(slot)
-        parent = annotations.get("cp:type_source") or annotations.get("cp:source")
-        return semantic_type(parent, (*stack, reference)) if parent else None
+        annotations = field_annotations(reference, slot)
+        anchors = {semantic_sources[reference]} if reference in semantic_sources else set()
+        # An explicit anchor names this field; it cannot waive validation of its edges.
+        for edge in ("cp:source", "cp:type_source"):
+            if parent := annotations.get(edge):
+                inherited = semantic_type(parent, (*stack, reference))
+                if inherited is not None:
+                    anchors.add(inherited)
+        if len(anchors) > 1:
+            _fail("operation_source", reference, "semantic identifiers differ")
+        semantic_types[reference] = next(iter(anchors), None)
+        return semantic_types[reference]
 
     def model_field(name, slot):
         reference = f"model:{name}.{slot.name}"
         return OperationFieldBinding(
             str(slot.name), reference, False, semantic_type=semantic_type(reference)
         )
+
+    def correspond(reference, local, inherited):
+        if inherited.kind != local.kind or inherited.multivalued != local.multivalued:
+            _fail("operation_source", reference, "type correspondence encoding differs")
+        if local.enum_values and inherited.enum_values and set(local.enum_values) != set(
+            inherited.enum_values
+        ):
+            _fail("operation_source", reference, "type correspondence members differ")
+        return replace(local, enum_values=local.enum_values or inherited.enum_values)
 
     def resolve(field, parameters, stack=()):
         reference = qualified(field.source)
@@ -235,7 +272,7 @@ def source_bindings(model, inputs):
         slot = next((s for s in view.class_induced_slots(cls) if s.name == name), None)
         if slot is None:
             _fail("operation_field", reference, "physical source field is unavailable")
-        annotations = ci_annotations(slot)
+        annotations = field_annotations(reference, slot)
         if parent := annotations.get("cp:source"):
             resolved, source = resolve(
                 replace(field, source=parent), parameters, (*stack, reference)
@@ -245,11 +282,19 @@ def source_bindings(model, inputs):
                 "value_presence": str(slot.value_presence) if slot.value_presence else None,
                 "minimum_cardinality": slot.minimum_cardinality,
             }
-            return resolved, {
+            source = {
                 "projection": reference,
                 "source": source,
                 **{key: value for key, value in constraints.items() if value is not None},
             }
+            if parent := annotations.get("cp:type_source"):
+                inherited, type_source = resolve(
+                    replace(field, source=qualified(parent)), parameters, (*stack, reference)
+                )
+                resolved = correspond(reference, resolved, inherited)
+                source = {**source, "type_source": type_source}
+            semantic_type(reference)
+            return resolved, source
         kind, members = _kind(view, str(slot.range))
         multiple = bool(field.multivalued or slot.multivalued) and kind != "json_payload"
         required = bool(
@@ -261,13 +306,12 @@ def source_bindings(model, inputs):
         model_class = str(slot.range) if view.get_class(str(slot.range)) is not None else None
         resolved = OperationFieldType(kind, not required, multiple, members, model_class)
         type_source = None
-        if (parent := annotations.get("cp:type_source")) and reference not in semantic_sources:
+        if parent := annotations.get("cp:type_source"):
             inherited, type_source = resolve(
                 replace(field, source=qualified(parent)), parameters, (*stack, reference)
             )
-            if inherited.kind != kind or inherited.multivalued != multiple:
-                _fail("operation_source", reference, "type correspondence encoding differs")
-            resolved = replace(resolved, enum_values=inherited.enum_values or members)
+            resolved = correspond(reference, resolved, inherited)
+        semantic_type(reference)
         return resolved, {
             **({"type_source": type_source} if type_source else {}),
             "reference": reference,
