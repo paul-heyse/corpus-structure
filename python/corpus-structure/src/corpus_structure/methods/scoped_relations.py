@@ -77,6 +77,7 @@ class ScopedRelationsConfig(StructuralValue):
 
 
 ORDERED_FORMULA_WITNESS_METHOD_VERSION = "11"
+JOINED_CITATION_METHOD_VERSION = "12"
 
 
 class ScopedRelationsOrderedConfig(ScopedRelationsConfig):
@@ -1343,7 +1344,7 @@ def discover_relations(
                             pointer=link.pointer,
                             region=link.passage,
                             extra={**extra, "definition_subject_kind": concept[1]}
-                            if named_link_version == "3"
+                            if named_link_version in {"3", "4"}
                             else extra,
                             dependencies=(
                                 *deps,
@@ -1748,3 +1749,10 @@ class ScopedRelationsWithOrderedWitness(ScopedRelationsWithRoleClosure):
         if len(exact) != 1:
             raise ValueError("ordered formula witness source is not in the current run")
         return exact
+
+
+class ScopedRelationsWithJoinedCitations(ScopedRelationsWithRoleClosure):
+    """Resolve named citations by their exact annotated native piece."""
+
+    version = JOINED_CITATION_METHOD_VERSION
+    named_link_version = "4"

@@ -1172,6 +1172,10 @@ def analysis_implementation_inputs(
                 ("operations/named-link-rules.json", "methods/named_link_rules.json"),
                 ("operations/named-link-coverage.json", "methods/named_link_coverage.json"),
                 (
+                    "operations/named-link-native-pieces.json",
+                    "methods/named_link_native_pieces.json",
+                ),
+                (
                     "operations/predicate-interpretation.json",
                     "methods/predicate_interpretation.json",
                 ),
