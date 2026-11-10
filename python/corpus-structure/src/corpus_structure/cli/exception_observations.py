@@ -54,27 +54,42 @@ _NATIVE = structlog.tracebacks.ExceptionDictTransformer(
 )
 
 
-def _within_transform_bounds(error: BaseException) -> bool:
-    """Preflight the native eager group/chain traversal without revisiting exception nodes."""
-    pending = [(error, 0)]
+def _inspect_transform_graph(
+    error: BaseException,
+) -> tuple[bool, tuple[OmittedExceptionDetail, ...]]:
+    """Bound native traversal and name original links its traceback-only chain omits."""
+    pending = [(error, 0, "$.original")]
     seen: set[int] = set()
+    omissions = []
     while pending:
-        current, depth = pending.pop()
+        current, depth, path = pending.pop()
         if id(current) in seen:
             continue
         seen.add(id(current))
         if len(seen) > 32 or depth > 4 or len(getattr(current, "__notes__", ())) > 16:
-            return False
+            return False, tuple(omissions)
         if isinstance(current, BaseExceptionGroup):
             if len(current.exceptions) > 16:
-                return False
-            pending.extend((child, depth + 1) for child in current.exceptions)
+                return False, tuple(omissions)
+            pending.extend(
+                (child, depth + 1, f"{path}.exceptions[{index}]")
+                for index, child in enumerate(current.exceptions)
+            )
+        link = "__cause__" if current.__cause__ is not None else "__context__"
         linked = current.__cause__ or (
             None if current.__suppress_context__ else current.__context__
         )
         if linked is not None:
-            pending.append((linked, depth + 1))
-    return True
+            linked_path = f"{path}.{link}"
+            if linked.__traceback__ is None:
+                omissions.append(
+                    OmittedExceptionDetail(
+                        path=linked_path,
+                        reason="Original link has no traceback; native transformation omits it.",
+                    )
+                )
+            pending.append((linked, depth + 1, linked_path))
+    return True, tuple(omissions)
 
 
 def select_exception(
@@ -166,7 +181,8 @@ def transform_exception(exc_info: Any) -> ExceptionTrace:
 
     try:
         error = exc_info[1]
-        omitted = not _within_transform_bounds(error)
+        within_bounds, link_omissions = _inspect_transform_graph(error)
+        omitted = not within_bounds
         if omitted:
             # Do not recursively transform an oversized original graph. A plain surrogate
             # carries only its root text/notes; the native transformer still owns frames,
@@ -180,6 +196,9 @@ def transform_exception(exc_info: Any) -> ExceptionTrace:
             raw = _NATIVE(exc_info)
         safe, omissions = normalize(raw, max_bytes=24000)
         selected = select_exception(safe, normalization_omissions=omissions)
+        selected = selected.model_copy(
+            update={"omissions": (*selected.omissions, *link_omissions)}
+        )
         if omitted:
             selected = selected.model_copy(
                 update={

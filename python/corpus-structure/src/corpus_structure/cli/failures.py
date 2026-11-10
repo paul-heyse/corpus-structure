@@ -93,23 +93,34 @@ def failure_boundary(
             "message": safe_failure_message(error, context=context),
         }
         if report_expected_validation or not isinstance(error, expected):
-            try:
-                detail = semantic_refusal_report(error, context=context)
-            except PreparationError:
-                if not isinstance(error, PreparationError):
-                    raise
-                # The report compiler can depend on the same invalid declarations.
-                # Keep the original preparation diagnostics deliverable.
-                from corpus_structure.semantic.correction_detail import preparation_diagnostic
+            unavailable = (
+                context.retained_error is error
+                and context.retained_validation is None
+                and context.diagnostic_unavailable is not None
+            )
+            if not unavailable:
+                try:
+                    detail = semantic_refusal_report(error, context=context)
+                except Exception as report_error:
+                    context.diagnostic_unavailable = (
+                        "Validation detail unavailable ("
+                        + safe_text(type(report_error).__name__)[:80]
+                        + ")."
+                    )
+            if "validation" not in detail and context.diagnostic_unavailable:
+                detail["diagnostic_unavailable"] = context.diagnostic_unavailable
+                if isinstance(error, PreparationError):
+                    # Preserve independent compiler diagnostics if the report compiler failed.
+                    from corpus_structure.semantic.correction_detail import preparation_diagnostic
 
-                rows = []
-                for item in error.diagnostics[: context.max_errors]:
-                    candidate = preparation_diagnostic(item, raw_evidence=context.raw_evidence)
-                    if len(jsonlib.dumps([*rows, candidate]).encode()) > context.max_bytes // 2:
-                        break
-                    rows.append(candidate)
-                detail["diagnostics"] = rows
-                detail["diagnostics_complete"] = len(rows) == len(error.diagnostics)
+                    rows = []
+                    for item in error.diagnostics[: context.max_errors]:
+                        candidate = preparation_diagnostic(item, raw_evidence=context.raw_evidence)
+                        if len(jsonlib.dumps([*rows, candidate]).encode()) > context.max_bytes // 2:
+                            break
+                        rows.append(candidate)
+                    detail["diagnostics"] = rows
+                    detail["diagnostics_complete"] = len(rows) == len(error.diagnostics)
         detail["message"] = safe_text(detail["message"])
         if getattr(error, "reason", None) is not None:
             detail["reason"] = safe_text(str(error.reason))
@@ -126,6 +137,8 @@ def failure_boundary(
             )
         else:
             diagnostic(f"refused: {detail['message']}")
+            if detail.get("diagnostic_unavailable"):
+                diagnostic(detail["diagnostic_unavailable"])
             validation = detail.get("validation")
             if validation is not None and context.correction_detail:
                 try:

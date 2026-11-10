@@ -240,3 +240,130 @@ def test_failed_optional_report_construction_keeps_original_preparation_diagnost
     assert "secondary_invalid" not in result.stdout
     (manifest,) = ResultStore(tmp_path).list(None, 20, None).results
     assert manifest.outcome == "failed" and "diagnostic-report" not in manifest.artifacts
+
+
+@pytest.mark.parametrize("preparation", (False, True))
+@pytest.mark.parametrize("secondary_preparation", (False, True))
+@pytest.mark.parametrize("json_mode", (False, True))
+def test_secondary_reporting_failure_preserves_refusal_once(
+    cli, tmp_path, monkeypatch, preparation, secondary_preparation, json_mode
+):
+    from corpus_structure.semantic import regeneration
+    from corpus_structure.semantic.refusals import FailureContext
+    from corpus_structure.semantic.types import Diagnostic, PreparationError
+
+    primary = (
+        PreparationError((Diagnostic("original_invalid", "original.path", "original"),))
+        if preparation else SemanticRefusal("original refusal")
+    )
+    secondary = (
+        PreparationError((Diagnostic("secondary_invalid", "report.path", "secondary"),))
+        if secondary_preparation else RuntimeError("password=private-report-failure")
+    )
+    reports = []
+
+    def fail_inputs(*args, **kwargs):
+        raise primary
+
+    def fail_report(self, error):
+        assert error is primary
+        reports.append(error)
+        raise secondary
+
+    monkeypatch.setattr(regeneration, "acquire_packs", fail_inputs)
+    monkeypatch.setattr(FailureContext, "report", fail_report)
+    args = ["schema", "check", "--retain-diagnostics"]
+    if json_mode:
+        args += ["--json"]
+    result = cli(*args, env={"CORPUS_CI_RESULTS": str(tmp_path)})
+    assert result.exit_code == 1 and reports == [primary]
+    assert "private-report-failure" not in result.output
+    (manifest,) = ResultStore(tmp_path).list(None, 20, None).results
+    account = manifest.operation_account
+    assert account is not None and account.failure is not None
+    assert account.failure.kind == "refusal" and account.failure.code == type(primary).__name__
+    assert manifest.outcome == "failed"
+    inspected = cli(
+        "results", "inspect", manifest.id, "--view", "observations", "--json",
+        env={"CORPUS_CI_RESULTS": str(tmp_path)},
+    )
+    assert inspected.exit_code == 0, inspected.output
+    assert not any(row["exception"] for row in json.loads(inspected.stdout)["observations"]["rows"])
+    if json_mode:
+        detail = json.loads(result.stdout)["error"]
+        assert detail["code"] == type(primary).__name__
+        assert "unavailable" in detail["diagnostic_unavailable"]
+        assert "validation" not in detail
+        if preparation:
+            assert detail["diagnostics"][0]["code"] == "original_invalid"
+    else:
+        assert "unavailable" in result.stderr and "refused:" in result.stderr
+
+
+@pytest.mark.parametrize("json_mode", (False, True))
+def test_unretained_reporting_failure_preserves_original_refusal(
+    cli, tmp_path, monkeypatch, json_mode
+):
+    from corpus_structure.semantic import regeneration
+    from corpus_structure.semantic.refusals import FailureContext
+
+    primary = SemanticRefusal("original refusal")
+    reports = []
+
+    def fail_inputs(*args, **kwargs):
+        raise primary
+
+    def fail_report(self, error):
+        reports.append(error)
+        raise RuntimeError("password=private-report-failure")
+
+    monkeypatch.setattr(regeneration, "acquire_packs", fail_inputs)
+    monkeypatch.setattr(FailureContext, "report", fail_report)
+    arguments = ["schema", "check", *(["--json"] if json_mode else [])]
+    result = cli(*arguments, env={"CORPUS_CI_RESULTS": str(tmp_path)})
+    assert result.exit_code == 1 and reports == [primary]
+    assert "private-report-failure" not in result.output
+    assert not ResultStore(tmp_path).list(None, 20, None).results
+    if json_mode:
+        detail = json.loads(result.stdout)["error"]
+        assert detail["code"] == "SemanticRefusal" and detail["message"] == "original refusal"
+        assert "unavailable" in detail["diagnostic_unavailable"] and "validation" not in detail
+    else:
+        assert "unavailable" in result.stderr and "refused: original refusal" in result.stderr
+
+
+@pytest.mark.parametrize("nested", (False, True))
+def test_actual_retained_unraised_cause_has_explicit_original_link_omission(
+    cli, tmp_path, monkeypatch, toy_preparation, nested
+):
+    from corpus_structure.semantic import regeneration
+
+    prepared_route(monkeypatch, toy_preparation)
+    primary = None
+
+    def fail(*args, **kwargs):
+        nonlocal primary
+        try:
+            raise RuntimeError("original child") from ValueError("unraised cause")
+        except RuntimeError as child:
+            if nested:
+                primary = ExceptionGroup("outer group", [child])
+                # Child membership supplies the relationship; suppress the duplicate context.
+                raise primary from None
+            primary = child
+            raise
+
+    monkeypatch.setattr(regeneration, "prepare_release", fail)
+    env = {"CORPUS_CI_RESULTS": str(tmp_path)}
+    result = cli("schema", "check", "--domain", "toy", "--retain-diagnostics", "--json", env=env)
+    assert result.exit_code == 1 and result.exception is primary
+    (manifest,) = ResultStore(tmp_path).list(None, 20, None).results
+    assert manifest.outcome == "failed" and "diagnostic-report" not in manifest.artifacts
+    inspected = cli("results", "inspect", manifest.id, "--view", "observations", "--json", env=env)
+    assert inspected.exit_code == 0, inspected.output
+    traces = [row["exception"] for row in json.loads(inspected.stdout)["observations"]["rows"]
+              if row["exception"]]
+    (trace,) = traces
+    path = "$.original.exceptions[0].__cause__" if nested else "$.original.__cause__"
+    assert any(item["path"] == path and "no traceback" in item["reason"]
+               for item in trace["omissions"])
