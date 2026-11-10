@@ -23,7 +23,7 @@ import time
 from collections.abc import Callable, Iterable, Mapping
 from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor, wait
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import lru_cache, partial
 from pathlib import Path
 from typing import overload
 
@@ -132,9 +132,11 @@ def load_page(page: str) -> PageContent:
     return PageContent(page, content, macros)
 
 
-def read_content(page: PageContent) -> list[SpanReading]:
+def read_content(page: PageContent, *, seconds: float | None = None) -> list[SpanReading]:
     """Worker stage: transport finished readings, never process-owned preparation."""
-    return read_spans(page.content, page.macros, CONSTANTS)
+    if seconds is None:
+        return read_spans(page.content, page.macros, CONSTANTS)
+    return read_spans(page.content, page.macros, CONSTANTS, seconds=seconds)
 
 
 def extract_readings(readings: list[SpanReading]) -> tuple[list[SpanValue], MathExtraction]:
@@ -158,10 +160,13 @@ def scope_extraction(
     )
 
 
-def read_page(page: str) -> PageReadings:
+def read_page(page: str, *, seconds: float | None = None) -> PageReadings:
     """Direct reading path, also used by the narrow coverage worker."""
     retained = load_page(page)
-    return PageReadings(page, retained.content, retained.macros, read_content(retained))
+    readings = (
+        read_content(retained) if seconds is None else read_content(retained, seconds=seconds)
+    )
+    return PageReadings(page, retained.content, retained.macros, readings)
 
 
 def analyse(page: str, scopes: bool = True) -> PageMath:
@@ -271,8 +276,11 @@ def retained_pages(pages: Iterable[str]) -> dict[str, PageContent]:
     return {page: load_page(page) for page in pages}
 
 
-def reading_pages(pages: Mapping[str, PageContent]) -> dict[str, PageReadings]:
-    readings = _run_pages(read_content, pages)
+def reading_pages(
+    pages: Mapping[str, PageContent], *, seconds: float | None = None
+) -> dict[str, PageReadings]:
+    work = read_content if seconds is None else partial(read_content, seconds=seconds)
+    readings = _run_pages(work, pages)
     return {
         key: PageReadings(key, page.content, page.macros, readings[key])
         for key, page in pages.items()

@@ -123,6 +123,11 @@ def test_schema_and_database_check_keep_failure_taxonomy(cli, monkeypatch, route
     from corpus_structure.core.db.store import FENCING_CONSTRAINT
     from corpus_structure.semantic import regeneration, runtime
     from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
+    from corpus_structure.semantic.types import (
+        PreparationProfile,
+        ResolvedDependencies,
+        SourceBundle,
+    )
 
     if kind == "refusal":
         failure = ExecutionAdmissionError("required effect profile is unsupported")
@@ -142,15 +147,30 @@ def test_schema_and_database_check_keep_failure_taxonomy(cli, monkeypatch, route
     else:
         failure = KeyboardInterrupt()
 
-    def unavailable(*args, **kwargs):
+    bundle = SourceBundle("failure-fixture", ())
+    dependencies = ResolvedDependencies()
+    profile = PreparationProfile()
+    calls = []
+
+    def acquired(packs):
+        assert [pack.name for pack in packs] == ["statistics"]
+        return bundle, dependencies, profile
+
+    def unavailable(source, supplied_dependencies, supplied_profile):
+        assert source is bundle
+        assert supplied_dependencies is dependencies
+        assert supplied_profile is profile
+        calls.append("prepare")
         raise failure
 
     @contextmanager
     def no_database(*args, **kwargs):
+        calls.append("database")
         raise failure
         yield
 
-    monkeypatch.setattr(regeneration, "prepare_packs", unavailable)
+    monkeypatch.setattr(regeneration, "acquire_packs", acquired)
+    monkeypatch.setattr(regeneration, "prepare_release", unavailable)
     monkeypatch.setattr(runtime, "open_runtime_engine", no_database)
     args = (
         ("schema", "compile", "--json")
@@ -158,6 +178,7 @@ def test_schema_and_database_check_keep_failure_taxonomy(cli, monkeypatch, route
         else ("db", "check", "--release", "release:fixture", "--json")
     )
     result = cli(*args)
+    assert calls == ["prepare" if route == "schema" else "database"]
     assert result.exit_code != 0
     if kind in {"bug", "cancel"}:
         assert '"error"' not in result.stdout
@@ -178,15 +199,22 @@ def test_schema_and_database_check_keep_failure_taxonomy(cli, monkeypatch, route
             assert error["remediation"] == "inspect_failure"
 
 
-@pytest.mark.parametrize(
-    "arguments",
-    [
-        ("compile", "--domain", "../outside"),
-        ("check", "--domain", "toy", "--release", "release:fixture"),
-    ],
-)
-def test_schema_owned_selection_errors_are_typed(cli, arguments):
-    result = cli("schema", *arguments, "--json")
+def test_schema_pack_name_is_native_grammar_before_acquisition(cli, monkeypatch):
+    from corpus_structure.semantic import regeneration
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("malformed native pack name acquired settings or pack inputs")
+
+    monkeypatch.setattr(regeneration, "acquire_packs", forbidden)
+    result = cli("schema", "compile", "--domain", "../outside", "--json", settings=forbidden)
+    assert result.exit_code == 2, result.output
+    assert "Invalid value for '--domain'" in result.output
+    assert "../outside" in result.output
+    assert '"error"' not in result.stdout
+
+
+def test_schema_owned_selection_errors_are_typed(cli):
+    result = cli("schema", "check", "--domain", "toy", "--release", "release:fixture", "--json")
     assert result.exit_code == 1
     assert json.loads(result.stdout)["error"]["code"] == "SemanticRefusal"
 

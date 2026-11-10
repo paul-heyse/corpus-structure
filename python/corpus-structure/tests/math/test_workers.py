@@ -237,20 +237,117 @@ def test_stages_omit_downstream_work_and_reuse_parent_products(monkeypatch):
     assert scoped[key].scopes
 
 
-def test_staged_corpus_relations_preserve_direct_page_semantics(spike_readings, spike_extraction):
-    from math_support import extract_readings, read_page
+@pytest.mark.parametrize("seconds", [None, 30])
+def test_reading_budget_preserves_default_worker_identity_and_forwards_explicit_value(
+    monkeypatch, seconds
+):
+    from functools import partial
+
+    import math_support as support
+
+    page = small_page()
+    calls = []
+    workers = []
+
+    def read(content, macros, constants, **options):
+        assert content is page.content and macros is page.macros
+        assert constants is support.CONSTANTS
+        calls.append(options)
+        return []
+
+    def inline(work, pages):
+        workers.append(work)
+        return {key: work(payload) for key, payload in pages.items()}
+
+    monkeypatch.setattr(support, "read_spans", read)
+    monkeypatch.setattr(support, "load_page", lambda key: page)
+    monkeypatch.setattr(support, "_run_pages", inline)
+    assert support.read_content(page, seconds=seconds) == []
+    assert support.read_page(page.page, seconds=seconds).readings == []
+    assert support.reading_pages({page.page: page}, seconds=seconds)[page.page].readings == []
+    assert calls == [{} if seconds is None else {"seconds": seconds}] * 3
+    (work,) = workers
+    if seconds is None:
+        assert work is support.read_content
+    else:
+        assert isinstance(work, partial)
+        assert work.func is support.read_content
+        assert work.args == () and work.keywords == {"seconds": seconds}
+
+
+def first_reading_position_difference(actual, expected, actual_readings, expected_readings):
+    """Bound failure context to one span and one complete eight-field token position."""
+    index = next(
+        index
+        for index in range(max(len(actual), len(expected)))
+        if index >= len(actual) or index >= len(expected) or actual[index] != expected[index]
+    )
+    left = actual[index] if index < len(actual) else []
+    right = expected[index] if index < len(expected) else []
+    offset = next(
+        (
+            token
+            for token in range(max(len(left), len(right)))
+            if token >= len(left) or token >= len(right) or left[token] != right[token]
+        ),
+        None,
+    )
+
+    def span(readings):
+        if index >= len(readings):
+            return "missing span"
+        reading = readings[index]
+        segment, result = reading.span.segment, reading.result
+        failure = result.failure.category if result.failure else None
+        return (
+            f"segment=({segment.start},{segment.end}), latex_offset={reading.span.offset}, "
+            f"latex={reading.span.latex[:240]!r}, status={result.status.value}, failure={failure}"
+        )
+
+    def token(values):
+        if offset is None or offset >= len(values):
+            return "missing"
+        # The exact comparison above retains all eight fields; diagnostic strings are bounded.
+        return repr(
+            tuple(
+                value[:120] + "…" if isinstance(value, str) and len(value) > 120 else value
+                for value in values[offset]
+            )
+        )
+
+    return (
+        f"span {index}, first differing token {offset}; "
+        f"actual: {span(actual_readings)}, token_count={len(left)}, tuple={token(left)}; "
+        f"expected: {span(expected_readings)}, token_count={len(right)}, tuple={token(right)}"
+    )
+
+
+def test_staged_corpus_relations_preserve_direct_page_semantics(spike_content):
+    from math_support import extract_readings, extraction_pages, read_page, reading_pages
 
     # A whole historical page includes nested and ambiguous trees and relations
     # whose heads/tails are terminal tokens. Compare their finished source data,
     # not just printed trees (printing survives missing token end positions).
     key = "special/Normal.html"
-    direct = read_page(key)
-    staged = spike_readings[key]
+    # This compares transport semantics, so both independent reads receive the same generous
+    # per-span budget. Deadline and timeout controls retain their separate short budgets.
+    readings = reading_pages({key: spike_content[key]}, seconds=30)
+    direct = read_page(key, seconds=30)
+    staged = readings[key]
+    extracted = extraction_pages(readings)[key]
 
     direct_positions = reading_positions(direct.readings)
-    assert reading_positions(staged.readings) == direct_positions
-    assert _run_pages(reading_positions, {key: staged.readings}, workers=1)[key] == direct_positions
+    staged_positions = reading_positions(staged.readings)
+    staged_matches = staged_positions == direct_positions
+    assert staged_matches, first_reading_position_difference(
+        staged_positions, direct_positions, staged.readings, direct.readings
+    )
+    transported = _run_pages(reading_positions, {key: staged.readings}, workers=1)[key]
+    transported_matches = transported == direct_positions
+    assert transported_matches, first_reading_position_difference(
+        transported, direct_positions, staged.readings, direct.readings
+    )
     values, extraction = extract_readings(direct.readings)
     assert extraction.relations  # this control must actually exercise relational transport
-    assert spike_extraction[key].values == values
-    assert spike_extraction[key].extraction == extraction
+    assert extracted.values == values
+    assert extracted.extraction == extraction
