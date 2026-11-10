@@ -350,8 +350,17 @@ def test_reconstruction_inventory_and_containment_tampering_refuse():
     records.rows = [
         r for r in records.rows if not (r.kind == "membership" and r.values["ordinal"] == 0)
     ]
-    with pytest.raises(NativeMappingError, match="membership"):
+    with pytest.raises(NativeMappingError, match="membership") as caught:
         records.reconstruct()
+    from corpus_structure.semantic.operation_reporting import validation_failure_report
+
+    report = validation_failure_report(caught.value, detail=True).model_dump(mode="json")
+    assert report["validation_outcome"] == "nonconformant"
+    assert report["observations"][0]["category"] == "state_violation"
+    assert report["observations"][0]["code"] == "native_membership_closure"
+    assert report["observations"][0]["record_locator"] == caught.value.path
+    assert "input_path" not in report["observations"][0]
+    assert report["correction_detail"]["nodes"][0]["keyword"] == "native_membership_closure"
     records = Records().lower({"name": "x"})
     row = records.record(occurrence_id("#", "DoclingDocument"))
     row["native_type"] = "TableCell"

@@ -5,8 +5,50 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 from itertools import islice
+from typing import Any
 
 from .identity import canonical_bytes
+
+
+class InputPath(str):
+    """A display pointer carrying segments established by the owning traversal."""
+
+    segments: tuple
+    locator: str | None
+
+    def __new__(cls, segments=(), *, display=None, locator=None):
+        result = super().__new__(
+            cls,
+            display
+            if display is not None
+            else "#"
+            + "".join("/" + str(p).replace("~", "~0").replace("/", "~1") for p in segments),
+        )
+        result.segments = tuple(segments)
+        result.locator = locator
+        return result
+
+
+def child_path(path, segment):
+    return InputPath(
+        (*getattr(path, "segments", ()), segment),
+        display=str(path) + "/" + str(segment).replace("~", "~0").replace("/", "~1"),
+        locator=getattr(path, "locator", None),
+    )
+
+
+@dataclass(frozen=True)
+class BoundaryDiagnostic:
+    code: str
+    category: str
+    message: str
+    input_path: tuple | None = None
+    schema_path: str | None = None
+    locator: str | None = None
+
+    @property
+    def pointer(self):
+        return str(InputPath(self.input_path)) if self.input_path is not None else None
 
 
 @dataclass(frozen=True)
@@ -78,7 +120,9 @@ def _bounded_detail(detail, evidence, max_bytes):
     return detail, evidence
 
 
-def error_detail(error, *, raw_evidence=False, max_errors=100, max_depth=8, max_bytes=262144):
+def error_detail(
+    error, *, raw_evidence=False, max_errors=100, max_depth=8, max_bytes=262144, defer_bytes=False
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Retain branching and multiplicity; messages containing input values are opt-in."""
     _detail_limits(max_errors, max_depth, max_bytes)
     from jsonschema.exceptions import SchemaError
@@ -87,6 +131,32 @@ def error_detail(error, *, raw_evidence=False, max_errors=100, max_depth=8, max_
 
     if isinstance(getattr(error, "original", None), (JsonError, SchemaError, ValidationError)):
         error = error.original
+    fact = getattr(error, "boundary_diagnostic", None)
+    if fact is not None and getattr(error, "validation_capture", None) is None:
+        return dict(
+            engine="boundary",
+            nodes=[
+                dict(
+                    ordinal=0,
+                    parent=None,
+                    engine="boundary",
+                    keyword=fact.code,
+                    message=fact.message,
+                    input_path=path_segments(fact.input_path or ()),
+                    schema_path=[],
+                )
+            ],
+            examined_count=1,
+            inventory_complete=True,
+            render_complete=True,
+            coverage_note="Owner-assigned wrapper diagnostic; original cause remains in-call.",
+        ), dict(
+            kind="marker",
+            engine="boundary",
+            media_type="application/json",
+            sensitivity="safe",
+            reason="Original wrapper cause remains in-call.",
+        )
     capture = getattr(error, "validation_capture", None)
     if capture is not None:
         roots, complete, engine = capture.errors, capture.inventory_complete, "jsonschema"
@@ -127,7 +197,7 @@ def error_detail(error, *, raw_evidence=False, max_errors=100, max_depth=8, max_
             schema_path=path_segments(schema_path),
             message=message if raw_evidence else "Validation constraint failed: " + keyword,
         )
-        if len(canonical_bytes(dict(nodes=[*nodes, node]))) > max_bytes:
+        if not defer_bytes and len(canonical_bytes(dict(nodes=[*nodes, node]))) > max_bytes:
             rendered = False
             return
         ordinal = len(nodes)
@@ -161,7 +231,7 @@ def error_detail(error, *, raw_evidence=False, max_errors=100, max_depth=8, max_
         if raw_evidence
         else "Input-bearing engine messages withheld; original errors remain in-call.",
     )
-    return _bounded_detail(detail, evidence, max_bytes)
+    return (detail, evidence) if defer_bytes else _bounded_detail(detail, evidence, max_bytes)
 
 
 def rdf_term(node, *, values=False):
@@ -266,14 +336,28 @@ def shacl_path(graph, node, *, max_depth=8, max_nodes=1000):
         return dict(status="unsupported", reason=str(exc), original=rdf_term(node))
 
 
-def graph_detail(validation, *, raw_evidence=False, max_errors=100, max_depth=8, max_bytes=262144):
+def graph_detail(
+    validation,
+    *,
+    raw_evidence=False,
+    max_errors=100,
+    max_depth=8,
+    max_bytes=262144,
+    defer_bytes=False,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     _detail_limits(max_errors, max_depth, max_bytes)
     from rdflib import RDF, Graph
     from rdflib.namespace import SH
 
     nodes, rendered = [], True
     if len(validation.report) <= 8 * 1024 * 1024:
-        graph = Graph().parse(data=validation.report, format="nt")
+        from rdflib.exceptions import ParserError
+
+        try:
+            graph = Graph().parse(data=validation.report, format="nt")
+        except ParserError:
+            graph = Graph()
+            rendered = False
         active = set()
 
         def append(result, parent, depth):
@@ -302,7 +386,7 @@ def graph_detail(validation, *, raw_evidence=False, max_errors=100, max_depth=8,
                 if path is not None
                 else None,
             )
-            if len(canonical_bytes(dict(nodes=[*nodes, node]))) > max_bytes:
+            if not defer_bytes and len(canonical_bytes(dict(nodes=[*nodes, node]))) > max_bytes:
                 rendered = False
                 active.remove(result)
                 return
@@ -341,7 +425,7 @@ def graph_detail(validation, *, raw_evidence=False, max_errors=100, max_depth=8,
         else "Original graph bytes withheld or exceed requested byte limit.",
     )
 
-    return _bounded_detail(detail, evidence, max_bytes)
+    return (detail, evidence) if defer_bytes else _bounded_detail(detail, evidence, max_bytes)
 
 
 def preparation_diagnostic(item, *, raw_evidence=False):

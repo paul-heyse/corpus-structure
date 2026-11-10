@@ -2,7 +2,7 @@
 
 import json
 from types import SimpleNamespace
-from typing import cast
+from typing import Never, cast
 
 import pytest
 from jsonschema import Draft202012Validator
@@ -17,6 +17,10 @@ from corpus_structure.semantic.correction_detail import (
     shacl_path,
 )
 from corpus_structure.semantic.types import PreparedRelease
+
+
+def _unexpected_scalar_write(*args) -> Never:
+    raise AssertionError("Invalid input must fail before writing scalar values.")
 
 
 class CapturedFailure(ValueError):
@@ -243,7 +247,7 @@ def test_raw_marker_still_requires_opt_in_when_raw_values_are_in_detail(tmp_path
         scope="supplied",
         detail=True,
         raw_evidence=True,
-        max_bytes=1024,
+        max_bytes=2048,
     )
     assert report.model_dump(mode="json")["evidence"]["kind"] == "marker"
     store = ResultStore(tmp_path / "results")
@@ -268,7 +272,7 @@ def test_preparation_diagnostics_share_safe_direct_retained_and_envelope_policy(
     )
     report = validation_failure_report(error, detail=True, raw_evidence=raw)
     assert (secret in report.model_dump_json()) is raw
-    assert (secret in safe_failure_message(error, context=FailureContext(raw_evidence=raw))) is raw
+    assert secret not in safe_failure_message(error, context=FailureContext(raw_evidence=raw))
     store = ResultStore(tmp_path / "results")
     with store.operation("test") as invocation:
         publish_diagnostic(invocation, report)
@@ -291,4 +295,197 @@ def test_graph_engine_exception_messages_require_raw_opt_in(kind):
     assert "input-secret-sentinel" not in json.dumps(safe)
     assert safe["validation"]["evidence"]["sensitivity"] == "safe"
     raw = semantic_refusal_report(error, context=FailureContext(raw_evidence=True))
-    assert raw["message"] == "input-secret-sentinel"
+    assert "input-secret-sentinel" not in raw["message"]
+    assert "input-secret-sentinel" in json.dumps(raw["validation"])
+
+
+@pytest.mark.parametrize("detail", [False, True])
+@pytest.mark.parametrize("raw", [False, True])
+def test_whole_presentation_budget_keeps_nonconformance(detail, raw):
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.operation_reporting import validation_failure_report
+
+    error = next(Draft202012Validator({"type": "integer"}).iter_errors("s" * 16384))
+    report = validation_failure_report(
+        error, detail=detail, raw_evidence=raw, max_errors=1, max_bytes=1024
+    ).model_dump(mode="json", exclude_none=True)
+    assert len(canonical_bytes(report)) <= 1024
+    assert report["validation_outcome"] == "nonconformant"
+    assert len(report["observations"]) <= 1
+    if raw:
+        assert not report["presentation"]["render_complete"]
+
+
+def test_pydantic_observations_share_count_bound_in_compact_and_detail():
+    from pydantic import TypeAdapter, ValidationError
+
+    from corpus_structure.semantic.operation_reporting import validation_failure_report
+
+    with pytest.raises(ValidationError) as caught:
+        TypeAdapter(list[int]).validate_python(["invalid"] * 20)
+    for detail in (False, True):
+        value = validation_failure_report(caught.value, detail=detail, max_errors=1).model_dump(
+            mode="json"
+        )
+        assert len(value["observations"]) == 1
+        assert value["presentation"]["examined_count"] == 20
+        assert value["presentation"]["inventory_complete"]
+        assert not value["presentation"]["render_complete"]
+        assert value["validation_outcome"] == "nonconformant"
+
+
+def test_native_finite_wrapper_retains_typed_numeric_location():
+    from corpus_structure.semantic.operation_reporting import validation_failure_report
+    from corpus_structure.semantic.pdf_records import NativeMappingError, NativeSchemaMapping
+
+    mapping = NativeSchemaMapping(b"{}", {}, Draft202012Validator({}), {})
+    with pytest.raises(NativeMappingError) as caught:
+        mapping.validate({"items": [float("inf")]}, detail=True)
+    value = validation_failure_report(caught.value, detail=True).model_dump(mode="json")
+    assert value["observations"][0]["code"] == "native_number_nonfinite"
+    assert value["observations"][0]["input_path"] == "#/items/0"
+    assert value["correction_detail"]["nodes"][0]["input_path"] == [
+        {"kind": "field", "field": "items"},
+        {"kind": "index", "index": 0},
+    ]
+    assert value["validation_outcome"] == "nonconformant"
+
+
+def test_wrapper_reference_profile_preserves_schema_and_input_locations():
+    from corpus_structure.semantic.correction_detail import InputPath
+    from corpus_structure.semantic.operation_reporting import validation_failure_report
+    from corpus_structure.semantic.pdf_records import NativeMappingError, NativeSchemaMapping
+
+    mapping = NativeSchemaMapping(b"{}", {}, Draft202012Validator({}), {})
+    with pytest.raises(NativeMappingError) as caught:
+        mapping.resolve({"$ref": "urn:unsupported"}, {}, InputPath(("0", 0)))
+    report = validation_failure_report(caught.value, detail=True).model_dump(mode="json")
+    assert report["validation_outcome"] == "unassessed"
+    assert report["observations"][0]["model_path"] == "urn:unsupported"
+    assert report["observations"][0]["input_path"] == "#/0/0"
+    assert report["correction_detail"]["nodes"][0]["input_path"] == [
+        {"kind": "field", "field": "0"},
+        {"kind": "index", "index": 0},
+    ]
+
+
+def test_byte_selection_keeps_observation_and_node_roots_coupled():
+    from corpus_structure.semantic.operation_reporting import validation_failure_report
+
+    capture = capture_json_errors(
+        Draft202012Validator({"properties": {"a": {"type": "integer"}, "b": {"type": "integer"}}}),
+        {"a": "s" * 16384, "b": "small"},
+        detail=True,
+    )
+    report = validation_failure_report(
+        CapturedFailure("", capture), detail=True, raw_evidence=True, max_bytes=2048
+    ).model_dump(mode="json")
+    roots = [node for node in report["correction_detail"]["nodes"] if "parent" not in node]
+    assert len(roots) == len(report["observations"])
+    assert report["validation_outcome"] == "nonconformant"
+    assert not report["presentation"]["render_complete"]
+
+
+def test_compact_json_capture_keeps_actual_inventory_coverage():
+    from corpus_structure.semantic.operation_reporting import validation_failure_report
+
+    capture = capture_json_errors(
+        Draft202012Validator({"items": {"type": "integer"}}),
+        ["first", "second", "third"],
+        detail=False,
+    )
+    value = validation_failure_report(CapturedFailure("", capture)).model_dump(mode="json")
+    assert len(value["observations"]) == 1
+    assert "correction_detail" not in value
+    assert value["presentation"]["examined_count"] == 2
+    assert value["presentation"]["inventory_complete"] is False
+    assert value["validation_outcome"] == "nonconformant"
+
+
+def test_native_lowering_reference_profile_retains_actual_nested_traversal():
+    from corpus_structure.semantic.operation_reporting import validation_failure_report
+    from corpus_structure.semantic.pdf_records import (
+        NativeMappingError,
+        NativeSchemaMapping,
+        iter_native_records,
+    )
+
+    schema = {
+        "type": "object",
+        "properties": {"items": {"type": "array", "items": {"$ref": "#/definitions/Item"}}},
+        "definitions": {"Item": {"type": "integer"}},
+    }
+    mapping = NativeSchemaMapping(b"{}", schema, Draft202012Validator(schema), {})
+    with pytest.raises(NativeMappingError) as caught:
+        list(
+            iter_native_records(
+                {"items": [1]},
+                product_id="product",
+                revision_id="revision",
+                release_id="release:example",
+                source_digest="a" * 64,
+                record_id_for=lambda path, kind: "record",
+                write_scalar=_unexpected_scalar_write,
+                mapping=mapping,
+            )
+        )
+    value = validation_failure_report(caught.value, detail=True).model_dump(mode="json")
+    assert value["validation_outcome"] == "unassessed"
+    assert value["observations"][0]["input_path"] == "#/items/0"
+    assert value["observations"][0]["model_path"] == "#/definitions/Item"
+    assert value["correction_detail"]["nodes"][0]["input_path"] == [
+        {"kind": "field", "field": "items"},
+        {"kind": "index", "index": 0},
+    ]
+
+
+def test_subrecord_finite_path_keeps_native_locator_separate():
+    from corpus_structure.semantic.operation_reporting import validation_failure_report
+    from corpus_structure.semantic.pdf_records import (
+        NativeMappingError,
+        NativeSchemaMapping,
+        iter_native_records,
+    )
+
+    schema = {"$defs": {"Item": {"type": "object", "properties": {"x": {"type": "number"}}}}}
+    mapping = NativeSchemaMapping(b"{}", schema, Draft202012Validator(schema), {})
+    with pytest.raises(NativeMappingError) as caught:
+        list(
+            iter_native_records(
+                {"x": float("inf")},
+                product_id="product",
+                revision_id="revision",
+                release_id="release:example",
+                source_digest="a" * 64,
+                record_id_for=lambda path, kind: "record",
+                write_scalar=_unexpected_scalar_write,
+                mapping=mapping,
+                native_type="Item",
+                native_address="#/texts/12",
+            )
+        )
+    value = validation_failure_report(caught.value, detail=True).model_dump(mode="json")
+    assert value["observations"][0]["input_path"] == "#/x"
+    assert value["observations"][0]["record_locator"] == "#/texts/12"
+    assert value["correction_detail"]["nodes"][0]["input_path"] == [{"kind": "field", "field": "x"}]
+
+
+@pytest.mark.parametrize(
+    "value,kind,code",
+    [
+        (1.0, "integer", "payload_scalar_type"),
+        (float("inf"), "number", "payload_number_nonfinite"),
+        (2**63, "integer", "payload_integer_range"),
+    ],
+)
+def test_payload_numeric_diagnostics_preserve_strict_kind_and_finite_meanings(value, kind, code):
+    from corpus_structure.semantic.correction_detail import InputPath
+    from corpus_structure.semantic.operation_reporting import validation_failure_report
+    from corpus_structure.semantic.pdf_payloads import PayloadContractError, _to_arrow
+
+    with pytest.raises(PayloadContractError) as caught:
+        _to_arrow(value, {"type": kind}, {}, InputPath(("n",)))
+    report = validation_failure_report(caught.value, detail=True).model_dump(mode="json")
+    assert report["validation_outcome"] == "nonconformant"
+    assert report["observations"][0]["code"] == code
+    assert report["observations"][0]["input_path"] == "#/n"

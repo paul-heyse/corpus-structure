@@ -51,7 +51,7 @@ def test_effective_inherited_constraints_and_finite_unresolved_skeleton():
     assert fields["value"]["required"] is True
     assert value["skeleton_json"] == "{}"
     assert {p["path"] for p in value["placeholders"]} == {"/value", "/child"}
-    assert value["report_version"] == 2
+    assert value["report_version"] == 3
     assert value["release_id"] == prepared.release_id
     Draft202012Validator(report_schema("ContractInspection")).validate(value)
 

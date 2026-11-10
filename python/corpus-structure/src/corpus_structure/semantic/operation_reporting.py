@@ -30,9 +30,9 @@ if TYPE_CHECKING:
 
 _REPORT_VERSIONS = {
     "OperationExplanation": 2,
-    "LocatedValidationReport": 4,
-    "SemanticImpactReport": 3,
-    "ContractInspection": 2,
+    "LocatedValidationReport": 5,
+    "SemanticImpactReport": 4,
+    "ContractInspection": 3,
 }
 _SCHEMA_NAMES = tuple(_REPORT_VERSIONS)
 _SCHEMA_PATH = "model/semantic/operation-report-schemas.json"
@@ -483,6 +483,78 @@ def _document_subject_checks(
             )
 
 
+def _validation_presentation(data, *, detail=False, max_errors=100, max_depth=8, max_bytes=262144):
+    """Bound the complete report, preserving assessment independently of rendering."""
+    from .correction_detail import _detail_limits
+
+    _detail_limits(max_errors, max_depth, max_bytes)
+    data = deepcopy(data)
+    observations = data["observations"]
+    original_count = len(observations)
+    categories = {item["category"] for item in observations}
+    data.setdefault(
+        "validation_outcome",
+        (
+            "invalid_shape"
+            if "invalid_shape" in categories
+            else "execution_failure"
+            if "validator_failure" in categories
+            else "nonconformant"
+            if categories & {"invalid_input", "state_violation"}
+            else "unassessed"
+            if "unassessed" in categories
+            else "conformant"
+        ),
+    )
+    correction = data.get("correction_detail")
+    coverage = data.get("presentation") or dict(
+        examined_count=correction["examined_count"] if correction else len(observations),
+        inventory_complete=correction["inventory_complete"] if correction else True,
+        render_complete=correction["render_complete"] if correction else True,
+        coverage_note="Examined counts captured/yielded facts, not internal validator work.",
+    )
+    nodes = correction["nodes"] if correction else []
+    # Native/schema captures supply the ordered forest. Observations mirror its roots.
+    if nodes:
+        roots = sum(node.get("parent") is None for node in nodes)
+        observations[:] = observations[:roots]
+    else:
+        observations[:] = observations[:max_errors]
+    if len(data["observations"]) < original_count:
+        coverage["render_complete"] = False
+    if correction and not nodes and coverage["examined_count"]:
+        observations.clear()
+        coverage["render_complete"] = False
+    if len(observations) < coverage["examined_count"] and not nodes:
+        coverage["render_complete"] = False
+    coverage.update(max_errors=max_errors, max_depth=max_depth, max_bytes=max_bytes)
+    data["presentation"] = coverage
+    if not detail:
+        data.pop("correction_detail", None)
+    evidence = data.get("evidence")
+    while True:
+        if correction:
+            correction["render_complete"] = coverage["render_complete"]
+        report = _report("LocatedValidationReport", data)
+        if len(canonical_bytes(report.model_dump(mode="json", exclude_none=True))) <= max_bytes:
+            return report
+        coverage["render_complete"] = False
+        if evidence and evidence.get("content") is not None:
+            evidence.update(
+                kind="marker", content=None, reason="Inline evidence exceeds presentation budget."
+            )
+        elif nodes:
+            node = nodes.pop()
+            if node.get("parent") is None and observations:
+                observations.pop()
+        elif observations:
+            observations.pop()
+        else:
+            error = SemanticRefusal("validation presentation binding exceeds requested byte limit")
+            error.__dict__["validation_outcome"] = data["validation_outcome"]
+            raise error
+
+
 def validation_report(
     diagnostics: tuple[Diagnostic, ...],
     *,
@@ -490,6 +562,10 @@ def validation_report(
     operation: str | None = None,
     raw_evidence: bool = False,
     projection_dependencies: dict[str, Any] | None = None,
+    detail: bool = False,
+    max_errors: int = 100,
+    max_depth: int = 8,
+    max_bytes: int = 262144,
 ) -> BaseModel:
     categories = {
         "invalid": "invalid_input",
@@ -514,8 +590,7 @@ def validation_report(
         )
         for item in diagnostics
     ]
-    return _report(
-        "LocatedValidationReport",
+    return _validation_presentation(
         dict(
             release_id=prepared.release_id if prepared else None,
             model_id=prepared.execution_model_id if prepared else None,
@@ -533,6 +608,10 @@ def validation_report(
                 for item in diagnostics
             ),
         ),
+        detail=detail,
+        max_errors=max_errors,
+        max_depth=max_depth,
+        max_bytes=max_bytes,
     )
 
 
@@ -617,7 +696,8 @@ def compare_semantic_releases(
     review_run_id: int | None = None,
     review_cut_id: int | None = None,
     use_limit: int = 100,
-    use_after: tuple[int, str, str] | str | None = None,
+    use_after: str | None = None,
+    use_side: str = "before",
     before_runtime: RuntimeBinding | None = None,
     after_runtime: RuntimeBinding | None = None,
     dependency_detail: bool = False,
@@ -835,6 +915,8 @@ def compare_semantic_releases(
 
     append_vocabulary_impact(before, after, changes, unknowns, _changed_members, _NO_MEMBER)
     use_survey = None
+    if use_after is not None and source_run_id is None:
+        raise ValueError("vocabulary use continuation requires a selected population")
     if any(value is not None for value in (source_run_id, review_run_id, review_cut_id)):
         if (
             connection is None
@@ -845,31 +927,59 @@ def compare_semantic_releases(
             raise ValueError(
                 "vocabulary uses require source run, review run/cut and reader snapshot"
             )
-        from typing import cast
-
         from .interpretation_queries import collect_interpretation_uses
         from .observations import source_value
 
-        raw_after = json.loads(use_after) if isinstance(use_after, str) else use_after
+        if use_side not in {"before", "after"}:
+            raise ValueError("vocabulary use side must be before or after")
+        selected = before if use_side == "before" else after
         use_cursor = None
-        if raw_after is not None:
-            if (
-                not isinstance(raw_after, (list, tuple))
-                or len(raw_after) != 3
-                or type(raw_after[0]) is not int
-                or not all(isinstance(v, str) for v in raw_after[1:])
-            ):
-                raise ValueError("invalid vocabulary use continuation")
-            use_cursor = cast(tuple[int, str, str], tuple(raw_after))
+        token = None
+        if use_after is not None:
+            try:
+                token = json.loads(use_after)
+                position = token["position"]
+                if (
+                    not isinstance(position, list)
+                    or len(position) != 3
+                    or type(position[0]) is not int
+                    or not all(type(v) is str for v in position[1:])
+                ):
+                    raise ValueError("context differs")
+                use_cursor = tuple(position)
+            except (ValueError, TypeError, KeyError) as exc:
+                raise ValueError("invalid or mismatched vocabulary use continuation") from exc
         survey = collect_interpretation_uses(
             connection,
             source_run_id=source_run_id,
             review_run_id=review_run_id,
             review_cut_id=review_cut_id,
-            vocabulary_release=after.release_id,
+            vocabulary_release=selected.release_id,
             limit=use_limit,
             after=use_cursor,
         )
+        binding = sha256(
+            canonical_bytes(
+                dict(
+                    version=1,
+                    before=before.release_id,
+                    after=after.release_id,
+                    side=use_side,
+                    population={
+                        key: value
+                        for key, value in survey.items()
+                        if key not in {"items", "complete", "next_after"}
+                    },
+                )
+            )
+        ).hexdigest()
+        if token is not None and token.get("binding") != binding:
+            raise ValueError("invalid or mismatched vocabulary use continuation")
+        survey["side"] = use_side
+        if survey["next_after"] is not None:
+            survey["next_after"] = canonical_bytes(
+                dict(binding=binding, position=survey["next_after"])
+            ).decode()
         use_survey = source_value(survey)
         unknowns.discard(
             "Retained vocabulary uses were not surveyed; supply an "
@@ -1172,6 +1282,10 @@ def projection_validation_report(
     dependency_occurrence: str | None = None,
     dependency_after: int = 0,
     dependency_limit: int = 100,
+    detail: bool = False,
+    max_errors: int = 100,
+    max_depth: int = 8,
+    max_bytes: int = 262144,
 ) -> BaseModel:
     """Expose retained coverage and optionally its bounded occurrence detail."""
     from .projection_analysis_products import read_projection_analysis
@@ -1218,6 +1332,10 @@ def projection_validation_report(
             )
     return validation_report(
         tuple(diagnostics),
+        detail=detail,
+        max_errors=max_errors,
+        max_depth=max_depth,
+        max_bytes=max_bytes,
         prepared=prepared,
         projection_dependencies=(
             projection_dependency_detail(
@@ -1289,35 +1407,15 @@ def validation_failure_report(
     from .types import PreparationError
 
     if isinstance(error, (PreparationError, ArchiveDecodeError)):
-        base = validation_report(
-            error.diagnostics, prepared=prepared, operation=operation, raw_evidence=raw_evidence
-        )
-        if not detail:
-            return base
-        from .correction_detail import error_detail
-
-        correction, evidence = error_detail(
-            error,
+        return validation_report(
+            error.diagnostics,
+            prepared=prepared,
+            operation=operation,
             raw_evidence=raw_evidence,
+            detail=detail,
             max_errors=max_errors,
             max_depth=max_depth,
             max_bytes=max_bytes,
-        )
-        return _report(
-            "LocatedValidationReport",
-            dict(
-                **base.model_dump(
-                    mode="json",
-                    exclude={
-                        "report_version",
-                        "report_schema_digest",
-                        "evidence",
-                        "correction_detail",
-                    },
-                ),
-                correction_detail=correction,
-                evidence=evidence,
-            ),
         )
 
     if prepared is not None:
@@ -1371,6 +1469,23 @@ def validation_failure_report(
                 ),
             )
             for location in error.locations
+        ]
+    elif (
+        getattr(error, "boundary_diagnostic", None) is not None
+        and getattr(error, "validation_capture", None) is None
+    ):
+        fact = error.boundary_diagnostic
+        observations = [
+            dict(
+                category=fact.category,
+                code=fact.code,
+                model_path=fact.schema_path or "boundary",
+                input_path=fact.pointer,
+                record_locator=fact.locator,
+                operation=operation,
+                scope=scope,
+                message=fact.message,
+            )
         ]
     elif getattr(error, "validation_capture", None) is not None:
         observations = [
@@ -1545,19 +1660,23 @@ def validation_failure_report(
         max_errors=max_errors,
         max_depth=max_depth,
         max_bytes=max_bytes,
+        defer_bytes=True,
     )
     for observation in observations:
         observation.pop("original_report", None)
-    return _report(
-        "LocatedValidationReport",
+    return _validation_presentation(
         dict(
             release_id=release_id,
             model_id=model_id,
             observations=observations,
-            correction_detail=correction if detail else None,
+            correction_detail=correction,
             evidence=evidence,
             complete=all(item["category"] != "unassessed" for item in observations),
         ),
+        detail=detail,
+        max_errors=max_errors,
+        max_depth=max_depth,
+        max_bytes=max_bytes,
     )
 
 
@@ -1620,36 +1739,44 @@ def graph_validation_report(
         )
     from .correction_detail import graph_detail
 
-    if detail or raw_evidence:
-        correction, evidence = graph_detail(
-            validation,
-            raw_evidence=raw_evidence,
-            max_errors=max_errors,
-            max_depth=max_depth,
-            max_bytes=max_bytes,
-        )
-    else:
-        correction = None
-        evidence = dict(
-            kind="marker",
-            engine="pyshacl",
-            media_type="application/n-triples",
-            digest=reference.removeprefix("sha256:"),
-            sensitivity="safe",
-            reason="Original graph evidence remains in-call; request detail for a correction view.",
-        )
+    correction, evidence = graph_detail(
+        validation,
+        raw_evidence=raw_evidence,
+        max_errors=max_errors,
+        max_depth=max_depth,
+        max_bytes=max_bytes,
+        defer_bytes=True,
+    )
+    if correction["nodes"]:
+        observations = [
+            dict(
+                category="state_violation",
+                code=node["keyword"],
+                model_path="graph/shape",
+                operation="graph_validate",
+                scope=scope,
+                message=node["message"],
+                actual=node.get("rdf_json"),
+            )
+            for node in correction["nodes"]
+            if node.get("parent") is None
+        ]
     for observation in observations:
         observation.pop("original_report", None)
-    return _report(
-        "LocatedValidationReport",
+    return _validation_presentation(
         dict(
             release_id=release_id,
             model_id=model_id,
             observations=observations,
-            correction_detail=correction if detail else None,
+            correction_detail=correction,
             evidence=evidence,
             complete=validation.conforms or bool(validation.diagnostics),
+            validation_outcome="conformant" if validation.conforms else "nonconformant",
         ),
+        detail=detail,
+        max_errors=max_errors,
+        max_depth=max_depth,
+        max_bytes=max_bytes,
     )
 
 

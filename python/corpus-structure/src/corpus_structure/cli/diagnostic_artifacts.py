@@ -14,7 +14,7 @@ MAX_ARTIFACT_BYTES = 8 * 1024 * 1024
 
 
 def publish_diagnostic(invocation, report):
-    from corpus_structure.semantic.operation_reporting import _report
+    from corpus_structure.semantic.operation_reporting import _validation_presentation
 
     data = report.model_dump(mode="json", exclude_none=True)
     evidence = data.get("evidence", {})
@@ -54,7 +54,14 @@ def publish_diagnostic(invocation, report):
         artifact_role=ROLE,
         member="report",
     )
-    return _report("LocatedValidationReport", fields)
+    limits = fields["presentation"]
+    return _validation_presentation(
+        fields,
+        detail="correction_detail" in fields,
+        max_errors=limits["max_errors"],
+        max_depth=limits["max_depth"],
+        max_bytes=limits["max_bytes"],
+    )
 
 
 def read_diagnostic(store, result_id, *, raw_evidence=False, max_bytes=MAX_ARTIFACT_BYTES):
@@ -138,12 +145,18 @@ def diagnostic_scope(
                 PreparationError,
                 ReleaseConflict,
                 ExecutionAdmissionError,
-                ValueError,
                 *expected,
             ),
             context=failure,
             operation=invocation,
         ):
+            from corpus_structure.semantic.correction_detail import _detail_limits
+            from corpus_structure.semantic.refusals import SemanticRefusal
+
+            try:
+                _detail_limits(max_errors, max_depth, max_bytes)
+            except ValueError as error:
+                raise SemanticRefusal("Invalid correction presentation limits.") from error
             try:
                 yield failure, invocation
             except Exception as error:

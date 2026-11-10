@@ -22,6 +22,7 @@ from jsonschema.validators import validator_for
 from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT202012
 
+from .correction_detail import InputPath, child_path
 from .identity import canonical_bytes
 
 _DECLARATION = yaml.safe_load(
@@ -39,16 +40,46 @@ class PayloadContractError(ValueError):
 
     validation_capture: Any = None
 
+    def __init__(
+        self,
+        message,
+        *,
+        path=None,
+        code="payload_contract",
+        category="invalid_input",
+        schema_path=None,
+    ):
+        from .correction_detail import BoundaryDiagnostic
 
-def _error(path: str, message: str) -> NoReturn:
-    raise PayloadContractError(f"{path}: {message}")
+        self.boundary_diagnostic = BoundaryDiagnostic(
+            code,
+            category,
+            "Payload boundary constraint failed: " + code,
+            getattr(path, "segments", () if path == "#" else None),
+            schema_path,
+        )
+        super().__init__(message)
+
+
+def _error(
+    path: str, message: str, *, code="payload_contract", category="invalid_input", schema_path=None
+) -> NoReturn:
+    raise PayloadContractError(
+        f"{path}: {message}", path=path, code=code, category=category, schema_path=schema_path
+    )
 
 
 def _resolve(schema, root):
     if "$ref" in schema:
         ref = schema["$ref"]
         if not ref.startswith("#/$defs/"):
-            _error(ref, "only retained local definition references are supported")
+            _error(
+                ref,
+                "only retained local definition references are supported",
+                code="payload_reference_profile",
+                category="unassessed",
+                schema_path=ref,
+            )
         return root["$defs"][ref.removeprefix("#/$defs/")]
     return schema
 
@@ -64,7 +95,7 @@ def _arrow_type(schema, root, path):
             [
                 pa.field(_PRESENCE, pa.binary((len(props) + 7) // 8), nullable=False),
                 *(
-                    pa.field(name, _arrow_type(child, root, path + "/" + name), nullable=True)
+                    pa.field(name, _arrow_type(child, root, child_path(path, name)), nullable=True)
                     for name, child in props.items()
                 ),
             ]
@@ -106,7 +137,7 @@ def _to_arrow(value, schema, root, path):
         for index, (name, child) in enumerate(props.items()):
             if name in value:
                 presence[index // 8] |= 1 << (index % 8)
-                result[name] = _to_arrow(value[name], child, root, path + "/" + name)
+                result[name] = _to_arrow(value[name], child, root, child_path(path, name))
             else:
                 result[name] = None
         result[_PRESENCE] = bytes(presence)
@@ -115,16 +146,27 @@ def _to_arrow(value, schema, root, path):
         if not isinstance(value, list):
             _error(path, "expected a list")
         return [
-            _to_arrow(item, schema["items"], root, f"{path}/{i}") for i, item in enumerate(value)
+            _to_arrow(item, schema["items"], root, child_path(path, i))
+            for i, item in enumerate(value)
         ]
     if kind in {"integer", "number"}:
         if type(value) is int:
             if not -(2**63) <= value < 2**63:
-                _error(path, "integer exceeds the declared signed64 transport profile")
+                _error(
+                    path,
+                    "integer exceeds the declared signed64 transport profile",
+                    code="payload_integer_range",
+                )
             return {"kind": 0, "integer": value, "binary64": None} if kind == "number" else value
         if kind == "number" and type(value) is float and math.isfinite(value):
             return {"kind": 1, "integer": None, "binary64": value}
-        _error(path, "expected finite integer/binary64 value without coercion")
+        _error(
+            path,
+            "expected finite integer/binary64 value without coercion",
+            code="payload_number_nonfinite"
+            if type(value) is float and not math.isfinite(value)
+            else "payload_scalar_type",
+        )
     expected = {"boolean": bool, "string": str, "null": type(None)}[kind]
     if type(value) is not expected:
         _error(path, f"expected {kind} without coercion")
@@ -146,15 +188,16 @@ def _from_arrow(value, schema, root, path):
         result = {}
         for index, (name, child) in enumerate(props.items()):
             if mask[index // 8] & (1 << (index % 8)):
-                result[name] = _from_arrow(value[name], child, root, path + "/" + name)
+                result[name] = _from_arrow(value[name], child, root, child_path(path, name))
             elif value[name] is not None:
-                _error(path + "/" + name, "absent field has a physical value")
+                _error(child_path(path, name), "absent field has a physical value")
         return result
     if kind == "array":
         if not isinstance(value, list):
             _error(path, "null list")
         return [
-            _from_arrow(item, schema["items"], root, f"{path}/{i}") for i, item in enumerate(value)
+            _from_arrow(item, schema["items"], root, child_path(path, i))
+            for i, item in enumerate(value)
         ]
     if kind == "number":
         if not isinstance(value, dict):
@@ -194,9 +237,9 @@ def _canonical_scalar(value, schema, root, path):
                 first = False
                 yield json.dumps(name, ensure_ascii=False).encode()
                 yield b":"
-                yield from _canonical_scalar(value[name], child, root, path + "/" + name)
+                yield from _canonical_scalar(value[name], child, root, child_path(path, name))
             elif value[name].is_valid:
-                _error(path + "/" + name, "absent field has a physical value")
+                _error(child_path(path, name), "absent field has a physical value")
         yield b"}"
     elif kind == "array":
         if not value.is_valid:
@@ -205,7 +248,7 @@ def _canonical_scalar(value, schema, root, path):
         for index, item in enumerate(value.values):
             if index:
                 yield b","
-            yield from _canonical_scalar(item, schema["items"], root, f"{path}/{index}")
+            yield from _canonical_scalar(item, schema["items"], root, child_path(path, index))
         yield b"]"
     else:
         logical = _from_arrow(value.as_py(), schema, root, path)
@@ -243,7 +286,7 @@ class PreparedPayloadFamily:
             failure.validation_capture = capture
             raise failure from error
         # Strict type/finite checks are not supplied by JSON Schema's integer/number tests.
-        row = _to_arrow(value, self.json_schema, self.json_schema, "#")
+        row = _to_arrow(value, self.json_schema, self.json_schema, InputPath())
         if not isinstance(row, dict):
             _error("#", "page payload requires an object")
         return row

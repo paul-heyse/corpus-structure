@@ -410,6 +410,92 @@ def test_authored_review_completion_filter_and_selected_root_ambiguity(private_s
         assert hours["complete"] and len(hours["items"]) == 1
         assert hours["items"][0]["field"] == "unit"
 
+    # A real proposed release removes the old unit and changes a source mapping.
+    # Retained uses still belong to the before release, with original meaning intact.
+    from dataclasses import replace
+    from hashlib import sha256
+
+    from rdflib import Graph, URIRef
+    from rdflib.namespace import SKOS
+
+    from corpus_structure.semantic.observations import source_python
+    from corpus_structure.semantic.operation_reporting import compare_semantic_releases
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.terminology import ORIGINAL, PROFILE
+
+    bundle, dependencies, profile = case.preparation_inputs
+    changed_sources = []
+    for source in bundle.sources:
+        body = yaml.safe_load(source.content)
+        if "RecognizedTimeUnit" in body.get("enums", {}):
+            del body["enums"]["RecognizedTimeUnit"]["permissible_values"]["HOUR"]
+            source = replace(source, content=yaml.safe_dump(body).encode())
+        changed_sources.append(source)
+    original = next(item for item in dependencies.artifacts if item.name == ORIGINAL)
+    graph = Graph().parse(data=original.content, format="xml")
+    graph.add(
+        (
+            URIRef("http://purl.obolibrary.org/obo/STATO_0000693"),
+            SKOS.exactMatch,
+            URIRef("https://example.org/proposed-variance-mapping"),
+        )
+    )
+    changed_original = graph.serialize(format="xml").encode()
+    updated_assets = []
+    for source in dependencies.artifacts:
+        if source.name == ORIGINAL:
+            source = replace(source, content=changed_original)
+        elif source.name == PROFILE:
+            facts = json.loads(source.content)
+            facts["original_sha256"] = sha256(changed_original).hexdigest()
+            source = replace(source, content=json.dumps(facts).encode())
+        updated_assets.append(source)
+    proposed = prepare_release(
+        SourceBundle(bundle.root, tuple(changed_sources)),
+        replace(dependencies, artifacts=tuple(updated_assets)),
+        profile,
+    )
+    assert proposed.release_id != case.prepared.release_id
+    with read_snapshot(case.writer) as conn:
+        arguments = dict(
+            connection=conn,
+            source_run_id=later["run_id"],
+            review_run_id=measured["run_id"],
+            review_cut_id=measured["cut_id"],
+        )
+        first_report = compare_semantic_releases(
+            case.prepared, proposed, **arguments, use_limit=1
+        ).model_dump(mode="json")
+        first = source_python(first_report["vocabulary_uses"])
+        assert first["side"] == "before" and first["vocabulary_release"] == case.prepared.release_id
+        assert not first["complete"] and isinstance(first["next_after"], str)
+        remaining = compare_semantic_releases(
+            case.prepared, proposed, **arguments, use_limit=100, use_after=first["next_after"]
+        ).model_dump(mode="json")
+        second = source_python(remaining["vocabulary_uses"])
+        assert second["complete"] and len(first["items"] + second["items"]) == 4
+        assert any(row["selected_value"] == "HOUR" for row in first["items"] + second["items"])
+        assert {change["aspect"] for change in first_report["changes"]} >= {
+            "vocabulary_membership",
+            "vocabulary_metadata",
+        }
+        assert "proposed-variance-mapping" in json.dumps(first_report["changes"])
+        after = compare_semantic_releases(
+            case.prepared, proposed, **arguments, use_side="after"
+        ).model_dump(mode="json")
+        assert source_python(after["vocabulary_uses"])["items"] == []
+        assert not after["complete"] and any(
+            "Other retained" in value for value in after["unknowns"]
+        )
+        with pytest.raises(ValueError, match="continuation"):
+            compare_semantic_releases(
+                case.prepared,
+                proposed,
+                **arguments,
+                use_side="after",
+                use_after=first["next_after"],
+            )
+
     forged_source = dict(configuration["source"], native_content_digest="0" * 64)
     with pytest.raises(DBAPIError, match="original completed source custody"):
         author_interpretations(

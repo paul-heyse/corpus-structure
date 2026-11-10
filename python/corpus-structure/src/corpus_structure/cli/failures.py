@@ -81,64 +81,44 @@ def failure_boundary(
     except (SemanticRefusal, ValidationError, NativeResultViolation, *expected) as error:
         from corpus_structure.semantic.types import PreparationError
 
-        if isinstance(error, ValidationError) and not json:
-            fields = [
-                ".".join(map(str, issue["loc"]))
-                for issue in error.errors(
-                    include_input=False, include_context=False, include_url=False
-                )
-            ]
-            detail = {
-                "code": "ValidationError",
-                "message": f"invalid {error.title}",
-                "fields": fields,
-            }
-            if operation:
-                operation.record_failure("refusal", detail, error=error)
-            diagnostic(f"{detail['message']}: {', '.join(fields)}")
-            raise typer.Exit(1) from None
-        if json or operation:
-            detail: dict[str, Any] = {
-                "code": type(error).__name__,
-                "message": safe_failure_message(error, context=context),
-            }
-            if report_expected_validation or not isinstance(error, expected):
-                try:
-                    detail = semantic_refusal_report(error, context=context)
-                except PreparationError:
-                    if not isinstance(error, PreparationError):
-                        raise
-                    # The report compiler can depend on the same invalid declarations.
-                    # Keep the original preparation diagnostics deliverable.
-            detail["message"] = safe_text(detail["message"])
-            if getattr(error, "reason", None) is not None:
-                detail["reason"] = safe_text(str(error.reason))
-            if isinstance(error, PreparationError):
+        detail: dict[str, Any] = {
+            "code": type(error).__name__,
+            "message": safe_failure_message(error, context=context),
+        }
+        if report_expected_validation or not isinstance(error, expected):
+            try:
+                detail = semantic_refusal_report(error, context=context)
+            except PreparationError:
+                if not isinstance(error, PreparationError):
+                    raise
+                # The report compiler can depend on the same invalid declarations.
+                # Keep the original preparation diagnostics deliverable.
                 from corpus_structure.semantic.correction_detail import preparation_diagnostic
 
-                detail["diagnostics"] = [
-                    {
-                        key: value
-                        for key, value in preparation_diagnostic(
-                            item, raw_evidence=context.raw_evidence
-                        ).items()
-                        if value is not None
-                    }
-                    for item in error.diagnostics
-                ]
-            kind = (
-                "execution"
-                if isinstance(error, OSError) and not isinstance(error, FileExistsError)
-                else "refusal"
+                rows = []
+                for item in error.diagnostics[: context.max_errors]:
+                    candidate = preparation_diagnostic(item, raw_evidence=context.raw_evidence)
+                    if len(jsonlib.dumps([*rows, candidate]).encode()) > context.max_bytes // 2:
+                        break
+                    rows.append(candidate)
+                detail["diagnostics"] = rows
+                detail["diagnostics_complete"] = len(rows) == len(error.diagnostics)
+        detail["message"] = safe_text(detail["message"])
+        if getattr(error, "reason", None) is not None:
+            detail["reason"] = safe_text(str(error.reason))
+        kind = (
+            "execution"
+            if isinstance(error, OSError) and not isinstance(error, FileExistsError)
+            else "refusal"
+        )
+        envelope = operation.record_failure(kind, detail, error=error) if operation else {}
+        if json:
+            write_report_text(
+                jsonlib.dumps({"error": _safe_diagnostic(detail), **envelope}) + "\n",
+                exit_code=1,
             )
-            envelope = operation.record_failure(kind, detail, error=error) if operation else {}
-            if json:
-                write_report_text(
-                    jsonlib.dumps({"error": _safe_diagnostic(detail), **envelope}) + "\n",
-                    exit_code=1,
-                )
-            else:
-                diagnostic(f"refused: {detail['message']}")
         else:
-            diagnostic(f"refused: {safe_failure_message(error, context=context)}")
+            diagnostic(f"refused: {detail['message']}")
+            for item in detail.get("validation", {}).get("observations", ()):
+                diagnostic(f"{item['code']}: {item.get('input_path') or item['model_path']}")
         raise typer.Exit(1) from None

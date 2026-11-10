@@ -250,7 +250,7 @@ def collect_interpretation_uses(
         vocabulary_release=vocabulary_release,
         enum=enum,
         member=member,
-        items=[dict(r) for r in rows],
+        items=[{str(key): value for key, value in row.items()} for row in rows],
         complete=not more,
         next_after=[rows[-1][k] for k in ("task_id", "contribution_id", "field")] if more else None,
         coverage="selected_source_and_review_results_only",

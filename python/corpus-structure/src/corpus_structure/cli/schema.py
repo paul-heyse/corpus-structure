@@ -106,6 +106,10 @@ def compile_(
         failure.bind(prepared, "schema_compile")
         validation_model = projection_validation_report(
             prepared,
+            detail=correction_detail,
+            max_errors=max_errors,
+            max_depth=max_depth,
+            max_bytes=max_bytes,
             dependency_detail=dependency_detail,
             dependency_family=dependency_family,
             dependency_output=dependency_output,
@@ -211,6 +215,10 @@ def check_(
             failure.bind(prepared, "schema_check")
         validation_model = projection_validation_report(
             prepared,
+            detail=correction_detail,
+            max_errors=max_errors,
+            max_depth=max_depth,
+            max_bytes=max_bytes,
             dependency_detail=dependency_detail,
             dependency_family=dependency_family,
             dependency_output=dependency_output,
@@ -614,6 +622,7 @@ def diff_(
     review_cut_id: int | None = None,
     use_limit: int = 100,
     use_after: str | None = None,
+    use_side: str = "before",
     dependency_detail: bool = False,
     dependency_family: str | None = None,
     dependency_output: str | None = None,
@@ -648,6 +657,7 @@ def diff_(
                 review_cut_id=review_cut_id,
                 use_limit=use_limit,
                 use_after=use_after,
+                use_side=use_side,
                 dependency_detail=dependency_detail,
                 dependency_family=dependency_family,
                 dependency_output=dependency_output,

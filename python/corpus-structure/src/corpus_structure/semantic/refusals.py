@@ -212,8 +212,6 @@ def safe_failure_message(error, *, context=None):
     from jsonschema.exceptions import ValidationError as JsonError
     from pydantic import ValidationError
 
-    if context is not None and getattr(context, "raw_evidence", False):
-        return str(error)
     from .ontology import GraphExecutionError, GraphShapeError
     from .releases import ArchiveDecodeError
     from .types import PreparationError
@@ -229,7 +227,9 @@ def safe_failure_message(error, *, context=None):
         or getattr(error, "validation_capture", None) is not None
     ):
         return "Validation failed; request correction detail for structural paths."
-    return str(error)
+    if getattr(error, "boundary_diagnostic", None) is not None:
+        return "Boundary validation failed; request correction detail for structural paths."
+    return str(error)[:512]
 
 
 def semantic_refusal_report(

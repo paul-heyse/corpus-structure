@@ -965,7 +965,7 @@ def test_projection_validation_reuses_retained_detail_and_keeps_compact_complete
     )
     monkeypatch.setattr(products, "read_projection_analysis", lambda _: product)
     compact = projection_validation_report(context).model_dump(mode="json")
-    assert compact["report_version"] == 4
+    assert compact["report_version"] == 5
     assert compact["complete"] is True and compact["observations"] == []
     assert compact.get("projection_dependencies") is None
     first = projection_validation_report(
@@ -1014,13 +1014,17 @@ def test_projection_validation_reuses_retained_detail_and_keeps_compact_complete
     )
 
 
-def test_validation_v4_registration_preserves_other_report_versions():
+def test_validation_v5_registration_versions_shared_consumers():
     schema = cast(dict[str, Any], report_schema("LocatedValidationReport"))
-    assert schema["properties"]["report_version"]["minimum"] == 4
-    assert schema["properties"]["report_version"]["maximum"] == 4
+    assert schema["properties"]["report_version"]["minimum"] == 5
+    assert schema["properties"]["report_version"]["maximum"] == 5
     assert "projection_dependencies" in schema["properties"]
     assert "projection_dependencies" not in schema["required"]
-    for name, version in (("OperationExplanation", 2), ("SemanticImpactReport", 3)):
+    for name, version in (
+        ("OperationExplanation", 2),
+        ("SemanticImpactReport", 4),
+        ("ContractInspection", 3),
+    ):
         other = cast(dict[str, Any], report_schema(name))
         assert other["properties"]["report_version"]["minimum"] == version
         assert other["properties"]["report_version"]["maximum"] == version

@@ -49,9 +49,28 @@ INLINE_SCALAR_BYTES = 512
 class NativeMappingError(ValueError):
     """A precise retained-schema/native-address diagnostic, never an omitted value."""
 
-    def __init__(self, path: str, message: str, *, capture=None):
+    def __init__(
+        self,
+        path: str,
+        message: str,
+        *,
+        capture=None,
+        code="native_mapping_invalid",
+        category="invalid_input",
+        schema_path=None,
+    ):
+        from .correction_detail import BoundaryDiagnostic
+
         self.validation_capture = capture
         self.path = path
+        self.boundary_diagnostic = BoundaryDiagnostic(
+            code,
+            category,
+            "Native boundary constraint failed: " + code,
+            getattr(path, "segments", () if path == "#" else None),
+            schema_path,
+            getattr(path, "locator", None if path.startswith("#") else path),
+        )
         super().__init__(f"{path}: {message}")
 
 
@@ -103,7 +122,13 @@ class NativeSchemaMapping:
             ref = schema.get("$ref")
             if ref is not None:
                 if not ref.startswith("#/$defs/") or ref[8:] not in self.schema["$defs"]:
-                    raise NativeMappingError(path, "unsupported native schema reference " + ref)
+                    raise NativeMappingError(
+                        path,
+                        "unsupported native schema reference " + ref,
+                        code="native_reference_profile",
+                        category="unassessed",
+                        schema_path=ref,
+                    )
                 schema_path = ref
                 schema = self.schema["$defs"][ref[8:]]
                 continue
@@ -229,16 +254,22 @@ def _parse_inline(value: Any) -> Any:
 
 
 def _finite_json(value: Any, path: str) -> None:
+    from .correction_detail import InputPath, child_path
+
+    if not isinstance(path, InputPath):
+        path = InputPath((), display=path, locator=path if path != "#" else None)
     if isinstance(value, dict):
         for key, member in value.items():
             if not isinstance(key, str):
                 raise NativeMappingError(path, "native JSON object keys must be strings")
-            _finite_json(member, path + "/" + _escape(key))
+            _finite_json(member, child_path(path, key))
     elif isinstance(value, list):
         for i, member in enumerate(value):
-            _finite_json(member, f"{path}/{i}")
+            _finite_json(member, child_path(path, i))
     elif type(value) is float and not math.isfinite(value):
-        raise NativeMappingError(path, "native JSON numbers must be finite")
+        raise NativeMappingError(
+            path, "native JSON numbers must be finite", code="native_number_nonfinite"
+        )
     elif value is not None and type(value) not in (str, int, float, bool):
         raise NativeMappingError(path, "unsupported non-JSON native value")
 
@@ -337,6 +368,8 @@ def iter_native_records(
     iterator emits each record once; delivery order has no semantic significance. Native
     callbacks/global graph validity are explicit frozen-union obligations, not claimed here.
     """
+    from .correction_detail import InputPath, child_path
+
     mapping = prepare_native_schema_mapping() if mapping is None else mapping
     if native_type == "DoclingDocument":
         root_schema = mapping.schema
@@ -408,7 +441,7 @@ def iter_native_records(
         is_map = isinstance(value, dict)
         iterator = value.items() if is_map else enumerate(value)
         for ordinal, (key, member) in enumerate(iterator):
-            member_path = path + "/" + _escape(str(key))
+            member_path = child_path(path, key)
             member_schema = (
                 schema["additionalProperties"]
                 if is_map
@@ -468,13 +501,13 @@ def iter_native_records(
             extras = _ExtraFields(value, declared)
             if extras and selected.get("additionalProperties") is not True:
                 bad = next(iter(extras))
-                raise NativeMappingError(path + "/" + _escape(bad), "unsupported native field")
+                raise NativeMappingError(child_path(path, bad), "unsupported native field")
             if extras:
                 structure["extensions"] = external(record_id, "@extensions", extras, opaque=True)
             for field, member in value.items():
                 if field not in declared:
                     continue
-                member_path = path + "/" + _escape(field)
+                member_path = child_path(path, field)
                 member_schema, _ = mapping.resolve(declared[field], member, member_path)
                 if isinstance(member, dict) and "properties" in member_schema:
                     child = record_id_for(member_path, member_schema.get("title", "NativeObject"))
@@ -538,7 +571,14 @@ def iter_native_records(
         yield NativeRow("native", row)
 
     root = record_id_for(native_address, native_type)
-    yield from object_rows(document, root_schema, native_address, root)
+    yield from object_rows(
+        document,
+        root_schema,
+        InputPath(
+            (), display=native_address, locator=native_address if native_address != "#" else None
+        ),
+        root,
+    )
     if native_type == "DoclingDocument":
         yield NativeRow(
             "document",
@@ -602,7 +642,12 @@ def reconstruct_native_document(
 
     def record(record_id: str):
         if record_id in active:
-            raise NativeMappingError(record_id, "native containment cycle")
+            raise NativeMappingError(
+                record_id,
+                "native containment cycle",
+                code="native_containment_cycle",
+                category="state_violation",
+            )
         active.add(record_id)
         row = reader.record(record_id)
         if record_id == root_id and row["native_type"] != native_type:
@@ -656,7 +701,10 @@ def reconstruct_native_document(
                 for expected, member in enumerate(reader.members(record_id, field)):
                     if member["ordinal"] != expected:
                         raise NativeMappingError(
-                            record_id + "/" + field, "missing or unordered membership"
+                            record_id + "/" + field,
+                            "missing or unordered membership",
+                            code="native_membership_closure",
+                            category="state_violation",
                         )
                     value_kind = member["value_kind"]
                     if value_kind == "record":
@@ -672,14 +720,22 @@ def reconstruct_native_document(
                         if key is None:
                             key = scalar(member["member_key_stream_id"])
                         if key in members:
-                            raise NativeMappingError(record_id, "duplicate native map key")
+                            raise NativeMappingError(
+                                record_id,
+                                "duplicate native map key",
+                                code="native_map_key_duplicate",
+                                category="state_violation",
+                            )
                         members[key] = value
                     else:
                         members.append(value)
                     count += 1
                 if count != descriptor["length"]:
                     raise NativeMappingError(
-                        record_id + "/" + field, "native membership inventory differs"
+                        record_id + "/" + field,
+                        "native membership inventory differs",
+                        code="native_membership_closure",
+                        category="state_violation",
                     )
                 result[field] = members
             else:

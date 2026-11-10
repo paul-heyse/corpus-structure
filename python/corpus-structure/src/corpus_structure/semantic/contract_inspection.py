@@ -250,7 +250,14 @@ def inspect_contract(
                     max_bytes=max_bytes,
                 ).model_dump(mode="json")
             else:
-                validated = validation_report((), prepared=prepared).model_dump(mode="json")
+                validated = validation_report(
+                    (),
+                    prepared=prepared,
+                    detail=correction_detail,
+                    max_errors=max_errors,
+                    max_depth=max_depth,
+                    max_bytes=max_bytes,
+                ).model_dump(mode="json")
     binding = sha256(
         canonical_bytes(
             dict(
@@ -318,6 +325,36 @@ def inspect_contract(
                         k: v
                         for k, v in data.items()
                         if k not in {"report_version", "report_schema_digest"}
+                    },
+                )
+                if len(canonical_bytes(report.model_dump(mode="json"))) <= MAX_REPORT_BYTES:
+                    return report
+        if validated is not None:
+            # Budget the nested report against its actual enclosing page, from the same capture.
+            from .operation_reporting import _validation_presentation
+
+            data = report.model_dump(mode="json")
+            nested = data.pop("validation_report")
+            available = min(max_bytes, MAX_REPORT_BYTES - len(canonical_bytes(data)) - 64)
+            if available >= 1024:
+                selected = _validation_presentation(
+                    {
+                        key: value
+                        for key, value in nested.items()
+                        if key not in {"report_version", "report_schema_digest"}
+                    },
+                    detail=correction_detail,
+                    max_errors=max_errors,
+                    max_depth=max_depth,
+                    max_bytes=available,
+                )
+                data["validation_report"] = selected.model_dump(mode="json")
+                report = _report(
+                    "ContractInspection",
+                    {
+                        key: value
+                        for key, value in data.items()
+                        if key not in {"report_version", "report_schema_digest"}
                     },
                 )
                 if len(canonical_bytes(report.model_dump(mode="json"))) <= MAX_REPORT_BYTES:

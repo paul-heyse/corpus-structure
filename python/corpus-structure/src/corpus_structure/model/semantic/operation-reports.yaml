@@ -19,6 +19,8 @@ types:
     base: bool
     uri: xsd:boolean
 enums:
+  ValidationOutcome:
+    permissible_values: {conformant: {}, nonconformant: {}, invalid_shape: {}, execution_failure: {}, unassessed: {}}
   ProjectionDependencyRole:
     permissible_values: {value: {}, membership: {}, ordering: {}, unknown: {}}
   ProjectionDetailStatus:
@@ -44,6 +46,15 @@ enums:
       changed: {}
       unknown: {}
 classes:
+  PresentationCoverage:
+    attributes:
+      max_errors: {range: UrInteger, required: true}
+      max_depth: {range: UrInteger, required: true}
+      max_bytes: {range: UrInteger, required: true}
+      examined_count: {range: UrInteger, minimum_value: 0, required: true}
+      inventory_complete: {range: UrBoolean, required: true}
+      render_complete: {range: UrBoolean, required: true}
+      coverage_note: {range: UrString, required: true}
   PublishedDocumentSubject:
     is_a: PdfProductReference
     attributes:
@@ -164,6 +175,7 @@ classes:
         slot_uri: ur:OperationExplanation_complete
   LocatedObservation:
     attributes:
+      record_locator: {range: UrString}
       category:
         range: LocatedFailureCategory
         required: true
@@ -246,11 +258,13 @@ classes:
       member: {range: UrString}
   LocatedValidationReport:
     attributes:
+      validation_outcome: {range: ValidationOutcome, required: true}
+      presentation: {range: PresentationCoverage, inlined: true, required: true}
       report_version:
         range: UrInteger
         required: true
-        minimum_value: 4
-        maximum_value: 4
+        minimum_value: 5
+        maximum_value: 5
         slot_uri: ur:LocatedValidationReport_report_version
       report_schema_digest:
         range: UrString
@@ -358,8 +372,8 @@ classes:
       report_version:
         range: UrInteger
         required: true
-        minimum_value: 3
-        maximum_value: 3
+        minimum_value: 4
+        maximum_value: 4
         slot_uri: ur:SemanticImpactReport_report_version
       report_schema_digest:
         range: UrString
@@ -553,8 +567,8 @@ classes:
         range: UrInteger
         slot_uri: ur:ContractInspection_report_version
         required: true
-        minimum_value: 2
-        maximum_value: 2
+        minimum_value: 3
+        maximum_value: 3
       report_schema_digest:
         range: UrString
         slot_uri: ur:ContractInspection_report_schema_digest
