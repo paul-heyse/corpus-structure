@@ -186,6 +186,38 @@ def test_native_reference_never_calls_callbacks_and_whole_tree_is_complete():
     )
 
 
+@pytest.mark.parametrize(
+    ("command", "meanings"),
+    [
+        (
+            "inspect",
+            (
+                "patch hunks or SQL change entries; default 8",
+                "Continue after this hunk ordinal",
+                "Continue SQL detail after this ordinal",
+            ),
+        ),
+        (
+            "inspect-candidate",
+            (
+                "operations or SQL after this ordinal; not a contract cursor",
+                "operation, SQL change or contract detail entries",
+                "Required contract subject kind",
+                "Required exact contract subject identifier",
+                "Optional contract property selector",
+                "Opaque contract-detail continuation returned by the same bound request",
+                "distinct from --after",
+            ),
+        ),
+    ],
+)
+def test_model_inspection_reference_explains_page_units_and_continuations(cli, command, meanings):
+    reference = cli("docs", "commands", "model", "change", command, "--stdout", settings=refuse)
+    assert reference.exit_code == 0, reference.output
+    for meaning in meanings:
+        assert meaning in reference.stdout
+
+
 def test_selected_origins_are_preserved_without_relabelling():
     import typer
 

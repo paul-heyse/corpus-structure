@@ -35,7 +35,12 @@ from corpus_structure.cli.output import (
     write_report_text,
 )
 from corpus_structure.cli.schema import model_stage, refusal
-from corpus_structure.cli.target import ConfiguredSelection, current_selection, selection_summary
+from corpus_structure.cli.target import (
+    ConfiguredSelection,
+    configured_selection,
+    current_selection,
+    selection_summary,
+)
 from corpus_structure.semantic.storage_target import StorageTarget
 from corpus_structure.settings import DeploymentProfile
 
@@ -390,6 +395,22 @@ def _target_summary(profile: DeploymentProfile | None, target: StorageTarget | N
     return f"{profile} · acquired identity unavailable" if profile else "unbound"
 
 
+def _apply_view(report: ModelResult) -> Table:
+    return report_fields(
+        ("Result", report.result_id),
+        ("Stage", report.stage),
+        ("Revision", report.revision),
+        ("Predecessor", report.predecessor or "none"),
+        ("Target", _target_summary(report.target_profile, report.acquired_target)),
+        ("Current configuration", selection_summary(report.selection)),
+        ("Changed paths", _path_summary(report.changed)),
+        (
+            "Operation account",
+            report.operation_account.model_dump_json() if report.operation_account else "unavailable",
+        ),
+    )
+
+
 def _guidance_fields(guidance: EffectGuidance) -> tuple[tuple[str, object], ...]:
     fields: list[tuple[str, object]] = [
         ("Review before", guidance.next_command or "no effect command proposed")
@@ -565,8 +586,14 @@ def _discovery_view(report: PreviewDiscoveryReport) -> Table:
 def inspect_preview(
     ctx: typer.Context,
     preview_id: Annotated[str, typer.Argument(metavar="PREVIEW_ID")],
-    view: Annotated[Literal["effects", "patch", "discovery", "sql"], typer.Option()] = "effects",
-    limit: Annotated[int | None, typer.Option(min=1, max=20, help="Maximum hunks.")] = None,
+    view: Annotated[
+        Literal["effects", "patch", "discovery", "sql"],
+        typer.Option(help="Select effects, patch hunks, discovery or SQL change entries."),
+    ] = "effects",
+    limit: Annotated[
+        int | None,
+        typer.Option(min=1, max=20, help="Maximum patch hunks or SQL change entries; default 8."),
+    ] = None,
     after_hunk: Annotated[int, typer.Option(min=0, help="Continue after this hunk ordinal.")] = 0,
     after: Annotated[int, typer.Option(min=0, help="Continue SQL detail after this ordinal.")] = 0,
     stdout: Annotated[
@@ -715,17 +742,30 @@ def inspect_candidate(
     ctx: typer.Context,
     candidate_id: Annotated[str, typer.Argument(metavar="CANDIDATE_ID")],
     view: Annotated[
-        Literal["summary", "operations", "sql", "contract"], typer.Option()
+        Literal["summary", "operations", "sql", "contract"],
+        typer.Option(help="Select candidate summary, native operations, SQL changes or contract."),
     ] = "summary",
-    after: Annotated[int, typer.Option(min=0)] = 0,
-    limit: Annotated[int, typer.Option(min=1, max=100)] = 20,
-    subject_kind: Annotated[ContractKind | None, typer.Option("--subject-kind")] = None,
-    subject: Annotated[str | None, typer.Option("--subject")] = None,
-    property_: Annotated[str | None, typer.Option("--property")] = None,
+    after: Annotated[
+        int, typer.Option(min=0, help="Continue operations or SQL after this ordinal; not a contract cursor.")
+    ] = 0,
+    limit: Annotated[
+        int, typer.Option(min=1, max=100, help="Maximum operation, SQL change or contract detail entries for the selected view.")
+    ] = 20,
+    subject_kind: Annotated[
+        ContractKind | None, typer.Option("--subject-kind", help="Required contract subject kind with --view contract.")
+    ] = None,
+    subject: Annotated[
+        str | None, typer.Option("--subject", help="Required exact contract subject identifier with --view contract.")
+    ] = None,
+    property_: Annotated[
+        str | None, typer.Option("--property", help="Optional contract property selector with --view contract.")
+    ] = None,
     contract_view: Annotated[
         ContractView, typer.Option("--contract-view", help="Contract summary or paged detail.")
     ] = "summary",
-    contract_after: Annotated[str | None, typer.Option("--contract-after")] = None,
+    contract_after: Annotated[
+        str | None, typer.Option("--contract-after", help="Opaque contract-detail continuation returned by the same bound request; distinct from --after.")
+    ] = None,
     input_: ContractInput = None,
     validation_purpose: ValidationPurposeOption = None,
     json_: JsonOpt = False,
@@ -1139,6 +1179,7 @@ def apply(
     expected = (ModelError, ResultError, OSError)
     with refusal(json_, expected=expected):
         store = result_store(ctx)
+        configured = state(ctx).settings()
         with managed_operation(
             store, "model.apply", json=json_, expected=expected, source=("preview", change)
         ) as result:
@@ -1147,6 +1188,7 @@ def apply(
             )
 
             native = None
+            acquired: StorageTarget | None = None
             if staged.effects.native:
                 if (
                     not staged.authoring_target
@@ -1157,12 +1199,14 @@ def apply(
 
                 @contextmanager
                 def native_binding():
+                    nonlocal acquired
                     with predecessor_fence(
-                        state(ctx).settings(),
+                        configured,
                         staged.authoring_target,
                         staged.request.native_predecessor,
                         staged.authoring_identity,
                     ) as target:
+                        acquired = target
                         result.record_target(
                             target, staged.request.native_predecessor, None, staged.local_release
                         )
@@ -1194,9 +1238,15 @@ def apply(
                 revision=staged.revision,
                 changed=tuple(settled),
                 predecessor=staged.request.native_predecessor,
+                target_profile="development" if acquired is not None else None,
+                acquired_target=acquired,
+                selection=configured_selection(ctx, configured, "development")
+                if acquired is not None
+                else None,
                 operation_account=result.manifest.operation_account,
             ),
             json=json_,
+            render=_apply_view,
         )
 
 

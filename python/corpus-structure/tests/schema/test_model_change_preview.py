@@ -1,7 +1,6 @@
 """The preview binds canonical inputs and resumes exact interrupted writes."""
 
 import json
-import shutil
 import subprocess
 from contextlib import nullcontext
 from dataclasses import replace
@@ -9,6 +8,7 @@ from hashlib import sha256
 
 import pytest
 import yaml
+from model_change_support import model_checkout as model_checkout
 from typer.testing import CliRunner
 
 from corpus_structure.schema import generate, model, preparation
@@ -26,35 +26,6 @@ from corpus_structure.schema.model_deployment import (
 )
 from corpus_structure.schema.model_discovery import locate_consumers
 from corpus_structure.settings import Settings
-
-
-@pytest.fixture
-def model_checkout(tmp_path):
-    location = tmp_path / preparation.MODEL_PATH
-    location.mkdir(parents=True)
-    for name in ("core.yaml", "system.yaml", "revisions.yaml"):
-        (location / name).write_bytes((model.MODEL_DIR / name).read_bytes())
-    (location / "semantic").mkdir()
-    for name in ("physical.yaml", "pdf-records.yaml", "pdf-staging.yaml"):
-        shutil.copyfile(model.MODEL_DIR / "semantic" / name, location / "semantic" / name)
-    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
-    subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
-    subprocess.run(
-        [
-            "git",
-            "-C",
-            str(tmp_path),
-            "-c",
-            "user.name=Fixture",
-            "-c",
-            "user.email=fixture@example.test",
-            "commit",
-            "-qm",
-            "model baseline",
-        ],
-        check=True,
-    )
-    return tmp_path, location
 
 
 def test_invalid_revision_refuses_before_render_or_write(model_checkout, monkeypatch):
@@ -191,8 +162,8 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     (versions / "before.py").write_text('revision = "before"\ndown_revision = None\n')
     monkeypatch.setattr(migrations, "ALEMBIC_DIR", migrations_dir)
     settings = Settings(
-        database={"url": "postgresql:///development"},
-        deployment={"url": "postgresql:///approved-destination"},
+        database={"url": "postgresql://dev:private@localhost/development"},
+        deployment={"url": "postgresql://prod:secret@localhost/approved-destination"},
     )
     changed_development = settings.model_copy(
         update={
@@ -313,6 +284,18 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     assert run(["candidate", preview["result_id"]], settings).exit_code == 1
     applied = run(["apply", preview["result_id"]], settings)
     assert applied.exit_code == 0, applied.output
+    applied_report = json.loads(applied.stdout)
+    assert applied_report["target_profile"] == "development"
+    assert applied_report["acquired_target"] == source_identity.model_dump(mode="json")
+    assert applied_report["operation_account"]["acquired_target"] == applied_report["acquired_target"]
+    assert applied_report["selection"]["profile"] == "development"
+    assert applied_report["selection"]["settings_section"] == "database"
+    assert applied_report["selection"]["standing"] == "configured_unobserved"
+    assert applied_report["selection"]["observed_binding"] is None
+    assert applied_report["selection"]["target_parameter_source"] == "unknown"
+    assert applied_report["selection"]["origins"]["database.url"] == "constructor"
+    assert "development" in applied_report["selection"]["resources"]["database.url"]
+    assert "private" not in applied.stdout and "secret" not in applied.stdout
     assert "reviewed_fixture" in physical_path.read_text()
 
     acquire = commands._prepare_release
@@ -386,6 +369,35 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     refused = run(["register", authored_id], settings)
     assert refused.exit_code == 1
     assert "migration file already has different content" in refused.output
+
+
+def test_non_native_apply_does_not_acquire_a_target(model_checkout, monkeypatch, cli):
+    from corpus_structure.cli import recipes
+    from corpus_structure.cli.managed import ResultStore
+    from corpus_structure.schema import model_deployment
+
+    root, _ = model_checkout
+    preview = prepare_preview(root, ChangeRequest())
+    store = ResultStore(root / "results")
+    with store.operation("model.preview") as retained:
+        path = retained.directory / "preview.json"
+        raw = preview.model_dump_json().encode()
+        path.write_bytes(raw)
+        retained.publish("preview", path)
+        retained.settle(sha256=sha256(raw).hexdigest())
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("non-native apply acquired a target")
+
+    monkeypatch.setattr(model_deployment, "predecessor_fence", forbidden)
+    monkeypatch.setattr(recipes, "checkout", lambda _: root)
+    result = cli(
+        "model", "change", "apply", retained.id, "--json",
+        settings=lambda: Settings(ci_results=store.root),
+    )
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.stdout)
+    assert report["target_profile"] is report["acquired_target"] is report["selection"] is None
 
 
 def test_exact_patch_resumes_and_refuses_changed_file(model_checkout, monkeypatch):
