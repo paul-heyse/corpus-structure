@@ -5,7 +5,7 @@ the project is unselected. Protected Standard/Nemotron arms retain their recorde
 
 ## Current work and authority
 
-- [CLI/logging coordinator](docs/plans/cli-and-logging_2026-11-10.md) owns CLD-00–10, conditional dispositions and current findings. Main implementation landed in84564b757/c5e464aba/6c867bdb6; repairs landed in5a84662a4/c7960b724/123dc1b50. Clean native27 qualification passed at9d097aa01. Selected capabilities and repairs are implemented; full qualification/handoff remain active. Execute CLD before returning to PM2.
+- [CLI/logging coordinator](docs/plans/cli-and-logging_2026-11-10.md) owns CLD-00–10, conditional dispositions and current findings. Main implementation landed in84564b757/c5e464aba/6c867bdb6; repairs landed in5a84662a4/c7960b724/123dc1b50, with ancillary receipt selection fixed infe5f3b281. Clean native27 qualification passed at9d097aa01. Selected capabilities and repairs are implemented; full qualification/handoff remain active. Execute CLD before returning to PM2.
 - [Assembled review](docs/design_review/reviews/design_review_cli-and-logging-assembled_2026-11-10.md) identified CLD-AR01: publish acquired visual association before effects. Independent source follow-up accepts the implemented finite acquisition/dispatch split; execution and final source remain coordinator-owned. The original Revise judgment is preserved at5677d6819.
 - ADR-0079 restates unchanged safe observation custody under canonical §2/D8. Its invalid-metadata predecessor was retired through the existing supersession route. Native outcomes, purpose roles, raw gates, expiry and holds remain with their owners. Real Claude CLI execution is operator-unselected; other applicable testing stays in scope.
 - [DMC acceptance](docs/plans/domain-data-model_2026-11-10.md#completion-repair-acceptance) retains completed DMC-00–17/CA01–04 and5882-identity dated qualification. Impact4/Validation5/Inspection3 accompany semantic22/readers14–22/execution28/boundary12/archive3. CLD does not recertify those old receipts.
@@ -29,7 +29,7 @@ the project is unselected. Protected Standard/Nemotron arms retain their recorde
 
 ## Next
 
-Run the fresh full default `uv run ci test --json` on frozen production123dc1b50, reconcile its
+Run the fresh full default `uv run ci test --json` on frozen productionfe5f3b281, reconcile its
 actual required union/source/context with the coordinator, and repair any remaining failures.
-Retain final receipts, complete CLD handoff, then return to PM2. The native27/nonfunctional passes
-do not replace that full functional qualification. Do not treat this checkpoint as task completion.
+Retain final receipts, complete CLD handoff, then return to PM2. Native27 coverage now reads correctly after ancillary-role filtering; the second superseded full
+run remains interrupted. Native27/nonfunctional passes do not replace full functional qualification. Do not treat this checkpoint as task completion.

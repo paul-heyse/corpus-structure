@@ -222,6 +222,7 @@ Root `just turn-end` **passed**, with1036 Python files unchanged, before assembl
 | CLD-Q01 | Closed at scoped boundary · CLD-10 | Equal explicit30s test budgets preserve exact parity and default production deadlines;14 controls ee7c96d7e51a40479bf047caacbb4ab6 plus final parity e3dd460bc27248d583293ba5ed0da736 passed |
 | CLD-Q02 | Closed at scoped boundary · CLD-10 | Cleanup-before-ACK and successful terminal exit preserve owner cancellation/reaping; actual native27 passed7c87d3cacaba4ff3919e3d838f1f5fdd |
 | CLD-IR17 | Closed at scoped boundary · CLD-10 | Opt-in retained native frame/chain projection, real transport encoding, whole-field omissions and privacy;19 tests6ba6c5b7b41c4cadb89966c764137c07 and installed old-result replay passed |
+| CLD-IR18 | Closed at scoped boundary · CLD-06/10 | Receipt readers/fallback required lanes select existing domain lanes, excluding ancillary journals; actual27 coverage and observation-enabled regression0607345fa6d544c8906972205b8a60b2 passed |
 
 The compact-excerpt replacement intentionally retires raw8KiB tail collection and its second
 sanitizer. Oversized excerpts identify retained-safe selection and truncation rather than claiming
@@ -341,3 +342,32 @@ no rule impact or further material finding. Reviewer execution remains not_run, 
 All53 previously referenced managed receipts were explicitly held for this coordinator, preserving
 failed/interrupted outcomes. New final receipts are added to that retention before handoff.
 A fresh full default functional campaign remains required; these targeted passes are not its union.
+
+
+### Ancillary consumer closure and fresh full entry · 2026-11-10
+
+Coverage read `ci test coverage 7c87d3cacaba4ff3919e3d838f1f5fdd --json` initially failed
+with Errno20 because the new journal was passed as a receipt directory. The root had started full
+`da16137a9ece4a77a4f67e7e50e18dbb` before this required read settled; that run was cleanly
+interrupted/drained for IR18, exit130/custody settled. Ordinary selected5983:1071 passed, one
+failed,16 incomplete and4895 not_run; no final union is claimed. Its only observed failure was the
+preparation-inventory expectation left by the controlled math parity fixture change. The test-only
+inventory correction preserves shared session read/extract/scope grouping and explicitly excludes
+the independently prepared Normal parity control. All four inventory/sharing/parity cases passed
+in `430fb83a980148c78f04d5cda7aaaa14`.
+
+Production `fe5f3b281` changes only two receipt-domain selection expressions after `123dc1b50`.
+Both receipt opening and artifact-derived required lanes now select ordinary/fault; journals keep
+their existing inspection/export lifetime. Regression `0607345fa6d544c8906972205b8a60b2` passed
+coverage/report/retry refusal plus journal and default-artifact delivery. Original expectation
+failures `d0c69177767645dd8d04a17d0c281756` (131/132 passed) and
+`64bb7ed5f78a490390410d8873675f9b` are preserved; production did not change between those tests.
+Types `d66d771b7a6f4752bc3b0b8da8977974` and lint `b9889e9fcb82406f86a40777e7bfb61d` passed.
+
+Actual native27 coverage now passed in full JSON, bounded unresolved and default human views:
+27 required/27 covered/zero unresolved, ordinary only, no missing lanes, source differences,
+context differences/unknowns or active/unsettled attempts. Native provenance is complete:14 required
+native nodes, zero unresolved, four native bindings. Those facts describe the retained clean9d
+execution, not a rerun under the current reader. No native producer repeated for this reader-only
+correction; the fresh full campaign covers the final package. Root maintenance passed again with
+1036 Python files unchanged; source is frozen at fe5f3b281 before restarting the default campaign.

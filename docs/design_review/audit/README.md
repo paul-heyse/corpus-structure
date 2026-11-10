@@ -49,10 +49,12 @@ Independent implementation review identified corrected boundary defects; the
 owns their dispositions and scoped test receipts. No additional demonstrated architectural
 violation remains in this inspected footprint. Complete package runtime capture already includes
 the new helpers; changed source changes runtime identity without changing semantic identity.
-Final source reconciliation at `123dc1b50` includes the finite visual acquisition/dispatch split:
+Final source reconciliation at `fe5f3b281` (producer/traceback implementation `123dc1b50`) includes the finite visual acquisition/dispatch split:
 validated run/project/release is durable before effects, with originating engine and native fences
 preserved. The independent target follow-up supports AR01 closure. Native validation now acknowledges
 after cleanup and requires successful terminal exit, sharing existing cancellation authority.
+Test receipt selection also distinguishes ordinary/fault directories from ancillary observation journals;
+actual retained coverage and the observation-enabled regression preserve that domain distinction.
 Retained native pytest locations/chain descriptions are opt-in projections with unknown-format,
 traversal/transport/display omissions; no source/locals or inferred group relations. Implementation
 review and focused controls support these boundaries; prepared native and full final qualification
