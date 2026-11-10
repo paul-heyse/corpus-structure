@@ -155,14 +155,13 @@ def _kind(view, name, trail=()):
     _fail("operation_source", name, "unsupported value representation")
 
 
-def validate_call_bindings(model, inputs):
+def source_bindings(model, inputs):
     """Compile qualified fixed variants from explicit field references and closed sources."""
     from corpus_structure.schema.model import ci_annotations
 
-    from .contracts import OperationFieldBinding, OperationFieldType, OperationRecordBinding, _fail
+    from .contracts import OperationFieldBinding, OperationFieldType, _fail
 
     view = _source_view(inputs)
-    aliases, identifiers, result_shapes = {}, set(), {}
     # Reuse the identifier owned by an explicit physical correspondence, including
     # through model projections. Nested records must retain the same distinctions.
     semantic_sources = {}
@@ -174,23 +173,34 @@ def validate_call_bindings(model, inputs):
                     if previous != field.semantic_type:
                         _fail("operation_field", field.source, "semantic identifiers differ")
 
+    def qualified(reference):
+        return reference if ":" in reference else "model:" + reference
+
+    def semantic_type(reference, stack=()):
+        reference = qualified(reference)
+        if reference in stack:
+            _fail("operation_source", reference, "cyclic type correspondence")
+        if reference in semantic_sources:
+            return semantic_sources[reference]
+        if not reference.startswith(("physical:", "model:")):
+            return None
+        parts = reference.split(":", 1)[1].split(".")
+        cls, name = parts[-2:]
+        slot = next((s for s in view.class_induced_slots(cls) if s.name == name), None)
+        if slot is None:
+            _fail("operation_source", reference, "type correspondence field is unavailable")
+        annotations = ci_annotations(slot)
+        parent = annotations.get("cp:type_source") or annotations.get("cp:source")
+        return semantic_type(parent, (*stack, reference)) if parent else None
+
     def model_field(name, slot):
         reference = f"model:{name}.{slot.name}"
-        source = reference
-        seen = set()
-        while source.startswith("model:"):
-            if source in seen:
-                _fail("operation_source", reference, "cyclic model field projection")
-            seen.add(source)
-            cls, field_name = source.removeprefix("model:").split(".")
-            owner = next(s for s in view.class_induced_slots(cls) if s.name == field_name)
-            source = ci_annotations(owner).get("cp:source", "")
         return OperationFieldBinding(
-            str(slot.name), reference, False, semantic_type=semantic_sources.get(source)
+            str(slot.name), reference, False, semantic_type=semantic_type(reference)
         )
 
     def resolve(field, parameters, stack=()):
-        reference = field.source
+        reference = qualified(field.source)
         if reference in stack:
             _fail("operation_source", reference, "cyclic field projection")
         if reference.startswith("parameter:"):
@@ -250,7 +260,16 @@ def validate_call_bindings(model, inputs):
         )
         model_class = str(slot.range) if view.get_class(str(slot.range)) is not None else None
         resolved = OperationFieldType(kind, not required, multiple, members, model_class)
+        type_source = None
+        if (parent := annotations.get("cp:type_source")) and reference not in semantic_sources:
+            inherited, type_source = resolve(
+                replace(field, source=qualified(parent)), parameters, (*stack, reference)
+            )
+            if inherited.kind != kind or inherited.multivalued != multiple:
+                _fail("operation_source", reference, "type correspondence encoding differs")
+            resolved = replace(resolved, enum_values=inherited.enum_values or members)
         return resolved, {
+            **({"type_source": type_source} if type_source else {}),
             "reference": reference,
             "uri": view.get_uri(slot, expand=True),
             "range": str(slot.range),
@@ -259,6 +278,18 @@ def validate_call_bindings(model, inputs):
             "maximum": str(slot.maximum_value) if slot.maximum_value is not None else None,
             "pattern": slot.pattern,
         }
+
+    return view, semantic_type, model_field, resolve
+
+
+def validate_call_bindings(model, inputs):
+    """Compile qualified fixed variants from explicit field references and closed sources."""
+    from corpus_structure.schema.model import ci_annotations
+
+    from .contracts import OperationRecordBinding, _fail
+
+    view, semantic_type, model_field, resolve = source_bindings(model, inputs)
+    aliases, identifiers, result_shapes = {}, set(), {}
 
     def resolve_fields(fields, parameters, location, *, parameter, backend="native"):
         if len({f.name for f in fields}) != len(fields):
@@ -283,6 +314,8 @@ def validate_call_bindings(model, inputs):
             if field.native_field is not None and not field.native_field.isidentifier():
                 _fail("operation_field", location, "invalid native result field")
             typ, source = resolve(field, parameters)
+            if field.semantic_type is None and field.transform in {None, "identity"}:
+                field = replace(field, semantic_type=semantic_type(field.source))
             if field.native_type is not None and (
                 not parameter or typ.kind != "integer" or typ.multivalued
             ):
@@ -553,7 +586,7 @@ def render_operation_identifiers(model):
         _enum_alias(field): field.resolved.enum_values
         for operation in model.operations
         for call in operation.calls
-        for field in call.parameters
+        for field in _all_call_fields(call)
         if field.resolved.enum_values
     }
     return "\n".join(
@@ -603,7 +636,7 @@ def render_operation_calls(model, metadata=None):
     enum_aliases = {
         field.source: _enum_alias(field)
         for _, call in calls
-        for field in call.parameters
+        for field in _all_call_fields(call)
         if field.resolved.enum_values
     }
 
@@ -633,6 +666,14 @@ def render_operation_calls(model, metadata=None):
         if field.resolved.multivalued and field.semantic_type:
             typ = f"tuple[{field.semantic_type}, ...]"
         return typ + (" | None" if field.nullable else "")
+
+    def column_type(field, *, json_text=False):
+        kind = (
+            "str"
+            if json_text and field.resolved.kind == "json_payload"
+            else field.semantic_type or raw_type(field, native=not bool(field.resolved.enum_values))
+        )
+        return kind + (" | None" if field.resolved.nullable else "")
 
     def sql_type(field):
         typ = field.resolved
@@ -847,6 +888,7 @@ def render_operation_calls(model, metadata=None):
                     for native, f in fields
                 ]
                 out += ["    }"]
+            column_types = [column_type(f, json_text=json_text) for f in call.result_fields]
             row_types = [
                 raw_type(f, native=True, json_text=json_text)
                 + (" | None" if f.resolved.nullable else "")
@@ -866,7 +908,9 @@ def render_operation_calls(model, metadata=None):
                     from corpus_structure.schema.relational import render_typed_column_class
 
                     declaration = render_typed_column_class(
-                        columns_class, (metadata.tables[relation].c[native] for native in fields)
+                        columns_class,
+                        (metadata.tables[relation].c[native] for native in fields),
+                        bindings={native: column_type(f) for native, f in fields.items()},
                     ).rstrip()
                 else:
                     declaration = "\n".join(
@@ -898,7 +942,7 @@ def render_operation_calls(model, metadata=None):
             out += [
                 "",
                 f"projection_{name}: tuple["
-                + ", ".join(f"ColumnElement[{typ}]" for typ in row_types)
+                + ", ".join(f"ColumnElement[{typ}]" for typ in column_types)
                 + "] = (",
             ]
             for field in call.result_fields:
@@ -940,7 +984,7 @@ def render_operation_calls(model, metadata=None):
             )
             out += [
                 "",
-                f"def collect_{name}(result: Result[{', '.join(row_types)}]) -> {collected}:",
+                f"def collect_{name}(result: Result[{', '.join(column_types)}]) -> {collected}:",
                 f"    with native_result_scope({operation!r}, {result_type!r}):",
             ]
             if call.cardinality == "many":
@@ -966,9 +1010,7 @@ def render_operation_calls(model, metadata=None):
             ]
             out += [")", "", f"class _{name}Columns(Protocol):"]
             for n, f in zip(native_names, call.result_fields, strict=True):
-                annotation = raw_type(f, native=True) + (
-                    " | None" if f.resolved.nullable and f.resolved.kind != "json_payload" else ""
-                )
+                annotation = column_type(f)
                 out += [f"    {n}: Column[{annotation}]"]
             out += [
                 "",
@@ -1047,7 +1089,7 @@ def render_operation_calls(model, metadata=None):
             else "    projection_context: PreparedRelease | None = None,"
         )
         native_types = (
-            row_types
+            [column_type(f, json_text=json_text) for f in call.result_fields]
             if call.result_mode == "table"
             else ["None"]
             if call.result_mode == "void"
@@ -1078,9 +1120,11 @@ def render_operation_calls(model, metadata=None):
                 f"        require_call_context(projection_context, {operation!r}, "
                 f"{name!r}, {name.upper()}_CONTRACT_DIGEST)",
             ]
-        out += [f"    return _{name}_statement.params(**{{"]
+        needs_cast = call.result_mode == "table" and (len(call.result_fields) > 9)
+        prefix = f"cast(Select[{', '.join(native_types)}], " if needs_cast else ""
+        out += [f"    return {prefix}_{name}_statement.params(**{{"]
         out += [f"        {f.name!r}: _request.{f.name}," for f in call.parameters]
-        out += ["    })"]
+        out += ["    }))" if needs_cast else "    })"]
         if call.result_mode == "table":
             out += ["", f"materialize_{name} = _{name}_result"]
         elif call.result_mode == "scalar":

@@ -86,9 +86,12 @@ def test_actual_static_consumer_refuses_wrong_column_and_incompatible_type(tmp_p
         "from sqlalchemy import select\n"
         "from sqlalchemy.sql.elements import ColumnElement\n"
         "from corpus_structure.semantic._typed_columns import data_occurrence_columns\n"
+        "from corpus_structure.semantic._operation_ids import ReleaseId, RealizationId\n"
+        "def needs_release(value: ColumnElement[ReleaseId]) -> None: pass\n"
         "def needs_text(value: ColumnElement[str]) -> None: pass\n"
         "def needs_integer(value: ColumnElement[int]) -> None: pass\n"
         "needs_text(data_occurrence_columns.occurrence_id)\n"
+        "needs_release(data_occurrence_columns.release_id)\n"
         "select(data_occurrence_columns.occurrence_id)\n"
     )
     pyrefly = shutil.which("pyrefly")
@@ -99,11 +102,13 @@ def test_actual_static_consumer_refuses_wrong_column_and_incompatible_type(tmp_p
     with source.open("a") as stream:
         stream.write("select(data_occurrence_columns.absent_modeled_column)\n")
         stream.write("needs_integer(data_occurrence_columns.occurrence_id)\n")
+        stream.write("needs_release(data_occurrence_columns.realization_id)\n")
     bad = subprocess.run(command, capture_output=True, text=True, check=False)
     output = bad.stdout + bad.stderr
     assert bad.returncode != 0
     assert "absent_modeled_column" in output
     assert "needs_integer" in output
+    assert "needs_release" in output
 
 
 def test_two_native_invocations_reuse_preparation_and_return_independent_rows(
@@ -161,3 +166,62 @@ def test_two_native_invocations_reuse_preparation_and_return_independent_rows(
                 "entity:" + realization
             ]
     assert prepared_scales == [12]
+
+
+def test_selected_columns_reuse_nominal_anchors_and_keep_unbound_values_generic():
+    source = generated_source()
+    assert "release_id: Named[ReleaseId]" in source
+    assert "realization_id: Named[RealizationId]" in source
+    assert "occurrence_id: Named[str]" in source
+    assert "FactId" not in source
+    assert "family:Named[Literal[" in "".join(source.split())
+    assert (
+        _typed_columns.data_occurrence.c.release_id
+        is metadata.tables["data.occurrence"].c.release_id
+    )
+    assert len(_typed_columns.TYPE_MODEL_ID) == 64
+
+
+@pytest.mark.parametrize(
+    "target, message",
+    [
+        ("physical:data.occurrence.realization_id", "cyclic field projection"),
+        ("physical:data.occurrence.missing_field", "field is unavailable"),
+        ("physical:ops.task.id", "encoding differs"),
+    ],
+)
+def test_explicit_type_correspondence_refuses_invalid_sources(target, message):
+    import yaml
+
+    from corpus_structure.semantic.contracts import (
+        OperationFieldBinding,
+        compile_execution_model,
+        trusted_execution_inputs,
+    )
+    from corpus_structure.semantic.operation_call_generation import source_bindings
+    from corpus_structure.semantic.types import PreparationError, SourceArtifact
+
+    inputs = trusted_execution_inputs()
+    model = compile_execution_model(inputs)
+    artifact = "pdf/record-physical.yaml"
+    physical = next(s.content for s in inputs.implementations if s.name == artifact)
+    changed = yaml.safe_load(physical)
+    slot = changed["classes"]["occurrence"]["attributes"]["realization_id"]
+    slot["annotations"]["cp:type_source"] = target
+    changed_inputs = replace(
+        inputs,
+        implementations=tuple(
+            SourceArtifact(s.name, yaml.safe_dump(changed, sort_keys=False).encode())
+            if s.name == artifact
+            else s
+            for s in inputs.implementations
+        ),
+    )
+    _, _, _, resolve = source_bindings(model, changed_inputs)
+    with pytest.raises(PreparationError, match=message):
+        resolve(
+            OperationFieldBinding(
+                "realization_id", "physical:data.occurrence.realization_id", False
+            ),
+            {},
+        )

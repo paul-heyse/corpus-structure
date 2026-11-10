@@ -9127,6 +9127,171 @@ operations:
     ordered: false
     order_by: []
     result_source: model:PdfBuildValidation
+  - id: read_published_input_batch
+    symbol: ops.read_published_input_batch
+    json_read: json-text-v1
+    parameters:
+    - name: project_id
+      source: physical:ops.run.project_id
+      nullable: false
+      native_parameter: p_project
+      semantic_type: ProjectId
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: p_run
+      semantic_type: RunId
+    - name: selection_release_id
+      source: physical:ops.run.release_id
+      nullable: false
+      native_parameter: p_selection_release
+      semantic_type: ReleaseId
+    - name: task_id
+      source: model:PdfPublishedRevision.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: product_key
+      source: model:PdfPublishedRevision.product_key
+      nullable: false
+      native_parameter: p_product
+      semantic_type: ProductKey
+    - name: content_digest
+      source: model:PdfPublishedRevision.logical_digest
+      nullable: false
+      native_parameter: p_digest
+      semantic_type: ContentDigest
+    result_mode: table
+    result_source: model:PublishedInputRow
+    result_fields: []
+    cardinality: many
+    ordered: true
+    order_by:
+    - input_ordinal
+  - id: read_published_relation_batch
+    symbol: ops.read_published_relation_batch
+    json_read: json-text-v1
+    parameters:
+    - name: project_id
+      source: physical:ops.run.project_id
+      nullable: false
+      native_parameter: p_project
+      semantic_type: ProjectId
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: p_run
+      semantic_type: RunId
+    - name: selection_release_id
+      source: physical:ops.run.release_id
+      nullable: false
+      native_parameter: p_selection_release
+      semantic_type: ReleaseId
+    - name: task_id
+      source: model:PdfPublishedRevision.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: product_key
+      source: model:PdfPublishedRevision.product_key
+      nullable: false
+      native_parameter: p_product
+      semantic_type: ProductKey
+    - name: content_digest
+      source: model:PdfPublishedRevision.logical_digest
+      nullable: false
+      native_parameter: p_digest
+      semantic_type: ContentDigest
+    result_mode: table
+    result_source: model:PublishedRelationRow
+    result_fields: []
+    cardinality: many
+    ordered: true
+    order_by:
+    - relation_id
+    - endpoint_ordinal
+  - id: read_published_coverage_batch
+    symbol: ops.read_published_coverage_batch
+    json_read: json-text-v1
+    parameters:
+    - name: project_id
+      source: physical:ops.run.project_id
+      nullable: false
+      native_parameter: p_project
+      semantic_type: ProjectId
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: p_run
+      semantic_type: RunId
+    - name: selection_release_id
+      source: physical:ops.run.release_id
+      nullable: false
+      native_parameter: p_selection_release
+      semantic_type: ReleaseId
+    - name: task_id
+      source: model:PdfPublishedRevision.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: product_key
+      source: model:PdfPublishedRevision.product_key
+      nullable: false
+      native_parameter: p_product
+      semantic_type: ProductKey
+    - name: content_digest
+      source: model:PdfPublishedRevision.logical_digest
+      nullable: false
+      native_parameter: p_digest
+      semantic_type: ContentDigest
+    result_mode: table
+    result_source: model:PublishedCoverageRow
+    result_fields: []
+    cardinality: many
+    ordered: true
+    order_by:
+    - coverage_id
+  - id: read_published_mapping_report_batch
+    symbol: ops.read_published_mapping_report_batch
+    json_read: json-text-v1
+    parameters:
+    - name: project_id
+      source: physical:ops.run.project_id
+      nullable: false
+      native_parameter: p_project
+      semantic_type: ProjectId
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: p_run
+      semantic_type: RunId
+    - name: selection_release_id
+      source: physical:ops.run.release_id
+      nullable: false
+      native_parameter: p_selection_release
+      semantic_type: ReleaseId
+    - name: task_id
+      source: model:PdfPublishedRevision.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: product_key
+      source: model:PdfPublishedRevision.product_key
+      nullable: false
+      native_parameter: p_product
+      semantic_type: ProductKey
+    - name: content_digest
+      source: model:PdfPublishedRevision.logical_digest
+      nullable: false
+      native_parameter: p_digest
+      semantic_type: ContentDigest
+    result_mode: table
+    result_source: model:PublishedMappingReportRow
+    result_fields: []
+    cardinality: many
+    ordered: true
+    order_by:
+    - report_ordinal
 - id: recognize_pdf_observation
   inputs:
   - PreparedRecognitionSource

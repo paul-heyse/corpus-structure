@@ -550,6 +550,15 @@ consolidation stay ordinary functions over the generated types.
 > Status: **Proposed** (2026-10-28). `in_subset` as a native permissible-value metaslot is
 > Documented (LinkML metamodel); its lint and read-back are probe Q-2
 
+The semantic operation projection also supports explicit `cp:type_source` qualified field
+correspondences (**Implemented; selected controls Tested**, 2026-11-09; PTD-01). Shared resolution supplies selected generated
+calls, Core columns and companion results with existing nominal anchors and closed members.
+The annotation leaves local value projection, nullability, SQL representation and constraints
+intact. Cycles, conflicting anchors and incompatible primitive encodings refuse generation.
+SQLAlchemy static views and NewType annotations do not validate runtime identity or arbitrary
+SQL operators. The owning plan records implementation and focused verification.
+> Decision: [ADR-0073](../adr/0073-generated-type-correspondence.md)
+
 ## 4. Predicates and qualifiers
 
 A predicate is a LinkML slot with `ci:role: predicate`. Its `domain` is the subject class (or a

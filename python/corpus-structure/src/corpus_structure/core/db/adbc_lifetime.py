@@ -1,12 +1,40 @@
-"""ADBC cancellation scoped to one owned physical session, independently of Psycopg."""
+"""Explicit ADBC acquisition and cancellation scoped to one owned physical session."""
 
 from collections.abc import Generator
 from contextlib import contextmanager
+from pathlib import Path
 from threading import RLock
+from typing import Literal
 
+import adbc_driver_manager.dbapi as adbc_manager
+import adbc_driver_postgresql.dbapi as adbc
 from adbc_driver_manager.dbapi import Connection
 
 from .lifetime import DatabaseOperationCancelled
+
+
+def open_adbc_connection(
+    uri: str,
+    *,
+    driver_path: str | Path | None,
+    resolver_mode: Literal["builtin", "server"],
+) -> Connection:
+    """Acquire an explicit driver/resolver; callers own purpose, transaction and lifetime.
+
+    The URI is already derived for the operation's purpose. Acquiring a connection
+    does not register cancellation or import a snapshot; compose the returned session
+    with ``owned_adbc_read`` before using it.
+    """
+    if resolver_mode not in ("builtin", "server"):
+        raise ValueError(f"unsupported ADBC PostgreSQL resolver mode: {resolver_mode!r}")
+    options = {"adbc.postgresql.type_resolver_mode": resolver_mode}
+    if driver_path is None:
+        return adbc.connect(uri, db_kwargs=options)
+    return adbc_manager.connect(
+        driver=str(driver_path),
+        entrypoint="AdbcDriverPostgresqlInit",
+        db_kwargs={"uri": uri, **options},
+    )
 
 
 class ADBCBorrowerCancellation:
@@ -58,7 +86,11 @@ class ADBCBorrowerCancellation:
 def owned_adbc_read(
     connection: Connection, cancellation: ADBCBorrowerCancellation | None = None
 ) -> Generator[Connection]:
-    """Own registration, rollback and close while retaining the primary failure."""
+    """Own registration, rollback and close while retaining the failure reaching this owner.
+
+    Child cursor/reader contexts settle inside this scope. Their own exit failures
+    may replace an earlier body failure before it reaches this connection owner.
+    """
     from contextlib import nullcontext
 
     settled = False

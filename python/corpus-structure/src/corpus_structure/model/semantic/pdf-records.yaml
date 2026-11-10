@@ -1,6 +1,7 @@
 id: https://corpus-structure.dev/semantic/pdf-records
 name: pdf_records
 prefixes:
+  cp: https://corpus-structure.dev/companion-projections/
   pdr: https://corpus-structure.dev/pdf-records/
   xsd: http://www.w3.org/2001/XMLSchema#
   ph: https://corpus-structure.org/physical/
@@ -31,7 +32,7 @@ classes:
     attributes:
       product_id: {required: true}
       revision_id: {required: true}
-      release_id: {required: true}
+      release_id: {required: true, annotations: {cp:type_source: "physical:sem.release.release_id"}}
       source_digest: {required: true}
       mapping_profile: {required: true, equals_string: pdf-native-records-v1}
       contract_version: {required: true, equals_string: pdf-native-records-v1}

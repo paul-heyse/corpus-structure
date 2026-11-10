@@ -71,7 +71,16 @@ class Transactions:
 @pytest.mark.parametrize("fail_after_adoption", [False, True])
 def test_private_parent_owns_transactions_and_settles_producer(monkeypatch, fail_after_adoption):
     engine = Transactions()
-    build = pdf_staging.PdfBuildRef("b", 1, 1, "owner", "r", "a" * 64, "b" * 64, "c" * 64)
+    build = pdf_staging.PdfBuildRef(
+        "b",
+        pdf_staging.TaskId(1),
+        pdf_staging.TaskAttempt(1),
+        "owner",
+        pdf_staging.ReleaseId("r"),
+        "a" * 64,
+        "b" * 64,
+        "c" * 64,
+    )
     events = []
     schema = pa.schema([("value", pa.int64())])
     reader = pa.RecordBatchReader.from_batches(schema, [pa.record_batch([[7]], schema=schema)])
@@ -193,7 +202,16 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
     uses_gpu = device == "cuda" or ocr_device == "cuda"
     endpoint = "http://127.0.0.1:8035/v1"
     payload_family = prepare_payload_family()
-    build = pdf_staging.PdfBuildRef("b", 1, 1, "owner", "r", "a" * 64, "b" * 64, "c" * 64)
+    build = pdf_staging.PdfBuildRef(
+        "b",
+        pdf_staging.TaskId(1),
+        pdf_staging.TaskAttempt(1),
+        "owner",
+        pdf_staging.ReleaseId("r"),
+        "a" * 64,
+        "b" * 64,
+        "c" * 64,
+    )
 
     @contextmanager
     def maintained(*args):

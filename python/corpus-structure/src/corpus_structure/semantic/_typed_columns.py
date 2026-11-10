@@ -2,19 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Protocol, cast
+from typing import Literal, Protocol, cast
 
 from pydantic import JsonValue
 from sqlalchemy import Column, Named, TypedColumns
 
+from ._operation_ids import RealizationId as RealizationId
+from ._operation_ids import ReleaseId as ReleaseId
 from .metadata import table
 
-PHYSICAL_MODEL_ID = "physical:57c77431c45a58b184660a1db816701dbd94da76e7f38d38ced7e69ee2c0a8f1"
+PHYSICAL_MODEL_ID = "physical:89a7c561254db10003b43437832e1188e02ccfebe68e00913b1f40e6fbce7e52"
+TYPE_MODEL_ID = "4a0168fb4f2763b300145a5ac60682ec3eb7eda3e9fb9cc40747fe6dcf541f76"
 
 
 class DataOccurrenceColumns(TypedColumns):
-    realization_id: Named[str]
-    release_id: Named[str]
+    realization_id: Named[RealizationId]
+    release_id: Named[ReleaseId]
     occurrence_id: Named[str]
     fact_id: Named[str]
     source: Named[str]
@@ -25,8 +28,8 @@ class DataOccurrenceColumns(TypedColumns):
 
 
 class DataOccurrenceColumnsSet(Protocol):
-    realization_id: Column[str]
-    release_id: Column[str]
+    realization_id: Column[RealizationId]
+    release_id: Column[ReleaseId]
     occurrence_id: Column[str]
     fact_id: Column[str]
     source: Column[str]
@@ -43,7 +46,7 @@ data_occurrence_columns = cast(DataOccurrenceColumnsSet, data_occurrence.c)
 class OpsPdfStageDocumentColumns(TypedColumns):
     product_id: Named[str]
     revision_id: Named[str]
-    release_id: Named[str]
+    release_id: Named[ReleaseId]
     source_digest: Named[str]
     mapping_profile: Named[str]
     contract_version: Named[str]
@@ -54,7 +57,7 @@ class OpsPdfStageDocumentColumns(TypedColumns):
 class OpsPdfStageDocumentColumnsSet(Protocol):
     product_id: Column[str]
     revision_id: Column[str]
-    release_id: Column[str]
+    release_id: Column[ReleaseId]
     source_digest: Column[str]
     mapping_profile: Column[str]
     contract_version: Column[str]
@@ -71,7 +74,9 @@ class OpsPdfStageNativeColumns(TypedColumns):
     revision_id: Named[str]
     record_id: Named[str]
     native_type: Named[str]
-    family: Named[str]
+    family: Named[
+        Literal["cell", "detail", "header", "node", "page", "provenance", "reference", "table"]
+    ]
     native_address: Named[str | None]
     native_address_stream_id: Named[str | None]
     scalars_json: Named[JsonValue]
@@ -83,7 +88,9 @@ class OpsPdfStageNativeColumnsSet(Protocol):
     revision_id: Column[str]
     record_id: Column[str]
     native_type: Column[str]
-    family: Column[str]
+    family: Column[
+        Literal["cell", "detail", "header", "node", "page", "provenance", "reference", "table"]
+    ]
     native_address: Column[str | None]
     native_address_stream_id: Column[str | None]
     scalars_json: Column[JsonValue]
@@ -102,7 +109,7 @@ class OpsPdfStageMembershipColumns(TypedColumns):
     ordinal: Named[int]
     member_key: Named[str | None]
     member_key_stream_id: Named[str | None]
-    value_kind: Named[str]
+    value_kind: Named[Literal["parts", "record", "scalar"]]
     record_id: Named[str | None]
     scalar_json: Named[JsonValue | None]
     stream_id: Named[str | None]
@@ -116,7 +123,7 @@ class OpsPdfStageMembershipColumnsSet(Protocol):
     ordinal: Column[int]
     member_key: Column[str | None]
     member_key_stream_id: Column[str | None]
-    value_kind: Column[str]
+    value_kind: Column[Literal["parts", "record", "scalar"]]
     record_id: Column[str | None]
     scalar_json: Column[JsonValue | None]
     stream_id: Column[str | None]

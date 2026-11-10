@@ -29,6 +29,7 @@ from corpus_structure.core.db.store import (
     record_operation_failure,
 )
 
+from ._operation_ids import ContentDigest, ProductKey
 from .product_reference import ProductReference
 
 if TYPE_CHECKING:
@@ -143,8 +144,8 @@ def _published_revision(conn: Connection, reference: ProductReference, *, read_b
 
     statement = prepare_read_pdf_published_revision(
         task_id=TaskId(reference.task_id),
-        product_key=reference.product_key,
-        logical_digest=reference.content_digest,
+        product_key=ProductKey(reference.product_key),
+        logical_digest=ContentDigest(reference.content_digest),
     )
     if read_budget is not None:
         read_budget.preflight(conn, statement)

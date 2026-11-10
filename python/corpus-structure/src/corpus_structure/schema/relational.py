@@ -916,7 +916,9 @@ def render(metadata: MetaData, revision: str) -> str:
     return "\n".join(out) + "\n"
 
 
-def render_typed_column_class(name: str, columns: Iterable[Column[Any]]) -> str:
+def render_typed_column_class(
+    name: str, columns: Iterable[Column[Any]], *, bindings: Mapping[str, str] | None = None
+) -> str:
     """Render a static SQLAlchemy surface from already compiled model columns.
 
     Also accepts columns selected for a protected function's return projection; callers
@@ -939,19 +941,30 @@ def render_typed_column_class(name: str, columns: Iterable[Column[Any]]) -> str:
                 raise ModelError([f"unsupported typed column {column}"]) from exc
         if column.nullable:
             kind += " | None"
+        kind = bindings.get(column.name, kind) if bindings is not None else kind
         result.append(f"    {column.name}: Named[{kind}]")
     if len(result) == 1:
         result.append("    pass")
     return "\n".join(result) + "\n"
 
 
-def render_typed_column_protocol(name: str, columns: Iterable[Column[Any]]) -> str:
+def render_typed_column_protocol(
+    name: str, columns: Iterable[Column[Any]], *, bindings: Mapping[str, str] | None = None
+) -> str:
     """Narrow attribute access without ColumnCollection's dynamic-name fallback."""
-    declaration = render_typed_column_class(name, columns)
+    declaration = render_typed_column_class(name, columns, bindings=bindings)
     return declaration.replace("(TypedColumns):", "(Protocol):").replace("Named[", "Column[")
 
 
-def render_typed_columns(metadata: MetaData, names: Iterable[str], revision: str) -> str:
+def render_typed_columns(
+    metadata: MetaData,
+    names: Iterable[str],
+    revision: str,
+    *,
+    bindings: Mapping[str, Mapping[str, str]] | None = None,
+    imports: Iterable[str] = (),
+    type_model_id: str | None = None,
+) -> str:
     """Generate declarations and typed views of existing model-owned Core tables."""
     out = [
         '"""Generated model column surfaces; '
@@ -962,14 +975,16 @@ def render_typed_columns(metadata: MetaData, names: Iterable[str], revision: str
         "from datetime import date, datetime, time",
         "from decimal import Decimal",
         "",
-        "from typing import Protocol, cast",
+        "from typing import Literal, Protocol, cast",
         "",
         "from pydantic import JsonValue",
         "from sqlalchemy import Column, Named, TypedColumns",
         "",
         "from .metadata import table",
         "",
+        *(f"from ._operation_ids import {name} as {name}" for name in sorted(imports)),
         f"PHYSICAL_MODEL_ID = {revision!r}",
+        f"TYPE_MODEL_ID = {type_model_id!r}",
     ]
     for fullname in names:
         source = metadata.tables[fullname]
@@ -978,10 +993,14 @@ def render_typed_columns(metadata: MetaData, names: Iterable[str], revision: str
         out += [
             "",
             "",
-            render_typed_column_class(class_name, source.columns).rstrip(),
+            render_typed_column_class(
+                class_name, source.columns, bindings=(bindings or {}).get(fullname)
+            ).rstrip(),
             "",
             "",
-            render_typed_column_protocol(class_name + "Set", source.columns).rstrip(),
+            render_typed_column_protocol(
+                class_name + "Set", source.columns, bindings=(bindings or {}).get(fullname)
+            ).rstrip(),
             "",
             "",
             f"{variable} = table({fullname!r}).with_cols({class_name})",

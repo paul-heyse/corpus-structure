@@ -234,9 +234,9 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
     from pathlib import Path
     from types import SimpleNamespace
 
+    from corpus_structure.core.db import adbc_lifetime
     from corpus_structure.core.db.cancellation import OperationCancellation
     from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
-    from corpus_structure.semantic import analytics
     from corpus_structure.semantic.companion_projection import projection
     from corpus_structure.serve import companion_export as export
     from corpus_structure.serve import native_source
@@ -306,7 +306,7 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
             execute=lambda statement: SimpleNamespace(scalar_one=lambda: "00000001-00000002-1")
         )
 
-    monkeypatch.setattr(analytics.adbc_manager, "connect", acquire)
+    monkeypatch.setattr(adbc_lifetime.adbc_manager, "connect", acquire)
     monkeypatch.setattr(export, "open_runtime_engine", engine)
     monkeypatch.setattr(export, "read_snapshot", snapshot)
     monkeypatch.setattr(

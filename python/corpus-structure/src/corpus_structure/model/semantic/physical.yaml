@@ -4,6 +4,7 @@ name: semantic_physical
 version: 2026-11-05-multivalued-arrays-1
 description: Trusted fixed PostgreSQL realization; candidate semantic releases never supply physical annotations.
 prefixes:
+  cp: https://corpus-structure.dev/companion-projections/
   linkml: https://w3id.org/linkml/
   xsd: http://www.w3.org/2001/XMLSchema#
   ph: https://corpus-structure.org/physical/
@@ -701,9 +702,11 @@ classes:
     - data
     attributes:
       realization_id:
+        annotations: {cp:type_source: "physical:data.realization.realization_id"}
         range: string
         required: true
       release_id:
+        annotations: {cp:type_source: "physical:sem.release.release_id"}
         range: string
         required: true
       occurrence_id:

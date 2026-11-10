@@ -5,9 +5,9 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pyarrow as pa
-from adbc_driver_postgresql import dbapi
 from sqlalchemy import text
 
+from corpus_structure.core.db.adbc_lifetime import open_adbc_connection, owned_adbc_read
 from corpus_structure.core.db.store import open_store
 from corpus_structure.settings import DatabaseSettings, Settings
 
@@ -32,7 +32,12 @@ def test_adbc_exact_numeric_and_uncommitted_connection_boundary(
                 "flag": True,
             },
         )
-    with dbapi.connect(uri) as conn, conn.cursor() as cursor:
+    with (
+        owned_adbc_read(
+            open_adbc_connection(uri, driver_path=None, resolver_mode="server")
+        ) as conn,
+        conn.cursor() as cursor,
+    ):
         cursor.execute("SELECT n,lexical,b,flag FROM public.semantic_interop")
         with cursor.fetch_record_batch() as reader:
             result = reader.read_all()
@@ -48,7 +53,12 @@ def test_adbc_exact_numeric_and_uncommitted_connection_boundary(
     # ADBC owns a different libpq session; it cannot participate in the COPY write transaction.
     with semantic_db_engine.begin() as owner:
         owner.exec_driver_sql("INSERT INTO public.semantic_interop(n) VALUES (2)")
-        with dbapi.connect(uri) as conn, conn.cursor() as cursor:
+        with (
+            owned_adbc_read(
+                open_adbc_connection(uri, driver_path=None, resolver_mode="server")
+            ) as conn,
+            conn.cursor() as cursor,
+        ):
             cursor.execute("SELECT count(*) FROM public.semantic_interop")
             assert cursor.fetchone() == (1,)
 

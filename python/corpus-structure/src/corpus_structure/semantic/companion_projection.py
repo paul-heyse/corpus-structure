@@ -552,14 +552,50 @@ def projection(family: str) -> CompanionProjection:
 
 
 def render_static_columns() -> str:
+    from dataclasses import replace
+
+    from .contracts import compile_execution_model, trusted_execution_inputs
+    from .operation_call_generation import _PRIMITIVES, source_bindings
+
+    inputs = trusted_execution_inputs()
+    model = compile_execution_model(inputs)
+    view, _, model_field, resolve = source_bindings(model, inputs)
+    declarations, imports = [], set()
+    for family in FAMILIES:
+        selected = projection(family)
+        fields = {}
+        slots = {str(slot.name): slot for slot in view.class_induced_slots(selected.class_name)}
+        for selected_column in selected.materialized_columns:
+            field = model_field(selected.class_name, slots[selected_column.name])
+            typ, _ = resolve(field, {})
+            field = replace(field, resolved=typ)
+            kind = field.semantic_type or (
+                "Literal[" + ", ".join(repr(v) for v in typ.enum_values) + "]"
+                if typ.enum_values
+                else _PRIMITIVES[typ.kind]
+            )
+            if typ.kind == "json_payload":
+                kind = "str"  # This materialized direction carries raw JSON text.
+            if field.semantic_type:
+                imports.add(field.semantic_type)
+            if typ.multivalued:
+                kind = f"list[{kind}]"
+            if selected_column.nullable:
+                kind += " | None"
+            fields[selected_column.name] = kind
+        declarations.append(
+            render_typed_column_class(
+                selected.class_name,
+                selected.materialized_columns,
+                bindings=fields,
+            ).rstrip()
+        )
     return (
         "# Generated from model/semantic/companion-projections.yaml.\n"
-        "from sqlalchemy import Named, TypedColumns\n\n\n"
-        + "\n\n".join(
-            render_typed_column_class(
-                projection(family).class_name, projection(family).materialized_columns
-            ).rstrip()
-            for family in FAMILIES
-        )
+        "from typing import Literal\n"
+        "from sqlalchemy import Named, TypedColumns\n"
+        + "".join(f"from ._operation_ids import {name} as {name}\n" for name in sorted(imports))
+        + "\n\n"
+        + "\n\n".join(declarations)
         + "\n"
     )

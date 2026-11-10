@@ -30,6 +30,7 @@ from corpus_structure.core.db.store import (
 )
 
 from . import _operation_calls as calls
+from ._operation_ids import ContentDigest, ProductKey
 from .pdf_staging import PdfBuildRef
 
 COMPANION_BATCH_ROWS = 64
@@ -89,8 +90,8 @@ def published_pdf_revision(
     row = calls.read_pdf_published_revision(
         conn,
         task_id=calls.TaskId(task_id),
-        product_key=product_key,
-        logical_digest=logical_digest,
+        product_key=ProductKey(product_key),
+        logical_digest=ContentDigest(logical_digest),
     )
     return None if row is None else _published(row.model_dump(mode="python"))
 
@@ -880,7 +881,7 @@ def seal_pdf_build(
         attempt=calls.TaskAttempt(frozen.build.attempt),
         holder=frozen.build.holder,
         frozen_digest=frozen.frozen_digest,
-        product_key=product_key,
+        product_key=ProductKey(product_key),
     )
     return _published(row.model_dump(mode="python"))
 

@@ -98,7 +98,17 @@ def test_distinct_runtime_pins_preserve_one_release_and_reopen_exact_archives(
 
 
 @pytest.mark.parametrize(
-    "mutation", ["release", "archive", "contract", "model", "compiler", "semantic", "membership"]
+    "mutation",
+    [
+        "release",
+        "archive",
+        "contract",
+        "model",
+        "compiler",
+        "compiler_mismatch",
+        "semantic",
+        "membership",
+    ],
 )
 def test_native_registration_refuses_altered_or_incompatible_binding(
     semantic_db_engine, semantic_writer_engine, mutation
@@ -114,6 +124,8 @@ def test_native_registration_refuses_altered_or_incompatible_binding(
         manifest["version"] = "runtime-binding-999"
     elif mutation == "model":
         manifest["execution_model_id"] = "execution:another"
+    elif mutation == "compiler_mismatch":
+        manifest["execution_compiler_version"] = "27"
     elif mutation == "compiler":
         manifest["execution_compiler_version"] = "26"
     elif mutation == "semantic":

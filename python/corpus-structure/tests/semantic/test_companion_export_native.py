@@ -2,7 +2,6 @@
 
 import json
 
-import adbc_driver_postgresql.dbapi as adbc
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
@@ -12,7 +11,7 @@ from sqlalchemy import Text, literal_column, select, text, union_all
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.core.db.adbc_lifetime import owned_adbc_read
+from corpus_structure.core.db.adbc_lifetime import open_adbc_connection, owned_adbc_read
 from corpus_structure.semantic.companion_projection import FAMILIES, projection
 from corpus_structure.semantic.pdf_publication import (
     adopt_pdf_companion_batch,
@@ -193,9 +192,10 @@ def test_published_json_direction_preserves_declared_values_and_transport_nulls(
     settings = connection_settings(read_settings(native_settings, semantic_db_engine), "read")
     with (
         owned_adbc_read(
-            adbc.connect(
+            open_adbc_connection(
                 settings.database.url,
-                db_kwargs={"adbc.postgresql.type_resolver_mode": "builtin"},
+                driver_path=settings.analytics.adbc_driver_path,
+                resolver_mode="builtin",
             )
         ) as bulk,
         bulk.cursor() as cursor,

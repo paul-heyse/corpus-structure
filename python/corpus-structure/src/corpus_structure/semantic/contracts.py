@@ -31,9 +31,9 @@ from corpus_structure.schema.physical import (
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "27"
+EXECUTION_COMPILER_VERSION = "28"
 # Prior products remain readable; execution fences remain current-only.
-_READABLE_EXECUTION_COMPILERS = frozenset({"24", "25", "26", EXECUTION_COMPILER_VERSION})
+_READABLE_EXECUTION_COMPILERS = frozenset({"24", "25", "26", "27", EXECUTION_COMPILER_VERSION})
 
 # These are meaning-bearing model/grammar/output-contract assets, not executable provenance.
 # New assets require an explicit role here; incidental Python/SQL implementation bytes belong

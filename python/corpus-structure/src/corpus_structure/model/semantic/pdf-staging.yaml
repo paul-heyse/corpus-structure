@@ -1,6 +1,7 @@
 id: https://corpus-structure.dev/semantic/pdf-staging
 name: pdf_staging
 prefixes:
+  cp: https://corpus-structure.dev/companion-projections/
   pds: https://corpus-structure.dev/pdf-staging/
 default_prefix: pds
 default_range: PdfRecordString
@@ -195,15 +196,19 @@ classes:
         range: PdfRecordString
         required: true
       task_id:
+        annotations: {cp:type_source: "physical:ops.pdf_published_revision.task_id"}
         range: PdfRecordInteger
         required: true
       product_key:
+        annotations: {cp:type_source: "physical:ops.pdf_published_revision.product_key"}
         range: PdfRecordString
         required: true
       logical_digest:
+        annotations: {cp:type_source: "physical:ops.pdf_published_revision.logical_digest"}
         range: PdfRecordString
         required: true
       release_id:
+        annotations: {cp:type_source: "physical:sem.release.release_id"}
         range: PdfRecordString
         required: true
       source_digest:

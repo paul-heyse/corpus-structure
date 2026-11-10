@@ -18,7 +18,7 @@ BEGIN
  OR manifest->>'version' IS DISTINCT FROM 'runtime-binding-1'
  OR archive->>'version' IS DISTINCT FROM 'runtime-source-archive-1'
  OR manifest->>'release_id' IS DISTINCT FROM r
- OR manifest->>'execution_compiler_version' IS DISTINCT FROM '27'
+ OR coalesce(manifest->>'execution_compiler_version','') NOT IN ('27','28')
  OR jsonb_typeof(manifest->'python_version') IS DISTINCT FROM 'string'
  OR nullif(manifest->>'python_version','') IS NULL
  OR jsonb_typeof(manifest->'semantic_inputs') IS DISTINCT FROM 'array'
@@ -28,7 +28,7 @@ BEGIN
  SELECT convert_from(body,'UTF8')::jsonb INTO STRICT model FROM sem.registry_row
  WHERE release_id=r AND kind='execution_model';
  IF manifest->>'execution_model_id' IS DISTINCT FROM model->>'model_id'
- OR model->'inputs'->>'compiler_version' IS DISTINCT FROM '27' THEN
+ OR model->'inputs'->>'compiler_version' IS DISTINCT FROM manifest->>'execution_compiler_version' THEN
   RAISE EXCEPTION 'runtime binding belongs to another execution model' USING ERRCODE='23514'; END IF;
  SELECT coalesce(jsonb_agg(jsonb_build_object('name',value->>0,'sha256',value->>1)
   ORDER BY (value->>0) COLLATE "C"),'[]'::jsonb) INTO expected

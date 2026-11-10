@@ -562,6 +562,13 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
 
+**Implemented; selected generated/native controls Tested, 2026-11-09.** Selected generated calls,
+Core columns and companion results reuse explicit semantic correspondence and existing nominal
+anchors. Type-only correspondence preserves local physical constraints. D2 §3.4 owns the declaration
+contract; the PostgreSQL typed-domain series owns implementation and verification.
+
+> Decision: [ADR-0073](../adr/0073-generated-type-correspondence.md)
+
 **Accepted target; implementation tracked separately,2026-11-06.** Witnessed components
 retain exact operation questions and source bases. Independent component assessment and scoped
 eligibility remain separate from private production and whole-report standing. WCE owns adoption;

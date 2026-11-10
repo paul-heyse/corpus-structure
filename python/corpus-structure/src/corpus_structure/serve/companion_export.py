@@ -17,9 +17,16 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import String, text
 from sqlalchemy.dialects import postgresql
 
-from corpus_structure.core.db.adbc_lifetime import owned_adbc_read
+from corpus_structure.core.db.adbc_lifetime import open_adbc_connection, owned_adbc_read
 from corpus_structure.core.db.cancellation import OperationCancellation
-from corpus_structure.semantic.analytics import open_adbc_connection
+from corpus_structure.semantic._operation_ids import (
+    ContentDigest,
+    ProductKey,
+    ProjectId,
+    ReleaseId,
+    RunId,
+    TaskId,
+)
 from corpus_structure.semantic.capture_storage import LogicalRows
 from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.semantic.refusals import SemanticRefusal
@@ -33,12 +40,12 @@ PROFILE_ID = "flat-exact-companion-v2"
 
 class PublishedSourcePin(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    project_id: str = Field(min_length=1)
-    run_id: int = Field(gt=0)
-    selection_release_id: str = Field(min_length=1)
-    task_id: int = Field(gt=0)
-    product_key: str = Field(min_length=1)
-    content_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    project_id: ProjectId = Field(min_length=1)
+    run_id: RunId = Field(gt=RunId(0))
+    selection_release_id: ReleaseId = Field(min_length=1)
+    task_id: TaskId = Field(gt=TaskId(0))
+    product_key: ProductKey = Field(min_length=1)
+    content_digest: ContentDigest = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 class CompanionExportRequest(BaseModel):
@@ -65,7 +72,7 @@ class FamilyFile(BaseModel):
 class CompanionExportManifest(BaseModel):
     format: Literal["pdf-companion-export-v2"] = "pdf-companion-export-v2"
     pin: PublishedSourcePin
-    producer_release_id: str = Field(min_length=1)
+    producer_release_id: ReleaseId = Field(min_length=1)
     projection_id: str
     profile_id: str
     created_at: datetime
@@ -131,7 +138,9 @@ def export_companion_parquet(
             with (
                 owned_adbc_read(
                     open_adbc_connection(
-                        read.database.url, driver_path=settings.analytics.adbc_driver_path
+                        read.database.url,
+                        driver_path=settings.analytics.adbc_driver_path,
+                        resolver_mode="builtin",
                     ),
                     cancellation.adbc,
                 ) as bulk,

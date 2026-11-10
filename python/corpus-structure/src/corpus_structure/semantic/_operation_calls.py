@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated, Literal, Protocol, TypedDict, cast
+from typing import Annotated, Protocol, TypedDict, cast
 
 from pydantic import Field, JsonValue, TypeAdapter
 from sqlalchemy import (
@@ -16,6 +16,7 @@ from sqlalchemy import (
     Column,
     Connection,
     DateTime,
+    Float,
     Integer,
     Named,
     Numeric,
@@ -33,6 +34,8 @@ from sqlalchemy.sql import ColumnElement
 
 from corpus_structure.core.vocab import TaskUnitType
 
+from ._operation_ids import CompletionReceiptProtocol as CompletionReceiptProtocol
+from ._operation_ids import CompletionResultTransaction as CompletionResultTransaction
 from ._operation_ids import ContentDigest as ContentDigest
 from ._operation_ids import CutId as CutId
 from ._operation_ids import DocumentId as DocumentId
@@ -41,10 +44,22 @@ from ._operation_ids import MethodConfigId as MethodConfigId
 from ._operation_ids import MethodId as MethodId
 from ._operation_ids import NativeAdmissionParametersPurpose as NativeAdmissionParametersPurpose
 from ._operation_ids import PdfFrozenBuildKind as PdfFrozenBuildKind
+from ._operation_ids import PdfPublishedRevisionKind as PdfPublishedRevisionKind
 from ._operation_ids import PdfRecordCompanionFamily as PdfRecordCompanionFamily
 from ._operation_ids import PdfSourceViewPublicationMembership as PdfSourceViewPublicationMembership
+from ._operation_ids import PdfStageBuildState as PdfStageBuildState
 from ._operation_ids import ProductKey as ProductKey
 from ._operation_ids import ProjectId as ProjectId
+from ._operation_ids import PublishedCoverageRowOutcome as PublishedCoverageRowOutcome
+from ._operation_ids import PublishedInputRowInputRole as PublishedInputRowInputRole
+from ._operation_ids import (
+    PublishedMappingReportRowNormalization as PublishedMappingReportRowNormalization,
+)
+from ._operation_ids import PublishedMappingReportRowOutcome as PublishedMappingReportRowOutcome
+from ._operation_ids import PublishedRelationRowComparison as PublishedRelationRowComparison
+from ._operation_ids import PublishedRelationRowEndpointRole as PublishedRelationRowEndpointRole
+from ._operation_ids import PublishedRelationRowRelationKind as PublishedRelationRowRelationKind
+from ._operation_ids import PublishedSectionNodeRowRole as PublishedSectionNodeRowRole
 from ._operation_ids import RealizationId as RealizationId
 from ._operation_ids import ReleaseId as ReleaseId
 from ._operation_ids import RunId as RunId
@@ -77,9 +92,14 @@ class CompletionReceipt(OperationResult):
     run_id: RunId
     release_id: ReleaseId
     attempt: TaskAttempt
-    protocol: Literal["done", "empty", "failed"]
+    protocol: CompletionReceiptProtocol
     observation_ids: tuple[int, ...]
     result_digest: str
+
+
+class PdfCoverageSupport(OperationResult):
+    input_index: int
+    coverage_id: str
 
 
 PUBLISH_RELEASE_ARCHIVE_CONTRACT_DIGEST = (
@@ -619,7 +639,7 @@ def expected_method_definition_ops_method(
 
 
 class _method_definition_ops_methodColumns(TypedColumns):
-    id: Named[int]
+    id: Named[MethodId]
     name: Named[str]
     version: Named[str]
     unit_type: Named[str | None]
@@ -630,7 +650,7 @@ class _method_definition_ops_methodColumns(TypedColumns):
 
 
 class _method_definition_ops_methodColumnsProtocol(Protocol):
-    id: Column[int]
+    id: Column[MethodId]
     name: Column[str]
     version: Column[str]
     unit_type: Column[str | None]
@@ -648,7 +668,7 @@ _method_definition_ops_method_columns = cast(
 )
 
 projection_method_definition: tuple[
-    ColumnElement[int],
+    ColumnElement[MethodId],
     ColumnElement[str],
     ColumnElement[str],
     ColumnElement[str | None],
@@ -687,7 +707,7 @@ def materialize_method_definition(
 
 
 def collect_method_definition(
-    result: Result[int, str, str, str | None, str | None, str, str, str | None],
+    result: Result[MethodId, str, str, str | None, str | None, str, str, str | None],
 ) -> RecordedMethod:
     with native_result_scope("configure_method", "RecordedMethod"):
         return materialize_method_definition(result.one())
@@ -777,16 +797,16 @@ def expected_method_configuration_ops_method_config(
 
 
 class _method_configuration_ops_method_configColumns(TypedColumns):
-    id: Named[int]
-    method_id: Named[int]
+    id: Named[MethodConfigId]
+    method_id: Named[MethodId]
     name: Named[str]
     params: Named[JsonValue]
     config_hash: Named[str]
 
 
 class _method_configuration_ops_method_configColumnsProtocol(Protocol):
-    id: Column[int]
-    method_id: Column[int]
+    id: Column[MethodConfigId]
+    method_id: Column[MethodId]
     name: Column[str]
     params: Column[JsonValue]
     config_hash: Column[str]
@@ -801,8 +821,8 @@ _method_configuration_ops_method_config_columns = cast(
 )
 
 projection_method_configuration: tuple[
-    ColumnElement[int],
-    ColumnElement[int],
+    ColumnElement[MethodConfigId],
+    ColumnElement[MethodId],
     ColumnElement[str],
     ColumnElement[str],
     ColumnElement[str],
@@ -826,7 +846,9 @@ def materialize_method_configuration(row: tuple[int, int, str, str, str]) -> Rec
         )
 
 
-def collect_method_configuration(result: Result[int, int, str, str, str]) -> RecordedMethodConfig:
+def collect_method_configuration(
+    result: Result[MethodConfigId, MethodId, str, str, str],
+) -> RecordedMethodConfig:
     with native_result_scope("configure_method", "RecordedMethodConfig"):
         return materialize_method_configuration(result.one())
 
@@ -981,11 +1003,31 @@ def prepare_lock_schedule_run(
         require_call_context(
             projection_context, "schedule", "lock_schedule_run", LOCK_SCHEDULE_RUN_CONTRACT_DIGEST
         )
-    return _lock_schedule_run_statement.params(
-        **{
-            "run_id": _request.run_id,
-            "operation": _request.operation,
-        }
+    return cast(
+        Select[
+            int,
+            str,
+            str,
+            str | None,
+            str,
+            int,
+            str,
+            bytes,
+            str,
+            int,
+            str,
+            str,
+            str,
+            str,
+            str | None,
+            bool,
+        ],
+        _lock_schedule_run_statement.params(
+            **{
+                "run_id": _request.run_id,
+                "operation": _request.operation,
+            }
+        ),
     )
 
 
@@ -1063,19 +1105,19 @@ _claim_tasks_function = func.ops.claim_tasks(
 
 
 class _claim_tasksColumns(Protocol):
-    id: Column[int]
-    run_id: Column[int]
-    release_id: Column[str]
-    method_config_id: Column[int]
+    id: Column[TaskId]
+    run_id: Column[RunId]
+    release_id: Column[ReleaseId]
+    method_config_id: Column[MethodConfigId]
     unit_type: Column[str]
     unit_id: Column[int | None]
     unit_key: Column[str | None]
     packet_hash: Column[str | None]
-    attempt: Column[int]
+    attempt: Column[TaskAttempt]
     claimed_by: Column[str | None]
     lease_until: Column[datetime | None]
     invocation_key: Column[str]
-    error: Column[JsonValue]
+    error: Column[JsonValue | None]
 
 
 _claim_tasks_columns = cast(_claim_tasksColumns, _claim_tasks_function.c)
@@ -1144,19 +1186,19 @@ def prepare_claim_tasks(
     agent: bool = False,
     projection_context: PreparedRelease | None = None,
 ) -> Select[
-    int,
-    int,
-    str,
-    int,
+    TaskId,
+    RunId,
+    ReleaseId,
+    MethodConfigId,
     str,
     int | None,
     str | None,
     str | None,
-    int,
+    TaskAttempt,
     str | None,
     datetime | None,
     str,
-    JsonValue,
+    JsonValue | None,
 ]:
     _request = _claim_tasksRequest(
         run_id=run_id,
@@ -1169,14 +1211,31 @@ def prepare_claim_tasks(
         require_call_context(
             projection_context, "claim", "claim_tasks", CLAIM_TASKS_CONTRACT_DIGEST
         )
-    return _claim_tasks_statement.params(
-        **{
-            "run_id": _request.run_id,
-            "config_id": _request.config_id,
-            "holder": _request.holder,
-            "limit": _request.limit,
-            "agent": _request.agent,
-        }
+    return cast(
+        Select[
+            TaskId,
+            RunId,
+            ReleaseId,
+            MethodConfigId,
+            str,
+            int | None,
+            str | None,
+            str | None,
+            TaskAttempt,
+            str | None,
+            datetime | None,
+            str,
+            JsonValue | None,
+        ],
+        _claim_tasks_statement.params(
+            **{
+                "run_id": _request.run_id,
+                "config_id": _request.config_id,
+                "holder": _request.holder,
+                "limit": _request.limit,
+                "agent": _request.agent,
+            }
+        ),
     )
 
 
@@ -1211,7 +1270,7 @@ COMPLETE_TASK_CONTRACT_DIGEST = "046aabc7da4e16dac54081bd194af10b88c658fdf63f604
 
 class CompletionResult(OperationResult):
     receipt: CompletionReceipt
-    transaction: Literal["applied", "replay"]
+    transaction: CompletionResultTransaction
 
 
 class _complete_taskRequest(OperationResult):
@@ -1330,7 +1389,7 @@ _lock_complete_unit_run_function = func.ops.lock_execution_run(
 
 
 class _lock_complete_unit_runColumns(Protocol):
-    id: Column[int]
+    id: Column[RunId]
 
 
 _lock_complete_unit_run_columns = cast(
@@ -1353,7 +1412,7 @@ def prepare_lock_complete_unit_run(
     run_id: RunId,
     operation: str = "complete_unit",
     projection_context: PreparedRelease | None = None,
-) -> Select[int]:
+) -> Select[RunId]:
     _request = _lock_complete_unit_runRequest(
         run_id=run_id,
         operation=operation,
@@ -1935,8 +1994,8 @@ def expected_document_registration_kb_document(
 
 
 class _document_registration_kb_documentColumns(TypedColumns):
-    id: Named[int]
-    project_id: Named[str]
+    id: Named[DocumentId]
+    project_id: Named[ProjectId]
     key: Named[str]
     source_uri: Named[str]
     content_hash: Named[str]
@@ -1947,8 +2006,8 @@ class _document_registration_kb_documentColumns(TypedColumns):
 
 
 class _document_registration_kb_documentColumnsProtocol(Protocol):
-    id: Column[int]
-    project_id: Column[str]
+    id: Column[DocumentId]
+    project_id: Column[ProjectId]
     key: Column[str]
     source_uri: Column[str]
     content_hash: Column[str]
@@ -1966,8 +2025,8 @@ _document_registration_kb_document_columns = cast(
 )
 
 projection_document_registration: tuple[
-    ColumnElement[int],
-    ColumnElement[str],
+    ColumnElement[DocumentId],
+    ColumnElement[ProjectId],
     ColumnElement[str],
     ColumnElement[str],
     ColumnElement[str],
@@ -2006,7 +2065,7 @@ def materialize_document_registration(
 
 
 def collect_document_registration(
-    result: Result[int, str, str, str, str, str, str, str | None, str],
+    result: Result[DocumentId, ProjectId, str, str, str, str, str, str | None, str],
 ) -> RegisteredDocument:
     with native_result_scope("register_document", "RegisteredDocument"):
         return materialize_document_registration(result.one())
@@ -2498,10 +2557,30 @@ def prepare_lock_finalization_run(
             "lock_finalization_run",
             LOCK_FINALIZATION_RUN_CONTRACT_DIGEST,
         )
-    return _lock_finalization_run_statement.params(
-        **{
-            "run_id": _request.run_id,
-        }
+    return cast(
+        Select[
+            int,
+            str,
+            str,
+            str | None,
+            str,
+            int,
+            str,
+            bytes,
+            str,
+            int,
+            str,
+            str,
+            str,
+            str,
+            str | None,
+            bool,
+        ],
+        _lock_finalization_run_statement.params(
+            **{
+                "run_id": _request.run_id,
+            }
+        ),
     )
 
 
@@ -3898,7 +3977,7 @@ READ_PUBLISHED_SECTION_NODES_CONTRACT_DIGEST = (
 
 class PublishedSectionNodeRow(NativeRowResult):
     __json_fields__ = ("native_json",)
-    role: Literal["ancestor", "selected"]
+    role: PublishedSectionNodeRowRole
     product_id: str
     revision_id: str
     pointer: str
@@ -3943,7 +4022,7 @@ _read_published_section_nodes_function = func.ops.read_pdf_published_section_nod
 
 
 class _read_published_section_nodesColumns(Protocol):
-    role: Column[str]
+    role: Column[PublishedSectionNodeRowRole]
     product_id: Column[str]
     revision_id: Column[str]
     pointer: Column[str]
@@ -3981,7 +4060,7 @@ def _read_published_section_nodes_result(
 ) -> PublishedSectionNodeRow:
     with native_result_scope("read_native_source", "PublishedSectionNodeRow"):
         return PublishedSectionNodeRow(
-            role=cast(Literal["ancestor", "selected"], row[0]),
+            role=cast(PublishedSectionNodeRowRole, row[0]),
             product_id=row[1],
             revision_id=row[2],
             pointer=row[3],
@@ -4003,7 +4082,19 @@ def prepare_read_published_section_nodes(
     section: str,
     membership: PdfSourceViewPublicationMembership,
     projection_context: PreparedRelease,
-) -> Select[str, str, str, str, int, str, str | None, str | None, str, str | None, str]:
+) -> Select[
+    PublishedSectionNodeRowRole,
+    str,
+    str,
+    str,
+    int,
+    str,
+    str | None,
+    str | None,
+    str,
+    str | None,
+    str,
+]:
     _request = _read_published_section_nodesRequest(
         task_id=task_id,
         product_key=product_key,
@@ -4017,14 +4108,29 @@ def prepare_read_published_section_nodes(
         "read_published_section_nodes",
         READ_PUBLISHED_SECTION_NODES_CONTRACT_DIGEST,
     )
-    return _read_published_section_nodes_statement.params(
-        **{
-            "task_id": _request.task_id,
-            "product_key": _request.product_key,
-            "content_digest": _request.content_digest,
-            "section": _request.section,
-            "membership": _request.membership,
-        }
+    return cast(
+        Select[
+            PublishedSectionNodeRowRole,
+            str,
+            str,
+            str,
+            int,
+            str,
+            str | None,
+            str | None,
+            str,
+            str | None,
+            str,
+        ],
+        _read_published_section_nodes_statement.params(
+            **{
+                "task_id": _request.task_id,
+                "product_key": _request.product_key,
+                "content_digest": _request.content_digest,
+                "section": _request.section,
+                "membership": _request.membership,
+            }
+        ),
     )
 
 
@@ -4169,13 +4275,16 @@ def prepare_read_published_items(
         "read_published_items",
         READ_PUBLISHED_ITEMS_CONTRACT_DIGEST,
     )
-    return _read_published_items_statement.params(
-        **{
-            "task_id": _request.task_id,
-            "product_key": _request.product_key,
-            "content_digest": _request.content_digest,
-            "pointers": _request.pointers,
-        }
+    return cast(
+        Select[str, str, str, int, str, str | None, str | None, str, str | None, str],
+        _read_published_items_statement.params(
+            **{
+                "task_id": _request.task_id,
+                "product_key": _request.product_key,
+                "content_digest": _request.content_digest,
+                "pointers": _request.pointers,
+            }
+        ),
     )
 
 
@@ -4331,14 +4440,17 @@ def prepare_read_published_region(
         "read_published_region",
         READ_PUBLISHED_REGION_CONTRACT_DIGEST,
     )
-    return _read_published_region_statement.params(
-        **{
-            "task_id": _request.task_id,
-            "product_key": _request.product_key,
-            "content_digest": _request.content_digest,
-            "pointer": _request.pointer,
-            "region_index": _request.region_index,
-        }
+    return cast(
+        Select[str, str, str, int, int, Decimal, Decimal, Decimal, Decimal, Decimal, Decimal, str],
+        _read_published_region_statement.params(
+            **{
+                "task_id": _request.task_id,
+                "product_key": _request.product_key,
+                "content_digest": _request.content_digest,
+                "pointer": _request.pointer,
+                "region_index": _request.region_index,
+            }
+        ),
     )
 
 
@@ -4775,13 +4887,16 @@ def prepare_read_published_regions(
         "read_published_regions",
         READ_PUBLISHED_REGIONS_CONTRACT_DIGEST,
     )
-    return _read_published_regions_statement.params(
-        **{
-            "task_id": _request.task_id,
-            "product_key": _request.product_key,
-            "content_digest": _request.content_digest,
-            "pointer": _request.pointer,
-        }
+    return cast(
+        Select[str, str, str, int, int, Decimal, Decimal, Decimal, Decimal, Decimal, Decimal, str],
+        _read_published_regions_statement.params(
+            **{
+                "task_id": _request.task_id,
+                "product_key": _request.product_key,
+                "content_digest": _request.content_digest,
+                "pointer": _request.pointer,
+            }
+        ),
     )
 
 
@@ -4921,13 +5036,16 @@ def prepare_read_published_region_batch(
         "read_published_region_batch",
         READ_PUBLISHED_REGION_BATCH_CONTRACT_DIGEST,
     )
-    return _read_published_region_batch_statement.params(
-        **{
-            "task_id": _request.task_id,
-            "product_key": _request.product_key,
-            "content_digest": _request.content_digest,
-            "pointers": _request.pointers,
-        }
+    return cast(
+        Select[str, str, str, int, int, Decimal, Decimal, Decimal, Decimal, Decimal, Decimal, str],
+        _read_published_region_batch_statement.params(
+            **{
+                "task_id": _request.task_id,
+                "product_key": _request.product_key,
+                "content_digest": _request.content_digest,
+                "pointers": _request.pointers,
+            }
+        ),
     )
 
 
@@ -5990,29 +6108,29 @@ def publish_pdf_observation(
 
 
 READ_PDF_PUBLISHED_REVISION_CONTRACT_DIGEST = (
-    "58cbd55cdc1359113ed8ef050a223842e0cde1f42b2305659563d47453c5dd13"
+    "7504013b3bf12987674e8ea70f95fe422b4f8651c6110e2e0ded4900fccc280a"
 )
 
 
 class PdfPublishedRevision(NativeRowResult):
     build_id: str
-    task_id: int
-    product_key: str
-    logical_digest: str
-    release_id: str
+    task_id: TaskId
+    product_key: ProductKey
+    logical_digest: ContentDigest
+    release_id: ReleaseId
     source_digest: str
     schema_digest: str
     recipe_digest: str
     frozen_digest: str
-    kind: Literal["integrated", "native"]
+    kind: PdfPublishedRevisionKind
 
 
 class _read_pdf_published_revisionRequest(OperationResult):
     task_id: Annotated[
         TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
     ]
-    product_key: str
-    logical_digest: str
+    product_key: ProductKey
+    logical_digest: ContentDigest
 
 
 _read_pdf_published_revision_function = func.ops.read_pdf_published_revision(
@@ -6035,15 +6153,15 @@ _read_pdf_published_revision_function = func.ops.read_pdf_published_revision(
 
 class _read_pdf_published_revisionColumns(Protocol):
     build_id: Column[str]
-    task_id: Column[int]
-    product_key: Column[str]
-    logical_digest: Column[str]
-    release_id: Column[str]
+    task_id: Column[TaskId]
+    product_key: Column[ProductKey]
+    logical_digest: Column[ContentDigest]
+    release_id: Column[ReleaseId]
     source_digest: Column[str]
     schema_digest: Column[str]
     recipe_digest: Column[str]
     frozen_digest: Column[str]
-    kind: Column[str]
+    kind: Column[PdfPublishedRevisionKind]
 
 
 _read_pdf_published_revision_columns = cast(
@@ -6069,25 +6187,27 @@ def _read_pdf_published_revision_result(
     with native_result_scope("read_pdf_product", "PdfPublishedRevision"):
         return PdfPublishedRevision(
             build_id=row[0],
-            task_id=row[1],
-            product_key=row[2],
-            logical_digest=row[3],
-            release_id=row[4],
+            task_id=TaskId(row[1]),
+            product_key=ProductKey(row[2]),
+            logical_digest=ContentDigest(row[3]),
+            release_id=ReleaseId(row[4]),
             source_digest=row[5],
             schema_digest=row[6],
             recipe_digest=row[7],
             frozen_digest=row[8],
-            kind=cast(Literal["integrated", "native"], row[9]),
+            kind=cast(PdfPublishedRevisionKind, row[9]),
         )
 
 
 def prepare_read_pdf_published_revision(
     *,
     task_id: TaskId,
-    product_key: str,
-    logical_digest: str,
+    product_key: ProductKey,
+    logical_digest: ContentDigest,
     projection_context: PreparedRelease | None = None,
-) -> Select[str, int, str, str, str, str, str, str, str, str]:
+) -> Select[
+    str, TaskId, ProductKey, ContentDigest, ReleaseId, str, str, str, str, PdfPublishedRevisionKind
+]:
     _request = _read_pdf_published_revisionRequest(
         task_id=task_id,
         product_key=product_key,
@@ -6100,12 +6220,26 @@ def prepare_read_pdf_published_revision(
             "read_pdf_published_revision",
             READ_PDF_PUBLISHED_REVISION_CONTRACT_DIGEST,
         )
-    return _read_pdf_published_revision_statement.params(
-        **{
-            "task_id": _request.task_id,
-            "product_key": _request.product_key,
-            "logical_digest": _request.logical_digest,
-        }
+    return cast(
+        Select[
+            str,
+            TaskId,
+            ProductKey,
+            ContentDigest,
+            ReleaseId,
+            str,
+            str,
+            str,
+            str,
+            PdfPublishedRevisionKind,
+        ],
+        _read_pdf_published_revision_statement.params(
+            **{
+                "task_id": _request.task_id,
+                "product_key": _request.product_key,
+                "logical_digest": _request.logical_digest,
+            }
+        ),
     )
 
 
@@ -6116,8 +6250,8 @@ def read_pdf_published_revision(
     conn: Connection,
     *,
     task_id: TaskId,
-    product_key: str,
-    logical_digest: str,
+    product_key: ProductKey,
+    logical_digest: ContentDigest,
     projection_context: PreparedRelease | None = None,
 ) -> PdfPublishedRevision | None:
     _statement = prepare_read_pdf_published_revision(
@@ -6253,6 +6387,1014 @@ def read_pdf_published_validation(
     with native_result_scope("read_pdf_product", "PdfBuildValidation"):
         row = _native_result.one_or_none()
         return None if row is None else _read_pdf_published_validation_result(row)
+
+
+READ_PUBLISHED_INPUT_BATCH_CONTRACT_DIGEST = (
+    "66c1ec5001c123c1c14025cb1d85e5be8e10135ea84eae596d7c1fdb9f1844fa"
+)
+
+
+class PublishedInputRow(NativeRowResult):
+    input_ordinal: int
+    input_role: PublishedInputRowInputRole
+    input_task_id: int
+    input_product_key: str
+    input_content_digest: str
+    project_id: ProjectId
+    run_id: RunId
+    selection_release_id: ReleaseId
+    producer_release_id: ReleaseId
+    task_id: TaskId
+    product_key: ProductKey
+    content_digest: ContentDigest
+    projection_id: str
+
+
+class _read_published_input_batchRequest(OperationResult):
+    project_id: ProjectId
+    run_id: Annotated[RunId, Field(ge=RunId(-9223372036854775808), le=RunId(9223372036854775807))]
+    selection_release_id: ReleaseId
+    task_id: Annotated[
+        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
+    ]
+    product_key: ProductKey
+    content_digest: ContentDigest
+
+
+_read_published_input_batch_function = func.ops.read_published_input_batch(
+    bindparam("project_id", type_=Text()),
+    bindparam("run_id", type_=BigInteger()),
+    bindparam("selection_release_id", type_=Text()),
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("product_key", type_=Text()),
+    bindparam("content_digest", type_=Text()),
+).table_valued(
+    column("input_ordinal", BigInteger()),
+    column("input_role", Text()),
+    column("input_task_id", BigInteger()),
+    column("input_product_key", Text()),
+    column("input_content_digest", Text()),
+    column("project_id", Text()),
+    column("run_id", BigInteger()),
+    column("selection_release_id", Text()),
+    column("producer_release_id", Text()),
+    column("task_id", BigInteger()),
+    column("product_key", Text()),
+    column("content_digest", Text()),
+    column("projection_id", Text()),
+)
+
+
+class _read_published_input_batchColumns(Protocol):
+    input_ordinal: Column[int]
+    input_role: Column[PublishedInputRowInputRole]
+    input_task_id: Column[int]
+    input_product_key: Column[str]
+    input_content_digest: Column[str]
+    project_id: Column[ProjectId]
+    run_id: Column[RunId]
+    selection_release_id: Column[ReleaseId]
+    producer_release_id: Column[ReleaseId]
+    task_id: Column[TaskId]
+    product_key: Column[ProductKey]
+    content_digest: Column[ContentDigest]
+    projection_id: Column[str]
+
+
+_read_published_input_batch_columns = cast(
+    _read_published_input_batchColumns, _read_published_input_batch_function.c
+)
+_read_published_input_batch_statement = select(
+    _read_published_input_batch_columns.input_ordinal,
+    _read_published_input_batch_columns.input_role,
+    _read_published_input_batch_columns.input_task_id,
+    _read_published_input_batch_columns.input_product_key,
+    _read_published_input_batch_columns.input_content_digest,
+    _read_published_input_batch_columns.project_id,
+    _read_published_input_batch_columns.run_id,
+    _read_published_input_batch_columns.selection_release_id,
+    _read_published_input_batch_columns.producer_release_id,
+    _read_published_input_batch_columns.task_id,
+    _read_published_input_batch_columns.product_key,
+    _read_published_input_batch_columns.content_digest,
+    _read_published_input_batch_columns.projection_id,
+).order_by(
+    _read_published_input_batch_columns.input_ordinal,
+)
+
+
+def _read_published_input_batch_result(
+    row: tuple[int, str, int, str, str, str, int, str, str, int, str, str, str],
+) -> PublishedInputRow:
+    with native_result_scope("read_pdf_product", "PublishedInputRow"):
+        return PublishedInputRow(
+            input_ordinal=row[0],
+            input_role=cast(PublishedInputRowInputRole, row[1]),
+            input_task_id=row[2],
+            input_product_key=row[3],
+            input_content_digest=row[4],
+            project_id=ProjectId(row[5]),
+            run_id=RunId(row[6]),
+            selection_release_id=ReleaseId(row[7]),
+            producer_release_id=ReleaseId(row[8]),
+            task_id=TaskId(row[9]),
+            product_key=ProductKey(row[10]),
+            content_digest=ContentDigest(row[11]),
+            projection_id=row[12],
+        )
+
+
+def prepare_read_published_input_batch(
+    *,
+    project_id: ProjectId,
+    run_id: RunId,
+    selection_release_id: ReleaseId,
+    task_id: TaskId,
+    product_key: ProductKey,
+    content_digest: ContentDigest,
+    projection_context: PreparedRelease | None = None,
+) -> Select[
+    int,
+    PublishedInputRowInputRole,
+    int,
+    str,
+    str,
+    ProjectId,
+    RunId,
+    ReleaseId,
+    ReleaseId,
+    TaskId,
+    ProductKey,
+    ContentDigest,
+    str,
+]:
+    _request = _read_published_input_batchRequest(
+        project_id=project_id,
+        run_id=run_id,
+        selection_release_id=selection_release_id,
+        task_id=task_id,
+        product_key=product_key,
+        content_digest=content_digest,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "read_pdf_product",
+            "read_published_input_batch",
+            READ_PUBLISHED_INPUT_BATCH_CONTRACT_DIGEST,
+        )
+    return cast(
+        Select[
+            int,
+            PublishedInputRowInputRole,
+            int,
+            str,
+            str,
+            ProjectId,
+            RunId,
+            ReleaseId,
+            ReleaseId,
+            TaskId,
+            ProductKey,
+            ContentDigest,
+            str,
+        ],
+        _read_published_input_batch_statement.params(
+            **{
+                "project_id": _request.project_id,
+                "run_id": _request.run_id,
+                "selection_release_id": _request.selection_release_id,
+                "task_id": _request.task_id,
+                "product_key": _request.product_key,
+                "content_digest": _request.content_digest,
+            }
+        ),
+    )
+
+
+materialize_read_published_input_batch = _read_published_input_batch_result
+
+
+def read_published_input_batch(
+    conn: Connection,
+    *,
+    project_id: ProjectId,
+    run_id: RunId,
+    selection_release_id: ReleaseId,
+    task_id: TaskId,
+    product_key: ProductKey,
+    content_digest: ContentDigest,
+    projection_context: PreparedRelease | None = None,
+) -> tuple[PublishedInputRow, ...]:
+    _statement = prepare_read_published_input_batch(
+        project_id=project_id,
+        run_id=run_id,
+        selection_release_id=selection_release_id,
+        task_id=task_id,
+        product_key=product_key,
+        content_digest=content_digest,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("read_pdf_product", "PublishedInputRow"):
+        return tuple(_read_published_input_batch_result(row) for row in _native_result)
+
+
+READ_PUBLISHED_RELATION_BATCH_CONTRACT_DIGEST = (
+    "85183c02fa9d5c9773b37b60466a3a7c673630ce9e9f5a5e228ba81739bcffab"
+)
+
+
+class PublishedRelationRow(NativeRowResult):
+    relation_id: str
+    relation_kind: PublishedRelationRowRelationKind
+    relation_outcome: str
+    comparison: PublishedRelationRowComparison
+    policy: str
+    evidence: str
+    endpoint_ordinal: int
+    endpoint_role: PublishedRelationRowEndpointRole
+    target_task_id: int
+    target_product_key: str
+    target_content_digest: str
+    target_occurrence_id: str
+    project_id: ProjectId
+    run_id: RunId
+    selection_release_id: ReleaseId
+    producer_release_id: ReleaseId
+    task_id: TaskId
+    product_key: ProductKey
+    content_digest: ContentDigest
+    projection_id: str
+
+
+class _read_published_relation_batchRequest(OperationResult):
+    project_id: ProjectId
+    run_id: Annotated[RunId, Field(ge=RunId(-9223372036854775808), le=RunId(9223372036854775807))]
+    selection_release_id: ReleaseId
+    task_id: Annotated[
+        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
+    ]
+    product_key: ProductKey
+    content_digest: ContentDigest
+
+
+_read_published_relation_batch_function = func.ops.read_published_relation_batch(
+    bindparam("project_id", type_=Text()),
+    bindparam("run_id", type_=BigInteger()),
+    bindparam("selection_release_id", type_=Text()),
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("product_key", type_=Text()),
+    bindparam("content_digest", type_=Text()),
+).table_valued(
+    column("relation_id", Text()),
+    column("relation_kind", Text()),
+    column("relation_outcome", Text()),
+    column("comparison", Text()),
+    column("policy", Text()),
+    column("evidence", Text()),
+    column("endpoint_ordinal", BigInteger()),
+    column("endpoint_role", Text()),
+    column("target_task_id", BigInteger()),
+    column("target_product_key", Text()),
+    column("target_content_digest", Text()),
+    column("target_occurrence_id", Text()),
+    column("project_id", Text()),
+    column("run_id", BigInteger()),
+    column("selection_release_id", Text()),
+    column("producer_release_id", Text()),
+    column("task_id", BigInteger()),
+    column("product_key", Text()),
+    column("content_digest", Text()),
+    column("projection_id", Text()),
+)
+
+
+class _read_published_relation_batchColumns(Protocol):
+    relation_id: Column[str]
+    relation_kind: Column[PublishedRelationRowRelationKind]
+    relation_outcome: Column[str]
+    comparison: Column[PublishedRelationRowComparison]
+    policy: Column[str]
+    evidence: Column[str]
+    endpoint_ordinal: Column[int]
+    endpoint_role: Column[PublishedRelationRowEndpointRole]
+    target_task_id: Column[int]
+    target_product_key: Column[str]
+    target_content_digest: Column[str]
+    target_occurrence_id: Column[str]
+    project_id: Column[ProjectId]
+    run_id: Column[RunId]
+    selection_release_id: Column[ReleaseId]
+    producer_release_id: Column[ReleaseId]
+    task_id: Column[TaskId]
+    product_key: Column[ProductKey]
+    content_digest: Column[ContentDigest]
+    projection_id: Column[str]
+
+
+_read_published_relation_batch_columns = cast(
+    _read_published_relation_batchColumns, _read_published_relation_batch_function.c
+)
+_read_published_relation_batch_statement = select(
+    _read_published_relation_batch_columns.relation_id,
+    _read_published_relation_batch_columns.relation_kind,
+    _read_published_relation_batch_columns.relation_outcome,
+    _read_published_relation_batch_columns.comparison,
+    _read_published_relation_batch_columns.policy,
+    _read_published_relation_batch_columns.evidence,
+    _read_published_relation_batch_columns.endpoint_ordinal,
+    _read_published_relation_batch_columns.endpoint_role,
+    _read_published_relation_batch_columns.target_task_id,
+    _read_published_relation_batch_columns.target_product_key,
+    _read_published_relation_batch_columns.target_content_digest,
+    _read_published_relation_batch_columns.target_occurrence_id,
+    _read_published_relation_batch_columns.project_id,
+    _read_published_relation_batch_columns.run_id,
+    _read_published_relation_batch_columns.selection_release_id,
+    _read_published_relation_batch_columns.producer_release_id,
+    _read_published_relation_batch_columns.task_id,
+    _read_published_relation_batch_columns.product_key,
+    _read_published_relation_batch_columns.content_digest,
+    _read_published_relation_batch_columns.projection_id,
+).order_by(
+    _read_published_relation_batch_columns.relation_id.collate("C"),
+    _read_published_relation_batch_columns.endpoint_ordinal,
+)
+
+
+def _read_published_relation_batch_result(
+    row: tuple[
+        str,
+        str,
+        str,
+        str,
+        str,
+        str,
+        int,
+        str,
+        int,
+        str,
+        str,
+        str,
+        str,
+        int,
+        str,
+        str,
+        int,
+        str,
+        str,
+        str,
+    ],
+) -> PublishedRelationRow:
+    with native_result_scope("read_pdf_product", "PublishedRelationRow"):
+        return PublishedRelationRow(
+            relation_id=row[0],
+            relation_kind=cast(PublishedRelationRowRelationKind, row[1]),
+            relation_outcome=row[2],
+            comparison=cast(PublishedRelationRowComparison, row[3]),
+            policy=row[4],
+            evidence=row[5],
+            endpoint_ordinal=row[6],
+            endpoint_role=cast(PublishedRelationRowEndpointRole, row[7]),
+            target_task_id=row[8],
+            target_product_key=row[9],
+            target_content_digest=row[10],
+            target_occurrence_id=row[11],
+            project_id=ProjectId(row[12]),
+            run_id=RunId(row[13]),
+            selection_release_id=ReleaseId(row[14]),
+            producer_release_id=ReleaseId(row[15]),
+            task_id=TaskId(row[16]),
+            product_key=ProductKey(row[17]),
+            content_digest=ContentDigest(row[18]),
+            projection_id=row[19],
+        )
+
+
+def prepare_read_published_relation_batch(
+    *,
+    project_id: ProjectId,
+    run_id: RunId,
+    selection_release_id: ReleaseId,
+    task_id: TaskId,
+    product_key: ProductKey,
+    content_digest: ContentDigest,
+    projection_context: PreparedRelease | None = None,
+) -> Select[
+    str,
+    PublishedRelationRowRelationKind,
+    str,
+    PublishedRelationRowComparison,
+    str,
+    str,
+    int,
+    PublishedRelationRowEndpointRole,
+    int,
+    str,
+    str,
+    str,
+    ProjectId,
+    RunId,
+    ReleaseId,
+    ReleaseId,
+    TaskId,
+    ProductKey,
+    ContentDigest,
+    str,
+]:
+    _request = _read_published_relation_batchRequest(
+        project_id=project_id,
+        run_id=run_id,
+        selection_release_id=selection_release_id,
+        task_id=task_id,
+        product_key=product_key,
+        content_digest=content_digest,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "read_pdf_product",
+            "read_published_relation_batch",
+            READ_PUBLISHED_RELATION_BATCH_CONTRACT_DIGEST,
+        )
+    return cast(
+        Select[
+            str,
+            PublishedRelationRowRelationKind,
+            str,
+            PublishedRelationRowComparison,
+            str,
+            str,
+            int,
+            PublishedRelationRowEndpointRole,
+            int,
+            str,
+            str,
+            str,
+            ProjectId,
+            RunId,
+            ReleaseId,
+            ReleaseId,
+            TaskId,
+            ProductKey,
+            ContentDigest,
+            str,
+        ],
+        _read_published_relation_batch_statement.params(
+            **{
+                "project_id": _request.project_id,
+                "run_id": _request.run_id,
+                "selection_release_id": _request.selection_release_id,
+                "task_id": _request.task_id,
+                "product_key": _request.product_key,
+                "content_digest": _request.content_digest,
+            }
+        ),
+    )
+
+
+materialize_read_published_relation_batch = _read_published_relation_batch_result
+
+
+def read_published_relation_batch(
+    conn: Connection,
+    *,
+    project_id: ProjectId,
+    run_id: RunId,
+    selection_release_id: ReleaseId,
+    task_id: TaskId,
+    product_key: ProductKey,
+    content_digest: ContentDigest,
+    projection_context: PreparedRelease | None = None,
+) -> tuple[PublishedRelationRow, ...]:
+    _statement = prepare_read_published_relation_batch(
+        project_id=project_id,
+        run_id=run_id,
+        selection_release_id=selection_release_id,
+        task_id=task_id,
+        product_key=product_key,
+        content_digest=content_digest,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("read_pdf_product", "PublishedRelationRow"):
+        return tuple(_read_published_relation_batch_result(row) for row in _native_result)
+
+
+READ_PUBLISHED_COVERAGE_BATCH_CONTRACT_DIGEST = (
+    "7cffcaaae89363cadc933728e85637cd0a0e7edbb71361bfc48750ad63dc3059"
+)
+
+
+class PublishedCoverageRow(NativeRowResult):
+    __json_fields__ = ("supports_json",)
+    coverage_id: str
+    scope: str
+    coverage_family: str
+    discovery_policy: str
+    outcome: PublishedCoverageRowOutcome
+    detail: str
+    supports_json: str | None
+    project_id: ProjectId
+    run_id: RunId
+    selection_release_id: ReleaseId
+    producer_release_id: ReleaseId
+    task_id: TaskId
+    product_key: ProductKey
+    content_digest: ContentDigest
+    projection_id: str
+
+
+class _read_published_coverage_batchRequest(OperationResult):
+    project_id: ProjectId
+    run_id: Annotated[RunId, Field(ge=RunId(-9223372036854775808), le=RunId(9223372036854775807))]
+    selection_release_id: ReleaseId
+    task_id: Annotated[
+        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
+    ]
+    product_key: ProductKey
+    content_digest: ContentDigest
+
+
+_read_published_coverage_batch_function = func.ops.read_published_coverage_batch(
+    bindparam("project_id", type_=Text()),
+    bindparam("run_id", type_=BigInteger()),
+    bindparam("selection_release_id", type_=Text()),
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("product_key", type_=Text()),
+    bindparam("content_digest", type_=Text()),
+).table_valued(
+    column("coverage_id", Text()),
+    column("scope", Text()),
+    column("coverage_family", Text()),
+    column("discovery_policy", Text()),
+    column("outcome", Text()),
+    column("detail", Text()),
+    column("supports_json", JSONB(none_as_null=True)),
+    column("project_id", Text()),
+    column("run_id", BigInteger()),
+    column("selection_release_id", Text()),
+    column("producer_release_id", Text()),
+    column("task_id", BigInteger()),
+    column("product_key", Text()),
+    column("content_digest", Text()),
+    column("projection_id", Text()),
+)
+
+
+class _read_published_coverage_batchColumns(Protocol):
+    coverage_id: Column[str]
+    scope: Column[str]
+    coverage_family: Column[str]
+    discovery_policy: Column[str]
+    outcome: Column[PublishedCoverageRowOutcome]
+    detail: Column[str]
+    supports_json: Column[JsonValue | None]
+    project_id: Column[ProjectId]
+    run_id: Column[RunId]
+    selection_release_id: Column[ReleaseId]
+    producer_release_id: Column[ReleaseId]
+    task_id: Column[TaskId]
+    product_key: Column[ProductKey]
+    content_digest: Column[ContentDigest]
+    projection_id: Column[str]
+
+
+_read_published_coverage_batch_columns = cast(
+    _read_published_coverage_batchColumns, _read_published_coverage_batch_function.c
+)
+_read_published_coverage_batch_statement = select(
+    _read_published_coverage_batch_columns.coverage_id,
+    _read_published_coverage_batch_columns.scope,
+    _read_published_coverage_batch_columns.coverage_family,
+    _read_published_coverage_batch_columns.discovery_policy,
+    _read_published_coverage_batch_columns.outcome,
+    _read_published_coverage_batch_columns.detail,
+    _read_published_coverage_batch_columns.supports_json.cast(Text()).label("supports_json"),
+    _read_published_coverage_batch_columns.project_id,
+    _read_published_coverage_batch_columns.run_id,
+    _read_published_coverage_batch_columns.selection_release_id,
+    _read_published_coverage_batch_columns.producer_release_id,
+    _read_published_coverage_batch_columns.task_id,
+    _read_published_coverage_batch_columns.product_key,
+    _read_published_coverage_batch_columns.content_digest,
+    _read_published_coverage_batch_columns.projection_id,
+).order_by(
+    _read_published_coverage_batch_columns.coverage_id.collate("C"),
+)
+
+
+def _read_published_coverage_batch_result(
+    row: tuple[str, str, str, str, str, str, str | None, str, int, str, str, int, str, str, str],
+) -> PublishedCoverageRow:
+    with native_result_scope("read_pdf_product", "PublishedCoverageRow"):
+        return PublishedCoverageRow(
+            coverage_id=row[0],
+            scope=row[1],
+            coverage_family=row[2],
+            discovery_policy=row[3],
+            outcome=cast(PublishedCoverageRowOutcome, row[4]),
+            detail=row[5],
+            supports_json=row[6],
+            project_id=ProjectId(row[7]),
+            run_id=RunId(row[8]),
+            selection_release_id=ReleaseId(row[9]),
+            producer_release_id=ReleaseId(row[10]),
+            task_id=TaskId(row[11]),
+            product_key=ProductKey(row[12]),
+            content_digest=ContentDigest(row[13]),
+            projection_id=row[14],
+        )
+
+
+def prepare_read_published_coverage_batch(
+    *,
+    project_id: ProjectId,
+    run_id: RunId,
+    selection_release_id: ReleaseId,
+    task_id: TaskId,
+    product_key: ProductKey,
+    content_digest: ContentDigest,
+    projection_context: PreparedRelease | None = None,
+) -> Select[
+    str,
+    str,
+    str,
+    str,
+    PublishedCoverageRowOutcome,
+    str,
+    str | None,
+    ProjectId,
+    RunId,
+    ReleaseId,
+    ReleaseId,
+    TaskId,
+    ProductKey,
+    ContentDigest,
+    str,
+]:
+    _request = _read_published_coverage_batchRequest(
+        project_id=project_id,
+        run_id=run_id,
+        selection_release_id=selection_release_id,
+        task_id=task_id,
+        product_key=product_key,
+        content_digest=content_digest,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "read_pdf_product",
+            "read_published_coverage_batch",
+            READ_PUBLISHED_COVERAGE_BATCH_CONTRACT_DIGEST,
+        )
+    return cast(
+        Select[
+            str,
+            str,
+            str,
+            str,
+            PublishedCoverageRowOutcome,
+            str,
+            str | None,
+            ProjectId,
+            RunId,
+            ReleaseId,
+            ReleaseId,
+            TaskId,
+            ProductKey,
+            ContentDigest,
+            str,
+        ],
+        _read_published_coverage_batch_statement.params(
+            **{
+                "project_id": _request.project_id,
+                "run_id": _request.run_id,
+                "selection_release_id": _request.selection_release_id,
+                "task_id": _request.task_id,
+                "product_key": _request.product_key,
+                "content_digest": _request.content_digest,
+            }
+        ),
+    )
+
+
+materialize_read_published_coverage_batch = _read_published_coverage_batch_result
+
+
+def read_published_coverage_batch(
+    conn: Connection,
+    *,
+    project_id: ProjectId,
+    run_id: RunId,
+    selection_release_id: ReleaseId,
+    task_id: TaskId,
+    product_key: ProductKey,
+    content_digest: ContentDigest,
+    projection_context: PreparedRelease | None = None,
+) -> tuple[PublishedCoverageRow, ...]:
+    _statement = prepare_read_published_coverage_batch(
+        project_id=project_id,
+        run_id=run_id,
+        selection_release_id=selection_release_id,
+        task_id=task_id,
+        product_key=product_key,
+        content_digest=content_digest,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("read_pdf_product", "PublishedCoverageRow"):
+        return tuple(_read_published_coverage_batch_result(row) for row in _native_result)
+
+
+READ_PUBLISHED_MAPPING_REPORT_BATCH_CONTRACT_DIGEST = (
+    "79b851bf3718b58cec299005219de449c7f44cf1afb6788d1642d2d2b9028529"
+)
+
+
+class PublishedMappingReportRow(NativeRowResult):
+    report_ordinal: int
+    input_index: int
+    input_task_id: int
+    input_product_key: str
+    input_content_digest: str
+    occurrence_id: str | None
+    outcome: PublishedMappingReportRowOutcome
+    label: str | None
+    reason: str | None
+    raw_start: int | None
+    coordinate_frame: str | None
+    coordinate_scale: float | None
+    normalization: PublishedMappingReportRowNormalization | None
+    project_id: ProjectId
+    run_id: RunId
+    selection_release_id: ReleaseId
+    producer_release_id: ReleaseId
+    task_id: TaskId
+    product_key: ProductKey
+    content_digest: ContentDigest
+    projection_id: str
+
+
+class _read_published_mapping_report_batchRequest(OperationResult):
+    project_id: ProjectId
+    run_id: Annotated[RunId, Field(ge=RunId(-9223372036854775808), le=RunId(9223372036854775807))]
+    selection_release_id: ReleaseId
+    task_id: Annotated[
+        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
+    ]
+    product_key: ProductKey
+    content_digest: ContentDigest
+
+
+_read_published_mapping_report_batch_function = func.ops.read_published_mapping_report_batch(
+    bindparam("project_id", type_=Text()),
+    bindparam("run_id", type_=BigInteger()),
+    bindparam("selection_release_id", type_=Text()),
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("product_key", type_=Text()),
+    bindparam("content_digest", type_=Text()),
+).table_valued(
+    column("report_ordinal", BigInteger()),
+    column("input_index", BigInteger()),
+    column("input_task_id", BigInteger()),
+    column("input_product_key", Text()),
+    column("input_content_digest", Text()),
+    column("occurrence_id", Text()),
+    column("outcome", Text()),
+    column("label", Text()),
+    column("reason", Text()),
+    column("raw_start", BigInteger()),
+    column("coordinate_frame", Text()),
+    column("coordinate_scale", Float()),
+    column("normalization", Text()),
+    column("project_id", Text()),
+    column("run_id", BigInteger()),
+    column("selection_release_id", Text()),
+    column("producer_release_id", Text()),
+    column("task_id", BigInteger()),
+    column("product_key", Text()),
+    column("content_digest", Text()),
+    column("projection_id", Text()),
+)
+
+
+class _read_published_mapping_report_batchColumns(Protocol):
+    report_ordinal: Column[int]
+    input_index: Column[int]
+    input_task_id: Column[int]
+    input_product_key: Column[str]
+    input_content_digest: Column[str]
+    occurrence_id: Column[str | None]
+    outcome: Column[PublishedMappingReportRowOutcome]
+    label: Column[str | None]
+    reason: Column[str | None]
+    raw_start: Column[int | None]
+    coordinate_frame: Column[str | None]
+    coordinate_scale: Column[float | None]
+    normalization: Column[PublishedMappingReportRowNormalization | None]
+    project_id: Column[ProjectId]
+    run_id: Column[RunId]
+    selection_release_id: Column[ReleaseId]
+    producer_release_id: Column[ReleaseId]
+    task_id: Column[TaskId]
+    product_key: Column[ProductKey]
+    content_digest: Column[ContentDigest]
+    projection_id: Column[str]
+
+
+_read_published_mapping_report_batch_columns = cast(
+    _read_published_mapping_report_batchColumns, _read_published_mapping_report_batch_function.c
+)
+_read_published_mapping_report_batch_statement = select(
+    _read_published_mapping_report_batch_columns.report_ordinal,
+    _read_published_mapping_report_batch_columns.input_index,
+    _read_published_mapping_report_batch_columns.input_task_id,
+    _read_published_mapping_report_batch_columns.input_product_key,
+    _read_published_mapping_report_batch_columns.input_content_digest,
+    _read_published_mapping_report_batch_columns.occurrence_id,
+    _read_published_mapping_report_batch_columns.outcome,
+    _read_published_mapping_report_batch_columns.label,
+    _read_published_mapping_report_batch_columns.reason,
+    _read_published_mapping_report_batch_columns.raw_start,
+    _read_published_mapping_report_batch_columns.coordinate_frame,
+    _read_published_mapping_report_batch_columns.coordinate_scale,
+    _read_published_mapping_report_batch_columns.normalization,
+    _read_published_mapping_report_batch_columns.project_id,
+    _read_published_mapping_report_batch_columns.run_id,
+    _read_published_mapping_report_batch_columns.selection_release_id,
+    _read_published_mapping_report_batch_columns.producer_release_id,
+    _read_published_mapping_report_batch_columns.task_id,
+    _read_published_mapping_report_batch_columns.product_key,
+    _read_published_mapping_report_batch_columns.content_digest,
+    _read_published_mapping_report_batch_columns.projection_id,
+).order_by(
+    _read_published_mapping_report_batch_columns.report_ordinal,
+)
+
+
+def _read_published_mapping_report_batch_result(
+    row: tuple[
+        int,
+        int,
+        int,
+        str,
+        str,
+        str | None,
+        str,
+        str | None,
+        str | None,
+        int | None,
+        str | None,
+        float | None,
+        str | None,
+        str,
+        int,
+        str,
+        str,
+        int,
+        str,
+        str,
+        str,
+    ],
+) -> PublishedMappingReportRow:
+    with native_result_scope("read_pdf_product", "PublishedMappingReportRow"):
+        return PublishedMappingReportRow(
+            report_ordinal=row[0],
+            input_index=row[1],
+            input_task_id=row[2],
+            input_product_key=row[3],
+            input_content_digest=row[4],
+            occurrence_id=row[5],
+            outcome=cast(PublishedMappingReportRowOutcome, row[6]),
+            label=row[7],
+            reason=row[8],
+            raw_start=row[9],
+            coordinate_frame=row[10],
+            coordinate_scale=row[11],
+            normalization=cast(PublishedMappingReportRowNormalization, row[12]),
+            project_id=ProjectId(row[13]),
+            run_id=RunId(row[14]),
+            selection_release_id=ReleaseId(row[15]),
+            producer_release_id=ReleaseId(row[16]),
+            task_id=TaskId(row[17]),
+            product_key=ProductKey(row[18]),
+            content_digest=ContentDigest(row[19]),
+            projection_id=row[20],
+        )
+
+
+def prepare_read_published_mapping_report_batch(
+    *,
+    project_id: ProjectId,
+    run_id: RunId,
+    selection_release_id: ReleaseId,
+    task_id: TaskId,
+    product_key: ProductKey,
+    content_digest: ContentDigest,
+    projection_context: PreparedRelease | None = None,
+) -> Select[
+    int,
+    int,
+    int,
+    str,
+    str,
+    str | None,
+    PublishedMappingReportRowOutcome,
+    str | None,
+    str | None,
+    int | None,
+    str | None,
+    float | None,
+    PublishedMappingReportRowNormalization | None,
+    ProjectId,
+    RunId,
+    ReleaseId,
+    ReleaseId,
+    TaskId,
+    ProductKey,
+    ContentDigest,
+    str,
+]:
+    _request = _read_published_mapping_report_batchRequest(
+        project_id=project_id,
+        run_id=run_id,
+        selection_release_id=selection_release_id,
+        task_id=task_id,
+        product_key=product_key,
+        content_digest=content_digest,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "read_pdf_product",
+            "read_published_mapping_report_batch",
+            READ_PUBLISHED_MAPPING_REPORT_BATCH_CONTRACT_DIGEST,
+        )
+    return cast(
+        Select[
+            int,
+            int,
+            int,
+            str,
+            str,
+            str | None,
+            PublishedMappingReportRowOutcome,
+            str | None,
+            str | None,
+            int | None,
+            str | None,
+            float | None,
+            PublishedMappingReportRowNormalization | None,
+            ProjectId,
+            RunId,
+            ReleaseId,
+            ReleaseId,
+            TaskId,
+            ProductKey,
+            ContentDigest,
+            str,
+        ],
+        _read_published_mapping_report_batch_statement.params(
+            **{
+                "project_id": _request.project_id,
+                "run_id": _request.run_id,
+                "selection_release_id": _request.selection_release_id,
+                "task_id": _request.task_id,
+                "product_key": _request.product_key,
+                "content_digest": _request.content_digest,
+            }
+        ),
+    )
+
+
+materialize_read_published_mapping_report_batch = _read_published_mapping_report_batch_result
+
+
+def read_published_mapping_report_batch(
+    conn: Connection,
+    *,
+    project_id: ProjectId,
+    run_id: RunId,
+    selection_release_id: ReleaseId,
+    task_id: TaskId,
+    product_key: ProductKey,
+    content_digest: ContentDigest,
+    projection_context: PreparedRelease | None = None,
+) -> tuple[PublishedMappingReportRow, ...]:
+    _statement = prepare_read_published_mapping_report_batch(
+        project_id=project_id,
+        run_id=run_id,
+        selection_release_id=selection_release_id,
+        task_id=task_id,
+        product_key=product_key,
+        content_digest=content_digest,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("read_pdf_product", "PublishedMappingReportRow"):
+        return tuple(_read_published_mapping_report_batch_result(row) for row in _native_result)
 
 
 FREEZE_PDF_BUILD_CONTRACT_DIGEST = (
@@ -7092,7 +8234,7 @@ def read_pdf_frozen_rows(
         return tuple(materialize_read_pdf_frozen_rows(row) for row in _native_result)
 
 
-SEAL_PDF_BUILD_CONTRACT_DIGEST = "53e9a5363ad8a7a486ec6684c3d162d9bd6897d0a14c08ee986a45660e5f7093"
+SEAL_PDF_BUILD_CONTRACT_DIGEST = "83ecede61921a9439622ad0784993102a5cd59c97f14479ec8723b06031f64f7"
 
 
 class _seal_pdf_buildRequest(OperationResult):
@@ -7106,7 +8248,7 @@ class _seal_pdf_buildRequest(OperationResult):
     ]
     holder: str
     frozen_digest: str
-    product_key: str
+    product_key: ProductKey
 
 
 _seal_pdf_build_function = func.ops.seal_pdf_build(
@@ -7132,15 +8274,15 @@ _seal_pdf_build_function = func.ops.seal_pdf_build(
 
 class _seal_pdf_buildColumns(Protocol):
     build_id: Column[str]
-    task_id: Column[int]
-    product_key: Column[str]
-    logical_digest: Column[str]
-    release_id: Column[str]
+    task_id: Column[TaskId]
+    product_key: Column[ProductKey]
+    logical_digest: Column[ContentDigest]
+    release_id: Column[ReleaseId]
     source_digest: Column[str]
     schema_digest: Column[str]
     recipe_digest: Column[str]
     frozen_digest: Column[str]
-    kind: Column[str]
+    kind: Column[PdfPublishedRevisionKind]
 
 
 _seal_pdf_build_columns = cast(_seal_pdf_buildColumns, _seal_pdf_build_function.c)
@@ -7164,15 +8306,15 @@ def _seal_pdf_build_result(
     with native_result_scope("seal_pdf_build", "PdfPublishedRevision"):
         return PdfPublishedRevision(
             build_id=row[0],
-            task_id=row[1],
-            product_key=row[2],
-            logical_digest=row[3],
-            release_id=row[4],
+            task_id=TaskId(row[1]),
+            product_key=ProductKey(row[2]),
+            logical_digest=ContentDigest(row[3]),
+            release_id=ReleaseId(row[4]),
             source_digest=row[5],
             schema_digest=row[6],
             recipe_digest=row[7],
             frozen_digest=row[8],
-            kind=cast(Literal["integrated", "native"], row[9]),
+            kind=cast(PdfPublishedRevisionKind, row[9]),
         )
 
 
@@ -7183,9 +8325,11 @@ def prepare_seal_pdf_build(
     attempt: TaskAttempt,
     holder: str,
     frozen_digest: str,
-    product_key: str,
+    product_key: ProductKey,
     projection_context: PreparedRelease | None = None,
-) -> Select[str, int, str, str, str, str, str, str, str, str]:
+) -> Select[
+    str, TaskId, ProductKey, ContentDigest, ReleaseId, str, str, str, str, PdfPublishedRevisionKind
+]:
     _request = _seal_pdf_buildRequest(
         build_id=build_id,
         task_id=task_id,
@@ -7198,15 +8342,29 @@ def prepare_seal_pdf_build(
         require_call_context(
             projection_context, "seal_pdf_build", "seal_pdf_build", SEAL_PDF_BUILD_CONTRACT_DIGEST
         )
-    return _seal_pdf_build_statement.params(
-        **{
-            "build_id": _request.build_id,
-            "task_id": _request.task_id,
-            "attempt": _request.attempt,
-            "holder": _request.holder,
-            "frozen_digest": _request.frozen_digest,
-            "product_key": _request.product_key,
-        }
+    return cast(
+        Select[
+            str,
+            TaskId,
+            ProductKey,
+            ContentDigest,
+            ReleaseId,
+            str,
+            str,
+            str,
+            str,
+            PdfPublishedRevisionKind,
+        ],
+        _seal_pdf_build_statement.params(
+            **{
+                "build_id": _request.build_id,
+                "task_id": _request.task_id,
+                "attempt": _request.attempt,
+                "holder": _request.holder,
+                "frozen_digest": _request.frozen_digest,
+                "product_key": _request.product_key,
+            }
+        ),
     )
 
 
@@ -7221,7 +8379,7 @@ def seal_pdf_build(
     attempt: TaskAttempt,
     holder: str,
     frozen_digest: str,
-    product_key: str,
+    product_key: ProductKey,
     projection_context: PreparedRelease | None = None,
 ) -> PdfPublishedRevision:
     _statement = prepare_seal_pdf_build(
@@ -7254,7 +8412,7 @@ class PdfStageBuild(NativeRowResult):
     replay_key: str
     attempt: int
     holder: str
-    state: Literal["abandoned", "frozen", "open", "published"]
+    state: PdfStageBuildState
 
 
 class _lookup_pdf_buildRequest(OperationResult):
@@ -7300,7 +8458,7 @@ class _lookup_pdf_buildColumns(Protocol):
     replay_key: Column[str]
     attempt: Column[int]
     holder: Column[str]
-    state: Column[str]
+    state: Column[PdfStageBuildState]
 
 
 _lookup_pdf_build_columns = cast(_lookup_pdf_buildColumns, _lookup_pdf_build_function.c)
@@ -7334,7 +8492,7 @@ def _lookup_pdf_build_result(
             replay_key=row[7],
             attempt=row[8],
             holder=row[9],
-            state=cast(Literal["abandoned", "frozen", "open", "published"], row[10]),
+            state=cast(PdfStageBuildState, row[10]),
         )
 
 
@@ -7345,7 +8503,7 @@ def prepare_lookup_pdf_build(
     holder: str,
     replay_key: str,
     projection_context: PreparedRelease | None = None,
-) -> Select[str, int, int, str, str, str, str, str, int, str, str]:
+) -> Select[str, int, int, str, str, str, str, str, int, str, PdfStageBuildState]:
     _request = _lookup_pdf_buildRequest(
         task_id=task_id,
         attempt=attempt,
@@ -7359,13 +8517,16 @@ def prepare_lookup_pdf_build(
             "lookup_pdf_build",
             LOOKUP_PDF_BUILD_CONTRACT_DIGEST,
         )
-    return _lookup_pdf_build_statement.params(
-        **{
-            "task_id": _request.task_id,
-            "attempt": _request.attempt,
-            "holder": _request.holder,
-            "replay_key": _request.replay_key,
-        }
+    return cast(
+        Select[str, int, int, str, str, str, str, str, int, str, PdfStageBuildState],
+        _lookup_pdf_build_statement.params(
+            **{
+                "task_id": _request.task_id,
+                "attempt": _request.attempt,
+                "holder": _request.holder,
+                "replay_key": _request.replay_key,
+            }
+        ),
     )
 
 
@@ -7581,7 +8742,7 @@ def lookup_pdf_frozen_kind(
 
 
 LOOKUP_PDF_PUBLISHED_BUILD_CONTRACT_DIGEST = (
-    "4f7afefa6996354b819cbfe523ede5b46b85b6eaaa79fab548dc7997f3cbacbf"
+    "99cd677ade90b7694300c22c1d5cba858e1bc77a2348669b1a2755d5d57d0c54"
 )
 
 
@@ -7618,15 +8779,15 @@ _lookup_pdf_published_build_function = func.ops.lookup_pdf_published_build(
 
 class _lookup_pdf_published_buildColumns(Protocol):
     build_id: Column[str]
-    task_id: Column[int]
-    product_key: Column[str]
-    logical_digest: Column[str]
-    release_id: Column[str]
+    task_id: Column[TaskId]
+    product_key: Column[ProductKey]
+    logical_digest: Column[ContentDigest]
+    release_id: Column[ReleaseId]
     source_digest: Column[str]
     schema_digest: Column[str]
     recipe_digest: Column[str]
     frozen_digest: Column[str]
-    kind: Column[str]
+    kind: Column[PdfPublishedRevisionKind]
 
 
 _lookup_pdf_published_build_columns = cast(
@@ -7652,15 +8813,15 @@ def _lookup_pdf_published_build_result(
     with native_result_scope("inspect_pdf_build", "PdfPublishedRevision"):
         return PdfPublishedRevision(
             build_id=row[0],
-            task_id=row[1],
-            product_key=row[2],
-            logical_digest=row[3],
-            release_id=row[4],
+            task_id=TaskId(row[1]),
+            product_key=ProductKey(row[2]),
+            logical_digest=ContentDigest(row[3]),
+            release_id=ReleaseId(row[4]),
             source_digest=row[5],
             schema_digest=row[6],
             recipe_digest=row[7],
             frozen_digest=row[8],
-            kind=cast(Literal["integrated", "native"], row[9]),
+            kind=cast(PdfPublishedRevisionKind, row[9]),
         )
 
 
@@ -7671,7 +8832,9 @@ def prepare_lookup_pdf_published_build(
     attempt: TaskAttempt,
     holder: str,
     projection_context: PreparedRelease | None = None,
-) -> Select[str, int, str, str, str, str, str, str, str, str]:
+) -> Select[
+    str, TaskId, ProductKey, ContentDigest, ReleaseId, str, str, str, str, PdfPublishedRevisionKind
+]:
     _request = _lookup_pdf_published_buildRequest(
         build_id=build_id,
         task_id=task_id,
@@ -7685,13 +8848,27 @@ def prepare_lookup_pdf_published_build(
             "lookup_pdf_published_build",
             LOOKUP_PDF_PUBLISHED_BUILD_CONTRACT_DIGEST,
         )
-    return _lookup_pdf_published_build_statement.params(
-        **{
-            "build_id": _request.build_id,
-            "task_id": _request.task_id,
-            "attempt": _request.attempt,
-            "holder": _request.holder,
-        }
+    return cast(
+        Select[
+            str,
+            TaskId,
+            ProductKey,
+            ContentDigest,
+            ReleaseId,
+            str,
+            str,
+            str,
+            str,
+            PdfPublishedRevisionKind,
+        ],
+        _lookup_pdf_published_build_statement.params(
+            **{
+                "build_id": _request.build_id,
+                "task_id": _request.task_id,
+                "attempt": _request.attempt,
+                "holder": _request.holder,
+            }
+        ),
     )
 
 
@@ -8016,7 +9193,7 @@ class _begin_pdf_buildColumns(Protocol):
     replay_key: Column[str]
     attempt: Column[int]
     holder: Column[str]
-    state: Column[str]
+    state: Column[PdfStageBuildState]
 
 
 _begin_pdf_build_columns = cast(_begin_pdf_buildColumns, _begin_pdf_build_function.c)
@@ -8050,7 +9227,7 @@ def _begin_pdf_build_result(
             replay_key=row[7],
             attempt=row[8],
             holder=row[9],
-            state=cast(Literal["abandoned", "frozen", "open", "published"], row[10]),
+            state=cast(PdfStageBuildState, row[10]),
         )
 
 
@@ -8064,7 +9241,7 @@ def prepare_begin_pdf_build(
     schema_digest: str,
     replay_key: str,
     projection_context: PreparedRelease | None = None,
-) -> Select[str, int, int, str, str, str, str, str, int, str, str]:
+) -> Select[str, int, int, str, str, str, str, str, int, str, PdfStageBuildState]:
     _request = _begin_pdf_buildRequest(
         task_id=task_id,
         attempt=attempt,
@@ -8081,16 +9258,19 @@ def prepare_begin_pdf_build(
             "begin_pdf_build",
             BEGIN_PDF_BUILD_CONTRACT_DIGEST,
         )
-    return _begin_pdf_build_statement.params(
-        **{
-            "task_id": _request.task_id,
-            "attempt": _request.attempt,
-            "holder": _request.holder,
-            "source_digest": _request.source_digest,
-            "recipe_digest": _request.recipe_digest,
-            "schema_digest": _request.schema_digest,
-            "replay_key": _request.replay_key,
-        }
+    return cast(
+        Select[str, int, int, str, str, str, str, str, int, str, PdfStageBuildState],
+        _begin_pdf_build_statement.params(
+            **{
+                "task_id": _request.task_id,
+                "attempt": _request.attempt,
+                "holder": _request.holder,
+                "source_digest": _request.source_digest,
+                "recipe_digest": _request.recipe_digest,
+                "schema_digest": _request.schema_digest,
+                "replay_key": _request.replay_key,
+            }
+        ),
     )
 
 
@@ -8679,4 +9859,4 @@ def record_direction(
         return materialize_record_direction(row)
 
 
-CALL_CONTRACT_DIGEST = "a804aba699e279e9f133e480351002cecf297673e27d740fa50f4869a056dea4"
+CALL_CONTRACT_DIGEST = "018e2e60d5cbc3eaca139884b69134b7d25d7f921e5887b265cc88d81e1e5ca6"

@@ -17,7 +17,6 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal
 
 import adbc_driver_manager.dbapi as adbc_manager
-import adbc_driver_postgresql.dbapi as adbc
 import duckdb
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -39,7 +38,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql import Select
 
-from corpus_structure.core.db.adbc_lifetime import owned_adbc_read
+from corpus_structure.core.db.adbc_lifetime import open_adbc_connection, owned_adbc_read
 from corpus_structure.core.db.cancellation import OperationCancellation
 
 from ._typed_columns import data_occurrence_columns
@@ -890,7 +889,7 @@ def load_packet(
 
         try:
             cancellation.check_active()
-            connection = open_adbc_connection(uri, driver_path=driver_path)
+            connection = open_adbc_connection(uri, driver_path=driver_path, resolver_mode="builtin")
         except BaseException as error:
             annotate_failure(error, DatabasePhase.ACQUIRING)
             if owner:
@@ -983,18 +982,6 @@ def load_packet(
             if owner:
                 _cleanup_after_failure(error, owner.close)
             raise
-
-
-def open_adbc_connection(uri: str, *, driver_path: str | Path | None = None):
-    """Acquire the configured PostgreSQL driver; the caller owns transaction and lifetime."""
-    options = {"adbc.postgresql.type_resolver_mode": "builtin"}
-    if driver_path is None:
-        return adbc.connect(uri, db_kwargs=options)
-    return adbc_manager.connect(
-        driver=str(driver_path),
-        entrypoint="AdbcDriverPostgresqlInit",
-        db_kwargs={"uri": uri, **options},
-    )
 
 
 def capture_packet(

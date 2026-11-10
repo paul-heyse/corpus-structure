@@ -14,6 +14,55 @@ def test_description_requires_query_binding():
         DatabaseDescriptionRequest(schemas=("kb",), query="SELECT 1")
 
 
+@pytest.mark.parametrize("configured", [False, True])
+def test_description_uses_server_type_resolution_with_configured_driver(
+    semantic_db_engine, native_settings, configured, monkeypatch
+):
+    import adbc_driver_postgresql
+
+    from corpus_structure.serve import database_description
+
+    with semantic_db_engine.begin() as conn:
+        conn.exec_driver_sql("CREATE SCHEMA describe_types")
+        conn.exec_driver_sql("CREATE TYPE describe_types.color AS ENUM ('red', 'blue')")
+        conn.exec_driver_sql("CREATE TABLE describe_types.sample (color describe_types.color)")
+        conn.exec_driver_sql("GRANT USAGE ON SCHEMA describe_types TO corpus_sem_reader")
+        conn.exec_driver_sql("GRANT SELECT ON describe_types.sample TO corpus_sem_reader")
+    url = make_url(native_settings.database.url).set(database=semantic_db_engine.url.database)
+    settings = native_settings.model_copy(
+        update={
+            "database": native_settings.database.model_copy(
+                update={"url": url.render_as_string(hide_password=False)}
+            ),
+            "analytics": native_settings.analytics.model_copy(
+                update={
+                    "adbc_driver_path": adbc_driver_postgresql._driver_path()
+                    if configured
+                    else None
+                }
+            ),
+        }
+    )
+    acquire = database_description.open_adbc_connection
+    acquired = []
+
+    def observe_acquisition(uri, *, driver_path, resolver_mode):
+        acquired.append((driver_path, resolver_mode))
+        return acquire(uri, driver_path=driver_path, resolver_mode=resolver_mode)
+
+    monkeypatch.setattr(database_description, "open_adbc_connection", observe_acquisition)
+    result = describe_database(
+        DatabaseDescriptionRequest(schemas=("describe_types",), relations=("sample",)), settings
+    )
+    assert acquired == [(settings.analytics.adbc_driver_path, "server")]
+    assert result.principal == "corpus_sem_reader"
+    shape = next(x for x in result.observations if "arrow_fields" in x)
+    assert shape["status"] == "available"
+    assert [(field["name"], field["arrow_type"]) for field in shape["arrow_fields"]] == [
+        ("color", "string")
+    ]
+
+
 def test_literal_scoped_description(semantic_db_engine, native_settings):
     with semantic_db_engine.begin() as conn:
         conn.exec_driver_sql("CREATE SCHEMA describe_scope")

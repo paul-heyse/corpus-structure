@@ -39,6 +39,7 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 
+from ._operation_ids import RealizationId, ReleaseId
 from .coverage_contract import coverage_recipe
 from .identity import canonical_bytes
 from .metadata import table
@@ -66,10 +67,16 @@ from .refusals import StaleSnapshot as StaleSnapshot
 
 @dataclass(frozen=True)
 class SnapshotBinding:
-    release_id: str
-    realization_id: str
+    release_id: ReleaseId
+    realization_id: RealizationId
     data_revision: int
     capture_id: str
+
+    def __init__(self, release_id: str, realization_id: str, data_revision: int, capture_id: str):
+        object.__setattr__(self, "release_id", ReleaseId(release_id))
+        object.__setattr__(self, "realization_id", RealizationId(realization_id))
+        object.__setattr__(self, "data_revision", data_revision)
+        object.__setattr__(self, "capture_id", capture_id)
 
 
 @dataclass(frozen=True)

@@ -11,6 +11,7 @@ from sqlalchemy import Connection
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 
 from . import _operation_calls as calls
+from ._operation_ids import ReleaseId, TaskAttempt, TaskId
 from .arrow_transfer import ArrowWriteProfile, copy_arrow_stream
 from .pdf_record_model import record_arrow_schema, record_write_profile
 
@@ -41,10 +42,10 @@ MAX_BATCH_ROWS = stage_upload_profile()["max_rows"]
 @dataclass(frozen=True, slots=True)
 class PdfBuildRef:
     build_id: str
-    task_id: int
-    attempt: int
+    task_id: TaskId
+    attempt: TaskAttempt
     holder: str
-    release_id: str
+    release_id: ReleaseId
     source_digest: str
     recipe_digest: str
     schema_digest: str
@@ -231,7 +232,7 @@ def resume_pdf_build(
     )
     from dataclasses import replace
 
-    return replace(build, attempt=attempt, holder=holder)
+    return replace(build, attempt=TaskAttempt(attempt), holder=holder)
 
 
 def abandon_pdf_build(conn: Connection, build: PdfBuildRef) -> None:
