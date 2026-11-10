@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from functools import lru_cache
@@ -310,7 +310,9 @@ def recapped_declarations(text, pieces, items, passages):
 NAMED_QUESTION = "source_named_links"
 NAMED_VERSION = "2"
 NAMED_COVERAGE_VERSION = "3"
-NAMED_ANNOTATION_VERSIONS = frozenset({NAMED_VERSION, NAMED_COVERAGE_VERSION})
+NAMED_PIECE_VERSION = "4"
+NAMED_NATIVE_PIECES_INPUT = "execution/implementation/operations/named-link-native-pieces.json"
+NAMED_ANNOTATION_VERSIONS = frozenset({NAMED_VERSION, NAMED_COVERAGE_VERSION, NAMED_PIECE_VERSION})
 INHERITANCE_QUESTION = "source_scope_inheritance"
 
 
@@ -515,6 +517,7 @@ class NamedCueWitness:
 @dataclass(frozen=True, slots=True, kw_only=True)
 class NamedLinkMatch(NamedLink):
     witness: NamedCueWitness
+    definition_subject: tuple[tuple[int, int], str] | None = None
 
     def evidence(self) -> dict[str, Any]:
         return asdict(self.witness)
@@ -538,7 +541,7 @@ def named_definition_subject(text, start, cue_start, *, version=NAMED_VERSION):
     """Return a source-named term or explicitly marked identifier before its cue."""
     recipe, _, _ = _named_recipe(version)
     patterns = [("term", recipe["definition_subject_pattern"])]
-    if version == NAMED_COVERAGE_VERSION:
+    if version in (NAMED_COVERAGE_VERSION, NAMED_PIECE_VERSION):
         patterns.insert(0, ("identifier", recipe["definition_identifier_pattern"]))
     for kind, pattern in patterns:
         match = re.search(pattern, text[start:cue_start])
@@ -553,18 +556,35 @@ def explicit_named_definition_extent(text, start, cue_start, *, version=NAMED_VE
     return found[0] if found is not None else None
 
 
-@lru_cache(maxsize=1)
-def _named_recipe(version=NAMED_VERSION):
+@lru_cache(maxsize=8)
+def _named_recipe(version=NAMED_VERSION, native_piece_policy: bytes | None = None):
     from spacy.lang.en import English
 
     recipe = json.loads(Path(__file__).with_name("named_link_rules.json").read_bytes())
     if recipe["version"] != NAMED_VERSION:
         raise ValueError("named link recipe differs from the released version")
-    if version == NAMED_COVERAGE_VERSION:
+    if version in (NAMED_COVERAGE_VERSION, NAMED_PIECE_VERSION):
         coverage = json.loads(Path(__file__).with_name("named_link_coverage.json").read_bytes())
-        if coverage["version"] != version:
+        if coverage["version"] != NAMED_COVERAGE_VERSION:
             raise ValueError("named link coverage differs from the released version")
         recipe.update(coverage)
+        if version == NAMED_PIECE_VERSION:
+            if native_piece_policy is None:
+                native_piece_policy = (
+                    Path(__file__).with_name("named_link_native_pieces.json").read_bytes()
+                )
+            pieces = json.loads(native_piece_policy)
+            if (
+                not isinstance(pieces, dict)
+                or set(pieces) != {"version", "joined_piece_kinds"}
+                or pieces["version"] != NAMED_PIECE_VERSION
+                or not isinstance(kinds := pieces["joined_piece_kinds"], list)
+                or not kinds
+                or any(kind not in ("section_citation", "definition_reference") for kind in kinds)
+                or len(kinds) != len(set(kinds))
+            ):
+                raise ValueError("named link native-piece policy differs from the released version")
+            recipe.update(pieces)
     elif version != NAMED_VERSION:
         raise ValueError("unknown named link recipe")
     variants = {}
@@ -693,37 +713,120 @@ def _named_roles(text, doc, tokens, piece, rule, nodes, recipe):
     return None
 
 
+def _native_text_piece_key(piece):
+    """Match the exact projected identity, with default text field normalized."""
+    if (
+        piece.get("kind") == "native_text"
+        and piece.get("source_field") in (None, "text")
+        and piece.get("cell_index") is None
+        and isinstance(piece.get("item_ref"), str)
+        and type(piece.get("start")) is int
+        and type(piece.get("end")) is int
+        and 0 <= piece["start"] < piece["end"]
+    ):
+        return piece["item_ref"], piece["start"], piece["end"]
+    return None
+
+
+def _annotation_piece_owners(annotations):
+    """Index exact retained pieces; multiple owners remain distinguishable."""
+    owners = defaultdict(list)
+    for annotation in annotations:
+        for index, piece in enumerate(annotation.native_pieces):
+            key = _native_text_piece_key(piece.to_wire())
+            if (
+                key is not None
+                and annotation.block_start <= piece.start < piece.end <= annotation.block_end
+            ):
+                owners[key].append((annotation, index))
+    return owners
+
+
+def _piece_contains_token(piece, index, token):
+    return (
+        token.piece_indices == (index,)
+        and piece["start"] <= token.start < token.end <= piece["end"]
+    )
+
+
+def _piece_contains_roles(piece, index, tokens, roles):
+    for extent in roles:
+        if extent is None:
+            continue
+        start, end = extent
+        if not piece["start"] <= start < end <= piece["end"]:
+            return False
+        if any(
+            not _piece_contains_token(piece, index, token)
+            for token in tokens
+            if token.start < end and start < token.end
+        ):
+            return False
+    return True
+
+
 def match_named_source_links(
-    text, pieces, items, passages, annotations, *, annotation_errors=(), version=NAMED_VERSION
+    text,
+    pieces,
+    items,
+    passages,
+    annotations,
+    *,
+    annotation_errors=(),
+    version=NAMED_VERSION,
+    native_piece_policy: bytes | None = None,
 ) -> NamedLinkInspection:
     """Find typed link cues on restored annotations and keep their exact source roles."""
-    recipe, variants, prepared = _named_recipe(version)
-    pieces = {
-        p["item_ref"]: p
+    if native_piece_policy is not None and version != NAMED_PIECE_VERSION:
+        raise ValueError("native-piece policy requires the joined-piece recipe")
+    recipe, variants, prepared = _named_recipe(version, native_piece_policy)
+    piece_version = version == NAMED_PIECE_VERSION
+    physical_pieces = [
+        p
         for p in pieces
-        if p["kind"] == "native_text"
-        and p.get("source_field", "text") == "text"
-        and "cell_index" not in p
+        if (
+            _native_text_piece_key(p) is not None
+            if piece_version
+            else p["kind"] == "native_text"
+            and p.get("source_field", "text") == "text"
+            and "cell_index" not in p
+        )
         and items.get(p["item_ref"], {}).get("content_layer") == "body"
         and items[p["item_ref"]].get("label") in {"text", "paragraph", "list_item"}
-    }
-    by_block = {
-        product.block_id: product
-        for product in annotations
-        if isinstance(product, AnnotationProduct)
-    }
+    ]
+    products = tuple(product for product in annotations if isinstance(product, AnnotationProduct))
+    by_block = {product.block_id: product for product in products}
+    # Older releases keyed the projection and retained annotation on the same pointer.
+    by_pointer = {piece["item_ref"]: piece for piece in physical_pieces}
+    piece_counts = Counter(piece["item_ref"] for piece in physical_pieces) if piece_version else {}
+    owners = _annotation_piece_owners(products) if piece_version else {}
+    block_counts = Counter(product.block_id for product in products) if piece_version else {}
+    matched_blocks = {}
     matches = []
     inspected = set()
-    strict_coverage = version == NAMED_COVERAGE_VERSION
+    strict_coverage = version in (NAMED_COVERAGE_VERSION, NAMED_PIECE_VERSION)
     incomplete = bool(annotation_errors) and not strict_coverage
-    for pointer, piece in pieces.items():
+    for piece in physical_pieces if piece_version else by_pointer.values():
+        pointer = piece["item_ref"]
         selected = [p for p in passages or () if p.start < piece["end"] and piece["start"] < p.end]
         if not selected:
             continue
-        annotation = by_block.get(pointer)
-        if annotation is None:
-            incomplete = True
-            continue
+        piece_index = None
+        if piece_version:
+            key = _native_text_piece_key(piece)
+            candidates = owners.get(key, ()) if key is not None else ()
+            if piece_counts[pointer] != 1 or len(candidates) != 1:
+                incomplete = True
+                continue
+            ((annotation, piece_index),) = candidates
+            if block_counts[annotation.block_id] != 1:
+                incomplete = True
+                continue
+        else:
+            annotation = by_block.get(pointer)
+            if annotation is None:
+                incomplete = True
+                continue
         if strict_coverage:
             availability = {column.attribute: column.status for column in annotation.availability}
             if any(
@@ -732,22 +835,34 @@ def match_named_source_links(
             ):
                 incomplete = True
                 continue
-        try:
-            view = annotation_view(
-                annotation, text[annotation.block_start : annotation.block_end], prepared.vocab
-            )
-        except AnnotationUnavailable:
-            if strict_coverage:
-                raise
-            incomplete = True
-            continue
-        result = prepared.match(view)
+        if annotation.block_id not in matched_blocks:
+            try:
+                view = annotation_view(
+                    annotation, text[annotation.block_start : annotation.block_end], prepared.vocab
+                )
+            except AnnotationUnavailable:
+                if strict_coverage:
+                    raise
+                incomplete = True
+                continue
+            matched_blocks[annotation.block_id] = view, prepared.match(view)
+        view, result = matched_blocks[annotation.block_id]
         incomplete |= any(status != "available" for _, _, status in result.availability)
         inspected.add(pointer)
         tokens = annotation.tokens
         for match in result.matches:
             rule = variants[match.rule, match.variant]
+            if (
+                piece_version
+                and annotation.block_id != pointer
+                and rule["kind"] not in recipe["joined_piece_kinds"]
+            ):
+                continue
             nodes = dict(zip((n["id"] for n in rule["nodes"]), match.nodes, strict=True))
+            if piece_index is not None and not all(
+                _piece_contains_token(piece, piece_index, tokens[index]) for index in nodes.values()
+            ):
+                continue
             sentences = {tokens[index].sentence for index in nodes.values()}
             if len(sentences) != 1:
                 continue
@@ -758,6 +873,10 @@ def match_named_source_links(
             if found is None:
                 continue
             left, cue, right, designator, complete = found
+            if piece_index is not None and not _piece_contains_roles(
+                piece, piece_index, tokens, (left, cue, right)
+            ):
+                continue
             sentence = annotation.sentences[sentence_index]
             prefix = text[sentence.start : cue[0]]
             quoted = prefix.count('"') % 2 == 1 or prefix.count("“") > prefix.count("”")
@@ -793,6 +912,20 @@ def match_named_source_links(
                     continue
                 scoped_right = right if right is None or lo <= right[0] < right[1] <= hi else None
                 state = resolution if scoped_right == right else "insufficient_evidence"
+                definition_subject = None
+                if (
+                    piece_index is not None
+                    and kind == "definition_reference"
+                    and state == "target_selection_required"
+                    and (
+                        concept := named_definition_subject(
+                            text, lo, cue[0], version=NAMED_COVERAGE_VERSION
+                        )
+                    )
+                    is not None
+                    and _piece_contains_roles(piece, piece_index, tokens, (concept[0],))
+                ):
+                    definition_subject = concept
                 matches.append(
                     NamedLinkMatch(
                         pointer=pointer,
@@ -804,6 +937,7 @@ def match_named_source_links(
                         scope=passage.scope,
                         passage=passage.passage_id,
                         resolution=state,
+                        definition_subject=definition_subject,
                         witness=NamedCueWitness(
                             rule=match.rule,
                             variant=match.variant,
