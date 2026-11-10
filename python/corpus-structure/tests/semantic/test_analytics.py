@@ -979,3 +979,72 @@ def test_native_views_empty_inputs_and_duplicate_spec_refusal():
         )
         with pytest.raises(ValueError, match="view names repeat"):
             scope.views(inputs[0], inputs[1], inputs[2], inputs[3], [*specs, *specs])
+
+
+def test_native_capture_preserves_body_failure_through_all_adbc_children(
+    semantic_db_engine, semantic_reader_engine, monkeypatch
+):
+    from corpus_structure.semantic import analytics
+
+    bundle, dependencies, prepared = prepared_inputs()
+    with semantic_db_engine.begin() as conn:
+        persist_release(conn, bundle, dependencies, PreparationProfile(version="semantic-2"), prepared)
+        conn.execute(insert(table("data.project")).values(project_id="cleanup-project"))
+        conn.execute(insert(table("data.realization")).values(realization_id="cleanup-realization", release_id=prepared.release_id, project_id="cleanup-project"))
+    primary = RuntimeError("capture body failed")
+    calls = []
+    failures = {name: RuntimeError(name) for name in ("reader", "cursor", "rollback", "connection")}
+    acquire = analytics.open_adbc_connection
+
+    class Reader:
+        def __init__(self, native):
+            self.native = native
+
+        def __iter__(self):
+            raise primary
+
+        def close(self):
+            self.native.close()
+            calls.append("reader")
+            raise failures["reader"]
+
+    class Cursor:
+        def __init__(self, native):
+            self.native = native
+
+        def __getattr__(self, name):
+            return getattr(self.native, name)
+
+        def fetch_record_batch(self):
+            return Reader(self.native.fetch_record_batch())
+
+        def close(self):
+            self.native.close()
+            calls.append("cursor")
+            raise failures["cursor"]
+
+    class Bulk:
+        def __init__(self, native):
+            self.native = native
+
+        def cursor(self):
+            return Cursor(self.native.cursor())
+
+        def rollback(self):
+            self.native.rollback()
+            calls.append("rollback")
+            raise failures["rollback"]
+
+        def close(self):
+            self.native.close()
+            calls.append("connection")
+            raise failures["connection"]
+
+    monkeypatch.setattr(analytics, "open_adbc_connection", lambda *args, **kwargs: Bulk(acquire(*args, **kwargs)))
+    uri = semantic_reader_engine.url.set(drivername="postgresql").render_as_string(hide_password=False)
+    with read_session(semantic_reader_engine, "cleanup-realization") as session:
+        with pytest.raises(RuntimeError) as caught:
+            load_packet(session, uri)
+    assert caught.value is primary
+    assert calls == ["reader", "cursor", "rollback", "connection"]
+    assert primary.__dict__["adbc_cleanup_failures"] == tuple(failures[name] for name in calls)

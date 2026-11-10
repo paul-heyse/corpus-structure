@@ -4,7 +4,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from threading import RLock
-from typing import Literal
+from typing import Literal, Protocol
 
 import adbc_driver_manager.dbapi as adbc_manager
 import adbc_driver_postgresql.dbapi as adbc
@@ -82,15 +82,38 @@ class ADBCBorrowerCancellation:
                 self._connection = None
 
 
+class _Closeable(Protocol):
+    def close(self) -> None: ...
+
+
+def _retain_cleanup(error: BaseException, failures: list[BaseException]) -> None:
+    if failures:
+        previous = error.__dict__.get("adbc_cleanup_failures", ())
+        error.__dict__["adbc_cleanup_failures"] = (*previous, *failures)
+        for failure in failures:
+            error.add_note(f"ADBC read cleanup also failed: {failure!r}")
+
+
+@contextmanager
+def owned_adbc_child[T: _Closeable](resource: T) -> Generator[T]:
+    """Close one child without allowing retirement to replace its body's failure."""
+    try:
+        yield resource
+    except BaseException as error:
+        try:
+            resource.close()
+        except BaseException as failure:
+            _retain_cleanup(error, [failure])
+        raise
+    else:
+        resource.close()
+
+
 @contextmanager
 def owned_adbc_read(
     connection: Connection, cancellation: ADBCBorrowerCancellation | None = None
 ) -> Generator[Connection]:
-    """Own registration, rollback and close while retaining the failure reaching this owner.
-
-    Child cursor/reader contexts settle inside this scope. Their own exit failures
-    may replace an earlier body failure before it reaches this connection owner.
-    """
+    """Own registration and connection settlement around owned child resources."""
     from contextlib import nullcontext
 
     settled = False
@@ -110,18 +133,13 @@ def owned_adbc_read(
         settled = True
         return failures
 
-    def retain_cleanup(error, failures):
-        if failures:
-            error.__dict__["adbc_cleanup_failures"] = tuple(failures)
-            for failure in failures:
-                error.add_note(f"ADBC read cleanup also failed: {failure!r}")
 
     try:
         with cancellation.borrow(connection) if cancellation is not None else nullcontext():
             try:
                 yield connection
             except BaseException as error:
-                retain_cleanup(error, settle())
+                _retain_cleanup(error, settle())
                 raise
             else:
                 failures = settle()
@@ -132,5 +150,5 @@ def owned_adbc_read(
     except BaseException as error:
         if not settled:
             # A fresh connection is already owned even when registration refuses entry.
-            retain_cleanup(error, settle())
+            _retain_cleanup(error, settle())
         raise

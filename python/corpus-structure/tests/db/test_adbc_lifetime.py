@@ -13,6 +13,7 @@ from sqlalchemy import text
 from corpus_structure.core.db.adbc_lifetime import (
     ADBCBorrowerCancellation,
     open_adbc_connection,
+    owned_adbc_child,
     owned_adbc_read,
 )
 
@@ -348,3 +349,52 @@ def test_capture_registers_actual_binding_queries_before_bulk_acquisition(db_eng
     owner.request_cancel()
     with db_engine.connect() as conn:
         assert conn.scalar(text("SELECT 73")) == 73
+
+
+@pytest.mark.parametrize("primary", [RuntimeError("body"), KeyboardInterrupt("body")])
+def test_child_retirement_preserves_body_and_all_nested_cleanup(primary):
+    calls = []
+    failures = {name: RuntimeError(name) for name in ("reader", "cursor", "rollback", "connection")}
+
+    class Child:
+        def __init__(self, name):
+            self.name = name
+
+        def close(self):
+            calls.append(self.name)
+            raise failures[self.name]
+
+    class Connection(Child):
+        def rollback(self):
+            calls.append("rollback")
+            raise failures["rollback"]
+
+    token = ADBCBorrowerCancellation()
+    with pytest.raises(type(primary)) as caught:
+        with (
+            owned_adbc_read(cast(Any, Connection("connection")), token),
+            owned_adbc_child(Child("cursor")),
+            owned_adbc_child(Child("reader")),
+        ):
+            raise primary
+    assert caught.value is primary
+    assert calls == ["reader", "cursor", "rollback", "connection"]
+    assert primary.__dict__["adbc_cleanup_failures"] == tuple(failures[name] for name in calls)
+    assert token._connection is None
+
+
+def test_child_cleanup_only_raises_first_failure_and_retains_subsequent_failures():
+    first, second = RuntimeError("reader"), SystemExit("cursor")
+
+    class Child:
+        def __init__(self, error):
+            self.error = error
+
+        def close(self):
+            raise self.error
+
+    with pytest.raises(RuntimeError) as caught:
+        with owned_adbc_child(Child(second)), owned_adbc_child(Child(first)):
+            pass
+    assert caught.value is first
+    assert first.__dict__["adbc_cleanup_failures"] == (second,)

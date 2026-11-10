@@ -226,9 +226,9 @@ def test_projection_batch_refuses_missing_values_and_misbound_releases(tmp_path,
         _admit_batch(projection("relation"), batch, manifest.pin, manifest.producer_release_id)
 
 
-@pytest.mark.parametrize("cancel", [False, True])
+@pytest.mark.parametrize("cancel,fault", [(False, False), (True, False), (False, True)])
 def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
-    tmp_path, monkeypatch, cancel
+    tmp_path, monkeypatch, cancel, fault
 ):
     from contextlib import contextmanager
     from pathlib import Path
@@ -253,15 +253,15 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
         content_digest="a" * 64,
     )
     spec = projection("input")
+    primary, writer_failure, reader_failure, cursor_failure, rollback_failure, close_failure = (RuntimeError(name) for name in ("body", "writer", "reader", "cursor", "rollback", "close"))
 
     class Cursor:
         adbc_statement = SimpleNamespace(set_options=lambda **options: events.append(options))
 
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
+        def close(self):
             events.append("cursor_close")
+            if fault:
+                raise cursor_failure
 
         def execute(self, sql):
             events.append(sql)
@@ -269,7 +269,7 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
         def fetch_record_batch(self):
             if cancel:
                 cancellation.request_cancel()
-            return pa.RecordBatchReader.from_batches(
+            reader = pa.RecordBatchReader.from_batches(
                 spec.arrow_schema,
                 [
                     pa.RecordBatch.from_arrays(
@@ -278,6 +278,13 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
                     )
                 ],
             )
+            if fault:
+                def close():
+                    reader.close()
+                    events.append("reader_close")
+                    raise reader_failure
+                return SimpleNamespace(schema=reader.schema, close=close)
+            return reader
 
     class Connection:
         def cursor(self):
@@ -285,9 +292,13 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
 
         def rollback(self):
             events.append("rollback")
+            if fault:
+                raise rollback_failure
 
         def close(self):
             events.append("connection_close")
+            if fault:
+                raise close_failure
 
         def adbc_cancel(self):
             events.append("cancel")
@@ -319,7 +330,29 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
     )
     destination = tmp_path / "output"
     request = export.CompanionExportRequest(pin=pin, destination=destination, families=("input",))
-    if cancel:
+    if fault:
+        writer_factory = export.pq.ParquetWriter
+
+        class Writer:
+            def __init__(self, *args, **kwargs):
+                self.native = writer_factory(*args, **kwargs)
+
+            def close(self):
+                self.native.close()
+                events.append("writer_close")
+                raise writer_failure
+
+        monkeypatch.setattr(export.pq, "ParquetWriter", Writer)
+
+        def refuse(*args):
+            raise primary
+        monkeypatch.setattr(export, "_admit_schema", refuse)
+        with pytest.raises(RuntimeError) as caught:
+            export.export_companion_parquet(request, settings, cancellation=cancellation)
+        assert caught.value is primary
+        assert primary.__dict__["adbc_cleanup_failures"] == (writer_failure, reader_failure, cursor_failure, rollback_failure, close_failure)
+        assert not destination.exists()
+    elif cancel:
         with pytest.raises(DatabaseOperationCancelled):
             export.export_companion_parquet(request, settings, cancellation=cancellation)
         assert not destination.exists()

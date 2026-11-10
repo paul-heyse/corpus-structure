@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import String, text
 from sqlalchemy.dialects import postgresql
 
-from corpus_structure.core.db.adbc_lifetime import open_adbc_connection, owned_adbc_read
+from corpus_structure.core.db.adbc_lifetime import open_adbc_connection, owned_adbc_child, owned_adbc_read
 from corpus_structure.core.db.cancellation import OperationCancellation
 from corpus_structure.semantic._operation_ids import (
     ContentDigest,
@@ -144,7 +144,7 @@ def export_companion_parquet(
                     ),
                     cancellation.adbc,
                 ) as bulk,
-                bulk.cursor() as cursor,
+                owned_adbc_child(bulk.cursor()) as cursor,
             ):
                 cursor.adbc_statement.set_options(**{"adbc.postgresql.use_copy": "false"})
                 cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
@@ -171,8 +171,8 @@ def export_companion_parquet(
                     logical = LogicalRows(schema, spec.keys)
                     path = root / (family + ".parquet")
                     with (
-                        cursor.fetch_record_batch() as reader,
-                        pq.ParquetWriter(path, schema) as writer,
+                        owned_adbc_child(cursor.fetch_record_batch()) as reader,
+                        owned_adbc_child(pq.ParquetWriter(path, schema)) as writer,
                     ):
                         _admit_schema(family, schema, reader.schema)
                         for batch in reader:

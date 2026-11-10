@@ -317,3 +317,103 @@ def test_arrow_metadata_is_lossless_attributed_and_bounded():
         _fields(schema, columns=[1])
     with pytest.raises(ValueError, match="metadata byte bound"):
         _fields(schema, remaining=[1])
+
+
+@pytest.mark.parametrize("failure_kind", ["iteration", "consumer_bound"])
+def test_description_child_cleanup_preserves_iteration_and_consumer_failure(monkeypatch, failure_kind):
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+    from corpus_structure.serve import database_description as description
+    from corpus_structure.settings import Settings
+    from corpus_structure.semantic.refusals import SemanticRefusal
+
+    events = []
+    primary = RuntimeError("metadata iteration")
+    failures = {name: RuntimeError(name) for name in ("reader", "cursor", "rollback", "connection")}
+
+    class Reader:
+        def __iter__(self):
+            if failure_kind == "iteration":
+                raise primary
+            yield SimpleNamespace(nbytes=1, to_pylist=lambda: [
+                {"catalog_db_schemas": [{"db_schema_name": "public"}, {"db_schema_name": "public"}]}
+            ])
+
+        def close(self):
+            events.append("reader")
+            raise failures["reader"]
+
+    class Cursor:
+        adbc_statement = SimpleNamespace(set_options=lambda **kwargs: None)
+
+        def execute(self, sql):
+            pass
+
+        def fetchone(self):
+            return ("database", "corpus_sem_reader")
+
+        def close(self):
+            events.append("cursor")
+            raise failures["cursor"]
+
+    class Bulk:
+        def cursor(self):
+            return Cursor()
+
+        def adbc_get_objects(self, **kwargs):
+            return Reader()
+
+        def rollback(self):
+            events.append("rollback")
+            raise failures["rollback"]
+
+        def close(self):
+            events.append("connection")
+            raise failures["connection"]
+
+    @contextmanager
+    def connect():
+        yield SimpleNamespace(exec_driver_sql=lambda sql: None)
+
+    @contextmanager
+    def engine(*args, **kwargs):
+        yield SimpleNamespace(connect=connect)
+
+    monkeypatch.setattr(description, "open_runtime_engine", engine)
+    monkeypatch.setattr(description, "inspect", lambda conn: object())
+    monkeypatch.setattr(description, "open_adbc_connection", lambda *args, **kwargs: Bulk())
+    with pytest.raises(RuntimeError if failure_kind == "iteration" else SemanticRefusal) as caught:
+        describe_database(DatabaseDescriptionRequest(schemas=("public",), depth="schemas", max_objects=1), Settings())
+    if failure_kind == "iteration":
+        assert caught.value is primary
+    else:
+        assert "object bound" in str(caught.value)
+    assert events == ["reader", "cursor", "rollback", "connection"]
+    assert caught.value.__dict__["adbc_cleanup_failures"] == tuple(failures[name] for name in events)
+
+
+def test_existing_inaccessible_relation_is_distinct_from_missing_in_native_json(
+    semantic_db_engine, semantic_reader_engine, semantic_application_settings, cli
+):
+    import json
+    from sqlalchemy import text
+    from sqlalchemy.exc import DBAPIError
+
+    relation = "public.semantic_alembic_version"
+    with semantic_reader_engine.connect() as conn:
+        assert conn.scalar(text("SELECT current_user")) == "corpus_sem_reader"
+        assert conn.scalar(text("SELECT to_regclass(:relation)::text"), {"relation": relation})
+        assert conn.scalar(text("SELECT has_table_privilege(current_user,:relation,'SELECT')"), {"relation": relation}) is False
+    with semantic_reader_engine.connect() as conn, pytest.raises(DBAPIError) as caught:
+        conn.exec_driver_sql("SELECT * FROM public.semantic_alembic_version")
+    assert getattr(caught.value.orig, "sqlstate", None) == "42501"
+    request = DatabaseDescriptionRequest(schemas=("public",), relations=("semantic_alembic_version", "ptd_known_missing_relation"))
+    direct = describe_database(request, semantic_application_settings)
+    shown = cli("db", "describe", "--schema", "public", "--relation", "semantic_alembic_version", "--relation", "ptd_known_missing_relation", "--json", settings=lambda: semantic_application_settings)
+    assert shown.exit_code == 0, shown.output
+    payload = json.loads(shown.stdout)
+    for observations in (direct.observations, payload["observations"]):
+        denied = [row for row in observations if row.get("relation") == "semantic_alembic_version"]
+        assert any(row["status"] == "available" and isinstance(row.get("columns"), list) for row in denied)
+        assert any(row["status"] == "refused" and row["arrow_fields"] == "unavailable" for row in denied)
+        assert any(row.get("relation") == "ptd_known_missing_relation" and row["status"] == "no_visible_match" for row in observations)

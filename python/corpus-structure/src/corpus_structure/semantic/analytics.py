@@ -38,7 +38,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql import Select
 
-from corpus_structure.core.db.adbc_lifetime import open_adbc_connection, owned_adbc_read
+from corpus_structure.core.db.adbc_lifetime import open_adbc_connection, owned_adbc_child, owned_adbc_read
 from corpus_structure.core.db.cancellation import OperationCancellation
 
 from ._typed_columns import data_occurrence_columns
@@ -900,7 +900,7 @@ def load_packet(
         try:
             with (
                 owned_adbc_read(connection, cancellation.adbc) as bulk,
-                bulk.cursor() as cursor,
+                owned_adbc_child(bulk.cursor()) as cursor,
             ):
                 cursor.adbc_statement.set_options(**{"adbc.postgresql.use_copy": "false"})
                 cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
@@ -916,7 +916,7 @@ def load_packet(
                     if cancellation is not None:
                         cancellation.check_active()
                     cursor.execute(compile_sql(projection.statement))
-                    with cursor.fetch_record_batch() as reader:
+                    with owned_adbc_child(cursor.fetch_record_batch()) as reader:
 
                         def normalized(projection=projection, reader=reader):
                             for raw in reader:

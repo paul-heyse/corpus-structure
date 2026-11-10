@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import make_url
 
-from corpus_structure.core.db.adbc_lifetime import open_adbc_connection, owned_adbc_read
+from corpus_structure.core.db.adbc_lifetime import open_adbc_connection, owned_adbc_child, owned_adbc_read
 from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.runtime import connection_settings, open_runtime_engine
 from corpus_structure.settings import Settings
@@ -66,14 +66,11 @@ def _pattern(value: str) -> str:
 
 
 def _rows(reader, remaining: list[int]):
-    try:
-        for batch in reader:
-            remaining[0] -= batch.nbytes
-            if remaining[0] < 0:
-                raise SemanticRefusal("database description exceeds output byte bound")
-            yield from batch.to_pylist()
-    finally:
-        reader.close()
+    for batch in reader:
+        remaining[0] -= batch.nbytes
+        if remaining[0] < 0:
+            raise SemanticRefusal("database description exceeds output byte bound")
+        yield from batch.to_pylist()
 
 
 def _metadata(metadata, remaining):
@@ -232,7 +229,7 @@ def describe_database(
         catalog_conn.exec_driver_sql("SET TRANSACTION READ ONLY")
         catalog_conn.exec_driver_sql("SET LOCAL search_path=pg_catalog")
         catalog_inspector = inspect(catalog_conn)
-        with conn.cursor() as cur:
+        with owned_adbc_child(conn.cursor()) as cur:
             cur.adbc_statement.set_options(**{"adbc.postgresql.use_copy": "false"})
             cur.execute("SET TRANSACTION READ ONLY")
             cur.execute("SET LOCAL search_path=pg_catalog")
@@ -249,178 +246,176 @@ def describe_database(
             }[request.depth]
             for selected_schema in dict.fromkeys(request.schemas):
                 found = False
-                for catalog in _rows(
+                with owned_adbc_child(
                     conn.adbc_get_objects(
                         depth=cast(
                             Literal["all", "catalogs", "columns", "db_schemas", "tables"], depth
                         ),
                         catalog_filter=database,
                         db_schema_filter=_pattern(selected_schema),
-                    ),
-                    remaining,
-                ):
-                    for schema in catalog.get("catalog_db_schemas") or []:
-                        if schema["db_schema_name"] != selected_schema:
-                            continue
-                        found = True
-                        object_count += 1
-                        if object_count > request.max_objects:
-                            raise SemanticRefusal("database description exceeds object bound")
-                        if request.depth == "schemas":
-                            observe(
-                                {
-                                    "kind": "physical",
-                                    "status": "available",
-                                    "schema": selected_schema,
-                                    "children": "not_requested",
-                                }
-                            )
-                            continue
-                        matched = set()
-                        for table in schema.get("db_schema_tables") or []:
-                            name = table["table_name"]
-                            if request.relations and name not in request.relations:
+                    )
+                ) as objects:
+                    for catalog in _rows(objects, remaining):
+                        for schema in catalog.get("catalog_db_schemas") or []:
+                            if schema["db_schema_name"] != selected_schema:
                                 continue
-                            matched.add(name)
+                            found = True
                             object_count += 1
-                            columns = None
-                            if request.depth in {"columns", "constraints"}:
-                                columns = [
-                                    {
-                                        "column_name": item["name"],
-                                        "ordinal_position": index + 1,
-                                        "physical_type": str(item["type"]),
-                                        "native_type": _native_type(item["type"]),
-                                        "nullable": item["nullable"],
-                                        "default": item.get("default"),
-                                    }
-                                    for index, item in enumerate(
-                                        catalog_inspector.get_columns(name, schema=selected_schema)
-                                    )
-                                ]
-                            columns_remaining[0] -= len(columns or [])
-                            if object_count > request.max_objects or columns_remaining[0] < 0:
-                                raise SemanticRefusal(
-                                    "database description exceeds object/column bound"
-                                )
-                            item = {
-                                "kind": "physical",
-                                "status": "available",
-                                "schema": selected_schema,
-                                "relation": name,
-                                "relation_type": table["table_type"],
-                                "columns": columns if columns is not None else "not_requested",
-                                "constraints": {
-                                    "primary_key": catalog_inspector.get_pk_constraint(
-                                        name, schema=selected_schema
-                                    ),
-                                    "foreign_keys": catalog_inspector.get_foreign_keys(
-                                        name, schema=selected_schema
-                                    ),
-                                    "unique": catalog_inspector.get_unique_constraints(
-                                        name, schema=selected_schema
-                                    ),
-                                    "check": catalog_inspector.get_check_constraints(
-                                        name, schema=selected_schema
-                                    ),
-                                    "exclusions": "unavailable",
-                                }
-                                if request.depth == "constraints"
-                                else "not_requested",
-                            }
-                            observe(item)
-                            if request.depth in {"columns", "constraints"}:
-                                permitted = catalog_conn.scalar(
-                                    text(
-                                        "SELECT pg_catalog.has_table_privilege("
-                                        "pg_catalog.format('%I.%I',CAST(:schema AS text),"
-                                        "CAST(:relation AS text)),'SELECT')"
-                                    ),
-                                    dict(schema=selected_schema, relation=name),
-                                )
-                                if permitted:
-                                    try:
-                                        shape = conn.adbc_get_table_schema(
-                                            name, db_schema_filter=selected_schema
-                                        )
-                                        shape_item = {
-                                            "status": "available",
-                                            "arrow_fields": _fields(
-                                                shape,
-                                                remaining=remaining,
-                                                columns=columns_remaining,
-                                            ),
-                                            "schema_metadata": _metadata(shape.metadata, remaining),
-                                        }
-                                    except adbc_driver_manager.NotSupportedError:
-                                        shape_item = {
-                                            "status": "unsupported",
-                                            "arrow_fields": "unavailable",
-                                        }
-                                else:
-                                    shape_item = {
-                                        "status": "refused",
-                                        "arrow_fields": "unavailable",
-                                    }
+                            if object_count > request.max_objects:
+                                raise SemanticRefusal("database description exceeds object bound")
+                            if request.depth == "schemas":
                                 observe(
                                     {
                                         "kind": "physical",
+                                        "status": "available",
                                         "schema": selected_schema,
-                                        "relation": name,
-                                        **shape_item,
+                                        "children": "not_requested",
                                     }
                                 )
-                            if request.estimates:
-                                try:
-                                    stats = list(
-                                        _rows(
+                                continue
+                            matched = set()
+                            for table in schema.get("db_schema_tables") or []:
+                                name = table["table_name"]
+                                if request.relations and name not in request.relations:
+                                    continue
+                                matched.add(name)
+                                object_count += 1
+                                columns = None
+                                if request.depth in {"columns", "constraints"}:
+                                    columns = [
+                                        {
+                                            "column_name": item["name"],
+                                            "ordinal_position": index + 1,
+                                            "physical_type": str(item["type"]),
+                                            "native_type": _native_type(item["type"]),
+                                            "nullable": item["nullable"],
+                                            "default": item.get("default"),
+                                        }
+                                        for index, item in enumerate(
+                                            catalog_inspector.get_columns(name, schema=selected_schema)
+                                        )
+                                    ]
+                                columns_remaining[0] -= len(columns or [])
+                                if object_count > request.max_objects or columns_remaining[0] < 0:
+                                    raise SemanticRefusal(
+                                        "database description exceeds object/column bound"
+                                    )
+                                item = {
+                                    "kind": "physical",
+                                    "status": "available",
+                                    "schema": selected_schema,
+                                    "relation": name,
+                                    "relation_type": table["table_type"],
+                                    "columns": columns if columns is not None else "not_requested",
+                                    "constraints": {
+                                        "primary_key": catalog_inspector.get_pk_constraint(
+                                            name, schema=selected_schema
+                                        ),
+                                        "foreign_keys": catalog_inspector.get_foreign_keys(
+                                            name, schema=selected_schema
+                                        ),
+                                        "unique": catalog_inspector.get_unique_constraints(
+                                            name, schema=selected_schema
+                                        ),
+                                        "check": catalog_inspector.get_check_constraints(
+                                            name, schema=selected_schema
+                                        ),
+                                        "exclusions": "unavailable",
+                                    }
+                                    if request.depth == "constraints"
+                                    else "not_requested",
+                                }
+                                observe(item)
+                                if request.depth in {"columns", "constraints"}:
+                                    permitted = catalog_conn.scalar(
+                                        text(
+                                            "SELECT pg_catalog.has_table_privilege("
+                                            "pg_catalog.format('%I.%I',CAST(:schema AS text),"
+                                            "CAST(:relation AS text)),'SELECT')"
+                                        ),
+                                        dict(schema=selected_schema, relation=name),
+                                    )
+                                    if permitted:
+                                        try:
+                                            shape = conn.adbc_get_table_schema(
+                                                name, db_schema_filter=selected_schema
+                                            )
+                                            shape_item = {
+                                                "status": "available",
+                                                "arrow_fields": _fields(
+                                                    shape,
+                                                    remaining=remaining,
+                                                    columns=columns_remaining,
+                                                ),
+                                                "schema_metadata": _metadata(shape.metadata, remaining),
+                                            }
+                                        except adbc_driver_manager.NotSupportedError:
+                                            shape_item = {
+                                                "status": "unsupported",
+                                                "arrow_fields": "unavailable",
+                                            }
+                                    else:
+                                        shape_item = {
+                                            "status": "refused",
+                                            "arrow_fields": "unavailable",
+                                        }
+                                    observe(
+                                        {
+                                            "kind": "physical",
+                                            "schema": selected_schema,
+                                            "relation": name,
+                                            **shape_item,
+                                        }
+                                    )
+                                if request.estimates:
+                                    try:
+                                        with owned_adbc_child(
                                             conn.adbc_get_statistics(
                                                 catalog_filter=database,
                                                 db_schema_filter=selected_schema,
                                                 table_name_filter=_pattern(name),
                                                 approximate=True,
-                                            ),
-                                            remaining,
+                                            )
+                                        ) as statistics:
+                                            stats = list(_rows(statistics, remaining))
+                                        stats = [
+                                            entry
+                                            for root in stats
+                                            if root.get("catalog_name") == database
+                                            for schema_row in root.get("catalog_db_schemas") or []
+                                            if schema_row.get("db_schema_name") == selected_schema
+                                            for entry in schema_row.get("db_schema_statistics") or []
+                                            if entry.get("table_name") == name
+                                        ]
+                                        observe(
+                                            {
+                                                "kind": "estimate",
+                                                "schema": selected_schema,
+                                                "relation": name,
+                                                "status": "available" if stats else "unavailable",
+                                                "approximate_requested": True,
+                                                "statistics": stats,
+                                                "freshness": "unavailable",
+                                            }
                                         )
-                                    )
-                                    stats = [
-                                        entry
-                                        for root in stats
-                                        if root.get("catalog_name") == database
-                                        for schema_row in root.get("catalog_db_schemas") or []
-                                        if schema_row.get("db_schema_name") == selected_schema
-                                        for entry in schema_row.get("db_schema_statistics") or []
-                                        if entry.get("table_name") == name
-                                    ]
-                                    observe(
-                                        {
-                                            "kind": "estimate",
-                                            "schema": selected_schema,
-                                            "relation": name,
-                                            "status": "available" if stats else "unavailable",
-                                            "approximate_requested": True,
-                                            "statistics": stats,
-                                            "freshness": "unavailable",
-                                        }
-                                    )
-                                except adbc_driver_manager.NotSupportedError:
-                                    observe(
-                                        {
-                                            "kind": "estimate",
-                                            "schema": selected_schema,
-                                            "relation": name,
-                                            "status": "unsupported",
-                                        }
-                                    )
-                        for name in set(request.relations) - matched:
-                            observe(
-                                {
-                                    "kind": "physical",
-                                    "status": "no_visible_match",
-                                    "schema": selected_schema,
-                                    "relation": name,
-                                }
-                            )
+                                    except adbc_driver_manager.NotSupportedError:
+                                        observe(
+                                            {
+                                                "kind": "estimate",
+                                                "schema": selected_schema,
+                                                "relation": name,
+                                                "status": "unsupported",
+                                            }
+                                        )
+                            for name in set(request.relations) - matched:
+                                observe(
+                                    {
+                                        "kind": "physical",
+                                        "status": "no_visible_match",
+                                        "schema": selected_schema,
+                                        "relation": name,
+                                    }
+                                )
                 if not found:
                     observe(
                         {
