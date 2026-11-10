@@ -182,3 +182,15 @@ receipts retain their original scopes. Product tests/native probes/benchmarks ar
 source contracts settled the decisions and no product/database state changed. Publication checks
 remain root-owned. PTD-10 selections from other investigations and PTD-11 combined qualification
 remain separate work.
+
+
+## Completion audit · 2026-11-09
+
+No additional material PTD-09 implementation gap was found at f6288f574. Frozen operation
+inspection and the explicit traversal retain qualified identity, owner/ACL and global retirement
+ordering. The composed restricted-principal overload/trigger/retirement controls cover rollback,
+stale-state refusal and sibling preservation; direct candidate inspection freshly read verified
+frozen facts without replaying deployment. Fresh current-source authoring checks passed27; native
+results retain their original contexts. The coordinator's
+[completion audit](../postgresql-typed-domain_2026-11-09.md#completion-audit) owns the bounded judgment.
+I06 decisions and pending PTD-10/11 were excluded.

@@ -1,6 +1,6 @@
 # SQL explanation and source-aware authoring
 
-**Status: PTD-04/05 implemented and scoped tests passed; PTD-I02 decisions recorded · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
+**Status: PTD-04 validation consumer reopened; PTD-05 scoped delivery retained; I02 decided · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
 below, not another status table. The coordinator records execution separately from original authoring.
@@ -141,3 +141,15 @@ parameters are not an authored-query permission. Selected-version API inspection
 The conditions above reopen specific capabilities rather than transfer an unperformed investigation
 to another plan. Product/native tests and performance experiments are **not_run** for this
 source-settled decision account; no product, archive, compiler or database change was made.
+
+
+## Completion audit · 2026-11-09
+
+PTD-04's occurrence production, truthful v2/v3 reading and explain/diff consumers are delivered,
+but projection_validation_report and ordinary schema compile/check do not expose the accepted
+bounded requested occurrence detail. Reuse the retained page authority and migrate the validation
+report/schema/consumer with explicit archived-unavailable detail; do not conflate that status with
+the compact validation complete flag. PTD-05 retains its source/diagnostic delivery. The coordinator's
+[completion audit](../postgresql-typed-domain_2026-11-09.md#completion-audit) owns CA03. Fresh authoring
+selection fa82bd7fb4694834bcfdc3ef03f552cb passed27 on current product source; broader qualification
+remains bounded. I02 decisions were not audited.

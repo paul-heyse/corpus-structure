@@ -1,6 +1,6 @@
 # Released types and faithful exchange
 
-**Status: PTD-01/08 implemented and scoped tests passed; investigation decisions recorded · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
+**Status: PTD-01 reopened by completion audit; PTD-08 scoped delivery retained; investigations decided · 2026-11-09.** Selected package delivery is Tested at the scope recorded by the coordinator; conditional targets remain Proposed. The
 [coordinator](../postgresql-typed-domain_2026-11-09.md) owns all package/decision state, source
 correspondence and combined qualification. This companion owns the design and local acceptance
 below, not another status table. The coordinator records execution and native delivery separately from original authoring.
@@ -202,3 +202,14 @@ Selected pgpq is the locked Python distribution0.12.0; the discovery's commit po
 source evidence, not a replacement for that installed dependency selection. Existing profile checks
 and same-session COPY remain the enforcement route. No dependency or native schema change follows
 from these decisions, and no new input slice is selected for PTD-10.
+
+
+## Completion audit · 2026-11-09
+
+PTD-01's generated boundary reaches its intended consumers, but anchored correspondence validation
+is incomplete: source_bindings returns nominal anchors and skips their cp:type_source edges before
+checking cycles, encoding or conflicting anchors. Preserve naming authority while validating those
+edges, with independent anchored negative examples. PTD-08 retains its bounded directional and
+independent post-disconnect delivery; shared child-error custody is owned by PTD-02. The coordinator's
+[completion audit](../postgresql-typed-domain_2026-11-09.md#completion-audit) owns CA01/02 and the
+implementation/qualification distinction. No input/ORM/native investigation was reopened.

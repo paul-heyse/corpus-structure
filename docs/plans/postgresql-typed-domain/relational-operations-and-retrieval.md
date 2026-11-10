@@ -260,3 +260,14 @@ RRF60 and witness precedence remain authoritative (`semantic/contextual_retrieva
 I03's selected operation-lifetime inventory preparation must preserve these semantics. I01/I06
 retain responsibility for any future codec/session generation, and I06 separately resolves a real
 multi-server participant need. Re-entry requires only the named premise, not another broad review.
+
+
+## Completion audit · 2026-11-09
+
+No material PTD-06/07 implementation gap was found at f6288f574. Independent inspection traced
+ordinary comparison through resident root/split/reuse custody and stable two-pin continuations;
+resident/transient retrieval shares exact membership and bounded channel ranks with unchanged
+fusion/witness policy. Superseded statement/literal paths are retired. Historical receipts remain
+at their recorded source/native boundaries; no new retrieval/provider/quality run was performed.
+The coordinator's [completion audit](../postgresql-typed-domain_2026-11-09.md#completion-audit) owns
+the bounded conclusion. I03/I04 decisions and both pending PTD-10 improvements were excluded.
