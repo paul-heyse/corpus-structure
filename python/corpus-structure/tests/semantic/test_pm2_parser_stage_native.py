@@ -128,7 +128,7 @@ def test_alternate_domain_parser_run_retains_siblings_after_profile_refusal(
 
 
 def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions(
-    private_source, parser_samples, tmp_path
+    private_source, parser_samples, tmp_path, semantic_reader_engine
 ):
     from copy import deepcopy
     from hashlib import sha256
@@ -194,7 +194,8 @@ def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions
             run_id=report.run_id, source_view_id=case.other_view, include_scope_coverage=True
         )
         inspection = serve_contributions(conn, selection)
-        review = ReviewSelection(selections=(selection,))
+    review = ReviewSelection(selections=(selection,))
+    with read_snapshot(semantic_reader_engine) as conn:
         captured = list(capture_review_relations(conn, review, OperationCancellation()))
     assert progress is not None
     assert progress.pm2_scope_coverage == reader_coverage == report.scope_coverage
