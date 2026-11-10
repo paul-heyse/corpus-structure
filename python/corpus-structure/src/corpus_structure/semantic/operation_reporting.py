@@ -485,6 +485,8 @@ def _document_subject_checks(
 
 def _validation_presentation(data, *, detail=False, max_errors=100, max_depth=8, max_bytes=262144):
     """Bound the complete report, preserving assessment independently of rendering."""
+    from pydantic import MISSING
+
     from .correction_detail import _detail_limits
 
     _detail_limits(max_errors, max_depth, max_bytes)
@@ -531,28 +533,78 @@ def _validation_presentation(data, *, detail=False, max_errors=100, max_depth=8,
     data["presentation"] = coverage
     if not detail:
         data.pop("correction_detail", None)
-    evidence = data.get("evidence")
-    while True:
-        if correction:
-            correction["render_complete"] = coverage["render_complete"]
-        report = _report("LocatedValidationReport", data)
-        if len(canonical_bytes(report.model_dump(mode="json", exclude_none=True))) <= max_bytes:
-            return report
-        coverage["render_complete"] = False
-        if evidence and evidence.get("content") is not None:
-            evidence.update(
-                kind="marker", content=None, reason="Inline evidence exceeds presentation budget."
+    if correction:
+        correction["render_complete"] = coverage["render_complete"]
+    # Normalize once through the trusted declaration. Every later candidate is a
+    # typed subset of these validated facts, so serialization (including generated
+    # defaults and omission rules) stays owned by the actual boundary model.
+    report: Any = _report("LocatedValidationReport", data)
+
+    def fits(candidate):
+        return (
+            len(canonical_bytes(candidate.model_dump(mode="json", exclude_none=True))) <= max_bytes
+        )
+
+    if fits(report):
+        return report
+    evidence = getattr(report, "evidence", None)
+    evidence = None if evidence is MISSING else evidence
+    marker = evidence
+    if evidence is not None and getattr(evidence, "content", MISSING) is not MISSING:
+        marker = evidence.model_copy(
+            update=dict(
+                kind="marker",
+                content=MISSING,
+                reason="Inline evidence exceeds presentation budget.",
             )
-        elif nodes:
-            node = nodes.pop()
-            if node.get("parent") is None and observations:
-                observations.pop()
-        elif observations:
-            observations.pop()
+        )
+    selected_detail = getattr(report, "correction_detail", None)
+    selected_detail = None if selected_detail is MISSING else selected_detail
+    selected_nodes = selected_detail.nodes if selected_detail is not None else ()
+    selected_observations = report.observations
+    # A preorder prefix is parent-closed. The root index couples observations to
+    # exactly the retained roots without rescanning the forest for each probe.
+    root_counts = [0]
+    for node in selected_nodes:
+        root_counts.append(root_counts[-1] + (getattr(node, "parent", MISSING) is MISSING))
+    total = len(selected_nodes) if detail and selected_nodes else len(selected_observations)
+
+    def prefix(count):
+        roots = root_counts[count] if detail and selected_nodes else count
+        updates = dict(
+            observations=selected_observations[:roots],
+            presentation=report.presentation.model_copy(update=dict(render_complete=False)),
+        )
+        if marker is not None:
+            updates["evidence"] = marker
+        if selected_detail is not None:
+            updates["correction_detail"] = selected_detail.model_copy(
+                update=dict(
+                    nodes=selected_nodes[:count],
+                    render_complete=False,
+                )
+            )
+        return report.model_copy(update=updates)
+
+    # Evidence removal may suffice. Otherwise only serialized facts participate
+    # in the search: compact views never step through hidden child nodes.
+    whole = prefix(total)
+    if fits(whole):
+        return whole
+    best = prefix(0)
+    if not fits(best):
+        error = SemanticRefusal("validation presentation binding exceeds requested byte limit")
+        error.__dict__["validation_outcome"] = data["validation_outcome"]
+        raise error
+    low, high = 0, total
+    while low + 1 < high:
+        middle = (low + high) // 2
+        candidate = prefix(middle)
+        if fits(candidate):
+            low, best = middle, candidate
         else:
-            error = SemanticRefusal("validation presentation binding exceeds requested byte limit")
-            error.__dict__["validation_outcome"] = data["validation_outcome"]
-            raise error
+            high = middle
+    return best
 
 
 def validation_report(

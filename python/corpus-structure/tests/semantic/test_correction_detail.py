@@ -489,3 +489,76 @@ def test_payload_numeric_diagnostics_preserve_strict_kind_and_finite_meanings(va
     assert report["validation_outcome"] == "nonconformant"
     assert report["observations"][0]["code"] == code
     assert report["observations"][0]["input_path"] == "#/n"
+
+
+@pytest.mark.parametrize("detail", [False, True])
+@pytest.mark.parametrize("raw", [False, True])
+@pytest.mark.parametrize("nested", [False, True])
+def test_presentation_uses_one_typed_normalization_and_logarithmic_prefix_probes(
+    monkeypatch, detail, raw, nested
+):
+    import math
+
+    from corpus_structure.semantic import operation_reporting as reports
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    # A single root with many causes exercises the hidden-node compact case.
+    if nested:
+        schema = {"anyOf": [{"type": "integer", "title": str(index)} for index in range(200)]}
+        instance = '雪\\"' * 500
+    else:
+        schema = {"type": "array", "items": {"type": "integer"}}
+        instance = ['雪\\"' * 30] * 200
+    capture = capture_json_errors(
+        Draft202012Validator(schema), instance, detail=True, max_errors=1000
+    )
+    error = CapturedFailure("", capture)
+    reports._report_model()
+    original_report, original_bytes = reports._report, reports.canonical_bytes
+    validations, probes = [], []
+
+    def report(name, data):
+        validations.append(name)
+        return original_report(name, data)
+
+    def encoded(value):
+        if isinstance(value, dict) and "validation_outcome" in value and "report_version" in value:
+            probes.append(value)
+        return original_bytes(value)
+
+    monkeypatch.setattr(reports, "_report", report)
+    monkeypatch.setattr(reports, "canonical_bytes", encoded)
+    result = reports.validation_failure_report(
+        error, detail=detail, raw_evidence=raw, max_errors=1000, max_bytes=2048
+    )
+    value = result.model_dump(mode="json", exclude_none=True)
+    assert validations == ["LocatedValidationReport"]
+    count = (201 if detail else 1) if nested else 200
+    assert len(probes) <= math.ceil(math.log2(max(1, count))) + 5
+    assert len(canonical_bytes(value)) <= 2048
+    assert value["validation_outcome"] == "nonconformant"
+    assert value["complete"] is True
+    assert value["presentation"]["inventory_complete"] is True
+    if raw or detail:
+        assert value["presentation"]["render_complete"] is False
+    if detail:
+        nodes = value["correction_detail"]["nodes"]
+        ordinals = {node["ordinal"] for node in nodes}
+        assert all(node.get("parent") is None or node["parent"] in ordinals for node in nodes)
+        assert len(value["observations"]) == sum(node.get("parent") is None for node in nodes)
+    else:
+        assert "correction_detail" not in value
+    # The returned typed projection has exactly the trusted boundary's emitted
+    # defaults, null omission, empty lists and multibyte/escaped encoding.
+    normalized = original_report(
+        "LocatedValidationReport",
+        {
+            key: item
+            for key, item in value.items()
+            if key not in {"report_version", "report_schema_digest"}
+        },
+    )
+    assert canonical_bytes(value) == canonical_bytes(
+        normalized.model_dump(mode="json", exclude_none=True)
+    )
+    assert result.model_dump(mode="json") == normalized.model_dump(mode="json")
