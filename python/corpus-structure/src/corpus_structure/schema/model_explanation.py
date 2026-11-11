@@ -432,6 +432,8 @@ def comparison_summary(comparison):
         return None
     changes = comparison.get("changes", ())
     return {
+        "before_release": comparison.get("before_release"),
+        "after_release": comparison.get("after_release"),
         "total_changes": len(changes),
         "changes": [
             {key: str(item.get(key, ""))[:256] for key in ("kind", "model_ref")}
@@ -475,6 +477,11 @@ def explanation_page(
         native_observation=explanation.native_observation,
         next_after=after + len(items) if after + len(items) < len(explanation.changes) else None,
     )
+    # The requested entry limit is an upper bound. Large retained SQL facts may
+    # require a smaller page; the continuation still addresses the exact inventory.
+    while len(report.model_dump_json().encode()) > 128 * 1024 and len(report.items) > 1:
+        items = list(report.items[:-1])
+        report = report.model_copy(update={"items": tuple(items), "next_after": after + len(items)})
     if len(report.model_dump_json().encode()) > 128 * 1024:
         raise ValueError("SQL explanation exceeds byte bound; narrow the page")
     return report

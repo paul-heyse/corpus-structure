@@ -530,7 +530,15 @@ def test_real_preview_refusal_publishes_inspectable_original_sql(model_results, 
     shown = _inspect(results[0].id, "--view", "sql", "--json")
     assert shown.exit_code == 0, shown.output
     body = json.loads(shown.stdout)
-    refused_input = next(item for item in body["items"] if item["identity"] == "refused-input")
+    items = list(body["items"])
+    while body["next_after"] is not None:
+        shown = _inspect(
+            results[0].id, "--view", "sql", "--after", str(body["next_after"]), "--json"
+        )
+        assert shown.exit_code == 0, shown.output
+        body = json.loads(shown.stdout)
+        items.extend(body["items"])
+    refused_input = next(item for item in items if item["identity"] == "refused-input")
     assert refused_input["after"]["position"] == 11
     assert refused_input["after"]["source"] == "captured-authored.sql"
     assert body["diagnostics"][-1]["kind"] == "SQLSyntaxError"

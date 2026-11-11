@@ -224,3 +224,21 @@ def test_small_sql_page_is_not_blocked_by_full_semantic_impact():
     assert page.impact["total_changes"] == 12 and page.impact["truncated"] is True
     assert len(page.model_dump_json().encode()) < 8192
     assert explanation.impact == impact
+
+
+def test_large_retained_sql_facts_continue_within_the_page_byte_bound():
+    sql = "\n".join("SELECT '" + "Ω" * 3000 + "';" for _ in range(8))
+    explanation = ModelChangeExplanation(
+        source_basis="retained",
+        changes=tuple(sql_change(f"source-{i}.sql", None, sql) for i in range(8)),
+    )
+    identities, after = [], 0
+    while True:
+        page = explanation_page(explanation, "candidate", after=after, limit=8)
+        assert len(page.model_dump_json().encode()) <= 128 * 1024
+        identities.extend(item["identity"] for item in page.items)
+        if page.next_after is None:
+            break
+        assert page.next_after > after
+        after = page.next_after
+    assert identities == [f"source-{i}.sql" for i in range(8)]
