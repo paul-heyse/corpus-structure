@@ -4,7 +4,6 @@ from dataclasses import replace
 from pathlib import Path
 
 from pydantic import Field
-from sqlalchemy import select
 
 from corpus_structure.core.vocab import Stage
 from corpus_structure.ingest.pdf_recognition_methods import (
@@ -25,7 +24,11 @@ from corpus_structure.methods.m1_source import M1Candidates
 from corpus_structure.orchestrate.registry import MethodRegistry, load_methods
 from corpus_structure.orchestrate.runner import Graph, Step
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.product_reference import ProductReference
+
+from .pdf_source import RetainedDocument as RetainedDocument
+from .pdf_source import retained_source_document
+
+retained_document = retained_source_document
 
 M1 = Graph(
     (
@@ -73,9 +76,6 @@ def source_graph(configuration: str = "default") -> Graph:
             ),
         )
     return replace(M1, stages=stages)
-
-
-from .pdf_source import RetainedDocument, retained_source_document as retained_document
 
 
 class RetainedIntegratedConfig(PdfIntegratedIngestConfig):

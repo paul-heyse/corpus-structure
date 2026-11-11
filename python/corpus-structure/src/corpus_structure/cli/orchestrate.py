@@ -112,14 +112,21 @@ def project_init(
     realization: Annotated[
         str | None, typer.Option(help="Explicit empty semantic realization identity.")
     ] = None,
+    native_source: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
+    integrated_source: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
     json: JsonOpt = False,
 ) -> None:
     """Create or update the project: its documents and the pack's versions."""
+    from corpus_structure.cli.regenerate import read_product_pin
     from corpus_structure.orchestrate import project
 
+    if native_source is not None and integrated_source is not None:
+        raise typer.BadParameter("native-source and integrated-source are mutually exclusive")
     settings = state(ctx).settings()
     seams = PHASE0()
     with _refusals(json), ENGINE(settings) as engine, engine.begin() as conn:
+        native_product = read_product_pin(native_source, "native")
+        integrated_product = read_product_pin(integrated_source, "integrated")
         if semantic_release is None or realization is None:
             raise typer.BadParameter("initialization requires --semantic-release and --realization")
         report = project.init_bound_project(
@@ -131,6 +138,8 @@ def project_init(
             name=name or settings.runtime.default_project,
             domains=seams["domains"],
             registry=seams["registry_for"](seams["domains"] / domain),
+            native_product=native_product,
+            integrated_product=integrated_product,
         )
     emit(report, json=json, render=lambda r: _table("project", r))
 
@@ -147,8 +156,13 @@ def run(
     phase: Annotated[int, typer.Option(help="The run's phase.")] = 0,
     slice: Annotated[str | None, typer.Option(help="Run a named slice.")] = None,
     scope: Annotated[str | None, typer.Option(help="Propose within a named scope.")] = None,
-    whole_document: Annotated[bool, typer.Option(help="Explicitly select the whole document, bypassing default scopes.")] = False,
-    source_membership: Annotated[Literal["direct", "descendants"] | None, typer.Option(help="Exact native section membership.")] = None,
+    whole_document: Annotated[
+        bool, typer.Option(help="Explicitly select the whole document, bypassing default scopes.")
+    ] = False,
+    source_membership: Annotated[
+        Literal["direct", "descendants"] | None,
+        typer.Option(help="Exact native section membership."),
+    ] = None,
     corpus: Annotated[str | None, typer.Option(help="Ingest a named corpus slice.")] = None,
     agent_mode: Annotated[
         Literal["complete"] | None,
@@ -435,8 +449,13 @@ def ingest(
     realization: Annotated[str | None, typer.Option(help="Exact bound input realization.")] = None,
     slice: str | None = None,
     scope: str | None = None,
-    whole_document: Annotated[bool, typer.Option(help="Explicitly select all native sections and residual content.")] = False,
-    source_membership: Annotated[Literal["direct", "descendants"] | None, typer.Option(help="Exact native section membership.")] = None,
+    whole_document: Annotated[
+        bool, typer.Option(help="Explicitly select all native sections and residual content.")
+    ] = False,
+    source_membership: Annotated[
+        Literal["direct", "descendants"] | None,
+        typer.Option(help="Exact native section membership."),
+    ] = None,
     native_source: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
     integrated_source: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
     enrichment_options: Annotated[
@@ -479,6 +498,8 @@ def ingest(
                     release_id=release,
                     realization_id=source,
                     name=project,
+                    native_product=native_product,
+                    integrated_product=integrated_product,
                 )
         result = commands.start_bound_run(
             engine,

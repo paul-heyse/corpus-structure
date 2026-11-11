@@ -11,7 +11,7 @@ from corpus_structure.core.method import MethodContext, MethodSettings, UnitRef,
 from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.characterization import ComposeViewConfig, ComposeViewMethod
 from corpus_structure.orchestrate.phase0 import registry
-from corpus_structure.semantic.characterization import validate_layer, _published_layer_manifest
+from corpus_structure.semantic.characterization import _published_layer_manifest, validate_layer
 from corpus_structure.semantic.product_reference import ProductReference
 
 
@@ -33,10 +33,24 @@ def inputs(prepared):
         prepared=prepared, source_views=lambda: [ref], characterization_layers=lambda pins: {}
     )
     reader.characterization_manifests = lambda pins: {
-        pin: _published_layer_manifest(pin, {
-            key: value for key, value in report.payload.items()
-            if key in {"format", "release_id", "base_document", "operation", "source_scope", "outcome", "dependencies", "coverage"}
-        })
+        pin: _published_layer_manifest(
+            pin,
+            {
+                key: value
+                for key, value in report.payload.items()
+                if key
+                in {
+                    "format",
+                    "release_id",
+                    "base_document",
+                    "operation",
+                    "source_scope",
+                    "outcome",
+                    "dependencies",
+                    "coverage",
+                }
+            },
+        )
         for pin, report in reader.characterization_layers(pins).items()
     }
     run = SimpleNamespace(reader=reader)

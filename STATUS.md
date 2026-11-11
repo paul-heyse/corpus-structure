@@ -1,18 +1,18 @@
 # Status
 
-_Updated 2026-11-11. TC-03–09 and their TC-01/02 prerequisites are implemented in shared `main`.
-Native head is `semantic_tc03_09_literals`; `/10` remains default and the project unselected._
+_Updated 2026-11-11. TC-03–09 and their TC-01/02 prerequisites are implemented; TC-10/11 execution is active.
+Native head is `semantic_tc10_11_assessment`; `/10` remains default and the project unselected._
 
 ## Current scope and authority
 
-- [TC coordinator](docs/plans/text-characterization_2026-11-10.md) owns package acceptance, O01–O07 and producer-review F01–F04. Authorized TC-03–09 functional scope and prerequisite integration are complete; TC-10/11 independent semantic assessment and full-book qualification/adoption remain planned.
+- [TC coordinator](docs/plans/text-characterization_2026-11-10.md) owns package acceptance, O01–O07 and producer-review F01–F04. Authorized TC-03–09 functional scope and prerequisite integration are complete; TC-10/11 independent semantic assessment and full-book qualification are authorized and in progress. The operator selected a chapter-and-facet reference panel with exhaustive518-page/family execution coverage.
 - ADR-0081/0082 and D1/D2/D3/D4/D6/D8 own the implemented enriched-document contract: the full exact native document, immutable positioned layers under their original released contracts, and explicit active analyses distinct from retained dependency closure.
 - Delivered six primary stages: native linguistic evidence, positioned formal evidence, constructions, contextual evidence, eight-family model characterization and one contextual evaluator. Analytics reads their exact retained outputs; old duplicate recognizers and SQL language production are retired.
 - Default capture/characterize/consume and demand reuse, typed native admission, indexed live/detached reads, analytical export closure, exact determinants/provider costs, zero-text coverage and bounded provider residency are integrated.
 - [Integration evidence](docs/design_review/evidence/2026-11-11_text-characterization-integration/README.md) retains frozen forward migrations, failed receipts and final applicability judgment. Release `81dd8c0986138654fe434c1742072585ed968d70a4973961b6e89aa6e2713371` is deployed privately; no activation, promotion or project selection occurred.
-- Work uses the shared `main` tree; no parallel worktrees remain. Implementation is committed as `e9025e949`, with independent SQL inspection repair `088cf9fdd`; this checkpoint accompanies the plan/evidence handoff commit. No push occurred.
+- TC-10 assessment edits are in shared main. TC-11 source/composition commits `ea148b738` and `7827f8076` are merged; the isolated parallel worktree was removed. Prior implementation is `e9025e949`/`088cf9fdd`; no push occurred.
 
-## Verification · 2026-11-11
+## Prior TC-03–09 verification · 2026-11-11
 
 - `CORPUS_PM2_NATIVE_TEST_ASSETS=/home/paul/corpus-structure/build/models/pm2 uv run ci test --json`: **failed**, `71e97b485e59479b80b9d5e086f48570`; ordinary: 6,399 selected/6,394 passed/four failed/one blocked; fault: 8/8 **passed**. Rust **not_run**, zero selected; rustc1.101.0-nightly (2d20b42b8 2026-11-04).
 - `CORPUS_GLINER_DIAGNOSTIC=1 uv run ci test --json -- python/corpus-structure/tests/methods/test_contextual_characterization.py python/corpus-structure/tests/methods/test_m1_review_repairs.py python/corpus-structure/tests/semantic/test_analysis_resources.py python/corpus-structure/tests/methods/test_gliner.py`: **passed**,82/82, `2e2d74eb026b42b78068d523ce6ca5da`, including the actual opt-in diagnostic.
@@ -21,9 +21,18 @@ Native head is `semantic_tc03_09_literals`; `/10` remains default and the projec
 - `just turn-end`: **passed**; maintenance left all1108 Python files unchanged. Later receipt-only prose changes do not alter qualified product source.
 - `uv run ci doctor`: **passed**, `865caaa0e1014f2fa0e38a23177df4bf`. A transient pinned-wheel metadata timeout used the existing locked cache offline; no dependencies changed.
 
-## Next
+## Active execution
 
-TC-10 authors independent source/output expectations and assesses semantic quality. TC-11 then
-accounts for all 518 physical textbook pages, selected family coverage and adoption effects under
-its separate execution authority. No measured quality, performance or English-completeness claim
-follows from the completed implementation's functional checks.
+The [coordinator](docs/plans/text-characterization_2026-11-10.md#authorized-remaining-scope-execution--2026-11-11)
+owns current TC-10/11 scope. Assessment V3, protected bounded inspection, native task scoring and authenticated layer
+manifests are implemented; candidate3347969a60524d04979ce067c5910cf5 was deployed as
+8d6b99066cb24d21adc2eacb43d5eadd, releasec9939039081ddcfbc382e9dc323e12e31f9b3683fb479c773ea3fd72ac6a6189. The source and persisted-composition slices
+are merged. Native assessment/manifest controls passed27 (`287d06f4208f45d58530aed836419e88`);
+latest assessment/native-column controls passed99 (`b8cad173a69348b686c07a1f8d788d78`).
+Retained-source initialization passed6 (`bc608dc9ad2341b5ac9ed912c2365fa9`).
+Whole-book source capture496 is finalized at cut614:316 direct SourceViews, original518-page base retained.
+No TC-10/11 semantic grade or full-book primary qualification is claimed.
+
+Next: freeze source-only panel frames, run fresh Sol/high A/B/C,
+execute/grade the full book, resolve triggered gaps and complete the final applicable test union.
+Activation/selection remains a separate final effect. Preserve prior receipts at their own scope.

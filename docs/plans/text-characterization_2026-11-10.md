@@ -1,8 +1,8 @@
 # Enriched-document text characterization implementation series
 
-**Status: TC-00–09 implemented and functionally qualified for the authorized scope · 2026-11-11.**
+**Status: TC-00–09 functionally qualified; TC-10/11 execution in progress · 2026-11-11.**
 This coordinator owns TC-00–TC-11, TC-I01–09, O01–O07 disposition and combined completion.
-Supporting plans own package design; this page owns current package state. The required functional/provider union for TC-03–09 and its TC-01/02 prerequisites is covered. TC-10/11 independent semantic assessment, full-book qualification and adoption remain planned; conditional branches outside the authorized baseline remain conditional.
+Supporting plans own package design; this page owns current package state. The required functional/provider union for TC-03–09 and its TC-01/02 prerequisites is covered. TC-10/11 independent semantic assessment and full-book qualification are now authorized and in progress. Activation/selection retains its explicit final effect authority; conditional branches remain trigger-driven.
 
 ## Target and basis
 
@@ -290,3 +290,29 @@ and baseline-plus-conditional feature routes. This advice is not the formal TC-0
 - Product/provider tests, runtime probes, model training and benchmarks: **not_run**, because this
   engagement creates implementation plans. All implementation and qualification obligations remain
   planned in TC-00–11; conditional branches remain untriggered at publication.
+
+
+## Authorized remaining-scope execution · 2026-11-11
+
+The operator approved TC-10/11 execution and selected a chapter-and-facet independent reference
+panel, with exhaustive source/family coverage accounting over all518 physical pages. Semantic
+reference authoring is not exhaustive annotation of every eligible passage. Source-first frames
+freeze before corresponding producer-output inspection; output-first frames bind exact retained
+output populations. Fresh Sol/high A/B authoring and separate C adjudication preserve existing
+protected reference custody and exposure provenance.
+
+The immediate integration package extends operation frames to V3, native output membership and
+independent facet matching, plus bounded evaluator inspection. Source-first V3 frames must not
+require a producer layer/view that does not yet exist; evaluation binds predictions separately.
+Whole-document selection explicitly bypasses narrow pack defaults; direct section membership and
+root residual preserve full source coverage. Exact retained input selection authenticates its
+registered original rather than inheriting another corpus's configured originals. Combined-view
+composition must avoid simultaneous hydration of all book layer payloads.
+
+Baseline is `b7cf3f1a2`, native head `semantic_tc03_09_literals`. The retained integrated source
+pin is task1627/product`integrated`/digest`35f4384ea386e630448d804621c0767881650937c45cd4294182cb0dd91ce8fb`,
+project `nce-grinstead-snell-full-book`; original digest is
+`763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e`.
+Its source report says display recognition partial and inline/cell coverage unknown. Preserve
+or resolve these limits through the existing source-demand owners; do not claim complete
+recognition from conversion success. No new qualification is established by this authorization.

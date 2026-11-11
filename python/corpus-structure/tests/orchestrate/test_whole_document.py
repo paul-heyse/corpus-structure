@@ -8,6 +8,7 @@ import pytest
 from typer.testing import CliRunner
 
 from corpus_structure.cli.app import app
+from corpus_structure.ingest.pdf_recognition_methods import PdfIntegratedIngestConfig
 from corpus_structure.orchestrate import commands, phase0
 from corpus_structure.semantic.product_reference import ProductReference
 
@@ -35,9 +36,11 @@ def test_projection_binding_freezes_nondefault_original_and_keeps_pack_unchanged
     pin = ProductReference(23, "integrated", "a" * 64)
     selected = phase0.bind_pdf_selection(
         phase0.bind_pdf_source(registry, pin, input_role="integrated"),
-        document=SimpleNamespace(source_uri="grinstead_snell/book.pdf"), membership="direct",
+        document=SimpleNamespace(source_uri="grinstead_snell/book.pdf"),
+        membership="direct",
     )
     cfg = selected.overlay("ingest.pdf_integrated", "default")
+    assert isinstance(cfg, PdfIntegratedIngestConfig)
     assert cfg.originals == ("grinstead_snell/book.pdf",)
     assert cfg.membership == "direct" and cfg.integrated_product == pin
     assert registry.overlay("ingest.pdf_integrated", "default") == prior
@@ -56,19 +59,28 @@ def test_explicit_whole_document_bypasses_default_scope_and_is_frozen(monkeypatc
         "default_scope: limited\nslices:\n  limited:\n    - native_sections: [Subset]\n"
     )
     conn = MagicMock()
-    conn.execute.return_value.mappings.return_value.one.return_value = dict(release_id="release", data_revision=1)
-    conn.execute.return_value.mappings.return_value.__iter__.side_effect = lambda: iter([
-        dict(id=1, key="book", content_hash="a" * 64, mime="application/pdf", meta={})
-    ])
+    conn.execute.return_value.mappings.return_value.one.return_value = dict(
+        release_id="release", data_revision=1
+    )
+    conn.execute.return_value.mappings.return_value.__iter__.side_effect = lambda: iter(
+        [dict(id=1, key="book", content_hash="a" * 64, mime="application/pdf", meta={})]
+    )
     engine = MagicMock()
     engine.connect.return_value.__enter__.return_value = conn
     monkeypatch.setattr(releases, "load_release", lambda *a: SimpleNamespace(release_id="release"))
     started = MagicMock(return_value="captured")
     monkeypatch.setattr(semantic, "run_source_methods", started)
     result = commands.start_bound_run(
-        engine, release_id="release", realization_id="source", project_id="project",
-        domain="statistics", domains=tmp_path, method_settings=None,
-        whole_document=whole, source_membership="direct", source_only=True,
+        engine,
+        release_id="release",
+        realization_id="source",
+        project_id="project",
+        domain="statistics",
+        domains=tmp_path,
+        method_settings=None,
+        whole_document=whole,
+        source_membership="direct",
+        source_only=True,
     )
     assert result == "captured"
     options = started.call_args.kwargs
@@ -77,7 +89,9 @@ def test_explicit_whole_document_bypasses_default_scope_and_is_frozen(monkeypatc
     assert (options["scope_record"] is None) is whole
     if not whole:
         assert options["scope_record"]["sections"] == ["Subset"]
-    assert options["registry"].overlay("ingest.pdf_integrated", "default").membership == "direct"
+    selected_config = options["registry"].overlay("ingest.pdf_integrated", "default")
+    assert isinstance(selected_config, PdfIntegratedIngestConfig)
+    assert selected_config.membership == "direct"
 
 
 @pytest.mark.parametrize("whole", [False, True])
@@ -92,19 +106,28 @@ def test_full_policy_scope_requires_explicit_intent(monkeypatch, tmp_path, whole
     for name in ("methods.yaml", "guideline.md", "policies.yaml"):
         (pack / name).write_bytes((ROOT / "domains/statistics" / name).read_bytes())
     conn = MagicMock()
-    conn.execute.return_value.mappings.return_value.one.return_value = dict(release_id="release", data_revision=1)
-    conn.execute.return_value.mappings.return_value.__iter__.side_effect = lambda: iter([
-        dict(id=1, key="book", content_hash="a" * 64, mime="application/pdf", meta={})
-    ])
+    conn.execute.return_value.mappings.return_value.one.return_value = dict(
+        release_id="release", data_revision=1
+    )
+    conn.execute.return_value.mappings.return_value.__iter__.side_effect = lambda: iter(
+        [dict(id=1, key="book", content_hash="a" * 64, mime="application/pdf", meta={})]
+    )
     engine = MagicMock()
     engine.connect.return_value.__enter__.return_value = conn
     monkeypatch.setattr(releases, "load_release", lambda *a: SimpleNamespace(release_id="release"))
     started = MagicMock(return_value="captured")
     monkeypatch.setattr(semantic, "run_source_methods", started)
     kwargs = dict(
-        release_id="release", realization_id="source", project_id="project",
-        domain="statistics", domains=tmp_path, method_settings=None, whole_document=whole,
-        graph=Graph(((Stage.INGEST, (Step("ingest.pdf_integrated/default"),)),), policy_propose=True),
+        release_id="release",
+        realization_id="source",
+        project_id="project",
+        domain="statistics",
+        domains=tmp_path,
+        method_settings=None,
+        whole_document=whole,
+        graph=Graph(
+            ((Stage.INGEST, (Step("ingest.pdf_integrated/default"),)),), policy_propose=True
+        ),
     )
     if whole:
         assert commands.start_bound_run(engine, **kwargs) == "captured"
@@ -113,3 +136,30 @@ def test_full_policy_scope_requires_explicit_intent(monkeypatch, tmp_path, whole
         with pytest.raises(commands.CommandError, match="requires a scope"):
             commands.start_bound_run(engine, **kwargs)
         started.assert_not_called()
+
+
+def test_direct_membership_honors_named_scope_in_fresh_and_retained_selection():
+    from types import SimpleNamespace
+
+    from corpus_structure.ingest.pdf_methods import PdfIngestConfig, _select_sections
+    from corpus_structure.ingest.pdf_section_views import select_published_sections
+
+    names = {"#/groups/1": "Selected", "#/groups/2": "Child", "#/groups/3": "Unrelated"}
+    parents = {"#/groups/1": "#/body", "#/groups/2": "#/groups/1", "#/groups/3": "#/body"}
+    nodes = {"#/body": SimpleNamespace(label="body", parent=None)}
+    for pointer, name in names.items():
+        nodes[pointer] = SimpleNamespace(
+            label="section", name=name, parent=SimpleNamespace(cref=parents[pointer])
+        )
+    rows = [
+        dict(
+            pointer=p,
+            name=n,
+            ancestors=[parents[p]] if p != "#/groups/2" else ["#/groups/1", "#/body"],
+        )
+        for p, n in names.items()
+    ]
+    scope = {"kind": "native_sections", "sections": ["Selected"]}
+    expected = ("#/groups/1", "#/groups/2")
+    assert _select_sections(nodes, PdfIngestConfig(membership="direct"), scope=scope) == expected
+    assert select_published_sections(rows, (), "direct", scope) == expected

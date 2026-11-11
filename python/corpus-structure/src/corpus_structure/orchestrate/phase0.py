@@ -236,6 +236,8 @@ def bind_pdf_selection(registry, *, document=None, membership=None):
     if not selected:
         raise ValueError("source projection override requires a PDF producer")
     return MethodRegistry(
-        registry.methods(), replace(registry.file, configs=configs), registry.sources,
+        registry.methods(),
+        replace(registry.file, configs=configs),
+        registry.sources,
         prepared=registry.prepared,
     )

@@ -15,7 +15,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from corpus_structure.core.vocab import Stage
 from corpus_structure.methods.characterization_resources import characterization_resource_session
 from corpus_structure.semantic.characterization import characterization_profiles
-from corpus_structure.semantic.characterization_store import read_inventory, read_layer, read_layer_manifest
+from corpus_structure.semantic.characterization_store import (
+    read_inventory,
+    read_layer,
+    read_layer_manifest,
+)
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.structural_products import ExternalSourceRef
 
@@ -536,7 +540,9 @@ def enrich_document(
             if dep not in retained:
                 if dep not in layers:
                     with read_snapshot(engine) as conn:
-                        layers[dep] = (read_layer if demand.run_missing else read_layer_manifest)(conn, dep)
+                        layers[dep] = (read_layer if demand.run_missing else read_layer_manifest)(
+                            conn, dep
+                        )
                 retained.add(dep)
                 pending.append(dep)
     pins = sorted(retained, key=lambda pin: (pin.task_id, pin.product_key, pin.content_digest))

@@ -359,12 +359,7 @@ def _select_sections(
     ]
     if cfg.sections and len(matched) != len(set(cfg.sections)):
         raise ValueError("requested intact section selection is missing or ambiguous")
-    if (
-        cfg.membership == "descendants"
-        and not cfg.sections
-        and isinstance(scope, dict)
-        and scope.get("kind") == "native_sections"
-    ):
+    if not cfg.sections and isinstance(scope, dict) and scope.get("kind") == "native_sections":
         from corpus_structure.semantic.source_views import resolve_native_sections
 
         matched = list(

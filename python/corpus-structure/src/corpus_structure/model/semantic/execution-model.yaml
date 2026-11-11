@@ -10799,6 +10799,23 @@ operations:
   implementation: reference_operation_grade
   transitions: []
   projections: []
+  calls:
+  - id: operation_evaluation_page
+    symbol: eval.operation_evaluation_page
+    parameters:
+    - {name: project_id, source: physical:data.project.project_id, nullable: false, native_parameter: p_project}
+    - {name: evaluation_id, source: physical:eval.reference_evaluation.id, nullable: false, native_parameter: p_evaluation}
+    - {name: view, source: primitive:string, nullable: false, native_parameter: p_view}
+    - {name: facet, source: primitive:string, nullable: true, native_parameter: p_facet}
+    - {name: direction, source: primitive:string, nullable: true, native_parameter: p_direction}
+    - {name: cursor, source: primitive:string, nullable: true, native_parameter: p_cursor}
+    - {name: limit, source: primitive:integer, nullable: false, native_parameter: p_limit}
+    - {name: max_bytes, source: primitive:integer, nullable: false, native_parameter: p_max_bytes}
+    result_mode: scalar
+    result_fields:
+    - {name: result, source: primitive:json_payload, nullable: false}
+    cardinality: one
+    ordered: false
 - id: reference_operation_fit
   inputs:
   - EvaluationResult
@@ -11048,6 +11065,19 @@ operations:
     - name: result
       source: primitive:json_payload
       nullable: false
+    cardinality: one
+    ordered: false
+  - id: read_characterization_layer_manifest
+    symbol: ops.read_characterization_layer_manifest
+    parameters:
+    - *tc02id001
+    - *tc02id002
+    - *tc02id003
+    - {name: run_id, source: physical:ops.run.id, nullable: true, native_parameter: p_run}
+    - {name: max_bytes, source: primitive:integer, nullable: false, native_parameter: p_max_bytes}
+    result_mode: scalar
+    result_fields:
+    - {name: result, source: primitive:json_payload, nullable: false}
     cardinality: one
     ordered: false
   - id: read_characterization_memberships

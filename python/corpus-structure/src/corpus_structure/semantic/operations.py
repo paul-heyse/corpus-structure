@@ -856,7 +856,9 @@ def prepare_unit_completion(
                     ProductReference(**pin) for pin in retained.payload.get("dependencies", ())
                 )
             if layer is not None:
-                layer = validate_layer(prepared, layer.payload, dependencies=layers, releases=releases)
+                layer = validate_layer(
+                    prepared, layer.payload, dependencies=layers, releases=releases
+                )
                 layers[layer.reference(task_id)] = layer
             if view is not None:
                 view = validate_view(prepared, view.payload, layers, releases=releases)

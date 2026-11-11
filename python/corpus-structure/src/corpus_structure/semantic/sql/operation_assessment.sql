@@ -14,7 +14,7 @@ BEGIN
   OR jsonb_typeof(p_units) IS DISTINCT FROM 'array' OR jsonb_array_length(p_units)=0
   OR jsonb_typeof(p_sampling) IS DISTINCT FROM 'object'
   OR p_sampling->>'operation_protocol' IS DISTINCT FROM 'source-operation-reference-1'
-  OR COALESCE(p_sampling->>'source_frame_abi','') NOT IN ('source-operation-frame-1','source-operation-frame-2')
+  OR COALESCE(p_sampling->>'source_frame_abi','') NOT IN ('source-operation-frame-1','source-operation-frame-2','source-operation-frame-3')
   OR p_sampling->>'partition' NOT IN ('development','feature_fit','final_event_calibration','final_assessment')
   OR btrim(COALESCE(p_sampling->>'guideline_text',''))=''
   OR p_sampling->>'guideline_digest' IS DISTINCT FROM encode(sha256(convert_to(p_sampling->>'guideline_text','UTF8')),'hex')
@@ -92,7 +92,7 @@ BEGIN
    'protocol','source-operation-reference-1','release_id',source_release,'unit_ref',unit->>'unit_key',
    'guideline',p_guideline,'rubric_version',frozen_frame->'evaluation_frame'->>'rubric_version',
    'context_policy',frozen_frame->'evaluation_frame'->>'context_policy','reason','source-only frame freeze','cases','[]'::jsonb)||
-   ((frozen_frame->'evaluation_frame')-ARRAY['unit','release_id','guideline_version','pin','anchor_ids','related_pins','anchor_scopes','contribution_ids','source_group','partition','inspected_scope','opportunities','exposure_history']),frozen_frame);
+   ((frozen_frame->'evaluation_frame')-ARRAY['unit','release_id','guideline_version','pin','anchor_ids','related_pins','anchor_scopes','contribution_ids','source_group','partition','inspected_scope','opportunities','exposure_history','characterization_view','selected_layers','outputs']),frozen_frame);
  END LOOP;
  RETURN result;
 END $$;
@@ -110,9 +110,9 @@ BEGIN
  SELECT * INTO STRICT selected FROM kb.source_view WHERE id=unit.source_view_id;
  bound:=p_frame->'evaluation_frame';
  IF unit.context IS DISTINCT FROM jsonb_build_array(p_frame)
-  OR COALESCE(p_frame->>'protocol','') NOT IN ('source-operation-frame-1','source-operation-frame-2') OR p_frame-ARRAY['protocol','evaluation_frame','source_views','captured_coordinates','context_dependency_digest']<>'{}'
+  OR COALESCE(p_frame->>'protocol','') NOT IN ('source-operation-frame-1','source-operation-frame-2','source-operation-frame-3') OR p_frame-ARRAY['protocol','evaluation_frame','source_views','captured_coordinates','context_dependency_digest']<>'{}'
   OR jsonb_typeof(bound) IS DISTINCT FROM 'object'
-  OR bound-ARRAY['unit','release_id','guideline_version','rubric_version','context_policy','pin','anchor_ids','related_pins','anchor_scopes','operation_question','operation_version','domain','direction','contribution_ids','source_group','partition','inspected_scope','opportunities','exposure_history']<>'{}'
+  OR bound-ARRAY['unit','release_id','guideline_version','rubric_version','context_policy','pin','anchor_ids','related_pins','anchor_scopes','operation_question','operation_version','domain','direction','contribution_ids','source_group','partition','inspected_scope','opportunities','exposure_history','characterization_view','selected_layers','outputs']<>'{}'
   OR p_payload->>'protocol' IS DISTINCT FROM 'source-operation-reference-1'
   OR p_payload-ARRAY['protocol','release_id','unit_ref','guideline','rubric_version','context_policy',
     'operation_question','operation_version','domain','direction','reason','cases','adjudication_passes']<>'{}'
@@ -140,11 +140,11 @@ BEGIN
   OR bound->>'direction' NOT IN ('source_first','output_first')
   OR jsonb_typeof(bound->'contribution_ids') IS DISTINCT FROM 'array'
   OR (bound->>'direction'='source_first' AND bound->'contribution_ids'<>'[]')
-  OR (bound->>'direction'='output_first' AND jsonb_array_length(bound->'contribution_ids')=0)
+  OR (bound->>'direction'='output_first' AND p_frame->>'protocol'<>'source-operation-frame-3' AND jsonb_array_length(bound->'contribution_ids')=0)
   OR EXISTS(SELECT FROM unnest(ARRAY['rubric_version','context_policy','operation_question','operation_version','domain','direction']) k
     WHERE btrim(COALESCE(bound->>k,''))='' OR p_payload->>k IS DISTINCT FROM bound->>k) THEN
   RAISE EXCEPTION 'record reference differs from frozen source/guideline/release protocol' USING ERRCODE='23514'; END IF;
- IF bound->>'direction'='output_first' AND EXISTS(
+ IF p_frame->>'protocol'<>'source-operation-frame-3' AND bound->>'direction'='output_first' AND EXISTS(
   SELECT FROM jsonb_array_elements_text(bound->'contribution_ids') identity WHERE NOT EXISTS(
    SELECT FROM kb.source_contribution contribution JOIN ops.task selected_task
     ON contribution.task_id=COALESCE(selected_task.reused_task_id,selected_task.id)
@@ -160,7 +160,7 @@ BEGIN
  IF p_frame->>'protocol' IS DISTINCT FROM reference_set.sampling->>'source_frame_abi' THEN
   RAISE EXCEPTION 'operation frame ABI differs from frozen set' USING ERRCODE='23514'; END IF;
  IF p_frame->>'protocol'='source-operation-frame-1' THEN
-  IF bound ?| ARRAY['source_group','partition','inspected_scope','opportunities','exposure_history'] THEN
+  IF bound ?| ARRAY['source_group','partition','inspected_scope','opportunities','exposure_history','characterization_view','selected_layers','outputs'] THEN
    RAISE EXCEPTION 'legacy frame cannot contain version two fields' USING ERRCODE='23514'; END IF;
  ELSE
   IF bound->>'partition' IS DISTINCT FROM reference_set.sampling->>'partition'
@@ -172,6 +172,9 @@ BEGIN
     WHERE u->>'unit_key'=unit.unit_key AND u->>'origin_group'=bound->>'source_group')
    OR EXISTS(SELECT FROM jsonb_array_elements(bound->'opportunities') o GROUP BY o->>'opportunity_id' HAVING count(*)>1) THEN
    RAISE EXCEPTION 'operation source opportunities differ from frozen group/partition' USING ERRCODE='23514'; END IF;
+  IF p_frame->>'protocol'='source-operation-frame-3' THEN
+   PERFORM eval.validate_characterization_reference(p_unit,p_payload,p_frame);
+  ELSE
   FOR source_record IN SELECT value FROM jsonb_array_elements(bound->'opportunities') LOOP
    IF source_record-ARRAY['opportunity_id','source_view_id','start','end','facet','source_state']<>'{}'
     OR jsonb_typeof(source_record->'source_view_id') IS DISTINCT FROM 'number'
@@ -184,14 +187,15 @@ BEGIN
      AND (source_record->>'end')::bigint<=length(v->'projection'->>'text')) THEN
     RAISE EXCEPTION 'invalid independent source opportunity' USING ERRCODE='23514'; END IF;
   END LOOP;
+  END IF;
  END IF;
  FOR source_record IN SELECT value FROM jsonb_array_elements(p_payload->'cases') LOOP
   IF source_record-ARRAY['case_id','facet','anchor_ids','inspected_scope','source_state','judgment','alternatives','explanation',
-    'assessor_provenance','contribution_kind','contribution_id','error_category','candidate_selector','permissible_anchor_sets','expectation_mode','anchor_endpoint_role']<>'{}'
+    'assessor_provenance','contribution_kind','contribution_id','error_category','candidate_selector','permissible_anchor_sets','expectation_mode','anchor_endpoint_role','opportunity_id','output_reference','required_family','graph_projection','native_reference']<>'{}'
    OR NOT(source_record ?& ARRAY['case_id','facet','anchor_ids','inspected_scope','source_state','judgment','alternatives','explanation','assessor_provenance'])
    OR EXISTS(SELECT FROM unnest(ARRAY['case_id','facet','inspected_scope','explanation']) k WHERE btrim(COALESCE(source_record->>k,''))='')
    OR COALESCE(source_record->>'judgment','') NOT IN ('supported','unsupported','ambiguous','unassessed')
-   OR COALESCE(source_record->>'source_state','') NOT IN ('stated','unstated','uninspected','unresolved')
+   OR COALESCE(source_record->>'source_state','') NOT IN ('stated','unstated','uninspected','unresolved','inapplicable')
    OR jsonb_typeof(source_record->'anchor_ids') IS DISTINCT FROM 'array'
    OR jsonb_typeof(source_record->'alternatives') IS DISTINCT FROM 'array'
    OR jsonb_typeof(source_record->'assessor_provenance') IS DISTINCT FROM 'object' OR source_record->'assessor_provenance'='{}'
@@ -211,7 +215,8 @@ BEGIN
       OR EXISTS(SELECT FROM jsonb_array_elements(a->'endpoint_semantics') e
        WHERE e->'fields' IS DISTINCT FROM '{}'::jsonb)))
    OR (source_record->>'source_state'='uninspected' AND source_record->>'judgment'<>'unassessed')
-   OR (source_record->>'source_state'='stated' AND source_record->>'judgment'='supported' AND source_record->'alternatives'='[]')
+   OR (source_record->>'source_state'='stated' AND source_record->>'judgment'='supported' AND source_record->'alternatives'='[]' AND (p_frame->>'protocol'<>'source-operation-frame-3' OR jsonb_typeof(source_record->'native_reference') IS DISTINCT FROM 'object'))
+   OR (source_record->'native_reference' IS NOT NULL AND source_record->'native_reference'<>'null' AND p_frame->>'protocol'<>'source-operation-frame-3')
    OR NOT((bound->'anchor_ids') @> (source_record->'anchor_ids'))
    OR EXISTS(SELECT FROM jsonb_array_elements(source_record->'alternatives') expected_option
     CROSS JOIN LATERAL jsonb_array_elements(COALESCE(expected_option->'endpoint_semantics','[]')) endpoint
@@ -223,7 +228,7 @@ BEGIN
      OR EXISTS(SELECT FROM jsonb_array_elements(source_record->'permissible_anchor_sets') permitted
       WHERE jsonb_typeof(permitted)<>'array' OR NOT((bound->'anchor_ids') @> permitted))))
    OR (bound->>'direction'='source_first' AND source_record->>'contribution_id' IS NOT NULL)
-   OR (bound->>'direction'='output_first' AND (source_record->>'contribution_id' IS NULL OR NOT(bound->'contribution_ids' ? (source_record->>'contribution_id')))) THEN
+   OR (p_frame->>'protocol'<>'source-operation-frame-3' AND bound->>'direction'='output_first' AND (source_record->>'contribution_id' IS NULL OR NOT(bound->'contribution_ids' ? (source_record->>'contribution_id')))) THEN
    RAISE EXCEPTION 'operation case differs from independent source/facet authority' USING ERRCODE='23514'; END IF;
 
  END LOOP;
@@ -325,7 +330,7 @@ BEGIN
   'guideline',reference_set.guideline,'rubric_version',source_frame->'evaluation_frame'->>'rubric_version',
   'context_policy',source_frame->'evaluation_frame'->>'context_policy',
   'reason','source-only author packet','cases','[]'::jsonb)||
-   ((source_frame->'evaluation_frame')-ARRAY['unit','release_id','guideline_version','pin','anchor_ids','related_pins','anchor_scopes','contribution_ids','source_group','partition','inspected_scope','opportunities','exposure_history']),source_frame);
+   ((source_frame->'evaluation_frame')-ARRAY['unit','release_id','guideline_version','pin','anchor_ids','related_pins','anchor_scopes','contribution_ids','source_group','partition','inspected_scope','opportunities','exposure_history','characterization_view','selected_layers','outputs']),source_frame);
  FOR selected IN SELECT v.* FROM jsonb_array_elements(source_frame->'source_views') frozen
   JOIN kb.source_view v ON v.id=(frozen->>'id')::bigint ORDER BY v.id LOOP
   SELECT COALESCE(jsonb_object_agg(pointer,native_json),'{}') INTO context FROM ops.read_pdf_published_items(
@@ -337,7 +342,16 @@ BEGIN
  RETURN jsonb_build_object('protocol','source-operation-author-packet-1','unit_id',p_unit,
   'unit_ref',unit.unit_key,'release_id',reference_set.release_id,'guideline',reference_set.guideline,
   'guideline_text',reference_set.sampling->'guideline_text','guideline_digest',reference_set.sampling->'guideline_digest',
-  'source_frame',jsonb_set(source_frame,'{evaluation_frame}',(source_frame->'evaluation_frame')-'contribution_ids'),'native_contexts',contexts);
+  'source_frame',jsonb_set(source_frame,'{evaluation_frame}',(source_frame->'evaluation_frame')-ARRAY['contribution_ids','characterization_view','selected_layers','outputs']),'native_contexts',contexts)||
+  CASE WHEN source_frame->>'protocol'='source-operation-frame-3' AND source_frame->'evaluation_frame'->>'direction'='output_first' THEN
+   jsonb_build_object('output_exposure','frozen_output_first_population','selected_outputs',(
+    SELECT coalesce(jsonb_agg(jsonb_build_object('reference',o,'value',n)),'[]')
+    FROM jsonb_array_elements(source_frame->'evaluation_frame'->'outputs') o
+    JOIN ops.characterization_product product ON product.task_id=(o->'layer'->>'task_id')::bigint
+     AND product.product_key=o->'layer'->>'product_key' AND product.content_digest=o->'layer'->>'content_digest'
+    CROSS JOIN LATERAL jsonb_array_elements(product.payload->(o->>'collection')) n
+    WHERE n->>(CASE o->>'collection' WHEN 'coverage' THEN 'family' ELSE 'local_id' END)=o->>'local_id'))
+   ELSE '{}'::jsonb END;
 END $$;
 REVOKE ALL ON FUNCTION eval.operation_author_packet(bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION eval.operation_author_packet(bigint) TO corpus_sem_evaluator;
@@ -408,6 +422,10 @@ BEGIN
    WHERE p.id=(snap->>'pass_id')::bigint AND f.id=(snap->>'frame_id')::bigint
     AND p.unit_id=unit.id AND p.pass_kind='C' AND p.content_digest=snap->>'content_digest';
   PERFORM eval.validate_operation_reference_frame(unit.id,authored,source_frame);
+  IF source_frame->>'protocol'='source-operation-frame-3' THEN
+   PERFORM eval.validate_characterization_assessment_target(p_project,p_run,source_frame->'evaluation_frame',
+    (SELECT assessed FROM jsonb_array_elements(p_result->'units') assessed WHERE (assessed->>'unit_id')::bigint=unit.id));
+  END IF;
   IF NOT EXISTS(SELECT FROM ops.run_source_view v WHERE v.run_id=p_run AND v.source_view_id=unit.source_view_id)
    OR NOT EXISTS(SELECT FROM jsonb_array_elements(p_result->'units') assessed
     WHERE (assessed->>'unit_id')::bigint=unit.id AND (assessed->>'source_view_id')::bigint=unit.source_view_id
@@ -457,3 +475,269 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION eval.operation_review_export(text,bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION eval.operation_review_export(text,bigint) TO corpus_sem_evaluator;
+
+-- V3 shares reference custody; typed layer populations replace contribution membership.
+CREATE OR REPLACE FUNCTION eval.validate_characterization_assessment_target(p_project text,p_run bigint,p_bound jsonb,p_assessed jsonb)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE ref jsonb; view_ jsonb; layer_ jsonb; selected jsonb; output_ jsonb; collection_ text;
+BEGIN
+ ref:=p_assessed->'characterization_view';
+ IF jsonb_typeof(ref) IS DISTINCT FROM 'object' OR ref-ARRAY['task_id','product_key','content_digest']<>'{}'
+  OR NOT(ref ?& ARRAY['task_id','product_key','content_digest'])
+  OR jsonb_typeof(ref->'task_id') IS DISTINCT FROM 'number' OR coalesce(ref->>'task_id','') !~ '^[1-9][0-9]*$'
+  OR jsonb_typeof(ref->'product_key') IS DISTINCT FROM 'string' OR btrim(coalesce(ref->>'product_key',''))=''
+  OR coalesce(ref->>'content_digest','') !~ '^[a-f0-9]{64}$' THEN
+  RAISE EXCEPTION 'characterization assessment requires an exact view pin' USING ERRCODE='23514'; END IF;
+ view_:=ops.read_characterization_product((ref->>'task_id')::bigint,ref->>'product_key',ref->>'content_digest','view',p_run);
+ IF NOT EXISTS(SELECT FROM ops.run WHERE id=p_run AND project_id=p_project)
+  OR EXISTS(SELECT FROM jsonb_array_elements(p_bound->'opportunities') o CROSS JOIN LATERAL jsonb_array_elements(o->'extents') e
+   WHERE NOT(view_->'source_scope'->'source_view_ids' @> jsonb_build_array(e->'source_view_id')))
+  OR (p_bound->>'direction'='output_first' AND ref IS DISTINCT FROM p_bound->'characterization_view')
+  OR jsonb_typeof(p_assessed->'selected_layers') IS DISTINCT FROM 'array'
+  OR jsonb_array_length(p_assessed->'selected_layers')<>(SELECT count(DISTINCT value) FROM jsonb_array_elements(p_assessed->'selected_layers'))
+  OR (p_bound->>'direction'='output_first' AND p_assessed->'selected_layers' IS DISTINCT FROM p_bound->'selected_layers')
+  OR EXISTS(SELECT FROM jsonb_array_elements(p_assessed->'selected_layers') l
+   WHERE NOT(coalesce(view_->'active_layers',view_->'layers') @> jsonb_build_array(l))) THEN
+  RAISE EXCEPTION 'characterization assessment changes source or active population' USING ERRCODE='23514'; END IF;
+ FOR selected IN SELECT value FROM jsonb_array_elements(p_assessed->'selected_layers') LOOP
+  layer_:=ops.read_characterization_product((selected->>'task_id')::bigint,selected->>'product_key',selected->>'content_digest','layer',p_run);
+  IF layer_->'base_document' IS DISTINCT FROM view_->'base_document' THEN
+   RAISE EXCEPTION 'characterization layer has wrong source document' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ IF p_bound->>'direction'='output_first' THEN
+  IF jsonb_typeof(p_bound->'outputs') IS DISTINCT FROM 'array'
+   OR jsonb_array_length(p_bound->'outputs')<>(SELECT count(DISTINCT value) FROM jsonb_array_elements(p_bound->'outputs')) THEN
+   RAISE EXCEPTION 'output population is missing or duplicated' USING ERRCODE='23514'; END IF;
+  FOR output_ IN SELECT value FROM jsonb_array_elements(p_bound->'outputs') LOOP
+   collection_:=output_->>'collection'; selected:=output_->'layer';
+   IF output_-ARRAY['layer','collection','local_id']<>'{}' OR NOT(output_ ?& ARRAY['layer','collection','local_id'])
+    OR coalesce(collection_,'') NOT IN ('occurrences','annotations','memberships','roles','terms','choices','coverage')
+    OR jsonb_typeof(output_->'collection') IS DISTINCT FROM 'string' OR jsonb_typeof(output_->'local_id') IS DISTINCT FROM 'string' OR btrim(coalesce(output_->>'local_id',''))='' OR NOT(p_bound->'selected_layers' @> jsonb_build_array(selected)) THEN
+    RAISE EXCEPTION 'invalid typed characterization output identity' USING ERRCODE='23514'; END IF;
+   layer_:=ops.read_characterization_product((selected->>'task_id')::bigint,selected->>'product_key',selected->>'content_digest','layer',p_run);
+   IF NOT EXISTS(SELECT FROM jsonb_array_elements(layer_->collection_) n
+    WHERE n->>(CASE collection_ WHEN 'coverage' THEN 'family' ELSE 'local_id' END)=output_->>'local_id') THEN
+    RAISE EXCEPTION 'frozen characterization output is absent' USING ERRCODE='23514'; END IF;
+  END LOOP;
+ END IF;
+END $$;
+REVOKE ALL ON FUNCTION eval.validate_characterization_assessment_target(text,bigint,jsonb,jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION eval.validate_characterization_reference(p_unit bigint,p_payload jsonb,p_frame jsonb)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE bound jsonb:=p_frame->'evaluation_frame'; opportunity jsonb; extent_ jsonb; source_ kb.source_view;
+ case_ jsonb; native_layer jsonb; native_block jsonb; native_extents jsonb; unit_ eval.reference_unit; set_ eval.reference_set;
+BEGIN
+ SELECT * INTO STRICT unit_ FROM eval.reference_unit WHERE id=p_unit;
+ SELECT * INTO STRICT set_ FROM eval.reference_set WHERE id=unit_.set_id;
+ IF bound->'contribution_ids'<>'[]' OR jsonb_typeof(bound->'selected_layers') IS DISTINCT FROM 'array'
+  OR (bound->>'direction'='source_first' AND (bound->'characterization_view' IS DISTINCT FROM 'null'::jsonb OR bound->'selected_layers'<>'[]' OR bound->'outputs' IS DISTINCT FROM 'null'::jsonb))
+  OR (bound->>'direction'='output_first' AND (jsonb_typeof(bound->'characterization_view') IS DISTINCT FROM 'object' OR jsonb_array_length(bound->'selected_layers')=0 OR jsonb_typeof(bound->'outputs') IS DISTINCT FROM 'array')) THEN
+  RAISE EXCEPTION 'characterization frame confuses source and output authority' USING ERRCODE='23514'; END IF;
+ FOR opportunity IN SELECT value FROM jsonb_array_elements(bound->'opportunities') LOOP
+  IF opportunity-ARRAY['opportunity_id','extents','facet','source_state']<>'{}'
+   OR btrim(coalesce(opportunity->>'opportunity_id',''))='' OR btrim(coalesce(opportunity->>'facet',''))=''
+   OR coalesce(opportunity->>'source_state','') NOT IN ('stated','unstated','inapplicable','unresolved','uninspected')
+   OR jsonb_typeof(opportunity->'extents') IS DISTINCT FROM 'array' OR jsonb_array_length(opportunity->'extents')=0 THEN
+   RAISE EXCEPTION 'invalid independent characterization opportunity' USING ERRCODE='23514'; END IF;
+  FOR extent_ IN SELECT value FROM jsonb_array_elements(opportunity->'extents') LOOP
+   IF extent_-ARRAY['source_view_id','projection','native_pointer','start','end']<>'{}'
+    OR NOT(extent_ ?& ARRAY['source_view_id','projection','native_pointer','start','end'])
+    OR jsonb_typeof(extent_->'source_view_id') IS DISTINCT FROM 'number' OR jsonb_typeof(extent_->'start') IS DISTINCT FROM 'number' OR jsonb_typeof(extent_->'end') IS DISTINCT FROM 'number'
+    OR coalesce(extent_->>'source_view_id','') !~ '^[1-9][0-9]*$'
+    OR coalesce(extent_->>'start','') !~ '^[0-9]+$' OR coalesce(extent_->>'end','') !~ '^[0-9]+$'
+    OR (extent_->>'start')::bigint >= (extent_->>'end')::bigint THEN
+    RAISE EXCEPTION 'invalid ordered characterization extent' USING ERRCODE='23514'; END IF;
+   SELECT v.* INTO STRICT source_ FROM kb.source_view v JOIN jsonb_array_elements(p_frame->'source_views') f ON (f->>'id')::bigint=v.id
+    WHERE v.id=(extent_->>'source_view_id')::bigint;
+   IF extent_->>'projection' IS DISTINCT FROM source_.projection_digest
+    OR (extent_->>'end')::bigint > length(source_.projection->>'text')
+    OR NOT EXISTS(SELECT FROM jsonb_array_elements(source_.projection->'pieces') piece
+     WHERE piece->>'kind'='native_text' AND piece->>'item_ref'=extent_->>'native_pointer' AND (piece->>'start')::bigint <= (extent_->>'start')::bigint
+      AND (extent_->>'end')::bigint <= (piece->>'end')::bigint AND NOT coalesce((piece->>'synthetic')::boolean,false)) THEN
+    RAISE EXCEPTION 'characterization extent is outside its frozen source pin' USING ERRCODE='23514'; END IF;
+  END LOOP;
+ END LOOP;
+ IF bound->>'direction'='output_first' THEN
+  PERFORM eval.validate_characterization_assessment_target(set_.project_id,set_.source_run_id,bound,bound);
+ END IF;
+ FOR case_ IN SELECT value FROM jsonb_array_elements(p_payload->'cases') LOOP
+  IF case_->'native_reference' IS NOT NULL AND case_->'native_reference'<>'null' THEN
+   PERFORM eval.validate_native_scoring_reference(case_->'native_reference');
+   SELECT o INTO opportunity FROM jsonb_array_elements(bound->'opportunities') o WHERE o->>'opportunity_id'=case_->>'opportunity_id';
+   IF opportunity IS NULL OR (SELECT count(DISTINCT e->'source_view_id') FROM jsonb_array_elements(opportunity->'extents') e)<>1
+    OR EXISTS(SELECT FROM (SELECT (e->>'start')::bigint AS first_,lag((e->>'end')::bigint) OVER(ORDER BY n) AS prior_end
+      FROM jsonb_array_elements(opportunity->'extents') WITH ORDINALITY ext(e,n)) ordered WHERE first_<prior_end) THEN
+    RAISE EXCEPTION 'native reference requires one exact ordered projection block' USING ERRCODE='23514'; END IF;
+   SELECT * INTO STRICT source_ FROM kb.source_view WHERE id=(opportunity->'extents'->0->>'source_view_id')::bigint;
+   IF case_->'native_reference'->>'text' IS DISTINCT FROM substring(source_.projection->>'text'
+    FROM (opportunity->'extents'->0->>'start')::integer+1
+    FOR (opportunity->'extents'->-1->>'end')::integer-(opportunity->'extents'->0->>'start')::integer) THEN
+    RAISE EXCEPTION 'native reference text differs from its exact frozen source' USING ERRCODE='23514'; END IF;
+   IF bound->>'direction'='output_first' THEN
+    IF NOT coalesce(bound->'outputs' @> jsonb_build_array(case_->'output_reference'),false) THEN
+     RAISE EXCEPTION 'native task output is outside its frozen population' USING ERRCODE='23514'; END IF;
+    SELECT payload INTO native_layer FROM ops.characterization_product
+     WHERE task_id=(case_->'output_reference'->'layer'->>'task_id')::bigint
+      AND product_key=case_->'output_reference'->'layer'->>'product_key'
+      AND content_digest=case_->'output_reference'->'layer'->>'content_digest' AND kind='layer';
+    SELECT a INTO native_block FROM jsonb_array_elements(native_layer->'annotations') a
+     WHERE a->>'local_id'=case_->'output_reference'->>'local_id' AND a->>'kind'='native.block';
+    SELECT jsonb_agg(e.body-ARRAY['text','page','synthetic'] ORDER BY ref.n,e.n) INTO native_extents
+     FROM jsonb_array_elements(native_block->'occurrences') WITH ORDINALITY ref(id,n)
+     JOIN jsonb_array_elements(native_layer->'occurrences') o ON o->>'local_id'=ref.id#>>'{}'
+     CROSS JOIN LATERAL jsonb_array_elements(o->'extents') WITH ORDINALITY e(body,n)
+     WHERE NOT coalesce((e.body->>'synthetic')::boolean,false);
+    IF case_->'output_reference'->>'collection' IS DISTINCT FROM 'annotations' OR native_block IS NULL
+     OR native_extents IS DISTINCT FROM opportunity->'extents' THEN
+     RAISE EXCEPTION 'native output reference must name its exact frozen native block' USING ERRCODE='23514'; END IF;
+   END IF;
+   IF case_->'alternatives'<>'[]' OR case_->>'graph_projection' IS NOT NULL
+    OR coalesce(case_->'candidate_selector','{}')<>'{}' OR coalesce(case_->>'expectation_mode','structure')<>'structure'
+    OR coalesce(case_->>'required_family','') NOT LIKE 'spacy.%' THEN
+    RAISE EXCEPTION 'native task references cannot be graph alternatives or another scheme' USING ERRCODE='23514'; END IF;
+  END IF;
+  IF (case_->>'graph_projection' IS NOT NULL AND case_->>'graph_projection' NOT IN ('source_semantics','native_fidelity','retained_identity'))
+   OR (EXISTS(SELECT FROM jsonb_array_elements(case_->'alternatives') a WHERE a ? 'graph') AND case_->>'graph_projection' IS NULL)
+   OR btrim(coalesce(case_->>'required_family',''))='' OR jsonb_typeof(case_->'required_family') IS DISTINCT FROM 'string'
+   OR case_->>'contribution_id' IS NOT NULL OR case_->>'anchor_endpoint_role' IS NOT NULL
+   OR NOT EXISTS(SELECT FROM jsonb_array_elements(bound->'opportunities') o WHERE o->>'opportunity_id'=case_->>'opportunity_id' AND o->>'facet'=case_->>'facet' AND o->>'source_state'=case_->>'source_state')
+   OR (bound->>'direction'='source_first' AND coalesce(case_->'output_reference','null'::jsonb) IS DISTINCT FROM 'null'::jsonb)
+   OR (bound->>'direction'='output_first' AND NOT(bound->'outputs' @> jsonb_build_array(case_->'output_reference'))) THEN
+   RAISE EXCEPTION 'case changes frozen characterization scope or output identity' USING ERRCODE='23514'; END IF;
+ END LOOP;
+END $$;
+REVOKE ALL ON FUNCTION eval.validate_characterization_reference(bigint,jsonb,jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION eval.operation_evaluation_page(p_project text,p_evaluation bigint,p_view text,p_facet text DEFAULT NULL,p_direction text DEFAULT NULL,p_cursor text DEFAULT NULL,p_limit bigint DEFAULT 100,p_max_bytes bigint DEFAULT 1048576)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE selected eval.reference_evaluation; selection text; position_ bigint:=0; current_ bigint:=0;
+ row_ jsonb; items jsonb:='[]'; report jsonb; more_ boolean:=false; next_ text;
+BEGIN
+ PERFORM data.require_runtime_principal('evaluate');
+ IF p_view IS NULL OR p_view NOT IN ('summary','coverage','cases','errors') OR (p_direction IS NOT NULL AND p_direction NOT IN ('source_first','output_first'))
+  OR p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 1000 OR p_max_bytes IS NULL OR p_max_bytes NOT BETWEEN 1024 AND 8388608 THEN
+  RAISE EXCEPTION 'invalid bounded assessment selection' USING ERRCODE='23514'; END IF;
+ SELECT * INTO STRICT selected FROM eval.reference_evaluation WHERE id=p_evaluation AND project_id=p_project;
+ IF selected.result->>'protocol' IS DISTINCT FROM 'source-operation-evaluation-1' THEN
+  RAISE EXCEPTION 'unknown operation evaluation' USING ERRCODE='23514'; END IF;
+ selection:=encode(sha256(convert_to(data.canonical_json(jsonb_build_array(p_project,p_evaluation,selected.content_digest,p_view,p_facet,p_direction)),'UTF8')),'hex');
+ IF p_cursor IS NOT NULL THEN
+  IF split_part(p_cursor,':',1)<>selection OR split_part(p_cursor,':',2) !~ '^[0-9]+$' OR split_part(p_cursor,':',3)<>'' THEN
+   RAISE EXCEPTION 'assessment cursor belongs to another selection' USING ERRCODE='23514'; END IF;
+  position_:=split_part(p_cursor,':',2)::bigint;
+ END IF;
+ IF p_view='summary' THEN
+  report:=jsonb_build_object('evaluation_id',p_evaluation,'run_id',selected.run_id,'set_id',selected.set_id,
+   'release_id',selected.result->'release_id','partition',selected.result->'partition','population_claim',selected.result->'population_claim',
+   'unit_count',jsonb_array_length(selected.result->'units'),'reference_snapshot_count',jsonb_array_length(selected.reference_snapshot),
+   'quality_claim',selected.result->'quality_claim','next_cursor',NULL);
+  IF octet_length(data.canonical_json(report))>p_max_bytes THEN RAISE EXCEPTION 'summary exceeds byte bound' USING ERRCODE='54000'; END IF;
+  RETURN report;
+ END IF;
+ FOR row_ IN
+  SELECT jsonb_build_object('unit_id',u.value->'unit_id','source_view_id',u.value->'source_view_id','direction',u.value->'direction','item',v.value)
+  FROM jsonb_array_elements(selected.result->'units') WITH ORDINALITY u(value,n)
+  CROSS JOIN LATERAL jsonb_array_elements(CASE p_view WHEN 'coverage' THEN coalesce(u.value->'source_coverage'->'opportunities','[]') ELSE coalesce(u.value->'cases','[]') END) WITH ORDINALITY v(value,n)
+  WHERE (p_direction IS NULL OR u.value->>'direction'=p_direction)
+   AND (p_facet IS NULL OR v.value->>'facet'=p_facet)
+   AND (p_view<>'errors' OR v.value->>'judgment'<>'supported') ORDER BY u.n,v.n
+ LOOP
+  current_:=current_+1;
+  IF current_<=position_ THEN CONTINUE; END IF;
+  IF jsonb_array_length(items)>=p_limit OR octet_length(data.canonical_json(jsonb_build_object('evaluation_id',p_evaluation,'view',p_view,'facet',p_facet,'direction',p_direction,'items',items||jsonb_build_array(row_),'next_cursor',selection||':'||current_::text)))>p_max_bytes THEN
+   IF items='[]' THEN RAISE EXCEPTION 'assessment item exceeds byte bound' USING ERRCODE='54000'; END IF;
+   more_:=true; EXIT;
+  END IF;
+  items:=items||jsonb_build_array(row_);
+ END LOOP;
+ next_:=CASE WHEN more_ THEN selection||':'||(position_+jsonb_array_length(items))::text ELSE NULL END;
+ report:=jsonb_build_object('evaluation_id',p_evaluation,'view',p_view,'facet',p_facet,'direction',p_direction,'items',items,'next_cursor',next_);
+ IF octet_length(data.canonical_json(report))>p_max_bytes THEN RAISE EXCEPTION 'assessment page exceeds byte bound' USING ERRCODE='54000'; END IF;
+ RETURN report;
+END $$;
+REVOKE ALL ON FUNCTION eval.operation_evaluation_page(text,bigint,text,text,text,text,bigint,bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION eval.operation_evaluation_page(text,bigint,text,text,text,text,bigint,bigint) TO corpus_sem_evaluator;
+
+CREATE OR REPLACE FUNCTION eval.validate_native_scoring_reference(p_reference jsonb)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE kind_ text; count_ bigint; text_ text; span_ jsonb; index_ integer; key_ text;
+BEGIN
+ IF jsonb_typeof(p_reference) IS DISTINCT FROM 'object'
+  OR p_reference-ARRAY['version','kind','scheme','text','words','spaces','inspected','span_key','spans','labeled','allow_overlap','labels','cats','multi_label','threshold','positive_label','heads','deps']<>'{}'
+  OR NOT(p_reference ?& ARRAY['version','kind','scheme','text','words','spaces'])
+  OR p_reference->>'version' IS DISTINCT FROM 'spacy-native-reference-v1'
+  OR p_reference->>'scheme' IS DISTINCT FROM 'spacy'
+  OR coalesce(p_reference->>'kind','') NOT IN ('tokenization','spans','categories','dependencies')
+  OR jsonb_typeof(p_reference->'text') IS DISTINCT FROM 'string'
+  OR jsonb_typeof(p_reference->'words') IS DISTINCT FROM 'array'
+  OR jsonb_typeof(p_reference->'spaces') IS DISTINCT FROM 'array'
+  OR EXISTS(SELECT FROM jsonb_array_elements(p_reference->'words') w WHERE jsonb_typeof(w)<>'string' OR w='""')
+  OR EXISTS(SELECT FROM jsonb_array_elements(p_reference->'spaces') s WHERE jsonb_typeof(s)<>'boolean')
+  OR jsonb_array_length(p_reference->'words')<>jsonb_array_length(p_reference->'spaces')
+  OR EXISTS(SELECT FROM unnest(ARRAY['inspected','labeled','allow_overlap']) flag WHERE p_reference ? flag AND jsonb_typeof(p_reference->flag)<>'boolean')
+  OR (p_reference ? 'multi_label' AND p_reference->'multi_label'<>'null' AND jsonb_typeof(p_reference->'multi_label')<>'boolean') THEN
+  RAISE EXCEPTION 'invalid closed native scoring reference' USING ERRCODE='23514'; END IF;
+ kind_:=p_reference->>'kind'; count_:=jsonb_array_length(p_reference->'words');
+ SELECT coalesce(string_agg((w.value#>>'{}')||CASE WHEN p_reference->'spaces'->(w.n-1)::integer='true'::jsonb THEN ' ' ELSE '' END,'' ORDER BY w.n),'') INTO text_
+ FROM jsonb_array_elements(p_reference->'words') WITH ORDINALITY w(value,n);
+ IF text_ IS DISTINCT FROM p_reference->>'text' THEN
+  RAISE EXCEPTION 'native reference segmentation differs from exact text' USING ERRCODE='23514'; END IF;
+ FOREACH key_ IN ARRAY ARRAY['spans','labels','heads','deps'] LOOP
+  IF p_reference ? key_ AND jsonb_typeof(p_reference->key_) IS DISTINCT FROM 'array' THEN
+   RAISE EXCEPTION 'native task field requires an array' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ IF (kind_<>'spans' AND (coalesce(p_reference->'spans','[]')<>'[]' OR p_reference->>'span_key' IS NOT NULL))
+  OR (kind_<>'dependencies' AND (coalesce(p_reference->'heads','[]')<>'[]' OR coalesce(p_reference->'deps','[]')<>'[]'))
+  OR (kind_<>'categories' AND (coalesce(p_reference->'labels','[]')<>'[]' OR coalesce(p_reference->'cats','{}')<>'{}'
+    OR p_reference->>'multi_label' IS NOT NULL OR p_reference->>'threshold' IS NOT NULL OR p_reference->>'positive_label' IS NOT NULL)) THEN
+  RAISE EXCEPTION 'native fields differ from declared task' USING ERRCODE='23514'; END IF;
+ IF kind_='spans' THEN
+  IF jsonb_typeof(p_reference->'span_key') IS DISTINCT FROM 'string' OR btrim(coalesce(p_reference->>'span_key',''))=''
+   OR (p_reference->>'span_key'='ents' AND coalesce((p_reference->>'allow_overlap')::boolean,false)) THEN
+   RAISE EXCEPTION 'native spans require a compatible named population' USING ERRCODE='23514'; END IF;
+  FOR span_ IN SELECT value FROM jsonb_array_elements(coalesce(p_reference->'spans','[]')) LOOP
+   IF jsonb_typeof(span_) IS DISTINCT FROM 'object' OR span_-ARRAY['start','end','label','state']<>'{}'
+    OR NOT(span_ ?& ARRAY['start','end']) OR jsonb_typeof(span_->'start') IS DISTINCT FROM 'number' OR jsonb_typeof(span_->'end') IS DISTINCT FROM 'number'
+    OR coalesce(span_->>'start','') !~ '^[0-9]+$' OR coalesce(span_->>'end','') !~ '^[0-9]+$'
+    OR (span_->>'start')::bigint >= (span_->>'end')::bigint OR (span_->>'end')::bigint>char_length(text_)
+    OR (span_ ? 'label' AND jsonb_typeof(span_->'label')<>'string')
+    OR (span_ ? 'state' AND jsonb_typeof(span_->'state') IS DISTINCT FROM 'string')
+    OR coalesce(span_->>'state','inspected') NOT IN ('inspected','uninspected')
+    OR (coalesce((p_reference->>'labeled')::boolean,true) AND coalesce(span_->>'state','inspected')='inspected' AND coalesce(span_->>'label','')='') THEN
+    RAISE EXCEPTION 'native reference span has invalid source coordinates or label' USING ERRCODE='23514'; END IF;
+  END LOOP;
+  IF EXISTS(SELECT FROM jsonb_array_elements(coalesce(p_reference->'spans','[]')) s GROUP BY s->'start',s->'end',coalesce(s->>'label','') HAVING count(*)>1)
+   OR (NOT coalesce((p_reference->>'allow_overlap')::boolean,false) AND EXISTS(
+    SELECT FROM jsonb_array_elements(coalesce(p_reference->'spans','[]')) WITH ORDINALITY a(s,n)
+    JOIN jsonb_array_elements(coalesce(p_reference->'spans','[]')) WITH ORDINALITY b(s,n) ON a.n<b.n
+    WHERE coalesce(a.s->>'state','inspected')='inspected' AND coalesce(b.s->>'state','inspected')='inspected'
+     AND (a.s->>'start')::bigint<(b.s->>'end')::bigint AND (b.s->>'start')::bigint<(a.s->>'end')::bigint)) THEN
+   RAISE EXCEPTION 'native reference span duplicates or violates overlap policy' USING ERRCODE='23514'; END IF;
+ ELSIF kind_='categories' THEN
+  IF jsonb_typeof(p_reference->'labels') IS DISTINCT FROM 'array' OR jsonb_array_length(p_reference->'labels')=0
+   OR EXISTS(SELECT FROM jsonb_array_elements(p_reference->'labels') l WHERE jsonb_typeof(l)<>'string' OR l='""')
+   OR jsonb_array_length(p_reference->'labels')<>(SELECT count(DISTINCT value) FROM jsonb_array_elements(p_reference->'labels'))
+   OR jsonb_typeof(coalesce(p_reference->'cats','{}')) IS DISTINCT FROM 'object'
+   OR jsonb_typeof(p_reference->'multi_label') IS DISTINCT FROM 'boolean'
+   OR EXISTS(SELECT FROM jsonb_each(coalesce(p_reference->'cats','{}')) c WHERE NOT(p_reference->'labels' ? c.key)
+    OR (c.value<>'null' AND (jsonb_typeof(c.value)<>'number' OR c.value NOT IN ('0'::jsonb,'1'::jsonb))))
+   OR (p_reference->'multi_label'='true' AND (jsonb_typeof(p_reference->'threshold') IS DISTINCT FROM 'number'
+     OR NOT ((p_reference->>'threshold')::numeric BETWEEN 0 AND 1)))
+   OR (p_reference->'multi_label'='false' AND p_reference->>'threshold' IS NOT NULL AND p_reference->'threshold'<>'0')
+   OR (p_reference->>'positive_label' IS NOT NULL AND (jsonb_typeof(p_reference->'positive_label')<>'string' OR p_reference->'multi_label'<>'false' OR jsonb_array_length(p_reference->'labels')<>2 OR NOT(p_reference->'labels' ? (p_reference->>'positive_label')))) THEN
+   RAISE EXCEPTION 'native category reference violates declared label/masking policy' USING ERRCODE='23514'; END IF;
+ ELSIF kind_='dependencies' THEN
+  IF jsonb_typeof(p_reference->'heads') IS DISTINCT FROM 'array' OR jsonb_typeof(p_reference->'deps') IS DISTINCT FROM 'array'
+   OR jsonb_array_length(p_reference->'heads')<>count_ OR jsonb_array_length(p_reference->'deps')<>count_ THEN
+   RAISE EXCEPTION 'native dependency reference requires parallel heads and labels' USING ERRCODE='23514'; END IF;
+  FOR index_ IN 0..count_::integer-1 LOOP
+   IF (p_reference->'heads'->index_='null') IS DISTINCT FROM (p_reference->'deps'->index_='null')
+    OR (p_reference->'heads'->index_<>'null' AND (jsonb_typeof(p_reference->'heads'->index_)<>'number'
+      OR (p_reference->'heads'->>index_) !~ '^[0-9]+$' OR (p_reference->'heads'->>index_)::bigint>=count_
+      OR jsonb_typeof(p_reference->'deps'->index_)<>'string' OR p_reference->'deps'->>index_='')) THEN
+    RAISE EXCEPTION 'native dependency reference has invalid head, label or missing pair' USING ERRCODE='23514'; END IF;
+  END LOOP;
+ END IF;
+END $$;
+REVOKE ALL ON FUNCTION eval.validate_native_scoring_reference(jsonb) FROM PUBLIC;

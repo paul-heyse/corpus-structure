@@ -30,12 +30,7 @@ def select_published_sections(rows, selections, membership, scope):
         raise NoQualifiedSections("native product has no requested organizational sections")
     if selections and len(matched) != len(set(selections)):
         raise ValueError("requested intact section selection is missing or ambiguous")
-    if (
-        membership == "descendants"
-        and not selections
-        and isinstance(scope, dict)
-        and scope.get("kind") == "native_sections"
-    ):
+    if not selections and isinstance(scope, dict) and scope.get("kind") == "native_sections":
         matched = list(resolve_native_sections(names, scope["sections"]))
     chosen = set(matched)
     if membership == "direct":

@@ -241,18 +241,27 @@ def start_bound_run(
             corpus_record, scope_record = records(
                 selected_docs, data.get("slices", data), slice=slice, scope=scope, corpus=corpus
             )
-        if extraction_policy == "phase0" and (integrated_product is not None or native_product is not None):
+        if extraction_policy == "phase0" and (
+            integrated_product is not None or native_product is not None
+        ):
             from corpus_structure.orchestrate.pdf_source import retained_source_document
 
             exact_product = integrated_product if integrated_product is not None else native_product
             assert exact_product is not None
             retained_input_document = retained_source_document(
-                conn, exact_product, prepared=prepared, project_id=project_id, documents=docs,
+                conn,
+                exact_product,
+                prepared=prepared,
+                project_id=project_id,
+                documents=docs,
                 role="integrated" if integrated_product is not None else "native",
             )
             corpus_record, scope_record = records(
                 [document for document in docs if document["id"] == retained_input_document.id],
-                data.get("slices", data), slice=slice, scope=scope, corpus=corpus,
+                data.get("slices", data),
+                slice=slice,
+                scope=scope,
+                corpus=corpus,
             )
         policy_source = (
             (pack / "policies.yaml").read_text()
@@ -314,7 +323,9 @@ def start_bound_run(
             from corpus_structure.orchestrate.m1 import bind_record_policy
 
             selected_registry = bind_record_policy(selected_registry, prepared, record_policy)
-    if source_membership is not None or (retained_input_document is not None and extraction_policy == "phase0"):
+    if source_membership is not None or (
+        retained_input_document is not None and extraction_policy == "phase0"
+    ):
         from corpus_structure.orchestrate.phase0 import bind_pdf_selection
 
         selected_registry = bind_pdf_selection(

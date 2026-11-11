@@ -23,6 +23,12 @@ def evaluate(
     set_id: Annotated[int, typer.Option()],
     project: str | None = None,
     json: JsonOpt = False,
+    characterization_view: Annotated[
+        str | None,
+        typer.Option(
+            help="Exact view-pin JSON; V3 source-first outputs are bound only at grading."
+        ),
+    ] = None,
     comparison_arm: Annotated[
         Literal["baseline", "revised"] | None,
         typer.Option(help="Grade the selected frozen operation comparison arm."),
@@ -34,12 +40,32 @@ def evaluate(
     with reference_session(ctx, project, json=json) as (conn, pid):
         protocol = reference_protocol(conn, set_id, pid)
         if protocol == operation_assessment.PROTOCOL:
+            selected_view = None
+            if characterization_view is not None:
+                import json as jsonlib
+
+                from corpus_structure.evaluate.characterization_assessment import pin_key
+
+                try:
+                    selected_view = jsonlib.loads(characterization_view)
+                    pin_key(selected_view)
+                except (ValueError, TypeError) as error:
+                    raise semantic.ReferenceError(
+                        "invalid characterization view-pin JSON"
+                    ) from error
             result = operation_assessment.reference_evaluate(
-                conn, project_id=pid, run_id=run, set_id=set_id, comparison_arm=comparison_arm
+                conn,
+                project_id=pid,
+                run_id=run,
+                set_id=set_id,
+                comparison_arm=comparison_arm,
+                characterization_view=selected_view,
             )
         else:
-            if comparison_arm is not None:
-                raise semantic.ReferenceError("comparison arms require operation references")
+            if comparison_arm is not None or characterization_view is not None:
+                raise semantic.ReferenceError(
+                    "comparison arms and characterization views require operation references"
+                )
             evaluator = (
                 record_references.reference_evaluate
                 if protocol == record_references.PROTOCOL
@@ -376,4 +402,35 @@ def operation_event_read(
         engine.begin() as conn,
     ):
         result = read_native_fit(conn, project_id=project, fit_id=fit, protected=diagnostics)
+    output(result, json)
+
+
+@eval_app.command("operation-inspect")
+def inspect_operation_evaluation(
+    ctx: typer.Context,
+    evaluation: Annotated[int, typer.Argument(min=1)],
+    view: Annotated[Literal["summary", "coverage", "cases", "errors"], typer.Option()] = "summary",
+    facet: str | None = None,
+    direction: Literal["source_first", "output_first"] | None = None,
+    cursor: str | None = None,
+    limit: Annotated[int, typer.Option(min=1, max=1000)] = 100,
+    max_bytes: Annotated[int, typer.Option(min=1024, max=8388608)] = 1048576,
+    project: str | None = None,
+    json: JsonOpt = False,
+):
+    """Inspect bounded protected operation cases, coverage and errors without regrading."""
+    from corpus_structure.evaluate.operation_assessment import inspect_evaluation
+
+    with reference_session(ctx, project, json=json) as (conn, pid):
+        result = inspect_evaluation(
+            conn,
+            project_id=pid,
+            evaluation_id=evaluation,
+            view=view,
+            facet=facet,
+            direction=direction,
+            cursor=cursor,
+            limit=limit,
+            max_bytes=max_bytes,
+        )
     output(result, json)

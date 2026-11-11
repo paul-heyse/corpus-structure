@@ -2080,7 +2080,9 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_native_layer_manifest_is_bounded_sealed_metadata(
-    characterization_source, semantic_writer_engine, semantic_reader_engine,
+    characterization_source,
+    semantic_writer_engine,
+    semantic_reader_engine,
 ):
     from corpus_structure.semantic.characterization_store import read_layer_manifest
 
@@ -2092,8 +2094,11 @@ def test_native_layer_manifest_is_bounded_sealed_metadata(
         with pytest.raises(DBAPIError), conn.begin_nested():
             read_layer_manifest(conn, pin, run_id=source.task["run_id"])
         published = publish_layer(
-            conn, task_id=task, attempt=claim.attempt,
-            holder="characterization-fixture", layer=report,
+            conn,
+            task_id=task,
+            attempt=claim.attempt,
+            holder="characterization-fixture",
+            layer=report,
         )
         assert published == pin
     with semantic_reader_engine.connect() as conn:
@@ -2102,7 +2107,16 @@ def test_native_layer_manifest_is_bounded_sealed_metadata(
         assert manifest.base_document == source.base
         assert manifest.payload == {
             key: report.payload[key]
-            for key in ("format", "release_id", "base_document", "operation", "source_scope", "outcome", "dependencies", "coverage")
+            for key in (
+                "format",
+                "release_id",
+                "base_document",
+                "operation",
+                "source_scope",
+                "outcome",
+                "dependencies",
+                "coverage",
+            )
         }
         assert "annotations" not in manifest.payload and "native_runs" not in manifest.payload
         with pytest.raises(DBAPIError), conn.begin_nested():

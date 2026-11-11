@@ -104,7 +104,11 @@ class OperationEvaluationFrame:
             raise ReferenceError("operation direction must be source_first or output_first")
         if self.direction == "source_first" and self.contribution_ids:
             raise ReferenceError("source-first selection cannot depend on emitted contributions")
-        if self.direction == "output_first" and not self.contribution_ids:
+        if (
+            self.direction == "output_first"
+            and not self.contribution_ids
+            and getattr(self, "characterization_view", None) is None
+        ):
             raise ReferenceError("output-first frame requires its frozen selected contribution IDs")
         for values in (self.anchor_ids, self.contribution_ids):
             if len(values) != len(set(values)):
@@ -190,9 +194,105 @@ class OperationEvaluationFrameV2(OperationEvaluationFrame):
             raise ReferenceError("exposed source cannot supply a fresh held-out frame")
 
 
+@dataclass(frozen=True)
+class CharacterizationSourceOpportunity:
+    opportunity_id: str
+    extents: tuple[Mapping[str, Any], ...]
+    facet: str
+    source_state: str
+
+    def __post_init__(self):
+        if not self.opportunity_id or not self.facet or not self.extents:
+            raise ReferenceError("characterization opportunity requires ordered real extents")
+        if self.source_state not in {
+            "stated",
+            "unstated",
+            "inapplicable",
+            "unresolved",
+            "uninspected",
+        }:
+            raise ReferenceError("unsupported characterization source state")
+        for extent in self.extents:
+            if set(extent) != {
+                "source_view_id",
+                "projection",
+                "native_pointer",
+                "start",
+                "end",
+            } or (
+                any(type(extent[k]) is not int for k in ("source_view_id", "start", "end"))
+                or extent["source_view_id"] <= 0
+                or not 0 <= extent["start"] < extent["end"]
+                or not extent["projection"]
+                or not extent["native_pointer"]
+            ):
+                raise ReferenceError("characterization extent requires exact source coordinates")
+
+
+@dataclass(frozen=True, kw_only=True)
+class OperationEvaluationFrameV3(OperationEvaluationFrame):
+    source_group: str
+    partition: str
+    inspected_scope: str
+    opportunities: tuple[CharacterizationSourceOpportunity, ...]
+    exposure_history: tuple[str, ...] = ()
+    characterization_view: Mapping[str, Any] | None = None
+    selected_layers: tuple[Mapping[str, Any], ...] = ()
+    outputs: tuple[Mapping[str, Any], ...] | None = None
+
+    def __post_init__(self):
+        from .characterization_assessment import output_key, pin_key
+
+        super().__post_init__()
+        if not self.source_group or not self.inspected_scope or self.partition not in PARTITIONS:
+            raise ReferenceError(
+                "characterization frame requires source group and inspected partition"
+            )
+        if self.contribution_ids:
+            raise ReferenceError("characterization identities cannot be contribution IDs")
+        if not self.opportunities or len({v.opportunity_id for v in self.opportunities}) != len(
+            self.opportunities
+        ):
+            raise ReferenceError("characterization frame requires distinct source opportunities")
+        views = {
+            self.pin.get("source_view_id"),
+            *(p.get("source_view_id") for p in self.related_pins),
+        }
+        if any(e["source_view_id"] not in views for o in self.opportunities for e in o.extents):
+            raise ReferenceError("characterization opportunity is outside frozen source pins")
+        if self.direction == "source_first":
+            if (
+                self.characterization_view is not None
+                or self.selected_layers
+                or self.outputs is not None
+            ):
+                raise ReferenceError("source-first frame cannot bind producer outputs")
+        else:
+            if (
+                self.characterization_view is None
+                or not self.selected_layers
+                or self.outputs is None
+            ):
+                raise ReferenceError("output-first frame requires exact view, layers and outputs")
+            pin_key(self.characterization_view)
+            layers = {pin_key(pin) for pin in self.selected_layers}
+            keys = [output_key(value) for value in self.outputs]
+            if len(layers) != len(self.selected_layers) or len(set(keys)) != len(keys):
+                raise ReferenceError("characterization frame repeats an output or layer")
+            if any(pin_key(value["layer"]) not in layers for value in self.outputs):
+                raise ReferenceError("output-first identity is outside selected layers")
+        if self.exposure_history and self.partition in {
+            "final_event_calibration",
+            "final_assessment",
+        }:
+            raise ReferenceError("exposed source cannot supply a fresh held-out frame")
+
+
 def encode_frame(frame: OperationEvaluationFrame, *, captured_coordinates=()) -> dict[str, Any]:
     return dict(
-        protocol="source-operation-frame-2"
+        protocol="source-operation-frame-3"
+        if isinstance(frame, OperationEvaluationFrameV3)
+        else "source-operation-frame-2"
         if isinstance(frame, OperationEvaluationFrameV2)
         else FRAME_PROTOCOL,
         evaluation_frame=asdict(frame),
@@ -202,7 +302,11 @@ def encode_frame(frame: OperationEvaluationFrame, *, captured_coordinates=()) ->
 
 
 def decode_frame(value: Mapping[str, Any]) -> OperationEvaluationFrame:
-    if value.get("protocol") not in {FRAME_PROTOCOL, "source-operation-frame-2"} or set(value) - {
+    if value.get("protocol") not in {
+        FRAME_PROTOCOL,
+        "source-operation-frame-2",
+        "source-operation-frame-3",
+    } or set(value) - {
         "protocol",
         "evaluation_frame",
         "captured_coordinates",
@@ -214,6 +318,21 @@ def decode_frame(value: Mapping[str, Any]) -> OperationEvaluationFrame:
         raw = dict(value["evaluation_frame"])
         for field in ("anchor_ids", "related_pins", "anchor_scopes", "contribution_ids"):
             raw[field] = tuple(raw.get(field, ()))
+        if value["protocol"] == "source-operation-frame-3":
+            raw["opportunities"] = tuple(
+                CharacterizationSourceOpportunity(
+                    opportunity_id=v["opportunity_id"],
+                    extents=tuple(v["extents"]),
+                    facet=v["facet"],
+                    source_state=v["source_state"],
+                )
+                for v in raw.get("opportunities", ())
+            )
+            for name in ("exposure_history", "selected_layers"):
+                raw[name] = tuple(raw.get(name, ()))
+            if raw.get("outputs") is not None:
+                raw["outputs"] = tuple(raw["outputs"])
+            return OperationEvaluationFrameV3(**raw)
         if value["protocol"] == "source-operation-frame-2":
             raw["opportunities"] = tuple(
                 OperationSourceOpportunity(**v) for v in raw.get("opportunities", ())
@@ -250,6 +369,11 @@ class OperationCase:
     permissible_anchor_sets: tuple[tuple[str, ...], ...] = ()
     expectation_mode: str = "structure"
     anchor_endpoint_role: str | None = None
+    opportunity_id: str | None = None
+    required_family: str | None = None
+    graph_projection: str | None = None
+    output_reference: Mapping[str, Any] | None = None
+    native_reference: Mapping[str, Any] | None = None
 
     def __post_init__(self):
         if self.judgment not in JUDGMENTS or self.source_state not in {
@@ -257,8 +381,50 @@ class OperationCase:
             "unstated",
             "uninspected",
             "unresolved",
+            "inapplicable",
         }:
             raise ReferenceError("unknown operation judgment or source field state")
+        if self.native_reference is not None:
+            from .native_scoring import NativeScoringReference
+
+            try:
+                if (
+                    self.native_reference.get("version") != "spacy-native-reference-v1"
+                    or self.native_reference.get("scheme") != "spacy"
+                ):
+                    raise ValueError("native wire requires explicit version and original scheme")
+                for flag in ("inspected", "labeled", "allow_overlap", "multi_label"):
+                    if (
+                        flag in self.native_reference
+                        and self.native_reference[flag] is not None
+                        and type(self.native_reference[flag]) is not bool
+                    ):
+                        raise ValueError("native policy flags must be explicit booleans")
+                NativeScoringReference.model_validate_json(canonical_bytes(self.native_reference))
+            except (ValueError, TypeError) as error:
+                raise ReferenceError("invalid independent native scoring reference") from error
+            if (
+                self.alternatives
+                or self.graph_projection is not None
+                or self.candidate_selector
+                or self.expectation_mode != "structure"
+            ):
+                raise ReferenceError(
+                    "native references supply their own task expectation, "
+                    "without graph/candidate alternatives"
+                )
+        if self.graph_projection not in {
+            None,
+            "source_semantics",
+            "native_fidelity",
+            "retained_identity",
+        }:
+            raise ReferenceError("unknown characterization graph projection")
+        if (
+            any("graph" in alternative for alternative in self.alternatives)
+            and self.graph_projection is None
+        ):
+            raise ReferenceError("graph expectations require a declared comparison projection")
         if self.expectation_mode not in {"structure", "absence_detection"}:
             raise ReferenceError(
                 "operation expectation must declare structure or absence_detection"
@@ -285,7 +451,12 @@ class OperationCase:
             )
         if self.source_state == "uninspected" and self.judgment != "unassessed":
             raise ReferenceError("uninspected source cannot supply a local truth label")
-        if self.source_state == "stated" and self.judgment == "supported" and not self.alternatives:
+        if (
+            self.source_state == "stated"
+            and self.judgment == "supported"
+            and not self.alternatives
+            and self.native_reference is None
+        ):
             raise ReferenceError("stated supported case requires independent expected structure")
         if any(not isinstance(value, Mapping) or not value for value in self.alternatives):
             raise ReferenceError("permissible alternatives require nonempty exact structures")
@@ -324,10 +495,55 @@ def decode_authored(authored: bytes, frame: OperationEvaluationFrame) -> dict[st
                 tuple(values) for values in raw.get("permissible_anchor_sets", ())
             )
             case = OperationCase(**raw)
+            if case.native_reference is not None and not isinstance(
+                frame, OperationEvaluationFrameV3
+            ):
+                raise ReferenceError(
+                    "native scoring references require V3 characterization custody"
+                )
+            if isinstance(frame, OperationEvaluationFrameV3):
+                from .characterization_assessment import output_key
+
+                opportunities = {value.opportunity_id: value for value in frame.opportunities}
+                if case.opportunity_id is None:
+                    raise ReferenceError("characterization case requires its frozen opportunity")
+                opportunity = opportunities.get(case.opportunity_id)
+                if case.native_reference is not None and (
+                    not isinstance(case.required_family, str)
+                    or not case.required_family.startswith("spacy.")
+                ):
+                    raise ReferenceError(
+                        "native spaCy questions require their original spaCy family"
+                    )
+                if not isinstance(case.required_family, str) or not case.required_family.strip():
+                    raise ReferenceError(
+                        "characterization case requires an explicit assessed family"
+                    )
+                if (
+                    opportunity is None
+                    or opportunity.facet != case.facet
+                    or opportunity.source_state != case.source_state
+                ):
+                    raise ReferenceError("case differs from frozen source opportunity")
+                if case.contribution_id is not None or case.anchor_endpoint_role is not None:
+                    raise ReferenceError(
+                        "characterization case cannot claim contribution authority"
+                    )
+                if frame.direction == "source_first" and case.output_reference is not None:
+                    raise ReferenceError("source-first case cannot acquire an output identity")
+                if frame.direction == "output_first" and (
+                    case.output_reference is None
+                    or output_key(case.output_reference)
+                    not in {output_key(v) for v in frame.outputs or ()}
+                ):
+                    raise ReferenceError(
+                        "case output differs from frozen characterization population"
+                    )
             if frame.direction == "source_first" and case.contribution_id is not None:
                 raise ReferenceError("source-first missing occurrence cannot acquire an output ID")
             if (
                 frame.direction == "output_first"
+                and not isinstance(frame, OperationEvaluationFrameV3)
                 and case.contribution_id not in frame.contribution_ids
             ):
                 raise ReferenceError("output case is outside frozen contribution population")
@@ -629,7 +845,9 @@ def score_cases(
             if any(_matches(value, option) for option in case.alternatives)
         ]
         matched = assignments.get(case.case_id)
-        if case.judgment == "unassessed" or case.source_state == "uninspected":
+        if case.source_state == "inapplicable":
+            judgment, category = "unassessed", "inapplicable"
+        elif case.judgment == "unassessed" or case.source_state == "uninspected":
             judgment, category = "unassessed", "uninspected"
         elif scoped_predictions is not None and case.case_id not in scoped_predictions:
             judgment, category = "unassessed", "prediction_scope_unavailable"
@@ -956,7 +1174,8 @@ def create_reference_set(
     if len(abis) != 1:
         raise ReferenceError("one reference set requires one source frame ABI")
     if any(
-        isinstance(frame, OperationEvaluationFrameV2) and frame.partition != partition
+        isinstance(frame, (OperationEvaluationFrameV2, OperationEvaluationFrameV3))
+        and frame.partition != partition
         for frame in frames.values()
     ):
         raise ReferenceError("frame partition differs from reference set")
@@ -1310,6 +1529,7 @@ def reference_evaluate(
     run_id: int,
     set_id: int,
     comparison_arm: str | None = None,
+    characterization_view: Mapping[str, Any] | None = None,
 ) -> ReferenceReport:
     from corpus_structure.semantic.contribution_queries import read_source_contributions
     from corpus_structure.semantic.interpretation_questions import declared_families
@@ -1337,6 +1557,30 @@ def reference_evaluate(
         .all()
     )
     frames = {unit["unit_key"]: decode_frame(unit["context"][0]) for unit in selected}
+    if any(isinstance(frame, OperationEvaluationFrameV3) for frame in frames.values()):
+        from .characterization_assessment import evaluate_characterization
+
+        if (
+            not all(isinstance(frame, OperationEvaluationFrameV3) for frame in frames.values())
+            or comparison_arm is not None
+        ):
+            raise ReferenceError(
+                "characterization evaluation requires one V3 protocol without contribution arms"
+            )
+        return evaluate_characterization(
+            conn,
+            project_id=project_id,
+            run_id=run_id,
+            set_id=set_id,
+            completed=completed,
+            prepared=prepared,
+            definition=definition,
+            units=selected,
+            frames=frames,
+            characterization_view=characterization_view,
+        )
+    if characterization_view is not None:
+        raise ReferenceError("characterization view requires V3 assessment frames")
     arms = None
     if "comparison_arms" in definition["sampling"]:
         arms = _comparison_arms(definition["sampling"]["comparison_arms"], frames)
@@ -1641,4 +1885,40 @@ def read_evaluation(conn: Connection, *, project_id: str, evaluation_id: int) ->
 def review_export(conn: Connection, *, project_id: str, set_id: int) -> dict[str, Any]:
     return _call(
         conn, "SELECT eval.operation_review_export(:p,:s)", p=project_id, s=set_id
+    ).scalar_one()
+
+
+def inspect_evaluation(
+    conn: Connection,
+    *,
+    project_id: str,
+    evaluation_id: int,
+    view: str = "summary",
+    facet: str | None = None,
+    direction: str | None = None,
+    cursor: str | None = None,
+    limit: int = 100,
+    max_bytes: int = 1048576,
+) -> Mapping[str, Any]:
+    """Page protected retained result data in native custody before Python hydration."""
+    if (
+        view not in {"summary", "coverage", "cases", "errors"}
+        or direction not in {None, "source_first", "output_first"}
+        or type(limit) is not int
+        or not 1 <= limit <= 1000
+        or type(max_bytes) is not int
+        or not 1024 <= max_bytes <= 8388608
+    ):
+        raise ReferenceError("invalid bounded assessment inspection selection")
+    return _call(
+        conn,
+        "SELECT eval.operation_evaluation_page(:p,:e,:v,:f,:d,:c,:l,:b)",
+        p=project_id,
+        e=evaluation_id,
+        v=view,
+        f=facet,
+        d=direction,
+        c=cursor,
+        l=limit,
+        b=max_bytes,
     ).scalar_one()

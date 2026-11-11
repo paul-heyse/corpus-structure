@@ -129,6 +129,38 @@ def freeze(
                 ),
             ),
         )
+    if frame_version == 3:
+        from corpus_structure.evaluate.operation_assessment import (
+            CharacterizationSourceOpportunity,
+            OperationEvaluationFrameV3,
+        )
+
+        projection = case.view_row["projection"]
+        piece = next(
+            p for p in projection["pieces"] if p["kind"] == "native_text" and p["end"] > p["start"]
+        )
+        frame = OperationEvaluationFrameV3(
+            **asdict(frame),
+            source_group="operation-fixture-origin",
+            partition=partition,
+            inspected_scope="independently selected native source piece",
+            opportunities=(
+                CharacterizationSourceOpportunity(
+                    "cell-value",
+                    (
+                        dict(
+                            source_view_id=case.view,
+                            projection=case.view_row["projection_digest"],
+                            native_pointer=piece["item_ref"],
+                            start=piece["start"],
+                            end=piece["end"],
+                        ),
+                    ),
+                    "value",
+                    "stated",
+                ),
+            ),
+        )
     created = create_reference_set(
         conn,
         project_id="private-records",
@@ -169,6 +201,8 @@ def freeze(
         alternatives=({"value": {"kind": "text", "text": "12"}},),
         explanation="The source cell independently spells 12.",
         assessor_provenance={"assistance": "none"},
+        opportunity_id="cell-value" if frame_version == 3 else None,
+        required_family="native.spatial" if frame_version == 3 else None,
     )
     payload = dict(
         protocol=PROTOCOL,
@@ -657,4 +691,151 @@ def test_native_v2_source_opportunities_require_origin_group_and_partition(
                 partition="development",
                 sampling=created["sampling"],
                 frames={wrong.unit: wrong},
+            )
+
+
+def test_native_characterization_source_reference_is_blind_and_uses_existing_abc(
+    reference_source,
+    semantic_evaluator_engine,
+):
+    from dataclasses import replace
+
+    from corpus_structure.evaluate.operation_assessment import OperationEvaluationFrameV3
+
+    source = reference_source
+    with semantic_evaluator_engine.begin() as conn:
+        created, unit, frame, payload = freeze(
+            conn, source, frame_version=3, label="characterization-source-only"
+        )
+        assert isinstance(frame, OperationEvaluationFrameV3)
+        packet = author_packet(conn, unit)
+        bound = packet["source_frame"]["evaluation_frame"]
+        assert "characterization_view" not in bound and "selected_outputs" not in packet
+        assert "outputs" not in bound and packet["native_contexts"]
+        passes = []
+        for kind in ("A", "B"):
+            passes.append(
+                record_pass(
+                    conn,
+                    unit_id=unit,
+                    pass_kind=kind,
+                    actor=f"characterization-source-{kind}",
+                    authored=json.dumps(payload).encode(),
+                    frame=frame,
+                )
+            )
+        payload["adjudication_passes"] = passes
+        record_pass(
+            conn,
+            unit_id=unit,
+            pass_kind="C",
+            actor="characterization-source-C",
+            authored=json.dumps(payload).encode(),
+            frame=frame,
+        )
+        assert adjudication_packet(conn, unit)["adjudication_passes"] == passes
+        assert created["sampling"]["source_frame_abi"] == "source-operation-frame-3"
+        invalid = deepcopy(payload)
+        invalid["adjudication_passes"] = []
+        invalid["cases"][0]["output_reference"] = {
+            "layer": {"task_id": 1, "product_key": "layer", "content_digest": "a" * 64},
+            "collection": "terms",
+            "local_id": "invented",
+        }
+        frozen = conn.scalar(
+            select(table("eval.reference_unit").c.context).where(
+                table("eval.reference_unit").c.id == unit
+            )
+        )[0]
+        with pytest.raises(DBAPIError, match="case changes"), conn.begin_nested():
+            conn.execute(
+                text(
+                    "SELECT eval.record_operation_reference_pass("
+                    ":unit,'A','forged-author',:authored,CAST(:frame AS jsonb))"
+                ),
+                dict(unit=unit, authored=json.dumps(invalid).encode(), frame=json.dumps(frozen)),
+            )
+        # A source opportunity cannot acquire a producer view when a source frame is replaced.
+        with pytest.raises(ReferenceError):
+            replace(
+                frame,
+                characterization_view={
+                    "task_id": 1,
+                    "product_key": "view",
+                    "content_digest": "a" * 64,
+                },
+            )
+
+
+def test_native_operation_inspection_pages_retained_cases_and_binds_cursor(
+    reference_source,
+    semantic_evaluator_engine,
+):
+    from corpus_structure.evaluate.operation_assessment import inspect_evaluation
+
+    source = reference_source
+    with semantic_evaluator_engine.begin() as conn:
+        created, unit, frame, payload = freeze(conn, source, label="inspection-controls")
+        payload["cases"].append(
+            dict(payload["cases"][0], case_id="second-case", facet="second-facet")
+        )
+        passes = []
+        for kind in ("A", "B"):
+            passes.append(
+                record_pass(
+                    conn,
+                    unit_id=unit,
+                    pass_kind=kind,
+                    actor=f"inspection-{kind}",
+                    authored=json.dumps(payload).encode(),
+                    frame=frame,
+                )
+            )
+        payload["adjudication_passes"] = passes
+        record_pass(
+            conn,
+            unit_id=unit,
+            pass_kind="C",
+            actor="inspection-C",
+            authored=json.dumps(payload).encode(),
+            frame=frame,
+        )
+    with source.writer.begin() as conn:
+        final = seal_cut(conn, source.run, "operation-inspection-final", final=True)
+    consolidate_cut(source.writer, final, "operation-inspection-output")
+    with semantic_evaluator_engine.begin() as conn:
+        graded = reference_evaluate(
+            conn, project_id="private-records", run_id=source.run, set_id=created["set_id"]
+        )
+        summary = inspect_evaluation(conn, project_id="private-records", evaluation_id=graded.id)
+        assert summary["unit_count"] == 1 and "units" not in summary
+        first = inspect_evaluation(
+            conn, project_id="private-records", evaluation_id=graded.id, view="cases", limit=1
+        )
+        assert len(first["items"]) == 1 and first["next_cursor"]
+        second = inspect_evaluation(
+            conn,
+            project_id="private-records",
+            evaluation_id=graded.id,
+            view="cases",
+            limit=1,
+            cursor=first["next_cursor"],
+        )
+        assert len(second["items"]) == 1 and second["next_cursor"] is None
+        assert first["items"][0]["item"]["case_id"] != second["items"][0]["item"]["case_id"]
+        filtered = inspect_evaluation(
+            conn,
+            project_id="private-records",
+            evaluation_id=graded.id,
+            view="cases",
+            facet="second-facet",
+        )
+        assert len(filtered["items"]) == 1
+        with pytest.raises(DBAPIError, match="another selection"), conn.begin_nested():
+            inspect_evaluation(
+                conn,
+                project_id="private-records",
+                evaluation_id=graded.id,
+                view="errors",
+                cursor=first["next_cursor"],
             )

@@ -386,7 +386,9 @@ class LayerManifest:
         return self.pin
 
 
-def _published_layer_manifest(reference: ProductReference, payload: Mapping[str, Any]) -> LayerManifest:
+def _published_layer_manifest(
+    reference: ProductReference, payload: Mapping[str, Any]
+) -> LayerManifest:
     return LayerManifest(reference, canonical_bytes(payload), _PUBLISHED_MANIFEST)
 
 
@@ -705,7 +707,10 @@ def validate_view(
 
 
 def validate_view_structure(
-    payload: Mapping[str, Any], layers: Mapping[ProductReference, LayerReport | LayerManifest], *, validate_layer
+    payload: Mapping[str, Any],
+    layers: Mapping[ProductReference, LayerReport | LayerManifest],
+    *,
+    validate_layer,
 ) -> EnrichedDocumentView:
     """Shared v1 closure checks; callback validates each layer under its own release."""
     if payload.get("format") != "enriched-document-view-v1":
@@ -762,7 +767,8 @@ def validate_view_structure(
 
 
 def validate_published_view(
-    prepared: PreparedRelease, payload: Mapping[str, Any],
+    prepared: PreparedRelease,
+    payload: Mapping[str, Any],
     layers: Mapping[ProductReference, LayerManifest],
 ) -> EnrichedDocumentView:
     """Compose metadata whose immutable layer validity is held by native publication.
@@ -777,8 +783,12 @@ def validate_published_view(
         raise ValueError("view uses another semantic release")
     if data["profile"] == "full_characterization":
         families = characterization_profiles(prepared).get(data["profile"])
-        if families is None or not set(families) <= {row["family"] for row in data.get("coverage", ())}:
-            raise ValueError("full characterization requires every released baseline family outcome")
+        if families is None or not set(families) <= {
+            row["family"] for row in data.get("coverage", ())
+        }:
+            raise ValueError(
+                "full characterization requires every released baseline family outcome"
+            )
     return validate_view_structure(data, layers, validate_layer=None)
 
 

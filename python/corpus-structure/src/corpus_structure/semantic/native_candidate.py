@@ -726,6 +726,9 @@ def series_native_definitions(connection, *, include_selected=True):
         Path(__file__).with_name("sql").joinpath("operation_assessment.sql").read_text()
     )
     for name, roles in {
+        "validate_native_scoring_reference": (),
+        "validate_characterization_assessment_target": (),
+        "validate_characterization_reference": (),
         "create_operation_reference_set": ("corpus_sem_evaluator",),
         "validate_operation_reference_frame": (),
         "record_operation_reference_pass": ("corpus_sem_evaluator",),
@@ -733,6 +736,7 @@ def series_native_definitions(connection, *, include_selected=True):
         "validate_operation_reference_evaluation": (),
         "record_operation_reference_evaluation": ("corpus_sem_evaluator",),
         "operation_review_export": ("corpus_sem_evaluator",),
+        "operation_evaluation_page": ("corpus_sem_evaluator",),
     }.items():
         definitions.extend(
             _task_call_definitions(
@@ -1203,6 +1207,13 @@ def series_native_definitions(connection, *, include_selected=True):
         ),
         (
             "read_characterization_product",
+            tuple(
+                (role, "EXECUTE", False)
+                for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
+            ),
+        ),
+        (
+            "read_characterization_layer_manifest",
             tuple(
                 (role, "EXECUTE", False)
                 for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")

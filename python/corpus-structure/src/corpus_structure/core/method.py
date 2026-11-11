@@ -51,7 +51,11 @@ if typing.TYPE_CHECKING:
     from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
     from corpus_structure.ingest.pdf_candidate_source import CandidatePageSource
     from corpus_structure.methods.contextual_embeddings import EncodedVector
-    from corpus_structure.semantic.characterization import EnrichedDocumentView, LayerReport, LayerManifest
+    from corpus_structure.semantic.characterization import (
+        EnrichedDocumentView,
+        LayerManifest,
+        LayerReport,
+    )
     from corpus_structure.semantic.contextual_retrieval import (
         CandidateList,
         FrozenInventory,

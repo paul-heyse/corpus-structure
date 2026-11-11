@@ -106,6 +106,7 @@ class Reader(ReaderPort):
     original = _unavailable
     connection = _unavailable
     characterization_layers = _unavailable
+    characterization_manifests = _unavailable
     characterization_release = _unavailable
     characterization_view = _unavailable
     characterization_memberships = _unavailable

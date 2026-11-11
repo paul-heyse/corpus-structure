@@ -9859,6 +9859,121 @@ def record_direction(
         return materialize_record_direction(row)
 
 
+OPERATION_EVALUATION_PAGE_CONTRACT_DIGEST = (
+    "688dadde56249768b5d120f7120610a857a6420f49f71d4e7675474a122b16da"
+)
+
+
+class _operation_evaluation_pageRequest(OperationResult):
+    project_id: ProjectId
+    evaluation_id: Annotated[int, Field(ge=-9223372036854775808, le=9223372036854775807)]
+    view: str
+    facet: str | None
+    direction: str | None
+    cursor: str | None
+    limit: Annotated[int, Field(ge=-9223372036854775808, le=9223372036854775807)]
+    max_bytes: Annotated[int, Field(ge=-9223372036854775808, le=9223372036854775807)]
+
+
+_operation_evaluation_page_function = func.eval.operation_evaluation_page(
+    bindparam("project_id", type_=Text()),
+    bindparam("evaluation_id", type_=BigInteger()),
+    bindparam("view", type_=Text()),
+    bindparam("facet", type_=Text()),
+    bindparam("direction", type_=Text()),
+    bindparam("cursor", type_=Text()),
+    bindparam("limit", type_=BigInteger()),
+    bindparam("max_bytes", type_=BigInteger()),
+    type_=JSONB(),
+)
+_operation_evaluation_page_statement = select(_operation_evaluation_page_function)
+
+
+def prepare_operation_evaluation_page(
+    *,
+    project_id: ProjectId,
+    evaluation_id: int,
+    view: str,
+    facet: str | None,
+    direction: str | None,
+    cursor: str | None,
+    limit: int,
+    max_bytes: int,
+    projection_context: PreparedRelease | None = None,
+) -> Select[JsonValue]:
+    _request = _operation_evaluation_pageRequest(
+        project_id=project_id,
+        evaluation_id=evaluation_id,
+        view=view,
+        facet=facet,
+        direction=direction,
+        cursor=cursor,
+        limit=limit,
+        max_bytes=max_bytes,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "reference_operation_grade",
+            "operation_evaluation_page",
+            OPERATION_EVALUATION_PAGE_CONTRACT_DIGEST,
+        )
+    return cast(
+        Select[JsonValue],
+        _operation_evaluation_page_statement.params(
+            **{
+                "project_id": _request.project_id,
+                "evaluation_id": _request.evaluation_id,
+                "view": _request.view,
+                "facet": _request.facet,
+                "direction": _request.direction,
+                "cursor": _request.cursor,
+                "limit": _request.limit,
+                "max_bytes": _request.max_bytes,
+            }
+        ),
+    )
+
+
+_operation_evaluation_page_adapter = TypeAdapter(JsonValue)
+
+
+def materialize_operation_evaluation_page(row: tuple[JsonValue]) -> JsonValue:
+    with native_result_scope("reference_operation_grade", "operation_evaluation_page", "result"):
+        checked = _operation_evaluation_page_adapter.validate_python(row[0], strict=True)
+        return checked
+
+
+def operation_evaluation_page(
+    conn: Connection,
+    *,
+    project_id: ProjectId,
+    evaluation_id: int,
+    view: str,
+    facet: str | None,
+    direction: str | None,
+    cursor: str | None,
+    limit: int,
+    max_bytes: int,
+    projection_context: PreparedRelease | None = None,
+) -> JsonValue:
+    _statement = prepare_operation_evaluation_page(
+        project_id=project_id,
+        evaluation_id=evaluation_id,
+        view=view,
+        facet=facet,
+        direction=direction,
+        cursor=cursor,
+        limit=limit,
+        max_bytes=max_bytes,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("reference_operation_grade", "operation_evaluation_page"):
+        row = _native_result.one()
+        return materialize_operation_evaluation_page(row)
+
+
 PUBLISH_CHARACTERIZATION_CONTRACT_DIGEST = (
     "bad05f8087b063a29aa745dd6c48b310622ff127bc8c6ff686faacfa41bb9721"
 )
@@ -10067,6 +10182,107 @@ def read_characterization_product(
     with native_result_scope("read_characterization", "read_characterization_product"):
         row = _native_result.one()
         return materialize_read_characterization_product(row)
+
+
+READ_CHARACTERIZATION_LAYER_MANIFEST_CONTRACT_DIGEST = (
+    "4d86c296e171bcbab8b34a7c18bec668dcd6f0f66d06293b965d52b32d75e7e8"
+)
+
+
+class _read_characterization_layer_manifestRequest(OperationResult):
+    task_id: Annotated[int, Field(ge=-9223372036854775808, le=9223372036854775807)]
+    product_key: str
+    content_digest: str
+    run_id: (
+        Annotated[RunId, Field(ge=RunId(-9223372036854775808), le=RunId(9223372036854775807))]
+        | None
+    )
+    max_bytes: Annotated[int, Field(ge=-9223372036854775808, le=9223372036854775807)]
+
+
+_read_characterization_layer_manifest_function = func.ops.read_characterization_layer_manifest(
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("product_key", type_=Text()),
+    bindparam("content_digest", type_=Text()),
+    bindparam("run_id", type_=BigInteger()),
+    bindparam("max_bytes", type_=BigInteger()),
+    type_=JSONB(),
+)
+_read_characterization_layer_manifest_statement = select(
+    _read_characterization_layer_manifest_function
+)
+
+
+def prepare_read_characterization_layer_manifest(
+    *,
+    task_id: int,
+    product_key: str,
+    content_digest: str,
+    run_id: RunId | None,
+    max_bytes: int,
+    projection_context: PreparedRelease | None = None,
+) -> Select[JsonValue]:
+    _request = _read_characterization_layer_manifestRequest(
+        task_id=task_id,
+        product_key=product_key,
+        content_digest=content_digest,
+        run_id=run_id,
+        max_bytes=max_bytes,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "read_characterization",
+            "read_characterization_layer_manifest",
+            READ_CHARACTERIZATION_LAYER_MANIFEST_CONTRACT_DIGEST,
+        )
+    return cast(
+        Select[JsonValue],
+        _read_characterization_layer_manifest_statement.params(
+            **{
+                "task_id": _request.task_id,
+                "product_key": _request.product_key,
+                "content_digest": _request.content_digest,
+                "run_id": _request.run_id,
+                "max_bytes": _request.max_bytes,
+            }
+        ),
+    )
+
+
+_read_characterization_layer_manifest_adapter = TypeAdapter(JsonValue)
+
+
+def materialize_read_characterization_layer_manifest(row: tuple[JsonValue]) -> JsonValue:
+    with native_result_scope(
+        "read_characterization", "read_characterization_layer_manifest", "result"
+    ):
+        checked = _read_characterization_layer_manifest_adapter.validate_python(row[0], strict=True)
+        return checked
+
+
+def read_characterization_layer_manifest(
+    conn: Connection,
+    *,
+    task_id: int,
+    product_key: str,
+    content_digest: str,
+    run_id: RunId | None,
+    max_bytes: int,
+    projection_context: PreparedRelease | None = None,
+) -> JsonValue:
+    _statement = prepare_read_characterization_layer_manifest(
+        task_id=task_id,
+        product_key=product_key,
+        content_digest=content_digest,
+        run_id=run_id,
+        max_bytes=max_bytes,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("read_characterization", "read_characterization_layer_manifest"):
+        row = _native_result.one()
+        return materialize_read_characterization_layer_manifest(row)
 
 
 READ_CHARACTERIZATION_MEMBERSHIPS_CONTRACT_DIGEST = (
@@ -10510,4 +10726,4 @@ def read_characterization_inventory(
         return materialize_read_characterization_inventory(row)
 
 
-CALL_CONTRACT_DIGEST = "e4b28b6c6d29cdeae6e4d428c4032fe3c98342d58095b69d566388987bf6bc7f"
+CALL_CONTRACT_DIGEST = "7ce9480f2e0673eb0c0c0289d7596d5ef242930e723c41c3fab6c917670e7607"

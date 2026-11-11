@@ -660,7 +660,7 @@ BEGIN
  SELECT jsonb_object_agg(key,value) INTO header_ FROM jsonb_each(product.payload)
  WHERE key IN ('format','release_id','base_document','operation','source_scope','outcome','dependencies','coverage');
  result_:=jsonb_build_object('reference',jsonb_build_object('task_id',p_task,'product_key',p_key,'content_digest',p_digest),'kind','layer','payload',header_);
- IF p_max_bytes NOT BETWEEN 1 AND 8388608 OR octet_length(data.canonical_json(result_))>p_max_bytes THEN
+ IF p_max_bytes IS NULL OR p_max_bytes NOT BETWEEN 1 AND 8388608 OR octet_length(data.canonical_json(result_))>p_max_bytes THEN
   RAISE EXCEPTION 'characterization manifest exceeds read byte bound' USING ERRCODE='54000'; END IF;
  RETURN result_;
 END $$;

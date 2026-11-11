@@ -6,6 +6,7 @@ from sqlalchemy import select
 
 from corpus_structure.semantic.product_reference import ProductReference
 
+
 @dataclass(frozen=True)
 class RetainedDocument:
     id: int
@@ -30,7 +31,11 @@ def retained_source_document(
     identity = _record_product_identity(
         conn, reference.task_id, reference.product_key, reference.content_digest, reader
     )
-    if role not in {"native", "integrated"} or reader.revision["kind"] != role or identity["kind"] != role:
+    if (
+        role not in {"native", "integrated"}
+        or reader.revision["kind"] != role
+        or identity["kind"] != role
+    ):
         raise ValueError(f"retained input is not an {role} PDF product")
     reader._native_schema_mapping()
     health = [row for row in reader.iter_companions("health") if "source_scope" in row]
@@ -40,9 +45,7 @@ def retained_source_document(
         or health[0].get("conversion") != "success"
         or (role == "integrated" and not reader.sections())
     ):
-        raise ValueError(
-            "retained input requires a successful whole PDF with qualified sections"
-        )
+        raise ValueError("retained input requires a successful whole PDF with qualified sections")
     task, run, document = map(table, ("ops.task", "ops.run", "kb.document"))
     row = (
         conn.execute(
@@ -80,4 +83,3 @@ def retained_source_document(
     if len(matches) != 1:
         raise ValueError("retained product document is outside the selected corpus")
     return RetainedDocument(row["id"], row["key"], row["content_hash"], row["source_uri"])
-
