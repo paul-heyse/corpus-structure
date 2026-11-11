@@ -146,3 +146,11 @@ shared linguistic/formal evidence, construction grammars with direct forest sema
 source readings, contextual characterization and complete consumer migration. Its feature crosswalk
 disposes the full spaCy/Lark discovery collection, comparing existing HanLP, Maverick, Dipo, GLiNER
 and d1 responsibilities. The finalized target remains Proposed; active plans retain execution scope.
+
+## Book-processing efficiency and parallelism — 2026-11-11
+
+The [book-processing review](book-processing-efficiency-and-parallelism_2026-11-11.md) develops
+O01–O08: scoped preparation, immutable regional state, dependency-driven overlap, CPU processes,
+resident provider lanes, batching, coordinated resource/device policy and operational control.
+It recommends a local hybrid and identifies stage-barrier, admission and batch-attribution changes.
+Recommendations remain Proposed; implementation planning and adoption are separate.

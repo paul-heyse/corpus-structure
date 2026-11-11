@@ -42,11 +42,16 @@ TC-E06's dependency/term indexing passed141 controls in`6daeba6f757a448091af826d
 blocked by an omitted assets setting, then **passed** as`4c90354fce9a46c6abd0e1babd62de25` with existing assets.
 Their142-identity union is covered; comment-only source/private-binding differences retain bounded applicability.
 Typing **passed**,`2d2ff5a115bb467bad92de33fa1054c6`. Invocation513–523 was intentionally interrupted;
-the next book invocation is paused for TC-E07's line-safe source regex correction. Construction51
+TC-E07's line-safe source regex correction is implemented. Construction51
 **passed**,`00baf630d73d474abcd96619cf31e024`; typing **passed**,`f3f6babda9d54ea2b58d21c60eec7eff`.
 Actual-provider primary/reuse case **passed**,`379c96dd3c5e4340b94c82f889657c19`.
-Network-enabled book execution resumes from the same capture; final combined view/qualification are open.
+The operator chose to keep the network-enabled book run active during review; final combined view/qualification are open.
 
 Next: complete book execution, then separate output-first assessment;
 grade exact retained products, resolve triggered gaps and complete the final applicable test union.
 Activation/selection remains a separate final effect. Preserve prior receipts at their own scope.
+
+The [efficiency/parallelism review](docs/functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md)
+recommends O01–O08 and a local hybrid; all changes remain Proposed. Review scope is complete;
+next review action is selection/implementation planning, separate from the running TC qualification.
+Review publication: uv run ci docs check --json **passed**2026-11-11, afeb8b2edfcc4566a5d74b9ee34df53c,874pages/zero link errors; product tests **not_run** for this documentation-only review. just turn-end **passed**,1122 Python files unchanged.
