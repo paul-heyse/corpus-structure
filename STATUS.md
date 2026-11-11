@@ -51,7 +51,7 @@ Next: complete book execution, then separate output-first assessment;
 grade exact retained products, resolve triggered gaps and complete the final applicable test union.
 Activation/selection remains a separate final effect. Preserve prior receipts at their own scope.
 
-The [efficiency/parallelism review](docs/functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md)
-recommends O01–O08 and a local hybrid; all changes remain Proposed. Review scope is complete;
-next review action is selection/implementation planning, separate from the running TC qualification.
-Review publication: uv run ci docs check --json **passed**2026-11-11, afeb8b2edfcc4566a5d74b9ee34df53c,874pages/zero link errors; product tests **not_run** for this documentation-only review. just turn-end **passed**,1122 Python files unchanged.
+The [BEP coordinator](docs/plans/book-processing-efficiency-and-parallelism_2026-11-11.md) now owns the new Proposed BEP-00–09 series from the efficiency review O01–08. RC01–04 explicitly accepted for planning2026-11-11; implementation remains planned.
+Five companions cover preparation/kernels, coordinator/lanes, batches, resources/devices/operations and qualification/investigations. TC plan files remain unchanged; reconciliation follows later.
+Next BEP action: implementation authorization/execution planning. The running book remains unchanged; no BEP production/provider work occurred during authoring.
+BEP authoring verification2026-11-11: uv run ci docs check --json **passed**,5da6588a33f4441490a36dffd3c97e1c,880pages/zero link errors; product/provider tests **not_run** (documentation only); just turn-end **passed**,1122 Python files unchanged.

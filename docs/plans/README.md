@@ -6,6 +6,7 @@ semantic pivot series was added on 2026-10-29:
 
 | Plan | Owns |
 |---|---|
+| [Book-processing efficiency and parallelism](book-processing-efficiency-and-parallelism_2026-11-11.md) | Proposed BEP-00–09: full efficiency review O01–08/acceptedRC01–04, hybrid execution, scoped preparation, native batching, resource/device decisions and qualification. Existing text-characterization plans remain unchanged; later reconciliation is separate. |
 | [Agent CLI and diagnostics](cli-and-logging_2026-11-10.md) | Completed CLD-00–10 and completion-repair obligations CLD-CA01–05; final6033-identity functional/native/provider union and repository checks passed at frozen product source. Coordinator retains current disposition, original audit findings and preserved failed receipts. PM2 retains its effects and next execution. |
 | [Integrated domain-data-model capabilities](domain-data-model_2026-11-10.md) | Proposed DMC-00–17 and DMC-I01–09: full November10 functional-review scope, bounded branch decisions and selected delivery across authoring, archives, terminology, measurements, diagnostics and independent consumers. Execution follows completed PTD-11 and precedes PM2. |
 | [design-phase](design-phase_2026-10-28.md) | Design findings and the disposition of OPEN items; the design queue |
