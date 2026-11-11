@@ -124,3 +124,7 @@ python/corpus-structure/semantic_alembic/versions/semantic_dmc_terminology_* fil
 python/corpus-structure/semantic_alembic/versions/semantic_dmc_interpretations_* filter=lfs diff=lfs merge=lfs -text
 python/corpus-structure/semantic_alembic/versions/semantic_dmc_unit_references_* filter=lfs diff=lfs merge=lfs -text
 python/corpus-structure/semantic_alembic/versions/semantic_dmc_digest_binding_* filter=lfs diff=lfs merge=lfs -text
+
+# Frozen source-only TC-10 reference packets and native execution reports.
+docs/design_review/evidence/2026-11-11_text-characterization-assessment/panel/*.json filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-11_text-characterization-assessment/raw/** filter=lfs diff=lfs merge=lfs -text

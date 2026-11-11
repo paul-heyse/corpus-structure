@@ -128,3 +128,52 @@ revision1, digest`60921ca32402f47bb9e2c3f665e42007035979105c93cbaf44e239712142b7
 The run selects316 direct SourceViews over the original518-page integrated base. This is source
 capture only; no primary book characterization or semantic assessment is established by it.
 An earlier finalize invocation supplied unsupported `--project` and exited2 without an effect.
+
+## Source-first panel and assembled repairs · 2026-11-11
+
+The [source-only panel](panel/README.md) froze reference set40, units61–81,26 opportunities over
+21SourceViews across all12chapters and nine facets. The protected source-only packets contain
+no selected producer outputs. Fresh independent Sol/high A/B authoring consumes those same
+immutable packets; source-only reference questions do not assert future runtime success or
+retained output identity. Those require separate output-first and consumer evidence.
+
+Assembled inspection found that source-state admission required an answer at opportunity
+selection, and selected output nodes lacked interpretable witness closure. An initially
+uninspected opportunity now allows independent authors to settle its state; known frozen states
+remain exact. Output packets carry bounded, exactly pinned witness graphs explicitly separate
+from the assessed population. Focused controls **passed**,107/107,
+`3127cfcc009848a28936fb92e37aba3b`.
+
+Detached export now writes sealed layers sequentially, validates their published metadata and
+retains full independent graph/schema/source verification offline through lazy file-backed
+reads. Validation retains one root dependency closure at a time. Node inspection keeps at most
+the requested page plus one continuation witness; reading follows explicit dependencies.
+Coverage has its own exact paginated inspection and explicit totals/truncation in other views.
+Focused controls **passed**,89/89, `46b3d8a087dd45219d03925911bf8630`. Earlier test-only weakref
+and error-message expectation failures remain in `23db703ba396413a8640b844da6e69ce`.
+
+The ordinary book view retains source/family metadata for all natural units, requiring a
+separate finite64MiB read allowance; individual full layers remain limited to8MiB. This does
+not enlarge public inspection response budgets. Forward preview
+`8e0ffb8d7c2343cbb52d1e1e84489d31`, seven-operation rollback-only candidate
+`1b9b3027ff35471c8f5a81b8fbcd0d0b`, registration
+`6f0371a35d09421dba99d36b71f01244` and deployment
+`f710651646ac4627a074d11d723b6cb6` **passed**. Head is
+`semantic_tc10_11_ref_context`; semantic release remains unchanged. The newly registered
+migration is immutable. Initial candidate `3f9db03477114d358bb5d41274e643bf` **failed** valid
+revision-name admission (>32characters), with rollback established and no persistent effects;
+the shortened name uses the [revised request](reference-context.yaml).
+
+Typing `783a15dc835c4c27ab4b316ed594f939` **failed** on three new test-only narrowing/double
+annotations; their repair **passed**, `04c7ebcea377489cb8d77b471374cf10`.
+The first whole-book enrichment invocation was intentionally interrupted during release
+preparation before creating any producer run, so the forward native descriptor could settle
+before the long execution. Its log is preserved locally. Execution restarted after deployment
+using [the existing enrichment boundary](characterize_book.py); no primary outcome is claimed
+until its actual terminal products are inspected.
+
+Forward native reference/read controls **passed**,12/12,
+`ff28f9ed40754f9ba377194e6a28faa4`: both native operation-assessment modules and the native
+composition/indexed-pagination case, including view/layer byte-bound and explicit-null controls.
+The restarted real-book execution has created run497. This establishes execution progress,
+not a terminal family outcome or semantic grade.

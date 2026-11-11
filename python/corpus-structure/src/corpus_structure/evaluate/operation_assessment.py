@@ -522,7 +522,10 @@ def decode_authored(authored: bytes, frame: OperationEvaluationFrame) -> dict[st
                 if (
                     opportunity is None
                     or opportunity.facet != case.facet
-                    or opportunity.source_state != case.source_state
+                    or (
+                        opportunity.source_state != "uninspected"
+                        and opportunity.source_state != case.source_state
+                    )
                 ):
                     raise ReferenceError("case differs from frozen source opportunity")
                 if case.contribution_id is not None or case.anchor_endpoint_role is not None:
@@ -1216,8 +1219,54 @@ def create_reference_set(
     )
 
 
+_AUTHOR_PACKET_BYTES = 1048576
+_AUTHOR_WITNESS_READ_BYTES = 8388608
+
+
 def author_packet(conn: Connection, unit_id: int) -> dict[str, Any]:
-    return _call(conn, "SELECT eval.operation_author_packet(:u)", u=unit_id).scalar_one()
+    packet = _call(conn, "SELECT eval.operation_author_packet(:u)", u=unit_id).scalar_one()
+    remaining = _AUTHOR_PACKET_BYTES - len(canonical_bytes(packet))
+    if remaining < 0:
+        raise ReferenceError("operation author packet exceeds byte bound")
+    if "selected_outputs" not in packet or not packet["selected_outputs"]:
+        return packet
+    from corpus_structure.semantic.characterization_store import read_layer
+    from corpus_structure.semantic.product_reference import ProductReference
+
+    from .characterization_assessment import LayerProjection
+
+    unit = _unit(conn, unit_id)
+    read_remaining = _AUTHOR_WITNESS_READ_BYTES
+
+    def load(pin):
+        nonlocal read_remaining
+        if read_remaining < 1:
+            raise ReferenceError("operation author witness hydration exceeds byte bound")
+        body = read_layer(
+            conn,
+            ProductReference(**pin),
+            run_id=unit["source_run_id"],
+            max_bytes=read_remaining,
+        ).payload
+        read_remaining -= len(canonical_bytes(body))
+        return body
+
+    projection = LayerProjection(load)
+    for selected in packet["selected_outputs"]:
+        ref = selected["reference"]
+        local_id = (
+            "@coverage:" + ref["local_id"] if ref["collection"] == "coverage" else ref["local_id"]
+        )
+        graph = projection.graph(ref["layer"], local_id, max_bytes=remaining, witness_closure=True)
+        selected["witness_context"] = dict(
+            purpose="interpretation_only_not_assessed_population",
+            projection="native_fidelity",
+            graph=graph,
+        )
+        remaining = _AUTHOR_PACKET_BYTES - len(canonical_bytes(packet))
+        if remaining < 0:
+            raise ReferenceError("operation author packet exceeds byte bound")
+    return packet
 
 
 def record_pass(

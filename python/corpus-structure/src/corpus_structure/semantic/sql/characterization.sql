@@ -635,7 +635,10 @@ BEGIN
  IF p_run IS NOT NULL AND NOT EXISTS(SELECT FROM ops.run requested JOIN ops.task origin ON origin.id=p_task
   JOIN ops.run producing ON producing.id=origin.run_id WHERE requested.id=p_run AND requested.project_id=producing.project_id) THEN
   RAISE EXCEPTION 'characterization product outside requested project' USING ERRCODE='23514'; END IF;
- IF p_max_bytes NOT BETWEEN 1 AND 8388608 OR octet_length(data.canonical_json(product.payload))>p_max_bytes THEN
+ -- A document view contains the book's bounded source/family metadata, rather than
+ -- annotation inventories. Keep natural-unit layer payloads under their smaller cap.
+ IF p_max_bytes IS NULL OR p_max_bytes NOT BETWEEN 1 AND (CASE p_kind WHEN 'view' THEN 67108864 ELSE 8388608 END)
+ OR octet_length(data.canonical_json(product.payload))>p_max_bytes THEN
   RAISE EXCEPTION 'characterization product exceeds read byte bound' USING ERRCODE='54000'; END IF;
  RETURN product.payload;
 END $$;
@@ -669,7 +672,7 @@ CREATE OR REPLACE FUNCTION ops.read_characterization_memberships(p_task bigint,p
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE view_ jsonb; answer jsonb;
 BEGIN
- view_:=ops.read_characterization_product(p_task,p_key,p_digest,'view',p_run);
+ view_:=ops.read_characterization_product(p_task,p_key,p_digest,'view',p_run,67108864);
  IF (p_after IS NOT NULL AND (jsonb_typeof(p_after)<>'array' OR jsonb_array_length(p_after)<>3)) OR p_limit NOT BETWEEN 1 AND 1000 OR p_max_bytes NOT BETWEEN 1 AND 8388608
  OR jsonb_typeof(p_groups)<>'array' OR jsonb_array_length(p_groups)>256 THEN
   RAISE EXCEPTION 'invalid bounded membership selection' USING ERRCODE='22023'; END IF;
@@ -697,7 +700,7 @@ CREATE OR REPLACE FUNCTION ops.read_characterization_nodes(p_task bigint,p_key t
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE view_ jsonb; answer jsonb;
 BEGIN
- view_:=ops.read_characterization_product(p_task,p_key,p_digest,'view',p_run,8388608);
+ view_:=ops.read_characterization_product(p_task,p_key,p_digest,'view',p_run,67108864);
  IF p_kind NOT IN ('annotations','terms') OR p_limit NOT BETWEEN 1 AND 1000 OR p_max_bytes NOT BETWEEN 1 AND 8388608
  OR (p_after IS NOT NULL AND (jsonb_typeof(p_after)<>'array' OR jsonb_array_length(p_after)<>3))
  OR jsonb_typeof(p_selectors) IS DISTINCT FROM 'object'

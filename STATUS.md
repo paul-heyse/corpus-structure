@@ -1,7 +1,7 @@
 # Status
 
 _Updated 2026-11-11. TC-03–09 and their TC-01/02 prerequisites are implemented; TC-10/11 execution is active.
-Native head is `semantic_tc10_11_assessment`; `/10` remains default and the project unselected._
+Native head is `semantic_tc10_11_ref_context`; `/10` remains default and the project unselected._
 
 ## Current scope and authority
 
@@ -31,8 +31,11 @@ are merged. Native assessment/manifest controls passed27 (`287d06f4208f45d58530a
 latest assessment/native-column controls passed99 (`b8cad173a69348b686c07a1f8d788d78`).
 Retained-source initialization passed6 (`bc608dc9ad2341b5ac9ed912c2365fa9`).
 Whole-book source capture496 is finalized at cut614:316 direct SourceViews, original518-page base retained.
-No TC-10/11 semantic grade or full-book primary qualification is claimed.
+Source-first reference set40 freezes26 opportunities/21units across12chapters; independent A/B authoring is active.
+Forward native reference/read controls passed12 (`ff28f9ed40754f9ba377194e6a28faa4`),
+detached/coverage controls passed89 (`46b3d8a087dd45219d03925911bf8630`), typing passed`04c7ebcea377489cb8d77b471374cf10`.
+Full-book primary execution has begun at497. No semantic grade or full-book qualification is claimed.
 
-Next: freeze source-only panel frames, run fresh Sol/high A/B/C,
-execute/grade the full book, resolve triggered gaps and complete the final applicable test union.
+Next: complete fresh Sol/high A/B/C, full-book primary execution and separate output-first assessment;
+grade exact retained products, resolve triggered gaps and complete the final applicable test union.
 Activation/selection remains a separate final effect. Preserve prior receipts at their own scope.

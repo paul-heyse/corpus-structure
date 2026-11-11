@@ -545,6 +545,17 @@ def test_native_composition_source_only_and_indexed_keyset_pages(
         )
     with semantic_reader_engine.connect() as conn:
         assert read_view(conn, weak_pin).payload["layers"] == []
+        # Book-wide metadata has a separate finite bound from natural-unit layers.
+        assert read_view(conn, view_pin, max_bytes=64 * 1024**2).content == view.content
+        with pytest.raises(DBAPIError), conn.begin_nested():
+            read_view(conn, view_pin, max_bytes=64 * 1024**2 + 1)
+        with pytest.raises(DBAPIError), conn.begin_nested():
+            read_layer(conn, layer_pin, max_bytes=8 * 1024**2 + 1)
+        with pytest.raises(DBAPIError), conn.begin_nested():
+            conn.execute(
+                text("SELECT ops.read_characterization_product(:t,:k,:d,'view',NULL,NULL)"),
+                dict(t=view_pin.task_id, k=view_pin.product_key, d=view_pin.content_digest),
+            )
         first = read_memberships(conn, view_pin, ("a0",), limit=1)
         assert [row["membership"]["local_id"] for row in first["memberships"]] == ["m0"]
         second = read_memberships(

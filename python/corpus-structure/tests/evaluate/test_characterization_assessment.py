@@ -3,7 +3,7 @@
 import json
 from copy import deepcopy
 from dataclasses import asdict, replace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -1043,3 +1043,144 @@ def test_native_capture_restores_retained_block_by_exact_ordered_scope(monkeypat
         unrelated["status"] == "unavailable"
         and unrelated["reason"] == "native_block_scope_unavailable"
     )
+
+
+@pytest.mark.parametrize(
+    ("state", "judgment"),
+    (
+        ("stated", "supported"),
+        ("unstated", "supported"),
+        ("unresolved", "ambiguous"),
+        ("inapplicable", "unassessed"),
+        ("uninspected", "unassessed"),
+    ),
+)
+def test_uninspected_source_opportunity_freezes_scope_without_preauthoring_state(state, judgment):
+    opportunity = replace(frame().opportunities[0], source_state="uninspected")
+    frozen = frame(opportunities=(opportunity,))
+    authored = case(
+        source_state=state,
+        judgment=judgment,
+        alternatives=({"value": {"kind": "operator"}},) if state == "stated" else (),
+        expectation_mode="absence_detection" if state == "unstated" else "structure",
+    )
+    decoded = decode_authored(json.dumps(payload(frozen, (authored,))).encode(), frozen)
+    assert decoded["cases"][0].source_state == state
+    restored = decode_frame(encode_frame(frozen))
+    assert isinstance(restored, OperationEvaluationFrameV3)
+    assert restored.opportunities[0].source_state == "uninspected"
+
+
+def test_known_frozen_source_state_cannot_be_silently_relabelled():
+    with pytest.raises(ReferenceError, match="invalid operation"):
+        decode_authored(
+            json.dumps(
+                payload(
+                    frame(),
+                    (case(source_state="unresolved", judgment="ambiguous", alternatives=()),),
+                )
+            ).encode(),
+            frame(),
+        )
+
+
+def test_output_author_packet_resolves_only_exact_witness_closure(monkeypatch):
+    from types import SimpleNamespace
+
+    from corpus_structure.evaluate import operation_assessment as assessment
+    from corpus_structure.semantic import characterization_store as store
+
+    dependency = dict(PIN, task_id=9, content_digest="d" * 64)
+    selected = dict(layer=PIN, collection="choices", local_id="choice")
+    body = dict(
+        occurrences=[dict(local_id="location", extents=[EXTENT])],
+        roles=[
+            dict(
+                local_id="role",
+                owner="predicate",
+                member="participant",
+                role="subject",
+                occurrences=["location"],
+                basis={"kind": "native_prediction", "status": "recorded"},
+            )
+        ],
+        terms=[
+            dict(
+                local_id="predicate",
+                kind="predicate",
+                children=[dict(role="subject", target="participant", structural=True)],
+            ),
+            dict(local_id="participant", kind="participant", occurrences=["location"]),
+        ],
+        choices=[
+            dict(
+                local_id="choice",
+                compatibility="exclusive",
+                members=[
+                    dict(
+                        local_id="reading",
+                        root="role",
+                        required_external_choices=[
+                            dict(layer=dependency, local_id="external-reading")
+                        ],
+                    )
+                ],
+            )
+        ],
+    )
+    dependency_body = dict(
+        choices=[
+            dict(
+                local_id="dependency-choice",
+                compatibility="unknown",
+                members=[
+                    dict(local_id="external-reading", root="other-root"),
+                    dict(local_id="other-reading", root="other-root"),
+                ],
+            )
+        ],
+        terms=[dict(local_id="other-root", kind="predicate", value="other")],
+    )
+    packet = dict(selected_outputs=[dict(reference=selected, value=body["choices"][0])])
+    monkeypatch.setattr(
+        assessment, "_call", lambda *a, **kw: SimpleNamespace(scalar_one=lambda: deepcopy(packet))
+    )
+    monkeypatch.setattr(assessment, "_unit", lambda *a: {"source_run_id": 47})
+    loaded = []
+
+    def read(_conn, pin, *, run_id, max_bytes):
+        assert run_id == 47 and 0 < max_bytes <= 8388608
+        loaded.append(pin.task_id)
+        return SimpleNamespace(payload=body if pin.task_id == PIN["task_id"] else dependency_body)
+
+    monkeypatch.setattr(store, "read_layer", read)
+    result = assessment.author_packet(cast(Any, None), 3)
+    assert loaded == [7, 9]
+    assert [item["reference"] for item in result["selected_outputs"]] == [selected]
+    witness = result["selected_outputs"][0]["witness_context"]
+    assert witness["purpose"] == "interpretation_only_not_assessed_population"
+    identities = {node["qualified_identity"]["local_id"] for node in witness["graph"]["nodes"]}
+    assert identities == {
+        "choice",
+        "reading",
+        "role",
+        "predicate",
+        "participant",
+        "location",
+        "external-reading",
+        "dependency-choice",
+        "other-reading",
+        "other-root",
+    }
+    assert any(
+        node["value"].get("compatibility") == "unknown" for node in witness["graph"]["nodes"]
+    )
+    monkeypatch.setattr(assessment, "_AUTHOR_PACKET_BYTES", len(json.dumps(packet)))
+    with pytest.raises(ReferenceError, match="byte bound"):
+        assessment.author_packet(cast(Any, None), 3)
+
+
+def test_author_witness_graph_enforces_budget_before_full_closure():
+    body = {"terms": [dict(local_id="term", kind="predicate", value="x" * 100)]}
+    with pytest.raises(ReferenceError, match="byte bound"):
+        LayerProjection(lambda pin: body).graph(PIN, "term", max_bytes=32, witness_closure=True)

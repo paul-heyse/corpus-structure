@@ -319,7 +319,7 @@ GRANT EXECUTE ON FUNCTION eval.record_operation_reference_pass(bigint,text,text,
 CREATE OR REPLACE FUNCTION eval.operation_author_packet(p_unit bigint)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE unit eval.reference_unit; reference_set eval.reference_set; source_frame jsonb;
- selected kb.source_view; context jsonb; contexts jsonb:='[]'; schema jsonb;
+ selected kb.source_view; context jsonb; contexts jsonb:='[]'; schema jsonb; packet jsonb;
 BEGIN
  SELECT * INTO STRICT unit FROM eval.reference_unit WHERE id=p_unit;
  SELECT * INTO STRICT reference_set FROM eval.reference_set WHERE id=unit.set_id;
@@ -337,21 +337,28 @@ BEGIN
    selected.native_task_id,selected.native_product_key,selected.native_content_digest,ARRAY(
     SELECT value FROM jsonb_array_elements_text(selected.projection->'items')
     UNION SELECT value FROM jsonb_array_elements_text(COALESCE(selected.projection->'ancestors','[]'))));
+  IF octet_length(data.canonical_json(contexts))+octet_length(data.canonical_json(context))>1048576 THEN
+   RAISE EXCEPTION 'operation author source context exceeds byte bound' USING ERRCODE='54000';
+  END IF;
   contexts:=contexts||jsonb_build_array(jsonb_build_object('source_view_id',selected.id,'native_items',context));
  END LOOP;
- RETURN jsonb_build_object('protocol','source-operation-author-packet-1','unit_id',p_unit,
+ packet:=jsonb_build_object('protocol','source-operation-author-packet-1','unit_id',p_unit,
   'unit_ref',unit.unit_key,'release_id',reference_set.release_id,'guideline',reference_set.guideline,
   'guideline_text',reference_set.sampling->'guideline_text','guideline_digest',reference_set.sampling->'guideline_digest',
   'source_frame',jsonb_set(source_frame,'{evaluation_frame}',(source_frame->'evaluation_frame')-ARRAY['contribution_ids','characterization_view','selected_layers','outputs']),'native_contexts',contexts)||
   CASE WHEN source_frame->>'protocol'='source-operation-frame-3' AND source_frame->'evaluation_frame'->>'direction'='output_first' THEN
    jsonb_build_object('output_exposure','frozen_output_first_population','selected_outputs',(
-    SELECT coalesce(jsonb_agg(jsonb_build_object('reference',o,'value',n)),'[]')
-    FROM jsonb_array_elements(source_frame->'evaluation_frame'->'outputs') o
+    SELECT coalesce(jsonb_agg(jsonb_build_object('reference',o,'value',n) ORDER BY selection.ordinality),'[]')
+    FROM jsonb_array_elements(source_frame->'evaluation_frame'->'outputs') WITH ORDINALITY selection(o,ordinality)
     JOIN ops.characterization_product product ON product.task_id=(o->'layer'->>'task_id')::bigint
      AND product.product_key=o->'layer'->>'product_key' AND product.content_digest=o->'layer'->>'content_digest'
     CROSS JOIN LATERAL jsonb_array_elements(product.payload->(o->>'collection')) n
     WHERE n->>(CASE o->>'collection' WHEN 'coverage' THEN 'family' ELSE 'local_id' END)=o->>'local_id'))
    ELSE '{}'::jsonb END;
+ IF octet_length(data.canonical_json(packet))>1048576 THEN
+  RAISE EXCEPTION 'operation author packet exceeds byte bound' USING ERRCODE='54000';
+ END IF;
+ RETURN packet;
 END $$;
 REVOKE ALL ON FUNCTION eval.operation_author_packet(bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION eval.operation_author_packet(bigint) TO corpus_sem_evaluator;
@@ -488,7 +495,7 @@ BEGIN
   OR jsonb_typeof(ref->'product_key') IS DISTINCT FROM 'string' OR btrim(coalesce(ref->>'product_key',''))=''
   OR coalesce(ref->>'content_digest','') !~ '^[a-f0-9]{64}$' THEN
   RAISE EXCEPTION 'characterization assessment requires an exact view pin' USING ERRCODE='23514'; END IF;
- view_:=ops.read_characterization_product((ref->>'task_id')::bigint,ref->>'product_key',ref->>'content_digest','view',p_run);
+ view_:=ops.read_characterization_product((ref->>'task_id')::bigint,ref->>'product_key',ref->>'content_digest','view',p_run,67108864);
  IF NOT EXISTS(SELECT FROM ops.run WHERE id=p_run AND project_id=p_project)
   OR EXISTS(SELECT FROM jsonb_array_elements(p_bound->'opportunities') o CROSS JOIN LATERAL jsonb_array_elements(o->'extents') e
    WHERE NOT(view_->'source_scope'->'source_view_ids' @> jsonb_build_array(e->'source_view_id')))
@@ -601,7 +608,7 @@ BEGIN
    OR (EXISTS(SELECT FROM jsonb_array_elements(case_->'alternatives') a WHERE a ? 'graph') AND case_->>'graph_projection' IS NULL)
    OR btrim(coalesce(case_->>'required_family',''))='' OR jsonb_typeof(case_->'required_family') IS DISTINCT FROM 'string'
    OR case_->>'contribution_id' IS NOT NULL OR case_->>'anchor_endpoint_role' IS NOT NULL
-   OR NOT EXISTS(SELECT FROM jsonb_array_elements(bound->'opportunities') o WHERE o->>'opportunity_id'=case_->>'opportunity_id' AND o->>'facet'=case_->>'facet' AND o->>'source_state'=case_->>'source_state')
+   OR NOT EXISTS(SELECT FROM jsonb_array_elements(bound->'opportunities') o WHERE o->>'opportunity_id'=case_->>'opportunity_id' AND o->>'facet'=case_->>'facet' AND (o->>'source_state'='uninspected' OR o->>'source_state'=case_->>'source_state'))
    OR (bound->>'direction'='source_first' AND coalesce(case_->'output_reference','null'::jsonb) IS DISTINCT FROM 'null'::jsonb)
    OR (bound->>'direction'='output_first' AND NOT(bound->'outputs' @> jsonb_build_array(case_->'output_reference'))) THEN
    RAISE EXCEPTION 'case changes frozen characterization scope or output identity' USING ERRCODE='23514'; END IF;

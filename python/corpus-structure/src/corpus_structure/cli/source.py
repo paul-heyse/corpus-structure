@@ -553,7 +553,9 @@ def enriched(
     producing_task: int = typer.Option(...),
     product: str = typer.Option(...),
     digest: str = typer.Option(...),
-    view: Literal["summary", "annotations", "membership", "terms", "reading"] = "summary",
+    view: Literal[
+        "summary", "annotations", "membership", "terms", "reading", "coverage"
+    ] = "summary",
     layer: str | None = None,
     annotation: str | None = None,
     family: str | None = None,

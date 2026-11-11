@@ -159,6 +159,48 @@ def test_release_generates_actual_shapes_and_keeps_scope_readings_distinct(prepa
     assert report.payload["terms"]  # the validated wrapper cannot be mutated through a read
 
 
+def test_view_validation_releases_independent_root_reports(prepared, monkeypatch):
+    import weakref
+
+    import corpus_structure.semantic.characterization as characterization
+
+    layers = {}
+    for index in range(4):
+        payload = layer_payload(prepared)
+        payload["operation"]["input"] = f"source-{index}"
+        report = validate_layer(prepared, payload)
+        layers[report.reference(8 + index)] = report
+    first = next(iter(layers.values())).payload
+    validated = []
+    validate = characterization.validate_layer_structure
+
+    class TrackedReport(characterization.LayerReport):
+        pass
+
+    def observe(*args, **kwargs):
+        assert all(reference() is None for reference in validated)
+        report = TrackedReport(validate(*args, **kwargs).content)
+        validated.append(weakref.ref(report))
+        return report
+
+    monkeypatch.setattr(characterization, "validate_layer_structure", observe)
+    view = validate_view(
+        prepared,
+        dict(
+            format="enriched-document-view-v1",
+            base_document=first["base_document"],
+            release_id=prepared.release_id,
+            source_scope=first["source_scope"],
+            layers=[pin.values() for pin in layers],
+            profile="selected_layers",
+            coverage=first["coverage"],
+        ),
+        layers,
+    )
+    assert len(view.payload["layers"]) == len(validated) == 4
+    assert all(reference() is None for reference in validated)
+
+
 def test_occurrences_independent_of_analysis_and_database_placement(prepared):
     payload = layer_payload(prepared)
     extents = payload["occurrences"][0]["extents"]

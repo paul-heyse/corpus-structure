@@ -233,3 +233,173 @@ def test_default_analysis_excludes_provenance_only_layers(capture):
         "old-topic",
         "other",
     }
+
+
+def test_detached_node_paging_retains_only_page_and_continuation_witness(capture, monkeypatch):
+    from corpus_structure.serve.characterization import _NodePage
+
+    view, layers, request = capture
+    layer = next(iter(layers.values()))
+    layer["annotations"] = [
+        dict(local_id=f"node-{index:04}", occurrences=["p3"]) for index in reversed(range(100))
+    ]
+    retained = []
+    append = _NodePage.append
+
+    def observe(page, row):
+        append(page, row)
+        retained.append(len(page.rows))
+
+    monkeypatch.setattr(_NodePage, "append", observe)
+    request = request.model_copy(update={"view": "annotations", "limit": 3})
+    first = inspect_captured_characterization(view, layers, request)
+    second = inspect_captured_characterization(
+        view, layers, request.model_copy(update={"limit": 2, "cursor": first.continuation})
+    )
+    assert max(retained) == 4
+    assert [row["annotation"]["local_id"] for row in (*first.items, *second.items)] == [
+        "node-0000",
+        "node-0001",
+        "node-0002",
+        "node-0003",
+        "node-0004",
+    ]
+    assert second.continuation is not None
+
+
+def test_reading_hydrates_only_selected_explicit_dependency_closure(capture, monkeypatch):
+    from collections.abc import Mapping
+
+    from corpus_structure.semantic.product_reference import ProductReference
+
+    view, layers, request = capture
+    selected_key = next(iter(layers))
+    upstream = ProductReference(5, "upstream", "c" * 64)
+    unrelated = ProductReference(6, "unrelated", "d" * 64)
+    view["layers"].extend([upstream.values(), unrelated.values()])
+    selected = layers[selected_key]
+    selected.update(terms=[], choices=[], dependencies=[upstream.values()])
+    dependency = dict(base_document=view["base_document"], terms=[], choices=[], dependencies=[])
+    loaded = []
+
+    class Payloads(Mapping):
+        def __iter__(self):
+            return iter([selected_key, (5, "upstream", "c" * 64), (6, "unrelated", "d" * 64)])
+
+        def __len__(self):
+            return 3
+
+        def __getitem__(self, key):
+            loaded.append(key)
+            if key == selected_key:
+                return selected
+            assert key == (5, "upstream", "c" * 64), "unrelated layer was hydrated"
+            return dependency
+
+        def __contains__(self, key):
+            return key in tuple(self)
+
+    def project(layer, root, *, dependencies, **kwargs):
+        assert set(dependencies) == {upstream}
+        return {"root": root, "terms": [], "outcome": "complete"}
+
+    monkeypatch.setattr("corpus_structure.semantic.characterization.project_reading", project)
+    request = request.model_copy(
+        update={
+            "content_digest": sha256(canonical_bytes(view)).hexdigest(),
+            "view": "reading",
+            "layer_key": "layer",
+            "annotation_id": "root",
+        }
+    )
+    response = inspect_captured_characterization(view, Payloads(), request)
+    assert len(response.items) == 1
+    assert loaded == [selected_key, (5, "upstream", "c" * 64)]
+
+
+def test_inline_coverage_is_bounded_and_continues_as_exact_coverage_rows(capture):
+    view, layers, request = capture
+    coverage = [dict(family=f"family-{index}", examined=[dict(page=index)]) for index in range(7)]
+    view["coverage"] = coverage
+    request = request.model_copy(
+        update={
+            "content_digest": sha256(canonical_bytes(view)).hexdigest(),
+            "view": "membership",
+            "annotation_id": "topic",
+            "page": 3,
+            "limit": 2,
+        }
+    )
+    initial = inspect_captured_characterization(view, layers, request)
+    assert list(initial.coverage) == coverage[:2]
+    assert initial.coverage_total == 7
+    assert initial.coverage_truncated is True
+    assert initial.coverage_continuation is not None
+    coverage_request = CharacterizationRequest(
+        **request.reference().values(),
+        run_id=request.run_id,
+        view="coverage",
+        limit=3,
+        cursor=initial.coverage_continuation,
+    )
+    second = inspect_captured_characterization(view, {}, coverage_request)
+    third = inspect_captured_characterization(
+        view, {}, coverage_request.model_copy(update={"cursor": second.continuation})
+    )
+    assert [*initial.coverage, *second.items, *third.items] == coverage
+    assert second.coverage_total == third.coverage_total == 7
+    assert second.coverage == ()  # exact coverage-view rows live in items
+    assert third.continuation is None
+
+
+def test_inline_coverage_byte_bound_keeps_explicit_route_to_omitted_rows(capture):
+    view, layers, request = capture
+    coverage = [dict(family="scope", reason="detailed retained outcome " * 100)]
+    view["coverage"] = coverage
+    request = request.model_copy(
+        update={
+            "content_digest": sha256(canonical_bytes(view)).hexdigest(),
+            "max_bytes": 800,
+        }
+    )
+    response = inspect_captured_characterization(view, layers, request)
+    assert response.coverage == ()
+    assert response.coverage_total == 1
+    assert response.coverage_truncated is True
+    assert response.coverage_continuation is not None
+    assert len(response.model_dump_json().encode()) <= request.max_bytes
+    page = inspect_captured_characterization(
+        view,
+        {},
+        CharacterizationRequest(
+            **request.reference().values(),
+            run_id=request.run_id,
+            view="coverage",
+            cursor=response.coverage_continuation,
+            max_bytes=8000,
+        ),
+    )
+    assert list(page.items) == coverage
+    assert page.continuation is None
+
+
+def test_live_node_response_uses_same_bounded_coverage_contract(capture, monkeypatch):
+    from unittest.mock import Mock
+
+    from corpus_structure.serve.characterization import inspect_characterization
+
+    view, _, request = capture
+    view["coverage"] = [dict(family=f"f-{index}") for index in range(10)]
+    monkeypatch.setattr(
+        "corpus_structure.semantic.characterization_store.read_view",
+        Mock(return_value=Mock(payload=view)),
+    )
+    monkeypatch.setattr(
+        "corpus_structure.semantic.characterization_store.read_nodes",
+        Mock(return_value={"nodes": [], "next_after": None}),
+    )
+    request = request.model_copy(update={"view": "annotations", "limit": 1})
+    response = inspect_characterization(Mock(), request)
+    assert len(response.coverage) == 1
+    assert response.coverage_total == 10
+    assert response.coverage_truncated is True

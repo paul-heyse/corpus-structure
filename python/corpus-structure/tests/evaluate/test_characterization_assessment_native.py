@@ -21,6 +21,7 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.evaluate.operation_assessment import (
     OperationCase,
     OperationEvaluationFrameV3,
+    author_packet,
     create_reference_set,
     inspect_evaluation,
     record_pass,
@@ -180,6 +181,59 @@ def test_native_v3_grading_preserves_source_output_and_empty_population(
             choices=[],
             coverage=coverage,
         )
+        wire["terms"] = [
+            dict(
+                local_id="predicate",
+                kind="predicate",
+                family="syntax",
+                vocabulary="test",
+                value="equals",
+                status="interpreted",
+                occurrences=[occurrence["local_id"]],
+                children=[dict(role="participant", target="participant", structural=True)],
+            ),
+            dict(
+                local_id="participant",
+                kind="participant",
+                family="syntax",
+                vocabulary="test",
+                value="x",
+                status="interpreted",
+            ),
+        ]
+        wire["roles"] = [
+            dict(
+                local_id="role",
+                owner="predicate",
+                member="participant",
+                family="syntax",
+                role="subject",
+                scheme="native-test",
+                occurrences=[occurrence["local_id"]],
+                basis=dict(
+                    kind="native_prediction",
+                    status="recorded",
+                    native_scheme="test",
+                    native_label="subject",
+                ),
+            )
+        ]
+        wire["choices"] = [
+            dict(
+                local_id="alternatives",
+                family="syntax",
+                compatibility="exclusive",
+                members=[
+                    dict(local_id="reading", root="predicate", required_choices=["other-reading"])
+                ],
+            ),
+            dict(
+                local_id="prerequisite",
+                family="syntax",
+                compatibility="exclusive",
+                members=[dict(local_id="other-reading", root="participant")],
+            ),
+        ]
         text_ = extent["text"]
         assert text_ == "12"  # Independent controlled source cell, not producer-authored gold.
         configuration = '[nlp]\nlang = "en"'
@@ -364,6 +418,53 @@ def test_native_v3_grading_preserves_source_output_and_empty_population(
             "guideline_digest",
         ):
             sampling.pop(key, None)
+        selected_refs = tuple(
+            dict(layer=layer_pin.values(), collection=collection, local_id=local_id)
+            for collection, local_id in (
+                ("roles", "role"),
+                ("terms", "predicate"),
+                ("choices", "alternatives"),
+            )
+        )
+        packet_set = create_reference_set(
+            conn,
+            project_id="private-records",
+            source_run_id=case.run,
+            source_cut_id=case.cut,
+            label="v3-output-witnesses",
+            legacy_split="dev",
+            guideline=frame.guideline_version,
+            guideline_text="Interpret only the selected outputs; witnesses are context.",
+            partition="development",
+            sampling=sampling,
+            frames={frame.unit: replace(output_frame, outputs=selected_refs)},
+        )
+        packet = author_packet(conn, packet_set["units"][0]["unit_id"])
+        assert [selected["reference"] for selected in packet["selected_outputs"]] == list(
+            selected_refs
+        )
+        by_root = {
+            selected["reference"]["local_id"]: selected for selected in packet["selected_outputs"]
+        }
+        role_graph = by_root["role"]["witness_context"]["graph"]
+        assert {node["qualified_identity"]["local_id"] for node in role_graph["nodes"]} == {
+            "role",
+            "predicate",
+            "participant",
+            occurrence["local_id"],
+        }
+        choice_graph = by_root["alternatives"]["witness_context"]["graph"]
+        assert {node["qualified_identity"]["local_id"] for node in choice_graph["nodes"]} >= {
+            "alternatives",
+            "reading",
+            "predicate",
+            "participant",
+            "other-reading",
+        }
+        assert all(
+            selected["witness_context"]["purpose"] == "interpretation_only_not_assessed_population"
+            for selected in packet["selected_outputs"]
+        )
         empty = create_reference_set(
             conn,
             project_id="private-records",

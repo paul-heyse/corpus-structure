@@ -51,6 +51,7 @@ def freeze(
     *,
     frame_version=1,
     comparison=None,
+    frame_source_state="stated",
 ):
     uri = conn.scalar(
         select(table("kb.document").c.source_uri).where(
@@ -157,7 +158,7 @@ def freeze(
                         ),
                     ),
                     "value",
-                    "stated",
+                    frame_source_state,
                 ),
             ),
         )
@@ -705,7 +706,11 @@ def test_native_characterization_source_reference_is_blind_and_uses_existing_abc
     source = reference_source
     with semantic_evaluator_engine.begin() as conn:
         created, unit, frame, payload = freeze(
-            conn, source, frame_version=3, label="characterization-source-only"
+            conn,
+            source,
+            frame_version=3,
+            label="characterization-source-only",
+            frame_source_state="uninspected",
         )
         assert isinstance(frame, OperationEvaluationFrameV3)
         packet = author_packet(conn, unit)
@@ -735,6 +740,12 @@ def test_native_characterization_source_reference_is_blind_and_uses_existing_abc
         )
         assert adjudication_packet(conn, unit)["adjudication_passes"] == passes
         assert created["sampling"]["source_frame_abi"] == "source-operation-frame-3"
+        assert frame.opportunities[0].source_state == "uninspected"
+        adjudicated = adjudication_packet(conn, unit)
+        assert (
+            json.loads(adjudicated["authors"][0]["authored"])["cases"][0]["source_state"]
+            == "stated"
+        )
         invalid = deepcopy(payload)
         invalid["adjudication_passes"] = []
         invalid["cases"][0]["output_reference"] = {

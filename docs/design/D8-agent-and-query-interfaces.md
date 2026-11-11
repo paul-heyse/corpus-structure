@@ -27,6 +27,20 @@ and detached closure preserve provenance-only dependencies. Binding a view into 
 freezes its active pins in the ordinary consumer configurations; query reads never select a newer
 interpretation implicitly.
 
+Persisted composition and live export use authenticated layer manifests for source/family/dependency
+metadata, hydrating full inventories only for the selected operation. A document view has a finite
+64MiB metadata read bound; individual full layers retain their8MiB bound. Public response budgets
+remain independently smaller. Every inspection exposes the exact retained coverage-row total and
+whether its bounded inline prefix is truncated. `view=coverage` pages the original exact rows;
+its continuation binds the same view/run without node filters. Filtering displayed annotations
+therefore cannot turn omitted or unexamined document coverage into a complete claim.
+
+Detached capture writes each sealed layer before loading the next. Offline verification still
+checks every member's exact identity, archived schema, graph and original source, retaining full
+validation state only for one root dependency closure at a time. Detached node pagination keeps
+the requested page plus a continuation witness, and reading hydrates explicit dependencies.
+These bounds preserve the full exported representation rather than substituting a thinner model.
+
 Functional closure and the applicable full-campaign/replacement union are owned by the
 [TC coordinator](../plans/text-characterization_2026-11-10.md). Independent semantic
 assessment and full-book qualification remain TC-10/11; improved linguistic accuracy and

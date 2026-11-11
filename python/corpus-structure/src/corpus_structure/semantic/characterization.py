@@ -699,11 +699,25 @@ def validate_view(
             raise ValueError(
                 "full characterization requires every released baseline family outcome"
             )
-    return validate_view_structure(
-        data,
-        layers,
-        validate_layer=_LayerValidation(prepared, releases, layers).validate,
-    )
+
+    def validate_root(payload, *, dependencies):
+        # Retain memoized canonical reports only for this root's dependency closure.
+        # A detached mapping may hydrate reports lazily; sharing this memo across
+        # independent roots would retain every full layer in a whole-book view.
+        closure = {}
+        pending = [_pin(value) for value in payload.get("dependencies", ())]
+        while pending:
+            pin = pending.pop()
+            if pin in closure:
+                continue
+            report = dependencies.get(pin)
+            if report is None or report.reference(pin.task_id) != pin:
+                raise ValueError("layer requires exact dependency closure")
+            closure[pin] = report
+            pending.extend(_pin(value) for value in report.payload.get("dependencies", ()))
+        return _LayerValidation(prepared, releases, closure).validate(payload)
+
+    return validate_view_structure(data, layers, validate_layer=validate_root)
 
 
 def validate_view_structure(
@@ -754,15 +768,17 @@ def validate_view_structure(
     if any(canonical_bytes(row) not in coverage for row in data["coverage"]):
         raise ValueError("view coverage is not supported by selected layers")
     for pin in pins:
-        if isinstance(layers[pin], LayerManifest):
+        layer = layers[pin]
+        if isinstance(layer, LayerManifest):
             if validate_layer is not None:
                 raise ValueError("published manifests cannot replace full layer validation")
             continue
         if validate_layer is None:
             raise ValueError("published composition requires protected layer manifests")
-        validated = validate_layer(layers[pin].payload, dependencies=layers)
-        if validated.content != layers[pin].content:
+        validated = validate_layer(layer.payload, dependencies=layers)
+        if validated.content != layer.content:
             raise ValueError("selected layer differs from its own released canonical contract")
+        del validated, layer
     return EnrichedDocumentView(canonical_bytes(data))
 
 

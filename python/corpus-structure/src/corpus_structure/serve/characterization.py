@@ -5,9 +5,10 @@ from __future__ import annotations
 import base64
 import json
 from hashlib import sha256
+from heapq import heappush_max, heappushpop_max
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, model_validator
 
 from corpus_structure.semantic.characterization import AnnotationReference
 from corpus_structure.semantic.identity import canonical_bytes
@@ -21,7 +22,9 @@ class CharacterizationRequest(BaseModel):
     task_id: int = Field(strict=True, gt=0)
     product_key: str = Field(min_length=1)
     content_digest: str = Field(pattern="^[0-9a-f]{64}$")
-    view: Literal["summary", "annotations", "membership", "terms", "reading"] = "summary"
+    view: Literal["summary", "annotations", "membership", "terms", "reading", "coverage"] = (
+        "summary"
+    )
     layer_key: str | None = None
     annotation_id: str | None = None
     family: str | None = None
@@ -35,6 +38,10 @@ class CharacterizationRequest(BaseModel):
 
     @model_validator(mode="after")
     def selection(self):
+        if self.view == "coverage" and any(
+            (self.layer_key, self.annotation_id, self.family, self.kind, self.page)
+        ):
+            raise ValueError("coverage inspection requires the whole view without node filters")
         if self.view == "membership" and not self.annotation_id:
             raise ValueError("membership inspection requires annotation_id")
         if (self.choices or self.external_choices) and (
@@ -66,6 +73,19 @@ class CharacterizationResponse(BaseModel):
     base_document: dict[str, JsonValue]
     profile: str
     coverage: tuple[dict[str, JsonValue], ...]
+    coverage_total: int = Field(ge=0, description="Exact number of retained coverage rows.")
+    coverage_truncated: bool = Field(
+        description=(
+            "Inline coverage omits retained rows; view=coverage returns exact rows in items."
+        )
+    )
+    coverage_continuation: str | None = Field(
+        default=None,
+        description=(
+            "Continue inline coverage with the same product/run, view=coverage, no node "
+            "filters, and cursor=this value. Coverage-view items use continuation instead."
+        ),
+    )
     items: tuple[dict[str, JsonValue], ...]
     continuation: str | None = None
     standing: Literal["private_analyses"] = "private_analyses"
@@ -95,6 +115,84 @@ def _page(rows, request):
         raise SemanticRefusal("enriched-document continuation is outside membership")
     end = min(offset + request.limit, len(rows))
     return tuple(rows[offset:end]), f"{selection}:{end}" if end < len(rows) else None
+
+
+_COVERAGE_ROW = TypeAdapter(dict[str, JsonValue])
+
+
+def _coverage_cursor(request, offset):
+    selection = request.model_copy(
+        update={
+            "view": "coverage",
+            "layer_key": None,
+            "annotation_id": None,
+            "family": None,
+            "kind": None,
+            "page": None,
+            "choices": (),
+            "external_choices": (),
+        }
+    )
+    return f"{_selection_key(selection)}:{offset}"
+
+
+def _response(view, request, *, items, continuation, membership_scope):
+    """One bounded response contract for native reads and detached inspection."""
+    coverage = view.get("coverage", ())
+    total = len(coverage)
+    response = CharacterizationResponse(
+        reference=request.reference().values(),
+        base_document=view["base_document"],
+        profile=view["profile"],
+        coverage=(),
+        coverage_total=total,
+        coverage_truncated=bool(total),
+        coverage_continuation=(
+            _coverage_cursor(request, total) if total and request.view != "coverage" else None
+        ),
+        items=items,
+        continuation=continuation,
+        membership_scope=membership_scope,
+    )
+    return _with_inline_coverage(response, coverage, request)
+
+
+def _with_inline_coverage(response, coverage, request):
+    total = response.coverage_total
+    response = response.model_copy(
+        update={
+            "coverage": (),
+            "coverage_truncated": bool(total),
+            "coverage_continuation": (
+                _coverage_cursor(request, total) if total and request.view != "coverage" else None
+            ),
+        }
+    )
+    if request.view != "coverage":
+        # Reserve the largest possible offset and the extra byte of `false`.
+        remaining = request.max_bytes - len(response.model_dump_json().encode()) - 1
+        prefix = []
+        for row in coverage:
+            if len(prefix) >= request.limit:
+                break
+            length = len(_COVERAGE_ROW.dump_json(row)) + bool(prefix)
+            if length > remaining:
+                break
+            prefix.append(row)
+            remaining -= length
+        truncated = len(prefix) < total
+        response = response.model_copy(
+            update={
+                "coverage": tuple(prefix),
+                "coverage_truncated": truncated,
+                "coverage_continuation": _coverage_cursor(request, len(prefix))
+                if truncated
+                else None,
+            }
+        )
+    if len(response.model_dump_json().encode()) > request.max_bytes:
+        raise SemanticRefusal("enriched-document response exceeds byte budget; narrow the page")
+    return response
 
 
 def _node_position(request) -> tuple[int, str, str] | None:
@@ -133,6 +231,53 @@ def _node_key(row):
     return row["layer"]["task_id"], row["layer"]["product_key"], node["local_id"]
 
 
+class _NodePage:
+    """Keep the earliest requested nodes plus one continuation witness."""
+
+    def __init__(self, request):
+        self.request = request
+        self.after = _node_position(request)
+        self.rows = []
+        self.ordinal = 0
+
+    def append(self, row):
+        key = _node_key(row)
+        if self.after is not None and key <= self.after:
+            return
+        entry = (key, self.ordinal, row)
+        self.ordinal += 1
+        if len(self.rows) <= self.request.limit:
+            heappush_max(self.rows, entry)
+        else:
+            heappushpop_max(self.rows, entry)
+
+    def page(self):
+        rows = [entry[2] for entry in sorted(self.rows)]
+        items = tuple(rows[: self.request.limit])
+        continuation = (
+            _node_cursor(self.request, _node_key(items[-1])) if len(rows) > len(items) else None
+        )
+        return items, continuation
+
+
+def _reading_dependencies(layer, layers):
+    from corpus_structure.semantic.characterization import LayerReport
+
+    reports = {}
+    pending = [_pin(value) for value in layer.get("dependencies", ())]
+    while pending:
+        pin = pending.pop()
+        if pin in reports:
+            continue
+        key = (pin.task_id, pin.product_key, pin.content_digest)
+        if key not in layers:
+            raise SemanticRefusal("enriched-document layer closure is incomplete")
+        body = layers[key]
+        reports[pin] = LayerReport(canonical_bytes(body))
+        pending.extend(_pin(value) for value in body.get("dependencies", ()))
+    return reports
+
+
 def _outside_page(occurrences, page):
     if page is None:
         return False
@@ -146,8 +291,18 @@ def inspect_captured_characterization(view, layers, request):
     """Inspect already validated retained objects; never run linguistic inference."""
     if sha256(canonical_bytes(view)).hexdigest() != request.content_digest:
         raise SemanticRefusal("enriched-document payload differs from requested pin")
-    rows = []
+    node_page = request.view in {"membership", "annotations", "terms"}
+    rows = _NodePage(request) if node_page else []
     membership_scope = "not_requested"
+    if request.view == "coverage":
+        items, continuation = _page(view.get("coverage", ()), request)
+        return _response(
+            view,
+            request,
+            items=items,
+            continuation=continuation,
+            membership_scope=membership_scope,
+        )
     if request.view == "summary":
         rows = [
             dict(
@@ -222,10 +377,7 @@ def inspect_captured_characterization(view, layers, request):
                     LayerReport(canonical_bytes(layer)),
                     request.annotation_id,
                     choices=request.choices,
-                    dependencies={
-                        ProductReference(*key): LayerReport(canonical_bytes(value))
-                        for key, value in layers.items()
-                    },
+                    dependencies=_reading_dependencies(layer, layers),
                     external_choices=request.external_choices,
                 )
                 ids = {i for term in reading["terms"] for i in term.get("occurrences", ())}
@@ -270,29 +422,18 @@ def inspect_captured_characterization(view, layers, request):
                             ),
                         )
                     )
-    if request.view in {"membership", "annotations", "terms"}:
-        after = _node_position(request)
-        rows.sort(key=_node_key)
-        selected = [row for row in rows if after is None or _node_key(row) > after]
-        items = tuple(selected[: request.limit])
-        continuation = (
-            _node_cursor(request, _node_key(items[-1])) if len(selected) > len(items) else None
-        )
+    if isinstance(rows, _NodePage):
+        items, continuation = rows.page()
     else:
         rows.sort(key=canonical_bytes)
         items, continuation = _page(rows, request)
-    response = CharacterizationResponse(
-        reference=request.reference().values(),
-        base_document=view["base_document"],
-        profile=view["profile"],
-        coverage=tuple(view.get("coverage", ())),
+    return _response(
+        view,
+        request,
         items=items,
         continuation=continuation,
         membership_scope=membership_scope,
     )
-    if len(response.model_dump_json().encode()) > request.max_bytes:
-        raise SemanticRefusal("enriched-document response exceeds byte budget; narrow the page")
-    return response
 
 
 def inspect_characterization(conn, request: CharacterizationRequest):
@@ -321,17 +462,13 @@ def inspect_characterization(conn, request: CharacterizationRequest):
             row["outside_selection"] = _outside_page(row["occurrences"], request.page)
         items = tuple(rows)
         continuation = _node_cursor(request, page["next_after"])
-        response = CharacterizationResponse(
-            reference=request.reference().values(),
-            base_document=view["base_document"],
-            profile=view["profile"],
-            coverage=tuple(view.get("coverage", ())),
+        response = _response(
+            view,
+            request,
             items=items,
             continuation=continuation,
             membership_scope="complete_recorded_members",
         )
-        if len(response.model_dump_json().encode()) > request.max_bytes:
-            raise SemanticRefusal("enriched-document response exceeds byte budget; narrow the page")
         return _source_context(conn, view, response, request)
     if request.view in {"annotations", "terms"}:
         page = read_nodes(
@@ -362,23 +499,19 @@ def inspect_characterization(conn, request: CharacterizationRequest):
             else:
                 row.update(term=item["node"], choices=item["choices"], roles=item["roles"])
             rows.append(row)
-        response = CharacterizationResponse(
-            reference=request.reference().values(),
-            base_document=view["base_document"],
-            profile=view["profile"],
-            coverage=tuple(view.get("coverage", ())),
+        response = _response(
+            view,
+            request,
             items=tuple(rows),
             continuation=_node_cursor(request, page["next_after"]),
             membership_scope="selected_annotations"
             if request.view == "annotations"
             else "not_requested",
         )
-        if len(response.model_dump_json().encode()) > request.max_bytes:
-            raise SemanticRefusal("enriched-document response exceeds byte budget; narrow the page")
         return _source_context(conn, view, response, request)
     layers = {}
     remaining = request.max_bytes
-    if request.view != "summary":
+    if request.view not in {"summary", "coverage"}:
         for reference in view.get("layers", ()):
             pin = _pin(reference)
             if request.layer_key is None or pin.product_key == request.layer_key:
@@ -450,6 +583,4 @@ def add_source_context(response, request, fetch):
             if item.get("parent") and item["parent"]["$ref"] not in items
         }
     response = response.model_copy(update={"source_items": items})
-    if len(response.model_dump_json().encode()) > request.max_bytes:
-        raise SemanticRefusal("enriched-document response exceeds byte budget; narrow the page")
-    return response
+    return _with_inline_coverage(response, response.coverage, request)

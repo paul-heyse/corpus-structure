@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+from collections.abc import Mapping
 from contextlib import closing
 from dataclasses import asdict
 from hashlib import sha256
@@ -61,10 +62,61 @@ class _Sink:
         return self.budget.write(self.sink, content)
 
 
+class _LayerFiles(Mapping):
+    """Exact package pins with no retained full-layer cache across reads."""
+
+    def __init__(self, members, content):
+        self.paths = {}
+        self.content = content
+        for member in members:
+            pin = ProductReference(**member["reference"])
+            if pin in self.paths:
+                raise ValueError("review layer differs from exact published pin")
+            self.paths[pin] = member["path"]
+
+    def __iter__(self):
+        return iter(self.paths)
+
+    def __len__(self):
+        return len(self.paths)
+
+    def __contains__(self, pin):
+        return pin in self.paths
+
+    def __getitem__(self, pin):
+        report = LayerReport(self.content(self.paths[pin]))
+        if report.reference(pin.task_id) != pin:
+            raise ValueError("review layer differs from exact published pin")
+        return report
+
+
+class _LayerPayloads(Mapping):
+    """Inspection's tuple-keyed payload view over authenticated package members."""
+
+    def __init__(self, reports):
+        self.reports = reports
+
+    def __iter__(self):
+        return ((pin.task_id, pin.product_key, pin.content_digest) for pin in self.reports)
+
+    def __len__(self):
+        return len(self.reports)
+
+    def __contains__(self, key):
+        return ProductReference(*key) in self.reports
+
+    def __getitem__(self, key):
+        return self.reports[ProductReference(*key)].payload
+
+
 def capture_characterization_review(conn, selection, root, cancellation):
     """Capture immutable products under the caller's existing authorized read snapshot."""
-    from corpus_structure.semantic.characterization import validate_view
-    from corpus_structure.semantic.characterization_store import read_layer, read_view
+    from corpus_structure.semantic.characterization import validate_published_view
+    from corpus_structure.semantic.characterization_store import (
+        read_layer,
+        read_layer_manifest,
+        read_view,
+    )
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.pdf_record_reader import published_record_reader
     from corpus_structure.semantic.releases import open_release
@@ -85,16 +137,17 @@ def capture_characterization_review(conn, selection, root, cancellation):
 
     view = read_view(conn, selection.reference(), run_id=selection.run_id)
     prepared = open_release(conn, view.payload["release_id"])
-    layers = {}
-    for value in view.payload.get("layers", ()):
-        pin = ProductReference(**value)
-        layers[pin] = read_layer(conn, pin, run_id=selection.run_id)
     store("view.json", view.content)
+    layers = {}
     layer_members = []
-    for index, (pin, layer) in enumerate(layers.items()):
+    for index, value in enumerate(view.payload.get("layers", ())):
+        pin = ProductReference(**value)
+        layers[pin] = read_layer_manifest(conn, pin, run_id=selection.run_id)
+        layer = read_layer(conn, pin, run_id=selection.run_id)
         layer_members.append(
             {"reference": pin.values(), "path": store(f"layer-{index}.json", layer.content)}
         )
+        del layer
     contracts = {prepared.release_id: _capture_characterization_contract(conn, prepared)}
     releases = {prepared.release_id: prepared}
     for layer in layers.values():
@@ -102,7 +155,7 @@ def capture_characterization_review(conn, selection, root, cancellation):
         if release_id not in releases:
             releases[release_id] = open_release(conn, release_id)
             contracts[release_id] = _capture_characterization_contract(conn, releases[release_id])
-    validate_view(prepared, view.payload, layers, releases=releases)
+    validate_published_view(prepared, view.payload, layers)
     contract = contracts.pop(prepared.release_id)
     contract["layer_contracts"] = contracts
     store("contracts.json", canonical_bytes(contract))
@@ -341,13 +394,7 @@ def verify_characterization_review(root: Path | int, *, manifest_digest=None):
         releases[release_id] = _authenticate_contract(
             foreign_contract, base64.b64decode(foreign_contract["manifest_base64"], validate=True)
         )
-    layers = {}
-    for member in manifest["layers"]:
-        pin = ProductReference(**member["reference"])
-        report = LayerReport(content(member["path"]))
-        if pin in layers or report.reference(pin.task_id) != pin:
-            raise ValueError("review layer differs from exact published pin")
-        layers[pin] = report
+    layers = _LayerFiles(manifest["layers"], content)
     needed = {
         view.payload["release_id"],
         *(layer.payload["release_id"] for layer in layers.values()),
@@ -434,12 +481,9 @@ def _verify_sources(root, manifest, selection, view, content):
         if actual != expected:
             raise ValueError("review source closure is incomplete")
         by_id = {source["source_view_id"]: source for source in sources}
-        bodies = [
-            view.payload,
-            *(json.loads(content(layer["path"])) for layer in manifest["layers"]),
-        ]
-        for body in bodies:
-            validate_captured_layer_sources(body, by_id)
+        validate_captured_layer_sources(view.payload, by_id)
+        for layer in manifest["layers"]:
+            validate_captured_layer_sources(json.loads(content(layer["path"])), by_id)
 
 
 def validate_captured_layer_sources(body, by_id):
@@ -691,7 +735,11 @@ def _verify_companions(product, proof, content, schemas, proof_content):
 
 def inspect_characterization_review(root: Path | int, request, *, manifest_digest=None):
     """Replay the same bounded domain inspection from an authenticated detached closure."""
-    from .characterization import add_source_context, inspect_captured_characterization
+    from .characterization import (
+        _source_pointers,
+        add_source_context,
+        inspect_captured_characterization,
+    )
     from .review_bundle import _member
 
     if not isinstance(root, int):
@@ -707,19 +755,20 @@ def inspect_characterization_review(root: Path | int, request, *, manifest_diges
     if request.reference() != selection.reference() or request.run_id != selection.run_id:
         raise ValueError("detached characterization inspection differs from captured selection")
 
-    def payload(name):
+    def content(name):
         spec = manifest["files"][name]
         with _member(root, name, digest=spec["sha256"], size=spec["bytes"]) as stream:
-            return json.load(stream)
+            return stream.read()
 
-    layers = {}
-    for item in manifest["layers"]:
-        pin = ProductReference(**item["reference"])
-        layers[(pin.task_id, pin.product_key, pin.content_digest)] = payload(item["path"])
-    response = inspect_captured_characterization(payload(manifest["view"]), layers, request)
+    layers = _LayerPayloads(_LayerFiles(manifest["layers"], content))
+    response = inspect_captured_characterization(
+        json.loads(content(manifest["view"])), layers, request
+    )
+    if not _source_pointers(response):
+        return response
     from corpus_structure.semantic.pdf_contracts import resolve_native_pointer
 
-    document = payload("base.json")["product"]["content"]
+    document = json.loads(content("base.json"))["product"]["content"]
     return add_source_context(
         response,
         request,

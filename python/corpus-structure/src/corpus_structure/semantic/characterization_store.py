@@ -158,7 +158,7 @@ def read_view(
     reference: ProductReference,
     *,
     run_id: int | None = None,
-    max_bytes: int = 8388608,
+    max_bytes: int = 67108864,
 ) -> EnrichedDocumentView:
     return _read(connection, reference, "view", run_id, EnrichedDocumentView, max_bytes)
 

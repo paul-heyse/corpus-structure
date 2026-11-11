@@ -365,6 +365,7 @@ class LayerProjection:
         self.load = load
         self.layers = {}
         self.indexes = {}
+        self.choice_groups = {}
 
     def layer(self, pin):
         key = pin_key(pin)
@@ -390,6 +391,11 @@ class LayerProjection:
                             if member["local_id"] in index:
                                 raise ReferenceError("layer repeats choice member identity")
                             index[member["local_id"]] = ("choice_member", member)
+                            self.choice_groups[(*key, member["local_id"])] = row["local_id"]
+            for run in body.get("native_runs", ()):
+                if run["local_id"] in index:
+                    raise ReferenceError("layer repeats native run identity")
+                index[run["local_id"]] = ("native_runs", run)
             self.indexes[key] = index
         return self.layers[key]
 
@@ -432,11 +438,12 @@ class LayerProjection:
             graph=self.graph(pin, local),
         )
 
-    def graph(self, pin, local_id):
+    def graph(self, pin, local_id, *, max_bytes=None, witness_closure=False):
         initial = (*pin_key(pin), local_id)
         queue = deque([(pin, local_id)])
         names = {initial: "n0"}
         nodes = []
+        remaining = max_bytes
         while queue:
             current_pin, identity = queue.popleft()
             key = pin_key(current_pin)
@@ -455,6 +462,8 @@ class LayerProjection:
                     queue.append((target_pin, target))
                 edges.append(dict(label=label, target=names[q], **fields))
 
+            if witness_closure and collection == "choice_member":
+                edge("choice_group", self.choice_groups[(*key, identity)])
             for name, data in sorted(row.items()):
                 if name == "local_id":
                     continue
@@ -471,6 +480,13 @@ class LayerProjection:
                 elif name in {"members", "antecedent_members"} and collection == "named_binding":
                     for position, target in enumerate(data):
                         edge(name, target["local_id"], target["layer"], position=position)
+                elif name in {"native_token", "native_mention", "native_edu"} and witness_closure:
+                    detail = dict(data)
+                    for field in ("native_run", "container", "sentence"):
+                        target = detail.pop(field, None)
+                        if target is not None:
+                            edge(name + "." + field, target)
+                    value[name] = detail
                 elif name == "named_match":
                     match = dict(data)
                     container = match.pop("native_container", None)
@@ -610,14 +626,17 @@ class LayerProjection:
                     path=["named_match", "bindings", identity[2]],
                 )
             )
-            nodes.append(
-                dict(
-                    id=names[(*key, identity)],
-                    qualified_identity=qualified,
-                    value=value,
-                    edges=edges,
-                )
+            node = dict(
+                id=names[(*key, identity)],
+                qualified_identity=qualified,
+                value=value,
+                edges=edges,
             )
+            if remaining is not None:
+                remaining -= len(canonical_bytes(node)) + 1
+                if remaining < 0:
+                    raise ReferenceError("operation author witness graph exceeds byte bound")
+            nodes.append(node)
         return dict(root="n0", nodes=nodes)
 
 
@@ -906,6 +925,7 @@ def score_characterization(
                         case_id=r["case_id"],
                         facet=r["facet"],
                         judgment=r["judgment"],
+                        source_state=r["source_state"],
                         error_category=r["error_category"],
                     )
                     for r in by_id[o.opportunity_id]

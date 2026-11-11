@@ -28,6 +28,32 @@ incomplete. Different selective source inventories are not repeated votes on one
 Reference transport requires authenticated unchanged source/meaning and explicit original and
 current pins; prose judgments are not automatically literal machine alternatives.
 
+### Enriched-document characterization assessment
+
+**Implemented; bounded native controls Tested,2026-11-11.** Operation frame V3 extends the same
+protected reference/pass/evaluation custody to the enriched-document layers. A source-first
+frame freezes independently selected opportunities and their original ordered real extents,
+source group, question and exposure before an output exists. Prediction binding is supplied at
+evaluation. An output-first frame instead freezes the exact document view, active layer pins
+and typed collection/local identities; its population remains distinct from source-first recall.
+Witness context is not another assessed output or an additional source opportunity.
+
+Each case names the required family and a declared graph projection: source semantics, native
+fidelity or retained identity. Graph comparison preserves directed roles, source and binder
+identity, multiplicity, alternatives and correlated prerequisites while ignoring only the
+projection's declared incidental identities. Examination by an unrelated family cannot cover a
+missing required analysis. Unknown, uninspected, inapplicable, failed and unalignable cases remain
+visible; they cannot become successful empty semantics.
+
+Compatible native tasks use independently authored task references and the installed spaCy
+Scorer over restored exact source-bound Docs. Tokenization, spans/sentences, category and dependency
+scores retain their own inspection, alignment and missing-label scope; incompatible schemes or
+missing native products are unavailable. Neither these scores nor graph admission establish
+complete interpretation of English. Bounded protected evaluation inspection reads retained cases
+and diagnostics without inference. The [TC coordinator](../plans/text-characterization_2026-11-10.md)
+owns the independent chapter-and-facet panel, full518-page execution, conditional decisions and
+final qualification; framework tests alone do not close those obligations.
+
 ## Witnessed component target
 
 **Proposed target, adopted2026-11-06.** Freeze source opportunities before alignment or filtering; distinguish source-first capture from output-first correctness. Provenance groups and exposure partitions belong to existing protected reference custody. Qualification uses statistics; enterprise material is not a prerequisite.
