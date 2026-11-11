@@ -118,6 +118,8 @@ def start_bound_run(
     fresh: Sequence[str] = (),
     slice: str | None = None,
     scope: str | None = None,
+    whole_document: bool = False,
+    source_membership: str | None = None,
     corpus: str | None = None,
     agent_mode: str = "complete",
     agent_reuse: str = "full",
@@ -143,6 +145,10 @@ def start_bound_run(
     from corpus_structure.semantic.operations import OperationBinding
     from corpus_structure.semantic.releases import load_release
 
+    if whole_document and (slice is not None or scope is not None):
+        raise CommandError("whole-document is mutually exclusive with slice and scope")
+    if source_membership not in {None, "direct", "descendants"}:
+        raise CommandError("source membership must be direct or descendants")
     ordinary_graph = graph is None and registry_for is None
     if record_policy is not None and (
         extraction_policy != "m1-candidate" or m1_configuration not in {"readings", "contextual"}
@@ -208,7 +214,7 @@ def start_bound_run(
             if (pack / "slices.yaml").exists()
             else {}
         )
-        if extraction_policy == "phase0" and slice is None and scope is None:
+        if extraction_policy == "phase0" and not whole_document and slice is None and scope is None:
             scope = data.get("default_scope")
         corpus_record, scope_record = records(
             docs, data.get("slices", data), slice=slice, scope=scope, corpus=corpus
@@ -235,6 +241,19 @@ def start_bound_run(
             corpus_record, scope_record = records(
                 selected_docs, data.get("slices", data), slice=slice, scope=scope, corpus=corpus
             )
+        if extraction_policy == "phase0" and (integrated_product is not None or native_product is not None):
+            from corpus_structure.orchestrate.pdf_source import retained_source_document
+
+            exact_product = integrated_product if integrated_product is not None else native_product
+            assert exact_product is not None
+            retained_input_document = retained_source_document(
+                conn, exact_product, prepared=prepared, project_id=project_id, documents=docs,
+                role="integrated" if integrated_product is not None else "native",
+            )
+            corpus_record, scope_record = records(
+                [document for document in docs if document["id"] == retained_input_document.id],
+                data.get("slices", data), slice=slice, scope=scope, corpus=corpus,
+            )
         policy_source = (
             (pack / "policies.yaml").read_text()
             if extraction_policy == "phase0" and (pack / "policies.yaml").exists()
@@ -246,6 +265,7 @@ def start_bound_run(
             and (graph or PHASE0).policy_propose
             and policy_source is not None
             and scope_record is None
+            and not whole_document
         ):
             raise CommandError("phase 0 full run requires a scope or named slice")
     selected_graph = graph or PHASE0
@@ -284,7 +304,7 @@ def start_bound_run(
             method_name=method_name,
             input_role="native" if native_product is not None else "integrated",
         )
-    if retained_input_document is not None:
+    if retained_input_document is not None and extraction_policy == "m1-candidate":
         from corpus_structure.orchestrate.m1 import bind_retained_document
 
         selected_registry = bind_retained_document(selected_registry, retained_input_document)
@@ -294,6 +314,14 @@ def start_bound_run(
             from corpus_structure.orchestrate.m1 import bind_record_policy
 
             selected_registry = bind_record_policy(selected_registry, prepared, record_policy)
+    if source_membership is not None or (retained_input_document is not None and extraction_policy == "phase0"):
+        from corpus_structure.orchestrate.phase0 import bind_pdf_selection
+
+        selected_registry = bind_pdf_selection(
+            selected_registry,
+            document=retained_input_document if extraction_policy == "phase0" else None,
+            membership=source_membership,
+        )
     selected_registry = selected_registry.bind_release(prepared)
     if (
         ordinary_graph
@@ -334,6 +362,8 @@ def start_bound_run(
             fresh=fresh,
             corpus_record=corpus_record,
             scope_record=scope_record,
+            whole_document=whole_document,
+            source_membership=source_membership,
             kind="slice" if slice else "full",
         )
         characterized = characterize_captured_run(
@@ -440,6 +470,8 @@ def start_bound_run(
         fresh=fresh,
         corpus_record=corpus_record,
         scope_record=scope_record,
+        whole_document=whole_document,
+        source_membership=source_membership,
         policy_source=policy_source,
         agent_mode=agent_mode,
         agent_reuse=agent_reuse,

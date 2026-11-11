@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import ExitStack
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import typer
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, RootModel
@@ -64,6 +64,8 @@ def regenerate(
         typer.Option(help="Named source scope (uses the pack's declared default scope)."),
     ] = None,
     scope: Annotated[str | None, typer.Option(help="Named source scope.")] = None,
+    whole_document: Annotated[bool, typer.Option(help="Explicitly select all native document content.")] = False,
+    source_membership: Annotated[Literal["direct", "descendants"] | None, typer.Option(help="Exact native section membership.")] = None,
     native_source: Annotated[
         Path | None,
         typer.Option(
@@ -135,6 +137,10 @@ def regenerate(
         ):
             return analyze_archived_sql(sql_conn, release_id)
 
+    if whole_document and (slice is not None or scope is not None):
+        raise typer.BadParameter("whole-document is mutually exclusive with slice and scope")
+    if resume_run is not None and (whole_document or source_membership is not None or slice is not None or scope is not None):
+        raise typer.BadParameter("a resumed run retains its original source selection")
     prepared: PreparedRelease | None = None
     source_id: str | None = None
     impact, advice = None, ()
@@ -326,6 +332,8 @@ def regenerate(
                     ),
                     slice=slice,
                     scope=scope,
+                    whole_document=whole_document,
+                    source_membership=source_membership,
                     native_product=native_product,
                     integrated_product=integrated_product,
                 )

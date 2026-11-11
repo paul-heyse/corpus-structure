@@ -156,6 +156,8 @@ def run_source_methods(
     fresh: Any = (),
     corpus_record: Mapping[str, Any] | None = None,
     scope_record: Mapping[str, Any] | None = None,
+    whole_document: bool = False,
+    source_membership: str | None = None,
     policy_source: str | None = None,
     agent_mode: str = "complete",
     agent_reuse: str = "full",
@@ -253,6 +255,10 @@ def run_source_methods(
         or registry.method(name).unit_type == TaskUnitType.SOURCE_VIEW
         for name in configs
     )
+    if whole_document and scope_record is not None:
+        raise OperationConflict("whole-document execution cannot bind a named scope")
+    if source_membership not in {None, "direct", "descendants"}:
+        raise OperationConflict("invalid source membership")
     if native_source and scope_record is not None:
         if scope_record.get("kind") != "native_sections":
             raise OperationConflict(
@@ -432,6 +438,8 @@ def run_source_methods(
             "operation_versions": operation_versions,
             "corpus": dict(corpus_record) if corpus_record is not None else None,
             "scope": dict(scope_record) if scope_record is not None else None,
+            "whole_document": whole_document,
+            "source_membership": source_membership,
             "policy": policy_source,
             **({"record_acceptance": list(record_acceptance)} if record_acceptance else {}),
             **(
@@ -456,6 +464,8 @@ def run_source_methods(
             if corpus_record is not None
             else {"documents": [d["key"] for d in docs]},
             "scope": dict(scope_record) if scope_record is not None else None,
+            "whole_document": whole_document,
+            "source_membership": source_membership,
             "policy": policy_source,
             "agent_mode": agent_mode,
             "agent_reuse": agent_reuse,

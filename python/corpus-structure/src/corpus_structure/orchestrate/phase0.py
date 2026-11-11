@@ -211,3 +211,31 @@ def bind_pdf_source(
         registry.sources,
         prepared=registry.prepared,
     )
+
+
+def bind_pdf_selection(registry, *, document=None, membership=None):
+    """Freeze explicit source projection choices without changing pack defaults."""
+    from dataclasses import replace
+
+    from corpus_structure.ingest.pdf_methods import PdfIngestConfig
+
+    configs = {owner: dict(named) for owner, named in registry.file.configs.items()}
+    selected = False
+    for owner, name in registry.named():
+        if owner not in {"ingest.pdf", "ingest.pdf_integrated"}:
+            continue
+        if not isinstance(registry.overlay(owner, name), PdfIngestConfig):
+            raise ValueError("selected PDF producer has no source projection configuration")
+        fields = {}
+        if document is not None:
+            fields["originals"] = (document.source_uri,)
+        if membership is not None:
+            fields["membership"] = membership
+        configs.setdefault(owner, {})[name] = {**configs.get(owner, {}).get(name, {}), **fields}
+        selected = True
+    if not selected:
+        raise ValueError("source projection override requires a PDF producer")
+    return MethodRegistry(
+        registry.methods(), replace(registry.file, configs=configs), registry.sources,
+        prepared=registry.prepared,
+    )
