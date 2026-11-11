@@ -269,6 +269,7 @@ def test_graph_projection_keeps_same_spelling_binders_distinct_and_linear():
     actual = LayerProjection(lambda _: layer).project(
         dict(layer=PIN, collection="terms", local_id="root")
     )["graph"]
+    assert isinstance(actual, dict)
     assert len(actual["nodes"]) == 3
     assert actual["nodes"][0]["edges"][0]["target"] != actual["nodes"][0]["edges"][1]["target"]
     assert (

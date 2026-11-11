@@ -1,6 +1,6 @@
 # Independent assessment and conditional investigations
 
-**Proposed · 2026-11-10.** This companion develops [TC-10](#TC-10) and the bounded
+**Accepted target; execution in progress · 2026-11-11.** This companion develops [TC-10](#TC-10) and the bounded
 [TC-I01–TC-I09](#conditional-investigations) branches of the
 [text-characterization coordinator](../text-characterization_2026-11-10.md).
 The coordinator owns package state, scheduled dispositions and combined completion. The
@@ -123,6 +123,31 @@ Grammar-generated strings (`hypothesis.extra.lark.from_lark`) can challenge reco
 they do not author correct natural-language roles or realistic ambiguity frequencies.
 
 ### Implementation and library route
+
+**Accepted execution refinement,2026-11-11.** Independently authored source semantics use small,
+versioned task projections, rather than exact equality with an open producer decomposition.
+Each reference declares source-anchored entities and assertions, its role scheme, inspected focus
+and whether it asks for a positive witness or complete named relation slots. Completeness applies
+inside that declared boundary: a correct relation beside a contradictory or extra assertion cannot
+pass a complete slot. Source-first assessment projects the relevant family population across roots;
+one matching candidate is insufficient for a complete multi-predicate or correlated-reading question.
+
+Prediction adapters read declared retained term children, role edges and contextual links. They
+may normalize explicitly declared wrappers to their source-anchored heads or cues; they must not
+reinterpret source language, guess equivalent decompositions or relabel grammatical subjects as
+semantic actors. Distinct binders, explicit sharing, assertion multiplicity, directed targets and
+source extent order survive projection. Conditional assertions retain their choice requirements,
+group membership and prerequisites. Bounded joint-choice questions distinguish permitted,
+forbidden and unknown selections without expanding every complete reading.
+
+An undefined family/task/scheme mapping is an unavailable assessment contract. A defined mapping
+that lacks a required source relation is a semantic miss. Reports distinguish missing predicates,
+participants, directed roles/schemes, scope targets, merged binders, multiplicity and prohibited
+joint choices from representation unavailability. Preserve actual qualified witnesses in differences.
+Exact whole-graph comparison remains appropriate for native fidelity and retained identity; legacy
+source-semantic graph-isomorphism failure alone is not a linguistic error. Existing set40 and its
+independent passes remain immutable; revised task-wire references state their version/applicability
+and retain source-only author independence.
 
 Extend existing assessment projections to read TC-02 layer products, typed roles/operators,
 choice dependencies and family coverage. Expose bounded reports by managed result ID through

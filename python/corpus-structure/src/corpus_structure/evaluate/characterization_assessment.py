@@ -399,7 +399,7 @@ class LayerProjection:
             self.indexes[key] = index
         return self.layers[key]
 
-    def project(self, output):
+    def project(self, output, *, include_graph=True):
         output_key(output)
         pin = output["layer"]
         body = self.layer(pin)
@@ -419,7 +419,7 @@ class LayerProjection:
             if collection == "occurrences"
             else [e for occurrence in row.get("occurrences", ()) for e in by_occurrence[occurrence]]
         )
-        return dict(
+        result = dict(
             reference=output,
             collection=collection,
             native_provider=_native_provider(body, row),
@@ -435,13 +435,25 @@ class LayerProjection:
                 for e in extents
             ],
             value={k: v for k, v in row.items() if k != "local_id"},
-            graph=self.graph(pin, local),
         )
+        if include_graph:
+            result["graph"] = self.graph(pin, local)
+        return result
 
     def graph(self, pin, local_id, *, max_bytes=None, witness_closure=False):
-        initial = (*pin_key(pin), local_id)
-        queue = deque([(pin, local_id)])
-        names = {initial: "n0"}
+        graph = self.graph_many(
+            ((pin, local_id),), max_bytes=max_bytes, witness_closure=witness_closure
+        )
+        return dict(root=graph["root"], nodes=graph["nodes"])
+
+    def graph_many(self, roots, *, max_bytes=None, witness_closure=False) -> dict[str, Any]:
+        roots = list(roots)
+        if not roots:
+            return dict(root=None, roots=[], nodes=[])
+        initial = (*pin_key(roots[0][0]), roots[0][1])
+        unique = {(*pin_key(pin), local): (pin, local) for pin, local in roots}
+        queue = deque(unique.values())
+        names = {identity: f"n{index}" for index, identity in enumerate(unique)}
         nodes = []
         remaining = max_bytes
         while queue:
@@ -637,7 +649,11 @@ class LayerProjection:
                 if remaining < 0:
                     raise ReferenceError("operation author witness graph exceeds byte bound")
             nodes.append(node)
-        return dict(root="n0", nodes=nodes)
+        return dict(
+            root=names[initial],
+            roots=[names[(*pin_key(pin), local)] for pin, local in roots],
+            nodes=nodes,
+        )
 
 
 _EXTENT_FIELDS = {"source_view_id", "projection", "native_pointer", "start", "end"}
@@ -782,6 +798,9 @@ def score_characterization(
         raise ReferenceError("frozen output population is absent from prediction capture")
     results: list[dict[str, Any]] = []
     for case in cases:
+        if case.semantic_reference is not None:
+            results.append(_semantic_case_result(frame, case, predictions, coverage))
+            continue
         if case.native_reference is not None:
             if native_scores is None or case.case_id not in native_scores:
                 from .native_scoring import NativeScoringReference, score_native
@@ -897,8 +916,17 @@ def score_characterization(
                 "unsupported",
                 case.error_category or ("wrong_structure" if candidates else "missed_opportunity"),
             )
+        if (
+            case.graph_projection == "source_semantics"
+            and any("graph" in a for a in case.alternatives)
+            and category == "wrong_structure"
+        ):
+            category = "structural_projection_mismatch"
         results.append(
             dict(
+                comparison_contract="legacy_structural_graph"
+                if case.graph_projection == "source_semantics"
+                else "declared_fields_or_exact_native_graph",
                 case_id=case.case_id,
                 opportunity_id=case.opportunity_id,
                 facet=case.facet,
@@ -1121,6 +1149,64 @@ def _native_case_result(frame, case, metrics):
     )
 
 
+def _semantic_case_result(frame, case, predictions, coverage):
+    from .task_semantics import score_task
+
+    opportunity = next(o for o in frame.opportunities if o.opportunity_id == case.opportunity_id)
+    selected = [
+        row
+        for row in predictions
+        if _family_matches(row, case.required_family)
+        and (
+            case.output_reference is None
+            or output_key(row["reference"]) == output_key(case.output_reference)
+        )
+    ]
+    metrics = score_task(
+        case.semantic_reference,
+        case.required_family,
+        selected,
+        output_first=frame.direction == "output_first",
+    )
+    if case.source_state == "inapplicable":
+        judgment, category = "unassessed", "inapplicable"
+    elif case.judgment == "unassessed" or case.source_state == "uninspected":
+        judgment, category = "unassessed", "uninspected"
+    elif not _scope_examined(opportunity, case.required_family, coverage):
+        judgment, category = "unassessed", "prediction_scope_unavailable"
+    elif metrics["status"] != "scored":
+        judgment, category = (
+            "unassessed",
+            "witness_support_unknown"
+            if metrics.get("reason") == "witness_support_unknown"
+            else "assessment_contract_unavailable",
+        )
+    elif frame.direction == "output_first" and case.judgment == "unsupported":
+        judgment, category = "unsupported", case.error_category or "unsupported_output"
+    elif case.source_state == "unresolved" or case.judgment == "ambiguous":
+        judgment, category = (
+            "ambiguous",
+            "permissible_alternatives" if metrics["exact_match"] else "unresolved",
+        )
+    else:
+        judgment, category = (
+            ("supported", None)
+            if metrics["exact_match"]
+            else ("unsupported", "wrong_task_structure" if selected else "missed_opportunity")
+        )
+    return dict(
+        case_id=case.case_id,
+        opportunity_id=case.opportunity_id,
+        facet=case.facet,
+        judgment=judgment,
+        source_state=case.source_state,
+        error_category=category,
+        candidate_references=[row["reference"] for row in selected],
+        semantic_metrics=metrics,
+        explanation=case.explanation,
+    )
+
+
 def evaluate_characterization(
     conn,
     *,
@@ -1241,13 +1327,53 @@ def evaluate_characterization(
                         for case in ordinary_cases
                     ):
                         continue
-                projected = projection.project(output)
-                if frame.direction == "source_first" and all(
-                    _scope_relation(projected, opportunity) == "outside"
-                    for opportunity in frame.opportunities
+                projected = projection.project(output, include_graph=False)
+                if (
+                    frame.direction == "source_first"
+                    and all(
+                        _scope_relation(projected, opportunity) == "outside"
+                        for opportunity in frame.opportunities
+                    )
+                    and not any(
+                        case.semantic_reference is not None
+                        and _family_matches(projected, case.required_family)
+                        for case in ordinary_cases
+                    )
                 ):
                     continue
+                needs_legacy_graph = any(
+                    case.semantic_reference is None
+                    and any("graph" in a for a in case.alternatives)
+                    and _family_matches(projected, case.required_family)
+                    and _subset(projected, case.candidate_selector)
+                    for case in ordinary_cases
+                )
+                if needs_legacy_graph:
+                    local = (
+                        "@coverage:" + output["local_id"]
+                        if output["collection"] == "coverage"
+                        else output["local_id"]
+                    )
+                    projected["graph"] = projection.graph(output["layer"], local)
                 predictions.append(projected)
+        task_families = {
+            case.required_family for case in ordinary_cases if case.semantic_reference is not None
+        }
+        for family in task_families:
+            population = [row for row in predictions if _family_matches(row, family)]
+            roots = [
+                (
+                    row["reference"]["layer"],
+                    "@coverage:" + row["reference"]["local_id"]
+                    if row["collection"] == "coverage"
+                    else row["reference"]["local_id"],
+                )
+                for row in population
+            ]
+            shared = projection.graph_many(roots, witness_closure=True)
+            for row, root in zip(population, shared["roots"], strict=True):
+                row["task_graph"] = shared
+                row["task_graph_root"] = root
         inputs = NativeCaseInputs(conn, frame, selected_pins, projection, coverage)
         native_scores = {
             case.case_id: inputs.score(case) for case in cases if case.native_reference is not None

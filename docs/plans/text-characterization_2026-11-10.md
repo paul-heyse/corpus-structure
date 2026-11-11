@@ -316,3 +316,26 @@ project `nce-grinstead-snell-full-book`; original digest is
 Its source report says display recognition partial and inline/cell coverage unknown. Preserve
 or resolve these limits through the existing source-demand owners; do not claim complete
 recognition from conversion success. No new qualification is established by this authorization.
+
+### Execution findings and acceptance refinements
+
+This table owns findings revealed by TC-10/11 execution; the earlier producer-review IDs retain
+their original owners and bounded closure claims.
+
+| Finding | Responsible component | Current disposition and closure evidence |
+| --- | --- | --- |
+| TC-E01 | Protected reference admission | Corrected, bounded Tested2026-11-11: initially uninspected opportunities permit independent source-state authoring; known frozen states remain exact. Native12 receipt`ff28f9ed40754f9ba377194e6a28faa4`. |
+| TC-E02 | Output-first author packets | Corrected, bounded Tested2026-11-11: exactly pinned witness closure is separate from the frozen assessed population; native12 receipt above. |
+| TC-E03 | Combined view and detached consumers | Implemented, bounded Tested2026-11-11: streaming/lazy closure, bounded node and exact coverage pages,64MiB document metadata versus8MiB layers. Pure89 receipt`46b3d8a087dd45219d03925911bf8630`; native2 receipt`401fc5c94a7241f598a05f2b996768bb` publishes/reads a valid composed view beyond8MiB. Actual full-book consumer qualification remains open. |
+| TC-E04 | Construction lexical projection | Corrected, bounded Tested2026-11-11: native layout-only tokens remain evidence without participant terms; multiline interpreted lexical labels declare whitespace normalization while original spelling remains retained. Construction41 receipt`edac73abd9be47deb03fbf9ec824df15`. Authentic workload replay remains open after failed stage504. |
+| TC-E05 | Independent source-semantic comparison | Implemented, bounded Tested2026-11-11: versioned source-anchored task projections declare role scheme, witness/complete named slots and correlated choice constraints. Pure149 receipt`7a4cf5560f684e0f9f81d1b6eef76cf7`; native11`949f73df6d744b8a8ccec1f8eb110175`; full typing`23c0444400b24135ac496c75031f96e7`. Actual source/output grades remain open. Preserve exact native/retained graph checks, original set40/C210–230 and all failed attempts. Unsupported comparison contracts are unavailable, not linguistic errors. |
+
+Set40 froze26 source opportunities across21units/all12chapters before the relevant producer
+outputs. Fresh independent A/B/C passes are retained; C210–230 cover28 cases, including13 native
+references. They establish references, not producer quality. Both authors and the adjudicator
+identified TC-E05 independently. Focused design advice confirmed that task projections must read
+declared retained meanings across the relevant family population; permissive graph matching alone
+cannot equate arbitrary decompositions or establish complete scope/choice correctness. The
+[assessment companion](text-characterization/assessment-and-investigations.md#implementation-and-library-route)
+owns this refinement's target contract. Revised task-wire references require explicit version and
+source/question applicability; they cannot overwrite the original passes or follow producer answers.

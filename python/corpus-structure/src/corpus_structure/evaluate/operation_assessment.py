@@ -374,6 +374,7 @@ class OperationCase:
     graph_projection: str | None = None
     output_reference: Mapping[str, Any] | None = None
     native_reference: Mapping[str, Any] | None = None
+    semantic_reference: Mapping[str, Any] | None = None
 
     def __post_init__(self):
         if self.judgment not in JUDGMENTS or self.source_state not in {
@@ -384,6 +385,23 @@ class OperationCase:
             "inapplicable",
         }:
             raise ReferenceError("unknown operation judgment or source field state")
+        if self.semantic_reference is not None:
+            from .task_semantics import SemanticTaskReference
+
+            try:
+                SemanticTaskReference.model_validate_json(canonical_bytes(self.semantic_reference))
+            except (ValueError, TypeError) as error:
+                raise ReferenceError("invalid independent semantic task reference") from error
+            if (
+                self.native_reference is not None
+                or self.alternatives
+                or self.graph_projection is not None
+                or self.candidate_selector
+                or self.expectation_mode != "structure"
+            ):
+                raise ReferenceError(
+                    "semantic task references cannot mix graph/native/candidate expectations"
+                )
         if self.native_reference is not None:
             from .native_scoring import NativeScoringReference
 
@@ -456,6 +474,7 @@ class OperationCase:
             and self.judgment == "supported"
             and not self.alternatives
             and self.native_reference is None
+            and self.semantic_reference is None
         ):
             raise ReferenceError("stated supported case requires independent expected structure")
         if any(not isinstance(value, Mapping) or not value for value in self.alternatives):
@@ -495,9 +514,9 @@ def decode_authored(authored: bytes, frame: OperationEvaluationFrame) -> dict[st
                 tuple(values) for values in raw.get("permissible_anchor_sets", ())
             )
             case = OperationCase(**raw)
-            if case.native_reference is not None and not isinstance(
-                frame, OperationEvaluationFrameV3
-            ):
+            if (
+                case.native_reference is not None or case.semantic_reference is not None
+            ) and not isinstance(frame, OperationEvaluationFrameV3):
                 raise ReferenceError(
                     "native scoring references require V3 characterization custody"
                 )
@@ -528,6 +547,25 @@ def decode_authored(authored: bytes, frame: OperationEvaluationFrame) -> dict[st
                     )
                 ):
                     raise ReferenceError("case differs from frozen source opportunity")
+                if case.semantic_reference is not None:
+                    focus = next(
+                        e
+                        for e in case.semantic_reference["entities"]
+                        if e["id"] == case.semantic_reference["focus"]
+                    )
+                    if not all(
+                        any(
+                            e["source_view_id"] == bound["source_view_id"]
+                            and e["projection"] == bound["projection"]
+                            and e["native_pointer"] == bound["native_pointer"]
+                            and bound["start"] <= e["start"] <= e["end"] <= bound["end"]
+                            for bound in opportunity.extents
+                        )
+                        for e in focus["extents"]
+                    ):
+                        raise ReferenceError(
+                            "semantic task focus is outside its frozen opportunity"
+                        )
                 if case.contribution_id is not None or case.anchor_endpoint_role is not None:
                     raise ReferenceError(
                         "characterization case cannot claim contribution authority"

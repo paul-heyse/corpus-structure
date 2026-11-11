@@ -729,6 +729,7 @@ def series_native_definitions(connection, *, include_selected=True):
         "validate_native_scoring_reference": (),
         "validate_characterization_assessment_target": (),
         "validate_characterization_reference": (),
+        "validate_semantic_task_reference": (),
         "create_operation_reference_set": ("corpus_sem_evaluator",),
         "validate_operation_reference_frame": (),
         "record_operation_reference_pass": ("corpus_sem_evaluator",),

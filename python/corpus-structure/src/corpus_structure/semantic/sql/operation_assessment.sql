@@ -1,3 +1,70 @@
+CREATE OR REPLACE FUNCTION eval.validate_semantic_task_reference(p_reference jsonb,p_frame jsonb,p_opportunity jsonb)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE shape json := $task_schema${"$defs":{"JointQuery":{"additionalProperties":false,"properties":{"members":{"items":{"type":"string"},"maxItems":64,"minItems":1,"title":"Members","type":"array"},"expected":{"enum":["permitted","forbidden","unknown"],"title":"Expected","type":"string"}},"required":["members","expected"],"title":"JointQuery","type":"object"},"TaskAssertion":{"additionalProperties":false,"properties":{"subject":{"minLength":1,"title":"Subject","type":"string"},"relation":{"minLength":1,"title":"Relation","type":"string"},"object":{"minLength":1,"title":"Object","type":"string"},"requires":{"default":[],"items":{"type":"string"},"maxItems":64,"title":"Requires","type":"array"},"order":{"anyOf":[{"minimum":0,"type":"integer"},{"type":"null"}],"default":null,"title":"Order"},"standing":{"anyOf":[{"type":"string"},{"type":"null"}],"default":null,"title":"Standing"}},"required":["subject","relation","object"],"title":"TaskAssertion","type":"object"},"TaskEntity":{"additionalProperties":false,"properties":{"id":{"minLength":1,"title":"Id","type":"string"},"kind":{"enum":["predicate","participant","operator","binder","variable","source","unknown","formal"],"title":"Kind","type":"string"},"extents":{"items":{"$ref":"#/$defs/TaskExtent"},"maxItems":64,"minItems":1,"title":"Extents","type":"array"},"value":{"anyOf":[{"type":"string"},{"type":"null"}],"default":null,"title":"Value"},"support":{"default":"literal","enum":["literal","implicit_site"],"title":"Support","type":"string"}},"required":["id","kind","extents"],"title":"TaskEntity","type":"object"},"TaskExtent":{"additionalProperties":false,"properties":{"source_view_id":{"exclusiveMinimum":0,"title":"Source View Id","type":"integer"},"projection":{"pattern":"^[a-f0-9]{64}$","title":"Projection","type":"string"},"native_pointer":{"minLength":1,"title":"Native Pointer","type":"string"},"start":{"minimum":0,"title":"Start","type":"integer"},"end":{"minimum":0,"title":"End","type":"integer"}},"required":["source_view_id","projection","native_pointer","start","end"],"title":"TaskExtent","type":"object"},"TaskGroup":{"additionalProperties":false,"properties":{"id":{"minLength":1,"title":"Id","type":"string"},"compatibility":{"enum":["exclusive","compatible","unknown"],"title":"Compatibility","type":"string"},"members":{"items":{"$ref":"#/$defs/TaskMember"},"maxItems":64,"minItems":1,"title":"Members","type":"array"}},"required":["id","compatibility","members"],"title":"TaskGroup","type":"object"},"TaskMember":{"additionalProperties":false,"properties":{"id":{"minLength":1,"title":"Id","type":"string"},"root":{"minLength":1,"title":"Root","type":"string"},"requires":{"default":[],"items":{"type":"string"},"maxItems":64,"title":"Requires","type":"array"}},"required":["id","root"],"title":"TaskMember","type":"object"},"TaskSlot":{"additionalProperties":false,"properties":{"subject":{"minLength":1,"title":"Subject","type":"string"},"relation":{"minLength":1,"title":"Relation","type":"string"}},"required":["subject","relation"],"title":"TaskSlot","type":"object"}},"additionalProperties":false,"properties":{"version":{"const":"characterization-task-reference-v1","title":"Version","type":"string"},"task":{"enum":["roles","scope","binding","choices","modal_force","formal"],"title":"Task","type":"string"},"role_scheme":{"enum":["construction-children-v1","contextual-source-hypotheses-1","formal-children-v1"],"title":"Role Scheme","type":"string"},"mode":{"enum":["witness","complete_slots"],"title":"Mode","type":"string"},"focus":{"minLength":1,"title":"Focus","type":"string"},"entities":{"items":{"$ref":"#/$defs/TaskEntity"},"maxItems":128,"minItems":1,"title":"Entities","type":"array"},"assertions":{"default":[],"items":{"$ref":"#/$defs/TaskAssertion"},"maxItems":256,"title":"Assertions","type":"array"},"complete_slots":{"default":[],"items":{"$ref":"#/$defs/TaskSlot"},"maxItems":64,"title":"Complete Slots","type":"array"},"groups":{"default":[],"items":{"$ref":"#/$defs/TaskGroup"},"maxItems":32,"title":"Groups","type":"array"},"joint_queries":{"default":[],"items":{"$ref":"#/$defs/JointQuery"},"maxItems":64,"title":"Joint Queries","type":"array"}},"required":["version","task","role_scheme","mode","focus","entities"],"title":"SemanticTaskReference","type":"object"}$task_schema$::json;
+ roles jsonb := $task_roles${"roles":["agent","agent_cue","antecedent","aspect","attachment_cue","auxiliary","body","complement","connective","copula","focus","governor","grammatical_object","grammatical_subject","head","left","modifier","predicate","right"],"scope":["aspect","auxiliary","body","cue","grammatical_object","grammatical_subject","negative_cue","negative_target","predicate","quantifier_cue","restrictor","target","variable"],"binding":["declared_binding_site","variable"],"choices":[],"modal_force":["cue","target"],"formal":["arguments","base","close","content","cue","denominator","exponent","function","left","lower","member","numerator","open","operand","right","separator","set","upper"]}$task_roles$::jsonb;
+ entity jsonb; extent jsonb; assertion jsonb; group_ jsonb; member jsonb; query_ jsonb;
+ entities jsonb; members jsonb; allowed jsonb;
+BEGIN
+ IF NOT public.json_matches_schema(shape,p_reference::json) THEN
+  RAISE EXCEPTION 'invalid closed semantic task reference' USING ERRCODE='23514'; END IF;
+ SELECT jsonb_agg(e->'id') INTO entities FROM jsonb_array_elements(p_reference->'entities') e;
+ SELECT coalesce(jsonb_agg(m->'id'),'[]') INTO members FROM jsonb_array_elements(coalesce(p_reference->'groups','[]')) g CROSS JOIN LATERAL jsonb_array_elements(g->'members') m;
+ allowed:=roles->(p_reference->>'task');
+ IF jsonb_array_length(entities)<>(SELECT count(DISTINCT value) FROM jsonb_array_elements(entities))
+  OR jsonb_array_length(members)<>(SELECT count(DISTINCT value) FROM jsonb_array_elements(members))
+  OR (SELECT count(*)<>count(DISTINCT g->>'id') FROM jsonb_array_elements(coalesce(p_reference->'groups','[]')) g)
+  OR NOT(entities @> jsonb_build_array(p_reference->'focus'))
+  OR (p_reference->>'role_scheme'='contextual-source-hypotheses-1' AND p_reference->>'task'<>'binding')
+  OR ((p_reference->>'role_scheme'='formal-children-v1') IS DISTINCT FROM (p_reference->>'task'='formal'))
+  OR (p_reference->>'task'='choices' AND jsonb_array_length(coalesce(p_reference->'groups','[]'))=0)
+  OR (p_reference->>'mode'='witness' AND (coalesce(p_reference->'complete_slots','[]')<>'[]' OR
+   coalesce(p_reference->'assertions','[]')='[]' AND coalesce(p_reference->'groups','[]')='[]' AND coalesce(p_reference->'joint_queries','[]')='[]'))
+  OR (p_reference->>'mode'='complete_slots' AND p_reference->>'task'<>'choices' AND coalesce(p_reference->'complete_slots','[]')='[]') THEN
+  RAISE EXCEPTION 'semantic task identities or completeness are invalid' USING ERRCODE='23514'; END IF;
+ FOR entity IN SELECT value FROM jsonb_array_elements(p_reference->'entities') LOOP
+  IF (entity->>'value' IS NOT NULL AND entity->>'kind' NOT IN ('operator','binder','formal'))
+   OR (entity->>'kind'='formal' AND coalesce(entity->>'value','')='') THEN
+   RAISE EXCEPTION 'task semantic value requires an explicit operator/binder label' USING ERRCODE='23514'; END IF;
+  FOR extent IN SELECT value FROM jsonb_array_elements(entity->'extents') LOOP
+   IF (coalesce(entity->>'support','literal')='implicit_site' AND (entity->>'kind'<>'variable' OR extent->'start'<>extent->'end'))
+    OR (coalesce(entity->>'support','literal')='literal' AND extent->'start'=extent->'end') THEN
+    RAISE EXCEPTION 'task literal/implicit source support is invalid' USING ERRCODE='23514'; END IF;
+   IF (extent->>'end')::bigint<(extent->>'start')::bigint OR NOT EXISTS(
+    SELECT FROM kb.source_view v JOIN jsonb_array_elements(p_frame->'source_views') frozen ON (frozen->>'id')::bigint=v.id CROSS JOIN LATERAL jsonb_array_elements(v.projection->'pieces') piece
+    WHERE v.id=(extent->>'source_view_id')::bigint AND v.projection_digest=extent->>'projection'
+     AND piece->>'kind'='native_text' AND NOT coalesce((piece->>'synthetic')::boolean,false) AND piece->>'item_ref'=extent->>'native_pointer'
+     AND (piece->>'start')::bigint<=(extent->>'start')::bigint AND (extent->>'end')::bigint<=(piece->>'end')::bigint) THEN
+    RAISE EXCEPTION 'task entity differs from frozen original source coordinates' USING ERRCODE='23514'; END IF;
+   IF entity->>'id'=p_reference->>'focus' AND NOT EXISTS(
+    SELECT FROM jsonb_array_elements(p_opportunity->'extents') bound
+    WHERE bound->'source_view_id'=extent->'source_view_id' AND bound->'projection'=extent->'projection' AND bound->'native_pointer'=extent->'native_pointer'
+     AND (bound->>'start')::bigint<=(extent->>'start')::bigint AND (extent->>'end')::bigint<=(bound->>'end')::bigint) THEN
+    RAISE EXCEPTION 'semantic task focus is outside its frozen opportunity' USING ERRCODE='23514'; END IF;
+  END LOOP;
+ END LOOP;
+ FOR assertion IN SELECT value FROM jsonb_array_elements(coalesce(p_reference->'assertions','[]')) LOOP
+  IF (assertion->>'order' IS NOT NULL AND (jsonb_typeof(assertion->'order')<>'number' OR assertion->>'order' !~ '^[0-9]+$'))
+   OR NOT(entities @> jsonb_build_array(assertion->'subject') AND entities @> jsonb_build_array(assertion->'object') AND allowed @> jsonb_build_array(assertion->'relation') AND members @> coalesce(assertion->'requires','[]'))
+   OR (p_reference->>'mode'='complete_slots' AND NOT EXISTS(SELECT FROM jsonb_array_elements(p_reference->'complete_slots') slot WHERE slot->'subject'=assertion->'subject' AND slot->'relation'=assertion->'relation')) THEN
+   RAISE EXCEPTION 'semantic assertion changes declared endpoints, roles, choices or slots' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ FOR assertion IN SELECT value FROM jsonb_array_elements(coalesce(p_reference->'complete_slots','[]')) LOOP
+  IF NOT(entities @> jsonb_build_array(assertion->'subject') AND allowed @> jsonb_build_array(assertion->'relation')) THEN
+   RAISE EXCEPTION 'invalid semantic complete slot' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ FOR group_ IN SELECT value FROM jsonb_array_elements(coalesce(p_reference->'groups','[]')) LOOP
+  FOR member IN SELECT value FROM jsonb_array_elements(group_->'members') LOOP
+   IF NOT(entities @> jsonb_build_array(member->'root') AND members @> coalesce(member->'requires','[]')) THEN
+    RAISE EXCEPTION 'invalid semantic choice roots or prerequisites' USING ERRCODE='23514'; END IF;
+  END LOOP;
+ END LOOP;
+ FOR query_ IN SELECT value FROM jsonb_array_elements(coalesce(p_reference->'joint_queries','[]')) LOOP
+  IF NOT(members @> query_->'members') OR jsonb_array_length(query_->'members')<>(SELECT count(DISTINCT value) FROM jsonb_array_elements(query_->'members')) THEN
+   RAISE EXCEPTION 'invalid semantic joint choice question' USING ERRCODE='23514'; END IF;
+ END LOOP;
+END $$;
+REVOKE ALL ON FUNCTION eval.validate_semantic_task_reference(jsonb,jsonb,jsonb) FROM PUBLIC;
+
 -- Operation-local references reuse protected eval tables and source closure validators.
 CREATE OR REPLACE FUNCTION eval.create_operation_reference_set(p_project text,p_run bigint,p_label text,p_split text,p_guideline text,p_sampling jsonb,p_units jsonb)
 RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
@@ -191,7 +258,7 @@ BEGIN
  END IF;
  FOR source_record IN SELECT value FROM jsonb_array_elements(p_payload->'cases') LOOP
   IF source_record-ARRAY['case_id','facet','anchor_ids','inspected_scope','source_state','judgment','alternatives','explanation',
-    'assessor_provenance','contribution_kind','contribution_id','error_category','candidate_selector','permissible_anchor_sets','expectation_mode','anchor_endpoint_role','opportunity_id','output_reference','required_family','graph_projection','native_reference']<>'{}'
+    'assessor_provenance','contribution_kind','contribution_id','error_category','candidate_selector','permissible_anchor_sets','expectation_mode','anchor_endpoint_role','opportunity_id','output_reference','required_family','graph_projection','native_reference','semantic_reference']<>'{}'
    OR NOT(source_record ?& ARRAY['case_id','facet','anchor_ids','inspected_scope','source_state','judgment','alternatives','explanation','assessor_provenance'])
    OR EXISTS(SELECT FROM unnest(ARRAY['case_id','facet','inspected_scope','explanation']) k WHERE btrim(COALESCE(source_record->>k,''))='')
    OR COALESCE(source_record->>'judgment','') NOT IN ('supported','unsupported','ambiguous','unassessed')
@@ -215,7 +282,8 @@ BEGIN
       OR EXISTS(SELECT FROM jsonb_array_elements(a->'endpoint_semantics') e
        WHERE e->'fields' IS DISTINCT FROM '{}'::jsonb)))
    OR (source_record->>'source_state'='uninspected' AND source_record->>'judgment'<>'unassessed')
-   OR (source_record->>'source_state'='stated' AND source_record->>'judgment'='supported' AND source_record->'alternatives'='[]' AND (p_frame->>'protocol'<>'source-operation-frame-3' OR jsonb_typeof(source_record->'native_reference') IS DISTINCT FROM 'object'))
+   OR (source_record->>'source_state'='stated' AND source_record->>'judgment'='supported' AND source_record->'alternatives'='[]' AND (p_frame->>'protocol'<>'source-operation-frame-3' OR jsonb_typeof(source_record->'native_reference') IS DISTINCT FROM 'object' AND jsonb_typeof(source_record->'semantic_reference') IS DISTINCT FROM 'object'))
+   OR (source_record->'semantic_reference' IS NOT NULL AND source_record->'semantic_reference'<>'null' AND p_frame->>'protocol'<>'source-operation-frame-3')
    OR (source_record->'native_reference' IS NOT NULL AND source_record->'native_reference'<>'null' AND p_frame->>'protocol'<>'source-operation-frame-3')
    OR NOT((bound->'anchor_ids') @> (source_record->'anchor_ids'))
    OR EXISTS(SELECT FROM jsonb_array_elements(source_record->'alternatives') expected_option
@@ -603,6 +671,14 @@ BEGIN
     OR coalesce(case_->'candidate_selector','{}')<>'{}' OR coalesce(case_->>'expectation_mode','structure')<>'structure'
     OR coalesce(case_->>'required_family','') NOT LIKE 'spacy.%' THEN
     RAISE EXCEPTION 'native task references cannot be graph alternatives or another scheme' USING ERRCODE='23514'; END IF;
+  END IF;
+  IF case_->'semantic_reference' IS NOT NULL AND case_->'semantic_reference'<>'null' THEN
+   SELECT o INTO opportunity FROM jsonb_array_elements(bound->'opportunities') o WHERE o->>'opportunity_id'=case_->>'opportunity_id';
+   PERFORM eval.validate_semantic_task_reference(case_->'semantic_reference',p_frame,opportunity);
+   IF case_->'alternatives'<>'[]' OR case_->>'graph_projection' IS NOT NULL
+    OR coalesce(case_->'native_reference','null')<>'null' OR coalesce(case_->'candidate_selector','{}')<>'{}'
+    OR coalesce(case_->>'expectation_mode','structure')<>'structure' THEN
+    RAISE EXCEPTION 'semantic task reference cannot mix graph/native/candidate expectations' USING ERRCODE='23514'; END IF;
   END IF;
   IF (case_->>'graph_projection' IS NOT NULL AND case_->>'graph_projection' NOT IN ('source_semantics','native_fidelity','retained_identity'))
    OR (EXISTS(SELECT FROM jsonb_array_elements(case_->'alternatives') a WHERE a ? 'graph') AND case_->>'graph_projection' IS NULL)

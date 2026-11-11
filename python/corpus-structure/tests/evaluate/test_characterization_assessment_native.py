@@ -190,7 +190,7 @@ def test_native_v3_grading_preserves_source_output_and_empty_population(
                 value="equals",
                 status="interpreted",
                 occurrences=[occurrence["local_id"]],
-                children=[dict(role="participant", target="participant", structural=True)],
+                children=[dict(role="grammatical_subject", target="participant", structural=True)],
             ),
             dict(
                 local_id="participant",
@@ -199,6 +199,7 @@ def test_native_v3_grading_preserves_source_output_and_empty_population(
                 vocabulary="test",
                 value="x",
                 status="interpreted",
+                occurrences=[occurrence["local_id"]],
             ),
         ]
         wire["roles"] = [
@@ -234,6 +235,10 @@ def test_native_v3_grading_preserves_source_output_and_empty_population(
                 members=[dict(local_id="other-reading", root="participant")],
             ),
         ]
+        wire["operation"]["produced_families"].append("construction.predication")
+        coverage.append(dict(coverage[0], family="construction.predication"))
+        for term in wire["terms"]:
+            term["family"] = "construction.predication"
         text_ = extent["text"]
         assert text_ == "12"  # Independent controlled source cell, not producer-authored gold.
         configuration = '[nlp]\nlang = "en"'
@@ -364,11 +369,67 @@ def test_native_v3_grading_preserves_source_output_and_empty_population(
                 labeled=False,
             ),
         )
-        payload["cases"] = [asdict(independent), asdict(native)]
+        semantic = replace(
+            independent,
+            case_id="source-task-role",
+            required_family="construction.predication",
+            candidate_selector={},
+            alternatives=(),
+            semantic_reference=dict(
+                version="characterization-task-reference-v1",
+                task="roles",
+                role_scheme="construction-children-v1",
+                mode="complete_slots",
+                focus="source-predicate",
+                entities=[
+                    dict(id=identity, kind=kind, extents=list(frame.opportunities[0].extents))
+                    for identity, kind in (
+                        ("source-predicate", "predicate"),
+                        ("source-participant", "participant"),
+                    )
+                ],
+                assertions=[
+                    dict(
+                        subject="source-predicate",
+                        relation="grammatical_subject",
+                        object="source-participant",
+                    )
+                ],
+                complete_slots=[dict(subject="source-predicate", relation="grammatical_subject")],
+            ),
+        )
+        payload["cases"] = [asdict(independent), asdict(native), asdict(semantic)]
         submit_abc(conn, unit, frame, payload, actor="native-v3-source")
         frozen_frame = conn.scalar(
             text("SELECT context->0 FROM eval.reference_unit WHERE id=:id"), {"id": unit}
         )
+        for corrupt in ("unknown_field", "wrong_source", "float_order"):
+            invalid_task = json.loads(json.dumps(payload))
+            invalid_task["adjudication_passes"] = []
+            if corrupt == "unknown_field":
+                invalid_task["cases"][2]["semantic_reference"]["not_a_public_task_field"] = True
+                message = "invalid closed semantic task reference"
+            elif corrupt == "float_order":
+                invalid_task["cases"][2]["semantic_reference"]["assertions"][0]["order"] = 3.0
+                message = "semantic assertion changes declared endpoints"
+            else:
+                invalid_task["cases"][2]["semantic_reference"]["entities"][0]["extents"][0][
+                    "projection"
+                ] = "f" * 64
+                message = "task entity differs from frozen original source"
+            with pytest.raises(DBAPIError, match=message), conn.begin_nested():
+                conn.execute(
+                    text(
+                        "SELECT eval.record_operation_reference_pass("
+                        ":unit,'A',:actor,:authored,CAST(:frame AS jsonb))"
+                    ),
+                    dict(
+                        unit=unit,
+                        actor="invalid-semantic-" + corrupt,
+                        authored=json.dumps(invalid_task).encode(),
+                        frame=json.dumps(frozen_frame),
+                    ),
+                )
         invalid = json.loads(json.dumps(payload))
         invalid["adjudication_passes"] = []
         invalid["cases"][1]["native_reference"]["scheme"] = "UD"
@@ -544,6 +605,8 @@ def test_native_v3_grading_preserves_source_output_and_empty_population(
         )
         graded_cases = {value["case_id"]: value for value in grade.result["units"][0]["cases"]}
         assert graded_cases["native-occurrence"]["judgment"] == "supported"
+        assert graded_cases["source-task-role"]["judgment"] == "supported"
+        assert graded_cases["source-task-role"]["semantic_metrics"]["exact_match"] is True
         native_grade = graded_cases["native-sentence-structure"]
         assert native_grade["judgment"] == "supported"
         assert native_grade["native_metrics"]["status"] == "scored"

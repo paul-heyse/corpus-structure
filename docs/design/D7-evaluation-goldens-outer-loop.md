@@ -54,6 +54,22 @@ and diagnostics without inference. The [TC coordinator](../plans/text-characteri
 owns the independent chapter-and-facet panel, full518-page execution, conditional decisions and
 final qualification; framework tests alone do not close those obligations.
 
+**Implemented task-comparison refinement; bounded controls Tested,2026-11-11.** Independent
+source semantics use versioned source-anchored task assertions with an explicit role scheme and
+witness or complete named-slot scope. Declared adapters project retained family populations
+across roots without new language inference. Conditional assertions retain choice groups and
+prerequisites; bounded joint selections preserve permitted/forbidden/unknown distinctions.
+Exact native and retained graph comparisons remain separate. A failed isomorphism against an
+open producer topology alone is not a linguistic error. The coordinator owns TC-E05 and revised
+reference applicability; original frames and passes remain immutable.
+Witness comparison checks feasible prerequisite support; complete named slots also constrain
+their full assertion population. Optional source-reference values, order and standing constrain
+only the entities/assertions that declare them. Output-first choice assessment binds the frozen
+assessed group, and coarse formal correspondence remains unavailable for exact source questions.
+Pure controls passed149 (`7a4cf5560f684e0f9f81d1b6eef76cf7`); native assessment/admission
+controls passed11 (`949f73df6d744b8a8ccec1f8eb110175`). Actual book assessment retains its
+separate qualification obligations.
+
 ## Witnessed component target
 
 **Proposed target, adopted2026-11-06.** Freeze source opportunities before alignment or filtering; distinguish source-first capture from output-first correctness. Provenance groups and exposure partitions belong to existing protected reference custody. Qualification uses statistics; enterprise material is not a prerequisite.
