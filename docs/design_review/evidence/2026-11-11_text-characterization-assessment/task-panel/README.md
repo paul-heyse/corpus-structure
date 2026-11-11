@@ -1,6 +1,6 @@
 # Source-anchored semantic task panel
 
-**Source frames and independent A/B passes frozen; C adjudication in progress · 2026-11-11.**
+**Source frames and independent A/B/C passes frozen · 2026-11-11.**
 The [coordinator](../../../../plans/text-characterization_2026-11-10.md) owns TC-E05 and acceptance.
 This is the explicit task-wire refinement of the original [source-first panel](../panel/README.md).
 It supplies no producer-quality claim.
@@ -31,6 +31,14 @@ Across sets41–44, both independent authors have signed26 protected passes for3
 digests, reuse lineage, unavailable comparisons and partial claims. A's final binary pass is281;
 B's is282. These are reference-authoring outcomes, not producer grades. Original source frames,
 earlier passes and their limits are unchanged. No further source-panel expansion is selected.
+
+C adjudication **passed** for all26 units: protected passes283–308 map consecutively to
+units82–107. [C's receipt](adjudication-C-receipt.json) and
+[scope decisions](adjudication-decisions.json) retain exact lineage and applicability. Its39 cases
+contain28 supported references and11 explicitly unassessed comparisons:13 native references,
+13 semantic task references (five witness/eight complete named slots) and two scalar references.
+These counts describe reference availability, not extraction quality. Native reconstructions,
+source coordinates, frozen frames and A/B receipt digests were validated before submission.
 
 ## Comparison contract
 
