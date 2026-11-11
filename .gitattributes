@@ -128,3 +128,7 @@ python/corpus-structure/semantic_alembic/versions/semantic_dmc_digest_binding_* 
 # Frozen source-only TC-10 reference packets and native execution reports.
 docs/design_review/evidence/2026-11-11_text-characterization-assessment/panel/*.json filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-11_text-characterization-assessment/raw/** filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-11_text-characterization-assessment/qualification/**/*.json filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-11_text-characterization-assessment/book-result.json filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-11_text-characterization-assessment/task-panel/**/*.json filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-11_text-characterization-assessment/output-panel/**/*.json filter=lfs diff=lfs merge=lfs -text
