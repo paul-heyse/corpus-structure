@@ -130,6 +130,46 @@ def test_ignore_cannot_swallow_protected_whitespace_atom():
     )
 
 
+@pytest.mark.parametrize("separator", ["\n", "\r\n", "\t", "\f", "\v"])
+def test_source_line_breaks_remain_lexical_separators(separator):
+    result = recognize("Not every" + separator + "trial succeeds.")
+    assert result.outcome == "complete"
+    assert result.reducer is not None
+    assert any(term["value"] == "negation" for term in result.reducer.terms.values())
+    assert any(term["kind"] == "binder" for term in result.reducer.terms.values())
+
+
+@pytest.mark.parametrize(
+    "spelling,label",
+    [
+        ("x\n+\ny", "x + y"),
+        ("x\r\n+\\y", "x +\\y"),
+        (r"x\n+y", r"x\n+y"),
+        ("x/\n y", "x/ y"),
+        (" \n ", " "),
+    ],
+)
+def test_grammar_atoms_keep_exact_multiline_and_literal_escape_spelling(spelling, label):
+    builder, view = source(spelling + " varies.")
+    result = builder.region(view, 0, len(view.text), [ProtectedAtom(0, len(spelling), "atom")])
+    assert result.outcome == "complete"
+    terminal = next(
+        row
+        for row in builder.annotations.values()
+        if row["kind"] == "grammar.terminal" and row["native_label"] == "ATOM"
+    )
+    occurrence = builder.occurrences[terminal["occurrences"][0]]
+    assert [(e["start"], e["end"], e["text"]) for e in occurrence["extents"]] == [
+        (0, len(spelling), spelling)
+    ]
+    term = next(t for t in builder.terms.values() if t["premises"] == [terminal["local_id"]])
+    assert term["value"] == label
+    assert "\n" not in term["value"] and "\r" not in term["value"]
+    assert term.get("provenance", []) == (
+        ["lexical-normalization:whitespace-folding-1"] if spelling != label else []
+    )
+
+
 @pytest.mark.parametrize(
     "start,end,atom", [(1, 3, False), (0, 6, False), (0, 4, True), (2, 5, True)]
 )

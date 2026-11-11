@@ -24,7 +24,7 @@ Native head is `semantic_tc10_task_semantics`; `/10` remains default and the pro
 ## Active execution
 
 The [coordinator](docs/plans/text-characterization_2026-11-10.md#authorized-remaining-scope-execution--2026-11-11)
-owns TC-10/11 scope and TC-E01–06. Assessment V3, native task scoring, authenticated manifests,
+owns TC-10/11 scope and TC-E01–07. Assessment V3, native task scoring, authenticated manifests,
 bounded composition/consumers and source-anchored semantic task comparison are implemented.
 Commits4d32fd596/47b0554b5/0503a13bf retain the latest producer, native and independent-reference slices.
 Deployment`d805bd19fbbc4ac58dc7c9f5d46f5908` passed; release remains
@@ -42,8 +42,11 @@ TC-E06's dependency/term indexing passed141 controls in`6daeba6f757a448091af826d
 blocked by an omitted assets setting, then **passed** as`4c90354fce9a46c6abd0e1babd62de25` with existing assets.
 Their142-identity union is covered; comment-only source/private-binding differences retain bounded applicability.
 Typing **passed**,`2d2ff5a115bb467bad92de33fa1054c6`. Invocation513–523 was intentionally interrupted;
-network-enabled `characterize_book.py` resumed after correction. Final combined view/book qualification are open.
+the next book invocation is paused for TC-E07's line-safe source regex correction. Construction51
+**passed**,`00baf630d73d474abcd96619cf31e024`; typing **passed**,`f3f6babda9d54ea2b58d21c60eec7eff`.
+Actual-provider primary/reuse case **passed**,`379c96dd3c5e4340b94c82f889657c19`.
+Network-enabled book execution resumes from the same capture; final combined view/qualification are open.
 
-Next: complete resumed book execution, then separate output-first assessment;
+Next: complete book execution, then separate output-first assessment;
 grade exact retained products, resolve triggered gaps and complete the final applicable test union.
 Activation/selection remains a separate final effect. Preserve prior receipts at their own scope.

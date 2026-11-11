@@ -287,3 +287,24 @@ native-binding variation applicable to this bounded union. Final assembled quali
 Independent static review found no material semantic regression in either function. Documentation
 **passed**,`51c04f8616554278874404a0ada10674`,873 pages/zero link errors. The book resumed under
 normal network-enabled `uv run` after the final product source settled.
+
+## Source-regex control preservation · 2026-11-11
+
+A source-independent control, protected `x\n+\ny` followed by `varies.`, raised Lark1.3.1
+`GrammarError`: generated regex declarations contained physical newlines. Inspection of the
+installed `lark.load_grammar._literal_to_pattern` confirmed that physical newlines require
+verbose regex mode. The correction serializes literal source controls with regex escapes
+instead of changing regex modes or source bytes. It applies to both protected atoms and
+positioned whitespace literals. Grammar terminal terms retain one-line interpreted labels with
+explicit whitespace-folding provenance; their real source occurrences preserve every original
+character, including CRLF and literal backslash sequences.
+
+Construction checks **passed**,51/51,`00baf630d73d474abcd96619cf31e024`; typing **passed**,
+`f3f6babda9d54ea2b58d21c60eec7eff`. Ten new controls independently check source separators,
+whole-atom extents, slash/backslash distinctions and declared label normalization. The
+[latest interruption log](raw/tc11-book-regex-integration-interrupted.log) preserves the intentional
+SIGINT before this correction; it is not a provider failure. The actual-provider primary/reuse
+case **passed**,1/1,`379c96dd3c5e4340b94c82f889657c19`, with the existing PM2 assets setting.
+Independent static review found no material defect in escaping, exact source positions,
+provenance or term identity. No source reference, scientific interpretation or library dependency
+changed. TC-E07 is bounded Tested; full-book execution resumes from the same frozen capture.

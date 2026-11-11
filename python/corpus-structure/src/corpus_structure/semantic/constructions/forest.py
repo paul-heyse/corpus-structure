@@ -56,6 +56,20 @@ def terminal_guard(start: int, end: int, atoms: tuple[ProtectedAtom, ...], *, at
         raise ValueError("prose terminal splits or crosses a protected occurrence")
 
 
+def _literal_pattern(value: str) -> str:
+    """Escape original text for a regex inside a single-line Lark declaration."""
+    escaped = re.escape(value)
+    for control, spelling in (
+        ("\n", r"\n"),
+        ("\r", r"\r"),
+        ("\t", r"\t"),
+        ("\f", r"\f"),
+        ("\v", r"\v"),
+    ):
+        escaped = escaped.replace("\\" + control, spelling)
+    return escaped
+
+
 def _positioned(text: str, pattern: str, atoms: tuple[ProtectedAtom, ...]) -> str:
     alternatives = []
     boundaries = [
@@ -73,7 +87,7 @@ def _positioned(text: str, pattern: str, atoms: tuple[ProtectedAtom, ...]) -> st
             # Each native regular expression is specialized at an actual original-source
             # position. This excludes crossing and ignored-token hazards lexically.
             alternatives.append(
-                r"(?<=\A[\s\S]{" + str(a + match.start()) + "})" + re.escape(match.group())
+                r"(?<=\A[\s\S]{" + str(a + match.start()) + "})" + _literal_pattern(match.group())
             )
     return "(?:" + "|".join(alternatives) + ")" if alternatives else r"(?!)x"
 
@@ -107,7 +121,8 @@ def _prepared_parser(
     lexical["ATOM"] = (
         "(?:"
         + "|".join(
-            r"(?<=\A[\s\S]{" + str(a.start) + "})" + re.escape(text[a.start : a.end]) for a in atoms
+            r"(?<=\A[\s\S]{" + str(a.start) + "})" + _literal_pattern(text[a.start : a.end])
+            for a in atoms
         )
         + ")"
         if atoms
@@ -172,6 +187,7 @@ class PackedReducer(ReusingForestTransformer):
         *,
         status: str = "interpreted",
         premises=(),
+        provenance=(),
     ) -> Reference:
         payload = dict(
             kind=kind,
@@ -181,6 +197,7 @@ class PackedReducer(ReusingForestTransformer):
             status=status,
             children=children,
             premises=list(premises),
+            **({"provenance": list(provenance)} if provenance else {}),
         )
         key = identity("term", [self.region, start, end, payload])
         self.positions[key] = (start + self.offset, end + self.offset)
@@ -231,14 +248,19 @@ class PackedReducer(ReusingForestTransformer):
                 end=end + self.offset,
             ),
         )
+        spelling = str(token)
+        label = " ".join(spelling.split()) or " "
         return self._term(
-            str(token),
+            label,
             "participant",
             "construction.predication",
             [],
             start,
             end,
             premises=[annotation],
+            provenance=(
+                ["lexical-normalization:whitespace-folding-1"] if label != spelling else []
+            ),
         )
 
     def transform_packed_node(self, node, data):
