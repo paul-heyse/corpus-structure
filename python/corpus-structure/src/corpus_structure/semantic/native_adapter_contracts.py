@@ -20,6 +20,8 @@ def validate_native_adapters(model: ExecutionModelProducts) -> None:
         "organize_pdf",
         "project_pdf_source",
         "publish_source_view",
+        "publish_characterization",
+        "read_characterization",
         "read_source_view",
     ):
         model.require_operation(name)

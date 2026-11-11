@@ -39,6 +39,7 @@ from corpus_structure.semantic.source_views import (
     load_source_view,
     selected_source_views,
 )
+from corpus_structure.serve.characterization_replay import CharacterizationReviewSelection
 from corpus_structure.serve.companion_export import _publish_directory
 from corpus_structure.serve.contextual_navigation import (
     SourceDecisionRequest,
@@ -1611,7 +1612,7 @@ def _exact_closure(
 
 
 def export_review_bundle(
-    selection: ReviewSelection,
+    selection: ReviewSelection | CharacterizationReviewSelection,
     destination: Path,
     settings: Settings,
     *,
@@ -1621,6 +1622,18 @@ def export_review_bundle(
     exact_closure: bool = False,
     retain_binding: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
+    if isinstance(selection, CharacterizationReviewSelection):
+        if extra_relations or evaluator_capture is not None:
+            raise ValueError("enriched-document review accepts only its exact product closure")
+        from .characterization_replay import export_characterization_review
+
+        return export_characterization_review(
+            selection,
+            destination,
+            settings,
+            cancellation=cancellation,
+            retain_binding=retain_binding,
+        )
     cancellation = cancellation or OperationCancellation()
     cancellation.check_active()
     if destination.exists() or destination.is_symlink():
@@ -1704,6 +1717,15 @@ def _review_binding(conn: Connection, selection: ReviewSelection) -> str:
     )
     if len(rows) != len(run_ids):
         raise SemanticRefusal("review requires a completed result for every selected run")
+    return sha256(
+        canonical_bytes(
+            _json({**_acquired_database_identity(conn), "roots": [dict(row) for row in rows]})
+        )
+    ).hexdigest()
+
+
+def _acquired_database_identity(conn: Connection) -> dict[str, Any]:
+    """Fingerprint the already acquired snapshot endpoint, without run completion policy."""
     database = conn.exec_driver_sql(
         "SELECT current_database(), d.oid, current_setting('port'), "
         "CASE WHEN has_function_privilege('pg_catalog.pg_control_system()', 'EXECUTE') "
@@ -1714,17 +1736,7 @@ def _review_binding(conn: Connection, selection: ReviewSelection) -> str:
     if driver is None:
         raise SemanticRefusal("review source connection is unavailable")
     endpoint = driver.info
-    return sha256(
-        canonical_bytes(
-            _json(
-                {
-                    "database": list(database),
-                    "host": endpoint.hostaddr or endpoint.host,
-                    "roots": [dict(row) for row in rows],
-                }
-            )
-        )
-    ).hexdigest()
+    return {"database": list(database), "host": endpoint.hostaddr or endpoint.host}
 
 
 def _named_rows(name, values):
@@ -3153,6 +3165,17 @@ def _verified_review(root: Path | int, manifest_digest: str | None) -> _Verified
 def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedReview:
     with _member(root, "manifest.json", digest=manifest_digest) as stream:
         manifest = json.load(stream)
+    from .characterization_replay import (
+        FORMAT as CHARACTERIZATION_FORMAT,
+    )
+    from .characterization_replay import (
+        verify_characterization_review,
+    )
+
+    if manifest.get("format") == CHARACTERIZATION_FORMAT:
+        return _VerifiedReview(
+            verify_characterization_review(root, manifest_digest=manifest_digest), []
+        )
     if manifest.get("format") != FORMAT:
         raise ValueError("unsupported review format")
     selection = ReviewSelection.model_validate(manifest["selection"])
@@ -3698,6 +3721,15 @@ def inspect_review_bundle(
 ) -> dict[str, Any]:
     verified = _verified_review(root, manifest_digest)
     manifest = verified.manifest
+    if manifest.get("format") != FORMAT:
+        return {
+            "format": manifest["format"],
+            "selection": manifest["selection"],
+            "completeness": manifest["completeness"],
+            "standing": manifest["standing"],
+            "original_source_completeness": manifest["original_source_completeness"],
+            "layers": len(manifest["layers"]),
+        }
     return {
         "format": FORMAT,
         "selection": manifest["selection"],

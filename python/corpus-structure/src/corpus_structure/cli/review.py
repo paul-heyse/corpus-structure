@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json as json_module
 import re
 import signal
 import threading
@@ -27,6 +28,7 @@ from corpus_structure.cli.output import (
 if TYPE_CHECKING:
     from corpus_structure.cli.managed import Invocation
     from corpus_structure.core.db.cancellation import OperationCancellation
+    from corpus_structure.serve.characterization_replay import CharacterizationReviewSelection
     from corpus_structure.serve.review_bundle import ReviewSelection
 
 app = typer.Typer(help="Export pinned evidence and verify detached review bundles.")
@@ -59,9 +61,19 @@ def _selection_digest(body: bytes, *, exact_closure: bool) -> str:
     return sha256(mode + body).hexdigest()
 
 
+def _read_selection(body: bytes) -> ReviewSelection | CharacterizationReviewSelection:
+    from corpus_structure.serve.characterization_replay import CharacterizationReviewSelection
+    from corpus_structure.serve.review_bundle import ReviewSelection
+
+    value = json_module.loads(body)
+    if isinstance(value, dict) and value.get("format") == "enriched-document-review-v1":
+        return CharacterizationReviewSelection.model_validate(value)
+    return ReviewSelection.model_validate(value)
+
+
 def _deliver_review(
     ctx: typer.Context,
-    request: ReviewSelection,
+    request: ReviewSelection | CharacterizationReviewSelection,
     destination: Path | None,
     *,
     exact_closure: bool,
@@ -272,10 +284,9 @@ def export_review(
 ):
     """Export an explicit JSON selection using ordinary reader authority."""
     from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.serve.review_bundle import ReviewSelection
 
     with failure_boundary(json, expected=(OSError, ValueError)):
-        request = ReviewSelection.model_validate_json(read_request_bytes(selection))
+        request = _read_selection(read_request_bytes(selection))
         _deliver_review(ctx, request, destination, exact_closure=exact_closure, json=json)
 
 
@@ -286,7 +297,6 @@ def retry_review(
     """Retry an ordinary export against the same completed selection."""
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.cli.managed import result_store
-    from corpus_structure.serve.review_bundle import ReviewSelection
 
     with failure_boundary(json, expected=(OSError, ValueError)):
         store = result_store(ctx)
@@ -307,7 +317,7 @@ def retry_review(
                 "selection_digest"
             ):
                 raise ValueError("retained review selection differs from the original")
-            request = ReviewSelection.model_validate_json(body)
+            request = _read_selection(body)
             _deliver_review(
                 ctx,
                 request,
@@ -346,6 +356,22 @@ def verify_review(
 
 def _inspection_view(report: RootModel[dict[str, JsonValue]], subject: str) -> Table:
     body = report.root
+    if body.get("format") == "enriched-document-inspection-v1":
+        return report_fields(
+            ("Verified review", subject),
+            ("Profile", body["profile"]),
+            ("Standing", body["standing"]),
+            ("Items", len(body["items"]) if isinstance(body["items"], list) else 0),
+            ("Continuation", body.get("continuation") or "complete"),
+        )
+    if body.get("format") == "enriched-document-review-v1":
+        return report_fields(
+            ("Verified review", subject),
+            ("Coverage", body["completeness"]),
+            ("Source completeness", body["original_source_completeness"]),
+            ("Layers", body["layers"]),
+            ("Standing", body["standing"]),
+        )
     fields: list[tuple[str, object]] = [
         ("Verified review", subject),
         ("Coverage", body["completeness"]),
@@ -409,6 +435,9 @@ def inspect_review(
     ctx: typer.Context,
     bundle: Annotated[Path | None, typer.Argument()] = None,
     result_id: Annotated[str | None, typer.Option("--result", metavar="RESULT_ID")] = None,
+    request: Annotated[
+        str | None, typer.Option(help="Bounded enriched-document request, JSON path or '-'.")
+    ] = None,
     json: JsonOpt = False,
 ):
     """Verify a detached bundle or managed result and summarize its coverage."""
@@ -419,8 +448,25 @@ def inspect_review(
     if (bundle is None) == (result_id is None):
         raise typer.BadParameter("supply a detached bundle path or --result, exactly one")
     with failure_boundary(json, expected=(OSError, ValueError, ResultError)):
+        query = None
+        if request is not None:
+            from corpus_structure.serve.characterization import CharacterizationRequest
+
+            query = CharacterizationRequest.model_validate_json(read_request_bytes(request))
+
+        def inspect(root, digest=None):
+            if query is None:
+                return inspect_review_bundle(root, manifest_digest=digest)
+            from corpus_structure.serve.characterization_replay import (
+                inspect_characterization_review,
+            )
+
+            return inspect_characterization_review(root, query, manifest_digest=digest).model_dump(
+                mode="json"
+            )
+
         if bundle is not None:
-            report = inspect_review_bundle(bundle)
+            report = inspect(bundle)
             subject = str(bundle)
         else:
             assert result_id is not None
@@ -440,7 +486,7 @@ def inspect_review(
                 with store.open_artifact(result_id, "bundle") as (_, descriptor):
                     report = {
                         "result_id": result_id,
-                        **inspect_review_bundle(descriptor, manifest_digest=digest),
+                        **inspect(descriptor, digest),
                     }
             subject = result_id
 

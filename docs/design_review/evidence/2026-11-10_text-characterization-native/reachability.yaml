@@ -1,0 +1,7 @@
+baseline: HEAD
+archive_release: release:c921ad244b60d4e79556a9042f102936a6d58c853c9c14f9c902c30bbfaca0e2
+packs: [statistics]
+native_predecessor: semantic_tc02_cross_release
+native_revision: semantic_tc02_reachability
+deployment: true
+deployment_profile: development

@@ -1,0 +1,481 @@
+id: https://corpus-structure.org/model/semantic/characterization-physical
+name: characterization_physical
+prefixes:
+  ph: https://corpus-structure.org/physical/
+default_range: string
+classes:
+  characterization_product:
+    in_subset:
+    - ops
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      content_digest:
+        range: string
+        required: true
+      kind:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      runtime_id:
+        range: string
+        required: true
+      base_task_id:
+        range: integer
+        required: true
+      base_product_key:
+        range: string
+        required: true
+      base_content_digest:
+        range: string
+        required: true
+      payload:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - content_digest
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.task.id,release_id"},
+        {"columns": ["release_id", "runtime_id"], "target": "sem.runtime_binding.release_id,runtime_id"},
+        {"columns": ["base_task_id", "base_product_key", "base_content_digest"], "target":
+        "ops.pdf_product.task_id,product_key,content_digest"}]'
+      ph:checks: '["kind IN (''layer'',''view'')", "content_digest ~ ''^[0-9a-f]{64}$''",
+        "product_key = ''characterization-'' || kind || '':'' || content_digest",
+        "jsonb_typeof(payload) = ''object''"]'
+      ph:indexes: '[["base_task_id", "base_product_key", "base_content_digest", "kind"]]'
+      ph:read_roles: '[]'
+  characterization_occurrence:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      content_digest:
+        range: string
+        required: true
+      local_id:
+        range: string
+        required: true
+      occurrence_id:
+        range: string
+        required: true
+      projection:
+        range: string
+        required: true
+      source_view_id:
+        range: integer
+        required: false
+      body:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - content_digest
+        - local_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
+        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
+      ph:checks: '["local_id <> ''''"]'
+      ph:indexes: '[["task_id", "product_key", "content_digest", "occurrence_id"],
+        ["task_id", "product_key", "content_digest", "source_view_id", "projection"]]'
+      ph:read_roles: '[]'
+  characterization_annotation:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      content_digest:
+        range: string
+        required: true
+      local_id:
+        range: string
+        required: true
+      kind:
+        range: string
+        required: true
+      family:
+        range: string
+        required: true
+      body:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - content_digest
+        - local_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
+        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
+      ph:checks: '["local_id <> ''''"]'
+      ph:indexes: '[["task_id", "product_key", "content_digest", "kind"], ["task_id",
+        "product_key", "content_digest", "family"]]'
+      ph:read_roles: '[]'
+  characterization_membership:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      content_digest:
+        range: string
+        required: true
+      local_id:
+        range: string
+        required: true
+      owner_id:
+        range: string
+        required: true
+      member_id:
+        range: string
+        required: true
+      role:
+        range: string
+        required: true
+      position:
+        range: integer
+        required: false
+      family:
+        range: string
+        required: true
+      body:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - content_digest
+        - local_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
+        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
+      ph:checks: '["local_id <> ''''"]'
+      ph:indexes: '[["task_id", "product_key", "content_digest", "owner_id"], ["task_id",
+        "product_key", "content_digest", "member_id"], ["task_id", "product_key",
+        "content_digest", "family"]]'
+      ph:read_roles: '[]'
+  characterization_role:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      content_digest:
+        range: string
+        required: true
+      local_id:
+        range: string
+        required: true
+      owner_id:
+        range: string
+        required: true
+      member_id:
+        range: string
+        required: true
+      role:
+        range: string
+        required: true
+      family:
+        range: string
+        required: true
+      body:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - content_digest
+        - local_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
+        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
+      ph:checks: '["local_id <> ''''"]'
+      ph:indexes: '[["task_id", "product_key", "content_digest", "owner_id"], ["task_id",
+        "product_key", "content_digest", "member_id"], ["task_id", "product_key",
+        "content_digest", "family"]]'
+      ph:read_roles: '[]'
+  characterization_term:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      content_digest:
+        range: string
+        required: true
+      local_id:
+        range: string
+        required: true
+      kind:
+        range: string
+        required: true
+      family:
+        range: string
+        required: true
+      body:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - content_digest
+        - local_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
+        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
+      ph:checks: '["local_id <> ''''"]'
+      ph:indexes: '[["task_id", "product_key", "content_digest", "kind"], ["task_id",
+        "product_key", "content_digest", "family"]]'
+      ph:read_roles: '[]'
+  characterization_choice:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      content_digest:
+        range: string
+        required: true
+      local_id:
+        range: string
+        required: true
+      family:
+        range: string
+        required: true
+      body:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - content_digest
+        - local_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
+        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
+      ph:checks: '["local_id <> ''''"]'
+      ph:indexes: '[["task_id", "product_key", "content_digest", "family"]]'
+      ph:read_roles: '[]'
+  characterization_coverage:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      content_digest:
+        range: string
+        required: true
+      local_id:
+        range: string
+        required: true
+      family:
+        range: string
+        required: true
+      outcome:
+        range: string
+        required: true
+      body:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - content_digest
+        - local_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
+        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
+      ph:checks: '["local_id <> ''''"]'
+      ph:indexes: '[["task_id", "product_key", "content_digest", "family", "outcome"]]'
+      ph:read_roles: '[]'
+  characterization_extent:
+    in_subset:
+    - kb
+    attributes:
+      task_id: &id001
+        range: integer
+        required: true
+      product_key: &id002
+        range: string
+        required: true
+      content_digest: &id003
+        range: string
+        required: true
+      occurrence_id:
+        range: string
+        required: true
+      position:
+        range: integer
+        required: true
+      projection:
+        range: string
+        required: true
+      source_view_id:
+        range: integer
+        required: true
+      native_pointer:
+        range: string
+        required: true
+      page:
+        range: integer
+        required: false
+      start:
+        range: integer
+        required: false
+      end:
+        range: integer
+        required: false
+      body:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - content_digest
+        - occurrence_id
+        - position
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
+        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
+      ph:indexes: '[["task_id", "product_key", "content_digest", "projection", "native_pointer"],
+        ["task_id", "product_key", "content_digest", "source_view_id", "start", "end"],
+        ["task_id", "product_key", "content_digest", "page"]]'
+      ph:read_roles: '[]'
+  characterization_term_edge:
+    in_subset:
+    - kb
+    attributes:
+      task_id: *id001
+      product_key: *id002
+      content_digest: *id003
+      owner_id:
+        range: string
+        required: true
+      position:
+        range: integer
+        required: true
+      target_id:
+        range: string
+        required: true
+      role:
+        range: string
+        required: true
+      structural:
+        range: boolean
+        required: true
+      body:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - content_digest
+        - owner_id
+        - position
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
+        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
+      ph:indexes: '[["task_id", "product_key", "content_digest", "target_id"]]'
+      ph:read_roles: '[]'
+  characterization_choice_member:
+    in_subset:
+    - kb
+    attributes:
+      task_id: *id001
+      product_key: *id002
+      content_digest: *id003
+      group_id:
+        range: string
+        required: true
+      local_id:
+        range: string
+        required: true
+      root_id:
+        range: string
+        required: true
+      body:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - content_digest
+        - group_id
+        - local_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"],
+        "target": "ops.characterization_product.task_id,product_key,content_digest"}]'
+      ph:indexes: '[["task_id", "product_key", "content_digest", "local_id"], ["task_id",
+        "product_key", "content_digest", "root_id"]]'
+      ph:read_roles: '[]'

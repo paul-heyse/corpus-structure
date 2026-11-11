@@ -29,14 +29,43 @@ def _private_build_factory(semantic_db_engine, semantic_writer_engine, tmp_path,
     prepared = prepare_operation_scenario(
         semantic_db_engine,
         composed=True,
-        observations=getattr(request, "param", None) == "renderable_pdf",
+        observations=getattr(request, "param", None)
+        in {"renderable_pdf", "characterization_pdf", "characterization_finalizable_pdf"},
+        characterization=getattr(request, "param", None)
+        in {"characterization_pdf", "characterization_finalizable_pdf"},
+        evaluation=getattr(request, "param", None) == "characterization_finalizable_pdf",
     )
     recipe = b'{"recipe":"stage-test"}'
     path = tmp_path / "source.pdf"
-    if getattr(request, "param", None) == "renderable_pdf":
+    if getattr(request, "param", None) in {
+        "renderable_pdf",
+        "characterization_pdf",
+        "characterization_finalizable_pdf",
+    }:
         from pdf_region_support import asymmetric_pdf
 
-        original = asymmetric_pdf(612, 792)
+        if getattr(request, "param", None) in {
+            "characterization_pdf",
+            "characterization_finalizable_pdf",
+        }:
+            from io import BytesIO
+
+            from PIL import Image, ImageDraw
+
+            images = [Image.new("RGB", (612, 792), "white") for _ in range(4)]
+            try:
+                for page in (2, 3):
+                    ImageDraw.Draw(images[page]).text((20, 20), "x=1", fill="black")
+                output = BytesIO()
+                images[0].save(
+                    output, format="PDF", save_all=True, append_images=images[1:], resolution=72
+                )
+                original = output.getvalue()
+            finally:
+                for image in images:
+                    image.close()
+        else:
+            original = asymmetric_pdf(612, 792)
         path.write_bytes(original)
     else:
         original = b"%PDF-1.7 private staging fixture"

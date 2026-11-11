@@ -57,7 +57,9 @@ def deploy_selected(engine):
         admit_native(conn, authoring.desired)
 
 
-def publish_selected(engine, build, directory, *, diagnostics=(), furniture=False):
+def publish_selected(
+    engine, build, directory, *, diagnostics=(), furniture=False, characterization_pages=False
+):
     document = DoclingDocument(name="independently selected source")
     outside = document.add_text(label=DocItemLabel.TEXT, text="omitted sibling body")
     ancestor = document.add_group(label=GroupLabel.CHAPTER, name="Outside ancestor chapter")
@@ -68,7 +70,23 @@ def publish_selected(engine, build, directory, *, diagnostics=(), furniture=Fals
     formula = document.add_text(
         label=DocItemLabel.FORMULA, text="x=1", orig="original A", parent=section
     )
-    document.add_text(label=DocItemLabel.FORMULA, text="x=1", orig="original B", parent=section)
+    second_formula = document.add_text(
+        label=DocItemLabel.FORMULA, text="x=1", orig="original B", parent=section
+    )
+    if characterization_pages:
+        from docling_core.types.doc import BoundingBox, CoordOrigin, PageItem, ProvenanceItem, Size
+
+        document.pages = {
+            page: PageItem(page_no=page, size=Size(width=612, height=792)) for page in range(1, 5)
+        }
+        for item, page in ((formula, 3), (second_formula, 4)):
+            item.prov = [
+                ProvenanceItem(
+                    page_no=page,
+                    bbox=BoundingBox(l=20, t=20, r=100, b=50, coord_origin=CoordOrigin.TOPLEFT),
+                    charspan=(0, 3),
+                )
+            ]
     table = document.add_table(
         data=TableData(
             num_rows=1,

@@ -544,3 +544,57 @@ def companion_compare(left: Path, right: Path, json: JsonOpt = False):
 
     with failure_boundary(json, expected=(ValueError, OSError)):
         emit(RootModel(compare_companion_exports(left, right)), json=json)
+
+
+@app.command("enriched")
+def enriched(
+    ctx: typer.Context,
+    run: int,
+    producing_task: int = typer.Option(...),
+    product: str = typer.Option(...),
+    digest: str = typer.Option(...),
+    view: Literal["summary", "annotations", "membership", "terms", "reading"] = "summary",
+    layer: str | None = None,
+    annotation: str | None = None,
+    family: str | None = None,
+    kind: str | None = None,
+    page: int | None = None,
+    choice: list[str] | None = None,
+    cursor: str | None = None,
+    limit: int = 100,
+    max_bytes: int = 1048576,
+    json: JsonOpt = False,
+):
+    """Inspect a sealed enriched document, including off-page group membership."""
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.serve.characterization import (
+        CharacterizationRequest,
+        inspect_characterization,
+    )
+
+    with failure_boundary(json, expected=(ValueError,)):
+        request = CharacterizationRequest(
+            run_id=run,
+            task_id=producing_task,
+            product_key=product,
+            content_digest=digest,
+            view=view,
+            layer_key=layer,
+            annotation_id=annotation,
+            family=family,
+            kind=kind,
+            page=page,
+            choices=tuple(choice or ()),
+            cursor=cursor,
+            limit=limit,
+            max_bytes=max_bytes,
+        )
+        with (
+            open_runtime_engine(
+                state(ctx).settings(), application_name="ci-source-enriched", purpose="read"
+            ) as engine,
+            read_snapshot(engine) as conn,
+        ):
+            emit(inspect_characterization(conn, request), json=json)

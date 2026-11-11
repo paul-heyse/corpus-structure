@@ -80,6 +80,8 @@ def acquire_pack(pack: Path, *, execution: ExecutionModelInputs | None = None) -
         "agent-root",
         "observations",
         "observation-root",
+        "characterization",
+        "characterization-root",
         "record_references",
         "record-reference-root",
         "record_policy",
@@ -158,6 +160,7 @@ def acquire_pack(pack: Path, *, execution: ExecutionModelInputs | None = None) -
         for name in (
             "agent.yaml",
             "observations.yaml",
+            "characterization.yaml",
             "record-references.yaml",
             "record-policy.yaml",
             "analytics.yaml",
@@ -341,11 +344,15 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
         for name in view.all_classes()
     ):
         bundle = source_reading_inputs(bundle)
+    from .characterization import characterization_inputs
+
+    bundle = characterization_inputs(bundle, model_content=content["characterization.yaml"])
     bundle, deps = prepare_source_inputs(
         bundle,
         deps,
         model_content=content["observations.yaml"],
         metric_content=content["metrics.yaml"],
+        characterization_content=content["characterization.yaml"],
     )
     bundle, deps = analytical_inputs(
         bundle,

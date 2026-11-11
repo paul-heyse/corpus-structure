@@ -114,6 +114,10 @@ class Reader(ReaderPort):
     guideline = _unavailable
     original = _unavailable
     connection = _unavailable
+    characterization_layers = _unavailable
+    characterization_release = _unavailable
+    characterization_view = _unavailable
+    characterization_memberships = _unavailable
 
     def __init__(self):
         self.view = view()

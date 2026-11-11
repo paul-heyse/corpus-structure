@@ -610,6 +610,17 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
     if str(view.schema.id) != "https://corpus-structure.org/model/semantic/" + expected:
         raise ModelError(["semantic target requires its trusted physical module"])
     md = MetaData(naming_convention=dict(NAMING_CONVENTION))
+    # Trusted physical imports may contribute stored relations. Imported payload
+    # classes without a physical subset remain boundary types, never tables.
+    physical_classes = dict(view.schema.classes)
+    physical_classes.update(
+        {
+            name: cls
+            for name, cls in view.all_classes().items()
+            if name not in physical_classes
+            and any(str(subset) in {"sem", "data", "ops", "kb", "eval"} for subset in cls.in_subset)
+        }
+    )
     physical_types = {
         "bytea": BYTEA,
         "jsonb": JSONB,
@@ -619,7 +630,7 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
         "vector": Vector,
         "timestamptz": lambda: TIMESTAMP(timezone=True),
     }
-    for name, cls in view.schema.classes.items():
+    for name, cls in physical_classes.items():
         subsets = [str(s) for s in cls.in_subset]
         if len(subsets) != 1 or subsets[0] not in {"sem", "data", "ops", "kb", "eval"}:
             raise ModelError([f"{name}: physical table needs exactly one trusted physical subset"])
@@ -712,7 +723,7 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
         for key_name, key in cls.unique_keys.items():
             constraint = PrimaryKeyConstraint if key_name == "primary_key" else UniqueConstraint
             table.append_constraint(constraint(*map(str, key.unique_key_slots)))
-    for name, cls in view.schema.classes.items():
+    for name, cls in physical_classes.items():
         schema = str(cls.in_subset[0])
         table = md.tables[f"{schema}.{name}"]
         ann = ci_annotations(cls)

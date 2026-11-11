@@ -2828,6 +2828,24 @@ concepts:
     required: true
     multivalued: false
   relationships: []
+- id: AnnotationLayer
+  family: source
+  scope: global
+  meaning: Private immutable characterization product over a full published document
+    with exact qualified layer closure
+  identity: Producing task, kind-qualified content key and canonical payload SHA256
+  attributes:
+  - {name: payload, range: bytes, required: true, multivalued: false}
+  relationships: []
+- id: EnrichedDocumentView
+  family: source
+  scope: global
+  meaning: Private immutable characterization product over a full published document
+    with exact qualified layer closure
+  identity: Producing task, kind-qualified content key and canonical payload SHA256
+  attributes:
+  - {name: payload, range: bytes, required: true, multivalued: false}
+  relationships: []
 relationships:
 - id: record_source_membership
   kind: association
@@ -5696,6 +5714,15 @@ operations:
   - id: extract.math/observation.outcome
     field: observations.outcome
     outcome_domain: observation_outcome
+  - id: text.compose_view/family
+    field: family
+    outcome_domain: method_family_normalize
+  - id: text.compose_view/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: text.compose_view/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
   - id: normalize.formula/family
     field: family
     outcome_domain: method_family_normalize
@@ -10844,6 +10871,198 @@ operations:
   implementation: read_source_contributions
   transitions: []
   projections: []
+- id: publish_characterization
+  inputs:
+  - TaskInvocation
+  - AnnotationLayer
+  - EnrichedDocumentView
+  results:
+  - AnnotationLayer
+  - EnrichedDocumentView
+  applicability: []
+  universe: Exact immutable base document and explicitly pinned analysis closure;
+    private proposals only
+  effects:
+  - atomic_native_publication
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact qualified source coordinates and attributed alternatives without
+    linguistic admission
+  transitions: []
+  projections: []
+  implementation: publish_characterization
+  calls:
+  - id: publish_characterization
+    symbol: ops.publish_characterization
+    parameters:
+    - name: task_id
+      source: physical:ops.task.id
+      nullable: false
+      native_parameter: p_task
+    - name: attempt
+      source: physical:ops.task.attempt
+      nullable: false
+      native_parameter: p_attempt
+    - name: holder
+      source: physical:ops.task.claimed_by
+      nullable: false
+      native_parameter: p_holder
+    - name: layer
+      source: primitive:json_payload
+      nullable: true
+      native_parameter: p_layer
+    - name: view
+      source: primitive:json_payload
+      nullable: true
+      native_parameter: p_view
+    result_mode: scalar
+    result_fields:
+    - name: result
+      source: primitive:json_payload
+      nullable: false
+    cardinality: one
+    ordered: false
+- id: read_characterization
+  inputs:
+  - AnnotationLayer
+  - EnrichedDocumentView
+  results:
+  - AnnotationLayer
+  - EnrichedDocumentView
+  applicability: []
+  universe: Exact immutable base document and explicitly pinned analysis closure;
+    private proposals only
+  effects: []
+  outcomes:
+  - source_ready
+  - missing
+  - invalid
+  - unsupported
+  outcome_domain: read
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact qualified source coordinates and attributed alternatives without
+    linguistic admission
+  transitions: []
+  projections: []
+  implementation: read_characterization
+  calls:
+  - id: read_characterization_product
+    symbol: ops.read_characterization_product
+    parameters:
+    - &tc02id001
+      name: task_id
+      source: physical:ops.characterization_product.task_id
+      nullable: false
+      native_parameter: p_task
+    - &tc02id002
+      name: product_key
+      source: physical:ops.characterization_product.product_key
+      nullable: false
+      native_parameter: p_key
+    - &tc02id003
+      name: content_digest
+      source: physical:ops.characterization_product.content_digest
+      nullable: false
+      native_parameter: p_digest
+    - name: kind
+      source: primitive:string
+      nullable: false
+      native_parameter: p_kind
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: true
+      native_parameter: p_run
+    - {name: max_bytes, source: primitive:integer, nullable: false, native_parameter: p_max_bytes}
+    result_mode: scalar
+    result_fields:
+    - name: result
+      source: primitive:json_payload
+      nullable: false
+    cardinality: one
+    ordered: false
+  - id: read_characterization_memberships
+    symbol: ops.read_characterization_memberships
+    parameters:
+    - *tc02id001
+    - *tc02id002
+    - *tc02id003
+    - name: groups
+      source: primitive:json_payload
+      nullable: false
+      native_parameter: p_groups
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: true
+      native_parameter: p_run
+    - {name: after, source: primitive:json_payload, nullable: true, native_parameter: p_after}
+    - {name: layer_key, source: primitive:string, nullable: true, native_parameter: p_layer_key}
+    - {name: limit, source: primitive:integer, nullable: false, native_parameter: p_limit}
+    - {name: max_bytes, source: primitive:integer, nullable: false, native_parameter: p_max_bytes}
+    result_mode: scalar
+    result_fields:
+    - name: result
+      source: primitive:json_payload
+      nullable: false
+    cardinality: one
+    ordered: false
+  - id: read_characterization_nodes
+    symbol: ops.read_characterization_nodes
+    parameters:
+    - name: task_id
+      source: physical:ops.characterization_product.task_id
+      nullable: false
+      native_parameter: p_task
+    - name: product_key
+      source: physical:ops.characterization_product.product_key
+      nullable: false
+      native_parameter: p_key
+    - name: content_digest
+      source: physical:ops.characterization_product.content_digest
+      nullable: false
+      native_parameter: p_digest
+    - name: kind
+      source: primitive:string
+      nullable: false
+      native_parameter: p_kind
+    - name: selectors
+      source: primitive:json_payload
+      nullable: false
+      native_parameter: p_selectors
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: true
+      native_parameter: p_run
+    - name: after
+      source: primitive:json_payload
+      nullable: true
+      native_parameter: p_after
+    - name: limit
+      source: primitive:integer
+      nullable: false
+      native_parameter: p_limit
+    - name: max_bytes
+      source: primitive:integer
+      nullable: false
+      native_parameter: p_max_bytes
+    result_mode: scalar
+    result_fields:
+    - name: result
+      source: primitive:json_payload
+      nullable: false
+    cardinality: one
+    ordered: false
 implementations:
 - id: convert_pdf
   owner: ingest.pdf
@@ -12286,6 +12505,40 @@ implementations:
   input_concepts: [InputCut, SourceView]
   result_concepts: [SourceObservationBatch]
   features: [typed_bound_inputs, explicit_outcomes]
+  effects: []
+  required_capabilities: []
+- id: publish_characterization
+  owner: semantic.characterization_store
+  symbol: publish_layer
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - AnnotationLayer
+  - EnrichedDocumentView
+  result_concepts:
+  - AnnotationLayer
+  - EnrichedDocumentView
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_native_publication
+  required_capabilities: []
+- id: read_characterization
+  owner: semantic.characterization_store
+  symbol: read_view
+  version: '1'
+  placement: core
+  input_concepts:
+  - AnnotationLayer
+  - EnrichedDocumentView
+  result_concepts:
+  - AnnotationLayer
+  - EnrichedDocumentView
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
   effects: []
   required_capabilities: []
 projections:

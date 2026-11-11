@@ -51,6 +51,7 @@ if typing.TYPE_CHECKING:
     from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
     from corpus_structure.ingest.pdf_candidate_source import CandidatePageSource
     from corpus_structure.methods.contextual_embeddings import EncodedVector
+    from corpus_structure.semantic.characterization import EnrichedDocumentView, LayerReport
     from corpus_structure.semantic.contextual_retrieval import (
         CandidateList,
         FrozenInventory,
@@ -306,6 +307,33 @@ class Reader(Protocol):
     @property
     def prepared(self) -> PreparedRelease:
         """The run's archived release: schema and vocabulary authority for source consumers."""
+        ...
+
+    def characterization_release(self, release_id: str) -> PreparedRelease:
+        """Read the immutable original contract of a retained analysis layer."""
+        ...
+
+    def characterization_layers(
+        self, references: Sequence[ProductReference]
+    ) -> Mapping[ProductReference, LayerReport]:
+        """Read exact sealed analysis layers in this run's project without inference."""
+        ...
+
+    def characterization_view(self, reference: ProductReference) -> EnrichedDocumentView:
+        """Resolve one published view pin without requiring run completion."""
+        ...
+
+    def characterization_memberships(
+        self,
+        reference: ProductReference,
+        groups: Sequence[str],
+        *,
+        after: tuple[int, str, str] | None = None,
+        layer_key: str | None = None,
+        limit: int = 100,
+        max_bytes: int = 1048576,
+    ) -> Mapping[str, Any]:
+        """Read an indexed bounded page of memberships from the exact view."""
         ...
 
     def source_views(self) -> Sequence[SourceViewRef]: ...
@@ -692,8 +720,24 @@ class UnitResult:
     contributions: tuple[Mapping[str, Any], ...] | None = None
     contribution_coordinate_texts: tuple[Mapping[str, Any], ...] = ()
     structural_product: Mapping[str, Any] | None = None
+    characterization_layer: LayerReport | None = None
+    characterization_view: EnrichedDocumentView | None = None
 
     def __post_init__(self) -> None:
+        if (self.characterization_layer is not None or self.characterization_view is not None) and (
+            self.observations
+            or self.records is not None
+            or self.contributions is not None
+            or self.structural_product is not None
+            or self.contribution_operations is not None
+            or self.parse_detail is not None
+            or self.contribution_coordinate_texts
+            or self.coverage
+            or self.measurements
+            or self.source_views
+            or self.cost is not None
+        ):
+            raise ValueError("characterization publication requires its distinct terminal product")
         match self.outcome:
             case ObservationOutcome.PRODUCED:
                 ok = (
@@ -702,6 +746,8 @@ class UnitResult:
                         or self.records
                         or self.contributions
                         or self.structural_product
+                        or self.characterization_layer
+                        or self.characterization_view
                     )
                     and self.error is None
                 )
@@ -711,6 +757,8 @@ class UnitResult:
                     and not self.records
                     and not self.contributions
                     and self.structural_product is None
+                    and self.characterization_layer is None
+                    and self.characterization_view is None
                     and self.error is None
                 )
             case ObservationOutcome.FAILED:
@@ -719,6 +767,8 @@ class UnitResult:
                     and not self.records
                     and not self.contributions
                     and self.structural_product is None
+                    and self.characterization_layer is None
+                    and self.characterization_view is None
                     and not self.measurements
                     and bool(self.error)
                 )

@@ -1,6 +1,5 @@
 """One temporary canonical model checkout for controlled and native CLI consumers."""
 
-import shutil
 import subprocess
 
 import pytest
@@ -15,8 +14,14 @@ def model_checkout(tmp_path):
     for name in ("core.yaml", "system.yaml", "revisions.yaml"):
         (location / name).write_bytes((model.MODEL_DIR / name).read_bytes())
     (location / "semantic").mkdir()
-    for name in ("physical.yaml", "pdf-records.yaml", "pdf-staging.yaml"):
-        shutil.copyfile(model.MODEL_DIR / "semantic" / name, location / "semantic" / name)
+    from corpus_structure.schema.physical import physical_source_closure
+
+    semantic = model.MODEL_DIR / "semantic"
+    physical_sources = physical_source_closure(
+        "physical.yaml", lambda name: (semantic / name).read_bytes()
+    )
+    for name, content in physical_sources.items():
+        (location / "semantic" / name).write_bytes(content)
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
     subprocess.run(

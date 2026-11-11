@@ -9859,4 +9859,459 @@ def record_direction(
         return materialize_record_direction(row)
 
 
-CALL_CONTRACT_DIGEST = "018e2e60d5cbc3eaca139884b69134b7d25d7f921e5887b265cc88d81e1e5ca6"
+PUBLISH_CHARACTERIZATION_CONTRACT_DIGEST = (
+    "2526bee7ce32e02c740a8d04f1ac796672fe7b5eb5a22465fcddfc855fb41afb"
+)
+
+
+class _publish_characterizationRequest(OperationResult):
+    task_id: Annotated[
+        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
+    ]
+    attempt: Annotated[
+        TaskAttempt,
+        Field(ge=TaskAttempt(-9223372036854775808), le=TaskAttempt(9223372036854775807)),
+    ]
+    holder: str
+    layer: JsonValue | None
+    view: JsonValue | None
+
+
+_publish_characterization_function = func.ops.publish_characterization(
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("attempt", type_=BigInteger()),
+    bindparam("holder", type_=Text()),
+    bindparam("layer", type_=JSONB(none_as_null=True)),
+    bindparam("view", type_=JSONB(none_as_null=True)),
+    type_=JSONB(),
+)
+_publish_characterization_statement = select(_publish_characterization_function)
+
+
+def prepare_publish_characterization(
+    *,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    layer: JsonValue | None,
+    view: JsonValue | None,
+    projection_context: PreparedRelease | None = None,
+) -> Select[JsonValue]:
+    _request = _publish_characterizationRequest(
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        layer=layer,
+        view=view,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "publish_characterization",
+            "publish_characterization",
+            PUBLISH_CHARACTERIZATION_CONTRACT_DIGEST,
+        )
+    return cast(
+        Select[JsonValue],
+        _publish_characterization_statement.params(
+            **{
+                "task_id": _request.task_id,
+                "attempt": _request.attempt,
+                "holder": _request.holder,
+                "layer": _request.layer,
+                "view": _request.view,
+            }
+        ),
+    )
+
+
+_publish_characterization_adapter = TypeAdapter(JsonValue)
+
+
+def materialize_publish_characterization(row: tuple[JsonValue]) -> JsonValue:
+    with native_result_scope("publish_characterization", "publish_characterization", "result"):
+        checked = _publish_characterization_adapter.validate_python(row[0], strict=True)
+        return checked
+
+
+def publish_characterization(
+    conn: Connection,
+    *,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    layer: JsonValue | None,
+    view: JsonValue | None,
+    projection_context: PreparedRelease | None = None,
+) -> JsonValue:
+    _statement = prepare_publish_characterization(
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        layer=layer,
+        view=view,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("publish_characterization", "publish_characterization"):
+        row = _native_result.one()
+        return materialize_publish_characterization(row)
+
+
+READ_CHARACTERIZATION_PRODUCT_CONTRACT_DIGEST = (
+    "c30f60d19f2136f19017e6244c1908a047deacc0ce735194594f00003f817b36"
+)
+
+
+class _read_characterization_productRequest(OperationResult):
+    task_id: Annotated[int, Field(ge=-9223372036854775808, le=9223372036854775807)]
+    product_key: str
+    content_digest: str
+    kind: str
+    run_id: (
+        Annotated[RunId, Field(ge=RunId(-9223372036854775808), le=RunId(9223372036854775807))]
+        | None
+    )
+    max_bytes: Annotated[int, Field(ge=-9223372036854775808, le=9223372036854775807)]
+
+
+_read_characterization_product_function = func.ops.read_characterization_product(
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("product_key", type_=Text()),
+    bindparam("content_digest", type_=Text()),
+    bindparam("kind", type_=Text()),
+    bindparam("run_id", type_=BigInteger()),
+    bindparam("max_bytes", type_=BigInteger()),
+    type_=JSONB(),
+)
+_read_characterization_product_statement = select(_read_characterization_product_function)
+
+
+def prepare_read_characterization_product(
+    *,
+    task_id: int,
+    product_key: str,
+    content_digest: str,
+    kind: str,
+    run_id: RunId | None,
+    max_bytes: int,
+    projection_context: PreparedRelease | None = None,
+) -> Select[JsonValue]:
+    _request = _read_characterization_productRequest(
+        task_id=task_id,
+        product_key=product_key,
+        content_digest=content_digest,
+        kind=kind,
+        run_id=run_id,
+        max_bytes=max_bytes,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "read_characterization",
+            "read_characterization_product",
+            READ_CHARACTERIZATION_PRODUCT_CONTRACT_DIGEST,
+        )
+    return cast(
+        Select[JsonValue],
+        _read_characterization_product_statement.params(
+            **{
+                "task_id": _request.task_id,
+                "product_key": _request.product_key,
+                "content_digest": _request.content_digest,
+                "kind": _request.kind,
+                "run_id": _request.run_id,
+                "max_bytes": _request.max_bytes,
+            }
+        ),
+    )
+
+
+_read_characterization_product_adapter = TypeAdapter(JsonValue)
+
+
+def materialize_read_characterization_product(row: tuple[JsonValue]) -> JsonValue:
+    with native_result_scope("read_characterization", "read_characterization_product", "result"):
+        checked = _read_characterization_product_adapter.validate_python(row[0], strict=True)
+        return checked
+
+
+def read_characterization_product(
+    conn: Connection,
+    *,
+    task_id: int,
+    product_key: str,
+    content_digest: str,
+    kind: str,
+    run_id: RunId | None,
+    max_bytes: int,
+    projection_context: PreparedRelease | None = None,
+) -> JsonValue:
+    _statement = prepare_read_characterization_product(
+        task_id=task_id,
+        product_key=product_key,
+        content_digest=content_digest,
+        kind=kind,
+        run_id=run_id,
+        max_bytes=max_bytes,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("read_characterization", "read_characterization_product"):
+        row = _native_result.one()
+        return materialize_read_characterization_product(row)
+
+
+READ_CHARACTERIZATION_MEMBERSHIPS_CONTRACT_DIGEST = (
+    "f83a280c282297559765ac3d31dd62b259b4d4d01bad0f2f6db25e03338bfd8e"
+)
+
+
+class _read_characterization_membershipsRequest(OperationResult):
+    task_id: Annotated[int, Field(ge=-9223372036854775808, le=9223372036854775807)]
+    product_key: str
+    content_digest: str
+    groups: JsonValue
+    run_id: (
+        Annotated[RunId, Field(ge=RunId(-9223372036854775808), le=RunId(9223372036854775807))]
+        | None
+    )
+    after: JsonValue | None
+    layer_key: str | None
+    limit: Annotated[int, Field(ge=-9223372036854775808, le=9223372036854775807)]
+    max_bytes: Annotated[int, Field(ge=-9223372036854775808, le=9223372036854775807)]
+
+
+_read_characterization_memberships_function = func.ops.read_characterization_memberships(
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("product_key", type_=Text()),
+    bindparam("content_digest", type_=Text()),
+    bindparam("groups", type_=JSONB()),
+    bindparam("run_id", type_=BigInteger()),
+    bindparam("after", type_=JSONB(none_as_null=True)),
+    bindparam("layer_key", type_=Text()),
+    bindparam("limit", type_=BigInteger()),
+    bindparam("max_bytes", type_=BigInteger()),
+    type_=JSONB(),
+)
+_read_characterization_memberships_statement = select(_read_characterization_memberships_function)
+
+
+def prepare_read_characterization_memberships(
+    *,
+    task_id: int,
+    product_key: str,
+    content_digest: str,
+    groups: JsonValue,
+    run_id: RunId | None,
+    after: JsonValue | None,
+    layer_key: str | None,
+    limit: int,
+    max_bytes: int,
+    projection_context: PreparedRelease | None = None,
+) -> Select[JsonValue]:
+    _request = _read_characterization_membershipsRequest(
+        task_id=task_id,
+        product_key=product_key,
+        content_digest=content_digest,
+        groups=groups,
+        run_id=run_id,
+        after=after,
+        layer_key=layer_key,
+        limit=limit,
+        max_bytes=max_bytes,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "read_characterization",
+            "read_characterization_memberships",
+            READ_CHARACTERIZATION_MEMBERSHIPS_CONTRACT_DIGEST,
+        )
+    return cast(
+        Select[JsonValue],
+        _read_characterization_memberships_statement.params(
+            **{
+                "task_id": _request.task_id,
+                "product_key": _request.product_key,
+                "content_digest": _request.content_digest,
+                "groups": _request.groups,
+                "run_id": _request.run_id,
+                "after": _request.after,
+                "layer_key": _request.layer_key,
+                "limit": _request.limit,
+                "max_bytes": _request.max_bytes,
+            }
+        ),
+    )
+
+
+_read_characterization_memberships_adapter = TypeAdapter(JsonValue)
+
+
+def materialize_read_characterization_memberships(row: tuple[JsonValue]) -> JsonValue:
+    with native_result_scope(
+        "read_characterization", "read_characterization_memberships", "result"
+    ):
+        checked = _read_characterization_memberships_adapter.validate_python(row[0], strict=True)
+        return checked
+
+
+def read_characterization_memberships(
+    conn: Connection,
+    *,
+    task_id: int,
+    product_key: str,
+    content_digest: str,
+    groups: JsonValue,
+    run_id: RunId | None,
+    after: JsonValue | None,
+    layer_key: str | None,
+    limit: int,
+    max_bytes: int,
+    projection_context: PreparedRelease | None = None,
+) -> JsonValue:
+    _statement = prepare_read_characterization_memberships(
+        task_id=task_id,
+        product_key=product_key,
+        content_digest=content_digest,
+        groups=groups,
+        run_id=run_id,
+        after=after,
+        layer_key=layer_key,
+        limit=limit,
+        max_bytes=max_bytes,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("read_characterization", "read_characterization_memberships"):
+        row = _native_result.one()
+        return materialize_read_characterization_memberships(row)
+
+
+READ_CHARACTERIZATION_NODES_CONTRACT_DIGEST = (
+    "d9871a901983d50e5151430a6a8f3910c0cf3647bd7e84565dbf6099838d2c64"
+)
+
+
+class _read_characterization_nodesRequest(OperationResult):
+    task_id: Annotated[int, Field(ge=-9223372036854775808, le=9223372036854775807)]
+    product_key: str
+    content_digest: str
+    kind: str
+    selectors: JsonValue
+    run_id: (
+        Annotated[RunId, Field(ge=RunId(-9223372036854775808), le=RunId(9223372036854775807))]
+        | None
+    )
+    after: JsonValue | None
+    limit: Annotated[int, Field(ge=-9223372036854775808, le=9223372036854775807)]
+    max_bytes: Annotated[int, Field(ge=-9223372036854775808, le=9223372036854775807)]
+
+
+_read_characterization_nodes_function = func.ops.read_characterization_nodes(
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("product_key", type_=Text()),
+    bindparam("content_digest", type_=Text()),
+    bindparam("kind", type_=Text()),
+    bindparam("selectors", type_=JSONB()),
+    bindparam("run_id", type_=BigInteger()),
+    bindparam("after", type_=JSONB(none_as_null=True)),
+    bindparam("limit", type_=BigInteger()),
+    bindparam("max_bytes", type_=BigInteger()),
+    type_=JSONB(),
+)
+_read_characterization_nodes_statement = select(_read_characterization_nodes_function)
+
+
+def prepare_read_characterization_nodes(
+    *,
+    task_id: int,
+    product_key: str,
+    content_digest: str,
+    kind: str,
+    selectors: JsonValue,
+    run_id: RunId | None,
+    after: JsonValue | None,
+    limit: int,
+    max_bytes: int,
+    projection_context: PreparedRelease | None = None,
+) -> Select[JsonValue]:
+    _request = _read_characterization_nodesRequest(
+        task_id=task_id,
+        product_key=product_key,
+        content_digest=content_digest,
+        kind=kind,
+        selectors=selectors,
+        run_id=run_id,
+        after=after,
+        limit=limit,
+        max_bytes=max_bytes,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "read_characterization",
+            "read_characterization_nodes",
+            READ_CHARACTERIZATION_NODES_CONTRACT_DIGEST,
+        )
+    return cast(
+        Select[JsonValue],
+        _read_characterization_nodes_statement.params(
+            **{
+                "task_id": _request.task_id,
+                "product_key": _request.product_key,
+                "content_digest": _request.content_digest,
+                "kind": _request.kind,
+                "selectors": _request.selectors,
+                "run_id": _request.run_id,
+                "after": _request.after,
+                "limit": _request.limit,
+                "max_bytes": _request.max_bytes,
+            }
+        ),
+    )
+
+
+_read_characterization_nodes_adapter = TypeAdapter(JsonValue)
+
+
+def materialize_read_characterization_nodes(row: tuple[JsonValue]) -> JsonValue:
+    with native_result_scope("read_characterization", "read_characterization_nodes", "result"):
+        checked = _read_characterization_nodes_adapter.validate_python(row[0], strict=True)
+        return checked
+
+
+def read_characterization_nodes(
+    conn: Connection,
+    *,
+    task_id: int,
+    product_key: str,
+    content_digest: str,
+    kind: str,
+    selectors: JsonValue,
+    run_id: RunId | None,
+    after: JsonValue | None,
+    limit: int,
+    max_bytes: int,
+    projection_context: PreparedRelease | None = None,
+) -> JsonValue:
+    _statement = prepare_read_characterization_nodes(
+        task_id=task_id,
+        product_key=product_key,
+        content_digest=content_digest,
+        kind=kind,
+        selectors=selectors,
+        run_id=run_id,
+        after=after,
+        limit=limit,
+        max_bytes=max_bytes,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("read_characterization", "read_characterization_nodes"):
+        row = _native_result.one()
+        return materialize_read_characterization_nodes(row)
+
+
+CALL_CONTRACT_DIGEST = "34c3d19fd413a9099a12fd8b64be6e1d6a626f9836972207392b64db5972030e"

@@ -5,6 +5,7 @@ imports:
 - native_adapters
 - pdf_products
 - operation_reports
+- characterization
 description: Trusted execution companion types. These are definitions, not domain-extractable
   corpus classes.
 prefixes:

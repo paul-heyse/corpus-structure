@@ -1,0 +1,492 @@
+id: https://corpus-structure.dev/semantic/characterization
+name: semantic_characterization
+prefixes:
+  cstc: https://corpus-structure.dev/semantic/characterization/
+  xsd: http://www.w3.org/2001/XMLSchema#
+default_prefix: cstc
+default_range: string
+classes:
+  CharacterizationProductReference:
+    is_a: SourceRecordProduct
+    attributes:
+      task_id:
+        required: true
+        range: integer
+        minimum_value: 1
+      product_key: &id001
+        required: true
+        pattern: ^.+$
+      content_digest: &id002
+        required: true
+        pattern: ^[0-9a-f]{64}$
+  CharacterizationQualifiedReference:
+    is_a: SourceRecordProduct
+    attributes:
+      layer:
+        range: CharacterizationProductReference
+        inlined: true
+        required: true
+      local_id: *id001
+  CharacterizationSourceSelector:
+    is_a: SourceRecordProduct
+    attributes:
+      projection: *id001
+      native_pointer: {}
+      page:
+        range: integer
+        minimum_value: 1
+      start:
+        range: integer
+        minimum_value: 0
+      end:
+        range: integer
+        minimum_value: 0
+  CharacterizationSourceViewPin:
+    is_a: SourceRecordProduct
+    attributes:
+      source_view_id:
+        required: true
+        range: integer
+        minimum_value: 1
+      key: *id001
+      base_document:
+        range: CharacterizationProductReference
+        inlined: true
+        required: true
+      section_pointer: *id001
+      membership:
+        required: true
+        pattern: ^(direct|descendants)$
+      projection_digest: *id002
+      recipe_digest: *id002
+  CharacterizationSourceScope:
+    is_a: SourceRecordProduct
+    attributes:
+      source_view_ids:
+        range: integer
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+      source_views:
+        range: CharacterizationSourceViewPin
+        inlined: true
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+      profile: *id001
+      selectors:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+  CharacterizationOperation:
+    is_a: SourceRecordProduct
+    attributes:
+      key: *id001
+      version: *id001
+      runtime: *id001
+      model: *id001
+      grammar: *id001
+      configuration: *id001
+      input: *id001
+      context: *id001
+      produced_families:
+        range: string
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+      required_layers:
+        range: CharacterizationProductReference
+        inlined: true
+        multivalued: true
+      preconditions:
+        range: string
+        multivalued: true
+      effects:
+        range: string
+        multivalued: true
+      result_determinants:
+        range: string
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+      outcomes:
+        range: string
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+        pattern: ^(complete|partial|failed)$
+  CharacterizationExtent:
+    is_a: SourceRecordProduct
+    attributes:
+      projection: *id001
+      source_view_id:
+        required: true
+        range: integer
+        minimum_value: 1
+      native_pointer: *id001
+      page:
+        range: integer
+        minimum_value: 1
+      start:
+        range: integer
+        minimum_value: 0
+      end:
+        range: integer
+        minimum_value: 0
+      text: {}
+      synthetic:
+        required: true
+        range: boolean
+  CharacterizationSourceOccurrence:
+    is_a: SourceRecordProduct
+    attributes:
+      local_id: *id002
+      extents:
+        range: CharacterizationExtent
+        inlined: true
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+  CharacterizationScore:
+    is_a: SourceRecordProduct
+    attributes:
+      scheme: *id001
+      value:
+        required: true
+        range: SourceMeasurementValue
+        inlined: true
+      meaning: *id001
+  CharacterizationAnnotation:
+    is_a: SourceRecordProduct
+    attributes:
+      local_id: *id001
+      kind: *id001
+      vocabulary: *id001
+      occurrences:
+        range: string
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+      native_scheme: {}
+      native_label: {}
+      status:
+        required: true
+        pattern: ^(native_evidence|interpreted|unknown|private_proposal)$
+      premises:
+        range: string
+        multivalued: true
+      rule_id: {}
+      scores:
+        range: CharacterizationScore
+        inlined: true
+        multivalued: true
+      provenance:
+        range: string
+        multivalued: true
+      external_premises:
+        range: CharacterizationQualifiedReference
+        inlined: true
+        multivalued: true
+      family:
+        required: true
+        pattern: ^\S+$
+  CharacterizationMembership:
+    is_a: SourceRecordProduct
+    attributes:
+      local_id: *id001
+      group: *id001
+      member: *id001
+      role: *id001
+      order:
+        range: integer
+        minimum_value: 0
+      occurrences:
+        range: string
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+      premises:
+        range: string
+        multivalued: true
+      scope: *id001
+      structural:
+        required: true
+        range: boolean
+      family:
+        required: true
+        pattern: ^\S+$
+      external_premises:
+        range: CharacterizationQualifiedReference
+        inlined: true
+        multivalued: true
+  CharacterizationAttachmentBasis:
+    is_a: SourceRecordProduct
+    attributes:
+      kind:
+        required: true
+        pattern: ^(native_prediction|released_construction|contextual_proposal)$
+      status:
+        required: true
+        pattern: ^(recorded|witnessed|private_proposal)$
+      rule_id: {}
+      premises:
+        range: string
+        multivalued: true
+      native_scheme: {}
+      native_label: {}
+      choice_refs:
+        range: string
+        multivalued: true
+      external_premises:
+        range: CharacterizationQualifiedReference
+        inlined: true
+        multivalued: true
+  CharacterizationNativeBasis:
+    is_a: CharacterizationAttachmentBasis
+    attributes:
+      kind:
+        required: true
+        equals_string: native_prediction
+      status:
+        required: true
+        equals_string: recorded
+      native_scheme: *id001
+      native_label: *id001
+  CharacterizationConstructionBasis:
+    is_a: CharacterizationAttachmentBasis
+    attributes:
+      kind:
+        required: true
+        equals_string: released_construction
+      status:
+        required: true
+        equals_string: witnessed
+      rule_id: *id001
+  CharacterizationProposalBasis:
+    is_a: CharacterizationAttachmentBasis
+    attributes:
+      kind:
+        required: true
+        equals_string: contextual_proposal
+      status:
+        required: true
+        equals_string: private_proposal
+  CharacterizationRole:
+    is_a: SourceRecordProduct
+    attributes:
+      local_id: *id001
+      owner: *id001
+      member: *id001
+      role: *id001
+      scheme: *id001
+      occurrences:
+        range: string
+        multivalued: true
+      basis:
+        range: CharacterizationAttachmentBasis
+        inlined: true
+        required: true
+      scores:
+        range: CharacterizationScore
+        inlined: true
+        multivalued: true
+      provenance:
+        range: string
+        multivalued: true
+      family:
+        required: true
+        pattern: ^\S+$
+  CharacterizationTermEdge:
+    is_a: SourceRecordProduct
+    attributes:
+      role: *id001
+      target: *id001
+      structural:
+        required: true
+        range: boolean
+      order:
+        range: integer
+        minimum_value: 0
+  CharacterizationTerm:
+    is_a: SourceRecordProduct
+    attributes:
+      local_id: *id001
+      kind:
+        required: true
+        pattern: ^(predicate|participant|operator|binder|attribution|clause_relation|unknown)$
+      vocabulary: *id001
+      value: *id001
+      status:
+        required: true
+        pattern: ^(interpreted|unknown|implicit|private_proposal)$
+      occurrences:
+        range: string
+        multivalued: true
+      children:
+        range: CharacterizationTermEdge
+        inlined: true
+        multivalued: true
+      required_choices:
+        range: string
+        multivalued: true
+      premises:
+        range: string
+        multivalued: true
+      scores:
+        range: CharacterizationScore
+        inlined: true
+        multivalued: true
+      provenance:
+        range: string
+        multivalued: true
+      family:
+        required: true
+        pattern: ^\S+$
+      external_premises:
+        range: CharacterizationQualifiedReference
+        inlined: true
+        multivalued: true
+  CharacterizationChoiceMember:
+    is_a: SourceRecordProduct
+    attributes:
+      local_id: *id001
+      root: *id001
+      required_choices:
+        range: string
+        multivalued: true
+      premises:
+        range: string
+        multivalued: true
+      scores:
+        range: CharacterizationScore
+        inlined: true
+        multivalued: true
+      external_premises:
+        range: CharacterizationQualifiedReference
+        inlined: true
+        multivalued: true
+  CharacterizationChoiceGroup:
+    is_a: SourceRecordProduct
+    attributes:
+      local_id: *id001
+      compatibility:
+        required: true
+        pattern: ^(exclusive|compatible|unknown)$
+      members:
+        range: CharacterizationChoiceMember
+        inlined: true
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+      family:
+        required: true
+        pattern: ^\S+$
+  CharacterizationFamilyCoverage:
+    is_a: SourceRecordProduct
+    attributes:
+      family: *id001
+      operation: *id001
+      eligible:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+      examined:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+      unexamined:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+      availability:
+        required: true
+        pattern: ^(available|unknown|unsupported|unavailable)$
+      outcome:
+        required: true
+        pattern: ^(complete|empty|partial|failed|unknown|unsupported)$
+      reason: {}
+      profile: *id001
+  AnnotationLayer:
+    is_a: SourceRecordProduct
+    attributes:
+      format:
+        required: true
+        equals_string: characterization-layer-v1
+      base_document:
+        range: CharacterizationProductReference
+        inlined: true
+        required: true
+      release_id: *id001
+      operation:
+        range: CharacterizationOperation
+        inlined: true
+        required: true
+      source_scope:
+        range: CharacterizationSourceScope
+        inlined: true
+        required: true
+      outcome:
+        required: true
+        pattern: ^(complete|partial|failed)$
+      dependencies:
+        range: CharacterizationProductReference
+        inlined: true
+        multivalued: true
+      occurrences:
+        range: CharacterizationSourceOccurrence
+        inlined: true
+        multivalued: true
+      annotations:
+        range: CharacterizationAnnotation
+        inlined: true
+        multivalued: true
+      memberships:
+        range: CharacterizationMembership
+        inlined: true
+        multivalued: true
+      roles:
+        range: CharacterizationRole
+        inlined: true
+        multivalued: true
+      terms:
+        range: CharacterizationTerm
+        inlined: true
+        multivalued: true
+      choices:
+        range: CharacterizationChoiceGroup
+        inlined: true
+        multivalued: true
+      coverage:
+        range: CharacterizationFamilyCoverage
+        inlined: true
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+  EnrichedDocumentView:
+    is_a: SourceRecordProduct
+    attributes:
+      format:
+        required: true
+        equals_string: enriched-document-view-v1
+      base_document:
+        range: CharacterizationProductReference
+        inlined: true
+        required: true
+      release_id: *id001
+      source_scope:
+        range: CharacterizationSourceScope
+        inlined: true
+        required: true
+      layers:
+        range: CharacterizationProductReference
+        inlined: true
+        multivalued: true
+      profile: *id001
+      coverage:
+        range: CharacterizationFamilyCoverage
+        inlined: true
+        multivalued: true
+imports:
+- observations

@@ -1461,6 +1461,19 @@ class PublishedPdfReader:
         """
         if self.product_kind() != "integrated":
             raise ValueError("integrated JSON export requires an integrated product")
+        return self._write_complete_json(
+            sink, binding=binding, export_profile="pdf-integrated-record-export-v2"
+        )
+
+    def write_complete_json(self, sink: BinaryIO, *, binding=None) -> PdfExportReceipt:
+        """Stream a complete native or integrated document and every retained companion."""
+        if self.product_kind() not in {"native", "integrated"}:
+            raise ValueError("complete JSON export requires a document product")
+        return self._write_complete_json(
+            sink, binding=binding, export_profile="pdf-complete-record-export-v1"
+        )
+
+    def _write_complete_json(self, sink: BinaryIO, *, binding, export_profile) -> PdfExportReceipt:
         digest, size = sha256(), 0
 
         def write(chunk):
@@ -1480,9 +1493,13 @@ class PublishedPdfReader:
             return encoded
 
         write(
-            b'{"export_profile":"pdf-integrated-record-export-v2","binding":'
+            b'{"export_profile":'
+            + encode(export_profile)
+            + b',"binding":'
             + encode(binding or {})
-            + b',"product":{"version":2,"kind":"integrated","product_key":'
+            + b',"product":{"version":2,"kind":'
+            + encode(self.product_kind())
+            + b',"product_key":'
             + encode(self.reference.product_key)
             + b',"logical_digest":'
             + encode(self.reference.content_digest)

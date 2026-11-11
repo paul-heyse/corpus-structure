@@ -12,6 +12,7 @@ imports:
 - linkml:types
 - pdf-records
 - pdf-staging
+- characterization-physical
 default_range: string
 subsets:
   sem: {}

@@ -690,3 +690,31 @@ def test_candidate_summary_retains_historical_identity_without_current_deploymen
     assert body["acquired_target"] == identity.model_dump(mode="json")
     assert body["selection"]["standing"] == "configuration_unavailable"
     assert body["selection"]["reason"] == "current deployment profile is not configured"
+
+
+def test_effects_omit_large_comparison_inventories(model_results):
+    preview = _preview().model_copy(
+        update={
+            "comparison": {
+                "changes": [
+                    {"kind": "added", "model_ref": f"Type{i}", "detail": "x" * 100000}
+                    for i in range(12)
+                ],
+                "baseline": {"payload": "y" * 100000},
+                "revised": {"payload": "z" * 100000},
+            }
+        }
+    )
+    preview_id, _ = _publish(
+        model_results, "model.preview", "preview", preview.model_dump_json().encode()
+    )
+    effects = _inspect(preview_id, "--view", "effects", "--json")
+    assert effects.exit_code == 0, effects.output
+    body = json.loads(effects.stdout)
+    assert body["comparison_status"] == "available"
+    assert body["comparison"]["total_changes"] == 12
+    assert body["comparison"]["truncated"] is True
+    assert body["comparison"]["changes"] == [
+        {"kind": "added", "model_ref": f"Type{i}"} for i in range(8)
+    ]
+    assert len(effects.stdout) < 8192

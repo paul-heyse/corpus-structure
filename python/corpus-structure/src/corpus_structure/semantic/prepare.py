@@ -197,6 +197,16 @@ def _inspect(value: Any, location: str, profile: PreparationProfile | None = Non
                     _fail("unsupported_construct", f"{location}/{key}", str(key), "unsupported")
         for key, item in value.items():
             child = f"{location}/{key}"
+            named_definition = parts[-1] in {
+                "classes",
+                "slots",
+                "attributes",
+                "slot_usage",
+                "enums",
+                "types",
+                "permissible_values",
+                "unique_keys",
+            }
             if (
                 key == "rules"
                 and parent == "classes"
@@ -205,9 +215,9 @@ def _inspect(value: Any, location: str, profile: PreparationProfile | None = Non
             ):
                 inspect_rule_declarations(item, child)
                 continue
-            if key in _UNSUPPORTED and item:
+            if not named_definition and key in _UNSUPPORTED and item:
                 _fail("unsupported_construct", child, f"{key} is outside semantic-1", "unsupported")
-            if key == "annotations":
+            if key == "annotations" and not named_definition:
                 if item and parent not in {"slots", "attributes", "slot_usage", "classes"}:
                     _fail(
                         "unsupported_annotation_placement",
@@ -1172,6 +1182,11 @@ def _prepare_release_uncached(
     if execution is not None:
         artifacts.append(PreparedArtifact("execution/contracts.json", execution.content))
         rows += (RegistryRow("execution_model", execution.model_id, execution.content),)
+    from .characterization import compile_attachment_policies
+
+    attachment_policy = compile_attachment_policies(definitions)
+    if attachment_policy is not None:
+        artifacts.append(attachment_policy)
     from .query_compatibility import prepare_query_bindings
 
     query_products = prepare_query_bindings(dependencies)

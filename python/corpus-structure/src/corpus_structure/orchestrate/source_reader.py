@@ -61,6 +61,29 @@ class ScopedSourceReader:
     def pdf_contract(self):
         return self._read(lambda reader: reader.pdf_contract())
 
+    def characterization_release(self, release_id):
+        return self._read(lambda reader: reader.characterization_release(release_id))
+
+    def characterization_view(self, reference):
+        return self._read(lambda reader: reader.characterization_view(reference))
+
+    def characterization_memberships(
+        self, reference, groups, *, after=None, layer_key=None, limit=100, max_bytes=1_048_576
+    ):
+        return self._read(
+            lambda reader: reader.characterization_memberships(
+                reference,
+                groups,
+                after=after,
+                layer_key=layer_key,
+                limit=limit,
+                max_bytes=max_bytes,
+            )
+        )
+
+    def characterization_layers(self, references):
+        return self._read(lambda reader: reader.characterization_layers(references))
+
     def source_views(self):
         return self._read(lambda reader: reader.source_views())
 

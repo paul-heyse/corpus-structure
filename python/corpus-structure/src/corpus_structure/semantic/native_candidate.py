@@ -1170,11 +1170,66 @@ def series_native_definitions(connection, *, include_selected=True):
                 else (),
             )
         )
+    characterization_sql = (
+        Path(__file__).with_name("sql").joinpath("characterization.sql").read_text()
+    )
+    for name, grants in (
+        ("validate_characterization_selector", ()),
+        ("validate_characterization_scope", ()),
+        ("validate_characterization", ()),
+        ("publish_characterization", (("corpus_sem_writer", "EXECUTE", False),)),
+        (
+            "read_characterization_product",
+            tuple(
+                (role, "EXECUTE", False)
+                for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
+            ),
+        ),
+        (
+            "read_characterization_nodes",
+            tuple(
+                (role, "EXECUTE", False)
+                for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
+            ),
+        ),
+        (
+            "read_characterization_memberships",
+            tuple(
+                (role, "EXECUTE", False)
+                for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
+            ),
+        ),
+    ):
+        definitions.append(
+            _task_call_definition(
+                connection,
+                characterization_sql,
+                name=name,
+                source="characterization:forward",
+                grants=grants,
+            )
+        )
     from .record_projection import RECORD_ROW_TYPES
 
     # Accepted record rows and origin assignments are append-only, like existing
     # public semantic content. The guard joins the same managed native lifecycle.
     for relation in (
+        "ops.characterization_product",
+        *(
+            "kb.characterization_" + name
+            for name in (
+                "occurrence",
+                "annotation",
+                "membership",
+                "role",
+                "term",
+                "choice",
+                "coverage",
+                "extent",
+                "term_edge",
+                "choice_member",
+            )
+        ),
         "sem.runtime_binding",
         "data.local_assertion",
         "data.local_semantic_assertion",

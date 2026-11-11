@@ -65,13 +65,18 @@ def prepare_source_inputs(
     *,
     metric_content: bytes | None = None,
     model_content: bytes | None = None,
+    characterization_content: bytes | None = None,
 ):
     """Explicitly acquire source-report schema and metric definitions before pure preparation."""
+    from .characterization import characterization_inputs
     from .metrics import observation_dependencies
     from .types import ResolvedDependencies
 
     return (
-        observation_inputs(bundle, model_content=model_content),
+        characterization_inputs(
+            observation_inputs(bundle, model_content=model_content),
+            model_content=characterization_content,
+        ),
         observation_dependencies(
             ResolvedDependencies() if dependencies is None else dependencies, metric_content
         ),
@@ -188,6 +193,9 @@ def bind_result(
     Base-schema construction remains pure; every current effect owner separately requires the
     composed execution binding and its method dimensions before publication.
     """
+    if result.characterization_layer is not None or result.characterization_view is not None:
+        raise ValueError("characterization products require protected characterization completion")
+
     from .operation_results import validate_method_dimension
 
     if prepared.execution_model_id is not None:

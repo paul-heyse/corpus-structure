@@ -612,3 +612,22 @@ def test_native_hydration_cannot_invent_whole_document_scope():
 
     with pytest.raises(ValueError, match="scope is absent"):
         Missing(native()).native_product_values()
+
+
+def test_complete_export_supports_native_document_and_preserves_companions():
+    class Native(NativeRows):
+        def product_kind(self):
+            return "native"
+
+        def iter_companions(self, family):
+            if family == "request_outcome":
+                yield {"state": "failed", "primary": True}
+
+    sink = io.BytesIO()
+    receipt = Native(native()).write_complete_json(sink, binding={"selection": "exact"})
+    exported = json.loads(sink.getvalue())
+    assert exported["export_profile"] == "pdf-complete-record-export-v1"
+    assert exported["product"]["kind"] == "native"
+    assert exported["product"]["content"] == native()
+    assert exported["product"]["request_outcomes"] == [{"state": "failed", "primary": True}]
+    assert receipt.serialization_sha256 == sha256(sink.getvalue()).hexdigest()

@@ -206,3 +206,21 @@ def test_text_display_focuses_long_changed_line_and_marks_bounds():
     bounded = retained_text_changes(sql_change("many.sql", old, new))
     assert bounded["truncated"] is True
     assert isinstance(bounded["items"], list) and len(bounded["items"]) == 8
+
+
+def test_small_sql_page_is_not_blocked_by_full_semantic_impact():
+    impact = {
+        "changes": [
+            {"kind": "added", "model_ref": f"Type{i}", "detail": "x" * 100000} for i in range(12)
+        ],
+        "inventory": {"unrelated": "y" * 200000},
+    }
+    explanation = ModelChangeExplanation(
+        source_basis="retained", changes=(sql_change("new.sql", None, "SELECT 1"),), impact=impact
+    )
+    page = explanation_page(explanation, "candidate", limit=1)
+    assert page.items[0]["identity"] == "new.sql"
+    assert page.impact is not None
+    assert page.impact["total_changes"] == 12 and page.impact["truncated"] is True
+    assert len(page.model_dump_json().encode()) < 8192
+    assert explanation.impact == impact

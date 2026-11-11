@@ -426,6 +426,21 @@ def retained_text_changes(change: SQLChangeFact) -> dict[str, JsonValue]:
     )
 
 
+def comparison_summary(comparison):
+    """Keep detail inventories in their retained owner, with explicit display coverage."""
+    if comparison is None:
+        return None
+    changes = comparison.get("changes", ())
+    return {
+        "total_changes": len(changes),
+        "changes": [
+            {key: str(item.get(key, ""))[:256] for key in ("kind", "model_ref")}
+            for item in changes[:8]
+        ],
+        "truncated": len(changes) > 8,
+    }
+
+
 def explanation_page(
     explanation: ModelChangeExplanation, result_id: str, *, after: int = 0, limit: int = 20
 ):
@@ -456,7 +471,7 @@ def explanation_page(
         total=len(explanation.changes),
         items=tuple(items),
         diagnostics=explanation.diagnostics,
-        impact=explanation.impact,
+        impact=comparison_summary(explanation.impact),
         native_observation=explanation.native_observation,
         next_after=after + len(items) if after + len(items) < len(explanation.changes) else None,
     )

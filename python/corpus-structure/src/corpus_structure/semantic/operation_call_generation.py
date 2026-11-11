@@ -1186,7 +1186,11 @@ def render_operation_calls(model, metadata=None):
                 f"        require_call_context(projection_context, {operation!r}, "
                 f"{name!r}, {name.upper()}_CONTRACT_DIGEST)",
             ]
-        needs_cast = call.result_mode == "table" and (len(call.result_fields) > 9)
+        needs_cast = (call.result_mode == "table" and len(call.result_fields) > 9) or (
+            call.result_mode == "scalar"
+            and call.result_fields[0].resolved.kind == "json_payload"
+            and not json_text
+        )
         prefix = f"cast(Select[{', '.join(native_types)}], " if needs_cast else ""
         out += [f"    return {prefix}_{name}_statement.params(**{{"]
         out += [f"        {f.name!r}: _request.{f.name}," for f in call.parameters]

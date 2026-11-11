@@ -11,6 +11,9 @@ def prepare_operation_scenario(
     engine: Engine,
     *,
     observations: bool = False,
+    characterization: bool = False,
+    characterization_model: bytes | None = None,
+    realization_id: str = "z",
     archive: bool = False,
     composed: bool = True,
     evaluation: bool = False,
@@ -63,6 +66,10 @@ classes:
             ),
         )
         bundle = observation_inputs(bundle)
+    if characterization:
+        from corpus_structure.semantic.characterization import characterization_inputs
+
+        bundle = characterization_inputs(bundle, model_content=characterization_model)
     from corpus_structure.semantic.types import ResolvedDependencies
 
     dependencies = ResolvedDependencies()
@@ -131,10 +138,12 @@ classes:
     p = prepare_release(bundle, dependencies, profile)
     with engine.begin() as c:
         persist_release(c, bundle, dependencies, profile, p)
-        c.execute(insert(table("data.project")).values(project_id="p"))
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+        c.execute(pg_insert(table("data.project")).values(project_id="p").on_conflict_do_nothing())
         c.execute(
             insert(table("data.realization")).values(
-                realization_id="z", release_id=p.release_id, project_id="p"
+                realization_id=realization_id, release_id=p.release_id, project_id="p"
             )
         )
     return p

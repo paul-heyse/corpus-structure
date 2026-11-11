@@ -1,10 +1,12 @@
 # Enriched-document model and retained products
 
-**Proposed · 2026-11-10.** Owns TC-01/02 design. [Coordinator](../text-characterization_2026-11-10.md)
+**Implemented source; acceptance incomplete; stopped at operator request · 2026-11-10.** Owns TC-01/02 design. [Coordinator](../text-characterization_2026-11-10.md)
 owns execution state and O01/O03/O05 disposition. Inputs are current source, architecture, the
 [functional review](../../functional_reviews/text-characterization_2026-11-10.md#O03) and
 [representation mechanisms](../../library_leverage/libraries/text-characterization/representations-and-composition.md).
-All implementation and acceptance below are planned, not verified behavior.
+The coordinator's [stopped checkpoint and bulk continuation](../text-characterization_2026-11-10.md#stopped-checkpoint-and-bulk-continuation)
+owns current evidence, the unverified completion/fixture fixes and remaining native qualification.
+Later producer efficacy and full-book qualification remain separate scope.
 
 ## Foundation and selected realization
 
@@ -167,3 +169,73 @@ analytics; source capture stays reusable. A later topic grouping attaches identi
 across arbitrary source boundaries through the same view contract. A new provider supplies its
 native scheme and mappings, then the shared construction owner consumes that evidence explicitly.
 These scenarios justify the layer contract without requiring every future integration now.
+
+## Delivered foundation and integration boundary
+
+**Implemented · 2026-11-10; qualification is recorded by the coordinator.**
+The released declarations are `model/semantic/characterization.yaml`; the shared production
+validators/codecs are `semantic/characterization.py`. `LayerReport` and `EnrichedDocumentView`
+retain canonical immutable bytes and return fresh payload values. The operation records exact
+release/runtime/model/grammar/configuration/input/context determinants, declared outcomes and
+family coverage. Native scores reuse the existing typed measurement codec, including exact
+binary64 signed zero and exponent values. Semantic child edges compose a DAG; cyclic referential
+or discourse associations use distinct role/membership records.
+The entire characterization value family inherits the existing `SourceRecordProduct` boundary:
+its payload constraints are schema-only, and graph properties cannot range into these private types.
+
+The physical import `characterization-physical.yaml` declares canonical products and indexed
+occurrence/extents, annotation, membership, role, term/edge, choice/member and coverage projections.
+`semantic/characterization_store.py` owns protected publication and exact reads. The ordinary
+`UnitResult` completion bridge publishes these terminal products atomically under the existing
+attempt/holder fence. A characterization result cannot silently discard another terminal payload
+or cost report. Provider-specific cost custody must be integrated explicitly when those producers
+are implemented.
+
+`text.compose_view` version1 is registered as a deterministic document method. Its frozen
+configuration selects `characterization_base_document`, `characterization_source_scope`,
+`characterization_layers` and `characterization_profile`. It composes retained products without
+recognition; `source_only` is an explicitly weaker profile. Selected layers can have different
+source subsets under the same base. A view states which supported coverage it exposes; it cannot
+strengthen a layer's outcome. No full linguistic profile is implemented by naming a profile string.
+TC-03 onward must declare and execute their actual family inventories.
+
+Composition and dependency validation accept explicitly pinned layers from different releases
+under supported characterization-v1 contracts. Each layer is validated under its own archived
+release and rule authority; `validate_layer`, `validate_view` and their codecs accept an explicit
+`releases` map for that purpose. The view's release owns composition. This supports the planned
+TC-03→TC-05 transition when adding the first witnessed construction rule changes the semantic
+release: the original inference bytes, pin, operation and provenance remain unchanged. Missing
+contracts, incompatible formats, wrong source and malformed pins refuse. A tokenizer/model/input
+change changes the inference determinants and cannot masquerade as the original evidence pin.
+
+The shared inspection operation is `serve.characterization.inspect_characterization`; downstream
+readers also expose exact layers, views and bulk memberships. Annotation/term enumeration selects
+indexed rows before hydrating context. Membership queries retrieve every recorded fragment across
+continuations, retaining off-page flags. Selected source items and their ancestors accompany the
+analysis under the original base pin. Cursor identity binds the exact view and filters.
+An unrecorded member page remains explicitly unknown rather than being labelled outside a page.
+Native membership/node pages admit at most1000 rows and8MiB; canonical layer/view reports are capped at
+8MiB. A reading requires one exact layer/root and admits that layer within the caller's byte budget
+before projecting its supported DAG. Oversized requests refuse explicitly. These are supported
+bounds, not measured performance claims; natural source scopes supply the producer boundary.
+
+The CLI uses `ci source enriched RUN --producing-task TASK --product KEY --digest SHA` with
+`--view annotations|membership|terms|reading` and applicable selectors. MCP's
+`inspect_enriched_document` consumes the same domain operation. Reads perform no NLP inference.
+`ci review export` accepts an `enriched-document-review-v1` selection with `run_id`, `task_id`,
+`product_key` and `content_digest`; managed retry preserves the acquired database and exact view.
+`ci review verify` and `ci review inspect` dispatch by bundle format; inspection's `--request`
+accepts a bounded `CharacterizationRequest` for detached or managed bundles.
+
+The portable closure retains the complete native document and companions, exact layer/view pins,
+source projections/recipes, native identity proof and release-bound declaration/dependency inputs.
+Detached verification regenerates the archived contracts from those authenticated inputs and checks
+source pointers/pages/pieces, graph/choice closure and native/companion identity without a database
+or NLP inference. Complete source export uses the existing streaming record writer and publication
+owner. Whole-run completion is unnecessary for an exact sealed view.
+
+The default released construction-rule inventory is empty. A producer cannot gain witnessed
+attachment standing by supplying an arbitrary rule name and valid coordinates; TC-05/06 must add
+actual released mechanical support declarations. This foundation supplies representation and
+custody. It does not establish linguistic efficacy, implement providers, migrate existing
+language-producing consumers, select the project or qualify the full-book pipeline.

@@ -1,9 +1,9 @@
 # Enriched-document text characterization implementation series
 
-**Status: Proposed implementation series; authoring complete, execution not started · 2026-11-10.**
+**Status: Stopped at operator request; TC-00 complete, TC-01/02 acceptance incomplete · 2026-11-10.**
 This coordinator owns TC-00–TC-11, TC-I01–09, O01–O07 disposition and combined completion.
-Supporting plans own package design; this page owns current package state. No package is implemented
-or qualified by publishing this series.
+Supporting plans own package design; this page owns current package state. TC-03–11 and the
+conditional branches remain planned; foundation delivery does not qualify the assembled pipeline.
 
 ## Target and basis
 
@@ -115,13 +115,17 @@ inventory. Documents and graph nodes are not mandatory synchronization or proces
 
 ## Execution queue and current state
 
-All rows are **planned**, with functional implementation and qualification **not_run**.
+Execution baseline is `8318ff74a016c6f9e68b81a0607a41b309f33a78`, main,2026-11-10.
+The operator authorized TC-00–02 and selected the combined foundation focus for entry review.
+TC-00 is complete; TC-01 has targeted model evidence; TC-02 has deployed implementation and
+partial native evidence. Execution stopped at the operator's request to address remaining work
+in bulk. All later rows remain **planned**, qualification **not_run**.
 
 | Package | Required capability | Delivered behavior and closure |
 | --- | --- | --- |
-| <a id="TC-00"></a>TC-00 · Target authority | Approved implementation scope; relevant current owners | Record enriched-document authority/choice semantics through ADR and D1/D2/D3/D4/D6/D8 updates; required design/target review includes adjacent consumers. No production starts on an unaccepted boundary. |
-| [TC-01](text-characterization/model-and-retention.md#TC-01) | TC-00 decision | Executable document/layer/term/choice/coverage contracts and independent valid/invalid examples |
-| [TC-02](text-characterization/model-and-retention.md#TC-02) | TC-01 | Generated storage/publication, indexed membership, bounded combined reads, codecs and detached closure |
+| <a id="TC-00"></a>TC-00 · Target authority | Approved implementation scope; relevant current owners | **Complete:** [ADR-0081](../adr/0081-enriched-document-analysis-layers.md), D1/D2/D3/D4/D6/D8 authority and [entry review](../design_review/reviews/design_review_text-characterization-entry_2026-11-10.md) Accept scoped. No source/admission rule reversal. |
+| [TC-01](text-characterization/model-and-retention.md#TC-01) | TC-00 decision | **Implemented; integration qualification pending:** released contracts, exact source/analysis identity, private-product classification, DAG/choice/coverage validation, original-release closure and independent examples |
+| [TC-02](text-characterization/model-and-retention.md#TC-02) | TC-01 | **Implemented, acceptance incomplete:** protected native products/projections/completion, indexed reads, CLI/MCP, composition and detached closure. Latest native module: four passed, three failed; two fixes are implemented but unverified. See the stopped checkpoint. |
 | [TC-03](text-characterization/native-evidence.md#TC-03) | Working TC-02 input/layer contract | Source-aligned spaCy/HanLP evidence layers with faithful schemes and morphology |
 | [TC-04](text-characterization/native-evidence.md#TC-04) | Working TC-02 | Positioned formal constituents and opaque-atom correspondence, scientific assessment kept distinct |
 | [TC-05](text-characterization/constructions-and-interpretation.md#TC-05) | TC-03 plus early TC-04 positioned-input slice | Shared matcher/grammar constructions across all selected linguistic families |
@@ -131,6 +135,76 @@ All rows are **planned**, with functional implementation and qualification **not
 | [TC-09](text-characterization/consumer-migration-and-integration.md#TC-09) | Required primary layers available | Actual consumers/admission/ingest/export use combined views; duplicated language production retired |
 | [TC-10](text-characterization/assessment-and-investigations.md#TC-10) | TC-01 semantics; delivered producers for execution | Independent source/output assessment and faithful native/retained controls |
 | <a id="TC-11"></a>TC-11 · Assembled qualification | TC-01–10 and selected conditional outcomes | Working native full-profile pipeline, full-book coverage account, named semantic assessments, current-only cutover and complete required check union |
+
+## Stopped checkpoint and bulk continuation
+
+**2026-11-10 · operator-requested stop.** All agent edits are in the shared `main` checkout;
+there are no parallel worktrees. No background test remains. This is an implementation checkpoint,
+not TC-01/02 completion or assembled-pipeline qualification.
+
+The representation preserves the full native document and separately identified layers, source
+occurrences, memberships, roles, terms, choices and family outcomes. The entire value family uses
+the existing private `SourceRecordProduct` boundary. Canonical scores retain exact numeric values;
+semantic children form a DAG. Released witnessed rules remain fail-closed until declared.
+Each selected layer retains its own release, bytes, pin and provenance; composition validates
+participating layers under their original archived contracts. This is necessary for TC-03 native
+evidence to remain usable when TC-05 introduces a new released construction rule. It is not a
+general upcaster or historical-code execution framework. Existing source-selection guards remain
+intact: the two-release native fixture legitimately completes R1 before selecting its SourceView
+into R2, while a separate control covers reads from an unfinished run.
+
+Development is at **`semantic_tc02_reachability`**, with
+`release:c921ad244b60d4e79556a9042f102936a6d58c853c9c14f9c902c30bbfaca0e2` archived and admitted.
+Deployment `b7f9e471e81644fe85769cdd12069d09` and subsequent native correspondence checks passed.
+The frozen `foundation → products → guards → cross_release → reachability` migrations remain;
+do not rewrite or delete them. The first deployment's admission failure and all subsequent
+corrections retain their actual effects and outcomes in the
+[native evidence](../design_review/evidence/2026-11-10_text-characterization-native/README.md).
+No release activation, run promotion, project selection, NLP invocation or full-book run occurred.
+
+| Evidence / command | Outcome and scope |
+| --- | --- |
+| `uv run ci test --json -- python/corpus-structure/tests/semantic/test_characterization.py` · `6aa79d64479e4f608f33b6c87e0419cd` | **passed**,35 model cases, including original-release authority, source/pin/format refusals and unchanged evidence reuse |
+| `uv run ci test --json -- python/corpus-structure/tests/methods/test_characterization_composition.py python/corpus-structure/tests/semantic/test_characterization_replay.py` · `abcf7a3130e64a31982f18aac223e0f2` | **passed**,28 composition/replay cases, including authenticated per-release contracts |
+| `uv run ci test --json -- python/corpus-structure/tests/semantic/test_characterization_native.py` · `3f98a01daa9b4059ad066da42ca6c2f7` | **failed**,seven selected: four passed, three failed. Passing controls cover protected publication/refusal, packed diamond DAG/cycle refusal, and unfinished-run capture with live/detached pagination and real page3/4 membership |
+| `uv run ci test retry 3f98a01daa9b4059ad066da42ca6c2f7 --lane ordinary --json` · `0a008697b02d4616b51f71a57133536f` | **interrupted**,three selected; canceled and drained to exit130 at the operator's stop. It verifies neither pending correction |
+| `uv run ci check --only types --view steps --json` · `a7a9d8f8de66406a84cc6ac1016c5e8f` | **passed** at the prior source endpoint, before the final receipt/fixture corrections |
+| `uv run ci check --only lint --view steps --json` · `03aae453519147f0ac76423bc24a963b` | **passed** at the prior source endpoint; final corrections still need their applicable checks |
+| `uv run ci docs check --json` · `7f42cbca4b54472e8a0bced214cc8339` | **passed**,869 canonical pages and zero link errors for the stopped checkpoint; documentation evidence only |
+| `just turn-end` | **passed** at handoff; formatting/ADR maintenance does not verify the pending product corrections |
+| `uv run ci test` and `uv run ci check` | **not_run** for completed TC-00–02 scope; the required integrated union remains open |
+
+The three unresolved native paths and existing corrections are:
+
+| Native test | Observed failure | Implemented correction and remaining evidence |
+| --- | --- | --- |
+| `test_native_composition_source_only_and_indexed_keyset_pages` | Strict `CompletionResult.receipt.observation_ids` expected a tuple but received the native JSON array | `PreparedUnitCompletion.apply` now uses canonical JSON validation; **unverified** |
+| `test_native_joint_layer_and_view_completion_uses_producing_layer` | Same strict receipt conversion; the prior unpublished-current-layer preload issue is also corrected in source | Exercise the complete atomic layer/view completion path on final source; **unverified** |
+| `test_native_new_rule_release_reuses_original_native_layer_and_detached_contract` | R1 finalized successfully; R2 fixture reused global realization id `z` | Test helper accepts an explicit realization id and R2 uses `z-new-rule`; full new-rule/view/capture continuation **unverified** |
+
+Resume as one coherent repair and qualification package:
+
+1. Inspect the three paths together with their shared completion, fixture, release and capture
+   consumers. Finish the required source corrections before another verification/deployment cycle;
+   the current fixes are not acceptance evidence.
+2. Run the complete seven-case native module alongside the directly affected model, completion,
+   composition and replay suites at a coherent endpoint. Preserve the failed and interrupted
+   originals; account for the complete required selection rather than only successful retries.
+3. If a native guard genuinely needs changing, collect the related corrections and author one
+   supported forward candidate from the actual `semantic_tc02_reachability` head. Preserve frozen
+   migrations and original evidence. Python/fixture-only corrections do not require native DDL.
+4. After functional scope passes, run root maintenance and the applicable full `uv run ci test`
+   and `uv run ci check` routes; account for final source/context and required native obligations.
+   Record documentation checks separately. No NLP-provider efficacy or full-book claim follows.
+5. Reconcile TC-01/02 acceptance here, then hand off to the later planned packages. O01/O03/O05
+   retain their wider TC-03/06/09 obligations; foundation qualification alone does not close them.
+
+The independent source review found and resolved source/selector qualification, release-bound
+replay contracts, indexed selection, term-cycle bypass and original-release authority issues.
+Its final cross-release follow-up identified joint completion's unpublished-layer preload;
+source now seeds that producing layer before view validation. Static assessment is not the
+pending native functional result. CLI effects/SQL inspection were also repaired to return bounded
+comparison summaries instead of embedding full semantic inventories; focused checks passed.
 
 ## Review disposition
 

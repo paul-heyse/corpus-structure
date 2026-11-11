@@ -489,7 +489,8 @@ def _effects_view(report: PreviewEffectsReport) -> Table:
             for item in changes[:8]
             if isinstance(item, dict)
         ]
-        impact = "\n".join((f"{len(changes)} declared changes", *visible))
+        count = (report.comparison or {}).get("total_changes", len(changes))
+        impact = "\n".join((f"{count} declared changes", *visible))
     routes = report.effects.get("routes")
     route_summary = (
         "\n".join(f"{kind} → {route}" for kind, route in list(routes.items())[:8])
@@ -515,6 +516,13 @@ def _effects_view(report: PreviewEffectsReport) -> Table:
         ("Dependency", "available" if report.dependency_available else "unavailable"),
         *_guidance_fields(report),
     )
+
+
+def _comparison_summary(comparison):
+    """Effects expose decision metadata; SQL and discovery own detailed inventories."""
+    from corpus_structure.schema.model_explanation import comparison_summary
+
+    return comparison_summary(comparison)
 
 
 def _patch_view(report: PreviewPatchReport) -> Group:
@@ -700,7 +708,7 @@ def inspect_preview(
                 else "not_applicable"
                 if staged.effects.release == "not_applicable"
                 else "unavailable",
-                comparison=staged.comparison,
+                comparison=_comparison_summary(staged.comparison),
                 discovery_status=discovery_status,
                 dependency_available=dependency_available,
                 **_preview_guidance(ctx, staged, preview_id, dependency_available).model_dump(),

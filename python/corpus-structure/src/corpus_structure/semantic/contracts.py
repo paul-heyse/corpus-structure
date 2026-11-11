@@ -40,6 +40,7 @@ _READABLE_EXECUTION_COMPILERS = frozenset({"24", "25", "26", "27", EXECUTION_COM
 # to the separately archived runtime binding and must never determine semantic release identity.
 SEMANTIC_IMPLEMENTATION_NAMES = frozenset(
     {
+        "characterization/model.yaml",
         "capture/companion-projection-model.yaml",
         "capture/operation-report-schemas.json",
         "pdf/payload-model.yaml",
@@ -129,6 +130,10 @@ def semantic_implementation_inputs(
 
 
 POSTGRESQL_IMPLEMENTATION_SOURCES = (
+    ("characterization/model.yaml", "model/semantic/characterization.yaml"),
+    ("characterization/model.py", "semantic/characterization.py"),
+    ("characterization/store.py", "semantic/characterization_store.py"),
+    ("characterization/native.sql", "semantic/sql/characterization.sql"),
     ("capture/companion-projection-model.yaml", "model/semantic/companion-projections.yaml"),
     ("capture/companion-projection.py", "semantic/companion_projection.py"),
     ("capture/projection-recipe.py", "semantic/projection_recipe.py"),
@@ -294,6 +299,7 @@ def approved_implementations() -> Mapping[str, Any]:
     from . import (
         analytics,
         arrow_publication,
+        characterization_store,
         consolidation,
         continuations,
         contribution_queries,
@@ -374,6 +380,8 @@ def approved_implementations() -> Mapping[str, Any]:
             "enrich_pdf_math": EnrichPdfMath.run,
             "organize_pdf": organize,
             "project_pdf_source": project_section,
+            "publish_characterization": characterization_store.publish_layer,
+            "read_characterization": characterization_store.read_view,
             "publish_source_view": source_views.store_source_view,
             "read_source_view": source_views.load_source_view,
             "read_native_source": source_views.read_native_source,
@@ -1094,6 +1102,7 @@ def trusted_execution_schema() -> SourceBundle:
             SourceArtifact("native_adapters", root.joinpath("native-adapters.yaml").read_bytes()),
             SourceArtifact("pdf_products", root.joinpath("pdf-products.yaml").read_bytes()),
             SourceArtifact("observations", root.joinpath("observations.yaml").read_bytes()),
+            SourceArtifact("characterization", root.joinpath("characterization.yaml").read_bytes()),
             SourceArtifact(
                 "operation_reports", root.joinpath("operation-reports.yaml").read_bytes()
             ),

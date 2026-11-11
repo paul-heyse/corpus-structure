@@ -1,4 +1,7 @@
-"""Qualified immutable product identity shared by PDF producers and consumers."""
+"""Qualified immutable product identity shared by producers and consumers.
+
+The owning product reader enforces its kind; this triple carries identity only.
+"""
 
 from dataclasses import dataclass
 from typing import Any

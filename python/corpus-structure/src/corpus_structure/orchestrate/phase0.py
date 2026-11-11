@@ -32,6 +32,7 @@ from corpus_structure.core.vocab import (
 )
 from corpus_structure.ingest import methods as ingest_methods
 from corpus_structure.methods.artifact_identity import ArtifactIdentityMethod
+from corpus_structure.methods.characterization import ComposeViewMethod
 from corpus_structure.methods.clause_classification import ClauseClassificationMethod
 from corpus_structure.methods.contextual_candidates import ContextualCandidatesWithNamedBindings
 from corpus_structure.methods.definition_applicability import (
@@ -133,6 +134,7 @@ METHODS: tuple[Any, ...] = (
     ConsolidateMethod(),
     RulesMethod(),
     EvaluateStub(),
+    ComposeViewMethod(),
 )
 
 
