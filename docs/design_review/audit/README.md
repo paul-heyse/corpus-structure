@@ -584,6 +584,22 @@ exact live revision verification. Local preview also specifies one
 publishing command at a time.
 [Publication decision](../../adr/0071-github-pages-publication.md) · [Release runbook](../../publishing.md#github-release)
 
+## Text-characterization producer reconciliation
+
+**Interface-checked, 2026-11-10.** Source `6c50a847fa4da2864c98a569d5cf97da8e7ab9c0`,
+clean at inspection. The foundation supplies released layer/view contracts, protected canonical
+publication and original-release dependency validation; source existence does not establish
+qualification. The bounded inspection covers native annotation retention, formal input/position
+handling, choice validation, reading projection, attachment policies and predicate-role SQL.
+
+The central annotation contract needs typed native/formal payloads. External premise citations
+do not encode required upstream choices. Ordinary child traversal cannot represent packed choice
+sites without expanding parent combinations. Basis-schema authentication alone does not enforce
+witness endpoint relationships. These are extension gaps for TC-03–09, rather than retroactive
+failures of the narrower source-only foundation. The producer target review owns correction
+reasoning; the TC coordinator owns scheduled disposition. No whole-system, provider-quality or
+test-architecture refresh is claimed. Tests and probes: **not_run** for this static reconciliation.
+
 ## Inherited audit baselines
 
 The November 5 broad inspection used `bc2208f9d6a12d3ad9cf71575fa1c6df388d885b`
