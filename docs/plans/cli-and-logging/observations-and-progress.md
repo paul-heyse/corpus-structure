@@ -1,6 +1,6 @@
 # Owned observations, correlation and progress
 
-**Delivery target, 2026-11-10.** [Coordinator completion audit](../cli-and-logging_2026-11-10.md#completion-audit)
+**Delivered contract, 2026-11-10.** [Coordinator final acceptance](../cli-and-logging_2026-11-10.md#final-acceptance)
 owns CLD-01/06/07/08 and relevant CLD-09 decisions. This plan develops O05/06 and supports O04/07/08.
 
 ## CLD-01 / I01 — One bounded journal, distinct live reads
@@ -105,13 +105,16 @@ wrapper linking their semantic run. Native run creation/completion/cancellation 
 the wrapper reports its invocation and known acquired bindings without absorbing task authority.
 Keep present direct correction retention choice intact. Do not retain every log call by default.
 
-The completion audit identifies two remaining producer integrations. CLD-CA02 covers unexpected
-retained schema defects, whose current diagnostic scope does not enable this exception product.
-CLD-CA03 covers ordinary initial regeneration: source execution currently precedes publication of
-the committed native run association. Persist exact run/project/release beside the existing
-acquired storage binding before source effects, retaining native failure/cancellation authority.
-Do not infer authoritative association later from method observations. The successful regeneration
-and manually pre-bound provider controls do not exercise failure/interruption at this boundary.
+CLD-CA02 enables the distinct typed exception product for unexpected retained schema defects,
+while expected refusals retain their existing validation owner. CLD-CA03 completes ordinary initial
+regeneration under ADR-0080: a frozen one-shot SourceRunCreated notification carries actual
+run/project/release after native commit and supervisor adoption, inside both cleanup regions and
+before graph selection. Its optional callback leaves native resource/settlement authority intact.
+The CLI persists those bindings beside acquired storage and enters bound context in its own
+ExitStack across source work. Ordinary diagnostic binding failure is isolated; BaseException still
+reaches native cleanup. Actual initial-source failure/interruption and independent native queries
+exercise this boundary. Association is never inferred from method rows, and the notification
+does not promise atomicity across native and managed stores. Qualification remains coordinator-owned.
 
 Children never append to the parent journal. Pass a named bounded safe spool path in the existing
 explicit child environment; one writer per child process serializes tool threads. Parent drains

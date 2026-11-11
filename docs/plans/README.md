@@ -6,7 +6,7 @@ semantic pivot series was added on 2026-10-29:
 
 | Plan | Owns |
 |---|---|
-| [Agent CLI and diagnostics](cli-and-logging_2026-11-10.md) | Completion audit found five remaining accepted consumer obligations, CLD-CA01–05. Existing5992-identity coverage remains supported; implementation and whole-series qualification precede PM2 return. Coordinator owns current package/finding disposition. |
+| [Agent CLI and diagnostics](cli-and-logging_2026-11-10.md) | Completed CLD-00–10 and completion-repair obligations CLD-CA01–05; final6033-identity functional/native/provider union and repository checks passed at frozen product source. Coordinator retains current disposition, original audit findings and preserved failed receipts. PM2 retains its effects and next execution. |
 | [Integrated domain-data-model capabilities](domain-data-model_2026-11-10.md) | Proposed DMC-00–17 and DMC-I01–09: full November10 functional-review scope, bounded branch decisions and selected delivery across authoring, archives, terminology, measurements, diagnostics and independent consumers. Execution follows completed PTD-11 and precedes PM2. |
 | [design-phase](design-phase_2026-10-28.md) | Design findings and the disposition of OPEN items; the design queue |
 | [design-spikes series](design-spikes-s0-s1_2026-10-28.md) | Spike execution, spike evidence and its findings |

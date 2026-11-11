@@ -1,6 +1,6 @@
 # Attributed correction and retained replay
 
-**Delivery target, 2026-11-10.** [Coordinator completion audit](../cli-and-logging_2026-11-10.md#completion-audit)
+**Delivered contract, 2026-11-10.** [Coordinator final acceptance](../cli-and-logging_2026-11-10.md#final-acceptance)
 owns CLD-05 and the presentation part of CLD-09; O04/07/08 are the source opportunities.
 
 ## Reuse delivered DMC meaning and custody
@@ -66,12 +66,14 @@ Typed expected refusals continue through existing report owners. Cancellation is
 not another validation category. The safe exception product is useful even without retained raw
 traceback objects; do not pickle exceptions or reconstruct them by rerunning the producer.
 
-The completion audit identifies two remaining actual schema boundaries. CLD-CA01 requires optional
-diagnostic publication failure after successful pack compile/check or released check to preserve
-the successful report, requested output and outcome while disclosing unavailable custody.
-CLD-CA02 requires unexpected retained schema defects to reach the distinct typed exception
-product rather than the generic validation-report fallback. Existing original-refusal isolation
-and standalone exception-renderer controls do not exercise those producer boundaries.
+CLD-CA01 completes optional diagnostic isolation after successful pack compile/check and released
+check: publication failure preserves the report, requested output and outcome while disclosing
+unavailable custody. Shared expected-refusal classification keeps validation with its existing
+owner, including secondary report-compilation failure. CLD-CA02 connects unexpected retained schema
+defects to the distinct typed exception product, preserving the original exception and outcome.
+Actual retained-route controls independently inspect group/cause/notes/frame content without
+producer execution; native traversal bounds and explicit omitted subtrees keep missing detail
+honest. The coordinator owns the scoped and integrated qualification for both boundaries.
 [Exception transformer26.1](https://www.structlog.org/en/26.1.0/api.html#structlog.tracebacks.ExceptionDictTransformer).
 
 Final machine results remain on stdout, diagnostics on stderr, MCP stdout protocol-only. Reuse
