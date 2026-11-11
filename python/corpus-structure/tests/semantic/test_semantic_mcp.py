@@ -85,6 +85,9 @@ classes:
         dependencies, fixture_execution_inputs("pdf.controlled-source")
     )
     profile = PreparationProfile(version="semantic-2")
+    from corpus_structure.semantic.characterization import characterization_inputs
+
+    bundle = characterization_inputs(bundle)
     prepared = prepare_release(bundle, dependencies, profile)
     with semantic_db_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, prepared)
@@ -141,7 +144,12 @@ classes:
         original=original,
         paragraphs=(text,),
     )
+    from .primary_native_support import bind_primary_agent_run
+
     with engine.begin() as conn:
+        run, configuration = bind_primary_agent_run(
+            conn, run, prepared, (view.ref.id,), configuration, method=producer_method
+        )
         locator = view.ref.key
         (agent_task,) = queue_agent(
             conn,

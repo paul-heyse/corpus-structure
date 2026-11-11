@@ -1,6 +1,5 @@
 """Publish neutral linguistic evidence and separate interpretations on the same source."""
 
-import re
 from bisect import bisect_right
 from collections import defaultdict
 from collections.abc import Callable, Mapping
@@ -18,10 +17,9 @@ from corpus_structure.semantic.contributions import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.source_contexts import ContextRefused, evidence_anchor
-from corpus_structure.semantic.structural_parsing import parse_threshold
 from corpus_structure.semantic.types import PreparedRelease
 
-from .predicate_frames import interpretation_recipe, source_layout
+from .predicate_frames import source_layout
 
 PREDICATE_QUALIFIER_CLASS = "PredicateQualifierComponent"
 MISSING_QUALIFIER = "Predicate qualifier declaration is missing from the selected release."
@@ -67,65 +65,133 @@ def predicate_results(frame, annotations, source_pieces, items):
     )
 
 
-def _numeric_condition(cue_variant, text, recipe):
-    marker, _, expression = text.strip(" \t\r\n").partition(" ")
-    if marker.lower() != cue_variant or cue_variant not in recipe["condition_markers"]:
-        return None
-    number = recipe["number_pattern"]
-    match = re.fullmatch(
-        rf"[ \t\r\n]*({number})[ \t]+(>=|<=|>|<|=|≥|≤)[ \t\r\n]*({number})[ \t\r\n]*",
-        expression,
-    )
-    if match is None:
-        return None
-    left, operator, right = match.groups()
-    parsed = parse_threshold(f"{operator} {right}")
-    if parsed is None:
-        return None
-    comparison = dict(
-        kind="compare",
-        relation=recipe["comparators"][operator],
-        lhs=dict(kind="expression", language="text", expression=left, form="formula"),
-        rhs=dict(kind="expression", language="text", expression=parsed["value"], form="formula"),
-    )
-    return dict(kind="not", term=comparison) if cue_variant == "unless" else comparison
-
-
-def _condition(kind, cue_variant, text, *, contiguous, version="3"):
+def _condition(
+    kind,
+    formal_operator,
+    text,
+    *,
+    contiguous,
+    layers=(),
+    projection=None,
+    extents=(),
+    marker_extents=(),
+):
+    """Lower only already-retained positioned numeric syntax; never parse cue text."""
     if kind not in {"condition", "assumption"}:
-        return None
-    if version in {"4", "5"}:
-        recipe = interpretation_recipe()
-        formal = _numeric_condition(cue_variant, text, recipe) if contiguous else None
-        return formal or dict(kind="escape", text=text, reason=recipe["escape_reason"])
-    # Formal lowering needs operands that carry their own meaning. A bare symbol
-    # or unit needs a separate source binding. The located text remains usable.
-    marker, _, expression = text.strip().partition(" ")
-    if contiguous and cue_variant in {"if", "when", "unless"} and marker.lower() == cue_variant:
-        left, separator, right = expression.strip().partition(" ")
-        parsed = parse_threshold(right) if separator and left else None
-        if (
-            parsed is not None
-            and parsed["quantity"] is None
-            and parsed["unit"] is None
-            and parse_threshold("= " + left) is not None
-        ):
-
-            def number(value):
-                return dict(kind="expression", language="text", expression=value, form="formula")
-
-            comparison = dict(
-                kind="compare",
-                relation=parsed["comparator"],
-                lhs=number(left),
-                rhs=number(parsed["value"]),
-            )
-            return dict(kind="not", term=comparison) if marker.lower() == "unless" else comparison
-    return dict(
+        return None, []
+    escaped = dict(
         kind="escape",
         text=text,
         reason="Located qualifier retained without a supported formal interpretation.",
     )
+    if not contiguous or formal_operator not in {"compare", "not_compare"} or len(extents) != 1:
+        return escaped, []
+    start, end = extents[0]
+    values = {}
+    conflicted = False
+    for pin, report in layers.items() if hasattr(layers, "items") else ():
+        body = report.payload
+        occurrences = {o["local_id"]: o for o in body["occurrences"]}
+        for annotation in body["annotations"]:
+            normalized = annotation.get("formal", {}).get("normalized")
+            if (
+                not normalized
+                or normalized["kind"] not in {"decimal", "comparator"}
+                or normalized["domain_status"] not in {"valid", "not_requested"}
+            ):
+                continue
+            spans = [e for oid in annotation["occurrences"] for e in occurrences[oid]["extents"]]
+            if len(spans) != 1:
+                continue
+            span = spans[0]
+            if (
+                span["projection"] == projection
+                and start <= span.get("start", -1) < span.get("end", end + 1) <= end
+            ):
+                key = span["start"], span["end"], normalized["kind"]
+                if key in values and values[key][0] != normalized["value"]:
+                    conflicted = True
+                if key not in values or annotation["kind"] == "formal.token":
+                    values[key] = (
+                        normalized["value"],
+                        dict(layer=pin.values(), local_id=annotation["local_id"]),
+                    )
+    ordered = sorted(
+        (a, b, kind, value, reference) for (a, b, kind), (value, reference) in values.items()
+    )
+    if (
+        conflicted
+        or len(ordered) != 3
+        or [value[2] for value in ordered] != ["decimal", "comparator", "decimal"]
+    ):
+        return escaped, []
+    covered = sorted([(a, b) for a, b, *_ in ordered] + list(marker_extents))
+    position = start
+    for left, right in covered:
+        if (
+            not start <= left < right <= end
+            or left < position
+            or text[position - start : left - start].strip()
+        ):
+            return escaped, []
+        position = right
+    if text[position - start :].strip():
+        return escaped, []
+    comparison = dict(
+        kind="compare",
+        relation=ordered[1][3],
+        lhs=dict(kind="expression", language="text", expression=ordered[0][3], form="formula"),
+        rhs=dict(kind="expression", language="text", expression=ordered[2][3], form="formula"),
+    )
+    return (
+        dict(kind="not", term=comparison) if formal_operator == "not_compare" else comparison
+    ), [row[4] for row in ordered]
+
+
+def _primary_choices(annotation, reference):
+    if reference is None:
+        raise ValueError("domain projection requires exact retained primary node identity")
+    report = annotation.primary_layers[reference.layer]
+    body = report.payload
+    row = next(
+        (
+            row
+            for name in ("annotations", "terms", "roles", "memberships")
+            for row in body[name]
+            if row["local_id"] == reference.local_id
+        ),
+        None,
+    )
+    if row is None:
+        raise ValueError("domain projection references absent primary node")
+    return tuple(
+        dict(layer=reference.layer.values(), local_id=value)
+        for value in row.get("required_choices", ())
+    ) + tuple(row.get("required_external_choices", ()))
+
+
+def _primary_host(annotation, cue, target):
+    from corpus_structure.semantic.characterization import annotation_reference
+
+    if (
+        cue.primary_ref is None
+        or target.primary_ref is None
+        or cue.primary_ref.layer != target.primary_ref.layer
+    ):
+        raise ValueError(
+            "qualifier requires retained cue and host under one exact primary relation"
+        )
+    pin = cue.primary_ref.layer
+    relations = [
+        row
+        for row in annotation.primary_layers[pin].payload["roles"]
+        if row["owner"] == cue.primary_ref.local_id
+        and row["member"] == target.primary_ref.local_id
+        and row["role"] in {"host", "cross_block_host"}
+    ]
+    if len(relations) != 1:
+        raise ValueError("qualifier has no unique actual primary host relation")
+    return annotation_reference(pin, relations[0]["local_id"])
 
 
 def publish_predicate_evidence(
@@ -140,7 +206,7 @@ def publish_predicate_evidence(
     products,
     coordinates,
     *,
-    version="2",
+    version="6",
     qualifier_preflight: QualifierPreflight | None = None,
 ):
     """Bind each role to exact native pieces before constructing frame/attachment identities."""
@@ -148,7 +214,7 @@ def publish_predicate_evidence(
 
     from .predicate_cross_block import CrossBlockTarget, cross_block_qualifiers
 
-    if version not in {"2", "3", "4", "5"}:
+    if version != "6":
         raise ValueError("unknown predicate contribution recipe")
     native = json.loads(frame.native_context)
     pieces = tuple(piece for piece in native["pieces"] if piece["kind"] == "native_text")
@@ -368,6 +434,9 @@ def publish_predicate_evidence(
                 bases,
                 annotation=dep,
                 block=annotation.block_id,
+                primary_node=cue.primary_ref.values(),
+                primary_marker=cue.primary_marker_ref.values(),
+                primary_choices=_primary_choices(annotation, cue.primary_ref),
                 cue_kind=kind,
                 variant=cue.variant,
                 host_state=host_state,
@@ -388,15 +457,43 @@ def publish_predicate_evidence(
                 marker_extents=tuple(dict(start=a, end=b) for a, b in basis_extents),
             ),
         )
-        return key, kind, host_state, source_text, len(extents) == 1
+        return key, kind, host_state, source_text, len(extents) == 1, annotation, cue, extents
 
     def attach(selected, located, variant, target, bases, *, witness=None):
-        qualifier, kind, _, source_text, contiguous = located
+        (
+            qualifier,
+            kind,
+            _,
+            source_text,
+            contiguous,
+            source_annotation,
+            source_cue,
+            source_extents,
+        ) = located
         host, reading_id = target.frame, target.reading
-        lowered = _condition(kind, variant, source_text, contiguous=contiguous, version=version)
+        primary_body = source_annotation.primary_layers[source_cue.primary_ref.layer].payload
+        primary_terms = {node["local_id"]: node for node in primary_body["terms"]}
+        cue_node = primary_terms[source_cue.primary_ref.local_id]
+        operators = [
+            primary_terms[edge["target"]]["value"]
+            for edge in cue_node["children"]
+            if edge["role"] == "formal_condition_operator" and "target" in edge
+        ]
+        lowered, condition_parts = _condition(
+            kind,
+            operators[0] if len(operators) == 1 else None,
+            source_text,
+            contiguous=contiguous,
+            layers=source_annotation.primary_layers,
+            projection=source_annotation.source.projection_digest,
+            extents=source_extents,
+            marker_extents=source_cue.basis.extents,
+        )
         details: dict[str, Any] = {}
         if lowered is not None:
             details["condition"] = source_value(lowered)
+            if condition_parts:
+                details["primary_condition_parts"] = tuple(condition_parts)
             modality = {
                 "definition": "defined",
                 "assumption_restriction": "supposed",
@@ -428,6 +525,10 @@ def publish_predicate_evidence(
             qualifier_contribution_id=qualifier,
             host_contribution_id=host,
             qualifier_kind=kind,
+            primary_node=_primary_host(source_annotation, source_cue, target).values(),
+            primary_choices=_primary_choices(
+                source_annotation, _primary_host(source_annotation, source_cue, target)
+            ),
             **details,
         )
         # Local candidates stand alone. Cross-block cues have a protected
@@ -452,19 +553,6 @@ def publish_predicate_evidence(
 
     scoped_hosts = defaultdict(list)
     for annotation, result in results:
-        if version in {"3", "4", "5"} and result.frames:
-            from corpus_structure.ingest.annotation_views import annotation_view
-
-            from .predicate_frames import _frame_vocabulary
-            from .predicate_qualifier_recipes import local_qualifier_result
-
-            view = annotation_view(
-                annotation,
-                frame.text[annotation.block_start : annotation.block_end],
-                _frame_vocabulary(),
-                required=("DEP", "POS", "SENT_START"),
-            )
-            result = local_qualifier_result(view, result)
         dep = "annotation:" + annotation.dependency_digest
         bases = (dependency, dep)
         for selected in scope_for(annotation):
@@ -484,6 +572,7 @@ def publish_predicate_evidence(
                     head=None,
                     inherited=None,
                     state="complete",
+                    primary_ref=None,
                     *,
                     annotation=annotation,
                     selected=selected,
@@ -491,6 +580,10 @@ def publish_predicate_evidence(
                     dep=dep,
                     bases=bases,
                 ):
+                    if primary_ref is None:
+                        raise ValueError(
+                            "predicate member requires exact retained primary identity"
+                        )
                     extents, anchors, tokens = evidence(annotation, selected, span)
                     if not anchors:
                         return
@@ -516,6 +609,8 @@ def publish_predicate_evidence(
                                 ),
                             ),
                             role=role,
+                            primary_node=primary_ref.values(),
+                            primary_choices=_primary_choices(annotation, primary_ref),
                             token_indices=tokens,
                             extents=tuple(dict(start=a, end=b) for a, b in extents),
                             outcome=state if extents == span.extents else "partial",
@@ -524,8 +619,28 @@ def publish_predicate_evidence(
                         )
                     )
 
-                member("predicate", candidate.predicate, predicate_token)
-                member("focus", candidate.focus, predicate_token)
+                from corpus_structure.semantic.characterization import annotation_reference
+
+                primary_body = annotation.primary_layers[candidate.primary_ref.layer].payload
+                primary_term = next(
+                    t
+                    for t in primary_body["terms"]
+                    if t["local_id"] == candidate.primary_ref.local_id
+                )
+                primary_children = {
+                    edge["role"]: annotation_reference(candidate.primary_ref.layer, edge["target"])
+                    for edge in primary_term["children"]
+                    if "target" in edge
+                }
+                member(
+                    "predicate",
+                    candidate.predicate,
+                    predicate_token,
+                    primary_ref=primary_children["predicate"],
+                )
+                member(
+                    "focus", candidate.focus, predicate_token, primary_ref=primary_children["focus"]
+                )
                 for role in candidate.roles:
                     row_count = len(role_rows)
                     member(
@@ -536,8 +651,9 @@ def publish_predicate_evidence(
                         "unresolved"
                         if role.status == "unresolved"
                         else ("partial" if role.status == "partial" else "complete"),
+                        primary_ref=role.primary_ref,
                     )
-                    if version in {"4", "5"} and len(role_rows) == row_count:
+                    if version == "6" and len(role_rows) == row_count:
                         selected_tokens = any(
                             selected.start <= token.start < token.end <= selected.end
                             for token in (annotation.tokens[index] for index in role.span.tokens)
@@ -580,6 +696,8 @@ def publish_predicate_evidence(
                         bases,
                         annotation=dep,
                         block=annotation.block_id,
+                        primary_node=candidate.primary_ref.values(),
+                        primary_choices=_primary_choices(annotation, candidate.primary_ref),
                         predicate_token=predicate_token,
                         variant=candidate.variant,
                         grammatical_reading=candidate.reading,
@@ -611,6 +729,8 @@ def publish_predicate_evidence(
                         bases,
                         state,
                         frame=host,
+                        primary_node=candidate.primary_ref.values(),
+                        primary_choices=_primary_choices(annotation, candidate.primary_ref),
                         reading=interpretation,
                         voice=candidate.voice,
                         polarity=polarity,
@@ -623,14 +743,15 @@ def publish_predicate_evidence(
                     polarity,
                     annotation,
                     predicate_token,
+                    candidate.primary_ref,
                 )
-                if version in {"3", "4", "5"} and scope is not None:
+                if version == "6" and scope is not None:
                     scoped_hosts[selected].append(target)
                 for cue in candidate.cues:
                     located = cue_row(annotation, selected, cue, dep, bases)
                     if located is None:
                         continue
-                    _, kind, host_state, _, _ = located
+                    _, kind, host_state, *_ = located
                     if (
                         host_state != "located"
                         or predicate_token not in cue.hosts
@@ -639,7 +760,7 @@ def publish_predicate_evidence(
                         continue
                     attach(selected, located, cue.variant, target, bases)
 
-    if version in {"3", "4", "5"} and scope is not None:
+    if version == "6" and scope is not None:
         for selected in scope:
             for entry in cross_block_qualifiers(
                 frame,
@@ -701,6 +822,12 @@ def publish_predicate_evidence(
                     if annotation_origin_task_id is not None
                     else {}
                 ),
+                primary_layers=[
+                    pin.values()
+                    for pin in dict.fromkeys(
+                        pin for annotation, _ in results for pin in annotation.primary_layers
+                    )
+                ],
                 computation_dependencies=tuple(dict.fromkeys((dependency, *retained))),
             )
         )

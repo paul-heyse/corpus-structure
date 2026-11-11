@@ -58,7 +58,15 @@ def deploy_selected(engine):
 
 
 def publish_selected(
-    engine, build, directory, *, diagnostics=(), furniture=False, characterization_pages=False
+    engine,
+    build,
+    directory,
+    *,
+    diagnostics=(),
+    furniture=False,
+    characterization_pages=False,
+    empty_sections=False,
+    unprojected_formula=False,
 ):
     document = DoclingDocument(name="independently selected source")
     outside = document.add_text(label=DocItemLabel.TEXT, text="omitted sibling body")
@@ -73,6 +81,7 @@ def publish_selected(
     second_formula = document.add_text(
         label=DocItemLabel.FORMULA, text="x=1", orig="original B", parent=section
     )
+    formula_outcomes = [(formula.self_ref, "succeeded"), (second_formula.self_ref, "succeeded")]
     if characterization_pages:
         from docling_core.types.doc import BoundingBox, CoordOrigin, PageItem, ProvenanceItem, Size
 
@@ -104,6 +113,20 @@ def publish_selected(
         parent=section,
     )
     table.captions = [outside.get_ref(), outside.get_ref()]
+    if empty_sections:
+        document.add_group(label=GroupLabel.SECTION, name="Empty selected section", parent=chapter)
+        picture_section = document.add_group(
+            label=GroupLabel.SECTION, name="Image-only selected section", parent=chapter
+        )
+        document.add_picture(parent=picture_section)
+    if unprojected_formula:
+        formula_section = document.add_group(
+            label=GroupLabel.SECTION, name="Unprojected formula section", parent=chapter
+        )
+        unrecognized = document.add_text(
+            label=DocItemLabel.FORMULA, text="", orig="x+1", parent=formula_section
+        )
+        formula_outcomes.append((unrecognized.self_ref, "failed"))
     if furniture:
         footer = document.add_text(
             label=DocItemLabel.PAGE_FOOTER, text="Excluded native footer", parent=section
@@ -152,14 +175,14 @@ def publish_selected(
                 dict(
                     kind="formula_outcomes",
                     ordinal=index,
-                    value=dict(pointer=pointer, outcome="succeeded"),
+                    value=dict(pointer=pointer, outcome=outcome),
                 )
-                for index, pointer in enumerate(("#/texts/1", "#/texts/2"))
+                for index, (pointer, outcome) in enumerate(formula_outcomes)
             ]
             + [
                 dict(
                     kind="recognition_coverage",
-                    ordinal=2 + index,
+                    ordinal=len(formula_outcomes) + index,
                     value=dict(
                         section_pointer=pointer,
                         membership=membership,

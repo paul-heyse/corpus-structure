@@ -10,7 +10,138 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.methods.structural_products import compare_clauses
 from corpus_structure.semantic.structural_admission import structural_statement
 
-from .test_typed_structural_composition import read_clause, revision_inputs, threshold_inputs
+from .native_record_fixtures import private_source as private_source
+from .test_typed_structural_composition import revision_inputs, threshold_inputs
+
+_COMPARISON_LITERALS = (
+    ("Date: 2024-02-29", {"kind": "date", "value": "2024-02-29"}),
+    ("Date: 2026-02-29", None),
+    ("Identifier: Rule.R3", {"kind": "identifier", "value": "Rule.R3"}),
+    ("Quantity: +2.50e1 kg", {"kind": "quantity", "value": "25", "unit": "kg"}),
+    (
+        "Range: [1, 2) kg",
+        dict(kind="range", lower="1", upper="2", lower_closed=True, upper_closed=False, unit="kg"),
+    ),
+    (
+        "Range: (1, 2] kg",
+        dict(kind="range", lower="1", upper="2", lower_closed=False, upper_closed=True, unit="kg"),
+    ),
+    ("Range: (1, 1] kg", None),
+    ("Report dated 2024-02-29", None),
+    ("Quantity: 1e1000 kg", None),
+    ("Quantity: 1e1000000 kg", None),
+    ("Quantity: 1e100 kg", dict(kind="quantity", value="1" + "0" * 100, unit="kg")),
+    ("Quantity: 1e101 kg", None),
+    ("Quantity: 1e-100 kg", dict(kind="quantity", value="0." + "0" * 99 + "1", unit="kg")),
+    ("Quantity: 1e-101 kg", None),
+    ("Quantity: 1e-1000000 kg", None),
+    ("Quantity: -0e1000 kg", dict(kind="quantity", value="0", unit="kg")),
+    (
+        "Range: [1e-100, 1e100] kg",
+        dict(
+            kind="range",
+            lower="0." + "0" * 99 + "1",
+            upper="1" + "0" * 100,
+            lower_closed=True,
+            upper_closed=True,
+            unit="kg",
+        ),
+    ),
+    ("Range: [1e-101, 1] kg", None),
+    ("Range: [0, 1e101] kg", None),
+    ("Identifier: " + "A" * 244, dict(kind="identifier", value="A" * 244)),
+    ("Identifier: " + "A" * 245, None),
+)
+
+
+@pytest.fixture
+def private_source_options(request):
+    params = getattr(request.node, "callspec", None)
+    params = params.params if params is not None else {}
+    if "left" in params:
+        text = (params["left"], params["right"])
+    elif "connector" in params:
+        text = (
+            f"Clerk must file Form {params['connector']} Form if X > 5 kg. No exceptions.",
+            "Reviewer may file Form and Report if X > 7 kg.",
+        )
+    else:
+        text = tuple(spelling for spelling, _expected in _COMPARISON_LITERALS)
+    return dict(sibling_references=text)
+
+
+def _captured_comparison_inputs(case, inputs):
+    from corpus_structure.semantic.source_views import load_source_view
+
+    with case.writer.connect() as conn:
+        view = load_source_view(conn, case.other_view, analysis=False)
+    source = inputs.sources[0].model_copy(
+        update=dict(
+            project_id=case.project_id,
+            run_id=case.run,
+            release_id=case.prepared.release_id,
+            source_view_id=view.ref.id,
+            native_task_id=view.ref.native_product.task_id,
+            native_product_key=view.ref.native_product.product_key,
+            native_content_digest=view.ref.native_product.content_digest,
+            projection_digest=view.ref.projection_digest,
+            recipe_digest=view.ref.recipe_digest,
+        )
+    )
+    passages = tuple(
+        p.model_copy(
+            update=dict(
+                source_ref=source.identity,
+                start=view.text.index(p.text),
+                end=view.text.index(p.text) + len(p.text),
+            )
+        )
+        for p in inputs.passages
+    )
+    return inputs.model_copy(update=dict(sources=(source,), passages=passages)), view
+
+
+def _captured_formal_layers(view):
+    from corpus_structure.semantic.formal_evidence import build_formal_layer, grammar_identity
+
+    from .primary_formal_fixture import release
+
+    layer = build_formal_layer(
+        view,
+        release(),
+        dict(
+            key="text.formal_evidence",
+            version="1",
+            runtime="fixture",
+            model="none",
+            grammar=grammar_identity(),
+            configuration="fixture",
+            input="fixture",
+            context="source-only",
+        ),
+    )
+    return {layer.reference(1000 + view.ref.id): layer}
+
+
+def _primary_wire(layers):
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    return {canonical_bytes(pin.values()).decode(): layer.payload for pin, layer in layers.items()}
+
+
+def _captured_clause(passage, source, layers):
+    from corpus_structure.methods.structural_products import threshold_readings
+    from corpus_structure.semantic.structural_products import ClauseField, ClauseReading
+
+    fields = [
+        ClauseField(dimension=dimension, lexical_value=value, evidence=(passage.passage_id,))
+        for dimension, value in (("parent", passage.parent), ("version", passage.effective_version))
+        if value
+    ]
+    thresholds = threshold_readings(passage, source=source, primary_layers=layers)
+    if len(thresholds) == 1:
+        fields.extend(thresholds)
+    return ClauseReading(passage_id=passage.passage_id, fields=tuple(fields))
 
 
 @pytest.mark.parametrize(
@@ -47,28 +178,26 @@ from .test_typed_structural_composition import read_clause, revision_inputs, thr
         ("Manager must approve Table; Analyst may reject Form.", "Manager may review Table."),
     ],
 )
-def test_native_comparison_replays_same_source_route(semantic_db_engine, left, right):
+def test_native_comparison_replays_same_source_route(
+    semantic_db_engine, private_source, left, right
+):
     inputs = threshold_inputs(left, right)
     if "supersedes" in right:
         inputs = revision_inputs(left, right)
-    a, b = map(read_clause, inputs.passages)
-    expected = compare_clauses(inputs, left=a, right=b)
-    sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql"
+    inputs, view = _captured_comparison_inputs(private_source, inputs)
+    primary = _captured_formal_layers(view)
+    source = inputs.sources[0]
+    a, b = (_captured_clause(passage, source, primary) for passage in inputs.passages)
+    expected = compare_clauses(inputs, left=a, right=b, primary_layers=primary)
     with semantic_db_engine.connect() as conn, conn.begin():
-        conn.exec_driver_sql(
-            (sql / "structural_products.sql").read_text(), execution_options={"no_parameters": True}
-        )
-        conn.exec_driver_sql(
-            (sql / "structural_publication.sql").read_text(),
-            execution_options={"no_parameters": True},
-        )
         actual = conn.scalar(
             text("""SELECT ops.structural_compare_lexical(
                 CAST(:inputs AS jsonb),:left,:right,
-                CAST(:left_fields AS jsonb),CAST(:right_fields AS jsonb))
+                CAST(:left_fields AS jsonb),CAST(:right_fields AS jsonb),CAST(:primary AS jsonb))
             """),
             dict(
                 inputs=inputs.model_dump_json(),
+                primary=json.dumps({source.identity: _primary_wire(primary)}),
                 left=inputs.passages[0].passage_id,
                 right=inputs.passages[1].passage_id,
                 left_fields=json.dumps(
@@ -260,9 +389,8 @@ def test_native_representation_projects_only_selected_member_closure(semantic_db
 
 def test_native_note_scope_checks_the_whole_original_note(semantic_db_engine):
     from methods.test_m1_source_preparation import native_table_source, table_cell
-    from methods.test_scoped_relations import complete_native_fields
+    from methods.test_scoped_relations import complete_native_fields, discover_relations
 
-    from corpus_structure.methods.scoped_relations import discover_relations
     from corpus_structure.semantic.observations import source_python
     from corpus_structure.semantic.proposals import native_source_frame
 
@@ -278,7 +406,24 @@ def test_native_note_scope_checks_the_whole_original_note(semantic_db_engine):
             note=note_text,
         )
     )
-    rows = discover_relations(native_source_frame(view, ()))["contributions"]
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    output = discover_relations(native_source_frame(view, ()))
+    rows = output["contributions"]
+    layers = {
+        canonical_bytes(pin.values()).decode(): layer.payload
+        for pin, layer in output["_primary_layers"].items()
+    }
+    physical = dict(
+        id=view.ref.id,
+        key=view.ref.key,
+        native_task_id=view.ref.native_product.task_id,
+        native_product_key=view.ref.native_product.product_key,
+        native_content_digest=view.ref.native_product.content_digest,
+        projection_digest=view.ref.projection_digest,
+        recipe_digest=view.ref.recipe_digest,
+        projection=dict(text=view.text, pieces=view.pieces),
+    )
     note = next(r for r in rows if source_python(r["value"]).get("role") == "note")
     (anchor,) = note["anchors"]
     original = {item["self_ref"]: dict(item) for item in view.items}
@@ -290,7 +435,9 @@ def test_native_note_scope_checks_the_whole_original_note(semantic_db_engine):
         )
 
     replay = text(
-        "SELECT ops.validate_source_table_note_scope(NULL::kb.source_view,CAST(:rows AS jsonb))"
+        "SELECT ops.validate_source_table_note_scope("
+        "jsonb_populate_record(NULL::kb.source_view,CAST(:physical AS jsonb)),"
+        "CAST(:rows AS jsonb),CAST(:layers AS jsonb))"
     )
     with semantic_db_engine.connect() as conn, conn.begin():
         # Isolate the installed scope guard after the owned raw-item boundary.
@@ -309,7 +456,14 @@ def test_native_note_scope_checks_the_whole_original_note(semantic_db_engine):
             $$
         """)
         bind(conn, original)
-        conn.execute(replay, {"rows": json.dumps(rows)})
+        conn.execute(
+            replay,
+            {
+                "rows": json.dumps(rows),
+                "layers": json.dumps(layers),
+                "physical": json.dumps(physical),
+            },
+        )
 
         prefix = "Do not apply the following statement. "
         original[anchor["pointer"]]["text"] = prefix + note_text
@@ -319,7 +473,14 @@ def test_native_note_scope_checks_the_whole_original_note(semantic_db_engine):
             pytest.raises(DBAPIError, match="requires the whole original note"),
             conn.begin_nested(),
         ):
-            conn.execute(replay, {"rows": json.dumps(rows)})
+            conn.execute(
+                replay,
+                {
+                    "rows": json.dumps(rows),
+                    "layers": json.dumps(layers),
+                    "physical": json.dumps(physical),
+                },
+            )
 
 
 @pytest.mark.parametrize(
@@ -331,7 +492,7 @@ def test_native_note_scope_checks_the_whole_original_note(semantic_db_engine):
     ],
 )
 def test_retained_comparison_groups_exact_occurrences(
-    semantic_db_engine, connector, expected_group, expected_typed
+    semantic_db_engine, private_source, connector, expected_group, expected_typed
 ):
     from corpus_structure.methods.structural_products import read_retained_clause
     from corpus_structure.semantic.retained_contributions import RetainedContributionRef
@@ -340,6 +501,8 @@ def test_retained_comparison_groups_exact_occurrences(
         f"Clerk must file Form {connector} Form if X > 5 kg. No exceptions.",
         "Reviewer may file Form and Report if X > 7 kg.",
     )
+
+    inputs, view = _captured_comparison_inputs(private_source, inputs)
 
     def retained_side(passage, source):
         reference = RetainedContributionRef(
@@ -362,7 +525,7 @@ def test_retained_comparison_groups_exact_occurrences(
         }
 
         def extent(spelling, at=0):
-            start = passage.text.index(spelling, at)
+            start = passage.start + passage.text.index(spelling, max(0, at - passage.start))
             return {"start": start, "end": start + len(spelling)}
 
         first = extent("Form")
@@ -449,9 +612,12 @@ def test_retained_comparison_groups_exact_occurrences(
     rr, rrows = retained_side(right, rs)
     # Each comparison side has its own retained producer and original view.
     rr = rr.model_copy(update={"selected_task_id": 2, "origin_task_id": 2})
-    a = read_retained_clause(left, ls, lr, {"contributions": lrows})
-    b = read_retained_clause(right, rs, rr, {"contributions": rrows})
-    report = compare_clauses(inputs, left=a, right=b, left_reading=lr, right_reading=rr)
+    primary = _captured_formal_layers(view)
+    a = read_retained_clause(left, ls, lr, {"contributions": lrows}, primary_layers=primary)
+    b = read_retained_clause(right, rs, rr, {"contributions": rrows}, primary_layers=primary)
+    report = compare_clauses(
+        inputs, left=a, right=b, left_reading=lr, right_reading=rr, primary_layers=primary
+    )
     comparison = report.comparison
     assert comparison is not None
     object_ = comparison.dimensions[2]
@@ -471,28 +637,36 @@ def test_retained_comparison_groups_exact_occurrences(
         assert missing is not None and missing.state == "absent"
     exception = comparison.dimensions[6]
     assert exception.left_group is not None and exception.left_group.state == "empty"
-    assert exception.left_group.witnesses[0].text == "No exceptions."
+    # The primary fact witnesses the phrase; the original sentence terminator
+    # remains in the retained clause rather than enlarging the lexical marker.
+    (empty_span,) = exception.left_group.witnesses
+    empty_start = left.start + left.text.index("No exceptions")
+    assert (empty_span.start, empty_span.end, empty_span.text) == (
+        empty_start,
+        empty_start + len("No exceptions"),
+        "No exceptions",
+    )
+    (empty_ref,) = exception.left_group.primary_witnesses
+    empty_fact = next(
+        row
+        for row in primary[empty_ref.layer].payload["annotations"]
+        if row["local_id"] == empty_ref.local_id
+    )
+    assert empty_fact["kind"] == "formal.exception_empty" and empty_fact["native_label"] == "empty"
     assert exception.right_group is not None and exception.right_group.state == "absent"
 
-    sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql"
     with semantic_db_engine.connect() as conn, conn.begin():
-        conn.exec_driver_sql(
-            (sql / "structural_products.sql").read_text(), execution_options={"no_parameters": True}
-        )
-        conn.exec_driver_sql(
-            (sql / "structural_publication.sql").read_text(),
-            execution_options={"no_parameters": True},
-        )
         actual = conn.scalar(
             text("""SELECT ops.comparison_groups(
                 CAST(:passage AS jsonb),CAST(:source AS jsonb),
-                CAST(:ref AS jsonb),CAST(:rows AS jsonb))
+                CAST(:ref AS jsonb),CAST(:rows AS jsonb),CAST(:primary AS jsonb))
             """),
             dict(
                 passage=left.model_dump_json(),
                 source=ls.model_dump_json(),
                 ref=lr.model_dump_json(),
                 rows=json.dumps(lrows),
+                primary=json.dumps(_primary_wire(primary)),
             ),
         )
         assert actual == a.model_dump(mode="json", exclude_none=True)["groups"]
@@ -503,38 +677,35 @@ def test_retained_comparison_groups_exact_occurrences(
         assert public == structural_statement(report)
 
 
-def test_comparison_literals_are_bounded_and_agree_with_native(semantic_db_engine):
-    from corpus_structure.semantic.structural_parsing import parse_comparison_literal
+def test_comparison_literals_are_bounded_and_agree_with_native(semantic_db_engine, private_source):
+    from corpus_structure.methods.structural_products import _literal_reading
 
-    cases = (
-        ("Date: 2024-02-29", {"kind": "date", "value": "2024-02-29"}),
-        ("Date: 2026-02-29", None),
-        ("Identifier: Rule.R3", {"kind": "identifier", "value": "Rule.R3"}),
-        ("Quantity: +2.50e1 kg", {"kind": "quantity", "value": "25", "unit": "kg"}),
-        (
-            "Range: [1, 2) kg",
-            dict(
-                kind="range", lower="1", upper="2", lower_closed=True, upper_closed=False, unit="kg"
-            ),
-        ),
-        (
-            "Range: (1, 2] kg",
-            dict(
-                kind="range", lower="1", upper="2", lower_closed=False, upper_closed=True, unit="kg"
-            ),
-        ),
-        ("Range: (1, 1] kg", None),
-        ("Report dated 2024-02-29", None),
-        ("Quantity: 1e1000 kg", None),
-    )
-    sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql"
+    value = threshold_inputs(_COMPARISON_LITERALS[0][0], _COMPARISON_LITERALS[0][0])
+    value = value.model_copy(update=dict(passages=(value.passages[0],)))
+    inputs, view = _captured_comparison_inputs(private_source, value)
+    primary = _captured_formal_layers(view)
+    source = inputs.sources[0]
     with semantic_db_engine.connect() as conn, conn.begin():
-        conn.exec_driver_sql(
-            (sql / "structural_products.sql").read_text(), execution_options={"no_parameters": True}
-        )
-        for spelling, expected in cases:
-            assert parse_comparison_literal(spelling) == expected
-            assert (
-                conn.scalar(text("SELECT ops.comparison_literal(:value)"), {"value": spelling})
-                == expected
+        for spelling, expected in _COMPARISON_LITERALS:
+            start = view.text.index(spelling)
+            passage = inputs.passages[0].model_copy(
+                update=dict(text=spelling, start=start, end=start + len(spelling))
             )
+            literal, reference = _literal_reading(passage, source, primary)
+            assert (
+                literal.model_dump(mode="json", exclude_none=True) if literal else None
+            ) == expected
+            actual = conn.scalar(
+                text(
+                    "SELECT ops.comparison_literal(CAST(:passage AS jsonb),"
+                    "CAST(:source AS jsonb),CAST(:primary AS jsonb))"
+                ),
+                dict(
+                    passage=passage.model_dump_json(),
+                    source=source.model_dump_json(),
+                    primary=json.dumps(_primary_wire(primary)),
+                ),
+            )
+            assert actual.get("literal") == expected
+            if reference is not None:
+                assert actual["primary_formal"] == reference.values()

@@ -229,8 +229,9 @@ def test_nondefault_original_is_bound_and_selected_exactly(retained_input):
 def test_command_preflight_precedes_run_creation_and_narrows_corpus(
     monkeypatch, tmp_path, refuse, configuration
 ):
-    from corpus_structure.orchestrate import commands, m1, semantic
-    from corpus_structure.semantic import releases
+    from corpus_structure.orchestrate import characterization, commands, m1, semantic
+    from corpus_structure.semantic import characterization_store, query, releases
+    from corpus_structure.semantic.structural_products import ExternalSourceRef
 
     pack = tmp_path / "statistics"
     pack.mkdir()
@@ -261,8 +262,39 @@ def test_command_preflight_precedes_run_creation_and_narrows_corpus(
         return m1.RetainedDocument(2, "other-book", "b" * 64, "other_book/Full.pdf")
 
     monkeypatch.setattr(m1, "retained_document", selected)
-    started = MagicMock(return_value="candidate-source-result")
+    captured = SimpleNamespace(run_id=17)
+    started = MagicMock(side_effect=[captured, "candidate-source-result"])
     monkeypatch.setattr(semantic, "run_source_methods", started)
+    layer_pin = ProductReference(24, "layer", "d" * 64)
+    view_pin = ProductReference(25, "view", "e" * 64)
+    source = ExternalSourceRef(
+        project_id="project",
+        run_id=17,
+        cut_id=1,
+        release_id="release",
+        result_revision=1,
+        source_view_id=41,
+        native_task_id=23,
+        native_product_key="integrated",
+        native_content_digest="a" * 64,
+        projection_digest="b" * 64,
+        recipe_digest="c" * 64,
+        coordinate_version=3,
+    )
+    enriched = MagicMock(return_value=(SimpleNamespace(view=view_pin),))
+    monkeypatch.setattr(characterization, "characterize_captured_run", enriched)
+    monkeypatch.setattr(characterization, "characterization_sources", lambda *a, **k: (source,))
+    monkeypatch.setattr(query, "read_snapshot", lambda engine: engine.connect())
+    conn.scalar.return_value = "project"
+    monkeypatch.setattr(
+        characterization_store,
+        "read_view",
+        lambda *a: SimpleNamespace(
+            base_document=ProductReference(23, "integrated", "a" * 64),
+            payload={"profile": "selected_layers", "layers": [layer_pin.values()]},
+        ),
+    )
+    monkeypatch.setattr(characterization_store, "read_layer", lambda *a: object())
     kwargs = dict(
         release_id="release",
         realization_id="input",
@@ -278,12 +310,20 @@ def test_command_preflight_precedes_run_creation_and_narrows_corpus(
         with pytest.raises(ValueError, match="mismatched exact product"):
             commands.start_bound_run(engine, **kwargs)
         started.assert_not_called()
+        enriched.assert_not_called()
     else:
         assert commands.start_bound_run(engine, **kwargs) == "candidate-source-result"
         result = started.call_args.kwargs
+        assert started.call_count == 2
+        assert enriched.call_args.args[1] is captured
+        capture = started.call_args_list[0].kwargs
+        assert capture["corpus_record"]["documents"] == ["other-book"]
+        assert len(capture["graph"].stages) == 1
         assert result["corpus_record"]["documents"] == ["other-book"]
         assert result["scope_record"] is None
-        assert result["graph"].stages[1][1][1].config == f"extract.m1_candidates/{configuration}"
+        assert result["graph"].stages[0][1][1].config == f"extract.m1_candidates/{configuration}"
+        assert result["selected_sources"] == (source,)
+        assert result["characterization_views"] == (view_pin,)
         assert result["configurations"] == (
             {"extract.m1_candidates": "described"} if configuration == "described" else None
         )

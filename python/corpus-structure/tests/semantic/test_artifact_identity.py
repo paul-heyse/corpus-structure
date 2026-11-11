@@ -12,11 +12,13 @@ from corpus_structure.semantic.artifact_identity import (
     ArtifactScoringPolicy,
     SourceArtifactOccurrence,
     artifact_route_counts,
-    artifact_source_labels,
     native_alias_candidates,
     normalized_code,
     pair_candidates,
     score_pairs,
+)
+from corpus_structure.semantic.constructions.navigation import (
+    artifact_source_labels,
     source_alias_fields,
 )
 
@@ -71,9 +73,13 @@ def record(
 
 
 def test_exact_artifact_declarations_keep_direction_and_cross_work_score_scope():
+    from methods.navigation_fixture import primary_navigation
+    from methods.test_m1_source_preparation import source
+    from methods.test_scoped_relations import complete_native_fields
+
     from corpus_structure.methods.artifact_identity import artifact_declared_relationships
 
-    records, passages, frames = [], [], {}
+    records, passages, frames, primary_layers = [], [], {}, {}
     cases = (
         ("first", "one", "5.1", "old", "caption", ""),
         (
@@ -105,7 +111,14 @@ def test_exact_artifact_declarations_keep_direction_and_cross_work_score_scope()
     )
     for key, work, code, revision, role, suffix in cases:
         row = record(key, work=work, code=code, revision=revision, role=role, namespace="Main")
-        citation = row.citations[0]
+        citation = row.citations[0].model_copy(
+            update={
+                "text": "Table " + code,
+                "end": len("Table " + code),
+                "source_pointer": "#/texts/0",
+            }
+        )
+        row = row.model_copy(update={"citations": (citation,)})
         body = citation.text + " (numbering namespace: Main)"
         if revision:
             body += f" (revision: {revision})"
@@ -117,8 +130,14 @@ def test_exact_artifact_declarations_keep_direction_and_cross_work_score_scope()
                 }
             )
         )
-        passages.append(SimpleNamespace(passage_id=citation.passage_id, end=len(body)))
+        passages.append(SimpleNamespace(passage_id=citation.passage_id, start=0, end=len(body)))
+        view = complete_native_fields(
+            source(body, labels=("caption" if role == "caption" else "text",))
+        )
+        primary_layers.update(primary_navigation(view, annotations=()))
         frames[citation.source_ref] = SimpleNamespace(
+            source_view_id=view.ref.id,
+            projection_digest=view.ref.projection_digest,
             text=body,
             native_context=json.dumps(
                 {
@@ -137,6 +156,7 @@ def test_exact_artifact_declarations_keep_direction_and_cross_work_score_scope()
         records,
         SimpleNamespace(passages=passages),
         frames,
+        primary_layers=primary_layers,
     )
     assert [(row.kind, row.source_id, [end.record_id for end in row.targets]) for row in links] == [
         ("supersedes", "second", ["first"]),
@@ -266,8 +286,8 @@ def test_namespace_and_navigation_do_not_expand_score_eligibility():
 def test_explicit_reference_keeps_all_scoped_alternatives_and_missing_targets():
     from corpus_structure.semantic.artifact_identity import (
         artifact_reference_resolutions,
-        explicit_artifact_reference,
     )
+    from corpus_structure.semantic.constructions.navigation import explicit_artifact_reference
 
     mention = record("mention", code="5.8", namespace=None, role="reference")
     cue = explicit_artifact_reference(
@@ -371,6 +391,7 @@ def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics
     from pathlib import Path
     from types import SimpleNamespace
 
+    from methods.navigation_fixture import primary_navigation
     from methods.test_m1_source_preparation import source
     from methods.test_scoped_relations import complete_native_fields
 
@@ -400,7 +421,9 @@ def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics
         ("Table 5.1 Moments", True),
         ("Table 5.1 Moments", False),
     ]:
-        frame = native_source_frame(complete_native_fields(source(raw, labels=("caption",))), ())
+        view = complete_native_fields(source(raw, labels=("caption",)))
+        primary = primary_navigation(view, annotations=(), formal=True)
+        frame = native_source_frame(view, ())
         native = frame.native_product
         reference = ExternalSourceRef(
             project_id="p",
@@ -446,7 +469,12 @@ def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics
                 assert self.bound and observed == self.inputs and selected == self.source_ref
                 return self.frame
 
+            def characterization_layers(self, pins, primary=primary):
+                assert set(pins) == set(primary)
+                return primary
+
         cfg = ArtifactIdentityConfig(
+            characterization_layers=tuple(pin.values() for pin in primary),
             inputs=inputs,
             structural_input_digest=inputs.identity,
             policy=policy,

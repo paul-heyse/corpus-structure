@@ -2,10 +2,13 @@
 
 import logging
 from collections.abc import Sequence
-from functools import cache
+from dataclasses import replace
+from hashlib import sha256
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Never
+
+from native_math_primary import native_view, primary_layers, pure_source_release
 
 from corpus_structure.core.method import (
     CoverageDraft,
@@ -32,6 +35,8 @@ from corpus_structure.methods.math.methods import (
 )
 from corpus_structure.methods.math.native import NativeDomainRule, domain_blocks
 from corpus_structure.methods.math.scope import Binders
+from corpus_structure.semantic.characterization import select_primary_layers
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.source_views import PreparedSourceView
 from corpus_structure.semantic.types import PreparedRelease
@@ -70,21 +75,7 @@ def view():
         "cell_coverage": "complete",
         "display_coverage": "complete",
     }
-    return PreparedSourceView(ref, text, pieces, items, (), health)
-
-
-@cache
-def pure_source_release() -> PreparedRelease:
-    from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
-    from corpus_structure.semantic.composed import composed_dependencies
-    from corpus_structure.semantic.contracts import trusted_execution_inputs
-
-    inputs = trusted_execution_inputs()
-    return prepare_release(
-        inputs.schema,
-        composed_dependencies(ResolvedDependencies(), inputs),
-        PreparationProfile(version="semantic-2"),
-    )
+    return native_view(PreparedSourceView(ref, text, pieces, items, (), health))
 
 
 class Reader(ReaderPort):
@@ -120,12 +111,65 @@ class Reader(ReaderPort):
     characterization_memberships = _unavailable
 
     def __init__(self):
-        self.view = view()
+        self.view = native_view(view())
         self.views: dict[int, PreparedSourceView] = {7: self.view}
         self.outputs: dict[tuple[int, str, ObservationKind], list[Any]] = {}
+        self._primary = {}
+        self._primary_key = None
+
+    def freeze_primary(self, *, rules=(), binders=None, macros=None):
+        binders = binders or Binders(sentence_initial=("let",))
+        self.views = {identity: native_view(value) for identity, value in self.views.items()}
+        self.view = self.views.get(self.view.ref.id, self.view)
+        key = sha256(
+            canonical_bytes(
+                dict(
+                    views=[
+                        dict(ref=value.ref.projection_digest, id=identity)
+                        for identity, value in sorted(self.views.items())
+                    ],
+                    rules=[rule.model_dump(mode="json") for rule in rules],
+                    binders=binders.model_dump(mode="json"),
+                    macros=macros or {},
+                )
+            )
+        ).hexdigest()
+        if key != self._primary_key:
+            self._primary = {
+                pin: layer
+                for number, value in enumerate(self.views.values())
+                for pin, layer in primary_layers(
+                    value,
+                    self.prepared,
+                    rules=rules,
+                    binders=binders,
+                    macros=macros,
+                    task_start=100 + number * 3,
+                ).items()
+            }
+            self._primary_key = key
+            self.math_readings_batch = None
+        return tuple(self._primary)
+
+    def bind_config(self, cfg):
+        section = cfg.section()
+        pins = self.freeze_primary(
+            rules=section.native_domain_rules,
+            binders=getattr(cfg, "binders", None),
+            macros=section.macros,
+        )
+        return cfg.model_copy(
+            update=dict(characterization_layers=tuple(pin.values() for pin in pins))
+        )
+
+    def primary_characterization(self, source_view_id, *, families):
+        return select_primary_layers(self._primary, self.views[source_view_id], families=families)
 
     def source_views(self):
         return [self.view.ref]
+
+    def source_view_ref(self, source_view_id: int) -> SourceViewRef:
+        return self.views[source_view_id].ref
 
     def documents(self, originals: Sequence[str]) -> tuple[UnitRef, ...]:
         # This fixture has no retained original-source selection.
@@ -220,22 +264,24 @@ def test_actual_methods_select_source_views_and_keep_native_offsets():
         source_view_id=7,
     )
     ctx = context_for(reader)
-    assert list(ExtractMath().select(run, ExtractMathConfig())) == [unit.ref]
-    m09 = ExtractMath().run([unit], ExtractMathConfig(), ctx)[0]
+    assert list(ExtractMath().select(run, reader.bind_config(ExtractMathConfig()))) == [unit.ref]
+    m09 = ExtractMath().run([unit], reader.bind_config(ExtractMathConfig()), ctx)[0]
     mentions = [o for o in m09.observations if o.kind is ObservationKind.MENTION]
     assert len(mentions) == 3
     assert [o.recognized_span for o in mentions] == [(0, 1), (0, 1), (2, 3)]
     assert [o.projected_span for o in mentions] == [(4, 5), (12, 13), (14, 15)]
     assert all(o.rendition_id is None and o.span is None for o in mentions)
     reader.store("extract.math", m09)
-    m11 = NormalizeFormula().run([unit], NormalizeFormulaConfig(), ctx)[0]
+    m11 = NormalizeFormula().run([unit], reader.bind_config(NormalizeFormulaConfig()), ctx)[0]
     assert len([o for o in m11.observations if o.kind is ObservationKind.VALUE]) == 2
     records = [o for o in m11.observations if o.kind is ObservationKind.RECORD]
     assert len(records) == 1
     assert records[0].payload.items[0]["interpretation_ref"]["observation_key"]
     assert records[0].payload.items[0]["symbolic"]["expression"] == "Symbol('x')"
     reader.store("normalize.formula", m11)
-    cfg = SymbolScopeConfig(binders=Binders(sentence_initial=("let",)), sentences=SentenceConfig())
+    cfg = reader.bind_config(
+        SymbolScopeConfig(binders=Binders(sentence_initial=("let",)), sentences=SentenceConfig())
+    )
     # Scope consumes recorded M09/M11 values and may not re-enter mathematical inference.
     import unittest.mock
 
@@ -251,18 +297,32 @@ def test_actual_methods_select_source_views_and_keep_native_offsets():
 
 
 def test_domain_roles_are_release_rules_and_do_not_imply_proof_truth():
-    source = SimpleNamespace(
-        ref=view().ref,
-        ancestors=(),
-        text="Proof. Details.",
-        items=({"self_ref": "#/texts/0", "label": "section_header", "text": "Proof."},),
-        pieces=({"item_ref": "#/texts/0", "start": 0, "end": 6},),
+    source = native_view(
+        replace(
+            view(),
+            text="Proof. Details.",
+            items=(
+                {"self_ref": "#/texts/0", "label": "section_header", "text": "Proof."},
+                {"self_ref": "#/texts/1", "label": "text", "text": " Details."},
+            ),
+            pieces=(
+                {"item_ref": "#/texts/0", "start": 0, "end": 6},
+                {"item_ref": "#/texts/1", "start": 6, "end": 15},
+            ),
+        )
     )
     assert domain_blocks(source, ()) == ()
     rule = NativeDomainRule(
         rule_id="proof-heading-1", pattern=r"^Proof\.", statement_kind="proof", scope_role="proof"
     )
-    recognized = domain_blocks(source, (rule,))
+    from corpus_structure.semantic.constructions.math_scope import retained_math_scope
+
+    layers = primary_layers(source, pure_source_release(), rules=(rule,))
+    recognized = domain_blocks(
+        source,
+        (rule,),
+        primary_scope=retained_math_scope(layers, source, binders=None, rules=(rule,)),
+    )
     assert recognized[0][2] == "#/texts/0"
     assert recognized[0][3].rule_id == "proof-heading-1"
 
@@ -357,7 +417,9 @@ def test_ancestor_function_roles_require_forward_native_tree_order():
             "inline_coverage": "complete",
             "cell_coverage": "complete",
         }
-        return PreparedSourceView(ref, "".join(texts), tuple(pieces), items, ancestors, health)
+        return native_view(
+            PreparedSourceView(ref, "".join(texts), tuple(pieces), items, ancestors, health)
+        )
 
     parent = make(7, parent_group, parent_items, ())
     child = make(8, child_group, child_items, (parent_group,))
@@ -365,7 +427,7 @@ def test_ancestor_function_roles_require_forward_native_tree_order():
     reader.views = {7: parent, 8: child}
     reader.math_readings_batch = None
     reader.source_views = lambda: [parent.ref, child.ref]
-    cfg = NormalizeFormulaConfig(math=MathSection(native_domain_rules=(rule,)))
+    cfg = reader.bind_config(NormalizeFormulaConfig(math=MathSection(native_domain_rules=(rule,))))
     declarations, issues = native_ancestor_declarations(reader, child, (rule,))
     assert issues == ()
     assert [d["symbol"] for d in declarations] == ["f"]
@@ -406,24 +468,28 @@ def test_local_proof_function_definition_does_not_escape_to_child_section():
         "parent": {"$ref": "#/groups/0"},
         "children": [],
     }
-    parent = PreparedSourceView(
-        view().ref,
-        "Proof.h(x)=x",
-        (
-            {"item_ref": "#/texts/0", "start": 0, "end": 6},
-            {"item_ref": "#/texts/1", "start": 6, "end": 12},
-        ),
-        (parent_group, heading, formula),
-        (),
-        {"formula_outcomes": [{"pointer": "#/texts/1", "outcome": "succeeded"}]},
+    parent = native_view(
+        PreparedSourceView(
+            view().ref,
+            "Proof.h(x)=x",
+            (
+                {"item_ref": "#/texts/0", "start": 0, "end": 6},
+                {"item_ref": "#/texts/1", "start": 6, "end": 12},
+            ),
+            (parent_group, heading, formula),
+            (),
+            {"formula_outcomes": [{"pointer": "#/texts/1", "outcome": "succeeded"}]},
+        )
     )
-    child = PreparedSourceView(
-        replace(view().ref, id=8, key="child", section_pointer="#/groups/1"),
-        "",
-        (),
-        (child_group,),
-        (parent_group,),
-        {},
+    child = native_view(
+        PreparedSourceView(
+            replace(view().ref, id=8, key="child", section_pointer="#/groups/1"),
+            "",
+            (),
+            (child_group,),
+            (parent_group,),
+            {},
+        )
     )
     reader = Reader()
     reader.views = {7: parent, 8: child}
@@ -431,6 +497,7 @@ def test_local_proof_function_definition_does_not_escape_to_child_section():
     rule = NativeDomainRule(
         rule_id="proof-heading-1", pattern=r"^Proof\.", statement_kind="proof", scope_role="proof"
     )
+    reader.freeze_primary(rules=(rule,))
     assert native_ancestor_declarations(reader, child, (rule,))[0] == ()
 
 
@@ -477,47 +544,53 @@ def test_context_only_parent_prepares_weak_variable_binding_for_child(monkeypatc
         },
         {"self_ref": "#/texts/2", "label": "text", "text": ".", "parent": {"$ref": "#/groups/0"}},
     )
-    parent = PreparedSourceView(
-        view().ref,
-        "Let x.",
-        tuple(
-            dict(item_ref=pointer, start=a, end=b)
-            for pointer, a, b in [("#/texts/0", 0, 4), ("#/texts/1", 4, 5), ("#/texts/2", 5, 6)]
-        ),
-        parent_items,
-        (),
-        {"formula_outcomes": [{"pointer": "#/texts/1", "outcome": "succeeded"}]},
+    parent = native_view(
+        PreparedSourceView(
+            view().ref,
+            "Let x.",
+            tuple(
+                dict(item_ref=pointer, start=a, end=b)
+                for pointer, a, b in [("#/texts/0", 0, 4), ("#/texts/1", 4, 5), ("#/texts/2", 5, 6)]
+            ),
+            parent_items,
+            (),
+            {"formula_outcomes": [{"pointer": "#/texts/1", "outcome": "succeeded"}]},
+        )
     )
-    child = PreparedSourceView(
-        replace(view().ref, id=8, key="child", section_pointer="#/groups/1"),
-        "x+x",
-        ({"item_ref": "#/texts/3", "start": 0, "end": 3},),
-        (
-            child_group,
+    child = native_view(
+        PreparedSourceView(
+            replace(view().ref, id=8, key="child", section_pointer="#/groups/1"),
+            "x+x",
+            ({"item_ref": "#/texts/3", "start": 0, "end": 3},),
+            (
+                child_group,
+                {
+                    "self_ref": "#/texts/3",
+                    "label": "formula",
+                    "text": "x+x",
+                    "orig": "x+x",
+                    "parent": {"$ref": "#/groups/1"},
+                },
+            ),
+            (group,),
             {
-                "self_ref": "#/texts/3",
-                "label": "formula",
-                "text": "x+x",
-                "orig": "x+x",
-                "parent": {"$ref": "#/groups/1"},
+                "formula_outcomes": [{"pointer": "#/texts/3", "outcome": "succeeded"}],
+                "inline_coverage": "complete",
+                "cell_coverage": "complete",
             },
-        ),
-        (group,),
-        {
-            "formula_outcomes": [{"pointer": "#/texts/3", "outcome": "succeeded"}],
-            "inline_coverage": "complete",
-            "cell_coverage": "complete",
-        },
+        )
     )
     reader = Reader()
     reader.views = {7: parent, 8: child}
     reader.source_views = lambda: [child.ref]
     ctx = context_for(reader)
     run = run_for(reader)
-    cfg = SymbolScopeConfig(
-        math=MathSection(native_domain_rules=(rule,)),
-        binders=Binders(sentence_initial=("let",)),
-        sentences=SentenceConfig(),
+    cfg = reader.bind_config(
+        SymbolScopeConfig(
+            math=MathSection(native_domain_rules=(rule,)),
+            binders=Binders(sentence_initial=("let",)),
+            sentences=SentenceConfig(),
+        )
     )
     parent_unit = SimpleNamespace(
         ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, parent.ref.key), context_only=True
@@ -532,11 +605,13 @@ def test_context_only_parent_prepares_weak_variable_binding_for_child(monkeypatc
     assert context.observations[0].payload.declarations[0].symbol == "x"
     reader.store("resolve.symbol_scope", context)
     unit = UnitView(UnitRef(TaskUnitType.SOURCE_VIEW, 8, child.ref.key), run, source_view_id=8)
-    mathcfg = ExtractMathConfig(math=MathSection(native_domain_rules=(rule,)))
+    mathcfg = reader.bind_config(ExtractMathConfig(math=MathSection(native_domain_rules=(rule,))))
     reader.store("extract.math", ExtractMath().run([unit], mathcfg, ctx)[0])
     reader.store(
         "normalize.formula",
-        NormalizeFormula().run([unit], NormalizeFormulaConfig(math=mathcfg.math), ctx)[0],
+        NormalizeFormula().run(
+            [unit], reader.bind_config(NormalizeFormulaConfig(math=mathcfg.math)), ctx
+        )[0],
     )
     result = SymbolScope().run([unit], cfg, ctx)[0]
     assert all(
@@ -578,14 +653,16 @@ def test_occurrence_owner_is_weak_and_normalization_reuses_retained_tree(monkeyp
             "definedness_result",
             lambda *a, **k: (_ for _ in ()).throw(AssertionError("unasked definedness work")),
         )
-        weak = ExtractMath().run([unit], ExtractMathConfig(), ctx)[0]
+        weak = ExtractMath().run([unit], reader.bind_config(ExtractMathConfig()), ctx)[0]
     reader.store("extract.math", weak)
     # Neither normalization nor inspection may reconstruct the original syntax tree.
     with monkeypatch.context() as guard:
         guard.setattr(
             grammar, "syntax", lambda *a, **k: (_ for _ in ()).throw(AssertionError("reparsed"))
         )
-        strong = NormalizeFormula().run([unit], NormalizeFormulaConfig(), ctx)[0]
+        strong = NormalizeFormula().run([unit], reader.bind_config(NormalizeFormulaConfig()), ctx)[
+            0
+        ]
         reader.store("normalize.formula", strong)
         recorded = stored_native_analysis(reader, 7, "#/texts/3")["#/texts/3"]
     assert recorded["interpretation"]["recognized_latex"] == "x+x"
@@ -606,7 +683,7 @@ def test_normalization_refuses_missing_named_occurrence_owner():
         UnitRef(TaskUnitType.SOURCE_VIEW, 7, reader.view.ref.key), run, source_view_id=7
     )
     with pytest.raises(ValueError, match="one exact completed"):
-        NormalizeFormula().run([unit], NormalizeFormulaConfig(), ctx)
+        NormalizeFormula().run([unit], reader.bind_config(NormalizeFormulaConfig()), ctx)
 
 
 def test_stored_analysis_refuses_cycles_and_stale_pins():
@@ -645,13 +722,15 @@ def test_scope_digest_binds_exact_ancestor_preparation_record():
 
     reader = Reader()
     source = reader.view
-    parent = PreparedSourceView(
-        replace(source.ref, id=6, key="parent", section_pointer="#/groups/parent"),
-        "",
-        (),
-        (),
-        (),
-        {},
+    parent = native_view(
+        PreparedSourceView(
+            replace(source.ref, id=6, key="parent", section_pointer="#/groups/parent"),
+            "",
+            (),
+            (),
+            (),
+            {},
+        )
     )
     group = {
         "self_ref": "#/groups/parent",
@@ -664,9 +743,9 @@ def test_scope_digest_binds_exact_ancestor_preparation_record():
     reader.outputs[(6, "resolve.symbol_scope", ObservationKind.RECORD)] = [row]
     run = run_for(reader)
     unit = UnitView(UnitRef(TaskUnitType.SOURCE_VIEW, 7, child.ref.key), run, source_view_id=7)
-    first = SymbolScope().input_digest(unit, SymbolScopeConfig()).bytes
+    first = SymbolScope().input_digest(unit, reader.bind_config(SymbolScopeConfig())).bytes
     row.payload_hash = "second"
-    assert SymbolScope().input_digest(unit, SymbolScopeConfig()).bytes != first
+    assert SymbolScope().input_digest(unit, reader.bind_config(SymbolScopeConfig())).bytes != first
 
 
 def test_strong_request_reuses_qualified_stored_parent_roles_without_parsing(monkeypatch):
@@ -683,48 +762,52 @@ def test_strong_request_reuses_qualified_stored_parent_roles_without_parsing(mon
         "label": "section",
         "children": [{"$ref": "#/texts/parent"}, {"$ref": "#/groups/0"}],
     }
-    parent = PreparedSourceView(
-        replace(view().ref, id=6, key="parent", section_pointer="#/groups/parent"),
-        "f(x)=x",
-        ({"item_ref": "#/texts/parent", "start": 0, "end": 6},),
-        (
-            parent_group,
+    parent = native_view(
+        PreparedSourceView(
+            replace(view().ref, id=6, key="parent", section_pointer="#/groups/parent"),
+            "f(x)=x",
+            ({"item_ref": "#/texts/parent", "start": 0, "end": 6},),
+            (
+                parent_group,
+                {
+                    "self_ref": "#/texts/parent",
+                    "label": "formula",
+                    "text": "f(x)=x",
+                    "orig": "f(x)=x",
+                    "parent": {"$ref": "#/groups/parent"},
+                },
+            ),
+            (),
             {
-                "self_ref": "#/texts/parent",
-                "label": "formula",
-                "text": "f(x)=x",
-                "orig": "f(x)=x",
-                "parent": {"$ref": "#/groups/parent"},
+                "display_coverage": "complete",
+                "inline_coverage": "complete",
+                "cell_coverage": "complete",
             },
-        ),
-        (),
-        {
-            "display_coverage": "complete",
-            "inline_coverage": "complete",
-            "cell_coverage": "complete",
-        },
+        )
     )
     child_group = {
         "self_ref": "#/groups/0",
         "label": "section",
         "parent": {"$ref": "#/groups/parent"},
     }
-    child = PreparedSourceView(
-        view().ref,
-        "f(2)",
-        ({"item_ref": "#/texts/0", "start": 0, "end": 4},),
-        (
-            child_group,
-            {
-                "self_ref": "#/texts/0",
-                "label": "formula",
-                "text": "f(2)",
-                "orig": "f(2)",
-                "parent": {"$ref": "#/groups/0"},
-            },
-        ),
-        (parent_group,),
-        {"formula_outcomes": [dict(pointer="#/texts/0", outcome="succeeded")]},
+    child = native_view(
+        PreparedSourceView(
+            view().ref,
+            "f(2)",
+            ({"item_ref": "#/texts/0", "start": 0, "end": 4},),
+            (
+                child_group,
+                {
+                    "self_ref": "#/texts/0",
+                    "label": "formula",
+                    "text": "f(2)",
+                    "orig": "f(2)",
+                    "parent": {"$ref": "#/groups/0"},
+                },
+            ),
+            (parent_group,),
+            {"formula_outcomes": [dict(pointer="#/texts/0", outcome="succeeded")]},
+        )
     )
     payload = dict(
         demand="context_declarations",
@@ -749,6 +832,7 @@ def test_strong_request_reuses_qualified_stored_parent_roles_without_parsing(mon
     )
     reader = Reader()
     reader.views = {6: parent, 7: child}
+    reader.freeze_primary()
     reader.outputs[(6, "resolve.symbol_scope", ObservationKind.RECORD)] = [row]
     with monkeypatch.context() as guard:
         guard.setattr(
@@ -760,7 +844,11 @@ def test_strong_request_reuses_qualified_stored_parent_roles_without_parsing(mon
     assert issues == ()
     assert declarations[0]["symbol"] == "f" and "parent-function" in declarations[0]["evidence"]
     result = native_request_analysis(
-        child, None, "interpretation", ancestor_declarations=declarations
+        child,
+        None,
+        "interpretation",
+        ancestor_declarations=declarations,
+        primary_layers=reader._primary,
     )
     assert result.items[0]["outcome"] == "ok"
     payload["projection_digest"] = "e" * 64
@@ -855,19 +943,21 @@ def test_descendant_view_preserves_section_roles_and_scope_without_sibling_leaka
     add(". ", sibling)
     add("g(2)", sibling, "sibling_g_call")
     add(".", sibling)
-    source = PreparedSourceView(
-        replace(view().ref, membership="descendants"),
-        "".join(parts),
-        tuple(pieces),
-        tuple(rows),
-        (),
-        dict(
-            formula_outcomes=[
-                dict(pointer=pointer, outcome="succeeded") for pointer in formulas.values()
-            ],
-            inline_coverage="complete",
-            cell_coverage="complete",
-        ),
+    source = native_view(
+        PreparedSourceView(
+            replace(view().ref, membership="descendants"),
+            "".join(parts),
+            tuple(pieces),
+            tuple(rows),
+            (),
+            dict(
+                formula_outcomes=[
+                    dict(pointer=pointer, outcome="succeeded") for pointer in formulas.values()
+                ],
+                inline_coverage="complete",
+                cell_coverage="complete",
+            ),
+        )
     )
     reader = Reader()
     reader.view = source
@@ -879,7 +969,7 @@ def test_descendant_view_preserves_section_roles_and_scope_without_sibling_leaka
         rule_id="proof-heading-1", pattern=r"^Proof\.", statement_kind="proof", scope_role="proof"
     )
     section = MathSection(native_domain_rules=(rule,))
-    weak = ExtractMath().run([unit], ExtractMathConfig(math=section), ctx)[0]
+    weak = ExtractMath().run([unit], reader.bind_config(ExtractMathConfig(math=section)), ctx)[0]
     record = next(o.payload for o in weak.observations if o.kind is ObservationKind.RECORD)
     outcomes = {item["pointer"]: item["outcome"] for item in record.items}
     assert outcomes[formulas["child_f_call"]] == "ok"
@@ -887,17 +977,23 @@ def test_descendant_view_preserves_section_roles_and_scope_without_sibling_leaka
     assert outcomes[formulas["grandchild_g_call"]] == "ok"
     assert outcomes[formulas["sibling_f_call"]] == "ok"
     assert outcomes[formulas["sibling_g_call"]] == "ambiguous"
-    demanded = native_request_analysis(source, None, "interpretation", domain_rules=(rule,))
+    demanded = native_request_analysis(
+        source, None, "interpretation", domain_rules=(rule,), primary_layers=reader._primary
+    )
     assert {item["pointer"]: item["outcome"] for item in demanded.items} == outcomes
     reader.store("extract.math", weak)
     reader.store(
         "normalize.formula",
-        NormalizeFormula().run([unit], NormalizeFormulaConfig(math=section), ctx)[0],
+        NormalizeFormula().run(
+            [unit], reader.bind_config(NormalizeFormulaConfig(math=section)), ctx
+        )[0],
     )
     scoped = SymbolScope().run(
         [unit],
-        SymbolScopeConfig(
-            math=section, binders=Binders(sentence_initial=("let",)), sentences=SentenceConfig()
+        reader.bind_config(
+            SymbolScopeConfig(
+                math=section, binders=Binders(sentence_initial=("let",)), sentences=SentenceConfig()
+            )
         ),
         ctx,
     )[0]
@@ -917,8 +1013,10 @@ def test_descendant_view_preserves_section_roles_and_scope_without_sibling_leaka
     context = native_context_result(
         unit,
         source,
-        SymbolScopeConfig(
-            math=section, binders=Binders(sentence_initial=("let",)), sentences=SentenceConfig()
+        reader.bind_config(
+            SymbolScopeConfig(
+                math=section, binders=Binders(sentence_initial=("let",)), sentences=SentenceConfig()
+            )
         ),
         reader,
     )
@@ -940,12 +1038,12 @@ def test_native_layout_uses_explicit_sentence_configuration_and_scoped_cache():
         )
 
 
-def test_native_frame_refuses_unresolved_sentence_configuration():
+def test_native_frame_refuses_missing_primary_sentence_evidence():
     import pytest
 
     from corpus_structure.methods.math.native import native_proposal_packet
 
-    with pytest.raises(ValueError, match="resolved admitted sentence configuration"):
+    with pytest.raises(ValueError, match="missing or incomplete"):
         native_proposal_packet(Reader(), 7, None, {"sentences": "segment.sentences/default"})
 
 
@@ -972,18 +1070,23 @@ def test_partial_recognition_preserves_usable_consumers_without_complete_context
     for recognition in ("partial", "unknown"):
         reader = Reader()
         reader.view.health["inline_coverage"] = recognition
+        configuration = reader.bind_config(configuration)
         unit = UnitView(
             UnitRef(TaskUnitType.SOURCE_VIEW, 7, reader.view.ref.key),
             run_for(reader),
             source_view_id=7,
         )
         ctx = context_for(reader)
-        weak = ExtractMath().run([unit], ExtractMathConfig(math=section), ctx)[0]
+        weak = ExtractMath().run([unit], reader.bind_config(ExtractMathConfig(math=section)), ctx)[
+            0
+        ]
         assert weak.outcome is ObservationOutcome.PRODUCED
         assert len([o for o in weak.observations if o.kind is ObservationKind.MENTION]) == 3
         assert weak.coverage[0].outcome == "partial"
         reader.store("extract.math", weak)
-        normalized = NormalizeFormula().run([unit], NormalizeFormulaConfig(math=section), ctx)[0]
+        normalized = NormalizeFormula().run(
+            [unit], reader.bind_config(NormalizeFormulaConfig(math=section)), ctx
+        )[0]
         assert normalized.outcome is ObservationOutcome.PRODUCED
         assert len([o for o in normalized.observations if o.kind is ObservationKind.VALUE]) == 2
         assert normalized.coverage[0].outcome == "partial"
@@ -1012,6 +1115,7 @@ def test_partial_recognition_preserves_usable_consumers_without_complete_context
             "interpretation",
             pointer="#/texts/3",
             domain_rules=(rule,),
+            primary_layers=reader._primary,
         )
         item = requested.items[0]
         assert item["availability"] == "available" and item["outcome"] == "ok"
@@ -1036,14 +1140,13 @@ def test_partial_recognition_preserves_usable_consumers_without_complete_context
             )
 
         monkeypatch.setattr(proposals, "proposal_packet", packet_boundary)
-        packet = native.native_proposal_packet(
-            reader, 7, reader.prepared, {"sentences": SentenceConfig().model_dump(mode="json")}
-        )
+        packet = native.native_proposal_packet(reader, 7, reader.prepared, configuration)
         frame = packet.frame
         assert isinstance(frame, proposals.NativeProposalFrame)
         assert frame.text == reader.view.text
         assert json.loads(frame.native_context)["health"]["inline_coverage"] == recognition
         assert len(packet.hash) == 64
+        assert json.loads(packet.configuration) == configuration.model_dump(mode="json")
 
         parent = replace(
             reader.view,

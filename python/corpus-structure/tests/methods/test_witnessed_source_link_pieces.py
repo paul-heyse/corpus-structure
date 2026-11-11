@@ -6,7 +6,7 @@ from hashlib import sha256
 import pytest
 
 from corpus_structure.methods.source_preparation import prepare_source
-from corpus_structure.methods.witnessed_source_links import (
+from corpus_structure.semantic.constructions.navigation import (
     NAMED_COVERAGE_VERSION,
     NAMED_PIECE_VERSION,
     match_named_source_links,

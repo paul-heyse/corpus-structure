@@ -7,6 +7,7 @@ payloads and never imports today's generators or prepares desired state on a rea
 from __future__ import annotations
 
 import json
+import re
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 
@@ -570,19 +571,26 @@ def prepare_native_authoring(
         raise NativeAuthoringError(
             "native predecessor must use one complete source or frozen snapshot contract"
         )
-    scope = tuple(dict.fromkeys(item.identity for item in (*predecessor, *definitions)))
+    scope_items = {item.identity: item for item in (*predecessor, *definitions)}
+    scope = tuple(scope_items)
 
     def normalize(items):
         savepoint = connection.begin_nested()
+        active = None
+        phase = "normalization"
         try:
             # Union order is explicit dependency order; dependencies absent from the scope
             # make PostgreSQL refuse, rather than silently authorizing a dependent drop.
             for identity in reversed(scope):
+                active = scope_items[identity]
+                phase = "remove existing object"
                 installed = observe_native(connection, identity, catalog_version=None)
                 if installed is not None:
                     with native_owner(connection, installed.get("owner")):
                         execute_native_sql(connection, identity.drop_sql)
             for item in items:
+                active = item
+                phase = "resolve declared owner"
                 owner = item.owner
                 if item.identity.kind == "trigger":
                     relation = (
@@ -595,11 +603,13 @@ def prepare_native_authoring(
                         )
                     owner = parent_owner
                 with native_owner(connection, owner):
-                    for statement in item.install_sql:
+                    for number, statement in enumerate(item.install_sql, start=1):
+                        phase = f"install statement {number}"
                         if item.identity.kind == "trigger":
                             execute_native_trigger(connection, statement)
                         else:
                             execute_native_sql(connection, statement)
+                    phase = "normalize privileges and restore owner"
                     if item.identity.kind != "trigger":
                         set_native_acl(
                             connection,
@@ -609,6 +619,8 @@ def prepare_native_authoring(
                         )
             result = []
             for item in items:
+                active = item
+                phase = "inspect normalized catalog"
                 catalog = observe_native(
                     connection, item.identity, catalog_version=item.catalog_version
                 )
@@ -674,6 +686,20 @@ def prepare_native_authoring(
                     )
                 )
             return tuple(result)
+        except DBAPIError as error:
+            if active is None:
+                raise
+            # Report only authored provenance and the driver's typed SQLSTATE. SQL,
+            # parameters and server message/context remain on the chained cause.
+            state = getattr(error.orig, "sqlstate", None)
+            state = (
+                state if isinstance(state, str) and re.fullmatch(r"[0-9A-Z]{5}", state) else None
+            )
+            raise NativeAuthoringError(
+                f"native normalization {phase} failed for {active.identity.kind} "
+                f"{active.identity.qualified} (SQLSTATE {state or 'unavailable'}); "
+                f"source={active.source}"
+            ) from error
         finally:
             savepoint.rollback()
 

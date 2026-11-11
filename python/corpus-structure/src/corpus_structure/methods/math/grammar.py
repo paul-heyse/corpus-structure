@@ -307,30 +307,43 @@ class Parser:
 
 
 _PARSERS: dict[str, Parser] = {}
+_FOREST_PARSERS: dict[str, Parser] = {}
 
 
 def parser_for(classes: MacroClass) -> Parser:
     """The Earley parser of a macro classification, built once per process."""
     parser = _PARSERS.get(classes.key)
     if parser is None:
-        built = lark.Lark(
-            grammar_text(classes),
-            source_path=str(SHIPPED),
-            parser="earley",
-            lexer="dynamic",
-            ambiguity="explicit",
-            propagate_positions=True,
-            maybe_placeholders=False,
-            keep_all_tokens=True,
-            ordered_sets=True,
-            start=list(STARTS),
-            edit_terminals=whole_name,
-        )
-        patterns = [re.compile(t.pattern.to_regexp()) for t in built.terminals]
-        # A terminal that reads any text (S5-18's TEXT_BODY) names no command.
-        commands = tuple(p for p in patterns if not p.fullmatch(_NO_COMMAND))
-        parser = _PARSERS[classes.key] = Parser(built, commands)
+        parser = _PARSERS[classes.key] = _prepare_parser(classes, ambiguity="explicit")
     return parser
+
+
+def forest_parser_for(classes: MacroClass) -> Parser:
+    """The same assembled mathematical grammar, retaining its transient native SPPF."""
+    parser = _FOREST_PARSERS.get(classes.key)
+    if parser is None:
+        parser = _FOREST_PARSERS[classes.key] = _prepare_parser(classes, ambiguity="forest")
+    return parser
+
+
+def _prepare_parser(classes: MacroClass, *, ambiguity: str) -> Parser:
+    built = lark.Lark(
+        grammar_text(classes),
+        source_path=str(SHIPPED),
+        parser="earley",
+        lexer="dynamic",
+        ambiguity=ambiguity,
+        propagate_positions=True,
+        maybe_placeholders=False,
+        keep_all_tokens=True,
+        ordered_sets=True,
+        start=list(STARTS),
+        edit_terminals=whole_name,
+    )
+    patterns = [re.compile(t.pattern.to_regexp()) for t in built.terminals]
+    # A terminal that reads any text (S5-18's TEXT_BODY) names no command.
+    commands = tuple(p for p in patterns if not p.fullmatch(_NO_COMMAND))
+    return Parser(built, commands)
 
 
 # ============================================================================ results
@@ -429,6 +442,18 @@ class MathResult:
 
         for name, value in state.items():
             object.__setattr__(self, name, MappingProxyType(value) if name == "macros" else value)
+
+
+@dataclass(frozen=True, slots=True)
+class MathForestResult:
+    """Transient positioned recognition; retained packing belongs to the shared DAG codec."""
+
+    latex: str
+    requested: Kind
+    status: ParseOutcome
+    forest: Any = None
+    failure: Failure | None = None
+    tail: str = ""
 
 
 # ============================================================================ the deadline
@@ -885,7 +910,13 @@ def occurrences(
             constant = name in constants and sub is None
             found[key] = Occurrence(name, base, sub, sup, where[0], where[1], constant, parent)
 
+    visited: set[tuple[int, str | None]] = set()
+
     def walk(node: _tree.Node, parent: str | None = None) -> None:
+        key = (id(node), parent)
+        if key in visited:
+            return
+        visited.add(key)
         if isinstance(node, Token):
             if node.type in _SYMBOL_TOKENS:
                 add(node, parent=parent)
@@ -981,9 +1012,9 @@ def _read(
         return dataclasses.replace(base, failure=Failure("timeout", "Timeout"))
 
 
-def _syntax_reading(base: MathResult, parser: Parser) -> MathResult:
-    source, kind = base.latex, base.requested
-    tree: Tree[Token] | None = None
+def _recognize_source(source: str, kind: Kind, parser: Parser):
+    """Shared recognition/retry policy for conventional trees and native forests."""
+    tree = None
     failure: Failure | None = None
     tail = ""
     try:
@@ -997,6 +1028,12 @@ def _syntax_reading(base: MathResult, parser: Parser) -> MathResult:
                 tail = source[len(trimmed) :]
             except Exception:  # the whole input's failure stands
                 tree = None
+    return tree, failure, tail
+
+
+def _syntax_reading(base: MathResult, parser: Parser) -> MathResult:
+    source, kind = base.latex, base.requested
+    tree, failure, tail = _recognize_source(source, kind, parser)
     if tree is None:
         return dataclasses.replace(base, failure=failure)
     return dataclasses.replace(
@@ -1030,6 +1067,42 @@ def syntax(
     try:
         with _deadline(seconds):
             return _syntax_reading(base, parser_for(classes))
+    except _Expired:
+        return dataclasses.replace(base, failure=Failure("timeout", "Timeout"))
+
+
+def syntax_forest(
+    latex: str,
+    kind: Kind = "any_value",
+    macros: Mapping[str, MacroDef] | None = None,
+    *,
+    seconds: float = PARSE_SECONDS,
+) -> MathForestResult:
+    """Recognize with the same grammar, starts, classification and bounded retry policy.
+
+    The native SPPF is transient. A caller reducing it composes this deadline with the
+    reduction's budget; neither this route nor its consumers constructs complete trees.
+    """
+    require_main_thread()
+    if kind not in STARTS:
+        raise ValueError(f"unsupported mathematical kind {kind!r}")
+    base = MathForestResult(latex, kind, ParseOutcome.FAILED)
+    try:
+        with _deadline(seconds):
+            forest, failure, tail = _recognize_source(
+                latex, kind, forest_parser_for(classify(macros or {}))
+            )
+            return dataclasses.replace(
+                base,
+                forest=forest,
+                failure=failure if forest is None or tail else None,
+                tail=tail,
+                status=ParseOutcome.FAILED
+                if forest is None
+                else ParseOutcome.PARTIAL
+                if tail
+                else ParseOutcome.OK,
+            )
     except _Expired:
         return dataclasses.replace(base, failure=Failure("timeout", "Timeout"))
 

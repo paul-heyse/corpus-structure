@@ -1,22 +1,26 @@
 """Reusable source-bound linguistic columns under ordinary source-task custody."""
 
 from dataclasses import asdict
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.core.method import (
     Digest,
     ObservationDraft,
+    Reader,
     Resources,
-    SourcePreparationReader,
     UnitRef,
     UnitResult,
 )
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
-from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
+from corpus_structure.ingest.annotations import AnnotationProfile
 from corpus_structure.ingest.sentences import SentenceConfig
-from corpus_structure.methods.source_preparation import prepare_source
+from corpus_structure.methods.native_evidence_layers import (
+    SPACY_FAMILIES,
+    retained_annotation_products,
+)
+from corpus_structure.semantic.constructions.retained_rules import PRIMARY_RULE_FAMILY
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import NativeSourcePin
@@ -31,6 +35,7 @@ class M1AnnotationConfig(BaseModel):
     sentences: SentenceConfig = Field(default_factory=lambda: SentenceConfig(exclude=("ner",)))
     max_annotation_chars: int = Field(default=32768, ge=1)
     source_projection_digest: str | None = Field(default=None, pattern="^[0-9a-f]{64}$")
+    characterization_layers: tuple[dict, ...] = ()
 
 
 class LinguisticAnnotationSummary(BaseModel):
@@ -41,28 +46,37 @@ class LinguisticAnnotationSummary(BaseModel):
     availability: tuple[tuple[str, str], ...]
 
 
-def consume_annotations(reader: SourcePreparationReader, view, profile):
-    """Read the declared upstream batch; missing/failed products never trigger a rerun."""
-    result = reader.source_result(view.ref.id, METHOD)
-    if result is None:
-        raise ValueError("required upstream M1 annotation operation has no source result")
-    details = result["parse_detail"]
-    if details.get("recipe") != RECIPE or details.get("source_pin") != asdict(
-        NativeSourcePin.from_source(native_source_frame(view, ()))
-    ):
-        raise ValueError("upstream M1 annotation recipe/source binding differs")
-    products = restore_annotations(
-        details["annotations"], source=native_source_frame(view, ()), profile=profile
+def consume_annotations(
+    reader: Reader, view, profile
+) -> tuple[tuple, tuple[str, ...], dict[str, Any]]:
+    """Read exact retained primary inputs; missing evidence never runs a language model."""
+    from hashlib import sha256
+
+    layers = reader.primary_characterization(
+        view.ref.id, families=(*SPACY_FAMILIES, PRIMARY_RULE_FAMILY)
     )
-    errors = tuple(details.get("annotation_errors", ()))
-    if result["outcome"] == "failed" and not errors:
-        errors = ("upstream M1 annotation operation failed",)
-    return products, errors, result
+    products = retained_annotation_products(layers, view, profile)
+    pins = [pin.values() for pin in layers]
+    details = dict(
+        recipe=RECIPE,
+        source_pin=asdict(NativeSourcePin.from_source(native_source_frame(view, ()))),
+        characterization_layers=pins,
+        annotation_errors=[],
+    )
+    result = dict(
+        method="retained.primary_characterization",
+        input_hash=sha256(canonical_bytes(pins)).hexdigest(),
+        configuration_hash=sha256(canonical_bytes(profile.identity())).hexdigest(),
+        outcome="produced" if products else "empty",
+        parse_detail=details,
+        primary_layers=pins,
+    )
+    return products, (), result
 
 
 class M1Annotations:
     name = METHOD
-    version = "2"
+    version = "3"
     family = MethodFamily.EXTRACT
     unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.DETERMINISTIC
@@ -92,6 +106,7 @@ class M1Annotations:
                     source=asdict(view.ref),
                     profile=AnnotationProfile(cfg.sentences).identity(),
                     max_annotation_chars=cfg.max_annotation_chars,
+                    characterization_layers=cfg.characterization_layers,
                 )
             )
         )
@@ -101,12 +116,8 @@ class M1Annotations:
         for unit in units:
             ctx.check_active()
             view = ctx.reader.source_view(unit.ref.unit_id)
-            product = prepare_source(
-                view,
-                profile=AnnotationProfile(cfg.sentences),
-                max_annotation_chars=cfg.max_annotation_chars,
-                check_active=ctx.check_active,
-                annotations_only=True,
+            annotations, errors, retained = consume_annotations(
+                ctx.reader, view, AnnotationProfile(cfg.sentences)
             )
             results.append(
                 UnitResult(
@@ -126,24 +137,26 @@ class M1Annotations:
                             payload_version="1",
                             source_view_id=view.ref.id,
                         )
-                        for row in product.annotations
+                        for row in annotations
                     )
-                    if not product.annotation_errors
+                    if not errors
                     else (),
                     outcome=ObservationOutcome.FAILED
-                    if product.annotation_errors
+                    if errors
                     else ObservationOutcome.PRODUCED
-                    if product.annotations
+                    if annotations
                     else ObservationOutcome.EMPTY,
-                    error="; ".join(product.annotation_errors)
-                    if product.annotation_errors
-                    else None,
+                    error="; ".join(errors) if errors else None,
                     parse_detail=dict(
                         recipe=cfg.recipe,
-                        source_pin=NativeSourcePin.from_source(product.source).values(),
-                        annotations=[asdict(row) for row in product.annotations],
-                        annotation_errors=list(product.annotation_errors),
-                        exclusions=list(product.exclusions),
+                        source_pin=NativeSourcePin.from_source(
+                            native_source_frame(view, ())
+                        ).values(),
+                        characterization_layers=[
+                            dict(value) for value in retained["primary_layers"]
+                        ],
+                        annotation_errors=list(errors),
+                        exclusions=[],
                     ),
                 )
             )

@@ -99,6 +99,13 @@ def item(
     return AnnotationInput(pin(identity), block_id, kind, block, layout, pieces)
 
 
+def primary_product(text, product):
+    """Characterize the authored columns before testing downstream interpretation."""
+    from methods.primary_reading_fixture import primary_product as characterize
+
+    return characterize(" " * product.block_start + text, product, AnnotationProfile())
+
+
 def test_prepared_unicode_whitespace_math_and_reference_coordinates_survive_wrong_pos(controlled):
     text = " X  X\né e\u0301 x+y [3]."
     block = Block(text, ((11, 14),), (), ((15, 18),))
@@ -722,7 +729,9 @@ def test_authored_constructive_copula_requires_operation_and_preserves_polarity(
         tokens.append(
             replace(token, head=positions[head], dependency=dependency, pos=pos, lemma=lemma)
         )
-    view = annotation_view(replace(product, tokens=tuple(tokens)), text, controlled.vocab)
+    view = annotation_view(
+        primary_product(text, replace(product, tokens=tuple(tokens))), text, controlled.vocab
+    )
     raw = yaml.safe_load((DOMAINS / "statistics/m1-methods.yaml").read_text())["configs"][
         "extract.m1_candidates"
     ]["witnessed"]["annotation_rules"]
@@ -829,7 +838,9 @@ def test_constructive_copula_preserves_literal_mean_source_endpoints(controlled)
         )
         for i, (t, h, d, p) in enumerate(zip(product.tokens, heads, deps, pos, strict=True))
     )
-    view = annotation_view(replace(product, tokens=tokens), text, controlled.vocab)
+    view = annotation_view(
+        primary_product(text, replace(product, tokens=tokens)), text, controlled.vocab
+    )
     recipe = yaml.safe_load((DOMAINS / "statistics/m1-methods.yaml").read_text())["configs"][
         "extract.m1_candidates"
     ]["witnessed"]["annotation_rules"]

@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Engine, select
 
+from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.method import CoverageDraft, ObservationDraft, UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationKind, ObservationOutcome, TaskUnitType
 
@@ -62,6 +63,12 @@ class NativeRequestLimits(BaseModel):
     scale: float = Field(default=2, gt=0, le=8)
 
 
+class NativeMacroTemplate(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    name: str
+    body: str
+
+
 class NativeRequestConfig(NativeRequestLimits):
     source_view_id: int = Field(gt=0)
     native_product: dict[str, Any]
@@ -75,6 +82,8 @@ class NativeRequestConfig(NativeRequestLimits):
     predicate: str | None = None
     region_index: int | None = Field(default=None, ge=0)
     domain_rules: tuple[dict[str, Any], ...] = ()
+    characterization_layers: tuple[dict[str, Any], ...] = ()
+    macros: tuple[NativeMacroTemplate, ...] = ()
     ancestor_context: str = "{}"
     renderer: dict[str, str] | None = None
 
@@ -211,22 +220,50 @@ def request_source_view(
             view = load_source_view(conn, source_view_id, analysis=demand != "render")
             reference = view.ref
         archived = {} if demand == "render" else json.loads(source_binding.dependencies)
-        rules = [
-            v.get("parameters", {}).get("math", {}).get("native_domain_rules", [])
-            for v in archived.get("operations", {}).values()
-            if v.get("parameters", {}).get("math", {}).get("native_domain_rules")
+        math_operations = [
+            value
+            for name, value in archived.get("operations", {}).items()
+            if name.split("/", 1)[0]
+            in {"extract.math", "normalize.formula", "resolve.symbol_scope"}
         ]
-        if rules and any(canonical_bytes(r) != canonical_bytes(rules[0]) for r in rules[1:]):
+        math_sections = [value.get("parameters", {}).get("math") or {} for value in math_operations]
+        rules = [section.get("native_domain_rules", []) for section in math_sections]
+        if rules and any(
+            canonical_bytes(value) != canonical_bytes(rules[0]) for value in rules[1:]
+        ):
             raise ValueError("native source request has competing archived domain-rule contexts")
         domain_rules = tuple(rules[0]) if rules else ()
+        macro_maps = [section.get("macros", {}) for section in math_sections]
+        if macro_maps and any(value != macro_maps[0] for value in macro_maps[1:]):
+            raise ValueError("native source request has competing archived macro contexts")
+        macros = dict(macro_maps[0]) if macro_maps else {}
         from .operations import BoundReader
+        from .product_reference import ProductReference
 
+        primary_pins = tuple(
+            dict.fromkeys(
+                ProductReference(**pin)
+                for operation in math_operations
+                for pin in operation.get("parameters", {}).get("characterization_layers", ())
+            )
+        )
+        primary_layers = {}
+        reader = BoundReader(conn, source_run_id, prepared)
+        reader.characterization_selection = primary_pins
+        if demand != "render":
+            if not primary_pins:
+                raise ValueError(
+                    "native source analysis requires regenerated math operations "
+                    "with frozen primary layers"
+                )
+            primary_layers = reader.primary_characterization(
+                source_view_id, families=("formal.lexical",)
+            )
         contextual = demand in {"interpretation", "symbolic", "assessment"}
         ancestor_refs = ancestor_views = ()
         parent_records = {}
         parent_coverage = {}
         if contextual:
-            reader = BoundReader(conn, source_run_id, prepared)
             ancestor_refs = tuple(reader.ancestor_source_views(source_view_id))
             ancestor_views = tuple(reader.source_view(ref.id) for ref in ancestor_refs)
             parent_records = {
@@ -287,6 +324,10 @@ def request_source_view(
         region_index=region_index,
         scale=scale,
         domain_rules=domain_rules,
+        characterization_layers=tuple(pin.values() for pin in primary_pins),
+        macros=tuple(
+            NativeMacroTemplate(name=name, body=body) for name, body in sorted(macros.items())
+        ),
         ancestor_context=canonical_bytes(
             dict(
                 source_views=[asdict(ref) for ref in ancestor_refs],
@@ -328,7 +369,7 @@ def request_source_view(
     )
     method = OperationDescriptor(
         "native.source_request",
-        "6" if archived_cut is not None else "4",
+        "6" if archived_cut is not None else "5",
         "normalize",
         "deterministic",
         unit.unit_type,
@@ -485,6 +526,8 @@ def request_source_view(
                     domain_rules=kernel_rules,
                     ancestor_declarations=declarations,
                     ancestor_context_issues=issues,
+                    primary_layers=primary_layers,
+                    macros={name: MacroDef(body=body) for name, body in macros.items()},
                 )
             owner()
             failure = analysis_failure(analysis)

@@ -290,6 +290,53 @@ def test_same_identity_cannot_bind_different_fields():
         project_record_reports(prepared, (report((model, forged)),))
 
 
+def test_explicit_iris_cross_preparation_and_archive_as_plain_text():
+    from corpus_structure.semantic import (
+        PreparationProfile,
+        SourceArtifact,
+        SourceBundle,
+        prepare_release,
+    )
+    from corpus_structure.semantic.prepare import preview_schema
+
+    bundle = SourceBundle(
+        "explicit",
+        (
+            SourceArtifact(
+                "explicit",
+                b"""id: https://example.org/explicit
+name: explicit
+types:
+  string: {base: str, uri: 'http://www.w3.org/2001/XMLSchema#string'}
+classes:
+  Explicit:
+    class_uri: https://example.org/Explicit
+    attributes:
+      value:
+        range: string
+        slot_uri: https://example.org/value
+""",
+            ),
+        ),
+    )
+    profile = PreparationProfile()
+    prepared = prepare_release(bundle, profile=profile)
+    (definition,) = prepared.definitions
+    (prop,) = definition.properties
+    assert type(definition.iri) is str and definition.iri == "https://example.org/Explicit"
+    assert type(prop.iri) is str and prop.iri == "https://example.org/value"
+    (query,) = prepared.queries
+    assert type(query.class_iri) is str and query.class_iri == definition.iri
+    (preview,) = preview_schema(bundle).classes
+    assert type(preview.iri) is str and preview.iri == definition.iri
+    assert type(preview.properties[0].iri) is str and preview.properties[0].iri == prop.iri
+    reopened = reconstruct_release(
+        _products(prepared), prepared.manifest, bundle, profile, prepared.artifacts
+    )
+    assert reopened.definitions == prepared.definitions
+    assert reopened.queries == prepared.queries
+
+
 def test_archive_projection_is_the_only_family_role_authority():
     bundle, profile, prepared = release_inputs()
     projection = read_record_projection(prepared)

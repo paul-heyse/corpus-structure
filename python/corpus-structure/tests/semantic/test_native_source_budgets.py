@@ -145,7 +145,7 @@ def test_interactive_packet_propagates_one_budget_and_refuses_whole_packet(monke
 
     budget = PublishedReadBudget(10, 10)
     config = {"mode": "extract"}
-    reader = SimpleNamespace(read_budget=budget)
+    reader = SimpleNamespace(read_budget=budget, characterization_selection=())
     view = SimpleNamespace(reader=reader, options={"agent_configs": {"extract": config}})
     monkeypatch.setattr(operations, "lock_input_snapshot", lambda *args: None)
     run_view = Mock(return_value=view)

@@ -235,43 +235,177 @@ END $$;
 REVOKE ALL ON FUNCTION ops.resolve_retained_relationship_decision(jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ops.resolve_retained_relationship_decision(jsonb) TO corpus_sem_reader,corpus_sem_writer;
 
--- Current deterministic source-field route replay. SQL token positions are character
--- positions, matching Python projected string offsets (never byte offsets).
-CREATE OR REPLACE FUNCTION ops.structural_threshold_field(passage jsonb)
-RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
-DECLARE pattern text:='>=|<=|>|<|=|≥|≤|[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?|[^\W\d][\w.-]*|[^\s]';
- raw text:=passage->>'text'; tokens jsonb:='[]'; item record; i integer; begin_ integer; end_ integer; field_ text; parts text[]; fields jsonb:='[]'; symbol text; op text; value_ text; unit_ text; basis_pattern text:='^Comparison basis:[ \t]*([^\n\r.]+?)[ \t]*\.?[ \t]*$'; basis_ text; witness jsonb;
+-- Comparison reads complete positioned source facts. Parsing and linguistic
+-- classification are owned by the primary formal producer.
+CREATE OR REPLACE FUNCTION ops.comparison_primary_extent(layers jsonb,ref jsonb,source_ jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE v kb.source_view; node jsonb; extents_ jsonb;
 BEGIN
- IF (SELECT count(*) FROM regexp_matches(raw,basis_pattern,'gn'))=1 THEN
-  basis_:=nullif(btrim((regexp_match(raw,basis_pattern,'n'))[1],E' \t'),'');
-  begin_:=regexp_instr(raw,basis_pattern,1,1,0,'n')-1;
-  end_:=regexp_instr(raw,basis_pattern,1,1,1,'n')-1;
-  IF basis_ IS NOT NULL THEN witness:=jsonb_build_object('passage_id',passage->>'passage_id','start',(passage->>'start')::integer+begin_,'end',(passage->>'start')::integer+end_,'text',substring(raw FROM begin_+1 FOR end_-begin_)); END IF;
- END IF;
- FOR item IN SELECT m[1] text,n::integer FROM regexp_matches(raw,'('||pattern||')','g') WITH ORDINALITY a(m,n) LOOP
-  tokens:=tokens||jsonb_build_array(jsonb_build_object('text',item.text,'start',regexp_instr(raw,pattern,1,item.n)-1,'end',regexp_instr(raw,pattern,1,item.n,1)-1));
- END LOOP;
- FOR i IN 0..jsonb_array_length(tokens)-2 LOOP
-  IF tokens->i->>'text' NOT IN ('>','>=','<','<=','=','≥','≤') OR tokens->(i+1)->>'text' !~ '^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$' THEN CONTINUE; END IF;
-  begin_:=(tokens->i->>'start')::integer;end_:=(tokens->(i+1)->>'end')::integer;
-  IF i>0 AND tokens->(i-1)->>'text' ~ '^[^\W\d][\w.-]*$' THEN begin_:=(tokens->(i-1)->>'start')::integer;END IF;
-  IF tokens->(i+2)->>'text' IN ('%','$','€','£','USD','EUR','kg','m','s') THEN end_:=(tokens->(i+2)->>'end')::integer;END IF;
-  field_:=substring(raw FROM begin_+1 FOR end_-begin_);
-  parts:=regexp_match(field_,'^([A-Za-z][A-Za-z0-9_]*\s*)?(>=|<=|>|<|=|≥|≤)\s*([+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)\s*([%$€£]|[A-Za-z][A-Za-z0-9_/-]*)?$');
-  IF parts IS NULL THEN CONTINUE;END IF;
-  symbol:=nullif(btrim(parts[1]),'');op:=replace(replace(parts[2],'≥','>='),'≤','<=');value_:=data.decimal_canonical(parts[3]::numeric::text);unit_:=parts[4];
-  fields:=fields||jsonb_build_array(jsonb_strip_nulls(jsonb_build_object('dimension','threshold_unit','lexical_value',field_,'evidence',jsonb_build_array(passage->>'passage_id'),
-   'typed',jsonb_build_object('span',jsonb_build_object('passage_id',passage->>'passage_id','start',(passage->>'start')::integer+begin_,'end',(passage->>'start')::integer+end_,'text',field_),
-   'grammar','threshold-lalr-1','state','parsed','value',value_,'comparator',op,'quantity',symbol,'unit',unit_,'basis',basis_,'basis_evidence',witness))));
- END LOOP;
- RETURN fields;
+ SELECT * INTO STRICT v FROM kb.source_view WHERE id=(source_->>'source_view_id')::bigint;
+ node:=ops.primary_characterization_node(layers,ref);
+ IF NOT ops.primary_characterization_in_view(layers,ref,node,v.id) THEN RETURN NULL; END IF;
+ extents_:=ops.primary_characterization_extents(layers,ref,node,v);
+ IF jsonb_array_length(extents_)<>1 OR coalesce((extents_->0->>'synthetic')::boolean,true) OR extents_->0->>'text' IS NULL THEN RETURN NULL; END IF;
+ RETURN extents_->0;
 END $$;
-REVOKE ALL ON FUNCTION ops.structural_threshold_field(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ops.comparison_primary_extent(jsonb,jsonb,jsonb) FROM PUBLIC;
 
-CREATE OR REPLACE FUNCTION ops.structural_compare_lexical(inputs jsonb,left_id text,right_id text,xf jsonb,yf jsonb)
-RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
-DECLARE a jsonb;b jsonb;x jsonb;y jsonb;p jsonb;q jsonb;d text;dimensions jsonb:='[]';entry jsonb;typed text;reason text;removed jsonb;added jsonb;interval_ jsonb;lo jsonb;hi jsonb;av numeric;bv numeric;lower_side boolean;is_removed boolean;applicability text;why text;newer jsonb;older jsonb;w record;succession jsonb;witnesses integer:=0;start_ integer;end_ integer;pattern_ text:='^Revision ([A-Za-z0-9_-]+) supersedes revision ([A-Za-z0-9_-]+)\.[ \t]*$';
- old_pattern text:='^Revision ([A-Za-z0-9_-]+)\.[ \t]*$'; lineage_pattern text:='^Clause ([A-Za-z0-9_-]+)\.[ \t]*$'; old_start integer;old_end integer;
+CREATE OR REPLACE FUNCTION ops.comparison_primary_covered(layers jsonb,source_ jsonb,family_ text,lo bigint,hi bigint)
+RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+ SELECT EXISTS(SELECT FROM jsonb_each(layers) l CROSS JOIN LATERAL jsonb_array_elements(l.value->'coverage') c
+ WHERE c->>'family'=family_ AND c->>'availability'='available' AND c->>'outcome' IN ('complete','empty')
+  AND coalesce(c->'unexamined','[]')='[]'::jsonb AND EXISTS(SELECT FROM jsonb_array_elements(c->'examined') s
+   WHERE s->>'projection'=source_->>'projection_digest' AND coalesce((s->>'start')::bigint,0)<=lo AND coalesce((s->>'end')::bigint,0)>=hi))
+$$;
+REVOKE ALL ON FUNCTION ops.comparison_primary_covered(jsonb,jsonb,text,bigint,bigint) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.comparison_primary_fields(passage jsonb,source_ jsonb,layers jsonb,family_ text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE l record; a jsonb; ref jsonb; root jsonb; extent_ jsonb; formal_ jsonb; input_ jsonb;
+ results jsonb:='[]'; captured text[]:='{}'; complete_ boolean:=ops.comparison_primary_covered(layers,source_,family_,(passage->>'start')::bigint,(passage->>'end')::bigint); duplicates jsonb;
+BEGIN
+ FOR l IN SELECT * FROM jsonb_each(layers) LOOP
+  captured:='{}';
+  FOR a IN SELECT value FROM jsonb_array_elements(l.value->'annotations') WHERE value->>'kind'='formal.rule' AND value->>'family'=family_ AND value->'formal' ? 'normalized' LOOP
+   formal_:=a->'formal';root:=ops.primary_characterization_node(layers,jsonb_build_object('layer',l.key::jsonb,'local_id',formal_->>'input_id'));input_:=root->'formal_input';
+   IF input_->>'representation' IS DISTINCT FROM 'source_text' OR input_->>'syntax_outcome' IS DISTINCT FROM 'complete'
+    OR formal_->>'start' IS DISTINCT FROM '0' OR (formal_->>'end')::integer IS DISTINCT FROM char_length(input_->>'text') THEN CONTINUE; END IF;
+   ref:=jsonb_build_object('layer',l.key::jsonb,'local_id',root->>'local_id');extent_:=ops.comparison_primary_extent(layers,ref,source_);
+   IF extent_ IS NULL OR (extent_->>'start')::bigint<(passage->>'start')::bigint OR (extent_->>'end')::bigint>(passage->>'end')::bigint OR extent_->>'text' IS DISTINCT FROM input_->>'text' THEN CONTINUE; END IF;
+   IF formal_->'normalized'->>'domain_status'='invalid' THEN complete_:=false;CONTINUE; END IF;
+   captured:=array_append(captured,root->>'local_id');ref:=jsonb_build_object('layer',l.key::jsonb,'local_id',a->>'local_id');
+   IF NOT ops.primary_characterization_choices(layers,ref,a,'[]') OR NOT ops.primary_characterization_choices(layers,jsonb_build_object('layer',l.key::jsonb,'local_id',root->>'local_id'),root,'[]') THEN complete_:=false;CONTINUE; END IF;
+   results:=results||jsonb_build_array(jsonb_build_object('reference',ref,'span',jsonb_build_object('passage_id',passage->>'passage_id','start',extent_->'start','end',extent_->'end','text',extent_->'text'),
+    'grammar',input_->'grammar','start_symbol',input_->'start_symbol','rule',formal_->'rule','normalized',formal_->'normalized'));
+  END LOOP;
+  FOR a IN SELECT value FROM jsonb_array_elements(l.value->'annotations') WHERE value->>'family'=family_ AND value ? 'formal_input' LOOP
+   extent_:=ops.comparison_primary_extent(layers,jsonb_build_object('layer',l.key::jsonb,'local_id',a->>'local_id'),source_);
+   IF extent_ IS NOT NULL AND (extent_->>'start')::bigint>=(passage->>'start')::bigint AND (extent_->>'end')::bigint<=(passage->>'end')::bigint AND NOT (a->>'local_id'=ANY(captured)) THEN complete_:=false; END IF;
+  END LOOP;
+ END LOOP;
+ SELECT coalesce(jsonb_agg(key),'[]') INTO duplicates FROM (SELECT jsonb_build_array(r->'span'->'start',r->'span'->'end') key FROM jsonb_array_elements(results) r GROUP BY r->'span'->'start',r->'span'->'end' HAVING count(*)<>1) d;
+ IF jsonb_array_length(duplicates)>0 THEN complete_:=false; END IF;
+ SELECT coalesce(jsonb_agg(r ORDER BY (r->'span'->>'start')::bigint,(r->'span'->>'end')::bigint),'[]') INTO results FROM jsonb_array_elements(results) r WHERE NOT duplicates @> jsonb_build_array(jsonb_build_array(r->'span'->'start',r->'span'->'end'));
+ RETURN jsonb_build_object('fields',results,'complete',complete_);
+END $$;
+REVOKE ALL ON FUNCTION ops.comparison_primary_fields(jsonb,jsonb,jsonb,text) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.comparison_primary_lexical(passage jsonb,source_ jsonb,layers jsonb,kind_ text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE l record; a jsonb; ref jsonb; extent_ jsonb; result_ jsonb:='[]'; bindings_ jsonb; member_ jsonb; member_ref jsonb; member_extent jsonb; m jsonb;
+BEGIN
+ FOR l IN SELECT * FROM jsonb_each(layers) LOOP
+  FOR a IN SELECT value FROM jsonb_array_elements(l.value->'annotations') WHERE value->>'kind'=kind_ AND value->>'family'='formal.lexical' LOOP
+   ref:=jsonb_build_object('layer',l.key::jsonb,'local_id',a->>'local_id');extent_:=ops.comparison_primary_extent(layers,ref,source_);
+   IF extent_ IS NULL OR (extent_->>'start')::bigint<(passage->>'start')::bigint OR (extent_->>'end')::bigint>(passage->>'end')::bigint OR nullif(a->>'native_label','') IS NULL THEN CONTINUE; END IF;
+   IF NOT ops.primary_characterization_choices(layers,ref,a,'[]') THEN CONTINUE; END IF;
+   bindings_:='[]';
+   FOR m IN SELECT value FROM jsonb_array_elements(l.value->'memberships') WHERE value->>'group'=a->>'local_id' LOOP
+    member_ref:=jsonb_build_object('layer',l.key::jsonb,'local_id',m->>'member');member_:=ops.primary_characterization_node(layers,member_ref);member_extent:=ops.comparison_primary_extent(layers,member_ref,source_);
+    IF member_extent IS NULL OR member_->>'native_label' IS DISTINCT FROM member_extent->>'text'
+     OR (kind_='formal.revision_succession' AND member_->>'kind' IS DISTINCT FROM 'formal.version_identifier')
+     OR (member_extent->>'start')::bigint<(extent_->>'start')::bigint OR (member_extent->>'end')::bigint>(extent_->>'end')::bigint
+     OR NOT ops.primary_characterization_choices(layers,member_ref,member_,'[]') OR NOT ops.primary_characterization_choices(layers,ref,m,'[]') THEN RAISE EXCEPTION 'comparison lexical binding changes retained identifier membership' USING ERRCODE='23514'; END IF;
+    bindings_:=bindings_||jsonb_build_array(jsonb_build_object('role',m->>'role','reference',member_ref,'value',member_->>'native_label'));
+   END LOOP;
+   result_:=result_||jsonb_build_array(jsonb_build_object('reference',ref,'span',jsonb_build_object('passage_id',passage->>'passage_id','start',extent_->'start','end',extent_->'end','text',extent_->'text'),'value',a->>'native_label','bindings',bindings_));
+  END LOOP;
+ END LOOP;
+ RETURN result_;
+END $$;
+REVOKE ALL ON FUNCTION ops.comparison_primary_lexical(jsonb,jsonb,jsonb,text) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.structural_threshold_field(passage jsonb,source_ jsonb,layers jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE inventory jsonb:=ops.comparison_primary_fields(passage,source_,layers,'formal.threshold'); fields jsonb:='[]'; f jsonb; n jsonb; bases jsonb:='[]'; basis_ jsonb; l record; a jsonb; extent_ jsonb; ref jsonb;
+BEGIN
+ FOR l IN SELECT * FROM jsonb_each(layers) LOOP
+  FOR a IN SELECT value FROM jsonb_array_elements(l.value->'annotations') WHERE value->>'kind'='formal.comparison_basis' AND value->>'native_scheme'='source-comparison-basis-1' LOOP
+   ref:=jsonb_build_object('layer',l.key::jsonb,'local_id',a->>'local_id');extent_:=ops.comparison_primary_extent(layers,ref,source_);
+   IF extent_ IS NOT NULL AND (extent_->>'start')::bigint>=(passage->>'start')::bigint AND (extent_->>'end')::bigint<=(passage->>'end')::bigint AND nullif(a->>'native_label','') IS NOT NULL AND ops.primary_characterization_choices(layers,ref,a,'[]') THEN
+    bases:=bases||jsonb_build_array(jsonb_build_object('reference',ref,'value',a->>'native_label','span',jsonb_build_object('passage_id',passage->>'passage_id','start',extent_->'start','end',extent_->'end','text',extent_->'text'))); END IF;
+  END LOOP;
+ END LOOP;
+ IF jsonb_array_length(bases)=1 THEN basis_:=bases->0; END IF;
+ FOR f IN SELECT value FROM jsonb_array_elements(inventory->'fields') LOOP
+  n:=f->'normalized';
+  IF n->>'kind' IS DISTINCT FROM 'threshold' OR NOT n ?& ARRAY['value','comparator'] THEN inventory:=jsonb_set(inventory,'{complete}','false');CONTINUE; END IF;
+  fields:=fields||jsonb_build_array(jsonb_strip_nulls(jsonb_build_object('dimension','threshold_unit','lexical_value',f->'span'->>'text','evidence',jsonb_build_array(passage->>'passage_id'),
+   'typed',jsonb_build_object('span',f->'span','grammar',f->'grammar','state','parsed','value',n->'value','comparator',n->'comparator','quantity',n->'quantity','unit',n->'unit','primary_formal',f->'reference','basis',basis_->'value','basis_evidence',basis_->'span','primary_basis',basis_->'reference'))));
+ END LOOP;
+ RETURN jsonb_build_object('fields',fields,'complete',inventory->'complete');
+END $$;
+REVOKE ALL ON FUNCTION ops.structural_threshold_field(jsonb,jsonb,jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.comparison_literal(passage jsonb,source_ jsonb,layers jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE family_ text; candidates jsonb:='[]'; f jsonb; n jsonb; literal_ jsonb;
+ field_ text; lexical_ text; parts_ text[]; coefficient_ text; digits_ text; exponent_ numeric;
+BEGIN
+ IF char_length(passage->>'text')>256 THEN RETURN '{}'; END IF;
+ FOREACH family_ IN ARRAY ARRAY['formal.date','formal.identifier','formal.quantity','formal.interval'] LOOP
+  FOR f IN SELECT value FROM jsonb_array_elements(ops.comparison_primary_fields(passage,source_,layers,family_)->'fields') LOOP
+   IF f->'span'->'start'=passage->'start' AND f->'span'->'end'=passage->'end' AND f->>'start_symbol'='labeled' THEN candidates:=candidates||jsonb_build_array(f); END IF;
+  END LOOP;
+ END LOOP;
+ IF jsonb_array_length(candidates)<>1 THEN RETURN '{}'; END IF;
+ f:=candidates->0;n:=f->'normalized';
+ IF n->>'kind' IN ('date','identifier') THEN literal_:=jsonb_build_object('kind',n->>'kind','value',n->'value');
+ ELSIF f->>'rule'='quantity' AND n ? 'unit' THEN literal_:=jsonb_build_object('kind','quantity','value',n->'value','unit',n->'unit');
+ ELSIF n->>'kind'='interval' AND n ? 'unit' THEN literal_:=jsonb_build_object('kind','range','lower',n->'lower','upper',n->'upper','lower_closed',n->'lower_closed','upper_closed',n->'upper_closed','unit',n->'unit');
+ ELSE RETURN '{}'; END IF;
+ IF literal_->>'kind' IN ('quantity','range') THEN
+  FOREACH field_ IN ARRAY (CASE WHEN literal_->>'kind'='quantity' THEN ARRAY['value'] ELSE ARRAY['lower','upper'] END) LOOP
+   lexical_:=literal_->>field_;
+   IF lexical_ IS NULL OR lexical_ !~ '^[+-]?([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]+)?$' THEN RETURN '{}'; END IF;
+   parts_:=regexp_split_to_array(ltrim(lexical_,'+-'),'[eE]');
+   coefficient_:=parts_[1];digits_:=replace(coefficient_,'.','');
+   IF ltrim(digits_,'0')<>'' THEN
+    -- Read the retained exact decimal's adjusted exponent without expanding its value.
+    exponent_:=CASE WHEN array_length(parts_,1)=2 THEN parts_[2]::numeric ELSE 0 END;
+    exponent_:=exponent_+length(split_part(coefficient_,'.',1))-1
+      -(length(digits_)-length(ltrim(digits_,'0')));
+    IF abs(exponent_)>100 THEN RETURN '{}'; END IF;
+   END IF;
+  END LOOP;
+ END IF;
+ RETURN jsonb_build_object('literal',literal_,'primary_formal',f->'reference');
+EXCEPTION WHEN numeric_value_out_of_range THEN RETURN '{}';
+END $$;
+REVOKE ALL ON FUNCTION ops.comparison_literal(jsonb,jsonb,jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.comparison_primary_succession(inputs jsonb,a jsonb,b jsonb,primary_ jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE source_ jsonb; layers jsonb; older jsonb; newer jsonb; lineages jsonb:='{}'; facts jsonb; fact jsonb; declaration_ jsonb; bindings_ jsonb; witnesses jsonb:='[]'; passage_ jsonb;
+BEGIN
+ IF a->>'scope' IS DISTINCT FROM b->>'scope' OR a->>'source_ref' IS DISTINCT FROM b->>'source_ref' OR a->>'effective_version' IS NULL OR b->>'effective_version' IS NULL
+  OR a->>'effective_version'=b->>'effective_version' OR nullif(a->>'parent','') IS NULL OR a->>'parent' IS DISTINCT FROM b->>'parent'
+  OR NOT ((a->>'end')::bigint<=(b->>'start')::bigint OR (b->>'end')::bigint<=(a->>'start')::bigint) THEN RETURN NULL; END IF;
+ SELECT s INTO STRICT source_ FROM jsonb_array_elements(inputs->'sources') s WHERE encode(sha256(convert_to(data.canonical_json(jsonb_strip_nulls(s)),'UTF8')),'hex')=a->>'source_ref';
+ layers:=primary_->(a->>'source_ref');
+ FOR passage_ IN SELECT a UNION ALL SELECT b LOOP
+  facts:=ops.comparison_primary_lexical(passage_,source_,layers,'formal.clause_lineage');
+  IF jsonb_array_length(facts)<>1 OR facts->0->>'value' IS DISTINCT FROM a->>'parent' THEN RETURN NULL; END IF;
+  lineages:=lineages||jsonb_build_object(passage_->>'passage_id',facts->0);
+ END LOOP;
+ FOR newer,older IN SELECT a,b UNION ALL SELECT b,a LOOP
+  facts:=ops.comparison_primary_lexical(older,source_,layers,'formal.revision_declaration');
+  IF jsonb_array_length(facts)<>1 OR facts->0->>'value' IS DISTINCT FROM older->>'effective_version' THEN CONTINUE; END IF;
+  declaration_:=facts->0;
+  FOR fact IN SELECT value FROM jsonb_array_elements(ops.comparison_primary_lexical(newer,source_,layers,'formal.revision_succession')) LOOP
+   SELECT jsonb_object_agg(x->>'role',x->'value') INTO bindings_ FROM jsonb_array_elements(fact->'bindings') x;
+   IF jsonb_array_length(fact->'bindings')<>2 OR bindings_ IS DISTINCT FROM jsonb_build_object('newer_revision',newer->>'effective_version','older_revision',older->>'effective_version') THEN CONTINUE; END IF;
+   witnesses:=witnesses||jsonb_build_array(jsonb_build_object('older_id',older->>'passage_id','newer_id',newer->>'passage_id','evidence',fact->'span','older_evidence',declaration_->'span',
+    'primary_witnesses',jsonb_build_array(declaration_->'reference',fact->'reference',lineages->(older->>'passage_id')->'reference',lineages->(newer->>'passage_id')->'reference')));
+  END LOOP;
+ END LOOP;
+ RETURN CASE WHEN jsonb_array_length(witnesses)=1 THEN witnesses->0 END;
+END $$;
+REVOKE ALL ON FUNCTION ops.comparison_primary_succession(jsonb,jsonb,jsonb,jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.structural_compare_lexical(inputs jsonb,left_id text,right_id text,xf jsonb,yf jsonb,primary_ jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE a jsonb;b jsonb;x jsonb;y jsonb;p jsonb;q jsonb;d text;dimensions jsonb:='[]';entry jsonb;typed text;reason text;removed jsonb;added jsonb;interval_ jsonb;lo jsonb;hi jsonb;av numeric;bv numeric;lower_side boolean;is_removed boolean;applicability text;why text;newer jsonb;older jsonb;w record;succession jsonb;witnesses integer:=0;start_ integer;end_ integer;
 BEGIN
  SELECT v INTO STRICT a FROM jsonb_array_elements(inputs->'passages')v WHERE v->>'passage_id'=left_id;
  SELECT v INTO STRICT b FROM jsonb_array_elements(inputs->'passages')v WHERE v->>'passage_id'=right_id;
@@ -309,29 +443,8 @@ BEGIN
   END IF;
   dimensions:=dimensions||jsonb_build_array(entry);
  END LOOP;
- IF a->>'scope'=b->>'scope' AND a->>'source_ref'=b->>'source_ref'
-  AND ((a->>'end')::integer<=(b->>'start')::integer OR (b->>'end')::integer<=(a->>'start')::integer)
-  AND nullif(a->>'parent','') IS NOT NULL AND a->>'parent'=b->>'parent'
-  AND (SELECT array_agg(m[1]) FROM regexp_matches(a->>'text',lineage_pattern,'gn') m)=ARRAY[a->>'parent']
-  AND (SELECT array_agg(m[1]) FROM regexp_matches(b->>'text',lineage_pattern,'gn') m)=ARRAY[a->>'parent']
-  AND a->>'effective_version'<>b->>'effective_version' THEN
-  FOR newer,older IN SELECT a,b UNION ALL SELECT b,a LOOP
-   IF (SELECT array_agg(m[1]) FROM regexp_matches(older->>'text',old_pattern,'gn') m)
-    IS DISTINCT FROM ARRAY[older->>'effective_version'] THEN CONTINUE; END IF;
-   old_start:=regexp_instr(older->>'text',old_pattern,1,1,0,'n')-1;
-   old_end:=regexp_instr(older->>'text',old_pattern,1,1,1,'n')-1;
-   FOR w IN SELECT m,n::integer FROM regexp_matches(newer->>'text',pattern_,'gn') WITH ORDINALITY x(m,n) LOOP
-    IF w.m[1]=newer->>'effective_version' AND w.m[2]=older->>'effective_version' THEN
-     witnesses:=witnesses+1;
-     start_:=regexp_instr(newer->>'text',pattern_,1,w.n,0,'n')-1;
-     end_:=regexp_instr(newer->>'text',pattern_,1,w.n,1,'n')-1;
-     succession:=jsonb_build_object('older_id',older->>'passage_id','newer_id',newer->>'passage_id',
-      'evidence',jsonb_build_object('passage_id',newer->>'passage_id','start',(newer->>'start')::integer+start_,'end',(newer->>'start')::integer+end_,'text',substring(newer->>'text' FROM start_+1 FOR end_-start_)),
-      'older_evidence',jsonb_build_object('passage_id',older->>'passage_id','start',(older->>'start')::integer+old_start,'end',(older->>'start')::integer+old_end,'text',substring(older->>'text' FROM old_start+1 FOR old_end-old_start)));
-    END IF;
-   END LOOP;
-  END LOOP;
- END IF;
+ succession:=ops.comparison_primary_succession(inputs,a,b,primary_);
+ witnesses:=CASE WHEN succession IS NULL THEN 0 ELSE 1 END;
  IF a->>'scope' IS DISTINCT FROM b->>'scope' THEN applicability:='differently_scoped';why:='Original source scopes differ.';
  ELSIF witnesses=1 THEN applicability:='successive_revisions';why:='Exact source text establishes succession.';
  ELSIF a->>'effective_version' IS NULL OR b->>'effective_version' IS NULL THEN applicability:='unestablished';why:='Effective versions are not established.';
@@ -340,42 +453,10 @@ BEGIN
  ELSE applicability:='unestablished';why:='Missing or changed applicability dimensions remain material.';END IF;
  RETURN jsonb_build_object('left_id',left_id,'right_id',right_id,'dimensions',dimensions,'equivalence','not_asserted','identity_standing','not_asserted','applicability',applicability,'applicability_reason',why)||CASE WHEN witnesses=1 THEN jsonb_build_object('succession',succession) ELSE '{}'::jsonb END;
 END $$;
-REVOKE ALL ON FUNCTION ops.structural_compare_lexical(jsonb,text,text,jsonb,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ops.structural_compare_lexical(jsonb,text,text,jsonb,jsonb,jsonb) FROM PUBLIC;
 
-CREATE OR REPLACE FUNCTION ops.comparison_literal(literal text)
-RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
-DECLARE m text[]; a numeric; b numeric; lower_closed boolean;upper_closed boolean;
- number_pattern text:='([+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)';
- unit_pattern text:='([%$€£]|[A-Za-z][A-Za-z0-9_/-]*)';
-BEGIN
- IF length(literal)>256 THEN RETURN NULL; END IF;
- m:=regexp_match(literal,'^\s*Date:\s*([0-9]{4})-([0-9]{2})-([0-9]{2})\s*$');
- IF m IS NOT NULL THEN
-  IF m[1]='0000' THEN RETURN NULL;END IF;
-  PERFORM make_date(m[1]::integer,m[2]::integer,m[3]::integer);
-  RETURN jsonb_build_object('kind','date','value',m[1]||'-'||m[2]||'-'||m[3]);
- END IF;
- m:=regexp_match(literal,'^\s*Identifier:\s*([A-Za-z][A-Za-z0-9_.-]*)\s*$');
- IF m IS NOT NULL THEN RETURN jsonb_build_object('kind','identifier','value',m[1]);END IF;
- m:=regexp_match(literal,'^\s*Quantity:\s*'||number_pattern||'\s*'||unit_pattern||'\s*$');
- IF m IS NOT NULL THEN
-  a:=m[1]::numeric;
-  IF a<>0 AND (abs(a)<1e-100 OR abs(a)>=1e101) THEN RETURN NULL;END IF;
-  RETURN jsonb_build_object('kind','quantity','value',data.decimal_canonical(a::text),'unit',m[2]);
- END IF;
- m:=regexp_match(literal,'^\s*Range:\s*([\[(])\s*'||number_pattern||'\s*,\s*'||number_pattern||'\s*([\])])\s*'||unit_pattern||'\s*$');
- IF m IS NULL THEN RETURN NULL;END IF;
- a:=m[2]::numeric;b:=m[3]::numeric;lower_closed:=m[1]='[';upper_closed:=m[4]=']';
- IF (a<>0 AND (abs(a)<1e-100 OR abs(a)>=1e101)) OR (b<>0 AND (abs(b)<1e-100 OR abs(b)>=1e101))
-  OR a>b OR (a=b AND NOT (lower_closed AND upper_closed)) THEN RETURN NULL;END IF;
- RETURN jsonb_build_object('kind','range','lower',data.decimal_canonical(a::text),'upper',data.decimal_canonical(b::text),
-  'lower_closed',lower_closed,'upper_closed',upper_closed,'unit',m[5]);
-EXCEPTION WHEN datetime_field_overflow OR numeric_value_out_of_range OR invalid_text_representation THEN RETURN NULL;
-END $$;
-REVOKE ALL ON FUNCTION ops.comparison_literal(text) FROM PUBLIC;
-
-CREATE OR REPLACE FUNCTION ops.comparison_member(passage jsonb,dimension text,extents jsonb,contribution text)
-RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+CREATE OR REPLACE FUNCTION ops.comparison_member(passage jsonb,dimension text,extents jsonb,contribution text,source_ jsonb,layers jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
 DECLARE extent jsonb; lo integer; hi integer; value_ text; spans jsonb:='[]'; literal text[]:='{}';
 BEGIN
  FOR extent IN SELECT e FROM jsonb_array_elements(extents) e LOOP
@@ -389,15 +470,15 @@ BEGIN
  IF cardinality(literal)=0 THEN RETURN NULL;END IF;
  RETURN jsonb_strip_nulls(jsonb_build_object('dimension',dimension,'lexical_value',array_to_string(literal,' '),
   'spans',spans,'evidence',jsonb_build_array(passage->>'passage_id'),'contribution_id',contribution,
-  'literal',CASE WHEN cardinality(literal)=1 THEN ops.comparison_literal(literal[1]) END));
+  'literal',NULL))||CASE WHEN cardinality(literal)=1 THEN ops.comparison_literal(passage||jsonb_build_object('start',spans->0->'start','end',spans->0->'end','text',literal[1]),source_,layers) ELSE '{}'::jsonb END;
 END $$;
-REVOKE ALL ON FUNCTION ops.comparison_member(jsonb,text,jsonb,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ops.comparison_member(jsonb,text,jsonb,text,jsonb,jsonb) FROM PUBLIC;
 
-CREATE OR REPLACE FUNCTION ops.comparison_groups(passage jsonb,source_ jsonb,ref jsonb,rows_ jsonb)
-RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+CREATE OR REPLACE FUNCTION ops.comparison_groups(passage jsonb,source_ jsonb,ref jsonb,rows_ jsonb,layers jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
 DECLARE reading jsonb;frame jsonb;component jsonb;pin jsonb;item jsonb;cue jsonb;dimension text;field_ jsonb;
  incomplete text[]:='{}';fields jsonb:='{}';controls jsonb:='[]';groups jsonb:='{}';members jsonb;state text;
- grouping text;witnesses jsonb;previous jsonb;lo integer;hi integer;gap text;marker text;word text;label text;focus jsonb;empty_ jsonb;
+ grouping text;witnesses jsonb;previous jsonb;lo integer;hi integer;gap text;marker text;word text;label text;focus jsonb;empty_ jsonb;inventory_ jsonb;facts_ jsonb;fact_ jsonb; primary_ jsonb; tokens_ jsonb; l_ record; a_ jsonb; e_ jsonb; span_ jsonb; source_ref_ jsonb; prior_ jsonb;
 BEGIN
  SELECT v INTO STRICT reading FROM jsonb_array_elements(rows_) v WHERE v->>'contribution_id'=ref->>'contribution_id';
  component:=reading->'component'; pin:=reading->'pin';
@@ -415,7 +496,7 @@ BEGIN
   IF item->>'role'='focus' AND item->>'outcome'='complete' AND jsonb_array_length(item->'extents')=1 THEN focus:=item->'extents'->0;controls:=controls||(item->'extents');END IF;
   dimension:=CASE item->>'role' WHEN 'predicate' THEN 'action' WHEN 'actor' THEN 'actor' WHEN 'object' THEN 'object' END;
   IF dimension IS NULL THEN CONTINUE;END IF;
-  field_:=ops.comparison_member(passage,dimension,item->'extents',item->>'contribution');
+  field_:=ops.comparison_member(passage,dimension,item->'extents',item->>'contribution',source_,layers);
   IF field_ IS NOT NULL THEN fields:=jsonb_set(fields,ARRAY[dimension],COALESCE(fields->dimension,'[]')||jsonb_build_array(field_));END IF;
   IF field_ IS NULL OR item->>'outcome' IS DISTINCT FROM 'complete' THEN incomplete:=array_append(incomplete,dimension);END IF;
  END LOOP;
@@ -443,7 +524,7 @@ BEGIN
   IF dimension IS NULL THEN CONTINUE;END IF;
   SELECT v INTO STRICT cue FROM jsonb_array_elements(rows_) v WHERE v->>'contribution_id'=item->'component'->>'qualifier_contribution_id';
   IF cue->'pin' IS DISTINCT FROM pin THEN RAISE EXCEPTION 'comparison qualifier differs from selected source' USING ERRCODE='23514';END IF;
-  field_:=ops.comparison_member(passage,dimension,cue->'component'->'extents',item->>'contribution_id');
+  field_:=ops.comparison_member(passage,dimension,cue->'component'->'extents',item->>'contribution_id',source_,layers);
   IF field_ IS NOT NULL AND item->'component' ? 'condition' THEN
    field_:=field_||jsonb_build_object('condition',item->'component'->'condition');
   END IF;
@@ -457,7 +538,9 @@ BEGIN
    fields:=jsonb_set(fields,ARRAY[dimension],jsonb_build_array(jsonb_build_object('dimension',dimension,'lexical_value',label,'evidence',jsonb_build_array(passage->>'passage_id'))));
   END IF;
  END LOOP;
- FOR field_ IN SELECT v FROM jsonb_array_elements(ops.structural_threshold_field(passage)) v LOOP
+ inventory_:=ops.structural_threshold_field(passage,source_,layers);
+ IF inventory_->'complete' IS DISTINCT FROM 'true'::jsonb THEN incomplete:=array_append(incomplete,'threshold_unit'); END IF;
+ FOR field_ IN SELECT v FROM jsonb_array_elements(inventory_->'fields') v LOOP
   IF EXISTS(SELECT FROM jsonb_array_elements(controls) c
    WHERE (c->>'start')::integer<=(field_->'typed'->'span'->>'start')::integer
     AND (c->>'end')::integer>=(field_->'typed'->'span'->>'end')::integer) THEN
@@ -467,7 +550,7 @@ BEGIN
  FOREACH dimension IN ARRAY ARRAY['actor','action','object','modality','condition','threshold_unit','exception','order_dependency','parent','version'] LOOP
   SELECT COALESCE(jsonb_agg(m ORDER BY COALESCE(m->'spans'->0->>'start',m->'typed'->'span'->>'start')::integer,m->>'contribution_id'),'[]')
    INTO members FROM jsonb_array_elements(COALESCE(fields->dimension,'[]')) m;
-  witnesses:='[]';grouping:=NULL;
+  witnesses:='[]';primary_:='[]';grouping:=NULL;
   IF dimension=ANY(incomplete) THEN state:='unresolved';IF jsonb_array_length(members)>0 THEN grouping:='unresolved';END IF;
   ELSIF jsonb_array_length(members)=0 THEN state:='absent';
   ELSIF jsonb_array_length(members)=1 THEN state:='present';grouping:='singleton';
@@ -478,35 +561,52 @@ BEGIN
      lo:=COALESCE(previous->'spans'->-1->>'end',previous->'typed'->'span'->>'end')::integer;
      hi:=COALESCE(item->'spans'->0->>'start',item->'typed'->'span'->>'start')::integer;
      IF hi<=lo THEN witnesses:='[]';EXIT;END IF;
-     gap:=substring(passage->>'text' FROM lo-(passage->>'start')::integer+1 FOR hi-lo);
-     word:=regexp_replace(gap,'^[[:space:]]+|[[:space:]]+$','','g');
-     IF lower(word) NOT IN ('and','or') OR (marker IS NOT NULL AND marker<>lower(word)) THEN witnesses:='[]';EXIT;END IF;
-     marker:=lower(word);lo:=lo+position(word in gap)-1;
-     witnesses:=witnesses||jsonb_build_array(jsonb_build_object('passage_id',passage->>'passage_id','start',lo,'end',lo+length(word),'text',word));
+     prior_:=passage||jsonb_build_object('start',lo,'end',hi);
+     facts_:=ops.comparison_primary_lexical(prior_,source_,layers,'formal.coordination_cue');
+     IF jsonb_array_length(facts_)<>1 OR NOT ops.comparison_primary_covered(layers,source_,'formal.lexical',lo,hi) THEN witnesses:='[]';primary_:='[]';EXIT; END IF;
+     fact_:=facts_->0;tokens_:='[]';
+     FOR l_ IN SELECT * FROM jsonb_each(layers) LOOP
+      IF NOT ops.comparison_primary_covered(jsonb_build_object(l_.key,l_.value),source_,'formal.lexical',lo,hi) THEN CONTINUE; END IF;
+      FOR a_ IN SELECT value FROM jsonb_array_elements(l_.value->'annotations') WHERE value->>'kind'='formal.token' AND value ? 'formal' LOOP
+       source_ref_:=jsonb_build_object('layer',l_.key::jsonb,'local_id',a_->'formal'->>'input_id');
+       IF ops.primary_characterization_node(layers,source_ref_)->'formal_input'->>'start_symbol' IS DISTINCT FROM 'lex' THEN CONTINUE; END IF;
+       source_ref_:=jsonb_build_object('layer',l_.key::jsonb,'local_id',a_->>'local_id');e_:=ops.comparison_primary_extent(layers,source_ref_,source_);
+       IF e_ IS NOT NULL AND (e_->>'start')::bigint<hi AND lo<(e_->>'end')::bigint THEN
+        tokens_:=tokens_||jsonb_build_array(jsonb_build_array(source_ref_->'layer',e_->'start',e_->'end')); END IF;
+      END LOOP;
+     END LOOP;
+     IF tokens_ IS DISTINCT FROM jsonb_build_array(jsonb_build_array(fact_->'reference'->'layer',fact_->'span'->'start',fact_->'span'->'end'))
+      OR fact_->>'value' NOT IN ('and','or') OR (marker IS NOT NULL AND marker<>fact_->>'value') THEN witnesses:='[]';primary_:='[]';EXIT; END IF;
+     marker:=fact_->>'value';witnesses:=witnesses||jsonb_build_array(fact_->'span');primary_:=primary_||jsonb_build_array(fact_->'reference');
     END IF;
     previous:=item;
    END LOOP;
    IF jsonb_array_length(witnesses)=jsonb_array_length(members)-1 THEN grouping:=CASE marker WHEN 'and' THEN 'conjunction' ELSE 'disjunction' END;END IF;
   END IF;
-  groups:=jsonb_set(groups,ARRAY[dimension],jsonb_strip_nulls(jsonb_build_object('state',state,'grouping',grouping,'members',members,'witnesses',witnesses)));
+  groups:=jsonb_set(groups,ARRAY[dimension],jsonb_strip_nulls(jsonb_build_object('state',state,'grouping',grouping,'members',members,'witnesses',witnesses))||CASE WHEN primary_='[]'::jsonb THEN '{}'::jsonb ELSE jsonb_build_object('primary_witnesses',primary_) END);
  END LOOP;
  IF jsonb_array_length(groups->'exception'->'members')=0 OR
   (jsonb_array_length(groups->'exception'->'members')=1 AND jsonb_array_length(groups->'exception'->'members'->0->'spans')=1) THEN
-  SELECT jsonb_agg(v) INTO empty_ FROM (
-   SELECT v FROM jsonb_array_elements(COALESCE(groups->'exception'->'members'->0->'spans','[]')) v
-   UNION ALL SELECT ops.comparison_member(passage,'exception',jsonb_build_array(focus),NULL)->'spans'->0 WHERE focus IS NOT NULL
-  ) spans WHERE lower(rtrim(regexp_replace(v->>'text','^[[:space:]]+|[[:space:]]+$','','g'),'.')) IN ('no exceptions','exceptions: none');
-  IF jsonb_array_length(empty_)=1 THEN
-   groups:=jsonb_set(groups,ARRAY['exception'],jsonb_build_object('state','empty','members','[]'::jsonb,'witnesses',empty_));
-  END IF;
+  empty_:='[]';primary_:='[]';
+  FOR span_ IN SELECT v FROM jsonb_array_elements(COALESCE(groups->'exception'->'members'->0->'spans','[]')) v
+   UNION ALL SELECT ops.comparison_member(passage,'exception',jsonb_build_array(focus),NULL,source_,layers)->'spans'->0 WHERE focus IS NOT NULL LOOP
+   facts_:=ops.comparison_primary_lexical(passage||jsonb_build_object('start',span_->'start','end',span_->'end'),source_,layers,'formal.exception_empty');
+   IF jsonb_array_length(facts_)<>1 THEN CONTINUE; END IF;
+   fact_:=facts_->0;
+   IF fact_->>'value' IS DISTINCT FROM 'empty' THEN CONTINUE; END IF;
+   IF substring(passage->>'text' FROM (span_->>'start')::integer-(passage->>'start')::integer+1 FOR (fact_->'span'->>'start')::integer-(span_->>'start')::integer) ~ '^\s*$'
+    AND btrim(substring(passage->>'text' FROM (fact_->'span'->>'end')::integer-(passage->>'start')::integer+1 FOR (span_->>'end')::integer-(fact_->'span'->>'end')::integer),E' \t\n\r') IN ('','.') THEN
+    empty_:=empty_||jsonb_build_array(fact_->'span');primary_:=primary_||jsonb_build_array(fact_->'reference'); END IF;
+  END LOOP;
+  IF jsonb_array_length(empty_)=1 THEN groups:=jsonb_set(groups,ARRAY['exception'],jsonb_build_object('state','empty','members','[]'::jsonb,'witnesses',empty_,'primary_witnesses',primary_)); END IF;
  END IF;
  IF jsonb_array_length(groups->'threshold_unit'->'members')>0 AND
   'unresolved' IN (groups->'condition'->>'state',groups->'condition'->>'grouping') THEN
-  groups:=jsonb_set(groups,ARRAY['threshold_unit'],(groups->'threshold_unit')||jsonb_build_object('state','unresolved','grouping','unresolved','witnesses','[]'::jsonb));
+  groups:=jsonb_set(groups,ARRAY['threshold_unit'],((groups->'threshold_unit')-'primary_witnesses')||jsonb_build_object('state','unresolved','grouping','unresolved','witnesses','[]'::jsonb));
  END IF;
  RETURN groups;
 END $$;
-REVOKE ALL ON FUNCTION ops.comparison_groups(jsonb,jsonb,jsonb,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ops.comparison_groups(jsonb,jsonb,jsonb,jsonb,jsonb) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.comparison_typed_member(member jsonb)
 RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
@@ -570,33 +670,38 @@ RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 $$;
 REVOKE ALL ON FUNCTION ops.comparison_group_members(jsonb,jsonb,boolean) FROM PUBLIC;
 
-CREATE OR REPLACE FUNCTION ops.structural_grouped_comparison(inputs jsonb,config jsonb)
+CREATE OR REPLACE FUNCTION ops.structural_grouped_comparison(t ops.task,inputs jsonb,config jsonb)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE refs jsonb:=jsonb_build_array(config->'left_reading',config->'right_reading'); retained record;
  left_ jsonb;right_ jsonb;source_ jsonb;lg jsonb;rg jsonb;l jsonb;r jsonb;dim text;
  xf jsonb:='{}';yf jsonb:='{}';out_ jsonb;dims jsonb:='[]';entry jsonb;lexical text;
  compatible boolean;all_match boolean:=true; typed_compatible boolean; interval_applicable boolean;
- current_ boolean:=coalesce((config->>'_comparison_current')::boolean,false); group_detail jsonb;
- focus_ jsonb; lf jsonb; rf jsonb;
+ current_ boolean:=true; group_detail jsonb;
+ focus_ jsonb; lf jsonb; rf jsonb; primary_ jsonb:='{}'; layers jsonb; view_ kb.source_view; source_id text;
 BEGIN
+ FOR source_ IN SELECT value FROM jsonb_array_elements(inputs->'sources') LOOP
+  SELECT * INTO STRICT view_ FROM kb.source_view WHERE id=(source_->>'source_view_id')::bigint;
+  source_id:=encode(sha256(convert_to(data.canonical_json(jsonb_strip_nulls(source_)),'UTF8')),'hex');
+  primary_:=primary_||jsonb_build_object(source_id,ops.primary_characterization_layers(t,view_,config));
+ END LOOP;
  SELECT p INTO STRICT left_ FROM jsonb_array_elements(inputs->'passages') p WHERE p->>'passage_id'=config->>'left_id';
  SELECT p INTO STRICT right_ FROM jsonb_array_elements(inputs->'passages') p WHERE p->>'passage_id'=config->>'right_id';
  IF left_=right_ OR refs->0=refs->1 THEN RAISE EXCEPTION 'comparison requires distinct retained readings' USING ERRCODE='23514'; END IF;
  FOR retained IN SELECT * FROM ops.resolve_retained_source_contributions(refs) LOOP
-  IF current_ AND NOT EXISTS(SELECT FROM jsonb_array_elements(retained.contributions) c
+  IF NOT EXISTS(SELECT FROM jsonb_array_elements(retained.contributions) c
    WHERE c->>'contribution_id'=retained.reference->>'contribution_id'
-    AND c->'component'->>'question_version'=coalesce(config->>'_comparison_predicate_version','4')) THEN
+    AND c->'component'->>'question_version'='6') THEN
    RAISE EXCEPTION 'typed comparison requires a current predicate reading' USING ERRCODE='23514'; END IF;
   IF NOT inputs->'dependencies' ? (retained.reference->>'contribution_id') THEN
    RAISE EXCEPTION 'comparison lacks frozen retained reading dependency' USING ERRCODE='23514';END IF;
   IF retained.reference=refs->0 THEN
    SELECT s INTO STRICT source_ FROM jsonb_array_elements(inputs->'sources') s
     WHERE encode(sha256(convert_to(data.canonical_json(jsonb_strip_nulls(s)),'UTF8')),'hex')=left_->>'source_ref';
-   lg:=ops.comparison_groups(left_,source_,retained.reference,retained.contributions);
+   lg:=ops.comparison_groups(left_,source_,retained.reference,retained.contributions,primary_->(left_->>'source_ref'));
   ELSE
    SELECT s INTO STRICT source_ FROM jsonb_array_elements(inputs->'sources') s
     WHERE encode(sha256(convert_to(data.canonical_json(jsonb_strip_nulls(s)),'UTF8')),'hex')=right_->>'source_ref';
-   rg:=ops.comparison_groups(right_,source_,retained.reference,retained.contributions);
+   rg:=ops.comparison_groups(right_,source_,retained.reference,retained.contributions,primary_->(right_->>'source_ref'));
   END IF;
   IF current_ THEN
    SELECT role->'extents'->0 INTO focus_ FROM jsonb_array_elements(retained.contributions) reading
@@ -608,9 +713,9 @@ BEGIN
     AND jsonb_array_length(role->'extents')=1;
    IF focus_ IS NOT NULL THEN
     IF retained.reference=refs->0 THEN
-     lf:=ops.comparison_member(left_,'action',jsonb_build_array(focus_),NULL)->'spans'->0;
+     lf:=ops.comparison_member(left_,'action',jsonb_build_array(focus_),NULL,source_,primary_->(left_->>'source_ref'))->'spans'->0;
     ELSE
-     rf:=ops.comparison_member(right_,'action',jsonb_build_array(focus_),NULL)->'spans'->0;
+     rf:=ops.comparison_member(right_,'action',jsonb_build_array(focus_),NULL,source_,primary_->(right_->>'source_ref'))->'spans'->0;
     END IF;
    END IF;
   END IF;
@@ -620,7 +725,7 @@ BEGIN
   IF lg->dim->>'grouping'='singleton' THEN xf:=jsonb_set(xf,ARRAY[dim],lg->dim->'members'->0);END IF;
   IF rg->dim->>'grouping'='singleton' THEN yf:=jsonb_set(yf,ARRAY[dim],rg->dim->'members'->0);END IF;
  END LOOP;
- out_:=ops.structural_compare_lexical(inputs,config->>'left_id',config->>'right_id',xf,yf);
+ out_:=ops.structural_compare_lexical(inputs,config->>'left_id',config->>'right_id',xf,yf,primary_);
  compatible:=left_->>'scope'=right_->>'scope' AND (left_->>'effective_version' IS NOT DISTINCT FROM right_->>'effective_version' OR out_ ? 'succession');
  typed_compatible:=compatible AND (left_->>'effective_version' IS NOT NULL OR out_ ? 'succession');
  interval_applicable:=typed_compatible AND NOT EXISTS(SELECT FROM
@@ -663,7 +768,7 @@ BEGIN
  RETURN out_||jsonb_strip_nulls(jsonb_build_object(
   'dimensions',dims,'left_reading',refs->0,'right_reading',refs->1,'left_focus',lf,'right_focus',rf));
 END $$;
-REVOKE ALL ON FUNCTION ops.structural_grouped_comparison(jsonb,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ops.structural_grouped_comparison(ops.task,jsonb,jsonb) FROM PUBLIC;
 
 -- Membership comes exclusively from authenticated current predecessor output roles.
 -- Display selection has no authority to create a member or a supported facet.
@@ -854,35 +959,92 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION ops.structural_dossier(jsonb,jsonb) FROM PUBLIC;
 
-CREATE OR REPLACE FUNCTION ops.artifact_alias_fields(raw text,artifact_end integer,pointer_ text)
-RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
-DECLARE alias_re text:='^\s*\((?:alias:|also called|also known as)\s*"([^"\r\n]+)"\s*\)';
- absent_re text:='^\s*\((aliases:\s*none)\s*\)';
- cursor_ integer:=artifact_end; start_ integer; end_ integer; matched text[];
- remaining text; aliases jsonb:='[]'; spans jsonb:='[]';
+-- Artifact source fields are projected from exact retained navigation annotations.
+CREATE OR REPLACE FUNCTION ops.artifact_primary_sources(t ops.task,inputs jsonb,config jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE source_ jsonb; view_ kb.source_view; layers jsonb; result_ jsonb:='{}'; source_id text; passage jsonb;
 BEGIN
- LOOP
-  remaining:=substring(raw FROM cursor_+1);
-  matched:=regexp_match(remaining COLLATE pg_catalog.pg_c_utf8,alias_re,'i');
-  EXIT WHEN matched IS NULL OR matched[1]~'^[[:space:]]*$';
-  start_:=cursor_+regexp_instr(remaining COLLATE pg_catalog.pg_c_utf8,alias_re,1,1,0,'i',1)-1;
-  end_:=start_+char_length(matched[1]);
-  aliases:=aliases||jsonb_build_array(matched[1]);
-  spans:=spans||jsonb_build_array(jsonb_build_object('source_pointer',pointer_,'start',start_,'end',end_,'text',matched[1]));
-  cursor_:=cursor_+regexp_instr(remaining COLLATE pg_catalog.pg_c_utf8,alias_re,1,1,1,'i')-1;
+ FOR source_ IN SELECT value FROM jsonb_array_elements(inputs->'sources') LOOP
+  SELECT * INTO STRICT view_ FROM kb.source_view WHERE id=(source_->>'source_view_id')::bigint;
+  layers:=ops.primary_characterization_layers(t,view_,config);source_id:=encode(sha256(convert_to(data.canonical_json(source_),'UTF8')),'hex');
+  IF EXISTS(SELECT FROM jsonb_array_elements(config->'work_bindings') b WHERE b->>'native_content_digest'=source_->>'native_content_digest') THEN
+   FOR passage IN SELECT value FROM jsonb_array_elements(inputs->'passages') WHERE value->>'source_ref'=source_id LOOP
+    IF NOT EXISTS(SELECT FROM jsonb_each(layers) l CROSS JOIN LATERAL jsonb_array_elements(l.value->'coverage') c
+     WHERE c->>'family'='construction.navigation' AND c->>'availability'='available' AND c->>'outcome' IN ('complete','empty')
+      AND EXISTS(SELECT FROM jsonb_array_elements(c->'examined') s WHERE s->>'projection'=view_.projection_digest
+       AND coalesce((s->>'start')::bigint,0)<=(passage->>'start')::bigint AND (s->>'end')::bigint>=(passage->>'end')::bigint)) THEN
+     RAISE EXCEPTION 'artifact cohort requires primary navigation coverage of every selected passage' USING ERRCODE='23514'; END IF;
+   END LOOP;
+  END IF;
+  result_:=result_||jsonb_build_object(source_id,layers);
  END LOOP;
- IF jsonb_array_length(spans)>0 THEN
-  RETURN jsonb_build_object('aliases',aliases,'alias_state','observed','alias_occurrences',spans);END IF;
- remaining:=substring(raw FROM artifact_end+1);
- matched:=regexp_match(remaining COLLATE pg_catalog.pg_c_utf8,absent_re,'i');
- IF matched IS NOT NULL THEN
-  start_:=artifact_end+regexp_instr(remaining COLLATE pg_catalog.pg_c_utf8,absent_re,1,1,0,'i',1)-1;
-  RETURN jsonb_build_object('aliases','[]'::jsonb,'alias_state','known_empty','alias_occurrences','[]'::jsonb,
-   'alias_absence',jsonb_build_object('source_pointer',pointer_,'start',start_,'end',start_+char_length(matched[1]),'text',matched[1]));
- END IF;
- RETURN jsonb_build_object('aliases','[]'::jsonb,'alias_state','unknown','alias_occurrences','[]'::jsonb);
+ RETURN result_;
 END $$;
-REVOKE ALL ON FUNCTION ops.artifact_alias_fields(text,integer,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ops.artifact_primary_sources(ops.task,jsonb,jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.artifact_primary_span(layers jsonb,ref jsonb,node jsonb,role_ text,view_ kb.source_view,field_start bigint)
+RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE extents_ jsonb:=ops.primary_navigation_role_extents(layers,ref,node,role_,view_); lo bigint; hi bigint; text_ text;
+BEGIN
+ SELECT min((e->>'start')::bigint),max((e->>'end')::bigint),string_agg(e->>'text','' ORDER BY n) INTO lo,hi,text_ FROM jsonb_array_elements(extents_) WITH ORDINALITY x(e,n);
+ IF lo<field_start OR hi-lo<>char_length(text_) THEN RAISE EXCEPTION 'artifact field is not one literal native-item interval' USING ERRCODE='23514'; END IF;
+ RETURN jsonb_build_object('source_pointer',node->'navigation'->>'pointer','start',lo-field_start,'end',hi-field_start,'text',text_);
+END $$;
+REVOKE ALL ON FUNCTION ops.artifact_primary_span(jsonb,jsonb,jsonb,text,kb.source_view,bigint) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.artifact_primary_reference_source_value(ref jsonb)
+RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+ SELECT jsonb_build_object('kind','object','fields',jsonb_build_array(
+  jsonb_build_object('name','layer','position',0,'value',jsonb_build_object('kind','object','fields',jsonb_build_array(
+   jsonb_build_object('name','task_id','position',0,'value',jsonb_build_object('kind','integer','integer',ref->'layer'->'task_id')),
+   jsonb_build_object('name','product_key','position',1,'value',jsonb_build_object('kind','text','text',ref->'layer'->'product_key')),
+   jsonb_build_object('name','content_digest','position',2,'value',jsonb_build_object('kind','text','text',ref->'layer'->'content_digest'))))),
+  jsonb_build_object('name','local_id','position',1,'value',jsonb_build_object('kind','text','text',ref->'local_id'))))
+$$;
+REVOKE ALL ON FUNCTION ops.artifact_primary_reference_source_value(jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.artifact_alias_fields(layers jsonb,ref jsonb,node jsonb,view_ kb.source_view,field_start bigint)
+RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE alias_role jsonb; span_ jsonb; aliases jsonb:='[]'; spans jsonb:='[]'; result_ jsonb;
+BEGIN
+ FOR alias_role IN SELECT value FROM jsonb_array_elements(node->'navigation'->'roles') WHERE value->>'role' LIKE 'alias/%' LOOP
+  span_:=ops.artifact_primary_span(layers,ref,node,alias_role->>'role',view_,field_start);aliases:=aliases||jsonb_build_array(span_->'text');spans:=spans||jsonb_build_array(span_);
+ END LOOP;
+ result_:=jsonb_build_object('aliases',aliases,'alias_state',coalesce(node->'navigation'->>'alias_state','unknown'),'alias_occurrences',spans);
+ IF EXISTS(SELECT FROM jsonb_array_elements(node->'navigation'->'roles') r WHERE r->>'role'='alias_absence') THEN result_:=result_||jsonb_build_object('alias_absence',ops.artifact_primary_span(layers,ref,node,'alias_absence',view_,field_start)); END IF;
+ RETURN result_;
+END $$;
+REVOKE ALL ON FUNCTION ops.artifact_alias_fields(jsonb,jsonb,jsonb,kb.source_view,bigint) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.artifact_source_labels(layers jsonb,ref jsonb,node jsonb,view_ kb.source_view,field_start bigint)
+RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE kind_ text; label_ jsonb; span_ jsonb; evidence jsonb; count_ integer; value_ text; result_ jsonb:='{}'; temporary_ jsonb;
+BEGIN
+ FOREACH kind_ IN ARRAY ARRAY['numbering_namespace','revision'] LOOP
+  evidence:='[]';
+  FOR label_ IN SELECT value FROM jsonb_array_elements(coalesce(node->'navigation'->'source_labels','[]')) WHERE value->>'kind'=kind_ LOOP
+   temporary_:=jsonb_build_object('navigation',jsonb_build_object('pointer',node->'navigation'->>'pointer','roles',jsonb_build_array(jsonb_build_object('role','label','occurrences',label_->'occurrences'))));
+   span_:=ops.artifact_primary_span(layers,ref,temporary_,'label',view_,field_start);
+   IF span_->>'text' IS DISTINCT FROM label_->>'value' THEN RAISE EXCEPTION 'artifact source label differs from exact retained source span' USING ERRCODE='23514'; END IF;
+   evidence:=evidence||jsonb_build_array(span_);
+  END LOOP;
+  SELECT count(DISTINCT e->>'text'),min(e->>'text') INTO count_,value_ FROM jsonb_array_elements(evidence) e;
+  result_:=result_||jsonb_build_object(CASE kind_ WHEN 'numbering_namespace' THEN 'numbering' ELSE 'revision' END,
+   jsonb_strip_nulls(jsonb_build_object('state',CASE count_ WHEN 0 THEN 'unknown' WHEN 1 THEN 'observed' ELSE 'unresolved' END,'value',CASE WHEN count_=1 THEN value_ END,'evidence',evidence)));
+ END LOOP;
+ RETURN result_;
+END $$;
+REVOKE ALL ON FUNCTION ops.artifact_source_labels(jsonb,jsonb,jsonb,kb.source_view,bigint) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.artifact_explicit_reference(layers jsonb,ref jsonb,node jsonb,view_ kb.source_view,field_start bigint)
+RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ IF node->'navigation'->>'kind' IS DISTINCT FROM 'artifact_explicit_reference' OR node->'navigation'->>'designator' IS DISTINCT FROM ops.primary_navigation_role_text(layers,ref,node,'target_designator',view_)
+  OR node->'navigation'->>'numbering_namespace' IS DISTINCT FROM ops.primary_navigation_role_text(layers,ref,node,'target_numbering',view_) THEN
+  RAISE EXCEPTION 'artifact explicit reference changes retained target fields' USING ERRCODE='23514'; END IF;
+ RETURN jsonb_build_object('target_code',node->'navigation'->>'designator','target_numbering',node->'navigation'->>'numbering_namespace','cue',ops.artifact_primary_span(layers,ref,node,'cue',view_,field_start),'primary_node',ref);
+END $$;
+REVOKE ALL ON FUNCTION ops.artifact_explicit_reference(jsonb,jsonb,jsonb,kb.source_view,bigint) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.artifact_alias_span_source_value(span jsonb)
 RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
@@ -894,51 +1056,6 @@ RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 $$;
 REVOKE ALL ON FUNCTION ops.artifact_alias_span_source_value(jsonb) FROM PUBLIC;
 
-CREATE OR REPLACE FUNCTION ops.artifact_source_labels(raw text,artifact_end integer,pointer_ text)
-RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
-DECLARE label_re text:=E'^[[:space:]]*\\((numbering namespace|revision):[ \t]*([A-Za-z0-9][A-Za-z0-9_.-]*)\\)';
- cursor_ integer:=artifact_end;start_ integer;matched text[];remaining text;
- kind_ text;value_ text;label_count integer;evidence jsonb;
- numbering jsonb:='[]';revisions jsonb:='[]';result_ jsonb:='{}';span_ jsonb;
-BEGIN
- LOOP
-  remaining:=substring(raw FROM cursor_+1);
-  matched:=regexp_match(remaining COLLATE "C",label_re);
-  EXIT WHEN matched IS NULL;
-  start_:=cursor_+regexp_instr(remaining COLLATE "C",label_re,1,1,0,'',2)-1;
-  span_:=jsonb_build_object('source_pointer',pointer_,'start',start_,
-   'end',start_+char_length(matched[2]),'text',matched[2]);
-  IF matched[1]='revision' THEN revisions:=revisions||jsonb_build_array(span_);
-  ELSE numbering:=numbering||jsonb_build_array(span_);END IF;
-  cursor_:=cursor_+regexp_instr(remaining COLLATE "C",label_re,1,1,1)-1;
- END LOOP;
- FOR kind_,evidence IN SELECT 'numbering',numbering UNION ALL SELECT 'revision',revisions LOOP
-  SELECT count(DISTINCT e->>'text'),min(e->>'text') INTO label_count,value_
-  FROM jsonb_array_elements(evidence) e;
-  result_:=result_||jsonb_build_object(kind_,jsonb_strip_nulls(jsonb_build_object(
-   'state',CASE label_count WHEN 0 THEN 'unknown' WHEN 1 THEN 'observed' ELSE 'unresolved' END,
-   'value',CASE WHEN label_count=1 THEN value_ END,'evidence',evidence)));
- END LOOP;
- RETURN result_;
-END $$;
-REVOKE ALL ON FUNCTION ops.artifact_source_labels(text,integer,text) FROM PUBLIC;
-
-CREATE OR REPLACE FUNCTION ops.artifact_explicit_reference(
- raw text,artifact_start integer,artifact_end integer,pointer_ text,kind_ text)
-RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
-DECLARE target_re text:=E'^[ \t]+\\((?:hereafter|also published as|also cited as)[ \t]+(Table|Figure)[ \t]+([A-Za-z]?[0-9]+(?:[.-][0-9]+)*[A-Za-z]?)[ \t]+in numbering namespace[ \t]+([A-Za-z0-9][A-Za-z0-9_.-]*)\\)(?=\\.|$)';
- remainder_ text;matched text[];end_ integer;
-BEGIN
- IF left(raw,artifact_start) COLLATE "C" !~* E'^[ \t]*(?:See|Consult)[ \t]+$' THEN RETURN NULL; END IF;
- remainder_:=substring(raw FROM artifact_end+1);
- matched:=regexp_match(remainder_ COLLATE "C",target_re,'i');
- IF matched IS NULL OR lower(matched[1])<>kind_ THEN RETURN NULL; END IF;
- end_:=artifact_end+regexp_instr(remainder_ COLLATE "C",target_re,1,1,1,'i')-1;
- RETURN jsonb_build_object('target_code',matched[2],'target_numbering',matched[3],
-  'cue',jsonb_build_object('source_pointer',pointer_,'start',0,'end',end_,'text',left(raw,end_)));
-END $$;
-REVOKE ALL ON FUNCTION ops.artifact_explicit_reference(text,integer,integer,text,text) FROM PUBLIC;
-
 CREATE OR REPLACE FUNCTION ops.artifact_label_relation(a jsonb,b jsonb)
 RETURNS text LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
  SELECT CASE WHEN 'unresolved' IN (a->>'state',b->>'state') THEN 'unresolved'
@@ -949,71 +1066,57 @@ REVOKE ALL ON FUNCTION ops.artifact_label_relation(jsonb,jsonb) FROM PUBLIC;
 
 -- Reconstruct the source cohort rather than trusting duplicated fields or caller IDs.
 -- A named source container and exact current projection remain the source authority.
-CREATE OR REPLACE FUNCTION ops.artifact_source_records(inputs jsonb,config jsonb)
+CREATE OR REPLACE FUNCTION ops.artifact_source_records(inputs jsonb,config jsonb,primary_sources jsonb)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE source_ jsonb; binding jsonb; view_ kb.source_view; piece jsonb; node jsonb;
- pin jsonb; anchor_ jsonb; artifact jsonb; value_ jsonb; contribution jsonb; citations jsonb;
- candidates jsonb:='[]'; match_ record; raw text; quote_ text; pointer_ text; source_ref text;
- local_start integer; local_end integer; global_start integer; global_end integer; caption boolean;
- explicit_ jsonb;
- pattern text:=E'(?i)\\m(Table|Figure|Theorem|Section)\\s+([A-Z]?\\d[\\w./-]*)';
+DECLARE source_ jsonb; binding jsonb; view_ kb.source_view; piece jsonb; node jsonb; pin jsonb; anchor_ jsonb; artifact jsonb; value_ jsonb; contribution jsonb; citations jsonb;
+ candidates jsonb:='[]'; raw text; quote_ text; pointer_ text; source_ref text; local_start integer;local_end integer;global_start integer;global_end integer;caption boolean;explicit_ jsonb;
+ layers jsonb;l record; annotation_ jsonb; primary_ jsonb;ref_ jsonb;subject_ jsonb; explicit_ref jsonb;explicit_node jsonb; explicit_span jsonb;explicit_candidates jsonb;title_ text;
 BEGIN
- IF (SELECT count(*)<>count(DISTINCT wb->>'native_content_digest') FROM jsonb_array_elements(config->'work_bindings') wb) THEN
-  RAISE EXCEPTION 'artifact source-work bindings repeat' USING ERRCODE='23514'; END IF;
+ IF (SELECT count(*)<>count(DISTINCT wb->>'native_content_digest') FROM jsonb_array_elements(config->'work_bindings') wb) THEN RAISE EXCEPTION 'artifact source-work bindings repeat' USING ERRCODE='23514'; END IF;
  FOR source_ IN SELECT value FROM jsonb_array_elements(inputs->'sources') LOOP
-  SELECT wb INTO binding FROM jsonb_array_elements(config->'work_bindings') wb
-   WHERE wb->>'native_content_digest'=source_->>'native_content_digest';
+  SELECT wb INTO binding FROM jsonb_array_elements(config->'work_bindings') wb WHERE wb->>'native_content_digest'=source_->>'native_content_digest';
   IF binding IS NULL THEN CONTINUE; END IF;
   SELECT * INTO STRICT view_ FROM kb.source_view WHERE id=(source_->>'source_view_id')::bigint;
-  source_ref:=encode(sha256(convert_to(data.canonical_json(source_),'UTF8')),'hex');
-  pin:=jsonb_build_object('source',view_.key,'native_product_task_id',view_.native_task_id,
-   'product_key',view_.native_product_key,'product_digest',view_.native_content_digest,
-   'projection_digest',view_.projection_digest,'recipe_digest',view_.recipe_digest,'source_view_id',view_.id);
-  FOR piece IN SELECT p FROM jsonb_array_elements(view_.projection->'pieces') p
-   WHERE p->>'kind'='native_text' AND p->>'cell_index' IS NULL LOOP
-   raw:=substring(view_.projection->>'text' FROM (piece->>'start')::integer+1
-    FOR (piece->>'end')::integer-(piece->>'start')::integer);
-   IF raw COLLATE pg_catalog.pg_unicode_fast !~ pattern THEN CONTINUE; END IF;
-   pointer_:=piece->>'item_ref';
-   SELECT native_json INTO STRICT node FROM ops.read_pdf_published_items(view_.native_task_id,
-    view_.native_product_key,view_.native_content_digest,ARRAY[pointer_]);
-   IF node->>'text' IS DISTINCT FROM raw THEN
-    RAISE EXCEPTION 'artifact native field bridge differs from source projection' USING ERRCODE='23514'; END IF;
-   caption:=node->>'label'='caption';
-   FOR match_ IN SELECT parts,n::integer FROM regexp_matches(raw COLLATE pg_catalog.pg_unicode_fast,pattern,'g') WITH ORDINALITY m(parts,n) LOOP
-    local_start:=regexp_instr(raw COLLATE pg_catalog.pg_unicode_fast,pattern,1,match_.n)-1;
-    local_end:=regexp_instr(raw COLLATE pg_catalog.pg_unicode_fast,pattern,1,match_.n,1)-1;
-    IF right(match_.parts[2],1)='.' THEN
-     match_.parts[2]:=left(match_.parts[2],-1);local_end:=local_end-1;END IF;
-    global_start:=(piece->>'start')::integer+local_start;
-    global_end:=(piece->>'start')::integer+local_end;
-    quote_:=substring(raw FROM local_start+1 FOR local_end-local_start);
-    SELECT COALESCE(jsonb_agg(jsonb_build_object('source_ref',source_ref,
-     'passage_id',p->>'passage_id','source_pointer',pointer_,'start',global_start,
-     'end',global_end,'text',quote_) ORDER BY ordinal),'[]') INTO citations
-    FROM jsonb_array_elements(inputs->'passages') WITH ORDINALITY selected(p,ordinal)
-    WHERE p->>'source_ref'=source_ref AND (p->>'start')::integer<=global_start
-     AND (p->>'end')::integer>=global_end;
+  source_ref:=encode(sha256(convert_to(data.canonical_json(source_),'UTF8')),'hex');layers:=primary_sources->source_ref;
+  pin:=jsonb_build_object('source',view_.key,'native_product_task_id',view_.native_task_id,'product_key',view_.native_product_key,'product_digest',view_.native_content_digest,'projection_digest',view_.projection_digest,'recipe_digest',view_.recipe_digest,'source_view_id',view_.id);
+  FOR l IN SELECT * FROM jsonb_each(layers) LOOP
+   FOR annotation_ IN SELECT value FROM jsonb_array_elements(l.value->'annotations') WHERE value->'navigation'->>'kind' IN ('artifact_mention','artifact_reference')
+    AND ops.primary_characterization_in_view(layers,jsonb_build_object('layer',l.key::jsonb,'local_id',value->>'local_id'),value,view_.id) LOOP
+    ref_:=jsonb_build_object('layer',l.key::jsonb,'local_id',annotation_->>'local_id');primary_:=ops.primary_navigation_node(layers,ref_,'[]',view_);pointer_:=primary_->'navigation'->>'pointer';
+    SELECT p INTO STRICT piece FROM jsonb_array_elements(view_.projection->'pieces') p WHERE p->>'kind'='native_text' AND p->>'cell_index' IS NULL AND p->>'item_ref'=pointer_;
+    raw:=substring(view_.projection->>'text' FROM (piece->>'start')::integer+1 FOR (piece->>'end')::integer-(piece->>'start')::integer);
+    SELECT native_json INTO STRICT node FROM ops.read_pdf_published_items(view_.native_task_id,view_.native_product_key,view_.native_content_digest,ARRAY[pointer_]);
+    IF node->>'text' IS DISTINCT FROM raw THEN RAISE EXCEPTION 'artifact native field bridge differs from selected source' USING ERRCODE='23514'; END IF;
+    caption:=node->>'label'='caption';subject_:=ops.artifact_primary_span(layers,ref_,primary_,'subject',view_,(piece->>'start')::bigint);
+    local_start:=(subject_->>'start')::integer;local_end:=(subject_->>'end')::integer;quote_:=subject_->>'text';global_start:=(piece->>'start')::integer+local_start;global_end:=(piece->>'start')::integer+local_end;
+    IF local_end>(piece->>'end')::integer-(piece->>'start')::integer OR primary_->'navigation'->>'designator' IS DISTINCT FROM ops.primary_navigation_role_text(layers,ref_,primary_,'designator',view_) THEN RAISE EXCEPTION 'artifact subject/designator differs from exact primary literal fields' USING ERRCODE='23514'; END IF;
+    IF (SELECT count(*) FROM jsonb_each(layers) ll CROSS JOIN LATERAL jsonb_array_elements(ll.value->'annotations') aa WHERE aa->'navigation'->>'kind' IN ('artifact_mention','artifact_reference')
+     AND CASE WHEN ops.primary_characterization_in_view(layers,jsonb_build_object('layer',ll.key::jsonb,'local_id',aa->>'local_id'),aa,view_.id) THEN
+      ops.primary_navigation_role_extents(layers,jsonb_build_object('layer',ll.key::jsonb,'local_id',aa->>'local_id'),aa,'subject',view_)=ops.primary_navigation_role_extents(layers,ref_,primary_,'subject',view_) ELSE false END)<>1 THEN RAISE EXCEPTION 'artifact subject has competing primary navigation fields' USING ERRCODE='23514'; END IF;
+    SELECT coalesce(jsonb_agg(jsonb_build_object('source_ref',source_ref,'passage_id',p->>'passage_id','source_pointer',pointer_,'start',global_start,'end',global_end,'text',quote_) ORDER BY ordinal),'[]') INTO citations
+     FROM jsonb_array_elements(inputs->'passages') WITH ORDINALITY selected(p,ordinal) WHERE p->>'source_ref'=source_ref AND (p->>'start')::integer<=global_start AND (p->>'end')::integer>=global_end;
     IF jsonb_array_length(citations)=0 THEN CONTINUE; END IF;
-    explicit_:=CASE WHEN NOT caption THEN ops.artifact_explicit_reference(
-     raw,local_start,local_end,pointer_,lower(match_.parts[1])) END;
-    IF explicit_ IS NOT NULL AND NOT EXISTS(SELECT FROM jsonb_array_elements(inputs->'passages') p
-     WHERE p->>'source_ref'=source_ref AND (p->>'start')::integer<=(piece->>'start')::integer
-      AND (p->>'end')::integer>=(piece->>'start')::integer+(explicit_->'cue'->>'end')::integer) THEN
-     explicit_:=NULL;
+    explicit_:=NULL;
+    IF NOT caption THEN
+     SELECT coalesce(jsonb_agg(jsonb_build_object('reference',jsonb_build_object('layer',ll.key::jsonb,'local_id',aa->>'local_id'),'node',aa)),'[]') INTO explicit_candidates
+     FROM jsonb_each(layers) ll CROSS JOIN LATERAL jsonb_array_elements(ll.value->'annotations') aa
+     WHERE aa->'navigation'->>'kind'='artifact_explicit_reference' AND aa->'navigation'->>'pointer'=pointer_ AND aa->'navigation'->>'artifact_kind'=primary_->'navigation'->>'artifact_kind'
+      AND CASE WHEN ops.primary_characterization_in_view(layers,jsonb_build_object('layer',ll.key::jsonb,'local_id',aa->>'local_id'),aa,view_.id) THEN
+       ops.primary_navigation_role_extents(layers,jsonb_build_object('layer',ll.key::jsonb,'local_id',aa->>'local_id'),aa,'subject',view_)=ops.primary_navigation_role_extents(layers,ref_,primary_,'subject',view_) ELSE false END;
+     IF jsonb_array_length(explicit_candidates)>1 THEN RAISE EXCEPTION 'artifact explicit target has competing retained primary declarations' USING ERRCODE='23514'; END IF;
+     IF jsonb_array_length(explicit_candidates)=1 THEN
+      explicit_ref:=explicit_candidates->0->'reference';explicit_node:=explicit_candidates->0->'node';
+      explicit_node:=ops.primary_navigation_node(layers,explicit_ref,'[]',view_);explicit_span:=ops.artifact_primary_span(layers,explicit_ref,explicit_node,'cue',view_,0);
+      IF EXISTS(SELECT FROM jsonb_array_elements(inputs->'passages') p WHERE p->>'source_ref'=source_ref AND (p->>'start')::integer<=(explicit_span->>'start')::integer AND (p->>'end')::integer>=(explicit_span->>'end')::integer) THEN explicit_:=ops.artifact_explicit_reference(layers,explicit_ref,explicit_node,view_,(piece->>'start')::bigint); END IF;
+     END IF;
     END IF;
-    artifact:=jsonb_strip_nulls(jsonb_build_object('protocol','source-artifact-occurrence-2',
-     'artifact_kind',lower(match_.parts[1]),'source_work',binding->>'source_work',
-     'controlled_code',match_.parts[2],
-     'title',CASE WHEN caption THEN nullif(btrim(substring(raw FROM local_end+1),E' .:\n'),'') END,
-     'revision_state','unknown',
-     'occurrence_role',CASE WHEN caption THEN 'caption' ELSE 'reference' END,
-     'scope',pointer_,'source_pointer',pointer_,
-     'dependencies',jsonb_build_array('native:'||view_.native_task_id::text)))
-     ||ops.artifact_alias_fields(raw,local_end,pointer_);
+    title_:=NULL;
+    IF caption AND EXISTS(SELECT FROM jsonb_array_elements(primary_->'navigation'->'roles') r WHERE r->>'role'='caption_title') THEN title_:=nullif(ops.primary_navigation_role_text(layers,ref_,primary_,'caption_title',view_),''); END IF;
+    artifact:=jsonb_strip_nulls(jsonb_build_object('protocol','source-artifact-occurrence-2','artifact_kind',primary_->'navigation'->>'artifact_kind','source_work',binding->>'source_work','controlled_code',primary_->'navigation'->>'designator','title',title_,'revision_state','unknown','occurrence_role',CASE WHEN caption THEN 'caption' ELSE 'reference' END,'scope',pointer_,'source_pointer',pointer_,'dependencies',jsonb_build_array('native:'||view_.native_task_id::text),'primary_node',ref_))||ops.artifact_alias_fields(layers,ref_,primary_,view_,(piece->>'start')::bigint);
     -- SourceValue retains the producer's declared field ordering, independently of JSONB order.
     SELECT jsonb_build_object('kind','object','fields',jsonb_agg(jsonb_build_object(
      'name',key,'position',position,'value',CASE
+      WHEN key='primary_node' THEN ops.artifact_primary_reference_source_value(artifact->key)
       WHEN key='alias_absence' THEN ops.artifact_alias_span_source_value(artifact->key)
       WHEN jsonb_typeof(artifact->key)='array' THEN jsonb_build_object('kind','array','items',COALESCE((SELECT jsonb_agg(
        CASE WHEN key='alias_occurrences' THEN ops.artifact_alias_span_source_value(x)
@@ -1022,7 +1125,7 @@ BEGIN
       ELSE jsonb_build_object('kind','text','text',artifact->key) END) ORDER BY position)) INTO value_
     FROM (SELECT key,(row_number() OVER(ORDER BY n)-1)::integer position FROM unnest(ARRAY[
      'protocol','artifact_kind','source_work','controlled_code','title','aliases','alias_state','alias_occurrences','alias_absence','revision',
-     'revision_state','occurrence_role','scope','source_pointer','dependencies']) WITH ORDINALITY f(key,n)
+     'revision_state','occurrence_role','scope','source_pointer','dependencies','primary_node']) WITH ORDINALITY f(key,n)
      WHERE artifact ? key) fields;
     anchor_:=jsonb_build_object('pin',pin,'space','native','pointer',pointer_,
      'precision','exact','start',local_start,'end',local_end,'source_piece',quote_);
@@ -1040,8 +1143,8 @@ BEGIN
      convert_to(data.canonical_json(contribution),'UTF8')),'hex'));
     candidates:=candidates||jsonb_build_array(jsonb_build_object(
      'contribution_id',contribution->>'contribution_id','occurrence_id',contribution->>'occurrence_id',
-     'artifact',artifact,'source_contribution',contribution,'citations',citations)
-     ||ops.artifact_source_labels(raw,local_end,pointer_)
+     'artifact',artifact,'source_contribution',contribution,'citations',citations,'primary_node',ref_)
+     ||ops.artifact_source_labels(layers,ref_,primary_,view_,(piece->>'start')::bigint)
      ||jsonb_strip_nulls(jsonb_build_object('explicit_reference',explicit_)));
    END LOOP;
   END LOOP;
@@ -1070,7 +1173,7 @@ BEGIN
  FROM selected JOIN citations USING (occurrence_id,work_,kind_)
  LEFT JOIN selected_references USING (occurrence_id,work_,kind_));
 END $$;
-REVOKE ALL ON FUNCTION ops.artifact_source_records(jsonb,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ops.artifact_source_records(jsonb,jsonb,jsonb) FROM PUBLIC;
 
 -- RapidFuzz's normalized Indel similarity is twice the longest common subsequence
 -- divided by the two codepoint lengths. This independent admission replay does not
@@ -1094,11 +1197,11 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION ops.artifact_lexical_score(text,text) FROM PUBLIC;
 
-CREATE OR REPLACE FUNCTION ops.artifact_external_nominations(inputs jsonb,config jsonb,records jsonb)
+CREATE OR REPLACE FUNCTION ops.artifact_external_nominations(t ops.task,inputs jsonb,config jsonb,records jsonb)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE held record; relation_ jsonb; endpoint jsonb; endpoint_row jsonb; src jsonb; pin_ jsonb;
  expected_role text; ids text[]; output jsonb:='[]'; directed jsonb; anchor_ jsonb; piece_ jsonb;
- occurrence_ jsonb; raw_ text; cue_ jsonb; cue_text text; cue_start integer;
+ occurrence_ jsonb; cue_ jsonb; primary_ref jsonb; primary_ jsonb; layers jsonb; view_ kb.source_view; literal_row jsonb;
 BEGIN
  IF (SELECT count(*)<>count(DISTINCT r->>'contribution_id')
      FROM jsonb_array_elements(config->'external_nomination_refs') r) THEN
@@ -1142,15 +1245,19 @@ BEGIN
     WHERE r->>'occurrence_id'=endpoint_row->>'occurrence_id'
      AND r->'artifact'->>'occurrence_role'=expected_role;
    IF expected_role='reference' THEN
-    raw_:=substring(src->'projection'->>'text' FROM (piece_->>'start')::integer+1
-     FOR (anchor_->>'start')::integer);
-    cue_text:=(regexp_match(raw_, '\m(in|see|from)\s+$','i'))[1];
-    IF cue_text IS NULL THEN
-     RAISE EXCEPTION 'artifact reference lacks the exact local cross-reference cue' USING ERRCODE='23514';
+    SELECT * INTO STRICT view_ FROM kb.source_view WHERE id=(pin_->>'source_view_id')::bigint;
+    layers:=ops.primary_characterization_layers(t,view_,config);primary_ref:=relation_->'component'->'primary_node';
+    primary_:=ops.primary_navigation_node(layers,primary_ref,'[]',view_);
+    literal_row:=endpoint_row;
+    IF endpoint_row->>'semantic_type'='structural.artifact' THEN
+     literal_row:=endpoint_row||jsonb_build_object('value',jsonb_build_object('kind','object','fields',jsonb_build_array(
+      jsonb_build_object('name','text','position',0,'value',jsonb_build_object('kind','text','text',anchor_->'source_piece')),
+      jsonb_build_object('name','source_pointer','position',1,'value',jsonb_build_object('kind','text','text',anchor_->'pointer')))));
     END IF;
-    cue_start:=regexp_instr(raw_,'\m(in|see|from)\s+$',1,1,0,'i')-1;
-    cue_:=jsonb_build_object('source_pointer',anchor_->>'pointer','start',cue_start,
-     'end',cue_start+char_length(cue_text),'text',cue_text);
+    IF primary_->'navigation'->>'kind' IS DISTINCT FROM 'artifact_reference'
+     OR NOT ops.primary_navigation_role_matches(layers,primary_ref,primary_,'subject',view_,literal_row) THEN
+     RAISE EXCEPTION 'artifact nomination changes exact retained reference/cue source' USING ERRCODE='23514'; END IF;
+    cue_:=ops.artifact_primary_span(layers,primary_ref,primary_,'cue',view_,(piece_->>'start')::bigint);
    END IF;
    ids:=array_append(ids,occurrence_->>'contribution_id');
    directed:=directed||jsonb_build_array(jsonb_build_object('role',endpoint->>'role',
@@ -1161,104 +1268,75 @@ BEGIN
    RAISE EXCEPTION 'artifact nomination requires distinct physical endpoints' USING ERRCODE='23514';END IF;
   output:=output||jsonb_build_array(jsonb_build_object('left',least(ids[1],ids[2]),
    'right',greatest(ids[1],ids[2]),'kind','artifact_reference_target','relationship',held.reference,
-   'endpoints',directed,'origin_cue',cue_));
+   'endpoints',directed,'origin_cue',cue_,'primary_node',primary_ref));
  END LOOP;
  RETURN output;
 EXCEPTION WHEN no_data_found OR too_many_rows THEN
  RAISE EXCEPTION 'artifact external nomination cannot resolve exact cohort endpoints' USING ERRCODE='23514';
 END $$;
-REVOKE ALL ON FUNCTION ops.artifact_external_nominations(jsonb,jsonb,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ops.artifact_external_nominations(ops.task,jsonb,jsonb,jsonb) FROM PUBLIC;
 
-CREATE OR REPLACE FUNCTION ops.artifact_declared_relationships(inputs jsonb,records jsonb)
+CREATE OR REPLACE FUNCTION ops.artifact_declared_relationships(inputs jsonb,records jsonb,primary_sources jsonb)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE record_ jsonb; citation jsonb; view_ kb.source_view; piece jsonb; passage jsonb; src jsonb;
- rest text; marker text[]; cue text[]; start_ integer; stop_ integer; token text; row_ jsonb;
- record_id text; work_ text; kind_ text; relation_ text; label_ text;
- declarations jsonb:='[]'; work_cues jsonb:='{}'; targets jsonb; output jsonb:='[]';
- label_re text:=E'^[ \t]+\\((?:numbering namespace|revision):[ \t]*[A-Za-z0-9_.-]+\\)';
- work_re text:=E'^([ \t]+\\(work:[ \t]*([A-Za-z0-9][A-Za-z0-9_.-]*)\\))';
- relation_re text:=E'^([ \t]+\\((cites|same lineage as|supersedes)[ \t]+(Table|Figure|Theorem|Section)[ \t]+'
-  ||E'([A-Za-z]?[0-9]+(?:[.-][0-9]+)*[A-Za-z]?)[ \t]+in numbering namespace[ \t]+'
-  ||E'([A-Za-z0-9][A-Za-z0-9_.-]*)(?:[ \t]+of work[ \t]+([A-Za-z0-9][A-Za-z0-9_.-]*))?'
-  ||E'(?:[ \t]+revision[ \t]+([A-Za-z0-9][A-Za-z0-9_.-]*))?\\))';
+DECLARE record_ jsonb;citation jsonb;view_ kb.source_view;passage jsonb;src jsonb;layers jsonb;l record;a jsonb;ref_ jsonb;node jsonb;nav jsonb;subject_ jsonb;cue_ jsonb;
+ row_ jsonb;record_id text;work_ text;kind_ text;relation_ text;field_ text;role_ text;
+ declarations jsonb:='[]';work_cues jsonb:='{}';targets jsonb;output jsonb:='[]';
 BEGIN
  FOR record_ IN SELECT value FROM jsonb_array_elements(records) LOOP
-  record_id:=record_->>'contribution_id';
-  work_:=record_->'artifact'->>'source_work';
-  kind_:=record_->'artifact'->>'artifact_kind';
+  record_id:=record_->>'contribution_id';work_:=record_->'artifact'->>'source_work';kind_:=record_->'artifact'->>'artifact_kind';
   FOR citation IN SELECT value FROM jsonb_array_elements(record_->'citations') LOOP
-   SELECT s INTO STRICT src FROM jsonb_array_elements(inputs->'sources') s
-    WHERE encode(sha256(convert_to(data.canonical_json(s),'UTF8')),'hex')=citation->>'source_ref';
-   SELECT p INTO STRICT passage FROM jsonb_array_elements(inputs->'passages') p
-    WHERE p->>'passage_id'=citation->>'passage_id' AND p->>'source_ref'=citation->>'source_ref';
-   SELECT * INTO STRICT view_ FROM kb.source_view WHERE id=(src->>'source_view_id')::bigint;
-   SELECT p INTO STRICT piece FROM jsonb_array_elements(view_.projection->'pieces') p
-    WHERE p->>'item_ref'=citation->>'source_pointer' AND p->>'kind'='native_text'
-     AND p->>'cell_index' IS NULL AND (p->>'start')::integer=(citation->>'end')::integer
-       -(record_->'source_contribution'->'anchors'->0->>'end')::integer;
-   start_:=(citation->>'end')::integer;
-   stop_:=least((passage->>'end')::integer,(piece->>'end')::integer);
-   rest:=substr(view_.projection->>'text',start_+1,stop_-start_);
-   LOOP
-    label_:=substring(rest COLLATE "C" FROM label_re);
-    EXIT WHEN label_ IS NULL;
-    start_:=start_+length(label_); rest:=substr(rest,length(label_)+1);
-   END LOOP;
-   marker:=regexp_match(rest COLLATE "C",work_re);
-   IF marker IS NOT NULL THEN
-    IF marker[2]=work_ AND NOT work_cues ? record_id THEN
-     work_cues:=work_cues||jsonb_build_object(record_id,jsonb_build_object(
-      'citation',citation,'cue',citation||jsonb_build_object('start',start_,'end',start_+length(marker[1]),'text',marker[1])));
-    END IF;
-    start_:=start_+length(marker[1]); rest:=substr(rest,length(marker[1])+1);
-   END IF;
-   LOOP
-    cue:=regexp_match(rest COLLATE "C",relation_re);
-    EXIT WHEN cue IS NULL;
-    token:=cue[1];
-    relation_:=CASE cue[2] WHEN 'cites' THEN 'reference' WHEN 'same lineage as' THEN 'same_lineage' ELSE 'supersedes' END;
-    IF lower(cue[3])=kind_ AND (relation_='reference')=(record_->'artifact'->>'occurrence_role'='reference') THEN
-     row_:=jsonb_build_object('kind',relation_,'source_id',record_id,'origin',
-      citation||jsonb_build_object('start',start_,'end',start_+length(token),'text',token),
+   SELECT s INTO STRICT src FROM jsonb_array_elements(inputs->'sources') s WHERE encode(sha256(convert_to(data.canonical_json(s),'UTF8')),'hex')=citation->>'source_ref';
+   SELECT p INTO STRICT passage FROM jsonb_array_elements(inputs->'passages') p WHERE p->>'passage_id'=citation->>'passage_id' AND p->>'source_ref'=citation->>'source_ref';
+   SELECT * INTO STRICT view_ FROM kb.source_view WHERE id=(src->>'source_view_id')::bigint;layers:=primary_sources->(citation->>'source_ref');
+   FOR l IN SELECT * FROM jsonb_each(layers) LOOP
+    FOR a IN SELECT value FROM jsonb_array_elements(l.value->'annotations') WHERE value->'navigation'->>'kind' IN ('artifact_work','artifact_relation') AND value->'navigation'->>'pointer'=citation->>'source_pointer'
+     AND ops.primary_characterization_in_view(layers,jsonb_build_object('layer',l.key::jsonb,'local_id',value->>'local_id'),value,view_.id) LOOP
+     ref_:=jsonb_build_object('layer',l.key::jsonb,'local_id',a->>'local_id');node:=ops.primary_navigation_node(layers,ref_,'[]',view_);nav:=node->'navigation';
+     subject_:=ops.artifact_primary_span(layers,ref_,node,'subject',view_,0);
+     IF subject_->'start' IS DISTINCT FROM citation->'start' OR subject_->'end' IS DISTINCT FROM citation->'end' THEN CONTINUE; END IF;
+     cue_:=ops.artifact_primary_span(layers,ref_,node,'cue',view_,0);
+     IF (cue_->>'start')::bigint<(passage->>'start')::bigint OR (cue_->>'end')::bigint>(passage->>'end')::bigint THEN CONTINUE; END IF;
+     cue_:=citation||cue_;
+     IF nav->>'kind'='artifact_work' THEN
+      IF nav->>'work' IS DISTINCT FROM ops.primary_navigation_role_text(layers,ref_,node,'work',view_) THEN RAISE EXCEPTION 'artifact work metadata changes exact retained work role' USING ERRCODE='23514'; END IF;
+      IF nav->>'work'=work_ AND NOT work_cues ? record_id THEN work_cues:=work_cues||jsonb_build_object(record_id,jsonb_build_object('citation',citation,'cue',cue_,'primary',ref_)); END IF;
+      CONTINUE;
+     END IF;
+     relation_:=nav->>'relation_kind';
+     IF nav->>'artifact_kind' IS DISTINCT FROM kind_ OR (relation_='reference') IS DISTINCT FROM (record_->'artifact'->>'occurrence_role'='reference') THEN CONTINUE; END IF;
+     FOR field_,role_ IN SELECT * FROM (VALUES('designator','target_designator'),('numbering_namespace','target_numbering'),('work','target_work'),('revision','target_revision')) names(field_,role_) LOOP
+      IF nav ? field_ AND nav->>field_ IS DISTINCT FROM ops.primary_navigation_role_text(layers,ref_,node,role_,view_) THEN RAISE EXCEPTION 'artifact relationship metadata changes exact retained target field' USING ERRCODE='23514'; END IF;
+     END LOOP;
+     row_:=jsonb_build_object('kind',relation_,'source_id',record_id,'origin',cue_,'primary_node',ref_,
       'source_work',work_,'source_occurrence',record_->>'occurrence_id','source_revision',record_->'revision'->>'value',
-      'target_work',coalesce(cue[6],work_),'target_kind',kind_,'target_namespace',cue[5],
-      'target_code',lower(cue[4]),'target_revision',cue[7]);
+      'target_work',coalesce(nav->>'work',work_),'target_kind',kind_,'target_namespace',nav->>'numbering_namespace','target_code',lower(nav->>'designator'),'target_revision',nav->>'revision');
      declarations:=declarations||jsonb_build_array(row_);
-    END IF;
-    start_:=start_+length(token); rest:=substr(rest,length(token)+1);
+    END LOOP;
    END LOOP;
   END LOOP;
  END LOOP;
  FOR row_ IN SELECT value FROM jsonb_array_elements(declarations) LOOP
-  SELECT COALESCE(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
-   'record_id',r->>'contribution_id',
+  SELECT coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object('record_id',r->>'contribution_id',
    'citation',CASE WHEN cross_work THEN work_cues->(r->>'contribution_id')->'citation' ELSE r->'citations'->0 END,
-   'work_cue',CASE WHEN cross_work THEN work_cues->(r->>'contribution_id')->'cue' END
-  )) ORDER BY n),'[]') INTO targets
-  FROM jsonb_array_elements(records) WITH ORDINALITY r(r,n),
-   LATERAL (SELECT row_->>'source_work'<>row_->>'target_work' cross_work) c
-  WHERE r->'artifact'->>'occurrence_role'='caption'
-   AND r->'artifact'->>'source_work'=row_->>'target_work'
-   AND r->'artifact'->>'artifact_kind'=row_->>'target_kind'
-   AND r->'numbering'->>'value'=row_->>'target_namespace'
-   AND lower(btrim(r->'artifact'->>'controlled_code'))=row_->>'target_code'
-   AND r->>'occurrence_id'<>row_->>'source_occurrence'
-   AND (NOT cross_work OR work_cues ? (r->>'contribution_id'))
+   'work_cue',CASE WHEN cross_work THEN work_cues->(r->>'contribution_id')->'cue' END,
+   'work_primary_node',CASE WHEN cross_work THEN work_cues->(r->>'contribution_id')->'primary' END)) ORDER BY n),'[]') INTO targets
+  FROM jsonb_array_elements(records) WITH ORDINALITY r(r,n),LATERAL (SELECT row_->>'source_work'<>row_->>'target_work' cross_work) c
+  WHERE r->'artifact'->>'occurrence_role'='caption' AND r->'artifact'->>'source_work'=row_->>'target_work' AND r->'artifact'->>'artifact_kind'=row_->>'target_kind'
+   AND r->'numbering'->>'value'=row_->>'target_namespace' AND lower(btrim(r->'artifact'->>'controlled_code'))=row_->>'target_code'
+   AND r->>'occurrence_id'<>row_->>'source_occurrence' AND (NOT cross_work OR work_cues ? (r->>'contribution_id'))
    AND (row_->>'target_revision' IS NULL OR r->'revision'->>'value'=row_->>'target_revision')
-   AND (row_->>'kind'<>'supersedes' OR (row_->>'source_revision' IS NOT NULL
-    AND row_->>'target_revision' IS NOT NULL AND row_->>'source_revision'<>row_->>'target_revision'));
-  row_:=jsonb_build_object('kind',row_->>'kind','source_id',row_->>'source_id','origin',row_->'origin',
-   'targets',targets,'outcome',CASE jsonb_array_length(targets) WHEN 0 THEN 'no_compatible_candidate'
-    WHEN 1 THEN 'witnessed_candidate' ELSE 'ambiguous' END);
+   AND (row_->>'kind'<>'supersedes' OR (row_->>'source_revision' IS NOT NULL AND row_->>'target_revision' IS NOT NULL AND row_->>'source_revision'<>row_->>'target_revision'));
+  row_:=jsonb_build_object('kind',row_->>'kind','source_id',row_->>'source_id','origin',row_->'origin','primary_node',row_->'primary_node','targets',targets,
+   'outcome',CASE jsonb_array_length(targets) WHEN 0 THEN 'no_compatible_candidate' WHEN 1 THEN 'witnessed_candidate' ELSE 'ambiguous' END);
   IF NOT output @> jsonb_build_array(row_) THEN output:=output||jsonb_build_array(row_); END IF;
  END LOOP;
  RETURN output;
 END $$;
-REVOKE ALL ON FUNCTION ops.artifact_declared_relationships(jsonb,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ops.artifact_declared_relationships(jsonb,jsonb,jsonb) FROM PUBLIC;
 
-CREATE OR REPLACE FUNCTION ops.validate_artifact_identity(inputs jsonb,config jsonb,product jsonb)
+CREATE OR REPLACE FUNCTION ops.validate_artifact_identity(t ops.task,inputs jsonb,config jsonb,product jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE expected_records jsonb; pair_ jsonb; a jsonb; b jsonb; routes jsonb; expected_pairs jsonb:='[]';
+DECLARE primary_sources jsonb:=ops.artifact_primary_sources(t,inputs,config);expected_records jsonb; pair_ jsonb; a jsonb; b jsonb; routes jsonb; expected_pairs jsonb:='[]';
  code_a text; code_b text; title_a text; title_b text; compatible boolean; excluded boolean;
  lexical double precision; log_odds double precision; probability double precision; external_ boolean; policy jsonb;
  code_gamma integer; title_gamma integer; code_mw double precision; title_mw double precision;
@@ -1309,29 +1387,24 @@ BEGIN
   OR jsonb_typeof(config->'external_nomination_refs') IS DISTINCT FROM 'array'
   OR jsonb_typeof(config->'exclusions') IS DISTINCT FROM 'array'
   OR NOT policy ?& ARRAY['prior','code_m','code_u','title_m','title_u']
-  OR product->>'protocol' IS DISTINCT FROM (CASE WHEN config->>'_operation_version'='4' THEN 'artifact-identity-4' ELSE 'artifact-identity-3' END)
+  OR config->>'_operation_version' IS DISTINCT FROM '5' OR product->>'protocol' IS DISTINCT FROM 'artifact-identity-5'
   OR product->>'standing'<>'candidate_relative_private'
   OR policy IS DISTINCT FROM config_policy OR EXISTS(SELECT FROM jsonb_each(policy) p
    WHERE (p.value#>>'{}')::double precision<=0 OR (p.value#>>'{}')::double precision>=1)
   OR (SELECT count(*) FROM jsonb_each(policy))<>5 THEN
   RAISE EXCEPTION 'artifact model requires five strict finite probabilities and exact custody' USING ERRCODE='23514'; END IF;
- expected_records:=ops.artifact_source_records(inputs,config);
+ expected_records:=ops.artifact_source_records(inputs,config,primary_sources);
  IF jsonb_strip_nulls(product->'records') IS DISTINCT FROM expected_records THEN
   RAISE EXCEPTION 'artifact cohort/fields/content identities differ from exact source replay' USING ERRCODE='23514'; END IF;
- IF product->>'protocol'='artifact-identity-4' THEN
-  declarations:=ops.artifact_declared_relationships(inputs,expected_records);
-  IF product->'declared_relationships' IS DISTINCT FROM declarations THEN
-   RAISE EXCEPTION 'artifact typed relationships differ from selected source declarations' USING ERRCODE='23514'; END IF;
- ELSIF product ? 'declared_relationships' THEN
-  RAISE EXCEPTION 'artifact relationship declaration requires the current producer' USING ERRCODE='23514';
- END IF;
+ declarations:=ops.artifact_declared_relationships(inputs,expected_records,primary_sources);
+ IF product->'declared_relationships' IS DISTINCT FROM declarations THEN RAISE EXCEPTION 'artifact typed relationships differ from retained primary declarations' USING ERRCODE='23514'; END IF;
  SELECT COALESCE(jsonb_agg(DISTINCT wb->>'provenance' ORDER BY wb->>'provenance'),'[]') INTO expected_provenance
  FROM jsonb_array_elements(inputs->'sources') src JOIN LATERAL jsonb_array_elements(config->'work_bindings') wb
   ON wb->>'native_content_digest'=src->>'native_content_digest';
  SELECT COALESCE(jsonb_agg(src->'source_view_id' ORDER BY n),'[]') INTO unbound
  FROM jsonb_array_elements(inputs->'sources') WITH ORDINALITY s(src,n)
  WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(config->'work_bindings') wb WHERE wb->>'native_content_digest'=src->>'native_content_digest');
- nominations:=ops.artifact_external_nominations(inputs,config,expected_records);
+ nominations:=ops.artifact_external_nominations(t,inputs,config,expected_records);
  IF COALESCE(product->'source_mapping_provenance','[]') IS DISTINCT FROM expected_provenance
   OR COALESCE(product->'unbound_source_ids','[]') IS DISTINCT FROM unbound
   OR product->'external_nominations' IS DISTINCT FROM nominations THEN
@@ -1492,7 +1565,7 @@ EXCEPTION WHEN no_data_found OR too_many_rows THEN
 WHEN invalid_text_representation OR numeric_value_out_of_range THEN
  RAISE EXCEPTION 'artifact numeric config requires finite typed values' USING ERRCODE='23514';
 END $$;
-REVOKE ALL ON FUNCTION ops.validate_artifact_identity(jsonb,jsonb,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ops.validate_artifact_identity(ops.task,jsonb,jsonb,jsonb) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.model_observation_policy(release_ text)
 RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,pg_temp AS $$
@@ -1513,7 +1586,7 @@ REVOKE ALL ON FUNCTION ops.model_definition_declaration(jsonb,jsonb) FROM PUBLIC
 CREATE OR REPLACE FUNCTION ops.located_model_request(
  release_ text,method_ text,policy jsonb,config_ jsonb,context_id text,context_digest text,body text)
 RETURNS text LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
- WITH definition AS (SELECT method_='structure.definition_components/9' enabled),
+ WITH definition AS (SELECT method_='structure.definition_components/10' enabled),
  profile AS (SELECT config_->'profile' p),
  schema_ AS (SELECT CASE WHEN enabled THEN ops.model_definition_declaration(policy,config_)
                         ELSE policy->>'clause' END declaration FROM definition)
@@ -1569,7 +1642,7 @@ BEGIN
     snippet:=substr(body,start_+1,end_-start_);
     window_:=passage||jsonb_build_object('start',offset_+start_,'end',offset_+end_,'text',snippet);
     digest_:=encode(sha256(convert_to(data.canonical_json(jsonb_strip_nulls(window_)),'UTF8')),'hex');
-    request_:=ops.located_model_request(release_,'structure.definition_components/9',policy,config_,
+    request_:=ops.located_model_request(release_,'structure.definition_components/10',policy,config_,
       'definition-target:'||digest_,digest_,snippet);
     ledger:=detail->'window_outcomes'->cursor_; cursor_:=cursor_+1;
     status_:=ledger->>'status';
@@ -1614,7 +1687,7 @@ RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $
 DECLARE window_ jsonb; passage_ jsonb; raw_ jsonb; candidate jsonb; role_ text; label_ text;
  lo integer; hi integer; start_ integer; end_ integer; index_ bigint; text_ text; result_ jsonb:='[]';
 BEGIN
- IF COALESCE(detail->>'version','') NOT IN ('located-definition-extraction-3','located-definition-extraction-4')
+ IF detail->>'version' IS DISTINCT FROM 'located-definition-extraction-5'
  OR detail->>'description_arm' IS DISTINCT FROM config_->>'description_arm'
  OR detail->>'overlap_policy' IS DISTINCT FROM COALESCE(config_->>'evaluation_overlap','flat')
  OR jsonb_typeof(detail->'raw_reports') IS DISTINCT FROM 'array'
@@ -1735,45 +1808,91 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION ops.clause_model_axis(jsonb,text[]) FROM PUBLIC;
 
-CREATE OR REPLACE FUNCTION ops.validate_clause_classification(inputs jsonb,config_ jsonb,item jsonb,detail jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
-DECLARE reading_ jsonb; selection_ jsonb; passage_ jsonb; source_ jsonb; retained jsonb; frame_ jsonb; focus_ jsonb;
- annotation_ jsonb; sentence_ jsonb; before_ jsonb; after_ jsonb; window_ jsonb; raw_ jsonb;
- function_ jsonb; presentation_ jsonb; expected_ text; text_ text; digest_ text; policy_ text;
- lo integer; hi integer; position_ integer; neighbor_ integer; side_ text; visited text[]:=ARRAY[]::text[];
- request_ text; request_pos integer:=0; outcome_ jsonb; status_ text; model_policy jsonb;
- current_ boolean:=config_->>'_operation_version'='2';
+-- A retained native token interval is a mechanical source projection, not a matcher.
+CREATE OR REPLACE FUNCTION ops.primary_structural_token_span(layers jsonb,refs jsonb,p_view kb.source_view)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE ref jsonb; node jsonb; extents jsonb; first_ jsonb; prior_ bigint; lo bigint; hi bigint; population jsonb;
 BEGIN
- policy_:=config_->>'context_policy';
- IF policy_ IS NULL OR policy_ NOT IN ('exact_focus','adjacent_sentences')
-  OR item->>'context_policy' IS DISTINCT FROM policy_
-  OR detail->>'version' IS DISTINCT FROM
-   (CASE WHEN current_ THEN 'clause-model-observation-2' ELSE 'clause-model-observation-1' END)
-  OR jsonb_typeof(detail->'raw_reports') IS DISTINCT FROM 'array'
-  OR (detail->'profile')-'timeout_seconds' IS DISTINCT FROM (config_->'profile')-'timeout_seconds'
-  OR (detail->'profile'->>'timeout_seconds')::numeric IS DISTINCT FROM (config_->'profile'->>'timeout_seconds')::numeric
-  OR (SELECT jsonb_agg(r->'selection' ORDER BY i) FROM jsonb_array_elements(item->'readings') WITH ORDINALITY x(r,i))
-    IS DISTINCT FROM config_->'focuses'
-  OR EXISTS(SELECT FROM jsonb_array_elements(detail->'raw_reports') w GROUP BY w->>'computation' HAVING count(*)>1) THEN
-  RAISE EXCEPTION 'clause model differs from exact configured focus selection' USING ERRCODE='23514'; END IF;
- IF current_ THEN
-  model_policy:=ops.model_observation_policy(config_->>'_release');
-  IF model_policy IS NULL OR detail->>'schema_declaration' IS DISTINCT FROM model_policy->>'clause'
-   OR jsonb_typeof(detail->'request_outcomes') IS DISTINCT FROM 'array' THEN
-   RAISE EXCEPTION 'clause model lacks exact released policy and outcomes' USING ERRCODE='23514'; END IF;
- END IF;
+ IF jsonb_typeof(refs) IS DISTINCT FROM 'array' OR jsonb_array_length(refs)=0 THEN
+  RAISE EXCEPTION 'primary token span requires explicit native members' USING ERRCODE='23514'; END IF;
+ FOR ref IN SELECT value FROM jsonb_array_elements(refs) LOOP
+  node:=ops.primary_characterization_node(layers,ref);
+  IF node->>'kind' IS DISTINCT FROM 'native.token' OR node->'native_token' IS NULL THEN
+   RAISE EXCEPTION 'primary role member is not a native token' USING ERRCODE='23514'; END IF;
+  IF population IS NULL THEN
+   population:=jsonb_build_array(ref->'layer',node->'native_token'->'native_run',node->'native_token'->'container');
+  ELSIF population IS DISTINCT FROM jsonb_build_array(ref->'layer',node->'native_token'->'native_run',node->'native_token'->'container')
+   OR (node->'native_token'->>'index')::bigint<>prior_+1 THEN
+   RAISE EXCEPTION 'primary role has discontinuous or foreign token members' USING ERRCODE='23514'; END IF;
+  prior_:=(node->'native_token'->>'index')::bigint;
+  extents:=ops.primary_characterization_extents(layers,ref,node,p_view);
+  IF jsonb_array_length(extents)<>1 THEN RAISE EXCEPTION 'primary token has no unique literal source extent' USING ERRCODE='23514'; END IF;
+  first_:=extents->0;
+  IF first_->>'synthetic' IS DISTINCT FROM 'false' OR node->'native_token'->>'text' IS DISTINCT FROM first_->>'text' OR (hi IS NOT NULL AND (first_->>'start')::bigint<hi) THEN
+   RAISE EXCEPTION 'primary token order or literal text differs from source' USING ERRCODE='23514'; END IF;
+  lo:=coalesce(lo,(first_->>'start')::bigint); hi:=(first_->>'end')::bigint;
+ END LOOP;
+ RETURN jsonb_build_array(lo,hi);
+END $$;
+REVOKE ALL ON FUNCTION ops.primary_structural_token_span(jsonb,jsonb,kb.source_view) FROM PUBLIC;
+
+-- Adjacency follows retained sentence placement and native container membership.
+CREATE OR REPLACE FUNCTION ops.primary_structural_sentence_context(layers jsonb,focus jsonb,passage jsonb,p_view kb.source_view)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE entry record; sentence jsonb; ref jsonb; extents jsonb; container_ jsonb; population jsonb; candidates jsonb:='[]';
+ owner_ jsonb; before_ jsonb; after_ jsonb; lo bigint; hi bigint;
+BEGIN
+ FOR entry IN SELECT * FROM jsonb_each(layers) LOOP
+  FOR sentence IN SELECT value FROM jsonb_array_elements(entry.value->'annotations') WHERE value->>'kind'='native.sentence' AND value->>'family'='spacy.sentences' LOOP
+   ref:=jsonb_build_object('layer',entry.key::jsonb,'local_id',sentence->>'local_id');
+   extents:=ops.primary_characterization_extents(layers,ref,sentence,p_view);
+   SELECT min((e->>'start')::bigint),max((e->>'end')::bigint) INTO lo,hi FROM jsonb_array_elements(extents) e;
+   SELECT DISTINCT jsonb_build_array(entry.key::jsonb,t->'native_token'->'native_run',t->'native_token'->'container') INTO STRICT container_
+    FROM jsonb_array_elements(entry.value->'annotations') t WHERE t->'native_token'->>'sentence'=sentence->>'local_id';
+   candidates:=candidates||jsonb_build_array(jsonb_build_object('population',container_,'start',lo,'end',hi));
+  END LOOP;
+ END LOOP;
+ SELECT c INTO STRICT owner_ FROM jsonb_array_elements(candidates) c
+  WHERE (c->>'start')::bigint<=(focus->>'start')::bigint AND (focus->>'end')::bigint<=(c->>'end')::bigint;
+ SELECT c INTO before_ FROM jsonb_array_elements(candidates) c WHERE c->'population'=owner_->'population'
+  AND (c->>'end')::bigint<=(owner_->>'start')::bigint ORDER BY (c->>'end')::bigint DESC LIMIT 1;
+ SELECT c INTO after_ FROM jsonb_array_elements(candidates) c WHERE c->'population'=owner_->'population'
+  AND (c->>'start')::bigint>=(owner_->>'end')::bigint ORDER BY (c->>'start')::bigint LIMIT 1;
+ IF before_ IS NOT NULL AND (before_->>'start')::bigint>=(passage->>'start')::bigint THEN
+  before_:=jsonb_build_object('passage_id',passage->>'passage_id','start',before_->'start','end',before_->'end',
+   'text',substring(p_view.projection->>'text' FROM (before_->>'start')::integer+1 FOR (before_->>'end')::integer-(before_->>'start')::integer));
+ ELSE before_:=NULL; END IF;
+ IF after_ IS NOT NULL AND (after_->>'end')::bigint<=(passage->>'end')::bigint THEN
+  after_:=jsonb_build_object('passage_id',passage->>'passage_id','start',after_->'start','end',after_->'end',
+   'text',substring(p_view.projection->>'text' FROM (after_->>'start')::integer+1 FOR (after_->>'end')::integer-(after_->>'start')::integer));
+ ELSE after_:=NULL; END IF;
+ RETURN jsonb_build_object('preceding',before_,'following',after_);
+END $$;
+REVOKE ALL ON FUNCTION ops.primary_structural_sentence_context(jsonb,jsonb,jsonb,kb.source_view) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.validate_clause_classification(inputs jsonb,config_ jsonb,item jsonb,detail jsonb)
+RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE reading_ jsonb; selection_ jsonb; passage_ jsonb; source_ jsonb; retained jsonb; frame_ jsonb; focus_ jsonb;
+ layers jsonb; ref jsonb; node jsonb; answer jsonb; native_ jsonb; request_ jsonb; scope_ jsonb; declaration jsonb;
+ expected_ jsonb; labels_ jsonb; offered jsonb; observed jsonb; selected_ jsonb; extents jsonb; v kb.source_view;
+ before_ jsonb; after_ jsonb; examined jsonb; wanted_pin jsonb; disposition_ text; lo integer; hi integer; keys_ jsonb;
+BEGIN
+ IF config_->>'_operation_version' IS DISTINCT FROM '3' OR detail->>'version' IS DISTINCT FROM 'primary-clause-functions-1'
+  OR item->>'context_policy' IS DISTINCT FROM config_->>'context_policy'
+  OR (SELECT coalesce(jsonb_agg(r->'selection' ORDER BY i),'[]') FROM jsonb_array_elements(item->'readings') WITH ORDINALITY x(r,i)) IS DISTINCT FROM config_->'focuses'
+  OR EXISTS(SELECT FROM jsonb_array_elements(coalesce(detail->'characterization_layers','[]')) pin WHERE NOT coalesce(config_->'characterization_layers','[]') @> jsonb_build_array(pin)) THEN
+  RAISE EXCEPTION 'clause projection differs from frozen primary selection' USING ERRCODE='23514'; END IF;
  FOR reading_ IN SELECT value FROM jsonb_array_elements(item->'readings') LOOP
   selection_:=reading_->'selection';
   SELECT p INTO STRICT passage_ FROM jsonb_array_elements(inputs->'passages') p WHERE p->>'passage_id'=selection_->>'passage_id';
-  SELECT s INTO STRICT source_ FROM jsonb_array_elements(inputs->'sources') s
-   WHERE encode(sha256(convert_to(data.canonical_json(s),'UTF8')),'hex')=passage_->>'source_ref';
+  SELECT s INTO STRICT source_ FROM jsonb_array_elements(inputs->'sources') s WHERE encode(sha256(convert_to(data.canonical_json(s),'UTF8')),'hex')=passage_->>'source_ref';
+  SELECT * INTO STRICT v FROM kb.source_view WHERE id=(source_->>'source_view_id')::bigint;
+  layers:=config_->'_primary_layers'->(v.id::text);
   IF NOT inputs->'dependencies' ? (selection_->'frame'->>'contribution_id') THEN
    RAISE EXCEPTION 'clause focus missing declared retained dependency' USING ERRCODE='23514'; END IF;
   retained:=ops.resolve_retained_source_contribution(selection_->'frame');
-  SELECT r INTO STRICT frame_ FROM jsonb_array_elements(retained->'contributions') r
-   WHERE r->>'contribution_id'=selection_->'frame'->>'contribution_id';
-  IF frame_->'component'->>'kind' IS DISTINCT FROM 'predicate_frame'
-   OR frame_->'component'->>'focus_state' IS DISTINCT FROM 'exact'
+  SELECT r INTO STRICT frame_ FROM jsonb_array_elements(retained->'contributions') r WHERE r->>'contribution_id'=selection_->'frame'->>'contribution_id';
+  IF frame_->'component'->>'kind' IS DISTINCT FROM 'predicate_frame' OR frame_->'component'->>'focus_state' IS DISTINCT FROM 'exact'
    OR frame_->'component'->>'scope' IS DISTINCT FROM passage_->>'passage_id'
    OR frame_->'component'->>'effective_version' IS DISTINCT FROM passage_->>'effective_version'
    OR frame_->'pin'->>'source_view_id' IS DISTINCT FROM source_->>'source_view_id'
@@ -1783,464 +1902,382 @@ BEGIN
   IF jsonb_array_length(focus_)<>1 THEN RAISE EXCEPTION 'clause focus is not contiguous' USING ERRCODE='23514'; END IF;
   lo:=(focus_->0->>'start')::integer; hi:=(focus_->0->>'end')::integer;
   IF NOT (lo>=(passage_->>'start')::integer AND hi>lo AND hi<=(passage_->>'end')::integer)
-   OR reading_->'focus' IS DISTINCT FROM jsonb_build_object('passage_id',passage_->>'passage_id',
-    'start',lo,'end',hi,'text',substring(passage_->>'text' FROM lo-(passage_->>'start')::integer+1 FOR hi-lo)) THEN
+   OR reading_->'focus' IS DISTINCT FROM jsonb_build_object('passage_id',passage_->>'passage_id','start',lo,'end',hi,'text',substring(v.projection->>'text' FROM lo+1 FOR hi-lo)) THEN
    RAISE EXCEPTION 'clause focus differs from original text extent' USING ERRCODE='23514'; END IF;
-  before_:=NULL; after_:=NULL;
-  IF policy_='adjacent_sentences' THEN
-   SELECT a INTO STRICT annotation_ FROM ops.cut_task ct
-   JOIN ops.task t ON t.id=ct.task_id JOIN ops.task_result result ON result.task_id=ct.origin_task_id
-   JOIN ops.method_config config ON config.id=t.method_config_id JOIN ops.method method ON method.id=config.method_id
-   CROSS JOIN LATERAL jsonb_array_elements(data.record_source_json(result.body->'parse_detail')->'annotations') a
-   WHERE ct.cut_id=(source_->>'cut_id')::bigint AND t.unit_id=(source_->>'source_view_id')::bigint
-    AND t.run_id=(source_->>'run_id')::bigint AND t.unit_type='source_view'
-    AND method.name='extract.m1_annotations'
-    AND 'annotation:'||(a->>'dependency_digest')=frame_->'component'->>'annotation'
-    AND a->>'block_id'=frame_->'component'->>'block';
-   SELECT (i-1)::integer INTO STRICT position_ FROM jsonb_array_elements(annotation_->'sentences') WITH ORDINALITY q(a,i)
-    WHERE (a->>'start')::integer<=lo AND hi<=(a->>'end')::integer;
-   FOREACH side_ IN ARRAY ARRAY['preceding','following'] LOOP
-    neighbor_:=position_+CASE WHEN side_='preceding' THEN -1 ELSE 1 END;
-    IF neighbor_<0 OR neighbor_>=jsonb_array_length(annotation_->'sentences') THEN CONTINUE; END IF;
-    sentence_:=annotation_->'sentences'->neighbor_;
-    lo:=(sentence_->>'start')::integer; hi:=(sentence_->>'end')::integer;
-    IF lo<(passage_->>'start')::integer OR hi>(passage_->>'end')::integer THEN CONTINUE; END IF;
-    sentence_:=jsonb_build_object('passage_id',passage_->>'passage_id',
-      'start',lo,'end',hi,'text',substring(passage_->>'text' FROM lo-(passage_->>'start')::integer+1 FOR hi-lo));
-    IF side_='preceding' THEN before_:=sentence_; ELSE after_:=sentence_; END IF;
-   END LOOP;
+  before_:=nullif(reading_->'preceding','null'); after_:=nullif(reading_->'following','null');
+  IF config_->>'context_policy'='adjacent_sentences' THEN
+   expected_:=ops.primary_structural_sentence_context(layers,reading_->'focus',passage_,v);
+   IF jsonb_build_object('preceding',before_,'following',after_) IS DISTINCT FROM expected_ THEN
+    RAISE EXCEPTION 'clause context differs from exact retained sentence adjacency' USING ERRCODE='23514'; END IF;
   END IF;
-  IF nullif(reading_->'preceding','null') IS DISTINCT FROM before_
-   OR nullif(reading_->'following','null') IS DISTINCT FROM after_ THEN
-   RAISE EXCEPTION 'clause model context differs from nearest retained sentences' USING ERRCODE='23514'; END IF;
-  text_:=reading_->'focus'->>'text';
-  IF policy_='adjacent_sentences' THEN
-   text_:=COALESCE(before_->>'text'||chr(10),'')||'<focus>'||text_||'</focus>'||COALESCE(chr(10)||(after_->>'text'),'');
-  END IF;
-  digest_:=encode(sha256(convert_to(data.canonical_json(jsonb_build_array(policy_,selection_,text_)),'UTF8')),'hex');
-  IF reading_->>'context_digest' IS DISTINCT FROM digest_ THEN
-   RAISE EXCEPTION 'clause model context digest differs from exact input' USING ERRCODE='23514'; END IF;
-  IF current_ THEN
-   request_:=ops.located_model_request(config_->>'_release','structure.clause_classification/2',
-    model_policy,config_,'clause-focus:'||digest_,digest_,text_);
-   outcome_:=detail->'request_outcomes'->request_pos; request_pos:=request_pos+1;
-   status_:=outcome_->>'status';
-   IF request_ IS NULL OR status_ IS NULL OR status_ NOT IN ('returned','failed','refused')
-    OR (status_='returned') IS DISTINCT FROM (reading_->>'envelope' IS NOT NULL)
-    OR outcome_ IS DISTINCT FROM jsonb_build_object('request_digest',request_,'status',status_) THEN
-    RAISE EXCEPTION 'clause outcome differs from exact configured request' USING ERRCODE='23514'; END IF;
-  END IF;
-  IF reading_->>'envelope' IS NULL THEN
-   IF reading_->>'disposition'<>'failed' OR COALESCE(reading_->'function','[]')<>'[]' OR COALESCE(reading_->'presentation','[]')<>'[]' THEN
-    RAISE EXCEPTION 'clause model outcome lacks provider envelope' USING ERRCODE='23514'; END IF;
+  IF config_->>'context_policy'='exact_focus' AND (before_ IS NOT NULL OR after_ IS NOT NULL) THEN
+   RAISE EXCEPTION 'exact clause focus cannot claim adjacent context' USING ERRCODE='23514'; END IF;
+  FOR expected_ IN SELECT before_ WHERE before_ IS NOT NULL UNION ALL SELECT after_ WHERE after_ IS NOT NULL LOOP
+   IF expected_->>'passage_id' IS DISTINCT FROM passage_->>'passage_id'
+    OR (expected_->>'start')::bigint<(passage_->>'start')::bigint OR (expected_->>'end')::bigint>(passage_->>'end')::bigint
+    OR expected_->>'text' IS DISTINCT FROM substring(v.projection->>'text' FROM (expected_->>'start')::integer+1 FOR (expected_->>'end')::integer-(expected_->>'start')::integer) THEN
+    RAISE EXCEPTION 'clause adjacent context differs from selected source' USING ERRCODE='23514'; END IF;
+  END LOOP;
+  examined:=jsonb_build_array(coalesce(before_->'start',to_jsonb(lo)),coalesce(after_->'end',to_jsonb(hi)));
+  IF jsonb_array_length(coalesce(reading_->'primary_context','[]'))<>0 THEN
+   RAISE EXCEPTION 'clause presentation has no selected primary context projection' USING ERRCODE='23514'; END IF;
+  IF jsonb_array_length(coalesce(reading_->'primary_functions','[]'))=0 THEN
+   IF reading_->>'disposition' IS DISTINCT FROM 'failed' OR coalesce(reading_->'function','[]')<>'[]'
+    OR coalesce(reading_->'presentation','[]')<>'[]' OR nullif(reading_->'envelope','null') IS NOT NULL
+    OR reading_->>'context_digest' IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(jsonb_build_array(config_->>'context_policy',selection_,examined)),'UTF8')),'hex') THEN
+    RAISE EXCEPTION 'missing primary function cannot produce clause labels' USING ERRCODE='23514'; END IF;
    CONTINUE;
   END IF;
-  SELECT w INTO STRICT window_ FROM jsonb_array_elements(detail->'raw_reports') w WHERE w->>'computation'=reading_->>'envelope';
-  IF (reading_->>'envelope')=ANY(visited) OR window_->>'context_id' IS DISTINCT FROM 'clause-focus:'||digest_
-   OR (current_ AND ops.located_model_observation_matches(window_,request_) IS DISTINCT FROM true)
-   OR window_->>'context_digest' IS DISTINCT FROM digest_
-   OR window_->>'profile' IS DISTINCT FROM detail->>'profile_fingerprint'
-   OR window_->>'pack' IS DISTINCT FROM detail->>'pack_fingerprint'
-   OR COALESCE(window_->'preparation'->>'synthetic_suffix','?') NOT IN ('','.')
-   OR window_->'preparation'->>'consumed_text' IS DISTINCT FROM text_||(window_->'preparation'->>'synthetic_suffix') THEN
-   RAISE EXCEPTION 'clause model envelope differs from bound focus input' USING ERRCODE='23514'; END IF;
-  visited:=array_append(visited,reading_->>'envelope');
-  raw_:=(window_->>'raw_json')::jsonb;
-  function_:=ops.clause_model_axis(raw_->'clause_function',ARRAY['definition','explanation','assumption_restriction','prescribed_action','described_process','reference','unresolved']);
-  presentation_:=ops.clause_model_axis(raw_->'presentation_context',ARRAY['example','attribution','historical','unresolved']);
-  IF jsonb_typeof(raw_)<>'object' OR function_ IS NULL OR presentation_ IS NULL OR jsonb_array_length(function_)>1 THEN
-   function_:='[]'; presentation_:='[]'; expected_:='failed';
-  ELSE
-   expected_:=CASE WHEN EXISTS(SELECT FROM jsonb_array_elements(function_||presentation_) v WHERE v->'accepted'='true')
-      THEN 'observed' ELSE 'withheld' END;
-  END IF;
-  IF reading_->>'disposition' IS DISTINCT FROM expected_
-   OR COALESCE(reading_->'function','[]') IS DISTINCT FROM function_
-   OR COALESCE(reading_->'presentation','[]') IS DISTINCT FROM presentation_ THEN
-   RAISE EXCEPTION 'clause model scores or withholding differ from retained output' USING ERRCODE='23514'; END IF;
+  IF jsonb_array_length(reading_->'primary_functions')<>1 THEN RAISE EXCEPTION 'clause function requires one exact primary question' USING ERRCODE='23514'; END IF;
+  ref:=reading_->'primary_functions'->0; node:=ops.primary_characterization_node(layers,ref); answer:=node->'model_answer';
+  IF node->>'kind' IS DISTINCT FROM 'model.question' OR answer->>'question_key' IS DISTINCT FROM 'functions'
+   OR NOT coalesce(answer->>'family' IN ('character_gliner_function_v1','character_function_v1'),false)
+   OR NOT ops.primary_characterization_choices(layers,ref,node,'[]') THEN
+   RAISE EXCEPTION 'clause labels lack an exact compatible primary function question' USING ERRCODE='23514'; END IF;
+  SELECT convert_from(body,'UTF8')::jsonb INTO STRICT declaration FROM sem.registry_row
+   WHERE release_id=config_->>'_release' AND kind='interpretation_question_family' AND name=answer->>'family';
+  IF answer->>'declaration_digest' IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(declaration),'UTF8')),'hex') THEN
+   RAISE EXCEPTION 'clause function differs from its released question declaration' USING ERRCODE='23514'; END IF;
+  extents:=ops.primary_characterization_extents(layers,ref,node,v);
+  IF jsonb_array_length(extents)<>1 OR extents->0->>'synthetic' IS DISTINCT FROM 'false' OR extents->0->>'text' IS DISTINCT FROM reading_->'focus'->>'text' OR extents->0->'start' IS DISTINCT FROM to_jsonb(lo) OR extents->0->'end' IS DISTINCT FROM to_jsonb(hi) THEN
+   RAISE EXCEPTION 'primary function does not describe the exact clause focus' USING ERRCODE='23514'; END IF;
+  native_:=data.record_source_json(answer->'native_answer'); request_:=native_->'request';
+  wanted_pin:=jsonb_build_object('source',v.key,'source_view_id',v.id,'native_product_task_id',v.native_task_id,'product_key',v.native_product_key,'product_digest',v.native_content_digest,'projection_digest',v.projection_digest,'recipe_digest',v.recipe_digest);
+  IF answer->>'answer_kind'='gliner_classification' THEN
+   scope_:=request_->'assessed_scope';
+   IF examined IS DISTINCT FROM jsonb_build_array(lo,hi) OR request_->>'declaration_digest' IS DISTINCT FROM answer->>'declaration_digest'
+    OR request_->'item'->>'text' IS DISTINCT FROM reading_->'focus'->>'text' THEN RAISE EXCEPTION 'primary classifier differs from exact focus input' USING ERRCODE='23514'; END IF;
+  ELSIF answer->>'answer_kind'='choice' THEN
+   scope_:=request_->'interpretation'->'assessed_scope';
+   IF request_->'interpretation'->>'declaration_digest' IS DISTINCT FROM answer->>'declaration_digest'
+    OR scope_->'focal_extent' IS DISTINCT FROM jsonb_build_array(lo,hi)
+    OR request_->'state'->>'source' IS DISTINCT FROM substring(v.projection->>'text' FROM (examined->>0)::integer+1 FOR (examined->>1)::integer-(examined->>0)::integer)
+    OR request_->'state'->'focal' IS DISTINCT FROM jsonb_build_object('start',lo-(examined->>0)::integer,'end',hi-(examined->>0)::integer) THEN
+    RAISE EXCEPTION 'primary function context differs from selected focal source' USING ERRCODE='23514'; END IF;
+  ELSE RAISE EXCEPTION 'unsupported primary clause function answer kind' USING ERRCODE='23514'; END IF;
+  IF scope_->'pin' IS DISTINCT FROM wanted_pin OR scope_->'projection_extent' IS DISTINCT FROM examined
+   OR reading_->>'context_digest' IS DISTINCT FROM answer->>'request_digest' OR reading_->>'envelope' IS DISTINCT FROM answer->>'request_digest' THEN
+   RAISE EXCEPTION 'clause request provenance differs from retained primary input' USING ERRCODE='23514'; END IF;
+  labels_:='[]'; observed:=coalesce(answer->'observed_keys','[]'); selected_:=coalesce(answer->'selected_keys','[]'); keys_:='[]';
+  FOR offered IN SELECT value FROM jsonb_array_elements(observed) LOOP
+   SELECT a INTO STRICT expected_ FROM jsonb_array_elements(answer->'alternatives') a WHERE a->'key'=offered;
+   IF NOT EXISTS(SELECT FROM jsonb_array_elements(declaration->'questions') q CROSS JOIN LATERAL jsonb_array_elements(q->'options') option_
+    WHERE q->>'key'='functions' AND option_->'key'=offered) THEN
+    RAISE EXCEPTION 'clause function label is outside its released vocabulary' USING ERRCODE='23514'; END IF;
+   labels_:=labels_||jsonb_build_array(jsonb_build_object('label',offered,'score',CASE WHEN expected_ ? 'score' THEN data.record_source_json(expected_->'score'->'value') ELSE NULL END,'accepted',selected_ @> jsonb_build_array(offered)));
+   keys_:=keys_||jsonb_build_array(offered);
+  END LOOP;
+  disposition_:=CASE WHEN jsonb_array_length(selected_)>0 THEN 'observed' WHEN answer->>'state' IN ('policy_withheld','unresolved','proposed') THEN 'withheld' ELSE 'failed' END;
+  IF (SELECT count(*)<>count(DISTINCT value) FROM jsonb_array_elements(observed)) OR NOT observed @> selected_
+   OR reading_->'function' IS DISTINCT FROM labels_ OR coalesce(reading_->'presentation','[]')<>'[]'
+   OR reading_->>'disposition' IS DISTINCT FROM disposition_ THEN
+   RAISE EXCEPTION 'clause labels or withholding differ from retained primary answers' USING ERRCODE='23514'; END IF;
  END LOOP;
- IF cardinality(visited)<>jsonb_array_length(detail->'raw_reports')
-  OR (current_ AND request_pos<>jsonb_array_length(detail->'request_outcomes')) THEN
-  RAISE EXCEPTION 'clause model report contains unbound provider envelopes' USING ERRCODE='23514'; END IF;
 END $$;
 REVOKE ALL ON FUNCTION ops.validate_clause_classification(jsonb,jsonb,jsonb,jsonb) FROM PUBLIC;
 
--- Resolve only the selected role span against its retained token tree.
-CREATE OR REPLACE FUNCTION ops.definition_bound_span(tokens jsonb,head_ integer,binding jsonb,full_text text)
-RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
- WITH RECURSIVE token_rows AS MATERIALIZED (
-  SELECT (n-1)::integer i,t,(t->>'head')::integer parent,t->'sentence' sentence
-  FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n)
- ), roots AS (
-  SELECT head_ i, false complement
-  UNION ALL
-  SELECT object.i, true FROM token_rows prep JOIN token_rows object ON object.parent=prep.i
-   AND object.t->>'dependency'='pobj'
-  WHERE prep.parent=head_ AND prep.t->>'dependency'='prep'
-   AND binding->>'expansion'='noun_chunk'
-   AND binding->'nominal_prepositions' ? lower(substring(full_text
-    FROM (prep.t->>'start')::integer+1 FOR (prep.t->>'end')::integer-(prep.t->>'start')::integer))
-   AND (SELECT count(*) FROM token_rows o WHERE o.parent=prep.i AND o.t->>'dependency'='pobj')=1
- ), tree(root,i) AS (
-  SELECT i,i FROM roots
-  UNION
-  SELECT tree.root,r.i FROM tree JOIN token_rows r ON r.parent=tree.i
-  WHERE r.sentence=(tokens->head_)->'sentence' AND binding->>'expansion' IN ('subtree','noun_chunk')
- ), members AS (
-  SELECT i FROM tree WHERE binding->>'expansion'<>'noun_chunk' OR i<=root
-  UNION SELECT r.parent FROM roots JOIN token_rows r USING(i) WHERE roots.complement
- ), span AS (
-  SELECT min(i) lo,max(i) hi,count(*) n FROM members
- )
- SELECT CASE WHEN n=hi-lo+1 AND n<=coalesce((binding->>'max_tokens')::integer,64)
-  AND NOT EXISTS(SELECT FROM members m JOIN token_rows r USING(i)
-   WHERE m.i<>head_ AND binding->'stop_words' ? lower(substring(full_text
-    FROM (r.t->>'start')::integer+1 FOR (r.t->>'end')::integer-(r.t->>'start')::integer)))
-  THEN jsonb_build_array((tokens->lo)->'start',(tokens->hi)->'end') END
- FROM span WHERE binding->>'expansion' IN ('exact','subtree','noun_chunk')
-$$;
-REVOKE ALL ON FUNCTION ops.definition_bound_span(jsonb,integer,jsonb,text) FROM PUBLIC;
-
-CREATE OR REPLACE FUNCTION ops.definition_dependency_bindings(
- tokens jsonb,full_text text,passage jsonb,pattern jsonb,cue_node text,act integer)
-RETURNS SETOF jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
- WITH RECURSIVE token_rows AS MATERIALIZED (
-  SELECT (n-1)::integer i,(t->>'head')::integer head,t,
-   lower(substring(full_text FROM (t->>'start')::integer+1 FOR (t->>'end')::integer-(t->>'start')::integer)) word
-  FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n)
-  WHERE t->'sentence'=tokens->act->'sentence' AND (t->>'start')::integer>=(passage->>'start')::integer
-   AND (t->>'end')::integer<=(passage->>'end')::integer
- ), ancestry(i,parent) AS (
-  SELECT i,head FROM token_rows WHERE i<>head
-  UNION SELECT a.i,t.head FROM ancestry a JOIN token_rows t ON t.i=a.parent AND t.i<>t.head
- ), candidates AS MATERIALIZED (
-  SELECT (n-1)::integer position,p->>'RIGHT_ID' name,p->>'LEFT_ID' owner,p->>'REL_OP' edge,t.i,t.head
-  FROM jsonb_array_elements(pattern) WITH ORDINALITY r(p,n) CROSS JOIN token_rows t
-  WHERE ((p->>'RIGHT_ID'=cue_node)=(t.i=act)) AND NOT EXISTS(
-   SELECT FROM jsonb_each(p->'RIGHT_ATTRS') a
-   CROSS JOIN LATERAL (SELECT CASE a.key WHEN 'LOWER' THEN t.word WHEN 'DEP' THEN t.t->>'dependency'
-    WHEN 'LEMMA' THEN t.t->>'lemma' WHEN 'POS' THEN t.t->>'pos' END AS value) v
-   WHERE (CASE jsonb_typeof(a.value) WHEN 'string' THEN v.value=a.value#>>'{}'
-     WHEN 'object' THEN a.value->'IN' ? v.value END) IS DISTINCT FROM true
-  )
- ), matches(position,names,used) AS (
-  SELECT 0,'{}'::jsonb,ARRAY[]::integer[]
-  UNION ALL
-  SELECT m.position+1,m.names||jsonb_build_object(c.name,c.i),m.used||c.i
-  FROM matches m JOIN candidates c USING(position) WHERE NOT c.i=ANY(m.used)
-   AND (c.position=0 OR c.edge='>' AND c.head=(m.names->>c.owner)::integer
-    OR c.edge='>>' AND EXISTS(SELECT FROM ancestry a WHERE a.i=c.i AND a.parent=(m.names->>c.owner)::integer))
- )
- SELECT names FROM matches WHERE position=jsonb_array_length(pattern)
-$$;
-REVOKE ALL ON FUNCTION ops.definition_dependency_bindings(jsonb,text,jsonb,jsonb,text,integer) FROM PUBLIC;
-
-CREATE OR REPLACE FUNCTION ops.definition_scope_supported(
- projection jsonb,annotation jsonb,rule_ jsonb,indices jsonb,act integer,recipe jsonb)
-RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
- WITH RECURSIVE
- tokens AS (SELECT annotation->'tokens' a),
- available AS (
-  SELECT count(DISTINCT a->>'attribute')=5 complete FROM jsonb_array_elements(annotation->'availability') a
-  WHERE a->>'status'='complete' AND a->>'attribute' IN ('DEP','POS','SENT_START','LEMMA','TAG')
- ),
- host_inventory AS MATERIALIZED (
-  SELECT predicate FROM ops.predicate_argument_inventory(projection,(SELECT a FROM tokens),recipe,true)
-  WHERE role='predicate'
- ),
- token_rows AS MATERIALIZED (
-  SELECT (n-1)::integer i,(t->>'head')::integer head,t->>'dependency' dep,
-   t->>'lemma' lemma,t->>'tag' tag,t->>'pos' pos,(t->>'start')::integer lo,(t->>'end')::integer hi,
-   substring(projection->>'text' FROM (t->>'start')::integer+1 FOR (t->>'end')::integer-(t->>'start')::integer) word
-  FROM tokens CROSS JOIN jsonb_array_elements(a) WITH ORDINALITY x(t,n)
-  WHERE t->'sentence'=a->act->'sentence'
- ),
- quote_scan(i,stack,opened,closed) AS (
-  SELECT min(i)-1,ARRAY[]::text[],ARRAY[]::integer[],NULL::int4range FROM token_rows
-  UNION ALL
-  SELECT t.i,
-   CASE WHEN t.word=s.stack[cardinality(s.stack)] THEN trim_array(s.stack,1)
-    WHEN t.word IN ('"','“','‘') THEN s.stack||CASE t.word WHEN '“' THEN '”' WHEN '‘' THEN '’' ELSE '"' END ELSE s.stack END,
-   CASE WHEN t.word=s.stack[cardinality(s.stack)] THEN trim_array(s.opened,1)
-    WHEN t.word IN ('"','“','‘') THEN s.opened||t.i ELSE s.opened END,
-   CASE WHEN t.word=s.stack[cardinality(s.stack)] THEN int4range(s.opened[cardinality(s.opened)],t.i,'[]') END
-  FROM quote_scan s JOIN token_rows t ON t.i=s.i+1
- ),
- binding AS (
-  SELECT rule_->'bindings'->'defining_content' content,rule_->'bindings'->'defining_content_predicate' predicate,
-   rule_->'bindings'->'definition_scope_guard' guard
- ),
- ownership AS (
-  SELECT ops.definition_bound_span(a,(indices->>(content->>'node'))::integer,content,projection->>'text') content,
-   (indices->>(predicate->>'node'))::integer content_host,
-   ops.definition_bound_span(a,(indices->>(guard->>'node'))::integer,guard,projection->>'text') guard
-  FROM binding CROSS JOIN tokens
- ),
- scoped_hosts AS MATERIALIZED (
-  SELECT h.predicate,i.lo,i.hi FROM host_inventory h JOIN token_rows i ON i.i=h.predicate CROSS JOIN ownership o
-  WHERE h.predicate=act OR h.predicate=o.content_host
-   OR int4range(i.lo,i.hi,'[)') <@ int4range((o.content->>0)::integer,(o.content->>1)::integer,'[)') AND o.content IS NOT NULL
-   OR int4range(i.lo,i.hi,'[)') <@ int4range((o.guard->>0)::integer,(o.guard->>1)::integer,'[)')
-    AND o.content_host IS NULL AND o.guard IS NOT NULL
- ),
- quoted AS MATERIALIZED (SELECT closed AS extent FROM quote_scan WHERE closed IS NOT NULL),
- marker_words AS (
-  SELECT 'condition' AS kind,word FROM jsonb_array_elements_text(recipe#>'{definition_scope,condition_markers}') word
-  UNION ALL SELECT 'exception',word FROM jsonb_array_elements_text(recipe#>'{definition_scope,exception_markers}') word
-  UNION ALL SELECT 'order',word FROM jsonb_array_elements_text(recipe#>'{definition_scope,order_markers}') word
- ),
- markers AS (
-  SELECT t.*,m.kind FROM token_rows t CROSS JOIN LATERAL (
-   SELECT kind FROM marker_words m WHERE m.word=lower(t.word) OR m.word=lower((
-    SELECT string_agg(next_.word,' ' ORDER BY next_.i) FROM token_rows next_
-    WHERE next_.i BETWEEN t.i AND t.i+cardinality(string_to_array(m.word,' '))-1
-   )) ORDER BY length(m.word) DESC LIMIT 1
-  ) m WHERE NOT EXISTS(SELECT FROM quoted q WHERE t.i <@ q.extent)
- ),
- clause_cues AS (
-  SELECT m.kind,m.i marker,
-   CASE WHEN m.dep='mark' THEN CASE WHEN p.dep='advcl' THEN p.head ELSE p.i END ELSE m.head END host,
-   CASE WHEN m.dep='mark' AND p.dep='advcl' THEN p.i ELSE child.i END subordinate
-  FROM markers m LEFT JOIN token_rows p ON p.i=m.head
-  LEFT JOIN token_rows child ON child.head=m.i AND child.dep IN ('pcomp','advcl')
-  WHERE m.dep IN ('mark','prep','advmod')
- ),
- cue_tree(marker,i) AS (
-  SELECT marker,subordinate FROM clause_cues WHERE subordinate IS NOT NULL
-  UNION SELECT w.marker,t.i FROM cue_tree w JOIN token_rows t ON t.head=w.i AND t.i<>w.i
- ),
- cues AS (
-  SELECT c.kind,c.host,c.marker,c.subordinate,coalesce(c.subordinate IS NOT NULL,false) located FROM clause_cues c
-  UNION ALL SELECT c.kind,premise.head,c.marker,c.subordinate,false
-   FROM clause_cues c JOIN token_rows premise ON premise.i=c.host
-   JOIN token_rows marker ON marker.i=c.marker
-   WHERE c.kind='condition' AND lower(marker.word)='if' AND premise.dep='ccomp' AND premise.head>premise.i
-    AND EXISTS(SELECT FROM token_rows connector WHERE connector.i BETWEEN c.subordinate+1 AND premise.i-1
-     AND connector.dep='cc' AND lower(connector.word)='and')
-    AND EXISTS(SELECT FROM token_rows then_ JOIN token_rows comma ON comma.i=then_.i-1
-     WHERE premise.i<then_.i AND then_.i<premise.head AND then_.head=premise.head
-      AND then_.dep='advmod' AND lower(then_.word)='then' AND comma.word=','
-      AND NOT EXISTS(SELECT FROM quoted q WHERE then_.i <@ q.extent))
-  UNION ALL SELECT 'negation',t.head,t.i,NULL,true FROM token_rows t WHERE t.dep='neg'
-  UNION ALL SELECT 'modality',t.head,t.i,NULL,true FROM token_rows t
-   WHERE t.tag='MD' AND recipe->'auxiliary_dependencies' ? t.dep
-  UNION ALL SELECT 'attribution',t.i,p.i,NULL,true FROM token_rows t JOIN token_rows p ON p.i=t.head
-   WHERE t.dep='ccomp' AND recipe->'report_lemmas' ? lower(p.lemma)
-  UNION ALL SELECT 'assumption',p.i,p.i,NULL,true FROM token_rows t JOIN token_rows p ON p.i=t.head
-   WHERE t.dep='ccomp' AND recipe->'assumption_lemmas' ? lower(p.lemma)
-  UNION ALL SELECT 'attribution',t.head,t.i,NULL,true FROM token_rows t JOIN token_rows n ON n.i=t.i+1
-   WHERE t.dep='prep' AND lower(t.word)='according' AND lower(n.word)='to'
-  UNION ALL SELECT 'example',t.head,t.i,NULL,true FROM token_rows t JOIN token_rows n ON n.i=t.i+1
-   WHERE t.dep='prep' AND lower(t.word)='for' AND lower(n.word)='example'
-    AND NOT EXISTS(SELECT FROM token_rows num WHERE num.i=n.i+1 AND num.head=n.i AND num.dep='nummod' AND num.pos='NUM')
-  UNION ALL SELECT 'contrast',t.i,p.i,NULL,true FROM token_rows t JOIN token_rows p ON p.i=t.head
-   JOIN token_rows marker ON marker.i=p.i-1 WHERE t.dep='pcomp' AND lower(p.word)='of' AND lower(marker.word)='instead'
-  UNION ALL SELECT 'quotation',h.predicate,h.predicate,NULL,true FROM scoped_hosts h WHERE EXISTS(
-   SELECT FROM quoted q WHERE h.predicate <@ q.extent)
- ),
- negations AS (
-  SELECT ops.predicate_source_negations(a,ops.predicate_token_texts(projection,a)) value FROM tokens
- )
- SELECT (SELECT complete FROM available) AND EXISTS(SELECT FROM scoped_hosts WHERE predicate=act)
-  AND NOT EXISTS(SELECT FROM binding b CROSS JOIN ownership o WHERE
-   b.predicate IS NOT NULL AND NOT EXISTS(SELECT FROM scoped_hosts WHERE predicate=o.content_host)
-   OR b.guard IS NOT NULL AND o.guard IS NULL)
-  AND NOT (SELECT value ? act::text FROM negations)
-  AND NOT EXISTS(
-   SELECT FROM scoped_hosts h CROSS JOIN ownership o CROSS JOIN negations n
-   WHERE h.predicate<>act AND n.value->>h.predicate::text='unresolved'
-  )
-  AND NOT EXISTS(
-   SELECT FROM cues c JOIN token_rows marker ON marker.i=c.marker CROSS JOIN ownership o
-   JOIN token_rows host ON host.i=c.host
-   WHERE (
-    c.host=act OR (c.kind IN ('condition','modality') AND EXISTS(
-     SELECT FROM token_rows t WHERE t.i=act AND t.dep='conj' AND t.head=c.host
-      AND (c.kind='modality' OR c.marker<c.host)
-      AND (SELECT array_agg(DISTINCT lower(cc.word)) FROM token_rows cc
-       WHERE cc.dep='cc' AND cc.head IN (c.host,act) AND cc.i BETWEEN least(c.host,act) AND greatest(c.host,act))=ARRAY['and']
-      AND NOT EXISTS(SELECT FROM token_rows own WHERE own.head=act AND
-       (recipe->'subject_dependencies' ? own.dep OR recipe->'patient_dependencies' ? own.dep
-        OR recipe->'auxiliary_dependencies' ? own.dep))
-    ))
-    OR (EXISTS(SELECT FROM scoped_hosts WHERE predicate=c.host) AND (
-     NOT c.located OR NOT (recipe#>'{definition_scope,content_cues}' ? c.kind)
-     OR o.content IS NULL OR marker.lo<(o.content->>0)::integer OR marker.hi>(o.content->>1)::integer
-     OR EXISTS(SELECT FROM cue_tree w JOIN token_rows t USING(i) WHERE w.marker=c.marker AND
-      (t.lo<(o.content->>0)::integer OR t.hi>(o.content->>1)::integer))
-    ))
-   )
-  )
-$$;
-REVOKE ALL ON FUNCTION ops.definition_scope_supported(jsonb,jsonb,jsonb,jsonb,integer,jsonb) FROM PUBLIC;
-
+-- Named matches and predication/cue relations are authored upstream. This boundary
+-- binds their exact retained nodes, source membership and choice requirements only.
 CREATE OR REPLACE FUNCTION ops.validate_definition_basis(
  component jsonb,passage jsonb,source_ jsonb,config_ jsonb,policy jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE proof jsonb:=component->'witness'; basis text:=component->>'basis'; body jsonb; detail jsonb;
- view_ kb.source_view; rule_ jsonb; annotation jsonb; tokens jsonb; full_text text; term_ jsonb;
- cue jsonb; bound_content_span jsonb; part jsonb; attr record; indexes jsonb:='{}'; names jsonb; token jsonb;
- pattern_position integer; idx integer; parent_ integer; lo integer; hi integer; value_ text; sentence_ jsonb;
- term_key text; cue_key text; display_piece jsonb; start_ integer; end_ integer; label_ jsonb; scope_recipe jsonb;
+DECLARE proof jsonb:=component->'witness'; basis text:=component->>'basis'; layers jsonb; primary_ jsonb; match_ jsonb;
+ view_ kb.source_view; rule_ jsonb; body jsonb; detail jsonb; token jsonb; ref jsonb; part jsonb; binding jsonb; span_ jsonb;
+ term_role text; cue_role text; cue_binding jsonb; content_binding jsonb; content_refs jsonb; content_span jsonb;
+ scope_refs jsonb; scope_node jsonb; child jsonb; frame_ref jsonb; frame_node jsonb; predicate jsonb;
+ expected_scope jsonb:='[]'; frames jsonb:='[]'; act_count integer:=0; act_ boolean; content_ boolean;
+ entry record; relation_ jsonb; cue_ jsonb; cue_ref jsonb; cue_span jsonb; basis_node jsonb; covered jsonb;
+ display_piece jsonb; cue_span_ jsonb; label_ jsonb;
 BEGIN
  IF basis='model_reading' THEN
-  IF nullif(proof,'null'::jsonb) IS NOT NULL THEN
-   RAISE EXCEPTION 'model definition cannot claim a named annotation witness' USING ERRCODE='23514'; END IF;
+  IF nullif(proof,'null'::jsonb) IS NOT NULL THEN RAISE EXCEPTION 'model definition cannot claim a named annotation witness' USING ERRCODE='23514'; END IF;
   RETURN;
  ELSIF basis='unqualified' THEN
   IF component->>'interpretation' IS DISTINCT FROM 'unresolved' OR nullif(proof,'null'::jsonb) IS NOT NULL THEN
    RAISE EXCEPTION 'unqualified definition candidate claims unsupported interpretation' USING ERRCODE='23514'; END IF;
   RETURN;
  END IF;
- IF basis IS NULL OR basis NOT IN ('matched_cue','native_geometry') OR proof IS NULL
-  OR source_ IS NULL OR component->'term'->>'passage_id' IS DISTINCT FROM component->'content'->>'passage_id'
+ IF NOT coalesce(basis IN ('matched_cue','native_geometry'),false) OR proof->'primary_match' IS NULL
+  OR jsonb_array_length(coalesce(proof->'primary_scope','[]'))=0 OR source_ IS NULL
+  OR component->'term'->>'passage_id' IS DISTINCT FROM component->'content'->>'passage_id'
   OR config_->'use_named_candidates' IS DISTINCT FROM 'true'::jsonb THEN
-  RAISE EXCEPTION 'definition basis lacks exact retained annotation witness' USING ERRCODE='23514'; END IF;
+  RAISE EXCEPTION 'definition basis lacks exact retained primary witness' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT view_ FROM kb.source_view WHERE id=(source_->>'source_view_id')::bigint;
- full_text:=view_.projection->>'text';
- SELECT result.body INTO STRICT body
- FROM ops.cut_task member JOIN ops.task task ON task.id=member.task_id
- JOIN ops.task origin ON origin.id=member.origin_task_id
- JOIN ops.task_result result ON result.task_id=origin.id AND result.release_id=origin.release_id
- JOIN ops.method_config cfg ON cfg.id=origin.method_config_id
- JOIN ops.method method ON method.id=cfg.method_id
+ layers:=config_->'_primary_layers'->(view_.id::text);
+ -- Keep the original cut/task witness: the adapter must have selected this primary match.
+ SELECT result.body INTO STRICT body FROM ops.cut_task member JOIN ops.task task ON task.id=member.task_id
+ JOIN ops.task origin ON origin.id=member.origin_task_id JOIN ops.task_result result ON result.task_id=origin.id AND result.release_id=origin.release_id
+ JOIN ops.method_config cfg ON cfg.id=origin.method_config_id JOIN ops.method method ON method.id=cfg.method_id
  WHERE member.cut_id=(source_->>'cut_id')::bigint AND task.run_id=(source_->>'run_id')::bigint
   AND task.unit_type='source_view' AND task.unit_id=view_.id AND task.status IN ('done','reused')
   AND origin.id=coalesce(task.reused_task_id,task.id) AND origin.id=(proof->>'annotation_task_id')::bigint
-  AND origin.release_id=source_->>'release_id' AND method.name='extract.m1_annotations' AND method.version='2'
-  AND result.body->>'source'=view_.key
-  AND result.body->>'input_hash'=origin.input_hash AND result.body->>'configuration_hash'=cfg.config_hash;
+  AND origin.release_id=source_->>'release_id' AND method.name='extract.m1_annotations' AND method.version='3'
+  AND result.body->>'source'=view_.key AND result.body->>'input_hash'=origin.input_hash AND result.body->>'configuration_hash'=cfg.config_hash;
  detail:=data.record_source_json(body->'parse_detail');
- IF detail->>'recipe' IS DISTINCT FROM 'm1-owned-linguistic-product-1' THEN
-  RAISE EXCEPTION 'definition annotation recipe differs from retained input' USING ERRCODE='23514'; END IF;
- SELECT a INTO STRICT annotation FROM jsonb_array_elements(detail->'annotations') a
- WHERE a->>'block_id'=proof->>'block_id' AND a->>'dependency_digest'=proof->>'dependency_digest';
- SELECT r INTO STRICT rule_ FROM jsonb_array_elements(config_->'annotation_rules') r
- WHERE r->>'rule'=proof->>'rule' AND r->>'variant'=proof->>'variant' AND r->>'mechanism'='dependency';
- IF policy->'definition_witness'->'rules'->>((rule_->>'rule')||'/'||(rule_->>'variant')) IS DISTINCT FROM
-  encode(sha256(convert_to(data.canonical_json(rule_),'UTF8')),'hex')
-  OR config_->>'term_role' IS DISTINCT FROM policy#>>'{definition_witness,term_role}'
-  OR config_->>'content_role' IS DISTINCT FROM policy#>>'{definition_witness,content_role}' THEN
-  RAISE EXCEPTION 'definition witness rule differs from the released rule' USING ERRCODE='23514'; END IF;
- tokens:=annotation->'tokens';
- IF jsonb_array_length(proof->'nodes') IS DISTINCT FROM jsonb_array_length(rule_->'pattern')
-  OR (SELECT count(DISTINCT value) FROM jsonb_array_elements(proof->'nodes'))<>jsonb_array_length(proof->'nodes')
-  OR NOT EXISTS(SELECT FROM jsonb_array_elements(annotation->'availability') a
-   WHERE a->>'attribute'='DEP' AND a->>'status'='complete') THEN
-  RAISE EXCEPTION 'definition cue differs from exact released match nodes' USING ERRCODE='23514'; END IF;
- FOR part,pattern_position IN SELECT value,(ordinality-1)::integer FROM jsonb_array_elements(rule_->'pattern') WITH ORDINALITY LOOP
-  idx:=(proof->'nodes'->>pattern_position)::integer;
-  token:=tokens->idx;
-  lo:=(token->>'start')::integer;
-  hi:=(token->>'end')::integer;
-  IF idx IS NULL OR idx<0 OR token->>'sentence' IS NULL OR lo IS NULL OR hi IS NULL
-   OR lo<greatest((passage->>'start')::integer,(annotation->>'block_start')::integer)
-   OR hi>least((passage->>'end')::integer,(annotation->>'block_end')::integer) OR hi<=lo
-   OR (sentence_ IS NOT NULL AND sentence_ IS DISTINCT FROM token->'sentence') THEN
-   RAISE EXCEPTION 'definition cue has no retained scoped annotation token' USING ERRCODE='23514'; END IF;
-  sentence_:=token->'sentence';
-  IF pattern_position>0 THEN
-   parent_:=(indexes->>(part->>'LEFT_ID'))::integer;
-   IF parent_ IS NULL OR NOT (CASE part->>'REL_OP'
-    WHEN '>' THEN (token->>'head')::integer=parent_
-    WHEN '>>' THEN EXISTS(
-     WITH RECURSIVE ancestry(i) AS (
-      SELECT (token->>'head')::integer
-      UNION SELECT ((tokens->a.i)->>'head')::integer FROM ancestry a WHERE a.i>=0
-     ) SELECT FROM ancestry WHERE i=parent_
-    )
-    ELSE false END) THEN
-    RAISE EXCEPTION 'definition cue differs from retained dependency links' USING ERRCODE='23514'; END IF;
-  END IF;
-  FOR attr IN SELECT * FROM jsonb_each(part->'RIGHT_ATTRS') LOOP
-   value_:=CASE attr.key WHEN 'LOWER' THEN lower(substring(full_text FROM lo+1 FOR hi-lo))
-    WHEN 'DEP' THEN token->>'dependency' WHEN 'LEMMA' THEN token->>'lemma' WHEN 'POS' THEN token->>'pos' END;
-   IF value_ IS NULL OR NOT (CASE jsonb_typeof(attr.value)
-    WHEN 'string' THEN value_=attr.value#>>'{}'
-    WHEN 'object' THEN coalesce(attr.value->'IN' ? value_,false)
-    ELSE false END) THEN
-    RAISE EXCEPTION 'definition cue fails released retained token predicate' USING ERRCODE='23514'; END IF;
-  END LOOP;
-  indexes:=indexes||jsonb_build_object(part->>'RIGHT_ID',idx);
+ IF detail->>'recipe' IS DISTINCT FROM 'm1-owned-linguistic-product-1'
+  OR NOT coalesce(detail->'characterization_layers','[]') @> jsonb_build_array(proof->'primary_match'->'layer') THEN
+  RAISE EXCEPTION 'definition annotation adapter selected different primary evidence' USING ERRCODE='23514'; END IF;
+ primary_:=ops.primary_characterization_node(layers,proof->'primary_match'); match_:=primary_->'named_match';
+ SELECT r INTO STRICT rule_ FROM jsonb_array_elements(config_->'annotation_rules') r WHERE r->>'rule'=proof->>'rule' AND r->>'variant'=proof->>'variant';
+ IF primary_->>'kind' IS DISTINCT FROM 'construction.named_binding' OR NOT coalesce(match_->>'status' IN ('matched','partial'),false)
+  OR primary_->>'rule_id' IS DISTINCT FROM 'named-rule:'||encode(sha256(convert_to(data.canonical_json(rule_),'UTF8')),'hex')
+  OR policy->'definition_witness'->'rules'->>((rule_->>'rule')||'/'||(rule_->>'variant')) IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(rule_),'UTF8')),'hex')
+  OR config_->>'term_role' IS DISTINCT FROM policy#>>'{definition_witness,term_role}' OR config_->>'content_role' IS DISTINCT FROM policy#>>'{definition_witness,content_role}'
+  OR match_->>'dependency_digest' IS DISTINCT FROM proof->>'dependency_digest' OR match_->>'rule' IS DISTINCT FROM proof->>'rule'
+  OR match_->>'variant' IS DISTINCT FROM proof->>'variant' OR match_->>'mechanism' IS DISTINCT FROM rule_->>'mechanism'
+  OR match_->'native_container'->>'local_id' IS DISTINCT FROM 'spacy/'||view_.id::text||'/'||(proof->>'block_id')||'/block'
+  OR jsonb_array_length(match_->'nodes') IS DISTINCT FROM jsonb_array_length(proof->'nodes')
+  OR EXISTS(SELECT FROM jsonb_array_elements(match_->'nodes') WITH ORDINALITY n(ref,i)
+   WHERE ops.primary_characterization_node(layers,n.ref)->'native_token'->'index' IS DISTINCT FROM proof->'nodes'->((i-1)::integer)) THEN
+  RAISE EXCEPTION 'definition cue differs from exact released primary match' USING ERRCODE='23514'; END IF;
+ FOR ref IN SELECT value FROM jsonb_array_elements(match_->'nodes') LOOP
+  token:=ops.primary_characterization_node(layers,ref); span_:=ops.primary_structural_token_span(layers,jsonb_build_array(ref),view_);
+  IF ref->'layer' IS DISTINCT FROM match_->'native_container'->'layer' OR token->'native_token'->>'container' IS DISTINCT FROM match_->'native_container'->>'local_id'
+   OR (span_->>0)::bigint<(passage->>'start')::bigint OR (span_->>1)::bigint>(passage->>'end')::bigint THEN
+   RAISE EXCEPTION 'definition match node is outside its exact native passage/container' USING ERRCODE='23514'; END IF;
  END LOOP;
- names:=rule_->'bindings';
- term_key:=CASE WHEN names ? 'definition_label_required' THEN 'nominal_subject' ELSE config_->>'term_role' END;
- cue_key:=CASE WHEN names ? 'definition_label_required' THEN 'copular_cue' ELSE 'defining_cue' END;
- cue:=tokens->((indexes->>(names->cue_key->>'node'))::integer);
- scope_recipe:=ops.predicate_interpretation_recipe(config_->>'_release');
- IF scope_recipe IS NULL THEN RAISE no_data_found; END IF;
- IF policy#>>'{definition_witness,scope}' IS DISTINCT FROM scope_recipe#>>'{definition_scope,version}'
-  OR scope_recipe#>>'{definition_scope,version}' IS DISTINCT FROM 'definition-scope-1'
-  OR ops.definition_scope_supported(view_.projection,annotation,rule_,indexes,
-   (indexes->>(names->cue_key->>'node'))::integer,scope_recipe) IS DISTINCT FROM true THEN
-  RAISE EXCEPTION 'definition witness lacks supported retained predicate scope' USING ERRCODE='23514'; END IF;
- term_:=ops.definition_bound_span(tokens,(indexes->>(names->term_key->>'node'))::integer,names->term_key,full_text);
- IF term_ IS NULL OR cue IS NULL OR term_ IS DISTINCT FROM jsonb_build_array(
-  component->'term'->'start',component->'term'->'end')
-  OR component->>'interpretation' IS DISTINCT FROM
-   (CASE WHEN rule_->>'rule' IN ('naming','explanation') THEN 'explanation' ELSE 'definition' END)
-  OR EXISTS(SELECT FROM jsonb_array_elements(tokens) t WHERE t->'sentence'=sentence_
-   AND t->>'dependency'='neg' AND (t->>'head')::integer=(indexes->>(names->cue_key->>'node'))::integer) THEN
-  RAISE EXCEPTION 'definition term, polarity or interpretation differs from retained cue roles' USING ERRCODE='23514'; END IF;
- IF basis='matched_cue' THEN
-  bound_content_span:=ops.definition_bound_span(tokens,
-   (indexes->>(names->(config_->>'content_role')->>'node'))::integer,names->(config_->>'content_role'),full_text);
-  IF bound_content_span IS NULL OR bound_content_span IS DISTINCT FROM jsonb_build_array(component->'content'->'start',component->'content'->'end')
-   OR nullif(proof->'label_nodes','null'::jsonb) IS NOT NULL THEN
-   RAISE EXCEPTION 'definition content differs from retained cue roles' USING ERRCODE='23514'; END IF;
-  IF rule_->>'rule'='naming' AND rule_->>'variant'='passive_called_term' AND EXISTS(
-   SELECT FROM (SELECT t FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n)
-    WHERE t->'sentence'=sentence_ ORDER BY n LIMIT 1) first_
-   WHERE first_.t->'start'=bound_content_span->0 AND first_.t->>'dependency'='det'
-    AND first_.t->'head'=indexes->(names->(config_->>'content_role')->>'node')
-    AND lower(substring(full_text FROM (bound_content_span->>0)::integer+1
-     FOR (first_.t->>'end')::integer-(bound_content_span->>0)::integer)) IN ('this','that','these','those')
-  ) THEN RAISE EXCEPTION 'definition witness leaves a demonstrative antecedent unresolved' USING ERRCODE='23514'; END IF;
-  IF EXISTS(
-   SELECT FROM ops.definition_dependency_bindings(tokens,full_text,passage,rule_->'pattern',
-    names->cue_key->>'node',(indexes->>(names->cue_key->>'node'))::integer) competing
-   CROSS JOIN LATERAL (SELECT
-    ops.definition_bound_span(tokens,(competing->>(names->term_key->>'node'))::integer,names->term_key,full_text) AS term,
-    ops.definition_bound_span(tokens,(competing->>(names->(config_->>'content_role')->>'node'))::integer,
-     names->(config_->>'content_role'),full_text) AS content) other
-   WHERE other.term IS NOT NULL AND other.content IS NOT NULL
-    AND (other.term,other.content) IS DISTINCT FROM (term_,bound_content_span)
-  ) THEN RAISE EXCEPTION 'definition witness has competing retained bindings' USING ERRCODE='23514'; END IF;
-  RETURN;
+ FOR ref IN SELECT token_ FROM jsonb_array_elements(match_->'bindings') b CROSS JOIN LATERAL jsonb_array_elements(coalesce(b->'members','[]')||jsonb_build_array(b->'head')) token_ LOOP
+  token:=ops.primary_characterization_node(layers,ref);
+  IF ref->'layer' IS DISTINCT FROM match_->'native_container'->'layer' OR token->'native_token'->>'container' IS DISTINCT FROM match_->'native_container'->>'local_id' THEN
+   RAISE EXCEPTION 'definition named role has a foreign native token endpoint' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ scope_refs:=proof->'primary_scope'||jsonb_build_array(proof->'primary_match');
+ FOR ref IN SELECT value FROM jsonb_array_elements(scope_refs) LOOP
+  token:=ops.primary_characterization_node(layers,ref);
+  IF NOT ops.primary_characterization_choices(layers,ref,token,'[]') THEN RAISE EXCEPTION 'definition witness loses required primary choices' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ term_role:=CASE WHEN rule_->'bindings' ? 'definition_label_required' THEN 'nominal_subject' ELSE config_->>'term_role' END;
+ cue_role:=CASE WHEN rule_->'bindings' ? 'definition_label_required' THEN 'copular_cue' ELSE 'defining_cue' END;
+ SELECT b INTO STRICT binding FROM jsonb_array_elements(match_->'bindings') b WHERE b->>'role'=term_role AND b->>'status'='complete';
+ span_:=ops.primary_structural_token_span(layers,binding->'members',view_);
+ IF span_ IS DISTINCT FROM jsonb_build_array(component->'term'->'start',component->'term'->'end')
+  OR component->>'interpretation' IS DISTINCT FROM (CASE WHEN rule_->>'rule' IN ('naming','explanation') THEN 'explanation' ELSE 'definition' END) THEN
+  RAISE EXCEPTION 'definition term or interpretation differs from retained named role' USING ERRCODE='23514'; END IF;
+ SELECT b INTO STRICT cue_binding FROM jsonb_array_elements(match_->'bindings') b WHERE b->>'role'=cue_role AND b->>'status'='complete';
+ cue_span_:=ops.primary_structural_token_span(layers,cue_binding->'members',view_);
+ SELECT b INTO content_binding FROM jsonb_array_elements(match_->'bindings') b WHERE b->>'role'=config_->>'content_role' AND b->>'status'='complete';
+ content_refs:=coalesce(content_binding->'members','[]');
+ FOR binding IN SELECT value FROM jsonb_array_elements(match_->'bindings') WHERE value->>'role' IN ('definition_scope_guard','defining_content_predicate') LOOP
+  content_refs:=content_refs||CASE WHEN binding->>'role'='defining_content_predicate' THEN jsonb_build_array(binding->'head') ELSE coalesce(binding->'members','[]') END;
+ END LOOP;
+ content_span:=jsonb_build_array(component->'content'->'start',component->'content'->'end');
+ IF basis='matched_cue' AND (content_binding IS NULL OR ops.primary_structural_token_span(layers,content_binding->'members',view_) IS DISTINCT FROM content_span
+  OR coalesce((content_binding->>'demonstrative')::boolean,false) OR nullif(proof->'label_nodes','null') IS NOT NULL) THEN
+  RAISE EXCEPTION 'definition content differs from exact retained named role' USING ERRCODE='23514'; END IF;
+ -- Collect actual act/content predications from retained native-token relationships.
+ FOR entry IN SELECT * FROM jsonb_each(layers) LOOP
+  FOR frame_node IN SELECT value FROM jsonb_array_elements(entry.value->'terms') WHERE value->>'kind'='predicate' AND value->>'vocabulary'='source-linguistic-rules-1' LOOP
+   frame_ref:=jsonb_build_object('layer',entry.key::jsonb,'local_id',frame_node->>'local_id');
+   predicate:=ops.primary_characterization_child(layers,frame_ref,frame_node,'predicate');
+   act_:=coalesce(predicate->'external_premises','[]') @> jsonb_build_array(cue_binding->'head');
+   content_:=EXISTS(SELECT FROM jsonb_array_elements(content_refs) r WHERE coalesce(predicate->'external_premises','[]') @> jsonb_build_array(r));
+   IF NOT act_ AND NOT content_ THEN CONTINUE; END IF;
+   IF frame_node->>'status' IS DISTINCT FROM 'interpreted' OR NOT EXISTS(SELECT FROM jsonb_array_elements(entry.value->'coverage') c
+    WHERE c->>'family'='construction.source_readings' AND c->>'availability'='available' AND c->>'outcome' IN ('complete','empty')
+     AND NOT EXISTS(SELECT FROM jsonb_array_elements(ops.primary_characterization_extents(layers,frame_ref,frame_node,view_)) e WHERE NOT EXISTS(
+      SELECT FROM jsonb_array_elements(c->'examined') selector WHERE selector->>'projection'=view_.projection_digest
+       AND coalesce((selector->>'start')::bigint,0)<=(e->>'start')::bigint AND coalesce((selector->>'end')::bigint,char_length(view_.projection->>'text'))>=(e->>'end')::bigint))) THEN
+    RAISE EXCEPTION 'definition primary predicate scope is incomplete' USING ERRCODE='23514'; END IF;
+   IF act_ THEN
+    act_count:=act_count+1; child:=ops.primary_characterization_child(layers,frame_ref,frame_node,'polarity');
+    IF child->>'value' IS DISTINCT FROM 'positive' THEN RAISE EXCEPTION 'definition act is not a positive primary predication' USING ERRCODE='23514'; END IF;
+   END IF;
+   expected_scope:=expected_scope||jsonb_build_array(frame_ref); frames:=frames||jsonb_build_array(jsonb_build_object('reference',frame_ref,'act',act_));
+  END LOOP;
+ END LOOP;
+ IF act_count<>1 THEN RAISE EXCEPTION 'definition lacks one exact primary act predicate' USING ERRCODE='23514'; END IF;
+ FOR part IN SELECT value FROM jsonb_array_elements(frames) LOOP
+  frame_ref:=part->'reference'; body:=layers->data.canonical_json(frame_ref->'layer');
+  FOR relation_ IN SELECT value FROM jsonb_array_elements(body->'roles') WHERE value->>'role'='host' AND value->>'member'=frame_ref->>'local_id' LOOP
+   cue_ref:=jsonb_build_object('layer',frame_ref->'layer','local_id',relation_->>'owner'); cue_:=ops.primary_characterization_node(layers,cue_ref);
+   basis_node:=ops.primary_characterization_child(layers,cue_ref,cue_,'basis');
+   cue_span:=ops.primary_characterization_extents(layers,cue_ref,cue_,view_);
+   IF cue_->>'status' IS DISTINCT FROM 'interpreted' OR part->'act'='true'::jsonb OR NOT coalesce(cue_->>'value' IN ('condition','negation','quotation'),false)
+    OR EXISTS(SELECT FROM jsonb_array_elements(cue_span) e WHERE e->>'synthetic' IS DISTINCT FROM 'false' OR (e->>'start')::bigint<(content_span->>0)::bigint OR (e->>'end')::bigint>(content_span->>1)::bigint) THEN
+    RAISE EXCEPTION 'definition primary scope retains an uncarried qualification' USING ERRCODE='23514'; END IF;
+   expected_scope:=expected_scope||jsonb_build_array(cue_ref,jsonb_build_object('layer',cue_ref->'layer','local_id',basis_node->>'local_id'));
+  END LOOP;
+ END LOOP;
+ -- Unhosted primary cues retain unknown/qualified standing; they cannot disappear
+ -- merely because the selected witness left their role relation out of its citation list.
+ FOR entry IN SELECT * FROM jsonb_each(layers) LOOP
+  FOR cue_ IN SELECT value FROM jsonb_array_elements(entry.value->'terms') WHERE value->>'kind'='operator' AND value->>'vocabulary'='source-linguistic-rules-1'
+   AND EXISTS(SELECT FROM jsonb_array_elements(value->'children') e WHERE e->>'role'='cue') LOOP
+   IF EXISTS(SELECT FROM jsonb_array_elements(entry.value->'roles') r WHERE r->>'role'='host' AND r->>'owner'=cue_->>'local_id') THEN CONTINUE; END IF;
+   cue_ref:=jsonb_build_object('layer',entry.key::jsonb,'local_id',cue_->>'local_id'); basis_node:=ops.primary_characterization_child(layers,cue_ref,cue_,'basis');
+   content_:=jsonb_array_length(coalesce(basis_node->'external_premises','[]'))>0 AND content_refs @> basis_node->'external_premises';
+   IF EXISTS(SELECT FROM jsonb_array_elements(cue_->'children') e WHERE e->>'role'='origin') THEN
+    child:=ops.primary_characterization_child(layers,cue_ref,cue_,'origin');
+    IF coalesce(child->'external_premises','[]') @> jsonb_build_array(cue_binding->'head') THEN
+     RAISE EXCEPTION 'definition act has an unresolved retained primary cue' USING ERRCODE='23514'; END IF;
+   END IF;
+   IF NOT content_ THEN CONTINUE; END IF;
+   cue_span:=ops.primary_characterization_extents(layers,cue_ref,cue_,view_);
+   IF cue_->>'status' IS DISTINCT FROM 'interpreted' OR NOT coalesce(cue_->>'value' IN ('condition','negation','quotation'),false)
+    OR EXISTS(SELECT FROM jsonb_array_elements(cue_span) e WHERE e->>'synthetic' IS DISTINCT FROM 'false' OR (e->>'start')::bigint<(content_span->>0)::bigint OR (e->>'end')::bigint>(content_span->>1)::bigint) THEN
+    RAISE EXCEPTION 'definition content has an uncarried retained primary qualification' USING ERRCODE='23514'; END IF;
+   expected_scope:=expected_scope||jsonb_build_array(cue_ref,jsonb_build_object('layer',cue_ref->'layer','local_id',basis_node->>'local_id'));
+  END LOOP;
+ END LOOP;
+ IF NOT proof->'primary_scope' @> expected_scope THEN RAISE EXCEPTION 'definition witness omits retained predicate or cue scope' USING ERRCODE='23514'; END IF;
+ IF basis='native_geometry' THEN
+  IF rule_->'bindings' ? 'definition_label_required' AND (proof->'label_nodes' IS NULL OR NOT EXISTS(
+   SELECT FROM jsonb_each(layers) l CROSS JOIN LATERAL jsonb_array_elements(l.value->'annotations') a
+   WHERE a->>'kind'='construction.named_binding' AND a->'named_match'->'native_container'=match_->'native_container' AND EXISTS(SELECT FROM jsonb_array_elements(a->'named_match'->'bindings') b WHERE b->>'role'='definition_label' AND b->>'status'='complete')
+    AND (SELECT jsonb_agg(ops.primary_characterization_node(layers,r)->'native_token'->'index' ORDER BY i) FROM jsonb_array_elements(a->'named_match'->'nodes') WITH ORDINALITY n(r,i))=proof->'label_nodes')) THEN
+   RAISE EXCEPTION 'definition display lacks an exact retained primary numbered label' USING ERRCODE='23514'; END IF;
+  IF NOT rule_->'bindings' ? 'definition_label_required' THEN
+   SELECT b INTO STRICT binding FROM jsonb_array_elements(match_->'bindings') b WHERE b->>'role'='following_content_cue' AND b->>'status'='complete';
+   cue_span_:=ops.primary_structural_token_span(layers,binding->'members',view_);
+  END IF;
+  SELECT piece INTO STRICT display_piece FROM jsonb_array_elements(view_.projection->'pieces') piece WHERE piece->>'kind'='native_text' AND piece->'start'=content_span->0 AND piece->'end'=content_span->1
+   AND EXISTS(SELECT FROM ops.read_pdf_published_items(view_.native_task_id,view_.native_product_key,view_.native_content_digest,ARRAY[piece->>'item_ref']) item WHERE item.native_json->>'label'='formula' AND item.native_json->>'content_layer'='body');
+  IF (cue_span_->>1)::bigint>(content_span->>0)::bigint OR substring(view_.projection->>'text' FROM (cue_span_->>1)::integer+1 FOR (content_span->>0)::integer-(cue_span_->>1)::integer) !~ '^[:[:space:]]*$' THEN
+   RAISE EXCEPTION 'definition display differs from exact adjacent source geometry' USING ERRCODE='23514'; END IF;
  END IF;
- IF names ? 'definition_label_required' THEN
-  idx:=(proof->'label_nodes'->>0)::integer;
-  label_:=tokens->idx;
-  IF idx IS NULL OR idx<0 OR jsonb_array_length(proof->'label_nodes') IS DISTINCT FROM 2
-   OR (proof->'label_nodes'->>1)::integer IS DISTINCT FROM idx+1
-   OR lower(substring(full_text FROM (label_->>'start')::integer+1
-    FOR (label_->>'end')::integer-(label_->>'start')::integer)) IS DISTINCT FROM 'definition'
-   OR substring(full_text FROM ((tokens->(idx+1))->>'start')::integer+1
-    FOR ((tokens->(idx+1))->>'end')::integer-((tokens->(idx+1))->>'start')::integer) !~ '^[0-9]+(\.[0-9]+)*$'
-   OR (label_->>'start')::integer<(passage->>'start')::integer
-   OR ((tokens->(idx+1))->>'end')::integer>(term_->>0)::integer THEN
-   RAISE EXCEPTION 'definition display lacks its retained numbered label' USING ERRCODE='23514'; END IF;
- ELSE
-  cue:=tokens->((indexes->>(names->'following_content_cue'->>'node'))::integer);
-  IF nullif(proof->'label_nodes','null'::jsonb) IS NOT NULL THEN
-   RAISE EXCEPTION 'definition display claims an unrelated label' USING ERRCODE='23514'; END IF;
- END IF;
- start_:=(component->'content'->>'start')::integer;
- end_:=(component->'content'->>'end')::integer;
- SELECT p INTO STRICT display_piece FROM jsonb_array_elements(view_.projection->'pieces') p
- WHERE p->>'kind'='native_text' AND p->'start'=to_jsonb(start_) AND p->'end'=to_jsonb(end_)
- AND EXISTS(SELECT FROM ops.read_pdf_published_items(view_.native_task_id,view_.native_product_key,
-  view_.native_content_digest,ARRAY[p->>'item_ref']) item WHERE item.native_json->>'label'='formula'
-  AND item.native_json->>'content_layer'='body');
- IF cue IS NULL OR (cue->>'end')::integer<(term_->>1)::integer OR (cue->>'end')::integer>start_
-  OR substring(full_text FROM (cue->>'end')::integer+1 FOR start_-(cue->>'end')::integer) !~ '^[:[:space:]]*$'
-  OR NOT EXISTS(SELECT FROM jsonb_array_elements(detail->'annotations') a
-   WHERE a->'display_spans' @> jsonb_build_array(jsonb_build_array(start_,end_))) THEN
-  RAISE EXCEPTION 'definition display differs from adjacent retained source geometry' USING ERRCODE='23514'; END IF;
 EXCEPTION WHEN no_data_found OR too_many_rows OR invalid_text_representation OR numeric_value_out_of_range THEN
- RAISE EXCEPTION 'definition basis cannot resolve its exact retained cue or display' USING ERRCODE='23514';
+ RAISE EXCEPTION 'definition basis cannot resolve exact retained primary source support' USING ERRCODE='23514';
 END $$;
 REVOKE ALL ON FUNCTION ops.validate_definition_basis(jsonb,jsonb,jsonb,jsonb,jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.validate_primary_declaration_component(
+ component jsonb,p_passage jsonb,p_source jsonb,p_config jsonb,p_release text)
+RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE proof jsonb:=component->'declaration_chain'; layers jsonb; v kb.source_view; refs jsonb; ref jsonb; node jsonb; token jsonb; extents jsonb;
+ rows_ jsonb:='[]'; tokens_ jsonb; sentences jsonb; sentence_ jsonb; body jsonb; native_ jsonb; members_ jsonb; role_ jsonb;
+ group_ jsonb; groups_ jsonb:='{}'; roles_ jsonb; membership jsonb; role_ref jsonb; span_ jsonb; predicate_ref jsonb; token_ref jsonb;
+ voice_ jsonb; voice_ref jsonb; predicate jsonb; expected_extents jsonb; group_extents jsonb; voices jsonb:='[]'; counts integer; item text; binding jsonb;
+ first_ jsonb; construction jsonb; naming jsonb; subject jsonb; use_ jsonb; constructed jsonb; antecedent jsonb;
+ native_pin jsonb; lo bigint; hi bigint; label_span jsonb;
+BEGIN
+ IF component->>'basis' IS DISTINCT FROM 'declaration_chain' OR component->>'interpretation' IS DISTINCT FROM 'definition'
+  OR nullif(component->'witness','null') IS NOT NULL OR nullif(proof->'parser','null') IS NOT NULL
+  OR proof->>'version' IS DISTINCT FROM 'definition-declaration-chain-2' OR NOT ops.private_declaration_enabled(p_release)
+  OR component->'evidence' IS DISTINCT FROM jsonb_build_array(p_passage->>'passage_id') OR component->'alternatives' IS DISTINCT FROM '[]'
+  OR NOT EXISTS(SELECT FROM jsonb_array_elements(p_config->'selections') s WHERE s->>'passage_id'=p_passage->>'passage_id' AND nullif(s->'parser','null') IS NULL) THEN
+  RAISE EXCEPTION 'declaration differs from exact current primary source selection' USING ERRCODE='23514'; END IF;
+ SELECT * INTO STRICT v FROM kb.source_view WHERE id=(p_source->>'source_view_id')::bigint;
+ layers:=p_config->'_primary_layers'->(v.id::text); refs:=proof->'primary_evidence';
+ native_pin:=jsonb_build_object('source',v.key,'source_view_id',v.id,'native_product_task_id',v.native_task_id,'product_key',v.native_product_key,'product_digest',v.native_content_digest,'projection_digest',v.projection_digest,'recipe_digest',v.recipe_digest);
+ IF proof->>'scope_digest' IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(jsonb_build_object('source',native_pin,'passage',jsonb_build_array(p_passage->'start',p_passage->'end'),'policy','primary-declaration-roles-1')),'UTF8')),'hex')
+  OR jsonb_typeof(refs) IS DISTINCT FROM 'array' OR jsonb_array_length(refs)=0
+  OR (SELECT count(*)<>count(DISTINCT value) FROM jsonb_array_elements(refs)) THEN
+  RAISE EXCEPTION 'declaration requires a distinct exact primary scope witness' USING ERRCODE='23514'; END IF;
+ FOR ref IN SELECT value FROM jsonb_array_elements(refs) LOOP
+  node:=ops.primary_characterization_node(layers,ref); extents:=ops.primary_characterization_extents(layers,ref,node,v);
+  IF NOT ops.primary_characterization_choices(layers,ref,node,'[]') OR jsonb_array_length(extents)=0
+   OR EXISTS(SELECT FROM jsonb_array_elements(extents) e WHERE e->>'synthetic' IS DISTINCT FROM 'false' OR (e->>'start')::bigint<(p_passage->>'start')::bigint OR (e->>'end')::bigint>(p_passage->>'end')::bigint)
+   OR NOT coalesce(node->>'kind' IN ('native.token','native.srl_group','native.srl_role') OR node->>'kind'='predicate' AND node->>'vocabulary'='source-linguistic-rules-1',false) THEN
+   RAISE EXCEPTION 'declaration evidence lacks exact literal native roles or primary voice' USING ERRCODE='23514'; END IF;
+  rows_:=rows_||jsonb_build_array(jsonb_build_object('reference',ref,'node',node,'extents',extents,'identity','annotation:'||encode(sha256(convert_to(data.canonical_json(ref),'UTF8')),'hex')));
+  IF node->>'kind'='native.token' THEN
+   native_:=node->'native_token'; body:=layers->data.canonical_json(ref->'layer');
+   IF native_->>'head_index_base' IS DISTINCT FROM '1' OR NOT native_ ?& ARRAY['lemma','tag','dependency','native_head','sentence']
+    OR NOT EXISTS(SELECT FROM jsonb_array_elements(body->'native_runs') run WHERE run->>'local_id'=native_->>'native_run' AND run->>'provider'='hanlp')
+    OR EXISTS(SELECT family FROM unnest(ARRAY['hanlp.tokens','hanlp.lemma','hanlp.pos','hanlp.dependency','hanlp.srl']) family WHERE NOT EXISTS(
+      SELECT FROM jsonb_array_elements(body->'coverage') c WHERE c->>'family'=family AND c->>'availability'='available' AND c->>'outcome' IN ('complete','empty')))
+    OR EXISTS(SELECT FROM jsonb_array_elements(body->'annotations') t WHERE t->'native_token'->'native_run'=native_->'native_run' AND t->'native_token'->'container'=native_->'container'
+     AND NOT refs @> jsonb_build_array(jsonb_build_object('layer',ref->'layer','local_id',t->>'local_id'))) THEN
+    RAISE EXCEPTION 'declaration token population or native coverage is incomplete' USING ERRCODE='23514'; END IF;
+  ELSIF node->>'kind'='predicate' THEN
+   predicate:=ops.primary_characterization_child(layers,ref,node,'predicate'); voice_:=ops.primary_characterization_child(layers,ref,node,'voice');
+   body:=layers->data.canonical_json(ref->'layer');
+   IF NOT EXISTS(SELECT FROM jsonb_array_elements(body->'coverage') c WHERE c->>'family'='construction.source_readings' AND c->>'availability'='available' AND c->>'outcome' IN ('complete','empty'))
+    OR NOT coalesce(voice_->>'value' IN ('active','passive','copular'),false) THEN RAISE EXCEPTION 'declaration primary voice is incomplete' USING ERRCODE='23514'; END IF;
+   voices:=voices||jsonb_build_array(jsonb_build_object('voice',voice_->>'value','extents',ops.primary_characterization_extents(layers,ref,predicate,v)));
+  END IF;
+ END LOOP;
+ SELECT coalesce(jsonb_agg(row_ ORDER BY (row_->>'start')::bigint),'[]') INTO sentences FROM (
+  SELECT jsonb_build_object('population',jsonb_build_array(r->'reference'->'layer',r->'node'->'native_token'->'native_run',r->'node'->'native_token'->'container'),
+   'tokens',jsonb_agg(r ORDER BY (r->'node'->'native_token'->>'index')::bigint),
+   'start',min((e->>'start')::bigint),'end',max((e->>'end')::bigint)) row_
+  FROM jsonb_array_elements(rows_) r CROSS JOIN LATERAL jsonb_array_elements(r->'extents') e WHERE r->'node'->>'kind'='native.token'
+  GROUP BY r->'reference'->'layer',r->'node'->'native_token'->'native_run',r->'node'->'native_token'->'container'
+ ) populations;
+ IF jsonb_array_length(sentences)<>3 OR sentences->0->'start' IS DISTINCT FROM p_passage->'start'
+  OR sentences->2->'end' IS DISTINCT FROM p_passage->'end' THEN RAISE EXCEPTION 'declaration requires three complete exact native sentences' USING ERRCODE='23514'; END IF;
+ FOR sentence_ IN SELECT value FROM jsonb_array_elements(sentences) LOOP
+  tokens_:=sentence_->'tokens';
+  IF EXISTS(SELECT FROM jsonb_array_elements(tokens_) WITH ORDINALITY t(r,n) WHERE r->'node'->'native_token'->'index' IS DISTINCT FROM to_jsonb(n-1)) THEN
+   RAISE EXCEPTION 'declaration sentence token indices are incomplete' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ FOR group_ IN SELECT value FROM jsonb_array_elements(rows_) WHERE value->'node'->>'kind'='native.srl_group' LOOP
+  ref:=group_->'reference'; body:=layers->data.canonical_json(ref->'layer'); roles_:='{}'; predicate_ref:=NULL; group_extents:='[]';
+  FOR membership IN SELECT value FROM jsonb_array_elements(body->'memberships') WHERE value->>'group'=group_->'node'->>'local_id' ORDER BY (value->>'order')::bigint LOOP
+   role_ref:=jsonb_build_object('layer',ref->'layer','local_id',membership->>'member'); role_:=ops.primary_characterization_node(layers,role_ref);
+   IF NOT refs @> jsonb_build_array(role_ref) OR role_->>'kind' IS DISTINCT FROM 'native.srl_role' OR role_->>'native_label' IS DISTINCT FROM membership->>'role' THEN
+    RAISE EXCEPTION 'declaration native SRL role loses its exact group membership' USING ERRCODE='23514'; END IF;
+   SELECT coalesce(jsonb_agg(jsonb_build_object('layer',ref->'layer','local_id',m->>'member') ORDER BY (m->>'order')::bigint),'[]') INTO members_
+    FROM jsonb_array_elements(body->'memberships') m WHERE m->>'group'=role_->>'local_id' AND m->>'role'='token';
+   IF NOT refs @> members_ THEN RAISE EXCEPTION 'declaration SRL role cites unselected native tokens' USING ERRCODE='23514'; END IF;
+   expected_extents:='[]';
+   FOR token_ref IN SELECT value FROM jsonb_array_elements(members_) LOOP
+    token:=ops.primary_characterization_node(layers,token_ref);
+    expected_extents:=expected_extents||ops.primary_characterization_extents(layers,token_ref,token,v);
+   END LOOP;
+   IF ops.primary_characterization_extents(layers,role_ref,role_,v) IS DISTINCT FROM expected_extents THEN
+    RAISE EXCEPTION 'declaration SRL role source differs from its retained token membership' USING ERRCODE='23514'; END IF;
+   group_extents:=group_extents||expected_extents;
+   span_:=ops.primary_structural_token_span(layers,members_,v);
+   IF roles_ ? (role_->>'native_label') THEN
+    IF role_->>'native_label'='PRED' THEN RAISE EXCEPTION 'declaration SRL group repeats its predicate' USING ERRCODE='23514'; END IF;
+    members_:=(roles_->(role_->>'native_label')->'members')||members_;
+    SELECT jsonb_agg(r ORDER BY (ops.primary_characterization_node(layers,r)->'native_token'->>'index')::bigint) INTO members_ FROM jsonb_array_elements(members_) r;
+    span_:=ops.primary_structural_token_span(layers,members_,v);
+   END IF;
+   roles_:=roles_||jsonb_build_object(role_->>'native_label',jsonb_build_object('members',members_,'span',span_));
+   IF role_->>'native_label'='PRED' THEN
+    IF jsonb_array_length(members_)<>1 THEN RAISE EXCEPTION 'declaration SRL predicate must be one native token' USING ERRCODE='23514'; END IF;
+    predicate_ref:=members_->0;
+   END IF;
+  END LOOP;
+  extents:=ops.primary_characterization_extents(layers,ref,group_->'node',v);
+  IF NOT extents @> group_extents OR NOT group_extents @> extents THEN
+   RAISE EXCEPTION 'declaration SRL group source differs from its retained role members' USING ERRCODE='23514'; END IF;
+  IF predicate_ref IS NULL THEN RAISE EXCEPTION 'declaration SRL group lacks its native predicate' USING ERRCODE='23514'; END IF;
+  token:=ops.primary_characterization_node(layers,predicate_ref);
+  SELECT count(*) INTO counts FROM jsonb_array_elements(voices) voice WHERE voice->'extents'=ops.primary_characterization_extents(layers,predicate_ref,token,v);
+  IF counts<>1 THEN RAISE EXCEPTION 'declaration native predicate lacks a unique exact primary voice' USING ERRCODE='23514'; END IF;
+  SELECT voice INTO STRICT voice_ FROM jsonb_array_elements(voices) voice WHERE voice->'extents'=ops.primary_characterization_extents(layers,predicate_ref,token,v);
+  groups_:=groups_||jsonb_build_object(group_->>'identity',jsonb_build_object('roles',roles_,'predicate',predicate_ref,'voice',voice_->>'voice','population',jsonb_build_array(predicate_ref->'layer',token->'native_token'->'native_run',token->'native_token'->'container')));
+ END LOOP;
+ construction:=groups_->(proof->>'construction_frame'); naming:=groups_->(proof->>'naming_frame');
+ IF construction IS NULL OR naming IS NULL OR construction->'population' IS DISTINCT FROM sentences->1->'population'
+  OR naming->'population' IS DISTINCT FROM sentences->2->'population' OR construction->>'voice' IS DISTINCT FROM 'copular' OR naming->>'voice' IS DISTINCT FROM 'passive' THEN
+  RAISE EXCEPTION 'declaration construction/naming frame differs from retained native roles' USING ERRCODE='23514'; END IF;
+ constructed:=sentences->1->'tokens'->((proof->>'construction_subject_token')::integer);
+ antecedent:=sentences->2->'tokens'->((proof->>'naming_antecedent_token')::integer);
+ IF constructed IS NULL OR antecedent IS NULL OR construction->'roles'->'ARG1'->'members' IS DISTINCT FROM jsonb_build_array(constructed->'reference')
+  OR NOT coalesce(naming->'roles'->'ARG1'->'members','[]') @> jsonb_build_array(antecedent->'reference')
+  OR constructed->'node'->'native_token'->>'text' IS DISTINCT FROM antecedent->'node'->'native_token'->>'text' THEN
+  RAISE EXCEPTION 'declaration constructed subject loses its retained naming antecedent' USING ERRCODE='23514'; END IF;
+ FOR binding IN SELECT value FROM jsonb_array_elements(proof->'bindings') LOOP
+  first_:=groups_->(binding->>'frame'); subject:=sentences->0->'tokens'->((binding->>'subject_token')::integer); use_:=sentences->1->'tokens'->((binding->>'use_token')::integer);
+  IF first_ IS NULL OR subject IS NULL OR use_ IS NULL OR first_->'population' IS DISTINCT FROM sentences->0->'population'
+   OR first_->>'voice' IS DISTINCT FROM 'copular' OR first_->'roles'->'ARG1'->'members' IS DISTINCT FROM jsonb_build_array(subject->'reference')
+   OR NOT coalesce(construction->'roles'->'ARG2'->'members','[]') @> jsonb_build_array(use_->'reference')
+   OR subject->'node'->'native_token'->>'text' IS DISTINCT FROM use_->'node'->'native_token'->>'text' THEN
+   RAISE EXCEPTION 'declaration binding loses its exact native subject/use roles' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ lo:=(naming->'roles'->'ARG2'->'span'->>0)::bigint; hi:=(naming->'roles'->'ARG2'->'span'->>1)::bigint;
+ IF (component->'term'->>'start')::bigint<>lo THEN
+  ref:=naming->'roles'->'ARG2'->'members'->0; node:=ops.primary_characterization_node(layers,ref);
+  IF node->'native_token'->>'dependency' IS DISTINCT FROM 'det' OR jsonb_array_length(naming->'roles'->'ARG2'->'members')<2 THEN
+   RAISE EXCEPTION 'declaration term drops a retained native role member' USING ERRCODE='23514'; END IF;
+  ref:=naming->'roles'->'ARG2'->'members'->1; node:=ops.primary_characterization_node(layers,ref); extents:=ops.primary_characterization_extents(layers,ref,node,v); lo:=(extents->0->>'start')::bigint;
+ END IF;
+ label_span:=proof->'label';
+ IF component->'term'->'start' IS DISTINCT FROM to_jsonb(lo) OR component->'term'->'end' IS DISTINCT FROM to_jsonb(hi)
+  OR component->'content'->'end' IS DISTINCT FROM naming->'roles'->'ARG1'->'span'->1
+  OR label_span->>'passage_id' IS DISTINCT FROM p_passage->>'passage_id' OR label_span->'start' IS DISTINCT FROM p_passage->'start'
+  OR label_span->'end' IS DISTINCT FROM sentences->0->'tokens'->1->'extents'->0->'end'
+  OR component->'content'->'start' IS DISTINCT FROM sentences->0->'tokens'->2->'extents'->0->'start'
+  OR label_span->>'text' IS DISTINCT FROM substring(v.projection->>'text' FROM (label_span->>'start')::integer+1 FOR (label_span->>'end')::integer-(label_span->>'start')::integer) THEN
+  RAISE EXCEPTION 'declaration term/content/label differs from exact retained role boundaries' USING ERRCODE='23514'; END IF;
+EXCEPTION WHEN no_data_found OR too_many_rows OR invalid_text_representation OR numeric_value_out_of_range THEN
+ RAISE EXCEPTION 'declaration cannot resolve exact selected primary evidence' USING ERRCODE='23514';
+END $$;
+REVOKE ALL ON FUNCTION ops.validate_primary_declaration_component(jsonb,jsonb,jsonb,jsonb,text) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.condition_role_citations(inputs jsonb, retained jsonb, row_ jsonb, effective text)
 RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
@@ -2302,7 +2339,7 @@ BEGIN
   OR relation_->>'kind' IS DISTINCT FROM 'relation'
   OR component->>'kind' IS DISTINCT FROM 'predicate_qualifier'
   OR component->>'question' IS DISTINCT FROM 'source_predicate_interpretation'
-  OR NOT COALESCE(version_ IN ('3','4','5'),false)
+  OR version_ IS DISTINCT FROM '6'
   OR component->>'scope' IS DISTINCT FROM inputs->>'scope'
   OR NOT COALESCE(component->>'qualifier_kind' IN ('condition','assumption'),false)
   OR relation_->'endpoints' IS DISTINCT FROM jsonb_build_array(
@@ -2409,6 +2446,14 @@ BEGIN
  IF t.status<>'running' AND NOT EXISTS(SELECT FROM ops.task_result WHERE task_id=t.id AND body=p_envelope) THEN
   RAISE EXCEPTION 'structural report differs from immutable completed origin' USING ERRCODE='23514'; END IF;
  PERFORM ops.validate_structural_input(inputs);
+ IF method_ IN ('structure.definition_components','structure.definition_declaration_components','structure.clause_classification') THEN
+  source_map:='{}';
+  FOR source_ IN SELECT value FROM jsonb_array_elements(inputs->'sources') LOOP
+   SELECT * INTO STRICT v FROM kb.source_view WHERE id=(source_->>'source_view_id')::bigint;
+   source_map:=source_map||jsonb_build_object(v.id::text,ops.primary_characterization_layers(t,v,config_));
+  END LOOP;
+  config_:=config_||jsonb_build_object('_primary_layers',source_map);
+ END IF;
  SELECT jsonb_object_agg(p->>'passage_id',p) INTO passage_map FROM jsonb_array_elements(inputs->'passages') p;
  IF (CASE WHEN nullif(product->'definition','null'::jsonb) IS NOT NULL THEN 1 ELSE 0 END
   +CASE WHEN nullif(product->'comparison','null'::jsonb) IS NOT NULL THEN 1 ELSE 0 END
@@ -2422,8 +2467,7 @@ BEGIN
  WHEN 'condition_qualification' THEN
   PERFORM ops.validate_condition_qualification(inputs,config_->'attachment',product->'condition_qualification');
  WHEN 'clause_classification' THEN
-  IF (ops.model_observation_policy(t.release_id) IS NOT NULL) IS DISTINCT FROM
-   (p_envelope->>'operation_version'='2') THEN
+  IF p_envelope->>'operation_version' IS DISTINCT FROM '3' THEN
    RAISE EXCEPTION 'clause observation version differs from released policy' USING ERRCODE='23514'; END IF;
   PERFORM ops.validate_clause_classification(inputs,config_||jsonb_build_object(
    '_release',t.release_id,'_operation_version',p_envelope->>'operation_version'),product->'clause_classification',
@@ -2432,10 +2476,10 @@ BEGIN
   item:=product->'definition_components';
   definition_policy:=ops.model_observation_policy(t.release_id);
   IF method_='structure.definition_declaration_components' THEN
-   IF p_envelope->>'operation_version' IS DISTINCT FROM '1'
+   IF p_envelope->>'operation_version' IS DISTINCT FROM '2'
     OR NOT ops.private_declaration_enabled(t.release_id)
     OR data.record_source_json(p_envelope->'parse_detail') IS DISTINCT FROM
-     '{"version":"definition-declaration-chain-1"}'::jsonb
+     '{"version":"definition-declaration-chain-2"}'::jsonb
     OR nullif(item->'role_candidates','null') IS NOT NULL
     OR jsonb_typeof(config_->'selections') IS DISTINCT FROM 'array'
     OR NOT COALESCE(jsonb_array_length(config_->'selections') BETWEEN 1 AND 64,false)
@@ -2444,7 +2488,7 @@ BEGIN
     OR (SELECT count(DISTINCT x->>'passage_id') FROM jsonb_array_elements(config_->'selections') x)
      <>jsonb_array_length(config_->'selections')
     OR EXISTS(SELECT FROM jsonb_array_elements(config_->'selections') WITH ORDINALITY AS s(selection,n)
-     WHERE NOT inputs->'dependencies' ? (selection#>>'{parser,contribution_id}')
+     WHERE nullif(selection->'parser','null') IS NOT NULL
       OR item->'components'->((n-1)::integer)#>>'{term,passage_id}' IS DISTINCT FROM selection->>'passage_id'
       OR item->'stages'->((n-1)::integer) IS DISTINCT FROM jsonb_build_object(
        'passage_id',selection->>'passage_id','operation','attachment','outcome','succeeded',
@@ -2452,14 +2496,14 @@ BEGIN
     RAISE EXCEPTION 'declaration report differs from its released exact configured population'
      USING ERRCODE='23514'; END IF;
   ELSIF (definition_policy IS NOT NULL) IS DISTINCT FROM
-   (p_envelope->>'operation_version'='9') THEN
+   (p_envelope->>'operation_version'='10') THEN
    RAISE EXCEPTION 'definition observation version differs from released policy' USING ERRCODE='23514'; END IF;
-  IF p_envelope->>'operation_version' IN ('8','9') THEN
+  IF p_envelope->>'operation_version'='10' THEN
    model_detail:=data.record_source_json(p_envelope->'parse_detail');
-   IF p_envelope->>'operation_version'='9' THEN
-    IF model_detail->>'version' IS DISTINCT FROM 'located-definition-extraction-4'
+   IF p_envelope->>'operation_version'='10' THEN
+    IF model_detail->>'version' IS DISTINCT FROM 'located-definition-extraction-5'
      OR jsonb_typeof(item->'role_candidates') IS DISTINCT FROM 'array' THEN
-     RAISE EXCEPTION 'definition model requires located observation ABI 4' USING ERRCODE='23514'; END IF;
+     RAISE EXCEPTION 'definition model requires located observation ABI 5' USING ERRCODE='23514'; END IF;
     PERFORM ops.validate_definition_window_requests(t.release_id,model_detail,config_,passage_map);
    END IF;
    model_roles:=ops.definition_role_candidates(model_detail,config_,passage_map);
@@ -2489,7 +2533,7 @@ BEGIN
    SELECT s INTO source_ FROM jsonb_array_elements(inputs->'sources') s
    WHERE encode(sha256(convert_to(data.canonical_json(s),'UTF8')),'hex')=passage->>'source_ref';
    IF method_='structure.definition_declaration_components' THEN
-    PERFORM ops.validate_declaration_chain_component(dimension,passage,source_,config_,t.release_id);
+    PERFORM ops.validate_primary_declaration_component(dimension,passage,source_,config_,t.release_id);
    ELSE
     IF nullif(dimension->'declaration_chain','null') IS NOT NULL THEN
      RAISE EXCEPTION 'incumbent definition extraction cannot carry a declaration chain'
@@ -2571,14 +2615,12 @@ BEGIN
   END LOOP;
  WHEN 'artifact_identity' THEN
   IF method_<>'structure.artifact_identity' THEN RAISE EXCEPTION 'artifact identity producer mismatch' USING ERRCODE='23514'; END IF;
-  PERFORM ops.validate_artifact_identity(inputs,config_||jsonb_build_object(
+  PERFORM ops.validate_artifact_identity(t,inputs,config_||jsonb_build_object(
    '_operation_version',p_envelope->>'operation_version'),product->'artifact_identity');
  WHEN 'qualified_comparison' THEN
-  IF method_ IS DISTINCT FROM 'structure.compare' OR jsonb_strip_nulls(product->'comparison') IS DISTINCT FROM
-    ops.structural_grouped_comparison(inputs,config_||jsonb_build_object(
-     '_comparison_current',p_envelope->>'operation_version' IN ('4','5'),
-     '_comparison_predicate_version',CASE WHEN p_envelope->>'operation_version'='5' THEN '5' ELSE '4' END)) THEN
-   RAISE EXCEPTION 'comparison differs from exact retained predicate replay' USING ERRCODE='23514'; END IF;
+  IF method_ IS DISTINCT FROM 'structure.compare' OR p_envelope->>'operation_version' IS DISTINCT FROM '6'
+   OR jsonb_strip_nulls(product->'comparison') IS DISTINCT FROM ops.structural_grouped_comparison(t,inputs,config_) THEN
+   RAISE EXCEPTION 'comparison differs from exact retained primary facts and predicate6' USING ERRCODE='23514'; END IF;
  WHEN 'dossier' THEN
   IF method_ IS DISTINCT FROM 'structure.dossier' OR jsonb_strip_nulls(product->'dossier') IS DISTINCT FROM
     ops.structural_dossier(inputs,config_||jsonb_build_object(

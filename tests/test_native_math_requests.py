@@ -1,40 +1,48 @@
 """Demand-shaped native analysis preserves positions and avoids hidden symbolic work."""
 
 import pytest
+from native_math_primary import native_view, primary_layers, pure_source_release
 
 from corpus_structure.core.method import SourceViewRef
 from corpus_structure.methods.math import grammar
-from corpus_structure.methods.math.native import native_request_analysis
+from corpus_structure.methods.math.native import native_request_analysis as _native_request_analysis
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.source_views import PreparedSourceView
 
 
 def view(text="x+x", health="succeeded"):
-    return PreparedSourceView(
-        SourceViewRef(
-            5,
-            "native-demand",
-            1,
-            ProductReference(2, "native", "a" * 64),
-            "#/groups/0",
-            "direct",
-            "b" * 64,
-            "c" * 64,
-        ),
-        text,
-        (
-            {
-                "kind": "native_text",
-                "item_ref": "#/texts/0",
-                "source_field": "text",
-                "start": 0,
-                "end": len(text),
-            },
-        ),
-        ({"label": "formula", "self_ref": "#/texts/0", "orig": "backend", "text": text},),
-        (),
-        {"formula_outcomes": [{"pointer": "#/texts/0", "outcome": health}]},
+    return native_view(
+        PreparedSourceView(
+            SourceViewRef(
+                5,
+                "native-demand",
+                1,
+                ProductReference(2, "native", "a" * 64),
+                "#/groups/0",
+                "direct",
+                "b" * 64,
+                "c" * 64,
+            ),
+            text,
+            (
+                {
+                    "kind": "native_text",
+                    "item_ref": "#/texts/0",
+                    "source_field": "text",
+                    "start": 0,
+                    "end": len(text),
+                },
+            ),
+            ({"label": "formula", "self_ref": "#/texts/0", "orig": "backend", "text": text},),
+            (),
+            {"formula_outcomes": [{"pointer": "#/texts/0", "outcome": health}]},
+        )
     )
+
+
+def native_request_analysis(source, prepared, demand, **options):
+    layers = primary_layers(source, pure_source_release())
+    return _native_request_analysis(source, prepared, demand, primary_layers=layers, **options)
 
 
 def test_lexical_demand_never_enters_grammar(monkeypatch):
@@ -48,7 +56,9 @@ def test_lexical_demand_never_enters_grammar(monkeypatch):
 def test_syntax_retains_positions_and_ambiguity_without_native(monkeypatch):
     monkeypatch.setattr(grammar, "to_sympy", lambda *a, **k: pytest.fail("native requested"))
     result = native_request_analysis(view("f(x)"), None, "syntax")
-    assert result.items[0]["syntax"]
+    assert result.items[0]["syntax"]["format"] == "lark-working-dag-1"
+    packed = native_request_analysis(view("f(x)"), None, "structure").items[0]["structure"]
+    assert packed["choices"] and packed["nodes"]
     assert result.items[0]["outcome"] == "ambiguous"
     assert result.items[0]["stages"]["symbolic"]["work"] == "not_requested"
 
@@ -92,7 +102,8 @@ def test_unmodeled_scientific_question_never_requests_inference(monkeypatch):
     item = result.items[0]
     assert item["assessment"]["outcome"] == "unsupported"
     assert item["scientific_question"] is None
-    assert item["stages"]["syntax"]["work"] == "not_requested"
+    assert item["stages"]["syntax"]["work"] == "available"
+    assert item["primary_input"]
     assert item["stages"]["symbolic"]["work"] == "not_requested"
 
 

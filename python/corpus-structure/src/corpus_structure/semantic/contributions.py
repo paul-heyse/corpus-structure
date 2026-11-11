@@ -142,7 +142,17 @@ def bind_contributions(prepared, *, source, operations, contributions, coordinat
             raise ValueError("conflicting contribution coordinate text")
         contexts[key] = row["text"]
     ops = tuple(
-        prepared.validate_python("SourceContributionOperation", op).model_dump(mode="python")
+        prepared.validate_python(
+            "SourceContributionOperation",
+            {
+                **op,
+                **(
+                    {"primary_layers": tuple(op["primary_layers"])}
+                    if "primary_layers" in op
+                    else {}
+                ),
+            },
+        ).model_dump(mode="python")
         for op in operations
     )
     by_operation = {op["operation_key"]: op for op in ops}

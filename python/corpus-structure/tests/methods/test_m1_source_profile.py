@@ -398,7 +398,6 @@ def test_variant_attempts_have_matched_execution_report_and_coverage_rows(
         preparation=product.preparation,
         policy=prep.POLICY_V5,
     )
-    monkeypatch.setattr(m1_source, "pipeline", lambda _: None)
     monkeypatch.setattr(m1_source, "prepare_source", lambda *_args, **_kwargs: product)
     monkeypatch.setattr(m1_source, "_structural_groups", lambda *_: ())
     monkeypatch.setattr(

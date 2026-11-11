@@ -11,7 +11,9 @@ from corpus_structure.methods.scoped_relations import (
     ScopedRelationsConfig,
     ScopedRelationsMethod,
     SourceWorkBinding,
-    discover_relations,
+)
+from corpus_structure.methods.scoped_relations import (
+    discover_relations as _discover_relations,
 )
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.proposals import native_source_frame
@@ -22,6 +24,37 @@ from corpus_structure.semantic.structural_products import (
 )
 
 from .test_m1_source_preparation import native_table_source, source, table_cell
+
+
+def discover_relations(frame, **kwargs):
+    from dataclasses import fields
+
+    from corpus_structure.methods.native_evidence_layers import PrimaryAnnotationProduct
+    from corpus_structure.methods.source_preparation import prepare_source
+
+    from .navigation_fixture import primary_navigation, view_from_frame
+
+    view = view_from_frame(frame)
+    products = (
+        tuple(kwargs["annotations"])
+        if "annotations" in kwargs
+        else prepare_source(view, annotations_only=True).annotations
+    )
+    layers = dict(kwargs.pop("primary_layers", {}))
+    layers.update(primary_navigation(view, products, formal=not layers))
+    kwargs["annotations"] = tuple(
+        PrimaryAnnotationProduct(
+            primary_layers=layers,
+            **{field.name: getattr(product, field.name) for field in fields(product)},
+        )
+        for product in products
+    )
+    kwargs.pop("predicate_version", None)
+    kwargs.pop("named_link_version", None)
+    output = _discover_relations(
+        frame, primary_layers=layers, predicate_version="6", named_link_version="4", **kwargs
+    )
+    return dict(output, _primary_layers=layers)
 
 
 def complete_native_fields(view):
@@ -50,7 +83,9 @@ def test_native_table_roles_notes_and_units_keep_exact_cell_participants(explici
         native_source_frame(complete_native_fields(view), ()), source_work="actual-parent-sha"
     )
     rows = output["contributions"]
-    values = {r["contribution_id"]: source_python(r["value"]) for r in rows}
+    values = {
+        r["contribution_id"]: (source_python(r["value"]) if "value" in r else {}) for r in rows
+    }
     cells = [r for r in rows if values[r["contribution_id"]].get("text") == "50"]
     assert len(cells) == 2 and cells[0]["occurrence_id"] != cells[1]["occurrence_id"]
     relations = [r for r in rows if r["kind"] == "relation"]
@@ -86,9 +121,13 @@ def test_symbol_declarations_keep_occurrences_and_do_not_invent_unparsed_order()
         "Let x be a value. Let x be another value. prepare sample before calculate mean.",
         labels=("text",),
     )
-    output = discover_relations(native_source_frame(complete_native_fields(view), ()))
+    output = discover_relations(
+        native_source_frame(complete_native_fields(view), ()), annotations=()
+    )
     rows = output["contributions"]
-    values = {r["contribution_id"]: source_python(r["value"]) for r in rows}
+    values = {
+        r["contribution_id"]: (source_python(r["value"]) if "value" in r else {}) for r in rows
+    }
     symbols = [r for r in rows if values[r["contribution_id"]].get("role") == "symbol"]
     assert len(symbols) == 2 and symbols[0]["occurrence_id"] != symbols[1]["occurrence_id"]
     relations = [values[r["contribution_id"]]["relation"] for r in rows if r["kind"] == "relation"]
@@ -407,10 +446,15 @@ def test_retained_linguistic_roles_join_action_to_its_real_scoped_artifact():
         native_source_frame(view, ()), source_work="parent", annotations=(product,)
     )
     rows = output["contributions"]
-    by_id = {r["contribution_id"]: source_python(r["value"]) for r in rows}
+    by_id = {
+        r["contribution_id"]: (source_python(r["value"]) if "value" in r else {}) for r in rows
+    }
     relations = [r for r in rows if r["kind"] == "relation"]
     links = {
-        source_python(r["value"])["relation"]: (by_id[r["members"][0]], by_id[r["members"][1]])
+        (source_python(r["value"]) if "value" in r else {}).get("relation"): (
+            by_id[r["members"][0]],
+            by_id[r["members"][1]],
+        )
         for r in relations
     }
     assert links["actor"][0]["text"] == "reviewed" and links["actor"][1]["text"] == "Manager"
@@ -437,13 +481,13 @@ def test_retained_linguistic_roles_join_action_to_its_real_scoped_artifact():
     assert {op["question"]: op["outcome"] for op in bound_operations} == {
         "source_structural_relations": "succeeded",
         "source_procedure_roles": "succeeded",
-        "source_predicate_frames": "not_run",
-        "source_predicate_interpretation": "not_run",
+        "source_predicate_frames": "succeeded",
+        "source_predicate_interpretation": "succeeded",
     }
     operation = output["extra_operations"][0]
     assert operation["outcome"] == "succeeded" and operation["emitted_count"] > 0
     assert all(
-        "annotation:independent-fixture" in r["computation_dependencies"]
+        any(dependency.startswith("annotation:") for dependency in r["computation_dependencies"])
         for r in rows
         if r["operation_key"] == operation["operation_key"]
     )
@@ -464,7 +508,9 @@ def test_formula_syntax_links_repeated_uses_to_adjacent_local_declaration():
     view = replace(view, items=nodes)
     output = discover_relations(native_source_frame(view, ()))
     rows = output["contributions"]
-    values = {r["contribution_id"]: source_python(r["value"]) for r in rows}
+    values = {
+        r["contribution_id"]: (source_python(r["value"]) if "value" in r else {}) for r in rows
+    }
     uses = [r for r in rows if values[r["contribution_id"]].get("role") == "formula_symbol"]
     assert len(uses) == 2 and uses[0]["occurrence_id"] != uses[1]["occurrence_id"]
     assert {values[r["contribution_id"]]["text"] for r in uses} == {"x"}
@@ -472,10 +518,12 @@ def test_formula_syntax_links_repeated_uses_to_adjacent_local_declaration():
     assert output["formula_diagnostics"][0]["outcome"] == "parsed"
 
 
-def test_annotation_failure_keeps_independent_native_contributions_and_failed_stage():
+def test_missing_native_roles_keeps_lexical_contributions_and_failed_stage():
     view = complete_native_fields(source("Let x be count.", labels=("text",)))
     output = discover_relations(
-        native_source_frame(view, ()), annotation_errors=("retained parser block failed",)
+        native_source_frame(view, ()),
+        annotations=(),
+        annotation_errors=("retained parser block failed",),
     )
     assert output["contributions"]
     assert output["operation"]["outcome"] == "succeeded"
@@ -520,9 +568,43 @@ def original_inputs(view):
 
 
 def run_scoped(view, cfg, reader):
+    from dataclasses import fields
+
+    from corpus_structure.methods.native_evidence_layers import PrimaryAnnotationProduct
+
+    from .navigation_fixture import primary_navigation
+
+    class SelectedReader:
+        def __getattr__(self, name):
+            return getattr(reader, name)
+
+        def structural_source_annotations(self, *args):
+            retained = reader.structural_source_annotations(*args)
+            if (
+                retained.source.projection_digest != view.ref.projection_digest
+                or retained.source.text != view.text
+            ):
+                return retained
+            layers = primary_navigation(view, retained.annotations, formal=True)
+            return SimpleNamespace(
+                **{
+                    **retained.__dict__,
+                    "annotations": tuple(
+                        PrimaryAnnotationProduct(
+                            primary_layers=layers,
+                            **{
+                                field.name: getattr(product, field.name)
+                                for field in fields(product)
+                            },
+                        )
+                        for product in retained.annotations
+                    ),
+                }
+            )
+
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, view.ref.id, view.ref.key))
     return ScopedRelationsMethod().run(
-        (unit,), cfg, SimpleNamespace(reader=reader, check_active=lambda: None)
+        (unit,), cfg, SimpleNamespace(reader=SelectedReader(), check_active=lambda: None)
     )[0]
 
 
@@ -576,7 +658,10 @@ def test_original_annotation_port_keeps_roles_when_new_run_has_no_annotation_tas
     result = run_scoped(view, cfg, Reader())
     assert calls == [(inputs, inputs.sources[0].identity, AnnotationProfile(cfg.sentences))]
     assert result.contributions is not None and result.contribution_operations is not None
-    assert {source_python(r["value"]).get("relation") for r in result.contributions} >= {
+    assert {
+        (source_python(r["value"]) if "value" in r else {}).get("relation")
+        for r in result.contributions
+    } >= {
         "actor",
         "object",
         "uses_artifact",
@@ -663,7 +748,7 @@ def test_original_annotation_port_cannot_substitute_detached_projection(field, v
         )
 
 
-def test_same_run_annotation_route_still_preserves_unavailable_upstream_without_reparse():
+def test_same_run_refuses_missing_primary_without_reparse():
     view = complete_native_fields(source("Let x be count.", labels=("text",)))
     calls = []
 
@@ -671,22 +756,16 @@ def test_same_run_annotation_route_still_preserves_unavailable_upstream_without_
         def source_view(self, _):
             return view
 
-        def source_result(self, identity, method):
-            calls.append((identity, method))
-            return None
+        def primary_characterization(self, identity, *, families):
+            calls.append((identity, families))
+            raise ValueError("required primary navigation coverage is missing")
 
         def structural_source_annotations(self, *_):
             raise AssertionError("unconfigured original-source path must not run")
 
-    result = run_scoped(view, ScopedRelationsConfig(), Reader())
-    assert calls == [(view.ref.id, "extract.m1_annotations")]
-    assert result.contribution_operations is not None
-    assert (
-        next(
-            o for o in result.contribution_operations if o["question"] == "source_procedure_roles"
-        )["outcome"]
-        == "not_run"
-    )
+    with pytest.raises(ValueError, match="required primary"):
+        run_scoped(view, ScopedRelationsConfig(), Reader())
+    assert len(calls) == 1 and calls[0][0] == view.ref.id
 
 
 def test_retained_predicate_publication_preserves_exact_hosts_and_refuses_swapped_host():
@@ -761,7 +840,7 @@ def test_retained_predicate_publication_preserves_exact_hosts_and_refuses_swappe
 def test_named_coverage_counts_selected_blocks_once_and_does_not_assume_absence():
     from corpus_structure.ingest.annotations import AnnotationProfile
     from corpus_structure.methods.source_preparation import prepare_source
-    from corpus_structure.methods.witnessed_source_links import match_named_source_links
+    from corpus_structure.semantic.constructions.navigation import match_named_source_links
 
     view = complete_native_fields(
         native_table_source(

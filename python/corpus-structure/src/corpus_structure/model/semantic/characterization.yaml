@@ -6,31 +6,12 @@ prefixes:
 default_prefix: cstc
 default_range: string
 classes:
-  CharacterizationProductReference:
-    is_a: SourceRecordProduct
-    attributes:
-      task_id:
-        required: true
-        range: integer
-        minimum_value: 1
-      product_key: &id001
-        required: true
-        pattern: ^.+$
-      content_digest: &id002
-        required: true
-        pattern: ^[0-9a-f]{64}$
-  CharacterizationQualifiedReference:
-    is_a: SourceRecordProduct
-    attributes:
-      layer:
-        range: CharacterizationProductReference
-        inlined: true
-        required: true
-      local_id: *id001
   CharacterizationSourceSelector:
     is_a: SourceRecordProduct
     attributes:
-      projection: *id001
+      projection: &id001
+        required: true
+        pattern: ^.+$
       native_pointer: {}
       page:
         range: integer
@@ -57,7 +38,9 @@ classes:
       membership:
         required: true
         pattern: ^(direct|descendants)$
-      projection_digest: *id002
+      projection_digest: &id002
+        required: true
+        pattern: ^[0-9a-f]{64}$
       recipe_digest: *id002
   CharacterizationSourceScope:
     is_a: SourceRecordProduct
@@ -161,6 +144,46 @@ classes:
   CharacterizationAnnotation:
     is_a: SourceRecordProduct
     attributes:
+      navigation:
+        range: CharacterizationNavigation
+        inlined: true
+      named_match:
+        range: CharacterizationNamedMatch
+        inlined: true
+      required_choices:
+        range: string
+        multivalued: true
+      native_mention:
+        range: CharacterizationNativeMention
+        inlined: true
+      native_edu:
+        range: CharacterizationNativeEdu
+        inlined: true
+      native_boundary:
+        range: CharacterizationNativeBoundary
+        inlined: true
+      native_rst:
+        range: CharacterizationNativeRst
+        inlined: true
+      context:
+        range: CharacterizationContext
+        inlined: true
+      model_answer:
+        range: CharacterizationModelAnswer
+        inlined: true
+      required_external_choices:
+        range: CharacterizationQualifiedReference
+        inlined: true
+        multivalued: true
+      native_token:
+        range: CharacterizationNativeToken
+        inlined: true
+      formal_input:
+        range: CharacterizationFormalInput
+        inlined: true
+      formal:
+        range: CharacterizationFormalNode
+        inlined: true
       local_id: *id001
       kind: *id001
       vocabulary: *id001
@@ -195,6 +218,13 @@ classes:
   CharacterizationMembership:
     is_a: SourceRecordProduct
     attributes:
+      required_choices:
+        range: string
+        multivalued: true
+      required_external_choices:
+        range: CharacterizationQualifiedReference
+        inlined: true
+        multivalued: true
       local_id: *id001
       group: *id001
       member: *id001
@@ -224,6 +254,28 @@ classes:
   CharacterizationAttachmentBasis:
     is_a: SourceRecordProduct
     attributes:
+      construction:
+        range: string
+        pattern: ^.+$
+      binding:
+        range: string
+        pattern: ^.+$
+      production:
+        range: string
+        pattern: ^.+$
+      support_codec:
+        range: string
+        pattern: ^.+$
+      production_name:
+        range: string
+        pattern: ^.+$
+      support_roles:
+        range: string
+        pattern: ^.+$
+      required_external_choices:
+        range: CharacterizationQualifiedReference
+        inlined: true
+        multivalued: true
       kind:
         required: true
         pattern: ^(native_prediction|released_construction|contextual_proposal)$
@@ -276,6 +328,13 @@ classes:
   CharacterizationRole:
     is_a: SourceRecordProduct
     attributes:
+      required_choices:
+        range: string
+        multivalued: true
+      required_external_choices:
+        range: CharacterizationQualifiedReference
+        inlined: true
+        multivalued: true
       local_id: *id001
       owner: *id001
       member: *id001
@@ -302,7 +361,12 @@ classes:
     is_a: SourceRecordProduct
     attributes:
       role: *id001
-      target: *id001
+      target:
+        range: string
+        pattern: ^.+$
+      choice_group:
+        range: string
+        pattern: ^.+$
       structural:
         required: true
         range: boolean
@@ -312,6 +376,10 @@ classes:
   CharacterizationTerm:
     is_a: SourceRecordProduct
     attributes:
+      required_external_choices:
+        range: CharacterizationQualifiedReference
+        inlined: true
+        multivalued: true
       local_id: *id001
       kind:
         required: true
@@ -351,6 +419,10 @@ classes:
   CharacterizationChoiceMember:
     is_a: SourceRecordProduct
     attributes:
+      required_external_choices:
+        range: CharacterizationQualifiedReference
+        inlined: true
+        multivalued: true
       local_id: *id001
       root: *id001
       required_choices:
@@ -411,6 +483,10 @@ classes:
   AnnotationLayer:
     is_a: SourceRecordProduct
     attributes:
+      native_runs:
+        range: CharacterizationNativeRun
+        inlined: true
+        multivalued: true
       format:
         required: true
         equals_string: characterization-layer-v1
@@ -483,10 +559,693 @@ classes:
         range: CharacterizationProductReference
         inlined: true
         multivalued: true
+      active_layers:
+        range: CharacterizationProductReference
+        inlined: true
+        multivalued: true
       profile: *id001
       coverage:
         range: CharacterizationFamilyCoverage
         inlined: true
         multivalued: true
+  CharacterizationNativeToken:
+    is_a: SourceRecordProduct
+    attributes:
+      index:
+        range: integer
+        required: true
+        minimum_value: 0
+      container:
+        range: string
+        required: true
+      native_run:
+        range: string
+        required: true
+      sentence:
+        range: string
+      text:
+        range: string
+        required: true
+      space:
+        range: boolean
+        required: true
+      whitespace:
+        range: string
+        required: true
+      source_role:
+        range: string
+        required: true
+        pattern: ^(prose|math|reference)$
+      lemma:
+        range: string
+      pos:
+        range: string
+      tag:
+        range: string
+      morphology:
+        range: string
+        multivalued: true
+      dependency:
+        range: string
+      native_head:
+        range: integer
+        minimum_value: 0
+      head_index_base:
+        range: integer
+        minimum_value: 0
+        maximum_value: 1
+      prepared_text:
+        range: string
+      subword_positions:
+        range: integer
+        multivalued: true
+        minimum_value: 0
+  CharacterizationNativeComponent:
+    is_a: SourceRecordProduct
+    attributes:
+      name:
+        range: string
+        required: true
+      factory:
+        range: string
+        required: true
+  CharacterizationNativeAvailability:
+    is_a: SourceRecordProduct
+    attributes:
+      family:
+        range: string
+        required: true
+      attribute:
+        range: string
+        required: true
+      status:
+        range: string
+        required: true
+        pattern: ^(complete|partial|absent|not_applicable)$
+      reason:
+        range: string
+  CharacterizationNativePackage:
+    is_a: SourceRecordProduct
+    attributes:
+      name:
+        range: string
+        required: true
+      version:
+        range: string
+        required: true
+  CharacterizationNativeArtifact:
+    is_a: SourceRecordProduct
+    attributes:
+      name:
+        range: string
+        required: true
+      sha256:
+        range: string
+        required: true
+        pattern: ^[0-9a-f]{64}$
+      size:
+        range: integer
+        minimum_value: 0
+  CharacterizationNativeLimit:
+    is_a: SourceRecordProduct
+    attributes:
+      name:
+        range: string
+        required: true
+      value:
+        range: integer
+        required: true
+        minimum_value: 0
+  CharacterizationNativeRun:
+    is_a: SourceRecordProduct
+    attributes:
+      local_id:
+        range: string
+        required: true
+      provider:
+        range: string
+        required: true
+      profile:
+        range: string
+        required: true
+      model:
+        range: string
+        required: true
+      model_version:
+        range: string
+        required: true
+      runtime_version:
+        range: string
+        required: true
+      configuration:
+        range: string
+        required: true
+      configuration_codec:
+        range: string
+        required: true
+        pattern: ^(spacy-config-v1|hanlp-config-json-v1|maverick-config-json-v1|dipo-config-json-v1)$
+      configuration_digest:
+        range: string
+        required: true
+        pattern: ^[0-9a-f]{64}$
+      layout_recipe:
+        range: string
+        required: true
+      layout_digest:
+        range: string
+        required: true
+      text_digest:
+        range: string
+        required: true
+      components:
+        range: CharacterizationNativeComponent
+        inlined: true
+        multivalued: true
+      availability:
+        range: CharacterizationNativeAvailability
+        inlined: true
+        multivalued: true
+      runtime_packages:
+        range: CharacterizationNativePackage
+        inlined: true
+        multivalued: true
+      artifacts:
+        range: CharacterizationNativeArtifact
+        inlined: true
+        multivalued: true
+      limits:
+        range: CharacterizationNativeLimit
+        inlined: true
+        multivalued: true
+      diagnostics:
+        range: string
+        multivalued: true
+  CharacterizationFormalDiagnostic:
+    is_a: SourceRecordProduct
+    attributes:
+      category:
+        range: string
+        required: true
+      message:
+        range: string
+        required: true
+      position:
+        range: integer
+        minimum_value: 0
+      rule:
+        range: string
+  CharacterizationFormalCorrespondence:
+    is_a: SourceRecordProduct
+    attributes:
+      input_start:
+        range: integer
+        required: true
+        minimum_value: 0
+      input_end:
+        range: integer
+        required: true
+        minimum_value: 0
+      relation:
+        range: string
+        required: true
+        pattern: ^(exact|contained_in_atom|normalized|synthetic)$
+      source_occurrences:
+        range: string
+        multivalued: true
+      boundary:
+        range: integer
+        minimum_value: 0
+  CharacterizationFormalNormalized:
+    is_a: SourceRecordProduct
+    attributes:
+      kind:
+        range: string
+        required: true
+        pattern: ^(decimal|comparator|identifier|date|unit|interval|threshold)$
+      value:
+        range: string
+      comparator:
+        range: string
+        pattern: ^(>|>=|<|<=|=)$
+      quantity:
+        range: string
+      lower:
+        range: string
+      upper:
+        range: string
+      lower_closed:
+        range: boolean
+      upper_closed:
+        range: boolean
+      unit:
+        range: string
+      domain_status:
+        range: string
+        required: true
+        pattern: ^(not_requested|valid|invalid|unresolved)$
+      reason:
+        range: string
+  CharacterizationFormalInput:
+    is_a: SourceRecordProduct
+    attributes:
+      normalization_recipe:
+        range: string
+        pattern: ^.+$
+      symbol_outcome:
+        range: string
+        pattern: ^(complete|partial|failed|not_requested)$
+      parent_occurrence:
+        range: string
+        required: true
+      representation:
+        range: string
+        required: true
+        pattern: ^(source_text|recognized_latex|normalized_latex)$
+      text:
+        range: string
+        required: true
+      original_text:
+        range: string
+      grammar:
+        range: string
+        required: true
+      start_symbol:
+        range: string
+        required: true
+      macro_identity:
+        range: string
+        required: true
+      syntax_outcome:
+        range: string
+        required: true
+        pattern: ^(complete|partial|ambiguous|failed)$
+      interpretation_outcome:
+        range: string
+        required: true
+        pattern: ^(not_requested|resolved|unresolved|invalid|failed)$
+      diagnostic:
+        range: CharacterizationFormalDiagnostic
+        inlined: true
+      correspondence:
+        range: CharacterizationFormalCorrespondence
+        inlined: true
+        multivalued: true
+  CharacterizationFormalNode:
+    is_a: SourceRecordProduct
+    attributes:
+      symbol_parent:
+        range: string
+        pattern: ^.+$
+      input_id:
+        range: string
+        required: true
+      node_kind:
+        range: string
+        required: true
+        pattern: ^(token|rule)$
+      rule:
+        range: string
+        required: true
+      start:
+        range: integer
+        required: true
+        minimum_value: 0
+      end:
+        range: integer
+        required: true
+        minimum_value: 0
+      synthetic:
+        range: boolean
+      line:
+        range: integer
+        minimum_value: 0
+      column:
+        range: integer
+        minimum_value: 0
+      end_line:
+        range: integer
+        minimum_value: 0
+      end_column:
+        range: integer
+        minimum_value: 0
+      container_start:
+        range: integer
+        minimum_value: 0
+      container_end:
+        range: integer
+        minimum_value: 0
+      container_line:
+        range: integer
+        minimum_value: 0
+      container_column:
+        range: integer
+        minimum_value: 0
+      container_end_line:
+        range: integer
+        minimum_value: 0
+      container_end_column:
+        range: integer
+        minimum_value: 0
+      normalized:
+        range: CharacterizationFormalNormalized
+        inlined: true
+  CharacterizationNativeMention:
+    is_a: SourceRecordProduct
+    attributes:
+      coordinate_unit:
+        range: string
+        required: true
+        pattern: ^(inclusive_canonical_token|inclusive_subtoken)$
+      first:
+        range: integer
+        required: true
+        minimum_value: 0
+      last:
+        range: integer
+        required: true
+        minimum_value: 0
+      detected:
+        range: boolean
+        required: true
+      supplied:
+        range: boolean
+        required: true
+      clustered:
+        range: boolean
+        required: true
+      mapping_status:
+        range: string
+        required: true
+        pattern: ^(mapped|unmapped)$
+      reason:
+        range: string
+      native_run:
+        range: string
+        required: true
+  CharacterizationNativeEdu:
+    is_a: SourceRecordProduct
+    attributes:
+      native_run:
+        range: string
+        required: true
+      mode:
+        range: string
+        required: true
+        pattern: ^(learned|layout_forced|supplied|predicted)$
+      index:
+        range: integer
+        required: true
+        minimum_value: 0
+      token_start:
+        range: integer
+        required: true
+        minimum_value: 0
+      token_end:
+        range: integer
+        required: true
+        minimum_value: 0
+      provider_start:
+        range: integer
+        required: true
+        minimum_value: 0
+      provider_end:
+        range: integer
+        required: true
+        minimum_value: 0
+      text:
+        range: string
+        required: true
+  CharacterizationNativeBoundary:
+    is_a: SourceRecordProduct
+    attributes:
+      token_end:
+        range: integer
+        required: true
+        minimum_value: 0
+      learned:
+        range: boolean
+        required: true
+      forced:
+        range: boolean
+        required: true
+      disposition:
+        range: string
+        required: true
+        pattern: ^(retained|merged)$
+  CharacterizationNativeRst:
+    is_a: SourceRecordProduct
+    attributes:
+      left_start:
+        range: integer
+        required: true
+        minimum_value: 0
+      left_end:
+        range: integer
+        required: true
+        minimum_value: 0
+      right_start:
+        range: integer
+        required: true
+        minimum_value: 0
+      right_end:
+        range: integer
+        required: true
+        minimum_value: 0
+      nuclearity:
+        range: string
+        required: true
+        pattern: ^(NN|NS|SN)$
+  CharacterizationContextGap:
+    is_a: SourceRecordProduct
+    attributes:
+      left_selector:
+        range: CharacterizationSourceSelector
+        inlined: true
+      right_selector:
+        range: CharacterizationSourceSelector
+        inlined: true
+      reason:
+        range: string
+        required: true
+  CharacterizationContext:
+    is_a: SourceRecordProduct
+    attributes:
+      focal:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+      examined:
+        range: CharacterizationSourceSelector
+        inlined: true
+        multivalued: true
+      gaps:
+        range: CharacterizationContextGap
+        inlined: true
+        multivalued: true
+  CharacterizationAnswerAlternative:
+    is_a: SourceRecordProduct
+    attributes:
+      key:
+        range: string
+        required: true
+      state:
+        range: string
+        required: true
+      score:
+        range: CharacterizationScore
+        inlined: true
+  CharacterizationModelAnswer:
+    is_a: SourceRecordProduct
+    attributes:
+      family:
+        range: string
+        required: true
+      question_key:
+        range: string
+        required: true
+      declaration_digest:
+        range: string
+        required: true
+        pattern: ^[0-9a-f]{64}$
+      stage:
+        range: string
+        required: true
+      answer_kind:
+        range: string
+        required: true
+        pattern: ^(text|number|date|choice|noul|gliner_span|gliner_classification)$
+      state:
+        range: string
+        required: true
+      request_digest:
+        range: string
+        required: true
+        pattern: ^[0-9a-f]{64}$
+      native_answer:
+        range: SourceValue
+        inlined: true
+        required: true
+      candidate_list_digest:
+        range: string
+        pattern: ^[0-9a-f]{64}$
+      source_field:
+        range: string
+      observed_keys:
+        range: string
+        multivalued: true
+      selected_keys:
+        range: string
+        multivalued: true
+      alternatives:
+        range: CharacterizationAnswerAlternative
+        inlined: true
+        multivalued: true
+      depends_on:
+        range: string
+        multivalued: true
+      diagnostic:
+        range: CharacterizationFormalDiagnostic
+        inlined: true
+  CharacterizationNamedSentence:
+    is_a: SourceRecordProduct
+    attributes:
+      token_index:
+        range: integer
+        required: true
+        minimum_value: 0
+      sentence:
+        range: integer
+        minimum_value: 0
+  CharacterizationNamedBinding:
+    is_a: SourceRecordProduct
+    attributes:
+      demonstrative:
+        range: boolean
+      antecedent_status:
+        range: string
+        pattern: ^(resolved|unresolved|unavailable|not_applicable)$
+      antecedent_members:
+        range: CharacterizationQualifiedReference
+        inlined: true
+        multivalued: true
+      antecedent_reason:
+        range: string
+      role:
+        range: string
+        required: true
+      node:
+        range: string
+        required: true
+      head:
+        range: CharacterizationQualifiedReference
+        required: true
+        inlined: true
+      expansion:
+        range: string
+        required: true
+      members:
+        range: CharacterizationQualifiedReference
+        inlined: true
+        multivalued: true
+      status:
+        range: string
+        required: true
+      reason:
+        range: string
+  CharacterizationNamedMatch:
+    is_a: SourceRecordProduct
+    attributes:
+      rule:
+        range: string
+        required: true
+      variant:
+        range: string
+        required: true
+      mechanism:
+        range: string
+        required: true
+      protocol:
+        range: string
+        required: true
+      dependency_digest:
+        range: string
+        required: true
+        pattern: ^[0-9a-f]{64}$
+      native_container:
+        range: CharacterizationQualifiedReference
+        required: true
+        inlined: true
+      nodes:
+        range: CharacterizationQualifiedReference
+        inlined: true
+        multivalued: true
+      piece_indices:
+        range: integer
+        multivalued: true
+        minimum_value: 0
+      sentences:
+        range: CharacterizationNamedSentence
+        inlined: true
+        multivalued: true
+      bindings:
+        range: CharacterizationNamedBinding
+        inlined: true
+        multivalued: true
+      status:
+        range: string
+        required: true
+      reason:
+        range: string
+      negation_occurrences:
+        range: string
+        multivalued: true
+  CharacterizationNavigationRole:
+    is_a: SourceRecordProduct
+    attributes:
+      role: {range: string, required: true, pattern: '^.+$'}
+      occurrences: {range: string, required: true, multivalued: true, minimum_cardinality: 1}
+  CharacterizationNavigationToken:
+    is_a: SourceRecordProduct
+    attributes:
+      name: {range: string, required: true, pattern: '^.+$'}
+      index: {range: integer, required: true, minimum_value: 0}
+      native_node: {range: CharacterizationQualifiedReference, required: true, inlined: true}
+  CharacterizationNavigationLabel:
+    is_a: SourceRecordProduct
+    attributes:
+      kind: {range: string, required: true, pattern: '^(numbering_namespace|revision)$'}
+      value: {range: string, required: true, pattern: '^.+$'}
+      occurrences: {range: string, required: true, multivalued: true, minimum_cardinality: 1}
+  CharacterizationNavigation:
+    is_a: SourceRecordProduct
+    attributes:
+      codec: {equals_string: source-navigation-v1, required: true}
+      kind: {range: string, required: true, pattern: '^(named_link|named_availability|lexical_named_link|symbol_declaration|declaration_template|declaration_cue|recap|artifact_mention|artifact_reference|artifact_explicit_reference|artifact_relation|artifact_work|section_heading|note_scope|table_schematic|table_role|table_geometry)$'}
+      pointer: {range: string, required: true, pattern: '^.+$'}
+      status: {range: string, required: true, pattern: '^(complete|partial|unavailable)$'}
+      roles: {range: CharacterizationNavigationRole, inlined: true, multivalued: true}
+      native_tokens: {range: CharacterizationNavigationToken, inlined: true, multivalued: true}
+      rule: {range: string}
+      variant: {range: string}
+      mechanism: {range: string}
+      annotation: {range: string}
+      block: {range: string}
+      resolution: {range: string}
+      relation_kind: {range: string}
+      designator: {range: string}
+      artifact_kind: {range: string}
+      source_labels: {range: CharacterizationNavigationLabel, inlined: true, multivalued: true}
+      alias_state: {range: string, pattern: '^(observed|known_empty|unknown)$'}
+      numbering_namespace: {range: string}
+      work: {range: string}
+      revision: {range: string}
+      cell_index: {range: integer, minimum_value: 0}
+      axis: {range: string, pattern: '^(all|row|column|band)$'}
+      label: {range: string}
+      measure_role: {range: string, pattern: '^(row_sum|column_sum|sample_count|observed_count|value_role|unit)$'}
+      geometry_role: {range: string, pattern: '^(frequency|relative_frequency|row_key)$'}
+      introducer: {range: string, pattern: '^(let|where|suppose|define)$'}
+      definition_subject_kind: {range: string, pattern: '^(term|identifier)$'}
+
 imports:
 - observations

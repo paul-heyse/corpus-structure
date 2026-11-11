@@ -8,8 +8,6 @@ import pytest
 from corpus_structure.methods.scoped_relations import (
     ScopedRelationsConfig,
     ScopedRelationsMethod,
-    ScopedRelationsOrderedConfig,
-    discover_relations,
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python, source_value
@@ -20,12 +18,19 @@ from corpus_structure.semantic.structural_products import (
     StructuralInput,
     StructuralPassage,
 )
-from corpus_structure.serve.inline_formula_replay import verify_inline_formula_report
+from corpus_structure.serve.inline_formula_replay import (
+    verify_inline_formula_report as _verify_inline_formula_report,
+)
 from corpus_structure.serve.witnessed_source_link_replay import verify_witnessed_links
 
 from .test_inline_formula_occurrences import _FROZEN_TEXT
 from .test_m1_source_preparation import source
-from .test_scoped_relations import complete_native_fields
+from .test_scoped_relations import complete_native_fields, discover_relations
+
+
+def verify_inline_formula_report(report, source):
+    return _verify_inline_formula_report(report, source, primary_layers=report["_primary_layers"])
+
 
 _DECLARATION = (
     "Let Z be a normal random variable with parameters µ = 0 and \u03c3 = 1. "
@@ -125,7 +130,13 @@ def test_formula_uses_only_the_source_declared_symbol():
         sources=(SimpleNamespace(identity="original", source_view_id=frame.source_view_id),),
         passages=(passage,),
     )
-    verify_witnessed_links({"body": body}, original, record_source_pin(frame), inputs)
+    verify_witnessed_links(
+        {"body": body},
+        original,
+        record_source_pin(frame),
+        inputs,
+        primary_layers=output["_primary_layers"],
+    )
     forged = next(
         r for r in body["contributions"] if r["contribution_id"] == relation["contribution_id"]
     )
@@ -139,7 +150,13 @@ def test_formula_uses_only_the_source_declared_symbol():
         )
     )
     with pytest.raises(ValueError, match="declared direction or premises"):
-        verify_witnessed_links({"body": body}, original, record_source_pin(frame), inputs)
+        verify_witnessed_links(
+            {"body": body},
+            original,
+            record_source_pin(frame),
+            inputs,
+            primary_layers=output["_primary_layers"],
+        )
 
 
 @pytest.mark.parametrize(
@@ -286,7 +303,7 @@ def ordered_run(view, query, wider):
         passages=(query,),
         dependencies=("fixture",),
     )
-    config = ScopedRelationsOrderedConfig(
+    config = ScopedRelationsConfig(
         inputs=inputs, structural_input_digest=inputs.identity, ordered_formula_witness=wider
     )
     output = discover_relations(
@@ -304,7 +321,7 @@ def ordered_run(view, query, wider):
             dict(
                 configuration=config.model_dump(mode="json"),
                 body=dict(
-                    operation_version="11",
+                    operation_version=ScopedRelationsMethod.version,
                     contribution_operations=operations,
                     contributions=output["contributions"],
                     parse_detail=source_value({"formula_syntax": output["formula_diagnostics"]}),
@@ -327,6 +344,7 @@ def ordered_run(view, query, wider):
         },
         "context": {"items": view.items, "ancestors": view.ancestors, "pieces": view.pieces},
     }
+    report["_primary_layers"] = output["_primary_layers"]
     verify_inline_formula_report(report, source)
     return witness, report, source
 
@@ -408,6 +426,10 @@ def test_ordered_formula_witness_refuses_same_extent_or_changed_source_bytes():
     ],
 )
 def test_ordered_formula_witness_refuses_incomplete_or_ambiguous_source(control, outcome, count):
+    if control in {"foreign", "synthetic"}:
+        with pytest.raises(ValueError, match="native token text differs from literal source"):
+            ordered_run(*ordered_fixture(control=control))
+        return
     op, report, *_ = ordered_run(*ordered_fixture(control=control))
     assert (op["outcome"], op["inspected_count"], op["emitted_count"]) == (outcome, count, 0)
     assert any(
@@ -434,17 +456,17 @@ def test_ordered_witness_is_a_new_opt_in_method_contract(tmp_path):
 
     method_name = "structure.scoped_relations"
     default = registry(tmp_path).method(method_name)
-    assert default.version == "10"
+    assert default.version == "17"
     assert default.Config is ScopedRelationsConfig
-    assert "ordered_formula_witness" not in default.Config.model_fields
+    assert "ordered_formula_witness" in default.Config.model_fields
     _, report, _ = ordered_run(*ordered_fixture())
     (tmp_path / "methods.yaml").write_text(
         json.dumps({"configs": {method_name: {"witness": report["configuration"]}}})
     )
     selected = registry(tmp_path)
     method = selected.method(method_name)
-    assert method.version == "11"
-    assert method.Config is ScopedRelationsOrderedConfig
+    assert method.version == "17"
+    assert method.Config is ScopedRelationsConfig
     cfg = selected.overlay(method_name, "witness")
     run = SimpleNamespace(
         reader=SimpleNamespace(
@@ -487,8 +509,21 @@ def test_named_links_use_literal_anchors_and_never_choose_first_section():
     )
     view = source("\n".join(lines), labels=labels)
     items = {i["self_ref"]: dict(i, content_layer="body") for i in view.items}
+    view = replace(view, items=tuple(items.values()))
     passage = SimpleNamespace(start=0, end=len(view.text), scope="work", passage_id="chapter")
-    links = tuple(named_source_links(view.text, view.pieces, items, (passage,)))
+    from .navigation_fixture import primary_navigation
+
+    layers = primary_navigation(view)
+    links = tuple(
+        named_source_links(
+            view.text,
+            view.pieces,
+            items,
+            (passage,),
+            primary_layers=layers,
+            projection=view.ref.projection_digest,
+        )
+    )
 
     def literal(extent):
         return view.text[slice(*extent)] if extent is not None else None
@@ -507,7 +542,7 @@ def test_named_links_use_literal_anchors_and_never_choose_first_section():
 
 def test_retained_named_link_recipe_preserves_roles_and_refuses_inferred_endpoints():
     from corpus_structure.methods.source_preparation import prepare_source
-    from corpus_structure.methods.witnessed_source_links import match_named_source_links
+    from corpus_structure.semantic.constructions.navigation import match_named_source_links
     from corpus_structure.semantic.structural_products import StructuralPassage
 
     lines = (

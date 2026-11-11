@@ -21,15 +21,16 @@ from corpus_structure.evaluate.structural_assessment import (
     record_structural_reference_pass,
 )
 from corpus_structure.methods.m1_annotations import M1Annotations
-from corpus_structure.methods.scoped_relations import ScopedRelationsWithRoleClosure
+from corpus_structure.methods.scoped_relations import ScopedRelationsMethod
 from corpus_structure.methods.structural_products import (
-    StructuralComparisonWithRoleClosure,
+    StructuralComparisonMethod,
     StructuralDossierMethod,
 )
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
 from corpus_structure.orchestrate.runner import Graph, Step
 from corpus_structure.orchestrate.semantic import run_source_methods
+from corpus_structure.semantic.characterization import characterization_inputs
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.operations import OperationBinding
 from corpus_structure.semantic.query import read_snapshot
@@ -61,8 +62,14 @@ from corpus_structure.serve.source_decision_journey import (
 from corpus_structure.serve.structural_gaps import GapRequest, serve_structural_gap
 
 from .native_record_fixtures import private_source as private_source
-from .native_record_fixtures import private_source_options as private_source_options
+from .primary_native_support import stage_primary_layers
 from .witnessed_scenario_support import completed_component_case, completed_metadata
+
+
+@pytest.fixture
+def private_source_options():
+    return {"bundle_transform": characterization_inputs}
+
 
 LITERAL = "Clerks wait."
 POLICY = "independent-structural-comparison-1"
@@ -194,11 +201,12 @@ def test_protected_comparison_yields_detached_unconnected_sides(
             ),
         )
 
+    pins = stage_primary_layers(case, run, excerpts(case.run).sources)
     annotation = run(
         M1Annotations(),
         Stage.EXTRACT,
         excerpts(case.run).sources,
-        {},
+        {"characterization_layers": pins},
         "annotations",
     )
     frozen = excerpts(annotation["run_id"])
@@ -212,10 +220,14 @@ def test_protected_comparison_yields_detached_unconnected_sides(
         dependencies=("controlled-original",),
     )
     scoped = run(
-        ScopedRelationsWithRoleClosure(),
+        ScopedRelationsMethod(),
         Stage.SCOPE,
         scope.sources,
-        dict(inputs=scope.model_dump(mode="json"), structural_input_digest=scope.identity),
+        dict(
+            inputs=scope.model_dump(mode="json"),
+            structural_input_digest=scope.identity,
+            characterization_layers=pins,
+        ),
         "scoped",
     )
 
@@ -310,6 +322,7 @@ def test_protected_comparison_yields_detached_unconnected_sides(
             conn, set_id=set_id, pass_kind="C", actor="control-C", authored=body, parents=(a, b)
         )
     cfg = dict(
+        characterization_layers=pins,
         inputs=inputs.model_dump(mode="json"),
         structural_input_digest=inputs.identity,
         left_id="left",
@@ -317,9 +330,7 @@ def test_protected_comparison_yields_detached_unconnected_sides(
         left_reading=readings["left"].model_dump(mode="json"),
         right_reading=readings["right"].model_dump(mode="json"),
     )
-    candidate = run(
-        StructuralComparisonWithRoleClosure(), Stage.ASSEMBLE, inputs.sources, cfg, "candidate"
-    )
+    candidate = run(StructuralComparisonMethod(), Stage.ASSEMBLE, inputs.sources, cfg, "candidate")
     _, raw = report_row(candidate, "structure.compare")
     product = StructuralProductReport.model_validate(raw["structural_product"])
     assert structural_statement(product) == expected
@@ -333,7 +344,7 @@ def test_protected_comparison_yields_detached_unconnected_sides(
         policy_id=POLICY,
     )
     published = run(
-        StructuralComparisonWithRoleClosure(),
+        StructuralComparisonMethod(),
         Stage.ASSEMBLE,
         inputs.sources,
         cfg,

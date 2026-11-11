@@ -34,13 +34,19 @@ from corpus_structure.ingest import methods as ingest_methods
 from corpus_structure.methods.artifact_identity import ArtifactIdentityMethod
 from corpus_structure.methods.characterization import ComposeViewMethod
 from corpus_structure.methods.clause_classification import ClauseClassificationMethod
+from corpus_structure.methods.construction_characterization import (
+    ConstructionCharacterizationMethod,
+)
 from corpus_structure.methods.contextual_candidates import ContextualCandidatesWithNamedBindings
+from corpus_structure.methods.contextual_characterization import ContextualCharacterizationMethod
+from corpus_structure.methods.contextual_interpretation import ContextualInterpretationMethod
 from corpus_structure.methods.definition_applicability import (
     DefinitionApplicabilityMethod,
     DefinitionComponentsMethod,
 )
 from corpus_structure.methods.definition_declaration import DeclarationComponentsMethod
 from corpus_structure.methods.definition_terms import DefinitionTermsMethod
+from corpus_structure.methods.formal_evidence import FormalEvidenceMethod
 from corpus_structure.methods.interpretations import (
     AuthorSourceRecordsMethod,
     MeasurementInterpretationMethod,
@@ -48,13 +54,14 @@ from corpus_structure.methods.interpretations import (
 )
 from corpus_structure.methods.llm.agent_opus import AgentGeneral, AgentOpus
 from corpus_structure.methods.math import methods as math_methods
+from corpus_structure.methods.model_characterization import ModelCharacterizationMethod
+from corpus_structure.methods.native_evidence import NativeEvidenceMethod
 from corpus_structure.methods.scoped_relations import (
-    ScopedRelationsWithOrderedWitness,
-    ScopedRelationsWithRoleClosure,
+    ScopedRelationsMethod,
 )
 from corpus_structure.methods.structural_products import (
     ConditionQualificationMethod,
-    StructuralComparisonWithRoleClosure,
+    StructuralComparisonMethod,
     StructuralDossierMethod,
 )
 from corpus_structure.orchestrate.domain_methods import ConsolidateMethod, RulesMethod
@@ -112,15 +119,26 @@ class EvaluateStub:
 
 
 # The phase 0 methods, registered as their packages land (P0-I-1b, P0-I-2b, …).
+CHARACTERIZATION_METHODS: tuple[Any, ...] = (
+    ComposeViewMethod(),
+    NativeEvidenceMethod(),
+    FormalEvidenceMethod(),
+    ConstructionCharacterizationMethod(),
+    ContextualCharacterizationMethod(),
+    ModelCharacterizationMethod(),
+    ContextualInterpretationMethod(),
+)
+
+
 METHODS: tuple[Any, ...] = (
     *ingest_methods.METHODS,
     *math_methods.METHODS,
     AgentOpus(),
     AgentGeneral(),
-    StructuralComparisonWithRoleClosure(),
+    StructuralComparisonMethod(),
     StructuralDossierMethod(),
     ConditionQualificationMethod(),
-    ScopedRelationsWithRoleClosure(),
+    ScopedRelationsMethod(),
     ArtifactIdentityMethod(),
     DefinitionComponentsMethod(),
     DeclarationComponentsMethod(),
@@ -134,7 +152,7 @@ METHODS: tuple[Any, ...] = (
     ConsolidateMethod(),
     RulesMethod(),
     EvaluateStub(),
-    ComposeViewMethod(),
+    *CHARACTERIZATION_METHODS,
 )
 
 
@@ -142,18 +160,9 @@ def registry(pack: Path) -> MethodRegistry:
     """The phase 0 registry over the pack's `methods.yaml` (an absent file is an empty one)."""
     native_names = {method.name for method in ingest_methods.METHODS}
     file = load_methods(pack / "methods.yaml")
-    scoped = ScopedRelationsWithOrderedWitness()
-    selected_ordered_witness = any(
-        params.get("ordered_formula_witness") is not None
-        for params in file.configs.get(scoped.name, {}).values()
-    )
     methods = (
         *ingest_methods.native_methods(),
-        *(
-            scoped if selected_ordered_witness and method.name == scoped.name else method
-            for method in METHODS
-            if method.name not in native_names
-        ),
+        *(method for method in METHODS if method.name not in native_names),
     )
     return MethodRegistry(methods, file)
 

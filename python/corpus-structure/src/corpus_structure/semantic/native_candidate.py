@@ -611,7 +611,6 @@ def series_native_definitions(connection, *, include_selected=True):
     )
     from .native_consumer_native import (
         native_task_completion_sql,
-        predicate_interpretation_recipe_sql,
     )
 
     record_publication = (
@@ -854,16 +853,7 @@ def series_native_definitions(connection, *, include_selected=True):
     for name in (
         "private_declaration_enabled",
         "hanlp_seam_source_tokens",
-        "hanlp_unique_child",
-        "hanlp_srl_group",
-        "hanlp_srl_spans",
-        "hanlp_act_is_local",
-        "hanlp_native_role_is_exact",
-        "hanlp_chain_intro",
-        "hanlp_exact_chain",
         "validate_hanlp_v2_report",
-        "hanlp_cited_frame_matches",
-        "validate_declaration_chain_component",
     ):
         definitions.append(
             _task_call_definition(
@@ -874,12 +864,36 @@ def series_native_definitions(connection, *, include_selected=True):
                 schema="ops",
             )
         )
-    structural_sql = (
-        predicate_interpretation_recipe_sql()
-        + Path(__file__).with_name("sql").joinpath("structural_products.sql").read_text()
-    )
+    # SQL-language structural readers bind these primitive functions at CREATE
+    # time. Install the retained-source algebra before its structural consumers.
+    source_sql = native_task_completion_sql()
     for name in (
-        "predicate_interpretation_recipe",
+        "primary_characterization_layers",
+        "primary_characterization_node",
+        "primary_characterization_in_view",
+        "primary_characterization_child",
+        "primary_characterization_extents",
+        "primary_characterization_choices",
+        "predicate_primary_tokens",
+        "predicate_primary_member_matches",
+        "primary_navigation_role_extents",
+        "primary_navigation_role_text",
+        "primary_navigation_role_matches",
+        "primary_navigation_node",
+        "primary_formal_symbol_matches",
+    ):
+        definitions.extend(
+            _task_call_definitions(
+                connection,
+                source_sql,
+                name=name,
+                source="primary characterization inputs:forward",
+                schema="ops",
+                grants=(),
+            )
+        )
+    structural_sql = Path(__file__).with_name("sql").joinpath("structural_products.sql").read_text()
+    for name in (
         "validate_structural_source",
         "validate_structural_input",
         "resolve_retained_component",
@@ -887,6 +901,9 @@ def series_native_definitions(connection, *, include_selected=True):
         "resolve_retained_relationship_decision",
         "validate_component_targets",
         "component_semantic_target",
+        "artifact_primary_sources",
+        "artifact_primary_span",
+        "artifact_primary_reference_source_value",
         "artifact_alias_fields",
         "artifact_source_labels",
         "artifact_explicit_reference",
@@ -897,6 +914,11 @@ def series_native_definitions(connection, *, include_selected=True):
         "artifact_declared_relationships",
         "artifact_lexical_score",
         "validate_artifact_identity",
+        "comparison_primary_extent",
+        "comparison_primary_covered",
+        "comparison_primary_fields",
+        "comparison_primary_lexical",
+        "comparison_primary_succession",
         "structural_threshold_field",
         "structural_compare_lexical",
         "comparison_literal",
@@ -914,8 +936,6 @@ def series_native_definitions(connection, *, include_selected=True):
         "validate_definition_window_requests",
         "definition_role_candidates",
         "definition_model_components",
-        "definition_bound_span",
-        "definition_dependency_bindings",
         "clause_model_axis",
         "validate_clause_classification",
         "condition_role_citations",
@@ -953,35 +973,16 @@ def series_native_definitions(connection, *, include_selected=True):
         "table_correspondence_requests",
         "prepare_table_correspondence",
         "predicate_role_anchor_match",
-        "predicate_cue_host_matches",
-        "predicate_token_texts",
-        "predicate_cue_recipe_matches",
-        "predicate_cross_block_host_matches",
-        "predicate_lowered_condition",
-        "predicate_unlocated_role_matches",
-        "predicate_source_negations",
-        "predicate_source_negation",
-        "predicate_reading_layout",
-        "predicate_source_reading",
-        "predicate_argument_inventory",
-        "predicate_clipped_roles_match",
+        "validate_primary_named_links",
+        "validate_primary_source_navigation",
+        "validate_source_predicates_primary",
         "validate_source_predicates",
-        "ordered_formula_source",
-        "ordered_formula_report",
-        "validate_witnessed_formula_links",
-        "source_formula_recaps",
-        "named_link_rule_available",
-        "validate_named_source_links",
-        "named_link_nominal",
-        "named_link_initial_words",
-        "named_link_expected_groups",
-        "named_link_definition_subject",
-        "validate_named_annotation_links",
         "validate_scope_inheritance",
         "clause_model_concordance",
         "require_source_interpretation",
         "validate_source_contribution_report",
         "project_source_contributions",
+        "contextual_primary_named_cue",
         "contextual_identity_value",
         "contextual_nullable_value",
         "contextual_component_section",
@@ -993,7 +994,7 @@ def series_native_definitions(connection, *, include_selected=True):
         definitions.extend(
             _task_call_definitions(
                 connection,
-                native_task_completion_sql(),
+                source_sql,
                 name=name,
                 source="independent contributions:forward",
                 grants=tuple(
@@ -1019,7 +1020,12 @@ def series_native_definitions(connection, *, include_selected=True):
             source="structural definition scope:forward",
             schema="ops",
         )
-        for name in ("definition_scope_supported", "validate_definition_basis")
+        for name in (
+            "primary_structural_token_span",
+            "primary_structural_sentence_context",
+            "validate_primary_declaration_component",
+            "validate_definition_basis",
+        )
     )
     for name in (
         "record_feature_score",
@@ -1174,10 +1180,27 @@ def series_native_definitions(connection, *, include_selected=True):
         Path(__file__).with_name("sql").joinpath("characterization.sql").read_text()
     )
     for name, grants in (
+        ("validate_characterization_evidence", ()),
+        ("validate_characterization_support", ()),
         ("validate_characterization_selector", ()),
+        ("require_characterization_read_release", ()),
         ("validate_characterization_scope", ()),
         ("validate_characterization", ()),
         ("publish_characterization", (("corpus_sem_writer", "EXECUTE", False),)),
+        (
+            "read_characterization_inventory",
+            tuple(
+                (role, "EXECUTE", False)
+                for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
+            ),
+        ),
+        (
+            "read_primary_characterization",
+            tuple(
+                (role, "EXECUTE", False)
+                for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
+            ),
+        ),
         (
             "read_characterization_product",
             tuple(
@@ -2044,6 +2067,29 @@ def prepare_series_candidate(
                 WHERE descriptor->'observation' ? 'mapped_evidence_digest'
                 ORDER BY task_id, product_key
             """)
+            )
+        if any(
+            item.schema == "kb" and item.table_name == "characterization_source_scope"
+            for item in created
+        ):
+            # Rebuild only derived scope metadata from immutable admitted products;
+            # original layer bytes, releases and source identities stay untouched.
+            candidate.upgrade_ops.ops.extend(
+                (
+                    ExecuteSQLOp(publisher),
+                    ExecuteSQLOp("""
+                INSERT INTO kb.characterization_source_scope
+                    (task_id,product_key,content_digest,source_view_id,body)
+                SELECT p.task_id,p.product_key,p.content_digest,
+                       (pin->>'source_view_id')::bigint,pin
+                FROM ops.characterization_product p
+                CROSS JOIN LATERAL jsonb_array_elements(
+                    p.payload->'source_scope'->'source_views') pin
+                ORDER BY p.task_id,p.product_key,(pin->>'source_view_id')::bigint
+                ON CONFLICT DO NOTHING
+                """),
+                    ExecuteSQLOp(restore),
+                )
             )
     return candidate, authoring
 

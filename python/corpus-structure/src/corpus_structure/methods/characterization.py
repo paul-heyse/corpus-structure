@@ -27,7 +27,10 @@ class ComposeViewConfig(BaseModel):
     characterization_base_document: dict[str, Any] | None = None
     characterization_source_scope: dict[str, Any] | None = None
     characterization_layers: tuple[dict[str, Any], ...] = ()
-    characterization_profile: Literal["source_only", "selected_layers"] = "source_only"
+    characterization_active_layers: tuple[dict[str, Any], ...] | None = None
+    characterization_profile: Literal["source_only", "selected_layers", "full_characterization"] = (
+        "source_only"
+    )
 
     @model_validator(mode="after")
     def exact_selection(self):
@@ -36,6 +39,17 @@ class ComposeViewConfig(BaseModel):
         pins = [ProductReference(**value) for value in self.characterization_layers]
         if len(set(pins)) != len(pins):
             raise ValueError("composition requires distinct exact layer pins")
+        active = (
+            pins
+            if self.characterization_active_layers is None
+            else [ProductReference(**value) for value in self.characterization_active_layers]
+        )
+        if len(set(active)) != len(active) or not set(active) <= set(pins):
+            raise ValueError(
+                "active layer selection must be a distinct subset of dependency closure"
+            )
+        if bool(active) != bool(pins):
+            raise ValueError("analytical composition requires active layers")
         if (self.characterization_profile == "source_only") != (not pins):
             raise ValueError("source_only requires no layers; selected_layers requires layers")
         return self
@@ -102,8 +116,15 @@ class ComposeViewMethod:
                 release_id = layer.payload["release_id"]
                 if release_id not in releases:
                     releases[release_id] = reader.characterization_release(release_id)
+            active = (
+                pins
+                if cfg.characterization_active_layers is None
+                else tuple(
+                    ProductReference(**value) for value in cfg.characterization_active_layers
+                )
+            )
             coverage = {}
-            for pin in pins:
+            for pin in active:
                 for row in layers[pin].payload["coverage"]:
                     coverage[canonical_bytes(row)] = row
             view = validate_view(
@@ -114,6 +135,7 @@ class ComposeViewMethod:
                     "release_id": reader.prepared.release_id,
                     "source_scope": scope,
                     "layers": [pin.values() for pin in pins],
+                    "active_layers": [pin.values() for pin in active],
                     "profile": cfg.characterization_profile,
                     "coverage": list(coverage.values()),
                 },

@@ -264,6 +264,7 @@ def _structural_predecessors(report):
                 component.declaration_chain.parser
                 for component in report.definition_components.components
                 if component.declaration_chain is not None
+                and component.declaration_chain.parser is not None
             )
         )
     if report.dossier is not None:
@@ -288,23 +289,74 @@ def _dossier_relationship_refs(report):
 
 
 def capture_review_relations(conn, selection: ReviewSelection, cancellation: OperationCancellation):
+    """Capture analytical reports together with their exact primary-layer closure."""
+    from .primary_characterization_replay import capture_primary_contract, capture_primary_layers
+
+    budget = PublishedReadBudget(selection.max_source_rows, selection.max_bytes)
+    seen, contracts, source_ids = set(), set(), set()
+    capture_state = {
+        name: set() for name in ("sources", "documents", "producers", "releases", "proofs")
+    }
+    for name, raw_row in _capture_review_relations(
+        conn, selection, cancellation, budget, capture_state
+    ):
+        row: dict[str, Any] = dict(raw_row)
+        yield name, row
+        if name == "reports" and selection.completeness == "selected_source_closure":
+            if (row.get("configuration") or {}).get("characterization_layers"):
+                producer_task = table("ops.task")
+                release_id = conn.scalar(
+                    select(producer_task.c.release_id).where(
+                        producer_task.c.id == row["origin_task_id"]
+                    )
+                )
+                contract = capture_primary_contract(conn, release_id, contracts, budget)
+                if contract is not None:
+                    yield "characterization_contracts", contract
+            for kind, value in capture_primary_layers(
+                conn,
+                (row.get("configuration") or {}).get("characterization_layers", ()),
+                run_id=row["origin_run_id"],
+                seen=seen,
+                contracts=contracts,
+                budget=budget,
+            ):
+                yield kind, value
+                if kind == "characterization_layers":
+                    source_ids.update(value["payload"]["source_scope"]["source_view_ids"])
+    if source_ids - capture_state["sources"]:
+        yield from _capture_sources(
+            conn,
+            source_ids,
+            budget,
+            capture_state["sources"],
+            capture_state["documents"],
+            capture_state["producers"],
+            cancellation,
+            seen_releases=capture_state["releases"],
+            seen_proofs=capture_state["proofs"],
+        )
+
+
+def _capture_review_relations(
+    conn, selection: ReviewSelection, cancellation: OperationCancellation, budget, capture_state
+):
     """One caller-owned snapshot; shared source and report objects captured once.
 
     Existing inventory admission is bounded before hydration. Source closure has a
     separate cumulative native-read budget and never initializes analytical layout.
     """
     seen_reports: set[int] = set()
-    seen_sources: set[int] = set()
+    seen_sources = capture_state["sources"]
     coordinate_versions: dict[int, int] = {}
-    seen_releases: set[str] = set()
-    seen_documents: set[int] = set()
-    seen_producers: set[int] = set()
-    seen_proofs = set()
+    seen_releases = capture_state["releases"]
+    seen_documents = capture_state["documents"]
+    seen_producers = capture_state["producers"]
+    seen_proofs = capture_state["proofs"]
     validated_external: set[str] = set()
     predecessor_readers = {}
     origin_metadata = {}
     scope_worklists = {}
-    budget = PublishedReadBudget(selection.max_source_rows, selection.max_bytes)
     journey_views: dict[int, PreparedSourceView | None] = {
         request.opportunity.source.source_view_id: None
         for request in selection.source_decision_journeys
@@ -1008,7 +1060,7 @@ def _capture_definition_annotations(conn, report, seen_reports, budget):
                 origin.c.id == identity,
                 origin.c.release_id == source.release_id,
                 method.c.name == "extract.m1_annotations",
-                method.c.version == "2",
+                method.c.version == "3",
             )
         )
         budget.preflight(conn, query)
@@ -2582,6 +2634,8 @@ def _verify_comparison_closure(root, manifest, products, structural_scopes, scop
     )
     from corpus_structure.semantic.structural_products import StructuralProductReport
 
+    from .primary_characterization_replay import primary_layers_for_report, retained_primary_layers
+
     origins = {item[2] for item in products}
     captured = {}
     for raw in _detached_relation(root, manifest, "reports"):
@@ -2607,7 +2661,7 @@ def _verify_comparison_closure(root, manifest, products, structural_scopes, scop
         version = body.get("operation_version")
         if (
             not isinstance(config, dict)
-            or version not in {"2", "3", "4", "5"}
+            or version != StructuralComparisonMethod.version
             or raw.get("project_id") != origin_project
             or raw.get("origin_run_id") != origin_run
             or raw.get("runtime_fingerprint") != runtime
@@ -2621,12 +2675,6 @@ def _verify_comparison_closure(root, manifest, products, structural_scopes, scop
             or StructuralProductReport.model_validate(body.get("structural_product")) != report
         ):
             raise ValueError("comparison differs from its registered producer result")
-        if version == "2":
-            if comparison.left_reading is not None or (
-                {"left_reading", "right_reading"} & config.keys()
-            ):
-                raise ValueError("archived singleton comparison has a current reading binding")
-            continue
         configured = StructuralComparisonConfig.model_validate(config)
         if (
             comparison.left_reading is None
@@ -2638,22 +2686,23 @@ def _verify_comparison_closure(root, manifest, products, structural_scopes, scop
             or configured.right_reading != comparison.right_reading
         ):
             raise ValueError("comparison differs from its registered predicate readings")
-        reports.append((report, version))
+        reports.append((report, raw))
 
     requests = [
         (report, reference)
-        for report, _version in reports
+        for report, _raw in reports
         for reference in (report.comparison.left_reading, report.comparison.right_reading)
     ]
     payloads = _retained_contribution_payloads(root, manifest, requests, scopes, inventory)
-    for (report, version), (left_payload, right_payload) in zip(
+    retained_primary = retained_primary_layers(root, manifest) if reports else None
+    for (report, raw), (left_payload, right_payload) in zip(
         reports, zip(payloads, payloads, strict=True), strict=True
     ):
         comparison = report.comparison
         passages = {passage.passage_id: passage for passage in report.inputs.passages}
         sources = {source.identity: source for source in report.inputs.sources}
         left, right = passages[comparison.left_id], passages[comparison.right_id]
-        predicate_version = version if version in {"4", "5"} else None
+        primary, _ = primary_layers_for_report(root, manifest, raw, retained=retained_primary)
         expected = compare_clauses(
             report.inputs,
             left=read_retained_clause(
@@ -2661,18 +2710,21 @@ def _verify_comparison_closure(root, manifest, products, structural_scopes, scop
                 sources[left.source_ref],
                 comparison.left_reading,
                 left_payload,
-                predicate_version=predicate_version,
+                predicate_version=StructuralComparisonMethod.predicate_version,
+                primary_layers=primary,
             ),
             right=read_retained_clause(
                 right,
                 sources[right.source_ref],
                 comparison.right_reading,
                 right_payload,
-                predicate_version=predicate_version,
+                predicate_version=StructuralComparisonMethod.predicate_version,
+                primary_layers=primary,
             ),
             left_reading=comparison.left_reading,
             right_reading=comparison.right_reading,
-            typed_groups=version in {"4", "5"},
+            typed_groups=True,
+            primary_layers=primary,
         )
         if comparison != expected.comparison:
             raise ValueError("comparison differs from its exact retained predicate evidence")
@@ -2872,6 +2924,7 @@ def _verify_artifact_nomination_closure(
 ):
     from types import SimpleNamespace
 
+    from corpus_structure.core.evidence import config_key
     from corpus_structure.core.method import UnitRef
     from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.methods.artifact_identity import (
@@ -2880,6 +2933,8 @@ def _verify_artifact_nomination_closure(
     )
     from corpus_structure.semantic.proposals import native_source_frame
     from corpus_structure.semantic.structural_products import StructuralProductReport
+
+    from .primary_characterization_replay import primary_layers_for_report, retained_primary_layers
 
     origin_ids = {item[2] for item in artifacts}
     captured = {}
@@ -2893,7 +2948,7 @@ def _verify_artifact_nomination_closure(
     expected, requested = [], []
     for index, _selected, origin, origin_run, origin_project, runtime, report in artifacts:
         product = report.artifact_identity
-        if product is None:
+        if product is None or product.protocol != "artifact-identity-5":
             raise ValueError("artifact nomination closure requires an exact artifact product")
         raw = captured.get(origin, {})
         body = raw.get("body") or {}
@@ -2906,7 +2961,13 @@ def _verify_artifact_nomination_closure(
             or raw.get("runtime_fingerprint") != runtime
             or body.get("release_id") != structural_scopes[index]["release_id"]
             or body.get("method") != ArtifactIdentityMethod.name
-            or body.get("operation_version") not in {"3", ArtifactIdentityMethod.version}
+            or body.get("operation_version") != ArtifactIdentityMethod.version
+            or body.get("outcome") != "produced"
+            or body.get("configuration_hash")
+            != config_key(ArtifactIdentityMethod.name, ArtifactIdentityMethod.version, config)
+            or body.get("configuration_hash") != raw.get("config_hash")
+            or not raw.get("input_hash")
+            or body.get("input_hash") != raw["input_hash"]
             or not isinstance(declared, list)
             or len(declared) != len(refs)
             or sorted(declared, key=canonical_bytes) != sorted(refs, key=canonical_bytes)
@@ -2918,7 +2979,7 @@ def _verify_artifact_nomination_closure(
         cfg = ArtifactIdentityConfig.model_validate(config)
         if cfg.inputs != report.inputs:
             raise ValueError("artifact configuration differs from exact selected cohort inputs")
-        expected.append((report, cfg, body["operation_version"]))
+        expected.append((report, cfg, raw))
         requested.extend((report, n.relationship) for n in product.external_nominations)
 
     payloads = dict(
@@ -2937,21 +2998,46 @@ def _verify_artifact_nomination_closure(
         if row["source_view_id"] in selected_ids
     }
 
+    if not selected_ids <= sources.keys():
+        raise ValueError("artifact replay lacks its captured original source closure")
+
     def source_frame(inputs, source_ref):
         selected = next(s for s in inputs.sources if s.identity == source_ref)
-        return native_source_frame(
-            _retained_review_source_view(sources[selected.source_view_id]), ()
-        )
+        view = _retained_review_source_view(sources[selected.source_view_id])
+        if (
+            view.ref.native_product.task_id,
+            view.ref.native_product.product_key,
+            view.ref.native_product.content_digest,
+            view.ref.projection_digest,
+            view.ref.recipe_digest,
+        ) != (
+            selected.native_task_id,
+            selected.native_product_key,
+            selected.native_content_digest,
+            selected.projection_digest,
+            selected.recipe_digest,
+        ):
+            raise ValueError("artifact replay source differs from its exact configured reference")
+        return native_source_frame(view, ())
 
-    context = SimpleNamespace(
-        check_active=lambda: None,
-        reader=SimpleNamespace(
-            structural_source_frame=source_frame, retained_source_contribution=payloads.__getitem__
-        ),
-    )
-    for report, cfg, version in expected:
+    retained_primary = retained_primary_layers(root, manifest) if expected else None
+    for report, cfg, raw in expected:
+        primary, _ = primary_layers_for_report(root, manifest, raw, retained=retained_primary)
+
+        def characterization_layers(references, primary=primary):
+            if len(references) != len(primary) or set(references) != set(primary):
+                raise ValueError("artifact replay requested another primary layer selection")
+            return primary
+
+        context = SimpleNamespace(
+            check_active=lambda: None,
+            reader=SimpleNamespace(
+                structural_source_frame=source_frame,
+                retained_source_contribution=payloads.__getitem__,
+                characterization_layers=characterization_layers,
+            ),
+        )
         method = ArtifactIdentityMethod()
-        method.version = version
         (result,) = method.run(
             (SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key=report.inputs.identity)),),
             cfg,
@@ -2990,7 +3076,7 @@ def _verify_predicate_closure(root, manifest):
     """Replay predicate evidence against the retained annotations and physical source pieces."""
     from jsonschema import Draft202012Validator
 
-    from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
+    from corpus_structure.ingest.annotations import AnnotationProfile
     from corpus_structure.ingest.sentences import SentenceConfig
     from corpus_structure.methods.predicate_contributions import (
         INCOMPATIBLE_QUALIFIER,
@@ -3033,26 +3119,43 @@ def _verify_predicate_closure(root, manifest):
         for row in _detached_relation(root, manifest, "sources")
         if row["source_view_id"] in source_ids
     }
+    from .primary_characterization_replay import retained_primary_layers
+
+    retained_primary = retained_primary_layers(root, manifest)
     for row in scoped:
-        (producer_id,) = _predicate_annotation_origin_ids(row["body"])
-        producer = producers.get(producer_id)
-        if (
+        if row["body"].get("operation_version") not in {"17"}:
+            raise ValueError(
+                "obsolete predicate semantics require regeneration from retained source"
+            )
+        producer_ids = _predicate_annotation_origin_ids(row["body"])
+        if len(producer_ids) > 1:
+            raise ValueError("predicate evidence mixes annotation producers")
+        producer_id = next(iter(producer_ids), None)
+        producer = producers.get(producer_id) if producer_id is not None else None
+        if producer_id is not None and (
             producer is None
             or producer["origin_unit_id"] != row["origin_unit_id"]
             or producer["project_id"] != row["project_id"]
-            or producer["body"].get("operation_version") != "2"
+            or producer["body"].get("operation_version") != "3"
         ):
             raise ValueError("predicate evidence lacks the exact annotation producer")
         source = sources[row["origin_unit_id"]]
         view = _retained_review_source_view(source)
         ref = view.ref
         frame = native_source_frame(view, ())
-        details = source_python(producer["body"]["parse_detail"])
+        details = source_python(producer["body"]["parse_detail"]) if producer else {}
         configuration = row["configuration"]
         profile = AnnotationProfile(
             SentenceConfig.model_validate(configuration.get("sentences", {}))
         )
-        annotation = restore_annotations(details["annotations"], source=frame, profile=profile)
+        from corpus_structure.methods.native_evidence_layers import retained_annotation_products
+
+        from .primary_characterization_replay import primary_layers_for_report
+
+        primary, _ = primary_layers_for_report(
+            root, manifest, row, source_view_id=view.ref.id, retained=retained_primary
+        )
+        annotation = retained_annotation_products(primary, view, profile)
         configured = configuration.get("inputs")
         passages = None
         if configured is not None:
@@ -3069,23 +3172,13 @@ def _verify_predicate_closure(root, manifest):
             max_chars=max(1, len(view.text)),
             max_pieces=max(1, len(view.pieces)),
         )
-        method_version = row["body"].get("operation_version")
-        version = {
-            "4": "2",
-            "5": "3",
-            "6": "3",
-            "7": "3",
-            "8": "3",
-            "9": "4",
-            "10": "5",
-            "11": "5",
-        }.get(method_version)
+        version = "6"
         predicate_operations = [
             op
             for op in row["body"].get("contribution_operations", ())
             if op["question"] in {"source_predicate_frames", "source_predicate_interpretation"}
         ]
-        if version is None or {op["operation_version"] for op in predicate_operations} != {version}:
+        if {op["operation_version"] for op in predicate_operations} != {version}:
             raise ValueError("unsupported retained predicate replay version")
         replay = []
         released_qualifier = row["body"]["release_id"] in qualifier_schemas
@@ -3517,8 +3610,10 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
             verify_model_observation_closure,
             verify_projected_definition_roles,
         )
+        from .primary_characterization_replay import retained_primary_layers
         from .table_correspondence_replay import verify_table_correspondence_closure
 
+        retained_primary_layers(root, manifest)
         _verify_predicate_closure(root, manifest)
         verify_table_correspondence_closure(root, manifest)
         verify_inline_formula_closure(root, manifest)

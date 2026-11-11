@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Callable
 from importlib import import_module
@@ -196,6 +197,26 @@ def load_maverick(assets: Path, device: str) -> tuple[Payload, Inference]:
     return {
         **_native_metadata(model, model.encoder),
         "encoder": model.encoder_hf_model_name,
+        "native_configuration": json.dumps(
+            {
+                "encoder": model.encoder.config.to_dict(),
+                "head": {
+                    name: value
+                    for name, value in vars(model).items()
+                    if not name.startswith("_")
+                    and (value is None or type(value) in {str, int, float, bool})
+                },
+                "predict": {
+                    "singletons": False,
+                    "predefined_mentions": "per-request",
+                    "speakers": None,
+                },
+            },
+            sort_keys=True,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            allow_nan=False,
+        ),
         "coordinate_unit": "inclusive_canonical_token",
         "native_coordinate_unit": "inclusive_subtoken",
         "bounds": {"post_tokenizer_tokens": _MAVERICK_TOKENS, "mentions": _MAVERICK_MENTIONS},
@@ -409,6 +430,17 @@ def load_dipo(assets: Path, device: str) -> tuple[Payload, Inference]:
         **_native_metadata(parser, parser.encoder),
         "head": "DMRSTParser",
         "encoder": parser.config.model_name,
+        "native_configuration": json.dumps(
+            {
+                "parser": parser.config.to_params().as_dict(quiet=True),
+                "encoder": parser.encoder.config.to_dict(),
+                "predict": {"break_at_paragraphs": False, "mode": "learned"},
+            },
+            sort_keys=True,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            allow_nan=False,
+        ),
         "stride": parser.stride,
         "tokenizer_max_length": parser.tokenizer.model_max_length,
         "encoder_max_positions": parser.encoder.config.max_position_embeddings,

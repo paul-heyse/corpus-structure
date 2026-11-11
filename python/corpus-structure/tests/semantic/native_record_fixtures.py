@@ -303,6 +303,8 @@ def build_record_source(
     sibling_originals=(),
     monkeypatch=None,
     project_id="private-records",
+    existing_project=False,
+    source_tag="",
 ):
     """Publish the selected pure preparation and acquire one leased record task."""
     bundle, dependencies, profile = preparation.preparation_inputs
@@ -311,6 +313,8 @@ def build_record_source(
     original, recipe = b"%PDF-1.7\nprivate source record fixture", b'{"recipe":"private-records-1"}'
     if project_id != "private-records":
         original += b"\n" + project_id.encode()
+    if source_tag:
+        original += b"\n" + source_tag.encode()
     doc = DoclingDocument(name="Two independent native cells")
     section = doc.add_group(label=GroupLabel.SECTION, name="Measurements")
     native_table = doc.add_table(
@@ -393,14 +397,23 @@ def build_record_source(
         prepared = prepare_release(bundle, dependencies, profile)
     with semantic_db_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, prepared)
-        conn.execute(insert(table("data.project")).values(project_id=project_id))
-        conn.execute(
-            insert(table("data.realization")).values(
-                project_id=project_id,
-                realization_id=realization,
-                release_id=prepared.release_id,
+        if existing_project:
+            actual = conn.scalar(
+                select(table("data.realization").c.release_id).where(
+                    table("data.realization").c.project_id == project_id,
+                    table("data.realization").c.realization_id == realization,
+                )
             )
-        )
+            assert actual == prepared.release_id
+        else:
+            conn.execute(insert(table("data.project")).values(project_id=project_id))
+            conn.execute(
+                insert(table("data.realization")).values(
+                    project_id=project_id,
+                    realization_id=realization,
+                    release_id=prepared.release_id,
+                )
+            )
     sibling_projection = "\n".join(originals)
     sibling_pieces = []
     offset = 0

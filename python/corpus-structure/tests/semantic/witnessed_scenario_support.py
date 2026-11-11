@@ -27,8 +27,8 @@ from corpus_structure.evaluate.structural_assessment import (
     record_structural_reference_pass,
 )
 from corpus_structure.methods.contextual_candidates import (
-    ContextualCandidateConfig,
-    ContextualCandidates,
+    ContextualCandidatesWithQueryContext,
+    ContextualQueryConfig,
     ProducerRelationshipRecipe,
 )
 from corpus_structure.methods.contextual_embeddings import EncodedVector, EncoderResult, identity
@@ -302,7 +302,7 @@ def completed_relationship_case(case, monkeypatch, tmp_path, *, overlapping_reci
         completed.view,
         completed.selected_task,
     )
-    cfg = ContextualCandidateConfig(
+    parameters = dict(
         source_dependency_method="private.records",
         target_components=(target,),
         relationship_constraints=(
@@ -318,8 +318,8 @@ def completed_relationship_case(case, monkeypatch, tmp_path, *, overlapping_reci
     )
 
     if overlapping_recipe is not None:
-        cfg = cfg.model_copy(
-            update={
+        parameters.update(
+            {
                 "relationship_constraints": (
                     RelationshipConstraint(
                         "specialization", ("specializes",), "subject", "object", "one"
@@ -550,6 +550,41 @@ def completed_relationship_case(case, monkeypatch, tmp_path, *, overlapping_reci
             controlled_interpretation,
         )
 
+    # The current literal-only operation freezes its exact actual carriers. Settle
+    # their native publication before constructing the retrieval configuration;
+    # the later graph selects/reuses that same ordinary source producer.
+    population = semantic.run_source_methods(
+        case.writer,
+        project_id="private-records",
+        prepared=case.prepared,
+        binding=OperationBinding(
+            case.prepared.release_id, "wce-components", component_revision, b"{}"
+        ),
+        registry=MethodRegistry(
+            [ActualOccurrenceProducer()],
+            MethodsFile(configs={"private.records": {"default": {}}}),
+        ),
+        graph=Graph(((Stage.EXTRACT, (Step("private.records/default"),)),), policy_propose=False),
+        method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+    )
+    assert population.status == "source_ready"
+    with case.writer.connect() as conn:
+        tasks, results = table("ops.task"), table("ops.task_result")
+        body = conn.execute(
+            select(results.c.body)
+            .select_from(tasks)
+            .join(results, results.c.task_id == tasks.c.id)
+            .where(tasks.c.run_id == population.run_id)
+        ).scalar_one()
+    cfg = ContextualQueryConfig(
+        **parameters,
+        required_occurrence_ids=tuple(
+            sorted(
+                {row["occurrence_id"] for row in body["contributions"] if "occurrence_id" in row}
+            )
+        ),
+    )
+
     def produce_relationship(*, local_semantic_admission=()):
         return semantic.run_source_methods(
             case.writer,
@@ -559,7 +594,7 @@ def completed_relationship_case(case, monkeypatch, tmp_path, *, overlapping_reci
                 case.prepared.release_id, "wce-components", component_revision, b"{}"
             ),
             registry=MethodRegistry(
-                [ActualOccurrenceProducer(), ContextualCandidates()],
+                [ActualOccurrenceProducer(), ContextualCandidatesWithQueryContext()],
                 MethodsFile(
                     configs={
                         "private.records": {"default": {}},

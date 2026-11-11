@@ -206,3 +206,30 @@ def test_term_context_order_matches_indexed_id_order(capture):
     row = response.model_dump()["items"][0]
     assert [role["local_id"] for role in row["roles"]] == ["a-role", "z-role"]
     assert [group["local_id"] for group in row["choices"]] == ["a-choice", "z-choice"]
+
+
+def test_default_analysis_excludes_provenance_only_layers(capture):
+    from copy import deepcopy
+
+    view, layers, request = capture
+    old_pin = dict(task_id=4, product_key="old-layer", content_digest="c" * 64)
+    old = deepcopy(next(iter(layers.values())))
+    old["annotations"][0]["local_id"] = "old-topic"
+    layers[4, "old-layer", "c" * 64] = old
+    view["active_layers"] = list(view["layers"])
+    view["layers"].append(old_pin)
+    request = request.model_copy(
+        update={"content_digest": sha256(canonical_bytes(view)).hexdigest(), "view": "annotations"}
+    )
+    current = inspect_captured_characterization(view, layers, request)
+    assert {row["annotation"]["local_id"] for row in current.model_dump()["items"]} == {
+        "topic",
+        "other",
+    }
+    history = inspect_captured_characterization(
+        view, layers, request.model_copy(update={"layer_key": "old-layer"})
+    )
+    assert {row["annotation"]["local_id"] for row in history.model_dump()["items"]} == {
+        "old-topic",
+        "other",
+    }

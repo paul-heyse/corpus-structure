@@ -240,7 +240,10 @@ def test_known_input_exclusions_follow_participating_endpoints(
         original=Path(document["original_path"]).read_bytes(),
         paragraphs=("Alice is here.",),
     )
+    from .primary_native_support import bind_primary_agent_run
+
     with semantic_writer_engine.begin() as conn:
+        run, config = bind_primary_agent_run(conn, run, prepared, (view.ref.id,), config)
         locator = view.ref.key
         (task,) = queue_agent(
             conn,

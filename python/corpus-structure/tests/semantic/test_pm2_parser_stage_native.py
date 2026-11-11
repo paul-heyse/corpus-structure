@@ -43,8 +43,11 @@ def private_source_options(parser_samples):
     not os.environ.get("CORPUS_PM2_NATIVE_TEST_ASSETS"), reason="locked native assets are opt-in"
 )
 def test_alternate_domain_parser_run_retains_siblings_after_profile_refusal(
-    private_source, parser_samples
+    private_source, parser_samples, tmp_path
 ):
+    from corpus_structure.methods import pm2_native
+    from corpus_structure.methods.pm2_worker import open_pm2_worker
+
     case = private_source
     with case.writer.begin() as conn:
         complete_contributions(
@@ -71,9 +74,28 @@ def test_alternate_domain_parser_run_retains_siblings_after_profile_refusal(
     ).sources
     scopes: list[dict[str, Any]] = []
     start = 0
+    settings = Settings()
     for provider, literal in zip(("hanlp", "maverick", "dipo"), parser_samples, strict=True):
-        output = EVIDENCE / f"2026-11-08_pm2-foundation/raw/{provider}-cuda.jsonl"
-        profile = json.loads(output.read_text().splitlines()[0])["startup"]
+        # Capture the actual installed locked model's startup contract. Historical
+        # investigation profiles cannot stand in for today's admitted runtime/assets.
+        profile_file = tmp_path / f"{provider}-cuda.json"
+        profile_file.write_text(
+            json.dumps(
+                {
+                    "provider": provider,
+                    "device": "cuda",
+                    "assets": os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"],
+                }
+            )
+        )
+        with open_pm2_worker(
+            python=ROOT / f"services/pm2-{provider}/.venv/bin/python",
+            script=Path(pm2_native.__file__),
+            profile=profile_file,
+            device="cuda",
+            nemotron_endpoint=settings.nemotron.endpoint,
+        ) as worker:
+            profile = dict(worker.startup)
         scopes.append(
             dict(
                 source=source.model_dump(mode="json"),
@@ -96,7 +118,7 @@ def test_alternate_domain_parser_run_retains_siblings_after_profile_refusal(
             scopes=[*scopes, refused],
         )
     )
-    result = run_parsers(case.writer, Settings(), request)
+    result = run_parsers(case.writer, settings, request)
     with read_snapshot(case.writer) as conn:
         page = serve_contributions(
             conn,
@@ -111,9 +133,9 @@ def test_alternate_domain_parser_run_retains_siblings_after_profile_refusal(
         row["semantic_type"] for population, row in rows if population == "contribution"
     }
     operations = [row for population, row in rows if population == "operation"]
-    assert {"linguistic.predicate_frame", "maverick.cluster", "dipo.tree"} <= semantic_types, (
-        operations
-    )
+    assert {"linguistic.predicate_frame", "maverick.cluster", "dipo.tree"} <= semantic_types, [
+        {key: row.get(key) for key in ("question", "outcome", "reason")} for row in operations
+    ]
     assert any(
         row["outcome"] == "failed" and "differs from the admitted profile" in row["reason"]
         for row in operations

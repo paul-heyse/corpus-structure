@@ -34,7 +34,7 @@ from corpus_structure.methods.math.scope import Binders
 
 from .native import NativeDomainRule
 
-VERSION = "9"
+VERSION = "10"
 M09, M11, M13 = "extract.math", "normalize.formula", "resolve.symbol_scope"
 
 
@@ -58,6 +58,7 @@ class _Config(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     math: MathFromPack = None
+    characterization_layers: tuple[dict[str, Any], ...] = ()
 
     def section(self) -> MathSection:
         return self.math or MathSection()
@@ -134,6 +135,8 @@ class _PerSourceView:
     resources = Resources(worker="cpu", batch_size=4)
 
     def select(self, run: SourceRunContext, cfg: Any) -> Iterable[UnitRef]:
+        if not cfg.characterization_layers:
+            raise ValueError("mathematical source methods require exact frozen primary layer pins")
         return tuple(
             UnitRef(TaskUnitType.SOURCE_VIEW, ref.id, ref.key) for ref in run.reader.source_views()
         )
@@ -196,7 +199,7 @@ class ExtractMath(_PerSourceView):
 
 
 class SymbolScope(_PerSourceView):
-    version = "7"  # partial recognition cannot establish complete declaration context
+    version = "8"  # scope language and mathematical syntax are primary retained products
     """`resolve.symbol_scope` (M13; module doc)."""
 
     name = M13

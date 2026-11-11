@@ -789,6 +789,20 @@ def test_missing_empty_source_frame_refuses_until_hash_verified_backfill(
                     options=original["options"],
                     code_commit="source-frame-reuse",
                 )
+                from corpus_structure.semantic._operation_calls import select_source_view
+                from corpus_structure.semantic._operation_ids import SourceViewId
+                from corpus_structure.semantic.source_views import selected_source_views
+
+                # Agent and primary capture runs are separate; retain the exact
+                # already-authorized original views before reusing their agent task.
+                for selected in selected_source_views(conn, origin_run):
+                    select_source_view(
+                        conn,
+                        run_id=run,
+                        source_run_id=origin_run,
+                        source_view_id=SourceViewId(selected.id),
+                        projection_context=prepared,
+                    )
                 originals = (
                     conn.execute(
                         select(table("ops.task"))

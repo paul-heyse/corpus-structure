@@ -155,12 +155,20 @@ def acquire_pack(pack: Path, *, execution: ExecutionModelInputs | None = None) -
     if len(statement_classes) > 1:
         raise PackInputError("pack requires one explicit SourceStatement subclass")
     trusted_model = core.parent
+    from .characterization import _construction_model
+
     trusted = tuple(
-        SourceArtifact(name, (trusted_model / name).read_bytes())
+        SourceArtifact(
+            name,
+            _construction_model((trusted_model / name).read_bytes())
+            if name == "characterization.yaml"
+            else (trusted_model / name).read_bytes(),
+        )
         for name in (
             "agent.yaml",
             "observations.yaml",
             "characterization.yaml",
+            "characterization-questions.yaml",
             "record-references.yaml",
             "record-policy.yaml",
             "analytics.yaml",
@@ -353,6 +361,7 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
         model_content=content["observations.yaml"],
         metric_content=content["metrics.yaml"],
         characterization_content=content["characterization.yaml"],
+        characterization_question_content=content.get("characterization-questions.yaml"),
     )
     bundle, deps = analytical_inputs(
         bundle,

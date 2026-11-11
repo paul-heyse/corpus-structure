@@ -34,7 +34,13 @@ from corpus_structure.semantic.operations import (
 from corpus_structure.semantic.proposals import native_source_frame
 
 from .native_record_fixtures import private_source as private_source
-from .native_record_fixtures import private_source_options as private_source_options
+
+
+@pytest.fixture
+def private_source_options():
+    from corpus_structure.semantic.characterization import characterization_inputs
+
+    return dict(bundle_transform=characterization_inputs)
 
 
 def _wire(value):
@@ -185,8 +191,15 @@ def test_native_admission_refuses_resealed_factor_mask_and_missing_policy(privat
     from .test_observations import malform_source_fields
 
     case = private_source
+    from .primary_native_support import publish_primary_layers
+
+    with case.writer.begin() as conn:
+        primary_pins = publish_primary_layers(conn, case.run, case.prepared, (case.view,))
     method = ScopedRelationsMethod()
-    config = ScopedRelationsConfig(interpretation_mode="correspondence")
+    config = ScopedRelationsConfig(
+        interpretation_mode="correspondence",
+        characterization_layers=tuple(pin.values() for pin in primary_pins),
+    )
     selected = MethodRegistry(
         (method,), MethodsFile(configs={method.name: {"correspondence": config.model_dump()}})
     ).resolve(method.name, "correspondence")
@@ -213,6 +226,7 @@ def test_native_admission_refuses_resealed_factor_mask_and_missing_policy(privat
         )
         (claim,) = claim_tasks(conn, run_id=case.run, config_id=registered, holder="table-worker")
         reader = BoundReader(conn, case.run, case.prepared)
+        reader.characterization_selection = primary_pins
         view = reader.source_view(case.view)
         (unavailable,) = execute_table_correspondence(
             (), reader.prepare_table_correspondence(case.view, (), 1)
@@ -221,7 +235,16 @@ def test_native_admission_refuses_resealed_factor_mask_and_missing_policy(privat
         assert unavailable["question"] == f"source correspondence availability for view {case.view}"
         assert "request" not in unavailable["local_interpretation"]
         frame = native_source_frame(view, ())
-        output = discover_relations(frame)
+        from corpus_structure.ingest.annotations import AnnotationProfile
+        from corpus_structure.methods.m1_annotations import consume_annotations
+
+        annotations, errors, _ = consume_annotations(reader, view, AnnotationProfile())
+        assert not errors
+        output = discover_relations(
+            frame,
+            annotations=annotations,
+            primary_layers=reader.characterization_layers(primary_pins),
+        )
         subject, original_target = output["contributions"]
         target = deepcopy(original_target)
         target["value"] = source_value({**source_python(target["value"]), "role": "header"})

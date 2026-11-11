@@ -2,7 +2,7 @@
 
 ## Enriched-document analysis layers
 
-**Accepted target, Proposed until implemented · 2026-11-10.** A full exact published document
+**Implemented; bounded functional scope Tested · 2026-11-11.** A full exact published document
 is the immutable base of an enriched view. SourceViews are scoped projections beneath that base;
 native containment, reading order, pages, items, tables, figures and formulas retain their original
 custody. A view selects immutable analysis layers through generic product pins, without copying
@@ -23,7 +23,16 @@ product of alternatives. Family scope/outcome distinguishes unexamined, unavaila
 failed, partial and successful empty. Readable publication remains private analysis; knowledge
 admission and scientific truth retain their separate authorities.
 
-> Decision: [ADR-0081](../adr/0081-enriched-document-analysis-layers.md)
+A view retains its complete `layers` dependency closure and explicitly selects `active_layers`
+from it. Coverage describes active analyses. A cited old layer remains available as evidence
+without adopting its old interpretations. Archived views retain their original released meaning.
+
+Functional closure and the applicable full-campaign/replacement union are owned by the
+[TC coordinator](../plans/text-characterization_2026-11-10.md). Independent semantic
+assessment and full-book qualification remain TC-10/11; improved linguistic accuracy and
+performance remain Proposed qualitative benefits.
+
+> Decision: [ADR-0081](../adr/0081-enriched-document-analysis-layers.md), [ADR-0082](../adr/0082-explicit-analysis-selection.md)
 
 ## Witnessed component target
 

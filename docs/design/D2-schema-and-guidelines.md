@@ -2,7 +2,7 @@
 
 ## Released characterization contracts
 
-**Accepted target, Proposed until implemented · 2026-11-10.** The trusted
+**Implemented; bounded functional scope Tested · 2026-11-11.** The trusted
 `model/semantic/characterization.yaml` module is explicitly acquired and archived with semantic
 release inputs. Reserved module names cannot be supplied with another meaning. Generated boundary
 types and validation consume this owned model; untyped parse-detail JSON is not its replacement.
@@ -23,6 +23,10 @@ the supported characterization format. A new released construction rule can ther
 an unchanged native-evidence layer without rerunning inference or republishing its provenance.
 Exact source identity, declared inputs and compatible retained contracts still apply; this is
 not a general migration or historical-code execution mechanism.
+
+The [TC coordinator](../plans/text-characterization_2026-11-10.md) owns the applicable
+functional/provider union. Independent semantic assessment and full-book qualification remain
+TC-10/11; no measured linguistic-accuracy or performance claim follows.
 
 > Decision: [ADR-0081](../adr/0081-enriched-document-analysis-layers.md)
 

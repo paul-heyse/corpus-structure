@@ -1,51 +1,18 @@
-"""M13 `resolve.symbol_scope` as a pure function (ingest and math §3.9; D4 M13).
+"""Mathematical binding and scope assignment from retained primary source cues.
 
-M13 reads the rendition's segments and sentences, M09's mentions and relations and M11's values
-(their detected kind and parse outcome). It never parses math.
-
-- **The Doc.** Per block that holds sentences, the words-and-spaces Doc of M03
-  (`ingest.sentences.make_doc`), its sentence starts preset from the stored sentence segments, so
-  the Doc cannot disagree with the rendition's sentences. No spaCy component runs.
-- **Math tokens.** Each inline math word carries `Token._.math` (registered once per process
-  behind `has_extension`): its span's `math_kind` (M11's) and the occurrences it binds. A span
-  binds only when M11 read it `ok` or `ambiguous` with a `math_kind`:
-  - a formula with one free, non-subscript occurrence and no `equals` binds that occurrence;
-  - an equation whose left side holds one such occurrence binds it (a definition);
-  - a list binds every such occurrence;
-  - a membership binds its `in_set` heads;
-  - a relation binds the head of its first relation (its left side).
-- **Binding sites** come from patterns compiled from the pack's binder lexicon (D2 §12.1
-  `binders`): `Matcher(validate=True)` for sentence-initial binders and for a clause binder
-  followed by a math token; `PhraseMatcher(attr="LOWER")` for section-wide phrases, from
-  `nlp.make_doc(phrase)`; a reopen pattern bound to the binder's sentence start (a sentence-initial
-  binder, up to three words, a reopen word); and definitional equalities anywhere. A bound
-  occurrence of a math token is a site when its sentence starts with a binder or holds a
-  section-wide phrase, when a clause binder precedes the token, or when the token is a definition.
-- **Extents and assignment** (D4 M13 rules 1-3): a site inside an annotation unit (the
-  `annotation_unit` member property) binds to the unit, unless its sentence holds a section-wide
-  phrase; a site outside units binds from its position to the end of the innermost section-like
-  segment; a reopen links to the symbol's previous section-level site; every non-constant mention
-  goes to the innermost site at or before it whose extent contains it, and with none it is
-  `unresolved`.
-
-The paragraph rule (a standalone claim-bearing paragraph is a statement extent) is omitted in phase
-0 (OPEN-D4-5). `DependencyMatcher` is not used.
+Native token/sentence and language recognition is owned by constructions.math_scope.
+This kernel combines those facts with mathematical mentions/relations/values and
+native section topology. It performs no tokenization, language matching or parsing.
 """
 
 from __future__ import annotations
 
 import bisect
 import dataclasses
-import functools
 import heapq
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal, Protocol
-
-from pydantic import BaseModel, ConfigDict, Field
-from spacy.language import Language
-from spacy.matcher import Matcher, PhraseMatcher
-from spacy.tokens import Doc, Token
+from typing import Literal, Protocol
 
 from corpus_structure.core.evidence import MacroDef, Segment
 from corpus_structure.core.keys import symbol_form
@@ -57,15 +24,9 @@ from corpus_structure.core.vocab import (
     ScopeExtent,
     SegmentKind,
 )
-from corpus_structure.ingest.sentences import (
-    Block,
-    SentenceConfig,
-    TextLayout,
-    block_of,
-    make_doc,
-    pipeline,
-)
 from corpus_structure.methods.math.spans import MathRelation, SpanValue, SymbolMention
+from corpus_structure.semantic.constructions.math_scope import Binders as Binders
+from corpus_structure.semantic.constructions.math_scope import MathScopeReadings
 
 
 class ScopeContent(Protocol):
@@ -76,20 +37,6 @@ class ScopeContent(Protocol):
     @property
     def document(self) -> Segment: ...
     def text(self, segment: Segment) -> str: ...
-
-
-MAX_GAP = 3  # words allowed between a sentence-initial binder and a reopen word
-
-
-class Binders(BaseModel):
-    """The pack's binder lexicon (D2 §12.1 `methods.yaml` `binders`)."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    sentence_initial: tuple[str, ...] = Field(min_length=1)
-    clause: tuple[str, ...] = ()
-    reopen: tuple[str, ...] = ()
-    section_wide: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,67 +71,6 @@ class Scope:
     @property
     def reopens(self) -> BindingSite | None:
         return self.site.reopens if self.site is not None else None
-
-
-def _register() -> None:
-    if not Token.has_extension("math"):
-        Token.set_extension("math", default=None)
-    if not Token.has_extension("is_math"):
-        Token.set_extension("is_math", getter=lambda t: t._.math is not None)
-
-
-@functools.cache
-def _matchers(nlp: Language, binders: Binders) -> tuple[Matcher, PhraseMatcher]:
-    _register()
-    initial = [w.lower() for w in binders.sentence_initial]
-    matcher = Matcher(nlp.vocab, validate=True)
-    matcher.add("INITIAL", [[{"IS_SENT_START": True, "LOWER": {"IN": initial}}]])
-    if binders.clause:
-        clause = [w.lower() for w in binders.clause]
-        matcher.add("CLAUSE", [[{"LOWER": {"IN": clause}}, {"_": {"is_math": True}}]])
-    if binders.reopen:
-        reopen = [w.lower() for w in binders.reopen]
-        matcher.add(
-            "REOPEN",
-            [
-                [
-                    {"IS_SENT_START": True, "LOWER": {"IN": initial}},
-                    {"OP": f"{{0,{MAX_GAP}}}"},
-                    {"LOWER": {"IN": reopen}},
-                ]
-            ],
-        )
-    phrases = PhraseMatcher(nlp.vocab, attr="LOWER")
-    if binders.section_wide:
-        phrases.add("SECTION_WIDE", [nlp.make_doc(p) for p in binders.section_wide])
-    return matcher, phrases
-
-
-def segment_block(content: ScopeContent, segment: Segment) -> Block:
-    """The block M03 split, rebuilt from the segment by M03's own helper."""
-    markup = segment.attrs.get("markup")
-    return block_of(
-        content.canonical_text,
-        segment.start,
-        segment.end,
-        ((c.kind, c.start, c.end) for c in segment.children),
-        [m for m in markup if isinstance(m, dict)] if isinstance(markup, list) else [],
-    )
-
-
-def _blocks(content: ScopeContent) -> list[tuple[Segment, list[Segment]]]:
-    """Every block holding sentences, with its sentences in order."""
-    out = []
-    for segment in content.document.walk():
-        sentences = [c for c in segment.children if c.kind is SegmentKind.SENTENCE]
-        if sentences:
-            out.append((segment, sentences))
-    return out
-
-
-def _innermost(segments: Sequence[Segment], pos: int) -> Segment | None:
-    inside = [s for s in segments if s.start <= pos < s.end]
-    return min(inside, key=lambda s: s.end - s.start) if inside else None
 
 
 def _enclosing_at(segments: Sequence[Segment], positions: Iterable[int]) -> dict[int, Segment]:
@@ -289,19 +175,11 @@ def resolve_scopes(
     mentions: Sequence[SymbolMention],
     relations: Sequence[MathRelation],
     macros: Mapping[str, MacroDef],
-    binders: Binders,
-    sentences: SentenceConfig,
     *,
-    text_layouts: Mapping[tuple[int, int], TextLayout] | None = None,
-    text_policy: Any = None,
+    primary_scope: MathScopeReadings,
     sections_by_position: Mapping[int, Segment] | None = None,
 ) -> list[Scope]:
     """Every non-constant mention's scope: its binding site and the site it reopens, or none."""
-    from corpus_structure.semantic.analysis_contracts import prepare_text_policy
-
-    policy = prepare_text_policy() if text_policy is None else text_policy
-    nlp = pipeline(sentences)
-    matcher, phrases = _matchers(nlp, binders)
     tokens = math_tokens(values, mentions, relations)
     segments = list(content.document.walk())
     units = [s for s in segments if s.kind in ANNOTATION_UNIT]
@@ -321,21 +199,42 @@ def resolve_scopes(
     ):
         raise ValueError("declared section topology does not cover every mention")
     sites: list[BindingSite] = []
-    for block, block_sentences in _blocks(content):
-        sites += _sites(
-            content,
-            block,
-            block_sentences,
-            tokens,
-            nlp,
-            matcher,
-            phrases,
-            unit_at,
-            section_at,
-            macros,
-            text_layouts.get((block.start, block.end)) if text_layouts is not None else None,
-            policy.recipe,
-        )
+    if primary_scope.complete:
+        for at, info in tokens.items():
+            sentence_span = next(
+                (span for span in primary_scope.sentences if span[0] <= at < span[1]), None
+            )
+            if sentence_span is None or not info.bound:
+                continue
+            sentence = Segment(
+                kind=SegmentKind.SENTENCE, start=sentence_span[0], end=sentence_span[1]
+            )
+            flags = primary_scope.flags(at)
+            rules = tuple(
+                rule
+                for rule in ("initial", "clause", "definition", "section_wide")
+                if rule in flags or (rule == "definition" and info.definition)
+            )
+            if not rules:
+                continue
+            for mention in info.bound:
+                unit = unit_at.get(mention.start)
+                if unit is not None and "section_wide" not in flags:
+                    extent, scope, a, b = ScopeExtent.STATEMENT, unit, unit.start, unit.end
+                else:
+                    scope = section_at.get(mention.start) or content.document
+                    extent = (
+                        ScopeExtent.DOCUMENT
+                        if scope.kind is SegmentKind.DOCUMENT
+                        else ScopeExtent.SECTION
+                    )
+                    a, b = mention.start, scope.end
+                symbol = symbol_form(content.canonical_text[mention.start : mention.end], macros)
+                sites.append(
+                    BindingSite(
+                        mention, symbol, sentence, extent, scope, a, b, rules, "reopen" in flags
+                    )
+                )
     sites.sort(key=lambda s: s.mention.start)  # stable: page order, then creation
     sites = _with_reopens(sites)
     by_symbol: dict[str, list[BindingSite]] = {}
@@ -354,84 +253,6 @@ def resolve_scopes(
         for symbol, points in positions_by_symbol.items()
     }
     return [Scope(m, symbol, assignments[symbol].get(m.start)) for m, symbol in mention_symbols]
-
-
-def _sites(
-    content: ScopeContent,
-    block: Segment,
-    block_sentences: list[Segment],
-    tokens: Mapping[int, MathToken],
-    nlp: Language,
-    matcher: Matcher,
-    phrases: PhraseMatcher,
-    unit_at: Mapping[int, Segment],
-    section_at: Mapping[int, Segment],
-    macros: Mapping[str, MacroDef],
-    layout: TextLayout | None = None,
-    recipe: str = "canonical-token-layout-1",
-) -> list[BindingSite]:
-    doc: Doc = make_doc(
-        nlp, segment_block(content, block), layout, start=block.start, recipe=recipe
-    )
-    starts = {s.start - block.start for s in block_sentences}
-    for token in doc[1:]:
-        token.is_sent_start = token.idx in starts
-    for token in doc:
-        info = tokens.get(block.start + token.idx)
-        if info is not None and token.tag_ == "NNP":
-            token._.math = info
-    flags: dict[int, set[str]] = {}
-    clause_tokens: set[int] = set()
-    for match_id, start, end in matcher(doc):
-        rule = nlp.vocab.strings[match_id]
-        flags.setdefault(doc[start].sent.start, set()).add(rule)
-        if rule == "CLAUSE":
-            clause_tokens.add(end - 1)
-    for _match_id, start, _end in phrases(doc):
-        flags.setdefault(doc[start].sent.start, set()).add("SECTION_WIDE")
-    stored = sorted(block_sentences, key=lambda s: s.start)
-    stored_starts = [s.start for s in stored]
-    out = []
-    for sent in doc.sents:
-        found = flags.get(sent.start, set())
-        for token in sent:
-            info: MathToken | None = token._.math
-            if info is None or not info.bound:
-                continue
-            rules = []
-            if "INITIAL" in found:
-                rules.append("initial")
-            if token.i in clause_tokens:
-                rules.append("clause")
-            if info.definition:
-                rules.append("definition")
-            section_wide = "SECTION_WIDE" in found
-            if section_wide:
-                rules.append("section_wide")
-            if not rules:
-                continue
-            at = block.start + token.idx
-            k = bisect.bisect_right(stored_starts, at) - 1
-            sentence = stored[k] if k >= 0 else stored[0]
-            for m in info.bound:
-                unit = unit_at.get(m.start)
-                if unit is not None and not section_wide:
-                    extent, scope, a, b = ScopeExtent.STATEMENT, unit, unit.start, unit.end
-                else:
-                    scope = section_at.get(m.start) or content.document
-                    extent = (
-                        ScopeExtent.DOCUMENT
-                        if scope.kind is SegmentKind.DOCUMENT
-                        else ScopeExtent.SECTION
-                    )
-                    a, b = m.start, scope.end
-                symbol = symbol_form(content.canonical_text[m.start : m.end], macros)
-                out.append(
-                    BindingSite(
-                        m, symbol, sentence, extent, scope, a, b, tuple(rules), "REOPEN" in found
-                    )
-                )
-    return out
 
 
 def _with_reopens(sites: Sequence[BindingSite]) -> list[BindingSite]:

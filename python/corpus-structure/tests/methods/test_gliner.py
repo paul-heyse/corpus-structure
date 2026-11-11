@@ -1,7 +1,7 @@
 import json
 import os
 import shutil
-from dataclasses import replace
+from dataclasses import asdict, replace
 from hashlib import sha256
 from multiprocessing.connection import Connection
 from multiprocessing.process import BaseProcess
@@ -176,6 +176,19 @@ def test_production_child_loop_continues_after_native_preparation_refusal(profil
         (report,) = worker.extract(pack, (GlinerInput("two", "b" * 64, "empty"),))
         assert worker.pid == first_pid and not worker.closed
         assert report.resident_reused and report.raw == {"entities": {"term": []}}
+        from corpus_structure.methods.model_observation import installed_policy, request_digest
+
+        inference = installed_policy()[0]["inference"]
+        for policy in ("nested", "allow"):
+            item = GlinerInput(policy, "c" * 64, "empty", "text.model_characterization/1:cue")
+            (overlapping,) = worker.extract(pack, (item,), overlap_policy=policy)
+            assert worker.pid == first_pid and overlapping.resident_reused
+            assert overlapping.computation == request_digest(
+                pack, asdict(worker.profile), (item,), 0.5, policy, False, inference
+            )
+            assert overlapping.computation != request_digest(
+                pack, asdict(worker.profile), (item,), 0.5, policy, True, inference
+            )
     finally:
         worker.close()
 

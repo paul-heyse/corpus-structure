@@ -263,6 +263,8 @@ class FinalizationConnection:
     def scalar(self, statement):
         from corpus_structure.semantic.metadata import table
 
+        if list(statement.selected_columns) == [table("ops.run").c.options]:
+            return {}
         assert list(statement.selected_columns) == [table("data.project").c.active_release_id]
         return None
 

@@ -2,27 +2,48 @@
 
 ## Primary characterization operation boundary
 
-**Accepted target, Proposed until implemented · 2026-11-10.** Characterization operations
+**Implemented; bounded functional scope Tested · 2026-11-11.** Characterization operations
 produce attributed immutable layers over exact source-document/projection pins through the
 existing source-observation and task owners. D1/D2 define term, role, choice, support and coverage
 meaning; producers supply native evidence or released witnessed constructions rather than making
 downstream consumers reinterpret provider-private labels. One invocation may answer multiple
 family questions; a term or semantic kind does not require a separate task or process.
 
-TC-01–02 delivers contracts and retention, plus a real released source-only view-composition
-method over authentic published document pins. That method advertises its weaker scope and
-performs no NLP. Later linguistic/formal/contextual producers are separately delivered operations.
+TC-01–02 supplies contracts, retention and source-only view composition. TC-03–09 supplies native,
+formal, construction, contextual, model and contextual-evaluation operations over the same document.
+Demand execution, analytical source preparation and optional ingest enrichment freeze their source, configuration, runtime,
+artifact and dependency identities before inference. Active analysis selection is distinct from
+retained dependency closure. Source-only composition advertises its weaker scope and performs no NLP.
 Test-only admitted producers may publish independently authored fixtures through protected native
 completion; ordinary users receive no arbitrary-layer upload route. Neither fixture publication
 nor source-only composition qualifies linguistic quality or knowledge admission.
+
+The default analytical command graph captures source first, fulfills the primary demand and then
+freezes exact enriched-view pins before running consumers. It carries only the effective consumers'
+named declarations into the primary construction configuration; conflicting definitions refuse.
+Custom graphs supply their explicit primary inputs. The source-only command remains a capture
+boundary. Natural-unit preparation shares one scoped provider session, and original source selections
+survive later analytical runs. Reports and immutable run options expose their selected view pins.
+
+Primary GLiNER cue extraction selects nested decoding explicitly. The resident worker accepts
+its supported flat/nested/allow modes independently of evaluation purpose; overlap mode and purpose
+both enter request identity and authenticated reports. This permits overlapping private language
+evidence without treating inference as protected evaluation. Scientific admission remains governed
+by its own released operation and input contract.
+
+Functional closure and the applicable full-campaign/replacement union are owned by the
+[TC coordinator](../plans/text-characterization_2026-11-10.md). Independent semantic
+assessment and full-book qualification remain TC-10/11; improved linguistic accuracy and
+performance remain Proposed qualitative benefits.
 
 > Decision: [ADR-0081](../adr/0081-enriched-document-analysis-layers.md)
 
 ## Progressive parser composition
 
 **Implemented; integrated corpus qualification in progress,2026-11-05.**
-`extract.m1_annotations` version2 can select one exact source projection; its original version1
-configuration contract remains immutable. `extract.m1_candidates` version7 selects primary
+`extract.m1_annotations` version3 projects frozen primary characterizations for one exact source
+projection. Earlier source bytes retain their original contracts; current execution requires the
+primary inputs. `extract.m1_candidates` version7 selects primary
 native regions before context widening and model work. Unrequested regions retain unknown
 coverage, rather than becoming inspected absence. Existing resident GLiNER calls compose
 located entities, mention-conditioned attributes and directed relations; equal text at

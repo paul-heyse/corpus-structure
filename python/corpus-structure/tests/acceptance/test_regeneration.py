@@ -107,7 +107,7 @@ def retained_integrated_cli(semantic_db_engine, tmp_path, monkeypatch, domain, s
     [("statistics", "acceptance-native"), ("toy", "transfer")],
 )
 def test_retained_integrated_cli_lifecycle(
-    semantic_db_engine, tmp_path, monkeypatch, domain, scope_name
+    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch, domain, scope_name
 ):
     case = retained_integrated_cli(semantic_db_engine, tmp_path, monkeypatch, domain, scope_name)
     settings, domains, pin = case.settings, case.domains, case.pin
@@ -130,7 +130,22 @@ def test_retained_integrated_cli_lifecycle(
     result = CliRunner().invoke(app, args, obj=CliState(settings_factory=lambda: settings))
     assert result.exit_code == 0, (result.output, result.exception)
     report = json.loads(result.stdout)
+    assert report["characterization_views"]
     assert report["status"] == "prepared" and report["selected_generation"] is None
+    from corpus_structure.orchestrate.characterization import characterization_sources
+    from corpus_structure.semantic.characterization_store import read_view
+    from corpus_structure.semantic.product_reference import ProductReference
+
+    with semantic_writer_engine.connect() as conn:
+        source_runs = {
+            source.run_id
+            for selected in report["characterization_views"]
+            for reference in (ProductReference(**selected),)
+            for source in characterization_sources(
+                conn, reference, read_view(conn, reference), project_id="acceptance"
+            )
+        }
+    assert report["run_id"] not in source_runs
     with semantic_db_engine.connect() as conn:
         project = conn.execute(select(table("data.project"))).mappings().one()
         assert project["selected_result_run_id"] is None and project["active_release_id"] is None
@@ -166,7 +181,7 @@ def test_retained_integrated_cli_lifecycle(
             select(configs.c.params)
             .join(tasks, tasks.c.method_config_id == configs.c.id)
             .join(methods, methods.c.id == configs.c.method_id)
-            .where(tasks.c.run_id == report["run_id"], methods.c.name == "ingest.pdf_integrated")
+            .where(tasks.c.run_id.in_(source_runs), methods.c.name == "ingest.pdf_integrated")
         ).scalar_one()
         assert source_config["integrated_product"] == pin
         assert source_config["native_product"] is None
@@ -509,11 +524,16 @@ def test_initial_source_diagnostic_binding_failure_preserves_native_outcome(
     monkeypatch.setattr(IngestPdfIntegrated, "run", run)
     result = CliRunner().invoke(app, case.args, obj=CliState(lambda: case.settings))
     assert result.exit_code == int(source_fails), result.output
-    assert calls == ["ingest.pdf_integrated"] and len(binding_calls) == 1
+    assert calls == ["ingest.pdf_integrated"]
+    assert len({call["run_id"] for call in binding_calls}) == len(binding_calls)
     if source_fails:
+        assert len(binding_calls) == 1
         assert result.exception is primary
     else:
-        assert json.loads(result.stdout)["status"] == "prepared"
+        assert len(binding_calls) > 1
+        report = json.loads(result.stdout)
+        assert report["status"] == "prepared"
+        assert report["run_id"] == binding_calls[-1]["run_id"]
     assert get_contextvars() == before_context
     (item,) = ResultStore(case.settings.ci_results).list(None, 20, "regenerate").results
     assert item.outcome == ("failed" if source_fails else "passed")
@@ -521,12 +541,27 @@ def test_initial_source_diagnostic_binding_failure_preserves_native_outcome(
     assert "observation_bindings" not in item.details
     assert "Native run observation binding unavailable: OSError" in result.stderr
     with semantic_db_engine.connect() as conn:
-        row = conn.execute(
-            select(table("ops.run").c.status).where(
-                table("ops.run").c.id == binding_calls[0]["run_id"]
+        runs = table("ops.run")
+        states = dict(
+            conn.execute(
+                select(runs.c.id, runs.c.status).where(
+                    runs.c.id.in_([call["run_id"] for call in binding_calls])
+                )
             )
-        ).one()
-        assert row.status == ("failed" if source_fails else "running")
+            .tuples()
+            .all()
+        )
+        if source_fails:
+            assert states[binding_calls[0]["run_id"]] == "failed"
+        else:
+            assert states[binding_calls[0]["run_id"]] == "finished"
+            primary_runs = [call["run_id"] for call in binding_calls[1:-1]]
+            assert primary_runs and all(states[identity] == "running" for identity in primary_runs)
+            tasks = table("ops.task")
+            assert set(
+                conn.scalars(select(tasks.c.status).where(tasks.c.run_id.in_(primary_runs)))
+            ) <= {"done", "empty", "reused"}
+            assert states[binding_calls[-1]["run_id"]] == "running"
 
 
 @pytest.mark.parametrize(
@@ -577,3 +612,31 @@ def test_source_pin_requires_the_typed_contract(tmp_path, option):
     )
     assert result.exit_code != 0
     assert "source product pin" in result.stdout
+
+
+def test_repeated_default_preparation_reuses_exact_primary_custody(
+    semantic_db_engine, tmp_path, monkeypatch
+):
+    from corpus_structure.orchestrate.phase0 import CHARACTERIZATION_METHODS
+
+    case = retained_integrated_cli(
+        semantic_db_engine, tmp_path, monkeypatch, "statistics", "acceptance-native"
+    )
+    runner = CliRunner()
+    state = CliState(settings_factory=lambda: case.settings)
+    first = runner.invoke(app, case.args, obj=state)
+    assert first.exit_code == 0, (first.output, first.exception)
+    original = json.loads(first.stdout)
+    assert original["characterization_views"]
+
+    def no_repeated_inference(*args, **kwargs):
+        pytest.fail("unchanged automatic preparation repeated a primary producer")
+
+    for method in CHARACTERIZATION_METHODS:
+        if method.name != "text.compose_view":
+            monkeypatch.setattr(type(method), "run", no_repeated_inference)
+    repeated = runner.invoke(app, case.args, obj=state)
+    assert repeated.exit_code == 0, (repeated.output, repeated.exception)
+    current = json.loads(repeated.stdout)
+    assert current["run_id"] != original["run_id"]
+    assert current["characterization_views"] == original["characterization_views"]

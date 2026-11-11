@@ -447,7 +447,7 @@ def _assessed_scope(value: Row, row: Row) -> Row:
 
 _PREDICATE_FRAMES = "source_predicate_frames"
 _PREDICATE_INTERPRETATION = "source_predicate_interpretation"
-_PREDICATE_ROLE_VERSIONS = {"3", "4", "5"}
+_PREDICATE_ROLE_VERSIONS = {"3", "4", "5", "6"}
 _PREDICATE_PRODUCTS = {
     "structural.predicate_frame": ("predicate_frame", _PREDICATE_FRAMES),
     "structural.predicate_cue": ("predicate_cue", _PREDICATE_FRAMES),

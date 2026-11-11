@@ -92,6 +92,12 @@ classes:
             )
         )
         dependencies = observation_dependencies(dependencies, yaml.safe_dump(declared).encode())
+    if characterization:
+        from corpus_structure.semantic.interpretation_questions import (
+            characterization_question_dependencies,
+        )
+
+        dependencies = characterization_question_dependencies(dependencies)
     from corpus_structure.semantic.releases import persist_release
     from corpus_structure.semantic.types import PreparationProfile
 

@@ -12,23 +12,12 @@ from corpus_structure.semantic.contributions import operation_identity
 from corpus_structure.semantic.observations import source_python
 
 
-def verify_inline_formula_report(report, source):
-    from corpus_structure.methods.scoped_relations import (
-        ORDERED_FORMULA_WITNESS_METHOD_VERSION,
-        ScopedRelationsConfig,
-        ScopedRelationsOrderedConfig,
-    )
+def verify_inline_formula_report(report, source, *, primary_layers=None):
+    from corpus_structure.methods.scoped_relations import ScopedRelationsConfig
 
     body = report["body"]
     configuration = report["configuration"]
-    # The registry stores floats as decimal strings. Replay only the input
-    # binding and parser settings, whose validators accept that representation.
-    config_type = (
-        ScopedRelationsOrderedConfig
-        if body.get("operation_version") == ORDERED_FORMULA_WITNESS_METHOD_VERSION
-        else ScopedRelationsConfig
-    )
-    cfg = config_type.model_validate(
+    cfg = ScopedRelationsConfig.model_validate(
         {
             key: configuration[key]
             for key in (
@@ -41,9 +30,7 @@ def verify_inline_formula_report(report, source):
             if key in configuration
         }
     )
-    ordered_formula_witness = (
-        cfg.ordered_formula_witness if isinstance(cfg, ScopedRelationsOrderedConfig) else None
-    )
+    ordered_formula_witness = cfg.ordered_formula_witness
     source_id = source["source_view_id"]
     selection = None
     if cfg.inputs is not None:
@@ -78,6 +65,8 @@ def verify_inline_formula_report(report, source):
             {item["self_ref"]: item for item in context["items"]},
             selection,
             max_chars=cfg.max_formula_chars,
+            primary_layers=primary_layers,
+            projection=ref["projection_digest"],
         )
     )
     detail = source_python(body["parse_detail"])
@@ -85,10 +74,12 @@ def verify_inline_formula_report(report, source):
         d for d in detail["formula_syntax"] if d.get("input_policy") == INLINE_FORMULA_POLICY
     ]
     actual = [row for row in body["contributions"] if row["operation_key"] == op_key]
-    if body.get("operation_version") in {"6", "7", "8", "9", "10", "11", "12"}:
+    if body.get("operation_version") in {"17"}:
         from .witnessed_source_link_replay import verify_named_links, verify_witnessed_links
 
-        verify_witnessed_links(report, source, pin, cfg.inputs, ordered_formula_witness)
+        verify_witnessed_links(
+            report, source, pin, cfg.inputs, ordered_formula_witness, primary_layers=primary_layers
+        )
         if body["operation_version"] == "6":
             verify_named_links(report, source, pin, cfg.inputs)
     if not equations and not operations and not diagnostics and not actual:
@@ -120,7 +111,13 @@ def verify_inline_formula_report(report, source):
             # Unavailable or timed-out syntax attests no occurrence. Replaying
             # successful syntax alone avoids treating a later fast run as historical evidence.
             continue
-        symbols, result = inline_symbols(text, equation, seconds=cfg.formula_seconds)
+        symbols, result = inline_symbols(
+            text,
+            equation,
+            seconds=cfg.formula_seconds,
+            primary_layers=primary_layers,
+            projection=ref["projection_digest"],
+        )
         if result != "parsed":
             raise ValueError("inline formula syntax could not be replayed")
         for symbol in symbols:
@@ -143,7 +140,7 @@ def verify_inline_formula_report(report, source):
             for op in body["contribution_operations"]
             if op["question"] == QUESTION
         }
-        if body.get("operation_version") in {"6", "7", "8", "9", "10", "11", "12"}
+        if body.get("operation_version") in {"17"}
         else set()
     )
     formula_ids = {row["contribution_id"] for row in actual}
@@ -212,8 +209,7 @@ def verify_inline_formula_closure(root, manifest):
         row
         for row in all_reports.values()
         if row.get("method") == "structure.scoped_relations"
-        and (row.get("body") or {}).get("operation_version")
-        in {"5", "6", "7", "8", "9", "10", "11", "12"}
+        and (row.get("body") or {}).get("operation_version") in {"17"}
         and (row.get("body") or {}).get("outcome") in {"produced", "empty"}
     ]
     if not reports:
@@ -227,7 +223,7 @@ def verify_inline_formula_closure(root, manifest):
     joined_releases = {
         report["body"]["release_id"]
         for report in reports
-        if report["body"]["operation_version"] == "12"
+        if report["body"]["operation_version"] == "17"
     }
     policies = (
         {
@@ -240,15 +236,28 @@ def verify_inline_formula_closure(root, manifest):
     )
     if set(policies) != joined_releases:
         raise ValueError("joined named links lack their archived release policy")
+    from .primary_characterization_replay import retained_primary_layers
+
+    retained_primary = retained_primary_layers(root, manifest)
     for report in reports:
         source = sources.get(report["origin_unit_id"])
         if source is None:
             raise ValueError("inline formula verification lacks exact retained source")
-        verify_inline_formula_report(report, source)
-        if report["body"]["operation_version"] in {"7", "8", "9", "10", "11", "12"}:
+        from .primary_characterization_replay import primary_layers_for_report
+
+        primary, _ = primary_layers_for_report(
+            root,
+            manifest,
+            report,
+            source_view_id=source["source_view_id"],
+            retained=retained_primary,
+        )
+        verify_inline_formula_report(report, source, primary_layers=primary)
+        if report["body"]["operation_version"] in {"17"}:
             verify_annotated_named_links(
                 report,
                 source,
                 all_reports,
                 native_piece_policy=policies.get(report["body"]["release_id"]),
+                primary_layers=primary,
             )

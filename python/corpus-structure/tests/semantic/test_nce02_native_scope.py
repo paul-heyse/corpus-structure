@@ -1,19 +1,119 @@
-"""Native host replay over an independently authored two-item list."""
+"""Native primary projections preserve independently authored predicate scope and roles."""
 
 import json
-from dataclasses import asdict, replace
+from dataclasses import replace
 from hashlib import sha256
 
-from methods.test_scoped_relations import complete_native_fields, source
+import pytest
+from methods.primary_reading_fixture import primary_product
+from methods.test_scoped_relations import complete_native_fields, discover_relations, source
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.ingest import annotations
 from corpus_structure.ingest.annotations import AnnotationProfile
-from corpus_structure.methods.predicate_frames import interpretation_recipe
-from corpus_structure.methods.scoped_relations import discover_relations
+from corpus_structure.methods.predicate_frames import predicate_frames
 from corpus_structure.methods.source_preparation import prepare_source
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.structural_products import StructuralPassage
+
+
+def primary_parameters(view, layers):
+    """Pass actual primary products to installed immutable projection functions."""
+    return dict(
+        layers=json.dumps(
+            {canonical_bytes(pin.values()).decode(): layer.payload for pin, layer in layers.items()}
+        ),
+        view=json.dumps(
+            dict(
+                id=view.ref.id,
+                projection_digest=view.ref.projection_digest,
+                projection=dict(text=view.text, pieces=view.pieces),
+            )
+        ),
+    )
+
+
+def native_child(conn, layers, reference, role):
+    return conn.scalar(
+        text("""
+            WITH input AS (SELECT CAST(:layers AS jsonb) layers,CAST(:ref AS jsonb) ref)
+            SELECT ops.primary_characterization_child(
+                layers,ref,ops.primary_characterization_node(layers,ref),:role)->>'value'
+            FROM input
+        """),
+        dict(
+            layers=json.dumps(
+                {
+                    canonical_bytes(pin.values()).decode(): layer.payload
+                    for pin, layer in layers.items()
+                }
+            ),
+            ref=json.dumps(reference if isinstance(reference, dict) else reference.values()),
+            role=role,
+        ),
+    )
+
+
+def native_member(conn, parameters, member, anchors, *, selection, indices=None):
+    return conn.scalar(
+        text("""
+            WITH input AS (SELECT CAST(:layers AS jsonb) layers,CAST(:ref AS jsonb) ref,
+                jsonb_populate_record(NULL::kb.source_view,CAST(:view AS jsonb)) view_)
+            SELECT ops.predicate_primary_member_matches(layers,ref,
+                ops.primary_characterization_node(layers,ref),view_,:lo,:hi,
+                CAST(:extents AS jsonb),CAST(:anchors AS jsonb),CAST(:indices AS jsonb))
+            FROM input
+        """),
+        dict(
+            **parameters,
+            ref=json.dumps(member["primary_node"]),
+            extents=json.dumps(member["extents"]),
+            anchors=json.dumps(anchors),
+            indices=json.dumps(member["token_indices"] if indices is None else indices),
+            lo=selection[0],
+            hi=selection[1],
+        ),
+    )
+
+
+def passage(spelling, start=0, end=None):
+    end = len(spelling) if end is None else end
+    return StructuralPassage(
+        passage_id="scope",
+        scope="scope",
+        source_ref="fixture",
+        start=start,
+        end=end,
+        text=spelling[start:end],
+    )
+
+
+def frame_rows(output):
+    return [
+        row["component"]
+        for row in output["contributions"]
+        if row.get("component", {}).get("kind") == "predicate_frame"
+    ]
+
+
+def authored_product(monkeypatch, spelling, columns):
+    """Native lexical positions with independent POS/dependency/lemma gold."""
+    from ingest.test_annotations import ControlledPipeline, item
+
+    controlled = ControlledPipeline()
+    monkeypatch.setattr(annotations, "pipeline", lambda _: controlled)
+    (product,) = annotations.annotate((item(controlled, spelling, start=0),))
+    assert len(product.tokens) == len(columns)
+    product = replace(
+        product,
+        tokens=tuple(
+            replace(token, pos=pos, dependency=dep, head=head, lemma=lemma)
+            for token, (pos, dep, head, lemma) in zip(product.tokens, columns, strict=True)
+        ),
+    )
+    return primary_product(spelling, product, AnnotationProfile())
 
 
 def test_native_list_host_requires_exact_selected_membership(semantic_db_engine):
@@ -60,269 +160,242 @@ def test_native_list_host_requires_exact_selected_membership(semantic_db_engine)
         items=nodes,
         ref=replace(view.ref, projection_digest=sha256(canonical_bytes(projection)).hexdigest()),
     )
-    prepared = prepare_source(view, profile=AnnotationProfile(), annotations_only=True)
-    assert not prepared.annotation_errors
-    selection = StructuralPassage(
-        passage_id="layout",
-        scope="layout",
-        source_ref="fixture",
-        start=0,
-        end=len(spelling),
-        text=spelling,
-    )
-    output = discover_relations(
-        native_source_frame(view, ()),
-        annotations=prepared.annotations,
-        passages=(selection,),
-        predicate_version="3",
-    )
+    output = discover_relations(native_source_frame(view, ()), passages=(passage(spelling),))
     population = {row["contribution_id"]: row for row in output["contributions"]}
-    annotations = {f"annotation:{a.dependency_digest}": asdict(a) for a in prepared.annotations}
+    parameters = primary_parameters(view, output["_primary_layers"])
     witnessed = {}
-    for row in population.values():
-        relation = row.get("component", {})
-        if "host_witness" not in relation:
-            continue
-        host = population[relation["host_contribution_id"]]
-        component = host["component"]
-        predicate = next(m for m in component["frame_members"] if m["role"] == "predicate")
-        (anchor,) = population[predicate["contribution"]]["anchors"]
-        cue = population[relation["qualifier_contribution_id"]]["component"]
-        witnessed[anchor["source_piece"]] = dict(
-            view=json.dumps(
-                dict(
-                    projection=projection,
-                    native_task_id=1,
-                    native_product_key="organized",
-                    native_content_digest="fixture",
-                )
-            ),
-            population=json.dumps(population),
-            cue=json.dumps(cue),
-            host=json.dumps(host),
-            relation=json.dumps(relation),
-            source_annotation=json.dumps(annotations[cue["annotation"]]),
-            host_annotation=json.dumps(annotations[component["annotation"]]),
-            selection=selection.model_dump_json(),
-        )
-    assert set(witnessed) == {"records", "checks"}
-
-    check = text("""
-        SELECT ops.predicate_cross_block_host_matches(
-            jsonb_populate_record(NULL::kb.source_view, CAST(:view AS jsonb)),
-            CAST(:population AS jsonb), CAST(:cue AS jsonb), CAST(:host AS jsonb),
-            CAST(:relation AS jsonb), CAST(:source_annotation AS jsonb),
-            CAST(:host_annotation AS jsonb), CAST(:selection AS jsonb))
-    """)
     with semantic_db_engine.connect() as conn:
-        # Controlled native-item input isolates the installed host guard.
-        conn.exec_driver_sql("""
-            CREATE OR REPLACE FUNCTION ops.read_pdf_published_items(
-                p_task bigint,p_product text,p_digest text,p_pointers text[])
-            RETURNS TABLE(product_id text,revision_id text,pointer text,ordinal bigint,
-                label text,parent_pointer text,section_pointer text,content_layer text,
-                text text,native_json jsonb) LANGUAGE sql STABLE AS $$
-                SELECT NULL::text,NULL::text,p,NULL::bigint,NULL::text,NULL::text,
-                    NULL::text,NULL::text,item->>'text',item
-                FROM unnest(p_pointers) p
-                CROSS JOIN LATERAL (
-                    SELECT current_setting('test.nce02_native_items')::jsonb->p AS item
-                ) value
-            $$
-        """)
-        original = {node["self_ref"]: node for node in nodes}
-
-        def bind(items):
-            conn.execute(
-                text("SELECT set_config('test.nce02_native_items',:items,true)"),
-                {"items": json.dumps(items)},
+        for row in population.values():
+            relation = row.get("component", {})
+            if "host_witness" not in relation:
+                continue
+            assert relation["host_witness"] == dict(kind="list_intro", list_group=group)
+            host = population[relation["host_contribution_id"]]["component"]
+            predicate = next(m for m in host["frame_members"] if m["role"] == "predicate")
+            anchors = population[predicate["contribution"]]["anchors"]
+            cue = population[relation["qualifier_contribution_id"]]["component"]
+            assert (
+                native_child(
+                    conn, output["_primary_layers"], cue["primary_node"], "native_list_group"
+                )
+                == group
             )
-
-        bind(original)
-        assert all(conn.scalar(check, row) is True for row in witnessed.values())
-
-        # Both the frame and candidate list still cite the second item after
-        # its actual native parent is changed. The guard must refuse that edge.
-        bind({**original, second["self_ref"]: {**second, "parent": ref(parent)}})
-        assert conn.scalar(check, witnessed["records"]) is True
-        assert conn.scalar(check, witnessed["checks"]) is False
-
-        bind(original)
-        clipped = selection.model_copy(update={"end": spelling.index("\nThe reviewer")})
+            assert (
+                native_member(conn, parameters, predicate, anchors, selection=(0, len(spelling)))
+                is True
+            )
+            witnessed[anchors[0]["source_piece"]] = (predicate, anchors)
+        assert set(witnessed) == {"records", "checks"}
+        predicate, anchors = witnessed["checks"]
         assert (
-            conn.scalar(check, {**witnessed["checks"], "selection": clipped.model_dump_json()})
+            native_member(
+                conn,
+                parameters,
+                predicate,
+                anchors,
+                selection=(0, spelling.index("\nThe reviewer")),
+            )
             is False
         )
+    # A new native ancestry/projection cannot reuse old positioned source evidence.
+    changed = dict(
+        parameters,
+        view=json.dumps(dict(id=view.ref.id, projection_digest="f" * 64, projection=projection)),
+    )
+    with semantic_db_engine.connect() as conn, pytest.raises(DBAPIError) as refused:
+        native_member(conn, changed, predicate, anchors, selection=(0, len(spelling)))
+    assert getattr(refused.value.orig, "sqlstate", None) == "23514"
 
 
 def test_native_clipped_role_population_detects_omitted_roles(semantic_db_engine):
     spelling = "The analyst records the input."
     view = complete_native_fields(source(spelling, labels=("text",)))
-    prepared = prepare_source(view, profile=AnnotationProfile(), annotations_only=True)
-    (annotation,) = prepared.annotations
+    prepared = prepare_source(view, annotations_only=True)
     start = spelling.index("records")
-    action_only = (start, start + len("records"))
-    actor = {
-        "role": "actor",
-        "head_token": 1,
-        "token_indices": [0, 1],
-        "reason": "outside_selection",
-    }
-    object_ = {
-        "role": "object",
-        "head_token": 4,
-        "token_indices": [3, 4],
-        "reason": "outside_selection",
-    }
-    check = text("""
-        WITH expected AS (
-          SELECT jsonb_agg(to_jsonb(r)-'predicate') roles
-          FROM ops.predicate_argument_inventory(
-            jsonb_build_object('text',CAST(:spelling AS text)),
-            CAST(:tokens AS jsonb),CAST(:recipe AS jsonb)) r
-          WHERE r.predicate=2
-        )
-        SELECT ops.predicate_clipped_roles_match(
-          CAST(:mapped AS int8multirange),CAST(:tokens AS jsonb),roles,
-          :start,:end,CAST(:reported AS jsonb)) FROM expected
-    """)
+    frame = native_source_frame(view, ())
+    output = discover_relations(
+        frame, annotations=prepared.annotations, passages=(passage(spelling),)
+    )
+    (whole,) = frame_rows(output)
+    members = {m["role"]: m for m in whole["frame_members"]}
+    assert members["actor"]["token_indices"] == (0, 1)
+    assert members["object"]["token_indices"] == (3, 4)
+    action = discover_relations(
+        frame,
+        annotations=prepared.annotations,
+        primary_layers=output["_primary_layers"],
+        passages=(passage(spelling, start, start + len("records")),),
+    )
+    (clipped,) = frame_rows(action)
+    assert clipped["unlocated_roles"] == (
+        dict(role="actor", head_token=1, token_indices=(0, 1), reason="outside_selection"),
+        dict(role="object", head_token=4, token_indices=(3, 4), reason="outside_selection"),
+    )
+    determiner = discover_relations(
+        frame,
+        annotations=prepared.annotations,
+        primary_layers=output["_primary_layers"],
+        passages=(passage(spelling, start, spelling.index("input")),),
+    )
+    (partial,) = frame_rows(determiner)
+    assert partial["unlocated_roles"] == (clipped["unlocated_roles"][0],)
+    (object_,) = [m for m in partial["frame_members"] if m["role"] == "object"]
+    assert object_["token_indices"] == (3,) and object_["outcome"] == "partial"
+    population = {row["contribution_id"]: row for row in output["contributions"]}
+    parameters = primary_parameters(view, output["_primary_layers"])
     with semantic_db_engine.connect() as conn:
-
-        def matches(reported, selection=action_only, mapping=None):
-            return conn.scalar(
-                check,
-                dict(
-                    spelling=spelling,
-                    tokens=json.dumps([asdict(token) for token in annotation.tokens]),
-                    recipe=json.dumps(interpretation_recipe()),
-                    mapped=mapping or f"{{[0,{len(spelling)})}}",
-                    start=selection[0],
-                    end=selection[1],
-                    reported=json.dumps(reported),
-                ),
+        for role in ("actor", "object"):
+            member = members[role]
+            anchors = population[member["contribution"]]["anchors"]
+            assert (
+                native_member(conn, parameters, member, anchors, selection=(0, len(spelling)))
+                is True
             )
+            for indices in (
+                [],
+                member["token_indices"][:1],
+                member["token_indices"][::-1],
+                (*member["token_indices"], member["token_indices"][0]),
+            ):
+                assert (
+                    native_member(
+                        conn,
+                        parameters,
+                        member,
+                        anchors,
+                        selection=(0, len(spelling)),
+                        indices=indices,
+                    )
+                    is False
+                )
+        partial_population = {row["contribution_id"]: row for row in determiner["contributions"]}
+        assert (
+            native_member(
+                conn,
+                parameters,
+                object_,
+                partial_population[object_["contribution"]]["anchors"],
+                selection=(start, spelling.index("input")),
+            )
+            is True
+        )
+        # Unmapped native text cannot support a located role even inside the selection.
+        physical = json.loads(parameters["view"])
+        physical["projection"]["pieces"] = [
+            dict(view.pieces[0], start=start, end=start + len("records"))
+        ]
+        assert (
+            native_member(
+                conn,
+                dict(parameters, view=json.dumps(physical)),
+                members["object"],
+                population[members["object"]["contribution"]]["anchors"],
+                selection=(0, len(spelling)),
+            )
+            is False
+        )
 
-        assert matches([actor, object_]) is True
-        assert matches([object_, actor]) is True
-        assert matches([object_]) is False
-        assert matches([]) is False
-        assert matches([actor, object_, actor]) is False
-        assert matches([actor, {**object_, "token_indices": [4, 3]}]) is False
-        # The exact determiner remains located even though the object head is clipped.
-        through_determiner = (start, spelling.index("input"))
-        assert matches([actor], through_determiner) is True
-        # A selected extent without mapped native text is distinct from clipping.
-        unmappable_object = {**object_, "reason": "unmappable"}
-        assert matches([actor, unmappable_object], (start, len(spelling)), "{[12,19)}") is True
 
-
-def test_native_attribution_requires_an_eligible_reporting_governor(semantic_db_engine):
+def test_native_attribution_requires_an_eligible_reporting_governor(
+    semantic_db_engine, monkeypatch
+):
     spelling = "Suppose we wait."
-    tokens = [
-        dict(start=0, end=7, lemma="suppose", pos="VERB", dependency="ROOT", head=0),
-        dict(start=8, end=10, lemma="we", pos="PRON", dependency="nsubj", head=2),
-        dict(start=11, end=15, lemma="wait", pos="VERB", dependency="ccomp", head=0),
-        dict(start=15, end=16, lemma=".", pos="PUNCT", dependency="punct", head=2),
-    ]
-    check = text("""
-        WITH input AS (
-         SELECT jsonb_build_object('text',CAST(:spelling AS text)) AS projection,
-          CAST(:annotation AS jsonb) AS annotation,CAST(:recipe AS jsonb) AS recipe
-        )
-        SELECT ops.predicate_source_reading(projection,annotation,
-         jsonb_build_object('predicate_token',2,'frame_members',
-          jsonb_build_array(jsonb_build_object('role','actor','head_token',1))),
-         'prose',recipe,EXISTS(
-          SELECT FROM ops.predicate_argument_inventory(projection,annotation->'tokens',recipe,true)
-          WHERE predicate=0 AND role='predicate')) FROM input
-    """)
     with semantic_db_engine.connect() as conn:
-
-        def reading(pos):
-            return conn.scalar(
-                check,
-                dict(
-                    spelling=spelling,
-                    annotation=json.dumps(
-                        {
-                            "kind": "paragraph",
-                            "tokens": [
-                                dict(token, sentence=0, role="prose")
-                                for token in ({**tokens[0], "pos": pos}, *tokens[1:])
-                            ],
-                        }
-                    ),
-                    recipe=json.dumps(interpretation_recipe()),
+        for pos, expected in (("VERB", "reference"), ("NOUN", "unresolved")):
+            product = authored_product(
+                monkeypatch,
+                spelling,
+                (
+                    (pos, "ROOT", 0, "suppose"),
+                    ("PRON", "nsubj", 2, "we"),
+                    ("VERB", "ccomp", 0, "wait"),
+                    ("PUNCT", "punct", 2, "."),
                 ),
             )
-
-        assert reading("VERB")["reading"] == "reference"
-        assert reading("NOUN") == dict(
-            grammar="active", voice="active", polarity="positive", reading="unresolved"
-        )
-
-
-def test_native_block_negation_preserves_direct_and_shared_scope(semantic_db_engine):
-    tokens = [
-        dict(head=2, dependency="aux", pos="AUX"),
-        dict(head=2, dependency="neg", pos="PART"),
-        dict(head=2, dependency="ROOT", pos="VERB"),
-        dict(head=2, dependency="cc", pos="CCONJ"),
-        dict(head=2, dependency="conj", pos="VERB"),
-    ]
-    query = text("""
-        SELECT ops.predicate_source_negations(CAST(:tokens AS jsonb),
-         ARRAY['Do','not','heat',CAST(:connector AS text),'stir'])
-    """)
-    retained = json.dumps([dict(token, sentence=0, role="prose") for token in tokens])
-    with semantic_db_engine.connect() as conn:
-        assert conn.scalar(query, dict(tokens=retained, connector="and")) == {
-            "2": "unresolved",
-            "4": "unresolved",
-        }
-        assert conn.scalar(query, dict(tokens=retained, connector="but")) == {"2": "negative"}
-
-
-def test_native_example_cue_uses_one_governor_and_refuses_numbered_reference(semantic_db_engine):
-    query = text("""
-        SELECT ops.predicate_source_reading(
-         CAST(:annotation AS jsonb),CAST(:frame AS jsonb),'prose',CAST(:recipe AS jsonb),
-         false,CAST(:words AS text[]),'none',CAST(:eligible AS jsonb))->>'reading'
-    """)
-    with semantic_db_engine.connect() as conn:
-
-        def reading(words, edges, host, eligible):
-            tokens = [
-                dict(pos=pos, dependency=dep, head=head, sentence=0, role="prose")
-                for pos, dep, head in edges
-            ]
-            return conn.scalar(
-                query,
-                dict(
-                    annotation=json.dumps(dict(tokens=tokens, kind="paragraph")),
-                    frame=json.dumps(dict(predicate_token=host, frame_members=[])),
-                    recipe=json.dumps(interpretation_recipe()),
-                    words=words,
-                    eligible=json.dumps([str(index) for index in eligible]),
-                ),
+            result = predicate_frames(spelling, (product,))
+            assert not result.issues
+            (frame,) = [f for f in result.frames if f.predicate.tokens == (2,)]
+            assert frame.interpretation == expected
+            assert (
+                native_child(conn, product.primary_layers, frame.primary_ref, "interpretation")
+                == expected
+            )
+            assert (
+                native_child(conn, product.primary_layers, frame.primary_ref, "voice") == "active"
+            )
+            assert (
+                native_child(conn, product.primary_layers, frame.primary_ref, "polarity")
+                == "positive"
             )
 
-        prose = ["For", "example", ",", "permutations", "are"]
-        prose_edges = [
-            ("ADP", "prep", 3),
-            ("NOUN", "pobj", 0),
-            ("PUNCT", "punct", 3),
-            ("NOUN", "nsubj", 4),
-            ("AUX", "ROOT", 4),
-        ]
-        assert reading(prose, prose_edges, 4, (4,)) == "example"
-        assert reading(prose, prose_edges, 4, (3, 4)) == "unresolved"
-        caption = ["Figure", "Tree", "for", "Example", "4.25"]
-        caption_edges = [
-            ("VERB", "ROOT", 0),
-            ("NOUN", "appos", 0),
-            ("ADP", "prep", 1),
-            ("PROPN", "pobj", 2),
-            ("NUM", "nummod", 3),
-        ]
-        assert reading(caption, caption_edges, 0, (0,)) == "unresolved"
+
+def test_native_block_negation_preserves_direct_and_shared_scope(semantic_db_engine, monkeypatch):
+    with semantic_db_engine.connect() as conn:
+        for connector, expected in (
+            ("and", {2: "negative_scope_unresolved", 4: "negative_scope_unresolved"}),
+            ("but", {2: "negative", 4: "positive"}),
+        ):
+            spelling = f"Do not heat {connector} stir"
+            product = authored_product(
+                monkeypatch,
+                spelling,
+                (
+                    ("AUX", "aux", 2, "do"),
+                    ("PART", "neg", 2, "not"),
+                    ("VERB", "ROOT", 2, "heat"),
+                    ("CCONJ", "cc", 2, connector),
+                    ("VERB", "conj", 2, "stir"),
+                ),
+            )
+            result = predicate_frames(spelling, (product,))
+            assert not result.issues
+            assert {f.predicate.tokens[0]: f.polarity for f in result.frames} == expected
+            for frame in result.frames:
+                assert (
+                    native_child(conn, product.primary_layers, frame.primary_ref, "polarity")
+                    == expected[frame.predicate.tokens[0]]
+                )
+
+
+def test_native_example_cue_uses_one_governor_and_refuses_numbered_reference(
+    semantic_db_engine, monkeypatch
+):
+    cases = (
+        (
+            "For example, permutations are",
+            (
+                ("ADP", "prep", 3, "for"),
+                ("NOUN", "pobj", 0, "example"),
+                ("PUNCT", "punct", 3, ","),
+                ("NOUN", "nsubj", 4, "permutation"),
+                ("AUX", "ROOT", 4, "be"),
+            ),
+            4,
+            "example",
+        ),
+        (
+            "Figure Tree for Example 4.25",
+            (
+                ("VERB", "ROOT", 0, "figure"),
+                ("NOUN", "appos", 0, "tree"),
+                ("ADP", "prep", 1, "for"),
+                ("PROPN", "pobj", 2, "example"),
+                ("NUM", "nummod", 3, "4.25"),
+            ),
+            0,
+            "unresolved",
+        ),
+    )
+    with semantic_db_engine.connect() as conn:
+        for spelling, columns, host, expected in cases:
+            product = authored_product(monkeypatch, spelling, columns)
+            result = predicate_frames(spelling, (product,))
+            assert not result.issues
+            (frame,) = [f for f in result.frames if f.predicate.tokens == (host,)]
+            assert frame.interpretation == expected
+            assert (
+                native_child(conn, product.primary_layers, frame.primary_ref, "interpretation")
+                == expected
+            )
+            if expected == "example":
+                assert len([f for f in result.frames if f.interpretation == "example"]) == 1

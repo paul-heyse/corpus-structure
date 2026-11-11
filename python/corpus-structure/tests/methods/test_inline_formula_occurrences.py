@@ -8,17 +8,19 @@ from types import SimpleNamespace
 import pytest
 
 from corpus_structure.methods.contextual_candidates import retained_occurrences
-from corpus_structure.methods.scoped_relations import ScopedRelationsConfig, discover_relations
+from corpus_structure.methods.scoped_relations import ScopedRelationsConfig
 from corpus_structure.orchestrate.registry import canonical_numbers
 from corpus_structure.semantic.contributions import occurrence_identity
+from corpus_structure.semantic.formal_evidence import build_formal_layer
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import record_source_pin
 from corpus_structure.serve.inline_formula_replay import verify_inline_formula_report
 
+from .primary_reading_fixture import prepared
 from .test_m1_source_preparation import source
-from .test_scoped_relations import complete_native_fields
+from .test_scoped_relations import complete_native_fields, discover_relations
 
 _FROZEN_TEXT = (
     "We have seen above that it is possible to simulate a standard normal random variable Z. "
@@ -47,7 +49,25 @@ def discovery(text, **kwargs):
         ),
     )
     frame = native_source_frame(view, ())
-    result = discover_relations(frame, inline_equations_enabled=True, **kwargs)
+    formal = build_formal_layer(
+        view,
+        prepared(),
+        dict(
+            key="text.formal_evidence",
+            version="1",
+            runtime="test-runtime",
+            model="none",
+            grammar="test-grammar",
+            configuration="test-config",
+            input="test-input",
+            context="source-only",
+        ),
+        max_inline_chars=kwargs.get("max_formula_chars", 2048),
+    )
+    layers = {formal.reference(103): formal}
+    result = discover_relations(
+        frame, inline_equations_enabled=True, primary_layers=layers, **kwargs
+    )
     return view, frame, result
 
 
@@ -73,7 +93,7 @@ def test_frozen_symbol_is_exact_standalone_and_separate_from_geometry(mu):
     assert (anchor["start"], anchor["end"], anchor["source_piece"]) == (242, 243, "Z")
     assert z["kind"] == "occurrence" and "members" not in z and "endpoints" not in z
     assert source_python(z["value"])["syntax_standing"] == "syntax_only"
-    previous = discover_relations(frame)
+    previous = discover_relations(frame, primary_layers=output["_primary_layers"])
     assert output["operation"] == previous["operation"]
     assert [row for row in output["contributions"] if row not in rows] == list(
         previous["contributions"]
@@ -214,10 +234,14 @@ def test_detached_verifier_rejects_wrong_symbol_or_link(tampering):
             }
         )
     )
-    verify_inline_formula_report(report, original)
+    verify_inline_formula_report(report, original, primary_layers=output["_primary_layers"])
 
+    operation, _ = inline_rows(output)
     (row,) = [
-        r for r in report["body"]["contributions"] if source_python(r["value"])["text"] == "Z"
+        r
+        for r in report["body"]["contributions"]
+        if r["operation_key"] == operation["operation_key"]
+        and source_python(r["value"])["text"] == "Z"
     ]
     if tampering == "added_attachment":
         report["body"]["contributions"].append(
@@ -228,7 +252,7 @@ def test_detached_verifier_rejects_wrong_symbol_or_link(tampering):
             )
         )
         with pytest.raises(ValueError, match="must remain syntax-only evidence"):
-            verify_inline_formula_report(report, original)
+            verify_inline_formula_report(report, original, primary_layers=output["_primary_layers"])
         return
     value = source_python(row["value"])
     start = _FROZEN_TEXT.rindex("Z", 0, 242)
@@ -236,4 +260,4 @@ def test_detached_verifier_rejects_wrong_symbol_or_link(tampering):
     row["value"] = source_value(value)
     row["anchors"][0].update(start=start, end=start + 1)
     with pytest.raises(ValueError, match="inline formula occurrence differs"):
-        verify_inline_formula_report(report, original)
+        verify_inline_formula_report(report, original, primary_layers=output["_primary_layers"])

@@ -272,3 +272,43 @@ def test_literal_assertion_pack_refuses_decoder_classification(tmp_path):
             anchor_role="predicate",
             policy_version="test",
         )
+
+
+def test_qualification_reads_primary_predication_without_recognition(tmp_path, monkeypatch):
+    from corpus_structure.methods.annotation_rules import PreparedAnnotationRules
+    from corpus_structure.semantic.constructions import retained_rules
+
+    text = "The pumps might drain the tanks."
+    source_view = view(text)
+    reader = owned_reader(source_view)
+    source = native_source_frame(source_view, ())
+    annotations, errors, _ = consume_annotations(
+        reader, source_view, AnnotationProfile(config(tmp_path).sentences)
+    )
+    assert annotations and not errors
+
+    def unexpected(*_args, **_kwargs):
+        pytest.fail("assertion consumer recognized source language")
+
+    monkeypatch.setattr(retained_rules, "recognize_frames", unexpected)
+    monkeypatch.setattr(retained_rules, "recognize_frame_result", unexpected)
+    monkeypatch.setattr(PreparedAnnotationRules, "match", unexpected)
+    context = NativeSourceContext(
+        source,
+        (),
+        (SourceSlice(source_view.ref.id, 0, len(text)),),
+        "assertion primary projection",
+        "test",
+        "complete selected source",
+    )
+    pack = configured_packs(reader.prepared, config(tmp_path))["assertion"]
+    row = group(context.text, "The pumps", "drain", "the tanks")
+    retained = report(context, pack, "assertion", [row])
+    result = AssertionQualification(
+        source, annotations, source_view.pieces, source_view.items
+    ).supplement(context, pack, retained, row)
+    assert result is not None
+    assert {(field.role, field.label) for field in result.fields} == {
+        ("polarity", "positive"),
+        ("modality", "possible"),
+    }

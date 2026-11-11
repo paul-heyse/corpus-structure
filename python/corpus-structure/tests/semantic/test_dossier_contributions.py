@@ -6,13 +6,12 @@ from pathlib import Path
 
 import pytest
 from methods.test_m1_source_preparation import native_table_source, table_cell
-from methods.test_scoped_relations import complete_native_fields
+from methods.test_scoped_relations import complete_native_fields, discover_relations
 from pydantic import ValidationError
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.methods.dossier_contributions import derive_contribution_members
-from corpus_structure.methods.scoped_relations import discover_relations
 from corpus_structure.methods.structural_products import StructuralDossierConfig, select_dossier
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.proposals import native_source_frame

@@ -29,7 +29,7 @@ def characterization_inputs(
     bundle: SourceBundle, *, model_content: bytes | None = None
 ) -> SourceBundle:
     """Acquire and archive the trusted declaration; reserved names cannot be substituted."""
-    content = _MODEL.read_bytes() if model_content is None else model_content
+    content = _construction_model(_MODEL.read_bytes()) if model_content is None else model_content
     names = {source.name for source in bundle.sources}
     if "observations" not in names:
         from .observations import observation_inputs
@@ -66,6 +66,58 @@ def characterization_inputs(
     )
 
 
+def _construction_model(content: bytes) -> bytes:
+    """Freeze ordinary authored declarations into the archived trusted model input."""
+    from corpus_structure.methods.native_evidence_layers import HANLP_FAMILIES, SPACY_FAMILIES
+
+    from .constructions.declarations import DECLARATIONS
+    from .constructions.declarations import FAMILIES as construction_families
+    from .constructions.evaluation import EVALUATION_FAMILIES
+    from .constructions.math_scope import FAMILY as math_scope_family
+    from .constructions.navigation import FAMILY as navigation_family
+    from .contextual_characterization import CONTEXT_FAMILIES
+    from .formal_evidence import FAMILIES as formal_families
+    from .interpretation_questions import CHARACTERIZATION_FAMILIES
+
+    model = yaml.safe_load(content)
+    model["classes"]["CharacterizationFullProfile"] = {
+        "is_a": "SourceRecordProduct",
+        "attributes": {
+            "profile_name": {"equals_string": "full_characterization"},
+            "required_families": {
+                "equals_string": "|".join(
+                    (
+                        *SPACY_FAMILIES,
+                        *HANLP_FAMILIES,
+                        *formal_families,
+                        *construction_families,
+                        navigation_family,
+                        math_scope_family,
+                        *CONTEXT_FAMILIES,
+                        *CHARACTERIZATION_FAMILIES,
+                        *EVALUATION_FAMILIES,
+                    )
+                )
+            },
+        },
+    }
+    for declaration in DECLARATIONS.values():
+        model["classes"]["CharacterizationRule_" + declaration.name] = {
+            "is_a": "CharacterizationConstructionBasis",
+            "attributes": {
+                "kind": {"equals_string": "released_construction", "required": True},
+                "rule_id": {"equals_string": declaration.rule_id, "required": True},
+                "construction": {"range": "string", "required": True, "pattern": "^.+$"},
+                "binding": {"range": "string", "required": True, "pattern": "^.+$"},
+                "production": {"range": "string", "required": True, "pattern": "^.+$"},
+                "support_codec": {"equals_string": "construction-membership-v1"},
+                "production_name": {"equals_string": "prose__" + declaration.name},
+                "support_roles": {"equals_string": "|".join(declaration.roles)},
+            },
+        }
+    return yaml.safe_dump(model, sort_keys=False).encode()
+
+
 def compile_attachment_policies(definitions) -> PreparedArtifact | None:
     """Compile subtype dispatch from the released declaration, not installed policy code."""
     policies = {}
@@ -82,6 +134,17 @@ def compile_attachment_policies(definitions) -> PreparedArtifact | None:
                     "released attachment rule requires a distinct construction rule identity"
                 )
             rules[rule] = entry
+            fixed = {
+                p.name: p.equals_string
+                for p in definition.properties
+                if p.equals_string is not None
+            }
+            if fixed.get("support_codec") == "construction-membership-v1":
+                entry["support"] = {
+                    "codec": fixed["support_codec"],
+                    "production": fixed["production_name"],
+                    "roles": fixed["support_roles"].split("|"),
+                }
         else:
             if not kind or kind in policies:
                 raise ValueError("attachment basis subtype requires a distinct fixed kind")
@@ -91,6 +154,26 @@ def compile_attachment_policies(definitions) -> PreparedArtifact | None:
     if "released_construction" in policies:
         policies["released_construction"]["rules"] = rules
     return PreparedArtifact(_POLICY_ARTIFACT, canonical_bytes(policies))
+
+
+def compile_characterization_profiles(definitions):
+    profiles = {}
+    for definition in definitions:
+        if definition.name == "CharacterizationFullProfile":
+            fixed = {p.name: p.equals_string for p in definition.properties}
+            profiles[fixed["profile_name"]] = fixed["required_families"].split("|")
+    return (
+        PreparedArtifact("characterization/profiles.json", canonical_bytes(profiles))
+        if profiles
+        else None
+    )
+
+
+def characterization_profiles(prepared):
+    artifact = next(
+        (a for a in prepared.artifacts if a.kind == "characterization/profiles.json"), None
+    )
+    return json.loads(artifact.content) if artifact is not None else {}
 
 
 def attachment_policies(prepared: PreparedRelease) -> dict[str, Any]:
@@ -331,6 +414,11 @@ class _LayerValidation:
                     policies,
                     lambda name, value: validate_json(name, canonical_bytes(value)),
                 )
+                return (
+                    policies.get("released_construction", {})
+                    .get("rules", {})
+                    .get(basis.get("rule_id"), {})
+                )
 
             result = validate_layer_structure(
                 data,
@@ -408,8 +496,10 @@ def validate_layer_structure(
             all_nodes[key] = item
             index[key] = item
         indexes[name] = index
+    from .characterization_evidence import validate_evidence
     from .observations import source_python
 
+    validate_evidence(data, indexes)
     for name in _INVENTORIES[1:]:
         for item in data[name]:
             scores = list(item.get("scores", ()))
@@ -467,7 +557,10 @@ def validate_layer_structure(
     premise_records = list(all_nodes.values()) + [r["basis"] for r in data["roles"]]
     dependency_indexes = {}
     for item in premise_records:
-        for external in item.get("external_premises", ()):
+        for external in (
+            *item.get("external_premises", ()),
+            *item.get("required_external_choices", ()),
+        ):
             pin = _pin(external["layer"])
             if pin not in pins:
                 raise ValueError("external premise layer missing from dependencies")
@@ -487,11 +580,20 @@ def validate_layer_structure(
                 dependency_indexes[pin] = node_ids
             if external["local_id"] not in dependency_indexes[pin]:
                 raise ValueError("dangling external premise")
+        for external in item.get("required_external_choices", ()):
+            if dependencies is None:
+                raise ValueError("external choice requires exact dependency closure")
+            body = dependencies[_pin(external["layer"])].payload
+            if external["local_id"] not in {
+                m["local_id"] for g in body["choices"] for m in g["members"]
+            }:
+                raise ValueError("required external choice is not a choice member")
     structural = {key: [] for key in all_nodes}
     for name in ("annotations", "memberships", "roles", "terms"):
         for item in data[name]:
             refs(item.get("occurrences", ()), indexes["occurrences"], "occurrence")
             refs(item.get("premises", ()), all_nodes, "premise")
+            refs(item.get("required_choices", ()), choice_members, "required choice")
             if name == "memberships":
                 refs((item["group"], item["member"]), all_nodes, "membership")
                 if item["structural"]:
@@ -499,19 +601,28 @@ def validate_layer_structure(
             elif name == "roles":
                 refs((item["owner"], item["member"]), all_nodes, "role")
                 basis = item["basis"]
-                validate_basis(basis)
+                policy = validate_basis(basis)
+                if policy and policy.get("support"):
+                    _validate_construction_support(item, all_nodes, policy["support"])
                 refs(basis.get("premises", ()), all_nodes, "attachment premise")
                 refs(basis.get("choice_refs", ()), choice_members, "attachment choice")
             elif name == "terms":
                 refs(item.get("required_choices", ()), choice_members, "term choice")
                 for edge in item.get("children", ()):
-                    refs((edge["target"],), indexes["terms"], "term")
+                    if ("target" in edge) == ("choice_group" in edge):
+                        raise ValueError("term child requires exactly one target or choice site")
+                    target = edge.get("target", edge.get("choice_group"))
+                    refs(
+                        (target,),
+                        indexes["terms"] if "target" in edge else indexes["choices"],
+                        "term/site",
+                    )
                     if not edge["structural"]:
                         raise ValueError(
                             "semantic term children must be structural; "
                             "use role assertions for referential relations"
                         )
-                    structural[item["local_id"]].append(edge["target"])
+                    structural[item["local_id"]].append(target)
                 if item["kind"] == "binder" and not {"variable", "restrictor", "body"} <= {
                     e["role"] for e in item.get("children", ())
                 }:
@@ -521,6 +632,7 @@ def validate_layer_structure(
             refs((member["root"],), indexes["terms"], "choice root")
             refs(member.get("premises", ()), all_nodes, "choice premise")
             refs(member.get("required_choices", ()), choice_members, "required choice")
+            structural[group["local_id"]].append(member["root"])
     _acyclic(structural, "term/containment")
     choice_edges = {
         m["local_id"]: m.get("required_choices", ()) for g in data["choices"] for m in g["members"]
@@ -543,6 +655,14 @@ def validate_view(
     data = _shape(prepared, "EnrichedDocumentView", payload)
     if data["release_id"] != prepared.release_id:
         raise ValueError("view uses another semantic release")
+    if data["profile"] == "full_characterization":
+        families = characterization_profiles(prepared).get(data["profile"])
+        if families is None or not set(families) <= {
+            row["family"] for row in data.get("coverage", ())
+        }:
+            raise ValueError(
+                "full characterization requires every released baseline family outcome"
+            )
     return validate_view_structure(
         data,
         layers,
@@ -563,6 +683,11 @@ def validate_view_structure(
     pins = [_pin(p) for p in data["layers"]]
     if len(set(pins)) != len(pins):
         raise ValueError("duplicate selected layer")
+    active = [_pin(p) for p in data.get("active_layers", data["layers"])]
+    if len(set(active)) != len(active) or not set(active) <= set(pins):
+        raise ValueError("active layer selection differs from retained dependency closure")
+    if bool(active) != bool(pins):
+        raise ValueError("analytical view requires active layers")
     if data["profile"] == "source_only":
         if pins or data["coverage"]:
             raise ValueError("source_only view cannot claim analytical layers or coverage")
@@ -583,8 +708,9 @@ def validate_view_structure(
         # Exact selector inclusion avoids inventing geometric/native containment.
         if not scope_contains(data["source_scope"], body["source_scope"]):
             raise ValueError("view source scope does not contain selected layer scope")
-        for row in body["coverage"]:
-            coverage[canonical_bytes(row)] = row
+        if pin in active:
+            for row in body["coverage"]:
+                coverage[canonical_bytes(row)] = row
     _coverage(data["coverage"], data["source_scope"], composed=True)
     if any(canonical_bytes(row) not in coverage for row in data["coverage"]):
         raise ValueError("view coverage is not supported by selected layers")
@@ -626,14 +752,57 @@ def decode_view(
 
 
 def project_reading(
-    layer: LayerReport, root: str, *, choices: Sequence[str] = ()
+    layer: LayerReport,
+    root: str,
+    *,
+    choices: Sequence[str] = (),
+    dependencies: Mapping[ProductReference, LayerReport] | None = None,
+    external_choices: Sequence[AnnotationReference] = (),
 ) -> dict[str, Any]:
     """Bounded supported DAG projection; unknown compatibility never creates combinations."""
     data = layer.payload
+    dependencies = dependencies or {}
     terms = {t["local_id"]: t for t in data["terms"]}
     members = {m["local_id"]: (g, m) for g in data["choices"] for m in g["members"]}
     selected = set(validate_reading_choices(data, choices))
+    external = {(_pin(ref.values()["layer"]), ref.local_id) for ref in external_choices}
+    if len(external) != len(external_choices):
+        raise ValueError("duplicate qualified analytical choice")
+    # Only the actual dependency closure can supply upstream selections. A caller's
+    # larger report cache is not authority to introduce an unrelated reading.
+    reachable = set()
+    pending_dependencies = [_pin(value) for value in data.get("dependencies", ())]
+    while pending_dependencies:
+        pin = pending_dependencies.pop()
+        if pin in reachable:
+            continue
+        report = dependencies.get(pin) if dependencies is not None else None
+        if report is None or report.reference(pin.task_id) != pin:
+            raise ValueError("reading requires exact retained dependency closure")
+        if report.payload["base_document"] != data["base_document"]:
+            raise ValueError("reading dependency belongs to a different source document")
+        reachable.add(pin)
+        pending_dependencies.extend(_pin(value) for value in report.payload.get("dependencies", ()))
+    by_layer = {}
+    for pin, identity in external:
+        if pin not in reachable:
+            raise ValueError("qualified choice is outside the reading dependency closure")
+        dependency = dependencies.get(pin) if dependencies is not None else None
+        if dependency is None or dependency.reference(pin.task_id) != pin:
+            raise ValueError("qualified choice requires exact retained dependency")
+        by_layer.setdefault(pin, []).append(identity)
+    for pin, identities in by_layer.items():
+        body = dependencies[pin].payload
+        validate_reading_choices(body, identities)
+        for group in body["choices"]:
+            for member in group["members"]:
+                if member["local_id"] in identities:
+                    _require_external_selection(member, external)
+    for key in selected:
+        _require_external_selection(members[key][1], external)
     found = set()
+    unresolved = []
+    groups = {g["local_id"]: g for g in data["choices"]}
     pending = [root]
     while pending:
         key = pending.pop()
@@ -644,16 +813,137 @@ def project_reading(
         term = terms[key]
         if not set(term.get("required_choices", ())) <= selected:
             raise ValueError("reading requires an unselected analytical choice")
+        _require_external_selection(term, external)
         found.add(key)
-        pending.extend(e["target"] for e in term.get("children", ()))
+        for edge in term.get("children", ()):
+            if "target" in edge:
+                pending.append(edge["target"])
+                continue
+            group = groups[edge["choice_group"]]
+            chosen = [m for m in group["members"] if m["local_id"] in selected]
+            if len(chosen) > 1:
+                raise ValueError("single-valued choice site requires exactly one member")
+            if not chosen:
+                unresolved.append(
+                    {"owner": key, "role": edge["role"], "choice_group": group["local_id"]}
+                )
+            else:
+                _require_external_selection(chosen[0], external)
+                pending.append(chosen[0]["root"])
     for key in selected:
         if members[key][1]["root"] not in found:
             raise ValueError("selected analytical choice does not support reading root")
+    # A selected upstream member requires its actual term/site closure, not just
+    # the member record. Several independent roots may share one layer selection.
+    visited = set()
+    pending_support = [
+        (pin, m["root"])
+        for pin, identities in by_layer.items()
+        for g in dependencies[pin].payload["choices"]
+        for m in g["members"]
+        if m["local_id"] in identities
+    ]
+    while pending_support:
+        pin, key = pending_support.pop()
+        if (pin, key) in visited:
+            continue
+        visited.add((pin, key))
+        body = dependencies[pin].payload
+        term = next((t for t in body["terms"] if t["local_id"] == key), None)
+        if term is None:
+            raise ValueError("selected upstream choice has no supported root")
+        available = set(by_layer.get(pin, ()))
+        if not set(term.get("required_choices", ())) <= available:
+            raise ValueError("upstream reading requires an unselected analytical choice")
+        _require_external_selection(term, external)
+        for edge in term.get("children", ()):
+            if "target" in edge:
+                pending_support.append((pin, edge["target"]))
+            else:
+                group = next(g for g in body["choices"] if g["local_id"] == edge["choice_group"])
+                chosen = [m for m in group["members"] if m["local_id"] in available]
+                if len(chosen) > 1:
+                    raise ValueError("upstream single-valued site requires exactly one member")
+                if not chosen:
+                    unresolved.append(
+                        dict(
+                            layer=pin.values(),
+                            owner=key,
+                            role=edge["role"],
+                            choice_group=group["local_id"],
+                        )
+                    )
+                else:
+                    _require_external_selection(chosen[0], external)
+                    pending_support.append((pin, chosen[0]["root"]))
     return {
         "root": root,
         "choices": sorted(selected),
         "terms": [t for t in data["terms"] if t["local_id"] in found],
+        "outcome": "partial" if unresolved else "complete",
+        "unresolved_sites": unresolved,
+        "external_choices": [ref.values() for ref in external_choices],
     }
+
+
+def _require_external_selection(record, selected):
+    if any(
+        (_pin(ref["layer"]), ref["local_id"]) not in selected
+        for ref in record.get("required_external_choices", ())
+    ):
+        raise ValueError("reading requires an unselected qualified analytical choice")
+
+
+def _validate_construction_support(role, nodes, support):
+    if support["codec"] != "construction-membership-v1":
+        raise ValueError("unsupported released construction support codec")
+    basis = role["basis"]
+    construction = nodes.get(basis["construction"], {})
+    binding = nodes.get(basis["binding"], {})
+    production = nodes.get(basis["production"], {})
+    required = {basis["construction"], basis["binding"], basis["production"]}
+    member = nodes.get(role["member"], {})
+    choice_requirements = set().union(
+        *(
+            set(node.get("required_choices", ()))
+            for node in (construction, binding, production, member, basis)
+        )
+    )
+    external_requirements = {
+        canonical_bytes(ref)
+        for node in (construction, binding, production, member, basis)
+        for ref in node.get("required_external_choices", ())
+    }
+    if not (
+        required <= set(basis.get("premises", ()))
+        and construction.get("kind") == "construction"
+        and construction.get("rule_id") == basis["rule_id"]
+        and role["owner"] == basis["construction"]
+        and binding.get("group") == basis["construction"]
+        and binding.get("member") == role["member"]
+        and binding.get("role") == role["role"]
+        and role["role"] in support["roles"]
+        and basis["production"] in construction.get("premises", ())
+        and production.get("kind") == "grammar.production"
+        and production.get("native_label") == support["production"]
+        and role.get("occurrences", ()) == binding.get("occurrences", ())
+        and set(binding.get("occurrences", ())) <= set(member.get("occurrences", ()))
+        and choice_requirements <= set(role.get("required_choices", ()))
+        and set(role.get("required_choices", ())) == set(basis.get("choice_refs", ()))
+        and external_requirements
+        <= {canonical_bytes(ref) for ref in role.get("required_external_choices", ())}
+    ):
+        raise ValueError("attachment endpoints differ from released construction witness")
+    reached = set()
+    pending = list(production.get("premises", ()))
+    while pending:
+        key = pending.pop()
+        if key in reached:
+            continue
+        reached.add(key)
+        pending.extend(nodes.get(key, {}).get("premises", ()))
+    if role["member"] not in reached:
+        raise ValueError("attachment member is outside witnessed production")
 
 
 def validate_reading_choices(payload: Mapping[str, Any], choices: Sequence[str]) -> tuple[str, ...]:
@@ -684,6 +974,52 @@ def scope_contains(container: Mapping[str, Any], subset: Mapping[str, Any]) -> b
         and {canonical_bytes(v) for v in subset["selectors"]}
         <= {canonical_bytes(v) for v in container["selectors"]}
     )
+
+
+def select_primary_layers(layers, source_view, *, families):
+    """A consumer's frozen selection must cover its actual native source population."""
+    requested = set(families)
+    if not requested:
+        raise ValueError("primary read requires explicit families")
+    selected = {
+        pin: layer
+        for pin, layer in layers.items()
+        if source_view.ref.id in layer.payload["source_scope"]["source_view_ids"]
+    }
+    for family in requested:
+        selectors = [
+            selector
+            for layer in selected.values()
+            for row in layer.payload["coverage"]
+            if row["family"] == family
+            and row["outcome"] in {"complete", "empty"}
+            and row["availability"] == "available"
+            for selector in row.get("examined", ())
+            if selector["projection"] == source_view.ref.projection_digest
+        ]
+        if not selectors:
+            raise ValueError(
+                f"primary family {family} is missing or incomplete in frozen selection"
+            )
+        for piece in source_view.pieces:
+            if piece["kind"] != "native_text":
+                continue
+            intervals = sorted(
+                (
+                    max(piece["start"], s.get("start", 0)),
+                    min(piece["end"], s.get("end", len(source_view.text))),
+                )
+                for s in selectors
+                if not s.get("native_pointer") or s["native_pointer"] == piece["item_ref"]
+            )
+            position = piece["start"]
+            for start, end in intervals:
+                if start > position:
+                    break
+                position = max(position, end)
+            if position < piece["end"]:
+                raise ValueError(f"primary family {family} leaves native source unexamined")
+    return selected
 
 
 def validate_released_attachment_rule(

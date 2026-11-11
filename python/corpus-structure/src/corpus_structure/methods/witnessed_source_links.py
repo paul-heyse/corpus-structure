@@ -1,319 +1,118 @@
-"""Source-local link recipes over exact retained native text pieces."""
+"""Retained primary navigation projections and downstream endpoint selection."""
 
-from __future__ import annotations
-
-import json
-import re
-from collections import Counter, defaultdict
+from collections import Counter
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass
-from functools import lru_cache
 from itertools import pairwise
-from pathlib import Path
 from typing import Any
 
-from corpus_structure.ingest.annotation_views import annotation_view
-from corpus_structure.ingest.annotations import AnnotationProduct, AnnotationUnavailable
-from corpus_structure.methods.annotation_rules import (
-    AnnotationRule,
-    PreparedAnnotationRules,
-    RoleBinding,
+from corpus_structure.semantic.constructions.navigation import (
+    INHERITANCE_QUESTION as INHERITANCE_QUESTION,
+)
+from corpus_structure.semantic.constructions.navigation import (
+    NAMED_NATIVE_PIECES_INPUT as NAMED_NATIVE_PIECES_INPUT,
+)
+from corpus_structure.semantic.constructions.navigation import (
+    NAMED_PIECE_VERSION as NAMED_PIECE_VERSION,
+)
+from corpus_structure.semantic.constructions.navigation import (
+    NAMED_QUESTION as NAMED_QUESTION,
+)
+from corpus_structure.semantic.constructions.navigation import (
+    ORDERED_LIMIT_REASON as ORDERED_LIMIT_REASON,
+)
+from corpus_structure.semantic.constructions.navigation import (
+    ORDERED_VERSION as ORDERED_VERSION,
+)
+from corpus_structure.semantic.constructions.navigation import (
+    QUESTION as QUESTION,
+)
+from corpus_structure.semantic.constructions.navigation import (
+    VERSION as VERSION,
+)
+from corpus_structure.semantic.constructions.navigation import (
+    NamedCueWitness as NamedCueWitness,
+)
+from corpus_structure.semantic.constructions.navigation import (
+    NamedLink as NamedLink,
+)
+from corpus_structure.semantic.constructions.navigation import (
+    NamedLinkInspection as NamedLinkInspection,
+)
+from corpus_structure.semantic.constructions.navigation import (
+    NamedLinkMatch as NamedLinkMatch,
+)
+from corpus_structure.semantic.constructions.navigation import (
+    NavigationIndex,
+    _children,
+    _parent,
+)
+from corpus_structure.semantic.constructions.navigation import (
+    OrderedRecappedDeclaration as OrderedRecappedDeclaration,
+)
+from corpus_structure.semantic.constructions.navigation import (
+    RecappedDeclaration as RecappedDeclaration,
+)
+from corpus_structure.semantic.constructions.navigation import (
+    ordered_witness_selection as ordered_witness_selection,
 )
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.structural_products import StructuralPassage
 
-QUESTION = "source_witnessed_links"
-VERSION = "1"
-ORDERED_VERSION = "2"
-ORDERED_LIMIT_REASON = (
-    "Selected recaps lack a unique exact ordered declaration or equation occurrence."
-)
 
-# A recap names both the declared meaning and the literal occurrence used by
-# the equation. A bare repeat of the same glyph is not a scope witness.
-DECLARATION = re.compile(
-    r"^Let (?P<symbol>[A-Za-z]) be (?P<description>a [^.\n]+)\. "
-    r"A (?P<family>[^.\n]+?) with these parameters is said to be a (?P<name>[^.\n]+)\."
-)
-RECAP = re.compile(
-    r"^We have seen above that it is possible to simulate a (?P<name>[^.\n]+) "
-    r"(?P<symbol>[A-Za-z])\.[^.\n]*\bthe simulated values for (?P=symbol)"
-    r" using the equation (?P<equation>[^.\n]+)\."
-)
-LET = re.compile(r"\bLet ([A-Za-z]) (?:be|denote|represent)\b")
-SOURCE_SYMBOL_DECLARATION = re.compile(
-    r"\b(?:where|let)\s+([A-Za-z][A-Za-z0-9_]*)\s+(?:denotes|is|be|represents)\s+([^.;\n]+)",
-    re.IGNORECASE,
-)
-_ORDERED_DECLARATION_CUE = re.compile(
-    r"\b(?:let|where|suppose|define)[ \t\r\n]+([a-z])[ \t\r\n]+"
-    r"(?:be|denotes?|is|represents?)\b",
-    re.IGNORECASE | re.ASCII,
-)
-_LINE_SPACING = str.maketrans("\n\t", "  ")
+def retained_artifact_fields(record, field_start):
+    """Project explicit primary artifact fields into the domain's native-item coordinates."""
+    from corpus_structure.semantic.artifact_identity import ArtifactSourceLabel
 
+    pointer = record.payload["pointer"]
 
-@dataclass(frozen=True, slots=True)
-class RecappedDeclaration:
-    declaration_pointer: str
-    use_pointer: str
-    symbol: str
-    name: tuple[int, int]
-    declaration: tuple[int, int]
-    recap: tuple[int, int]
-    equation: tuple[int, int]
-    scope: str
-    passage: str
-    effective_version: str | None
+    def extent(span):
+        return dict(
+            source_pointer=pointer,
+            start=span[0] - field_start,
+            end=span[1] - field_start,
+            text="".join(fragment["text"] for fragment in span[2]),
+        )
 
+    def role_extent(role):
+        span = record.span(role)
+        return None if span is None else extent((*span, record.fragments(role)))
 
-@dataclass(frozen=True, slots=True)
-class OrderedRecappedDeclaration(RecappedDeclaration):
-    """A recap and its exact source spans; name anchors follow projection order."""
-
-    symbol_site: tuple[int, int]
-    name_pieces: tuple[tuple[str, int, int], ...]
-
-
-def ordered_witness_selection(query: StructuralPassage, passage: StructuralPassage):
-    return tuple((p.passage_id, p.start, p.end, p.effective_version) for p in (query, passage))
-
-
-def _children(node):
-    return tuple(item.get("$ref") for item in node.get("children", ()))
-
-
-def _parent(node):
-    return (node.get("parent") or {}).get("$ref")
-
-
-def ordered_recapped_declarations(
-    text: str,
-    pieces: Sequence[Mapping[str, Any]],
-    items: Mapping[str, Mapping[str, Any]],
-    passage: StructuralPassage,
-    query: StructuralPassage,
-) -> tuple[int, tuple[OrderedRecappedDeclaration, ...]]:
-    """Inspect only selected recaps, then authenticate their wider native premises.
-
-    The ordinary query determines the inspected recap population. The broader
-    premise passage is exact retained source, not a replacement query. Native
-    whitespace substitution is local to cue matching and preserves coordinates.
-    """
-    if (
-        not 0 <= passage.start <= query.start < query.end <= passage.end <= len(text)
-        or (passage.source_ref, passage.scope, passage.effective_version)
-        != (query.source_ref, query.scope, query.effective_version)
-        or passage.passage_id == query.passage_id
-        or (passage.start, passage.end) == (query.start, query.end)
-        or passage.end - passage.start > 4096
-        or passage.text != text[passage.start : passage.end]
-        or query.text != text[query.start : query.end]
-    ):
-        raise ValueError("ordered formula witness differs from its bounded selected source")
-    selected = tuple(
-        piece for piece in pieces if piece["start"] < passage.end and passage.start < piece["end"]
+    aliases = tuple(
+        role_extent(role["role"])
+        for role in record.payload["roles"]
+        if role["role"].startswith("alias/")
     )
-    if (
-        not selected
-        or len(selected) > 128
-        or selected[0]["start"] != passage.start
-        or selected[-1]["end"] != passage.end
-        or any(left["end"] != right["start"] for left, right in pairwise(selected))
-    ):
-        raise ValueError("ordered formula witness requires complete ordered projection pieces")
-    physical = {}
-    for piece in selected:
-        if piece.get("kind") != "native_text" or piece.get("source_field", "text") != "text":
-            continue
-        pointer = piece.get("item_ref")
-        a, b = piece["start"], piece["end"]
-        if not isinstance(pointer, str):
-            continue
-        node = items.get(pointer, {})
-        if (
-            passage.start <= a < b <= passage.end
-            and "cell_index" not in piece
-            and node.get("content_layer") == "body"
-            and node.get("label") == "text"
-            and node.get("text") == text[a:b]
-        ):
-            if pointer in physical:
-                raise ValueError("ordered formula witness repeats a selected source piece")
-            physical[pointer] = (a, b)
-    inspected, results = 0, []
-    for use_pointer, (a, b) in physical.items():
-        if not query.start <= a < b <= query.end:
-            continue
-        section = _parent(items[use_pointer])
-        if not isinstance(section, str):
-            continue
-        container = items.get(section, {})
-        if container.get("label") != "section" or container.get("content_layer") != "body":
-            continue
-        siblings = _children(container)
-        sibling_counts = Counter(siblings)
-        if sibling_counts[use_pointer] != 1:
-            continue
-        use = RECAP.match(text[a:b].translate(_LINE_SPACING))
-        if use is None:
-            continue
-        inspected += 1
-        symbol = use["symbol"]
-        cues = [
-            passage.start + m.start(1)
-            for m in _ORDERED_DECLARATION_CUE.finditer(text[passage.start : a])
-            if m[1] == symbol
-        ]
-        if len(cues) != 1:
-            continue
-        for paragraph in siblings[: siblings.index(use_pointer)]:
-            if not isinstance(paragraph, str):
+    aliases = tuple(alias for alias in aliases if alias is not None)
+    fields = dict(
+        aliases=tuple(alias["text"] for alias in aliases),
+        alias_state=record.payload.get("alias_state", "unknown"),
+        alias_occurrences=aliases,
+    )
+    absence = role_extent("alias_absence")
+    if absence is not None:
+        fields["alias_absence"] = absence
+    labels = []
+    for kind in ("numbering_namespace", "revision"):
+        evidence = []
+        for label in record.payload.get("source_labels", ()):
+            if label["kind"] != kind:
                 continue
-            owner = items.get(paragraph, {})
-            groups = _children(owner)
-            if (
-                owner.get("label") != "text"
-                or owner.get("content_layer") != "body"
-                or _parent(owner) != section
-                or owner.get("text") != ""
-                or len(groups) != 1
-                or sibling_counts[paragraph] != 1
-            ):
-                continue
-            (inline,) = groups
-            if not isinstance(inline, str):
-                continue
-            group = items.get(inline, {})
-            children = _children(group)
-            if (
-                group.get("label") != "inline"
-                or group.get("content_layer") != "body"
-                or _parent(group) != paragraph
-                or not 2 <= len(children) <= 32
-                or len(set(children)) != len(children)
-                or not all(
-                    isinstance(child, str) and child in physical and _parent(items[child]) == inline
-                    for child in children
-                )
-            ):
-                continue
-            parts = tuple(physical[child] for child in children)
-            start, end = parts[0][0], parts[-1][1]
-            if end > a or any(left[1] != right[0] for left, right in pairwise(parts)):
-                continue
-            binding = DECLARATION.match(text[start:end].translate(_LINE_SPACING))
-            if (
-                binding is None
-                or start + binding.start("symbol") != cues[0]
-                or binding["symbol"] != symbol
-                or binding["name"] != use["name"]
-                or not binding["description"].startswith(
-                    "a " + binding["family"] + " with parameters "
-                )
-                or start + binding.end("description") > parts[0][1]
-            ):
-                continue
-            site, description, name = (
-                (start + left, start + right)
-                for left, right in map(binding.span, ("symbol", "description", "name"))
-            )
-            original_binding = SOURCE_SYMBOL_DECLARATION.match(text[start : parts[0][1]])
-            if (
-                original_binding is None
-                or original_binding.span(1) != (site[0] - start, site[1] - start)
-                or original_binding.span(2) != (description[0] - start, description[1] - start)
-            ):
-                continue
-            name_parts = tuple(
-                (pointer, max(left, name[0]) - left, min(right, name[1]) - left)
-                for pointer, (left, right) in zip(children, parts, strict=True)
-                if left < name[1] and name[0] < right
-            )
-            results.append(
-                OrderedRecappedDeclaration(
-                    children[0],
-                    use_pointer,
-                    symbol,
-                    name,
-                    description,
-                    (a, a + use.end("symbol")),
-                    (a + use.start("equation"), a + use.end("equation")),
-                    passage.scope,
-                    passage.passage_id,
-                    passage.effective_version,
-                    site,
-                    name_parts,
-                )
-            )
-    return inspected, tuple(results)
-
-
-def recapped_declarations(text, pieces, items, passages):
-    """Resolve a named recap only within one complete selected passage and parent."""
-    physical = [
-        p
-        for p in pieces
-        if p.get("kind") == "native_text"
-        and p.get("source_field", "text") == "text"
-        and "cell_index" not in p
-        and items.get(p.get("item_ref"), {}).get("content_layer") == "body"
-    ]
-    for passage in passages or ():
-        rows = [
-            (p, items[p["item_ref"]], text[p["start"] : p["end"]])
-            for p in physical
-            if passage.start <= p["start"] < p["end"] <= passage.end
-        ]
-        for i, (piece, node, literal) in enumerate(rows):
-            use = RECAP.match(literal)
-            parent = node.get("parent")
-            if use is None or parent is None:
-                continue
-            symbol, name = use["symbol"], use["name"]
-            earlier = [
-                (p, block)
-                for p, other, block in rows[:i]
-                if other.get("parent") == parent and symbol in LET.findall(block)
+            fragments = [
+                e for oid in label["occurrences"] for e in record.occurrences[oid]["extents"]
             ]
-            if len(earlier) != 1 or LET.findall(earlier[0][1]).count(symbol) != 1:
-                continue
-            declaration, declaration_text = earlier[0]
-            binding = DECLARATION.match(declaration_text)
-            if (
-                binding is None
-                or binding["symbol"] != symbol
-                or binding["name"] != name
-                or not binding["description"].startswith(
-                    "a " + binding["family"] + " with parameters "
-                )
-            ):
-                continue
-
-            def extent(start, match, group):
-                return start + match.start(group), start + match.end(group)
-
-            yield RecappedDeclaration(
-                declaration["item_ref"],
-                piece["item_ref"],
-                symbol,
-                extent(declaration["start"], binding, "name"),
-                extent(declaration["start"], binding, "description"),
-                (piece["start"], piece["start"] + use.end("symbol")),
-                extent(piece["start"], use, "equation"),
-                passage.scope,
-                passage.passage_id,
-                passage.effective_version,
+            if len(fragments) != 1 or fragments[0]["text"] != label["value"]:
+                raise ValueError("primary artifact label differs from its literal source")
+            fragment = fragments[0]
+            evidence.append(extent((fragment["start"], fragment["end"], fragments)))
+        values = {row["text"] for row in evidence}
+        labels.append(
+            ArtifactSourceLabel(
+                state="unknown" if not values else "observed" if len(values) == 1 else "unresolved",
+                value=next(iter(values)) if len(values) == 1 else None,
+                evidence=tuple(evidence),
             )
-
-
-NAMED_QUESTION = "source_named_links"
-NAMED_VERSION = "2"
-NAMED_COVERAGE_VERSION = "3"
-NAMED_PIECE_VERSION = "4"
-NAMED_NATIVE_PIECES_INPUT = "execution/implementation/operations/named-link-native-pieces.json"
-NAMED_ANNOTATION_VERSIONS = frozenset({NAMED_VERSION, NAMED_COVERAGE_VERSION, NAMED_PIECE_VERSION})
-INHERITANCE_QUESTION = "source_scope_inheritance"
+        )
+    return fields, tuple(labels), record.text("caption_title") or None
 
 
 def qualified_inheritance(contributions):
@@ -378,391 +177,119 @@ def procedure_artifact_endpoint(rows, link, annotation, artifact_id):
     return actions[0], rows[artifact["members"][1]], artifact
 
 
-_NAME = r"[A-Za-z][A-Za-z0-9_ -]{0,79}?"
-_NAMED_LINK = re.compile(
-    r"^(?P<left>" + _NAME + r") (?P<cue>is hereafter called|is renamed to|specializes|supersedes)"
-    r" (?P<right>" + _NAME + r")\.$"
-)
-_ACRONYM = re.compile(
-    r"^(?P<left>[A-Z][A-Za-z]+(?: [A-Z][A-Za-z]+){1,7}) (?P<cue>\()(?P<right>[A-Z]{2,8})\)\.$"
-)
-SECTION_CUE = re.compile(
-    r"\b(?P<cue>[Ss]ee|[Aa]s defined in) (?P<mention>Section (?P<code>[0-9]+(?:\.[0-9]+)+))\b"
-)
-_EXTERNAL_CUE = re.compile(
-    r"\b(?P<cue>[Ss]ee) "
-    r"(?P<mention>ISO(?:/IEC)? [0-9]+(?::[0-9]{4})?|RFC [0-9]+"
-    r"|[A-Z][A-Za-z]+ and [A-Z][A-Za-z]+\.[0-9]+)(?=[. ,;)]|$)"
-)
-_SECTION_HEADING = re.compile(r"^(?:Section )?(?P<code>[0-9]+(?:\.[0-9]+)+)(?:\s|$)")
-_KINDS = {
-    "is hereafter called": "alias",
-    "is renamed to": "renames",
-    "specializes": "specializes",
-    "supersedes": "supersedes",
-}
+def navigation_index(primary_layers, projection, *, source_view_id=None):
+    return NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
 
 
-@dataclass(frozen=True, slots=True)
-class NamedLink:
-    pointer: str
-    kind: str
-    left: tuple[int, int]
-    cue: tuple[int, int]
-    target_pointer: str | None
-    right: tuple[int, int] | None
-    scope: str
-    passage: str
-    resolution: str | None = None
+class RetainedSourceMatch:
+    """Located fields retained by a primary operation; this object never scans source text."""
+
+    def __init__(self, record, source_start=0):
+        self.record, self.source_start = record, source_start
+        self.primary_node = record.reference.values()
+
+    def span(self, group=0):
+        names = {0: "match", 1: "symbol", 2: "description"}
+        role = names.get(group, group)
+        span = self.record.span(role)
+        if span is None and group == 0:
+            values = [self.record.span(r["role"]) for r in self.record.payload["roles"]]
+            span = min(a for a, _ in values), max(b for _, b in values)
+        if span is None:
+            return (-1, -1)
+        return span[0] - self.source_start, span[1] - self.source_start
+
+    def start(self, group=0):
+        return self.span(group)[0]
+
+    def end(self, group=0):
+        return self.span(group)[1]
+
+    def __getitem__(self, group):
+        role = {0: "match", 1: "symbol", 2: "description"}.get(group, group)
+        return self.record.text(role).translate(str.maketrans("\n\t", "  "))
 
 
-def named_source_links(text, pieces, items, passages):
-    """Resolve exact naming grammar and same-selection structural citations."""
-    for passage in passages or ():
-        rows = [
-            (p["item_ref"], p["start"], text[p["start"] : p["end"]])
-            for p in pieces
-            if p.get("kind") == "native_text"
-            and p.get("source_field", "text") == "text"
-            and "cell_index" not in p
-            and passage.start <= p["start"] < p["end"] <= passage.end
-            and items.get(p["item_ref"], {}).get("content_layer") == "body"
-        ]
-        headings = {}
-        for pointer, start, literal in rows:
-            if items[pointer].get("label") == "section_header" and (
-                heading := _SECTION_HEADING.match(literal)
-            ):
-                headings.setdefault(heading["code"], []).append(
-                    (pointer, start, start + len(literal))
-                )
-        for pointer, start, literal in rows:
-            if items[pointer].get("label") not in {"text", "paragraph", "list_item"}:
-                continue
-
-            def extent(match, group, start=start):
-                a, b = match.span(group)
-                return start + a, start + b
-
-            if match := _NAMED_LINK.fullmatch(literal):
-                if match["left"].casefold() != match["right"].casefold():
-                    yield NamedLink(
-                        pointer,
-                        _KINDS[match["cue"]],
-                        extent(match, "left"),
-                        extent(match, "cue"),
-                        pointer,
-                        extent(match, "right"),
-                        passage.scope,
-                        passage.passage_id,
-                    )
-            elif (match := _ACRONYM.fullmatch(literal)) and (
-                "".join(word[0] for word in match["left"].split()) == match["right"]
-            ):
-                yield NamedLink(
-                    pointer,
-                    "alias",
-                    extent(match, "left"),
-                    extent(match, "cue"),
-                    pointer,
-                    extent(match, "right"),
-                    passage.scope,
-                    passage.passage_id,
-                )
-            for match in SECTION_CUE.finditer(literal):
-                targets = headings.get(match["code"], ())
-                target = targets[0] if len(targets) == 1 else None
-                yield NamedLink(
-                    pointer,
-                    "section_citation" if match["cue"].lower() == "see" else "definition_reference",
-                    extent(match, "mention"),
-                    extent(match, "cue"),
-                    target[0] if target else None,
-                    target[1:] if target else None,
-                    passage.scope,
-                    passage.passage_id,
-                )
-            for match in _EXTERNAL_CUE.finditer(literal):
-                yield NamedLink(
-                    pointer,
-                    "external_citation",
-                    extent(match, "mention"),
-                    extent(match, "cue"),
-                    None,
-                    None,
-                    passage.scope,
-                    passage.passage_id,
-                    "external_target_unavailable",
-                )
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class NamedCueWitness:
-    rule: str
-    variant: str
-    mechanism: str
-    kind: str
-    annotation: str
-    block: str
-    tokens: dict[str, int]
-    subject: tuple[int, int]
-    cue: tuple[int, int]
-    argument: tuple[int, int] | None
-    designator: str | None
-    scope: str
-    effective_version: str | None
-    resolution: str
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class NamedLinkMatch(NamedLink):
-    witness: NamedCueWitness
-    definition_subject: tuple[tuple[int, int], str] | None = None
-
-    def evidence(self) -> dict[str, Any]:
-        return asdict(self.witness)
-
-
-@dataclass(frozen=True, slots=True)
-class NamedLinkInspection:
-    matches: tuple[NamedLinkMatch, ...]
-    inspected_count: int
-    incomplete: bool
-
-    def outcome(self) -> str:
-        if not self.inspected_count:
-            return "unsupported" if self.incomplete else "empty"
-        if self.incomplete or any(m.resolution != "located" for m in self.matches):
-            return "limited"
-        return "succeeded" if self.matches else "empty"
-
-
-def named_definition_subject(text, start, cue_start, *, version=NAMED_VERSION):
-    """Return a source-named term or explicitly marked identifier before its cue."""
-    recipe, _, _ = _named_recipe(version)
-    patterns = [("term", recipe["definition_subject_pattern"])]
-    if version in (NAMED_COVERAGE_VERSION, NAMED_PIECE_VERSION):
-        patterns.insert(0, ("identifier", recipe["definition_identifier_pattern"]))
-    for kind, pattern in patterns:
-        match = re.search(pattern, text[start:cue_start])
-        if match is not None:
-            lo, hi = match.span(1 if match[1] is not None else 2)
-            return (start + lo, start + hi), kind
-    return None
-
-
-def explicit_named_definition_extent(text, start, cue_start, *, version=NAMED_VERSION):
-    found = named_definition_subject(text, start, cue_start, version=version)
-    return found[0] if found is not None else None
-
-
-@lru_cache(maxsize=8)
-def _named_recipe(version=NAMED_VERSION, native_piece_policy: bytes | None = None):
-    from spacy.lang.en import English
-
-    recipe = json.loads(Path(__file__).with_name("named_link_rules.json").read_bytes())
-    if recipe["version"] != NAMED_VERSION:
-        raise ValueError("named link recipe differs from the released version")
-    if version in (NAMED_COVERAGE_VERSION, NAMED_PIECE_VERSION):
-        coverage = json.loads(Path(__file__).with_name("named_link_coverage.json").read_bytes())
-        if coverage["version"] != NAMED_COVERAGE_VERSION:
-            raise ValueError("named link coverage differs from the released version")
-        recipe.update(coverage)
-        if version == NAMED_PIECE_VERSION:
-            if native_piece_policy is None:
-                native_piece_policy = (
-                    Path(__file__).with_name("named_link_native_pieces.json").read_bytes()
-                )
-            pieces = json.loads(native_piece_policy)
-            if (
-                not isinstance(pieces, dict)
-                or set(pieces) != {"version", "joined_piece_kinds"}
-                or pieces["version"] != NAMED_PIECE_VERSION
-                or not isinstance(kinds := pieces["joined_piece_kinds"], list)
-                or not kinds
-                or any(kind not in ("section_citation", "definition_reference") for kind in kinds)
-                or len(kinds) != len(set(kinds))
-            ):
-                raise ValueError("named link native-piece policy differs from the released version")
-            recipe.update(pieces)
-    elif version != NAMED_VERSION:
-        raise ValueError("unknown named link recipe")
-    variants = {}
-    rules = []
-    for rule in recipe["rules"]:
-        key = (rule["rule"], rule["variant"])
-        variants[key] = rule
-        if rule["mechanism"] == "token":
-            pattern = [node["attrs"] for node in rule["nodes"]]
-            bindings = {"match": RoleBinding(node="match")}
-        else:
-            pattern = [
-                dict(
-                    RIGHT_ID=node["id"],
-                    RIGHT_ATTRS=node["attrs"],
-                    **({"LEFT_ID": node["parent"], "REL_OP": ">"} if "parent" in node else {}),
-                )
-                for node in rule["nodes"]
-            ]
-            bindings = {"cue": RoleBinding(node=rule["cue"][0])}
-        rules.append(
-            AnnotationRule(
-                rule=key[0],
-                variant=key[1],
-                mechanism=rule["mechanism"],
-                pattern=pattern,
-                bindings=bindings,
-            )
+def retained_source_matches(index, kind, pointer, start, end):
+    return tuple(
+        RetainedSourceMatch(record, start)
+        for record in index.select(kind, pointer)
+        if all(
+            start <= e["start"] < e["end"] <= end
+            for r in record.payload["roles"]
+            for e in record.fragments(r["role"])
         )
-    return recipe, variants, PreparedAnnotationRules(English().vocab, rules=tuple(rules))
-
-
-_DOTTED_DESIGNATOR = re.compile(r"[ \t]+(?P<code>[0-9]+(?:\.[0-9]+)+)(?!\w|\.[0-9])")
-_CITATION_SUFFIX = re.compile(
-    r"[ \t]+(?P<mention>ISO(?:/IEC)? [0-9]+(?::[0-9]{4})?|RFC [0-9]+"
-    r"|[A-Z][A-Za-z]+ and [A-Z][A-Za-z]+\.[0-9]+)(?=[. ,;)]|$)"
-)
-_INITIAL_WORD = re.compile(r"[A-Z][A-Za-z]*\Z")
-_ACRONYM_WORD = re.compile(r"[A-Z]{2,8}\Z")
-
-
-def _word_run(doc, start, step, sentence):
-    indices = []
-    while 0 <= start < len(doc) and len(indices) < 8:
-        if doc[start].sent.start != sentence or not _INITIAL_WORD.fullmatch(doc[start].text):
-            break
-        indices.append(start)
-        start += step
-    return tuple(sorted(indices))
-
-
-def _nominal_extent(text, tokens, index, recipe):
-    row = tokens[index]
-    indices = [index]
-    for i, other in enumerate(tokens):
-        if (
-            i != index
-            and other.head == index
-            and other.sentence == row.sentence
-            and other.dependency in recipe["nominal_dependencies"]
-        ):
-            indices.append(i)
-    indices.sort()
-    if len(indices) > recipe["nominal_max_tokens"] or indices != list(
-        range(indices[0], indices[-1] + 1)
-    ):
-        return (row.start, row.end), False
-    first, last = tokens[indices[0]], tokens[indices[-1]]
-    # The retained tokenizer treats an initial such as "A." as one token.
-    end = last.end - bool(re.fullmatch(r"[A-Z]\.", text[last.start : last.end]))
-    return (first.start, end), True
-
-
-def _named_roles(text, doc, tokens, piece, rule, nodes, recipe):
-    cue_rows = [tokens[nodes[key]] for key in rule["cue"]]
-    cue = (min(r.start for r in cue_rows), max(r.end for r in cue_rows))
-    kind = rule["kind"]
-    if kind in {"section_citation", "definition_reference"}:
-        section = tokens[nodes["section"]]
-        code = _DOTTED_DESIGNATOR.match(text[section.end : piece["end"]])
-        if code:
-            return (section.start, section.end + code.end()), cue, None, code["code"], True
-    elif kind == "external_citation":
-        citation = _CITATION_SUFFIX.match(text[cue[1] : piece["end"]])
-        if citation:
-            a, b = citation.span("mention")
-            return (cue[1] + a, cue[1] + b), cue, None, None, True
-    elif rule["variant"] == "parenthesized":
-        name = doc[nodes["acronym"]].text
-        left = _word_run(doc, nodes["open"] - 1, -1, doc[nodes["open"]].sent.start)
-        if (
-            len(left) >= 2
-            and _ACRONYM_WORD.fullmatch(name)
-            and "".join(doc[i].text[0] for i in left) == name
-        ):
-            abbreviation = tokens[nodes["acronym"]]
-            return (
-                (tokens[left[0]].start, tokens[left[-1]].end),
-                cue,
-                (abbreviation.start, abbreviation.end),
-                None,
-                True,
-            )
-    elif rule["variant"] == "apposition":
-        sentence = doc[nodes["hereafter"]].sent.start
-        left = _word_run(doc, nodes["comma"] - 1, -1, sentence)
-        right = _word_run(doc, nodes["hereafter"] + 1, 1, sentence)
-        if left and right:
-            return (
-                (tokens[left[0]].start, tokens[left[-1]].end),
-                cue,
-                (tokens[right[0]].start, tokens[right[-1]].end),
-                None,
-                True,
-            )
-    elif kind == "procedure_reference":
-        artifact = tokens[nodes["argument"]]
-        code = _DOTTED_DESIGNATOR.match(text[artifact.end : piece["end"]])
-        if code:
-            return (artifact.start, artifact.end + code.end()), cue, cue, code["code"], True
-    else:
-        left, left_complete = _nominal_extent(text, tokens, nodes[rule["subject"]], recipe)
-        right, right_complete = _nominal_extent(text, tokens, nodes[rule["argument"]], recipe)
-        if text[slice(*left)].casefold() != text[slice(*right)].casefold():
-            return left, cue, right, None, left_complete and right_complete
-    return None
-
-
-def _native_text_piece_key(piece):
-    """Match the exact projected identity, with default text field normalized."""
-    if (
-        piece.get("kind") == "native_text"
-        and piece.get("source_field") in (None, "text")
-        and piece.get("cell_index") is None
-        and isinstance(piece.get("item_ref"), str)
-        and type(piece.get("start")) is int
-        and type(piece.get("end")) is int
-        and 0 <= piece["start"] < piece["end"]
-    ):
-        return piece["item_ref"], piece["start"], piece["end"]
-    return None
-
-
-def _annotation_piece_owners(annotations):
-    """Index exact retained pieces; multiple owners remain distinguishable."""
-    owners = defaultdict(list)
-    for annotation in annotations:
-        for index, piece in enumerate(annotation.native_pieces):
-            key = _native_text_piece_key(piece.to_wire())
-            if (
-                key is not None
-                and annotation.block_start <= piece.start < piece.end <= annotation.block_end
-            ):
-                owners[key].append((annotation, index))
-    return owners
-
-
-def _piece_contains_token(piece, index, token):
-    return (
-        token.piece_indices == (index,)
-        and piece["start"] <= token.start < token.end <= piece["end"]
     )
 
 
-def _piece_contains_roles(piece, index, tokens, roles):
-    for extent in roles:
-        if extent is None:
-            continue
-        start, end = extent
-        if not piece["start"] <= start < end <= piece["end"]:
-            return False
-        if any(
-            not _piece_contains_token(piece, index, token)
-            for token in tokens
-            if token.start < end and start < token.end
-        ):
-            return False
-    return True
+def _retained_match(index, kind, pointer, start, end):
+    found = retained_source_matches(index, kind, pointer, start, end)
+    if kind == "symbol_declaration":
+        found = tuple(match for match in found if match.start() == 0)
+    return found[0] if len(found) == 1 else None
+
+
+def symbol_declarations(index, pointer, start, end, *, introducer=None):
+    return tuple(
+        match
+        for match in retained_source_matches(index, "symbol_declaration", pointer, start, end)
+        if introducer is None or match.record.payload.get("introducer") == introducer
+    )
+
+
+def named_definition_subject(
+    text,
+    start,
+    cue_start,
+    *,
+    version=NAMED_PIECE_VERSION,
+    primary_layers=None,
+    projection=None,
+    source_view_id=None,
+):
+    index = NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
+    found = [
+        (
+            record.span("definition_subject"),
+            record.payload["definition_subject_kind"],
+            record.reference.values(),
+        )
+        for record in index.select("named_link")
+        if record.span("cue")[0] == cue_start
+        and record.span("definition_subject") is not None
+        and start
+        <= record.span("definition_subject")[0]
+        < record.span("definition_subject")[1]
+        <= cue_start
+    ]
+    return found[0][:2] if len(found) == 1 else None
+
+
+def explicit_named_definition_extent(text, start, cue_start, **kwargs):
+    found = named_definition_subject(text, start, cue_start, **kwargs)
+    return None if found is None else found[0]
+
+
+def retained_named_definition_subject(
+    primary_layers, projection, *, start, cue_start, source_view_id=None
+):
+    """Return an exact subject plus its qualified primary support for contextual readers."""
+    index = NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
+    found = [
+        (
+            record.span("definition_subject"),
+            record.payload["definition_subject_kind"],
+            record.reference.values(),
+        )
+        for record in index.select("named_link")
+        if record.span("cue")[0] == cue_start
+        and record.span("definition_subject") is not None
+        and start
+        <= record.span("definition_subject")[0]
+        < record.span("definition_subject")[1]
+        <= cue_start
+    ]
+    return found[0] if len(found) == 1 else None
 
 
 def match_named_source_links(
@@ -770,190 +297,377 @@ def match_named_source_links(
     pieces,
     items,
     passages,
-    annotations,
+    annotations=(),
     *,
     annotation_errors=(),
-    version=NAMED_VERSION,
-    native_piece_policy: bytes | None = None,
-) -> NamedLinkInspection:
-    """Find typed link cues on restored annotations and keep their exact source roles."""
-    if native_piece_policy is not None and version != NAMED_PIECE_VERSION:
-        raise ValueError("native-piece policy requires the joined-piece recipe")
-    recipe, variants, prepared = _named_recipe(version, native_piece_policy)
-    piece_version = version == NAMED_PIECE_VERSION
-    physical_pieces = [
-        p
-        for p in pieces
-        if (
-            _native_text_piece_key(p) is not None
-            if piece_version
-            else p["kind"] == "native_text"
-            and p.get("source_field", "text") == "text"
-            and "cell_index" not in p
-        )
-        and items.get(p["item_ref"], {}).get("content_layer") == "body"
-        and items[p["item_ref"]].get("label") in {"text", "paragraph", "list_item"}
-    ]
-    products = tuple(product for product in annotations if isinstance(product, AnnotationProduct))
-    by_block = {product.block_id: product for product in products}
-    # Older releases keyed the projection and retained annotation on the same pointer.
-    by_pointer = {piece["item_ref"]: piece for piece in physical_pieces}
-    piece_counts = Counter(piece["item_ref"] for piece in physical_pieces) if piece_version else {}
-    owners = _annotation_piece_owners(products) if piece_version else {}
-    block_counts = Counter(product.block_id for product in products) if piece_version else {}
-    matched_blocks = {}
-    matches = []
-    inspected = set()
-    strict_coverage = version in (NAMED_COVERAGE_VERSION, NAMED_PIECE_VERSION)
-    incomplete = bool(annotation_errors) and not strict_coverage
-    for piece in physical_pieces if piece_version else by_pointer.values():
-        pointer = piece["item_ref"]
-        selected = [p for p in passages or () if p.start < piece["end"] and piece["start"] < p.end]
-        if not selected:
-            continue
-        piece_index = None
-        if piece_version:
-            key = _native_text_piece_key(piece)
-            candidates = owners.get(key, ()) if key is not None else ()
-            if piece_counts[pointer] != 1 or len(candidates) != 1:
-                incomplete = True
-                continue
-            ((annotation, piece_index),) = candidates
-            if block_counts[annotation.block_id] != 1:
-                incomplete = True
-                continue
-        else:
-            annotation = by_block.get(pointer)
-            if annotation is None:
-                incomplete = True
-                continue
-        if strict_coverage:
-            availability = {column.attribute: column.status for column in annotation.availability}
-            if any(
-                availability.get(column) not in {"complete", "not_applicable"}
-                for column in recipe["required_columns"]
-            ):
-                incomplete = True
-                continue
-        if annotation.block_id not in matched_blocks:
-            try:
-                view = annotation_view(
-                    annotation, text[annotation.block_start : annotation.block_end], prepared.vocab
-                )
-            except AnnotationUnavailable:
-                if strict_coverage:
-                    raise
-                incomplete = True
-                continue
-            matched_blocks[annotation.block_id] = view, prepared.match(view)
-        view, result = matched_blocks[annotation.block_id]
-        incomplete |= any(status != "available" for _, _, status in result.availability)
-        inspected.add(pointer)
-        tokens = annotation.tokens
-        for match in result.matches:
-            rule = variants[match.rule, match.variant]
+    version=NAMED_PIECE_VERSION,
+    native_piece_policy=None,
+    primary_layers=None,
+    projection=None,
+    source_view_id=None,
+):
+    """Project primary named roles under the caller's source selection; never match a Doc."""
+    if version != NAMED_PIECE_VERSION:
+        raise ValueError("current named navigation requires the retained primary recipe")
+    if primary_layers is None:
+        primary_layers = {
+            pin: report
+            for annotation in annotations
+            for pin, report in getattr(annotation, "primary_layers", {}).items()
+        }
+    if projection is None and annotations:
+        projection = annotations[0].source.projection_digest
+    if source_view_id is None and annotations:
+        source_view_id = annotations[0].source.source_view_id
+    index = NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
+    matches, inspected = [], set()
+    incomplete = not index.complete or bool(annotation_errors)
+    by_pointer = {p["item_ref"]: p for p in pieces if p["kind"] == "native_text"}
+    for passage in passages or ():
+        for record in index.select("named_availability"):
+            extent = record.span("source")
+            if extent is not None and extent[0] < passage.end and passage.start < extent[1]:
+                if record.payload["status"] == "complete":
+                    inspected.add(record.payload["pointer"])
+                else:
+                    incomplete = True
+        for record in index.select("named_link"):
+            nav = record.payload
+            piece = by_pointer.get(nav["pointer"])
+            if piece is None:
+                raise ValueError("retained navigation has no selected native piece")
+            lo, hi = max(passage.start, piece["start"]), min(passage.end, piece["end"])
+            left, cue, right = record.span("subject"), record.span("cue"), record.span("argument")
             if (
-                piece_version
-                and annotation.block_id != pointer
-                and rule["kind"] not in recipe["joined_piece_kinds"]
+                left is None
+                or cue is None
+                or not (lo <= left[0] < left[1] <= hi and lo <= cue[0] < cue[1] <= hi)
             ):
                 continue
-            nodes = dict(zip((n["id"] for n in rule["nodes"]), match.nodes, strict=True))
-            if piece_index is not None and not all(
-                _piece_contains_token(piece, piece_index, tokens[index]) for index in nodes.values()
-            ):
-                continue
-            sentences = {tokens[index].sentence for index in nodes.values()}
-            if len(sentences) != 1:
-                continue
-            (sentence_index,) = sentences
-            if sentence_index is None:
-                continue
-            found = _named_roles(text, view.doc, tokens, piece, rule, nodes, recipe)
-            if found is None:
-                continue
-            left, cue, right, designator, complete = found
-            if piece_index is not None and not _piece_contains_roles(
-                piece, piece_index, tokens, (left, cue, right)
-            ):
-                continue
-            sentence = annotation.sentences[sentence_index]
-            prefix = text[sentence.start : cue[0]]
-            quoted = prefix.count('"') % 2 == 1 or prefix.count("“") > prefix.count("”")
-            cautious = bool(
-                match.negation_extents
-                or re.search(r"\b(?:do|does|did) not\s*$", prefix, re.I)
-                or any(
-                    token.head in nodes.values()
-                    and (
-                        (token.dependency == "mark" and token.lemma.lower() in {"if", "unless"})
-                        or (
-                            token.dependency == "aux"
-                            and token.lemma.lower() in {"may", "might", "could", "would"}
-                        )
-                    )
-                    for token in tokens
+            scoped_right = right if right is None or lo <= right[0] < right[1] <= hi else None
+            state = nav["resolution"] if scoped_right == right else "insufficient_evidence"
+            subject = record.span("definition_subject")
+            definition_subject = (
+                (subject, nav["definition_subject_kind"])
+                if subject is not None and lo <= subject[0] < subject[1] <= hi
+                else None
+            )
+            witness = NamedCueWitness(
+                rule=nav["rule"],
+                variant=nav["variant"],
+                mechanism=nav["mechanism"],
+                kind=nav["relation_kind"],
+                annotation=nav["annotation"],
+                block=nav["block"],
+                tokens={t["name"]: t["index"] for t in nav["native_tokens"]},
+                subject=left,
+                cue=cue,
+                argument=scoped_right,
+                designator=nav.get("designator"),
+                scope=passage.scope,
+                effective_version=passage.effective_version,
+                resolution=state,
+                primary_node=record.reference.values(),
+            )
+            matches.append(
+                NamedLinkMatch(
+                    pointer=nav["pointer"],
+                    kind=nav["relation_kind"],
+                    left=left,
+                    cue=cue,
+                    target_pointer=nav["pointer"] if state == "located" else None,
+                    right=scoped_right,
+                    scope=passage.scope,
+                    passage=passage.passage_id,
+                    resolution=state,
+                    witness=witness,
+                    definition_subject=definition_subject,
                 )
             )
-            kind = rule["kind"]
-            if not complete or quoted or cautious:
-                resolution = "insufficient_evidence"
-            elif kind in {"section_citation", "definition_reference"}:
-                resolution = "target_selection_required"
-            elif kind == "external_citation":
-                resolution = "external_target_unavailable"
-            elif kind == "procedure_reference":
-                resolution = "target_selection_required"
-            else:
-                resolution = "located"
-            for passage in selected:
-                lo, hi = max(passage.start, piece["start"]), min(passage.end, piece["end"])
-                if not all(lo <= a < b <= hi for a, b in (left, cue)):
-                    continue
-                scoped_right = right if right is None or lo <= right[0] < right[1] <= hi else None
-                state = resolution if scoped_right == right else "insufficient_evidence"
-                definition_subject = None
-                if (
-                    piece_index is not None
-                    and kind == "definition_reference"
-                    and state == "target_selection_required"
-                    and (
-                        concept := named_definition_subject(
-                            text, lo, cue[0], version=NAMED_COVERAGE_VERSION
-                        )
-                    )
-                    is not None
-                    and _piece_contains_roles(piece, piece_index, tokens, (concept[0],))
-                ):
-                    definition_subject = concept
-                matches.append(
-                    NamedLinkMatch(
-                        pointer=pointer,
-                        kind=kind,
-                        left=left,
-                        cue=cue,
-                        target_pointer=pointer if state == "located" else None,
-                        right=scoped_right,
-                        scope=passage.scope,
-                        passage=passage.passage_id,
-                        resolution=state,
-                        definition_subject=definition_subject,
-                        witness=NamedCueWitness(
-                            rule=match.rule,
-                            variant=match.variant,
-                            mechanism=match.mechanism,
-                            kind=kind,
-                            annotation="annotation:" + annotation.dependency_digest,
-                            block=annotation.block_id,
-                            tokens=nodes,
-                            subject=left,
-                            cue=cue,
-                            argument=scoped_right,
-                            designator=designator,
-                            scope=passage.scope,
-                            effective_version=passage.effective_version,
-                            resolution=state,
-                        ),
-                    )
+    return NamedLinkInspection(tuple(matches), len(inspected), incomplete, tuple(sorted(inspected)))
+
+
+def named_source_links(
+    text, pieces, items, passages, *, primary_layers=None, projection=None, source_view_id=None
+):
+    index = NavigationIndex(primary_layers, projection, source_view_id=source_view_id).require()
+    found = []
+    for passage in passages or ():
+        for record in index.select("lexical_named_link"):
+            nav = record.payload
+            left, cue, right = record.span("subject"), record.span("cue"), record.span("argument")
+            if (
+                left is None
+                or cue is None
+                or not passage.start <= min(left[0], cue[0]) < max(left[1], cue[1]) <= passage.end
+            ):
+                continue
+            target = nav["pointer"] if right is not None else None
+            if nav["relation_kind"] in {"section_citation", "definition_reference"}:
+                headings = [
+                    row
+                    for row in index.select("section_heading")
+                    if row.payload["designator"] == nav["designator"]
+                    and passage.start
+                    <= row.span("heading")[0]
+                    < row.span("heading")[1]
+                    <= passage.end
+                ]
+                if len(headings) == 1:
+                    target, right = headings[0].payload["pointer"], headings[0].span("heading")
+            found.append(
+                NamedLink(
+                    nav["pointer"],
+                    nav["relation_kind"],
+                    left,
+                    cue,
+                    target,
+                    right,
+                    passage.scope,
+                    passage.passage_id,
+                    nav["resolution"] if nav["relation_kind"] == "external_citation" else None,
+                    designator=nav.get("designator"),
                 )
-    return NamedLinkInspection(tuple(matches), len(inspected), incomplete)
+            )
+    return tuple(found)
+
+
+def ordered_recapped_declarations(
+    text: str,
+    pieces: Sequence[Mapping[str, Any]],
+    items: Mapping[str, Mapping[str, Any]],
+    passage: StructuralPassage,
+    query: StructuralPassage,
+    *,
+    primary_layers=None,
+    projection=None,
+    source_view_id=None,
+) -> tuple[int, tuple[OrderedRecappedDeclaration, ...]]:
+    """Inspect only selected recaps, then authenticate their wider native premises.
+
+    The ordinary query determines the inspected recap population. The broader
+    premise passage is exact retained source, not a replacement query. Native
+    whitespace substitution is local to cue matching and preserves coordinates.
+    """
+    index = NavigationIndex(primary_layers, projection, source_view_id=source_view_id).require()
+    if (
+        not 0 <= passage.start <= query.start < query.end <= passage.end <= len(text)
+        or (passage.source_ref, passage.scope, passage.effective_version)
+        != (query.source_ref, query.scope, query.effective_version)
+        or passage.passage_id == query.passage_id
+        or (passage.start, passage.end) == (query.start, query.end)
+        or passage.end - passage.start > 4096
+        or passage.text != text[passage.start : passage.end]
+        or query.text != text[query.start : query.end]
+    ):
+        raise ValueError("ordered formula witness differs from its bounded selected source")
+    selected = tuple(
+        piece for piece in pieces if piece["start"] < passage.end and passage.start < piece["end"]
+    )
+    if (
+        not selected
+        or len(selected) > 128
+        or selected[0]["start"] != passage.start
+        or selected[-1]["end"] != passage.end
+        or any(left["end"] != right["start"] for left, right in pairwise(selected))
+    ):
+        raise ValueError("ordered formula witness requires complete ordered projection pieces")
+    physical = {}
+    for piece in selected:
+        if piece.get("kind") != "native_text" or piece.get("source_field", "text") != "text":
+            continue
+        pointer = piece.get("item_ref")
+        a, b = piece["start"], piece["end"]
+        if not isinstance(pointer, str):
+            continue
+        node = items.get(pointer, {})
+        if (
+            passage.start <= a < b <= passage.end
+            and "cell_index" not in piece
+            and node.get("content_layer") == "body"
+            and node.get("label") == "text"
+            and node.get("text") == text[a:b]
+        ):
+            if pointer in physical:
+                raise ValueError("ordered formula witness repeats a selected source piece")
+            physical[pointer] = (a, b)
+    inspected, results = 0, []
+    for use_pointer, (a, b) in physical.items():
+        if not query.start <= a < b <= query.end:
+            continue
+        section = _parent(items[use_pointer])
+        if not isinstance(section, str):
+            continue
+        container = items.get(section, {})
+        if container.get("label") != "section" or container.get("content_layer") != "body":
+            continue
+        siblings = _children(container)
+        sibling_counts = Counter(siblings)
+        if sibling_counts[use_pointer] != 1:
+            continue
+        use = _retained_match(index, "recap", use_pointer, a, b)
+        if use is None:
+            continue
+        inspected += 1
+        symbol = use["symbol"]
+        cues = [
+            record.span("symbol")[0]
+            for record in index.select("declaration_cue")
+            if passage.start <= record.span("symbol")[0] < a and record.text("symbol") == symbol
+        ]
+        if len(cues) != 1:
+            continue
+        for paragraph in siblings[: siblings.index(use_pointer)]:
+            if not isinstance(paragraph, str):
+                continue
+            owner = items.get(paragraph, {})
+            groups = _children(owner)
+            if (
+                owner.get("label") != "text"
+                or owner.get("content_layer") != "body"
+                or _parent(owner) != section
+                or owner.get("text") != ""
+                or len(groups) != 1
+                or sibling_counts[paragraph] != 1
+            ):
+                continue
+            (inline,) = groups
+            if not isinstance(inline, str):
+                continue
+            group = items.get(inline, {})
+            children = _children(group)
+            if (
+                group.get("label") != "inline"
+                or group.get("content_layer") != "body"
+                or _parent(group) != paragraph
+                or not 2 <= len(children) <= 32
+                or len(set(children)) != len(children)
+                or not all(
+                    isinstance(child, str) and child in physical and _parent(items[child]) == inline
+                    for child in children
+                )
+            ):
+                continue
+            parts = tuple(physical[child] for child in children)
+            start, end = parts[0][0], parts[-1][1]
+            if end > a or any(left[1] != right[0] for left, right in pairwise(parts)):
+                continue
+            binding = _retained_match(index, "declaration_template", inline, start, end)
+            if (
+                binding is None
+                or start + binding.start("symbol") != cues[0]
+                or binding["symbol"] != symbol
+                or binding["name"] != use["name"]
+                or start + binding.end("description") > parts[0][1]
+            ):
+                continue
+            site, description, name = (
+                (start + left, start + right)
+                for left, right in map(binding.span, ("symbol", "description", "name"))
+            )
+            original_binding = _retained_match(
+                index, "symbol_declaration", children[0], start, parts[0][1]
+            )
+            if (
+                original_binding is None
+                or original_binding.span(1) != (site[0] - start, site[1] - start)
+                or original_binding.span(2) != (description[0] - start, description[1] - start)
+            ):
+                continue
+            name_parts = tuple(
+                (pointer, max(left, name[0]) - left, min(right, name[1]) - left)
+                for pointer, (left, right) in zip(children, parts, strict=True)
+                if left < name[1] and name[0] < right
+            )
+            results.append(
+                OrderedRecappedDeclaration(
+                    children[0],
+                    use_pointer,
+                    symbol,
+                    name,
+                    description,
+                    (a, a + use.end("symbol")),
+                    (a + use.start("equation"), a + use.end("equation")),
+                    passage.scope,
+                    passage.passage_id,
+                    passage.effective_version,
+                    site,
+                    name_parts,
+                    primary_node=use.primary_node,
+                    declaration_node=binding.primary_node,
+                )
+            )
+    return inspected, tuple(results)
+
+
+def recapped_declarations(
+    text, pieces, items, passages, *, primary_layers=None, projection=None, source_view_id=None
+):
+    """Resolve a named recap only within one complete selected passage and parent."""
+    index = NavigationIndex(primary_layers, projection, source_view_id=source_view_id).require()
+    physical = [
+        p
+        for p in pieces
+        if p.get("kind") == "native_text"
+        and p.get("source_field", "text") == "text"
+        and "cell_index" not in p
+        and items.get(p.get("item_ref"), {}).get("content_layer") == "body"
+    ]
+    for passage in passages or ():
+        rows = [
+            (p, items[p["item_ref"]], text[p["start"] : p["end"]])
+            for p in physical
+            if passage.start <= p["start"] < p["end"] <= passage.end
+        ]
+        for i, (piece, node, _literal) in enumerate(rows):
+            use = _retained_match(index, "recap", piece["item_ref"], piece["start"], piece["end"])
+            parent = node.get("parent")
+            if use is None or parent is None:
+                continue
+            symbol, name = use["symbol"], use["name"]
+            earlier = [
+                (p, block)
+                for p, other, block in rows[:i]
+                if other.get("parent") == parent
+                and any(
+                    r.payload.get("variant") == "simple_let" and r.text("symbol") == symbol
+                    for r in index.select("declaration_cue", p["item_ref"])
+                )
+            ]
+            if (
+                len(earlier) != 1
+                or sum(
+                    r.payload.get("variant") == "simple_let" and r.text("symbol") == symbol
+                    for r in index.select("declaration_cue", earlier[0][0]["item_ref"])
+                )
+                != 1
+            ):
+                continue
+            declaration, _declaration_text = earlier[0]
+            binding = _retained_match(
+                index,
+                "declaration_template",
+                declaration["item_ref"],
+                declaration["start"],
+                declaration["end"],
+            )
+            if binding is None or binding["symbol"] != symbol or binding["name"] != name:
+                continue
+
+            def extent(start, match, group):
+                return start + match.start(group), start + match.end(group)
+
+            yield RecappedDeclaration(
+                declaration["item_ref"],
+                piece["item_ref"],
+                symbol,
+                extent(declaration["start"], binding, "name"),
+                extent(declaration["start"], binding, "description"),
+                (piece["start"], piece["start"] + use.end("symbol")),
+                extent(piece["start"], use, "equation"),
+                passage.scope,
+                passage.passage_id,
+                passage.effective_version,
+                primary_node=use.primary_node,
+                declaration_node=binding.primary_node,
+            )

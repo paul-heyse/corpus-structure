@@ -18,7 +18,7 @@ from corpus_structure.schema.pack import DOMAINS
 from corpus_structure.semantic.structural_products import StructuralPassage
 
 from .test_annotations import controlled as controlled
-from .test_annotations import item
+from .test_annotations import item, primary_product
 
 
 def matched(controlled, text, heads, deps, pos, lemmas, *, display=None):
@@ -28,7 +28,9 @@ def matched(controlled, text, heads, deps, pos, lemmas, *, display=None):
         replace(t, head=h, dependency=d, pos=p, lemma=lemma)
         for t, h, d, p, lemma in zip(product.tokens, heads, deps, pos, lemmas, strict=True)
     )
-    view = annotation_view(replace(product, tokens=tokens), text, controlled.vocab)
+    view = annotation_view(
+        primary_product(text, replace(product, tokens=tokens)), text, controlled.vocab
+    )
     recipe = yaml.safe_load((DOMAINS / "statistics/m1-methods.yaml").read_text())["configs"][
         "extract.m1_candidates"
     ]["witnessed"]["annotation_rules"]

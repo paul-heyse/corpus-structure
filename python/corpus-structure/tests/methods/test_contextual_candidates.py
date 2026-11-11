@@ -13,8 +13,6 @@ from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.methods.contextual_candidates import (
     ContextualCandidateConfig,
     ContextualCandidates,
-    ContextualCandidatesWithNamedBindings,
-    ContextualCandidatesWithNeighborhood,
     ContextualCandidatesWithQueryContext,
     explicit_definition_section,
     relationship_contributions,
@@ -206,7 +204,7 @@ def test_retained_cross_view_heading_coverage_precedes_exploration(
         source,
         text=text,
         pieces=(dict(source.pieces[0], end=len(text)),),
-        items=(source.items[0], dict(source.items[1], text=text)),
+        items=(source.items[0], dict(source.items[1], text=text, content_layer="body")),
     )
     pin = record_source_pin(native_source_frame(source, ()))
     cue_ref = ExternalSourceRef(
@@ -248,7 +246,32 @@ def test_retained_cross_view_heading_coverage_precedes_exploration(
                 citations=(destination,),
             )
         )
-    cfg = ContextualCandidateConfig(
+    from corpus_structure.methods.witnessed_source_links import match_named_source_links
+    from corpus_structure.semantic.structural_products import StructuralPassage
+
+    from .navigation_fixture import primary_navigation
+
+    primary_layers = primary_navigation(source)
+    passage = StructuralPassage(
+        passage_id="selected",
+        source_ref="source",
+        start=0,
+        end=len(text),
+        text=text,
+        scope="chapter",
+    )
+    inspection = match_named_source_links(
+        text,
+        source.pieces,
+        {item["self_ref"]: item for item in source.items},
+        (passage,),
+        primary_layers=primary_layers,
+        projection=source.ref.projection_digest,
+        source_view_id=source.ref.id,
+    )
+    (named,) = [row for row in inspection.matches if row.kind == "section_citation"]
+    cfg = ContextualCandidatesWithQueryContext.Config(
+        characterization_layers=tuple(pin.values() for pin in primary_layers),
         source_dependency_method="structure.scoped_relations",
         section_sources=(cue_ref, destination),
         section_catalog_sources=(outside_ref,) if catalog_complete is not None else (),
@@ -278,12 +301,12 @@ def test_retained_cross_view_heading_coverage_precedes_exploration(
         value=source_value(
             dict(
                 role="named_link_subject",
-                named_cue=dict(
-                    kind="section_citation",
-                    designator="6.2",
-                    scope="chapter",
-                    resolution="target_selection_required",
-                ),
+                source_pointer="#/texts/1",
+                start=4,
+                end=15,
+                text="Section 6.2",
+                primary_node=named.witness.primary_node,
+                named_cue=named.evidence(),
             )
         ),
     )
@@ -371,6 +394,25 @@ def test_retained_cross_view_heading_coverage_precedes_exploration(
 
     reader = SimpleNamespace(
         source_view=lambda _: source,
+        characterization_layers=lambda _: primary_layers,
+        contextual_mutual_neighbors=lambda report: dict(
+            policy="mutual-exact-cosine-top5-2",
+            inventory_id=report["inventories"][0]["inventory_id"],
+            **(
+                {"profile_id": report["profiles"][0]["profile_id"]}
+                if len(report["profiles"]) == 1
+                else {}
+            ),
+            status=(
+                "profile_unavailable"
+                if len(report["profiles"]) != 1
+                else "vector_coverage_unavailable"
+            )
+            if report["inventories"][0]["targets"]
+            else "completed",
+            directed_ranks=[],
+            edges=[],
+        ),
         source_result=lambda *_: {
             "contributions": () if expected == "empty" else (original,),
             "origin_task_id": 1,
@@ -382,7 +424,7 @@ def test_retained_cross_view_heading_coverage_precedes_exploration(
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
     ctx = SimpleNamespace(reader=reader, check_active=lambda: None)
 
-    (result,) = ContextualCandidates().run((unit,), cfg, ctx)
+    (result,) = ContextualCandidatesWithQueryContext().run((unit,), cfg, ctx)
     assert result.contribution_operations is not None
     for operation in result.contribution_operations:
         contextual_report_release.validate_python("SourceContributionOperation", operation)
@@ -820,20 +862,12 @@ def test_overlapping_roles_choose_only_each_edges_cited_occurrence_carrier():
 
 
 @pytest.mark.parametrize("provider_available", [True, False])
-@pytest.mark.parametrize(
-    "method, subject",
-    [
-        (ContextualCandidates, "section"),
-        (ContextualCandidatesWithNeighborhood, "section"),
-        (ContextualCandidatesWithNeighborhood, "term"),
-        (ContextualCandidatesWithNamedBindings, "identifier"),
-        (ContextualCandidatesWithQueryContext, "identifier"),
-    ],
-)
+@pytest.mark.parametrize("rich", [False, True])
+@pytest.mark.parametrize("subject", ["section", "term", "identifier"])
 def test_explicit_cross_view_definition_witness_survives_exploration(
     monkeypatch,
     provider_available,
-    method,
+    rich,
     subject,
 ):
     from corpus_structure.semantic.contextual_registry import ExtractedComponentTarget
@@ -841,6 +875,7 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
     from corpus_structure.semantic.proposals import native_source_frame
     from corpus_structure.semantic.source_contexts import record_source_pin
 
+    method = ContextualCandidatesWithQueryContext
     quoted = subject != "section"
     spelling = {"term": "Expected definition", "identifier": "PX:18.1", "section": "Section 6.2"}[
         subject
@@ -855,7 +890,7 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
         source,
         text=text,
         pieces=(dict(source.pieces[0], end=len(text)),),
-        items=(source.items[0], dict(source.items[1], text=text)),
+        items=(source.items[0], dict(source.items[1], text=text, content_layer="body")),
     )
     pin = record_source_pin(native_source_frame(source, ()))
     start = text.index(spelling)
@@ -894,6 +929,41 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
             else dict(role="named_link_subject")
         ),
     )
+    from corpus_structure.methods.witnessed_source_links import match_named_source_links
+    from corpus_structure.semantic.structural_products import StructuralPassage
+
+    from .navigation_fixture import primary_navigation
+
+    primary_layers = primary_navigation(source)
+    passage = StructuralPassage(
+        passage_id="selected",
+        source_ref="source",
+        start=0,
+        end=len(text),
+        text=text,
+        scope="chapter",
+    )
+    inspection = match_named_source_links(
+        text,
+        source.pieces,
+        {item["self_ref"]: item for item in source.items},
+        (passage,),
+        primary_layers=primary_layers,
+        projection=source.ref.projection_digest,
+    )
+    (named,) = [row for row in inspection.matches if row.kind == "definition_reference"]
+    original["value"] = source_value(
+        dict(
+            role="named_link_definition_subject" if quoted else "named_link_subject",
+            source_pointer="#/texts/1",
+            start=start,
+            end=start + len(spelling),
+            text=spelling,
+            primary_node=named.witness.primary_node,
+            named_cue=named.evidence(),
+            **({"definition_subject_kind": subject} if quoted else {}),
+        )
+    )
     original["contribution_id"] = contribution_identity(original)
 
     def target(component, label):
@@ -925,6 +995,7 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
         target("b" * 64, spelling if quoted else "Expected definition"),
     )
     cfg = ContextualCandidateConfig(
+        characterization_layers=tuple(pin.values() for pin in primary_layers),
         target_components=(wrong, right),
         relationship_constraints=(
             RelationshipConstraint("definition", ("defined-by",), "usage", "definition", "one"),
@@ -934,7 +1005,6 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
         scope="chapter",
         unique_target_budget=1,
     )
-    rich = method is ContextualCandidatesWithQueryContext
     if rich:
         location = dict(
             original, semantic_type="source_occurrence", item_key="focus", operation_key="parser"
@@ -974,6 +1044,11 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
                     ],
                 },
             }
+        )
+
+    else:
+        cfg = method.Config.model_validate(
+            {**cfg.model_dump(), "required_occurrence_ids": (original["occurrence_id"],)}
         )
 
     def encoded(items, profile, **_kwargs):
@@ -1033,8 +1108,9 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
 
     reader = SimpleNamespace(
         source_view=lambda _: source,
-        source_result=lambda *_: dict(
-            contributions=(original,), operation_version="10" if subject == "identifier" else "9"
+        characterization_layers=lambda _: primary_layers,
+        source_result=lambda *_args, **_kwargs: dict(
+            contributions=(original,), operation_version="17"
         ),
         component_semantic_targets=lambda _: {
             t.reference.component_id: {
@@ -1071,7 +1147,7 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
     (winner,) = candidate["candidates"]
     (decision,) = report["relationship_decisions"]
     assert winner["target_id"] == right.reference.component_id
-    if method is ContextualCandidatesWithNeighborhood and not quoted:
+    if not quoted:
         assert decision["outcome"] == "insufficient_evidence"
         assert not decision.get("selected_edges")
     else:
@@ -1094,6 +1170,7 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
 
     import json
 
+    from corpus_structure.core.evidence import config_key
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.serve.contextual_witness_replay import verify_contextual_witness_closure
 
@@ -1107,6 +1184,9 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
                 "body": {
                     "source": source.ref.key,
                     "operation_version": method.version,
+                    "configuration_hash": config_key(
+                        method.name, method.version, cfg.model_dump(mode="json")
+                    ),
                     "contribution_operations": result.contribution_operations,
                     "contributions": result.contributions,
                 },
@@ -1139,11 +1219,16 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
     )
     monkeypatch.setattr(
         "corpus_structure.serve.contextual_witness_replay._section",
-        lambda code, _term: code,
+        lambda code, _term, **_kwargs: code,
     )
     monkeypatch.setattr(
         "corpus_structure.serve.contextual_navigation.verify_detached_neighborhood",
         lambda *_args, **_kwargs: None,
+    )
+    # Adapter control starts after shared archive/pin authentication, tested separately.
+    monkeypatch.setattr(
+        "corpus_structure.serve.primary_characterization_replay.retained_primary_layers",
+        lambda *_args: (primary_layers, {}),
     )
     verify_contextual_witness_closure(None, {"relations": {"reports": {}}})
     if quoted:

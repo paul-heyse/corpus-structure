@@ -12,6 +12,7 @@ from typing import Annotated, Any, Literal, Self
 from pydantic import Field, model_validator
 
 from .artifact_identity import ArtifactIdentityProduct
+from .characterization import AnnotationReference
 from .contextual_links import RetainedRelationshipDecisionRef
 from .identity import canonical_bytes
 from .retained_contributions import RetainedContributionRef
@@ -175,6 +176,12 @@ class DefinitionBasisWitness(StructuralValue):
     variant: Nonempty
     nodes: tuple[Annotated[int, Field(strict=True, ge=0)], ...] = Field(min_length=1)
     label_nodes: tuple[Annotated[int, Field(strict=True, ge=0)], ...] | None = None
+    primary_match: AnnotationReference | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    primary_scope: tuple[AnnotationReference, ...] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
 
 
 class DeclarationChainBinding(StructuralValue):
@@ -186,8 +193,13 @@ class DeclarationChainBinding(StructuralValue):
 class DeclarationChainWitness(StructuralValue):
     """One retained HanLP role population and its exact local declaration bindings."""
 
-    version: Literal["definition-declaration-chain-1"]
-    parser: RetainedContributionRef
+    version: Literal["definition-declaration-chain-1", "definition-declaration-chain-2"]
+    parser: RetainedContributionRef | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    primary_evidence: tuple[AnnotationReference, ...] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
     scope_digest: Digest
     label: LocatedDefinitionSpan
     bindings: tuple[DeclarationChainBinding, ...] = Field(min_length=1, max_length=4)
@@ -198,6 +210,16 @@ class DeclarationChainWitness(StructuralValue):
 
     @model_validator(mode="after")
     def distinct_roles(self) -> Self:
+        if (
+            self.version == "definition-declaration-chain-2"
+            and (self.parser is not None or not self.primary_evidence)
+        ) or (
+            self.version == "definition-declaration-chain-1"
+            and (self.parser is None or self.primary_evidence)
+        ):
+            raise ValueError(
+                "declaration witness requires its exact archived or primary evidence route"
+            )
         if (
             len({row.frame for row in self.bindings}) != len(self.bindings)
             or len({row.subject_token for row in self.bindings}) != len(self.bindings)
@@ -331,6 +353,12 @@ class ClauseModelReading(StructuralValue):
     presentation: tuple[ClauseModelLabel, ...] = ()
     disposition: Literal["observed", "withheld", "failed"]
     reason: Nonempty
+    primary_functions: tuple[AnnotationReference, ...] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
+    primary_context: tuple[AnnotationReference, ...] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
 
 
 class ClauseClassificationProduct(StructuralValue):
@@ -427,34 +455,47 @@ class TypedPremise(StructuralValue):
     basis: str | None = None
     basis_evidence: LocatedDefinitionSpan | None = None
 
-    @model_validator(mode="after")
-    def faithful_parse(self) -> Self:
-        if self.basis is not None or self.basis_evidence is not None:
-            from .structural_parsing import COMPARISON_BASIS
+    primary_formal: AnnotationReference | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    primary_basis: AnnotationReference | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
+    @model_validator(mode="after")
+    def faithful_values(self) -> Self:
+        from decimal import Decimal, InvalidOperation
+
+        if (
+            self.basis is not None
+            or self.basis_evidence is not None
+            or self.primary_basis is not None
+        ):
             witness = self.basis_evidence
-            match = COMPARISON_BASIS.fullmatch(witness.text) if witness is not None else None
             if (
                 self.state != "parsed"
                 or witness is None
                 or witness.passage_id != self.span.passage_id
-                or match is None
                 or not self.basis
-                or match[1].strip() != self.basis
             ):
-                raise ValueError("typed basis requires its exact comparison-basis declaration")
+                raise ValueError("typed basis requires its exact source declaration")
+            if self.primary_formal is not None and self.primary_basis is None:
+                raise ValueError("primary threshold basis requires its retained lexical witness")
         if self.state == "parsed":
-            from .structural_parsing import parse_threshold
-
-            actual = parse_threshold(self.span.text)
-            if (
-                actual is None
-                or self.grammar != actual["grammar"]
-                or (actual["value"], actual["comparator"], actual["quantity"], actual["unit"])
-                != (self.value, self.comparator, self.quantity, self.unit)
-            ):
-                raise ValueError("typed premise differs from its source grammar")
-        elif self.value is not None or self.comparator is not None:
+            try:
+                if (
+                    self.value is None
+                    or self.comparator is None
+                    or not Decimal(self.value).is_finite()
+                ):
+                    raise ValueError(
+                        "typed threshold requires a finite numeric value and comparator"
+                    )
+            except InvalidOperation as error:
+                raise ValueError("typed threshold has an invalid decimal value") from error
+        elif (
+            self.value is not None or self.comparator is not None or self.primary_formal is not None
+        ):
             raise ValueError("unparsed premise cannot carry interpreted numeric values")
         return self
 
@@ -498,18 +539,16 @@ class ClauseField(StructuralValue):
     literal: ComparisonLiteral | None = None
     condition: dict[str, Any] | None = None
 
+    primary_formal: AnnotationReference | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+
     @model_validator(mode="after")
     def formal_source(self) -> Self:
-        if self.literal is not None:
-            from .structural_parsing import parse_comparison_literal
-
-            if (
-                self.spans is None
-                or len(self.spans) != 1
-                or parse_comparison_literal(self.spans[0].text)
-                != self.literal.model_dump(mode="json", exclude_none=True)
-            ):
-                raise ValueError("formal operand differs from exact located syntax")
+        if self.literal is not None and (self.spans is None or len(self.spans) != 1):
+            raise ValueError("formal operand requires one exact located source interval")
+        if self.primary_formal is not None and self.literal is None:
+            raise ValueError("formal source reference requires its explicit typed literal")
         return self
 
 
@@ -522,12 +561,50 @@ class ComparisonLiteral(StructuralValue):
     lower_closed: bool | None = None
     upper_closed: bool | None = None
 
+    @model_validator(mode="after")
+    def valid_domain_value(self) -> Self:
+        from datetime import date
+        from decimal import Decimal, InvalidOperation
+
+        if self.kind in {"date", "identifier", "quantity"} and not self.value:
+            raise ValueError("formal literal requires its explicit value")
+        if self.kind == "date":
+            assert self.value is not None
+            date.fromisoformat(self.value)
+        if self.kind in {"quantity", "range"}:
+            if not self.unit:
+                raise ValueError("numeric literal requires an explicit lexical unit")
+            try:
+                if self.kind == "quantity":
+                    assert self.value is not None
+                    values = [Decimal(self.value)]
+                else:
+                    if self.lower is None or self.upper is None:
+                        raise ValueError("range literal requires both explicit bounds")
+                    values = [Decimal(self.lower), Decimal(self.upper)]
+                if any(not value.is_finite() for value in values):
+                    raise ValueError("numeric literal values must be finite")
+                if any(value and abs(value.adjusted()) > 100 for value in values):
+                    raise ValueError("numeric comparison literal exceeds its bounded decimal range")
+                if self.kind == "range" and (
+                    values[0] > values[1]
+                    or (values[0] == values[1] and not (self.lower_closed and self.upper_closed))
+                ):
+                    raise ValueError("range literal must be nonempty and ordered")
+            except (InvalidOperation, TypeError) as error:
+                raise ValueError("numeric literal has an invalid decimal value") from error
+        return self
+
 
 class ClauseFieldGroup(StructuralValue):
     state: Literal["absent", "empty", "present", "unresolved"]
     grouping: Literal["singleton", "conjunction", "disjunction", "unresolved"] | None = None
     members: tuple[ClauseField, ...] = ()
     witnesses: tuple[LocatedDefinitionSpan, ...] = ()
+
+    primary_witnesses: tuple[AnnotationReference, ...] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
 
     @model_validator(mode="after")
     def complete(self) -> Self:
@@ -592,6 +669,10 @@ class RevisionSuccession(StructuralValue):
     newer_id: Nonempty
     evidence: LocatedDefinitionSpan
     older_evidence: LocatedDefinitionSpan
+
+    primary_witnesses: tuple[AnnotationReference, ...] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
 
 
 class ComparisonProduct(StructuralValue):
@@ -1029,6 +1110,7 @@ class StructuralProductReport(StructuralValue):
                 chain = component.declaration_chain
                 if (
                     chain is not None
+                    and chain.parser is not None
                     and chain.parser.contribution_id not in self.inputs.dependencies
                 ):
                     raise ValueError("definition chain lacks its exact parser dependency")
@@ -1061,12 +1143,6 @@ class StructuralProductReport(StructuralValue):
                 if reading.component_ref.product_id not in self.inputs.dependencies:
                     raise ValueError("applicability component is not a declared dependency")
         if self.comparison:
-            from .structural_parsing import (
-                REVISION_DECLARATION,
-                REVISION_LINEAGE,
-                REVISION_SUCCESSION,
-            )
-
             by_id = {p.passage_id: p for p in self.inputs.passages}
 
             def exact(span: LocatedDefinitionSpan) -> bool:
@@ -1081,8 +1157,6 @@ class StructuralProductReport(StructuralValue):
             cited.update((self.comparison.left_id, self.comparison.right_id))
             if succession := self.comparison.succession:
                 older, newer = by_id.get(succession.older_id), by_id.get(succession.newer_id)
-                match = REVISION_SUCCESSION.fullmatch(succession.evidence.text)
-                old_match = REVISION_DECLARATION.fullmatch(succession.older_evidence.text)
                 if (
                     older is None
                     or newer is None
@@ -1091,16 +1165,13 @@ class StructuralProductReport(StructuralValue):
                     or older.scope != newer.scope
                     or older.source_ref != newer.source_ref
                     or not (older.end <= newer.start or newer.end <= older.start)
-                    or any(
-                        REVISION_LINEAGE.findall(passage.text) != [older.parent]
-                        for passage in (older, newer)
-                    )
+                    or not older.effective_version
+                    or not newer.effective_version
                     or older.effective_version == newer.effective_version
-                    or old_match is None
-                    or old_match[1] != older.effective_version
-                    or REVISION_DECLARATION.findall(older.text) != [older.effective_version]
-                    or match is None
-                    or match.groups() != (newer.effective_version, older.effective_version)
+                    or (
+                        bool(succession.primary_witnesses)
+                        and len(succession.primary_witnesses) != 4
+                    )
                     or not exact(succession.evidence)
                     or not exact(succession.older_evidence)
                 ):

@@ -9,6 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
+from corpus_structure.semantic.characterization import AnnotationReference
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.refusals import SemanticRefusal
@@ -27,6 +28,7 @@ class CharacterizationRequest(BaseModel):
     kind: str | None = None
     page: int | None = Field(default=None, strict=True, gt=0)
     choices: tuple[str, ...] = ()
+    external_choices: tuple[AnnotationReference, ...] = ()
     cursor: str | None = Field(default=None, max_length=8192)
     limit: int = Field(default=100, strict=True, ge=1, le=1000)
     max_bytes: int = Field(default=1_048_576, strict=True, ge=1, le=8_388_608)
@@ -35,7 +37,9 @@ class CharacterizationRequest(BaseModel):
     def selection(self):
         if self.view == "membership" and not self.annotation_id:
             raise ValueError("membership inspection requires annotation_id")
-        if self.choices and (self.view != "reading" or not self.layer_key):
+        if (self.choices or self.external_choices) and (
+            self.view != "reading" or not self.layer_key
+        ):
             raise ValueError("choice selection requires reading inspection and an exact layer_key")
         if self.view == "reading" and (not self.layer_key or not self.annotation_id):
             raise ValueError("reading inspection requires layer_key and annotation_id root")
@@ -146,12 +150,19 @@ def inspect_captured_characterization(view, layers, request):
     membership_scope = "not_requested"
     if request.view == "summary":
         rows = [
-            dict(layer=reference)
+            dict(
+                layer=reference,
+                active=reference in view.get("active_layers", view.get("layers", ())),
+            )
             for reference in view.get("layers", ())
             if request.layer_key is None or reference["product_key"] == request.layer_key
         ]
     else:
-        for reference in view.get("layers", ()):
+        for reference in (
+            view.get("layers", ())
+            if request.layer_key
+            else view.get("active_layers", view.get("layers", ()))
+        ):
             if request.layer_key is not None and reference["product_key"] != request.layer_key:
                 continue
             key = (reference["task_id"], reference["product_key"], reference["content_digest"])
@@ -211,6 +222,11 @@ def inspect_captured_characterization(view, layers, request):
                     LayerReport(canonical_bytes(layer)),
                     request.annotation_id,
                     choices=request.choices,
+                    dependencies={
+                        ProductReference(*key): LayerReport(canonical_bytes(value))
+                        for key, value in layers.items()
+                    },
+                    external_choices=request.external_choices,
                 )
                 ids = {i for term in reading["terms"] for i in term.get("occurrences", ())}
                 rows.append(
@@ -361,13 +377,30 @@ def inspect_characterization(conn, request: CharacterizationRequest):
             raise SemanticRefusal("enriched-document response exceeds byte budget; narrow the page")
         return _source_context(conn, view, response, request)
     layers = {}
+    remaining = request.max_bytes
     if request.view != "summary":
         for reference in view.get("layers", ()):
             pin = _pin(reference)
             if request.layer_key is None or pin.product_key == request.layer_key:
-                layers[(pin.task_id, pin.product_key, pin.content_digest)] = read_layer(
-                    conn, pin, run_id=request.run_id, max_bytes=request.max_bytes
-                ).payload
+                report = read_layer(conn, pin, run_id=request.run_id, max_bytes=request.max_bytes)
+                remaining -= len(report.content)
+                layers[(pin.task_id, pin.product_key, pin.content_digest)] = report.payload
+        if request.view == "reading":
+            pending = [dep for body in layers.values() for dep in body.get("dependencies", ())]
+            allowed = {_pin(pin) for pin in view.get("layers", ())}
+            while pending:
+                pin = _pin(pending.pop())
+                key = (pin.task_id, pin.product_key, pin.content_digest)
+                if key in layers:
+                    continue
+                if pin not in allowed or remaining <= 0:
+                    raise SemanticRefusal(
+                        "reading dependency closure exceeds selected view or byte budget"
+                    )
+                report = read_layer(conn, pin, run_id=request.run_id, max_bytes=remaining)
+                remaining -= len(report.content)
+                layers[key] = report.payload
+                pending.extend(report.payload.get("dependencies", ()))
     return _source_context(
         conn, view, inspect_captured_characterization(view, layers, request), request
     )

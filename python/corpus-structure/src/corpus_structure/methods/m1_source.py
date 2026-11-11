@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from corpus_structure.core.method import CoverageDraft, Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.ingest.annotations import AnnotationProfile
-from corpus_structure.ingest.sentences import SentenceConfig, pipeline
+from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.annotation_rules import AnnotationRule
 from corpus_structure.methods.gliner import (
     ASSERTION_LITERAL_PACK,
@@ -49,6 +49,13 @@ FAMILIES = {
     "formula_context": ("FormulaRecordFields", "formula"),
 }
 RECORD_POLICY = "m1-grouped-reading-logistic-1"
+
+
+def _source_vocabulary():
+    """Static lexical vocabulary for domain mappings; no linguistic inference."""
+    from spacy.lang.en import English
+
+    return English().vocab
 
 
 def _formula_matches_primary(context, group, pointer):
@@ -144,6 +151,7 @@ def _structural_groups(view, selection, context):
 
 
 class M1Config(BaseModel):
+    characterization_layers: tuple[dict[str, Any], ...] = ()
     model_config = ConfigDict(frozen=True, extra="forbid")
     local_schema: dict[str, Any] | None = None
     annotation_rules: tuple[AnnotationRule, ...] = ()
@@ -408,8 +416,6 @@ class M1Candidates:
         annotations, annotation_errors, annotation_result = consume_annotations(
             ctx.reader, view, profile
         )
-        # Load spaCy/native libraries before discovering their thread controllers.
-        pipeline(cfg.sentences)
         controller = ThreadpoolController()
         with controller.limit(limits=cfg.parent_threads):
             prepared_source = prepare_source(
@@ -476,7 +482,7 @@ class M1Candidates:
             from corpus_structure.methods.m1_source_capture import SourceRecordCapture
 
             source_capture = SourceRecordCapture(
-                ctx.reader.prepared, pipeline(cfg.sentences).vocab, source_capture_rules
+                ctx.reader.prepared, _source_vocabulary(), source_capture_rules
             )
             details["comparison_arm"] = "exact-source-rule-capture-1"
             details["source_capture_rules"] = [
@@ -509,12 +515,14 @@ class M1Candidates:
         if local_pack is not None:
             details["schema_packs"][local_pack.fingerprint] = asdict(local_pack)
         if cfg.annotation_rules:
-            from corpus_structure.ingest.annotation_views import annotation_view
-            from corpus_structure.methods.annotation_rules import PreparedAnnotationRules
             from corpus_structure.methods.contribution_adapter import adapt_annotation_matches
+            from corpus_structure.semantic.constructions.named import RetainedNamedRules
 
-            vocabulary = pipeline(cfg.sentences).vocab
-            rules = PreparedAnnotationRules(vocabulary, rules=cfg.annotation_rules)
+            rules = RetainedNamedRules(
+                ctx.reader.primary_characterization(
+                    view.ref.id, families=("construction.named_rules",)
+                )
+            )
             for product in prepared_source.annotations:
                 primary_ranges = tuple(
                     (selection.start, selection.end) for selection in prepared_source.selections
@@ -524,9 +532,7 @@ class M1Candidates:
                 ):
                     continue
                 ctx.check_active()
-                text = prepared_source.source.text[product.block_start : product.block_end]
-                native_view = annotation_view(product, text, vocabulary, required=())
-                match_result = rules.match(native_view)
+                match_result = rules.match(product, rules=cfg.annotation_rules)
                 matches = match_result.matches
                 if cfg.region_pointers is not None:
                     matches = tuple(

@@ -8,7 +8,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, JsonValue, TypeAdapter
+from pydantic import BaseModel, Field, JsonValue, TypeAdapter
 from sqlalchemy import func, select
 
 from corpus_structure.core.method import MethodContext, UnitRef, UnitView
@@ -23,7 +23,6 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operation_results import ClaimedTask, MethodConfigId, RunId, TaskId
 from corpus_structure.semantic.operations import (
-    BoundReader,
     BoundSourceProducer,
     OperationBinding,
     OperationConflict,
@@ -35,6 +34,7 @@ from corpus_structure.semantic.operations import (
     seal_cut,
     start_run,
 )
+from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.structural_products import ExternalSourceRef
 
 _SAME_VIEW_DEPENDENCIES = {"source_view_interpretation", "source_view_product"}
@@ -47,6 +47,9 @@ class BoundRunReport(BaseModel):
     release_id: str
     realization_id: str
     cut_id: CutId | None = None
+    characterization_views: tuple[ProductReference, ...] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
 
 
 @dataclass(frozen=True)
@@ -163,6 +166,7 @@ def run_source_methods(
     local_semantic_admission: Sequence[Mapping[str, Any]] = (),
     structural_admission: Sequence[Mapping[str, Any]] = (),
     selected_sources: Sequence[ExternalSourceRef] = (),
+    characterization_views: Sequence[ProductReference] = (),
     on_created: Callable[[SourceRunCreated], None] | None = None,
 ) -> BoundRunReport:
     """Run the current source graph; hand its immutable cut to consolidation/proposal owners.
@@ -405,6 +409,11 @@ def run_source_methods(
                 for d in docs
             ],
             "selected_sources": [source.model_dump(mode="json") for source in selected_sources],
+            **(
+                {"characterization_views": [pin.values() for pin in characterization_views]}
+                if characterization_views
+                else {}
+            ),
             "operations": {
                 name: {
                     "version": registry.method(name).version,
@@ -454,6 +463,11 @@ def run_source_methods(
             "configs": {m: c.config_hash for m, c in configs.items()},
             "agent_configs": agent_configs,
             "fresh": list(fresh),
+            **(
+                {"characterization_views": [pin.values() for pin in characterization_views]}
+                if characterization_views
+                else {}
+            ),
         }
         rid = create_run(
             conn,
@@ -580,6 +594,15 @@ def run_source_methods(
                                 prepared=prepared,
                             )
                             view = run_view(conn, rid, prepared)
+                            from corpus_structure.orchestrate.source_reader import BoundReader
+                            from corpus_structure.semantic.product_reference import ProductReference
+
+                            if not isinstance(view.reader, BoundReader):
+                                raise TypeError("source selection requires its owned bound reader")
+                            view.reader.characterization_selection = tuple(
+                                ProductReference(**pin)
+                                for pin in config.params.get("characterization_layers", ())
+                            )
                             refs = list(method.select(view, config.config))
                             if config.params.get("source_dependencies") == "ancestor_source_view":
                                 required = {ref.unit_id: ref for ref in refs}
@@ -763,6 +786,14 @@ def run_source_methods(
                                     bound_reader.source_producers = _claimed_source_producers(
                                         conn, claimed, config.params
                                     )
+                                    from corpus_structure.semantic.product_reference import (
+                                        ProductReference,
+                                    )
+
+                                    bound_reader.characterization_selection = tuple(
+                                        ProductReference(**pin)
+                                        for pin in config.params.get("characterization_layers", ())
+                                    )
                                     bound_reader.bind_source_tasks(
                                         {
                                             int(
@@ -791,6 +822,61 @@ def run_source_methods(
                                         )
                                         for t in claimed
                                     ]
+                                    from types import MappingProxyType
+
+                                    tasks_table = table("ops.task")
+                                    task_inputs = dict(
+                                        conn.execute(
+                                            select(
+                                                tasks_table.c.id, tasks_table.c.input_hash
+                                            ).where(
+                                                tasks_table.c.id.in_([t.task_id for t in claimed])
+                                            )
+                                        ).all()
+                                    )
+                                    runtime_id = conn.execute(
+                                        select(table("ops.run").c.runtime_id).where(
+                                            table("ops.run").c.id == rid
+                                        )
+                                    ).scalar_one()
+                                    operation_identities = {
+                                        UnitRef(
+                                            TaskUnitType(t.unit_type), t.unit_id, t.unit_key
+                                        ): MappingProxyType(
+                                            {
+                                                "key": method.name,
+                                                "version": method.version,
+                                                "runtime": runtime_id,
+                                                "configuration": config.config_hash,
+                                                "input": task_inputs[t.task_id],
+                                                **{
+                                                    k: config.params.get(k)
+                                                    for k in ("model", "grammar", "context")
+                                                },
+                                            }
+                                        )
+                                        for t in claimed
+                                    }
+
+                                def characterization_operation(
+                                    ref, identities=operation_identities
+                                ):
+                                    try:
+                                        identity = identities[ref]
+                                        if any(
+                                            not isinstance(value, str) or not value
+                                            for value in identity.values()
+                                        ):
+                                            raise OperationConflict(
+                                                "characterization requires exact frozen "
+                                                "operation determinants"
+                                            )
+                                        return identity
+                                    except KeyError as exc:
+                                        raise OperationConflict(
+                                            "characterization unit is outside owned tasks"
+                                        ) from exc
+
                                 units = [replace(unit, run=method_view) for unit in units]
 
                                 def retain_pdf_observation(
@@ -916,6 +1002,7 @@ def run_source_methods(
                                             method_settings,
                                             logging.getLogger(method.name),
                                             check_active=check_active,
+                                            characterization_operation=characterization_operation,
                                             retain_pdf_records=retain_pdf_records,
                                             produce_pdf_records=produce_pdf_records,
                                             retain_pdf_observation=retain_pdf_observation,
@@ -971,6 +1058,7 @@ def run_source_methods(
             release_id=prepared.release_id,
             realization_id=binding.input_realization_id,
             cut_id=cut,
+            characterization_views=tuple(characterization_views),
         )
     except BaseException as exc:
         from asyncio import CancelledError
@@ -1099,9 +1187,18 @@ def _packet_for_unit(
     known = document_references(
         conn, view, unit.document_id, limit=MAX_KNOWN, read_budget=read_budget
     )
-    packet = native_proposal_packet(
-        view.reader, unit.source_view_id, prepared, configuration, known=known
+    from corpus_structure.semantic.product_reference import ProductReference
+
+    previous_selection = view.reader.characterization_selection
+    view.reader.characterization_selection = tuple(
+        ProductReference(**value) for value in configuration.get("characterization_layers", ())
     )
+    try:
+        packet = native_proposal_packet(
+            view.reader, unit.source_view_id, prepared, configuration, known=known
+        )
+    finally:
+        view.reader.characterization_selection = previous_selection
     if read_budget is not None:
         from corpus_structure.semantic.query import ReadLimit
 

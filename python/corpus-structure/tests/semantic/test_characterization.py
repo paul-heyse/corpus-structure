@@ -2,7 +2,7 @@
 
 import copy
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -822,4 +822,241 @@ def test_new_rule_release_reuses_exact_old_native_layer_without_relabeling(prepa
     with pytest.raises(ValueError, match="unsupported characterization layer contract"):
         validate_layer(
             current, bad, dependencies={incompatible_pin: incompatible}, releases=releases
+        )
+
+
+def test_packed_choice_site_keeps_parent_shared_and_unresolved_explicit(prepared):
+    payload = layer_payload(prepared)
+    payload["terms"].append(
+        dict(
+            local_id="packed",
+            family="scope",
+            kind="predicate",
+            vocabulary="logic",
+            value="packed",
+            status="interpreted",
+            children=[dict(role="body", choice_group="site", structural=True)],
+        )
+    )
+    payload["choices"] = [
+        dict(
+            local_id="site",
+            family="scope",
+            compatibility="exclusive",
+            members=[dict(local_id="left", root="not_all"), dict(local_id="right", root="all_not")],
+        )
+    ]
+    report = validate_layer(prepared, payload)
+    unresolved = project_reading(report, "packed")
+    assert unresolved["outcome"] == "partial"
+    assert unresolved["unresolved_sites"] == [
+        dict(owner="packed", role="body", choice_group="site")
+    ]
+    assert [t["local_id"] for t in unresolved["terms"]] == ["packed"]
+    selected = project_reading(report, "packed", choices=["left"])
+    assert selected["outcome"] == "complete"
+    assert "not_all" in {t["local_id"] for t in selected["terms"]}
+    assert "all_not" not in {t["local_id"] for t in selected["terms"]}
+    with pytest.raises(ValueError, match="incompatible"):
+        project_reading(report, "packed", choices=["left", "right"])
+    payload["choices"][0]["members"][0]["root"] = "packed"
+    with pytest.raises(ValueError, match="cycle"):
+        validate_layer(prepared, payload)
+
+
+def test_upstream_choice_citation_does_not_select_it(prepared):
+    from corpus_structure.semantic.characterization import AnnotationReference
+
+    upstream = layer_payload(prepared)
+    upstream["choices"] = [
+        dict(
+            local_id="upstream",
+            family="scope",
+            compatibility="exclusive",
+            members=[dict(local_id="left", root="not_all"), dict(local_id="right", root="all_not")],
+        )
+    ]
+    report = validate_layer(prepared, upstream)
+    pin = report.reference(99)
+    downstream = layer_payload(prepared)
+    downstream["dependencies"] = [pin.values()]
+    downstream["terms"][0]["external_premises"] = [dict(layer=pin.values(), local_id="left")]
+    downstream["terms"][0]["required_external_choices"] = [
+        dict(layer=pin.values(), local_id="left")
+    ]
+    result = validate_layer(prepared, downstream, dependencies={pin: report})
+    root = downstream["terms"][0]["local_id"]
+    with pytest.raises(ValueError, match="unselected qualified"):
+        project_reading(result, root, dependencies={pin: report})
+    reading = project_reading(
+        result,
+        root,
+        dependencies={pin: report},
+        external_choices=[AnnotationReference(pin, "left")],
+    )
+    assert reading["external_choices"] == [dict(layer=pin.values(), local_id="left")]
+    with pytest.raises(ValueError, match="incompatible"):
+        project_reading(
+            result,
+            root,
+            dependencies={pin: report},
+            external_choices=[AnnotationReference(pin, "left"), AnnotationReference(pin, "right")],
+        )
+
+
+def test_formal_recognized_coordinates_do_not_claim_literal_correspondence(prepared):
+    payload = layer_payload(prepared)
+    parent = payload["occurrences"][0]["local_id"]
+    payload["annotations"] = [
+        dict(
+            local_id="input",
+            family="scope",
+            kind="formal.input",
+            vocabulary="formal",
+            status="native_evidence",
+            occurrences=[parent],
+            formal_input=dict(
+                parent_occurrence=parent,
+                representation="recognized_latex",
+                text=r"\alpha",
+                original_text="all",
+                grammar="fixture",
+                start_symbol="expression",
+                macro_identity="none",
+                syntax_outcome="complete",
+                interpretation_outcome="not_requested",
+                correspondence=[
+                    dict(
+                        input_start=0,
+                        input_end=6,
+                        relation="contained_in_atom",
+                        source_occurrences=[parent],
+                    )
+                ],
+            ),
+        ),
+        dict(
+            local_id="symbol",
+            family="scope",
+            kind="formal.token",
+            vocabulary="formal",
+            status="native_evidence",
+            occurrences=[parent],
+            formal=dict(input_id="input", node_kind="token", rule="SYMBOL", start=0, end=6),
+        ),
+    ]
+    validate_layer(prepared, payload)
+    cast(dict[str, Any], payload["annotations"][0]["formal_input"])["correspondence"][0][
+        "relation"
+    ] = "exact"
+    with pytest.raises(ValueError, match="differs from literal"):
+        validate_layer(prepared, payload)
+
+
+def test_primary_read_uses_frozen_layers_and_refuses_unexamined_native_source(prepared):
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic.characterization import select_primary_layers
+
+    body = layer_payload(prepared)
+    report = validate_layer(prepared, body)
+    view = SimpleNamespace(
+        ref=SimpleNamespace(id=11, projection_digest="b" * 64),
+        text="all",
+        pieces=[dict(kind="native_text", item_ref="#/texts/0", start=0, end=3)],
+    )
+    pin = report.reference(9)
+    assert select_primary_layers({pin: report}, view, families=["scope"]) == {pin: report}
+    with pytest.raises(ValueError, match="missing or incomplete"):
+        select_primary_layers({}, view, families=["scope"])
+    body["coverage"][0]["eligible"] = [dict(projection="b" * 64, start=0, end=1)]
+    body["coverage"][0]["examined"] = body["coverage"][0]["eligible"]
+    partial = validate_layer(prepared, body)
+    with pytest.raises(ValueError, match="unexamined"):
+        select_primary_layers({partial.reference(10): partial}, view, families=["scope"])
+
+
+def test_reading_checks_selected_member_support_even_when_root_is_direct(prepared):
+    from corpus_structure.semantic.characterization import AnnotationReference
+
+    ancestor = layer_payload(prepared)
+    ancestor["terms"].append(
+        dict(
+            local_id="packed",
+            family="scope",
+            kind="predicate",
+            vocabulary="logic",
+            value="packed",
+            status="interpreted",
+            children=[dict(role="body", choice_group="nested", structural=True)],
+        )
+    )
+    ancestor["choices"] = [
+        dict(
+            local_id="nested",
+            family="scope",
+            compatibility="exclusive",
+            members=[dict(local_id="nested-left", root="not_all")],
+        ),
+        dict(
+            local_id="outer",
+            family="scope",
+            compatibility="exclusive",
+            members=[dict(local_id="upstream", root="packed")],
+        ),
+    ]
+    upstream = validate_layer(prepared, ancestor)
+    pin = upstream.reference(101)
+    body = layer_payload(prepared)
+    body["dependencies"] = [pin.values()]
+    body["choices"] = [
+        dict(
+            local_id="local",
+            family="scope",
+            compatibility="exclusive",
+            members=[
+                dict(
+                    local_id="direct",
+                    root="p",
+                    required_external_choices=[dict(layer=pin.values(), local_id="upstream")],
+                )
+            ],
+        )
+    ]
+    report = validate_layer(prepared, body, dependencies={pin: upstream})
+    with pytest.raises(ValueError, match="unselected qualified"):
+        project_reading(report, "p", choices=["direct"], dependencies={pin: upstream})
+    partial = project_reading(
+        report,
+        "p",
+        choices=["direct"],
+        dependencies={pin: upstream},
+        external_choices=[AnnotationReference(pin, "upstream")],
+    )
+    assert partial["outcome"] == "partial"
+    assert partial["unresolved_sites"] == [
+        dict(layer=pin.values(), owner="packed", role="body", choice_group="nested")
+    ]
+    complete = project_reading(
+        report,
+        "p",
+        choices=["direct"],
+        dependencies={pin: upstream},
+        external_choices=[
+            AnnotationReference(pin, "upstream"),
+            AnnotationReference(pin, "nested-left"),
+        ],
+    )
+    assert complete["outcome"] == "complete"
+    unrelated = upstream.reference(102)
+    with pytest.raises(ValueError, match=r"outside.*dependency closure"):
+        project_reading(
+            report,
+            "p",
+            choices=["direct"],
+            dependencies={pin: upstream, unrelated: upstream},
+            external_choices=[
+                AnnotationReference(pin, "upstream"),
+                AnnotationReference(unrelated, "nested-left"),
+            ],
         )

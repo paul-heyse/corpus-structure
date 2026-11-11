@@ -91,6 +91,7 @@ def build_domain_case(
     isolated_entity: bool = False,
     membership_subtype: bool = False,
     unselected_report: bool = False,
+    characterization: bool = False,
 ) -> tuple[PreparedRelease, RunId, CutId]:
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     schema: dict[str, Any] = {
@@ -183,6 +184,10 @@ def build_domain_case(
         deps, fixture_execution_inputs("pdf.controlled-source", "coverage.witness")
     )
     profile = PreparationProfile(version="semantic-2")
+    if characterization:
+        from corpus_structure.semantic.characterization import characterization_inputs
+
+        bundle = characterization_inputs(bundle)
     prepared = prepare_release(bundle, deps, profile)
     with admin.begin() as conn:
         persist_release(conn, bundle, deps, profile, prepared)

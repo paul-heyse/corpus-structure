@@ -969,6 +969,27 @@ def _cut_input(engine: Engine, cut_id: CutId, output: str) -> CutInput:
                 .mappings()
                 .all()
             )
+            # Primary characterization has its own published private products and
+            # task-result envelope, rather than an absent SourceObservationBatch.
+            # Read its protected inventory through the existing bounded port; do
+            # not manufacture a logical record source for a document-level task.
+            if any(
+                isinstance(row["body"], dict) and "characterization" in row["body"]
+                for row in envelopes
+            ):
+                from .characterization_store import read_inventory
+
+                primary_tasks = set()
+                after = None
+                while True:
+                    page = read_inventory(conn, job["id"], after=after, limit=1000)
+                    primary_tasks.update(row["reference"]["task_id"] for row in page["products"])
+                    after = page["continuation"]
+                    if after is None:
+                        break
+                selected_tasks = [
+                    row for row in selected_tasks if row["origin_task_id"] not in primary_tasks
+                ]
             bound = BoundReader(conn, job["id"], prepared, cut_id, analysis=False)
             private = read_private_record_reports(
                 bound, tuple(row["task_id"] for row in selected_tasks)

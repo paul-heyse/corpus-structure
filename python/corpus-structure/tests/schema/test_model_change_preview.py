@@ -300,6 +300,83 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     assert "private" not in applied.stdout and "secret" not in applied.stdout
     assert "reviewed_fixture" in physical_path.read_text()
 
+    # A real normalization failure must retain declaration custody through the
+    # managed candidate boundary, without disclosing SQL or the server's prose.
+    from types import SimpleNamespace
+    from typing import cast
+
+    from psycopg.errors import UndefinedFunction
+    from sqlalchemy import Connection
+    from sqlalchemy.exc import ProgrammingError
+
+    from corpus_structure.semantic import native_objects
+
+    definition = native_objects.NativeDefinition(
+        native_objects.NativeIdentity("function", "ops", "authoring_probe"),
+        "CREATE OR REPLACE FUNCTION ops.authoring_probe() RETURNS integer "
+        "LANGUAGE sql AS $$ SELECT ops.missing('PRIVATE_SQL') $$",
+        "fixture/native-functions.sql",
+        owner="publisher",
+    )
+    original = ProgrammingError(
+        definition.sql, {"value": "PRIVATE_PARAMETER"}, UndefinedFunction("PRIVATE_NATIVE_MESSAGE")
+    )
+    events, failures = [], []
+    connection = SimpleNamespace(
+        scalar=lambda statement: "none" if "current_setting('role')" in str(statement) else "owner",
+        begin_nested=lambda: SimpleNamespace(rollback=lambda: events.append("rollback")),
+    )
+
+    def execute(_connection, statement):
+        if statement.startswith("CREATE"):
+            events.append("create")
+            raise original
+        assert statement == "SET LOCAL ROLE publisher"
+        events.append("set owner")
+
+    def refuse_author(*_args, **_kwargs):
+        try:
+            native_objects.prepare_native_authoring(
+                cast(Connection, connection), (definition,), owned_authoring=True
+            )
+        except native_objects.NativeAuthoringError as error:
+            failures.append(error)
+            raise
+
+    with monkeypatch.context() as broken_native:
+        broken_native.setattr(native_objects, "observe_native", lambda *_args, **_kwargs: None)
+        broken_native.setattr(native_objects, "execute_native_sql", execute)
+        broken_native.setattr(schema, "author_native_candidate", refuse_author)
+        failed = run(["candidate", preview["result_id"]], settings)
+    assert failed.exit_code == 1, failed.output
+    diagnostic = json.loads(failed.stdout)
+    assert diagnostic["error"]["code"] == "NativeAuthoringError"
+    message = diagnostic["error"]["message"]
+    assert all(
+        fragment in message
+        for fragment in (
+            "install statement 1",
+            "function ops.authoring_probe()",
+            "SQLSTATE 42883",
+            "fixture/native-functions.sql",
+        )
+    )
+    assert diagnostic["operation_account"]["failure"]["message"] == message
+    assert events == ["rollback", "set owner", "create", "rollback"]
+    assert len(failures) == 1 and failures[0].__cause__ is original
+    inspected = runner.invoke(
+        app,
+        ["results", "inspect", diagnostic["invocation_id"], "--view", "observations", "--json"],
+        obj=CliState(
+            settings_factory=lambda: settings.model_copy(update={"ci_results": root / "results"})
+        ),
+    )
+    assert inspected.exit_code == 0, inspected.output
+    observations = json.loads(inspected.stdout)["observations"]["rows"]
+    assert any(row["message"] == message for row in observations)
+    for private in ("PRIVATE_SQL", "PRIVATE_PARAMETER", "PRIVATE_NATIVE_MESSAGE"):
+        assert private not in failed.output + inspected.output
+
     acquire = commands._prepare_release
 
     def altered_release(*args, **kwargs):

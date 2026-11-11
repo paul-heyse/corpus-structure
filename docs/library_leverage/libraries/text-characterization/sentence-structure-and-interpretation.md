@@ -25,8 +25,8 @@ restore those columns without rerunning a model.
 [Named rules](../../../../python/corpus-structure/src/corpus_structure/methods/annotation_rules.py)
 use token, phrase and dependency matchers with explicit role bindings and expansion.
 [Predicate frames](../../../../python/corpus-structure/src/corpus_structure/methods/predicate_frames.py),
-their [declaration](../../../../python/corpus-structure/src/corpus_structure/methods/predicate_interpretation.json)
-and [qualifier recipes](../../../../python/corpus-structure/src/corpus_structure/methods/predicate_qualifier_recipes.py)
+their [declaration](../../../../python/corpus-structure/src/corpus_structure/semantic/constructions/retained_rules.json)
+and [qualifier recipes](../../../../python/corpus-structure/src/corpus_structure/semantic/constructions/retained_rules.py)
 derive bounded readings and cues. These are authored interpretations of model syntax, not a
 spaCy semantic-role, discourse or logical-form model. They demonstrate composition, not the
 complete supported language of a future primary characterization.

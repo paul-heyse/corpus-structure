@@ -340,6 +340,11 @@ def bundle(root, prepared, *, with_layer=True, native_evidence=False) -> dict[st
     names = {"AnnotationLayer", "EnrichedDocumentView"} | {
         p["class_name"] for p in policies.values()
     }
+    names.update(
+        rule["class_name"]
+        for policy in policies.values()
+        for rule in policy.get("rules", {}).values()
+    )
     from corpus_structure.semantic import SourceArtifact, SourceBundle
     from corpus_structure.semantic.characterization import characterization_inputs
 

@@ -89,6 +89,9 @@ def build_resubmission_case(
     deps = composed_dependencies(
         deps, fixture_execution_inputs("pdf.controlled-source", "coverage.witness")
     )
+    from corpus_structure.semantic.characterization import characterization_inputs
+
+    bundle = characterization_inputs(bundle)
     prepared = prepare_release(bundle, deps, profile)
     with admin.begin() as conn:
         persist_release(conn, bundle, deps, profile, prepared)
@@ -156,7 +159,10 @@ def build_resubmission_case(
         original=original,
         paragraphs=paragraphs,
     )
+    from .primary_native_support import bind_primary_agent_run
+
     with engine.begin() as conn:
+        run, config = bind_primary_agent_run(conn, run, prepared, (view.ref.id,), config)
         locator = view.ref.key
         (task,) = queue_agent(
             conn,

@@ -2,7 +2,7 @@
 
 ## Pin-native enriched-document reads
 
-**Accepted target, Proposed until implemented · 2026-11-10.** CLI, MCP and downstream algorithms
+**Implemented; bounded functional scope Tested · 2026-11-11.** CLI, MCP and downstream algorithms
 compose shared domain reads over an exact enriched-view pin. Readers inspect base/layer/family
 availability, enumerate annotations by source region/kind, retrieve complete recorded group
 membership, inspect terms/roles/choice dependencies, project a supported bounded reading and
@@ -22,7 +22,17 @@ analysis coverage. Test-only fixture producers enter protected native completion
 public upload API. Exact readable private products are distinct from admitted knowledge and from
 independent semantic assessment.
 
-> Decision: [ADR-0081](../adr/0081-enriched-document-analysis-layers.md)
+Default analytical reads use the view's explicit active layer selection. Explicit layer inspection
+and detached closure preserve provenance-only dependencies. Binding a view into an analytical run
+freezes its active pins in the ordinary consumer configurations; query reads never select a newer
+interpretation implicitly.
+
+Functional closure and the applicable full-campaign/replacement union are owned by the
+[TC coordinator](../plans/text-characterization_2026-11-10.md). Independent semantic
+assessment and full-book qualification remain TC-10/11; improved linguistic accuracy and
+performance remain Proposed qualitative benefits.
+
+> Decision: [ADR-0081](../adr/0081-enriched-document-analysis-layers.md), [ADR-0082](../adr/0082-explicit-analysis-selection.md)
 
 ## Safe operation observation custody
 

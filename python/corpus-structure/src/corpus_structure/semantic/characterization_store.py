@@ -6,13 +6,14 @@ one transaction with task completion; no inference or publication occurs on read
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from typing import Any, cast
 
 from sqlalchemy import Connection
 from sqlalchemy.exc import DBAPIError
 
-from ._operation_ids import RunId, TaskAttempt, TaskId
+from ._operation_ids import RunId, SourceViewId, TaskAttempt, TaskId
 from .characterization import EnrichedDocumentView, LayerReport
 from .identity import canonical_bytes
 from .product_reference import ProductReference
@@ -26,6 +27,7 @@ def _publish(
     holder: str,
     layer: LayerReport | None,
     view: EnrichedDocumentView | None,
+    cost: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     from ._operation_calls import publish_characterization as invoke
     from .operations import OperationConflict
@@ -40,6 +42,7 @@ def _publish(
                 holder=holder,
                 layer=layer.payload if layer else None,
                 view=view.payload if view else None,
+                cost=json.loads(canonical_bytes(cost)) if cost is not None else None,
             ),
         )
     except DBAPIError as exc:
@@ -125,6 +128,49 @@ def read_view(
     max_bytes: int = 8388608,
 ) -> EnrichedDocumentView:
     return _read(connection, reference, "view", run_id, EnrichedDocumentView, max_bytes)
+
+
+def read_inventory(
+    connection: Connection, run_id: int, *, after=None, limit=100, max_bytes=1048576
+):
+    """Bounded run-selected original pins, including reused products; no latest lookup."""
+    from ._operation_calls import read_characterization_inventory
+
+    return cast(
+        dict[str, Any],
+        read_characterization_inventory(
+            connection,
+            run_id=RunId(run_id),
+            after_task=TaskId(after[0]) if after is not None else None,
+            after_key=after[1] if after is not None else None,
+            limit=limit,
+            max_bytes=max_bytes,
+        ),
+    )
+
+
+def read_primary_layers(connection, run_id, source_view_id, references, *, max_bytes=8388608):
+    """Select scope metadata in sets before hydrating a bounded exact layer population."""
+    from ._operation_calls import read_primary_characterization
+
+    page = cast(
+        dict[str, Any],
+        read_primary_characterization(
+            connection,
+            run_id=RunId(run_id),
+            source_view_id=SourceViewId(source_view_id),
+            references=[ref.values() for ref in references],
+            max_bytes=max_bytes,
+        ),
+    )
+    layers = {}
+    for row in page["layers"]:
+        pin = ProductReference(**row["reference"])
+        report = LayerReport(canonical_bytes(row["payload"]))
+        if report.reference(pin.task_id) != pin:
+            raise ValueError("primary product differs from its exact pin")
+        layers[pin] = report
+    return layers
 
 
 def read_memberships(

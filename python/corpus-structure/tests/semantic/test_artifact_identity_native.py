@@ -1,32 +1,8 @@
 """Independent native custody/replay checks for source-bound artifact identity."""
 
-from pathlib import Path
-
 import pytest
 from rapidfuzz.fuzz import ratio
 from sqlalchemy import text
-
-
-def artifact_helper_sql():
-    sql = (
-        Path(__file__)
-        .parents[2]
-        .joinpath("src/corpus_structure/semantic/sql/structural_products.sql")
-        .read_text()
-    )
-    return (
-        sql[
-            sql.index("CREATE OR REPLACE FUNCTION ops.artifact_alias_fields") : sql.index(
-                "CREATE OR REPLACE FUNCTION ops.validate_structural_product_report"
-            )
-        ]
-        + """
-    ALTER FUNCTION ops.artifact_source_labels(text,integer,text) OWNER TO corpus_sem_publisher;
-    ALTER FUNCTION ops.artifact_label_relation(jsonb,jsonb) OWNER TO corpus_sem_publisher;
-    ALTER FUNCTION ops.artifact_explicit_reference(text,integer,integer,text,text)
-    OWNER TO corpus_sem_publisher;
-    """
-    )
 
 
 def test_native_indel_replay_matches_actual_rapidfuzz(semantic_db_engine):
@@ -41,7 +17,6 @@ def test_native_indel_replay_matches_actual_rapidfuzz(semantic_db_engine):
         ("Straße", "STRASSE"),
     ]
     with semantic_db_engine.connect() as conn, conn.begin():
-        conn.exec_driver_sql(artifact_helper_sql(), execution_options={"no_parameters": True})
         for left, right in cases:
             value = conn.scalar(
                 text("SELECT ops.artifact_lexical_score(:a,:b)"), dict(a=left, b=right)
@@ -52,12 +27,11 @@ def test_native_indel_replay_matches_actual_rapidfuzz(semantic_db_engine):
 
 def test_native_artifact_source_replay_plans_its_cohort_aggregation(semantic_db_engine):
     with semantic_db_engine.connect() as conn, conn.begin():
-        conn.exec_driver_sql(artifact_helper_sql(), execution_options={"no_parameters": True})
         assert (
             conn.scalar(
                 text(
                     """SELECT ops.artifact_source_records(
-                    '{"sources":[]}', '{"work_bindings":[]}'
+                    '{"sources":[]}', '{"work_bindings":[]}', '{}'
                     )"""
                 )
             )
@@ -84,25 +58,26 @@ def test_native_artifact_source_replay_plans_its_cohort_aggregation(semantic_db_
 def test_native_exact_source_numbering_and_revision_cues(
     semantic_db_engine, suffix, states, labels
 ):
-    from corpus_structure.semantic.artifact_identity import artifact_source_labels
+    from .test_named_link_coverage_native import native_navigation_call, primary_fixture
 
-    designator = "Table 5.9"
-    raw = designator + suffix
-    pointer = "#/texts/8"
+    literal = "Table 5.9" + suffix
+    layers, index, physical = primary_fixture(literal, label="caption")
+    record = next(
+        row for row in index.select("artifact_mention") if row.text("subject") == "Table 5.9"
+    )
     with semantic_db_engine.connect() as conn, conn.begin():
-        conn.exec_driver_sql(artifact_helper_sql(), execution_options={"no_parameters": True})
-        native = conn.scalar(
-            text("SELECT ops.artifact_source_labels(:raw,:offset,:pointer)"),
-            dict(raw=raw, offset=len(designator), pointer=pointer),
+        native = native_navigation_call(
+            conn,
+            "artifact_source_labels",
+            layers,
+            record.reference.values(),
+            physical,
+            field_start=0,
         )
-    python = artifact_source_labels(raw, len(designator), pointer)
-    for kind, declared, state, values in zip(
-        ("numbering", "revision"), python, states, labels, strict=True
-    ):
-        assert native[kind] == declared.model_dump(mode="json", exclude_none=True)
+    for kind, state, values in zip(("numbering", "revision"), states, labels, strict=True):
         assert native[kind]["state"] == state
         assert [e["text"] for e in native[kind]["evidence"]] == values
-        assert all(raw[e["start"] : e["end"]] == e["text"] for e in native[kind]["evidence"])
+        assert all(literal[e["start"] : e["end"]] == e["text"] for e in native[kind]["evidence"])
 
 
 @pytest.mark.parametrize(
@@ -125,29 +100,94 @@ def test_native_exact_source_numbering_and_revision_cues(
 def test_native_explicit_reference_cue_matches_source_replay(
     semantic_db_engine, literal, prefix, target
 ):
-    from corpus_structure.semantic.artifact_identity import explicit_artifact_reference
+    from .test_named_link_coverage_native import native_navigation_call, primary_fixture
 
-    from .test_artifact_identity import record
-
-    start = len(prefix)
-    end = start + len("Table 5.8")
-    pointer = "#/texts/1"
-    artifact = record("reference", role="reference").artifact
-    with semantic_db_engine.connect() as conn, conn.begin():
-        conn.exec_driver_sql(artifact_helper_sql(), execution_options={"no_parameters": True})
-        native = conn.scalar(
-            text("SELECT ops.artifact_explicit_reference(:raw,:start,:end,:pointer,'table')"),
-            dict(raw=literal, start=start, end=end, pointer=pointer),
-        )
-    observed = explicit_artifact_reference(literal, start, end, pointer, artifact)
+    layers, index, physical = primary_fixture(literal)
+    references = index.select("artifact_explicit_reference")
     if target is None:
-        assert observed is None and native is None
-    else:
-        assert observed is not None
-        assert native == observed.model_dump(mode="json")
-        assert native["target_code"] == target
-        assert native["target_numbering"] == "Chapter6"
-        assert native["cue"]["text"] == literal.removesuffix(".")
+        assert references == ()
+        return
+    (record,) = references
+    with semantic_db_engine.connect() as conn, conn.begin():
+        native = native_navigation_call(
+            conn,
+            "artifact_explicit_reference",
+            layers,
+            record.reference.values(),
+            physical,
+            field_start=0,
+        )
+    assert native["target_code"] == target and native["target_numbering"] == "Chapter6"
+    assert native["cue"]["text"] == literal.removesuffix(".")
+    assert native["primary_node"] == record.reference.values()
+
+
+@pytest.mark.parametrize("mutation", (None, "label_text", "target_text", "foreign_source"))
+def test_native_artifact_fields_require_literal_primary_operands(semantic_db_engine, mutation):
+    from sqlalchemy.exc import DBAPIError
+
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    from .test_named_link_coverage_native import native_navigation_call, primary_fixture
+
+    literal = "See Table 5.9 (hereafter Table 6.1 in numbering namespace Chapter6)."
+    layers, index, physical = primary_fixture(literal)
+    (record,) = index.select("artifact_explicit_reference")
+    ref = record.reference.values()
+    body = layers[canonical_bytes(ref["layer"]).decode()]
+    node = next(a for a in body["annotations"] if a["local_id"] == ref["local_id"])
+    if mutation == "label_text":
+        node["navigation"]["numbering_namespace"] = "Other"
+    elif mutation == "target_text":
+        node["navigation"]["designator"] = "9.9"
+    elif mutation == "foreign_source":
+        physical["id"] += 1
+    with semantic_db_engine.connect() as conn, conn.begin():
+        if mutation is None:
+            native = native_navigation_call(
+                conn, "artifact_explicit_reference", layers, ref, physical, field_start=0
+            )
+            assert native["target_code"] == "6.1"
+        else:
+            with pytest.raises(DBAPIError) as refused:
+                native_navigation_call(
+                    conn, "artifact_explicit_reference", layers, ref, physical, field_start=0
+                )
+            assert getattr(refused.value.orig, "sqlstate", None) == "23514"
+
+
+@pytest.mark.parametrize(
+    "suffix, state, aliases",
+    (
+        (' (alias: "T5") (also called "Control")', "observed", ["T5", "Control"]),
+        (" (aliases: none)", "known_empty", []),
+        (" no explicit alias", "unknown", []),
+    ),
+)
+def test_native_artifact_aliases_project_retained_literal_occurrences(
+    semantic_db_engine, suffix, state, aliases
+):
+    from .test_named_link_coverage_native import native_navigation_call, primary_fixture
+
+    literal = "Table 5.9" + suffix
+    layers, index, physical = primary_fixture(literal, label="caption")
+    (record,) = index.select("artifact_mention")
+    with semantic_db_engine.connect() as conn, conn.begin():
+        native = native_navigation_call(
+            conn,
+            "artifact_alias_fields",
+            layers,
+            record.reference.values(),
+            physical,
+            field_start=0,
+        )
+    assert native["alias_state"] == state and native["aliases"] == aliases
+    assert [span["text"] for span in native["alias_occurrences"]] == aliases
+    assert all(
+        literal[span["start"] : span["end"]] == span["text"] for span in native["alias_occurrences"]
+    )
+    if state == "known_empty":
+        assert native["alias_absence"]["text"] == "aliases: none"
 
 
 def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_engine):
@@ -162,7 +202,6 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_e
         ArtifactScoringPolicy,
         artifact_reference_resolutions,
         artifact_route_counts,
-        explicit_artifact_reference,
         pair_candidates,
         score_pairs,
     )
@@ -170,6 +209,8 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_e
     from .test_artifact_identity import nomination, record
 
     reference = record("i", code="5.9", role="reference")
+    from corpus_structure.semantic.constructions.navigation import explicit_artifact_reference
+
     witness = explicit_artifact_reference(
         "See Table 5.9 (hereafter Table 6.1 in numbering namespace chapter5).",
         4,
@@ -189,12 +230,41 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_e
         record("h", code="6.2", title="abd"),
         reference.model_copy(update={"explicit_reference": witness}),
     )
+    from corpus_structure.semantic.characterization import annotation_reference
+    from corpus_structure.semantic.product_reference import ProductReference
+
+    def primary_node(identity):
+        return annotation_reference(ProductReference(901, "annotation_layer", "e" * 64), identity)
+
+    records = tuple(
+        row.model_copy(
+            update={
+                "primary_node": primary_node(row.contribution_id),
+                "artifact": row.artifact.model_copy(
+                    update={"primary_node": primary_node(row.contribution_id)}
+                ),
+                **(
+                    {
+                        "explicit_reference": row.explicit_reference.model_copy(
+                            update={"primary_node": primary_node("explicit")}
+                        )
+                    }
+                    if row.explicit_reference is not None
+                    else {}
+                ),
+            }
+        )
+        for row in records
+    )
     references = artifact_reference_resolutions(records)
     assert references[0].targets == ("g",)
     policy = ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05)
-    nominations = (nomination("a", "d"),)
+    nominations = (
+        nomination("a", "d").model_copy(update={"primary_node": primary_node("nomination")}),
+    )
     cfg = dict(
         work_bindings=[],
+        _operation_version="5",
         title_threshold=ratio("abc", "abd"),
         external_nomination_refs=[n.relationship.model_dump(mode="json") for n in nominations],
         exclusions=[],
@@ -211,6 +281,8 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_e
         policy,
     )
     product = ArtifactIdentityProduct(
+        protocol="artifact-identity-5",
+        declared_relationships=(),
         records=records,
         pairs=pairs,
         policy=policy,
@@ -220,12 +292,12 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_e
     ).model_dump(mode="json", exclude_none=True)
     inputs = {"sources": []}
     with semantic_db_engine.connect() as conn, conn.begin():
-        conn.exec_driver_sql(artifact_helper_sql(), execution_options={"no_parameters": True})
         literal = json.dumps(
             [r.model_dump(mode="json", exclude_none=True) for r in records]
         ).replace("'", "''")
         conn.exec_driver_sql(
-            "CREATE OR REPLACE FUNCTION ops.artifact_source_records(inputs jsonb,config jsonb) "
+            "CREATE OR REPLACE FUNCTION ops.artifact_source_records("
+            "inputs jsonb,config jsonb,primary_sources jsonb) "
             "RETURNS jsonb LANGUAGE sql STABLE AS $source$ SELECT '"
             + literal
             + "'::jsonb $source$",
@@ -236,15 +308,20 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_e
         )
         conn.exec_driver_sql(
             "CREATE OR REPLACE FUNCTION ops.artifact_external_nominations("
-            "inputs jsonb,config jsonb,records jsonb) "
+            "t ops.task,inputs jsonb,config jsonb,records jsonb) "
             "RETURNS jsonb LANGUAGE sql STABLE AS $source$ SELECT '"
             + external_literal
             + "'::jsonb $source$",
             execution_options={"no_parameters": True},
         )
+        conn.exec_driver_sql(
+            "CREATE OR REPLACE FUNCTION ops.artifact_declared_relationships("
+            "inputs jsonb,records jsonb,primary_sources jsonb) "
+            "RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT '[]'::jsonb $$"
+        )
         statement = text(
             "SELECT ops.validate_artifact_identity("
-            "CAST(:i AS jsonb),CAST(:c AS jsonb),CAST(:p AS jsonb))"
+            "NULL::ops.task,CAST(:i AS jsonb),CAST(:c AS jsonb),CAST(:p AS jsonb))"
         )
 
         def check(value, configuration=cfg):
@@ -334,6 +411,8 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_e
             policy,
         )
         guarded = ArtifactIdentityProduct(
+            protocol="artifact-identity-5",
+            declared_relationships=(),
             records=records,
             pairs=guarded_pairs,
             policy=policy,

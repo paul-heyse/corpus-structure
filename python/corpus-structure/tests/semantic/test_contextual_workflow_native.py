@@ -5,8 +5,11 @@ completion, source selection, retained-component authentication and replay are r
 this test makes no model/provider or semantic-quality claim.
 """
 
+import json
+
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.core.method import MethodSettings
 from corpus_structure.core.vocab import Stage
@@ -15,11 +18,135 @@ from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
 from corpus_structure.orchestrate.runner import Graph, Step
 from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.operations import OperationBinding
 
 from .native_record_fixtures import private_source as private_source
 from .native_record_fixtures import private_source_options as private_source_options
 from .witnessed_scenario_support import completed_metadata, completed_relationship_case
+
+
+@pytest.mark.parametrize(
+    "carrier",
+    (
+        pytest.param(
+            {
+                "semantic_type": "contextual.relationship",
+                "value": source_value({"relation": "defined-by", "target": "component:12"}),
+            },
+            id="semantic-proposal",
+        ),
+        pytest.param(
+            {"semantic_type": "contextual.relationship", "value": {"kind": "invalid"}},
+            id="noncarrier-is-not-decoded",
+        ),
+        pytest.param(
+            {
+                "semantic_type": "contextual.located_mention",
+                "value": source_value(
+                    {
+                        "producer_semantic_type": "table.cell_value",
+                        "producer_value": None,
+                    }
+                ),
+            },
+            id="literal-native-carrier-without-value",
+        ),
+        pytest.param(
+            {
+                "semantic_type": "contextual.located_mention",
+                "value": source_value({"producer_semantic_type": "table.cell_value"}),
+            },
+            id="literal-native-carrier-without-value-field",
+        ),
+        pytest.param(
+            {
+                "semantic_type": "contextual.located_mention",
+                "value": source_value(
+                    {
+                        "producer_semantic_type": "table.cell_value",
+                        "producer_value": {"kind": "decimal", "lexical": "12"},
+                    }
+                ),
+            },
+            id="literal-native-decimal-is-not-source-value",
+        ),
+        pytest.param(
+            {
+                "semantic_type": "contextual.located_mention",
+                "value": source_value(
+                    {
+                        "producer_semantic_type": "structural.located_participant",
+                        "producer_value": source_value({"named_cue": {"primary_node": {}}}),
+                    }
+                ),
+            },
+            id="missing-named-role",
+        ),
+    ),
+)
+def test_named_source_dispatch_ignores_non_named_evidence(semantic_db_engine, carrier):
+    # No run or source view exists: unrelated products must return before accessing
+    # primary layers, and semantic proposals do not have a producer-value wrapper.
+    with semantic_db_engine.connect() as conn:
+        assert (
+            conn.scalar(
+                text(
+                    "SELECT ops.contextual_primary_named_cue("
+                    "NULL,NULL::kb.source_view,'[]'::jsonb,CAST(:carrier AS jsonb))"
+                ),
+                {"carrier": json.dumps(carrier)},
+            )
+            is None
+        )
+
+
+@pytest.mark.parametrize(
+    "value,error",
+    (
+        pytest.param(
+            {"kind": "invalid"},
+            "unsupported sealed record event JSON",
+            id="malformed-outer-wrapper",
+        ),
+        pytest.param(
+            source_value(
+                {
+                    "producer_semantic_type": "structural.located_participant",
+                    "producer_value": {"kind": "invalid"},
+                }
+            ),
+            "unsupported sealed record event JSON",
+            id="malformed-named-producer-value",
+        ),
+        pytest.param(
+            source_value({"producer_semantic_type": "structural.located_participant"}),
+            "contextual named source lacks an encoded producer value",
+            id="missing-named-producer-value",
+        ),
+        pytest.param(
+            source_value(
+                {"producer_semantic_type": "structural.located_participant", "producer_value": None}
+            ),
+            "contextual named source lacks an encoded producer value",
+            id="null-named-producer-value",
+        ),
+    ),
+)
+def test_named_source_dispatch_rejects_malformed_named_carriers(semantic_db_engine, value, error):
+    carrier = {"semantic_type": "contextual.located_mention", "value": value}
+    with (
+        semantic_db_engine.connect() as conn,
+        pytest.raises(DBAPIError, match=error) as caught,
+    ):
+        conn.scalar(
+            text(
+                "SELECT ops.contextual_primary_named_cue("
+                "NULL,NULL::kb.source_view,'[]'::jsonb,CAST(:carrier AS jsonb))"
+            ),
+            {"carrier": json.dumps(carrier)},
+        )
+    assert getattr(caught.value.orig, "sqlstate", None) == "23514"
 
 
 @pytest.mark.parametrize(

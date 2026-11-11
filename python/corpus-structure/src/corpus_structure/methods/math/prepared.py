@@ -155,6 +155,9 @@ class PreparedMathInput:
     parse_start: int = 0
     source_declarations: tuple[EarlyFunctionDeclaration, ...] = ()
     source_context_failure: grammar.Failure | None = None
+    _primary_input: dict[str, Any] | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
     _lexical: tuple[tex.Token, ...] | None = field(
         default=None, init=False, repr=False, compare=False
     )
@@ -242,6 +245,23 @@ class PreparedMathInput:
             None if result.failure is None else result.failure.category,
         )
         return not timeout
+
+    def retain_primary_syntax(
+        self, result: grammar.MathResult, *, primary_input: dict[str, Any] | None = None
+    ) -> None:
+        """Seed exact primary syntax, including explicit refusal, before science stages."""
+        kind = self.kind or self.context.kind
+        if (
+            result.latex != self.latex
+            or result.requested != kind
+            or dict(result.macros) != dict(self.context.macros)
+        ):
+            raise ValueError("primary mathematical syntax differs from prepared input")
+        if self._syntax is not None and self._syntax != result:
+            raise ValueError("prepared mathematical syntax is already frozen")
+        object.__setattr__(self, "_syntax", result)
+        object.__setattr__(self, "_primary_input", primary_input)
+        self._remember("syntax", result)
 
     def syntax(self) -> grammar.MathResult:
         if self._syntax is None:

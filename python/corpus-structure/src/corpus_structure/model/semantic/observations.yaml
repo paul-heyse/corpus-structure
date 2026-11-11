@@ -9,6 +9,29 @@ types:
     base: float
     uri: http://www.w3.org/2001/XMLSchema#double
 classes:
+  CharacterizationProductReference:
+    is_a: SourceRecordProduct
+    attributes:
+      task_id:
+        required: true
+        range: integer
+        minimum_value: 1
+      product_key: &id001
+        required: true
+        pattern: ^.+$
+      content_digest:
+        required: true
+        pattern: ^[0-9a-f]{64}$
+    class_uri: https://corpus-structure.dev/semantic/characterization/CharacterizationProductReference
+  CharacterizationQualifiedReference:
+    is_a: SourceRecordProduct
+    attributes:
+      layer:
+        range: CharacterizationProductReference
+        inlined: true
+        required: true
+      local_id: *id001
+    class_uri: https://corpus-structure.dev/semantic/characterization/CharacterizationQualifiedReference
   ArtifactCitation:
     is_a: SourceRecordProduct
     attributes:
@@ -98,6 +121,7 @@ classes:
   ArtifactNomination:
     is_a: SourceRecordProduct
     attributes:
+      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
       left: {required: true}
       right: {required: true}
       kind: {required: true, equals_string: artifact_reference_target}
@@ -126,6 +150,7 @@ classes:
   ArtifactReferenceDesignator:
     is_a: SourceRecordProduct
     attributes:
+      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
       target_code: {required: true}
       target_numbering: {required: true}
       cue: {range: ArtifactAliasOccurrence, required: true, inlined: true}
@@ -138,12 +163,14 @@ classes:
   ArtifactDeclaredEndpoint:
     is_a: SourceRecordProduct
     attributes:
+      work_primary_node: {range: CharacterizationQualifiedReference, inlined: true}
       record_id: {required: true}
       citation: {range: ArtifactCitation, required: true, inlined: true}
       work_cue: {range: ArtifactCitation, inlined: true}
   ArtifactDeclaredRelationship:
     is_a: SourceRecordProduct
     attributes:
+      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
       kind: {required: true, pattern: '^(reference|same_lineage|supersedes)$'}
       source_id: {required: true}
       origin: {range: ArtifactCitation, required: true, inlined: true}
@@ -152,6 +179,7 @@ classes:
   ArtifactRecord:
     is_a: SourceRecordProduct
     attributes:
+      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
       contribution_id:
         range: string
         required: true
@@ -213,6 +241,7 @@ classes:
   SourceArtifactOccurrence:
     is_a: SourceRecordProduct
     attributes:
+      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
       protocol:
         equals_string: source-artifact-occurrence-2
       artifact_kind:
@@ -253,7 +282,7 @@ classes:
     is_a: SourceRecordProduct
     attributes:
       protocol:
-        pattern: '^artifact-identity-[34]$'
+        pattern: '^artifact-identity-[345]$'
       identity_grain:
         equals_string: source_work_artifact_lineage
       records:
@@ -471,6 +500,7 @@ classes:
     is_a: SourceRecordProduct
     description: One attributed semantic question under a shared invocation, including zero-output questions.
     attributes:
+      primary_layers: {range: CharacterizationProductReference, inlined: true, multivalued: true}
       operation_key: {required: true}
       question: {required: true}
       contextual_enrichment: {range: ContextualEnrichmentReport, inlined: true}
@@ -736,6 +766,8 @@ classes:
       attachment_contribution_id: {required: true}
       target_contribution_id: {required: true}
       attachment_kind: {required: true}
+      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
+      primary_choices: {range: CharacterizationQualifiedReference, inlined: true, multivalued: true}
   PredicateProjectedExtent:
     is_a: SourceRecordProduct
     attributes:
@@ -744,6 +776,8 @@ classes:
   PredicateFrameMember:
     is_a: SourceRecordProduct
     attributes:
+      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
+      primary_choices: {range: CharacterizationQualifiedReference, inlined: true, multivalued: true}
       contribution: {required: true}
       role: {required: true, pattern: '^(predicate|focus|actor|subject|object|complement|marker)$'}
       token_indices: {range: integer, minimum_value: 0, multivalued: true, required: true, minimum_cardinality: 1}
@@ -764,6 +798,8 @@ classes:
     is_a: WitnessedComponent
     description: Neutral predicate and source-coordinate focus with grammatical role members.
     attributes:
+      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
+      primary_choices: {range: CharacterizationQualifiedReference, inlined: true, multivalued: true}
       kind: {equals_string: predicate_frame}
       annotation: {required: true, pattern: '^annotation:[0-9a-f]{64}$'}
       block: {required: true}
@@ -777,6 +813,9 @@ classes:
     is_a: WitnessedComponent
     description: Exact linguistic qualifier evidence with candidate predicate heads, independently of an attachment.
     attributes:
+      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
+      primary_choices: {range: CharacterizationQualifiedReference, inlined: true, multivalued: true}
+      primary_marker: {range: CharacterizationQualifiedReference, inlined: true}
       kind: {equals_string: predicate_cue}
       annotation: {required: true, pattern: '^annotation:[0-9a-f]{64}$'}
       block: {required: true}
@@ -796,6 +835,8 @@ classes:
     is_a: WitnessedComponent
     description: Deterministic private interpretation of one retained neutral frame.
     attributes:
+      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
+      primary_choices: {range: CharacterizationQualifiedReference, inlined: true, multivalued: true}
       kind: {equals_string: predicate_reading}
       frame: {required: true}
       reading: {required: true, pattern: '^(definition|explanation|reference|prescribed_action|described_process|assumption_restriction|example|unresolved)$'}
@@ -811,6 +852,9 @@ classes:
     is_a: WitnessedComponent
     description: Located qualifier with one source-owned predicate host. Logical lowering is optional.
     attributes:
+      primary_condition_parts: {range: CharacterizationQualifiedReference, inlined: true, multivalued: true}
+      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
+      primary_choices: {range: CharacterizationQualifiedReference, inlined: true, multivalued: true}
       kind: {equals_string: predicate_qualifier}
       qualifier_contribution_id: {required: true}
       host_contribution_id: {required: true}
@@ -1379,6 +1423,8 @@ classes:
       unit: {}
       basis: {}
       basis_evidence: {range: LocatedDefinitionSpan, inlined: true}
+      primary_formal: {range: CharacterizationQualifiedReference, inlined: true}
+      primary_basis: {range: CharacterizationQualifiedReference, inlined: true}
   StructuralPublicTypedPremise:
     attributes:
       span: {range: StructuralPublicCitation, required: true, inlined: true}
@@ -1429,6 +1475,7 @@ classes:
       literal: {range: ComparisonLiteral, inlined: true}
       condition: {range: SourceValue, inlined: true}
       typed: {range: TypedPremise, inlined: true}
+      primary_formal: {range: CharacterizationQualifiedReference, inlined: true}
       dimension:
         required: true
         range: StructuralClauseFieldDimensionValue
@@ -1454,12 +1501,15 @@ classes:
       grouping: {range: StructuralFieldGrouping}
       members: {range: ClauseField, multivalued: true, inlined: true, inlined_as_list: true}
       witnesses: {range: LocatedDefinitionSpan, multivalued: true, inlined: true, inlined_as_list: true}
+      primary_witnesses: {range: CharacterizationQualifiedReference, multivalued: true, inlined: true}
   RevisionSuccession:
     is_a: SourceRecordProduct
     attributes:
       older_id: {required: true}
       newer_id: {required: true}
       evidence: {range: LocatedDefinitionSpan, required: true, inlined: true}
+      older_evidence: {range: LocatedDefinitionSpan, required: true, inlined: true}
+      primary_witnesses: {range: CharacterizationQualifiedReference, multivalued: true, inlined: true}
   StructuralPublicRevisionSuccession:
     attributes:
       older: {range: StructuralPublicCitation, required: true, inlined: true}
@@ -1535,23 +1585,26 @@ classes:
       variant: {required: true}
       nodes: {required: true, range: integer, minimum_value: 0, multivalued: true, minimum_cardinality: 1}
       label_nodes: {range: integer, minimum_value: 0, multivalued: true}
+      primary_match: {range: CharacterizationQualifiedReference, inlined: true}
+      primary_scope: {range: CharacterizationQualifiedReference, multivalued: true, inlined: true}
   DeclarationChainBinding:
     is_a: SourceRecordProduct
     attributes:
-      frame: {required: true, pattern: '^s[0-9]+/predicate/[0-9]+$'}
+      frame: {required: true}
       subject_token: {required: true, range: integer, minimum_value: 0}
       use_token: {required: true, range: integer, minimum_value: 0}
   DeclarationChainWitness:
     is_a: SourceRecordProduct
     attributes:
-      version: {required: true, equals_string: definition-declaration-chain-1}
-      parser: {required: true, range: RetainedContributionRef, inlined: true}
+      version: {required: true, pattern: '^definition-declaration-chain-[12]$'}
+      parser: {range: RetainedContributionRef, inlined: true}
+      primary_evidence: {range: CharacterizationQualifiedReference, multivalued: true, inlined: true}
       scope_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
       label: {required: true, range: LocatedDefinitionSpan, inlined: true}
       bindings: {required: true, range: DeclarationChainBinding, inlined: true, multivalued: true, minimum_cardinality: 1, maximum_cardinality: 4}
-      construction_frame: {required: true, pattern: '^s[0-9]+/predicate/[0-9]+$'}
+      construction_frame: {required: true}
       construction_subject_token: {required: true, range: integer, minimum_value: 0}
-      naming_frame: {required: true, pattern: '^s[0-9]+/predicate/[0-9]+$'}
+      naming_frame: {required: true}
       naming_antecedent_token: {required: true, range: integer, minimum_value: 0}
   LocatedDefinitionComponent:
     is_a: SourceRecordProduct
@@ -1614,6 +1667,8 @@ classes:
       presentation: {range: ClauseModelLabel, inlined: true, multivalued: true}
       disposition: {required: true, pattern: '^(observed|withheld|failed)$'}
       reason: {required: true}
+      primary_functions: {range: CharacterizationQualifiedReference, multivalued: true, inlined: true}
+      primary_context: {range: CharacterizationQualifiedReference, multivalued: true, inlined: true}
   ClauseClassificationProduct:
     is_a: SourceRecordProduct
     attributes:

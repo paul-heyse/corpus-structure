@@ -507,6 +507,11 @@ def _view_and_vocabularies(
     return view, tuple(vocabularies), tuple(diagnostics)
 
 
+def _plain_uri(value: str) -> str:
+    """LinkML's annotated str may be a URIorCURIE; archive DTOs require builtin str."""
+    return str.__str__(value)
+
+
 def preview_schema(
     bundle: SourceBundle, dependencies: ResolvedDependencies = _EMPTY_DEPENDENCIES
 ) -> SchemaPreview:
@@ -515,11 +520,13 @@ def preview_schema(
     classes = tuple(
         ClassPreview(
             str(name),
-            view.get_uri(cls, expand=True),
+            _plain_uri(view.get_uri(cls, expand=True)),
             tuple(sorted(str(parent) for parent in view.class_ancestors(name, reflexive=False))),
             tuple(
                 PropertyPreview(
-                    str(slot.name), view.get_uri(slot, expand=True), str(slot.range or "string")
+                    str(slot.name),
+                    _plain_uri(view.get_uri(slot, expand=True)),
+                    str(slot.range or "string"),
                 )
                 for slot in view.class_induced_slots(name)
             ),
@@ -740,7 +747,7 @@ def _prepare_release_uncached(
                     collection_key = identifiers[0]
             prop = PropertyDefinition(
                 sn,
-                view.get_uri(slot, expand=True),
+                _plain_uri(view.get_uri(slot, expand=True)),
                 rng,
                 bool(
                     slot.required
@@ -778,7 +785,7 @@ def _prepare_release_uncached(
         definitions.append(
             ClassDefinition(
                 name,
-                view.get_uri(cls, expand=True),
+                _plain_uri(view.get_uri(cls, expand=True)),
                 tuple(sorted(str(x) for x in view.class_ancestors(name, reflexive=False))),
                 tuple(slots),
                 keys,
@@ -1182,11 +1189,14 @@ def _prepare_release_uncached(
     if execution is not None:
         artifacts.append(PreparedArtifact("execution/contracts.json", execution.content))
         rows += (RegistryRow("execution_model", execution.model_id, execution.content),)
-    from .characterization import compile_attachment_policies
+    from .characterization import compile_attachment_policies, compile_characterization_profiles
 
     attachment_policy = compile_attachment_policies(definitions)
     if attachment_policy is not None:
         artifacts.append(attachment_policy)
+    characterization_profile = compile_characterization_profiles(definitions)
+    if characterization_profile is not None:
+        artifacts.append(characterization_profile)
     from .query_compatibility import prepare_query_bindings
 
     query_products = prepare_query_bindings(dependencies)

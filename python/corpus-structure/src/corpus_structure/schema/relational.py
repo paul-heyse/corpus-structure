@@ -613,14 +613,17 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
     # Trusted physical imports may contribute stored relations. Imported payload
     # classes without a physical subset remain boundary types, never tables.
     physical_classes = dict(view.schema.classes)
-    physical_classes.update(
-        {
-            name: cls
-            for name, cls in view.all_classes().items()
-            if name not in physical_classes
-            and any(str(subset) in {"sem", "data", "ops", "kb", "eval"} for subset in cls.in_subset)
-        }
-    )
+    if not read_only:
+        physical_classes.update(
+            {
+                name: cls
+                for name, cls in view.all_classes().items()
+                if name not in physical_classes
+                and any(
+                    str(subset) in {"sem", "data", "ops", "kb", "eval"} for subset in cls.in_subset
+                )
+            }
+        )
     physical_types = {
         "bytea": BYTEA,
         "jsonb": JSONB,

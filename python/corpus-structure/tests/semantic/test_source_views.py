@@ -36,6 +36,7 @@ from corpus_structure.semantic.source_views import (
 
 from .native_record_fixtures import publish_native_record_fixture, qualified_view_draft
 from .operation_scenario_support import prepare_operation_scenario
+from .primary_native_support import publish_primary_layers
 
 
 def test_native_source_view_is_real_unit_with_exact_context(
@@ -58,7 +59,9 @@ def test_native_source_view_is_real_unit_with_exact_context(
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.proposals import native_source_frame
 
-    prepared = prepare_operation_scenario(semantic_db_engine, observations=True, composed=True)
+    prepared = prepare_operation_scenario(
+        semantic_db_engine, observations=True, characterization=True, composed=True
+    )
     original = b"%PDF-1.7\nindependent source view fixture"
     recipe = b'{"recipe":"native-scope-fixture"}'
     schema = (
@@ -660,7 +663,151 @@ def test_native_source_view_is_real_unit_with_exact_context(
             == product.values()["document"]
         )
 
+    from corpus_structure.core.method import (
+        CoverageDraft,
+        Digest,
+        MethodSettings,
+        ObservationDraft,
+        UnitResult,
+    )
+    from corpus_structure.core.vocab import ObservationKind, ObservationOutcome, Stage
+    from corpus_structure.ingest.methods import SegmentSentences
+    from corpus_structure.ingest.sentences import SentenceConfig
+    from corpus_structure.methods.math import native
+    from corpus_structure.methods.math.methods import ExtractMath, SymbolScope
+    from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
+    from corpus_structure.orchestrate.runner import Graph, Step
+    from corpus_structure.orchestrate.semantic import run_source_methods
+    from corpus_structure.semantic._operation_calls import select_source_view
+    from corpus_structure.semantic._operation_ids import SourceViewId
     from corpus_structure.semantic.native_requests import request_source_view
+
+    # Regenerate actual math operations over the exact captured views. The source
+    # executor authors the immutable dependency manifest containing these pins;
+    # no hand-written run manifest substitutes for a current producer.
+    with semantic_writer_engine.begin() as conn:
+        primary_pins = publish_primary_layers(
+            conn, run, prepared, (identity, child_identity), formal=True
+        )
+    capture_run = run
+
+    def select_captured(created):
+        with semantic_writer_engine.begin() as conn:
+            for source_id in (identity, child_identity):
+                select_source_view(
+                    conn,
+                    run_id=created.run_id,
+                    source_run_id=RunId(capture_run),
+                    source_view_id=SourceViewId(source_id),
+                    projection_context=prepared,
+                )
+
+    # This controlled parent declaration tests stored source/context custody, not
+    # M13 inference fidelity. The ordinary executor freezes and schedules its real
+    # current operation/configuration before any task is created.
+    parent_payload = native.NativeContextPayload(
+        source_view_id=identity,
+        native_product=loaded.ref.native_product.values(),
+        projection_digest=loaded.ref.projection_digest,
+        declarations=(
+            native.NativeContextDeclaration(
+                symbol="f",
+                role="function",
+                rule_id="function-definition-1",
+                source_pointer=formula.self_ref,
+                recognized_start=0,
+                recognized_end=1,
+                scope_pointer=section.self_ref,
+                quote="f(x)=x",
+                projection_start=20,
+                projection_end=26,
+            ),
+        ),
+        issues=(),
+    )
+
+    class ParentContext(SymbolScope):
+        def select(self, run, cfg):
+            return tuple(ref for ref in super().select(run, cfg) if ref.unit_id == identity)
+
+        def input_digest(self, unit, cfg):
+            source = unit.run.reader.source_view(unit.ref.unit_id)
+            return Digest(
+                canonical_bytes(
+                    dict(
+                        source=asdict(source.ref),
+                        configuration=cfg.model_dump(mode="json"),
+                        declaration=parent_payload.model_dump(mode="json"),
+                    )
+                )
+            )
+
+        def run(self, units, cfg, ctx):
+            ctx.check_active()
+            assert all(unit.ref.unit_id == identity for unit in units)
+            return tuple(
+                UnitResult(
+                    ref=unit.ref,
+                    outcome=ObservationOutcome.PRODUCED,
+                    observations=(
+                        ObservationDraft(
+                            kind=ObservationKind.RECORD,
+                            payload=parent_payload,
+                            payload_class=native.NativeContextPayload,
+                            payload_version="1",
+                            source_view_id=identity,
+                        ),
+                    ),
+                    coverage=(
+                        CoverageDraft(
+                            family=self.name,
+                            scope=loaded.ref.key,
+                            outcome="complete",
+                            required_capability="context_declarations",
+                        ),
+                    ),
+                )
+                for unit in units
+            )
+
+    parent_method = ParentContext()
+    math = ExtractMath()
+    regenerated = run_source_methods(
+        semantic_writer_engine,
+        project_id="p",
+        prepared=prepared,
+        binding=OperationBinding(prepared.release_id, "z", 0, b"{}"),
+        registry=MethodRegistry(
+            (math, parent_method, SegmentSentences()),
+            MethodsFile(
+                configs={
+                    math.name: {
+                        "request-source": dict(
+                            characterization_layers=[pin.values() for pin in primary_pins]
+                        )
+                    },
+                    parent_method.name: {
+                        "context": dict(
+                            characterization_layers=[pin.values() for pin in primary_pins],
+                            sentences=SentenceConfig(exclude=("ner",)).model_dump(mode="json"),
+                        )
+                    },
+                },
+                sections={"math": {}, "binders": None},
+            ),
+        ),
+        graph=Graph(
+            (
+                (Stage.EXTRACT, (Step(math.name + "/request-source"),)),
+                (Stage.SCOPE, (Step(parent_method.name + "/context"),)),
+            ),
+            policy_propose=False,
+        ),
+        method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+        on_created=select_captured,
+    )
+    assert regenerated.status == "source_ready"
+    run = regenerated.run_id
 
     lexical = request_source_view(
         semantic_writer_engine,
@@ -674,7 +821,6 @@ def test_native_source_view_is_real_unit_with_exact_context(
     assert lexical.result is not None
     assert lexical.result["items"][0]["recognized_latex"] == "f(x)=x"
     assert lexical.result["items"][0]["lexical"]
-    from corpus_structure.methods.math import native
 
     def forbidden(*args, **kwargs):
         raise AssertionError("reused native request must not execute its kernel")
@@ -690,92 +836,6 @@ def test_native_source_view_is_real_unit_with_exact_context(
             code_commit="request-fixture",
         )
     assert repeated.status == "source_ready" and repeated.result == lexical.result
-    # Parent roles are retained source products. Strong requests hydrate these exact
-    # records, while weak requests must never invoke parent context preparation.
-    from corpus_structure.core.method import CoverageDraft, ObservationDraft, UnitRef, UnitResult
-    from corpus_structure.core.vocab import ObservationKind, ObservationOutcome, TaskUnitType
-    from corpus_structure.semantic.operations import OperationDescriptor, complete_unit_result
-
-    parent_method = OperationDescriptor(
-        "resolve.symbol_scope",
-        "4",
-        "resolve",
-        "deterministic",
-        TaskUnitType.SOURCE_VIEW,
-        create_model("ParentContextFixture"),
-    )
-    with semantic_writer_engine.begin() as conn:
-        parent_config = record_method(
-            conn, parent_method, "context", {}, "context-fixture", prepared=prepared
-        )
-        parent_task = create_task(
-            conn,
-            run_id=run,
-            config_id=parent_config,
-            stage="scope",
-            unit_type="source_view",
-            unit_id=identity,
-            unit_key=loaded.ref.key,
-            input_hash="parent-context-fixture",
-        )
-        parent_claim = claim_tasks(
-            conn,
-            run_id=RunId(run),
-            config_id=MethodConfigId(parent_config),
-            holder="context-fixture",
-        )[0]
-        parent_payload = native.NativeContextPayload(
-            source_view_id=identity,
-            native_product=loaded.ref.native_product.values(),
-            projection_digest=loaded.ref.projection_digest,
-            declarations=(
-                native.NativeContextDeclaration(
-                    symbol="f",
-                    role="function",
-                    rule_id="function-definition-1",
-                    source_pointer=formula.self_ref,
-                    recognized_start=0,
-                    recognized_end=1,
-                    scope_pointer=section.self_ref,
-                    quote="f(x)=x",
-                    projection_start=20,
-                    projection_end=26,
-                ),
-            ),
-            issues=(),
-        )
-        parent_result = UnitResult(
-            ref=UnitRef(TaskUnitType.SOURCE_VIEW, identity, loaded.ref.key),
-            outcome=ObservationOutcome.PRODUCED,
-            observations=(
-                ObservationDraft(
-                    kind=ObservationKind.RECORD,
-                    payload=parent_payload,
-                    payload_class=native.NativeContextPayload,
-                    payload_version="1",
-                    source_view_id=identity,
-                ),
-            ),
-            coverage=(
-                CoverageDraft(
-                    family="resolve.symbol_scope",
-                    scope=loaded.ref.key,
-                    outcome="complete",
-                    required_capability="context_declarations",
-                ),
-            ),
-        )
-        complete_unit_result(
-            conn,
-            task_id=parent_task,
-            attempt=parent_claim.attempt,
-            holder="context-fixture",
-            prepared=prepared,
-            result=parent_result,
-            method=parent_method,
-            configuration_hash="context-fixture",
-            source=loaded.ref.key,
-        )
     with monkeypatch.context() as patch:
         patch.setattr(native, "native_ancestor_declarations", forbidden)
         patch.setattr(native, "stored_native_ancestor_declarations", forbidden)
@@ -878,6 +938,7 @@ def _assert_m1_owned_context_and_annotation_dependency(
         M1Annotations,
         consume_annotations,
     )
+    from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.operations import complete_unit_result
     from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
     from corpus_structure.semantic.source_contexts import (
@@ -918,7 +979,12 @@ def _assert_m1_owned_context_and_annotation_dependency(
             read_budget=PublishedReadBudget(4096, 4_194_304),
         )
 
-    producer, cfg = M1Annotations(), M1AnnotationConfig()
+    primary_pins = publish_primary_layers(conn, run, prepared, (identity,))
+    reader.characterization_selection = primary_pins
+    producer, cfg = (
+        M1Annotations(),
+        M1AnnotationConfig(characterization_layers=tuple(pin.values() for pin in primary_pins)),
+    )
     parent_config = record_method(
         conn,
         producer,
@@ -992,7 +1058,12 @@ def _assert_m1_owned_context_and_annotation_dependency(
     )
     annotations, errors, body = consume_annotations(reader, source, AnnotationProfile())
     assert not errors and len(annotations) == len(result.observations)
-    assert body["method"] == producer.name and body["input_hash"] == "annotation-control"
+    assert body["method"] == "retained.primary_characterization"
+    assert body["primary_layers"] == [pin.values() for pin in primary_pins]
+    assert (
+        body["input_hash"]
+        == sha256(canonical_bytes([pin.values() for pin in primary_pins])).hexdigest()
+    )
     with pytest.raises(DBAPIError, match="same-view producer"), conn.begin_nested():
         foreign = create_task(
             conn,

@@ -6,14 +6,13 @@ from hashlib import sha256
 import pytest
 
 from corpus_structure.ingest.annotations import AnnotationProfile
-from corpus_structure.methods.scoped_relations import discover_relations
 from corpus_structure.methods.source_preparation import prepare_source
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.structural_products import StructuralPassage
 
-from .test_scoped_relations import complete_native_fields, source
+from .test_scoped_relations import complete_native_fields, discover_relations, source
 
 
 @pytest.mark.parametrize("case", ["complete", "clipped", "wrong_group", "no_scope"])
@@ -79,9 +78,7 @@ def test_explicit_list_intro_has_independent_located_hosts(case):
         native_source_frame(view, ()),
         annotations=prepared.annotations,
         passages=None if case == "no_scope" else (passage,),
-        predicate_version="3",
         witnessed_links_enabled=True,
-        named_link_version="2",
     )
     rows = {row["contribution_id"]: row for row in output["contributions"]}
     inherited = [
@@ -144,9 +141,7 @@ def test_scope_inheritance_requires_an_explicit_shared_clause(clause, expected_h
         native_source_frame(view, ()),
         annotations=prepared.annotations,
         passages=(passage,),
-        predicate_version="3",
         witnessed_links_enabled=True,
-        named_link_version="2",
     )
     rows = {row["contribution_id"]: row for row in output["contributions"]}
     hosts = tuple(

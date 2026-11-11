@@ -354,6 +354,7 @@ def test_native_publication_replay_partial_family_and_pin_read(
 
         publish_characterization(
             conn,
+            cost=None,
             task_id=task,
             attempt=claim.attempt,
             holder="characterization-fixture",
@@ -377,6 +378,7 @@ def test_native_refuses_dangling_and_unreleased_witness_without_new_seal(
         with pytest.raises(DBAPIError, match="failed analysis"), conn.begin_nested():
             publish_characterization(
                 conn,
+                cost=None,
                 task_id=task,
                 attempt=claim.attempt,
                 holder="characterization-fixture",
@@ -389,6 +391,7 @@ def test_native_refuses_dangling_and_unreleased_witness_without_new_seal(
         with pytest.raises(DBAPIError), conn.begin_nested():
             publish_characterization(
                 conn,
+                cost=None,
                 task_id=task,
                 attempt=claim.attempt,
                 holder="characterization-fixture",
@@ -413,6 +416,7 @@ def test_native_refuses_dangling_and_unreleased_witness_without_new_seal(
             with pytest.raises(DBAPIError, match="occurrence differs"), conn.begin_nested():
                 publish_characterization(
                     conn,
+                    cost=None,
                     task_id=task,
                     attempt=claim.attempt,
                     holder="characterization-fixture",
@@ -422,6 +426,7 @@ def test_native_refuses_dangling_and_unreleased_witness_without_new_seal(
         with pytest.raises(DBAPIError, match="task attempt lost"), conn.begin_nested():
             publish_characterization(
                 conn,
+                cost=None,
                 task_id=task,
                 attempt=claim.attempt,
                 holder="canceled-holder",
@@ -448,6 +453,7 @@ def test_native_refuses_dangling_and_unreleased_witness_without_new_seal(
         with pytest.raises(DBAPIError), conn.begin_nested():
             publish_characterization(
                 conn,
+                cost=None,
                 task_id=task,
                 attempt=claim.attempt,
                 holder="characterization-fixture",
@@ -776,6 +782,7 @@ def test_native_factorized_diamond_dag_and_real_cycle_refusal(
         ):
             publish_characterization(
                 conn,
+                cost=None,
                 task_id=invalid_task,
                 attempt=invalid_claim.attempt,
                 holder="characterization-fixture",
@@ -809,11 +816,12 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
     semantic_db_engine,
     tmp_path,
 ):
+    import json
     from pathlib import Path
 
     import yaml
 
-    from corpus_structure.orchestrate.commands import finalize_bound_run
+    from corpus_structure.orchestrate.commands import finalize_bound_run, start_bound_run
     from corpus_structure.semantic._operation_calls import select_source_view
     from corpus_structure.semantic._operation_ids import RunId, SourceViewId
     from corpus_structure.semantic.operations import OperationBinding, complete_task, create_run
@@ -837,6 +845,31 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
             attempt=claim.attempt,
             holder="characterization-fixture",
             layer=original,
+        )
+        # Capture the exact original view before completion so the public source
+        # runner must recover its completed R1 custody rather than recreate it in R2.
+        original_view = validate_view(
+            old.prepared,
+            dict(
+                format="enriched-document-view-v1",
+                base_document=old.base.values(),
+                release_id=old.prepared.release_id,
+                source_scope=old.scope,
+                layers=[original_pin.values()],
+                profile="selected_layers",
+                coverage=original.payload["coverage"],
+            ),
+            {original_pin: original},
+        )
+        original_view_task, original_view_claim, _ = make_task(
+            conn, old, compose=True, layers=(original_pin,)
+        )
+        original_view_pin = compose_view(
+            conn,
+            task_id=original_view_task,
+            attempt=original_view_claim.attempt,
+            holder="characterization-fixture",
+            view=original_view,
         )
         complete_task(
             conn,
@@ -903,7 +936,84 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
         semantic_task, semantic_claim, semantic_hash = make_task(
             conn, newer, layers=(original_pin,)
         )
-        body = layer_payload(newer, semantic_hash)
+        reader = published_record_reader(conn, old.base, projection_context=current)
+        assert reader is not None
+        (draft,) = published_section_drafts(
+            reader,
+            document_id=old.task["unit_id"],
+            selections=("Nested selected section",),
+            membership="direct",
+            scope=None,
+            consumer_release=current.release_id,
+        )
+        # This R2 invocation owns the same retained original bytes before it
+        # publishes a new projection; selecting the R1 view alone is not custody
+        # for publishing another source view under this task.
+        from corpus_structure.semantic.pdf_contracts import store_pdf_original
+
+        original_bytes = (tmp_path / "source.pdf").read_bytes()
+        assert sha256(original_bytes).hexdigest() == reader.revision["source_digest"]
+        assert draft.document_id == newer.task["unit_id"]
+        store_pdf_original(
+            conn,
+            task_id=semantic_task,
+            attempt=semantic_claim.attempt,
+            holder="characterization-fixture",
+            original=original_bytes,
+            recipe_bytes=b'{"recipe":"retained-source-view-fixture"}',
+        )
+        duplicate_id = store_source_view(
+            conn,
+            run_id=run,
+            task_id=semantic_task,
+            attempt=semantic_claim.attempt,
+            holder="characterization-fixture",
+            draft=draft,
+            position=1,
+        )
+        duplicate = (
+            conn.execute(text("SELECT * FROM kb.source_view WHERE id=:id"), {"id": duplicate_id})
+            .mappings()
+            .one()
+        )
+        original_source = old.scope["source_views"][0]
+        assert duplicate_id != original_source["source_view_id"]
+        assert duplicate["key"] != original_source["key"]
+        assert duplicate["projection_digest"] == original_source["projection_digest"]
+        assert duplicate["recipe_digest"] == original_source["recipe_digest"]
+        duplicate_scope = dict(
+            old.scope,
+            source_view_ids=[original_source["source_view_id"], duplicate_id],
+            source_views=[
+                original_source,
+                dict(
+                    source_view_id=duplicate_id,
+                    key=duplicate["key"],
+                    base_document=old.base.values(),
+                    section_pointer=duplicate["section_pointer"],
+                    membership=duplicate["membership"],
+                    projection_digest=duplicate["projection_digest"],
+                    recipe_digest=duplicate["recipe_digest"],
+                ),
+            ],
+        )
+        # One selector names the shared projection; native admission must validate
+        # both distinct matching views rather than require a unique digest match.
+        duplicate_owner = SimpleNamespace(**{**vars(newer), "scope": duplicate_scope})
+        complete_task(
+            conn,
+            task_id=semantic_task,
+            attempt=semantic_claim.attempt,
+            holder="characterization-fixture",
+            prepared=current,
+            observations=[],
+            outcome="empty",
+            error=None,
+        )
+        semantic_task, semantic_claim, semantic_hash = make_task(
+            conn, duplicate_owner, layers=(original_pin,)
+        )
+        body = layer_payload(duplicate_owner, semantic_hash)
         body.update(
             dependencies=[original_pin.values()], annotations=[], memberships=[], choices=[]
         )
@@ -941,6 +1051,7 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
         with pytest.raises(DBAPIError), conn.begin_nested():
             publish_characterization(
                 conn,
+                cost=None,
                 task_id=semantic_task,
                 attempt=semantic_claim.attempt,
                 holder="characterization-fixture",
@@ -952,6 +1063,7 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
         with pytest.raises(DBAPIError), conn.begin_nested():
             publish_characterization(
                 conn,
+                cost=None,
                 task_id=semantic_task,
                 attempt=semantic_claim.attempt,
                 holder="characterization-fixture",
@@ -971,7 +1083,7 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
                 format="enriched-document-view-v1",
                 base_document=old.base.values(),
                 release_id=current.release_id,
-                source_scope=old.scope,
+                source_scope=duplicate_scope,
                 layers=[original_pin.values(), semantic_pin.values()],
                 profile="selected_layers",
                 coverage=[*original.payload["coverage"], *semantic.payload["coverage"]],
@@ -980,7 +1092,7 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
             releases={old.prepared.release_id: old.prepared},
         )
         view_task, view_claim, _ = make_task(
-            conn, newer, compose=True, layers=(original_pin, semantic_pin)
+            conn, duplicate_owner, compose=True, layers=(original_pin, semantic_pin)
         )
         view_pin = compose_view(
             conn,
@@ -1032,6 +1144,158 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
     assert response.items[0]["roles"][0]["basis"]["rule_id"] == "toy:retained-native-v1"
     with semantic_reader_engine.connect() as conn:
         assert read_layer(conn, original_pin).content == original.content
+
+    from corpus_structure.core.method import Digest, MethodSettings, Resources, UnitRef, UnitResult
+    from corpus_structure.core.vocab import ObservationOutcome, Stage, TaskUnitType
+    from corpus_structure.methods.characterization import ComposeViewMethod
+    from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
+    from corpus_structure.orchestrate.runner import Graph, Step
+    from corpus_structure.semantic.characterization_store import read_inventory
+
+    calls = []
+
+    class RetainedSourceConsumer:
+        name = "native-binding"
+        version = "cross-release-consumer-1"
+        family = "ingest"
+        tier = "deterministic"
+        confidence_source = None
+        unit_type = TaskUnitType.SOURCE_VIEW
+        resources = Resources()
+        Config = create_model(
+            "ExactRetainedSourceConsumer", characterization_layers=(tuple[dict, ...], ())
+        )
+
+        def select(self, run, cfg):
+            assert tuple(ProductReference(**value) for value in cfg.characterization_layers) == (
+                original_pin,
+            )
+            selected = run.reader.source_views()
+            assert tuple(source.id for source in selected) == tuple(old.scope["source_view_ids"])
+            assert selected[0].key == old.scope["source_views"][0]["key"]
+            return tuple(
+                UnitRef(TaskUnitType.SOURCE_VIEW, source.id, source.key) for source in selected
+            )
+
+        def input_digest(self, unit, cfg):
+            return Digest(str((unit.ref, cfg.characterization_layers)).encode())
+
+        def run(self, units, cfg, ctx):
+            for unit in units:
+                assert unit.ref.unit_id == old.scope["source_view_ids"][0]
+                source = ctx.reader.source_view(unit.ref.unit_id)
+                assert source.ref.native_product == old.base
+                retained = ctx.reader.characterization_layers((original_pin,))
+                assert retained[original_pin].content == original.content
+                assert retained[original_pin].payload["release_id"] == old.prepared.release_id
+                calls.append(unit.ref.unit_id)
+            return tuple(
+                UnitResult(ref=unit.ref, outcome=ObservationOutcome.EMPTY) for unit in units
+            )
+
+    pack = tmp_path / "consumer-pack" / "retained"
+    pack.mkdir(parents=True)
+    (pack / "guideline.md").write_text("Consume the exact selected retained source.\n")
+    with semantic_writer_engine.connect() as conn:
+        before_views = conn.scalar(text("SELECT count(*) FROM kb.source_view"))
+    result = start_bound_run(
+        semantic_writer_engine,
+        release_id=current.release_id,
+        realization_id="z-new-rule",
+        project_id="p",
+        domain="retained",
+        domains=pack.parent,
+        method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+        characterization_views=(original_view_pin,),
+        registry_for=lambda _: MethodRegistry(
+            (RetainedSourceConsumer(), ComposeViewMethod()),
+            MethodsFile(
+                configs={
+                    "text.compose_view": {
+                        "default": dict(
+                            characterization_base_document=old.base.values(),
+                            characterization_source_scope=old.scope,
+                            characterization_profile="selected_layers",
+                        )
+                    }
+                }
+            ),
+        ),
+        graph=Graph(
+            (
+                (Stage.INGEST, (Step("ingest.pdf/default"),)),
+                (Stage.EXTRACT, (Step("enrich.pdf_math/default"), Step("native-binding/default"))),
+                (Stage.NORMALIZE, (Step("text.compose_view/default"),)),
+            ),
+            policy_propose=False,
+        ),
+    )
+    assert result.status == "source_ready"
+    assert calls == old.scope["source_view_ids"]
+    with semantic_writer_engine.connect() as conn:
+        assert conn.scalar(text("SELECT count(*) FROM kb.source_view")) == before_views
+        producer_run = (
+            conn.execute(
+                text("SELECT status,sealed,dependencies FROM ops.run WHERE id=:id"),
+                {"id": result.run_id},
+            )
+            .mappings()
+            .one()
+        )
+        assert producer_run["status"] != "finished" and not producer_run["sealed"]
+        frozen = json.loads(producer_run["dependencies"])
+        (selected_source,) = frozen["selected_sources"]
+        assert selected_source["source_view_id"] == old.scope["source_view_ids"][0]
+        assert selected_source["run_id"] == old.task["run_id"]
+        assert selected_source["release_id"] == old.prepared.release_id
+        assert (
+            conn.execute(
+                text("SELECT source_view_id FROM ops.run_source_view WHERE run_id=:run"),
+                {"run": result.run_id},
+            )
+            .scalars()
+            .all()
+            == old.scope["source_view_ids"]
+        )
+
+        (produced_view,) = [
+            row for row in read_inventory(conn, result.run_id)["products"] if row["kind"] == "view"
+        ]
+        unfinished_view_pin = ProductReference(**produced_view["reference"])
+        assert read_view(conn, unfinished_view_pin).payload["release_id"] == current.release_id
+    # This is the usual explicit-enrichment port: its producing run has selected
+    # original sources but has not been finalized. Custody comes from its frozen
+    # dependency manifest, not a fictitious completed result for that run.
+    rebound = start_bound_run(
+        semantic_writer_engine,
+        release_id=current.release_id,
+        realization_id="z-new-rule",
+        project_id="p",
+        domain="retained",
+        domains=pack.parent,
+        method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+        characterization_views=(unfinished_view_pin,),
+        fresh=("native-binding",),
+        registry_for=lambda _: MethodRegistry((RetainedSourceConsumer(),), MethodsFile()),
+        graph=Graph(((Stage.EXTRACT, (Step("native-binding/default"),)),), policy_propose=False),
+    )
+    assert rebound.status == "source_ready"
+    assert calls == old.scope["source_view_ids"] * 2
+    with semantic_writer_engine.connect() as conn:
+        assert conn.scalar(text("SELECT count(*) FROM kb.source_view")) == before_views
+        rebound_manifest = json.loads(
+            conn.scalar(
+                text("SELECT dependencies FROM ops.run WHERE id=:id"), {"id": rebound.run_id}
+            )
+        )
+        assert rebound_manifest["selected_sources"] == frozen["selected_sources"]
+        assert (
+            conn.scalar(
+                text("SELECT count(*) FROM ops.completed_result WHERE run_id=:id"),
+                {"id": result.run_id},
+            )
+            == 0
+        )
 
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
@@ -1088,3 +1352,727 @@ def test_native_joint_layer_and_view_completion_uses_producing_layer(
     with semantic_reader_engine.connect() as conn:
         assert read_layer(conn, layer_pin).content == layer.content
         assert read_view(conn, view.reference(task)).content == view.content
+
+
+@pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
+def test_native_evidence_mutations_refuse_without_sealing(
+    characterization_source, semantic_writer_engine, semantic_db_engine
+):
+    from corpus_structure.semantic._operation_calls import publish_characterization
+
+    from .test_characterization_evidence import EVIDENCE_MUTATIONS, evidence_rows, mutate_evidence
+
+    source = characterization_source
+    with semantic_writer_engine.begin() as conn:
+        task, claim, config_hash = make_task(conn, source)
+        body = layer_payload(source, config_hash)
+        evidence = evidence_rows(body["occurrences"])
+        for annotation in evidence["annotations"]:
+            if annotation["local_id"] in {"container", "symbol", "formal-token"}:
+                annotation["occurrences"] = [body["occurrences"][0]["local_id"]]
+        body["native_runs"] = evidence["native_runs"]
+        body["annotations"].extend(evidence["annotations"])
+        valid = validate_layer(source.prepared, body)
+    for mutation in EVIDENCE_MUTATIONS:
+        with semantic_writer_engine.begin() as conn:
+            invalid = deepcopy(valid.payload)
+            mutate_evidence(invalid, mutation)
+            with pytest.raises(DBAPIError), conn.begin_nested():
+                publish_characterization(
+                    conn,
+                    task_id=task,
+                    attempt=claim.attempt,
+                    holder="characterization-fixture",
+                    layer=invalid,
+                    view=None,
+                    cost=None,
+                )
+            assert (
+                conn.scalar(text("SELECT status FROM ops.task WHERE id=:id"), {"id": task})
+                == "running"
+            )
+        with semantic_db_engine.connect() as owner:
+            assert (
+                owner.scalar(
+                    text("SELECT count(*) FROM ops.characterization_product WHERE task_id=:id"),
+                    {"id": task},
+                )
+                == 0
+            )
+    with semantic_writer_engine.begin() as conn:
+        pin = publish_layer(
+            conn,
+            task_id=task,
+            attempt=claim.attempt,
+            holder="characterization-fixture",
+            layer=valid,
+        )
+        assert read_layer(conn, pin).content == valid.content
+
+
+@pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
+def test_native_witness_source_and_choice_conservation(
+    characterization_source, semantic_writer_engine
+):
+    from corpus_structure.semantic._operation_calls import publish_characterization
+
+    from .test_characterization_evidence import SUPPORT_MUTATIONS, mutate_witness, witness_rows
+
+    source = characterization_source
+    with semantic_writer_engine.begin() as conn:
+        task, claim, config_hash = make_task(conn, source)
+        body = witness_rows(layer_payload(source, config_hash))
+        for annotation in body["annotations"]:
+            if annotation["local_id"] in {"construction", "production"}:
+                annotation["occurrences"] = [body["occurrences"][0]["local_id"]]
+        valid = validate_layer(source.prepared, body)
+        for mutation in SUPPORT_MUTATIONS:
+            invalid = deepcopy(valid.payload)
+            mutate_witness(invalid, mutation)
+            with pytest.raises(DBAPIError, match="attachment"), conn.begin_nested():
+                publish_characterization(
+                    conn,
+                    task_id=task,
+                    attempt=claim.attempt,
+                    holder="characterization-fixture",
+                    layer=invalid,
+                    view=None,
+                    cost=None,
+                )
+            assert (
+                conn.scalar(text("SELECT status FROM ops.task WHERE id=:id"), {"id": task})
+                == "running"
+            )
+        pin = publish_layer(
+            conn,
+            task_id=task,
+            attempt=claim.attempt,
+            holder="characterization-fixture",
+            layer=valid,
+        )
+        assert read_layer(conn, pin).content == valid.content
+
+
+@pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
+def test_native_structural_token_span_preserves_retained_population(
+    characterization_source, semantic_writer_engine, semantic_db_engine
+):
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    from .test_characterization_evidence import evidence_rows
+
+    source = characterization_source
+    with semantic_writer_engine.begin() as conn:
+        task, claim, config_hash = make_task(conn, source)
+        body = layer_payload(source, config_hash)
+        evidence = evidence_rows(body["occurrences"])
+        for annotation in evidence["annotations"]:
+            if annotation["local_id"] in {"container", "symbol", "formal-token"}:
+                annotation["occurrences"] = [body["occurrences"][0]["local_id"]]
+        body["native_runs"] = evidence["native_runs"]
+        body["annotations"].extend(evidence["annotations"])
+        second = deepcopy(
+            next(row for row in evidence["annotations"] if row["local_id"] == "token")
+        )
+        first = next(row for row in body["annotations"] if row["local_id"] == "token")
+        first["occurrences"] = [body["occurrences"][0]["local_id"]]
+        second.update(local_id="second-token", occurrences=[body["occurrences"][1]["local_id"]])
+        second["native_token"]["index"] = 1
+        body["annotations"].append(second)
+        report = validate_layer(source.prepared, body)
+        pin = publish_layer(
+            conn,
+            task_id=task,
+            attempt=claim.attempt,
+            holder="characterization-fixture",
+            layer=report,
+        )
+    with semantic_db_engine.begin() as conn:
+        retained = conn.scalar(
+            text("SELECT payload FROM ops.characterization_product WHERE task_id=:task"),
+            {"task": task},
+        )
+        layers = {canonical_bytes(pin.values()).decode(): retained}
+        refs = [dict(layer=pin.values(), local_id=key) for key in ("token", "second-token")]
+        statement = text(
+            "SELECT ops.primary_structural_token_span("
+            "CAST(:layers AS jsonb),CAST(:refs AS jsonb),v) "
+            "FROM kb.source_view v WHERE id=:view"
+        )
+        values = dict(
+            layers=canonical_bytes(layers).decode(),
+            refs=canonical_bytes(refs).decode(),
+            view=source.scope["source_view_ids"][0],
+        )
+        assert conn.scalar(statement, values) == [0, 7]
+        for invalid in (
+            list(reversed(refs)),
+            [refs[0], refs[0]],
+            [dict(layer=dict(pin.values(), content_digest="0" * 64), local_id="token")],
+        ):
+            with pytest.raises(DBAPIError), conn.begin_nested():
+                conn.scalar(statement, dict(values, refs=canonical_bytes(invalid).decode()))
+
+
+@pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
+def test_characterization_completion_retains_exact_cost_and_fences_replay(
+    characterization_source, semantic_writer_engine
+):
+    import json
+
+    from corpus_structure.core._model.shapes import Cost
+    from corpus_structure.core.method import UnitRef, UnitResult
+    from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
+    from corpus_structure.semantic._operation_ids import TaskId
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.operations import prepare_unit_completion
+
+    source = characterization_source
+    with semantic_writer_engine.begin() as conn:
+        task, claim, configuration = make_task(conn, source)
+        report = validate_layer(source.prepared, layer_payload(source, configuration))
+        cost = Cost(wall_ms=17, tokens_in=13, tokens_out=5, model="retained-provider")
+        result = UnitResult(
+            ref=UnitRef(TaskUnitType.DOCUMENT, source.task["unit_id"], "native-binding"),
+            outcome=ObservationOutcome.PRODUCED,
+            characterization_layer=report,
+            cost=cost,
+        )
+        method: Any = SimpleNamespace(name="native-binding", version="1")
+        completion = prepare_unit_completion(
+            conn,
+            task_id=TaskId(task),
+            attempt=claim.attempt,
+            holder="characterization-fixture",
+            prepared=source.prepared,
+            result=result,
+            method=method,
+            configuration_hash=configuration,
+            source="native-binding",
+        )
+        expected_cost = source_value(
+            dict(wall_ms=17, tokens_in=13, tokens_out=5, model="retained-provider")
+        )
+        expected_json_cost = json.loads(canonical_bytes(expected_cost))
+        assert completion.envelope["cost"] == expected_cost
+        assert completion.apply(conn).transaction == "applied"
+        assert (
+            conn.scalar(
+                text("SELECT body->'cost' FROM ops.task_result WHERE task_id=:task"),
+                dict(task=task),
+            )
+            == expected_json_cost
+        )
+        assert completion.apply(conn).transaction == "replay"
+        from corpus_structure.semantic._operation_calls import publish_characterization
+
+        with pytest.raises(DBAPIError), conn.begin_nested():
+            publish_characterization(
+                conn,
+                task_id=task,
+                attempt=claim.attempt,
+                holder="characterization-fixture",
+                layer=report.payload,
+                view=None,
+                cost=json.loads(
+                    canonical_bytes(
+                        source_value(
+                            dict(wall_ms=18, tokens_in=13, tokens_out=5, model="retained-provider")
+                        )
+                    )
+                ),
+            )
+        assert (
+            conn.scalar(
+                text("SELECT body->'cost' FROM ops.task_result WHERE task_id=:task"),
+                dict(task=task),
+            )
+            == expected_json_cost
+        )
+
+
+@pytest.mark.parametrize("private_build", ["characterization_finalizable_pdf"], indirect=True)
+def test_real_primary_demand_publishes_all_stages_and_reuses_exact_products(
+    characterization_source, semantic_writer_engine, tmp_path
+):
+    """Opt-in actual providers through ordinary task publication, with no mocked provider."""
+    import os
+    from pathlib import Path
+
+    from corpus_structure.core.method import MethodSettings
+    from corpus_structure.orchestrate.characterization import (
+        CharacterizationDemandRequest,
+        execute_characterization_demand,
+    )
+    from corpus_structure.orchestrate.commands import finalize_bound_run
+    from corpus_structure.semantic.characterization_store import read_layer
+    from corpus_structure.semantic.operations import complete_task
+    from corpus_structure.semantic.structural_sources import (
+        StructuralPassageSelection,
+        prepare_structural_sources,
+    )
+
+    assets = os.environ.get("CORPUS_PM2_NATIVE_TEST_ASSETS")
+    if not assets:
+        pytest.skip("locked native provider assets require CORPUS_PM2_NATIVE_TEST_ASSETS")
+    source = characterization_source
+    with semantic_writer_engine.begin() as conn:
+        complete_task(
+            conn,
+            task_id=source.task["id"],
+            attempt=source.task["attempt"],
+            holder=source.task["claimed_by"],
+            prepared=source.prepared,
+            observations=[],
+            outcome="empty",
+            error=None,
+        )
+    finalize_bound_run(semantic_writer_engine, source.task["run_id"], "primary-demand-source")
+    (external,) = prepare_structural_sources(
+        semantic_writer_engine,
+        (
+            StructuralPassageSelection(
+                run_id=source.task["run_id"],
+                source_view_id=source.scope["source_view_ids"][0],
+                passage_id="primary-demand",
+                start=0,
+                end=7,
+                scope="test",
+            ),
+        ),
+    ).sources
+    request = CharacterizationDemandRequest(
+        project_id="p",
+        release_id=source.prepared.release_id,
+        realization_id="z",
+        base_document=source.base,
+        source_scope=source.scope,
+        selected_sources=(external,),
+    )
+    settings = MethodSettings(data_dir=tmp_path, model_cache=Path(assets).resolve().parent)
+    result = execute_characterization_demand(semantic_writer_engine, request, settings)
+    with semantic_writer_engine.connect() as conn:
+        view = read_view(conn, result.view).payload
+        layers = {pin: read_layer(conn, pin) for pin in result.layers}
+    operations = {layer.payload["operation"]["key"]: layer for layer in layers.values()}
+    assert set(operations) == {
+        "text.native_evidence",
+        "text.formal_evidence",
+        "text.constructions",
+        "text.contextual_characterization",
+        "text.model_characterization",
+        "text.evaluate_context",
+    }
+    assert view["profile"] == "full_characterization"
+    assert view["active_layers"] == view["layers"]
+    providers = {
+        row["provider"] for layer in layers.values() for row in layer.payload.get("native_runs", ())
+    }
+    assert {"spacy", "hanlp", "maverick", "dipo"} <= providers, result.preparation_diagnostics
+    for operation in ("text.native_evidence", "text.contextual_characterization"):
+        coverage = operations[operation].payload["coverage"]
+        assert coverage and all(
+            row["availability"] == "available"
+            and row["outcome"] in {"complete", "empty", "partial"}
+            for row in coverage
+        ), (operation, coverage, result.preparation_diagnostics)
+    from corpus_structure.semantic.interpretation_questions import CHARACTERIZATION_FAMILIES
+    from corpus_structure.semantic.model_characterization import CANDIDATE_FAMILIES
+
+    answers = [
+        row["model_answer"]
+        for row in operations["text.model_characterization"].payload["annotations"]
+        if "model_answer" in row
+    ]
+    answered_families = {answer["family"] for answer in answers}
+    assert set(CHARACTERIZATION_FAMILIES) - set(CANDIDATE_FAMILIES) <= answered_families
+    assert answered_families <= set(CHARACTERIZATION_FAMILIES)
+    model_coverage = operations["text.model_characterization"].payload["coverage"]
+    assert {row["family"] for row in model_coverage} == set(CHARACTERIZATION_FAMILIES)
+    # The two mathematical literals supply no required linguistic focus. Candidate
+    # questions have an explicit empty eligible population, rather than invented
+    # answers to a question that was never posed. Real focus/empty-option behavior
+    # is independently exercised by the model-characterization controls.
+    for family in set(CANDIDATE_FAMILIES) - answered_families:
+        assert all(row["outcome"] == "empty" for row in model_coverage if row["family"] == family)
+    unavailable = [
+        (row["family"], row["outcome"], row["availability"], row.get("reason"))
+        for row in model_coverage
+        if row["outcome"] not in {"complete", "empty", "partial"}
+        or row["availability"] != "available"
+    ]
+    assert not unavailable, unavailable
+    # Ordinary repeated demand selects exact settled pins without new inference runs.
+    repeated = execute_characterization_demand(
+        semantic_writer_engine,
+        request.model_copy(
+            update={
+                "selected_layers": result.layers,
+                "active_layers": tuple(
+                    ProductReference(**value) for value in view["active_layers"]
+                ),
+            }
+        ),
+        settings,
+    )
+    assert set(repeated.layers) == set(result.layers)
+    assert len(repeated.runs) == 1  # composition only; its task may itself be reused.
+
+
+@pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
+def test_retained_characterization_does_not_require_unrelated_producer_readiness(
+    characterization_source, semantic_writer_engine, semantic_db_engine
+):
+    """Original finalized data stays readable when a current execution prerequisite is absent."""
+    source = characterization_source
+    with semantic_writer_engine.begin() as conn:
+        task, claim, config_hash = make_task(conn, source)
+        report = validate_layer(source.prepared, layer_payload(source, config_hash))
+        pin = publish_layer(
+            conn,
+            task_id=task,
+            attempt=claim.attempt,
+            holder="characterization-fixture",
+            layer=report,
+        )
+    # This test owns an isolated database. Remove one nonunique execution index,
+    # leaving immutable published data and its archived schema/read contract intact.
+    with semantic_db_engine.begin() as conn:
+        row = (
+            conn.execute(
+                text("""
+            SELECT item->>'index' name, pg_get_indexdef(i.indexrelid) definition
+            FROM jsonb_array_elements(data.execution_contract_descriptor()->'indexes') item
+            JOIN pg_index i ON i.indexrelid=to_regclass(item->>'index')
+            WHERE NOT i.indisunique ORDER BY item->>'index' LIMIT 1
+        """)
+            )
+            .mappings()
+            .one()
+        )
+        from psycopg import sql
+
+        qualified = sql.Identifier(*row["name"].split(".")).as_string()
+        conn.exec_driver_sql("DROP INDEX " + qualified)
+    try:
+        with (
+            semantic_db_engine.begin() as conn,
+            pytest.raises(DBAPIError, match="index"),
+            conn.begin_nested(),
+        ):
+            conn.execute(
+                text("SELECT data.require_execution_release(:release)"),
+                {"release": source.prepared.release_id},
+            )
+        with semantic_writer_engine.connect() as conn:
+            assert read_layer(conn, pin).content == report.content
+    finally:
+        with semantic_db_engine.begin() as conn:
+            conn.exec_driver_sql(row["definition"])
+
+
+@pytest.mark.parametrize("private_build", ["characterization_finalizable_pdf"], indirect=True)
+def test_empty_and_image_only_capture_enriches_without_language_provider_calls(
+    private_build, semantic_writer_engine, tmp_path, monkeypatch
+):
+    from corpus_structure.core.method import MethodSettings
+    from corpus_structure.methods import native_evidence, pm2_worker, source_preparation
+    from corpus_structure.methods.contextual_characterization import (
+        ContextualCharacterizationMethod,
+    )
+    from corpus_structure.methods.model_characterization import ModelCharacterizationMethod
+    from corpus_structure.orchestrate.characterization import characterize_captured_run
+    from corpus_structure.semantic.operations import complete_task
+    from corpus_structure.semantic.source_views import load_source_view
+
+    publication = publish_selected(
+        semantic_writer_engine,
+        private_build,
+        tmp_path / "empty-capture",
+        characterization_pages=True,
+        empty_sections=True,
+    )
+    base = ProductReference(private_build.task_id, "selected", publication.logical_digest)
+    with semantic_writer_engine.begin() as conn:
+        prepared = open_release(conn, private_build.release_id)
+        task = (
+            conn.execute(text("SELECT * FROM ops.task WHERE id=:id"), {"id": private_build.task_id})
+            .mappings()
+            .one()
+        )
+        reader = published_record_reader(conn, base, projection_context=prepared)
+        assert reader is not None
+        drafts = published_section_drafts(
+            reader,
+            document_id=task["unit_id"],
+            selections=("Empty selected section", "Image-only selected section"),
+            membership="direct",
+            scope=None,
+            consumer_release=prepared.release_id,
+        )
+        assert len(drafts) == 2
+        ids = [
+            store_source_view(
+                conn,
+                run_id=task["run_id"],
+                task_id=task["id"],
+                attempt=task["attempt"],
+                holder=task["claimed_by"],
+                draft=draft,
+                position=position,
+            )
+            for position, draft in enumerate(drafts)
+        ]
+        selected = [load_source_view(conn, identity, analysis=False) for identity in ids]
+        assert all(view.text == "" for view in selected)
+        assert any(item["label"] == "picture" for view in selected for item in view.items)
+        complete_task(
+            conn,
+            task_id=task["id"],
+            attempt=task["attempt"],
+            holder=task["claimed_by"],
+            prepared=prepared,
+            observations=[],
+            outcome="empty",
+            error=None,
+        )
+
+    def unrequested(*args, **kwargs):
+        raise AssertionError("zero eligible language text must not prepare or invoke a provider")
+
+    monkeypatch.setattr(native_evidence, "pipeline", unrequested)
+    monkeypatch.setattr(source_preparation, "pipeline", unrequested)
+    monkeypatch.setattr(pm2_worker, "preflight_pm2_runtime", unrequested)
+    monkeypatch.setattr(ContextualCharacterizationMethod, "_native", unrequested)
+    monkeypatch.setattr(ModelCharacterizationMethod, "_d1", unrequested)
+    monkeypatch.setattr(ModelCharacterizationMethod, "_gliner", unrequested)
+    result = characterize_captured_run(
+        semantic_writer_engine,
+        SimpleNamespace(run_id=task["run_id"]),
+        project_id="p",
+        release_id=prepared.release_id,
+        realization_id="z",
+        domain="statistics",
+        method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+        method_options={},
+    )
+    assert len(result) == 1
+    with semantic_writer_engine.connect() as conn:
+        view = read_view(conn, result[0].view).payload
+        layers = [read_layer(conn, pin).payload for pin in result[0].layers]
+    assert view["base_document"] == base.values()
+    assert set(view["source_scope"]["source_view_ids"]) == set(ids)
+    assert not result[0].missing_families
+    assert not result[0].preparation_diagnostics
+    for layer in layers:
+        assert not layer.get("native_runs")
+        assert not layer["occurrences"] and not layer["annotations"] and not layer["terms"]
+        assert all(
+            row["outcome"] == "empty"
+            and row["availability"] == "available"
+            and row["eligible"] == row["examined"]
+            and not row.get("unexamined")
+            for row in layer["coverage"]
+        )
+
+    refreshed = characterize_captured_run(
+        semantic_writer_engine,
+        SimpleNamespace(run_id=task["run_id"]),
+        project_id="p",
+        release_id=prepared.release_id,
+        realization_id="z",
+        domain="statistics",
+        method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+        method_options={},
+        fresh_methods=("text.formal_evidence",),
+    )
+    with semantic_writer_engine.connect() as conn:
+
+        def producer_pins(result, method):
+            return {
+                pin
+                for pin in result.layers
+                if read_layer(conn, pin).payload["operation"]["key"] == method
+            }
+
+        assert producer_pins(refreshed[0], "text.formal_evidence").isdisjoint(
+            producer_pins(result[0], "text.formal_evidence")
+        )
+        assert producer_pins(refreshed[0], "text.native_evidence") == producer_pins(
+            result[0], "text.native_evidence"
+        )
+        assert read_view(conn, result[0].view).payload == view
+
+
+@pytest.mark.parametrize("private_build", ["characterization_finalizable_pdf"], indirect=True)
+def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
+    private_build, semantic_writer_engine, semantic_reader_engine, tmp_path
+):
+    from corpus_structure.core.db.cancellation import OperationCancellation
+    from corpus_structure.core.method import MethodSettings
+    from corpus_structure.core.vocab import Stage
+    from corpus_structure.methods.characterization import ComposeViewMethod
+    from corpus_structure.methods.formal_evidence import FormalEvidenceMethod
+    from corpus_structure.orchestrate.commands import finalize_bound_run
+    from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
+    from corpus_structure.orchestrate.runner import Graph, Step
+    from corpus_structure.orchestrate.semantic import run_source_methods
+    from corpus_structure.semantic.characterization_store import read_inventory
+    from corpus_structure.semantic.operations import OperationBinding, complete_task
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.source_views import load_source_view
+    from corpus_structure.semantic.structural_products import ExternalSourceRef
+    from corpus_structure.serve.characterization_replay import (
+        CharacterizationReviewSelection,
+        capture_characterization_review,
+    )
+    from corpus_structure.serve.review_bundle import verify_review_bundle
+
+    from .witnessed_scenario_support import completed_metadata
+
+    publication = publish_selected(
+        semantic_writer_engine,
+        private_build,
+        tmp_path / "unprojected-capture",
+        characterization_pages=True,
+        unprojected_formula=True,
+    )
+    base = ProductReference(private_build.task_id, "selected", publication.logical_digest)
+    with semantic_writer_engine.begin() as conn:
+        prepared = open_release(conn, private_build.release_id)
+        task = (
+            conn.execute(text("SELECT * FROM ops.task WHERE id=:id"), {"id": private_build.task_id})
+            .mappings()
+            .one()
+        )
+        reader = published_record_reader(conn, base, projection_context=prepared)
+        assert reader is not None
+        (draft,) = published_section_drafts(
+            reader,
+            document_id=task["unit_id"],
+            selections=("Unprojected formula section",),
+            membership="direct",
+            scope=None,
+            consumer_release=prepared.release_id,
+        )
+        assert draft.text == "" and not draft.pieces
+        identity = store_source_view(
+            conn,
+            run_id=task["run_id"],
+            task_id=task["id"],
+            attempt=task["attempt"],
+            holder=task["claimed_by"],
+            draft=draft,
+            position=0,
+        )
+        source = load_source_view(conn, identity, analysis=False)
+        (formula,) = [item for item in source.items if item.get("label") == "formula"]
+        assert formula["orig"] == "x+1" and formula["text"] == ""
+        assert source.health["formula_outcomes"] == [
+            {"pointer": formula["self_ref"], "outcome": "failed"}
+        ]
+        complete_task(
+            conn,
+            task_id=task["id"],
+            attempt=task["attempt"],
+            holder=task["claimed_by"],
+            prepared=prepared,
+            observations=[],
+            outcome="empty",
+            error=None,
+        )
+    finalize_bound_run(semantic_writer_engine, task["run_id"], "unprojected-formula-capture")
+    metadata, revision, _ = completed_metadata(
+        SimpleNamespace(writer=semantic_writer_engine), task["run_id"]
+    )
+    external = ExternalSourceRef(
+        project_id="p",
+        run_id=task["run_id"],
+        cut_id=metadata["cut_id"],
+        release_id=prepared.release_id,
+        result_revision=revision,
+        source_view_id=identity,
+        native_task_id=base.task_id,
+        native_product_key=base.product_key,
+        native_content_digest=base.content_digest,
+        projection_digest=source.ref.projection_digest,
+        recipe_digest=source.ref.recipe_digest,
+        coordinate_version=3 if source.integrated_context is not None else 2,
+    )
+    scope = dict(
+        source_view_ids=[identity],
+        source_views=[
+            dict(
+                source_view_id=identity,
+                key=source.ref.key,
+                base_document=base.values(),
+                section_pointer=source.ref.section_pointer,
+                membership=source.ref.membership,
+                projection_digest=source.ref.projection_digest,
+                recipe_digest=source.ref.recipe_digest,
+            )
+        ],
+        selectors=[dict(projection=source.ref.projection_digest, start=0, end=0)],
+        profile="native-formula-object",
+    )
+
+    def run(method, cfg):
+        result = run_source_methods(
+            semantic_writer_engine,
+            project_id="p",
+            prepared=prepared,
+            binding=OperationBinding(
+                prepared.release_id, metadata["output_realization_id"], revision, b"{}"
+            ),
+            registry=MethodRegistry((method,), MethodsFile(configs={method.name: {"test": cfg}})),
+            graph=Graph(((Stage.EXTRACT, (Step(method.name + "/test"),)),), policy_propose=False),
+            method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+            selected_sources=(external,),
+        )
+        assert result.status == "source_ready"
+        with semantic_writer_engine.connect() as conn:
+            (product,) = read_inventory(conn, result.run_id)["products"]
+        return result, ProductReference(**product["reference"])
+
+    config = dict(characterization_base_document=base.values(), characterization_source_scope=scope)
+    _, layer_pin = run(FormalEvidenceMethod(), config)
+    with semantic_reader_engine.connect() as conn:
+        layer = read_layer(conn, layer_pin).payload
+    inputs = {
+        row["formal_input"]["representation"]: row["formal_input"]
+        for row in layer["annotations"]
+        if row["kind"] == "formal.input"
+    }
+    assert inputs["source_text"]["text"] == "x+1"
+    assert inputs["source_text"]["syntax_outcome"] == "complete"
+    assert inputs["recognized_latex"]["text"] == ""
+    assert inputs["recognized_latex"]["syntax_outcome"] == "failed"
+    assert any(row["kind"] == "formal.symbol" for row in layer["annotations"])
+    assert all(
+        extent["native_pointer"] == formula["self_ref"]
+        and "start" not in extent
+        and "text" not in extent
+        for occurrence in layer["occurrences"]
+        for extent in occurrence["extents"]
+    )
+    math_coverage = next(row for row in layer["coverage"] if row["family"] == "formal.math")
+    assert math_coverage["outcome"] == "partial"
+    composed, view_pin = run(
+        ComposeViewMethod(),
+        dict(
+            config,
+            characterization_layers=[layer_pin.values()],
+            characterization_profile="selected_layers",
+        ),
+    )
+    cancellation = OperationCancellation()
+    destination = tmp_path / "unprojected-formula-review"
+    destination.mkdir()
+    with read_snapshot(semantic_reader_engine, cancellation=cancellation.postgresql) as conn:
+        captured = capture_characterization_review(
+            conn,
+            CharacterizationReviewSelection(run_id=composed.run_id, **view_pin.values()),
+            destination,
+            cancellation,
+        )
+    assert verify_review_bundle(destination) == captured

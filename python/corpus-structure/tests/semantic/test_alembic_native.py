@@ -304,6 +304,8 @@ def test_computed_range_bypasses_callable_default_comparison(semantic_bare_engin
 def test_result_recreation_orders_explicit_dependents_and_preserves_reverse(semantic_bare_engine):
     from sqlalchemy.exc import DBAPIError
 
+    from corpus_structure.semantic.native_objects import NativeAuthoringError
+
     with semantic_bare_engine.begin() as conn:
         conn.exec_driver_sql('CREATE SCHEMA "native test"')
         owner = conn.scalar(text("SELECT current_user"))
@@ -347,10 +349,11 @@ def test_result_recreation_orders_explicit_dependents_and_preserves_reverse(sema
         assert conn.exec_driver_sql('SELECT value FROM "native test".v').scalar_one() == 1
         # Unknown dependents are neither adopted nor removed by normalization.
         conn.exec_driver_sql('CREATE VIEW "native test".unowned AS SELECT "native test".f()')
-        with pytest.raises(DBAPIError, match=r"dependent objects|depend on it"):
+        with pytest.raises(NativeAuthoringError, match=r"SQLSTATE 2BP01") as failure:
             prepare_native_authoring(
                 conn, (after[0],), predecessor=(before[0],), owned_authoring=True
             )
+        assert isinstance(failure.value.__cause__, DBAPIError)
         assert conn.exec_driver_sql('SELECT * FROM "native test".unowned').scalar_one() == 1
 
 

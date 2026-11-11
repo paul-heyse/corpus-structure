@@ -52,9 +52,56 @@ def manifest():
     return inputs, source, passage
 
 
-def test_definition_consumer_uses_owned_original_source_read_not_current_run_view():
+def retained_named_product(monkeypatch, states):
+    """Run the primary producer over independently missing dependency columns."""
+    from dataclasses import replace
+
+    from ingest.test_annotations import ControlledPipeline, item
+    from methods.primary_reading_fixture import primary_product
+
+    from corpus_structure.ingest import annotations
+    from corpus_structure.ingest.annotations import AnnotationProfile, annotate
+    from corpus_structure.methods.annotation_rules import AnnotationRule
+    from corpus_structure.semantic.source_contexts import NativeSourcePin
+
+    nlp = ControlledPipeline()
+    nlp.omit = "dependency"
+    monkeypatch.setattr(annotations, "pipeline", lambda _: nlp)
+    rules = tuple(
+        AnnotationRule(
+            rule="defining",
+            variant=str(index),
+            mechanism="dependency" if state == "unavailable" else "phrase",
+            pattern=(
+                [{"RIGHT_ID": "cue", "RIGHT_ATTRS": {"DEP": "ROOT"}}]
+                if state == "unavailable"
+                else ["absent"]
+            ),
+            bindings={"defined_term": {"node": "cue" if state == "unavailable" else "match"}},
+        )
+        for index, state in enumerate(states)
+    )
+    request = replace(
+        item(nlp, "X", start=0, identity=53),
+        source=NativeSourcePin(
+            53,
+            "source:53",
+            ProductReference(260, "organized", "a" * 64),
+            "#/groups/0",
+            "descendants",
+            "b" * 64,
+            "c" * 64,
+            3,
+        ),
+    )
+    (native,) = annotate((request,), require_complete=False)
+    return primary_product("X", native, AnnotationProfile(), rules=rules), rules
+
+
+def test_definition_consumer_uses_owned_original_source_read_not_current_run_view(monkeypatch):
     inputs, source, passage = manifest()
     calls = []
+    product, rules = retained_named_product(monkeypatch, ("unavailable",))
 
     class Reader:
         def structural_source_annotations(self, actual, ref, profile):
@@ -72,7 +119,7 @@ def test_definition_consumer_uses_owned_original_source_read_not_current_run_vie
                     "c" * 64,
                     canonical_bytes(dict(items=[], pieces=[], ancestors=[], health={})).decode(),
                 ),
-                (),
+                (product,),
                 (),
                 285,
                 "original-input",
@@ -85,7 +132,11 @@ def test_definition_consumer_uses_owned_original_source_read_not_current_run_vie
             raise AssertionError("must not search current-run annotations")
 
     result = retained_annotation_components(
-        Reader(), inputs, passage, DefinitionComponentsConfig(), witness_policy={}
+        Reader(),
+        inputs,
+        passage,
+        DefinitionComponentsConfig(annotation_rules=rules),
+        witness_policy={},
     )
     assert result.components == () and not result.available
     assert "no source absence" in result.reason
@@ -167,45 +218,15 @@ def test_missing_annotation_error_is_unavailable_without_reason_word_matching():
     "states,available", [(("unavailable",), False), (("unavailable", "available"), True)]
 )
 def test_named_rule_availability_is_preserved_per_variant(monkeypatch, states, available):
-    from corpus_structure.ingest import annotation_views
-    from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
-
     inputs, _, passage = manifest()
-    monkeypatch.setattr(annotation_views, "annotation_view", lambda *args, **kwargs: object())
-    monkeypatch.setattr(
-        PreparedAnnotationRules,
-        "match",
-        lambda *args: SimpleNamespace(
-            matches=(),
-            availability=tuple(("defining", str(i), state) for i, state in enumerate(states)),
-        ),
-    )
+    product, rules = retained_named_product(monkeypatch, states)
     retained = SimpleNamespace(
         source=SimpleNamespace(text="X"),
-        annotations=(
-            SimpleNamespace(
-                block_start=0,
-                block_end=1,
-                block_id="block",
-                display_spans=(),
-                dependency_digest="d" * 64,
-                availability=(),
-            ),
-        ),
+        annotations=(product,),
         errors=(),
         annotation_task_id=285,
     )
-    cfg = DefinitionComponentsConfig(
-        annotation_rules=(
-            AnnotationRule(
-                rule="defining",
-                variant="dep",
-                mechanism="dependency",
-                pattern=[{"RIGHT_ID": "cue", "RIGHT_ATTRS": {"LEMMA": "define"}}],
-                bindings={"defined_term": {"node": "cue"}},
-            ),
-        )
-    )
+    cfg = DefinitionComponentsConfig(annotation_rules=rules)
     result = retained_annotation_components(
         object(), inputs, passage, cfg, retained=retained, witness_policy={}
     )

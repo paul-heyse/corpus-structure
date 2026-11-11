@@ -10,7 +10,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from hashlib import sha256
-from typing import TYPE_CHECKING, Any, Literal, Self
+from itertools import pairwise
+from typing import Any, Literal, Self
 
 from pydantic import Field, JsonValue, RootModel, model_validator
 
@@ -24,7 +25,7 @@ from corpus_structure.methods.predicate_frames import (
     FrameCue,
     PredicateFrameResult,
     interpretation_recipe,
-    predicate_frame_result,
+    predicate_frames,
 )
 from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
 from corpus_structure.semantic.identity import canonical_bytes
@@ -46,11 +47,6 @@ from corpus_structure.semantic.structural_products import (
     definition_component,
 )
 
-if TYPE_CHECKING:
-    from spacy.tokens import Span
-
-    from corpus_structure.ingest.annotation_views import AnnotationView
-
 
 class DefinitionComponentsConfig(StructuralValue):
     inputs: StructuralInput | None = None
@@ -68,6 +64,7 @@ class DefinitionComponentsConfig(StructuralValue):
     use_named_candidates: bool = True
     use_model: bool = True
     annotation_rules: tuple[AnnotationRule, ...] = ()
+    characterization_layers: tuple[dict, ...] = ()
 
     @model_validator(mode="after")
     def bound_inputs(self) -> Self:
@@ -89,6 +86,8 @@ class DefinitionComponentsConfig(StructuralValue):
             self.description_arm != "bare" or self.evaluation_overlap is not None
         ):
             raise ValueError("model experiments require enabled model extraction")
+        if self.use_named_candidates and self.annotation_rules and not self.characterization_layers:
+            raise ValueError("named definition extraction requires frozen primary layers")
         passages = {p.passage_id for p in self.inputs.passages}
         if (
             not self.target_ids
@@ -295,6 +294,7 @@ class DefinitionScope:
     act_cues: tuple[FrameCue, ...] = ()
     content_cues: tuple[FrameCue, ...] = ()
     probability_subject: tuple[int, int] | None = None
+    primary_scope: tuple[Any, ...] = ()
 
 
 _SCOPE_CUES = frozenset(
@@ -323,6 +323,19 @@ def definition_scopes(
     content_role: str,
 ) -> dict[AnnotationRuleMatch, DefinitionScope]:
     """Assess exact predicate ownership before projecting a definition pair."""
+    if result.issues:
+        # Incomplete primary coverage cannot establish that an act is unqualified.
+        return {
+            match: DefinitionScope(act.head, "unresolved", "unresolved")
+            for match in matches
+            if (
+                act := next(
+                    (role for role in match.roles if role.role in {"defining_cue", "copular_cue"}),
+                    None,
+                )
+            )
+            is not None
+        }
     by_head: dict[int, dict[FrameCue, None]] = {}
     probability_subjects = {}
     for frame in result.frames:
@@ -421,116 +434,24 @@ def definition_scopes(
             act_cues,
             content_cues,
             probability_subjects.get(act.head),
+            tuple(
+                dict.fromkeys(
+                    [
+                        frame.primary_ref
+                        for frame in result.frames
+                        if frame.predicate.tokens[0] in {act.head, *content_heads}
+                        and frame.primary_ref is not None
+                    ]
+                    + [
+                        reference
+                        for cue in (*act_cues, *content_cues)
+                        for reference in (cue.primary_ref, cue.primary_marker_ref)
+                        if reference is not None
+                    ]
+                )
+            ),
         )
     return scopes
-
-
-def _nominal_signature(span: Span, head: int):
-    return tuple(
-        (
-            token.lemma_.casefold(),
-            token.pos_,
-            tuple(token.morph.get("Number", None)),
-            (token.dep_, token.head.i - span.start) if token.i != head else None,
-        )
-        for token in span
-    )
-
-
-def _naming_antecedent(
-    view: AnnotationView,
-    passage: StructuralPassage,
-    match: AnnotationRuleMatch,
-    content_role: str,
-) -> LocatedDefinitionSpan | None:
-    """Resolve a sentence-initial demonstrative to a unique preceding restricted nominal."""
-    if (match.rule, match.variant) != ("naming", "passive_called_term"):
-        return None
-    role = next((role for role in match.roles if role.role == content_role), None)
-    if role is None or role.status != "complete" or len(role.nodes) < 2:
-        return None
-    start, end = role.nodes[0], role.nodes[-1] + 1
-    doc, product = view.doc, view.product
-    if (
-        role.nodes != tuple(range(start, end))
-        or not start
-        or doc[start].sent.start != start
-        or doc[start].lower_ not in {"this", "that", "these", "those"}
-        or doc[start].dep_ != "det"
-        or doc[start].head.i != role.head
-        or doc[role.head].pos_ != "NOUN"
-    ):
-        return None
-
-    prior = doc[start - 1].sent
-    if product.tokens[prior.start].start < passage.start:
-        return None
-    head_offset = role.head - start - 1
-    signature = _nominal_signature(doc[start + 1 : end], role.head)
-    candidates = [
-        i
-        for i in range(prior.start, prior.end - len(signature) + 1)
-        if _nominal_signature(doc[i : i + len(signature)], i + head_offset) == signature
-    ]
-    if len(candidates) != 1:
-        return None
-    (nominal,) = candidates
-    if nominal == prior.start:
-        return None
-    article, head = doc[nominal - 1], doc[nominal + head_offset]
-    if article.lower_ != "the" or article.dep_ != "det" or article.head != head:
-        return None
-
-    markers = [
-        i
-        for i in range(nominal + len(signature), prior.end - 2)
-        if doc[i].lower_ == "such" and doc[i + 1].lower_ == "that"
-    ]
-    if len(markers) != 1 or head not in doc[markers[0] + 1].ancestors:
-        return None
-    restriction = doc[markers[0] + 2 : prior.end]
-    # Mathematical tokens may attach outside the nominal subtree. An independent
-    # finite clause, quotation or sentence-internal terminator defeats the suffix.
-    if not any(not token.is_punct for token in restriction) or any(
-        token.is_quote
-        or token.text in {";", ":"}
-        or (
-            token.i >= restriction.start
-            and "Fin" in token.morph.get("VerbForm", None)
-            and head not in token.ancestors
-        )
-        for token in prior
-    ):
-        return None
-    piece = product.tokens[start].piece_indices
-    if len(piece) != 1 or any(
-        token.piece_indices != piece for token in product.tokens[prior.start : end]
-    ):
-        return None
-    first, last = product.tokens[article.i].start, product.tokens[prior.end - 1].end
-    if not passage.start <= first < last <= passage.end:
-        return None
-    return LocatedDefinitionSpan(
-        passage_id=passage.passage_id,
-        start=first,
-        end=last,
-        text=passage.text[first - passage.start : last - passage.start],
-    )
-
-
-def _demonstrative_content(view: AnnotationView, match: AnnotationRuleMatch, content_role: str):
-    if (match.rule, match.variant) != ("naming", "passive_called_term"):
-        return False
-    role = next((role for role in match.roles if role.role == content_role), None)
-    if role is None or not role.nodes:
-        return False
-    first = view.doc[role.nodes[0]]
-    return (
-        first.i == first.sent.start
-        and first.lower_ in {"this", "that", "these", "those"}
-        and first.dep_ == "det"
-        and first.head.i == role.head
-    )
 
 
 def components_from_named_matches(
@@ -745,12 +666,9 @@ class NamedDefinitionResult:
 def retained_annotation_components(
     reader, inputs, passage, cfg, *, retained=None, witness_policy: Mapping[str, Any]
 ):
-    from spacy.lang.en import English
-
-    from corpus_structure.ingest.annotation_views import annotation_view
     from corpus_structure.ingest.annotations import AnnotationProfile
     from corpus_structure.ingest.sentences import SentenceConfig
-    from corpus_structure.methods.annotation_rules import PreparedAnnotationRules
+    from corpus_structure.semantic.constructions.named import RetainedNamedRules
 
     if retained is None:
         retained = reader.structural_source_annotations(
@@ -759,7 +677,16 @@ def retained_annotation_components(
     frame, products, errors = retained.source, retained.annotations, retained.errors
     if errors:
         return NamedDefinitionResult((), False, (), "; ".join(errors))
-    prepared = PreparedAnnotationRules(English().vocab, rules=cfg.annotation_rules)
+    layers = {
+        pin: report
+        for product in products
+        for pin, report in getattr(product, "primary_layers", {}).items()
+    }
+    if not layers:
+        return NamedDefinitionResult(
+            (), False, (), "Exact retained primary named-rule inputs are unavailable."
+        )
+    named = RetainedNamedRules(layers)
     qualified_rules = (
         witness_policy.get("rules", {})
         if witness_policy.get("scope") == _DEFINITION_SCOPE["version"]
@@ -783,13 +710,12 @@ def retained_annotation_components(
     for product in products:
         if product.block_start >= passage.end or product.block_end <= passage.start:
             continue
-        restored = annotation_view(
-            product,
-            frame.text[product.block_start : product.block_end],
-            prepared.vocab,
-            required=(),
-        )
-        result = prepared.match(restored)
+        try:
+            result = named.match(product, rules=cfg.annotation_rules)
+            references = named.references(product, rules=cfg.annotation_rules)
+            nominations = named.nominations(product, rules=cfg.annotation_rules)
+        except ValueError as error:
+            return NamedDefinitionResult((), False, tuple(operations), str(error))
         matches = tuple(
             match
             for match in result.matches
@@ -797,18 +723,33 @@ def retained_annotation_components(
         )
         scopes = (
             definition_scopes(
-                matches, predicate_frame_result(restored), content_role=cfg.content_role
+                matches, predicate_frames(frame.text, (product,)), content_role=cfg.content_role
             )
             if matches
             else {}
         )
-        antecedents = {
-            match: antecedent
-            for match, scope in scopes.items()
-            if scope.disposition == "supported"
-            and (antecedent := _naming_antecedent(restored, passage, match, cfg.content_role))
-            is not None
-        }
+        antecedents = {}
+        for match in matches:
+            nomination = nominations.get(match, {}).get(cfg.content_role)
+            if (
+                nomination is None
+                or nomination.status != "resolved"
+                or not nomination.antecedent_extents
+            ):
+                continue
+            extents = nomination.antecedent_extents
+            first, last = extents[0][0], extents[-1][1]
+            if (
+                nomination.context_start is not None
+                and passage.start <= nomination.context_start <= first < last <= passage.end
+                and all(a <= b for (_x, a), (b, _y) in pairwise(extents))
+            ):
+                antecedents[match] = LocatedDefinitionSpan(
+                    passage_id=passage.passage_id,
+                    start=first,
+                    end=last,
+                    text=passage.text[first - passage.start : last - passage.start],
+                )
         for rule, variant, state in result.availability:
             selected = [
                 match for match in matches if (match.rule, match.variant) == (rule, variant)
@@ -850,12 +791,19 @@ def retained_annotation_components(
                 rule=match.rule,
                 variant=match.variant,
                 nodes=match.nodes,
+                primary_match=references[match],
+                primary_scope=scopes[match].primary_scope,
             )
             for match in matches
             if retained.annotation_task_id is not None
             and complete_witness_columns
             and (match.rule, match.variant) in reviewed
-            and not _demonstrative_content(restored, match, cfg.content_role)
+            and match in scopes
+            and scopes[match].primary_scope
+            and (
+                cfg.content_role not in nominations.get(match, {})
+                or nominations[match][cfg.content_role].demonstrative is False
+            )
         }
         found.extend(
             components_from_named_matches(
@@ -883,7 +831,7 @@ def retained_annotation_components(
         tuple(found),
         available,
         tuple(operations),
-        "Current named rules executed on authenticated retained annotation columns."
+        "Exact retained primary named-rule assignments projected onto the selected domain passage."
         if available
         else (
             "No selected retained linguistic rule operation is executable; "
@@ -935,7 +883,7 @@ def definition_windows(passage: StructuralPassage, cfg: DefinitionComponentsConf
 
 class DefinitionComponentsMethod:
     name = "structure.definition_components"
-    version = "9"
+    version = "10"
     family = MethodFamily.RESOLVE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.ENCODER
@@ -1227,7 +1175,7 @@ class DefinitionComponentsMethod:
             .model_validate_json(
                 canonical_bytes(
                     dict(
-                        version="located-definition-extraction-4",
+                        version="located-definition-extraction-5",
                         predicate_frame_version=PREDICATE_FRAME_VERSION,
                         raw_reports=raw_reports,
                         window_outcomes=window_outcomes,

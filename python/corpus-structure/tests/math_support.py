@@ -31,7 +31,6 @@ from math_worker_transport import configure_worker_transport
 
 from corpus_structure.core import tex
 from corpus_structure.core.evidence import MacroDef, RenditionContent
-from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.math.scope import Binders, Scope, resolve_scopes
 from corpus_structure.methods.math.spans import (
     MathExtraction,
@@ -144,6 +143,62 @@ def extract_readings(readings: list[SpanReading]) -> tuple[list[SpanValue], Math
     return formula_values(readings), extract(readings)
 
 
+def segment_block(content, segment):
+    from corpus_structure.ingest.sentences import block_of
+
+    markup = segment.attrs.get("markup")
+    return block_of(
+        content.canonical_text,
+        segment.start,
+        segment.end,
+        ((c.kind, c.start, c.end) for c in segment.children),
+        [m for m in markup if isinstance(m, dict)] if isinstance(markup, list) else [],
+    )
+
+
+def primary_scope_fixture(content, binders):
+    """Prepare primary cues over frozen historical token and sentence fixtures."""
+    from spacy.lang.en import English
+    from spacy.tokens import Doc
+
+    from corpus_structure.core.vocab import SegmentKind
+    from corpus_structure.ingest.sentences import make_doc
+    from corpus_structure.semantic.constructions.math_scope import (
+        MathScopeReadings,
+        PreparedScopeCues,
+    )
+
+    nlp = English()
+    prepared = PreparedScopeCues(nlp.vocab, binders)
+    sentences, cues = [], []
+    for block in content.document.walk():
+        stored = [s for s in block.children if s.kind is SegmentKind.SENTENCE]
+        if not stored:
+            continue
+        native = make_doc(nlp, segment_block(content, block))
+        starts = {s.start - block.start for s in stored}
+        doc = Doc(
+            nlp.vocab,
+            words=[t.text for t in native],
+            spaces=[bool(t.whitespace_) for t in native],
+            sent_starts=[i == 0 or t.idx in starts for i, t in enumerate(native)],
+        )
+        atoms = {s.start for s in block.children if s.kind is SegmentKind.MATH_INLINE}
+        for token in doc:
+            token._.primary_math_atom = block.start + token.idx in atoms
+        sentences.extend((s.start, s.end) for s in stored)
+        for kind, a, b in prepared.match(doc):
+            at = block.start + doc[a].idx
+            sentence = next(s for s in stored if s.start <= at < s.end)
+            target = (
+                (block.start + doc[b - 1].idx, block.start + doc[b - 1].idx + len(doc[b - 1]))
+                if kind == "clause"
+                else None
+            )
+            cues.append((kind, (sentence.start, sentence.end), target))
+    return MathScopeReadings(tuple(sentences), tuple(cues), (), True)
+
+
 def scope_extraction(
     inputs: tuple[PageContent, list[SpanValue], MathExtraction],
 ) -> list[Scope]:
@@ -155,8 +210,7 @@ def scope_extraction(
         extraction.mentions,
         extraction.relations,
         page.macros,
-        BINDERS,
-        SentenceConfig(),
+        primary_scope=primary_scope_fixture(page.content, BINDERS),
     )
 
 

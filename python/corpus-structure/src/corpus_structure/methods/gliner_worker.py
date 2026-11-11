@@ -360,7 +360,9 @@ class GlinerWorker:
     ) -> tuple[GlinerReport, ...]:
         if not isinstance(inputs, tuple) or not inputs or len(inputs) > self.profile.max_batch:
             raise GlinerRefused("batch must be a nonempty bounded immutable tuple")
-        supported_overlap = {"flat", "nested", "allow"} if evaluation else {"flat"}
+        # Decoding policy belongs to the requesting operation. Private language
+        # characterization needs overlapping cues without claiming evaluation custody.
+        supported_overlap = {"flat", "nested", "allow"}
         if not 0 <= threshold <= 1 or overlap_policy not in supported_overlap:
             raise GlinerRefused("unsupported threshold or overlap policy")
         sizes = [len(item.text.encode()) for item in inputs]

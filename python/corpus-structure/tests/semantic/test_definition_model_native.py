@@ -4,7 +4,6 @@ import json
 import struct
 import sys
 from hashlib import sha256
-from pathlib import Path
 
 from sqlalchemy import text
 
@@ -38,7 +37,7 @@ def test_located_request_binds_ordered_schema_and_exact_inference(semantic_db_en
             "timeout_seconds": "120",
             "artifact_hashes": [["a", "first"], ["z", "last"]],
         },
-        [["structure.definition_components/9", "context", "digest", " \u03b1\t\u03b2"]],
+        [["structure.definition_components/10", "context", "digest", " \u03b1\t\u03b2"]],
         "0.5",
         "nested",
         True,
@@ -47,13 +46,9 @@ def test_located_request_binds_ordered_schema_and_exact_inference(semantic_db_en
     expected_key = sha256(
         json.dumps(expected, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
     ).hexdigest()
-    sql = (
-        Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/structural_products.sql"
-    ).read_text()
     with semantic_db_engine.connect() as conn, conn.begin():
-        conn.exec_driver_sql(sql, execution_options={"no_parameters": True})
         query = text(
-            "SELECT ops.located_model_request('r','structure.definition_components/9',"
+            "SELECT ops.located_model_request('r','structure.definition_components/10',"
             "CAST(:policy AS jsonb),CAST(:config AS jsonb),'context','digest',:body)"
         )
         params = {
@@ -80,10 +75,6 @@ def test_located_request_binds_ordered_schema_and_exact_inference(semantic_db_en
 
 
 def test_native_model_report_preserves_exact_binary_profile_and_scores(semantic_db_engine):
-    sql = (
-        Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/record_publication.sql"
-    ).read_text()
-    cutoff = sql.index("CREATE OR REPLACE FUNCTION data.record_source_json")
     values = (
         120.0,
         0.1,
@@ -94,7 +85,6 @@ def test_native_model_report_preserves_exact_binary_profile_and_scores(semantic_
         sys.float_info.max,
     )
     with semantic_db_engine.connect() as conn, conn.begin():
-        conn.exec_driver_sql(sql[:cutoff], execution_options={"no_parameters": True})
         for value in values:
             actual = conn.scalar(
                 text("SELECT float8send(data.record_source_float(CAST(:value AS jsonb)))"),
@@ -146,7 +136,7 @@ def test_native_model_components_need_directed_provider_attachment(semantic_db_e
         "raw_json": json.dumps(raw),
     }
     detail = {
-        "version": "located-definition-extraction-3",
+        "version": "located-definition-extraction-5",
         "description_arm": "bare",
         "overlap_policy": "flat",
         "profile": {"timeout_seconds": 120.0},
@@ -154,11 +144,7 @@ def test_native_model_components_need_directed_provider_attachment(semantic_db_e
         "pack_fingerprint": "pack",
         "raw_reports": [entry],
     }
-    sql = (
-        Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/structural_products.sql"
-    ).read_text()
     with semantic_db_engine.connect() as conn, conn.begin():
-        conn.exec_driver_sql(sql, execution_options={"no_parameters": True})
 
         def replay():
             return conn.execute(
@@ -198,11 +184,7 @@ def test_genuine_definition_spans_require_named_cue_custody(semantic_db_engine):
     content = dict(passage_id="p", start=11, end=18, text="content")
     named = dict(term=term, content=content, basis="matched_cue", interpretation="definition")
     weak = {**named, "basis": "unqualified", "interpretation": "unresolved"}
-    sql = (
-        Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/structural_products.sql"
-    ).read_text()
     with semantic_db_engine.connect() as conn, conn.begin():
-        conn.exec_driver_sql(sql, execution_options={"no_parameters": True})
         check = text("""
             SELECT ops.validate_definition_basis(
               CAST(:component AS jsonb),
@@ -210,7 +192,7 @@ def test_genuine_definition_spans_require_named_cue_custody(semantic_db_engine):
               '{}', jsonb_build_object('use_named_candidates',true), '{}')
             """)
         with (
-            pytest.raises(DBAPIError, match="exact retained annotation witness"),
+            pytest.raises(DBAPIError, match="exact retained primary witness"),
             conn.begin_nested(),
         ):
             conn.execute(check, {"component": json.dumps(named)})
@@ -220,59 +202,105 @@ def test_genuine_definition_spans_require_named_cue_custody(semantic_db_engine):
 
 
 def test_native_definition_scope_uses_retained_act_and_content_ownership(semantic_db_engine):
-    from corpus_structure.methods.predicate_frames import interpretation_recipe
+    from dataclasses import replace
 
-    def retained(words, heads, dependencies, positions, lemmas):
-        cursor = 0
-        tokens = []
-        for word, head, dep, pos, lemma in zip(
-            words.split(), heads, dependencies, positions, lemmas, strict=True
-        ):
-            tokens.append(
-                dict(
-                    sentence=0,
-                    start=cursor,
-                    end=cursor + len(word),
-                    head=head,
-                    dependency=dep,
-                    pos=pos,
-                    tag="",
-                    lemma=lemma,
-                    role="prose",
-                )
-            )
-            cursor += len(word) + 1
-        return dict(
-            tokens=tokens,
-            availability=[
-                dict(attribute=key, status="complete")
-                for key in ("DEP", "POS", "SENT_START", "LEMMA", "TAG")
-            ],
-        )
+    import pytest
+    from ingest.test_annotations import ControlledPipeline, item
+    from methods.primary_reading_fixture import primary_product
 
-    sql = (
-        Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/structural_products.sql"
-    ).read_text()
-    check = text("""
-        SELECT ops.definition_scope_supported(
-          CAST(:projection AS jsonb), CAST(:annotation AS jsonb),
-          CAST(:rule AS jsonb), CAST(:indices AS jsonb), :act, CAST(:recipe AS jsonb))
-        """)
-    with semantic_db_engine.connect() as conn, conn.begin():
-        conn.exec_driver_sql(sql, execution_options={"no_parameters": True})
+    from corpus_structure.ingest import annotations
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.methods.annotation_rules import AnnotationRuleMatch, LocatedRole
+    from corpus_structure.methods.definition_applicability import definition_scopes
+    from corpus_structure.methods.predicate_frames import predicate_frames
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    with semantic_db_engine.connect() as conn:
 
         def supported(words, heads, deps, pos, lemmas, act, *, bindings=None, indices=None):
-            return conn.scalar(
-                check,
-                dict(
-                    projection=json.dumps(dict(text=words)),
-                    annotation=json.dumps(retained(words, heads, deps, pos, lemmas)),
-                    rule=json.dumps(dict(bindings=bindings or {})),
-                    indices=json.dumps(indices or {}),
-                    act=act,
-                    recipe=json.dumps(interpretation_recipe()),
+            # Retain the independent token/head/POS/lemma fixture through the real
+            # upstream native and source-reading owners; consumers never re-recognize it.
+            controlled = ControlledPipeline()
+            with pytest.MonkeyPatch.context() as patch:
+                patch.setattr(annotations, "pipeline", lambda _: controlled)
+                (product,) = annotations.annotate((item(controlled, words, start=0),))
+            assert [words[t.start : t.end] for t in product.tokens] == words.split()
+            product = replace(
+                product,
+                tokens=tuple(
+                    replace(token, head=head, dependency=dep, pos=tag, lemma=lemma)
+                    for token, head, dep, tag, lemma in zip(
+                        product.tokens, heads, deps, pos, lemmas, strict=True
+                    )
                 ),
             )
+            product = primary_product(words, product, AnnotationProfile())
+            roles = [
+                LocatedRole(
+                    "defining_cue",
+                    "act",
+                    act,
+                    "exact",
+                    (act,),
+                    ((product.tokens[act].start, product.tokens[act].end),),
+                    "complete",
+                )
+            ]
+            indices = indices or {}
+            for role, binding in (bindings or {}).items():
+                head = indices[binding["node"]]
+                nodes = {head}
+                if binding.get("expansion") == "subtree":
+                    for _ in product.tokens:
+                        nodes.update(
+                            i for i, token in enumerate(product.tokens) if token.head in nodes
+                        )
+                ordered = tuple(sorted(nodes))
+                roles.append(
+                    LocatedRole(
+                        role,
+                        binding["node"],
+                        head,
+                        binding.get("expansion", "exact"),
+                        ordered,
+                        ((product.tokens[ordered[0]].start, product.tokens[ordered[-1]].end),),
+                        "complete",
+                    )
+                )
+            match = AnnotationRuleMatch(
+                "defining",
+                "independent-scope",
+                "dependency",
+                (act,),
+                ((0, len(words)),),
+                (),
+                (),
+                product.dependency_digest,
+                tuple(roles),
+            )
+            result = predicate_frames(words, (product,))
+            assert not result.issues
+            scope = definition_scopes((match,), result, content_role="defining_content")[match]
+            wire = {
+                canonical_bytes(pin.values()).decode(): layer.payload
+                for pin, layer in product.primary_layers.items()
+            }
+            # The native guard projects precisely the retained scope endpoints and
+            # choices, rather than duplicating the removed linguistic classifier.
+            for reference in scope.primary_scope:
+                assert (
+                    conn.scalar(
+                        text("""
+                    WITH input AS (SELECT CAST(:layers AS jsonb) layers,CAST(:ref AS jsonb) ref)
+                    SELECT ops.primary_characterization_choices(
+                        layers,ref,ops.primary_characterization_node(layers,ref),'[]')
+                    FROM input
+                """),
+                        dict(layers=json.dumps(wire), ref=json.dumps(reference.values())),
+                    )
+                    is True
+                )
+            return scope.disposition == "supported"
 
         assert supported(
             "X is defined by : F .",

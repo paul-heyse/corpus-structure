@@ -81,6 +81,30 @@ class TaskListing(BaseModel):
     limit: int
 
 
+def _consumer_characterization_options(registry, graph, configurations):
+    """Freeze selected consumers' declarations in their one primary producer."""
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    from .semantic import _source_configurations
+
+    rules = {}
+    for resolved in _source_configurations(registry, graph, configurations).values():
+        config = resolved.config
+        for owner in (config, getattr(config, "witnessed", None)):
+            for rule in getattr(owner, "annotation_rules", ()):
+                identity = (rule.rule, rule.variant)
+                encoded = rule.model_dump(mode="json")
+                if identity in rules and canonical_bytes(rules[identity]) != canonical_bytes(
+                    encoded
+                ):
+                    raise CommandError(
+                        "selected consumers require conflicting named rule "
+                        f"{identity[0]}/{identity[1]}"
+                    )
+                rules[identity] = encoded
+    return {"text.constructions": {"annotation_rules": list(rules.values())}}
+
+
 def start_bound_run(
     engine: Engine,
     *,
@@ -105,6 +129,7 @@ def start_bound_run(
     m1_configuration: str = "default",
     record_policy: dict[str, Any] | None = None,
     source_only: bool = False,
+    characterization_views: Sequence[ProductReference] = (),
     on_created: Callable[[SourceRunCreated], None] | None = None,
 ):
     """Explicit semantic source execution through the current command entry point."""
@@ -118,6 +143,7 @@ def start_bound_run(
     from corpus_structure.semantic.operations import OperationBinding
     from corpus_structure.semantic.releases import load_release
 
+    ordinary_graph = graph is None and registry_for is None
     if record_policy is not None and (
         extraction_policy != "m1-candidate" or m1_configuration not in {"readings", "contextual"}
     ):
@@ -224,7 +250,13 @@ def start_bound_run(
             raise CommandError("phase 0 full run requires a scope or named slice")
     selected_graph = graph or PHASE0
     if source_only:
-        selected_graph = replace(selected_graph, policy_propose=False)
+        from corpus_structure.core.vocab import Stage
+
+        selected_graph = replace(
+            selected_graph,
+            policy_propose=False,
+            stages=tuple(stage for stage in selected_graph.stages if stage[0] == Stage.INGEST),
+        )
     selected_registry = (registry_for or registry)((domains or DOMAINS) / domain)
     if native_product is not None and integrated_product is not None:
         raise CommandError("select one exact native or integrated PDF input role")
@@ -262,6 +294,131 @@ def start_bound_run(
             from corpus_structure.orchestrate.m1 import bind_record_policy
 
             selected_registry = bind_record_policy(selected_registry, prepared, record_policy)
+    selected_registry = selected_registry.bind_release(prepared)
+    if (
+        ordinary_graph
+        and not source_only
+        and not characterization_views
+        and any(
+            "characterization_layers"
+            in selected_registry.method(step.config.partition("/")[0]).Config.model_fields
+            for _, steps in selected_graph.stages
+            for step in steps
+        )
+    ):
+        from corpus_structure.core.vocab import Stage
+
+        from .characterization import PRIMARY_PRODUCERS, characterize_captured_run
+
+        overrides = (
+            {"extract.m1_candidates": m1_configuration}
+            if extraction_policy == "m1-candidate" and m1_configuration != "default"
+            else {}
+        )
+        options = _consumer_characterization_options(selected_registry, selected_graph, overrides)
+        capture = run_source_methods(
+            engine,
+            on_created=on_created,
+            project_id=project_id,
+            domain=domain,
+            prepared=prepared,
+            binding=binding,
+            registry=selected_registry,
+            graph=replace(
+                selected_graph,
+                policy_propose=False,
+                stages=tuple(pair for pair in selected_graph.stages if pair[0] == Stage.INGEST),
+            ),
+            method_settings=method_settings,
+            phase=phase,
+            fresh=fresh,
+            corpus_record=corpus_record,
+            scope_record=scope_record,
+            kind="slice" if slice else "full",
+        )
+        characterized = characterize_captured_run(
+            engine,
+            capture,
+            project_id=project_id,
+            release_id=release_id,
+            realization_id=realization_id,
+            domain=domain,
+            method_settings=method_settings,
+            method_options=options,
+            registry=registry(pack).bind_release(prepared),
+            on_created=on_created,
+            fresh_methods=tuple(name for name in fresh if name in PRIMARY_PRODUCERS),
+        )
+        characterization_views = tuple(result.view for result in characterized)
+        if not characterization_views:
+            raise CommandError("analytical execution has no captured primary source views")
+    selected_primary_sources = ()
+    if characterization_views:
+        from corpus_structure.orchestrate.characterization import (
+            bind_characterization_views,
+            characterization_sources,
+        )
+        from corpus_structure.semantic.characterization_store import read_layer, read_view
+        from corpus_structure.semantic.query import read_snapshot
+
+        if len(characterization_views) > 256 or len(set(characterization_views)) != len(
+            characterization_views
+        ):
+            raise CommandError(
+                "analytical source binding requires 1..256 distinct enriched-document views"
+            )
+        views, layers, primary_sources = [], {}, {}
+        with read_snapshot(engine) as conn:
+            producing_task, producing_run = table("ops.task"), table("ops.run")
+            for reference in characterization_views:
+                owner = conn.scalar(
+                    select(producing_run.c.project_id)
+                    .select_from(
+                        producing_task.join(
+                            producing_run, producing_run.c.id == producing_task.c.run_id
+                        )
+                    )
+                    .where(producing_task.c.id == reference.task_id)
+                )
+                if owner != project_id:
+                    raise CommandError("characterization view belongs to a different project")
+                view = read_view(conn, reference)
+                if integrated_product is not None and view.base_document != integrated_product:
+                    raise CommandError(
+                        "characterization view belongs to a different integrated document"
+                    )
+                views.append(view)
+                for source in characterization_sources(
+                    conn, reference, view, project_id=project_id
+                ):
+                    prior = primary_sources.setdefault(source.source_view_id, source)
+                    if prior != source:
+                        raise CommandError(
+                            "enriched views select different original custody for one source"
+                        )
+                for value in view.payload["layers"]:
+                    pin = ProductReference(**value)
+                    if pin not in layers:
+                        layers[pin] = read_layer(conn, pin)
+        selected_registry = bind_characterization_views(selected_registry, views, layers)
+        selected_primary_sources = tuple(primary_sources.values())
+        from corpus_structure.core.vocab import Stage
+
+        # Exact retained primary inputs already include capture/recognition. New
+        # release-specific SourceViews would no longer address those layer pins.
+        selected_graph = replace(
+            selected_graph,
+            stages=tuple(
+                (
+                    stage,
+                    tuple(
+                        step for step in steps if step.config.partition("/")[0] != "enrich.pdf_math"
+                    ),
+                )
+                for stage, steps in selected_graph.stages
+                if stage != Stage.INGEST
+            ),
+        )
     return run_source_methods(
         engine,
         on_created=on_created,
@@ -271,6 +428,8 @@ def start_bound_run(
         binding=binding,
         registry=selected_registry,
         graph=selected_graph,
+        selected_sources=selected_primary_sources,
+        characterization_views=characterization_views,
         method_settings=method_settings,
         phase=phase,
         guideline=(

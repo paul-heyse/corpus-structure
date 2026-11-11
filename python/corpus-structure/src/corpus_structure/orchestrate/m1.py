@@ -232,11 +232,14 @@ class RetainedIntegratedPdf(IngestPdfIntegrated):
 
 
 def registry(pack: Path) -> MethodRegistry:
+    from .phase0 import CHARACTERIZATION_METHODS
+
     path = pack / "m1-methods.yaml"
     if not path.is_file():
         raise ValueError("M1 requires an explicitly authored m1-methods.yaml")
     return MethodRegistry(
         (
+            *CHARACTERIZATION_METHODS,
             RetainedIntegratedPdf(),
             M1Annotations(),
             M1Candidates(),

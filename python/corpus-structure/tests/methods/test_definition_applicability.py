@@ -644,16 +644,21 @@ def test_production_retains_valid_attachment_and_failed_stage_with_indexed_raw_e
         )
     ]
     config = cfg.model_dump(mode="json", exclude_none=True)
-    _verify_definition_roles(report, config, result.parse_detail, "r", policy)
+    _verify_definition_roles(report, config, result.parse_detail, "r", policy, primary=True)
     original_window = retained[0]["window_start"]
     assert isinstance(original_window, int)
     retained[0]["window_start"] = original_window + 1
     with pytest.raises(ValueError, match="returned window"):
-        _verify_definition_roles(report, config, result.parse_detail, "r", policy)
+        _verify_definition_roles(report, config, result.parse_detail, "r", policy, primary=True)
     retained[0]["window_start"] = original_window
     with pytest.raises(ValueError, match="exact configured population"):
         _verify_definition_roles(
-            report, config, {**result.parse_detail, "window_outcomes": []}, "r", policy
+            report,
+            config,
+            {**result.parse_detail, "window_outcomes": []},
+            "r",
+            policy,
+            primary=True,
         )
     # All entity roles and exact source coordinates survive, but the valid directed
     # relation is gone. The component can no longer be admitted as a model reading.
@@ -663,7 +668,7 @@ def test_production_retains_valid_attachment_and_failed_stage_with_indexed_raw_e
         retained[0]["computation"], retained[0]["raw_json"], "{}"
     )
     with pytest.raises(ValueError, match="retained directed attachments"):
-        _verify_definition_roles(report, config, result.parse_detail, "r", policy)
+        _verify_definition_roles(report, config, result.parse_detail, "r", policy, primary=True)
 
 
 def test_labelled_copula_display_requires_same_block_explicit_definition_label():
@@ -824,6 +829,11 @@ def test_naming_resolves_only_a_unique_selected_restricted_antecedent(context):
     config = DefinitionComponentsConfig(
         annotation_rules=rules["configs"]["extract.m1_candidates"]["witnessed"]["annotation_rules"],
     )
+    from .primary_reading_fixture import primary_product
+
+    product = primary_product(
+        source_text, product, AnnotationProfile(), rules=config.annotation_rules
+    )
     result = retained_annotation_components(
         None,
         None,
@@ -837,6 +847,7 @@ def test_naming_resolves_only_a_unique_selected_restricted_antecedent(context):
             annotation_task_id=594,
         ),
     )
+    assert result.components, result.reason
     (found,) = result.components
     assert found.term.text == "a set of constant density"
     assert found.content.text == (restriction if context == "unique" else mention)
@@ -860,7 +871,7 @@ def test_detached_named_basis_refuses_genuine_spans_without_its_witness():
         LocatedDefinitionSpan,
         definition_component,
     )
-    from corpus_structure.serve.model_observation_replay import _verify_named_definition_bases
+    from corpus_structure.serve.model_observation_replay import _verify_primary_observation
 
     original = inputs()
     passage = original.passages[0]
@@ -888,4 +899,114 @@ def test_detached_named_basis_refuses_genuine_spans_without_its_witness():
         definition_components=DefinitionComponentsProduct(components=(unsupported,), stages=()),
     )
     with pytest.raises(ValueError, match="exact retained annotation witness"):
-        _verify_named_definition_bases(None, {}, report, {}, {}, {})
+        _verify_primary_observation(
+            None, {}, dict(body={}, configuration={}), report, {}, iter(()), None
+        )
+
+
+@pytest.mark.parametrize(
+    ("method", "version"),
+    [
+        ("structure.definition_components", "8"),
+        ("structure.definition_components", "9"),
+        ("structure.definition_declaration_components", "1"),
+    ],
+)
+def test_obsolete_semantic_closure_requires_regeneration_without_reinterpreting_bytes(
+    monkeypatch, method, version
+):
+    from corpus_structure.serve import model_observation_replay as replay
+    from corpus_structure.serve import review_bundle
+
+    report = StructuralProductReport(
+        kind="definition_components",
+        inputs=inputs(),
+        definition_components=DefinitionComponentsProduct(components=(), stages=()),
+    )
+    original = dict(origin_task_id=1, body=dict(method=method, operation_version=version))
+    monkeypatch.setattr(
+        review_bundle,
+        "_detached_relation",
+        lambda _root, _manifest, relation: [original] if relation == "reports" else [],
+    )
+    with pytest.raises(ValueError, match="requires regeneration"):
+        replay.verify_model_observation_closure(None, {}, [(None, None, 1, report)], (), ())
+
+
+def test_current_named_definition_primary_witness_crosses_released_batch():
+    from types import SimpleNamespace
+
+    import yaml
+    from semantic.structural_release_fixture import released_report
+
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.methods.definition_applicability import retained_annotation_components
+    from corpus_structure.schema.pack import DOMAINS
+
+    from .primary_reading_fixture import primary_product
+    from .test_predicate_frames import _PREFIX, retained
+
+    profile = AnnotationProfile()
+    text, product = retained("The expected squared deviation is called variance.", profile)
+    declarations = yaml.safe_load((DOMAINS / "statistics/m1-methods.yaml").read_bytes())
+    rules = declarations["configs"]["extract.m1_candidates"]["witnessed"]["annotation_rules"]
+    cfg = DefinitionComponentsConfig(annotation_rules=rules)
+    product = primary_product(text, product, profile, rules=cfg.annotation_rules)
+    native = product.source
+    source = (
+        inputs()
+        .sources[0]
+        .model_copy(
+            update=dict(
+                source_view_id=native.source_view_id,
+                native_task_id=native.native_product.task_id,
+                native_product_key=native.native_product.product_key,
+                native_content_digest=native.native_product.content_digest,
+                projection_digest=native.projection_digest,
+                recipe_digest=native.recipe_digest,
+                coordinate_version=native.version,
+            )
+        )
+    )
+    selected = (
+        inputs()
+        .passages[0]
+        .model_copy(
+            update=dict(
+                source_ref=source.identity,
+                start=len(_PREFIX),
+                end=len(text),
+                text=text[len(_PREFIX) :],
+            )
+        )
+    )
+    named = retained_annotation_components(
+        None,
+        None,
+        selected,
+        cfg,
+        witness_policy=installed_policy()[0]["definition_witness"],
+        retained=SimpleNamespace(
+            source=SimpleNamespace(text=text),
+            annotations=(product,),
+            errors=(),
+            annotation_task_id=594,
+        ),
+    )
+    (component,) = named.components
+    assert (component.term.text, component.content.text) == (
+        "variance",
+        "The expected squared deviation",
+    )
+    assert component.witness is not None
+    assert component.witness.primary_match is not None and component.witness.primary_scope
+    value = inputs().model_copy(update=dict(sources=(source,), passages=(selected,)))
+    report = StructuralProductReport(
+        kind="definition_components",
+        inputs=value,
+        definition_components=DefinitionComponentsProduct(components=(component,), stages=()),
+    )
+    released = released_report(report, method=DefinitionComponentsMethod.name, version="10")
+    witness = released["definition_components"]["components"][0]["witness"]
+    assert witness["primary_match"] == component.witness.primary_match.values()
+    assert witness["primary_scope"] == [ref.values() for ref in component.witness.primary_scope]

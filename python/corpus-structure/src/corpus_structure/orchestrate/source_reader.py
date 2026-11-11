@@ -84,8 +84,16 @@ class ScopedSourceReader:
     def characterization_layers(self, references):
         return self._read(lambda reader: reader.characterization_layers(references))
 
+    def primary_characterization(self, source_view_id, *, families):
+        return self._read(
+            lambda reader: reader.primary_characterization(source_view_id, families=families)
+        )
+
     def source_views(self):
         return self._read(lambda reader: reader.source_views())
+
+    def source_view_ref(self, source_view_id):
+        return self._read(lambda reader: reader.source_view_ref(source_view_id))
 
     def source_view(self, source_view_id):
         return self._read(lambda reader: reader.source_view(source_view_id))

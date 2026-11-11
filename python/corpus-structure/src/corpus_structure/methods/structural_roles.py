@@ -6,7 +6,6 @@ are retained as evidence; grammatical roles never authorize semantic publication
 
 from __future__ import annotations
 
-from functools import lru_cache
 from typing import Literal, TypedDict
 
 from .predicate_frames import (
@@ -47,198 +46,188 @@ class ProcedureFrame(TypedDict):
 
 
 def procedure_frames(text, annotations) -> tuple[ProcedureFrame, ...]:
-    frames = []
+    """Project retained primary predicate roles into the domain's procedure shape."""
+    frames: list[ProcedureFrame] = []
     for product in annotations:
-        available = {a.attribute for a in product.availability if a.status == "complete"}
-        if not {"DEP", "POS"} <= available:
+        if not getattr(product, "primary_layers", None):
             continue
-        tokens = product.tokens
-        children = {i: [] for i in range(len(tokens))}
-        for i, t in enumerate(tokens):
-            if 0 <= t.head < len(tokens) and t.head != i:
-                children[t.head].append(i)
+        result = predicate_frames(text, (product,))
+        for primary in result.frames:
+            if primary.voice not in {"active", "passive"}:
+                continue
+            roles = {role.name: role for role in primary.roles if role.status == "located"}
 
-        def descendants(i, *, nominal=False, children=children, tokens=tokens):
-            result = set()
-            pending = [i]
-            while pending:
-                current = pending.pop()
-                if current in result:
-                    continue
-                result.add(current)
-                pending.extend(
-                    c
-                    for c in children[current]
-                    if not nominal
-                    or tokens[c].dependency
-                    in {"det", "amod", "compound", "nummod", "poss", "case", "flat"}
-                )
-            return result
+            def extents(name, *, roles=roles):
+                return roles[name].span.extents if name in roles else ()
 
-        def span(indices, tokens=tokens):
-            selected = [
-                tokens[i] for i in indices if tokens[i].role != "math" and not tokens[i].space
-            ]
-            if not selected:
-                return None
-            a, b = min(t.start for t in selected), max(t.end for t in selected)
-            if not 0 <= a < b <= len(text):
-                return None
-            return (a, b)
-
-        verbs = {
-            i
-            for i, t in enumerate(tokens)
-            if t.pos == "VERB"
-            and t.dependency not in {"aux", "auxpass", "aux:pass"}
-            and t.role == "prose"
-        }
-
-        def roles(i, tokens=tokens, children=children):
-            passive = any(
-                tokens[c].dependency
-                in {"nsubjpass", "csubjpass", "nsubj:pass", "auxpass", "aux:pass"}
-                for c in children[i]
+            cues = primary.cues
+            modalities = tuple(
+                extent for cue in cues if cue.kind == "modality" for extent in cue.span.extents
             )
-            actor = []
-            objects = []
-            for c in children[i]:
-                dep = tokens[c].dependency
-                if dep in {"nsubj", "csubj"}:
-                    actor.append(c)
-                elif dep in {"nsubjpass", "csubjpass", "nsubj:pass", "obj", "dobj", "iobj", "attr"}:
-                    objects.append(c)
-                elif dep in {"agent", "obl:agent"}:
-                    agent = [x for x in children[c] if tokens[x].dependency in {"pobj", "obj"}]
-                    actor.extend(agent or ([c] if dep == "obl:agent" else []))
-            return passive, actor, objects
-
-        basic = {i: roles(i) for i in verbs}
-        # A coordinated participle can share the actual passive construction.
-        # An explicit active subject or a non-participle never inherits that voice.
-        for i in sorted(verbs):
-            token = tokens[i]
-            if (
-                token.dependency == "conj"
-                and token.head in basic
-                and basic[token.head][0]
-                and token.tag == "VBN"
-                and not any(tokens[c].dependency in {"nsubj", "csubj"} for c in children[i])
-            ):
-                _, actor, objects = basic[i]
-                basic[i] = (True, actor, objects)
-        for i in sorted(verbs):
-            token = tokens[i]
-            passive, actor, objects = basic[i]
-            peers = {i}
-            if token.dependency == "conj" and token.head in verbs:
-                peers.add(token.head)
-            peers.update(c for c in children[i] if c in verbs and tokens[c].dependency == "conj")
-            # A missing shared role is inherited only from one unambiguous same-voice
-            # coordinate role source. Explicit local roles always win.
-            for name, local in [("actor", actor), ("object", objects)]:
-                if local:
-                    continue
-                candidates = {
-                    x
-                    for p in peers - {i}
-                    if basic[p][0] == passive
-                    for x in (basic[p][1] if name == "actor" else basic[p][2])
-                }
-                if len(candidates) == 1:
-                    local.extend(candidates)
-            own = children[i]
-            if token.dependency == "conj" and token.head in verbs:
-                own_modal = any(tokens[c].tag == "MD" for c in own)
-                inherited = [
-                    c
-                    for c in children[token.head]
-                    if tokens[c].dependency in {"aux", "auxpass", "aux:pass", "neg"}
-                    and not own_modal
-                ]
-                own = [*own, *inherited]
-            negated = any(tokens[c].dependency == "neg" for c in own)
-            direct_negation = any(tokens[c].dependency == "neg" for c in children[i])
-            modal = [c for c in own if tokens[c].tag == "MD"]
-            behavior = (
-                "prescribed"
-                if any(
-                    text[tokens[c].start : tokens[c].end].casefold() in {"must", "shall", "should"}
-                    for c in modal
-                )
-                else "described_or_example_unresolved"
-            )
-            sentence = tokens[i].sentence
-            region = [t for t in tokens if t.sentence == sentence]
-            if region:
-                a = min(t.start for t in region)
-                b = max(t.end for t in region)
-                if text[a:b].lstrip().casefold().startswith(("for example", "example ")):
-                    behavior = "example"
-            frame: ProcedureFrame = dict(
-                action=(token.start, token.end),
-                actor=tuple(s for x in actor if (s := span(descendants(x, nominal=True)))),
-                object=tuple(s for x in objects if (s := span(descendants(x, nominal=True)))),
-                modality=tuple((tokens[c].start, tokens[c].end) for c in modal),
-                conditions=[],
-                exceptions=[],
-                orders=[],
-                voice="passive" if passive else "active",
-                polarity=("negative" if direct_negation else "negative_scope_unresolved")
-                if negated
-                else "positive",
-                behavior=behavior,
-                clause_role="subordinate" if token.dependency == "advcl" else "main_or_coordinate",
-                dependency=product.dependency_digest,
-            )
-            for c in children[i]:
-                if tokens[c].dependency != "advcl":
-                    continue
-                markers = [x for x in children[c] if tokens[x].dependency == "mark"]
-                marker = " ".join(text[tokens[x].start : tokens[x].end].casefold() for x in markers)
-                extent = span(descendants(c))
-                if extent is None:
-                    continue
-                if marker in {"if", "when", "provided"}:
-                    frame["conditions"].append(extent)
-                elif marker in {"unless", "except"}:
-                    frame["exceptions"].append(extent)
-                elif marker in {"before", "after"} and c in verbs:
-                    earlier, later = (
-                        ((token.start, token.end), (tokens[c].start, tokens[c].end))
-                        if marker == "before"
-                        else ((tokens[c].start, tokens[c].end), (token.start, token.end))
+            orders = []
+            for cue in cues:
+                if (
+                    cue.kind == "order"
+                    and cue.variant in {"before", "after"}
+                    and cue.status == "located"
+                    and cue.component is not None
+                    and cue.origin is not None
+                ):
+                    main = product.tokens[cue.origin]
+                    subordinate = product.tokens[cue.component]
+                    first, second = (
+                        ((main.start, main.end), (subordinate.start, subordinate.end))
+                        if cue.variant == "before"
+                        else ((subordinate.start, subordinate.end), (main.start, main.end))
                     )
-                    frame["orders"].append((earlier, later))
-            frames.append(frame)
+                    orders.append((first, second))
+            primary_body = product.primary_layers[primary.primary_ref.layer].payload
+            terms = {term["local_id"]: term for term in primary_body["terms"]}
+            clause = next(
+                (
+                    terms[edge["target"]]["value"]
+                    for edge in terms[primary.primary_ref.local_id]["children"]
+                    if edge["role"] == "clause_role"
+                ),
+                "main_or_coordinate",
+            )
+            if clause not in {"subordinate", "main_or_coordinate"}:
+                raise ValueError("unknown retained clause role")
+            frames.append(
+                dict(
+                    action=primary.predicate.extents[0],
+                    actor=extents("actor"),
+                    object=extents("object"),
+                    modality=modalities,
+                    conditions=[
+                        extent
+                        for cue in cues
+                        if cue.kind in {"condition", "assumption"}
+                        for extent in cue.span.extents
+                    ],
+                    exceptions=[
+                        extent
+                        for cue in cues
+                        if cue.kind == "exception"
+                        for extent in cue.span.extents
+                    ],
+                    orders=orders,
+                    voice=primary.voice,
+                    polarity=primary.polarity
+                    if primary.polarity in {"positive", "negative", "negative_scope_unresolved"}
+                    else "negative_scope_unresolved",
+                    behavior="prescribed"
+                    if primary.interpretation == "prescribed_action"
+                    else "example"
+                    if primary.interpretation == "example"
+                    else "described_or_example_unresolved",
+                    clause_role=clause,
+                    dependency=product.dependency_digest,
+                )
+            )
     return tuple(frames)
 
 
-@lru_cache(maxsize=1)
-def _formula_syntax_context():
-    from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+def captured_formula_symbols(
+    text,
+    *,
+    primary_layers=None,
+    projection=None,
+    source_start=None,
+    native_pointer=None,
+    representation="source_text",
+    parent_occurrence=None,
+    seconds=None,
+    source_view_id=None,
+):
+    """Read positioned retained math symbols under an exact original field address.
 
-    return prepare_interpretation_context(macros={}, demand="syntax")
-
-
-def captured_formula_symbols(text, *, seconds=0.5):
-    """Consume the existing mathematical syntax owner; never create a second grammar.
-
-    Returned offsets belong to the unchanged captured field. Failed or ambiguous
-    syntax supplies no symbol-denotation link and retains an explicit diagnostic.
+    ``start``/``end`` are local to the explicitly named input representation.
+    Recognized-LaTeX interiors retain their parent correspondence and do not gain
+    native PDF/source-character authority. Missing metadata never reruns a parser.
     """
-    from corpus_structure.methods.math import grammar
-    from corpus_structure.methods.math.prepared import PreparedMathInput
+    if primary_layers is None or projection is None or source_start is None:
+        return (), "unsupported"
+    from corpus_structure.semantic.characterization import annotation_reference
 
-    context = _formula_syntax_context()
-    operand = PreparedMathInput(context, text, seconds=seconds, source_text=text)
-    result = operand.syntax()
-    if result.tree is None or any(t.data == "_ambig" for t in result.tree.iter_subtrees()):
-        if result.failure is not None and result.failure.category == "timeout":
-            return (), "timeout"
-        return (), "ambiguous" if result.tree is not None else "unsupported"
-    occurrences = grammar.occurrences(result.tree, text, {}, frozenset())
-    return tuple(
-        dict(start=o.start, end=o.end, name=o.name, syntax_parent=o.in_subscript_of)
-        for o in occurrences
-    ), "parsed"
+    roots = []
+    for pin, report in primary_layers.items():
+        body = report.payload
+        occurrences = {o["local_id"]: o for o in body["occurrences"]}
+        for annotation in body["annotations"]:
+            value = annotation.get("formal_input")
+            if (
+                value is None
+                or annotation["family"] != "formal.math"
+                or value["text"] != text
+                or value["representation"] != representation
+            ):
+                continue
+            parent = value["parent_occurrence"]
+            if parent_occurrence is not None and parent != parent_occurrence:
+                continue
+            extents = occurrences[parent]["extents"]
+            if (
+                not extents
+                or extents[0].get("start") != source_start
+                or any(
+                    e["projection"] != projection
+                    or (source_view_id is not None and e["source_view_id"] != source_view_id)
+                    for e in extents
+                )
+            ):
+                continue
+            if native_pointer is not None and any(
+                e["native_pointer"] != native_pointer for e in extents
+            ):
+                continue
+            roots.append((pin, body, annotation, value))
+    if len(roots) != 1:
+        return (), "ambiguous" if roots else "unsupported"
+    pin, body, root, value = roots[0]
+    if value["syntax_outcome"] != "complete":
+        return (), "ambiguous" if value["syntax_outcome"] == "ambiguous" else "unsupported"
+    if value.get("symbol_outcome") != "complete":
+        return (), "unsupported"
+    nodes = {a["local_id"]: a for a in body["annotations"]}
+    symbols = []
+    for annotation in nodes.values():
+        formal = annotation.get("formal")
+        if (
+            annotation["kind"] != "formal.symbol"
+            or formal is None
+            or formal["input_id"] != root["local_id"]
+        ):
+            continue
+        normalized = formal.get("normalized", {})
+        if normalized.get("kind") != "identifier":
+            continue
+        parent_id = formal.get("symbol_parent")
+        parent = nodes.get(parent_id, {}).get("formal", {}).get("normalized", {})
+        symbols.append(
+            dict(
+                start=formal["start"],
+                end=formal["end"],
+                name=normalized["value"],
+                syntax_parent=parent.get("value"),
+                **(
+                    {"syntax_parent_node": annotation_reference(pin, parent_id).values()}
+                    if parent_id is not None
+                    else {}
+                ),
+                primary_node=annotation_reference(pin, annotation["local_id"]).values(),
+                parent_occurrence=value["parent_occurrence"],
+                coordinate_space="native_projection"
+                if representation == "source_text"
+                else "recognized_latex",
+            )
+        )
+    # A successful symbolic syntax with unprojected native symbol metadata is
+    # incomplete for this consumer, not proof that the formula has no symbols.
+    if not symbols and any(
+        a.get("formal", {}).get("input_id") == root["local_id"]
+        and "SYMBOL" in a.get("formal", {}).get("rule", "")
+        for a in nodes.values()
+    ):
+        return (), "unsupported"
+    return tuple(sorted(symbols, key=lambda row: (row["start"], row["end"], row["name"]))), "parsed"

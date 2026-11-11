@@ -236,17 +236,21 @@ def restore_annotations(rows, *, source, profile):
 def annotate(
     inputs: Iterable[AnnotationInput],
     profile: AnnotationProfile | None = None,
+    *,
+    require_complete: bool = True,
 ) -> Iterator[AnnotationProduct]:
     """Stream consumer-owned Docs through the existing resident, pinned pipeline.
 
     ``batch_size`` bounds spaCy's buffering; no new process pool, tokenizer or Doc cache
     is introduced. Inputs may reuse the same prepared layout across different consumers.
     A required annotation gap refuses that product with explicit availability details.
+    Native evidence producers may set ``require_complete=False`` to detach independent
+    available columns and retain missing family outcomes without inventing sentences.
     """
     profile = AnnotationProfile() if profile is None else profile
     nlp = pipeline(profile.configuration)
     missing = tuple(name for name in _COMPONENTS if name not in nlp.pipe_names)
-    if missing:
+    if missing and require_complete:
         raise AnnotationUnavailable(
             "richer annotation profile is missing required components: " + ", ".join(missing),
             missing_components=missing,
@@ -287,11 +291,17 @@ def annotate(
             )
             for attribute in _ATTRIBUTES
         )
-        if any(column.status not in {"complete", "not_applicable"} for column in availability):
+        if require_complete and any(
+            column.status not in {"complete", "not_applicable"} for column in availability
+        ):
             raise AnnotationUnavailable(
                 "required linguistic annotations are incomplete", availability=availability
             )
-        extents = boundaries(item.block, doc)
+        extents = (
+            boundaries(item.block, doc)
+            if doc.has_annotation("SENT_START", require_complete=True)
+            else ()
+        )
         sentences = tuple(
             SentenceAnnotation(item.layout.block_start + start, item.layout.block_start + end)
             for start, end in extents

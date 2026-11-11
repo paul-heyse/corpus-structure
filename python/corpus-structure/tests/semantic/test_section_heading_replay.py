@@ -14,8 +14,8 @@ from corpus_structure.core.evidence import config_key
 from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.contextual_candidates import (
-    ContextualCandidateConfig,
-    ContextualCandidates,
+    ContextualCandidatesWithQueryContext,
+    ContextualQueryConfig,
 )
 from corpus_structure.methods.contextual_embeddings import identity
 from corpus_structure.semantic.contributions import contribution_identity, occurrence_identity
@@ -111,6 +111,36 @@ def test_detached_section_replay_requires_complete_witnesses(
     source, cue = _source(7, "#/texts/1", "See Section 6.2.", "text", release)
     first, first_ref = _source(8, "#/texts/2", "6.2 First heading", "section_header", release)
     second, second_ref = _source(9, "#/texts/3", "6.2 Second heading", "section_header", release)
+    from methods.navigation_fixture import primary_navigation
+
+    from corpus_structure.methods.witnessed_source_links import (
+        match_named_source_links,
+        navigation_index,
+    )
+    from corpus_structure.semantic.structural_products import StructuralPassage
+
+    primary_by_view = {entry.ref.id: primary_navigation(entry) for entry in (source, first, second)}
+    primary_layers = {
+        pin: layer for layers in primary_by_view.values() for pin, layer in layers.items()
+    }
+    selected = StructuralPassage(
+        passage_id="cue",
+        source_ref="cue",
+        scope="chapter",
+        start=0,
+        end=len(source.text),
+        text=source.text,
+    )
+    inspection = match_named_source_links(
+        source.text,
+        source.pieces,
+        {item["self_ref"]: item for item in source.items},
+        (selected,),
+        primary_layers=primary_by_view[source.ref.id],
+        projection=source.ref.projection_digest,
+        source_view_id=source.ref.id,
+    )
+    (citation,) = [match for match in inspection.matches if match.kind == "section_citation"]
     pin = record_source_pin(native_source_frame(source, ()))
     anchor = dict(
         pin=pin,
@@ -133,12 +163,12 @@ def test_detached_section_replay_requires_complete_witnesses(
         value=source_value(
             dict(
                 role="named_link_subject",
-                named_cue=dict(
-                    kind="section_citation",
-                    designator="6.2",
-                    scope="chapter",
-                    resolution="target_selection_required",
-                ),
+                source_pointer="#/texts/1",
+                start=4,
+                end=15,
+                text="Section 6.2",
+                named_cue=citation.evidence(),
+                primary_node=citation.witness.primary_node,
             )
         ),
     )
@@ -152,7 +182,7 @@ def test_detached_section_replay_requires_complete_witnesses(
         body=dict(
             source=source.ref.key,
             release_id=release,
-            operation_version="7",
+            operation_version="17",
             contributions=[original],
             origin_task_id=101,
         ),
@@ -179,6 +209,14 @@ def test_detached_section_replay_requires_complete_witnesses(
                     pointer=pointer,
                     label=label,
                     designator="6.2",
+                    primary_witnesses=[
+                        record.reference.values()
+                        for record in navigation_index(
+                            primary_by_view[target.ref.id],
+                            target.ref.projection_digest,
+                            source_view_id=target.ref.id,
+                        ).select("section_heading")
+                    ],
                     scope="chapter",
                     work_id="parent-pdf:" + work,
                     citations=[target_ref.model_dump(mode="json")],
@@ -192,7 +230,8 @@ def test_detached_section_replay_requires_complete_witnesses(
     monkeypatch.setattr(
         "corpus_structure.methods.contextual_candidates.verify_encoder_implementation", unavailable
     )
-    config = ContextualCandidateConfig(
+    config = ContextualQueryConfig(
+        characterization_layers=tuple(pin.values() for pin in primary_layers),
         source_dependency_method="structure.scoped_relations",
         section_sources=(cue,) if outside else (cue, first_ref, second_ref),
         section_catalog_sources=(first_ref, second_ref) if outside else (),
@@ -202,10 +241,27 @@ def test_detached_section_replay_requires_complete_witnesses(
     )
     reader = SimpleNamespace(
         source_view=lambda _: source,
+        characterization_layers=lambda _: primary_layers,
+        contextual_mutual_neighbors=lambda report: dict(
+            policy="mutual-exact-cosine-top5-2",
+            inventory_id=report["inventories"][0]["inventory_id"],
+            profile_id=report["profiles"][0]["profile_id"]
+            if len(report["profiles"]) == 1
+            else None,
+            status=(
+                "profile_unavailable"
+                if len(report["profiles"]) != 1
+                else "vector_coverage_unavailable"
+            )
+            if report["inventories"][0]["targets"]
+            else "completed",
+            directed_ranks=[],
+            edges=[],
+        ),
         source_result=lambda *_: scoped["body"],
         contextual_section_headings=heading_targets,
     )
-    (result,) = ContextualCandidates().run(
+    (result,) = ContextualCandidatesWithQueryContext().run(
         (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, source.ref.key)),),
         config,
         SimpleNamespace(reader=reader, check_active=lambda: None),
@@ -221,9 +277,9 @@ def test_detached_section_replay_requires_complete_witnesses(
                 configuration=configuration,
                 body=dict(
                     source=source.ref.key,
-                    operation_version="7",
+                    operation_version="11",
                     release_id=release,
-                    configuration_hash=config_key("retrieve.contextual", "7", configuration),
+                    configuration_hash=config_key("retrieve.contextual", "11", configuration),
                     contribution_operations=result.contribution_operations,
                     contributions=result.contributions,
                 ),
@@ -262,6 +318,39 @@ def test_detached_section_replay_requires_complete_witnesses(
 
         return write_review_bundle(selection, tmp_path / name, rows())
 
+    # This adapter test starts after the shared archive/pin/source authentication
+    # boundary (tested independently); all working layers are real producer results.
+    monkeypatch.setattr(
+        "corpus_structure.serve.primary_characterization_replay.retained_primary_layers",
+        lambda *_args: (primary_layers, {}),
+    )
+    monkeypatch.setattr("corpus_structure.semantic.constructions.navigation._SECTION_HEADING", None)
+    monkeypatch.setattr(
+        "corpus_structure.semantic.constructions.navigation._named_recipe",
+        lambda *_args, **_kwargs: pytest.fail("detached replay reran primary recognition"),
+    )
+    if not outside:
+        from corpus_structure.serve.contextual_witness_replay import _heading_inventory
+
+        missing_original = {
+            pin: layer
+            for pin, layer in primary_layers.items()
+            if second.ref.id not in layer.payload["source_scope"]["source_view_ids"]
+        }
+        available, _, complete = _heading_inventory(
+            config,
+            source.ref.id,
+            sources,
+            documents,
+            json.loads(packet),
+            primary_layers=missing_original,
+        )
+        assert not complete and len(available) == 1
+        assert available[0].pointer == first.items[1]["self_ref"]
+    with pytest.raises(ValueError, match="section inventories cannot combine"):
+        ContextualQueryConfig.model_validate(
+            {**configuration, "required_occurrence_ids": [original["occurrence_id"]]}
+        )
     manifest = write("valid", retained)
     assert verify_review_bundle(tmp_path / "valid") == manifest
     (resolution,) = retained["body"]["contribution_operations"][0]["contextual_enrichment"][
@@ -274,6 +363,14 @@ def test_detached_section_replay_requires_complete_witnesses(
     report["candidate_lists"][0]["channel_results"] = []
     with pytest.raises(ValueError, match="complete eligible witness channel"):
         write("missing-witness", tampered)
+    if not outside:
+        tampered_primary = deepcopy(retained)
+        targets = tampered_primary["body"]["contribution_operations"][0]["contextual_enrichment"][
+            "section_targets"
+        ]
+        targets[0]["primary_witnesses"] = targets[1]["primary_witnesses"]
+        with pytest.raises(ValueError, match="complete selected native sources"):
+            write("wrong-heading-primary", tampered_primary)
     tampered_contract = deepcopy(contract)
     tampered_contract["section_packets"]["input_base64"] = base64.b64encode(
         b'{"native_products":{},"packets":{},"version":1}'

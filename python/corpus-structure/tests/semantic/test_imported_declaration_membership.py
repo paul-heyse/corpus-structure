@@ -51,6 +51,7 @@ def imported_declaration_case(admin, writer, tmp_path):
         graph=True,
         global_person_identity=True,
         membership_subtype=True,
+        characterization=True,
     )
     prior = consolidate_cut(writer, prior_cut, "prior-result")
     with writer.connect() as conn:
@@ -115,7 +116,12 @@ def imported_declaration_case(admin, writer, tmp_path):
         original=original,
         paragraphs=("Alice is here.",),
     )
+    from .primary_native_support import bind_primary_agent_run
+
     with writer.begin() as conn:
+        run, configuration = bind_primary_agent_run(
+            conn, run, prepared, (view.ref.id,), configuration, method="agent.general"
+        )
         (task,) = queue_agent(
             conn,
             run_id=run,

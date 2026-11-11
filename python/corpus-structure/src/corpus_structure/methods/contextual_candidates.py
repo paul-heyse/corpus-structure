@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from collections import defaultdict
 from dataclasses import asdict
 from typing import Annotated, Literal
@@ -237,50 +236,83 @@ def coincident_component_terms(frame, view, semantic_targets, pin):
     return by_occurrence
 
 
-def explicit_definition_section(product, nodes, *, scope=None, effective_version=None):
-    """Read the exact source marker immediately preceding this selected occurrence."""
+def _primary_named_record(product, nodes, original, marker, primary_layers, role):
+    """Authenticate a retained source role; this projection characterizes no language."""
+    from corpus_structure.semantic.constructions.navigation import NavigationIndex
+
+    from .witnessed_source_links import navigation_index
+
+    reference = marker.get("primary_node")
+    if reference is None or original.get("primary_node") not in (None, reference):
+        raise ValueError("named source meaning requires its exact primary characterization")
+    if len(product["anchors"]) != 1:
+        return None
+    (anchor,) = product["anchors"]
+    projection = anchor["pin"]["projection_digest"]
+    index = (
+        primary_layers
+        if isinstance(primary_layers, NavigationIndex)
+        else navigation_index(
+            primary_layers, projection, source_view_id=anchor["pin"]["source_view_id"]
+        )
+    )
+    found = [
+        row
+        for row in index.select("named_link", anchor["pointer"])
+        if row.reference.values() == reference
+    ]
+    if len(found) != 1:
+        raise ValueError("named source meaning lacks its retained primary node")
+    (row,) = found
+    extent = row.span(role)
+    offset = original["start"] - anchor["start"]
+    if (
+        extent != (original["start"], original["end"])
+        or anchor["precision"] != "exact"
+        or nodes[anchor["pointer"]]["text"][anchor["start"] : anchor["end"]]
+        != anchor["source_piece"]
+        or row.text(role) != anchor["source_piece"]
+        or (anchor["start"] + offset, anchor["end"] + offset) != extent
+        or row.payload.get("designator") != marker.get("designator")
+        or row.payload["relation_kind"] != marker["kind"]
+        or any(
+            e["projection"] != projection or e["source_view_id"] != anchor["pin"]["source_view_id"]
+            for e in row.fragments(role)
+        )
+    ):
+        raise ValueError("named source meaning differs from exact retained primary role")
+    return row
+
+
+def explicit_definition_section(
+    product, nodes, *, scope=None, effective_version=None, primary_layers=None
+):
     if len(product["anchors"]) != 1:
         return None
     value = source_python(product["value"])
     if value.get("producer_semantic_type") != "structural.located_participant":
         return None
-    producer = source_python(value["producer_value"])
-    if producer.get("role") == "named_link_definition_subject":
+    original = source_python(value["producer_value"])
+    if original.get("role") == "named_link_definition_subject":
         exact = explicit_definition_subject(
             product,
             nodes,
             scope=scope,
             effective_version=effective_version,
-            named_version="3" if "definition_subject_kind" in producer else "2",
+            primary_layers=primary_layers,
         )
         return exact[0] if exact is not None else None
-    if producer.get("role") != "named_link_subject":
-        return None
-    if "named_cue" in producer:
-        marker = explicit_section_citation(product, nodes)
-        if (
-            marker is not None
-            and marker["kind"] == "definition_reference"
-            and (marker["scope"], marker.get("effective_version")) == (scope, effective_version)
-        ):
-            return marker["designator"]
-        return None
-    (anchor,) = product["anchors"]
-    if anchor["precision"] != "exact":
-        return None
-    reference = re.fullmatch(r"Section ([0-9]+(?:\.[0-9]+)+)", anchor["source_piece"])
-    if reference is None:
-        return None
-    original = nodes[anchor["pointer"]]["text"]
-    if not re.search(r"\b[Aa]s defined in $", original[: anchor["start"]]):
-        return None
-    return reference[1]
+    marker = explicit_section_citation(product, nodes, primary_layers=primary_layers)
+    if (
+        marker is not None
+        and marker["kind"] == "definition_reference"
+        and (marker["scope"], marker.get("effective_version")) == (scope, effective_version)
+    ):
+        return marker["designator"]
+    return None
 
 
-def explicit_definition_subject(product, nodes, *, scope, effective_version, named_version="2"):
-    """Read the exact source-named subject of a selected definition citation."""
-    from .witnessed_source_links import named_definition_subject
-
+def explicit_definition_subject(product, nodes, *, scope, effective_version, primary_layers=None):
     if len(product["anchors"]) != 1:
         return None
     value = source_python(product["value"])
@@ -296,20 +328,15 @@ def explicit_definition_subject(product, nodes, *, scope, effective_version, nam
         or (marker["scope"], marker.get("effective_version")) != (scope, effective_version)
     ):
         return None
-    (anchor,) = product["anchors"]
-    literal = nodes[anchor["pointer"]]["text"]
-    offset = original["start"] - anchor["start"]
-    bound = named_definition_subject(literal, 0, marker["cue"][0] - offset, version=named_version)
-    if (
-        anchor["precision"] != "exact"
-        or bound is None
-        or bound[0] != (anchor["start"], anchor["end"])
-    ):
-        raise ValueError("definition subject differs from its exact native cue")
-    extent, kind = bound
-    if named_version == "3" and original.get("definition_subject_kind") != kind:
-        raise ValueError("definition subject kind differs from its exact native cue")
-    return marker["designator"], literal[slice(*extent)], kind
+    row = _primary_named_record(
+        product, nodes, original, marker, primary_layers, "definition_subject"
+    )
+    if row is None:
+        return None
+    kind = row.payload["definition_subject_kind"]
+    if original.get("definition_subject_kind") != kind:
+        raise ValueError("definition subject kind differs from retained primary characterization")
+    return marker["designator"], row.text("definition_subject"), kind
 
 
 def section_definition_subject_witnesses(
@@ -320,7 +347,7 @@ def section_definition_subject_witnesses(
     source_binding,
     scope,
     effective_version,
-    named_version="2",
+    primary_layers=None,
     aliases=None,
 ):
     witnesses = []
@@ -330,7 +357,7 @@ def section_definition_subject_witnesses(
             nodes,
             scope=scope,
             effective_version=effective_version,
-            named_version=named_version,
+            primary_layers=primary_layers,
         )
         if binding is None:
             continue
@@ -364,8 +391,7 @@ def section_definition_subject_witnesses(
     return tuple(witnesses)
 
 
-def explicit_section_citation(product, nodes):
-    """Select the exact native carrier from the scoped producer's released cue recipe."""
+def explicit_section_citation(product, nodes, *, primary_layers=None):
     value = source_python(product["value"])
     if value.get("producer_semantic_type") != "structural.located_participant":
         return None
@@ -379,17 +405,8 @@ def explicit_section_citation(product, nodes):
         or len(product["anchors"]) != 1
     ):
         return None
-    (anchor,) = product["anchors"]
-    match = re.fullmatch(r"Section\s+([0-9]+(?:\.[0-9]+)+)", anchor["source_piece"], re.I)
-    if (
-        anchor["precision"] != "exact"
-        or match is None
-        or marker.get("designator") != match[1]
-        or nodes[anchor["pointer"]]["text"][anchor["start"] : anchor["end"]]
-        != anchor["source_piece"]
-    ):
-        raise ValueError("section citation differs from exact retained source coordinates")
-    return marker
+    row = _primary_named_record(product, nodes, original, marker, primary_layers, "subject")
+    return marker if row is not None else None
 
 
 SECTION_CONSTRAINT = RelationshipConstraint(
@@ -548,6 +565,7 @@ def producer_relationship_witnesses(
 
 
 class ContextualCandidateConfig(BaseModel):
+    characterization_layers: tuple[dict, ...] = ()
     model_config = ConfigDict(frozen=True, extra="forbid")
     profile: Literal["e5", "qwen"] = "e5"
     source_dependencies: Literal["source_view_product"] = "source_view_product"
@@ -826,12 +844,28 @@ class ContextualCandidates:
                 canonical_producer=bool(cfg.section_sources),
                 required_occurrence_ids=getattr(cfg, "required_occurrence_ids", ()),
             )
+            from corpus_structure.semantic.product_reference import ProductReference
+
+            from .witnessed_source_links import navigation_index
+
+            primary = (
+                ctx.reader.characterization_layers(
+                    tuple(ProductReference(**value) for value in cfg.characterization_layers)
+                )
+                if cfg.characterization_layers
+                else {}
+            )
+            primary_navigation = navigation_index(
+                primary, frame.projection_digest, source_view_id=view.ref.id
+            )
             heading_mentions = defaultdict(list)
             heading_ids = defaultdict(list)
             section_resolutions = []
             if cfg.section_sources:
                 for product in source_products:
-                    marker = explicit_section_citation(product, nodes)
+                    marker = explicit_section_citation(
+                        product, nodes, primary_layers=primary_navigation
+                    )
                     if marker is not None:
                         heading_mentions[product["occurrence_id"]].append((product, marker))
                 source_products = tuple(
@@ -859,7 +893,11 @@ class ContextualCandidates:
             if any("defined-by" in c.relation_kinds for c in constraints):
                 for product in source_products:
                     section = explicit_definition_section(
-                        product, nodes, scope=cfg.scope, effective_version=cfg.effective_version
+                        product,
+                        nodes,
+                        scope=cfg.scope,
+                        effective_version=cfg.effective_version,
+                        primary_layers=primary_navigation,
                     )
                     if section is not None:
                         section_mentions.setdefault(product["occurrence_id"], (section, []))[
@@ -1043,12 +1081,9 @@ class ContextualCandidates:
                                 source_binding=frame.unit_ref,
                                 scope=cfg.scope,
                                 effective_version=cfg.effective_version,
-                                named_version="3"
-                                if self.version in {"10", "11"}
-                                and upstream.get("operation_version") in {"10", "11", "12"}
-                                else "2",
+                                primary_layers=primary_navigation,
                                 aliases=section_aliases
-                                if upstream.get("operation_version") in {"10", "11", "12"}
+                                if upstream.get("operation_version") == "17"
                                 else None,
                             )
                         else:
@@ -1348,7 +1383,11 @@ class ContextualQueryConfig(ContextualCandidateConfig):
     @model_validator(mode="after")
     def component_context(self):
         if self.section_sources:
-            raise ValueError("bounded query context requires a component retrieval inventory")
+            if self.query_context is not None or self.required_occurrence_ids:
+                raise ValueError(
+                    "section inventories cannot combine component query carrier controls"
+                )
+            return self
         if len(set(self.required_occurrence_ids)) != len(self.required_occurrence_ids):
             raise ValueError(
                 "exact occurrence selection requires distinct component query carriers"

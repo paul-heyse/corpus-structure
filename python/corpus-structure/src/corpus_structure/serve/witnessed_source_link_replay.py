@@ -8,19 +8,15 @@ from hashlib import sha256
 from corpus_structure.core.evidence import config_key
 from corpus_structure.methods.inline_formula_occurrences import INLINE_FORMULA_QUESTION
 from corpus_structure.methods.witnessed_source_links import (
-    NAMED_ANNOTATION_VERSIONS,
-    NAMED_COVERAGE_VERSION,
     NAMED_NATIVE_PIECES_INPUT,
     NAMED_PIECE_VERSION,
     NAMED_QUESTION,
-    NAMED_VERSION,
     ORDERED_LIMIT_REASON,
     ORDERED_VERSION,
     QUESTION,
     VERSION,
     OrderedRecappedDeclaration,
-    named_definition_subject,
-    named_source_links,
+    match_named_source_links,
     ordered_recapped_declarations,
     ordered_witness_selection,
     procedure_artifact_bindings,
@@ -32,8 +28,10 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
 
 
-def verify_witnessed_links(report, source, pin, inputs, ordered_formula_witness=None):
-    from corpus_structure.methods.scoped_relations import ORDERED_FORMULA_WITNESS_METHOD_VERSION
+def verify_witnessed_links(
+    report, source, pin, inputs, ordered_formula_witness=None, *, primary_layers=None
+):
+    from corpus_structure.methods.scoped_relations import SCOPED_VERSION
 
     body = report["body"]
     context, text = source["context"], source["text"]
@@ -43,7 +41,7 @@ def verify_witnessed_links(report, source, pin, inputs, ordered_formula_witness=
         (ref,) = [r for r in inputs.sources if r.source_view_id == source["source_view_id"]]
         selection = tuple(p for p in inputs.passages if p.source_ref == ref.identity)
     if ordered_formula_witness is not None:
-        if body["operation_version"] != ORDERED_FORMULA_WITNESS_METHOD_VERSION:
+        if body["operation_version"] != SCOPED_VERSION:
             raise ValueError("ordered formula witness requires the current scoped producer")
         (query,) = selection
         inspected, expected = ordered_recapped_declarations(
@@ -52,6 +50,9 @@ def verify_witnessed_links(report, source, pin, inputs, ordered_formula_witness=
             {i["self_ref"]: i for i in (*context.get("ancestors", ()), *context["items"])},
             ordered_formula_witness,
             query,
+            primary_layers=primary_layers,
+            projection=pin["projection_digest"],
+            source_view_id=pin["source_view_id"],
         )
         version = ORDERED_VERSION
         witness_selection = ordered_witness_selection(query, ordered_formula_witness)
@@ -62,6 +63,9 @@ def verify_witnessed_links(report, source, pin, inputs, ordered_formula_witness=
                 pieces,
                 {i["self_ref"]: i for i in context["items"]},
                 selection,
+                primary_layers=primary_layers,
+                projection=pin["projection_digest"],
+                source_view_id=pin["source_view_id"],
             )
         )
         inspected = len(expected)
@@ -82,6 +86,10 @@ def verify_witnessed_links(report, source, pin, inputs, ordered_formula_witness=
     if len(link_ops) != 1 or link_ops[0]["operation_key"] != operation:
         raise ValueError("witnessed links lack the exact selected operation binding")
     (op,) = link_ops
+    if {canonical_bytes(value) for value in op.get("primary_layers", ())} != {
+        canonical_bytes(ref.values()) for ref in (primary_layers or {})
+    }:
+        raise ValueError("witnessed links require their exact exported primary closure")
     rows = {r["contribution_id"]: r for r in body["contributions"]}
     selected = [r for r in rows.values() if r["operation_key"] == operation]
     formula = [
@@ -231,6 +239,11 @@ def verify_witnessed_links(report, source, pin, inputs, ordered_formula_witness=
         if len(targets) != 1 or len(cues) != 1:
             raise ValueError("witnessed links lack the exact named target and recap")
         (target,), (cue,), (prior,) = targets, cues, antecedents
+        if (
+            source_python(target["value"]).get("primary_node") != link.declaration_node
+            or source_python(cue["value"]).get("primary_node") != link.primary_node
+        ):
+            raise ValueError("witnessed link source roles lose their exact primary references")
         endpoints = [
             {"role": "attachment", "contribution_id": use["contribution_id"]},
             {"role": "target", "contribution_id": target["contribution_id"]},
@@ -259,11 +272,9 @@ def verify_witnessed_links(report, source, pin, inputs, ordered_formula_witness=
                     ]
                 )
             )
+            and r["component"].get("primary_node") == link.primary_node
             and r["component"]["scope"] == link.scope
-            and (
-                body["operation_version"] not in {"9", "10", "11", "12"}
-                or r["component"].get("effective_version") == link.effective_version
-            )
+            and (r["component"].get("effective_version") == link.effective_version)
             and {cue["contribution_id"], prior["contribution_id"]}
             <= set(r["computation_dependencies"])
         ]
@@ -281,36 +292,8 @@ def verify_witnessed_links(report, source, pin, inputs, ordered_formula_witness=
         raise ValueError("witnessed link outcome differs from exact selected source")
 
 
-def verify_named_links(report, source, pin, inputs):
-    body = report["body"]
-    context, text = source["context"], source["text"]
-    pieces = context["pieces"]
-    passages = ()
-    if inputs is not None:
-        (ref,) = [r for r in inputs.sources if r.source_view_id == source["source_view_id"]]
-        passages = tuple(p for p in inputs.passages if p.source_ref == ref.identity)
-    expected = tuple(
-        named_source_links(
-            text,
-            pieces,
-            {i["self_ref"]: i for i in context["items"]},
-            passages,
-        )
-    )
-    operations = [o for o in body["contribution_operations"] if o["question"] == NAMED_QUESTION]
-    if not expected and not operations:
-        return
-    _verify_named_population(
-        body,
-        source,
-        pin,
-        passages,
-        operations,
-        expected,
-        version=VERSION,
-        inspected_count=len(expected),
-        outcome="limited" if any(link.right is None for link in expected) else "succeeded",
-    )
+def verify_named_links(report, source, pin, inputs, *, primary_layers=None):
+    return verify_annotated_named_links(report, source, {}, primary_layers=primary_layers)
 
 
 def _verify_named_population(
@@ -327,6 +310,8 @@ def _verify_named_population(
     annotation_origin_task_id=None,
     annotations=(),
 ):
+    if version != NAMED_PIECE_VERSION:
+        raise ValueError("named replay requires the current retained primary projection")
     text, pieces = source["text"], source["context"]["pieces"]
     key = operation_identity(
         NAMED_QUESTION,
@@ -352,16 +337,7 @@ def _verify_named_population(
     annotation_by_dependency = {
         "annotation:" + annotation.dependency_digest: annotation for annotation in annotations
     }
-    if version in NAMED_ANNOTATION_VERSIONS:
-        artifact_bindings = procedure_artifact_bindings(body["contributions"])
-    passage_starts = {passage.passage_id: passage.start for passage in passages}
-    native_starts = {
-        piece["item_ref"]: piece["start"]
-        for piece in pieces
-        if piece["kind"] == "native_text"
-        and piece.get("source_field", "text") == "text"
-        and "cell_index" not in piece
-    }
+    artifact_bindings = procedure_artifact_bindings(body["contributions"])
 
     def require(role, pointer, extent, passage, details, dependencies=None):
         (piece,) = [
@@ -408,16 +384,17 @@ def _verify_named_population(
         dependencies = None
         subject_dependencies = None
         artifacts = ()
-        if version in NAMED_ANNOTATION_VERSIONS:
-            versioned = details | {"named_cue": link.evidence()}
-            dependencies = [f"native:{pin['native_product_task_id']}", link.witness.annotation]
-            artifacts = (
-                artifact_bindings.get((link.pointer, *link.left), ())
-                if link.kind == "procedure_reference"
-                and link.resolution == "target_selection_required"
-                else ()
-            )
-            subject_dependencies = [*dependencies, *artifacts]
+        versioned = details | {
+            "named_cue": link.evidence(),
+            "primary_node": link.witness.primary_node,
+        }
+        dependencies = [f"native:{pin['native_product_task_id']}", link.witness.annotation]
+        artifacts = (
+            artifact_bindings.get((link.pointer, *link.left), ())
+            if link.kind == "procedure_reference" and link.resolution == "target_selection_required"
+            else ()
+        )
+        subject_dependencies = [*dependencies, *artifacts]
         subject = require(
             "named_link_subject",
             link.pointer,
@@ -430,22 +407,9 @@ def _verify_named_population(
             "named_link_cue", link.pointer, link.cue, link.passage, versioned, dependencies
         )
         if (
-            body.get("operation_version") in {"9", "10", "11", "12"}
-            and link.kind == "definition_reference"
+            link.kind == "definition_reference"
             and link.resolution == "target_selection_required"
-            and (
-                concept := (
-                    link.definition_subject
-                    if body["operation_version"] == "12"
-                    else named_definition_subject(
-                        text,
-                        max(native_starts[link.pointer], passage_starts[link.passage]),
-                        link.cue[0],
-                        version=version,
-                    )
-                )
-            )
-            is not None
+            and (concept := link.definition_subject) is not None
         ):
             assert dependencies is not None
             require(
@@ -453,12 +417,10 @@ def _verify_named_population(
                 link.pointer,
                 concept[0],
                 link.passage,
-                {**versioned, "definition_subject_kind": concept[1]}
-                if version in {NAMED_COVERAGE_VERSION, NAMED_PIECE_VERSION}
-                else versioned,
+                {**versioned, "definition_subject_kind": concept[1]},
                 [*dependencies, subject, cue],
             )
-        if body.get("operation_version") in {"9", "10", "11", "12"} and artifacts:
+        if artifacts:
             binding = procedure_artifact_endpoint(
                 rows, link, annotation_by_dependency[link.witness.annotation], artifacts[0]
             )
@@ -505,19 +467,15 @@ def _verify_named_population(
             and r["kind"] == "relation"
             and r.get("component", {}).get("attachment_kind") == link.kind
             and r["component"]["scope"] == link.scope
-            and (
-                version not in NAMED_ANNOTATION_VERSIONS
-                or (
-                    r["component"]["question_version"] == version
-                    and r["component"].get("effective_version") == link.witness.effective_version
-                )
-            )
+            and r["component"]["question_version"] == version
+            and r["component"].get("effective_version") == link.witness.effective_version
+            and r["component"].get("primary_node") == link.witness.primary_node
             and cue in r["computation_dependencies"]
         ]
         if len(matches) != 1:
             raise ValueError("named link differs from its exact cue or direction")
         (matched,) = matches
-        if version in NAMED_ANNOTATION_VERSIONS and matched["computation_dependencies"] != [
+        if matched["computation_dependencies"] != [
             subject,
             target,
             f"native:{pin['native_product_task_id']}",
@@ -550,10 +508,14 @@ def archived_named_link_native_pieces(contract):
     return policy
 
 
-def verify_annotated_named_links(report, source, producers, *, native_piece_policy=None):
-    from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
+def verify_annotated_named_links(
+    report, source, producers, *, native_piece_policy=None, primary_layers=None
+):
+    """Verify current source-role projections from exported primary closure, without NLP."""
+    from corpus_structure.ingest.annotations import AnnotationProfile
     from corpus_structure.ingest.sentences import SentenceConfig
-    from corpus_structure.methods.witnessed_source_links import match_named_source_links
+    from corpus_structure.methods.native_evidence_layers import retained_annotation_products
+    from corpus_structure.methods.scoped_relations import SCOPED_VERSION
     from corpus_structure.semantic.proposals import native_source_frame
     from corpus_structure.semantic.source_contexts import NativeSourcePin, record_source_pin
     from corpus_structure.semantic.structural_products import StructuralInput
@@ -561,68 +523,69 @@ def verify_annotated_named_links(report, source, producers, *, native_piece_poli
     from .review_bundle import _retained_review_source_view
 
     body, cfg = report["body"], report["configuration"]
+    if body["operation_version"] != SCOPED_VERSION or body["configuration_hash"] != config_key(
+        "structure.scoped_relations", SCOPED_VERSION, cfg
+    ):
+        raise ValueError("named links require their current exact retained configuration")
     if cfg.get("inputs") is None:
         return
-    if body["operation_version"] not in {"7", "8", "9", "10", "11", "12"} or body[
-        "configuration_hash"
-    ] != config_key("structure.scoped_relations", body["operation_version"], cfg):
-        raise ValueError("named links differ from their retained configuration")
     inputs = StructuralInput.model_validate(cfg["inputs"])
     view = _retained_review_source_view(source)
     (ref,) = [r for r in inputs.sources if r.source_view_id == view.ref.id]
     passages = tuple(p for p in inputs.passages if p.source_ref == ref.identity)
     operations = [op for op in body["contribution_operations"] if op["question"] == NAMED_QUESTION]
+    if len(operations) != 1:
+        raise ValueError("named links lack their exact selected operation")
     (operation,) = operations
-    if body["operation_version"] == "12":
-        if native_piece_policy is None:
-            raise ValueError("joined named links require an archived native-piece policy")
-        version = NAMED_PIECE_VERSION
-        policy = {"native_piece_policy": native_piece_policy}
-    else:
-        version = (
-            NAMED_COVERAGE_VERSION if body["operation_version"] in {"10", "11"} else NAMED_VERSION
-        )
-        policy = {}
-    origin_id = operation.get("annotation_origin_task_id")
+    selected = [pin.values() for pin in (primary_layers or {})]
+    if (
+        not selected
+        or any(pin not in cfg.get("characterization_layers", ()) for pin in selected)
+        or {canonical_bytes(pin) for pin in operation.get("primary_layers", ())}
+        != {canonical_bytes(pin) for pin in selected}
+    ):
+        raise ValueError("named link replay requires the exact exported frozen primary closure")
     frame = native_source_frame(view, ())
-    if origin_id is None:
-        annotations, errors = (), ("retained annotation origin unavailable",)
-    else:
+    origin_id = operation.get("annotation_origin_task_id")
+    if origin_id is not None:
         origin = producers[origin_id]
         original = origin["body"] or {}
         if (
             origin["method"] != "extract.m1_annotations"
-            or origin["origin_unit_id"] != ref.source_view_id
-            or origin["project_id"] != ref.project_id
-            or original.get("release_id") != ref.release_id
+            or original.get("operation_version") != "3"
             or original.get("source") != frame.unit_ref
-            or original.get("operation_version") != "2"
             or original.get("input_hash") != origin.get("input_hash")
             or original.get("configuration_hash") != origin.get("config_hash")
         ):
-            raise ValueError("named links lack their exact retained annotation producer")
+            raise ValueError("named links lack their exact retained M1 summary")
         detail = source_python(original["parse_detail"])
         if detail.get("recipe") != "m1-owned-linguistic-product-1" or canonical_bytes(
             detail.get("source_pin")
         ) != canonical_bytes(asdict(NativeSourcePin.from_source(frame))):
-            raise ValueError("named link annotation pin differs from its retained source")
-        annotations = restore_annotations(
-            detail["annotations"],
-            source=frame,
-            profile=AnnotationProfile(SentenceConfig.model_validate(cfg.get("sentences", {}))),
-        )
-        errors = tuple(detail.get("annotation_errors", ()))
-        if original.get("outcome") == "failed" and not errors:
-            errors = ("original annotation operation failed",)
+            raise ValueError("named link summary differs from retained native source")
+    annotations = []
+    for pin, layer in (primary_layers or {}).items():
+        for run in layer.payload.get("native_runs", ()):
+            if run["provider"] == "spacy":
+                profile = AnnotationProfile(
+                    SentenceConfig(
+                        spacy_version=run["runtime_version"],
+                        model=run["model"],
+                        model_version=run["model_version"],
+                        exclude=("ner",),
+                    )
+                )
+                annotations.extend(retained_annotation_products({pin: layer}, view, profile))
     expected = match_named_source_links(
         view.text,
         view.pieces,
         {item["self_ref"]: item for item in view.items},
         passages,
         annotations,
-        annotation_errors=errors,
-        version=version,
-        **policy,
+        version=NAMED_PIECE_VERSION,
+        primary_layers=primary_layers,
+        projection=view.ref.projection_digest,
+        source_view_id=view.ref.id,
     )
     _verify_named_population(
         body,
@@ -631,68 +594,9 @@ def verify_annotated_named_links(report, source, producers, *, native_piece_poli
         passages,
         operations,
         expected.matches,
-        version=version,
+        version=NAMED_PIECE_VERSION,
         inspected_count=expected.inspected_count,
         outcome=expected.outcome(),
         annotation_origin_task_id=origin_id,
         annotations=annotations,
     )
-    _verify_inheritance(
-        body,
-        record_source_pin(frame),
-        passages,
-        annotation_available=bool(annotations),
-        annotation_errors=bool(errors),
-    )
-
-
-def _verify_inheritance(body, pin, passages, *, annotation_available, annotation_errors):
-    from corpus_structure.methods.witnessed_source_links import (
-        INHERITANCE_QUESTION,
-        qualified_inheritance,
-    )
-
-    (op,) = [op for op in body["contribution_operations"] if op["question"] == INHERITANCE_QUESTION]
-    key = operation_identity(
-        INHERITANCE_QUESTION,
-        "1",
-        pin,
-        tuple((p.passage_id, p.start, p.end, p.effective_version) for p in passages),
-    )
-    rows = [row for row in body["contributions"] if row["operation_key"] == key]
-    inspected, inherited = qualified_inheritance(body["contributions"])
-    if annotation_errors:
-        outcome = "limited" if inherited else "unsupported"
-    elif annotation_available:
-        outcome = "succeeded" if inherited else "empty"
-    else:
-        outcome = "unsupported"
-    if (
-        op["operation_key"] != key
-        or op["operation_version"] != "1"
-        or op["inspected_count"] != inspected
-        or op["emitted_count"] != len(rows)
-        or len(rows) != len(inherited)
-        or op["outcome"] != outcome
-    ):
-        raise ValueError("scope inheritance differs from the admitted qualifier population")
-    actual = set()
-    for cue, host, qualifier in inherited:
-        component = qualifier["component"]
-        (edge,) = [
-            row
-            for row in rows
-            if row["kind"] == "relation"
-            and row["component"]["attachment_kind"] == "scope_inheritance"
-            and row["component"]["scope"] == component["scope"]
-            and row["component"].get("effective_version") == component.get("effective_version")
-            and row["endpoints"]
-            == [
-                {"role": "attachment", "contribution_id": cue["contribution_id"]},
-                {"role": "target", "contribution_id": host["contribution_id"]},
-            ]
-            and qualifier["contribution_id"] in row["computation_dependencies"]
-        ]
-        actual.add(edge["contribution_id"])
-    if actual != {row["contribution_id"] for row in rows}:
-        raise ValueError("scope inheritance has an unsupported direction or host")

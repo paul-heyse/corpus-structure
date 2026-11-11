@@ -272,6 +272,13 @@ def test_m1_registry_has_no_agent_or_general_llm_route():
     root = Path(__file__).resolve().parents[4]
     methods = registry(root / "domains/statistics")
     assert {method.name for method in methods.methods()} == {
+        "text.compose_view",
+        "text.native_evidence",
+        "text.formal_evidence",
+        "text.constructions",
+        "text.contextual_characterization",
+        "text.model_characterization",
+        "text.evaluate_context",
         "ingest.pdf_integrated",
         "extract.m1_annotations",
         "extract.m1_candidates",

@@ -107,6 +107,9 @@ def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
         dependencies, fixture_execution_inputs("pdf.consumer-fixture")
     )
     profile = PreparationProfile(version="semantic-2")
+    from corpus_structure.semantic.characterization import characterization_inputs
+
+    bundle = characterization_inputs(bundle)
     prepared = prepare_release(bundle, dependencies, profile)
     with admin.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, prepared)
@@ -344,6 +347,17 @@ def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
             prepared=prepared,
             observations=[],
             outcome="empty",
+        )
+        from corpus_structure.semantic.source_views import selected_source_views
+
+        from .primary_native_support import bind_primary_agent_run
+
+        run, configuration = bind_primary_agent_run(
+            conn,
+            run,
+            prepared,
+            tuple(v.id for v in selected_source_views(conn, run)),
+            configuration,
         )
         from corpus_structure.ingest.methods import SegmentSentences
         from corpus_structure.methods.llm.agent_opus import AgentOpus

@@ -439,52 +439,67 @@ def _verify_sources(root, manifest, selection, view, content):
             *(json.loads(content(layer["path"])) for layer in manifest["layers"]),
         ]
         for body in bodies:
-            selected_sources = [
-                by_id[identity] for identity in body["source_scope"]["source_view_ids"]
-            ]
-            selectors = list(body["source_scope"]["selectors"])
-            for coverage in body.get("coverage", ()):
-                for field in ("eligible", "examined", "unexamined"):
-                    selectors.extend(coverage.get(field, ()))
-            for selector in selectors:
-                _validate_captured_selector(selector, selected_sources)
-        for layer in manifest["layers"]:
-            body = json.loads(content(layer["path"]))
-            by_id = {s["source_view_id"]: s for s in sources}
-            for occurrence in body.get("occurrences", ()):
-                for extent in occurrence["extents"]:
-                    source = by_id[extent["source_view_id"]]
-                    native = {item["self_ref"]: item for item in source["context"]["items"]}
-                    pointer = extent.get("native_pointer")
-                    if pointer not in native:
-                        raise ValueError(
-                            "annotation native pointer differs from retained source selection"
-                        )
-                    if "page" in extent and extent["page"] not in {
-                        region["page_no"] for region in native[pointer].get("prov", ())
-                    }:
-                        raise ValueError("annotation page differs from authenticated native region")
-                    if (
-                        not extent["synthetic"]
-                        and "start" in extent
-                        and not any(
-                            piece.get("kind") == "native_text"
-                            and piece.get("item_ref") == pointer
-                            and piece["start"] <= extent["start"] < extent["end"] <= piece["end"]
-                            for piece in source["context"]["pieces"]
-                        )
-                    ):
-                        raise ValueError(
-                            "annotation extent differs from authenticated native source piece"
-                        )
-                    if "end" in extent and extent["end"] > len(source["text"]):
-                        raise ValueError("annotation extent exceeds retained source")
-                    if (
-                        "text" in extent
-                        and not extent["synthetic"]
-                        and source["text"][extent["start"] : extent["end"]] != extent["text"]
-                    ):
-                        raise ValueError("annotation literal differs from retained source")
+            validate_captured_layer_sources(body, by_id)
+
+
+def validate_captured_layer_sources(body, by_id):
+    """Authenticate every source selector and literal occurrence against captured pieces."""
+    selected_sources = [by_id[identity] for identity in body["source_scope"]["source_view_ids"]]
+    for pin in body["source_scope"]["source_views"]:
+        source = by_id[pin["source_view_id"]]
+        ref = source["ref"]
+        expected = dict(
+            source_view_id=source["source_view_id"],
+            key=ref["key"],
+            base_document=ref["native_product"],
+            section_pointer=ref["section_pointer"],
+            membership=ref["membership"],
+            projection_digest=ref["projection_digest"],
+            recipe_digest=ref["recipe_digest"],
+        )
+        if pin != expected:
+            raise ValueError("characterization source differs from exact captured view pin")
+    selectors = list(body["source_scope"]["selectors"])
+    for coverage in body.get("coverage", ()):
+        for field in ("eligible", "examined", "unexamined"):
+            selectors.extend(coverage.get(field, ()))
+    for name in ("annotations", "memberships", "roles", "terms"):
+        for node in body.get(name, ()):
+            for context in (node.get("context", {}),):
+                for field in ("focal", "examined", "gaps"):
+                    selectors.extend(context.get(field, ()))
+    for selector in selectors:
+        _validate_captured_selector(selector, selected_sources)
+    for occurrence in body.get("occurrences", ()):
+        for extent in occurrence["extents"]:
+            source = by_id[extent["source_view_id"]]
+            native = {item["self_ref"]: item for item in source["context"]["items"]}
+            pointer = extent.get("native_pointer")
+            if pointer not in native:
+                raise ValueError("annotation native pointer differs from retained source selection")
+            if "page" in extent and extent["page"] not in {
+                region["page_no"] for region in native[pointer].get("prov", ())
+            }:
+                raise ValueError("annotation page differs from authenticated native region")
+            if (
+                not extent["synthetic"]
+                and "start" in extent
+                and not any(
+                    piece.get("kind") == "native_text"
+                    and piece.get("item_ref") == pointer
+                    and piece["start"] <= extent["start"] < extent["end"] <= piece["end"]
+                    for piece in source["context"]["pieces"]
+                )
+            ):
+                raise ValueError("annotation extent differs from authenticated native source piece")
+            if "end" in extent and extent["end"] > len(source["text"]):
+                raise ValueError("annotation extent exceeds retained source")
+            if (
+                "text" in extent
+                and not extent["synthetic"]
+                and source["text"][extent["start"] : extent["end"]] != extent["text"]
+            ):
+                raise ValueError("annotation literal differs from retained source")
 
 
 def _verify_full_native(product, proof, native_schema):
@@ -854,9 +869,13 @@ def _validate_captured_selector(selector, sources):
     matches = [
         source for source in sources if source["ref"]["projection_digest"] == selector["projection"]
     ]
-    if len(matches) != 1:
+    if not matches:
         raise ValueError("selector cannot resolve exact authenticated source projection")
-    source = matches[0]
+    for source in matches:
+        _validate_captured_selector_source(selector, source)
+
+
+def _validate_captured_selector_source(selector, source):
     pointer = selector.get("native_pointer")
     items = {item["self_ref"]: item for item in source["context"]["items"]}
     if ("start" in selector) != ("end" in selector) or (

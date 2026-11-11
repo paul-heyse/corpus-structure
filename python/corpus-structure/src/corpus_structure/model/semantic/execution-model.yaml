@@ -5714,6 +5714,60 @@ operations:
   - id: extract.math/observation.outcome
     field: observations.outcome
     outcome_domain: observation_outcome
+  - id: text.native_evidence/family
+    field: family
+    outcome_domain: method_family_extract
+  - id: text.native_evidence/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: text.native_evidence/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: text.formal_evidence/family
+    field: family
+    outcome_domain: method_family_normalize
+  - id: text.formal_evidence/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: text.formal_evidence/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: text.constructions/family
+    field: family
+    outcome_domain: method_family_extract
+  - id: text.constructions/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: text.constructions/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: text.contextual_characterization/family
+    field: family
+    outcome_domain: method_family_extract
+  - id: text.contextual_characterization/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: text.contextual_characterization/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: text.model_characterization/family
+    field: family
+    outcome_domain: method_family_extract
+  - id: text.model_characterization/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: text.model_characterization/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: text.evaluate_context/family
+    field: family
+    outcome_domain: method_family_extract
+  - id: text.evaluate_context/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: text.evaluate_context/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
   - id: text.compose_view/family
     field: family
     outcome_domain: method_family_normalize
@@ -10923,6 +10977,10 @@ operations:
       source: primitive:json_payload
       nullable: true
       native_parameter: p_view
+    - name: cost
+      source: primitive:json_payload
+      nullable: true
+      native_parameter: p_cost
     result_mode: scalar
     result_fields:
     - name: result
@@ -11048,6 +11106,87 @@ operations:
       source: primitive:json_payload
       nullable: true
       native_parameter: p_after
+    - name: limit
+      source: primitive:integer
+      nullable: false
+      native_parameter: p_limit
+    - name: max_bytes
+      source: primitive:integer
+      nullable: false
+      native_parameter: p_max_bytes
+    result_mode: scalar
+    result_fields:
+    - name: result
+      source: primitive:json_payload
+      nullable: false
+    cardinality: one
+    ordered: false
+  - id: read_primary_characterization
+    symbol: ops.read_primary_characterization
+    parameters:
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: p_run
+    - name: source_view_id
+      source: physical:kb.source_view.id
+      nullable: false
+      native_parameter: p_view
+    - name: references
+      source: primitive:json_payload
+      nullable: false
+      native_parameter: p_refs
+    - name: max_bytes
+      source: primitive:integer
+      nullable: false
+      native_parameter: p_max_bytes
+    result_mode: scalar
+    result_fields:
+    - name: result
+      source: primitive:json_payload
+      nullable: false
+    cardinality: one
+    ordered: false
+- id: read_characterization_inventory
+  inputs:
+  - TaskInvocation
+  results:
+  - AnnotationLayer
+  - EnrichedDocumentView
+  applicability: []
+  universe: Exact run task population and original reused characterization product
+    pins; bounded keyset inventory
+  effects: []
+  outcomes:
+  - applied
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact original product pins with producer/configuration and source scope
+    identities
+  transitions: []
+  projections: []
+  implementation: read_characterization_inventory
+  calls:
+  - id: read_characterization_inventory
+    symbol: ops.read_characterization_inventory
+    parameters:
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: p_run
+    - name: after_task
+      source: physical:ops.task.id
+      nullable: true
+      native_parameter: p_after_task
+    - name: after_key
+      source: primitive:string
+      nullable: true
+      native_parameter: p_after_key
     - name: limit
       source: primitive:integer
       nullable: false
@@ -12533,6 +12672,21 @@ implementations:
   input_concepts:
   - AnnotationLayer
   - EnrichedDocumentView
+  result_concepts:
+  - AnnotationLayer
+  - EnrichedDocumentView
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: []
+  required_capabilities: []
+- id: read_characterization_inventory
+  owner: semantic.characterization_store
+  symbol: read_inventory
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
   result_concepts:
   - AnnotationLayer
   - EnrichedDocumentView

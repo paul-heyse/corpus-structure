@@ -659,7 +659,8 @@ BEGIN
   RAISE EXCEPTION 'record publication lacks released candidate projection and decision contract' USING ERRCODE='23514'; END IF;
  FOR report IN SELECT DISTINCT t.id,res.body FROM ops.cut_task c
   JOIN ops.task selected ON selected.id=c.task_id JOIN ops.task t ON t.id=c.origin_task_id
-  JOIN ops.task_result res ON res.task_id=t.id WHERE c.cut_id=p_cut AND selected.status IN ('done','empty','reused') LOOP
+  JOIN ops.task_result res ON res.task_id=t.id WHERE c.cut_id=p_cut AND selected.status IN ('done','empty','reused')
+  AND NOT EXISTS(SELECT FROM ops.characterization_product primary_product WHERE primary_product.task_id=t.id) LOOP
   IF jsonb_typeof(report.body) IS DISTINCT FROM 'object' THEN
    RAISE EXCEPTION 'record source report envelope is not an object' USING ERRCODE='23514'; END IF;
   IF report.body ? 'records' THEN
@@ -675,7 +676,8 @@ BEGIN
   JOIN ops.task t ON t.id=c.origin_task_id LEFT JOIN ops.task_result res ON res.task_id=t.id
   WHERE c.cut_id=p_cut AND selected.run_id=job.id AND selected.release_id=r AND t.release_id=r
    AND selected.status IN ('done','empty','reused') AND
-   c.origin_task_id=COALESCE(selected.reused_task_id,selected.id)),
+   c.origin_task_id=COALESCE(selected.reused_task_id,selected.id)
+   AND NOT EXISTS(SELECT FROM ops.characterization_product primary_product WHERE primary_product.task_id=t.id)),
  records AS MATERIALIZED(SELECT DISTINCT rec FROM reports CROSS JOIN LATERAL
   jsonb_array_elements(COALESCE(body->'records','[]')) rec),
  fields AS MATERIALIZED(SELECT rec,field FROM records CROSS JOIN LATERAL jsonb_array_elements(rec->'fields') field),

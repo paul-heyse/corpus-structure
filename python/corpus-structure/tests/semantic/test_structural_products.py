@@ -173,10 +173,32 @@ def test_dossier_keeps_all_members_and_mandatory_representatives():
 def test_automatic_comparison_run_and_released_report_roundtrip():
     from corpus_structure.core.method import UnitRef
     from corpus_structure.core.vocab import TaskUnitType
+    from corpus_structure.semantic.characterization import select_primary_layers
     from corpus_structure.semantic.retained_contributions import RetainedContributionRef
     from corpus_structure.semantic.structural_products import StructuralProductReport
 
+    from .primary_formal_fixture import formal_layers
+
     value = inputs()
+    primary = formal_layers(value)
+    views = {}
+    for source in value.sources:
+        passages = sorted(
+            (p for p in value.passages if p.source_ref == source.identity), key=lambda p: p.start
+        )
+        text = [" "] * max(p.end for p in passages)
+        for passage in passages:
+            text[passage.start : passage.end] = passage.text
+        views[source.source_view_id] = SimpleNamespace(
+            ref=SimpleNamespace(
+                id=source.source_view_id, projection_digest=source.projection_digest
+            ),
+            text="".join(text),
+            pieces=tuple(
+                dict(kind="native_text", item_ref=f"#/texts/{number}", start=p.start, end=p.end)
+                for number, p in enumerate(passages)
+            ),
+        )
     references = []
     retained = {}
     for passage, source, digit in zip(value.passages, value.sources, "ab", strict=True):
@@ -208,7 +230,7 @@ def test_automatic_comparison_run_and_released_report_roundtrip():
                     pin=pin,
                     component=dict(
                         kind="predicate_reading",
-                        question_version="4",
+                        question_version="6",
                         frame="frame",
                         scope=passage.passage_id,
                     ),
@@ -235,6 +257,7 @@ def test_automatic_comparison_run_and_released_report_roundtrip():
     cfg = StructuralComparisonConfig(
         inputs=value,
         structural_input_digest=value.identity,
+        characterization_layers=tuple(pin.values() for pin in primary),
         left_id="a",
         right_id="b",
         left_reading=references[0],
@@ -242,19 +265,29 @@ def test_automatic_comparison_run_and_released_report_roundtrip():
     )
     method = StructuralComparisonMethod()
     assert method.select(None, cfg)[0].unit_key == value.identity
+
+    def validate_inputs(actual):
+        assert actual == value
+
     result = method.run(
         (SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key="run")),),
         cfg,
         SimpleNamespace(
             check_active=lambda: None,
             reader=SimpleNamespace(
-                retained_source_contribution=lambda r: retained[r.contribution_id]
+                retained_source_contribution=lambda r: retained[r.contribution_id],
+                validate_structural_inputs=validate_inputs,
+                primary_characterization=lambda source_view_id, **selection: select_primary_layers(
+                    primary, views[source_view_id], **selection
+                ),
             ),
         ),
     )[0]
     assert result.structural_product is not None
     assert result.structural_product["kind"] == "qualified_comparison"
     report = StructuralProductReport.model_validate(result.structural_product)
+    assert StructuralProductReport.model_validate_json(report.model_dump_json()) == report
+    assert method.version == "6"
     assert report.comparison is not None
     action = report.comparison.dimensions[1]
     assert action.outcome == "different_lexical_value"

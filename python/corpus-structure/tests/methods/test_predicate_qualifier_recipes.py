@@ -6,7 +6,6 @@ from spacy.lang.en import English
 from corpus_structure.ingest.annotation_views import annotation_view
 from corpus_structure.ingest.annotations import AnnotationProfile
 from corpus_structure.methods.predicate_frames import predicate_frame_result
-from corpus_structure.methods.predicate_qualifier_recipes import local_qualifier_result
 
 from .test_predicate_frames import retained, strings
 
@@ -31,7 +30,7 @@ def _analyze(text, kind):
         product, source[product.block_start : product.block_end], English().vocab
     )
     base = predicate_frame_result(view)
-    return source, view, base, local_qualifier_result(view, base)
+    return source, view, base, base
 
 
 @pytest.mark.parametrize(

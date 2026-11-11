@@ -136,6 +136,14 @@ def _load_hanlp(
         raise RuntimeError("HanLP loaded device or dtype differs from the profile")
     eos_token = importlib.import_module("hanlp_common.constant").EOS
     native_transform = model.config.transform
+    # Freeze executed defaults before installing the local sentinel repair callable.
+    native_configuration = json.dumps(
+        model._savable_config,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
 
     def restore_native_eos(sample: Payload) -> Payload:
         original_tokens = sample["token"]
@@ -173,6 +181,16 @@ def _load_hanlp(
                 "limit": limit,
                 "row_tokens": lengths,
             }
+        if request.get("prepare_only") is True:
+            # Exposes actual native subword population without inference. The caller
+            # can make smaller outer batches without silently cutting a sentence.
+            return {
+                "outcome": "prepared",
+                "preparation": preparation,
+                "row_tokens": lengths,
+                "limit": limit,
+                "max_padded_subwords": _MAX_PADDED_SUBWORDS,
+            }
         if len(lengths) * max(lengths) > _MAX_PADDED_SUBWORDS:
             return {
                 "outcome": "limited",
@@ -191,6 +209,12 @@ def _load_hanlp(
 
     config = model.model_.encoder.transformer.config
     return {
+        "native_configuration": native_configuration,
+        "srl_max_arg_width": int(
+            model.tasks[
+                next(name for name in heads if name.split("/")[0] == "srl")
+            ].config.max_arg_width
+        ),
         "dtype": str(parameter.dtype),
         "device": str(parameter.device),
         "attention_implementation": config._attn_implementation,

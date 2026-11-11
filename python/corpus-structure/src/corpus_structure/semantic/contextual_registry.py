@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from corpus_structure.methods.contextual_embeddings import identity
+from corpus_structure.semantic.characterization import AnnotationReference
 from corpus_structure.semantic.contextual_retrieval import target_representation
 from corpus_structure.semantic.structural_products import ExternalSourceRef, RetainedComponentRef
 
@@ -95,6 +96,9 @@ class SectionHeadingTarget(BaseModel):
     scope: str = Field(min_length=1)
     effective_version: str | None = None
     citations: tuple[ExternalSourceRef, ...] = Field(min_length=1)
+    primary_witnesses: tuple[AnnotationReference, ...] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
 
     @model_validator(mode="after")
     def physical_identity(self):

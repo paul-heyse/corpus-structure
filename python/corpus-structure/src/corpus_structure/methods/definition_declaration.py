@@ -7,21 +7,18 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
+from itertools import pairwise
 from typing import Any, Self
 
-from pydantic import Field, TypeAdapter, model_validator
+from pydantic import Field, model_validator
 
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
-from corpus_structure.ingest.sentences import TextToken
-from corpus_structure.semantic.contributions import contribution_identity
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.observations import source_python
-from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
     NativeSourceContext,
-    PreparedNativeSources,
+    NativeSpanEvidence,
     SourceSlice,
     evidence_anchor,
     record_source_pin,
@@ -31,48 +28,34 @@ from corpus_structure.semantic.structural_products import (
     DeclarationChainWitness,
     DefinitionComponentsProduct,
     DefinitionStage,
-    ExternalSourceRef,
     LocatedDefinitionSpan,
     StructuralInput,
-    StructuralPassage,
     StructuralProductReport,
     StructuralValue,
     definition_component,
 )
 
-from .pm2_hanlp_products import _dependency_graph, _Frame, _head, hanlp_products
-from .pm2_products import PARSER_QUESTIONS, ParserProducts, parser_value_for_contract
-from .pm2_source import (
-    HANLP_SEAM_LAYOUT,
-    HanlpLayoutDecision,
-    MappedSource,
-    PM2SourceMap,
-    PM2TokenMap,
-    ProviderToken,
-    SourceMapSegment,
-    hanlp_seam_layout,
-)
+from .pm2_hanlp_products import _dependency_graph, _Frame
+from .pm2_source import MappedSource
 
-CHAIN_VERSION = "definition-declaration-chain-1"
+CHAIN_VERSION = "definition-declaration-chain-2"
 CHAIN_METHOD = "structure.definition_declaration_components"
 _LABEL_NUMBER = re.compile(r"[0-9]+(?:\.[0-9]+)*")
 _SCOPE_MARKERS = frozenset(
     {"if", "unless", "although", "except", "not", "never", "reportedly", "allegedly"}
 )
 _QUOTES = frozenset({'"', "\u201c", "\u201d", "\u2018", "\u2019", "``", "''"})
-_LAYOUT = TypeAdapter(HanlpLayoutDecision)
-_TOKENS = TypeAdapter(tuple[ProviderToken, ...])
 
 
 class DeclarationChainSelection(StructuralValue):
     passage_id: str = Field(min_length=1)
-    parser: RetainedContributionRef
 
 
 class DeclarationComponentsConfig(StructuralValue):
     inputs: StructuralInput | None = None
     structural_input_digest: str | None = None
     selections: tuple[DeclarationChainSelection, ...] = Field(default=(), max_length=64)
+    characterization_layers: tuple[dict, ...] = ()
 
     @model_validator(mode="after")
     def selected_input(self) -> Self:
@@ -83,15 +66,12 @@ class DeclarationComponentsConfig(StructuralValue):
         selected = {item.passage_id for item in self.selections}
         if (
             self.structural_input_digest != self.inputs.identity
+            or not self.characterization_layers
             or not selected
             or len(selected) != len(self.selections)
             or not selected <= {passage.passage_id for passage in self.inputs.passages}
-            or any(
-                item.parser.contribution_id not in self.inputs.dependencies
-                for item in self.selections
-            )
         ):
-            raise ValueError("declaration extraction requires exact retained parser inputs")
+            raise ValueError("declaration extraction requires exact frozen primary layer inputs")
         return self
 
 
@@ -99,7 +79,7 @@ class DeclarationComponentsMethod:
     """A distinct declaration-only method; no change to the incumbent v9 ABI."""
 
     name = CHAIN_METHOD
-    version = "1"
+    version = "2"
     family = MethodFamily.RESOLVE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.DETERMINISTIC
@@ -130,22 +110,21 @@ class DeclarationComponentsMethod:
         found = []
         for item in cfg.selections:
             ctx.check_active()
-            if item.parser.release_id != ctx.reader.prepared.release_id:
-                raise ValueError("declaration parser must belong to the selected private release")
             passage = passages[item.passage_id]
-            body = ctx.reader.retained_declaration_parser(item.parser)
-            frame = ctx.reader.structural_source_frame(cfg.inputs, passage.source_ref)
-            found.append(
-                replay_declaration_chain(
-                    body,
-                    body["parse_detail"],
-                    frame,
-                    refs[passage.source_ref],
-                    passage,
-                    item.parser,
-                    configuration=body["configuration"],
-                )
+            source_ref = refs[passage.source_ref]
+            view = ctx.reader.source_view(source_ref.source_view_id)
+            layers = ctx.reader.primary_characterization(
+                source_ref.source_view_id,
+                families=(
+                    "hanlp.tokens",
+                    "hanlp.lemma",
+                    "hanlp.pos",
+                    "hanlp.dependency",
+                    "hanlp.srl",
+                    "construction.source_readings",
+                ),
             )
+            found.append(primary_declaration_component(layers, view, passage))
         report = StructuralProductReport(
             kind="definition_components",
             inputs=cfg.inputs,
@@ -186,12 +165,6 @@ def _require(value):
         )
 
 
-def _absolute(token: ProviderToken, base: int) -> tuple[int, int]:
-    if token.start is None or token.end is None:
-        raise DeclarationNotQualified("native sentence includes unmapped tokens")
-    return base + token.start, base + token.end
-
-
 @dataclass(frozen=True)
 class DeclarationChain:
     label: LocatedDefinitionSpan
@@ -217,9 +190,14 @@ class _Sentence:
     positions: tuple[tuple[int, int], ...]
     frames: Mapping[int, _Frame]
     locations: Mapping[str, Any]
+    primary_keys: Mapping[int, str] | None = None
 
     def frame_key(self, predicate):
-        return f"s{self.number}/predicate/{predicate}"
+        return (
+            self.primary_keys[predicate]
+            if self.primary_keys is not None
+            else f"s{self.number}/predicate/{predicate}"
+        )
 
     def child(self, head, relation):
         found = [i for i in self.children[head] if self.relations[i] == relation]
@@ -303,60 +281,7 @@ class _Sentence:
         return copula, subject, copular_head, roles
 
 
-def _sentences(mapping, reply, base, parsed):
-    frames: dict[int, dict[int, _Frame]] = {}
-    for product in parsed.products:
-        if product.semantic_type == "linguistic.predicate_frame":
-            frame = _Frame.model_validate_json(json.dumps(product.value))
-            frames.setdefault(frame.sentence, {})[frame.predicate_token] = frame
-    native = reply["native"]
-    for number, (lemmas, tags, arcs) in enumerate(
-        zip(_head(native, "lem"), _head(native, "pos"), _head(native, "dep"), strict=True)
-    ):
-        tokens = mapping.sentence_tokens(number)
-        heads, relations, children = _dependency_graph(arcs, len(tokens))
-        yield _Sentence(
-            mapping.mapping.context,
-            number,
-            tuple(token.text for token in tokens),
-            tuple(lemma.strip().casefold() for lemma in lemmas),
-            tuple(tags),
-            heads,
-            relations,
-            children,
-            tuple(_absolute(token, base) for token in tokens),
-            frames.get(number, {}),
-            parsed.locations,
-        )
-
-
-def declaration_chain(
-    mapping: PM2TokenMap,
-    request: Mapping[str, Any],
-    reply: Mapping[str, Any],
-    passage: StructuralPassage,
-    *,
-    parsed: ParserProducts | None = None,
-) -> DeclarationChain:
-    """Withhold when a local introduction, parameter use, or naming role is ambiguous."""
-    if mapping.layout is None or mapping.layout.outcome == "ambiguous":
-        raise DeclarationNotQualified("declaration chain requires the released HanLP layout")
-    (scope,) = mapping.mapping.context.pieces
-    if not isinstance(scope, SourceSlice):
-        raise DeclarationNotQualified("declaration chain requires an exact source slice")
-    base = scope.start
-    _require(
-        base <= passage.start < passage.end <= scope.end
-        and mapping.mapping.context.primary.text[passage.start : passage.end] == passage.text
-    )
-    candidates = tuple(
-        sentence
-        for sentence in _sentences(
-            mapping, reply, base, parsed or hanlp_products(mapping, request, reply)
-        )
-        if sentence.positions[0][0] < passage.end
-        and passage.start < sentence.positions[-1][1] <= passage.end
-    )
+def _declaration_chain_from_sentences(candidates, passage):
     if len(candidates) != 3:
         raise DeclarationNotQualified("chain requires three consecutive complete local sentences")
     declarations, construction, naming = candidates
@@ -475,183 +400,282 @@ def declaration_chain(
     )
 
 
-def _verify_layout(mapping: PM2TokenMap, source, scope: SourceSlice):
-    """Recover the one declared canonical difference and replay its native seam."""
-    layout = mapping.layout
-    if layout is None or layout.outcome == "ambiguous":
-        raise DeclarationNotQualified("declaration chain lacks a unique source layout")
-    absolute = [_absolute(token, scope.start) for token in mapping.tokens]
-    atoms = {
-        (scope.start + start, scope.start + end) for start, end in mapping.mapping.protected_atoms
-    }
-    original = [
-        TextToken(a, b, source.text[b : b + 1] == " ", "math" if (a, b) in atoms else "prose")
-        for a, b in absolute
-    ]
-    if not mapping.tokens:
-        raise ValueError("declaration report has no native tokens")
-    bounds = []
-    for number in range(mapping.tokens[-1].sentence + 1):
-        tokens = mapping.sentence_tokens(number)
-        if not tokens:
-            raise ValueError("declaration report has an empty sentence")
-        bounds.append((_absolute(tokens[0], scope.start)[0], _absolute(tokens[-1], scope.start)[1]))
-    canonical = list(bounds)
-    if layout.repair is not None:
-        repair = layout.repair
-        a, b = repair.orphan_sentence
-        seam = repair.punctuation_start
-        pos = absolute.index((a, seam))
-        if absolute[pos + 1] != (seam, b) or {(a, seam), (seam, b)} & atoms:
-            raise ValueError("declaration report lacks its exact unprotected split")
-        original[pos : pos + 2] = [TextToken(a, b, original[pos + 1].space)]
-        sentence = canonical.index((repair.previous_sentence[0], b))
-        canonical[sentence : sentence + 1] = [repair.previous_sentence, repair.orphan_sentence]
-    pieces = json.loads(source.native_context)["pieces"]
-    effective, replayed, decision = hanlp_seam_layout(
-        source.text, (scope.start, scope.end), tuple(original), canonical, pieces
-    )
-    if (
-        decision != layout
-        or replayed != tuple(bounds)
-        or tuple((token.start, token.end) for token in effective) != tuple(absolute)
-    ):
-        raise ValueError("declaration report differs from exact native seam replay")
+def primary_declaration_component(layers, view, passage):
+    """Apply domain declaration checks to exact native roles and primary voice nodes."""
+    from corpus_structure.semantic.characterization import annotation_reference
+    from corpus_structure.semantic.constructions.retained_rules import PRIMARY_RULE_VOCABULARY
+    from corpus_structure.semantic.proposals import native_source_frame
 
-
-def replay_declaration_chain(
-    body: Mapping[str, Any],
-    detail: Mapping[str, Any],
-    source,
-    source_ref: ExternalSourceRef,
-    passage: StructuralPassage,
-    reference: RetainedContributionRef,
-    *,
-    configuration: Mapping[str, Any] | None = None,
-):
-    """Rebind the original retained operation to its source before replaying its roles."""
-    report = detail["pm2_native"]
-    (operation,) = body["contribution_operations"]
+    source = native_source_frame(view, ())
     if (
-        body["method"] != "extract.pm2_hanlp"
-        or body["operation_version"] != "2"
-        or body["release_id"] != reference.release_id
-        or reference.project_id != source_ref.project_id
-        or body["source"] != source.unit_ref
-        or body["input_hash"] != report["input_digest"]
-        or operation["question"] != PARSER_QUESTIONS["hanlp"]
-        or operation["operation_version"] != "2"
-        or operation["outcome"] != "succeeded"
-        or report["native"]["outcome"] != "succeeded"
-        or operation["report_digest"] != sha256(canonical_bytes(report)).hexdigest()
-        or source.source_view_id != source_ref.source_view_id
-        or source.native_product.task_id != source_ref.native_task_id
-        or source.native_product.product_key != source_ref.native_product_key
-        or source.native_product.content_digest != source_ref.native_content_digest
-        or source.projection_digest != source_ref.projection_digest
-        or source.recipe_digest != source_ref.recipe_digest
-        or source.version != source_ref.coordinate_version
+        not 0 <= passage.start < passage.end <= len(view.text)
+        or view.text[passage.start : passage.end] != passage.text
     ):
-        raise ValueError("declaration parser differs from its exact retained operation or source")
-    native_map = report["source_map"]
-    (scope,) = (SourceSlice(**row) for row in native_map["context_pieces"])
+        raise DeclarationNotQualified("declaration passage differs from exact source")
     context = NativeSourceContext(
         source,
         (),
-        (scope,),
-        "private parser",
-        "pm2-parser-scope-1",
-        "explicit selected source scope",
-        max_chars=65_536,
+        (SourceSlice(view.ref.id, passage.start, passage.end),),
+        "primary declaration roles",
+        "primary-declaration-roles-1",
+        "exact selected passage",
+        max_chars=len(passage.text),
         max_pieces=1024,
-        version=2,
-        preparation=PreparedNativeSources((source,)),
     )
-    (segment,) = (SourceMapSegment(**row) for row in native_map["segments"])
-    if (
-        segment != SourceMapSegment(0, len(context.text), 0)
-        or scope.source_view_id != source.source_view_id
-        or report["scope_digest"] != context.dependency_digest
-    ):
-        raise ValueError("declaration parser source map is not an exact native copy")
-    native = json.loads(source.native_context)
-    formula_items = {row["self_ref"] for row in native["items"] if row.get("label") == "formula"}
-    protected = tuple(
-        (piece["start"] - scope.start, piece["end"] - scope.start)
-        for piece in native["pieces"]
-        if piece.get("item_ref") in formula_items
-        and piece["start"] < scope.end
-        and scope.start < piece["end"]
-    )
-    if tuple(tuple(row) for row in native_map["protected_atoms"]) != protected:
-        raise ValueError("declaration parser protected tokens differ from retained source atoms")
-    mapping = PM2SourceMap(context, context.text, (segment,), protected)
-    if report["source_map_digest"] != mapping.input_digest:
-        raise ValueError("declaration parser source map digest differs")
-    tokens = _TOKENS.validate_python(native_map["tokens"])
-    effective = PM2TokenMap(mapping, tokens, _LAYOUT.validate_python(native_map["layout"]))
-    if effective.layout is None or effective.layout.outcome != "repaired":
-        raise DeclarationNotQualified("released declaration route requires an exact repaired seam")
-    _verify_layout(effective, source, scope)
-    if configuration is not None:
-        from .pm2_result import pm2_input_digest
+    evidence, voices, native_sentences = [], {}, []
+    for pin, report in layers.items():
+        if report.reference(pin.task_id) != pin or report.base_document != view.ref.native_product:
+            raise DeclarationNotQualified("declaration primary layer pin or base differs")
+        body = report.payload
+        occurrences = {row["local_id"]: row for row in body["occurrences"]}
 
-        startup = configuration.get("startup")
-        if (
-            configuration.get("layout_policy") != HANLP_SEAM_LAYOUT
-            or configuration.get("provider") != "hanlp"
-            or not isinstance(startup, Mapping)
-            or report["effective_profile_digest"] != sha256(canonical_bytes(startup)).hexdigest()
-            or body["input_hash"]
-            != pm2_input_digest(
-                effective,
-                startup,
-                report["request"],
-                question=PARSER_QUESTIONS["hanlp"],
-                operation_version="2",
+        def extents(node, *, occurrences=occurrences):
+            values = [
+                part for key in node.get("occurrences", ()) for part in occurrences[key]["extents"]
+            ]
+            if not values or any(
+                part.get("synthetic")
+                or part["source_view_id"] != view.ref.id
+                or part["projection"] != view.ref.projection_digest
+                or part.get("text") != view.text[part.get("start", -1) : part.get("end", -1)]
+                for part in values
+            ):
+                raise DeclarationNotQualified(
+                    "declaration native role has no exact selected source"
+                )
+            return tuple((part["start"], part["end"]) for part in values)
+
+        terms = {row["local_id"]: row for row in body["terms"]}
+        for term in terms.values():
+            if term["kind"] != "predicate" or term["vocabulary"] != PRIMARY_RULE_VOCABULARY:
+                continue
+            members = {
+                edge["role"]: terms[edge["target"]]
+                for edge in term.get("children", ())
+                if "target" in edge
+            }
+            if "predicate" not in members or "voice" not in members:
+                continue
+            spans = extents(members["predicate"])
+            if len(spans) == 1 and passage.start <= spans[0][0] < spans[0][1] <= passage.end:
+                coverage = next(
+                    (
+                        row
+                        for row in body["coverage"]
+                        if row["family"] == "construction.source_readings"
+                    ),
+                    None,
+                )
+                if (
+                    coverage is None
+                    or coverage["availability"] != "available"
+                    or coverage["outcome"] not in {"complete", "empty"}
+                    or coverage.get("unexamined")
+                ):
+                    raise DeclarationNotQualified(
+                        "declaration primary voice coverage is incomplete"
+                    )
+                voices.setdefault(spans[0], []).append(
+                    (members["voice"]["value"], annotation_reference(pin, term["local_id"]))
+                )
+        runs = {
+            row["local_id"] for row in body.get("native_runs", ()) if row["provider"] == "hanlp"
+        }
+        annotations = {row["local_id"]: row for row in body["annotations"]}
+        sentences = {}
+        for row in annotations.values():
+            token = row.get("native_token")
+            if token is not None and token["native_run"] in runs:
+                sentences.setdefault(token["sentence"], []).append(row)
+        for sentence, rows in sentences.items():
+            rows.sort(key=lambda row: row["native_token"]["index"])
+            spans = [extents(row) for row in rows]
+            if any(len(parts) != 1 for parts in spans):
+                raise DeclarationNotQualified("declaration native token is discontinuous")
+            positions = tuple(parts[0] for parts in spans)
+            if positions[0][0] >= passage.end or positions[-1][1] <= passage.start:
+                continue
+            if not passage.start <= positions[0][0] < positions[-1][1] <= passage.end:
+                raise DeclarationNotQualified("declaration passage cuts a native sentence")
+            if [row["native_token"]["index"] for row in rows] != list(range(len(rows))):
+                raise DeclarationNotQualified("declaration native token population is incomplete")
+            for family in (
+                "hanlp.tokens",
+                "hanlp.lemma",
+                "hanlp.pos",
+                "hanlp.dependency",
+                "hanlp.srl",
+            ):
+                coverage = next((row for row in body["coverage"] if row["family"] == family), None)
+                if (
+                    coverage is None
+                    or coverage["availability"] != "available"
+                    or coverage["outcome"] not in {"complete", "empty"}
+                    or coverage.get("unexamined")
+                    or not any(
+                        selector["projection"] == view.ref.projection_digest
+                        and selector.get("start", 0) <= positions[0][0]
+                        and selector.get("end", len(view.text)) >= positions[-1][1]
+                        for selector in coverage["examined"]
+                    )
+                ):
+                    raise DeclarationNotQualified("declaration native role coverage is incomplete")
+            native_sentences.append(
+                (positions[0][0], pin, body, annotations, sentence, rows, positions)
             )
+    native_sentences.sort(key=lambda row: row[0])
+    if len(native_sentences) != 3 or any(
+        left[0] == right[0] for left, right in pairwise(native_sentences)
+    ):
+        raise DeclarationNotQualified("declaration requires three unique exact native sentences")
+    sentences = []
+    for number, (_start, pin, body, annotations, _sentence, rows, positions) in enumerate(
+        native_sentences
+    ):
+        tokens = [row["native_token"] for row in rows]
+        if any(
+            not all(
+                key in token
+                for key in ("lemma", "tag", "dependency", "native_head", "head_index_base")
+            )
+            or token["head_index_base"] != 1
+            for token in tokens
         ):
-            raise ValueError("declaration parser input differs from its exact configured layout")
-    parsed = hanlp_products(effective, report["request"], report["native"])
-    chain = declaration_chain(
-        effective, report["request"], report["native"], passage, parsed=parsed
-    )
-    rows = {row["item_key"]: row for row in body["contributions"]}
-    products = {row.key: row for row in parsed.products}
-    if len(rows) != len(body["contributions"]):
-        raise ValueError("declaration parser repeats its original role keys")
-    pin = record_source_pin(source)
-    keys = (chain.naming_frame, chain.construction_frame, *(item.frame for item in chain.bindings))
-    for key in keys:
-        row = rows.get(key)
-        expected = products[key]
-        if (
-            row is None
-            or row["operation_key"] != operation["operation_key"]
-            or row["pin"] != pin
-            or row["contract"] != "PM2HanLPFrameContributionV1"
-            or row["semantic_type"] != "linguistic.predicate_frame"
-            or not row.get("members")
-            or contribution_identity(row) != row["contribution_id"]
-            or tuple(row.get("computation_dependencies", ())) != (body["input_hash"],)
-            or canonical_bytes(source_python(row["value"]))
-            != canonical_bytes(
-                {
-                    **parser_value_for_contract(expected.semantic_type, expected.value),
-                    "location_keys": list(expected.members),
-                    "unlocated_members": [
-                        member for member in expected.members if member not in rows
-                    ],
-                }
+            raise DeclarationNotQualified("declaration native token columns are unavailable")
+        heads, relations, children = _dependency_graph(
+            [[token["native_head"], token["dependency"]] for token in tokens], len(tokens)
+        )
+        references = {row["local_id"]: index for index, row in enumerate(rows)}
+        locations = {}
+
+        def located(a, b, *, number=number, positions=positions, locations=locations):
+            key = f"s{number}/span/{a}-{b}"
+            start, end = positions[a][0], positions[b - 1][1]
+            pieces = tuple(
+                context.map_span(
+                    start - passage.start,
+                    end - passage.start,
+                    literal=view.text[start:end],
+                    allow_multiple=True,
+                )
             )
-            or tuple(row["members"])
-            != tuple(
-                rows[member]["contribution_id"] for member in expected.members if member in rows
+            native_pieces = tuple(
+                piece for piece in pieces if isinstance(piece, NativeSpanEvidence)
             )
-        ):
-            raise ValueError("declaration frame lacks its original typed retained role")
-    if rows[chain.naming_frame]["contribution_id"] != reference.contribution_id:
-        raise ValueError("declaration witness names a different retained predicate")
+            if len(native_pieces) != len(pieces):
+                raise DeclarationNotQualified(
+                    "declaration role has no original native character correspondence"
+                )
+            anchors = tuple(
+                evidence_anchor(context, piece, native=True)[0] for piece in native_pieces
+            )
+            locations[key] = MappedSource(
+                context.dependency_digest,
+                context.dependency_digest,
+                context.dependency_digest,
+                (),
+                native_pieces,
+                anchors,
+                (),
+            )
+            return key
+
+        memberships = body["memberships"]
+        groups = {}
+        keys = {}
+        for group in annotations.values():
+            if group["kind"] != "native.srl_group":
+                continue
+            args, predicate = [], None
+            group_evidence = [annotation_reference(pin, group["local_id"])]
+            for member in sorted(
+                (row for row in memberships if row["group"] == group["local_id"]),
+                key=lambda row: row.get("order", 0),
+            ):
+                role = annotations.get(member["member"])
+                if role is None or role["kind"] != "native.srl_role":
+                    raise DeclarationNotQualified("declaration native SRL member is missing")
+                ids = [
+                    row["member"]
+                    for row in sorted(
+                        (
+                            row
+                            for row in memberships
+                            if row["group"] == role["local_id"] and row["role"] == "token"
+                        ),
+                        key=lambda row: row.get("order", 0),
+                    )
+                ]
+                if not ids or not all(key in references for key in ids):
+                    if any(key in references for key in ids):
+                        raise DeclarationNotQualified("declaration native SRL crosses sentences")
+                    args = []
+                    break
+                indices = tuple(references[key] for key in ids)
+                if indices != tuple(range(indices[0], indices[-1] + 1)):
+                    raise DeclarationNotQualified(
+                        "declaration native SRL is not an ordered token interval"
+                    )
+                location = located(indices[0], indices[-1] + 1)
+                label = role["native_label"]
+                if label == "PRED":
+                    if predicate is not None or len(indices) != 1:
+                        raise DeclarationNotQualified(
+                            "declaration native SRL has no unique predicate"
+                        )
+                    predicate = indices[0]
+                else:
+                    args.append(dict(role=label, location=location, head=None))
+                group_evidence.append(annotation_reference(pin, role["local_id"]))
+            if predicate is None or not args:
+                continue
+            span = positions[predicate]
+            offered = voices.get(span, ())
+            if len(offered) != 1 or offered[0][0] not in {"active", "passive", "copular"}:
+                raise DeclarationNotQualified("declaration lacks one exact retained primary voice")
+            _voice, voice_ref = offered[0]
+            predicate_location = located(predicate, predicate + 1)
+            groups.setdefault(predicate, []).append(
+                dict(predicate=predicate_location, arguments=args)
+            )
+            keys[predicate] = annotation_reference(pin, group["local_id"]).identity
+            evidence.extend([*group_evidence, voice_ref])
+        frames = {}
+        for predicate, srl in groups.items():
+            frames[predicate] = _Frame.model_validate_json(
+                json.dumps(
+                    dict(
+                        sentence=number,
+                        predicate_token=predicate,
+                        syntactic_head=heads[predicate]
+                        if relations[predicate] == "cop"
+                        else predicate,
+                        predicate=located(predicate, predicate + 1),
+                        focus=located(0, len(tokens)),
+                        voice=voices[positions[predicate]][0][0],
+                        dependency_arguments=[],
+                        srl_frames=srl,
+                    )
+                )
+            )
+        evidence.extend(annotation_reference(pin, row["local_id"]) for row in rows)
+        sentences.append(
+            _Sentence(
+                context,
+                number,
+                tuple(token["text"] for token in tokens),
+                tuple(token["lemma"].casefold() for token in tokens),
+                tuple(token["tag"] for token in tokens),
+                heads,
+                relations,
+                children,
+                positions,
+                frames,
+                locations,
+                keys,
+            )
+        )
+    chain = _declaration_chain_from_sentences(tuple(sentences), passage)
     return definition_component(
         term=chain.term,
         content=chain.content,
@@ -659,8 +683,16 @@ def replay_declaration_chain(
         basis="declaration_chain",
         declaration_chain=DeclarationChainWitness(
             version=CHAIN_VERSION,
-            parser=reference,
-            scope_digest=context.dependency_digest,
+            primary_evidence=tuple(dict.fromkeys(evidence)),
+            scope_digest=sha256(
+                canonical_bytes(
+                    dict(
+                        source=record_source_pin(source),
+                        passage=[passage.start, passage.end],
+                        policy="primary-declaration-roles-1",
+                    )
+                )
+            ).hexdigest(),
             label=chain.label,
             bindings=chain.bindings,
             construction_frame=chain.construction_frame,
@@ -671,5 +703,8 @@ def replay_declaration_chain(
         scope=passage.scope,
         effective_version=passage.effective_version,
         evidence=(passage.passage_id,),
-        reason="The definition joins exact introduced roles to their local uses and naming.",
+        reason=(
+            "Exact retained native declaration roles and primary voice interpretations "
+            "support this local definition chain; domain admission remains separate."
+        ),
     )

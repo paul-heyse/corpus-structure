@@ -152,6 +152,7 @@ def _interpretations(inventory, *, prepared=None):
                 "occurrence_id",
                 "kind",
                 "semantic_type",
+                "component",
                 "disposition",
                 "standing",
                 "source_field_state",

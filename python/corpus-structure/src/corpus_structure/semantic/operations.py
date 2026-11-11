@@ -748,6 +748,7 @@ class PreparedUnitCompletion:
                 holder=self.holder,
                 layer=self.characterization_layer,
                 view=self.characterization_view,
+                cost=self.envelope.get("cost"),
             )
             return CompletionResult.model_validate_json(
                 canonical_bytes({key: wire[key] for key in ("transaction", "receipt")})
@@ -802,7 +803,7 @@ def prepare_unit_completion(
     from .contracts import require_bound_operation
 
     require_bound_operation(prepared, "complete_unit")
-    from .observations import bind_result, source_python
+    from .observations import bind_result, source_python, source_value
 
     task_table = table("ops.task")
     task = conn.execute(select(task_table).where(task_table.c.id == task_id)).mappings().one()
@@ -856,7 +857,9 @@ def prepare_unit_completion(
             (),
             "done",
             None,
-            {},
+            {"cost": source_value(result.cost.model_dump(mode="json"))}
+            if result.cost is not None
+            else {},
             (),
             layer,
             view,
@@ -1044,6 +1047,7 @@ class BoundReader:
         self.math_readings_batch = None
         self.source_tasks: dict[int, int] = {}
         self.source_producers: Mapping[tuple[int, str], BoundSourceProducer] = {}
+        self.characterization_selection: tuple[Any, ...] = ()
 
     @property
     def read_budget(self):
@@ -1061,6 +1065,18 @@ class BoundReader:
             reference: read_layer(self.conn, reference, run_id=self.run_id)
             for reference in references
         }
+
+    def primary_characterization(self, source_view_id, *, families):
+        from .characterization import select_primary_layers
+        from .characterization_store import read_primary_layers
+
+        return select_primary_layers(
+            read_primary_layers(
+                self.conn, self.run_id, source_view_id, self.characterization_selection
+            ),
+            self.source_view(source_view_id),
+            families=families,
+        )
 
     def characterization_view(self, reference):
         from .characterization_store import read_view
@@ -1377,13 +1393,17 @@ class BoundReader:
         return self.conn.execute(
             text(
                 "SELECT ops.prepare_table_correspondence("
-                ":run, :view, CAST(:rows AS jsonb), CAST(:scale AS numeric))"
+                ":run, :view, CAST(:rows AS jsonb), "
+                "CAST(:scale AS numeric), CAST(:layers AS jsonb))"
             ),
             {
                 "run": self.run_id,
                 "view": source_view_id,
                 "rows": canonical_bytes(contributions).decode(),
                 "scale": weight_scale,
+                "layers": canonical_bytes(
+                    [pin.values() for pin in self.characterization_selection]
+                ).decode(),
             },
         ).scalar_one()
 
@@ -1392,17 +1412,35 @@ class BoundReader:
         import json
 
         return self.conn.execute(
-            text("SELECT ops.contextual_component_section(CAST(:reference AS jsonb), :digest)"),
-            {"reference": json.dumps(reference.model_dump(mode="json")), "digest": work_digest},
+            text(
+                "SELECT ops.contextual_component_section(CAST(:reference AS jsonb), "
+                ":digest, :run, CAST(:layers AS jsonb))"
+            ),
+            {
+                "reference": json.dumps(reference.model_dump(mode="json")),
+                "digest": work_digest,
+                "run": self.run_id,
+                "layers": canonical_bytes(
+                    [pin.values() for pin in self.characterization_selection]
+                ).decode(),
+            },
         ).scalar_one()
 
     def retained_component_alias(self, reference, edge):
         """Resolve an exact retained naming relation against a component term occurrence."""
         return self.conn.execute(
             text(
-                "SELECT ops.contextual_definition_alias(CAST(:ref AS jsonb), CAST(:edge AS jsonb))"
+                "SELECT ops.contextual_definition_alias(CAST(:ref AS jsonb), "
+                "CAST(:edge AS jsonb), :run, CAST(:layers AS jsonb))"
             ),
-            {"ref": reference.model_dump_json(), "edge": edge.model_dump_json()},
+            {
+                "ref": reference.model_dump_json(),
+                "edge": edge.model_dump_json(),
+                "run": self.run_id,
+                "layers": canonical_bytes(
+                    [pin.values() for pin in self.characterization_selection]
+                ).decode(),
+            },
         ).scalar_one()
 
     def contextual_section_headings(self, sources, source_view_id, scope, effective_version):
@@ -1410,7 +1448,7 @@ class BoundReader:
         return self.conn.execute(
             text(
                 "SELECT ops.contextual_section_headings(:release, CAST(:sources AS jsonb), "
-                ":source_view, :scope, :effective_version)"
+                ":source_view, :scope, :effective_version, :run, CAST(:layers AS jsonb))"
             ),
             {
                 "release": self.prepared.release_id,
@@ -1420,6 +1458,10 @@ class BoundReader:
                 "source_view": source_view_id,
                 "scope": scope,
                 "effective_version": effective_version,
+                "run": self.run_id,
+                "layers": canonical_bytes(
+                    [pin.values() for pin in self.characterization_selection]
+                ).decode(),
             },
         ).scalar_one()
 
@@ -1558,12 +1600,38 @@ class BoundReader:
         )
 
     def structural_source_annotations(self, inputs, source_ref, profile):
-        from .structural_sources import load_structural_annotations
+        from corpus_structure.methods.native_evidence_layers import (
+            SPACY_FAMILIES,
+            retained_annotation_products,
+        )
+
+        from .source_views import load_source_view
+        from .structural_sources import PreparedStructuralAnnotations
 
         self.validate_structural_inputs(inputs)
-        return load_structural_annotations(
-            self.conn, inputs, source_ref, profile, read_budget=self._read_budget
+        source = next((s for s in inputs.sources if s.identity == source_ref), None)
+        if source is None:
+            raise ValueError("structural annotations require an exact selected source")
+        frame = self.structural_source_frame(inputs, source_ref)
+        view = load_source_view(
+            self.conn, source.source_view_id, analysis=False, read_budget=self._read_budget
         )
+        layers = self.primary_characterization(
+            source.source_view_id, families=(*SPACY_FAMILIES, "construction.source_readings")
+        )
+        products = retained_annotation_products(layers, view, profile)
+        native = [
+            (pin, layer)
+            for pin, layer in layers.items()
+            if layer.payload["operation"]["key"] == "text.native_evidence"
+        ]
+        if len(native) != 1:
+            raise ValueError(
+                "structural annotations require one explicitly selected native producer"
+            )
+        # These products come directly from their exact primary layers. They are
+        # not an M1 summary task, so do not relabel the native producer as one.
+        return PreparedStructuralAnnotations(frame, products, (), None, None)
 
     def source_context_membership(self, source_view_id):
         from .source_views import context_membership_digest

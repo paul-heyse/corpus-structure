@@ -923,6 +923,10 @@ classes:
       implementation_digest: {range: PdfDigest, required: true, slot_uri: 'pdf:PdfRendererProvenance_implementation_digest'}
       pypdfium2: {range: PdfString, required: true, slot_uri: 'pdf:PdfRendererProvenance_pypdfium2'}
       Pillow: {range: PdfString, required: true, slot_uri: 'pdf:PdfRendererProvenance_Pillow'}
+  PdfMacroTemplate:
+    attributes:
+      name: {range: PdfString, required: true, slot_uri: 'pdf:PdfMacroTemplate_name'}
+      body: {range: PdfString, required: true, slot_uri: 'pdf:PdfMacroTemplate_body'}
   PdfNativeAnalysisRequest:
     attributes:
       source_view_id: {range: PdfInteger, required: true, minimum_value: 1, slot_uri: 'pdf:PdfNativeAnalysisRequest_source_view_id'}
@@ -937,6 +941,8 @@ classes:
       region_index: {range: PdfInteger, minimum_value: 0, slot_uri: 'pdf:PdfNativeAnalysisRequest_region_index'}
       scale: {range: PdfNumber, required: true, minimum_value: 0, maximum_value: 8, slot_uri: 'pdf:PdfNativeAnalysisRequest_scale'}
       domain_rules: {range: PdfDomainRule, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: 'pdf:PdfNativeAnalysisRequest_domain_rules'}
+      characterization_layers: {range: PdfProductReference, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: 'pdf:PdfNativeAnalysisRequest_characterization_layers'}
+      macros: {range: PdfMacroTemplate, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: 'pdf:PdfNativeAnalysisRequest_macros'}
       ancestor_context: {range: PdfString, required: true, slot_uri: 'pdf:PdfNativeAnalysisRequest_ancestor_context'}
       renderer: {range: PdfRendererProvenance, inlined: true, slot_uri: 'pdf:PdfNativeAnalysisRequest_renderer'}
   PdfNativeObservationInput:

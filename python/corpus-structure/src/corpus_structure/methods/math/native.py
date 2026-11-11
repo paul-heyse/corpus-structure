@@ -13,23 +13,16 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from corpus_structure.core.evidence import Segment
+from corpus_structure.core.evidence import MacroDef, Segment
 from corpus_structure.core.method import CoverageDraft, ObservationDraft, UnitResult
 from corpus_structure.core.vocab import ObservationKind, ObservationOutcome, ParseOutcome
 from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+from corpus_structure.semantic.constructions.math_scope import NativeDomainRule
 
 from . import grammar
 from .native_topology import native_topology
 from .pdf import FormulaOccurrence
 from .source_context import _heads
-
-
-class NativeDomainRule(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-    rule_id: str
-    pattern: str
-    statement_kind: str
-    scope_role: Literal["statement", "proof", "solution", "exercise"]
 
 
 class NativeDomainPayload(BaseModel):
@@ -65,29 +58,23 @@ class NativeScopePayload(BaseModel):
     reason: str | None = None
 
 
-def domain_blocks(view: Any, rules: tuple[NativeDomainRule, ...]):
-    """Released pattern matches are attributed local observations, never author truth."""
-    import re
-
+def domain_blocks(view: Any, rules: tuple[NativeDomainRule, ...], *, primary_scope=None):
+    """Combine retained source-marker candidates with actual native section topology."""
     if not rules:
         return ()
-    if len({rule.rule_id for rule in rules}) != len(rules):
-        raise ValueError("native domain recognition rule identities must be unique")
-    patterns = [(rule, re.compile(rule.pattern)) for rule in rules]
-    native = {item["self_ref"]: item for item in view.items}
-    found = []
-    seen = set()
-    for piece in view.pieces:
-        pointer = piece.get("item_ref")
-        item = native.get(pointer)
-        if item is None or piece["start"] == piece["end"] or pointer in seen:
-            continue
-        seen.add(pointer)
-        matches = [rule for rule, pattern in patterns if pattern.search(item.get("text", ""))]
-        if len(matches) > 1:
-            raise ValueError("native domain item matches conflicting released recognition rules")
-        if matches:
-            found.append((piece["start"], pointer, matches[0]))
+    if primary_scope is None or not primary_scope.complete:
+        raise ValueError("native domain scopes require complete primary source-marker coverage")
+    topology = native_topology(view)
+    by_pointer = {}
+    for _start, pointer, rule in primary_scope.markers:
+        by_pointer.setdefault(pointer, set()).add(rule)
+    if any(len(values) != 1 for values in by_pointer.values()):
+        raise ValueError("native domain item has conflicting released source-marker candidates")
+    found = [
+        (topology.projected[pointer][0], pointer, next(iter(values)))
+        for pointer, values in by_pointer.items()
+    ]
+
     found.sort()
     topology = native_topology(view)
     result = []
@@ -112,7 +99,7 @@ def domain_blocks(view: Any, rules: tuple[NativeDomainRule, ...]):
     return tuple(result)
 
 
-def _declaration_scope(view: Any, rules: tuple[NativeDomainRule, ...], ordinal: int, blocks=None):
+def _declaration_scope(view: Any, rules: tuple[NativeDomainRule, ...], ordinal: int, blocks):
     """Actual section ancestry and attributed statements constrain forward declarations."""
     source = f"source-view:{view.ref.id}:{view.ref.projection_digest}:native-order"
     if not rules:
@@ -123,7 +110,7 @@ def _declaration_scope(view: Any, rules: tuple[NativeDomainRule, ...], ordinal: 
     owner = f"{source}:section:{section}"
     end = topology.ends[section]
     piece = topology.projected.get(pointer)
-    for start, stop, marker, rule in domain_blocks(view, rules) if blocks is None else blocks:
+    for start, stop, marker, rule in blocks:
         if topology.section(marker) != section:
             continue
         marker_ordinal = topology.order[marker]
@@ -222,11 +209,46 @@ def ancestor_views(reader: Any, view: Any):
     )
 
 
+def _primary_layers(reader, view, *, scope=False):
+    families = ("formal.lexical", "construction.math_scope") if scope else ("formal.lexical",)
+    return reader.primary_characterization(view.ref.id, families=families)
+
+
+def _primary_scope(reader, view, binders, rules):
+    from corpus_structure.semantic.constructions.math_scope import retained_math_scope
+
+    return retained_math_scope(
+        _primary_layers(reader, view, scope=True), view, binders=binders, rules=rules
+    )
+
+
+def _retain_syntax(operand, view, pointer, layers):
+    from corpus_structure.semantic.formal_forest import (
+        retained_math_inventory,
+        retained_math_syntax,
+    )
+
+    kind = operand.kind or operand.context.kind
+    if kind not in grammar.STARTS:
+        raise ValueError("primary mathematical input has an unsupported start symbol")
+    result = retained_math_syntax(
+        layers, view, pointer, operand.latex, macros=operand.context.macros, kind=kind
+    )
+    inventory = retained_math_inventory(
+        layers, view, pointer, operand.latex, macros=operand.context.macros
+    )
+    operand.retain_primary_syntax(result, primary_input=inventory["input"])
+    return operand
+
+
 def native_ancestor_declarations(
     reader: Any,
     view: Any,
     rules: tuple[NativeDomainRule, ...],
     seconds: float = grammar.PARSE_SECONDS,
+    *,
+    macros=None,
+    binders=None,
 ):
     """Prepare attributable forward-only function roles from authorized native ancestor views."""
     from corpus_structure.semantic.identity import canonical_bytes
@@ -238,22 +260,21 @@ def native_ancestor_declarations(
     declarations = []
     source = f"source-view:{view.ref.id}:{view.ref.projection_digest}:native-order"
     for parent in parents:
+        layers = _primary_layers(reader, parent)
+        scope_readings = _primary_scope(reader, parent, binders, rules) if rules else None
+        blocks = domain_blocks(parent, rules, primary_scope=scope_readings)
         health = {
             item["pointer"]: item["outcome"] for item in parent.health.get("formula_outcomes", ())
         }
         for ordinal, item in enumerate(parent.items):
-            if (
-                item.get("label") != "formula"
-                or "(" not in item.get("text", "").partition("=")[0]
-                or "=" not in item["text"]
-            ):
+            if item.get("label") != "formula":
                 continue
             before = _before_descendant(parent, view, item["self_ref"])
             if before is None:
                 issues.append("ancestor declaration source order unavailable: " + item["self_ref"])
             if before is not True:
                 continue
-            parent_source, scope, _ = _declaration_scope(parent, rules, ordinal)
+            parent_source, scope, _ = _declaration_scope(parent, rules, ordinal, blocks)
             if scope != f"{parent_source}:section:{parent.ref.section_pointer}":
                 continue
             if health.get(item["self_ref"]) != "succeeded":
@@ -261,8 +282,11 @@ def native_ancestor_declarations(
                     "ancestor function declaration recognition unavailable: " + item["self_ref"]
                 )
                 continue
-            context = prepare_interpretation_context(getattr(reader, "prepared", None), macros={})
-            syntax = PreparedMathInput(context, item["text"], seconds=seconds).syntax()
+            context = prepare_interpretation_context(
+                getattr(reader, "prepared", None), macros=macros or {}
+            )
+            operand = PreparedMathInput(context, item["text"], seconds=seconds)
+            syntax = _retain_syntax(operand, parent, item["self_ref"], layers).syntax()
             if syntax.tree is None:
                 issues.append(
                     "ancestor function declaration syntax unavailable: " + item["self_ref"]
@@ -336,7 +360,14 @@ def readings(
     batch.bind(reader)
     section = cfg.section()
     seconds = getattr(cfg, "parse_seconds", grammar.PARSE_SECONDS)
-    key = (view.ref.id, view.ref.projection_digest, seconds, section.model_dump_json())
+    layers = _primary_layers(reader, view)
+    key = (
+        view.ref.id,
+        view.ref.projection_digest,
+        seconds,
+        section.model_dump_json(),
+        tuple(layers),
+    )
     if key in batch.native:
         base = batch.native[key]
         return (
@@ -347,12 +378,18 @@ def readings(
     health = {row["pointer"]: row["outcome"] for row in view.health.get("formula_outcomes", ())}
     pieces = {piece["item_ref"]: piece for piece in view.pieces if piece.get("item_ref")}
     inherited, context_issues = native_ancestor_declarations(
-        reader, view, section.native_domain_rules, seconds
+        reader, view, section.native_domain_rules, seconds, macros=section.macro_table()
     )
     context_issues = tuple(dict.fromkeys((*recognition_context_issues(view), *context_issues)))
     definitions: list[dict[str, Any]] = list(inherited)
     out: list[NativeReading] = []
-    blocks = domain_blocks(view, section.native_domain_rules)
+    blocks = domain_blocks(
+        view,
+        section.native_domain_rules,
+        primary_scope=_primary_scope(reader, view, None, section.native_domain_rules)
+        if section.native_domain_rules
+        else None,
+    )
     for ordinal, item in enumerate(view.items):
         if item.get("label") != "formula":
             continue
@@ -369,7 +406,7 @@ def readings(
         )
         context = prepare_interpretation_context(
             getattr(reader, "prepared", None),
-            macros={},
+            macros=section.macro_table(),
             constants=section.constants,
             source_id=source_id,
             scope=scope,
@@ -390,6 +427,7 @@ def readings(
             .operand
         )
         operand = replace(operand, seconds=seconds)
+        _retain_syntax(operand, view, pointer, layers)
         recognized = operand.syntax()
         # The admitted native rule supplies the mathematical head; visual adjacency never
         # turns an arbitrary identifier into a function declaration.
@@ -436,16 +474,38 @@ def _restore_reading(record: dict[str, Any], latex: str, context: Any) -> gramma
     from lark import Token, Tree
     from lark.tree import Meta
 
-    def restore(node):
-        if "token" in node:
-            return Token(node["token"], node["text"], start_pos=node["start"], end_pos=node["end"])
-        meta = Meta()
-        if node.get("extent") is not None:
-            meta.empty = False
-            meta.start_pos, meta.end_pos = node["extent"]
-        return Tree(node["rule"], [restore(child) for child in node["children"]], meta=meta)
+    syntax = record.get("syntax")
+    tree = None
+    if syntax is not None:
+        if syntax.get("format") != "lark-working-dag-1":
+            raise ValueError("retained native syntax requires the current working DAG codec")
+        rows = syntax.get("nodes")
+        if not isinstance(rows, list) or not rows or len(rows) > 20000:
+            raise ValueError("retained native syntax has an invalid node inventory")
+        restored, active = {}, set()
 
-    tree = None if record.get("syntax") is None else restore(record["syntax"])
+        def restore(key):
+            if type(key) is not int or key < 0 or key >= len(rows):
+                raise ValueError("retained native syntax has an invalid child reference")
+            if key in restored:
+                return restored[key]
+            if key in active:
+                raise ValueError("retained native syntax contains a cycle")
+            active.add(key)
+            row = rows[key]
+            if "token" in row:
+                value = Token(row["token"], row["text"], start_pos=row["start"], end_pos=row["end"])
+            else:
+                meta = Meta()
+                if row.get("extent") is not None:
+                    meta.empty = False
+                    meta.start_pos, meta.end_pos = row["extent"]
+                value = Tree(row["rule"], [restore(child) for child in row["children"]], meta=meta)
+            active.remove(key)
+            restored[key] = value
+            return value
+
+        tree = restore(syntax["root"])
     if tree is not None and not isinstance(tree, Tree):
         raise ValueError("retained native syntax root must be a tree")
     return grammar.MathResult(
@@ -459,6 +519,8 @@ def _restore_reading(record: dict[str, Any], latex: str, context: Any) -> gramma
         tail=record.get("tail", ""),
         occurrences=tuple(grammar.Occurrence(**o) for o in record.get("occurrences", ())),
         context=context.grammar_context,
+        macros=context.macros,
+        classes=grammar.classify(context.macros),
         declarations=tuple(grammar.LocalDeclaration(**d) for d in record.get("declarations", ())),
     )
 
@@ -478,7 +540,7 @@ def normalization_readings(view: Any, cfg: Any, reader: Any) -> tuple[NativeRead
         declarations = [d for d in basis["declarations"] if d["authority"] == "source"]
         context = prepare_interpretation_context(
             getattr(reader, "prepared", None),
-            macros={},
+            macros=cfg.section().macro_table(),
             constants=cfg.section().constants,
             source_id=source_id,
             scope=basis["scope"],
@@ -492,7 +554,7 @@ def normalization_readings(view: Any, cfg: Any, reader: Any) -> tuple[NativeRead
         operand = PreparedMathInput(context, record["recognized_latex"], seconds=cfg.parse_seconds)
         syntax = _restore_reading(record.get("raw_syntax", record), operand.latex, context)
         weak = _restore_reading(record, operand.latex, context)
-        object.__setattr__(operand, "_syntax", syntax)
+        operand.retain_primary_syntax(syntax, primary_input=record.get("primary_input"))
         object.__setattr__(operand, "_reading", weak)
         operand._remember("syntax", syntax)
         operand._remember("interpretation", weak)
@@ -640,6 +702,7 @@ def native_result(unit: Any, cfg: Any, ctx: Any, method: str) -> UnitResult:
             pointer=reading.pointer,
             orig=source_items[reading.pointer].get("orig", ""),
             recognized_latex=operand.latex,
+            primary_input=operand._primary_input,
             recognition_health="succeeded",
             context_basis=operand.context.stage_key(demand),
             occurrence_basis=operand.context.stage_key("occurrences"),
@@ -744,16 +807,44 @@ def native_result(unit: Any, cfg: Any, ctx: Any, method: str) -> UnitResult:
 def _tree_value(node):
     from lark import Token, Tree
 
-    if isinstance(node, Token):
-        return dict(token=node.type, text=str(node), start=node.start_pos, end=node.end_pos)
-    if isinstance(node, Tree):
-        from ._tree import span
+    identities, nodes = {}, []
 
-        extent = span(node)
-        return dict(
-            rule=node.data, extent=extent, children=[_tree_value(child) for child in node.children]
-        )
-    raise TypeError("unsupported positioned syntax node")
+    def visit(value):
+        if id(value) in identities:
+            return identities[id(value)]
+        key = len(nodes)
+        identities[id(value)] = key
+        nodes.append(None)
+        if isinstance(value, Token):
+            row = dict(token=value.type, text=str(value), start=value.start_pos, end=value.end_pos)
+        elif isinstance(value, Tree):
+            children = [visit(child) for child in value.children]
+            extents = [
+                (nodes[child]["start"], nodes[child]["end"])
+                if "token" in nodes[child]
+                else nodes[child]["extent"]
+                for child in children
+            ]
+            positioned = [
+                extent
+                for extent in extents
+                if extent is not None and extent[0] is not None and extent[1] is not None
+            ]
+            extent = (
+                (min(e[0] for e in positioned), max(e[1] for e in positioned))
+                if positioned
+                else None
+            )
+            if value.data != "_ambig" and not value.meta.empty:
+                extent = value.meta.start_pos, value.meta.end_pos
+            row = dict(rule=value.data, extent=extent, children=children)
+        else:
+            raise TypeError("unsupported positioned syntax node")
+        nodes[key] = row
+        return key
+
+    root = visit(node)
+    return dict(format="lark-working-dag-1", root=root, nodes=nodes)
 
 
 def _syntax_value(result):
@@ -792,6 +883,10 @@ def native_request_analysis(
     domain_rules: tuple[NativeDomainRule, ...] = (),
     ancestor_declarations: tuple[dict[str, Any], ...] = (),
     ancestor_context_issues: tuple[str, ...] = (),
+    *,
+    primary_layers=None,
+    macros=None,
+    binders=None,
 ) -> NativeAnalysisPayload:
     """Finite native demand kernel; no converter, database or stronger extraction entrypoint."""
     import dataclasses
@@ -827,7 +922,11 @@ def native_request_analysis(
     definitions = list(ancestor_declarations)
     results = []
     positions = {item["self_ref"]: n for n, item in enumerate(view.items)}
-    blocks = domain_blocks(view, domain_rules)
+    from corpus_structure.semantic.constructions.math_scope import retained_math_scope
+
+    layers = {} if primary_layers is None else primary_layers
+    scope_readings = retained_math_scope(layers, view, binders=binders, rules=domain_rules)
+    blocks = domain_blocks(view, domain_rules, primary_scope=scope_readings)
     for item in formulas:
         ref = item["self_ref"]
         outcome = health.get(ref, "unknown")
@@ -848,7 +947,7 @@ def native_request_analysis(
         source_id, scope, end = _declaration_scope(view, domain_rules, ordinal, blocks)
         context = prepare_interpretation_context(
             prepared,
-            macros={},
+            macros=macros or {},
             source_id=source_id,
             scope=scope,
             offset=ordinal,
@@ -857,6 +956,7 @@ def native_request_analysis(
             demand=demand,
         )
         operand = PreparedMathInput(context, item["text"], seconds=seconds)
+        _retain_syntax(operand, view, ref, layers)
         from corpus_structure.semantic.analysis_contracts import scientific_question_rule
 
         question_rule = (
@@ -868,12 +968,7 @@ def native_request_analysis(
         contextual = demand in {"interpretation", "occurrences", "symbolic"} or (
             demand == "scientific" and question_rule is not None
         )
-        if (
-            contextual
-            and context.allow_local_definitions
-            and "(" in item["text"].partition("=")[0]
-            and "=" in item["text"]
-        ):
+        if contextual and context.allow_local_definitions:
             for symbol, extent in _heads(operand.syntax()):
                 definitions.append(
                     dict(
@@ -893,6 +988,7 @@ def native_request_analysis(
             pointer=ref,
             orig=item.get("orig", ""),
             recognized_latex=item["text"],
+            primary_input=operand._primary_input,
             recognition_health=outcome,
             availability="available",
             context_basis=context.stage_key(
@@ -926,17 +1022,18 @@ def native_request_analysis(
             coverage="complete" if domain_rules and not context_issues else "unknown",
             issues=context_issues,
         )
-        if demand == "lexical":
-            value["lexical"] = [
-                dict(kind=t.kind, text=t.text, start=t.start, end=t.end) for t in operand.lexical()
-            ]
-        elif demand == "structure":
-            capture = operand.structure()
-            value["structure"] = dict(
-                outcome=capture.structure_outcome,
-                nodes=[dataclasses.asdict(n) for n in capture.nodes],
-                issues=capture.issues,
+        if demand in {"lexical", "structure"}:
+            from corpus_structure.semantic.formal_forest import retained_math_inventory
+
+            inventory = retained_math_inventory(
+                layers, view, ref, item["text"], macros=context.macros
             )
+            if demand == "lexical":
+                value["lexical"] = inventory["lexical"]
+            else:
+                value["structure"] = {
+                    key: item for key, item in inventory.items() if key != "lexical"
+                }
         elif demand == "syntax":
             value.update(_syntax_value(operand.syntax()))
         else:
@@ -996,7 +1093,6 @@ def native_proposal_packet(
     known: tuple[Any, ...] = (),
 ):
     """Build one intact section packet from pinned native context and stored upstream facts."""
-    from corpus_structure.ingest.sentences import Block, SentenceConfig, split
     from corpus_structure.semantic.proposals import (
         KnownProposalEntity,
         native_frame_source,
@@ -1005,28 +1101,22 @@ def native_proposal_packet(
     )
 
     view = reader.source_view(source_view_id)
-    native = {item["self_ref"]: item for item in view.items}
-    mathematical = tuple(
-        (piece["start"], piece["end"])
-        for piece in view.pieces
-        if piece.get("item_ref") in native and native[piece["item_ref"]].get("label") == "formula"
-    )
-    block = Block(view.text, mathematical, (), ())
     raw = (
         configuration.model_dump(mode="python")
         if isinstance(configuration, BaseModel)
         else configuration
     )
-    sentence_values = raw.get("sentences")
-    if not isinstance(sentence_values, (dict, SentenceConfig)):
-        raise ValueError("native packet requires a resolved admitted sentence configuration")
-    sentence_config = SentenceConfig.model_validate(sentence_values)
-    extents = split(
-        [block],
-        sentence_config,
-        layouts=[view.layout_for(sentence_config)],
-        policy=getattr(view, "text_policy", None),
-    )[0]
+    from corpus_structure.semantic.constructions.math_scope import Binders
+
+    binders = Binders.model_validate(raw["binders"]) if raw.get("binders") is not None else None
+    rules = tuple(
+        NativeDomainRule.model_validate(rule)
+        for rule in (raw.get("math") or {}).get("native_domain_rules", ())
+    )
+    primary_scope = _primary_scope(reader, view, binders, rules)
+    if not primary_scope.complete:
+        raise ValueError("native packet requires complete primary sentence evidence")
+    extents = primary_scope.sentences
     frame = native_source_frame(
         view, [(f"s{index + 1}", start, end) for index, (start, end) in enumerate(extents)]
     )
@@ -1035,19 +1125,10 @@ def native_proposal_packet(
     for parent in parent_views:
         if parent.ref.membership != "direct":
             raise ValueError("native standing context requires a direct ancestor source view")
-        parent_native = {item["self_ref"]: item for item in parent.items}
-        mathematical = tuple(
-            (piece["start"], piece["end"])
-            for piece in parent.pieces
-            if piece.get("item_ref") in parent_native
-            and parent_native[piece["item_ref"]].get("label") == "formula"
-        )
-        parent_extents = split(
-            [Block(parent.text, mathematical, (), ())],
-            sentence_config,
-            layouts=[parent.layout_for(sentence_config)],
-            policy=getattr(parent, "text_policy", None),
-        )[0]
+        parent_scope = _primary_scope(reader, parent, binders, rules)
+        if not parent_scope.complete:
+            raise ValueError("native context packet requires complete primary sentence evidence")
+        parent_extents = parent_scope.sentences
         parent_frame = native_source_frame(
             parent,
             [(f"s{index + 1}", start, end) for index, (start, end) in enumerate(parent_extents)],
@@ -1096,12 +1177,15 @@ def native_proposal_packet(
         prepared,
         frame,
         guideline=reader.guideline(),
-        configuration=configuration,
+        configuration=raw,
         known_classes=known_classes,
         known_entities=tuple(
             KnownProposalEntity(entity.entity_id, entity.label, entity.aliases) for entity in known
         ),
-        macros={},
+        macros={
+            name: MacroDef(body=body)
+            for name, body in (raw.get("math") or {}).get("macros", {}).items()
+        },
         native_observations=tuple(observations),
     )
 
@@ -1132,11 +1216,9 @@ class NativeContextPayload(BaseModel):
 
 def native_context_result(unit: Any, view: Any, cfg: Any, reader: Any) -> UnitResult:
     """Prepare demanded ancestor roles without all-parent M09/M11 or native algebra."""
-    import re
 
     from corpus_structure.core.evidence import Segment
     from corpus_structure.core.vocab import SegmentKind
-    from corpus_structure.ingest.sentences import Block, split
 
     from .prepared import PreparedMathInput
     from .scope import math_tokens
@@ -1144,49 +1226,32 @@ def native_context_result(unit: Any, view: Any, cfg: Any, reader: Any) -> UnitRe
 
     section = cfg.section()
     pieces = {p["item_ref"]: p for p in view.pieces if p.get("item_ref")}
-    native = {i["self_ref"]: i for i in view.items}
-    mathematical = tuple(
-        (p["start"], p["end"])
-        for p in view.pieces
-        if p.get("item_ref") in native and native[p["item_ref"]].get("label") == "formula"
-    )
-    sentences = split(
-        [Block(view.text, mathematical, (), ())],
-        cfg.sentences,
-        layouts=[view.layout_for(cfg.sentences)],
-        policy=getattr(view, "text_policy", None),
-    )[0]
+    primary_scope = _primary_scope(reader, view, cfg.binders, section.native_domain_rules)
+    sentences = primary_scope.sentences
+    layers = _primary_layers(reader, view)
     health = {o["pointer"]: o["outcome"] for o in view.health.get("formula_outcomes", ())}
     declarations = []
     issues = list(recognition_context_issues(view))
-    blocks = domain_blocks(view, section.native_domain_rules)
+    if not primary_scope.complete:
+        issues.append("primary mathematical source cue coverage unavailable")
+    blocks = domain_blocks(view, section.native_domain_rules, primary_scope=primary_scope)
     for ordinal, item in enumerate(view.items):
         if item.get("label") != "formula":
             continue
         pointer = item["self_ref"]
         latex = item["text"]
         piece = pieces.get(pointer)
-        function_candidate = "(" in latex.partition("=")[0] and "=" in latex
-        sentence = None
-        prefix = ""
-        if piece is not None:
-            sentence = next(((a, b) for a, b in sentences if a <= piece["start"] < b), None)
-            if sentence is not None:
-                prefix = view.text[sentence[0] : piece["start"]].strip().casefold()
-        initial = any(
-            re.match(re.escape(word.casefold()) + r"\b", prefix)
-            for word in cfg.binders.sentence_initial
+        sentence = (
+            None
+            if piece is None
+            else next(((a, b) for a, b in sentences if a <= piece["start"] < b), None)
         )
-        clause = any(
-            re.search(r"\b" + re.escape(word.casefold()) + r"\b", prefix)
-            for word in cfg.binders.clause
+        flags = (
+            frozenset()
+            if piece is None or not primary_scope.complete
+            else primary_scope.flags(piece["start"])
         )
-        wide = any(
-            re.search(r"\b" + re.escape(word.casefold()) + r"\b", prefix)
-            for word in cfg.binders.section_wide
-        )
-        if not function_candidate and not (initial or clause or wide):
-            continue
+        initial, clause, wide = (kind in flags for kind in ("initial", "clause", "section_wide"))
         if health.get(pointer) != "succeeded":
             issues.append("ancestor declaration recognition unavailable: " + pointer)
             continue
@@ -1194,30 +1259,31 @@ def native_context_result(unit: Any, view: Any, cfg: Any, reader: Any) -> UnitRe
         if ":section:" not in scope and not wide:
             continue
         context = prepare_interpretation_context(
-            getattr(reader, "prepared", None), macros={}, constants=section.constants
+            getattr(reader, "prepared", None),
+            macros=section.macro_table(),
+            constants=section.constants,
         )
         operand = PreparedMathInput(context, latex)
-        syntax = operand.syntax()
+        syntax = _retain_syntax(operand, view, pointer, layers).syntax()
         if syntax.tree is None:
             issues.append("ancestor declaration syntax unavailable: " + pointer)
             continue
         quote = latex if sentence is None else view.text[sentence[0] : sentence[1]]
-        if function_candidate:
-            for symbol, (a, b) in _heads(syntax):
-                declarations.append(
-                    NativeContextDeclaration(
-                        symbol=symbol,
-                        role="function",
-                        rule_id="function-definition-1",
-                        source_pointer=pointer,
-                        recognized_start=a,
-                        recognized_end=b,
-                        scope_pointer=native_topology(view).section(pointer),
-                        quote=quote,
-                        projection_start=None if sentence is None else sentence[0],
-                        projection_end=None if sentence is None else sentence[1],
-                    )
+        for symbol, (a, b) in _heads(syntax):
+            declarations.append(
+                NativeContextDeclaration(
+                    symbol=symbol,
+                    role="function",
+                    rule_id="function-definition-1",
+                    source_pointer=pointer,
+                    recognized_start=a,
+                    recognized_end=b,
+                    scope_pointer=native_topology(view).section(pointer),
+                    quote=quote,
+                    projection_start=None if sentence is None else sentence[0],
+                    projection_end=None if sentence is None else sentence[1],
                 )
+            )
         if initial or clause or wide:
             reading = operand.interpretation()
             segment = Segment(kind=SegmentKind.MATH_INLINE, start=0, end=len(latex))
@@ -1468,8 +1534,6 @@ class NativeScopeContent:
 
 def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
     """Reuse positioned scope kernels on an in-memory lowering of one native section."""
-    from dataclasses import replace
-    from hashlib import sha256
     from types import SimpleNamespace
 
     from corpus_structure.core.evidence import Segment
@@ -1477,7 +1541,6 @@ def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
     from corpus_structure.core.payloads import ValuePayload
     from corpus_structure.core.values import Formula, SetValue
     from corpus_structure.core.vocab import MathKind, SegmentKind
-    from corpus_structure.ingest.sentences import Block, SentenceConfig, split
 
     kind_of = {
         MathKind.FORMULA: "formula",
@@ -1492,11 +1555,11 @@ def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
     view = ctx.reader.source_view(unit.ref.unit_id)
     if getattr(unit, "context_only", False) or not getattr(view.ref, "analysis_eligible", True):
         return native_context_result(unit, view, cfg, ctx.reader)
-    cfgsentences = cfg.sentences
-    if not isinstance(cfgsentences, SentenceConfig) or cfg.binders is None:
-        raise ValueError("native symbol scope requires resolved sentence and binder configuration")
+    if cfg.binders is None:
+        raise ValueError("native symbol scope requires resolved primary binder configuration")
     section = cfg.section()
-    domains = domain_blocks(view, section.native_domain_rules)
+    primary_scope = _primary_scope(ctx.reader, view, cfg.binders, section.native_domain_rules)
+    domains = domain_blocks(view, section.native_domain_rules, primary_scope=primary_scope)
     native = {item["self_ref"]: item for item in view.items if item.get("label") == "formula"}
     pieces_by_ref = {p["item_ref"]: p for p in view.pieces if p.get("item_ref")}
     selected = {
@@ -1510,7 +1573,7 @@ def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
         )
         for pointer, item in native.items()
     }
-    blocks, pieces, math_segments, layouts = [], [], {}, {}
+    math_segments = {}
     for pointer, reading in selected.items():
         start = reading.projected_start
         if start is not None:
@@ -1531,43 +1594,18 @@ def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
             *(value for start, end, _, _ in domains for value in (start, end)),
         }
     )
-    for a, b in pairwise(cuts):
-        if a == b:
-            continue
-        mathematical = tuple(
-            (node.start - a, node.end - a)
-            for node in math_segments.values()
-            if a <= node.start and node.end <= b
+    paragraphs = [
+        Segment(
+            kind=SegmentKind.PARAGRAPH,
+            start=a,
+            end=b,
+            children=tuple(
+                node for node in math_segments.values() if a <= node.start and node.end <= b
+            ),
         )
-        blocks.append(Block(view.text[a:b], mathematical, (), ()))
-        pieces.append(dict(start=a, end=b))
-        base = view.layout_for(cfgsentences)
-        layouts[a, b] = replace(
-            base,
-            block_start=a,
-            block_end=b,
-            text_digest=sha256(view.text[a:b].encode()).hexdigest(),
-            tokens=tuple(token for token in base.tokens if a <= token.start and token.end <= b),
-            display=(),
-        )
-    extents = split(
-        blocks,
-        cfgsentences,
-        layouts=[layouts[p["start"], p["end"]] for p in pieces],
-        policy=getattr(view, "text_policy", None),
-    )
-    paragraphs = []
-    for piece, sentences in zip(pieces, extents, strict=True):
-        a, b = piece["start"], piece["end"]
-        children = [
-            Segment(kind=SegmentKind.SENTENCE, start=a + x, end=a + y) for x, y in sentences
-        ]
-        children.extend(
-            node for node in math_segments.values() if a <= node.start and node.end <= b
-        )
-        paragraphs.append(
-            Segment(kind=SegmentKind.PARAGRAPH, start=a, end=b, children=tuple(children))
-        )
+        for a, b in pairwise(cuts)
+        if a < b
+    ]
 
     def paragraph_section(paragraph):
         owners = {
@@ -1695,11 +1733,8 @@ def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
         values,
         mentions,
         relations,
-        {},
-        cfg.binders,
-        cfgsentences,
-        text_layouts=layouts,
-        text_policy=getattr(view, "text_policy", None),
+        section.macro_table(),
+        primary_scope=primary_scope,
         sections_by_position=section_at,
     )
     locations = {}

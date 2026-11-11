@@ -30,12 +30,13 @@ from corpus_structure.evaluate.structural_assessment import (
     record_structural_reference_pass,
 )
 from corpus_structure.methods.m1_annotations import M1Annotations
-from corpus_structure.methods.scoped_relations import ScopedRelationsWithRoleClosure
+from corpus_structure.methods.scoped_relations import ScopedRelationsMethod
 from corpus_structure.methods.structural_products import ConditionQualificationMethod
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
 from corpus_structure.orchestrate.runner import Graph, Step
 from corpus_structure.orchestrate.semantic import run_source_methods
+from corpus_structure.semantic.characterization import characterization_inputs
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import OperationBinding
@@ -65,11 +66,16 @@ from corpus_structure.serve.structural_products import (
 
 from .native_record_fixtures import complete_contributions, contribution_drafts
 from .native_record_fixtures import private_source as private_source
-from .native_record_fixtures import private_source_options as private_source_options
+from .primary_native_support import stage_primary_layers
 from .witnessed_scenario_support import completed_metadata
 
 POLICY = "independent-condition-qualification-1"
 SCOPE = "condition-scope"
+
+
+@pytest.fixture
+def private_source_options():
+    return {"bundle_transform": characterization_inputs}
 
 
 class _FailureScopeConfig(BaseModel):
@@ -204,8 +210,13 @@ def test_condition_admits_only_the_exact_supported_roles(
             finalize_bound_run(case.writer, result.run_id, label)
         return result.run_id
 
+    pins = stage_primary_layers(case, run, excerpts(case.run).sources)
     annotation = run(
-        M1Annotations(), Stage.EXTRACT, excerpts(case.run).sources, {}, "condition-annotations"
+        M1Annotations(),
+        Stage.EXTRACT,
+        excerpts(case.run).sources,
+        {"characterization_layers": pins},
+        "condition-annotations",
     )
     selected = excerpts(annotation)
     inputs = StructuralInput(
@@ -341,7 +352,11 @@ def test_condition_admits_only_the_exact_supported_roles(
         structural_input_digest=inputs.identity,
     )
     scoped = run(
-        ScopedRelationsWithRoleClosure(), Stage.SCOPE, inputs.sources, cfg, "condition-scoped"
+        ScopedRelationsMethod(),
+        Stage.SCOPE,
+        inputs.sources,
+        dict(cfg, characterization_layers=pins),
+        "condition-scoped",
     )
     completed, source_revision, runtime = completed_metadata(case, scoped)
     member, result = table("ops.cut_task"), table("ops.task_result")

@@ -135,3 +135,42 @@ def test_composition_resolves_original_release_without_rewriting_retained_layer(
     assert result.characterization_view.payload["layers"] == [pin.values()]
     assert report.payload["release_id"] == prepared.release_id
     assert resolved == [prepared.release_id]
+
+
+def test_dependency_retention_does_not_select_its_interpretations(prepared):
+    from copy import deepcopy
+
+    from corpus_structure.semantic.characterization import validate_view
+
+    body, reader, _run, unit = inputs(prepared)
+    old = validate_layer(prepared, body)
+    old_pin = old.reference(19)
+    newer_body = deepcopy(body)
+    newer_body["dependencies"] = [old_pin.values()]
+    newer_body["operation"]["input"] = "refreshed-rules"
+    newer_body["coverage"][0]["reason"] = "newly selected analysis"
+    new = validate_layer(prepared, newer_body, dependencies={old_pin: old})
+    new_pin = new.reference(20)
+    closure = {old_pin: old, new_pin: new}
+    reader.characterization_layers = lambda pins: closure
+    cfg = ComposeViewConfig(
+        characterization_base_document=body["base_document"],
+        characterization_source_scope=body["source_scope"],
+        characterization_layers=(old_pin.values(), new_pin.values()),
+        characterization_active_layers=(new_pin.values(),),
+        characterization_profile="selected_layers",
+    )
+    (result,) = ComposeViewMethod().run([unit], cfg, context(unit))
+    assert result.characterization_view is not None
+    view = result.characterization_view.payload
+    assert view["layers"] == [old_pin.values(), new_pin.values()]
+    assert view["active_layers"] == [new_pin.values()]
+    assert view["coverage"] == new.payload["coverage"]
+    with pytest.raises(ValueError, match="coverage"):
+        validate_view(prepared, {**view, "coverage": old.payload["coverage"]}, closure)
+    with pytest.raises(ValueError, match="active layer"):
+        validate_view(
+            prepared, {**view, "active_layers": [new_pin.values(), new_pin.values()]}, closure
+        )
+    with pytest.raises(ValueError, match="dependency closure"):
+        validate_view(prepared, {**view, "layers": [new_pin.values()]}, closure)

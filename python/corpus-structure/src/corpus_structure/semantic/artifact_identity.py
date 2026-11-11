@@ -12,6 +12,7 @@ from typing import Literal
 from pydantic import Field, JsonValue, TypeAdapter, model_validator
 from rapidfuzz.fuzz import ratio
 
+from .characterization import AnnotationReference
 from .identity import canonical_bytes
 from .retained_contributions import RetainedContributionRef
 from .structural_base import StructuralValue
@@ -48,6 +49,9 @@ class SourceArtifactOccurrence(StructuralValue):
     scope: str = Field(min_length=1)
     source_pointer: str = Field(min_length=1)
     dependencies: tuple[str, ...] = Field(min_length=1)
+    primary_node: AnnotationReference | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def provenance(self):
@@ -70,39 +74,6 @@ class SourceArtifactOccurrence(StructuralValue):
         if len(set(self.dependencies)) != len(self.dependencies):
             raise ValueError("artifact dependencies repeat")
         return self
-
-
-_ALIAS = re.compile(
-    r'\s*\((?:alias:|also called|also known as)\s*"([^"\r\n]+)"\s*\)', re.I | re.ASCII
-)
-_ALIAS_ABSENCE = re.compile(r"\s*\((aliases:\s*none)\s*\)", re.I | re.ASCII)
-
-
-def source_alias_fields(text: str, artifact_end: int, source_pointer: str) -> dict:
-    """Read explicit alias declarations attached to this exact artifact citation."""
-    spans = []
-    cursor = artifact_end
-    while (match := _ALIAS.match(text, cursor)) is not None and match.group(1).strip():
-        start, end = match.span(1)
-        spans.append(dict(source_pointer=source_pointer, start=start, end=end, text=match.group(1)))
-        cursor = match.end()
-    if spans:
-        return dict(
-            aliases=tuple(span["text"] for span in spans),
-            alias_state="observed",
-            alias_occurrences=tuple(spans),
-        )
-    if (absence := _ALIAS_ABSENCE.match(text, artifact_end)) is not None:
-        start, end = absence.span(1)
-        return dict(
-            aliases=(),
-            alias_state="known_empty",
-            alias_occurrences=(),
-            alias_absence=dict(
-                source_pointer=source_pointer, start=start, end=end, text=absence.group(1)
-            ),
-        )
-    return dict(aliases=(), alias_state="unknown", alias_occurrences=())
 
 
 class ArtifactCitation(StructuralValue):
@@ -137,65 +108,14 @@ class ArtifactSourceLabel(StructuralValue):
         return self
 
 
-_ARTIFACT_LABEL = re.compile(
-    r"\s*\((numbering namespace|revision):[ \t]*([A-Za-z0-9][A-Za-z0-9_.-]*)\)",
-    re.ASCII,
-)
-
-
-def artifact_source_labels(text: str, artifact_end: int, pointer: str):
-    """Only adjacent declarations supply numbering or revision evidence."""
-    labels: dict[str, list[ArtifactAliasSpan]] = defaultdict(list)
-    cursor = artifact_end
-    while (match := _ARTIFACT_LABEL.match(text, cursor)) is not None:
-        start, end = match.span(2)
-        labels[match[1]].append(
-            ArtifactAliasSpan(source_pointer=pointer, start=start, end=end, text=match[2])
-        )
-        cursor = match.end()
-    return tuple(
-        ArtifactSourceLabel(
-            state="unknown" if not values else "observed" if len(values) == 1 else "unresolved",
-            value=next(iter(values)) if len(values) == 1 else None,
-            evidence=tuple(labels[kind]),
-        )
-        for kind in ("numbering namespace", "revision")
-        for values in ({span.text for span in labels[kind]},)
-    )
-
-
 class ArtifactReferenceDesignator(StructuralValue):
     """A source names an alternate designator and its numbering namespace."""
 
     target_code: str
     target_numbering: str
     cue: ArtifactAliasSpan
-
-
-_REFERENCE_PREFIX = re.compile(r"[ \t]*(?:See|Consult)[ \t]+", re.I | re.ASCII)
-_REFERENCE_TARGET = re.compile(
-    r"[ \t]+\((?:hereafter|also published as|also cited as)[ \t]+(Table|Figure)[ \t]+"
-    r"([A-Za-z]?[0-9]+(?:[.-][0-9]+)*[A-Za-z]?)[ \t]+in numbering namespace[ \t]+"
-    r"([A-Za-z0-9][A-Za-z0-9_.-]*)\)(?=\.|$)",
-    re.I | re.ASCII,
-)
-
-
-def explicit_artifact_reference(
-    text: str, start: int, end: int, pointer: str, artifact: SourceArtifactOccurrence
-) -> ArtifactReferenceDesignator | None:
-    """Recover the exact NCE-06 mention role and an explicit scoped target cue."""
-    if artifact.occurrence_role != "reference" or not _REFERENCE_PREFIX.fullmatch(text, 0, start):
-        return None
-    target = _REFERENCE_TARGET.match(text, end)
-    if target is None or target[1].lower() != artifact.artifact_kind:
-        return None
-    return ArtifactReferenceDesignator(
-        target_code=target[2],
-        target_numbering=target[3],
-        cue=ArtifactAliasSpan(
-            source_pointer=pointer, start=0, end=target.end(), text=text[: target.end()]
-        ),
+    primary_node: AnnotationReference | None = Field(
+        default=None, exclude_if=lambda value: value is None
     )
 
 
@@ -208,6 +128,9 @@ class ArtifactRecord(StructuralValue):
     numbering: ArtifactSourceLabel = Field(default_factory=ArtifactSourceLabel)
     revision: ArtifactSourceLabel = Field(default_factory=ArtifactSourceLabel)
     explicit_reference: ArtifactReferenceDesignator | None = None
+    primary_node: AnnotationReference | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class ArtifactModelField(StructuralValue):
@@ -233,6 +156,9 @@ class ArtifactNomination(ArtifactPairKey):
     relationship: RetainedContributionRef
     endpoints: tuple[ArtifactNominationEndpoint, ArtifactNominationEndpoint]
     origin_cue: ArtifactAliasSpan
+    primary_node: AnnotationReference | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def direction(self):
@@ -346,6 +272,9 @@ class ArtifactDeclaredEndpoint(StructuralValue):
     record_id: str
     citation: ArtifactCitation
     work_cue: ArtifactCitation | None = Field(default=None, exclude_if=lambda value: value is None)
+    work_primary_node: AnnotationReference | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class ArtifactDeclaredRelationship(StructuralValue):
@@ -356,6 +285,9 @@ class ArtifactDeclaredRelationship(StructuralValue):
     origin: ArtifactCitation
     targets: tuple[ArtifactDeclaredEndpoint, ...]
     outcome: Literal["witnessed_candidate", "ambiguous", "no_compatible_candidate"]
+    primary_node: AnnotationReference | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 def artifact_reference_resolutions(
@@ -725,7 +657,9 @@ def native_alias_candidates(
 class ArtifactIdentityProduct(StructuralValue):
     """One selected source-work cohort, candidate routes and frozen model results."""
 
-    protocol: Literal["artifact-identity-3", "artifact-identity-4"] = "artifact-identity-3"
+    protocol: Literal["artifact-identity-3", "artifact-identity-4", "artifact-identity-5"] = (
+        "artifact-identity-3"
+    )
     identity_grain: Literal["source_work_artifact_lineage"] = "source_work_artifact_lineage"
     records: tuple[ArtifactRecord, ...] = ()
     pairs: tuple[ArtifactPair, ...] = ()
@@ -745,6 +679,27 @@ class ArtifactIdentityProduct(StructuralValue):
     @model_validator(mode="after")
     def membership(self):
         by_id = {r.contribution_id: r for r in self.records}
+        if self.protocol == "artifact-identity-5" and (
+            any(
+                record.primary_node is None
+                or record.artifact.primary_node != record.primary_node
+                or (
+                    record.explicit_reference is not None
+                    and record.explicit_reference.primary_node is None
+                )
+                for record in self.records
+            )
+            or any(nomination.primary_node is None for nomination in self.external_nominations)
+            or any(
+                declaration.primary_node is None
+                or any(
+                    (target.work_cue is None) != (target.work_primary_node is None)
+                    for target in declaration.targets
+                )
+                for declaration in self.declared_relationships or ()
+            )
+        ):
+            raise ValueError("current artifact identity requires exact primary source witnesses")
         if len(by_id) != len(self.records):
             raise ValueError("identity record identifiers repeat")
         anchors = frozenset(self.known_anchor_ids)
@@ -806,7 +761,9 @@ class ArtifactIdentityProduct(StructuralValue):
                 raise ValueError("external nomination lacks its exact pair and relationship proof")
             nomination_ids.add(relation_id)
             nominated.add(key)
-        if (self.protocol == "artifact-identity-4") != (self.declared_relationships is not None):
+        if (self.protocol in {"artifact-identity-4", "artifact-identity-5"}) != (
+            self.declared_relationships is not None
+        ):
             raise ValueError("artifact declaration ledger differs from the selected protocol")
         for declaration in self.declared_relationships or ():
             if declaration.outcome != (

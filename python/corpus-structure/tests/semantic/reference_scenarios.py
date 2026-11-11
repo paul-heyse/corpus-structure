@@ -133,7 +133,12 @@ def publish_reference_case(
         original=original,
         paragraphs=paragraphs,
     )
+    from .primary_native_support import bind_primary_agent_run
+
     with writer.begin() as conn:
+        run, config = bind_primary_agent_run(
+            conn, run, prepared, tuple(v.ref.id for v in views), config
+        )
         tasks = queue_agent(
             conn,
             run_id=run,

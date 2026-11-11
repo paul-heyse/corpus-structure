@@ -83,6 +83,9 @@ def test_independent_model_edit_changes_ddl_arrow_boundary_and_admission(tmp_pat
 
     copied = tmp_path / "physical.yaml"
     copied.write_bytes(PHYSICAL_MODEL.read_bytes())
+    (tmp_path / "characterization-physical.yaml").write_bytes(
+        PHYSICAL_MODEL.with_name("characterization-physical.yaml").read_bytes()
+    )
     (tmp_path / "pdf-staging.yaml").write_bytes(
         PHYSICAL_MODEL.with_name("pdf-staging.yaml").read_bytes()
     )
@@ -613,6 +616,9 @@ def test_independent_model_role_edit_changes_wire_selection(tmp_path):
 
     copied = tmp_path / "physical.yaml"
     copied.write_bytes(PHYSICAL_MODEL.read_bytes())
+    (tmp_path / "characterization-physical.yaml").write_bytes(
+        PHYSICAL_MODEL.with_name("characterization-physical.yaml").read_bytes()
+    )
     (tmp_path / "pdf-records.yaml").write_bytes(
         PHYSICAL_MODEL.with_name("pdf-records.yaml").read_bytes()
     )

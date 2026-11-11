@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import json
-import re
 from collections import defaultdict
-from typing import Literal
 
 from pydantic import Field, model_validator
 
@@ -21,12 +19,11 @@ from corpus_structure.semantic.artifact_identity import (
     ArtifactNominationEndpoint,
     ArtifactPairKey,
     ArtifactRecord,
+    ArtifactReferenceDesignator,
     ArtifactScoringPolicy,
     SourceArtifactOccurrence,
     artifact_reference_resolutions,
     artifact_route_counts,
-    artifact_source_labels,
-    explicit_artifact_reference,
     native_alias_candidates,
     normalized_code,
     pair_candidates,
@@ -42,10 +39,11 @@ from corpus_structure.semantic.structural_products import (
     StructuralValue,
 )
 
-from .scoped_relations import ARTIFACT_REFERENCE_CUE, SourceWorkBinding
+from .scoped_relations import SourceWorkBinding
 
 
 class ArtifactIdentityConfig(StructuralValue):
+    characterization_layers: tuple[dict, ...] = ()
     inputs: StructuralInput | None = None
     structural_input_digest: str | None = None
     work_bindings: tuple[SourceWorkBinding, ...] = ()
@@ -81,10 +79,16 @@ class ArtifactIdentityConfig(StructuralValue):
         return self
 
 
-def discover_identity_records(frame, inputs, source_ref, source_work):
+def discover_identity_records(frame, inputs, source_ref, source_work, *, primary_layers):
     from .scoped_relations import discover_relations
+    from .witnessed_source_links import navigation_index, retained_artifact_fields
 
-    rows = discover_relations(frame, source_work=source_work)["contributions"]
+    index = navigation_index(
+        primary_layers, frame.projection_digest, source_view_id=frame.source_view_id
+    ).require()
+    rows = discover_relations(frame, source_work=source_work, primary_layers=primary_layers)[
+        "contributions"
+    ]
     pieces = json.loads(frame.native_context)["pieces"]
     passages = tuple(p for p in inputs.passages if p.source_ref == source_ref)
     records = []
@@ -95,6 +99,7 @@ def discover_identity_records(frame, inputs, source_ref, source_work):
         citations = []
         labels = None
         named_target = None
+        primary_node = None
         for anchor in row["anchors"]:
             for piece in pieces:
                 pointer = piece.get("item_ref", "")
@@ -110,17 +115,46 @@ def discover_identity_records(frame, inputs, source_ref, source_work):
                         and passage.text[start - passage.start : end - passage.start]
                         == anchor["source_piece"]
                     ):
-                        raw = frame.text[piece["start"] : piece["end"]]
-                        labels = artifact_source_labels(raw, anchor["end"], pointer)
-                        explicit = explicit_artifact_reference(
-                            raw, anchor["start"], anchor["end"], pointer, artifact
-                        )
-                        if (
-                            explicit is not None
-                            and passage.start <= piece["start"] + explicit.cue.start
-                            and piece["start"] + explicit.cue.end <= passage.end
-                        ):
-                            named_target = explicit
+                        matches = [
+                            fact
+                            for fact in (
+                                *index.select("artifact_mention", pointer),
+                                *index.select("artifact_reference", pointer),
+                            )
+                            if fact.span("subject") == (start, end)
+                        ]
+                        if len(matches) != 1:
+                            raise ValueError(
+                                "artifact occurrence lacks one exact primary source designator"
+                            )
+                        (fact,) = matches
+                        _, labels, _ = retained_artifact_fields(fact, piece["start"])
+                        primary_node = fact.reference
+                        explicit = [
+                            fact
+                            for fact in index.select("artifact_explicit_reference", pointer)
+                            if fact.span("subject") == (start, end)
+                            and fact.payload["artifact_kind"] == artifact.artifact_kind
+                        ]
+                        if len(explicit) > 1:
+                            raise ValueError(
+                                "artifact reference has ambiguous primary target declarations"
+                            )
+                        if explicit and artifact.occurrence_role == "reference":
+                            (target,) = explicit
+                            lo, hi = target.span("cue")
+                            if passage.start <= lo < hi <= passage.end:
+                                named_target = ArtifactReferenceDesignator(
+                                    target_code=target.payload["designator"],
+                                    target_numbering=target.payload["numbering_namespace"],
+                                    cue=ArtifactAliasSpan(
+                                        source_pointer=pointer,
+                                        start=lo - piece["start"],
+                                        end=hi - piece["start"],
+                                        text=target.text("cue"),
+                                    ),
+                                    primary_node=target.reference,
+                                )
                         citations.append(
                             ArtifactCitation(
                                 source_ref=source_ref,
@@ -143,6 +177,7 @@ def discover_identity_records(frame, inputs, source_ref, source_work):
                 numbering=labels[0],
                 revision=labels[1],
                 explicit_reference=named_target,
+                primary_node=primary_node,
             )
         )
     return tuple(records)
@@ -165,84 +200,67 @@ def artifact_cohort(records: list[ArtifactRecord]) -> tuple[ArtifactRecord, ...]
     return tuple(cohort.values())
 
 
-_RELATION_LABEL = re.compile(r"[ \t]+\((?:numbering namespace|revision):[ \t]*[A-Za-z0-9_.-]+\)")
-_WORK_CUE = re.compile(r"[ \t]+\(work:[ \t]*([A-Za-z0-9][A-Za-z0-9_.-]*)\)")
-_ARTIFACT_RELATION = re.compile(
-    r"[ \t]+\((cites|same lineage as|supersedes)[ \t]+(Table|Figure|Theorem|Section)[ \t]+"
-    r"([A-Za-z]?[0-9]+(?:[.-][0-9]+)*[A-Za-z]?)[ \t]+in numbering namespace[ \t]+"
-    r"([A-Za-z0-9][A-Za-z0-9_.-]*)(?:[ \t]+of work[ \t]+([A-Za-z0-9][A-Za-z0-9_.-]*))?"
-    r"(?:[ \t]+revision[ \t]+([A-Za-z0-9][A-Za-z0-9_.-]*))?\)"
-)
-_RELATION_KINDS: dict[str, Literal["reference", "same_lineage", "supersedes"]] = {
-    "cites": "reference",
-    "same lineage as": "same_lineage",
-    "supersedes": "supersedes",
-}
-
-
-def artifact_declared_relationships(records, inputs, frames):
+def artifact_declared_relationships(records, inputs, frames, *, primary_layers):
     """Resolve explicit bounded artifact declarations without inferring lineage from labels."""
     passages = {p.passage_id: p for p in inputs.passages}
-    piece_bounds = {
-        (source, p["item_ref"], p["start"]): p["end"]
+    from .witnessed_source_links import navigation_index
+
+    indexes = {
+        source: navigation_index(
+            primary_layers, frame.projection_digest, source_view_id=frame.source_view_id
+        ).require()
         for source, frame in frames.items()
-        for p in json.loads(frame.native_context)["pieces"]
-        if p.get("kind") == "native_text" and p.get("cell_index") is None
     }
     captions = defaultdict(list)
     declarations = []
     for record in records:
         work, kind = record.artifact.source_work, record.artifact.artifact_kind
         work_citations = []
-        anchor_end = record.source_contribution["anchors"][0]["end"]
         for citation in record.citations:
-            frame = frames[citation.source_ref]
             passage = passages[citation.passage_id]
-            bound = min(
-                passage.end,
-                piece_bounds[
-                    citation.source_ref,
-                    citation.source_pointer,
-                    citation.end - anchor_end,
-                ],
-            )
-            cursor = citation.end
-            while label := _RELATION_LABEL.match(frame.text, cursor, bound):
-                cursor = label.end()
-            if marker := _WORK_CUE.match(frame.text, cursor, bound):
-                cursor = marker.end()
-                if marker[1] == work:
+            index = indexes[citation.source_ref]
+
+            def source_facts(kind, index=index, citation=citation, passage=passage):
+                return [
+                    fact
+                    for fact in index.select(kind, citation.source_pointer)
+                    if fact.span("subject") == (citation.start, citation.end)
+                    and passage.start <= fact.span("cue")[0] < fact.span("cue")[1] <= passage.end
+                ]
+
+            for fact in source_facts("artifact_work"):
+                if fact.payload["work"] == work:
+                    lo, hi = fact.span("cue")
                     work_citations.append(
-                        citation.model_copy(
-                            update={
-                                "start": marker.start(),
-                                "end": cursor,
-                                "text": marker[0],
-                            }
+                        (
+                            citation.model_copy(
+                                update={"start": lo, "end": hi, "text": fact.text("cue")}
+                            ),
+                            fact.reference,
                         )
                     )
-            while relation := _ARTIFACT_RELATION.match(frame.text, cursor, bound):
-                cursor = relation.end()
-                relation_kind = _RELATION_KINDS[relation[1]]
+            for fact in source_facts("artifact_relation"):
+                relation_kind = fact.payload["relation_kind"]
                 if (relation_kind == "reference") != (
                     record.artifact.occurrence_role == "reference"
-                ):
+                ) or fact.payload["artifact_kind"] != kind:
                     continue
-                if relation[2].lower() != kind:
-                    continue
+                lo, hi = fact.span("cue")
                 declarations.append(
                     (
                         record,
                         relation_kind,
                         citation.model_copy(
-                            update={
-                                "start": relation.start(),
-                                "end": cursor,
-                                "text": relation[0],
-                            }
+                            update={"start": lo, "end": hi, "text": fact.text("cue")}
                         ),
-                        (relation[5] or work, kind, relation[4], relation[3].lower()),
-                        relation[6],
+                        (
+                            fact.payload.get("work", work),
+                            kind,
+                            fact.payload["numbering_namespace"],
+                            fact.payload["designator"].lower(),
+                        ),
+                        fact.payload.get("revision"),
+                        fact.reference,
                     )
                 )
         if record.artifact.occurrence_role == "caption":
@@ -250,7 +268,7 @@ def artifact_declared_relationships(records, inputs, frames):
                 work, kind, record.numbering.value, normalized_code(record.artifact.controlled_code)
             ].append((record, tuple(work_citations)))
     output = []
-    for source, kind, origin, key, revision in declarations:
+    for source, kind, origin, key, revision, primary_node in declarations:
         targets = []
         cross_work = key[0] != source.artifact.source_work
         for target, work_cues in captions[key]:
@@ -268,7 +286,7 @@ def artifact_declared_relationships(records, inputs, frames):
                 )
             ):
                 continue
-            marker = work_cues[0] if cross_work else None
+            marker, marker_node = work_cues[0] if cross_work else (None, None)
             citation = (
                 next(
                     c
@@ -283,6 +301,7 @@ def artifact_declared_relationships(records, inputs, frames):
                     record_id=target.contribution_id,
                     citation=citation,
                     work_cue=marker,
+                    work_primary_node=marker_node,
                 )
             )
         output.append(
@@ -290,6 +309,7 @@ def artifact_declared_relationships(records, inputs, frames):
                 kind=kind,
                 source_id=source.contribution_id,
                 origin=origin,
+                primary_node=primary_node,
                 targets=tuple(targets),
                 outcome="no_compatible_candidate"
                 if not targets
@@ -301,7 +321,9 @@ def artifact_declared_relationships(records, inputs, frames):
     return tuple(dict.fromkeys(output))
 
 
-def retained_artifact_nomination(inputs, records, reference, payload) -> ArtifactNomination:
+def retained_artifact_nomination(
+    inputs, records, reference, payload, *, primary_layers=None
+) -> ArtifactNomination:
     """Bind one genuine retained reference relationship to its exact cohort endpoints."""
     if reference.contribution_id not in inputs.dependencies:
         raise ValueError("artifact nomination outside declared dependencies")
@@ -318,6 +340,7 @@ def retained_artifact_nomination(inputs, records, reference, payload) -> Artifac
         raise ValueError("artifact nomination requires two role-bound endpoints")
     matched: dict[str, ArtifactNominationEndpoint] = {}
     cue = None
+    cue_node = None
     source_views = {view["source_view_id"]: view for view in payload["sources"]}
     for endpoint in endpoints:
         row = rows.get(endpoint["contribution_id"])
@@ -372,17 +395,25 @@ def retained_artifact_nomination(inputs, records, reference, payload) -> Artifac
             raise ValueError("artifact nomination endpoint lacks exactly one selected artifact")
         if expected_role == "reference":
             start = origins[0]["start"]
-            match = ARTIFACT_REFERENCE_CUE.search(
-                projection["text"][start : start + anchor["start"]]
-            )
-            if match is None:
-                raise ValueError("artifact reference lacks the exact local cross-reference cue")
-            literal = match[0].rstrip()
+            from .witnessed_source_links import navigation_index
+
+            candidates = [
+                record
+                for record in navigation_index(
+                    primary_layers, pin["projection_digest"], source_view_id=pin["source_view_id"]
+                ).select("artifact_reference", anchor["pointer"])
+                if record.span("subject") == (start + anchor["start"], start + anchor["end"])
+            ]
+            if len(candidates) != 1 or candidates[0].span("cue") is None:
+                raise ValueError("artifact reference lacks exact retained primary cue support")
+            (candidate,) = candidates
+            cue_node = candidate.reference
+            lo, hi = candidate.span("cue")
             cue = ArtifactAliasSpan(
                 source_pointer=anchor["pointer"],
-                start=match.start(),
-                end=match.start() + len(literal),
-                text=literal,
+                start=lo - start,
+                end=hi - start,
+                text=projection["text"][lo:hi],
             )
         matched[endpoint["role"]] = ArtifactNominationEndpoint(
             role=endpoint["role"],
@@ -395,13 +426,18 @@ def retained_artifact_nomination(inputs, records, reference, payload) -> Artifac
     left, right = sorted(e.record_id for e in directed)
     assert cue is not None
     return ArtifactNomination(
-        left=left, right=right, relationship=reference, endpoints=directed, origin_cue=cue
+        left=left,
+        right=right,
+        relationship=reference,
+        endpoints=directed,
+        origin_cue=cue,
+        primary_node=cue_node,
     )
 
 
 class ArtifactIdentityMethod:
     name = "structure.artifact_identity"
-    version = "4"
+    version = "5"
     family = MethodFamily.CONSOLIDATE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.DETERMINISTIC
@@ -418,6 +454,15 @@ class ArtifactIdentityMethod:
     def run(self, units, cfg, ctx):
         if cfg.inputs is None or cfg.policy is None:
             raise ValueError("artifact identity inputs absent")
+        from corpus_structure.semantic.product_reference import ProductReference
+
+        primary = (
+            ctx.reader.characterization_layers(
+                tuple(ProductReference(**value) for value in cfg.characterization_layers)
+            )
+            if cfg.characterization_layers
+            else {}
+        )
         bindings = {b.native_content_digest: b for b in cfg.work_bindings}
         records = []
         unbound = []
@@ -432,7 +477,9 @@ class ArtifactIdentityMethod:
             frame = ctx.reader.structural_source_frame(cfg.inputs, source.identity)
             frames[source.identity] = frame
             records.extend(
-                discover_identity_records(frame, cfg.inputs, source.identity, binding.source_work)
+                discover_identity_records(
+                    frame, cfg.inputs, source.identity, binding.source_work, primary_layers=primary
+                )
             )
             provenance.append(binding.provenance)
         selected = artifact_cohort(records)
@@ -441,14 +488,14 @@ class ArtifactIdentityMethod:
             ctx.check_active()
             payload = ctx.reader.retained_source_contribution(reference)
             nominations.append(
-                retained_artifact_nomination(cfg.inputs, selected, reference, payload)
+                retained_artifact_nomination(
+                    cfg.inputs, selected, reference, payload, primary_layers=primary
+                )
             )
         alias, _ = native_alias_candidates(selected)
         explicit_references = artifact_reference_resolutions(selected)
-        declarations = (
-            artifact_declared_relationships(selected, cfg.inputs, frames)
-            if self.version == "4"
-            else None
+        declarations = artifact_declared_relationships(
+            selected, cfg.inputs, frames, primary_layers=primary
         )
         pairs = pair_candidates(
             selected,
@@ -465,9 +512,7 @@ class ArtifactIdentityMethod:
             kind="artifact_identity",
             inputs=cfg.inputs,
             artifact_identity=ArtifactIdentityProduct(
-                protocol="artifact-identity-4"
-                if declarations is not None
-                else "artifact-identity-3",
+                protocol="artifact-identity-5",
                 records=selected,
                 pairs=scored,
                 native_alias_pairs=tuple(ArtifactPairKey(left=a, right=b) for a, b in alias),

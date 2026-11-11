@@ -49,9 +49,18 @@ from .native_record_fixtures import (
 from .native_record_fixtures import (
     private_source as private_source,
 )
-from .reference_scenarios import private_source_options as private_source_options
+from .primary_native_support import publish_primary_layers
 from .test_companion_export_native import read_settings
 from .witnessed_scenario_support import completed_metadata
+
+
+@pytest.fixture
+def private_source_options():
+    from corpus_structure.evaluate.record_references import reference_inputs
+    from corpus_structure.semantic.characterization import characterization_inputs
+
+    return dict(bundle_transform=lambda bundle: characterization_inputs(reference_inputs(bundle)))
+
 
 EDITIONS = (
     "Table 5.1 (numbering namespace: Main) (revision: old) Counts",
@@ -95,6 +104,9 @@ def test_registered_artifact_canonical_config_completes_and_policy_forgery_refus
 ):
     case = private_source
     with case.writer.begin() as conn:
+        primary_pins = list(
+            publish_primary_layers(conn, case.run, case.prepared, (case.view, case.other_view))
+        )
         complete_contributions(case, conn, contribution_drafts(case))
     finalize_bound_run(case.writer, case.run, "artifact-abi-native-source")
     completed, revision, _runtime = completed_metadata(case, case.run)
@@ -115,10 +127,15 @@ def test_registered_artifact_canonical_config_completes_and_policy_forgery_refus
             case.writer,
             other_path,
             case,
-            project_id="artifact-other-project",
+            project_id=case.project_id,
+            existing_project=True,
+            source_tag="independent-other-book",
             sibling_captions=(CROSS_WORK_CAPTION,),
         )
         with case.writer.begin() as conn:
+            primary_pins.extend(
+                publish_primary_layers(conn, other.run, other.prepared, (other.other_view,))
+            )
             complete_contributions(other, conn, contribution_drafts(other))
             other_view = (
                 conn.execute(select(source_views).where(source_views.c.id == other.other_view))
@@ -156,6 +173,7 @@ def test_registered_artifact_canonical_config_completes_and_policy_forgery_refus
     policy = ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05)
     cfg = ArtifactIdentityConfig(
         inputs=inputs,
+        characterization_layers=tuple(pin.values() for pin in primary_pins),
         structural_input_digest=inputs.identity,
         title_threshold=70.5,
         policy=policy,

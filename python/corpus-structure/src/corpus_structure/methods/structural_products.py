@@ -15,15 +15,15 @@ from pydantic import Field, model_validator
 
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
+from corpus_structure.semantic.formal_readings import (
+    FormalSourceReadings,
+    comparison_basis_readings,
+    coordination_reading,
+    formal_field_readings,
+    lexical_fact_readings,
+)
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.retained_contributions import RetainedContributionRef
-from corpus_structure.semantic.structural_parsing import (
-    COMPARISON_BASIS,
-    REVISION_DECLARATION,
-    REVISION_LINEAGE,
-    REVISION_SUCCESSION,
-    parse_comparison_literal,
-)
 from corpus_structure.semantic.structural_products import (
     DIMENSIONS,
     MANDATORY_ROLES,
@@ -58,8 +58,8 @@ def _located(passage, text: str, start: int) -> LocatedDefinitionSpan:
     )
 
 
-def _succession(left, right) -> RevisionSuccession | None:
-    if not left.effective_version or not right.effective_version:
+def _succession(left, right, *, sources, primary_layers) -> RevisionSuccession | None:
+    if primary_layers is None or not left.effective_version or not right.effective_version:
         return None
     if (
         left.effective_version == right.effective_version
@@ -67,24 +67,59 @@ def _succession(left, right) -> RevisionSuccession | None:
         or left.parent != right.parent
         or left.source_ref != right.source_ref
         or not (left.end <= right.start or right.end <= left.start)
-        or any(REVISION_LINEAGE.findall(passage.text) != [left.parent] for passage in (left, right))
     ):
         return None
+    lineages = {}
+    for passage in (left, right):
+        facts = lexical_fact_readings(
+            primary_layers,
+            sources[passage.source_ref],
+            kind="formal.clause_lineage",
+            start=passage.start,
+            end=passage.end,
+        )
+        if len(facts) != 1 or facts[0].value != left.parent:
+            return None
+        lineages[passage.passage_id] = facts[0]
     witnesses = []
     for newer, older in ((left, right), (right, left)):
-        declarations = tuple(REVISION_DECLARATION.finditer(older.text))
-        if len(declarations) != 1 or declarations[0][1] != older.effective_version:
+        declarations = lexical_fact_readings(
+            primary_layers,
+            sources[older.source_ref],
+            kind="formal.revision_declaration",
+            start=older.start,
+            end=older.end,
+        )
+        if len(declarations) != 1 or declarations[0].value != older.effective_version:
             continue
-        old_declaration = declarations[0]
-        for match in REVISION_SUCCESSION.finditer(newer.text):
-            if match.groups() != (newer.effective_version, older.effective_version):
+        (declaration,) = declarations
+        successions = lexical_fact_readings(
+            primary_layers,
+            sources[newer.source_ref],
+            kind="formal.revision_succession",
+            start=newer.start,
+            end=newer.end,
+        )
+        for fact in successions:
+            values = {role: value for role, _reference, value in fact.bindings}
+            if len(fact.bindings) != 2 or values != dict(
+                newer_revision=newer.effective_version, older_revision=older.effective_version
+            ):
                 continue
             witnesses.append(
                 RevisionSuccession(
                     older_id=older.passage_id,
                     newer_id=newer.passage_id,
-                    evidence=_located(newer, match[0], match.start()),
-                    older_evidence=_located(older, old_declaration[0], old_declaration.start()),
+                    evidence=_located(newer, fact.text, fact.start - newer.start),
+                    older_evidence=_located(
+                        older, declaration.text, declaration.start - older.start
+                    ),
+                    primary_witnesses=(
+                        declaration.reference,
+                        fact.reference,
+                        lineages[older.passage_id].reference,
+                        lineages[newer.passage_id].reference,
+                    ),
                 )
             )
     return witnesses[0] if len(witnesses) == 1 else None
@@ -212,6 +247,7 @@ def compare_clauses(
     right_reading=None,
     cancelled=lambda: False,
     typed_groups=False,
+    primary_layers=None,
 ):
     if left.passage_id == right.passage_id:
         raise ValueError("comparison requires distinct original passages")
@@ -223,7 +259,16 @@ def compare_clauses(
     if grouped != (left_reading is not None and right_reading is not None):
         raise ValueError("grouped comparison requires retained reading references")
     lf, rf = {f.dimension: f for f in left.fields}, {f.dimension: f for f in right.fields}
-    succession = _succession(a, b) if a.scope == b.scope else None
+    succession = (
+        _succession(
+            a,
+            b,
+            sources={source.identity: source for source in inputs.sources},
+            primary_layers=primary_layers,
+        )
+        if a.scope == b.scope
+        else None
+    )
     compatible = a.scope == b.scope and (
         a.effective_version == b.effective_version or succession is not None
     )
@@ -371,33 +416,93 @@ def compare_clauses(
     )
 
 
-def threshold_readings(passage):
-    from corpus_structure.semantic.structural_parsing import threshold_fields
+def _threshold_inventory(passage, source, primary_layers):
     from corpus_structure.semantic.structural_products import TypedPremise
 
-    bases = tuple(COMPARISON_BASIS.finditer(passage.text))
-    basis = bases[0] if len(bases) == 1 and bases[0][1].strip() else None
-    return tuple(
-        ClauseField(
-            dimension="threshold_unit",
-            lexical_value=field["text"],
-            evidence=(passage.passage_id,),
-            typed=TypedPremise(
-                span=_located(passage, field["text"], field["start"]),
-                grammar=field["grammar"],
-                state="parsed",
-                value=field["value"],
-                comparator=field["comparator"],
-                quantity=field["quantity"],
-                unit=field["unit"],
-                basis=basis[1].strip() if basis is not None else None,
-                basis_evidence=(
-                    _located(passage, basis[0], basis.start()) if basis is not None else None
-                ),
-            ),
-        )
-        for field in threshold_fields(passage.text)
+    if source is None or primary_layers is None:
+        return (), False
+    fields, complete = formal_field_readings(
+        primary_layers, source, family="formal.threshold", start=passage.start, end=passage.end
     )
+    bases = comparison_basis_readings(primary_layers, source, start=passage.start, end=passage.end)
+    basis = bases[0] if len(bases) == 1 else None
+    results = []
+    for field in fields:
+        if passage.text[field.start - passage.start : field.end - passage.start] != field.text:
+            raise ValueError("retained threshold differs from the exact selected passage")
+        value = field.normalized
+        if value.get("kind") != "threshold" or "value" not in value or "comparator" not in value:
+            complete = False
+            continue
+        results.append(
+            ClauseField(
+                dimension="threshold_unit",
+                lexical_value=field.text,
+                evidence=(passage.passage_id,),
+                typed=TypedPremise(
+                    span=_located(passage, field.text, field.start - passage.start),
+                    grammar=field.grammar,
+                    state="parsed",
+                    value=value["value"],
+                    comparator=value["comparator"],
+                    quantity=value.get("quantity"),
+                    unit=value.get("unit"),
+                    primary_formal=field.reference,
+                    basis=None if basis is None else basis.value,
+                    basis_evidence=None
+                    if basis is None
+                    else _located(passage, basis.text, basis.start - passage.start),
+                    primary_basis=None if basis is None else basis.reference,
+                ),
+            )
+        )
+    return tuple(results), complete
+
+
+def threshold_readings(passage, *, source=None, primary_layers=None):
+    """Project retained whole threshold rules; missing primary evidence is unresolved."""
+    return _threshold_inventory(passage, source, primary_layers)[0]
+
+
+def _literal_reading(span, source, primary_layers):
+    if primary_layers is None or len(span.text) > 256:
+        return None, None
+    offered = []
+    for family in ("formal.date", "formal.identifier", "formal.quantity", "formal.interval"):
+        fields, _complete = formal_field_readings(
+            primary_layers, source, family=family, start=span.start, end=span.end
+        )
+        offered.extend(
+            field
+            for field in fields
+            if field.start == span.start
+            and field.end == span.end
+            and field.text == span.text
+            and field.start_symbol == "labeled"
+        )
+    if len(offered) != 1:
+        return None, None
+    (field,) = offered
+    value = field.normalized
+    if value["kind"] in {"date", "identifier"}:
+        literal = dict(kind=value["kind"], value=value["value"])
+    elif field.rule == "quantity" and "unit" in value:
+        literal = dict(kind="quantity", value=value["value"], unit=value["unit"])
+    elif value["kind"] == "interval" and "unit" in value:
+        literal = dict(
+            kind="range",
+            **{
+                key: value[key]
+                for key in ("lower", "upper", "lower_closed", "upper_closed", "unit")
+            },
+        )
+    else:
+        return None, None
+    try:
+        return ComparisonLiteral.model_validate(literal), field.reference
+    except ValueError:
+        # Exact primary syntax remains available outside this bounded domain projection.
+        return None, None
 
 
 _ROLE_DIMENSIONS = {"actor": "actor", "predicate": "action", "object": "object"}
@@ -424,7 +529,7 @@ def comparison_host_evidence(component, frame, frame_id):
     )
 
 
-def _group_fields(passage, members, incomplete):
+def _group_fields(passage, members, incomplete, *, source=None, primary_layers=None):
     def extents(member):
         if member.spans is not None:
             return member.spans
@@ -443,32 +548,37 @@ def _group_fields(passage, members, incomplete):
         return ClauseFieldGroup(state="unresolved", grouping="unresolved", members=ordered)
     if len(ordered) == 1:
         return ClauseFieldGroup(state="present", grouping="singleton", members=ordered)
-    connectors = []
+    connectors, facts = [], []
     for left, right in pairwise(ordered):
         left_spans, right_spans = extents(left), extents(right)
-        if not left_spans or not right_spans:
+        if not left_spans or not right_spans or source is None or primary_layers is None:
             return ClauseFieldGroup(state="present", grouping="unresolved", members=ordered)
-        end, start = left_spans[-1].end, right_spans[0].start
-        gap = passage.text[end - passage.start : start - passage.start]
-        word = gap.strip()
-        if word.lower() not in {"and", "or"}:
+        fact = coordination_reading(
+            primary_layers, source, start=left_spans[-1].end, end=right_spans[0].start
+        )
+        if fact is None:
             return ClauseFieldGroup(state="present", grouping="unresolved", members=ordered)
-        connectors.append(_located(passage, word, end - passage.start + gap.index(word)))
-    words = {span.text.lower() for span in connectors}
-    if len(words) != 1:
+        facts.append(fact)
+        connectors.append(_located(passage, fact.text, fact.start - passage.start))
+    words = {fact.value for fact in facts}
+    if len(words) != 1 or not words <= {"and", "or"}:
         return ClauseFieldGroup(state="present", grouping="unresolved", members=ordered)
     return ClauseFieldGroup(
         state="present",
         grouping="conjunction" if words == {"and"} else "disjunction",
         members=ordered,
         witnesses=tuple(connectors),
+        primary_witnesses=tuple(fact.reference for fact in facts),
     )
 
 
-def read_retained_clause(passage, source, reference, retained, *, predicate_version=None):
+def read_retained_clause(
+    passage, source, reference, retained, *, predicate_version=None, primary_layers=None
+):
     """Compose the admitted frame roles and the immutable host qualifier population."""
     if reference.project_id != source.project_id:
         raise ValueError("reading belongs to another project")
+    primary = FormalSourceReadings(primary_layers, source) if primary_layers is not None else None
     rows = {row["contribution_id"]: row for row in retained["contributions"]}
     reading = rows[reference.contribution_id]
     component = reading.get("component", {})
@@ -514,7 +624,9 @@ def read_retained_clause(passage, source, reference, retained, *, predicate_vers
         if not spans:
             incomplete.add(dimension)
             return
-        literal = parse_comparison_literal(spans[0].text) if len(spans) == 1 else None
+        literal, primary_formal = (
+            _literal_reading(spans[0], source, primary) if len(spans) == 1 else (None, None)
+        )
         members[dimension].append(
             ClauseField(
                 dimension=dimension,
@@ -523,7 +635,8 @@ def read_retained_clause(passage, source, reference, retained, *, predicate_vers
                 evidence=(passage.passage_id,),
                 contribution_id=contribution_id,
                 condition=condition,
-                literal=ComparisonLiteral.model_validate(literal) if literal is not None else None,
+                literal=literal,
+                primary_formal=primary_formal,
             )
         )
 
@@ -574,7 +687,10 @@ def read_retained_clause(passage, source, reference, retained, *, predicate_vers
     ]
     if focus is not None:
         controls.append((focus["start"], focus["end"]))
-    for field in threshold_readings(passage):
+    thresholds, complete_thresholds = _threshold_inventory(passage, source, primary)
+    if not complete_thresholds:
+        incomplete.add("threshold_unit")
+    for field in thresholds:
         if (
             field.dimension == "threshold_unit"
             and field.typed is not None
@@ -584,7 +700,9 @@ def read_retained_clause(passage, source, reference, retained, *, predicate_vers
         ):
             members[field.dimension].append(field)
     groups = {
-        dimension: _group_fields(passage, fields, dimension in incomplete)
+        dimension: _group_fields(
+            passage, fields, dimension in incomplete, source=source, primary_layers=primary
+        )
         for dimension, fields in members.items()
     }
     exception_spans = [span for field in groups["exception"].members for span in field.spans or ()]
@@ -593,11 +711,20 @@ def read_retained_clause(passage, source, reference, retained, *, predicate_vers
         start, end = focus["start"] - passage.start, focus["end"] - passage.start
         located_focus = _located(passage, passage.text[start:end], start)
         exception_spans.append(located_focus)
-    empty = [
-        span
-        for span in exception_spans
-        if span.text.strip().lower().rstrip(".") in {"no exceptions", "exceptions: none"}
-    ]
+    empty = []
+    if primary is not None:
+        for span in exception_spans:
+            facts = lexical_fact_readings(
+                primary, source, kind="formal.exception_empty", start=span.start, end=span.end
+            )
+            if len(facts) == 1:
+                (fact,) = facts
+                # Only source whitespace and the optional original terminator may
+                # surround the explicitly classified marker; no lexical inference.
+                left = span.text[: fact.start - span.start]
+                right = span.text[fact.end - span.start :]
+                if not left.strip() and right.strip() in {"", "."}:
+                    empty.append(fact)
     if len(empty) == 1 and (
         not groups["exception"].members
         or (
@@ -605,7 +732,12 @@ def read_retained_clause(passage, source, reference, retained, *, predicate_vers
             and len(groups["exception"].members[0].spans or ()) == 1
         )
     ):
-        groups["exception"] = ClauseFieldGroup(state="empty", witnesses=tuple(empty))
+        (fact,) = empty
+        groups["exception"] = ClauseFieldGroup(
+            state="empty",
+            witnesses=(_located(passage, fact.text, fact.start - passage.start),),
+            primary_witnesses=(fact.reference,),
+        )
     condition = groups["condition"]
     threshold = groups["threshold_unit"]
     if threshold.members and "unresolved" in (condition.state, condition.grouping):
@@ -1152,6 +1284,7 @@ class StructuralComparisonConfig(StructuralValue):
     right_id: str | None = None
     left_reading: RetainedContributionRef | None = None
     right_reading: RetainedContributionRef | None = None
+    characterization_layers: tuple[dict, ...] = ()
 
     @model_validator(mode="after")
     def bound_input(self):
@@ -1168,6 +1301,7 @@ class StructuralComparisonConfig(StructuralValue):
                 raise ValueError("partial comparison config")
         elif (
             self.structural_input_digest != self.inputs.identity
+            or not self.characterization_layers
             or self.left_id == self.right_id
             or not {self.left_id, self.right_id} <= {p.passage_id for p in self.inputs.passages}
             or self.left_reading is None
@@ -1182,8 +1316,8 @@ class StructuralComparisonConfig(StructuralValue):
 
 class StructuralComparisonMethod:
     name = "structure.compare"
-    version = "4"
-    predicate_version = "4"
+    version = "6"
+    predicate_version = "6"
     family = MethodFamily.CONSOLIDATE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.DETERMINISTIC
@@ -1203,6 +1337,14 @@ class StructuralComparisonMethod:
         if cfg.inputs is None or cfg.left_reading is None or cfg.right_reading is None:
             raise ValueError("comparison inputs absent")
         ctx.check_active()
+        ctx.reader.validate_structural_inputs(cfg.inputs)
+        primary = {}
+        for source in cfg.inputs.sources:
+            primary.update(
+                ctx.reader.primary_characterization(
+                    source.source_view_id, families=("formal.lexical", "formal.threshold")
+                )
+            )
         passages = {p.passage_id: p for p in cfg.inputs.passages}
         sources = {source.identity: source for source in cfg.inputs.sources}
 
@@ -1215,6 +1357,7 @@ class StructuralComparisonMethod:
                 reference,
                 ctx.reader.retained_source_contribution(reference),
                 predicate_version=self.predicate_version,
+                primary_layers=primary,
             )
 
         report = compare_clauses(
@@ -1224,6 +1367,7 @@ class StructuralComparisonMethod:
             left_reading=cfg.left_reading,
             right_reading=cfg.right_reading,
             typed_groups=True,
+            primary_layers=primary,
         )
         return tuple(
             UnitResult(
@@ -1233,11 +1377,6 @@ class StructuralComparisonMethod:
             )
             for u in units
         )
-
-
-class StructuralComparisonWithRoleClosure(StructuralComparisonMethod):
-    version = "5"
-    predicate_version = "5"
 
 
 class StructuralDossierConfig(StructuralValue):
@@ -1409,7 +1548,7 @@ def condition_qualification(inputs, attachment, retained):
     if (
         component["kind"] != "predicate_qualifier"
         or component["question"] != "source_predicate_interpretation"
-        or version not in {"3", "4", "5"}
+        or version != "6"
         or relation_kind not in {"condition", "assumption"}
         or component["scope"] != inputs.scope
         or tuple((e["role"], e["contribution_id"]) for e in relation["endpoints"])

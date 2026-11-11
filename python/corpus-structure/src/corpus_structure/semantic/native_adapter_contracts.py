@@ -22,6 +22,7 @@ def validate_native_adapters(model: ExecutionModelProducts) -> None:
         "publish_source_view",
         "publish_characterization",
         "read_characterization",
+        "read_characterization_inventory",
         "read_source_view",
     ):
         model.require_operation(name)

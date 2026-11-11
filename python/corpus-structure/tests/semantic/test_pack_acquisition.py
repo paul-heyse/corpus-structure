@@ -12,6 +12,11 @@ def test_acquire_and_compose_never_invoke_compiler(monkeypatch):
 
     monkeypatch.setattr(regeneration, "prepare_release", forbidden)
     inputs = regeneration.acquire_pack(DOMAINS / "statistics")
+    trusted = {source.name: source.content for source in inputs.trusted_sources}
+    assert b"CharacterizationFullProfile:" in trusted["characterization.yaml"]
+    assert b"CharacterizationRule_" in trusted["characterization.yaml"]
+    assert trusted["characterization-questions.yaml"]
+    monkeypatch.setattr("corpus_structure.semantic.characterization._construction_model", forbidden)
 
     # Local ontology leaves have always used an operation-owned file bridge.
     # Permit only files written from captured ontology bytes during this operation;
@@ -44,6 +49,16 @@ def test_acquire_and_compose_never_invoke_compiler(monkeypatch):
     first = regeneration.compose_pack_inputs((inputs,))
     second = regeneration.compose_pack_inputs((inputs,))
     assert first == second
+    from corpus_structure.semantic.interpretation_questions import CHARACTERIZATION_QUESTION_INPUT
+
+    assert (
+        next(
+            artifact.content
+            for artifact in first[1].artifacts
+            if artifact.name == CHARACTERIZATION_QUESTION_INPUT
+        )
+        == trusted["characterization-questions.yaml"]
+    )
     assert inputs.name == "statistics"
     assert inputs.bundle.sources
     assert observed == materialized and observed

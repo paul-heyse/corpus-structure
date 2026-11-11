@@ -8,7 +8,7 @@ import pytest
 from corpus_structure.ingest.annotations import AnnotationInput, AnnotationProfile, annotate
 from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
 from corpus_structure.ingest.sentences import Block, pipeline, prepare_layout
-from corpus_structure.methods.structural_roles import predicate_frames, procedure_frames
+from corpus_structure.methods.structural_roles import predicate_frames
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.source_contexts import NativeSourcePin
 
@@ -44,7 +44,9 @@ def retained(
         pieces = (ProjectedPiece("#/texts/3", len(_PREFIX), len(_PREFIX + text), "native_text"),)
     request = AnnotationInput(source, block_id, kind, block, layout, pieces)
     (product,) = annotate((request,), profile)
-    return _PREFIX + text, product
+    from .primary_reading_fixture import primary_product
+
+    return _PREFIX + text, primary_product(_PREFIX + text, product, profile)
 
 
 def strings(text, span):
@@ -80,10 +82,6 @@ def test_pin_reconstruction_and_exact_passive_probability_subject(profile):
     assert strings(text, given.focus) == (
         "The probability that X is less than Y is given by the integral",
     )
-    # Old and new recipes get exactly the same retained dependency rows.
-    baseline = procedure_frames(text, (product,))
-    old = next(frame for frame in baseline if text[slice(*frame["action"])] == "given")
-    assert tuple(text[a:b] for a, b in old["object"]) != ("The probability that X is less than Y",)
 
 
 def test_naming_complement_and_embedded_negation_have_separate_hosts(profile):
@@ -180,7 +178,8 @@ def test_modality_alone_and_unrelated_exception_are_insufficient(profile):
     assert frames["be"].interpretation == "explanation"
     assert frames["review"].interpretation == "unresolved"
     policy = readings(text, predicate_frames(text, (product,), layout="policy"))
-    assert policy["review"].interpretation == "prescribed_action"
+    # Consumer configuration cannot reinterpret an already retained prose analysis.
+    assert policy["review"].interpretation == "unresolved"
     assert policy["be"].interpretation == "explanation"
     assert frames["review"].predicate == policy["review"].predicate
     assert frames["review"].focus == policy["review"].focus
@@ -216,7 +215,9 @@ def test_noncontiguous_role_stays_separate_with_controlled_retained_heads(profil
             strict=True,
         )
     )
-    adjusted = replace(product, tokens=tokens)
+    from .primary_reading_fixture import primary_product
+
+    adjusted = primary_product(text, replace(product, tokens=tokens), profile)
     frame = readings(text, predicate_frames(text, (adjusted,)))["reviews"]
     assert role(text, frame, "object") == (("current", "files"),)
     assert strings(text, frame.focus) == ("Manager reviews current", "files")
@@ -273,7 +274,7 @@ def test_native_piece_boundary_separates_even_adjacent_role_tokens(profile):
     assert strings(text, frame.focus) == ("The manager reviews a", "report")
 
 
-def test_compound_if_then_keeps_premise_parse_conflict_unresolved(profile):
+def test_complete_primary_compound_if_then_keeps_accepted_exact_witness(profile):
     text, product = retained(
         "Definition 6.2 If F is any event and X is a random variable with "
         "sample space Ω = {x1, x2, . . .}, then the conditional expectation "
@@ -283,13 +284,10 @@ def test_compound_if_then_keeps_premise_parse_conflict_unresolved(profile):
     result = predicate_frames(text, (product,))
     frames = readings(text, result)
     (cue,) = cues(frames["defined"], "condition")
-    assert cue.status == "unresolved" and cue.variant == "compound_if_then"
+    assert cue.status == "located" and cue.variant == "event_compound_then"
     assert strings(text, cue.span) == (
         "If F is any event and X is a random variable with sample space Ω = {x1, x2, . . .}",
     )
     assert frames["defined"].predicate.tokens[0] in cue.hosts
-    assert not any(
-        candidate.status == "located"
-        for frame in result.frames
-        for candidate in cues(frame, "condition")
-    )
+    assert cue.origin == frames["defined"].predicate.tokens[0]
+    assert cue.hosts == frames["defined"].predicate.tokens

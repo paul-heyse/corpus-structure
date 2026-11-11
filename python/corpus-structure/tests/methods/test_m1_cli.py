@@ -93,9 +93,22 @@ def test_cli_dispatch_records_explicit_policy_and_leaves_phase0_graph(
     )
     if m1:
         args += ["--m1-configuration", configuration]
+    selected = (
+        (
+            ProductReference(31, "enriched_view", "b" * 64),
+            ProductReference(32, "enriched_view", "c" * 64),
+        )
+        if not m1
+        else ()
+    )
+    import json
+
+    for pin in selected:
+        args += ["--characterization-view", json.dumps(pin.values())]
     result = cli("run", *args, "--json")
     assert result.exit_code == 0, (result.output, result.exception)
     kwargs = start.call_args.kwargs
+    assert kwargs["characterization_views"] == selected
     assert kwargs["extraction_policy"] == ("m1-candidate" if m1 else "phase0")
     if m1:
         assert kwargs["m1_configuration"] == configuration

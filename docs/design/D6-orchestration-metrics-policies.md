@@ -2,7 +2,7 @@
 
 ## Characterization layer lifecycle
 
-**Accepted target, Proposed until implemented · 2026-11-10.** Layer computation is private
+**Implemented; bounded functional scope Tested · 2026-11-11.** Layer computation is private
 and binds exact source, producer release/runtime, configuration, model/grammar and upstream layer
 determinants. Reuse preserves original producer provenance. A tokenizer/model/prompt/context
 change invalidates affected inference; a changed pure construction can reuse compatible retained
@@ -18,7 +18,23 @@ cannot expose a partly committed complete view. A convenience current selector r
 an exact base/layer closure; readers and continuations keep that pin. Whole-run completion is not
 required to inspect or export an independently settled view.
 
-> Decision: [ADR-0081](../adr/0081-enriched-document-analysis-layers.md)
+Demand execution freezes current active pins separately from dependency retention. A changed
+producer replaces its active output after obtaining the exact matching result; dependencies remain
+available for validation. Pure contextual refreshes may reuse exact compatible raw provider outputs
+through a separate evidence selection, while candidate discovery consumes only selected semantics.
+
+Default analytical source execution uses the existing capture, demand and exact-view binding
+operations in that order. Capture and producer runs retain their own lifecycle and failure evidence;
+the final analytical run selects original source custody and records its exact view pins in immutable
+dependencies/options. Resume uses that run and those pins. Provider absence remains visible in layer
+coverage; it cannot establish successful empty output or satisfy a stronger consumer dependency.
+
+Functional closure and the applicable full-campaign/replacement union are owned by the
+[TC coordinator](../plans/text-characterization_2026-11-10.md). Independent semantic
+assessment and full-book qualification remain TC-10/11; improved linguistic accuracy and
+performance remain Proposed qualitative benefits.
+
+> Decision: [ADR-0081](../adr/0081-enriched-document-analysis-layers.md), [ADR-0082](../adr/0082-explicit-analysis-selection.md)
 
 ## Local publication dependencies
 

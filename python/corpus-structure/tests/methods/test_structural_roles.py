@@ -25,14 +25,90 @@ def annotation(text, specifications):
                 sentence=0,
             )
         )
-    return SimpleNamespace(
-        tokens=tuple(tokens),
-        availability=(
-            SimpleNamespace(attribute="DEP", status="complete"),
-            SimpleNamespace(attribute="POS", status="complete"),
-        ),
-        dependency_digest="independent-fixture",
+    from hashlib import sha256
+
+    from corpus_structure.ingest.annotations import (
+        AnnotationAvailability,
+        AnnotationProduct,
+        AnnotationProfile,
+        SentenceAnnotation,
+        TokenAnnotation,
     )
+    from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
+    from corpus_structure.semantic.product_reference import ProductReference
+    from corpus_structure.semantic.source_contexts import NativeSourcePin
+
+    from .primary_reading_fixture import primary_product
+
+    if cursor < len(text) and text[cursor:] == ".":
+        root = next(i for i, t in enumerate(tokens) if t.dependency == "ROOT")
+        tokens.append(
+            SimpleNamespace(
+                start=cursor,
+                end=len(text),
+                pos="PUNCT",
+                dependency="punct",
+                head=root,
+                tag=".",
+                role="prose",
+                sentence=0,
+            )
+        )
+    profile = AnnotationProfile()
+    digest = sha256(text.encode()).hexdigest()
+    rows = tuple(
+        TokenAnnotation(
+            t.start,
+            t.end,
+            text[t.end : t.end + 1] == " ",
+            t.role,
+            text[t.start : t.end].lower(),
+            t.pos,
+            t.tag,
+            (),
+            t.dependency,
+            t.head,
+            t.sentence,
+            (0,),
+        )
+        for t in tokens
+    )
+    product = AnnotationProduct(
+        source=NativeSourcePin(
+            7,
+            "source:7",
+            ProductReference(17, "integrated", "a" * 64),
+            "#/groups/7",
+            "descendants",
+            "b" * 64,
+            "c" * 64,
+            3,
+        ),
+        block_id="#/texts/0",
+        kind="paragraph",
+        block_start=0,
+        block_end=len(text),
+        display_spans=(),
+        text_digest=digest,
+        native_pieces=(ProjectedPiece("#/texts/0", 0, len(text), "native_text"),),
+        layout_digest=digest,
+        layout_recipe="canonical-token-layout-1",
+        profile_recipe=profile.recipe,
+        profile_digest=digest,
+        spacy_version=profile.configuration.spacy_version,
+        model=profile.configuration.model,
+        model_version=profile.configuration.model_version,
+        components=(),
+        pipeline_config_digest=digest,
+        availability=tuple(
+            AnnotationAvailability(name, "complete")
+            for name in ("LEMMA", "POS", "TAG", "MORPH", "DEP", "SENT_START")
+        ),
+        tokens=rows,
+        sentences=(SentenceAnnotation(0, len(text)),),
+        dependency_digest=digest,
+    )
+    return primary_product(text, product, profile)
 
 
 def values(text, frame, name):
@@ -57,7 +133,9 @@ def test_passive_voice_keeps_agent_as_actor_and_subject_as_object():
     assert values(text, frame, "actor") == ("Manager",)
     assert values(text, frame, "object") == ("Table 5.1",)
     assert values(text, frame, "modality") == ("must",)
-    assert frame["voice"] == "passive" and frame["behavior"] == "prescribed"
+    assert frame["voice"] == "passive"
+    # A modal cue alone leaves source function unresolved without policy context.
+    assert frame["behavior"] == "described_or_example_unresolved"
 
 
 def test_coordinated_actions_inherit_only_unambiguous_roles_and_keep_negation():
@@ -65,9 +143,9 @@ def test_coordinated_actions_inherit_only_unambiguous_roles_and_keep_negation():
     product = annotation(
         text,
         [
-            ("Manager", "NOUN", "nsubj", 4, "NN"),
-            ("must", "AUX", "aux", 4, "MD"),
-            ("not", "PART", "neg", 4, "RB"),
+            ("Manager", "NOUN", "nsubj", 3, "NN"),
+            ("must", "AUX", "aux", 3, "MD"),
+            ("not", "PART", "neg", 3, "RB"),
             ("inspect", "VERB", "ROOT", 3, "VB"),
             ("and", "CCONJ", "cc", 3, "CC"),
             ("approve", "VERB", "conj", 3, "VB"),
@@ -75,14 +153,12 @@ def test_coordinated_actions_inherit_only_unambiguous_roles_and_keep_negation():
             ("5.1", "NUM", "nummod", 6, "CD"),
         ],
     )
-    # Independent fixture heads: auxiliaries and subject belong to inspect.
-    for i in range(3):
-        product.tokens[i].head = 3
     frames = procedure_frames(text, (product,))
     assert len(frames) == 2
     assert all(values(text, f, "actor") == ("Manager",) for f in frames)
     assert all(values(text, f, "object") == ("Table 5.1",) for f in frames)
-    assert frames[0]["polarity"] == "negative"
+    # The shared source reading preserves the two possible scopes of not across and.
+    assert frames[0]["polarity"] == "negative_scope_unresolved"
     assert frames[1]["polarity"] == "negative_scope_unresolved"
 
 

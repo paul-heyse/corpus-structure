@@ -1,6 +1,7 @@
 """Detached review integrity and publication, independently specified records."""
 
 import json
+from typing import Any
 
 import pytest
 
@@ -931,6 +932,9 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target", disti
     from hashlib import sha256
     from types import SimpleNamespace
 
+    from methods.navigation_fixture import primary_navigation
+
+    from corpus_structure.core.evidence import config_key
     from corpus_structure.core.method import UnitRef
     from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.methods.artifact_identity import (
@@ -938,6 +942,7 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target", disti
         ArtifactIdentityMethod,
     )
     from corpus_structure.methods.scoped_relations import SourceWorkBinding, discover_relations
+    from corpus_structure.orchestrate.registry import canonical_numbers
     from corpus_structure.semantic.artifact_identity import ArtifactScoringPolicy
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.observations import source_value
@@ -983,12 +988,24 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target", disti
     digest = sha256(canonical_bytes(projection)).hexdigest()
     source["ref"]["projection_digest"] = digest
     source_ref = inputs.sources[0].model_copy(update=dict(projection_digest=digest))
+    primary = {}
+
+    def primary_for_source(value):
+        view = _retained_review_source_view(value)
+        primary.update(
+            primary_navigation(view, annotations=(), formal=True, task_start=201 + 10 * view.ref.id)
+        )
+
+    if not distinct_codes:
+        primary_for_source(source)
     references = ()
     endpoints = []
     reference_row = relation = None
     if not distinct_codes:
         frame = native_source_frame(_retained_review_source_view(source), ())
-        contributed = discover_relations(frame, source_work="controlled-work")["contributions"]
+        contributed = discover_relations(
+            frame, source_work="controlled-work", primary_layers=primary
+        )["contributions"]
         relation = next(
             row for row in contributed if row["item_key"].startswith("artifact_reference_target:")
         )
@@ -1039,6 +1056,7 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target", disti
         )
         selected_refs.append(selected_ref)
         selected_rows[selected_ref.identity] = selected
+        primary_for_source(selected)
         passages.append(
             inputs.passages[0].model_copy(
                 update={
@@ -1057,6 +1075,7 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target", disti
         )
     )
     configuration = ArtifactIdentityConfig(
+        characterization_layers=tuple(pin.values() for pin in primary),
         inputs=inputs,
         structural_input_digest=inputs.identity,
         work_bindings=(
@@ -1084,6 +1103,7 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target", disti
                 _retained_review_source_view(selected_rows[ref]), ()
             ),
             retained_source_contribution=retained_source,
+            characterization_layers=lambda _: primary,
         ),
     )
     (result,) = ArtifactIdentityMethod().run(
@@ -1102,19 +1122,60 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target", disti
         product_id=report.product_id,
         report=report.model_dump(mode="json"),
     )
+    params = canonical_numbers(configuration.model_dump(mode="json"))
+    config_hash = config_key(ArtifactIdentityMethod.name, ArtifactIdentityMethod.version, params)
     raw = dict(
         origin_task_id=100,
         origin_run_id=2,
         project_id="selected-project",
         runtime_fingerprint="runtime:artifact",
-        configuration=configuration.model_dump(mode="json"),
+        configuration=params,
+        config_hash=config_hash,
+        input_hash="artifact-input",
         body=dict(
             release_id="release:structural",
             method="structure.artifact_identity",
             operation_version=ArtifactIdentityMethod.version,
+            outcome="produced",
+            configuration_hash=config_hash,
+            input_hash="artifact-input",
             structural_product=report.model_dump(mode="json"),
         ),
     )
+    from pathlib import Path
+
+    from methods.primary_reading_fixture import prepared
+
+    from corpus_structure.semantic import SourceArtifact, SourceBundle
+    from corpus_structure.semantic.characterization import characterization_inputs
+
+    from .test_characterization_replay import contract_data
+
+    core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    bundle = characterization_inputs(
+        SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
+    )
+    primary_rows = [("characterization_contracts", contract_data(prepared(), bundle))]
+    for pin, layer in primary.items():
+        body = layer.payload
+        operation = body["operation"]
+        primary_rows.append(
+            (
+                "characterization_layers",
+                dict(
+                    reference=pin.values(),
+                    payload=body,
+                    producer=dict(
+                        name=operation["key"],
+                        version=operation["version"],
+                        runtime_id=operation["runtime"],
+                        config_hash=operation["configuration"],
+                        input_hash=operation["input"],
+                        release_id=body["release_id"],
+                    ),
+                ),
+            )
+        )
     if distinct_codes:
         return ReviewSelection(
             structural_selections=(StructuralRequest(run_id=2, kind="artifact_identity"),)
@@ -1124,6 +1185,7 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target", disti
             ("reports", raw),
             *(("sources", selected) for selected in selected_rows.values()),
             *rows[4:],
+            *primary_rows,
         ]
 
     assert relation is not None
@@ -1173,6 +1235,7 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target", disti
         ("reports", raw),
         *(("sources", selected) for selected in selected_rows.values()),
         *rows[3:],
+        *primary_rows,
     ]
     return ReviewSelection(
         selections=(ContributionRequest(run_id=5),),
@@ -1296,18 +1359,21 @@ def comparison_rows(variant):
     alternate = current.model_copy(
         update={"comparison": current.comparison.model_copy(update={"left_reading": refs[2]})}
     )
-    registered_version = "2" if variant == "archive" else "3"
+    registered_version = "2" if variant == "archive" else "6"
     claimed_version = "2" if variant == "downgrade" else registered_version
-    config = {
+    config: dict[str, Any] = {
         "inputs": inputs.model_dump(mode="json"),
         "structural_input_digest": inputs.identity,
         "left_id": left.passage_id,
         "right_id": right.passage_id,
     }
-    if registered_version == "3":
+    if registered_version == "6":
         config.update(
             left_reading=refs[0].model_dump(mode="json"),
             right_reading=refs[1].model_dump(mode="json"),
+            characterization_layers=[
+                dict(task_id=500, product_key="annotation_layer", content_digest="d" * 64)
+            ],
         )
     registered_hash = config_key("structure.compare", registered_version, config)
     selected = {"alternate": alternate, "drop": legacy, "archive": legacy, "downgrade": legacy}[
@@ -1345,12 +1411,13 @@ def comparison_rows(variant):
     ), rows
 
 
-def test_detached_archive_requires_registered_singleton_comparison(
+def test_detached_archive_requires_regeneration_from_primary_source(
     tmp_path, synthetic_source_projection
 ):
     request, rows = comparison_rows("archive")
-    write_review_bundle(request, tmp_path / "archive", iter(rows))
-    verify_review_bundle(tmp_path / "archive")
+    with pytest.raises(ValueError, match="registered producer result"):
+        write_review_bundle(request, tmp_path / "archive", iter(rows))
+    assert not (tmp_path / "archive").exists()
 
 
 @pytest.mark.parametrize(

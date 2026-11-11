@@ -9,7 +9,7 @@ from importlib.resources import files
 import pytest
 
 from corpus_structure.core.evidence import config_key
-from corpus_structure.methods.scoped_relations import ScopedRelationsConfig, discover_relations
+from corpus_structure.methods.scoped_relations import SCOPED_VERSION, ScopedRelationsConfig
 from corpus_structure.methods.source_preparation import prepare_source
 from corpus_structure.methods.witnessed_source_links import NAMED_NATIVE_PIECES_INPUT
 from corpus_structure.orchestrate.registry import canonical_numbers
@@ -29,6 +29,7 @@ from corpus_structure.serve.witnessed_source_link_replay import (
 )
 
 from .test_m1_source_preparation import source
+from .test_scoped_relations import discover_relations
 
 
 def _contract(policy: bytes):
@@ -91,7 +92,8 @@ def _joined_view():
     )
 
 
-def _retained_reports(view, release, method_version, named_version):
+def _retained_reports(view, release):
+    method_version, named_version = SCOPED_VERSION, "4"
     frame = native_source_frame(view, ())
     annotations = prepare_source(view, annotations_only=True)
     assert not annotations.annotation_errors
@@ -129,8 +131,6 @@ def _retained_reports(view, release, method_version, named_version):
         passages=(passage,),
         dependencies=("fixture",),
     )
-    config = ScopedRelationsConfig(inputs=inputs, structural_input_digest=inputs.identity)
-    params = canonical_numbers(config.model_dump(mode="json"))
     output = discover_relations(
         frame,
         annotations=annotations.annotations,
@@ -140,6 +140,13 @@ def _retained_reports(view, release, method_version, named_version):
         witnessed_links_enabled=True,
         named_link_version=named_version,
     )
+    primary = output["_primary_layers"]
+    config = ScopedRelationsConfig(
+        inputs=inputs,
+        structural_input_digest=inputs.identity,
+        characterization_layers=tuple(pin.values() for pin in primary),
+    )
+    params = canonical_numbers(config.model_dump(mode="json"))
     scoped = dict(
         configuration=params,
         body=dict(
@@ -158,7 +165,7 @@ def _retained_reports(view, release, method_version, named_version):
         body=dict(
             release_id=release,
             source=frame.unit_ref,
-            operation_version="2",
+            operation_version="3",
             input_hash="annotation-input",
             configuration_hash="annotation-configuration",
             outcome="produced",
@@ -166,7 +173,6 @@ def _retained_reports(view, release, method_version, named_version):
                 dict(
                     recipe="m1-owned-linguistic-product-1",
                     source_pin=asdict(NativeSourcePin.from_source(frame)),
-                    annotations=[asdict(block)],
                 )
             ),
         ),
@@ -180,27 +186,25 @@ def _retained_reports(view, release, method_version, named_version):
     # Use wire values so detached list/tuple comparisons match a delivered bundle.
     import json
 
-    return json.loads(canonical_bytes([scoped, source_row, producer]))
+    return (*json.loads(canonical_bytes([scoped, source_row, producer])), primary)
 
 
-def test_historical_named_cue_replay_preserves_pre_joined_coverage():
-    scoped, source_row, producer = _retained_reports(_joined_view(), "release:legacy", "10", "3")
-    (named,) = [
-        op
-        for op in scoped["body"]["contribution_operations"]
-        if op["question"] == "source_named_links"
-    ]
-    assert named["emitted_count"] == 0
-    verify_annotated_named_links(scoped, source_row, {41: producer})
+def test_historical_named_cue_replay_requires_current_primary_regeneration():
+    scoped, source_row, producer, primary = _retained_reports(_joined_view(), "release:legacy")
+    scoped["body"]["operation_version"] = "12"
+    with pytest.raises(ValueError, match="current exact retained configuration"):
+        verify_annotated_named_links(scoped, source_row, {41: producer}, primary_layers=primary)
 
 
 def test_joined_citation_replays_exact_annotation_and_native_piece():
     policy = (
-        files("corpus_structure").joinpath("methods/named_link_native_pieces.json").read_bytes()
+        files("corpus_structure")
+        .joinpath("semantic/constructions/navigation_native_pieces.json")
+        .read_bytes()
     )
     contract = _contract(policy)
-    scoped, source_row, producer = _retained_reports(
-        _joined_view(), contract["release_id"], "12", "4"
+    scoped, source_row, producer, primary = _retained_reports(
+        _joined_view(), contract["release_id"]
     )
     archived = archived_named_link_native_pieces(contract)
     (cue,) = [
@@ -212,14 +216,15 @@ def test_joined_citation_replays_exact_annotation_and_native_piece():
     assert cue["anchors"][0]["pointer"] == "#/texts/1"
     witness = source_python(cue["value"])["named_cue"]
     assert witness["block"] == "#/texts/0"
-    verify_annotated_named_links(scoped, source_row, {41: producer}, native_piece_policy=archived)
+    verify_annotated_named_links(
+        scoped, source_row, {41: producer}, native_piece_policy=archived, primary_layers=primary
+    )
 
     tampered = deepcopy(producer)
     detail = source_python(tampered["body"]["parse_detail"])
-    first_token = next(iter(witness["tokens"].values()))
-    detail["annotations"][0]["tokens"][first_token]["piece_indices"] = [0]
+    detail["source_pin"]["projection_digest"] = "f" * 64
     tampered["body"]["parse_detail"] = source_value(detail)
-    with pytest.raises(ValueError, match=r"named link|native[ -]piece"):
+    with pytest.raises(ValueError, match="summary differs from retained native source"):
         verify_annotated_named_links(
-            scoped, source_row, {41: tampered}, native_piece_policy=archived
+            scoped, source_row, {41: tampered}, native_piece_policy=archived, primary_layers=primary
         )

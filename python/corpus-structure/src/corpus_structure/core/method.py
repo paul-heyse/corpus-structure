@@ -319,6 +319,12 @@ class Reader(Protocol):
         """Read exact sealed analysis layers in this run's project without inference."""
         ...
 
+    def primary_characterization(
+        self, source_view_id: int, *, families: Sequence[str]
+    ) -> Mapping[ProductReference, LayerReport]:
+        """Read only the task's frozen primary selection; refuse incomplete prerequisites."""
+        raise ValueError("this reader does not own a frozen primary characterization selection")
+
     def characterization_view(self, reference: ProductReference) -> EnrichedDocumentView:
         """Resolve one published view pin without requiring run completion."""
         ...
@@ -337,6 +343,8 @@ class Reader(Protocol):
         ...
 
     def source_views(self) -> Sequence[SourceViewRef]: ...
+
+    def source_view_ref(self, source_view_id: int) -> SourceViewRef: ...
 
     def source_view(self, source_view_id: int) -> PreparedSourceView: ...
 
@@ -735,7 +743,6 @@ class UnitResult:
             or self.coverage
             or self.measurements
             or self.source_views
-            or self.cost is not None
         ):
             raise ValueError("characterization publication requires its distinct terminal product")
         match self.outcome:
@@ -873,6 +880,10 @@ def _unowned_record_production(ref: UnitRef, request: PdfRecordProducerRequest) 
     raise RuntimeError("record production requires an owned task fence")
 
 
+def _unowned_characterization_operation(ref: UnitRef) -> Mapping[str, str]:
+    raise RuntimeError("characterization requires an owned task operation identity")
+
+
 @dataclass(frozen=True, slots=True)
 class MethodContext:
     """What `run` receives beside its units: the run view, its reader, the settings view and a
@@ -884,6 +895,9 @@ class MethodContext:
     settings: MethodSettings
     logger: logging.Logger
     check_active: Callable[[], None] = _unleased_operation
+    characterization_operation: Callable[[UnitRef], Mapping[str, str]] = (
+        _unowned_characterization_operation
+    )
     produce_pdf_records: Callable[[UnitRef, PdfRecordProducerRequest], ProductReference] = (
         _unowned_record_production
     )

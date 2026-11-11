@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from hashlib import sha256
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -16,7 +18,26 @@ Family = Literal[
     "local_referent_choice_v1",
     "relation_interpretation_v1",
     "contextual_link_assessment_v1",
+    "character_modal_force_v1",
+    "character_scope_v1",
+    "character_attribution_v1",
+    "character_function_v1",
+    "character_host_choice_v1",
+    "character_referent_choice_v1",
+    "character_gliner_cues_v1",
+    "character_gliner_function_v1",
 ]
+CHARACTERIZATION_FAMILIES = (
+    "character_modal_force_v1",
+    "character_scope_v1",
+    "character_attribution_v1",
+    "character_function_v1",
+    "character_host_choice_v1",
+    "character_referent_choice_v1",
+    "character_gliner_cues_v1",
+    "character_gliner_function_v1",
+)
+CHARACTERIZATION_QUESTION_INPUT = "pack/characterization/operation/interpretation-questions.yaml"
 ANSWER_READS = frozenset({"text", "number", "date"})
 QUESTION_INPUT = "operation/interpretation-questions.yaml"
 QUESTION_KIND = "interpretation_question_family"
@@ -48,6 +69,16 @@ class Question(_Declaration):
     unit: Description | None = None
     positive: Description | None = None
     negative: Description | None = None
+    stage: int = Field(default=0, ge=0, le=15, exclude_if=lambda value: value == 0)
+    depends_on: tuple[Key, ...] = Field(
+        default=(), max_length=16, exclude_if=lambda value: not value
+    )
+    projection_role: Description | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    literal_scope: Literal["focal", "context"] = Field(
+        default="focal", exclude_if=lambda value: value == "focal"
+    )
 
     @model_validator(mode="after")
     def coherent(self):
@@ -102,6 +133,11 @@ class QuestionFamily(_Declaration):
     require_focus: bool = False
     min_candidates: int = Field(default=0, ge=0, le=12)
     max_candidates: int = Field(default=12, ge=0, le=12)
+    provider: Literal["d1", "gliner"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    renderer: Description | None = Field(default=None, exclude_if=lambda value: value is None)
+    context_policy: Description | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @property
     def digest(self) -> str:
@@ -148,7 +184,59 @@ class QuestionFamily(_Declaration):
             self.min_candidates and not self.candidate_types
         ):
             raise ValueError("candidate population bounds differ from the released types")
+        questions = {question.key: question for question in self.questions}
+        for question in self.questions:
+            if len(set(question.depends_on)) != len(question.depends_on) or any(
+                key not in questions or questions[key].stage >= question.stage
+                for key in question.depends_on
+            ):
+                raise ValueError(
+                    "staged question dependencies must name distinct earlier questions"
+                )
+        if self.family in CHARACTERIZATION_FAMILIES and (
+            self.provider is None
+            or self.renderer != "characterization-state-v1"
+            or self.context_policy != "exact-focal-and-declared-source-context-v1"
+            or any(question.projection_role is None for question in self.questions)
+        ):
+            raise ValueError(
+                "characterization questions require explicit provider, rendering, "
+                "context and role meanings"
+            )
         return self
+
+
+def characterization_question_dependencies(dependencies, *, content: bytes | None = None):
+    """Acquire ordinary source-language declarations into existing archived question custody.
+
+    Replay supplies authenticated bytes or keeps its original dependencies unchanged; the
+    fresh-input owner decides when installed declarations are selected.
+    """
+    from .types import SourceArtifact
+
+    if content is None:
+        content = (
+            Path(__file__).resolve().parents[1] / "model/semantic/characterization-questions.yaml"
+        ).read_bytes()
+    existing = next(
+        (
+            artifact
+            for artifact in dependencies.artifacts
+            if artifact.name == CHARACTERIZATION_QUESTION_INPUT
+        ),
+        None,
+    )
+    if existing is not None:
+        if existing.content != content:
+            raise ValueError("competing source-language characterization question declarations")
+        return dependencies
+    return replace(
+        dependencies,
+        artifacts=(
+            *dependencies.artifacts,
+            SourceArtifact(CHARACTERIZATION_QUESTION_INPUT, content),
+        ),
+    )
 
 
 def is_question_input(name: str) -> bool:

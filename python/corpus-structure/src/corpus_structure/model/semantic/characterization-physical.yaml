@@ -479,3 +479,36 @@ classes:
       ph:indexes: '[["task_id", "product_key", "content_digest", "local_id"], ["task_id",
         "product_key", "content_digest", "root_id"]]'
       ph:read_roles: '[]'
+  characterization_source_scope:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      content_digest:
+        range: string
+        required: true
+      source_view_id:
+        range: integer
+        required: true
+      body:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - content_digest
+        - source_view_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "content_digest"], "target":
+        "ops.characterization_product.task_id,product_key,content_digest"}, {"columns":
+        ["source_view_id"], "target": "kb.source_view.id"}]'
+      ph:indexes: '[["source_view_id", "task_id", "product_key", "content_digest"]]'
+      ph:read_roles: '[]'

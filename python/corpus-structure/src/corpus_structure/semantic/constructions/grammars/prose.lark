@@ -1,0 +1,38 @@
+// Source words are specialized at their original positions by the input owner.
+%declare WORD ATOM COPULA NEG MODAL QUANT IF THEN REL CONJ PREP REPORT QUOTE QUESTION PUNCT COMMA AUX FUNCTION
+
+?clause: predication
+       | QUANT nominal WORD nominal? -> quantified_predication
+       | quantified_negative
+       | negative_quantified
+       | NEG clause -> negation
+       | MODAL clause -> modality
+       | IF clause COMMA? THEN? clause -> conditional
+       | clause CONJ clause -> coordination
+       | clause PREP clause -> clause_relation
+       | nominal REPORT clause -> reporting
+       | QUOTE clause PUNCT? QUOTE -> quotation
+       | clause QUESTION -> question
+       | FUNCTION clause -> passage_function
+       | WORD nominal -> instruction
+
+?predication: nominal WORD nominal? -> verbal_predication
+            | nominal COPULA nominal -> copular_predication
+            | nominal COPULA WORD -> adjectival_predication
+            | nominal AUX WORD nominal? -> auxiliary_predication
+            | nominal MODAL WORD nominal? -> modal_predication
+            | nominal AUX NEG WORD nominal? -> negative_predication
+            | nominal COPULA AUX? WORD PREP nominal -> passive_predication
+            | nominal WORD clause -> complement
+            | nominal REL clause -> relative
+            | nominal -> nominal_predication
+
+?nominal: WORD -> mention
+        | ATOM -> formal_atom
+        | nominal WORD -> nominal_modification
+        | QUANT nominal -> quantification
+        | nominal PREP nominal -> attachment
+        | nominal CONJ nominal -> nominal_coordination
+
+quantified_negative: QUANT nominal AUX NEG WORD nominal? -> quantified_negative_predication
+negative_quantified: QUANT nominal AUX NEG WORD nominal? -> negative_quantified_predication

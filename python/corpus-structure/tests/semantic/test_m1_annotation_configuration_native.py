@@ -94,7 +94,7 @@ def test_projection_selector_versions_contract_without_mutating_persisted_v1(
                 select(methods).where(methods.c.name == M1Annotations.name)
             ).mappings()
         ]
-        assert {row["version"] for row in rows} == {"1", "2"}
+        assert {row["version"] for row in rows} == {"1", "3"}
         assert next(row for row in rows if row["version"] == "1") == before
         assert (
             conn.scalar(select(configs.c.params).where(configs.c.id == old_config)) == legacy_params

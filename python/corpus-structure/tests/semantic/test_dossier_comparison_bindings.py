@@ -61,7 +61,7 @@ def custody(source, task_id):
     )
 
 
-def fixture(value=None, *, exception=True, root_on_left=False):
+def fixture(value=None, *, exception=True, root_on_left=False, primary_layers=None):
     value = value or side_inputs()
     left, right = value.passages
     sources = {s.identity: s for s in value.sources}
@@ -106,6 +106,7 @@ def fixture(value=None, *, exception=True, root_on_left=False):
         }
     comparison = compare_clauses(
         value,
+        primary_layers=primary_layers,
         left=ClauseReading(passage_id=left.passage_id, groups=groups),
         right=ClauseReading(passage_id=right.passage_id, groups=empty),
         left_reading=dict(
@@ -388,8 +389,11 @@ def test_revision_requires_original_successor_and_direction():
     )
     left = left.model_copy(update=dict(text=left_text, end=len(left_text), parent="rules"))
     value = value.model_copy(update=dict(passages=(left, right)))
+    from .primary_formal_fixture import formal_layers
+
+    primary = formal_layers(value)
     value, root, root_ref, reference, payload, selected, relationships = fixture(
-        value, exception=False, root_on_left=True
+        value, exception=False, root_on_left=True, primary_layers=primary
     )
     members, _ = derive(value, root, root_ref, reference, payload, selected[:1], relationships)
     assert [(m.role, m.citation.text) for m in members if m.role == "revision"] == [

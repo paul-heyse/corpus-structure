@@ -2,7 +2,7 @@
 
 ## Immutable characterization storage and publication
 
-**Accepted target, Proposed until implemented · 2026-11-10.** `physical.yaml` owns stored
+**Implemented; bounded functional scope Tested · 2026-11-11.** `physical.yaml` owns stored
 canonical layer/view products and queryable occurrence, annotation, membership/role, term, choice
 and family-coverage projections. The base is the complete `PublishedDocumentBinding`; source
 projections retain exact original product, placement and producer release. Layer/view identity
@@ -27,6 +27,10 @@ Layer closure may cross semantic releases under the supported retained format. N
 checks each dependency's original sealed/admitted authority and exact source; composition does
 not relabel a layer with the view's release. Detached closure includes authenticated contracts
 for every participating release. New rules cannot retroactively authorize old layer assertions.
+
+The [TC coordinator](../plans/text-characterization_2026-11-10.md) owns the applicable
+functional/provider union. Independent semantic assessment and full-book qualification remain
+TC-10/11; no measured linguistic-accuracy or performance claim follows.
 
 > Decision: [ADR-0081](../adr/0081-enriched-document-analysis-layers.md)
 

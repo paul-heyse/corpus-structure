@@ -370,72 +370,36 @@ def _table_selections(view, node, indices, prepared_cells, *, max_chars, max_pie
     return selections, limits
 
 
-def prepare_source(
+def annotation_inputs(
     view: Any,
     *,
     profile: AnnotationProfile | None = None,
-    max_chars: int = 4096,
-    max_pieces: int = 64,
     max_annotation_chars: int = 32768,
     check_active: Callable[[], None] = lambda: None,
-    reader: SourcePreparationReader | None = None,
-    read_budget: Any = None,
-    persisted_annotations: tuple[AnnotationProduct, ...] | None = None,
-    annotation_errors: tuple[str, ...] = (),
-    annotations_only: bool = False,
-    policy: str = POLICY,
-    formula_prose: bool = False,
     region_pointers: tuple[str, ...] | None = None,
-) -> PreparedCandidateSource:
-    """Prepare annotations once per projected native piece, then coherent windows.
+) -> tuple[AnnotationInput, ...]:
+    """Prepare the canonical native blocks, table cells and protected atoms once.
 
-    Whole sentences are the smallest prose windows. An oversized sentence or native
-    structure is explicitly limited rather than truncated. Native worker word/subword
-    preparation remains a later, separately reported admission boundary.
+    This is source preparation only. It performs tokenization but no model inference;
+    consumers must account for blocks outside their supported size/selection separately.
     """
-    if min(max_chars, max_pieces, max_annotation_chars) < 1:
-        raise ValueError("source preparation bounds must be positive")
-    if region_pointers is not None:
-        if not region_pointers or len(set(region_pointers)) != len(region_pointers):
-            raise ValueError("native region selection must be nonempty and distinct")
-        missing = set(region_pointers) - {item["self_ref"] for item in view.items}
-        if missing:
-            raise ValueError(
-                "unknown native region pointer in selected source view: "
-                + ", ".join(sorted(missing))
-            )
-    if policy not in {POLICY, POLICY_V5, POLICY_V6} or (
-        formula_prose and policy not in {POLICY_V5, POLICY_V6}
-    ):
-        raise ValueError("unsupported source preparation/routing policy")
+    if max_annotation_chars < 1:
+        raise ValueError("annotation bound must be positive")
     profile = profile or AnnotationProfile()
+    nlp = pipeline(profile.configuration)
     frame = native_source_frame(view, ())
     pin = NativeSourcePin.from_source(frame)
-    nlp = pipeline(profile.configuration) if persisted_annotations is None else None
     by_pointer = {item["self_ref"]: item for item in view.items}
-    projected: dict[str, list[int]] = {}
-    piece_starts = tuple(piece["start"] for piece in view.pieces)
-    piece_ends = tuple(piece["end"] for piece in view.pieces)
+    blocks: dict[str, list[int]] = {}
     for index, piece in enumerate(view.pieces):
         if piece["kind"] == "native_text":
-            projected.setdefault(piece["item_ref"], []).append(index)
-
-    def block_owner(pointer: str) -> str:
-        node = by_pointer[pointer]
-        parent = by_pointer.get(node.get("parent", {}).get("$ref"), {})
-        if node.get("label") == "inline":
-            return node.get("parent", {}).get("$ref", pointer)
-        return (
-            parent.get("parent", {}).get("$ref", pointer)
-            if parent.get("label") == "inline"
-            else pointer
-        )
-
-    blocks: dict[str, list[int]] = {}
-    for pointer, indices in projected.items():
-        blocks.setdefault(block_owner(pointer), []).extend(indices)
+            blocks.setdefault(annotation_block_owner(piece["item_ref"], by_pointer), []).append(
+                index
+            )
     requested_owners = (
-        None if region_pointers is None else {block_owner(pointer) for pointer in region_pointers}
+        None
+        if region_pointers is None
+        else {annotation_block_owner(pointer, by_pointer) for pointer in region_pointers}
     )
     inputs = []
     annotation_blocks = []
@@ -449,8 +413,6 @@ def prepare_source(
             annotation_blocks.append((pointer, indices, pointer))
     for pointer, unsorted, block_id in annotation_blocks:
         check_active()
-        if persisted_annotations is not None:
-            continue
         if requested_owners is not None and pointer not in requested_owners:
             continue
         indices = sorted(unsorted)
@@ -493,6 +455,91 @@ def prepare_source(
             for piece in view.pieces[indices[0] : indices[-1] + 1]
         )
         inputs.append(AnnotationInput(pin, block_id, kind, block, layout, pieces))
+    return tuple(inputs)
+
+
+def annotation_block_owner(pointer: str, by_pointer: dict[str, Any]) -> str:
+    """The canonical whole source unit owning one projected native piece."""
+    node = by_pointer[pointer]
+    parent = by_pointer.get(node.get("parent", {}).get("$ref"), {})
+    if node.get("label") == "inline":
+        return node.get("parent", {}).get("$ref", pointer)
+    return (
+        parent.get("parent", {}).get("$ref", pointer)
+        if parent.get("label") == "inline"
+        else pointer
+    )
+
+
+def prepare_source(
+    view: Any,
+    *,
+    profile: AnnotationProfile | None = None,
+    max_chars: int = 4096,
+    max_pieces: int = 64,
+    max_annotation_chars: int = 32768,
+    check_active: Callable[[], None] = lambda: None,
+    reader: SourcePreparationReader | None = None,
+    read_budget: Any = None,
+    persisted_annotations: tuple[AnnotationProduct, ...] | None = None,
+    annotation_errors: tuple[str, ...] = (),
+    annotations_only: bool = False,
+    policy: str = POLICY,
+    formula_prose: bool = False,
+    region_pointers: tuple[str, ...] | None = None,
+) -> PreparedCandidateSource:
+    """Prepare annotations once per projected native piece, then coherent windows.
+
+    Whole sentences are the smallest prose windows. An oversized sentence or native
+    structure is explicitly limited rather than truncated. Native worker word/subword
+    preparation remains a later, separately reported admission boundary.
+    """
+    if min(max_chars, max_pieces, max_annotation_chars) < 1:
+        raise ValueError("source preparation bounds must be positive")
+    if region_pointers is not None:
+        if not region_pointers or len(set(region_pointers)) != len(region_pointers):
+            raise ValueError("native region selection must be nonempty and distinct")
+        missing = set(region_pointers) - {item["self_ref"] for item in view.items}
+        if missing:
+            raise ValueError(
+                "unknown native region pointer in selected source view: "
+                + ", ".join(sorted(missing))
+            )
+    if policy not in {POLICY, POLICY_V5, POLICY_V6} or (
+        formula_prose and policy not in {POLICY_V5, POLICY_V6}
+    ):
+        raise ValueError("unsupported source preparation/routing policy")
+    profile = profile or AnnotationProfile()
+    frame = native_source_frame(view, ())
+    _pin = NativeSourcePin.from_source(frame)
+    by_pointer = {item["self_ref"]: item for item in view.items}
+    projected: dict[str, list[int]] = {}
+    piece_starts = tuple(piece["start"] for piece in view.pieces)
+    piece_ends = tuple(piece["end"] for piece in view.pieces)
+    for index, piece in enumerate(view.pieces):
+        if piece["kind"] == "native_text":
+            projected.setdefault(piece["item_ref"], []).append(index)
+
+    def block_owner(pointer: str) -> str:
+        return annotation_block_owner(pointer, by_pointer)
+
+    blocks: dict[str, list[int]] = {}
+    for pointer, indices in projected.items():
+        blocks.setdefault(block_owner(pointer), []).extend(indices)
+    _requested_owners = (
+        None if region_pointers is None else {block_owner(pointer) for pointer in region_pointers}
+    )
+    inputs = (
+        ()
+        if persisted_annotations is not None
+        else annotation_inputs(
+            view,
+            profile=profile,
+            max_annotation_chars=max_annotation_chars,
+            check_active=check_active,
+            region_pointers=region_pointers,
+        )
+    )
     products = list(persisted_annotations or ())
     errors = list(annotation_errors)
     if persisted_annotations is None:

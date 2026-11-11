@@ -6,6 +6,12 @@ They are compatibility requirements, never evidence that hashing code proves its
 """
 
 SUPPORTED_EFFECTS = {
+    "read_characterization_inventory": {
+        "effects": (),
+        "implementation": "read_characterization_inventory",
+        "transitions": {},
+        "version": "1",
+    },
     "publish_characterization": {
         "effects": ("atomic_native_publication",),
         "implementation": "publish_characterization",

@@ -1,6 +1,6 @@
-"""Private GLiNER observations over authenticated exact predicate focuses."""
+"""Project exact retained linguistic function answers onto domain predicate focuses."""
 
-from dataclasses import asdict, replace
+import json
 from hashlib import sha256
 from typing import Literal, Self
 
@@ -10,9 +10,11 @@ from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.ingest.annotations import AnnotationProfile
 from corpus_structure.ingest.sentences import SentenceConfig
-from corpus_structure.methods.gliner import GlinerInput, GlinerPack, GlinerProfile, GlinerRefused
-from corpus_structure.methods.gliner_worker import GlinerWorker, GlinerWorkerError
+from corpus_structure.semantic.characterization import annotation_reference
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.interpretation_questions import declared_families
+from corpus_structure.semantic.observations import source_python
+from corpus_structure.semantic.source_contexts import record_source_pin
 from corpus_structure.semantic.structural_products import (
     ClauseClassificationProduct,
     ClauseFocusSelection,
@@ -25,41 +27,29 @@ from corpus_structure.semantic.structural_products import (
 )
 
 ContextPolicy = Literal["exact_focus", "adjacent_sentences"]
-THRESHOLD = 0.5
-FUNCTION = {
-    "definition": "States the meaning of a term, expression, or object.",
-    "explanation": "Explains why or how a fact or concept holds.",
-    "assumption_restriction": "Introduces a premise, restriction, or conditional scope.",
-    "prescribed_action": "Instructs a reader or actor to perform an action.",
-    "described_process": "Describes how an action or process occurs.",
-    "reference": "Refers to another definition, statement, source, or artifact.",
-    "unresolved": "The clause function cannot be determined from the selected input.",
-}
-PRESENTATION = {
-    "example": "Presented as a worked example or illustration.",
-    "attribution": "Reports or attributes a statement, assumption, or activity to another party.",
-    "historical": "Discusses prior events or historical work.",
-    "unresolved": "The presentation context cannot be determined from the selected input.",
-}
 
 
 class ClauseClassificationConfig(StructuralValue):
     inputs: StructuralInput | None = None
     structural_input_digest: str | None = None
     focuses: tuple[ClauseFocusSelection, ...] = ()
-    profile: GlinerProfile | None = None
+    characterization_layers: tuple[dict, ...] = ()
     context_policy: ContextPolicy = "exact_focus"
 
     @model_validator(mode="after")
     def bound_inputs(self) -> Self:
         if self.inputs is None:
-            if self.structural_input_digest is not None or self.focuses or self.profile is not None:
+            if (
+                self.structural_input_digest is not None
+                or self.focuses
+                or self.characterization_layers
+            ):
                 raise ValueError("partial clause model configuration")
             return self
         passages = {p.passage_id for p in self.inputs.passages}
         if (
             self.structural_input_digest != self.inputs.identity
-            or self.profile is None
+            or not self.characterization_layers
             or not self.focuses
             or len(set(self.focuses)) != len(self.focuses)
             or any(
@@ -68,85 +58,8 @@ class ClauseClassificationConfig(StructuralValue):
                 for s in self.focuses
             )
         ):
-            raise ValueError("clause model requires exact selected focuses and a pinned profile")
+            raise ValueError("clause model projection requires exact selected focuses")
         return self
-
-
-def clause_pack(release):
-    return GlinerPack.from_declaration(
-        release,
-        {
-            "classifications": [
-                {"task": "clause_function", "labels": FUNCTION, "multi_label": False},
-                {
-                    "task": "presentation_context",
-                    "labels": PRESENTATION,
-                    "multi_label": True,
-                    "cls_threshold": THRESHOLD,
-                },
-            ]
-        },
-        version="native-combined-v2",
-    )
-
-
-def clause_labels(raw):
-    """Retain all returned labels and scores, including low-score fallbacks."""
-    if not isinstance(raw, dict):
-        raise ValueError("native classification output must be an object")
-
-    def axis(values, vocabulary):
-        if not isinstance(values, list):
-            values = [values] if values is not None else []
-        result = []
-        for value in values:
-            label, score = (
-                (value.get("label"), value.get("confidence"))
-                if isinstance(value, dict)
-                else (value, None)
-            )
-            if (
-                not isinstance(label, str)
-                or label not in vocabulary
-                or (score is not None and type(score) not in (float, int))
-            ):
-                raise ValueError("native classification returned an invalid label or score")
-            result.append(
-                ClauseModelLabel(
-                    label=label,
-                    score=score,
-                    accepted=label != "unresolved" and score is not None and score >= THRESHOLD,
-                )
-            )
-        if any(item.label not in vocabulary for item in result) or len(
-            {item.label for item in result}
-        ) != len(result):
-            raise ValueError("native classification returned unknown or repeated labels")
-        return tuple(result)
-
-    function = axis(raw.get("clause_function"), FUNCTION)
-    presentation = axis(raw.get("presentation_context"), PRESENTATION)
-    if len(function) > 1:
-        raise ValueError("native classification returned multiple single-label values")
-    supported = any(item.accepted for item in (*function, *presentation))
-    return function, presentation, "observed" if supported else "withheld"
-
-
-def clause_context(selection, policy, focus, preceding=None, following=None):
-    if policy == "exact_focus":
-        text = focus.text
-    else:
-        text = (
-            (preceding.text + "\n" if preceding else "")
-            + "<focus>"
-            + focus.text
-            + "</focus>"
-            + ("\n" + following.text if following else "")
-        )
-    identity = sha256(
-        canonical_bytes([policy, selection.model_dump(mode="json"), text])
-    ).hexdigest()
-    return GlinerInput("clause-focus:" + identity, identity, text)
 
 
 def clause_focus(selection, passage, source_ref, retained, annotations=()):
@@ -247,11 +160,14 @@ def model_concordance(reference, report, source_view_id, contributions, resolve_
             and frame["component"].get("focus_state") == "exact"
             and frame_key(frame) == original_key
         ]
-        (predicted,) = row.function or (None,)
-        if predicted is None or not predicted.accepted:
+        predicted = {item.label for item in row.function if item.accepted}
+        comparable = predicted & {"definition", "explanation"}
+        if not predicted:
             comparison = "withheld"
+        elif current["reading"] not in {"definition", "explanation"} or not comparable:
+            comparison = "incomparable"
         else:
-            comparison = "agrees" if predicted.label == current["reading"] else "disagrees"
+            comparison = "agrees" if current["reading"] in comparable else "disagrees"
         output.append(
             dict(
                 reference=reference.model_dump(mode="json"),
@@ -263,23 +179,142 @@ def model_concordance(reference, report, source_view_id, contributions, resolve_
     return output
 
 
+def primary_clause_functions(layers, prepared, source, focus, examined):
+    """Read an exact released function question, preserving its actual vocabulary.
+
+    A classification of a containing passage cannot stand for this focal clause.
+    Independent retained observations are rivals; none is selected by iteration order.
+    """
+    families = declared_families(prepared.registry_rows)
+    pin = record_source_pin(source)
+    found = []
+    for layer_pin, report in layers.items():
+        if report.reference(layer_pin.task_id) != layer_pin:
+            raise ValueError("clause functions require exact retained layer pins")
+        body = report.payload
+        occurrences = {row["local_id"]: row for row in body["occurrences"]}
+        for annotation in body["annotations"]:
+            answer = annotation.get("model_answer")
+            if (
+                annotation["kind"] != "model.question"
+                or answer is None
+                or answer["family"] not in {"character_gliner_function_v1", "character_function_v1"}
+                or answer["question_key"] != "functions"
+            ):
+                continue
+            family = families.get(answer["family"])
+            if family is None or answer["declaration_digest"] != family.digest:
+                continue
+            extents = [
+                part for key in annotation["occurrences"] for part in occurrences[key]["extents"]
+            ]
+            if len(extents) != 1 or any(
+                extents[0].get(key) != expected
+                for key, expected in dict(
+                    source_view_id=source.source_view_id,
+                    projection=source.projection_digest,
+                    start=focus.start,
+                    end=focus.end,
+                    text=focus.text,
+                    synthetic=False,
+                ).items()
+            ):
+                continue
+            native = source_python(answer["native_answer"])
+            if not isinstance(native, dict) or not isinstance(native.get("request"), dict):
+                continue
+            request = native["request"]
+            if answer["answer_kind"] == "gliner_classification":
+                scope = request.get("assessed_scope", {})
+                request_digest_ = sha256(canonical_bytes(request)).hexdigest()
+                focal = scope.get("projection_extent")
+                if (
+                    examined != (focus.start, focus.end)
+                    or request.get("declaration_digest") != family.digest
+                    or request.get("item", {}).get("text") != focus.text
+                ):
+                    continue
+            elif answer["answer_kind"] == "choice":
+                scope = request.get("interpretation", {}).get("assessed_scope", {})
+                request_digest_ = sha256(
+                    json.dumps(
+                        request, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+                    ).encode()
+                ).hexdigest()
+                focal = scope.get("focal_extent")
+                state = request.get("state", {})
+                if (
+                    request.get("interpretation", {}).get("declaration_digest") != family.digest
+                    or state.get("source") != source.text[examined[0] : examined[1]]
+                    or state.get("focal")
+                    != dict(start=focus.start - examined[0], end=focus.end - examined[0])
+                ):
+                    continue
+            else:
+                continue
+            if (
+                scope.get("pin") != pin
+                or scope.get("projection_extent") != list(examined)
+                or focal != [focus.start, focus.end]
+                or answer["request_digest"] != request_digest_
+            ):
+                continue
+            alternatives = {row["key"]: row for row in answer["alternatives"]}
+            labels = []
+            for key in answer["observed_keys"]:
+                alternative = alternatives[key]
+                score = alternative.get("score")
+                numeric = None if score is None else float(source_python(score["value"]))
+                labels.append(
+                    ClauseModelLabel(
+                        label=key, score=numeric, accepted=key in answer["selected_keys"]
+                    )
+                )
+            found.append(
+                (
+                    tuple(labels),
+                    annotation_reference(layer_pin, annotation["local_id"]).values(),
+                    answer["request_digest"],
+                    answer["state"],
+                )
+            )
+    if len(found) != 1:
+        return (
+            (),
+            (),
+            None,
+            "failed",
+            "Exact primary clause function question is missing or ambiguous.",
+        )
+    labels, reference, digest_, state = found[0]
+    disposition = (
+        "observed"
+        if any(label.accepted for label in labels)
+        else "withheld"
+        if state in {"policy_withheld", "unresolved", "proposed"}
+        else "failed"
+    )
+    return (
+        labels,
+        (reference,),
+        digest_,
+        disposition,
+        (
+            "Retained released linguistic function proposals; "
+            "independent domain support remains unassessed."
+        ),
+    )
+
+
 class ClauseClassificationMethod:
     name = "structure.clause_classification"
-    version = "2"
+    version = "3"
     family = MethodFamily.RESOLVE
     unit_type = TaskUnitType.RUN
-    tier = MethodTier.ENCODER
+    tier = MethodTier.DETERMINISTIC
     confidence_source = None
     Config = ClauseClassificationConfig
-    resources = Resources(worker="cpu", batch_size=1, max_concurrency=1)
-
-    def __init__(self):
-        self._worker: GlinerWorker | None = None
-
-    def close(self):
-        if self._worker is not None:
-            self._worker.close()
-        self._worker = None
+    resources = Resources(worker="cpu", batch_size=1)
 
     def select(self, run, cfg):
         return (
@@ -292,101 +327,69 @@ class ClauseClassificationMethod:
         return Digest(canonical_bytes(cfg.model_dump(mode="json", exclude_none=True)))
 
     def run(self, units, cfg, ctx):
-        from .model_observation import (
-            observation_digest,
-            released_pack,
-            released_policy,
-            request_digest,
-        )
-
-        if cfg.inputs is None or cfg.profile is None:
-            raise ValueError("clause model inputs and profile absent")
+        if cfg.inputs is None:
+            raise ValueError("clause projection requires selected exact inputs")
         ctx.check_active()
         ctx.reader.validate_structural_inputs(cfg.inputs)
-        policy = released_policy(ctx.reader.prepared)
-        pack = released_pack(ctx.reader.prepared.release_id, policy)
-        if self._worker is None:
-            self._worker = GlinerWorker(cfg.profile)
-        elif self._worker.profile.fingerprint != cfg.profile.fingerprint:
-            raise GlinerRefused("clause worker cannot switch model profile")
-
         passages = {p.passage_id: p for p in cfg.inputs.passages}
         sources = {source.identity: source for source in cfg.inputs.sources}
-        annotations = {}
-        if cfg.context_policy == "adjacent_sentences":
-            profile = AnnotationProfile(SentenceConfig(exclude=("ner",)))
-            for ref in dict.fromkeys(passages[s.passage_id].source_ref for s in cfg.focuses):
-                prepared = ctx.reader.structural_source_annotations(cfg.inputs, ref, profile)
-                if not prepared.annotations:
-                    raise GlinerRefused("context comparison requires retained sentence annotations")
-                annotations[ref] = prepared.annotations
-
-        prepared_focuses = []
+        primary, native, annotations = {}, {}, {}
+        for source_ref in dict.fromkeys(
+            passages[selection.passage_id].source_ref for selection in cfg.focuses
+        ):
+            source = sources[source_ref]
+            primary[source_ref] = ctx.reader.primary_characterization(
+                source.source_view_id, families=()
+            )
+            native[source_ref] = ctx.reader.structural_source_frame(cfg.inputs, source_ref)
+            if cfg.context_policy == "adjacent_sentences":
+                annotations[source_ref] = ctx.reader.structural_source_annotations(
+                    cfg.inputs, source_ref, AnnotationProfile(SentenceConfig(exclude=("ner",)))
+                ).annotations
+        readings = []
         for selection in cfg.focuses:
             ctx.check_active()
             passage = passages[selection.passage_id]
-            retained = ctx.reader.retained_source_contribution(selection.frame)
             focus, preceding, following = clause_focus(
                 selection,
                 passage,
                 sources[passage.source_ref],
-                retained,
+                ctx.reader.retained_source_contribution(selection.frame),
                 annotations.get(passage.source_ref, ()),
             )
-            request = replace(
-                clause_context(selection, cfg.context_policy, focus, preceding, following),
-                operation=f"{self.name}/{self.version}",
+            examined = (
+                preceding.start if preceding is not None else focus.start,
+                following.end if following is not None else focus.end,
             )
-            prepared_focuses.append((selection, focus, preceding, following, request))
-
-        readings, raw_reports, request_outcomes = [], [], []
-        for selection, focus, preceding, following, request in prepared_focuses:
-            ctx.check_active()
-            reply = None
-            function, presentation = (), ()
-            expected = request_digest(
-                pack, asdict(cfg.profile), (request,), THRESHOLD, "flat", False, policy["inference"]
+            labels, references, digest_, disposition, reason = primary_clause_functions(
+                primary[passage.source_ref],
+                ctx.reader.prepared,
+                native[passage.source_ref],
+                focus,
+                examined,
             )
-            outcome = dict(request_digest=expected, status="failed")
-            request_outcomes.append(outcome)
-            try:
-                (returned,) = self._worker.extract(
-                    pack, (request,), threshold=THRESHOLD, check_active=ctx.check_active
-                )
-                if (
-                    returned.computation != expected
-                    or returned.request_digest != expected
-                    or returned.observation_digest
-                    != observation_digest(
-                        expected, returned.raw_json, returned.effective_profile_json
+            context_digest = (
+                digest_
+                or sha256(
+                    canonical_bytes(
+                        [cfg.context_policy, selection.model_dump(mode="json"), examined]
                     )
-                ):
-                    raise GlinerWorkerError("provider reply differs from the selected request")
-                reply = returned
-                outcome["status"] = "returned"
-                raw_reports.append(asdict(reply))
-                function, presentation, disposition = clause_labels(reply.raw)
-                reason = (
-                    "Located model observation."
-                    if disposition == "observed"
-                    else "No resolved label met the application threshold."
-                )
-            except (GlinerRefused, GlinerWorkerError, ValueError, TimeoutError, OSError) as error:
-                disposition, reason = "failed", f"{type(error).__name__}: {error}"
-                if isinstance(error, GlinerRefused) and reply is None:
-                    outcome["status"] = "refused"
+                ).hexdigest()
+            )
             readings.append(
                 ClauseModelReading(
                     selection=selection,
                     focus=focus,
                     preceding=preceding,
                     following=following,
-                    context_digest=request.context_digest,
-                    envelope=reply.computation if reply else None,
-                    function=function,
-                    presentation=presentation,
+                    context_digest=context_digest,
+                    envelope=digest_,
+                    function=labels,
+                    presentation=(),
                     disposition=disposition,
                     reason=reason,
+                    primary_functions=references,
+                    primary_context=(),
                 )
             )
         report = StructuralProductReport(
@@ -401,15 +404,12 @@ class ClauseClassificationMethod:
                 ref=unit.ref,
                 outcome=ObservationOutcome.PRODUCED,
                 structural_product=report.model_dump(mode="json"),
-                parse_detail={
-                    "version": "clause-model-observation-2",
-                    "schema_declaration": pack.declaration_json,
-                    "pack_fingerprint": pack.fingerprint,
-                    "profile_fingerprint": cfg.profile.fingerprint,
-                    "profile": cfg.model_dump(mode="json")["profile"],
-                    "raw_reports": raw_reports,
-                    "request_outcomes": request_outcomes,
-                },
+                parse_detail=dict(
+                    version="primary-clause-functions-1",
+                    characterization_layers=[
+                        pin.values() for layers in primary.values() for pin in layers
+                    ],
+                ),
             )
             for unit in units
         )

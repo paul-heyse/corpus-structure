@@ -21,7 +21,7 @@ the MCP server's `propose_claims`.
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -65,6 +65,7 @@ class MathSection(BaseModel):
 
 class AgentOpusConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
+    characterization_layers: tuple[dict[str, Any], ...] = ()
 
     proposal_protocol: Literal["semantic-claims"] = "semantic-claims"
     proposal_version: str = SEMANTIC_AGENT_VERSION

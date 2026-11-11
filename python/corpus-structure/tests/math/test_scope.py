@@ -24,6 +24,7 @@ import json
 from typing import Any
 
 import pytest
+from math_support import primary_scope_fixture, segment_block
 
 from corpus_structure.core import tex
 from corpus_structure.core.evidence import RenditionContent, Segment
@@ -32,7 +33,7 @@ from corpus_structure.core.locators import LocatorIndex
 from corpus_structure.core.vocab import MathKind, ScopeExtent, SegmentKind
 from corpus_structure.ingest.sentences import SentenceConfig, split
 from corpus_structure.methods.math.context import standing_context
-from corpus_structure.methods.math.scope import resolve_scopes, segment_block
+from corpus_structure.methods.math.scope import resolve_scopes
 from corpus_structure.methods.math.spans import extract, formula_values, read_spans
 
 CORRECTED = {"H3": [(9504, 9648), (11267, 11410)]}
@@ -157,7 +158,12 @@ def scopes_of(env: Any, content: RenditionContent) -> tuple[Any, list[Any], list
         content,
         values,
         resolve_scopes(
-            content, values, found.mentions, found.relations, macros, env.binders, SentenceConfig()
+            content,
+            values,
+            found.mentions,
+            found.relations,
+            macros,
+            primary_scope=primary_scope_fixture(content, env.binders),
         ),
     )
 

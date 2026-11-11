@@ -70,6 +70,9 @@ def test_native_known_reference_packet_mcp_and_finalizer(
 
     deps = composed_dependencies(deps, fixture_execution_inputs("pdf.controlled-source"))
     profile = PreparationProfile(version="semantic-2")
+    from corpus_structure.semantic.characterization import characterization_inputs
+
+    bundle = characterization_inputs(bundle)
     prepared = prepare_release(bundle, deps, profile)
     with semantic_db_engine.begin() as conn:
         persist_release(conn, bundle, deps, profile, prepared)
@@ -148,7 +151,12 @@ def test_native_known_reference_packet_mcp_and_finalizer(
         original=original,
         paragraphs=("Alice is here.",),
     )
+    from .primary_native_support import bind_primary_agent_run
+
     with e.begin() as conn:
+        run, configuration = bind_primary_agent_run(
+            conn, run, prepared, (view.ref.id,), configuration
+        )
         locator = view.ref.key
         (agent,) = queue_agent(
             conn,

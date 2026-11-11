@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
+from json import loads
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -183,6 +184,12 @@ def run(
             dir_okay=False,
         ),
     ] = None,
+    characterization_view: Annotated[
+        list[str] | None,
+        typer.Option(
+            help="Exact enriched-document pin as a JSON object; repeat for multiple documents.",
+        ),
+    ] = None,
     integrated_product_task: Annotated[
         int | None, typer.Option(help="Exact retained integrated producing task.")
     ] = None,
@@ -271,6 +278,9 @@ def run(
             if record_policy
             else None,
             integrated_product=integrated_product,
+            characterization_views=tuple(
+                ProductReference(**loads(value)) for value in characterization_view or ()
+            ),
             **{
                 k: v
                 for k, v in PHASE0().items()
@@ -421,6 +431,14 @@ def ingest(
     scope: str | None = None,
     native_source: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
     integrated_source: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
+    enrichment_options: Annotated[
+        Path | None,
+        typer.Option(
+            help="Frozen primary characterization method-options JSON; enrich after capture.",
+            exists=True,
+            dir_okay=False,
+        ),
+    ] = None,
     json: JsonOpt = False,
 ) -> None:
     """Prepare a source cut for an existing bound project."""
@@ -473,6 +491,31 @@ def ingest(
             integrated_product=integrated_product,
             source_only=True,
         )
+        if enrichment_options is not None:
+            from dataclasses import asdict
+
+            from pydantic import RootModel
+
+            from corpus_structure.orchestrate.characterization import characterize_captured_run
+
+            enriched = characterize_captured_run(
+                engine,
+                result,
+                project_id=project,
+                release_id=release,
+                realization_id=source,
+                domain=domain,
+                method_settings=MethodSettings(
+                    data_dir=settings.paths.data_dir, model_cache=settings.paths.model_cache
+                ),
+                method_options=__import__("json").loads(enrichment_options.read_bytes()),
+            )
+            result = RootModel[dict](
+                dict(
+                    capture=result.model_dump(mode="json"),
+                    enrichment=[asdict(value) for value in enriched],
+                )
+            )
     emit(result, json=json)
 
 
@@ -518,3 +561,39 @@ def register(app: typer.Typer) -> None:
     app.add_typer(project_app, name="project")
     app.add_typer(run_app, name="run")
     app.command("tasks")(tasks)
+
+
+@run_app.command("characterize")
+def run_characterize_command(
+    ctx: typer.Context,
+    request: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    json: JsonOpt = False,
+) -> None:
+    """Fulfil a frozen enriched-document demand from exact completed source pins."""
+    from dataclasses import asdict
+
+    from pydantic import RootModel
+
+    from corpus_structure.core.method import MethodSettings
+    from corpus_structure.orchestrate.characterization import (
+        CharacterizationDemandRequest,
+        execute_characterization_demand,
+    )
+
+    settings = state(ctx).settings()
+    with _refusals(json), ENGINE(settings) as engine:
+        demand = CharacterizationDemandRequest.model_validate_json(request.read_bytes())
+        result = execute_characterization_demand(
+            engine,
+            demand,
+            MethodSettings(
+                data_dir=settings.paths.data_dir,
+                model_cache=settings.paths.model_cache,
+                nemotron_endpoint=settings.nemotron.endpoint,
+                nemotron_python=settings.nemotron.python,
+                nemotron_worker=settings.nemotron.worker,
+                nemotron_receipts=settings.nemotron.receipts,
+                nemotron_timeout_seconds=settings.nemotron.timeout_seconds,
+            ),
+        )
+    emit(RootModel[dict](asdict(result)), json=json)

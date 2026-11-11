@@ -15,6 +15,7 @@ from corpus_structure.methods import m1_source
 from corpus_structure.methods.gliner import GlinerPreparation, GlinerReport
 from corpus_structure.methods.gliner_worker import GlinerWorkerError
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic.characterization import characterization_inputs
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import observation_inputs
 from corpus_structure.semantic.product_reference import ProductReference
@@ -37,20 +38,22 @@ def detail_objects(value: JsonValue) -> tuple[dict[str, JsonValue], ...]:
 def release():
     model = ROOT / "python/corpus-structure/src/corpus_structure/model/semantic"
     return prepare_release(
-        observation_inputs(
-            SourceBundle(
-                "statistics_semantic",
-                (
-                    SourceArtifact(
-                        "statistics_semantic",
-                        (ROOT / "domains/statistics/semantic.yaml").read_bytes(),
+        characterization_inputs(
+            observation_inputs(
+                SourceBundle(
+                    "statistics_semantic",
+                    (
+                        SourceArtifact(
+                            "statistics_semantic",
+                            (ROOT / "domains/statistics/semantic.yaml").read_bytes(),
+                        ),
+                        SourceArtifact("semantic_core", (model / "core.yaml").read_bytes()),
+                        SourceArtifact(
+                            "statistics_terminology",
+                            (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
+                        ),
                     ),
-                    SourceArtifact("semantic_core", (model / "core.yaml").read_bytes()),
-                    SourceArtifact(
-                        "statistics_terminology",
-                        (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
-                    ),
-                ),
+                )
             )
         )
     )
@@ -129,13 +132,113 @@ class ControlledDecoder:
         )
 
 
-def owned_reader(source):
+def owned_reader(source, *, annotation_rules=None):
     """Persisted-operation-shaped fixture with actual local linguistic columns."""
-    from corpus_structure.methods.m1_annotations import M1Annotations
+    from dataclasses import asdict
+
+    from corpus_structure.ingest.annotations import AnnotationProfile, annotate
+    from corpus_structure.ingest.sentences import pipeline
+    from corpus_structure.methods.annotation_rules import PreparedAnnotationRules
+    from corpus_structure.methods.m1_annotations import M1AnnotationConfig, M1Annotations
+    from corpus_structure.methods.native_evidence import native_run
+    from corpus_structure.methods.native_evidence_layers import (
+        SPACY_COLUMNS,
+        SPACY_FAMILIES,
+        NativeEvidenceBuilder,
+    )
+    from corpus_structure.methods.source_preparation import annotation_inputs
     from corpus_structure.orchestrate.m1 import registry
+    from corpus_structure.semantic.constructions.layers import ConstructionLayer
+    from corpus_structure.semantic.constructions.named import NAMED_FAMILY, populate_named
+    from corpus_structure.semantic.constructions.retained_rules import PRIMARY_RULE_FAMILY, populate
     from corpus_structure.semantic.source_contexts import RetrievalOutcome, SourceContextRead
 
+    source_registry = registry(ROOT / "domains/statistics")
+    cfg = source_registry.overlay(M1Annotations.name, "default")
+    assert isinstance(cfg, M1AnnotationConfig)
+    profile = AnnotationProfile(cfg.sentences)
+    products = tuple(annotate(annotation_inputs(source, profile=profile), profile))
+    selected = dict(
+        source_view_ids=[source.ref.id],
+        source_views=[
+            dict(
+                source_view_id=source.ref.id,
+                key=source.ref.key,
+                base_document=source.ref.native_product.values(),
+                section_pointer=source.ref.section_pointer,
+                membership=source.ref.membership,
+                projection_digest=source.ref.projection_digest,
+                recipe_digest=source.ref.recipe_digest,
+            )
+        ],
+        profile="actual-local-test-columns",
+        selectors=[dict(projection=source.ref.projection_digest, start=0, end=len(source.text))],
+    )
+    operation = dict(
+        key="text.native_evidence",
+        version="1",
+        runtime="local-spacy-fixture",
+        model="local-spacy-fixture",
+        grammar="none",
+        configuration="fixture",
+        input="fixture",
+        context="source",
+    )
+    native = NativeEvidenceBuilder(
+        source.ref.native_product.values(),
+        selected,
+        operation,
+        profile="spacy_only",
+        families=SPACY_FAMILIES,
+    )
+    for product in products:
+        native.spacy(source, product, "spacy")
+    nlp = pipeline(profile.configuration)
+    first = products[0]
+    run = native_run(
+        "spacy",
+        "spacy_only",
+        nlp.config.to_str(),
+        model=first.model,
+        version=first.model_version,
+        runtime_version=first.spacy_version,
+        layout=[],
+        text=[],
+        components=[asdict(component) for component in first.components],
+    )
+    run["availability"] = [
+        dict(family=SPACY_COLUMNS[row.attribute], attribute=row.attribute, status=row.status)
+        for row in first.availability
+    ]
+    native.native_runs.append(run)
     reader = SimpleNamespace(prepared=release(), source_view=lambda _: source)
+    retained_native = native.finish(reader.prepared)
+    native_pin = retained_native.reference(101)
+    named_cfg = source_registry.overlay(m1_source.M1Candidates.name, "witnessed")
+    assert isinstance(named_cfg, m1_source.M1Config)
+    rules = named_cfg.annotation_rules if annotation_rules is None else annotation_rules
+    construction = ConstructionLayer(
+        source.ref.native_product.values(),
+        selected,
+        dict(operation, key="text.constructions"),
+        families=(PRIMARY_RULE_FAMILY, NAMED_FAMILY),
+    )
+    populate(construction, source, native_pin, retained_native)
+    populate_named(
+        construction,
+        source,
+        native_pin,
+        retained_native,
+        PreparedAnnotationRules(nlp.vocab, rules=rules),
+    )
+    retained_construction = construction.finish(
+        reader.prepared, dependencies={native_pin: retained_native}
+    )
+    primary = {
+        native_pin: retained_native,
+        retained_construction.reference(102): retained_construction,
+    }
+    reader.primary_characterization = lambda *_args, **_kwargs: primary
     producer = M1Annotations()
     cfg = registry(ROOT / "domains/statistics").overlay(producer.name, "default")
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
@@ -204,7 +307,15 @@ def test_local_schema_and_retained_lower_rule_products_survive_empty_record_outp
     (result,) = method.run(
         (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7")),),
         cfg,
-        SimpleNamespace(reader=owned_reader(source), check_active=lambda: None),
+        SimpleNamespace(
+            reader=owned_reader(
+                source,
+                annotation_rules=m1_source.M1Config.model_validate(
+                    cfg.model_dump()
+                ).annotation_rules,
+            ),
+            check_active=lambda: None,
+        ),
     )
     assert result.contributions is not None
     types = {row["semantic_type"] for row in result.contributions}
@@ -418,11 +529,14 @@ def test_owned_annotation_consumer_reuses_columns_and_refuses_profile_or_source_
     assert result.annotations == products
     assert result.annotations[0].tokens[0].start == 0
     assert result.annotations[0].sentences[-1].end == 16
-    changed_profile = AnnotationProfile(SentenceConfig(exclude=("ner",), batch_size=1))
-    with pytest.raises(ValueError, match="source/profile"):
+    operational_profile = AnnotationProfile(SentenceConfig(exclude=("ner",), batch_size=1))
+    reused, reused_errors, _ = consume_annotations(reader, source, operational_profile)
+    assert reused and not reused_errors
+    changed_profile = AnnotationProfile(SentenceConfig(exclude=("ner",), model_version="0.0.0"))
+    with pytest.raises(ValueError, match="model/runtime"):
         consume_annotations(reader, source, changed_profile)
     changed_source = replace(source, ref=replace(source.ref, recipe_digest="d" * 64))
-    with pytest.raises(ValueError, match="source binding"):
+    with pytest.raises(ValueError, match="source-view recipe and scope"):
         consume_annotations(reader, changed_source, AnnotationProfile())
 
 
@@ -430,9 +544,12 @@ def test_missing_annotation_operation_does_not_fall_back_to_inference():
     from corpus_structure.ingest.annotations import AnnotationProfile
     from corpus_structure.methods.m1_annotations import consume_annotations
 
-    with pytest.raises(ValueError, match="no source result"):
+    def missing_primary(*_args, **_kwargs):
+        raise ValueError("no selected primary layer")
+
+    with pytest.raises(ValueError, match="no selected primary layer"):
         consume_annotations(
-            SimpleNamespace(source_result=lambda *_: None), view(), AnnotationProfile()
+            SimpleNamespace(primary_characterization=missing_primary), view(), AnnotationProfile()
         )
 
 

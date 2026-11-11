@@ -12,6 +12,62 @@ from corpus_structure.semantic.scientific_evidence import canonical_operand
 
 Comparator = Literal[">", ">=", "<", "<=", "="]
 
+# Both retained formal syntax and the existing comparison adapters use these rules.
+# Domain validity (calendar dates, ordered intervals, resolved units) is a later step.
+FIELD_GRAMMAR = r"""
+    threshold: SYMBOL? OP NUMBER UNIT?
+    number: NUMBER
+    date: DATE
+    identifier: IDENTIFIER
+    quantity: NUMBER UNIT
+    interval: OPEN NUMBER "," NUMBER CLOSE UNIT?
+    ?literal: date_literal | identifier_literal | quantity_literal | range_literal
+    ?labeled: date_literal | identifier_literal | quantity_literal | range_field
+    date_literal: "Date:" DATE -> date
+    identifier_literal: "Identifier:" IDENTIFIER -> identifier
+    quantity_literal: "Quantity:" NUMBER UNIT -> quantity
+    range_literal: "Range:" OPEN NUMBER "," NUMBER CLOSE UNIT -> bounded_range
+    range_field: "Range:" OPEN NUMBER "," NUMBER CLOSE UNIT? -> interval
+    SYMBOL: /[A-Za-z][A-Za-z0-9_]*/
+    OP: ">=" | "<=" | ">" | "<" | "=" | "≥" | "≤"
+    NUMBER: /[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?/
+    DATE: /[0-9]{4}-[0-9]{2}-[0-9]{2}/
+    IDENTIFIER: /[A-Za-z][A-Za-z0-9_.-]*/
+    UNIT: /[%$€£]|[A-Za-z][A-Za-z0-9_\/-]*/
+    OPEN: "[" | "("
+    CLOSE: "]" | ")"
+    %import common.WS
+    %ignore WS
+"""
+FIELD_STARTS = frozenset(
+    {"threshold", "number", "date", "identifier", "quantity", "interval", "literal", "labeled"}
+)
+FIELD_LEXER_GRAMMAR = r"""
+    start: atom*
+    ?atom: OP | NUMBER | WORD | OTHER
+    OP.3: ">=" | "<=" | ">" | "<" | "=" | "≥" | "≤"
+    NUMBER.2: /[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?/
+    WORD: /[^\W\d][\w.-]*/u
+    OTHER: /[^\s]/
+    %import common.WS
+    %ignore WS
+"""
+
+
+@lru_cache(maxsize=len(FIELD_STARTS))
+def formal_field_grammar(start: str):
+    """Prepare the declared deterministic syntax route; never run domain callbacks."""
+    if start not in FIELD_STARTS:
+        raise ValueError(f"unsupported formal field start {start!r}")
+    return Lark(
+        FIELD_GRAMMAR,
+        start=start,
+        parser="lalr",
+        lexer="contextual",
+        propagate_positions=True,
+    )
+
+
 COMPARISON_BASIS = re.compile(r"^Comparison basis:[ \t]*([^\n\r.]+?)[ \t]*\.?[ \t]*$", re.M)
 REVISION_SUCCESSION = re.compile(
     r"^Revision ([A-Za-z0-9_-]+) supersedes revision ([A-Za-z0-9_-]+)\.[ \t]*$", re.M
@@ -38,16 +94,7 @@ class LocatedThreshold(ParsedThreshold):
 @lru_cache(maxsize=1)
 def field_lexer():
     return Lark(
-        r"""
-        start: atom*
-        ?atom: OP | NUMBER | WORD | OTHER
-        OP.3: ">=" | "<=" | ">" | "<" | "=" | "≥" | "≤"
-        NUMBER.2: /[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?/
-        WORD: /[^\W\d][\w.-]*/u
-        OTHER: /[^\s]/
-        %import common.WS
-        %ignore WS
-    """,
+        FIELD_LEXER_GRAMMAR,
         parser=None,
         lexer="basic",
         propagate_positions=True,
@@ -56,20 +103,7 @@ def field_lexer():
 
 @lru_cache(maxsize=1)
 def threshold_grammar():
-    return Lark(
-        r"""
-        start: SYMBOL? OP NUMBER UNIT?
-        SYMBOL: /[A-Za-z][A-Za-z0-9_]*/
-        OP: ">=" | "<=" | ">" | "<" | "=" | "≥" | "≤"
-        NUMBER: /[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?/
-        UNIT: /[%$€£]|[A-Za-z][A-Za-z0-9_\/-]*/
-        %import common.WS
-        %ignore WS
-    """,
-        parser="lalr",
-        lexer="contextual",
-        propagate_positions=True,
-    )
+    return formal_field_grammar("threshold")
 
 
 def located_tokens(text):
@@ -140,26 +174,7 @@ def threshold_fields(text: str) -> tuple[LocatedThreshold, ...]:
 
 @lru_cache(maxsize=1)
 def literal_grammar():
-    return Lark(
-        r"""
-        ?start: date | identifier | quantity | bounded_range
-        date: "Date:" DATE
-        identifier: "Identifier:" IDENTIFIER
-        quantity: "Quantity:" NUMBER UNIT
-        bounded_range: "Range:" OPEN NUMBER "," NUMBER CLOSE UNIT
-        DATE: /[0-9]{4}-[0-9]{2}-[0-9]{2}/
-        IDENTIFIER: /[A-Za-z][A-Za-z0-9_.-]*/
-        NUMBER: /[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?/
-        UNIT: /[%$€£]|[A-Za-z][A-Za-z0-9_\/-]*/
-        OPEN: "[" | "("
-        CLOSE: "]" | ")"
-        %import common.WS
-        %ignore WS
-        """,
-        parser="lalr",
-        lexer="contextual",
-        propagate_positions=True,
-    )
+    return formal_field_grammar("literal")
 
 
 def parse_comparison_literal(text: str) -> dict[str, str | bool] | None:

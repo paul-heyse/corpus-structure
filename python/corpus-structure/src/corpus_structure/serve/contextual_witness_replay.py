@@ -2,7 +2,6 @@
 
 import base64
 import json
-import re
 from collections import defaultdict
 from dataclasses import asdict
 from hashlib import sha256
@@ -10,7 +9,8 @@ from hashlib import sha256
 from corpus_structure.core.evidence import config_key
 from corpus_structure.methods.contextual_candidates import (
     SECTION_CONSTRAINT,
-    ContextualCandidateConfig,
+    ContextualQueryConfig,
+    _primary_named_record,
     explicit_definition_section,
     explicit_definition_subject,
     explicit_section_citation,
@@ -21,6 +21,7 @@ from corpus_structure.methods.contextual_candidates import (
 )
 from corpus_structure.methods.contextual_embeddings import EncodedVector, identity
 from corpus_structure.methods.witnessed_source_links import NAMED_PIECE_VERSION
+from corpus_structure.semantic.constructions.navigation import NavigationIndex
 from corpus_structure.semantic.contextual_links import RelationshipWitness, select_relationships
 from corpus_structure.semantic.contextual_registry import (
     ExtractedComponentTarget,
@@ -37,12 +38,12 @@ from corpus_structure.semantic.contextual_retrieval import (
 )
 from corpus_structure.semantic.contributions import contribution_identity, operation_identity
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.observations import source_python
+from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.structural_products import StructuralProductReport
 
 
 def _reports(body):
-    if body.get("operation_version") in {"6", "7", "8", "9", "10", "11"}:
+    if body.get("operation_version") == "11":
         for op in body.get("contribution_operations", ()):
             if "contextual_enrichment" in op:
                 yield op["contextual_enrichment"]
@@ -63,17 +64,10 @@ def _possible_carriers(body):
         producer = value["producer_semantic_type"]
         original = source_python(value["producer_value"])
         marker = original.get("named_cue")
-        named_section = producer == "structural.located_participant" and (
-            (isinstance(marker, dict) and marker.get("kind") == "definition_reference")
-            or (
-                marker is None
-                and any(
-                    re.fullmatch(
-                        r"Section\s+[0-9]+(?:\.[0-9]+)+", anchor.get("source_piece", ""), re.I
-                    )
-                    for anchor in row["anchors"]
-                )
-            )
+        named_section = (
+            producer == "structural.located_participant"
+            and isinstance(marker, dict)
+            and marker.get("kind") == "definition_reference"
         )
         if producer == "definition.term" or named_section:
             yield row
@@ -110,8 +104,35 @@ def _packet_mapping(contract):
     return packet
 
 
-def _heading_inventory(config, source_view_id, sources, documents, packet):
-    """Reconstruct selected headings from retained native pieces and work authority."""
+def _view_layers(primary_layers, view):
+    identity = view["source_view_id"]
+    return {
+        pin: layer
+        for pin, layer in primary_layers.items()
+        if identity in layer.payload["source_scope"]["source_view_ids"]
+    }
+
+
+def _full_navigation_coverage(primary_layers, view):
+    projection = view["ref"]["projection_digest"]
+    return any(
+        row["family"] == "construction.navigation"
+        and row["availability"] == "available"
+        and row["outcome"] in {"complete", "empty"}
+        and not any(s["projection"] == projection for s in row.get("unexamined", ()))
+        and any(
+            s["projection"] == projection
+            and s.get("start", 0) == 0
+            and s.get("end", 0) >= len(view["text"])
+            for s in row["examined"]
+        )
+        for layer in primary_layers.values()
+        for row in layer.payload["coverage"]
+    )
+
+
+def _heading_inventory(config, source_view_id, sources, documents, packet, *, primary_layers):
+    """Project retained primary headings under the original packet/work boundary."""
     entries = []
     for ref in config.section_sources:
         view = sources[ref.source_view_id]
@@ -125,48 +146,73 @@ def _heading_inventory(config, source_view_id, sources, documents, packet):
     (cue,) = [entry for entry in entries if entry[0].source_view_id == source_view_id]
     cue_digest, cue_parent = cue[0].native_content_digest, cue[2]
     work_id = "parent-pdf:" + cue_parent if cue_parent else "native-packet:" + cue_digest
-    grouped = defaultdict(list)
+    grouped = defaultdict(dict)
     complete = True
     for ref, view, parent in entries:
         if ref.native_content_digest != cue_digest:
             complete &= parent is not None and cue_parent is not None
             if parent is None or parent != cue_parent:
                 continue
-        pointers = {
-            piece["item_ref"]
-            for piece in view["context"]["pieces"]
-            if piece["kind"] == "native_text"
-            and "cell_index" not in piece
-            and piece.get("source_field", "text") == "text"
-        }
-        for item in view["context"]["items"]:
-            if (
-                item.get("label") != "section_header"
-                or item.get("content_layer") != "body"
-                or item["self_ref"] not in pointers
+        selected = _view_layers(primary_layers, view)
+        complete &= _full_navigation_coverage(selected, view)
+        index = NavigationIndex(selected, ref.projection_digest, source_view_id=ref.source_view_id)
+        items = {item["self_ref"]: item for item in view["context"]["items"]}
+        for record in index.select("section_heading"):
+            if any(
+                e["source_view_id"] != ref.source_view_id
+                for role in ("heading", "designator")
+                for e in record.fragments(role)
             ):
                 continue
-            label, pointer = item["text"], item["self_ref"]
-            match = re.match(r"^(?:Section )?([0-9]+(?:\.[0-9]+)+)(?:\s|$)", label)
-            if match:
-                target = identity(
-                    "section-heading",
-                    [ref.native_content_digest, ref.native_product_key, pointer, 0, len(label)],
-                )
-                grouped[target, pointer, label, match[1]].append(ref)
-    targets = tuple(
-        SectionHeadingTarget(
-            target_id=target,
-            pointer=pointer,
-            label=label,
-            designator=code,
-            work_id=work_id,
-            scope=config.scope,
-            effective_version=config.effective_version,
-            citations=tuple(sorted(citations, key=lambda ref: ref.identity)),
+            label, code, pointer = (
+                record.text("heading"),
+                record.text("designator"),
+                record.payload["pointer"],
+            )
+            node = items[pointer]
+            if (
+                node.get("label") != "section_header"
+                or node.get("content_layer") != "body"
+                or node["text"] != label
+                or record.payload["designator"] != code
+            ):
+                raise ValueError("retained primary heading differs from original native heading")
+            target = identity(
+                "section-heading",
+                [ref.native_content_digest, ref.native_product_key, pointer, 0, len(label)],
+            )
+            citations, witnesses = grouped[target, pointer, label, code].setdefault(
+                "members", ({}, {})
+            )
+            citations[ref.identity] = ref
+            witnesses[record.reference] = record.reference
+    targets = []
+    for (target, pointer, label, code), group in sorted(grouped.items()):
+        citations, witnesses = group["members"]
+        targets.append(
+            SectionHeadingTarget(
+                target_id=target,
+                pointer=pointer,
+                label=label,
+                designator=code,
+                work_id=work_id,
+                scope=config.scope,
+                effective_version=config.effective_version,
+                citations=tuple(citations[key] for key in sorted(citations)),
+                primary_witnesses=tuple(
+                    sorted(
+                        witnesses,
+                        key=lambda r: (
+                            r.layer.task_id,
+                            r.layer.product_key,
+                            r.layer.content_digest,
+                            r.local_id,
+                        ),
+                    )
+                ),
+            )
         )
-        for (target, pointer, label, code), citations in sorted(grouped.items())
-    )
+    targets = tuple(targets)
     registry, representations, meanings = section_target_input(config.section_sources, targets)
     inventory = freeze_inventory(
         representations,
@@ -192,7 +238,7 @@ def _wire(value):
     return value
 
 
-def _verify_section_report(retained, reports, sources, documents, contract):
+def _verify_section_report(retained, reports, sources, documents, contract, *, primary_layers):
     from corpus_structure.semantic.proposals import native_source_frame
     from corpus_structure.semantic.source_contexts import record_source_pin
 
@@ -200,16 +246,16 @@ def _verify_section_report(retained, reports, sources, documents, contract):
 
     body, configuration = retained["body"], retained["configuration"]
     version = body["operation_version"]
-    if version not in {"7", "8", "9", "10"} or body["configuration_hash"] != config_key(
+    if version != "11" or body["configuration_hash"] != config_key(
         "retrieve.contextual", version, configuration
     ):
         raise ValueError("section citation differs from exact retained configuration")
-    config = ContextualCandidateConfig.model_validate(configuration)
+    config = ContextualQueryConfig.model_validate(configuration)
     source_view_id = retained["origin_unit_id"]
     source = sources[source_view_id]
     mapping = _packet_mapping(contract)
     targets, inventory, complete = _heading_inventory(
-        config, source_view_id, sources, documents, mapping
+        config, source_view_id, sources, documents, mapping, primary_layers=primary_layers
     )
     (report,) = tuple(_reports(body))
     if (
@@ -228,7 +274,7 @@ def _verify_section_report(retained, reports, sources, documents, contract):
             update={"section_sources": (*config.section_sources, *config.section_catalog_sources)}
         )
         broader_targets, _, broader_complete = _heading_inventory(
-            broader, source_view_id, sources, documents, mapping
+            broader, source_view_id, sources, documents, mapping, primary_layers=primary_layers
         )
         if broader_complete:
             outside = frozenset(target.designator for target in broader_targets)
@@ -241,7 +287,7 @@ def _verify_section_report(retained, reports, sources, documents, contract):
         or scoped["project_id"] != retained["project_id"]
         or upstream["source"] != body["source"]
         or upstream["release_id"] != body["release_id"]
-        or upstream["operation_version"] not in {"7", "8", "9", "10", "11", "12"}
+        or upstream["operation_version"] != "17"
     ):
         raise ValueError("section citation lacks its exact scoped source report")
     frame = native_source_frame(_retained_review_source_view(source), ())
@@ -256,7 +302,7 @@ def _verify_section_report(retained, reports, sources, documents, contract):
     )
     carriers = defaultdict(list)
     for product in products:
-        marker = explicit_section_citation(product, nodes)
+        marker = explicit_section_citation(product, nodes, primary_layers=primary_layers)
         if marker is not None:
             carriers[product["occurrence_id"]].append((product, marker))
     published = {
@@ -403,7 +449,7 @@ def _term_binding(target, reports, sources):
     return physical, term, source
 
 
-def _retained_alias(reference, reports, sources):
+def _retained_alias(reference, reports, sources, *, primary_layers):
     origin = reports[reference["origin_task_id"]]
     body = origin["body"]
     if (
@@ -411,19 +457,18 @@ def _retained_alias(reference, reports, sources):
         or origin["runtime_fingerprint"] != reference["runtime_fingerprint"]
         or body["release_id"] != reference["release_id"]
         or body.get("method") != "structure.scoped_relations"
-        or body.get("operation_version") not in {"7", "8", "9", "10", "11", "12"}
+        or body.get("operation_version") != "17"
     ):
         raise ValueError("definition alias differs from its retained origin")
     rows = {row["contribution_id"]: row for row in body["contributions"]}
     edge = rows[reference["contribution_id"]]
     component = edge.get("component", {})
-    named_versions = {NAMED_PIECE_VERSION} if body["operation_version"] == "12" else {"2", "3"}
     if (
         edge["kind"] != "relation"
         or edge["semantic_type"] != "structural.scoped_attachment"
         or component.get("question") != "source_named_links"
         or component.get("attachment_kind") != "alias"
-        or component.get("question_version") not in named_versions
+        or component.get("question_version") != NAMED_PIECE_VERSION
         or len(edge["endpoints"]) != 2
     ):
         return None
@@ -437,6 +482,29 @@ def _retained_alias(reference, reports, sources):
         row = rows[endpoint["contribution_id"]]
         if row["kind"] != "occurrence" or len(row["anchors"]) != 1:
             return None
+        original = source_python(row["value"])
+        marker = original.get("named_cue", {})
+        carrier = dict(
+            row,
+            value=source_value(
+                dict(producer_semantic_type=row["semantic_type"], producer_value=row["value"])
+            ),
+        )
+        primary = _primary_named_record(
+            carrier,
+            items,
+            original,
+            marker,
+            primary_layers,
+            "subject" if endpoint["role"] == "attachment" else "argument",
+        )
+        if (
+            primary is None
+            or primary.reference.values() != component.get("primary_node")
+            or primary.payload["relation_kind"] != "alias"
+            or primary.payload["resolution"] != "located"
+        ):
+            raise ValueError("definition alias differs from its exact primary source roles")
         (anchor,) = row["anchors"]
         pin = anchor["pin"]
         if anchor["precision"] != "exact" or anchor["space"] != "native":
@@ -504,7 +572,7 @@ def _term_alias(target, term, source, retained):
     return anchors[1 - matches[0]]["source_piece"] if len(matches) == 1 else None
 
 
-def _section(source, term):
+def _section(source, term, *, primary_layers):
     items = {i["self_ref"]: i for i in source["context"]["items"]}
     pieces = [
         p
@@ -521,7 +589,7 @@ def _section(source, term):
     if original.get("content_layer") != "body" or not original.get("parent"):
         return None
     headers = [
-        (p["end"], items[p["item_ref"]]["text"])
+        (p["end"], p["item_ref"])
         for p in pieces
         if p["end"] <= piece["start"]
         and (
@@ -532,11 +600,29 @@ def _section(source, term):
     ]
     if not headers:
         return None
-    match = re.match(r"^(?:Section )?([0-9]+(?:\.[0-9]+)+)(?:\s|$)", max(headers)[1])
-    return match[1] if match else None
+    _, pointer = max(headers)
+    index = NavigationIndex(
+        _view_layers(primary_layers, source),
+        source["ref"]["projection_digest"],
+        source_view_id=source["source_view_id"],
+    )
+    facts = [
+        row
+        for row in index.select("section_heading", pointer)
+        if all(e["source_view_id"] == source["source_view_id"] for e in row.fragments("heading"))
+    ]
+    if len(facts) != 1:
+        return None
+    (row,) = facts
+    if (
+        row.text("heading") != items[pointer]["text"]
+        or row.text("designator") != row.payload["designator"]
+    ):
+        raise ValueError("component section differs from retained primary heading")
+    return row.payload["designator"]
 
 
-def verify_contextual_witness_closure(root, manifest):
+def verify_contextual_witness_closure(root, manifest, *, retained_primary=None):
     from .review_bundle import _detached_relation
 
     if "reports" not in manifest["relations"]:
@@ -547,9 +633,9 @@ def verify_contextual_witness_closure(root, manifest):
     for retained in reports.values():
         body = retained.get("body") or {}
         version = body.get("operation_version")
-        if retained.get("method") == "retrieve.contextual" and version in {"8", "9", "10", "11"}:
+        if retained.get("method") == "retrieve.contextual" and version == "11":
             (report,) = tuple(_reports(body))
-            verify_detached_neighborhood(report, native_ranks=version in {"9", "10", "11"})
+            verify_detached_neighborhood(report, native_ranks=True)
     relevant = [
         r
         for r in reports.values()
@@ -562,6 +648,13 @@ def verify_contextual_witness_closure(root, manifest):
     ]
     if not relevant:
         return
+    from .primary_characterization_replay import primary_layers_for_report, retained_primary_layers
+
+    frozen_primary = (
+        retained_primary
+        if retained_primary is not None
+        else retained_primary_layers(root, manifest)
+    )
     sources = {s["source_view_id"]: s for s in _detached_relation(root, manifest, "sources")}
     documents, contracts = {}, {}
     if any(row["configuration"].get("section_sources") for row in relevant):
@@ -571,9 +664,23 @@ def verify_contextual_witness_closure(root, manifest):
         }
     for retained in relevant:
         body = retained["body"]
+        if body["operation_version"] != "11":
+            raise ValueError("contextual witness replay requires current operation 11")
+        if body["configuration_hash"] != config_key(
+            "retrieve.contextual", "11", retained["configuration"]
+        ):
+            raise ValueError("contextual witness differs from exact retained configuration")
+        primary_layers, _ = primary_layers_for_report(
+            root, manifest, retained, retained=frozen_primary
+        )
         if retained["configuration"].get("section_sources"):
             _verify_section_report(
-                retained, reports, sources, documents, contracts[body["release_id"]]
+                retained,
+                reports,
+                sources,
+                documents,
+                contracts[body["release_id"]],
+                primary_layers=primary_layers,
             )
             continue
         if retained["method"] != "retrieve.contextual":
@@ -589,7 +696,11 @@ def verify_contextual_witness_closure(root, manifest):
         ):
             raise ValueError("definition alias selection differs from its configuration")
         original_aliases = [
-            (ref["project_id"], _retained_alias(ref, reports, sources)) for ref in alias_refs
+            (
+                ref["project_id"],
+                _retained_alias(ref, reports, sources, primary_layers=primary_layers),
+            )
+            for ref in alias_refs
         ]
         for report in _reports(body):
             targets = {
@@ -630,6 +741,7 @@ def verify_contextual_witness_closure(root, manifest):
                         nodes,
                         scope=inventory["scope"],
                         effective_version=inventory.get("effective_version"),
+                        primary_layers=primary_layers,
                     )
                     for target_id in eligible:
                         target, (physical, term, original) = targets[target_id]
@@ -637,7 +749,7 @@ def verify_contextual_witness_closure(root, manifest):
                             valid = (
                                 physical.native_content_digest
                                 == source["ref"]["native_product"]["content_digest"]
-                                and _section(original, term) == code
+                                and _section(original, term, primary_layers=primary_layers) == code
                             )
                         else:
                             valid = (
@@ -706,15 +818,17 @@ def verify_contextual_witness_closure(root, manifest):
                     or replay.policy_id != candidate["policy_id"]
                 ):
                     raise ValueError("contextual witness rank differs from retained channels")
-                if body.get("operation_version") not in {"9", "10"}:
-                    continue
                 scope, version = inventory["scope"], inventory.get("effective_version")
                 section_carriers = [
                     row
                     for row in carriers
                     if row["occurrence_id"] == candidate["occurrence_id"]
                     and explicit_definition_section(
-                        row, nodes, scope=scope, effective_version=version
+                        row,
+                        nodes,
+                        scope=scope,
+                        effective_version=version,
+                        primary_layers=primary_layers,
                     )
                     is not None
                 ]
@@ -730,13 +844,12 @@ def verify_contextual_witness_closure(root, manifest):
                 exact_subject_witnesses = []
                 for row in section_carriers:
                     original = source_python(source_python(row["value"])["producer_value"])
-                    named_version = "3" if "definition_subject_kind" in original else "2"
                     subject = explicit_definition_subject(
                         row,
                         nodes,
                         scope=scope,
                         effective_version=version,
-                        named_version=named_version,
+                        primary_layers=primary_layers,
                     )
                     if subject is None:
                         continue
@@ -747,7 +860,7 @@ def verify_contextual_witness_closure(root, manifest):
                         if (
                             physical.native_content_digest
                             == source["ref"]["native_product"]["content_digest"]
-                            and _section(original, term) == code
+                            and _section(original, term, primary_layers=primary_layers) == code
                         ):
                             matching_section.append((target.reference, term.text))
                     exact_subject_witnesses.extend(
@@ -758,8 +871,8 @@ def verify_contextual_witness_closure(root, manifest):
                             source_binding=original_binding,
                             scope=scope,
                             effective_version=version,
-                            named_version=named_version,
-                            aliases=aliases if named_version == "3" else None,
+                            primary_layers=primary_layers,
+                            aliases=aliases,
                         )
                     )
                 retained_other_witnesses = []
@@ -774,7 +887,7 @@ def verify_contextual_witness_closure(root, manifest):
                     retained_other_witnesses.append(
                         RelationshipWitness(**({"effective_version": None} | witness))
                     )
-                config = ContextualCandidateConfig.model_validate(retained["configuration"])
+                config = ContextualQueryConfig.model_validate(retained["configuration"])
                 selected = select_relationships(
                     candidates=replay,
                     inventory=frozen,

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from pydantic import BaseModel, ConfigDict, JsonValue, RootModel
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, RootModel
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 
@@ -31,6 +31,9 @@ class RegenerationReport(BaseModel):
     provider: dict[str, object] | None = None
     semantic_impact: dict | None = None
     compatibility_advice: tuple[str, ...] = ()
+    characterization_views: tuple[ProductReference, ...] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
 
 
 def read_product_pin(path: Path | None, role: str) -> ProductReference | None:
@@ -359,6 +362,12 @@ def regenerate(
             # Report meaning changes from the retained selected release even when
             # the caller leaves the new result unselected. This grants no admission.
             with engine.connect() as conn:
+                runs = table("ops.run")
+                source_options = conn.scalar(select(runs.c.options).where(runs.c.id == run_id))
+                characterization_views = tuple(
+                    ProductReference(**pin)
+                    for pin in (source_options or {}).get("characterization_views", ())
+                )
                 projects = table("data.project")
                 before_release = conn.scalar(
                     select(projects.c.active_release_id).where(projects.c.project_id == project)
@@ -388,6 +397,7 @@ def regenerate(
                         output_realization_id=completed,
                         semantic_impact=impact,
                         compatibility_advice=advice,
+                        characterization_views=characterization_views,
                     ),
                     json=json,
                 )
@@ -455,6 +465,7 @@ def regenerate(
                 provider=provider,
                 semantic_impact=impact,
                 compatibility_advice=advice,
+                characterization_views=characterization_views,
             ),
             json=json,
         )

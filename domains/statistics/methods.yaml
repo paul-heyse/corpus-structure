@@ -39,6 +39,28 @@ aliases:                                               # label normalization (D5
     - {match: '^(\w+) distributed$', replace: '\1'}    # "gamma distributed" → "gamma"
 
 configs:                                               # named configurations, referenced as <method>/<name>
+  text.model_characterization:
+    default:
+      gliner_profile:
+        provider: gliner
+        device: cpu
+        profile:
+          snapshot: /home/paul/.cache/huggingface/hub/models--fastino--gliner2.5-base-v1/snapshots/54785d51df8d86a0d8f2eb212fec15871aad2c4d
+          checkpoint: fastino/gliner2.5-base-v1
+          revision: 54785d51df8d86a0d8f2eb212fec15871aad2c4d
+          artifact_hashes:
+          - - config.json
+            - d6b515c21ae2100c12267fb42a3f02c1e99ad87580366aebedb161efd74441c7
+          - - encoder_config/config.json
+            - d36a845b9f25dcaf1ec45a1c4bdf65ea4ac20596537e14530ec9f660a63aeca4
+          - - model.safetensors
+            - 7274094de2e0c2a37a386f55fc4e23061a954da5bd7a335e7dfe56f2743c277a
+          - - tokenizer.json
+            - cbc8ae6037812709c9c26f2a160f8dc48b0440bcb79c8141804259ae2d6adac3
+          - - tokenizer_config.json
+            - 0bf3ea0873234bd9bfdd3853c440395009ac6365a925b91654daed5396d655e1
+          threads: 4
+        threshold: 0.5
   consolidate.claims:                                  # aliases and math come from the sections above
     default: {engine: duckdb, use_markup_hints: true}
   validate.rules:                                      # the rule set is the run's compiled artifact

@@ -66,20 +66,28 @@ def prepare_source_inputs(
     metric_content: bytes | None = None,
     model_content: bytes | None = None,
     characterization_content: bytes | None = None,
+    characterization_question_content: bytes | None = None,
 ):
     """Explicitly acquire source-report schema and metric definitions before pure preparation."""
     from .characterization import characterization_inputs
+    from .interpretation_questions import characterization_question_dependencies
     from .metrics import observation_dependencies
     from .types import ResolvedDependencies
+
+    selected_dependencies = observation_dependencies(
+        ResolvedDependencies() if dependencies is None else dependencies, metric_content
+    )
+    if characterization_content is None or characterization_question_content is not None:
+        selected_dependencies = characterization_question_dependencies(
+            selected_dependencies, content=characterization_question_content
+        )
 
     return (
         characterization_inputs(
             observation_inputs(bundle, model_content=model_content),
             model_content=characterization_content,
         ),
-        observation_dependencies(
-            ResolvedDependencies() if dependencies is None else dependencies, metric_content
-        ),
+        selected_dependencies,
     )
 
 

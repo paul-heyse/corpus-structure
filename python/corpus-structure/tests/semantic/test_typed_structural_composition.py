@@ -5,7 +5,9 @@ from typing import Any
 import pytest
 
 from corpus_structure.methods.structural_products import (
-    compare_clauses,
+    compare_clauses as compare_captured_clauses,
+)
+from corpus_structure.methods.structural_products import (
     select_dossier,
     threshold_readings,
 )
@@ -14,13 +16,14 @@ from corpus_structure.semantic.structural_products import (
     ClauseField,
     ClauseFieldGroup,
     ClauseReading,
-    ComparisonLiteral,
     DossierFacet,
     DossierMember,
     LocatedDefinitionSpan,
 )
 from corpus_structure.serve.structural_products import dossier_representation_page
 
+from .primary_formal_fixture import formal_layers
+from .structural_release_fixture import released_report
 from .test_structural_products import inputs
 
 
@@ -33,7 +36,11 @@ def threshold_inputs(left, right, scope="scope"):
     return value.model_copy(update=dict(passages=passages))
 
 
-def read_clause(passage, **expected_roles):
+def compare_clauses(value, **kwargs):
+    return compare_captured_clauses(value, primary_layers=formal_layers(value), **kwargs)
+
+
+def read_clause(passage, *, source_inputs, **expected_roles):
     """Nominate exact fixture roles independently of the current retained-frame producer."""
     fields = []
     for name, spelling in expected_roles.items():
@@ -59,7 +66,12 @@ def read_clause(passage, **expected_roles):
                     dimension=dimension, lexical_value=value, evidence=(passage.passage_id,)
                 )
             )
-    thresholds = threshold_readings(passage)
+    source = next(
+        source for source in source_inputs.sources if source.identity == passage.source_ref
+    )
+    thresholds = threshold_readings(
+        passage, source=source, primary_layers=formal_layers(source_inputs)
+    )
     if len(thresholds) == 1:
         fields.extend(thresholds)
     return ClauseReading(passage_id=passage.passage_id, fields=tuple(fields))
@@ -94,7 +106,9 @@ def test_exact_threshold_difference(left, right, removed, added):
     basis = "\nComparison basis: annual gross revenue."
     value = threshold_inputs(left + basis, right + basis)
     report = compare_clauses(
-        value, left=read_clause(value.passages[0]), right=read_clause(value.passages[1])
+        value,
+        left=read_clause(value.passages[0], source_inputs=value),
+        right=read_clause(value.passages[1], source_inputs=value),
     )
     assert report.comparison is not None
     d = report.comparison.dimensions[5]
@@ -109,6 +123,12 @@ def test_exact_threshold_difference(left, right, removed, added):
     assert d.left.typed.basis_evidence is not None
     assert d.left.typed.basis_evidence.text == basis[1:]
     assert report.comparison.applicability == "unestablished"
+    assert d.left.typed.primary_formal is not None and d.left.typed.primary_basis is not None
+    released = released_report(report, method="structure.compare", version="6")
+    typed = released["comparison"]["dimensions"][5]["left"]["typed"]
+    assert typed["value"] == d.left.typed.value
+    assert typed["primary_formal"] == d.left.typed.primary_formal.values()
+    assert typed["primary_basis"] == d.left.typed.primary_basis.values()
 
 
 def test_missing_unit_and_ambiguous_fields_withhold_typed_conclusion():
@@ -119,7 +139,9 @@ def test_missing_unit_and_ambiguous_fields_withhold_typed_conclusion():
     ):
         value = threshold_inputs(left, right)
         report = compare_clauses(
-            value, left=read_clause(value.passages[0]), right=read_clause(value.passages[1])
+            value,
+            left=read_clause(value.passages[0], source_inputs=value),
+            right=read_clause(value.passages[1], source_inputs=value),
         )
         assert report.comparison is not None
         assert report.comparison.dimensions[5].typed_outcome == "unknown"
@@ -132,13 +154,22 @@ def test_succession_keeps_the_source_direction_when_comparison_is_reversed():
         "Clause rule.\nRevision R2 supersedes revision R1.\nx > 5 kg",
     )
     newer, older = inputs.passages
-    result = compare_clauses(inputs, left=read_clause(newer), right=read_clause(older)).comparison
+    report = compare_clauses(
+        inputs,
+        left=read_clause(newer, source_inputs=inputs),
+        right=read_clause(older, source_inputs=inputs),
+    )
+    result = report.comparison
     assert result is not None and result.applicability == "successive_revisions"
     assert result.left_id == newer.passage_id
     assert result.succession is not None
     assert (result.succession.older_id, result.succession.newer_id) == ("a", "b")
     assert result.succession.evidence.text == "Revision R2 supersedes revision R1."
     assert result.succession.older_evidence.text == "Revision R1."
+    released = released_report(report, method="structure.compare", version="6")
+    succession = released["comparison"]["succession"]
+    assert succession["older_evidence"]["text"] == "Revision R1."
+    assert len(succession["primary_witnesses"]) == 4
 
 
 @pytest.mark.parametrize(
@@ -156,7 +187,11 @@ def test_caller_labels_cannot_substitute_for_succession_endpoints(left, same_sou
         same_source=same_source,
     )
     newer, older = inputs.passages
-    result = compare_clauses(inputs, left=read_clause(newer), right=read_clause(older)).comparison
+    result = compare_clauses(
+        inputs,
+        left=read_clause(newer, source_inputs=inputs),
+        right=read_clause(older, source_inputs=inputs),
+    ).comparison
     assert result is not None and result.applicability == "unestablished"
     assert result.succession is None
 
@@ -300,8 +335,12 @@ def test_independently_located_clause_premises_preserve_threshold_consequence():
     }
     comparison = compare_clauses(
         value,
-        left=read_clause(value.passages[0], **roles, condition="if revenue > 25000 USD"),
-        right=read_clause(value.passages[1], **roles, condition="if revenue > 50000 USD"),
+        left=read_clause(
+            value.passages[0], source_inputs=value, **roles, condition="if revenue > 25000 USD"
+        ),
+        right=read_clause(
+            value.passages[1], source_inputs=value, **roles, condition="if revenue > 50000 USD"
+        ),
     ).comparison
     assert comparison is not None
     assert comparison.dimensions[0].outcome == "same_lexical_value"
@@ -312,6 +351,9 @@ def test_independently_located_clause_premises_preserve_threshold_consequence():
 
 
 def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applicability():
+    from corpus_structure.methods.structural_products import _literal_reading
+    from corpus_structure.semantic.formal_readings import FormalSourceReadings, coordination_reading
+
     value = threshold_inputs(
         "Identifier: Form-A and Date: 2025-01-15. X > 5 kg.\nComparison basis: gross weight.",
         "Identifier: Form-B or Date: 2025-01-16. X > 7 kg.\nComparison basis: gross weight.",
@@ -323,6 +365,7 @@ def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applic
             )
         }
     )
+    layers = formal_layers(value)
 
     def side(passage, form, date, connector, state):
         def span(spelling, start=None):
@@ -331,31 +374,47 @@ def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applic
                 passage_id=passage.passage_id, start=start, end=start + len(spelling), text=spelling
             )
 
-        members = (
-            ClauseField(
-                dimension="object",
-                lexical_value=f"Identifier: {form}",
-                evidence=(passage.passage_id,),
-                spans=(span(f"Identifier: {form}"),),
-                literal=ComparisonLiteral(kind="identifier", value=form),
-            ),
-            ClauseField(
-                dimension="object",
-                lexical_value=f"Date: {date}",
-                evidence=(passage.passage_id,),
-                spans=(span(f"Date: {date}"),),
-                literal=ComparisonLiteral(kind="date", value=date),
-            ),
+        source = next(s for s in value.sources if s.identity == passage.source_ref)
+        primary = FormalSourceReadings(layers, source)
+        members = []
+        for spelling in (f"Identifier: {form}", f"Date: {date}"):
+            located = span(spelling)
+            literal, reference = _literal_reading(located, source, primary)
+            assert literal is not None and reference is not None
+            members.append(
+                ClauseField(
+                    dimension="object",
+                    lexical_value=spelling,
+                    evidence=(passage.passage_id,),
+                    spans=(located,),
+                    literal=literal,
+                    primary_formal=reference,
+                )
+            )
+        cue = coordination_reading(
+            primary, source, start=len(f"Identifier: {form}"), end=passage.text.index("Date:")
         )
+        assert cue is not None and cue.value == connector
         # An unresolved actor can coexist with an otherwise exact threshold.
-        threshold = next(x for x in threshold_readings(passage) if x.dimension == "threshold_unit")
+        threshold = next(
+            x
+            for x in threshold_readings(
+                passage,
+                source=next(
+                    source for source in value.sources if source.identity == passage.source_ref
+                ),
+                primary_layers=formal_layers(value),
+            )
+            if x.dimension == "threshold_unit"
+        )
         groups = {d: ClauseFieldGroup(state="absent") for d in DIMENSIONS}
         groups["actor"] = ClauseFieldGroup(state=state)
         groups["object"] = ClauseFieldGroup(
             state="present",
             grouping="conjunction" if connector == "and" else "disjunction",
-            members=members,
+            members=tuple(members),
             witnesses=(span(connector, passage.text.index(f" {connector} ") + 1),),
+            primary_witnesses=(cue.reference,),
         )
         groups["threshold_unit"] = ClauseFieldGroup(
             state="present", grouping="singleton", members=(threshold,)
@@ -386,6 +445,11 @@ def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applic
         typed_groups=True,
     )
     assert report.comparison is not None
+    released = released_report(report, method="structure.compare", version="6")
+    object_ = next(d for d in released["comparison"]["dimensions"] if d["dimension"] == "object")
+    for side in ("left_group", "right_group"):
+        assert object_[side]["primary_witnesses"]
+        assert all(member["primary_formal"] for member in object_[side]["members"])
     dimensions = {d.dimension: d for d in report.comparison.dimensions}
     assert dimensions["object"].grouping_outcome == "different"
     assert [

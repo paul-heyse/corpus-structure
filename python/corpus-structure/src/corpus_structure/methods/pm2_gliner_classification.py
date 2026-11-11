@@ -88,11 +88,14 @@ def classification_request(
     mapping: PM2SourceMap,
     profile: ClassificationProfile,
     inference: dict,
+    *,
+    characterization_family: str | None = None,
 ) -> dict:
     (question,) = family.select_questions((question_key,))
     context = mapping.context
     if (
-        family.family != FAMILY
+        family.family != (characterization_family or FAMILY)
+        or characterization_family not in {None, "character_gliner_function_v1"}
         or family.focus_types
         or family.candidate_types
         or question.kind != "choice"
@@ -125,7 +128,7 @@ def classification_request(
         GlinerInput.from_context(context),
         operation=f"{METHOD}/{VERSION}:{family.digest}",
     )
-    return {
+    request = {
         "operation": METHOD,
         "version": VERSION,
         "declaration_digest": family.digest,
@@ -141,20 +144,30 @@ def classification_request(
         "threshold": threshold,
         "inference": inference,
     }
+    if characterization_family is not None:
+        request["question_family"] = characterization_family
+    return request
 
 
 def _arguments(request: dict) -> tuple[GlinerPack, GlinerInput]:
     return GlinerPack(**request["pack"]), GlinerInput(**request["item"])
 
 
-def classification_product(
-    request: dict, envelope: dict, profile: ClassificationProfile
-) -> ParserProduct:
+def authenticated_gliner_report(
+    request: dict, envelope: dict, profile: ClassificationProfile, *, overlap_policy: str = "flat"
+) -> GlinerReport:
+    """The shared exact request/runtime gate for classification and literal cues."""
     pack, item = _arguments(request)
     threshold = request["threshold"]
     native = _REPORT.validate_python(envelope)
     expected = request_digest(
-        pack, asdict(profile.profile), (item,), threshold, "flat", False, request["inference"]
+        pack,
+        asdict(profile.profile),
+        (item,),
+        threshold,
+        overlap_policy,
+        False,
+        request["inference"],
     )
     # GLiNER 2.1.0 appends punctuation to its internal representation. The
     # exact requested slice stays unchanged and the suffix never becomes source.
@@ -185,6 +198,14 @@ def classification_product(
         or native.pack != pack.fingerprint
     ):
         raise GlinerRefused("classification reply differs from the exact released request")
+    return native
+
+
+def classification_product(
+    request: dict, envelope: dict, profile: ClassificationProfile
+) -> ParserProduct:
+    native = authenticated_gliner_report(request, envelope, profile)
+    threshold = request["threshold"]
 
     raw = native.raw
     key = request["question_key"]
@@ -218,7 +239,7 @@ def classification_product(
     }
     return ParserProduct(
         f"interpretation:{key}",
-        f"interpretation.{FAMILY}",
+        f"interpretation.{request.get('question_family', FAMILY)}",
         {
             "question_key": key,
             "answer_kind": "choice",
