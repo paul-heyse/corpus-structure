@@ -519,7 +519,7 @@ BEGIN
  END IF;
  IF r.sealed OR r.status NOT IN ('created','running') OR t.status<>'running' OR t.attempt<>p_attempt OR t.claimed_by IS DISTINCT FROM p_holder THEN
   RAISE EXCEPTION 'characterization task attempt lost or run sealed' USING ERRCODE='P0004'; END IF;
- IF octet_length(coalesce(data.canonical_json(p_layer),''))>8388608 OR octet_length(coalesce(data.canonical_json(p_view),''))>8388608 THEN
+ IF octet_length(coalesce(data.canonical_json(p_layer),''))>8388608 OR octet_length(coalesce(data.canonical_json(p_view),''))>67108864 THEN
   RAISE EXCEPTION 'characterization report exceeds bounded payload contract' USING ERRCODE='54000'; END IF;
  -- Fresh publication executes today's released producer; immutable upstream reads
  -- independently use their original read contracts.

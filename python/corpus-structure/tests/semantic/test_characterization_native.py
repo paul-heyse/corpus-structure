@@ -614,6 +614,56 @@ def test_native_composition_source_only_and_indexed_keyset_pages(
 
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
+def test_document_view_can_combine_metadata_beyond_one_layer_budget(
+    characterization_source, semantic_writer_engine, semantic_reader_engine
+):
+    source = characterization_source
+    layers = {}
+    with semantic_writer_engine.begin() as conn:
+        for index in range(2):
+            selected = SimpleNamespace(**{**vars(source), "model": f"capacity-{index}"})
+            task, claim, config_hash = make_task(conn, selected)
+            payload = layer_payload(selected, config_hash)
+            payload["coverage"][0]["reason"] = str(index) * (5 * 1024**2)
+            layer = validate_layer(source.prepared, payload)
+            assert len(layer.content) < 8 * 1024**2
+            pin = publish_layer(
+                conn,
+                task_id=task,
+                attempt=claim.attempt,
+                holder="characterization-fixture",
+                layer=layer,
+            )
+            layers[pin] = layer
+        view = validate_view(
+            source.prepared,
+            dict(
+                format="enriched-document-view-v1",
+                base_document=source.base.values(),
+                release_id=source.prepared.release_id,
+                source_scope=source.scope,
+                layers=[pin.values() for pin in layers],
+                profile="selected_layers",
+                coverage=[row for layer in layers.values() for row in layer.payload["coverage"]],
+            ),
+            layers,
+        )
+        assert 8 * 1024**2 < len(view.content) < 64 * 1024**2
+        task, claim, _ = make_task(conn, source, compose=True, layers=tuple(layers))
+        pin = compose_view(
+            conn,
+            task_id=task,
+            attempt=claim.attempt,
+            holder="characterization-fixture",
+            view=view,
+        )
+    with semantic_reader_engine.connect() as conn:
+        assert read_view(conn, pin).content == view.content
+        with pytest.raises(DBAPIError), conn.begin_nested():
+            read_view(conn, pin, max_bytes=8 * 1024**2)
+
+
+@pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_native_capture_detached_characterization_closure_while_run_unfinished(
     characterization_source,
     semantic_writer_engine,

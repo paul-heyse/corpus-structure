@@ -279,6 +279,19 @@ def test_native_layout_tokens_are_not_semantic_participants(separator):
     assert builder.terms[subject["target"]]["value"] == "rain"
 
 
+@pytest.mark.parametrize("spelling", ["X\n+\nY", "X\r\n+\tY"])
+def test_multiline_native_atom_keeps_spelling_beside_interpreted_lexical_label(spelling):
+    builder = native_case([spelling, "varies"], [1, 1], ["nsubj", "ROOT"], ["NOUN", "VERB"])
+    participant = next(term for term in builder.terms.values() if term["value"] == "x + y")
+    assert participant["provenance"] == ["lexical-normalization:whitespace-folding-1"]
+    assert participant["external_premises"][0]["local_id"] == "token-0"
+    assert [
+        extent["text"]
+        for oid in participant["occurrences"]
+        for extent in builder.occurrences[oid]["extents"]
+    ] == [spelling]
+
+
 def test_native_inflection_and_modal_force_are_explicit_supported_proposals():
     builder = native_case(
         ["Rain", "may", "fall"],

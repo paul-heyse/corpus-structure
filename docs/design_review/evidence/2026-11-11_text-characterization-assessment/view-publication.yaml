@@ -1,0 +1,7 @@
+baseline: HEAD
+archive_release: release:c9939039081ddcfbc382e9dc323e12e31f9b3683fb479c773ea3fd72ac6a6189
+packs: [statistics]
+native_predecessor: semantic_tc10_11_ref_context
+native_revision: semantic_tc11_view_capacity
+deployment: true
+deployment_profile: development

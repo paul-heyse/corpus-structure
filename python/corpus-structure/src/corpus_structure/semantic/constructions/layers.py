@@ -264,6 +264,11 @@ class ConstructionLayer:
             # Layout separators do not denote participants in a source predication.
             if token.is_space:
                 continue
+            lexical = annotation["native_token"].get("lemma") or token.text
+            # A participant's interpreted lexical label is distinct from its exact
+            # native spelling. Protected mathematical atoms can contain layout
+            # newlines; their original bytes remain in occurrences/native premises.
+            label = " ".join(lexical.split()) or " ".join(token.text.split())
             occurrence = self.occurrence(view, offset + token.idx, offset + token.idx + len(token))
             external = dict(layer=pin.values(), local_id=annotation["local_id"])
             key = identity("native-participant", [pin.values(), annotation["local_id"]])
@@ -273,10 +278,15 @@ class ConstructionLayer:
                 family="construction.predication",
                 kind="participant",
                 vocabulary=REVISION,
-                value=annotation["native_token"].get("lemma") or token.text,
+                value=label,
                 status="interpreted",
                 occurrences=[occurrence],
                 external_premises=[external],
+                **(
+                    {"provenance": ["lexical-normalization:whitespace-folding-1"]}
+                    if label != lexical
+                    else {}
+                ),
             )
         predicate_terms = {}
         for index, annotation in annotations.items():
