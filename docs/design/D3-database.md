@@ -1,5 +1,35 @@
 # D3 · Database
 
+## Immutable characterization storage and publication
+
+**Accepted target, Proposed until implemented · 2026-11-10.** `physical.yaml` owns stored
+canonical layer/view products and queryable occurrence, annotation, membership/role, term, choice
+and family-coverage projections. The base is the complete `PublishedDocumentBinding`; source
+projections retain exact original product, placement and producer release. Layer/view identity
+uses `ProductReference`, not physical row IDs or a mutable latest-document key.
+
+Protected task completion checks canonical payload/projection agreement, admitted producer and
+selected inputs, original native placement, source/endpoint identity, local IDs, term/choice closure
+and released mechanical premise/support constraints before coherent visibility. Existing
+run/task/attempt/holder fences and terminal task outcome correspondence remain authoritative.
+A valid published private report can retain a failed or partial family alongside useful siblings;
+an actually failed task is not silently converted into a successful layer. Analysis publication
+confers no admitted knowledge standing. Inference/preparation stays outside publication locks.
+
+Indexed set selection locates qualified groups/members and source occurrences before hydration.
+Bounded reads fetch necessary native items/ancestors and semantic dependencies; they do not decode
+a book to display one annotation. Compact shared payloads retain larger native structures once.
+Detached export streams an exact settled view closure independently of whole-run completion,
+retaining explicit family outcomes and dependency references. Immutable source and settled layers
+survive later failure without being rewritten or strengthened.
+
+Layer closure may cross semantic releases under the supported retained format. Native publication
+checks each dependency's original sealed/admitted authority and exact source; composition does
+not relabel a layer with the view's release. Detached closure includes authenticated contracts
+for every participating release. New rules cannot retroactively authorize old layer assertions.
+
+> Decision: [ADR-0081](../adr/0081-enriched-document-analysis-layers.md)
+
 ## Progressive enrichment target
 
 **Implemented private foundation; bounded Tested, 2026-11-05.** Independent

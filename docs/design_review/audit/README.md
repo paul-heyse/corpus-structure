@@ -6,6 +6,45 @@ The living diagnostic account maintained by the
 owns freshness and disposition. This account diagnoses current design; reviews own solution
 reasoning, and implementation plans own scheduled work and closure evidence.
 
+<a id="text-characterization-entry-refresh"></a>
+
+## Text-characterization entry refresh · 2026-11-10
+
+**Interface-checked, 2026-11-10.** Source baseline `8318ff74a016c6f9e68b81a0607a41b309f33a78`;
+publication is separate. Core3.3, heuristics1.0, code-intelligence1.4 and the repository binding
+apply. This bounded refresh reconciles the existing account with source-document binding,
+source-view projection, observation/contribution, generated physical-model, release archive,
+protected task completion and native published-document reader boundaries. Earlier account
+entries retain their evidence dates and coverage. Concurrent TC production changes are excluded;
+no other plan supplies scope or disposition.
+
+`semantic/product_reference.py` identifies a product by producing task, product key and content
+digest. `published_document.PublishedDocumentBinding` additionally authenticates physical
+placement and original producer release; SourceViews select projections within that document.
+Those distinctions support full-document composition without elevating a selected section to
+the original document (FP-02/04/05; DP-04/07; CI-01/02/13).
+
+`model/semantic/observations.yaml` already declares attributed questions, independently retained
+contributions, coverage and zero-output operations. `semantic/observations.py` explicitly adds
+the trusted observation module to acquired release inputs. The current finite frame/reading
+vocabulary is useful but does not itself implement TC's factorized operator/binder/choice model.
+That is an accepted new functional requirement, not proof of a defect in the narrower current
+contract (FP-01/03/04; DP-01/02/24).
+
+`semantic/sql/native_task_completion.sql` checks run/task/attempt/holder fences, exact method
+outcomes, selected source custody and original native placement before committing immutable
+results. Private report completion and admitted knowledge publication are different operations.
+Generated `physical.yaml` relations and existing `published_document.py` set-oriented selections
+offer an appropriate route for indexed layer/membership reads. These interfaces do not yet
+establish canonical TC payload/projection equality or choice/source closure; those are new
+boundary obligations, not inherited guarantees (FP-03/05/07; DP-03/08/19; CI-04/11).
+
+No additional demonstrated architectural violation is established in this inspected footprint.
+The [entry target review](../reviews/design_review_text-characterization-entry_2026-11-10.md)
+assesses the replacement contract. The [TC coordinator](../../plans/text-characterization_2026-11-10.md)
+owns delivery and qualification. No broad-system certification, NLP-provider quality, benchmark
+or test-architecture refresh is claimed. Tests, database/provider commands and probes: **not_run**.
+
 <a id="baseline"></a>
 
 <a id="cld-assembled-refresh"></a>

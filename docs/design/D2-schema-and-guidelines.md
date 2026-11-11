@@ -1,5 +1,31 @@
 # D2 · Schema conventions, compilers and the statistics pack
 
+## Released characterization contracts
+
+**Accepted target, Proposed until implemented · 2026-11-10.** The trusted
+`model/semantic/characterization.yaml` module is explicitly acquired and archived with semantic
+release inputs. Reserved module names cannot be supplied with another meaning. Generated boundary
+types and validation consume this owned model; untyped parse-detail JSON is not its replacement.
+D1 owns the meanings; executable declarations own field spelling, permitted variants, invariants
+and operation input/result correspondence.
+
+Operation declarations name produced families, exact source and required layers, examined scope,
+result determinants, preconditions, effects and outcomes. Typed term/role and choice references
+retain semantic basis and premises. Construction, private proposal and original native schemes
+remain distinct. Generated physical projections and native checks derive mechanical constraints
+from the same declarations, without creating another linguistic policy. Internal IDs stay local
+until qualified by an immutable product pin. A full profile and a source-only profile make
+different capability claims; model presence alone does not deliver an NLP producer.
+
+Each layer retains its original release authority. A view's release governs composition, while
+its selected layers and their dependencies are validated under their own archived contracts and
+the supported characterization format. A new released construction rule can therefore consume
+an unchanged native-evidence layer without rerunning inference or republishing its provenance.
+Exact source identity, declared inputs and compatible retained contracts still apply; this is
+not a general migration or historical-code execution mechanism.
+
+> Decision: [ADR-0081](../adr/0081-enriched-document-analysis-layers.md)
+
 ## Attributed interpretations and correction custody
 
 The [completion repair receipt](../plans/domain-data-model_2026-11-10.md#completion-repair-acceptance)

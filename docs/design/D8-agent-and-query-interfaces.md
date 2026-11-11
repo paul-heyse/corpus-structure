@@ -1,5 +1,29 @@
 # D8 · Agent and query interfaces
 
+## Pin-native enriched-document reads
+
+**Accepted target, Proposed until implemented · 2026-11-10.** CLI, MCP and downstream algorithms
+compose shared domain reads over an exact enriched-view pin. Readers inspect base/layer/family
+availability, enumerate annotations by source region/kind, retrieve complete recorded group
+membership, inspect terms/roles/choice dependencies, project a supported bounded reading and
+export/replay an exact closure. They perform no NLP inference or private linguistic reinterpretation.
+
+The full published document remains the base; selected SourceViews and display bounds do not
+change its identity or analyzed family coverage. Group retrieval selects memberships in sets,
+including explicit outside-selection members. Source hydration and semantic closure retain
+independent examined-work, item and response bounds. Continuations bind the original view, source,
+layers and selection rather than rereading a mutable latest state. Shared terms serialize by ID
+once; incompatible choices and dangling/mixed-source references refuse instead of inventing a
+reading. Detached export streams source order and dependency inventories from a settled view,
+even while the wider run remains incomplete, preserving actual statuses and omissions.
+
+A real source-only composition method serves authentic original document pins without claiming
+analysis coverage. Test-only fixture producers enter protected native completion and are not a
+public upload API. Exact readable private products are distinct from admitted knowledge and from
+independent semantic assessment.
+
+> Decision: [ADR-0081](../adr/0081-enriched-document-analysis-layers.md)
+
 ## Safe operation observation custody
 
 **Implemented; scoped Tested, 2026-11-10.** Managed invocations own bounded safe observation

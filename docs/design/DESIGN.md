@@ -212,6 +212,15 @@ The [audit-closure coordinator](../plans/audit-closure_2026-11-03.md) owns remai
 
 ### §B1 Qualified assertion occurrences and semantic facts have distinct identities
 
+**Accepted target, Proposed until implemented · 2026-11-10.** Enriched-document views bind a
+full exact published document and immutable analysis-layer pins. SourceViews are scoped
+projections beneath the base. Source occurrences preserve original native/projection coordinates
+independently of analysis identity; layer-local annotation/member/term/choice IDs are externally
+qualified by their product pin. D1 owns distinct source containment, grouping, semantic operators,
+analytical alternatives and family coverage. Exact text or matching endpoints do not merge them.
+
+> Decision: [ADR-0081](../adr/0081-enriched-document-analysis-layers.md)
+
 **Accepted target; implementation tracked separately,2026-11-06.** Witnessed components
 retain exact operation questions and source bases. Independent component assessment and scoped
 eligibility remain separate from private production and whole-report standing. WCE owns adoption;
@@ -293,6 +302,15 @@ semantic decoder fallback.
 
 ### §B2 Methods write observations; only consolidation writes knowledge, per run
 
+**Accepted target, Proposed until implemented · 2026-11-10.** Characterization layer/view
+publication provides immutable private analysis through protected task completion. It confers no
+knowledge admission. A valid layer can retain actual failed/partial/unavailable family outcomes
+and useful independent siblings; actual task failure keeps its native terminal meaning. D4/D6
+own production and lifecycle; source-only composition is a real weaker method, not evidence that
+later NLP producers or full-profile coverage exist.
+
+> Decision: [ADR-0081](../adr/0081-enriched-document-analysis-layers.md)
+
 **Accepted target; implementation tracked separately,2026-11-06.** Witnessed components
 retain exact operation questions and source bases. Independent component assessment and scoped
 eligibility remain separate from private production and whole-report standing. WCE owns adoption;
@@ -372,6 +390,15 @@ legacy wait barrier rather than implying that every old option is supported.
 <a id="section-b4"></a>
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
+
+**Accepted target, Proposed until implemented · 2026-11-10.** D3 extends generated physical
+storage for canonical analysis products and indexed relationship projections. Native completion
+checks exact source/input custody, payload/projection agreement and declared endpoint/term/choice
+closure under existing run/task/attempt/holder fences before coherent visibility. D8's bounded
+pin-native reads select before hydration; detached export streams a settled view independently
+of whole-run completion, retaining original coverage and statuses.
+
+> Decision: [ADR-0081](../adr/0081-enriched-document-analysis-layers.md)
 
 **Implemented; scoped native and identity controls Tested,2026-11-05.** Semantic meaning and
 executable provenance have distinct immutable owners. `sem.runtime_binding` archives exact
@@ -567,6 +594,14 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Accepted target, Proposed until implemented · 2026-11-10.** The trusted characterization
+module is explicitly acquired and archived with release inputs. D2's typed declarations govern
+occurrences, membership/roles, terms, choices, coverage and their operation contracts. Generated
+boundaries, native mechanical support checks and read projections consume that same authority;
+neither native validation nor a reader supplies an independent linguistic policy.
+
+> Decision: [ADR-0081](../adr/0081-enriched-document-analysis-layers.md)
 
 **Implemented; scoped Tested, 2026-11-10; the DMC coordinator owns acceptance.** Attributed source interpretations remain private
 released contributions with independent evidence, review selection and vocabulary pins.

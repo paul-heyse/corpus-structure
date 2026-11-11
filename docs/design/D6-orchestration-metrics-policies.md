@@ -1,5 +1,25 @@
 # D6 · Orchestration, metrics and policies
 
+## Characterization layer lifecycle
+
+**Accepted target, Proposed until implemented · 2026-11-10.** Layer computation is private
+and binds exact source, producer release/runtime, configuration, model/grammar and upstream layer
+determinants. Reuse preserves original producer provenance. A tokenizer/model/prompt/context
+change invalidates affected inference; a changed pure construction can reuse compatible retained
+native evidence while producing a new semantic layer. A changed selection creates a new view pin.
+No layer boundary automatically creates a process, task or transaction per annotation.
+
+The existing protected task/run/attempt/holder lifecycle fences coherent publication after private
+preparation. Native checks preserve source custody and payload/projection closure. Readable private
+analysis remains separate from consolidation/admission. A valid layer may explicitly contain
+failed/partial family outcomes; actual task failure keeps the native terminal protocol. Earlier
+settled products remain useful under their own scope/status when another family fails. Cancellation
+cannot expose a partly committed complete view. A convenience current selector resolves once to
+an exact base/layer closure; readers and continuations keep that pin. Whole-run completion is not
+required to inspect or export an independently settled view.
+
+> Decision: [ADR-0081](../adr/0081-enriched-document-analysis-layers.md)
+
 ## Local publication dependencies
 
 **Implemented; integrated qualification in progress,2026-11-05.** A normal source run can

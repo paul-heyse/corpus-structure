@@ -1,5 +1,23 @@
 # D4 · Method catalog
 
+## Primary characterization operation boundary
+
+**Accepted target, Proposed until implemented · 2026-11-10.** Characterization operations
+produce attributed immutable layers over exact source-document/projection pins through the
+existing source-observation and task owners. D1/D2 define term, role, choice, support and coverage
+meaning; producers supply native evidence or released witnessed constructions rather than making
+downstream consumers reinterpret provider-private labels. One invocation may answer multiple
+family questions; a term or semantic kind does not require a separate task or process.
+
+TC-01–02 delivers contracts and retention, plus a real released source-only view-composition
+method over authentic published document pins. That method advertises its weaker scope and
+performs no NLP. Later linguistic/formal/contextual producers are separately delivered operations.
+Test-only admitted producers may publish independently authored fixtures through protected native
+completion; ordinary users receive no arbitrary-layer upload route. Neither fixture publication
+nor source-only composition qualifies linguistic quality or knowledge admission.
+
+> Decision: [ADR-0081](../adr/0081-enriched-document-analysis-layers.md)
+
 ## Progressive parser composition
 
 **Implemented; integrated corpus qualification in progress,2026-11-05.**

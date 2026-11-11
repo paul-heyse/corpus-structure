@@ -1,5 +1,30 @@
 # D1 · Knowledge representation
 
+## Enriched-document analysis layers
+
+**Accepted target, Proposed until implemented · 2026-11-10.** A full exact published document
+is the immutable base of an enriched view. SourceViews are scoped projections beneath that base;
+native containment, reading order, pages, items, tables, figures and formulas retain their original
+custody. A view selects immutable analysis layers through generic product pins, without copying
+the source or implying that a selected section is the whole document.
+
+The released characterization model owns source occurrences, annotations, independently identified
+memberships/roles, typed terms, binders/operators, choices/dependencies and family coverage.
+Occurrence identity binds original base/projection and ordered real extents independently of an
+analysis. Layer-local identifiers become externally qualified by the layer pin; the final layer
+digest is not an input to itself. Equal text, shared endpoints and overlapping groups never merge
+distinct occurrences or relation evidence. Source containment, analytical grouping and alternatives
+remain different relations. Terms form a checked DAG; explicitly permitted discourse edges may cycle.
+
+Native schemes, witnessed released constructions and private contextual proposals have distinct
+bases and exact source/premise/choice dependencies. Source disjunction is an operator within a
+reading, not uncertainty between readings. Unknown compatibility cannot authorize a Cartesian
+product of alternatives. Family scope/outcome distinguishes unexamined, unavailable, unsupported,
+failed, partial and successful empty. Readable publication remains private analysis; knowledge
+admission and scientific truth retain their separate authorities.
+
+> Decision: [ADR-0081](../adr/0081-enriched-document-analysis-layers.md)
+
 ## Witnessed component target
 
 **Implemented; bounded Tested, 2026-11-07.** Private predicate frames retain their annotation

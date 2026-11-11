@@ -57,6 +57,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0077](0077-attributed-interpretations-and-correction-custody.md) | Retain source interpretations separately and make correction custody explicit | 2026-11-10 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0079](0079-safe-observation-custody-authority.md) | Keep safe observation custody under the canonical interface authority | 2026-11-10 | [§2](../design/DESIGN.md#section-2) | Proposed | ADR-0078 |
 | [ADR-0080](0080-observe-committed-source-run.md) | Observe committed source-run identity before source execution | 2026-11-10 | [§2](../design/DESIGN.md#section-2) | Proposed |  |
+| [ADR-0081](0081-enriched-document-analysis-layers.md) | Compose immutable analysis layers over an exact published document | 2026-11-10 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 
