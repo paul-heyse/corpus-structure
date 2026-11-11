@@ -247,6 +247,38 @@ def native_case(words, heads, deps, pos, morphs=None):
     return builder
 
 
+@pytest.mark.parametrize("separator", ["\n", "\t", "\n\n", "  "])
+def test_native_layout_tokens_are_not_semantic_participants(separator):
+    builder = native_case(
+        ["Rain", separator, "falls"],
+        [2, 2, 2],
+        ["nsubj", "dep", "ROOT"],
+        ["NOUN", "SPACE", "VERB"],
+    )
+    participants = [
+        term
+        for term in builder.terms.values()
+        if term["kind"] == "participant" and term.get("external_premises")
+    ]
+    assert {term["value"] for term in participants} == {"rain", "falls"}
+    assert all(
+        premise["local_id"] != "token-1"
+        for term in participants
+        for premise in term["external_premises"]
+    )
+    predicate = next(
+        term
+        for term in builder.terms.values()
+        if term["kind"] == "predicate"
+        and any(
+            edge["role"] == "predicate" and builder.terms[edge["target"]]["value"] == "falls"
+            for edge in term["children"]
+        )
+    )
+    subject = next(edge for edge in predicate["children"] if edge["role"] == "grammatical_subject")
+    assert builder.terms[subject["target"]]["value"] == "rain"
+
+
 def test_native_inflection_and_modal_force_are_explicit_supported_proposals():
     builder = native_case(
         ["Rain", "may", "fall"],

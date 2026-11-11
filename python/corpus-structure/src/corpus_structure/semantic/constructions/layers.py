@@ -260,6 +260,10 @@ class ConstructionLayer:
         participant_ids = {}
         for index, annotation in annotations.items():
             token = doc[index]
+            # Native whitespace tokens remain in their original evidence layer.
+            # Layout separators do not denote participants in a source predication.
+            if token.is_space:
+                continue
             occurrence = self.occurrence(view, offset + token.idx, offset + token.idx + len(token))
             external = dict(layer=pin.values(), local_id=annotation["local_id"])
             key = identity("native-participant", [pin.values(), annotation["local_id"]])
@@ -277,7 +281,7 @@ class ConstructionLayer:
         predicate_terms = {}
         for index, annotation in annotations.items():
             token = doc[index]
-            if token.pos_ not in {"VERB", "AUX", "ADJ", "NOUN"}:
+            if index not in participant_ids or token.pos_ not in {"VERB", "AUX", "ADJ", "NOUN"}:
                 continue
             key = identity("native-predication", [pin.values(), annotation["local_id"]])
             predicate_terms[index] = key

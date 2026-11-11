@@ -177,3 +177,22 @@ Forward native reference/read controls **passed**,12/12,
 composition/indexed-pagination case, including view/layer byte-bound and explicit-null controls.
 The restarted real-book execution has created run497. This establishes execution progress,
 not a terminal family outcome or semantic grade.
+
+## Authentic workload repair · 2026-11-11
+
+The first source unit produced stages497–502. The next unit's native/formal stage503 completed,
+but construction stage504 aborted before publication:46 newline-only native tokens had been
+projected as participant terms and violated the released term-value constraint. Its task2403
+is retained as cancelled. The [original exception log](raw/tc11-book-newline-failure.log) is
+preserved; this is a real unsuccessful attempt, not a semantic empty result.
+
+Construction projection now leaves layout-only native tokens in their original evidence layer
+without inventing participants for them. Lexical participants and their grammatical endpoints
+remain located. Focused construction selection `5bf373fb5972494183bfd48100d3d0b4` **failed**,
+35/39passed: the four new controls initially selected the noun's predication instead of the
+verb's. Their explicit verb/subject expectation repair **passed**,4/4, exact retry
+`2fe3b47275d540e6967a65084a18c426`. No reference answer or released schema was changed.
+The independent source panel therefore retains its original meaning and identities.
+
+Documentation publication **passed**, `402c38fc45d04fcf8e1efd6a2ad85656`,873canonical pages,
+zero link errors, at this bounded checkpoint. Final assembled qualification remains separate.
