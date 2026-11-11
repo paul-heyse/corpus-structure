@@ -5,9 +5,9 @@
   "group": null,
   "package": "CLD-05/06",
   "finalized": "2026-11-10",
-  "status": "current",
+  "status": "superseded",
   "supersedes": [],
-  "superseded_by": null,
+  "superseded_by": "schema.failure-boundaries-repaired",
   "question": "Does optional diagnostic publication preserve a successful actual schema check, and does an unexpected retained schema group use distinct exception custody?",
   "answers": [
     "CLD-CA01",

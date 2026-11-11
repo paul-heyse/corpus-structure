@@ -1,0 +1,45 @@
+{
+  "python": "3.14.10",
+  "versions": {
+    "typer": "0.28.0",
+    "rich": "15.0.0",
+    "structlog": "26.1.0"
+  },
+  "control": {
+    "exit_code": 0,
+    "exception_type": null,
+    "managed_outcome": "passed",
+    "artifact_roles": [
+      "diagnostic-report",
+      "observations"
+    ],
+    "observation_journal_registered": true,
+    "has_compile_result": true
+  },
+  "optional_publication_failure": {
+    "exit_code": 0,
+    "exception_type": null,
+    "managed_outcome": "passed",
+    "artifact_roles": [
+      "observations"
+    ],
+    "observation_journal_registered": true,
+    "has_compile_result": true
+  },
+  "unexpected_group": {
+    "exit_code": 1,
+    "exception_type": "ExceptionGroup",
+    "managed_outcome": "failed",
+    "artifact_roles": [
+      "observations"
+    ],
+    "observation_journal_registered": true,
+    "original_exception_preserved": true,
+    "diagnostic_read_exit_code": 1
+  },
+  "contract_checks": {
+    "control_succeeds": true,
+    "optional_publication_preserves_success": true,
+    "unexpected_defect_has_distinct_retained_observations": true
+  }
+}

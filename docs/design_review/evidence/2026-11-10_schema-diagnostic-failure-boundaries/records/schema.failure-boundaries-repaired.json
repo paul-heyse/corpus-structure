@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "id": "schema.failure-boundaries-repaired",
+  "title": "Repaired retained schema failure boundaries",
+  "group": null,
+  "package": "CLD-05/06",
+  "finalized": "2026-11-10",
+  "status": "current",
+  "supersedes": [
+    "schema.failure-boundaries"
+  ],
+  "superseded_by": null,
+  "question": "Does optional diagnostic publication preserve a successful actual schema check, and does an unexpected retained schema group use distinct exception custody?",
+  "answers": [
+    "CLD-CA01",
+    "CLD-CA02"
+  ],
+  "method": "Rerun the unchanged actual Typer schema-check probe at product/test source e1be9dc6e395c7d570f6d187b4ce25f3e2b02dbb, after CA01/02 repairs. Temporary result stores and controlled publication/preparation exceptions preserve the original experiment. Later HEAD 59eee893c changes documentation only. Python 3.14.10, Typer 0.28.0, Rich 15.0.0 and structlog 26.1.0 are recorded in the output.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-10_schema-diagnostic-failure-boundaries/probe.py > docs/design_review/evidence/2026-11-10_schema-diagnostic-failure-boundaries/result-repaired.json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "reproduction source",
+      "sha256": "6d56aaab559bcc774c386e9173d13556578003e14c5ee687a83dbad903935cf7"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "result-repaired.json",
+      "role": "repaired observed product outcomes and independent contract checks",
+      "sha256": "d76446b8cf777e0c1c9fbf712a4b4baccdc6de108782d7adacf0fc1274789193"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "control_exit_code",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "publication_failure_exit_code",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "publication_preserves_compile_result",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unexpected_original_exception_preserved",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unexpected_observation_journal_registered",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unexpected_validation_document_absent",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "contract_checks_passed",
+      "value": 3,
+      "of": 3,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The unchanged probe exits 0: retained schema success survives optional publication failure with its CompileResult, and the unexpected ExceptionGroup keeps its original identity and failed native outcome while retaining a distinct observation journal rather than a validation document. This closes the original reproduced boundaries only. Complete exception graph content, omission paths, safe frames and cleanup semantics are established by the focused and integrated test receipts in the CLI/logging coordinator; this probe alone does not establish them.",
+  "consumed_by": [
+    "CLD-CA01",
+    "CLD-CA02"
+  ]
+}

@@ -33,6 +33,11 @@ detail, with locals disabled; they remain distinct from original-engine validati
 Child MCP processes own bounded transfer spools; the provider parent drains complete rows during
 waiting and final process-group cleanup before sealing. Original provider receipts and native
 settlement remain authoritative. Optional diagnostic failures do not replace operation outcomes.
+Retained schema compile/check isolates optional report construction and publication on both success
+and expected refusal. Unexpected exceptions use the safe exception journal with their original
+identity and outcome. Native structlog traversal bounds traceback-bearing causes, eligible context
+and group children; unsupported original links carry explicit omission paths instead of invented
+frames. Required output failures and cancellation retain their original behavior.
 
 Recipe diagnostics reuse the existing bounded native-step side channel and one authenticated
 versioned output artifact. `ci results output` selects step/stream and pages retained safe text
@@ -640,6 +645,12 @@ own repeated lexical conversion and bounds; domain owners retain semantic admiss
 `ci context show --target PROFILE` projects the actual settings snapshot and its origins.
 Model reports keep configured selection separate from authenticated acquired bindings; absence of
 current deployment configuration does not invalidate historical evidence.
+**Implemented; scoped Tested, 2026-11-10.** Native model apply reports the development authoring
+selection from the original invocation snapshot beside the target acquired by its predecessor
+fence. This remains distinct from the staged deployment destination and acquires no additional
+connection for reporting. Native Typer metadata explains model inspection view/filter units,
+ordinal pages, opaque contract continuation and the separate patch/SQL limit meanings. The
+[CLD acceptance](../plans/cli-and-logging_2026-11-10.md#final-acceptance) owns their verification.
 Owner-selected reports can be read directly by managed ID. Review inspection verifies the
 bundle against its invocation's settled manifest digest. Model inspection holds the
 lease through authenticated reads and observes whether the result is eligible for a
