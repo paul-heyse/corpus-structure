@@ -51,7 +51,7 @@ if typing.TYPE_CHECKING:
     from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
     from corpus_structure.ingest.pdf_candidate_source import CandidatePageSource
     from corpus_structure.methods.contextual_embeddings import EncodedVector
-    from corpus_structure.semantic.characterization import EnrichedDocumentView, LayerReport
+    from corpus_structure.semantic.characterization import EnrichedDocumentView, LayerReport, LayerManifest
     from corpus_structure.semantic.contextual_retrieval import (
         CandidateList,
         FrozenInventory,
@@ -317,6 +317,12 @@ class Reader(Protocol):
         self, references: Sequence[ProductReference]
     ) -> Mapping[ProductReference, LayerReport]:
         """Read exact sealed analysis layers in this run's project without inference."""
+        ...
+
+    def characterization_manifests(
+        self, references: Sequence[ProductReference]
+    ) -> Mapping[ProductReference, LayerManifest]:
+        """Read only authenticated metadata of exact sealed layers, without node hydration."""
         ...
 
     def primary_characterization(

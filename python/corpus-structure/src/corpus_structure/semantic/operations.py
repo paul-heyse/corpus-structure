@@ -823,31 +823,43 @@ def prepare_unit_completion(
         releases = {prepared.release_id: prepared}
         from .releases import open_release
 
-        producing_layer = layer.reference(task_id) if layer is not None else None
-        pending = [
-            ProductReference(**pin)
-            for report in (layer, view)
-            if report is not None
-            for pin in report.payload.get("dependencies" if report is layer else "layers", ())
-            if ProductReference(**pin) != producing_layer
-        ]
-        while pending:
-            reference = pending.pop()
-            if reference in layers:
-                continue
-            retained = read_layer(conn, reference, run_id=task["run_id"])
-            layers[reference] = retained
-            release_id = retained.payload["release_id"]
-            if release_id not in releases:
-                releases[release_id] = open_release(conn, release_id)
-            pending.extend(
-                ProductReference(**pin) for pin in retained.payload.get("dependencies", ())
-            )
-        if layer is not None:
-            layer = validate_layer(prepared, layer.payload, dependencies=layers, releases=releases)
-            layers[layer.reference(task_id)] = layer
-        if view is not None:
-            view = validate_view(prepared, view.payload, layers, releases=releases)
+        if layer is None and view is not None:
+            from .characterization import validate_published_view
+            from .characterization_store import read_layer_manifest
+
+            manifests = {
+                ProductReference(**value): read_layer_manifest(
+                    conn, ProductReference(**value), run_id=task["run_id"]
+                )
+                for value in view.payload["layers"]
+            }
+            view = validate_published_view(prepared, view.payload, manifests)
+        else:
+            producing_layer = layer.reference(task_id) if layer is not None else None
+            pending = [
+                ProductReference(**pin)
+                for report in (layer, view)
+                if report is not None
+                for pin in report.payload.get("dependencies" if report is layer else "layers", ())
+                if ProductReference(**pin) != producing_layer
+            ]
+            while pending:
+                reference = pending.pop()
+                if reference in layers:
+                    continue
+                retained = read_layer(conn, reference, run_id=task["run_id"])
+                layers[reference] = retained
+                release_id = retained.payload["release_id"]
+                if release_id not in releases:
+                    releases[release_id] = open_release(conn, release_id)
+                pending.extend(
+                    ProductReference(**pin) for pin in retained.payload.get("dependencies", ())
+                )
+            if layer is not None:
+                layer = validate_layer(prepared, layer.payload, dependencies=layers, releases=releases)
+                layers[layer.reference(task_id)] = layer
+            if view is not None:
+                view = validate_view(prepared, view.payload, layers, releases=releases)
         return PreparedUnitCompletion(
             prepared,
             task_id,
@@ -1063,6 +1075,14 @@ class BoundReader:
 
         return {
             reference: read_layer(self.conn, reference, run_id=self.run_id)
+            for reference in references
+        }
+
+    def characterization_manifests(self, references):
+        from .characterization_store import read_layer_manifest
+
+        return {
+            reference: read_layer_manifest(self.conn, reference, run_id=self.run_id)
             for reference in references
         }
 

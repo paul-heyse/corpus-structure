@@ -356,6 +356,40 @@ def _require_layer_contract(payload: Mapping[str, Any]) -> None:
         raise ValueError("unsupported characterization layer contract")
 
 
+_PUBLISHED_MANIFEST = object()
+
+
+@dataclass(frozen=True)
+class LayerManifest:
+    """Authenticated metadata of one sealed layer; never an uploaded layer value."""
+
+    pin: ProductReference
+    content: bytes
+    _authority: object
+
+    def __post_init__(self):
+        if self._authority is not _PUBLISHED_MANIFEST:
+            raise ValueError("layer manifests require a protected published-product read")
+        _require_layer_contract(self.payload)
+
+    @property
+    def payload(self) -> dict[str, Any]:
+        return json.loads(self.content)
+
+    @property
+    def base_document(self) -> ProductReference:
+        return _pin(self.payload["base_document"])
+
+    def reference(self, task_id: int) -> ProductReference:
+        if task_id != self.pin.task_id:
+            raise ValueError("manifest differs from exact producing task")
+        return self.pin
+
+
+def _published_layer_manifest(reference: ProductReference, payload: Mapping[str, Any]) -> LayerManifest:
+    return LayerManifest(reference, canonical_bytes(payload), _PUBLISHED_MANIFEST)
+
+
 class _LayerValidation:
     """One explicitly supplied archived-release closure; never resolves ambient state."""
 
@@ -671,7 +705,7 @@ def validate_view(
 
 
 def validate_view_structure(
-    payload: Mapping[str, Any], layers: Mapping[ProductReference, LayerReport], *, validate_layer
+    payload: Mapping[str, Any], layers: Mapping[ProductReference, LayerReport | LayerManifest], *, validate_layer
 ) -> EnrichedDocumentView:
     """Shared v1 closure checks; callback validates each layer under its own release."""
     if payload.get("format") != "enriched-document-view-v1":
@@ -715,10 +749,37 @@ def validate_view_structure(
     if any(canonical_bytes(row) not in coverage for row in data["coverage"]):
         raise ValueError("view coverage is not supported by selected layers")
     for pin in pins:
+        if isinstance(layers[pin], LayerManifest):
+            if validate_layer is not None:
+                raise ValueError("published manifests cannot replace full layer validation")
+            continue
+        if validate_layer is None:
+            raise ValueError("published composition requires protected layer manifests")
         validated = validate_layer(layers[pin].payload, dependencies=layers)
         if validated.content != layers[pin].content:
             raise ValueError("selected layer differs from its own released canonical contract")
     return EnrichedDocumentView(canonical_bytes(data))
+
+
+def validate_published_view(
+    prepared: PreparedRelease, payload: Mapping[str, Any],
+    layers: Mapping[ProductReference, LayerManifest],
+) -> EnrichedDocumentView:
+    """Compose metadata whose immutable layer validity is held by native publication.
+
+    Full unsealed/local layers still enter validate_view/validate_layer. This route accepts
+    only manifests obtained from protected reads, preserving original archived authority.
+    """
+    if any(not isinstance(layer, LayerManifest) for layer in layers.values()):
+        raise ValueError("published composition requires authenticated layer manifests")
+    data = _shape(prepared, "EnrichedDocumentView", payload)
+    if data["release_id"] != prepared.release_id:
+        raise ValueError("view uses another semantic release")
+    if data["profile"] == "full_characterization":
+        families = characterization_profiles(prepared).get(data["profile"])
+        if families is None or not set(families) <= {row["family"] for row in data.get("coverage", ())}:
+            raise ValueError("full characterization requires every released baseline family outcome")
+    return validate_view_structure(data, layers, validate_layer=None)
 
 
 def encode_layer(layer: LayerReport) -> bytes:

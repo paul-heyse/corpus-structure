@@ -11,7 +11,7 @@ from corpus_structure.core.method import MethodContext, MethodSettings, UnitRef,
 from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.characterization import ComposeViewConfig, ComposeViewMethod
 from corpus_structure.orchestrate.phase0 import registry
-from corpus_structure.semantic.characterization import validate_layer
+from corpus_structure.semantic.characterization import validate_layer, _published_layer_manifest
 from corpus_structure.semantic.product_reference import ProductReference
 
 
@@ -32,6 +32,13 @@ def inputs(prepared):
     reader = SimpleNamespace(
         prepared=prepared, source_views=lambda: [ref], characterization_layers=lambda pins: {}
     )
+    reader.characterization_manifests = lambda pins: {
+        pin: _published_layer_manifest(pin, {
+            key: value for key, value in report.payload.items()
+            if key in {"format", "release_id", "base_document", "operation", "source_scope", "outcome", "dependencies", "coverage"}
+        })
+        for pin, report in reader.characterization_layers(pins).items()
+    }
     run = SimpleNamespace(reader=reader)
     unit = UnitView(UnitRef(TaskUnitType.DOCUMENT, 17), run)
     return body, reader, run, unit
@@ -134,7 +141,9 @@ def test_composition_resolves_original_release_without_rewriting_retained_layer(
     assert result.characterization_view.payload["release_id"] == newer.release_id
     assert result.characterization_view.payload["layers"] == [pin.values()]
     assert report.payload["release_id"] == prepared.release_id
-    assert resolved == [prepared.release_id]
+    # Original-release authentication belongs to the protected manifest read, not a
+    # fresh whole-layer reconstruction during composition.
+    assert resolved == []
 
 
 def test_dependency_retention_does_not_select_its_interpretations(prepared):

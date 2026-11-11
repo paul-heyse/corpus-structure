@@ -640,6 +640,31 @@ BEGIN
  RETURN product.payload;
 END $$;
 
+CREATE OR REPLACE FUNCTION ops.read_characterization_layer_manifest(p_task bigint,p_key text,p_digest text,p_run bigint DEFAULT NULL,p_max_bytes bigint DEFAULT 8388608)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE product ops.characterization_product; result_ jsonb; header_ jsonb;
+BEGIN
+ IF pg_has_role(session_user,'corpus_sem_reader','USAGE') THEN PERFORM data.require_runtime_principal('read');
+ ELSIF pg_has_role(session_user,'corpus_sem_writer','USAGE') THEN PERFORM data.require_runtime_principal('write');
+ ELSE PERFORM data.require_runtime_principal('evaluate'); END IF;
+ SELECT p.* INTO STRICT product FROM ops.characterization_product p JOIN ops.task t ON t.id=p.task_id
+ WHERE p.task_id=p_task AND p.product_key=p_key AND p.content_digest=p_digest AND p.kind='layer' AND t.status='done';
+ PERFORM ops.require_characterization_read_release(product.release_id);
+ IF product.payload->>'release_id' IS DISTINCT FROM product.release_id
+ OR product.payload->>'format' IS DISTINCT FROM 'characterization-layer-v1' THEN
+  RAISE EXCEPTION 'unsupported retained characterization format or release binding' USING ERRCODE='23514'; END IF;
+ PERFORM ops.read_pdf_published_revision(product.base_task_id,product.base_product_key,product.base_content_digest);
+ IF p_run IS NOT NULL AND NOT EXISTS(SELECT FROM ops.run requested JOIN ops.task origin ON origin.id=p_task
+  JOIN ops.run producing ON producing.id=origin.run_id WHERE requested.id=p_run AND requested.project_id=producing.project_id) THEN
+  RAISE EXCEPTION 'characterization product outside requested project' USING ERRCODE='23514'; END IF;
+ SELECT jsonb_object_agg(key,value) INTO header_ FROM jsonb_each(product.payload)
+ WHERE key IN ('format','release_id','base_document','operation','source_scope','outcome','dependencies','coverage');
+ result_:=jsonb_build_object('reference',jsonb_build_object('task_id',p_task,'product_key',p_key,'content_digest',p_digest),'kind','layer','payload',header_);
+ IF p_max_bytes NOT BETWEEN 1 AND 8388608 OR octet_length(data.canonical_json(result_))>p_max_bytes THEN
+  RAISE EXCEPTION 'characterization manifest exceeds read byte bound' USING ERRCODE='54000'; END IF;
+ RETURN result_;
+END $$;
+
 CREATE OR REPLACE FUNCTION ops.read_characterization_memberships(p_task bigint,p_key text,p_digest text,p_groups jsonb,p_run bigint,p_after jsonb,p_layer_key text,p_limit bigint,p_max_bytes bigint)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE view_ jsonb; answer jsonb;

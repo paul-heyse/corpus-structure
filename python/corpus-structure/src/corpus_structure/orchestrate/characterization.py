@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from corpus_structure.core.vocab import Stage
 from corpus_structure.methods.characterization_resources import characterization_resource_session
 from corpus_structure.semantic.characterization import characterization_profiles
-from corpus_structure.semantic.characterization_store import read_inventory, read_layer
+from corpus_structure.semantic.characterization_store import read_inventory, read_layer, read_layer_manifest
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.structural_products import ExternalSourceRef
 
@@ -129,10 +129,9 @@ def enrich_document(
     base = demand.base_document
     pins = list(demand.selected_layers)
     layers = {}
-    releases = {prepared.release_id: prepared}
     with read_snapshot(engine) as conn:
         for pin in pins:
-            layers[pin] = read_layer(conn, pin)
+            layers[pin] = (read_layer if demand.run_missing else read_layer_manifest)(conn, pin)
         has_text = any(
             has_selected_native_text(
                 load_source_view(conn, identity, analysis=False), demand.source_scope["selectors"]
@@ -537,7 +536,7 @@ def enrich_document(
             if dep not in retained:
                 if dep not in layers:
                     with read_snapshot(engine) as conn:
-                        layers[dep] = read_layer(conn, dep)
+                        layers[dep] = (read_layer if demand.run_missing else read_layer_manifest)(conn, dep)
                 retained.add(dep)
                 pending.append(dep)
     pins = sorted(retained, key=lambda pin: (pin.task_id, pin.product_key, pin.content_digest))
@@ -558,13 +557,6 @@ def enrich_document(
     views = [ProductReference(**row["reference"]) for row in products if row["kind"] == "view"]
     if len(views) != 1:
         raise ValueError("enrichment demand did not produce one exact composed view")
-    from corpus_structure.semantic.releases import open_release
-
-    with read_snapshot(engine) as conn:
-        for layer in layers.values():
-            release_id = layer.payload["release_id"]
-            if release_id not in releases:
-                releases[release_id] = open_release(conn, release_id)
     missing = tuple(
         sorted(
             (required - present if not demand.source_only else set())

@@ -2076,3 +2076,37 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
             cancellation,
         )
     assert verify_review_bundle(destination) == captured
+
+
+@pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
+def test_native_layer_manifest_is_bounded_sealed_metadata(
+    characterization_source, semantic_writer_engine, semantic_reader_engine,
+):
+    from corpus_structure.semantic.characterization_store import read_layer_manifest
+
+    source = characterization_source
+    with semantic_writer_engine.begin() as conn:
+        task, claim, config_hash = make_task(conn, source)
+        report = validate_layer(source.prepared, layer_payload(source, config_hash))
+        pin = report.reference(task)
+        with pytest.raises(DBAPIError), conn.begin_nested():
+            read_layer_manifest(conn, pin, run_id=source.task["run_id"])
+        published = publish_layer(
+            conn, task_id=task, attempt=claim.attempt,
+            holder="characterization-fixture", layer=report,
+        )
+        assert published == pin
+    with semantic_reader_engine.connect() as conn:
+        manifest = read_layer_manifest(conn, pin, run_id=source.task["run_id"])
+        assert manifest.reference(task) == pin
+        assert manifest.base_document == source.base
+        assert manifest.payload == {
+            key: report.payload[key]
+            for key in ("format", "release_id", "base_document", "operation", "source_scope", "outcome", "dependencies", "coverage")
+        }
+        assert "annotations" not in manifest.payload and "native_runs" not in manifest.payload
+        with pytest.raises(DBAPIError), conn.begin_nested():
+            read_layer_manifest(conn, pin, max_bytes=1)
+        changed = ProductReference(pin.task_id, pin.product_key, "f" * 64)
+        with pytest.raises(DBAPIError), conn.begin_nested():
+            read_layer_manifest(conn, changed)

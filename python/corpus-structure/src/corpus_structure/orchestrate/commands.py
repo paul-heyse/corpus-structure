@@ -388,7 +388,7 @@ def start_bound_run(
             bind_characterization_views,
             characterization_sources,
         )
-        from corpus_structure.semantic.characterization_store import read_layer, read_view
+        from corpus_structure.semantic.characterization_store import read_layer_manifest, read_view
         from corpus_structure.semantic.query import read_snapshot
 
         if len(characterization_views) > 256 or len(set(characterization_views)) != len(
@@ -429,7 +429,7 @@ def start_bound_run(
                 for value in view.payload["layers"]:
                     pin = ProductReference(**value)
                     if pin not in layers:
-                        layers[pin] = read_layer(conn, pin)
+                        layers[pin] = read_layer_manifest(conn, pin)
         selected_registry = bind_characterization_views(selected_registry, views, layers)
         selected_primary_sources = tuple(primary_sources.values())
         from corpus_structure.core.vocab import Stage

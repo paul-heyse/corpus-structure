@@ -14,7 +14,7 @@ from sqlalchemy import Connection
 from sqlalchemy.exc import DBAPIError
 
 from ._operation_ids import RunId, SourceViewId, TaskAttempt, TaskId
-from .characterization import EnrichedDocumentView, LayerReport
+from .characterization import EnrichedDocumentView, LayerReport, LayerManifest, _published_layer_manifest
 from .identity import canonical_bytes
 from .product_reference import ProductReference
 
@@ -118,6 +118,23 @@ def read_layer(
     max_bytes: int = 8388608,
 ) -> LayerReport:
     return _read(connection, reference, "layer", run_id, LayerReport, max_bytes)
+
+
+def read_layer_manifest(
+    connection: Connection, reference: ProductReference, *, run_id: int | None = None,
+    max_bytes: int = 8388608,
+) -> LayerManifest:
+    """Read bounded metadata under the exact sealed product's original authority."""
+    from ._operation_calls import read_characterization_layer_manifest as invoke
+
+    body = invoke(
+        connection, task_id=reference.task_id, product_key=reference.product_key,
+        content_digest=reference.content_digest,
+        run_id=RunId(run_id) if run_id is not None else None, max_bytes=max_bytes,
+    )
+    if body["reference"] != reference.values() or body["kind"] != "layer":
+        raise ValueError("manifest differs from exact published layer pin")
+    return _published_layer_manifest(reference, body["payload"])
 
 
 def read_view(

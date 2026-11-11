@@ -17,7 +17,7 @@ from corpus_structure.core.method import (
     UnitView,
 )
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
-from corpus_structure.semantic.characterization import validate_view
+from corpus_structure.semantic.characterization import validate_published_view
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.product_reference import ProductReference
 
@@ -110,12 +110,7 @@ class ComposeViewMethod:
             if unit.ref not in self.select(unit.run, cfg):
                 raise ValueError("composition task unit differs from selected document")
             pins = tuple(ProductReference(**value) for value in cfg.characterization_layers)
-            layers = reader.characterization_layers(pins)
-            releases = {reader.prepared.release_id: reader.prepared}
-            for layer in layers.values():
-                release_id = layer.payload["release_id"]
-                if release_id not in releases:
-                    releases[release_id] = reader.characterization_release(release_id)
+            layers = reader.characterization_manifests(pins)
             active = (
                 pins
                 if cfg.characterization_active_layers is None
@@ -127,7 +122,7 @@ class ComposeViewMethod:
             for pin in active:
                 for row in layers[pin].payload["coverage"]:
                     coverage[canonical_bytes(row)] = row
-            view = validate_view(
+            view = validate_published_view(
                 reader.prepared,
                 {
                     "format": "enriched-document-view-v1",
@@ -140,7 +135,6 @@ class ComposeViewMethod:
                     "coverage": list(coverage.values()),
                 },
                 layers,
-                releases=releases,
             )
             results.append(
                 UnitResult(

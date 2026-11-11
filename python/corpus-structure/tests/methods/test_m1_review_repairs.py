@@ -294,7 +294,7 @@ def test_command_preflight_precedes_run_creation_and_narrows_corpus(
             payload={"profile": "selected_layers", "layers": [layer_pin.values()]},
         ),
     )
-    monkeypatch.setattr(characterization_store, "read_layer", lambda *a: object())
+    monkeypatch.setattr(characterization_store, "read_layer_manifest", lambda *a: object())
     kwargs = dict(
         release_id="release",
         realization_id="input",
