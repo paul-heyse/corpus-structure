@@ -1,6 +1,7 @@
 # Native linguistic evidence and positioned formal syntax
 
-**Proposed implementation plan · 2026-11-10.** TC-03 and TC-04 are planned and not implemented.
+**Implemented; bounded functional scope Tested · 2026-11-11.** TC-03 and TC-04 deliver native
+and formal layers; independent semantic assessment and full-book qualification remain TC-10/11.
 This document develops the native-evidence portion of the
 [text-characterization series](../text-characterization_2026-11-10.md). The coordinator owns
 selection, scheduled opportunity disposition, architectural adoption and assembled completion.
@@ -17,7 +18,7 @@ supply capability detail; the integrated review supplies selection. Conditional 
 additional linguistic providers and acceleration remain trigger-driven branches, not baseline
 execution requirements.
 
-## Baseline and focused foundation assessment
+## Authoring baseline and focused foundation assessment · 2026-11-10
 
 Planning source baseline is main `59eee893c`, inspected on 2026-11-10. The integrated source review
 records its earlier `ab07dc9858ddbf2241ecf3712b51a05b360d461c` baseline. Relevant source paths below
@@ -25,7 +26,7 @@ were unchanged between the assigned baseline and the working HEAD inspected duri
 concurrent CLI/reporting documentation is excluded. No runtime behavior, provider accuracy or
 performance was newly tested. Existing receipts keep their original scope and dates.
 
-The current [annotation producer](../../../python/corpus-structure/src/corpus_structure/ingest/annotations.py)
+At the authoring baseline, the [annotation producer](../../../python/corpus-structure/src/corpus_structure/ingest/annotations.py)
 retains exact layout, source pieces, model/profile/configuration identities, token columns and
 complete/partial/absent/not-applicable availability. The
 [view restorer](../../../python/corpus-structure/src/corpus_structure/ingest/annotation_views.py)
@@ -38,32 +39,33 @@ The [HanLP worker](../../../python/corpus-structure/src/corpus_structure/methods
 already shares one multitask invocation over canonical sentence tokens, verifies prepared word and
 subword coverage, skips tokenization and returns the native head outputs. Its
 [projector](../../../python/corpus-structure/src/corpus_structure/methods/pm2_hanlp_products.py)
-currently narrows constituency to `_PHRASES` and converts dependencies/SRL into private frame/cue
-products. TC-03 retains complete located native evidence before this reduction. General role,
-coordination and cue interpretation moves into [TC-05/06](constructions-and-interpretation.md),
+then narrowed constituency to `_PHRASES` and converted dependencies/SRL into private frame/cue
+products. The delivered TC-03 retains all thirteen selected native evidence families without that
+reduction. General role, coordination and cue interpretation now belongs to [TC-05/06](constructions-and-interpretation.md),
 so a new interpretation reuses evidence instead of rerunning HanLP or extending another projector.
 
 [Mathematical parsing](../../../python/corpus-structure/src/corpus_structure/methods/math/grammar.py)
 already separates syntax, contextual interpretation and optional native symbolic construction;
-its prepared route and source-bound occurrence handling must survive. Current
+its prepared route and source-bound occurrence handling survive. The authoring-baseline
 [field grammars](../../../python/corpus-structure/src/corpus_structure/semantic/structural_parsing.py)
 retain positioned comparator/value/unit fields and whole-field recognition. Their accepted
 nominated input does not prove the nomination covered all source fields. The
 [math native consumer/codec](../../../python/corpus-structure/src/corpus_structure/methods/math/native.py)
-is a bounded Tree/Token representation, not a codec for shared packed forests or complete Meta.
-TC-04 preserves explicit formal evidence under the central contract; it must not generalize the
-existing tree codec into an assumed universal ambiguity format.
+was a bounded Tree/Token representation. TC-04 now retains direct SPPF structure under the
+central contract and reconstructs a factored working DAG for the mathematical consumer. The
+current `lark-working-dag-1` codec preserves shared references and refuses cycles; it does not
+enumerate complete rival trees.
 
 The relevant existing architecture is [D4 progressive parser composition](../../design/D4-method-catalog.md#progressive-parser-composition),
 [D1](../../design/D1-knowledge-representation.md), [D2](../../design/D2-schema-and-guidelines.md),
 [D3](../../design/D3-database.md), and [D6](../../design/D6-orchestration-metrics-policies.md).
 Their surviving guarantees are attributed source readings, progressive independent contributions,
-released semantic authority and original source custody. The coordinator schedules the decision
-and owner updates before implementation changes their producer/consumer boundary. These packages
+released semantic authority and original source custody. ADR-0081 and the updated owners establish the
+implemented primary producer/consumer boundary. These packages
 introduce no parallel observation store, provider runtime or scheduling authority.
 
-**Proposed foundation judgment.** Keep native structures as working forms, with generated detached
-layer data as the durable interchange. This addresses FP-04 and CI-01/02 without forcing a spaCy
+**Delivered foundation judgment; bounded functional scope Tested, 2026-11-11.** Native structures
+serve as working forms, with generated detached layer data as the durable interchange. This addresses FP-04 and CI-01/02 without forcing a spaCy
 Doc or a HanLP tree to represent every other analysis. Under FP-07 and H4/H12/H15/H17, prepare
 models and grammar families once, consume source scopes in batches, detach useful evidence and
 release live tensors/trees. A source unit, an annotation kind and a model head need not each cause
@@ -101,8 +103,8 @@ source-owned opaque atom used by linguistic analysis.
 
 ## TC-03 · Shared spaCy and HanLP evidence layers
 
-**Planned, Proposed.** Deliver the reusable lexical, morphological and syntactic premises of the
-full profile across the selected source population, preserving scheme fidelity and independent
+**Implemented; bounded functional scope Tested, 2026-11-11.** Delivers reusable lexical,
+morphological and syntactic premises of the full profile across the selected source population, preserving scheme fidelity and independent
 family outcomes. This realizes O01 and supplies the native evidence required by O02/O03/O04.
 
 ### Inputs, operation and outputs
@@ -213,7 +215,7 @@ removal is of duplicate meaning authorities. The downstream consumer package own
 private frame/recipe dependencies across enrichment, admission and replay. TC-03 must provide their
 required evidence and explicit origin references before that migration can complete.
 
-Planned meaningful acceptance:
+Functional acceptance requirements (closure evidence is in the coordinator):
 
 - Exact native restore and retained-read cases cover repeated equal words/formulas, non-ASCII text,
   arbitrary whitespace, math/reference atoms, captions/table cells, and discontinuous constituents.
@@ -238,8 +240,8 @@ No measured speed or quality improvement is required or claimed by this plan.
 
 ## TC-04 · Positioned formal syntax as reusable layer evidence
 
-**Planned, Proposed.** Deliver inspectable formal constituents independently of domain assertion
-assembly and native symbolic evaluation. This supplies O02/O03's math, numeric field, interval,
+**Implemented; bounded functional scope Tested, 2026-11-11.** Delivers inspectable formal
+constituents independently of domain assertion assembly and native symbolic evaluation. This supplies O02/O03's math, numeric field, interval,
 identifier, date and unit syntax, with O05 retention and O07 fidelity assessment.
 
 Deliver this package in two explicit slices. The early slice supplies working positioned formal
@@ -336,7 +338,7 @@ the retained constituents and explicitly authors its additional conclusion. Exis
 can remain only for the conventional forms whose fields they preserve; shared forest output uses
 the generated DAG/report codec owned by TC-01/02.
 
-Planned meaningful acceptance:
+Functional acceptance requirements (closure evidence is in the coordinator):
 
 - Repeated identical formulas, Unicode comparators, signed/exponent Decimal values, interval endpoint
   alternatives, units and invalid dates retain exact independent source positions and distinguish
@@ -353,7 +355,9 @@ Planned meaningful acceptance:
   reuses compatible syntax. Recognition failure, callback failure, partial input and deadline expiry
   stay distinct through the consumer's inspection surface.
 
-These are planned checks, not executed results. Later full-book qualification includes all 518
+The coordinator records the applicable functional union, including native provider, packed
+DAG/codec, replay and refusal controls. These results do not grade linguistic or scientific
+correctness across the proving corpus. Later full-book qualification includes all 518
 physical pages, eligible formal occurrences and explicit unsupported/partial coverage; it is not a
 requirement to invent formal meaning for every source character.
 
@@ -371,8 +375,7 @@ artifact/runtime/source mapping and relevant acceptance brought into this series
 [feature dispositions](../../functional_reviews/text-characterization_2026-11-10.md#feature-dispositions)
 retain the detailed triggers. Installation or mention is not selection.
 
-Authoring checks: source/reference inspection only. Functional tests, native providers, probes,
-model fitting and benchmarks are **not_run**; no execution command is claimed. Root publication
-checks and `just turn-end` belong to the coordinator. The next implementation prerequisite is the
-settled TC-01 model and functioning TC-02 retained read/publication path; design/resource preparation
-can proceed earlier against the explicit contracts described above.
+Authoring evidence on 2026-11-10 was source/reference inspection only; product/provider tests were
+**not_run** at that date. The delivered native/formal operations, actual-provider controls and
+retained-read paths are covered by the coordinator’s 2026-11-11 functional qualification account.
+Model fitting, benchmarks, independent semantic assessment and full-book adoption are not implied.

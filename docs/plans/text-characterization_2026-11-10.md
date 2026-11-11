@@ -1,9 +1,8 @@
 # Enriched-document text characterization implementation series
 
-**Status: Stopped at operator request; TC-00 complete, TC-01/02 acceptance incomplete · 2026-11-10.**
+**Status: TC-00–09 implemented and functionally qualified for the authorized scope · 2026-11-11.**
 This coordinator owns TC-00–TC-11, TC-I01–09, O01–O07 disposition and combined completion.
-Supporting plans own package design; this page owns current package state. TC-03–11 and the
-conditional branches remain planned; foundation delivery does not qualify the assembled pipeline.
+Supporting plans own package design; this page owns current package state. The required functional/provider union for TC-03–09 and its TC-01/02 prerequisites is covered. TC-10/11 independent semantic assessment, full-book qualification and adoption remain planned; conditional branches outside the authorized baseline remain conditional.
 
 ## Target and basis
 
@@ -31,22 +30,22 @@ selection. Provider artifact/runtime profiles are discovered from current execut
 Use [standard.toml](../design_review/design_principles/standard.toml): core3.3, efficient-architecture
 heuristics, code-intelligence1.4 and binding. Source fidelity and unknown states constrain the
 semantic model; native composition and shared preparation constrain its physical realization.
-The proving corpus is all518 Grinstead–Snell physical pages under
+The proving corpus is all 518 Grinstead–Snell physical pages under
 [ADR-0070](../adr/0070-full-book-method-development.md), plus the existing second-vocabulary fixture.
 
 ## Foundation assessment and shared decisions
 
-Current annotation products retain exact token layout, morphology, dependencies, sentences and
+At the 2026-11-10 authoring baseline, annotation products retained exact token layout, morphology, dependencies, sentences and
 availability; native views reconstruct them without model inference. HanLP/Maverick/Dipo and
 GLiNER/d1 have existing provider operation owners. `SourceObservationBatch` and
 `SourceContributionOperation` in the released observation model already retain identity, question,
 outcome, coverage and zero-output operations. Reuse these owners rather than create another store
 or workflow runtime. [Model/retention](text-characterization/model-and-retention.md) develops the
-necessary extensions beyond today's frame/cue vocabulary.
+delivered extensions beyond that baseline frame/cue vocabulary.
 
-Native SQL currently reconstructs candidate roles and reading layout as well as authenticating
-source support. This is a consequential foundation change: language-producing policy moves to
-primary characterization, while native custody, endpoint, coordinate and declared-invariant checks
+At that baseline, native SQL reconstructed candidate roles and reading layout as well as authenticating
+source support. The implemented replacement moves language-producing policy to
+primary characterization; native custody, endpoint, coordinate and declared-invariant checks
 remain independently enforced. Producer agreement alone is not an independent semantic oracle.
 [Migration](text-characterization/consumer-migration-and-integration.md) owns the cutover.
 
@@ -115,108 +114,112 @@ inventory. Documents and graph nodes are not mandatory synchronization or proces
 
 ## Execution queue and current state
 
-Execution baseline is `8318ff74a016c6f9e68b81a0607a41b309f33a78`, main,2026-11-10.
-The operator authorized TC-00–02 and selected the combined foundation focus for entry review.
-TC-00 is complete; TC-01 has targeted model evidence; TC-02 has deployed implementation and
-partial native evidence. Execution stopped at the operator's request to address remaining work
-in bulk. All later rows remain **planned**, qualification **not_run**.
+The authorized TC-03–09 implementation and TC-01/02 integration prerequisites are delivered on
+shared `main`, 2026-11-11. Native integration is deployed through
+`semantic_tc03_09_literals`, release
+`release:81dd8c0986138654fe434c1742072585ed968d70a4973961b6e89aa6e2713371`.
+The default remains `/10`; the project remains unselected. No activation or promotion occurred.
+The [integration evidence](../design_review/evidence/2026-11-11_text-characterization-integration/README.md)
+retains deployments, original failures and the final test-identity union. **Tested:** the functional
+claim covers the selected contracts, real-provider/native integration, reuse, migration and fault
+behavior. It makes no claim of exhaustive linguistic meaning, measured benefit or full-book quality.
 
 | Package | Required capability | Delivered behavior and closure |
 | --- | --- | --- |
 | <a id="TC-00"></a>TC-00 · Target authority | Approved implementation scope; relevant current owners | **Complete:** [ADR-0081](../adr/0081-enriched-document-analysis-layers.md), D1/D2/D3/D4/D6/D8 authority and [entry review](../design_review/reviews/design_review_text-characterization-entry_2026-11-10.md) Accept scoped. No source/admission rule reversal. |
-| [TC-01](text-characterization/model-and-retention.md#TC-01) | TC-00 decision | **Implemented; integration qualification pending:** released contracts, exact source/analysis identity, private-product classification, DAG/choice/coverage validation, original-release closure and independent examples |
-| [TC-02](text-characterization/model-and-retention.md#TC-02) | TC-01 | **Implemented, acceptance incomplete:** protected native products/projections/completion, indexed reads, CLI/MCP, composition and detached closure. Latest native module: four passed, three failed; two fixes are implemented but unverified. See the stopped checkpoint. |
-| [TC-03](text-characterization/native-evidence.md#TC-03) | Working TC-02 input/layer contract | Source-aligned spaCy/HanLP evidence layers with faithful schemes and morphology |
-| [TC-04](text-characterization/native-evidence.md#TC-04) | Working TC-02 | Positioned formal constituents and opaque-atom correspondence, scientific assessment kept distinct |
-| [TC-05](text-characterization/constructions-and-interpretation.md#TC-05) | TC-03 plus early TC-04 positioned-input slice | Shared matcher/grammar constructions across all selected linguistic families |
-| [TC-06](text-characterization/constructions-and-interpretation.md#TC-06) | TC-05 for symbolic slice; TC-07/08 evidence for contextual closure | Packed symbolic terms, correlated choices and one owned contextual evaluator |
-| [TC-07](text-characterization/contextual-characterization.md#TC-07) | TC-03 and context/source maps, relevant constructions | Referential/discourse evidence and hypothesis layers with exact examined coverage and explicit conflicts |
-| [TC-08](text-characterization/contextual-characterization.md#TC-08) | TC-06 symbolic slice/TC-07 hypotheses for candidates; source-only route independently | New released GLiNER/d1 characterization tasks, structured proposals and complete family outcomes |
-| [TC-09](text-characterization/consumer-migration-and-integration.md#TC-09) | Required primary layers available | Actual consumers/admission/ingest/export use combined views; duplicated language production retired |
+| [TC-01](text-characterization/model-and-retention.md#TC-01) | TC-00 decision | **Complete, Tested:** released contracts, exact source/analysis identity, private-product classification, DAG/choice/coverage validation, original-release closure and independent examples |
+| [TC-02](text-characterization/model-and-retention.md#TC-02) | TC-01 | **Complete, Tested:** protected native products/projections/completion, indexed reads, CLI/MCP, composition and detached closure. All native foundation cases and the final required functional union are covered below. |
+| [TC-03](text-characterization/native-evidence.md#TC-03) | Working TC-02 input/layer contract | **Complete, Tested:** all 13 native families, exact native columns/schemes, runtime/artifact custody and explicit weaker profiles; actual-provider and native admission controls covered in the final union |
+| [TC-04](text-characterization/native-evidence.md#TC-04) | Working TC-02 | **Complete, Tested:** direct shared SPPF syntax, normalized/literal/recognized correspondence, separately reported symbol outcomes and source-first inline nominations; scientific assessment separate |
+| [TC-05](text-characterization/constructions-and-interpretation.md#TC-05) | TC-03 plus early TC-04 positioned-input slice | **Complete, Tested:** spaCy named/source constructions, Lark direct packed reduction and primary navigation/naming/math-scope facts; downstream recognizers retired |
+| [TC-06](text-characterization/constructions-and-interpretation.md#TC-06) | TC-05 for symbolic slice; TC-07/08 evidence for contextual closure | **Complete, Tested:** explicit choice sites, shared terms and environment evaluation; transitive external selection and witness conservation implemented, native controls covered in the final union |
+| [TC-07](text-characterization/contextual-characterization.md#TC-07) | TC-03 and context/source maps, relevant constructions | **Complete, Tested:** raw Maverick/Dipo populations, linear cluster membership, private hypotheses, exact context/gaps and retained-native mode; actual-provider admission covered in the final union |
+| [TC-08](text-characterization/contextual-characterization.md#TC-08) | TC-06 symbolic slice/TC-07 hypotheses for candidates; source-only route independently | **Complete, Tested:** eight released question families, source-first and frozen-candidate stages, declaration/request identity and explicit missing/none/insufficient outcomes; actual-provider checks covered in the final union |
+| [TC-09](text-characterization/consumer-migration-and-integration.md#TC-09) | Required primary layers available | **Complete, Tested:** primary-only consumers, current native guards, demand/ingest and view bindings, detached analytical closure, current-only retirement, explicit zero-input coverage and bounded provider residency |
 | [TC-10](text-characterization/assessment-and-investigations.md#TC-10) | TC-01 semantics; delivered producers for execution | Independent source/output assessment and faithful native/retained controls |
 | <a id="TC-11"></a>TC-11 · Assembled qualification | TC-01–10 and selected conditional outcomes | Working native full-profile pipeline, full-book coverage account, named semantic assessments, current-only cutover and complete required check union |
 
-## Stopped checkpoint and bulk continuation
+## Authorized TC-03–09 continuation
 
-**2026-11-10 · operator-requested stop.** All agent edits are in the shared `main` checkout;
-there are no parallel worktrees. No background test remains. This is an implementation checkpoint,
-not TC-01/02 completion or assembled-pipeline qualification.
+**2026-11-10.** Execute complete selected baseline scope in coherent batches: native evidence and
+early positioned formal inputs; constructions with direct packed symbolic reduction; contextual
+evidence and all eight model question families; packed formal completion; one contextual evaluator;
+complete consumer/native/ingest/read migration. TC-09 consumer slices accompany producers.
+TC-10 assessment infrastructure and TC-11 complete-book qualification/adoption remain separate.
 
-The representation preserves the full native document and separately identified layers, source
-occurrences, memberships, roles, terms, choices and family outcomes. The entire value family uses
-the existing private `SourceRecordProduct` boundary. Canonical scores retain exact numeric values;
-semantic children form a DAG. Released witnessed rules remain fail-closed until declared.
-Each selected layer retains its own release, bytes, pin and provenance; composition validates
-participating layers under their original archived contracts. This is necessary for TC-03 native
-evidence to remain usable when TC-05 introduces a new released construction rule. It is not a
-general upcaster or historical-code execution framework. Existing source-selection guards remain
-intact: the two-release native fixture legitimately completes R1 before selecting its SourceView
-into R2, while a separate control covers reads from an unfinished run.
+Foundation command `uv run ci test --json -- python/corpus-structure/tests/semantic/test_characterization_native.py python/corpus-structure/tests/semantic/test_characterization.py python/corpus-structure/tests/methods/test_characterization_composition.py python/corpus-structure/tests/semantic/test_characterization_replay.py python/corpus-structure/tests/semantic/test_characterization_completion.py`
+**passed**,78 selected cases, `710bab42df304f469ecf4c628401a5a4`,2026-11-10. This verifies the strict
+receipt, joint completion and cross-release corrections; it does not establish full qualification.
+Full `uv run ci test --json` receipt `47a15226cae2486f8b81e8ec5b0b7de8` was interrupted and
+settled at exit130. It selected 6119 ordinary identities: 4263 passed, 943 failed, 2 blocked,
+16 incomplete and 895 not_run; fault/Rust not_run. The early stale operation-report schema defect
+was diagnosed independently; later failures were contaminated by edits made while that campaign
+ran. Preserve this failed/interrupted evidence; it is not final-source qualification. The owning
+operation-report and call generators have since run successfully, with their generated outputs
+covered by the final functional union and repository checks.
 
-Development is at **`semantic_tc02_reachability`**, with
-`release:c921ad244b60d4e79556a9042f102936a6d58c853c9c14f9c902c30bbfaca0e2` archived and admitted.
-Deployment `b7f9e471e81644fe85769cdd12069d09` and subsequent native correspondence checks passed.
-The frozen `foundation → products → guards → cross_release → reachability` migrations remain;
-do not rewrite or delete them. The first deployment's admission failure and all subsequent
-corrections retain their actual effects and outcomes in the
-[native evidence](../design_review/evidence/2026-11-10_text-characterization-native/README.md).
-No release activation, run promotion, project selection, NLP invocation or full-book run occurred.
+The [producer target review](../design_review/reviews/design_review_text-characterization-producers_2026-11-10.md)
+accepts the revised target only, with these implementation obligations:
 
-| Evidence / command | Outcome and scope |
-| --- | --- |
-| `uv run ci test --json -- python/corpus-structure/tests/semantic/test_characterization.py` · `6aa79d64479e4f608f33b6c87e0419cd` | **passed**,35 model cases, including original-release authority, source/pin/format refusals and unchanged evidence reuse |
-| `uv run ci test --json -- python/corpus-structure/tests/methods/test_characterization_composition.py python/corpus-structure/tests/semantic/test_characterization_replay.py` · `abcf7a3130e64a31982f18aac223e0f2` | **passed**,28 composition/replay cases, including authenticated per-release contracts |
-| `uv run ci test --json -- python/corpus-structure/tests/semantic/test_characterization_native.py` · `3f98a01daa9b4059ad066da42ca6c2f7` | **failed**,seven selected: four passed, three failed. Passing controls cover protected publication/refusal, packed diamond DAG/cycle refusal, and unfinished-run capture with live/detached pagination and real page3/4 membership |
-| `uv run ci test retry 3f98a01daa9b4059ad066da42ca6c2f7 --lane ordinary --json` · `0a008697b02d4616b51f71a57133536f` | **interrupted**,three selected; canceled and drained to exit130 at the operator's stop. It verifies neither pending correction |
-| `uv run ci check --only types --view steps --json` · `a7a9d8f8de66406a84cc6ac1016c5e8f` | **passed** at the prior source endpoint, before the final receipt/fixture corrections |
-| `uv run ci check --only lint --view steps --json` · `03aae453519147f0ac76423bc24a963b` | **passed** at the prior source endpoint; final corrections still need their applicable checks |
-| `uv run ci docs check --json` · `7f42cbca4b54472e8a0bced214cc8339` | **passed**,869 canonical pages and zero link errors for the stopped checkpoint; documentation evidence only |
-| `just turn-end` | **passed** at handoff; formatting/ADR maintenance does not verify the pending product corrections |
-| `uv run ci test` and `uv run ci check` | **not_run** for completed TC-00–02 scope; the required integrated union remains open |
-
-The three unresolved native paths and existing corrections are:
-
-| Native test | Observed failure | Implemented correction and remaining evidence |
+| Finding | Responsible package / component | Current disposition and closure evidence |
 | --- | --- | --- |
-| `test_native_composition_source_only_and_indexed_keyset_pages` | Strict `CompletionResult.receipt.observation_ids` expected a tuple but received the native JSON array | `PreparedUnitCompletion.apply` now uses canonical JSON validation; **unverified** |
-| `test_native_joint_layer_and_view_completion_uses_producing_layer` | Same strict receipt conversion; the prior unpublished-current-layer preload issue is also corrected in source | Exercise the complete atomic layer/view completion path on final source; **unverified** |
-| `test_native_new_rule_release_reuses_original_native_layer_and_detached_contract` | R1 finalized successfully; R2 fixture reused global realization id `z` | Test helper accepts an explicit realization id and R2 uses `z-new-rule`; full new-rule/view/capture continuation **unverified** |
+| Producer review F01 | TC-03/04, released characterization model | Closed, Tested in the final required union: typed tokens/native run columns and formal inputs/nodes/correspondence, kind-specific requirements and independent retention/refusal controls |
+| Producer review F02 | TC-06, native validation and live/detached readers | Closed, Tested in the final required union: typed qualified upstream choices, transitive joint selection and original released-contract validation through live/detached paths |
+| Producer review F03 | TC-06, packed algebra/codec/reading | Closed, Tested in the final required union: explicit child choice sites, single-valued root selection, unresolved partial sites and site/root cycle edges; packed diamond/native cycle controls |
+| Producer review F04 | TC-05/09, construction declarations/native guards | Closed, Tested in the final required union: released mechanical witness constraints and wrong-host/source/choice refusals; current primary-only consumers and retirement of duplicate SQL language production |
 
-Resume as one coherent repair and qualification package:
+Native producers obtain per-unit determinants from the execution-owned port and retain exact provider
+costs at protected completion. Native controls exercise changed-cost replay refusal. Model/runtime
+preparation and inference remain outside publication transactions. These prerequisites and their native refusal controls are covered by the final required functional union.
 
-1. Inspect the three paths together with their shared completion, fixture, release and capture
-   consumers. Finish the required source corrections before another verification/deployment cycle;
-   the current fixes are not acceptance evidence.
-2. Run the complete seven-case native module alongside the directly affected model, completion,
-   composition and replay suites at a coherent endpoint. Preserve the failed and interrupted
-   originals; account for the complete required selection rather than only successful retries.
-3. If a native guard genuinely needs changing, collect the related corrections and author one
-   supported forward candidate from the actual `semantic_tc02_reachability` head. Preserve frozen
-   migrations and original evidence. Python/fixture-only corrections do not require native DDL.
-4. After functional scope passes, run root maintenance and the applicable full `uv run ci test`
-   and `uv run ci check` routes; account for final source/context and required native obligations.
-   Record documentation checks separately. No NLP-provider efficacy or full-book claim follows.
-5. Reconcile TC-01/02 acceptance here, then hand off to the later planned packages. O01/O03/O05
-   retain their wider TC-03/06/09 obligations; foundation qualification alone does not close them.
+<a id="stopped-checkpoint-and-bulk-continuation"></a>
 
-The independent source review found and resolved source/selector qualification, release-bound
-replay contracts, indexed selection, term-cycle bypass and original-release authority issues.
-Its final cross-release follow-up identified joint completion's unpublished-layer preload;
-source now seeds that producing layer before view validation. Static assessment is not the
-pending native functional result. CLI effects/SQL inspection were also repaired to return bounded
-comparison summaries instead of embedding full semantic inventories; focused checks passed.
+## Functional qualification · 2026-11-11
+
+The stopped 2026-11-10 foundation checkpoint is resolved. Its original failed native receipt
+`3f98a01daa9b4059ad066da42ca6c2f7` and interrupted retry
+`0a008697b02d4616b51f71a57133536f` remain evidence of that checkpoint, alongside the
+[native foundation record](../design_review/evidence/2026-11-10_text-characterization-native/README.md).
+The strict receipt conversion, producing-layer preload and distinct cross-release realization
+corrections passed the 78-case foundation selection and the subsequent integrated selection.
+The five frozen foundation migrations and all forward producer migrations remain immutable.
+
+| Command / managed result | Outcome and acceptance scope |
+| --- | --- |
+| `CORPUS_PM2_NATIVE_TEST_ASSETS=/home/paul/corpus-structure/build/models/pm2 uv run ci test --json` · `71e97b485e59479b80b9d5e086f48570` | **failed**, ordinary: 6,399 selected:6,394 passed, four failed, one blocked; fault: 8/8 **passed**. Production source was frozen. Rust selected zero, **not_run**. |
+| `CORPUS_GLINER_DIAGNOSTIC=1 uv run ci test --json -- python/corpus-structure/tests/methods/test_contextual_characterization.py python/corpus-structure/tests/methods/test_m1_review_repairs.py python/corpus-structure/tests/semantic/test_analysis_resources.py python/corpus-structure/tests/methods/test_gliner.py` · `2e2d74eb026b42b78068d523ce6ca5da` | **passed**,82/82. Whole affected modules plus the actual opt-in GLiNER Base2.5 diagnostic; this replaces all four failures and the blocked diagnostic. |
+| `uv run ci test coverage 71e97b485e59479b80b9d5e086f48570 2e2d74eb026b42b78068d523ce6ca5da --view unresolved --limit 20 --json` | **covered**, required: 6,407, covered: 6,407, unresolved: 0; no missing lanes, unknown contexts or unsettled attempts. Original failed attempt remains **failed**. |
+
+**Final-source/context applicability judgment:** the only source changes after the full campaign
+were three module-local test doubles: explicit source-view lookup, the capture/characterize/consume
+preflight fixture, and finalization's retained run-options lookup. No production, SQL, dependency,
+shared fixture or harness bytes changed. Each complete affected module passed in the 82-case rerun;
+all other ordinary and fault results remain applicable. The reported native-binding difference
+comes from the scoped selection's isolated native fixtures; both applicable native observations are
+complete. The diagnostic was explicitly enabled and executed, rather than treated as a mock pass.
+The earlier full selection exercised installed PM2 assets, all primary family providers and exact
+repeated-demand reuse. Thus the required functional/provider union for the authorized implementation
+is satisfied. This is a composite qualification, not a claim that the original full receipt passed.
+Rust context: `rustc 1.101.0-nightly (2d20b42b8 2026-11-04)`; no Rust tests are in this selection.
+
+`uv run ci check --view steps --json` **passed**, `16c68b4634774b619f59110c779a85a2`;
+empty rule lanes are **not_run**. `uv run ci docs check --json` **passed**,
+`45a282ed4379434d84d4a2dbda836824`,872 canonical pages, zero link errors.
+The integration evidence preserves the earlier failed publication check and anchor correction.
+Implementation is committed as `e9025e949`, with the independent SQL inspection repair in `088cf9fdd`.
+Independent semantic assessment and all 518 physical-page qualification remain TC-10/11 work.
 
 ## Review disposition
 
 | Review item | Component and intended correction | Disposition/dependency | Closure evidence |
 | --- | --- | --- | --- |
-| [O01](../functional_reviews/text-characterization_2026-11-10.md#O01) | Source/document and native-evidence owners preserve positioned units and schemes | Open · TC-01–04 | Exact source/atom maps and native availability through combined reads |
-| [O02](../functional_reviews/text-characterization_2026-11-10.md#O02) | Shared primary construction owner replaces scattered recognizers | Open · TC-05/09 | Reused construction outputs and retired duplicate production |
-| [O03](../functional_reviews/text-characterization_2026-11-10.md#O03) | Explicit semantic terms, operators and correlated alternatives | Open · TC-01/02/06 | Independent scope/choice expectations, packed retention and replay |
-| [O04](../functional_reviews/text-characterization_2026-11-10.md#O04) | Context and model operations enrich the same document | Open · TC-07/08 | Cross-boundary support, source-first discovery and native provider evidence |
-| [O05](../functional_reviews/text-characterization_2026-11-10.md#O05) | Released operation/storage/read owners serve retained primary products | Open · TC-02/09 | Indexed membership, partial layers, invalidation and detached reads |
-| [O06](../functional_reviews/text-characterization_2026-11-10.md#O06) | Enrichment/admission consumers use primary semantics | Open · TC-09 | Complete migration inventory and independent native support refusals |
-| [O07](../functional_reviews/text-characterization_2026-11-10.md#O07) | Evaluation/model lifecycle owners extend granular assessment | Open · TC-10/11; triggered TC-I branches | Source-first/output-first results, task-specific supervision and actual qualification |
+| [O01](../functional_reviews/text-characterization_2026-11-10.md#O01) | Source/document and native-evidence owners preserve positioned units and schemes | Delivered, functional scope Tested · TC-01–04 | Exact source/atom maps and native availability through combined reads |
+| [O02](../functional_reviews/text-characterization_2026-11-10.md#O02) | Shared primary construction owner replaces scattered recognizers | Delivered, functional scope Tested · TC-05/09 | Reused construction outputs and retired duplicate production |
+| [O03](../functional_reviews/text-characterization_2026-11-10.md#O03) | Explicit semantic terms, operators and correlated alternatives | Delivered, functional scope Tested · TC-01/02/06 | Independent scope/choice expectations, packed retention and replay |
+| [O04](../functional_reviews/text-characterization_2026-11-10.md#O04) | Context and model operations enrich the same document | Delivered, functional scope Tested · TC-07/08 | Cross-boundary support, source-first discovery and native provider evidence |
+| [O05](../functional_reviews/text-characterization_2026-11-10.md#O05) | Released operation/storage/read owners serve retained primary products | Delivered, functional scope Tested · TC-02/09 | Indexed membership, partial layers, invalidation and detached reads |
+| [O06](../functional_reviews/text-characterization_2026-11-10.md#O06) | Enrichment/admission consumers use primary semantics | Delivered, functional scope Tested · TC-09 | Complete migration inventory and independent native support refusals |
+| [O07](../functional_reviews/text-characterization_2026-11-10.md#O07) | Evaluation/model lifecycle owners extend granular assessment | Planned · TC-10/11; triggered TC-I branches | Source-first/output-first results, task-specific supervision and actual qualification |
 
 The operator directed this series to stand on its own on2026-11-10. Existing plans are not
 inputs, prerequisites or sequencing authorities for this series, and none is edited. Current
@@ -269,9 +272,7 @@ selection requires explicit effect authority after qualification; private stagin
 remain separate outcomes. Unavailable required evidence
 keeps qualification open. Publication of this plan does not execute these effects.
 
-**Next for this series:** TC-00 target authority and TC-01 executable model; independent TC-10
-expectation design may proceed alongside it. No dependency on another plan is selected. Publication and product-check outcomes for this authoring
-are recorded in this series; product/provider checks are not_run.
+**Next for this series:** TC-10 independent expectation and semantic assessment, then TC-11 full-book qualification and adoption under their separate execution authority. No dependency on another plan is selected. The original authoring-only outcomes below retain their 2026-11-10 scope; current functional qualification is recorded above.
 
 ## Authoring handoff and publication · 2026-11-10
 

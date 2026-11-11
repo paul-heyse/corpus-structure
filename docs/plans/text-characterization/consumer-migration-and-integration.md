@@ -1,23 +1,22 @@
 # Consumer migration, native admission and ingest integration
 
-**Proposed · 2026-11-10.** Owns TC-09 design; the
+**Implemented; bounded functional scope Tested · 2026-11-11.** Owns TC-09 design; the
 [coordinator](../text-characterization_2026-11-10.md) owns current state and O05/O06 disposition.
 Consumes [model/retention](model-and-retention.md), [primary semantics](constructions-and-interpretation.md)
-and [contextual layers](contextual-characterization.md). This is planned implementation, not code
-already migrated. Existing plans are not inputs or prerequisites.
+and [contextual layers](contextual-characterization.md). The coordinator distinguishes implemented source, native deployment and qualification. Existing plans are not inputs or prerequisites.
 
 <a id="TC-09"></a>
 
 ## TC-09 · One primary meaning owner with complete consumer migration
 
 The [review](../../functional_reviews/text-characterization_2026-11-10.md#O06) requires a replacement
-across producers, consumers and native support. Current
+across producers, consumers and native support. At the 2026-11-10 authoring baseline,
 [procedure roles](../../../python/corpus-structure/src/corpus_structure/methods/structural_roles.py)
-construct roles/coordination/negation independently of general
+constructed roles/coordination/negation independently of general
 [predicate frames](../../../python/corpus-structure/src/corpus_structure/methods/predicate_frames.py).
 Native [source-contribution SQL](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql)
-also reconstructs role inventories and reading layout. Preserve the purpose of source checks while
-replacing repeated language-producing policy.
+also reconstructed role inventories and reading layout. The delivered cutover preserves source
+and declared mechanical witness checks while replacing duplicated language-producing policy.
 
 ### Migration inventory and target behavior
 
@@ -33,11 +32,11 @@ replacing repeated language-producing policy.
 | Native admission and semantic release generation | Authenticate source, producer, layer, role and choice closure under the selected release; enforce declared invariants independently of semantic efficacy. |
 | Reader, CLI, MCP, export and evaluation | Use the same pinned combined-view operations; preserve group membership, alternatives, source support, statuses and independent reference separation. |
 
-Before execution, find all call sites of `predicate_frames`, `procedure_frames`, predicate qualifier
+The implemented migration covered call sites of `predicate_frames`, `procedure_frames`, predicate qualifier
 and cross-block helpers, `DefinitionBasisWitness`, annotation restoration and current math tree
-codecs. This is an integration inventory inside TC-09, not an excuse to limit migration to a few
-examples. Deliver necessary consumer slices alongside TC-02–08; close TC-09 only when every affected
-current producer/read/admission path uses the new contracts.
+codecs. Current producer/read/admission paths use shared primary products and mechanical native
+support constraints. Superseded recognizers, SQL NLP helpers and mechanism-specific policies were
+retired; the current contract inventory below names the delivered consumers.
 
 ### Native validation and independent correctness
 
@@ -104,5 +103,68 @@ preserves membership through Reader/CLI/MCP/detached export. Source-only, partia
 views are distinguishable. Native invalid-extent/forged-origin/incompatible-choice controls refuse
 without damaging valid siblings. Fresh and retained-source ingest reach equivalent supported view
 meaning without repeating unchanged capture. Old private interpretation branches have no current
-callers. Actual named scenarios, native deployment and full-profile qualification close under TC-11;
-a passing pure function test does not establish admission or corpus quality.
+callers. The coordinator records the delivered named functional scenarios, native deployment and
+applicable-provider union. Independent semantic assessment and full-book qualification remain
+TC-10/11; a passing pure function test does not establish corpus quality.
+
+## Implemented execution interfaces
+
+**Implemented; bounded functional scope Tested · 2026-11-11.** `ci run characterize --request FILE`
+executes the typed `CharacterizationDemandRequest` from
+[the demand owner](../../../python/corpus-structure/src/corpus_structure/orchestrate/characterization.py).
+The request binds project, release, realization, domain, exact native base, original source scope
+and completed source references. Optional selected layers retain complete dependency closure;
+`active_layers` chooses the current analytical population. `run_missing: false` composes retained
+inputs without inference. `fresh_methods` explicitly retries named primary producers through the
+existing scheduler, preserving earlier partial results. No automatic retry loop is selected.
+
+Ordinary source execution runs native/formal inputs, constructions, contextual evidence, model
+characterization and one contextual evaluation in their real dependency order. Runtime and artifact
+identities are frozen before task identity/reuse. Unchanged exact outputs are reused before a
+pure contextual refresh selects original raw populations. Ingest's `--enrichment-options FILE`
+uses these same operations after completing source capture, publishes natural-unit results and
+composes one document view. The existing task/cut lifecycle remains the recovery boundary.
+
+The default analytical command graph also performs capture, primary demand and exact-view binding
+before consumers. It uses the selected custom domain registry throughout and moves effective
+consumer named-rule declarations into primary construction; conflicting definitions refuse rather
+than selecting a winner. Source-only execution and explicitly authored custom graphs retain their
+declared boundaries. The analytical run's immutable options and reports retain exact view pins,
+including on regeneration resume. Natural-unit preparation shares one scoped provider session.
+Repeated capture of an unchanged exact SourceView retains an existing completed original source
+binding, validated by the native source owner before inference; a new capture run alone therefore
+does not invalidate every primary task. Explicit primary freshness reaches the same demand stages.
+M1 consumer-specific named declarations are combined with the selected domain's primary producer
+configuration, macros and binder policy, preserving both authorities.
+
+Evaluation selects its upstream producers explicitly; a prior evaluation output cannot become
+its own input on repeated demand. Selected empty/image-only views publish examined-empty language
+coverage without loading providers. Formal eligibility is independent: unprojected retained formula
+bytes remain available under native-item anchors, with unavailable mapping or recognition recorded
+as partial/failed. A missing text population does not erase the document or manufacture a provider
+failure. Canonical projection recipes remain enforced.
+
+`ci run --characterization-view JSON` accepts repeated exact view-pin JSON objects. Consumer binding
+freezes active pins and selects the views' original SourceView references from their immutable
+producer dependency manifests. It skips capture/recognition, including across consumer releases;
+text or projection equality never relabels source IDs. Settled views can be consumed while their
+producer run remains unfinished when original source custody is complete. Source-only reads remain
+separate. ADR-0082 owns selection versus dependency retention.
+
+Current migrated contracts are scoped relations17/predicate6, artifact identity5, comparison6,
+definition10, declaration2, clause3, math extraction/normalization10, symbol scope8 and native
+source request5. The primary navigation owner supplies naming, headings, artifact cues and table
+language; the formal owner supplies field syntax and lexical categories; math scope cues live in
+primary constructions. Consumers add domain relationships or scientific interpretation over exact
+references. Older derived semantic closures require regeneration; original source/report bytes
+retain their archived contracts.
+
+Comparison's existing 256-character and adjusted-exponent bounds apply to the downstream typed
+projection; primary formal evidence retains larger finite values. Registered table weights are
+authenticated using the registry's canonical decimal-string representation. These analytical bounds
+and policies do not reparse the primary language or discard its exact facts.
+
+The coordinator records the full-campaign/replacement functional union, including native admission
+and actual-provider controls. This establishes the tested functional boundary, while independent
+linguistic quality and full-book qualification remain TC-10/11. No activation, promotion or project
+selection occurred.

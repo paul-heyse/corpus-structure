@@ -1,16 +1,17 @@
 # Contextual characterization and grounded proposals
 
-**Proposed · 2026-11-10.** This companion develops [TC-07](#TC-07) and
+**Implemented; bounded functional scope Tested · 2026-11-11.** This companion develops [TC-07](#TC-07) and
 [TC-08](#TC-08) in the [text-characterization coordinator](../text-characterization_2026-11-10.md).
 The coordinator owns authorization, package state, source-opportunity disposition and adoption.
 The [model and retention companion](model-and-retention.md) owns the enriched-document model,
 layer identities and durable contracts. This document consumes those meanings rather than
 creating another mutable account of them. Its source is [review O04/O05/O07](../../functional_reviews/text-characterization_2026-11-10.md#O04).
-Nothing below claims these new contextual operations are implemented or qualified.
+The coordinator records functional closure, including actual-provider controls. Independent
+semantic assessment and full-book qualification remain TC-10/11 scope.
 
-## Baseline and intended result
+## Authoring baseline and intended result · 2026-11-10
 
-The existing [Maverick projector](../../../python/corpus-structure/src/corpus_structure/methods/pm2_maverick_products.py)
+At the authoring baseline, the [Maverick projector](../../../python/corpus-structure/src/corpus_structure/methods/pm2_maverick_products.py)
 retains detected, supplied and clustered mentions separately; its cluster is one native local
 partition, not corpus identity. The [Dipo projector](../../../python/corpus-structure/src/corpus_structure/methods/pm2_dipo_products.py)
 authenticates ordered binary trees and located EDUs, including learned/forced boundary provenance.
@@ -19,9 +20,11 @@ binds typed answers to an archived question population and distinguishes native 
 proposed options, unresolved results and policy withholding. The current
 [GLiNER passage classifier](../../../python/corpus-structure/src/corpus_structure/methods/pm2_gliner_classification.py)
 binds one exact source slice and a released multilabel question; its passage category does not
-locate a literal witness. These are useful foundations, not the new full characterization profile.
-The current [statistics question declarations](../../../domains/statistics/interpretation-questions.yaml)
-supply finite domain questions; their presence does not implement the language questions below.
+locate a literal witness. Those foundations did not implement the new full characterization profile.
+The authoring-baseline [statistics question declarations](../../../domains/statistics/interpretation-questions.yaml)
+supplied finite domain questions. The delivered
+[characterization declarations](../../../python/corpus-structure/src/corpus_structure/model/semantic/characterization-questions.yaml)
+now supply all eight baseline language families independently of those domain questions.
 
 The target adds contextual layers to the **same enriched document**: immutable native source
 and hierarchy remain the reference frame; independently pinned layers contain ID'd annotations,
@@ -261,9 +264,11 @@ from supplied-candidate diagnostics. Historical fair-coin/definition controls ca
 evidence; they cannot alone qualify modal force, quantifier scope or attribution. TC-10 owns
 independent assessment and triggers any TC-I02/03/04 branch; TC-11 owns adoption.
 
-## Plan-writing evidence limit
+## Evidence boundary
 
-Source/reference inspection informs this proposed design on 2026-11-10. New product/provider
-tests, native inference, training, compatibility installation, probes and benchmarks are
-**not_run** in plan authoring. Publication checks and shared final maintenance belong to the
-coordinator. No gain, coverage completeness or native-task quality is asserted by these packages.
+Source/reference inspection informed plan authoring on 2026-11-10; product/provider tests were
+**not_run** at that date. The coordinator’s 2026-11-11 functional union now covers contextual and
+model characterization, actual selected providers, retained populations and repeated-demand reuse.
+Maverick/Dipo mention/discourse populations remain attributed evidence; model answers and inherited
+hypotheses remain private proposals. The functional result does not establish linguistic accuracy,
+complete corpus coverage, training benefit or full-book qualification.

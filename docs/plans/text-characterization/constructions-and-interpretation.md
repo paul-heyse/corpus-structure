@@ -1,6 +1,8 @@
 # Shared constructions and packed primary interpretation
 
-**Proposed implementation plan · 2026-11-10.** TC-05 and TC-06 are planned and not implemented.
+**Implemented; bounded functional scope Tested · 2026-11-11.** TC-05 and TC-06 deliver shared
+constructions and packed/contextual interpretation; TC-10/11 retain independent assessment and
+full-book qualification.
 The [series coordinator](../text-characterization_2026-11-10.md) owns selected scope, opportunity
 disposition and assembled completion. [Model and retention](model-and-retention.md) owns the
 combined enriched-document contract, immutable source base plus identified selected annotation-layer
@@ -17,7 +19,7 @@ provide native capability context; the integrated review supplies selection. The
 sentence meanings and contextual linguistic dependencies. Later concept identity, scientific
 assessment and domain relationships remain consumers of those meanings.
 
-## Current code and target responsibility
+## Authoring baseline and target responsibility · 2026-11-10
 
 Planning source baseline is main `59eee893c`, inspected on 2026-11-10; the integrated review's
 earlier source baseline remains attributed to that review. Directly inspected annotation, named-rule,
@@ -29,31 +31,32 @@ The existing [named matcher owner](../../../python/corpus-structure/src/corpus_s
 prepares native `Matcher`, `PhraseMatcher`, `DependencyMatcher` and unfiltered `SpanRuler`, retaining
 named roles, actual nodes and dependency identities. This is a useful construction substrate.
 [Predicate frames](../../../python/corpus-structure/src/corpus_structure/methods/predicate_frames.py),
-[their declaration](../../../python/corpus-structure/src/corpus_structure/methods/predicate_interpretation.json),
+[their declaration](../../../python/corpus-structure/src/corpus_structure/semantic/constructions/retained_rules.json),
 [procedure roles](../../../python/corpus-structure/src/corpus_structure/methods/structural_roles.py),
-[qualifier recipes](../../../python/corpus-structure/src/corpus_structure/methods/predicate_qualifier_recipes.py)
+[qualifier recipes](../../../python/corpus-structure/src/corpus_structure/semantic/constructions/retained_rules.py)
 and [HanLP products](../../../python/corpus-structure/src/corpus_structure/methods/pm2_hanlp_products.py)
-currently author overlapping predicate, role, coordination, operator and host policies. The target
-replaces their independent language interpretations with one shared construction/interpretation
-responsibility. It preserves useful native matching and independently expected semantic cases.
+then authored overlapping predicate, role, coordination, operator and host policies. The delivered
+replacement places their linguistic interpretations under the shared primary construction and
+interpretation owner. Useful native matching and independently expected semantic cases survive.
 
 The [source contribution SQL](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql)
-also authenticates annotation origin and reconstructs expected role/reading support. Its exact
-source and producer authentication survives. Semantic producer policy must move to the executable
-shared authority; downstream admission must consume typed retained premises and enforce its owned
-invariants. Merely calling the producer again in admission or expected test output cannot establish
-semantic correctness. The consumer package must distinguish source-witness protection from duplicated
-interpretation before removing old paths.
+at that baseline authenticated annotation origin and reconstructed expected role/reading support.
+Its exact source and producer authentication survives. Semantic producer policy now belongs
+to the executable shared authority; downstream admission consumes typed retained premises and
+enforces its owned invariants. Merely calling the producer again in admission or expected test output cannot establish
+semantic correctness. The implemented consumer migration preserves source-witness protection while retiring duplicated
+interpretation.
 
 The governing architecture remains [D1](../../design/D1-knowledge-representation.md),
 [D2](../../design/D2-schema-and-guidelines.md), [D4](../../design/D4-method-catalog.md),
 [D5](../../design/D5-consolidation-identity-confidence.md),
 [D6](../../design/D6-orchestration-metrics-policies.md) and
-[D8](../../design/D8-agent-and-query-interfaces.md). The new coordinator schedules the ADR/owner
-updates needed for primary-characterization authority and changed producer/consumer contracts.
+[D8](../../design/D8-agent-and-query-interfaces.md). ADR-0081 and the updated owners establish
+primary-characterization authority and the implemented producer/consumer contracts.
 Nothing here treats a linguistic proposal as an admitted scientific assertion.
 
-**Proposed focused foundation judgment.** FP-04/CI-01–04 require occurrences, attributed analyses,
+**Delivered focused foundation judgment; bounded functional scope Tested, 2026-11-11.**
+FP-04/CI-01–04 require occurrences, attributed analyses,
 construction instances, roles/attachments, operators, choices and coverage to govern behavior rather
 than decorate flat frame payloads. FP-03/06 favor native matchers/grammars plus ordinary typed
 functions, with authored linguistic meaning localized by family. FP-07 and H4/H10/H12/H15/H17 favor
@@ -92,8 +95,8 @@ this plan owns the construction and interpretation behavior consuming them.
 
 ## TC-05 · Shared declarative construction recognition
 
-**Planned, Proposed.** Recognize reusable lexical, syntactic and recursive constructions across
-the selected source population, retaining all supported proposals and their declaration identities
+**Implemented; bounded functional scope Tested, 2026-11-11.** Recognizes reusable lexical,
+syntactic and recursive constructions across the selected source population, retaining all supported proposals and their declaration identities
 before domain mapping. This realizes O02 and produces the construction premises of O03/O04.
 
 ### Native pattern composition and authored meaning
@@ -225,7 +228,7 @@ observations and independent source-witness controls. TC-05 delivers retained re
 products, declaration introspection and coverage alongside its recognizers; a parser-only library
 helper is not package completion.
 
-Planned acceptance includes:
+Functional acceptance requirements (closure evidence is in the coordinator):
 
 - One reusable passive/coordination construction supports both definition and procedure consumers
   with explicit sharing evidence; an unlicensed conjunct does not inherit every neighboring role.
@@ -250,8 +253,8 @@ independent natural-language semantic gold. The coordinator owns broad final qua
 
 ## TC-06 · Packed symbolic terms and primary contextual interpretation
 
-**Planned, Proposed.** Turn shared construction/native evidence into typed, factorized primary
-meanings with correlated alternatives, then evaluate linguistic context without destroying the
+**Implemented; bounded functional scope Tested, 2026-11-11.** Turns shared construction/native
+evidence into typed, factorized primary meanings with correlated alternatives, then evaluate linguistic context without destroying the
 retained symbolic reading. This is a primary semantic responsibility, not a downstream record
 adapter or a bottom-up forest callback pretending to own inherited state.
 
@@ -396,7 +399,7 @@ while the only usable route still reconstructs old private frames.
 
 ### Meaningful acceptance and qualification
 
-Planned checks use independent expected structures and exact source members. Examples below are
+Functional checks use independent expected structures and exact source members. Examples below are
 authored cases, not claimed textbook quotations or qualified model predictions.
 
 - “Not every trial succeeds” retains distinct negation and quantifier nodes with cue/binder/body
@@ -433,22 +436,22 @@ benefits, not numerical speed/quality claims or a mandatory benchmark campaign.
 
 The main architecture choices are settled for planning: attributed native evidence, constrained
 raw-source Earley prose, deterministic typed lexer use only, direct packed symbolic construction,
-then primary contextual evaluation with environment-aware reuse. Implementation resolves these
-bounded questions before dependent breadth expands:
+then primary contextual evaluation with environment-aware reuse. The following questions guided
+implementation; their delivered baseline and remaining corpus assessment boundary are recorded below:
 
 | Question | Settling work and dependent scope |
 | --- | --- |
-| Can the composed prose terminals enforce whole protected atoms while admitting the valid surrounding prose alternatives? | Inspect selected-version terminal compilation and implement independent positioned atom cases in TC-05 before widening grammar families. Failure reopens that family input contract; it does not justify a hidden placeholder fallback. |
-| How do generated typed term constructors express the initial packed semantic algebra and shared references? | TC-01/02 settle model/codec invariants, then TC-05/06 jointly implement one recursive family with independent correlated-choice expectations before replicating patterns. |
-| Which inherited bindings actually affect each contextual handler? | TC-06 declares the environment fields from implemented scope/reference rules and selected context premises; qualify the two-environment shared-node case before enabling memoization. |
-| Which full-book constructions exceed normal native or grammar region envelopes? | Inspect actual source population during implementation, revise physical preparation/windows where semantics permit, and retain unsupported/partial family outcomes. Limits cannot silently remove pages from the proving population. |
+| Can the composed prose terminals enforce whole protected atoms while admitting the valid surrounding prose alternatives? | Delivered positioned protected-atom controls cover the selected raw-source grammar. A new family must preserve this contract; no hidden placeholder fallback is selected. |
+| How do generated typed term constructors express the initial packed semantic algebra and shared references? | Delivered typed DAG/choice contracts, direct packed reduction and independent correlated-choice controls supply the shared representation. |
+| Which inherited bindings actually affect each contextual handler? | Delivered contextual evaluation keys reuse by semantic node and relevant environment, with shared-node/different-environment controls and explicit unknown outcomes. |
+| Which full-book constructions exceed normal native or grammar region envelopes? | TC-10/11 retain full-book population assessment. Delivered operations retain explicit unsupported/partial family outcomes; limits cannot silently remove pages from the proving population. |
 
 These are implementation evidence/contract questions, not unselected baseline alternatives or a new
 standing audit. A consequential changed answer updates the coordinator's target and the semantic
 owner through the normal decision route before consumers depend on it.
 
-Authoring checks: source/reference inspection only. Functional tests, providers, probes, model fitting
-and benchmarks are **not_run**; no execution command is claimed. Root documentation publication
-checks and `just turn-end` belong to the coordinator. TC-05/06 close only with retained readable
-products and their declared consumer integration; final adoption additionally needs the coordinator's
-complete migration, independent assessment and qualification obligations.
+Authoring evidence on 2026-11-10 was source/reference inspection only; product/provider tests were
+**not_run** at that date. The coordinator’s 2026-11-11 account records delivered retained products,
+consumer integration, packed diamond/cycle and contextual-choice controls in the applicable
+functional union. Independent semantic assessment, fitting, benchmarks and full-book adoption
+are not established by those results.

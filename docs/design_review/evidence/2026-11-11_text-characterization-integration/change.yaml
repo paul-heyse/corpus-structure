@@ -1,0 +1,484 @@
+baseline: HEAD
+archive_release: release:c921ad244b60d4e79556a9042f102936a6d58c853c9c14f9c902c30bbfaca0e2
+packs:
+- statistics
+native_predecessor: semantic_tc02_reachability
+native_revision: semantic_tc03_09_primary
+deployment: true
+deployment_profile: development
+retire:
+- kind: function
+  schema: ops
+  name: definition_bound_span
+  arguments:
+  - jsonb
+  - integer
+  - jsonb
+  - text
+- kind: function
+  schema: ops
+  name: definition_dependency_bindings
+  arguments:
+  - jsonb
+  - text
+  - jsonb
+  - jsonb
+  - text
+  - integer
+- kind: function
+  schema: ops
+  name: definition_scope_supported
+  arguments:
+  - jsonb
+  - jsonb
+  - jsonb
+  - jsonb
+  - integer
+  - jsonb
+- kind: function
+  schema: ops
+  name: hanlp_act_is_local
+  arguments:
+  - jsonb
+  - jsonb
+  - integer
+  - integer
+  - jsonb
+- kind: function
+  schema: ops
+  name: hanlp_chain_intro
+  arguments:
+  - jsonb
+  - jsonb
+  - jsonb
+  - integer
+  - integer
+  - integer
+  - integer
+  - boolean
+- kind: function
+  schema: ops
+  name: hanlp_cited_frame_matches
+  arguments:
+  - jsonb
+  - jsonb
+  - text
+  - text
+  - jsonb
+- kind: function
+  schema: ops
+  name: hanlp_exact_chain
+  arguments:
+  - jsonb
+  - jsonb
+  - jsonb
+  - jsonb
+  - jsonb
+- kind: function
+  schema: ops
+  name: hanlp_native_role_is_exact
+  arguments:
+  - jsonb
+  - jsonb
+  - integer
+  - jsonb
+- kind: function
+  schema: ops
+  name: hanlp_srl_group
+  arguments:
+  - jsonb
+  - integer
+- kind: function
+  schema: ops
+  name: hanlp_srl_spans
+  arguments:
+  - jsonb
+  - text
+- kind: function
+  schema: ops
+  name: hanlp_unique_child
+  arguments:
+  - jsonb
+  - integer
+  - text
+- kind: function
+  schema: ops
+  name: named_link_definition_subject
+  arguments:
+  - text
+  - integer
+  - integer
+  - text
+- kind: function
+  schema: ops
+  name: named_link_expected_groups
+  arguments:
+  - text
+  - jsonb
+  - jsonb
+  - jsonb
+  - jsonb
+- kind: function
+  schema: ops
+  name: named_link_initial_words
+  arguments:
+  - jsonb
+  - text
+  - integer
+  - integer
+  - jsonb
+- kind: function
+  schema: ops
+  name: named_link_nominal
+  arguments:
+  - jsonb
+  - integer
+  - jsonb
+  - text
+- kind: function
+  schema: ops
+  name: named_link_rule_available
+  arguments:
+  - jsonb
+  - jsonb
+- kind: function
+  schema: ops
+  name: ordered_formula_report
+  arguments:
+  - kb.source_view
+  - jsonb
+  - jsonb
+  - jsonb
+  - text
+- kind: function
+  schema: ops
+  name: ordered_formula_source
+  arguments:
+  - kb.source_view
+  - jsonb
+- kind: function
+  schema: ops
+  name: predicate_argument_inventory
+  arguments:
+  - jsonb
+  - jsonb
+  - jsonb
+- kind: function
+  schema: ops
+  name: predicate_argument_inventory
+  arguments:
+  - jsonb
+  - jsonb
+  - jsonb
+  - boolean
+- kind: function
+  schema: ops
+  name: predicate_clipped_roles_match
+  arguments:
+  - int8multirange
+  - jsonb
+  - jsonb
+  - bigint
+  - bigint
+  - jsonb
+- kind: function
+  schema: ops
+  name: predicate_cross_block_host_matches
+  arguments:
+  - kb.source_view
+  - jsonb
+  - jsonb
+  - jsonb
+  - jsonb
+  - jsonb
+  - jsonb
+  - jsonb
+- kind: function
+  schema: ops
+  name: predicate_cue_host_matches
+  arguments:
+  - jsonb
+  - jsonb
+  - jsonb
+  - integer
+- kind: function
+  schema: ops
+  name: predicate_cue_recipe_matches
+  arguments:
+  - jsonb
+  - jsonb
+  - jsonb
+  - integer
+- kind: function
+  schema: ops
+  name: predicate_interpretation_recipe
+  arguments:
+  - text
+- kind: function
+  schema: ops
+  name: predicate_lowered_condition
+  arguments:
+  - jsonb
+  - jsonb
+  - text
+  - jsonb
+- kind: function
+  schema: ops
+  name: predicate_reading_layout
+  arguments:
+  - jsonb
+  - jsonb
+  - jsonb
+  - jsonb
+- kind: function
+  schema: ops
+  name: predicate_source_negation
+  arguments:
+  - jsonb
+  - jsonb
+  - integer
+- kind: function
+  schema: ops
+  name: predicate_source_negations
+  arguments:
+  - jsonb
+  - text[]
+- kind: function
+  schema: ops
+  name: predicate_source_reading
+  arguments:
+  - jsonb
+  - jsonb
+  - jsonb
+  - text
+  - jsonb
+- kind: function
+  schema: ops
+  name: predicate_source_reading
+  arguments:
+  - jsonb
+  - jsonb
+  - jsonb
+  - text
+  - jsonb
+  - boolean
+- kind: function
+  schema: ops
+  name: predicate_source_reading
+  arguments:
+  - jsonb
+  - jsonb
+  - text
+  - jsonb
+  - boolean
+  - text[]
+  - text
+- kind: function
+  schema: ops
+  name: predicate_source_reading
+  arguments:
+  - jsonb
+  - jsonb
+  - text
+  - jsonb
+  - boolean
+  - text[]
+  - text
+  - jsonb
+- kind: function
+  schema: ops
+  name: predicate_token_texts
+  arguments:
+  - jsonb
+  - jsonb
+- kind: function
+  schema: ops
+  name: predicate_unlocated_role_matches
+  arguments:
+  - jsonb
+  - jsonb
+  - jsonb
+  - integer
+  - bigint
+  - bigint
+- kind: function
+  schema: ops
+  name: prepare_table_correspondence
+  arguments:
+  - bigint
+  - bigint
+  - jsonb
+  - numeric
+- kind: function
+  schema: ops
+  name: publish_characterization
+  arguments:
+  - bigint
+  - bigint
+  - text
+  - jsonb
+  - jsonb
+- kind: function
+  schema: ops
+  name: source_formula_recaps
+  arguments:
+  - kb.source_view
+  - jsonb
+- kind: function
+  schema: ops
+  name: table_correspondence_requests
+  arguments:
+  - kb.source_view
+  - jsonb
+  - numeric
+- kind: function
+  schema: ops
+  name: validate_declaration_chain_component
+  arguments:
+  - jsonb
+  - jsonb
+  - jsonb
+  - jsonb
+  - text
+- kind: function
+  schema: ops
+  name: validate_named_annotation_links
+  arguments:
+  - ops.task
+  - kb.source_view
+  - jsonb
+  - jsonb
+  - jsonb
+- kind: function
+  schema: ops
+  name: validate_named_source_links
+  arguments:
+  - kb.source_view
+  - jsonb
+  - jsonb
+  - jsonb
+- kind: function
+  schema: ops
+  name: validate_source_table_note_scope
+  arguments:
+  - kb.source_view
+  - jsonb
+- kind: function
+  schema: ops
+  name: validate_witnessed_formula_links
+  arguments:
+  - kb.source_view
+  - jsonb
+  - jsonb
+  - jsonb
+- kind: function
+  schema: ops
+  name: artifact_alias_fields
+  arguments:
+  - text
+  - integer
+  - text
+- kind: function
+  schema: ops
+  name: artifact_declared_relationships
+  arguments:
+  - jsonb
+  - jsonb
+- kind: function
+  schema: ops
+  name: artifact_explicit_reference
+  arguments:
+  - text
+  - integer
+  - integer
+  - text
+  - text
+- kind: function
+  schema: ops
+  name: artifact_external_nominations
+  arguments:
+  - jsonb
+  - jsonb
+  - jsonb
+- kind: function
+  schema: ops
+  name: artifact_source_labels
+  arguments:
+  - text
+  - integer
+  - text
+- kind: function
+  schema: ops
+  name: artifact_source_records
+  arguments:
+  - jsonb
+  - jsonb
+- kind: function
+  schema: ops
+  name: comparison_groups
+  arguments:
+  - jsonb
+  - jsonb
+  - jsonb
+  - jsonb
+- kind: function
+  schema: ops
+  name: comparison_literal
+  arguments:
+  - text
+- kind: function
+  schema: ops
+  name: comparison_member
+  arguments:
+  - jsonb
+  - text
+  - jsonb
+  - text
+- kind: function
+  schema: ops
+  name: contextual_component_section
+  arguments:
+  - jsonb
+  - text
+- kind: function
+  schema: ops
+  name: contextual_definition_alias
+  arguments:
+  - jsonb
+  - jsonb
+- kind: function
+  schema: ops
+  name: contextual_section_headings
+  arguments:
+  - text
+  - jsonb
+  - bigint
+  - text
+  - text
+- kind: function
+  schema: ops
+  name: structural_compare_lexical
+  arguments:
+  - jsonb
+  - text
+  - text
+  - jsonb
+  - jsonb
+- kind: function
+  schema: ops
+  name: structural_grouped_comparison
+  arguments:
+  - jsonb
+  - jsonb
+- kind: function
+  schema: ops
+  name: structural_threshold_field
+  arguments:
+  - jsonb
+- kind: function
+  schema: ops
+  name: validate_artifact_identity
+  arguments:
+  - jsonb
+  - jsonb
+  - jsonb

@@ -1,22 +1,21 @@
 # Enriched-document model and retained products
 
-**Implemented source; acceptance incomplete; stopped at operator request · 2026-11-10.** Owns TC-01/02 design. [Coordinator](../text-characterization_2026-11-10.md)
+**Implemented; bounded functional scope Tested · 2026-11-11.** Owns TC-01/02 design. [Coordinator](../text-characterization_2026-11-10.md)
 owns execution state and O01/O03/O05 disposition. Inputs are current source, architecture, the
 [functional review](../../functional_reviews/text-characterization_2026-11-10.md#O03) and
 [representation mechanisms](../../library_leverage/libraries/text-characterization/representations-and-composition.md).
-The coordinator's [stopped checkpoint and bulk continuation](../text-characterization_2026-11-10.md#stopped-checkpoint-and-bulk-continuation)
-owns current evidence, the unverified completion/fixture fixes and remaining native qualification.
-Later producer efficacy and full-book qualification remain separate scope.
+The coordinator owns the applicable full-campaign/replacement union and current closure evidence.
+Independent semantic assessment and full-book qualification remain TC-10/11 scope.
 
-## Foundation and selected realization
+## Authoring foundation and selected realization · 2026-11-10
 
 `ingest/annotations.py` already stores immutable token/sentence columns and native source pieces;
 `ingest/annotation_views.py` reconstructs native working Docs without inference. The released
 [observations model](../../../python/corpus-structure/src/corpus_structure/model/semantic/observations.yaml)
-has attributed operations, coverage and independent contributions. Its finite PredicateFrame/Cue/
-Reading vocabulary does not express the full operators, binder scopes, discontinuity and correlated
-choice structure required here. Extend the executable model and generated projections rather than
-put an untyped semantic object into `parse_detail` and call it the shared model.
+had attributed operations, coverage and independent contributions. Its authoring-baseline finite
+PredicateFrame/Cue/Reading vocabulary lacked the full operators, binder scopes, discontinuity and
+correlated choice structure required here. The delivered executable characterization model extends
+that vocabulary and generated projections; `parse_detail` is not the shared semantic model.
 
 The physical source is the existing immutable published document product. A new enriched view
 references it and selected analysis layers; the view neither copies the complete source per layer
@@ -172,7 +171,7 @@ These scenarios justify the layer contract without requiring every future integr
 
 ## Delivered foundation and integration boundary
 
-**Implemented · 2026-11-10; qualification is recorded by the coordinator.**
+**Implemented; bounded functional scope Tested · 2026-11-11; qualification is recorded by the coordinator.**
 The released declarations are `model/semantic/characterization.yaml`; the shared production
 validators/codecs are `semantic/characterization.py`. `LayerReport` and `EnrichedDocumentView`
 retain canonical immutable bytes and return fresh payload values. The operation records exact
@@ -188,23 +187,26 @@ occurrence/extents, annotation, membership, role, term/edge, choice/member and c
 `semantic/characterization_store.py` owns protected publication and exact reads. The ordinary
 `UnitResult` completion bridge publishes these terminal products atomically under the existing
 attempt/holder fence. A characterization result cannot silently discard another terminal payload
-or cost report. Provider-specific cost custody must be integrated explicitly when those producers
-are implemented.
+or cost report. Producers obtain per-unit determinants from the execution-owned port and preserve
+exact provider cost reports through prepared completion under the native fence. Changed-cost
+replay is refused.
 
 `text.compose_view` version1 is registered as a deterministic document method. Its frozen
 configuration selects `characterization_base_document`, `characterization_source_scope`,
-`characterization_layers` and `characterization_profile`. It composes retained products without
+`characterization_layers`, `characterization_active_layers` and `characterization_profile`.
+As [ADR-0082](../../adr/0082-explicit-analysis-selection.md) specifies, `layers` retains dependency
+closure while `active_layers` selects the analytical population. It composes retained products without
 recognition; `source_only` is an explicitly weaker profile. Selected layers can have different
 source subsets under the same base. A view states which supported coverage it exposes; it cannot
-strengthen a layer's outcome. No full linguistic profile is implemented by naming a profile string.
-TC-03 onward must declare and execute their actual family inventories.
+strengthen a layer's outcome. The released full-profile inventory and actual TC-03–08 operations
+supply family coverage; naming a profile string alone cannot supply it.
 
 Composition and dependency validation accept explicitly pinned layers from different releases
 under supported characterization-v1 contracts. Each layer is validated under its own archived
 release and rule authority; `validate_layer`, `validate_view` and their codecs accept an explicit
-`releases` map for that purpose. The view's release owns composition. This supports the planned
-TC-03→TC-05 transition when adding the first witnessed construction rule changes the semantic
-release: the original inference bytes, pin, operation and provenance remain unchanged. Missing
+`releases` map for that purpose. The view's release owns composition. The cross-release
+TC-03→TC-05 rule-change path is implemented and covered by native and detached controls: the
+original inference bytes, pin, operation and provenance remain unchanged. Missing
 contracts, incompatible formats, wrong source and malformed pins refuse. A tokenizer/model/input
 change changes the inference determinants and cannot masquerade as the original evidence pin.
 
@@ -234,8 +236,10 @@ source pointers/pages/pieces, graph/choice closure and native/companion identity
 or NLP inference. Complete source export uses the existing streaming record writer and publication
 owner. Whole-run completion is unnecessary for an exact sealed view.
 
-The default released construction-rule inventory is empty. A producer cannot gain witnessed
-attachment standing by supplying an arbitrary rule name and valid coordinates; TC-05/06 must add
-actual released mechanical support declarations. This foundation supplies representation and
-custody. It does not establish linguistic efficacy, implement providers, migrate existing
-language-producing consumers, select the project or qualify the full-book pipeline.
+Fresh pack acquisition freezes the generated construction declarations, full family profile and
+eight baseline question definitions into trusted source inputs. Archived composition consumes its
+original supplied bytes. A producer cannot gain witnessed attachment standing from an arbitrary rule
+name and valid coordinates: native admission enforces the released mechanical support declarations.
+TC-03–09 now delivers the providers and current-only consumer migration over this foundation.
+The coordinator owns functional closure; linguistic efficacy, project selection and full-book
+qualification remain separate obligations.

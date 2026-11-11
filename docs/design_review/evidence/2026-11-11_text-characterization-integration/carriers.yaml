@@ -1,0 +1,8 @@
+baseline: HEAD
+archive_release: release:cf08bd0048c9dcd81f53a9240247eccca05491045985614a977dce0f28fde544
+packs:
+- statistics
+native_predecessor: semantic_tc03_09_projection
+native_revision: semantic_tc03_09_carriers
+deployment: true
+deployment_profile: development
