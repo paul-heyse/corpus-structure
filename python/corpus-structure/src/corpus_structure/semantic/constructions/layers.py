@@ -148,6 +148,11 @@ class ConstructionLayer:
             self.terms[key]["required_choices"] = required
         # A complete grammar-production witness retains its actual named bindings.
         # Prefix alternatives remain packed; only actual term endpoints gain roles.
+        products_by_production = {}
+        for product in reducer.terms.values():
+            premises = product.get("premises")
+            if isinstance(premises, list) and len(premises) == 1:
+                products_by_production.setdefault(premises[0], []).append(product)
         for key, syntax in reducer.syntax.items():
             name = syntax.get("native_label", "").removeprefix("prose__")
             declaration = DECLARATIONS.get(name)
@@ -157,8 +162,7 @@ class ConstructionLayer:
                 or syntax["kind"] != "grammar.production"
             ):
                 continue
-            products = [t for t in reducer.terms.values() if t.get("premises") == [key]]
-            for product in products:
+            for product in products_by_production.get(key, ()):
                 if product["value"] != name:
                     continue
                 construction = identity(

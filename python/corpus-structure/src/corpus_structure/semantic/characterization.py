@@ -591,7 +591,10 @@ def validate_layer_structure(
     # References are layer-qualified only across immutable layer boundaries.
     # All premise-bearing records share the same external closure validation.
     premise_records = list(all_nodes.values()) + [r["basis"] for r in data["roles"]]
-    dependency_indexes = {}
+    # Reports contain immutable canonical bytes. Reuse their verified indexes
+    # across external edges instead of decoding and hashing once per edge.
+    dependency_indexes: dict[ProductReference, tuple[set[str], set[str]]] = {}
+    base_pin = _pin(base)
     for item in premise_records:
         for external in (
             *item.get("external_premises", ()),
@@ -602,27 +605,23 @@ def validate_layer_structure(
                 raise ValueError("external premise layer missing from dependencies")
             if dependencies is None:
                 raise ValueError("external premise requires dependency closure")
-            layer = dependencies.get(pin)
-            if (
-                layer is None
-                or layer.reference(pin.task_id) != pin
-                or layer.base_document != _pin(base)
-            ):
-                raise ValueError("external premise has missing or wrong-source dependency")
             if pin not in dependency_indexes:
+                layer = dependencies.get(pin)
+                if layer is None or layer.reference(pin.task_id) != pin:
+                    raise ValueError("external premise has missing or wrong-source dependency")
                 body = layer.payload
+                if _pin(body["base_document"]) != base_pin:
+                    raise ValueError("external premise has missing or wrong-source dependency")
                 node_ids = {n["local_id"] for k in _INVENTORIES for n in body[k]}
-                node_ids.update(m["local_id"] for g in body["choices"] for m in g["members"])
-                dependency_indexes[pin] = node_ids
-            if external["local_id"] not in dependency_indexes[pin]:
+                member_ids = {m["local_id"] for g in body["choices"] for m in g["members"]}
+                node_ids.update(member_ids)
+                dependency_indexes[pin] = node_ids, member_ids
+            if external["local_id"] not in dependency_indexes[pin][0]:
                 raise ValueError("dangling external premise")
         for external in item.get("required_external_choices", ()):
             if dependencies is None:
                 raise ValueError("external choice requires exact dependency closure")
-            body = dependencies[_pin(external["layer"])].payload
-            if external["local_id"] not in {
-                m["local_id"] for g in body["choices"] for m in g["members"]
-            }:
+            if external["local_id"] not in dependency_indexes[_pin(external["layer"])][1]:
                 raise ValueError("required external choice is not a choice member")
     structural = {key: [] for key in all_nodes}
     for name in ("annotations", "memberships", "roles", "terms"):

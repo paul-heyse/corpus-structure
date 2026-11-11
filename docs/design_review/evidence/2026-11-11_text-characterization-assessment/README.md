@@ -196,3 +196,94 @@ The independent source panel therefore retains its original meaning and identiti
 
 Documentation publication **passed**, `402c38fc45d04fcf8e1efd6a2ad85656`,873canonical pages,
 zero link errors, at this bounded checkpoint. Final assembled qualification remains separate.
+
+Source-anchored task comparison is now the explicit TC-E05 refinement in the coordinator and
+assessment companion. The original sourceC passes210–230 are retained (28cases/26opportunities,
+including13native task references); no producer grade was used to author them. Their independent
+authors and adjudicator exposed the open-decomposition mismatch. [Task frames41](task-panel/README.md)
+and the binder supplement42 preserve independent source selection and explicit applicability.
+Their semantic references and adapter implementation remain in progress.
+
+View publication now shares the finite64MiB metadata allowance with reads; layer publication
+remains limited to8MiB. Preview`6cd57cb5113844b69a279ca8284f123b`, two-operation candidate
+`40f5bc5c9d694660a8610e37fa52221d`, registration`dc5c7b23910c4bafaaa9a6acfa35460d` and
+deployment`7819a7e15e07427489033a6dd1208954` **passed**. Head is`semantic_tc11_view_capacity`;
+the semantic release is unchanged and the new migration is immutable. Native tests **passed**,
+2/2,`401fc5c94a7241f598a05f2b996768bb`, including a valid composed view beyond8MiB backed by
+individually smaller admitted layers and a refusal under a deliberately smaller read budget.
+
+Construction controls **passed**,41/41,`edac73abd9be47deb03fbf9ec824df15`. Multiline protected
+atoms preserve exact occurrence spelling and native premises beside explicitly attributed
+whitespace-normalized interpreted lexical labels. Typing **passed**,
+`d9e385295725446b8c38984a93bb77f7`, before subsequent task-comparison implementation.
+Resumptions505–511 remain retained at their actual scope; execution was interrupted before
+further chapter production so the revised assessment runtime and native contract can settle.
+The [publication-preparation interruption](raw/tc11-book-publication-preparation-interrupted.log)
+is preserved alongside the earlier failed attempt. Final book execution and qualification remain open.
+
+## Source task comparison integration · 2026-11-11
+
+Versioned source-anchored task adapters now preserve directed roles, explicit schemes, distinct
+binders, source order, multiplicity, conditional support and bounded choice queries. Witnesses
+require a feasible prerequisite closure; complete named slots inspect their declared population.
+Optional order/standing/value constraints apply only where independently declared. Output-first
+choice matching must include the frozen assessed group. Exact formal questions refuse coarse
+`contained_in_atom` correspondence. Unsupported mappings are unavailable; known missing
+relations are semantic misses. Exact native/retained graph comparisons remain separate.
+
+Focused controls **passed**,149/149,`7a4cf5560f684e0f9f81d1b6eef76cf7`. The independent
+implementation review and a separate frozen-output choice control exposed the support,
+optional-constraint, correspondence and selected-group defects corrected before this receipt.
+Full typing **passed**,`23c0444400b24135ac496c75031f96e7`. Earlier typing failure
+`acaf59709b5b4405bd0d09305e0d2b75` is retained; its graph-union test narrowing was repaired.
+
+The [task semantics request](task-semantics.yaml) produced preview
+`febe43f5dfc543b1940ef14c8d68c97a`, four-operation rollback-only candidate
+`fa6f64cbbd874b23a1d952cf25823e29`, registration`7ed8430eed7e4ed6bbf2af79bbc7b4f7` and
+deployment`d805bd19fbbc4ac58dc7c9f5d46f5908`: **passed**. Head is
+`semantic_tc10_task_semantics`; the semantic release is unchanged. The private source-bound
+reference validator is explicitly captured and publisher-only. Frozen migration artifacts are
+immutable. Native fixture qualification remains separate from candidate/deployment success.
+
+Native assessment fixtures **passed**,11/11,`949f73df6d744b8a8ccec1f8eb110175`, from
+`uv run ci test --json -- python/corpus-structure/tests/evaluate/test_characterization_assessment_native.py python/corpus-structure/tests/evaluate/test_operation_assessment_native.py`.
+They exercise actual sealed-layer source-only references, protected A/B/C submission and task
+grading/inspection, alongside direct SQL refusal of wrong source, unknown fields and noninteger
+order. They establish bounded framework behavior; actual book grades remain open.
+
+[Revised source sets41–44](task-panel/README.md) contain26 units/31 opportunities. A and B
+have independently signed their protected passes; C283–308 adjudication is complete. Original
+set40/C210–230 remains immutable. The [task-integration interruption](raw/tc11-book-task-integration-interrupted.log)
+retains the last pre-freeze primary attempt. Full-book execution resumed with ordinary
+network-enabled `uv run` after final product source settled. No final combined view or semantic
+grade is claimed until its terminal products and independent references are inspected.
+
+## Repeated immutable metadata correction · 2026-11-11
+
+Read-only call-path inspection identified two unnecessary multiplicities in ordinary primary
+construction. External-premise validation repeatedly hashed and decoded a whole immutable
+dependency before consulting its existing node-ID cache; grammar witness attachment rescanned
+all reducer terms for each production. Validation now reuses authenticated dependency node and
+choice indexes across external edges. Construction builds its exact single-premise production
+index once, retaining original term order. Every source, identity, node and choice check remains.
+This is a qualitative execution-fit correction, not a measured speedup or parser substitution.
+Source-specific Earley preparation and its protected-atom positioning remain unchanged.
+
+The invocation starting513 was intentionally interrupted after two natural units had produced
+independent layers, with the second unit's contextual evaluation523 cancelled. Its
+[settled account](qualification/interrupted-invocation-513.json) and
+[execution log](raw/tc11-book-validation-integration-interrupted.log) preserve actual partial
+scope. Successful construction520 passes the earlier failing second-unit publication; it does
+not establish full-book or linguistic correctness. Final combined output remains unavailable.
+The coordinator owns TC-E06 and affected qualification. Typing **passed**,
+`2d2ff5a115bb467bad92de33fa1054c6`. Focused pure/native selection
+`6daeba6f757a448091af826dc92ff270` was **blocked**:141 passed and one real-primary case lacked
+`CORPUS_PM2_NATIVE_TEST_ASSETS`. Supplying the existing assets, without changing dependencies,
+**passed** that exact case,`4c90354fce9a46c6abd0e1babd62de25`, including all primary stages and
+exact retained reuse. `uv run ci test coverage` reports142/142 covered identities and zero
+unresolved/missing-lane/unknown-context obligations. Its overall original outcome remains
+blocked; the coordinator judges the source difference (comment clarification only) and private
+native-binding variation applicable to this bounded union. Final assembled qualification is open.
+Independent static review found no material semantic regression in either function. Documentation
+**passed**,`51c04f8616554278874404a0ada10674`,873 pages/zero link errors. The book resumed under
+normal network-enabled `uv run` after the final product source settled.

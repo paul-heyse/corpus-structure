@@ -1,7 +1,7 @@
 # Status
 
 _Updated 2026-11-11. TC-03–09 and their TC-01/02 prerequisites are implemented; TC-10/11 execution is active.
-Native head is `semantic_tc10_11_ref_context`; `/10` remains default and the project unselected._
+Native head is `semantic_tc10_task_semantics`; `/10` remains default and the project unselected._
 
 ## Current scope and authority
 
@@ -24,18 +24,26 @@ Native head is `semantic_tc10_11_ref_context`; `/10` remains default and the pro
 ## Active execution
 
 The [coordinator](docs/plans/text-characterization_2026-11-10.md#authorized-remaining-scope-execution--2026-11-11)
-owns current TC-10/11 scope. Assessment V3, protected bounded inspection, native task scoring and authenticated layer
-manifests are implemented; candidate3347969a60524d04979ce067c5910cf5 was deployed as
-8d6b99066cb24d21adc2eacb43d5eadd, releasec9939039081ddcfbc382e9dc323e12e31f9b3683fb479c773ea3fd72ac6a6189. The source and persisted-composition slices
-are merged. Native assessment/manifest controls passed27 (`287d06f4208f45d58530aed836419e88`);
-latest assessment/native-column controls passed99 (`b8cad173a69348b686c07a1f8d788d78`).
-Retained-source initialization passed6 (`bc608dc9ad2341b5ac9ed912c2365fa9`).
-Whole-book source capture496 is finalized at cut614:316 direct SourceViews, original518-page base retained.
-Source-first reference set40 freezes26 opportunities/21units across12chapters; independent A/B authoring is active.
-Forward native reference/read controls passed12 (`ff28f9ed40754f9ba377194e6a28faa4`),
-detached/coverage controls passed89 (`46b3d8a087dd45219d03925911bf8630`), typing passed`04c7ebcea377489cb8d77b471374cf10`.
-Full-book primary execution has begun at497. No semantic grade or full-book qualification is claimed.
+owns TC-10/11 scope and TC-E01–06. Assessment V3, native task scoring, authenticated manifests,
+bounded composition/consumers and source-anchored semantic task comparison are implemented.
+Commits4d32fd596/47b0554b5/0503a13bf retain the latest producer, native and independent-reference slices.
+Deployment`d805bd19fbbc4ac58dc7c9f5d46f5908` passed; release remains
+`c9939039081ddcfbc382e9dc323e12e31f9b3683fb479c773ea3fd72ac6a6189`.
+Source capture496/cut614 retains316 direct SourceViews and the original518-page base.
+The [source account](docs/design_review/evidence/2026-11-11_text-characterization-assessment/qualification/README.md)
+preserves recognition/mapping limits separately from source membership and page presence.
+Original set40/C210–230 is immutable. Revised sets41–44 freeze31opportunities/26units;
+independent A/B and C283–308 are submitted. No producer grade is claimed.
+`uv run ci test --json -- python/corpus-structure/tests/evaluate/test_task_semantics.py python/corpus-structure/tests/evaluate/test_characterization_assessment.py python/corpus-structure/tests/evaluate/test_characterization_native_columns.py python/corpus-structure/tests/evaluate/test_operation_assessment.py`: **passed**,149,`7a4cf5560f684e0f9f81d1b6eef76cf7`.
+`uv run ci test --json -- python/corpus-structure/tests/evaluate/test_characterization_assessment_native.py python/corpus-structure/tests/evaluate/test_operation_assessment_native.py`: **passed**,11,`949f73df6d744b8a8ccec1f8eb110175`.
+`uv run ci check --view steps --json`: **passed**,`4a635015b2854be89243c21df4f68568`, before TC-E06; empty rule lanes **not_run**. Rustc1.102.0-nightly(9c5648833 2026-11-10).
+`uv run ci docs check --json`: **passed**,`51c04f8616554278874404a0ada10674`,873pages/zero link errors.
+TC-E06's dependency/term indexing passed141 controls in`6daeba6f757a448091af826dc92ff270`; one case was
+blocked by an omitted assets setting, then **passed** as`4c90354fce9a46c6abd0e1babd62de25` with existing assets.
+Their142-identity union is covered; comment-only source/private-binding differences retain bounded applicability.
+Typing **passed**,`2d2ff5a115bb467bad92de33fa1054c6`. Invocation513–523 was intentionally interrupted;
+network-enabled `characterize_book.py` resumed after correction. Final combined view/book qualification are open.
 
-Next: complete fresh Sol/high A/B/C, full-book primary execution and separate output-first assessment;
+Next: complete resumed book execution, then separate output-first assessment;
 grade exact retained products, resolve triggered gaps and complete the final applicable test union.
 Activation/selection remains a separate final effect. Preserve prior receipts at their own scope.
