@@ -537,9 +537,14 @@ def test_owned_annotation_consumer_reuses_columns_and_refuses_profile_or_source_
     assert result.annotations == products
     assert result.annotations[0].tokens[0].start == 0
     assert result.annotations[0].sentences[-1].end == 16
-    operational_profile = AnnotationProfile(SentenceConfig(exclude=("ner",), batch_size=1))
-    reused, reused_errors, _ = consume_annotations(reader, source, operational_profile)
-    assert reused and not reused_errors
+    # Complete retained execution parameters include the original batch size;
+    # consumers may repeat that exact request but cannot relabel it as batch1.
+    exact_profile = AnnotationProfile(SentenceConfig(exclude=("ner",), batch_size=64))
+    reused, reused_errors, _ = consume_annotations(reader, source, exact_profile)
+    assert reused == products and not reused_errors
+    changed_batch = AnnotationProfile(SentenceConfig(exclude=("ner",), batch_size=1))
+    with pytest.raises(ValueError, match="configuration differs from requested parameters"):
+        consume_annotations(reader, source, changed_batch)
     changed_profile = AnnotationProfile(SentenceConfig(exclude=("ner",), model_version="0.0.0"))
     with pytest.raises(ValueError, match="model/runtime"):
         consume_annotations(reader, source, changed_profile)
