@@ -525,6 +525,13 @@ class NativeEvidenceMethod:
                     dict(name=cfg.sentences.model, version=cfg.sentences.model_version),
                 ],
             )
+            from corpus_structure.semantic.observations import source_value
+            if selected_spacy is not None:
+                row["execution_profile"] = source_value(selected_spacy.native.wire)
+                host = providers.native_group._hosts.get(selected_spacy.native.host)
+                observed = None if host is None else host.startup.get(selected_spacy.native.fingerprint)
+                if observed is not None:
+                    row["startup_observation"] = source_value(observed)
             row["availability"] = _availability(builder, "spacy")
             builder.native_runs.append(row)
         if cfg.characterization_profile != "full_native":
@@ -615,5 +622,8 @@ class NativeEvidenceMethod:
                     + ",".join(startup["omitted_checkpoint_buffers"]),
                 ],
             )
+            from corpus_structure.semantic.observations import source_value
+            row["execution_profile"] = source_value(worker.selection_factory().native.wire)
+            row["startup_observation"] = source_value(startup)
             row["availability"] = _availability(builder, "hanlp")
             builder.native_runs.append(row)

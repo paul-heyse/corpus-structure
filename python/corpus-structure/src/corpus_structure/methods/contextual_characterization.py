@@ -572,5 +572,8 @@ class ContextualCharacterizationMethod:
                     "detection or logical discourse meaning"
                 ],
             )
+            from corpus_structure.semantic.observations import source_value
+            row["execution_profile"] = source_value(worker.selection_factory().native.wire)
+            row["startup_observation"] = source_value(startup)
             row["configuration_codec"] = provider + "-config-json-v1"
             builder.native_runs.append(row)

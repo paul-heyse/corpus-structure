@@ -19,6 +19,8 @@ from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.methods.annotation_rules import AnnotationRule, AnnotationRuleMatch
 from corpus_structure.methods.gliner import GlinerInput, GlinerPack, GlinerProfile, GlinerRefused
+from corpus_structure.methods.native_host_clients import HostedGliner
+
 from corpus_structure.methods.gliner_worker import GlinerWorker, GlinerWorkerError
 from corpus_structure.methods.predicate_frames import (
     PREDICATE_FRAME_VERSION,
@@ -49,6 +51,7 @@ from corpus_structure.semantic.structural_products import (
 
 
 class DefinitionComponentsConfig(StructuralValue):
+    native_execution_profile: dict[str, Any] | None = Field(default=None, exclude_if=lambda value: value is None)
     inputs: StructuralInput | None = None
     structural_input_digest: str | None = None
     target_ids: tuple[str, ...] = ()
@@ -892,7 +895,7 @@ class DefinitionComponentsMethod:
     resources = Resources(worker="cpu", batch_size=1, max_concurrency=1)
 
     def __init__(self):
-        self._worker: GlinerWorker | None = None
+        self._worker: GlinerWorker | HostedGliner | None = None
 
     def close(self):
         if self._worker is not None:
@@ -931,7 +934,11 @@ class DefinitionComponentsMethod:
             if cfg.profile is None:
                 raise GlinerRefused("model execution requires its exact declared profile")
             if self._worker is None:
-                self._worker = GlinerWorker(cfg.profile)
+                providers = getattr(ctx.reader, "provider_execution", None)
+                if providers is not None:
+                        self._worker = HostedGliner(cfg.profile, group=providers.native_group, native_profile=cfg.native_execution_profile)
+                else:
+                    self._worker = GlinerWorker(cfg.profile)
             elif self._worker.profile.fingerprint != cfg.profile.fingerprint:
                 raise GlinerRefused("definition worker cannot switch model profile")
         passages = {p.passage_id: p for p in cfg.inputs.passages}

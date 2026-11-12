@@ -1280,3 +1280,37 @@ def freeze_characterization_profiles(name, parameters, settings, *, cache=None):
         if key not in cache:
             cache[key] = preflight_native_runtime("gliner", profile.snapshot)["runtime_identity"]
         parameters["gliner_runtime"] = cache[key]
+
+
+def freeze_analytical_profile(name, parameters, settings, *, cache=None):
+    """Freeze a selected domain encoder before its configuration/task is recorded."""
+    from .native_profiles import NativeProfile, gliner_selection, preflight_native_runtime
+
+    cache = {} if cache is None else cache
+    if name == "extract.m1_candidates":
+        from .m1_source import M1Config
+        config = M1Config.model_validate(parameters)
+        profile = config.profile()
+    elif name == "structure.definition_components":
+        from .definition_applicability import DefinitionComponentsConfig
+        config = DefinitionComponentsConfig.model_validate(parameters)
+        if not config.use_model or config.profile is None:
+            return None
+        profile = config.profile
+    else:
+        return None
+    frozen = parameters.get("native_execution_profile")
+    if frozen is not None:
+        selection = NativeSelection(NativeProfile(**frozen), profile.snapshot)
+        expected = gliner_selection(profile, selection.native.runtime_identity)
+        if expected.native != selection.native:
+            raise GlinerRefused("analytical GLiNER frozen profile differs from configuration")
+        return selection
+    if profile.device != "cuda":
+        raise GlinerRefused("current analytical GLiNER execution requires an explicit CUDA profile")
+    key = ("gliner-runtime", str(profile.snapshot.absolute()))
+    if key not in cache:
+        cache[key] = preflight_native_runtime("gliner", profile.snapshot)["runtime_identity"]
+    selection = gliner_selection(profile, cache[key])
+    parameters["native_execution_profile"] = selection.native.wire
+    return selection
