@@ -382,6 +382,8 @@ class NativeEvidenceBuilder:
         native_run: str,
     ) -> None:
         """Validate heads independently; one malformed head cannot erase valid siblings."""
+        from corpus_structure.semantic.observations import source_value
+
         prefix = f"hanlp/{view.ref.id}/{product.block_id}/sentence/{number}"
         occurrences = [t["occurrence"] for t in words]
         selector = source_selector(view, words[0]["source"].start, words[-1]["source"].end)
@@ -392,6 +394,11 @@ class NativeEvidenceBuilder:
             occurrences,
             "hanlp-canonical-sentence-1",
             "sentence",
+            **(
+                {"native_batch": source_value(preparation["batch_receipt"])}
+                if "batch_receipt" in preparation
+                else {}
+            ),
         )
         prepared_words = preparation.get("prepared_words")
         if (

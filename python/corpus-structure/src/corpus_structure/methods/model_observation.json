@@ -1,5 +1,5 @@
 {
-  "request_version": "located-model-request-1",
+  "request_version": "located-model-request-2",
   "definition_windows": {
     "chars": 1536,
     "overlap": 256,
@@ -72,5 +72,15 @@
     "include_confidence": true,
     "num_workers": 0,
     "max_len": null
+  },
+  "batch_execution": {
+    "version": 2,
+    "device": "cpu",
+    "numerical_contract": "native-float32-batch-observation-v1",
+    "member_identity": "exact-request-context-source-and-inference-policy",
+    "grouping": "compatible-admitted-members-in-declared-order",
+    "native_numerical_variation": "permitted-including-threshold-and-decoder-tie-selection-changes",
+    "score_reduction": "unrounded-actual-native-confidence-with-unchanged-released-thresholds",
+    "reuse": "authentic-retained-observation-not-bitwise-fresh-execution-equivalence"
   }
 }

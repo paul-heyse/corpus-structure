@@ -423,6 +423,8 @@ def open_pm2_worker(
                 "HF_HUB_OFFLINE": "1",
                 "TRANSFORMERS_OFFLINE": "1",
                 "TOKENIZERS_PARALLELISM": "false",
+                "OMP_NUM_THREADS": str(json.loads(profile.read_bytes()).get("threads", 4)),
+                "MKL_NUM_THREADS": str(json.loads(profile.read_bytes()).get("threads", 4)),
             }
             if device == "cpu":
                 environment["CUDA_VISIBLE_DEVICES"] = ""

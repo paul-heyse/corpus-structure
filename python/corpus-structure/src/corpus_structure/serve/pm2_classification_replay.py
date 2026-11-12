@@ -65,7 +65,9 @@ def verify_classification_replay(raw, row, view, contract):
     pin = record_source_pin(source)
     extent = value["assessed_scope"]["projection_extent"]
     if (
-        (raw["method"], body["method"], body["operation_version"]) != (METHOD, METHOD, VERSION)
+        (raw["method"], body["method"], body["operation_version"])
+        != (METHOD, METHOD, body["operation_version"])
+        or body["operation_version"] not in {"1", VERSION}
         or body["outcome"] != "produced"
         or body["release_id"] != contract["release_id"]
         or raw["origin_unit_id"] != source.source_view_id
@@ -90,15 +92,22 @@ def verify_classification_replay(raw, row, view, contract):
         mapping,
         profile,
         policy["inference"],
+        operation_version=body["operation_version"],
     )
     require_classification_request(native["request"], request)
     if native["native"]["outcome"] != "succeeded":
         raise ValueError("classification product lacks a successful raw observation")
-    product = classification_product(request, native["native"]["gliner"], profile)
-    input_hash = pm2_input_digest(
-        mapping, profile.startup, request, question=FAMILY, operation_version=VERSION
+    product = classification_product(
+        request, native["native"]["gliner"], profile, request_version=policy["request_version"]
     )
-    operation = operation_identity(FAMILY, VERSION, source.unit_ref, input_hash)
+    input_hash = pm2_input_digest(
+        mapping,
+        profile.startup,
+        request,
+        question=FAMILY,
+        operation_version=body["operation_version"],
+    )
+    operation = operation_identity(FAMILY, body["operation_version"], source.unit_ref, input_hash)
     if (
         raw["input_hash"] != input_hash
         or body["input_hash"] != input_hash
@@ -126,7 +135,7 @@ def verify_classification_replay(raw, row, view, contract):
             reported["operation_version"],
             reported["outcome"],
         )
-        != (operation, FAMILY, VERSION, "succeeded")
+        != (operation, FAMILY, body["operation_version"], "succeeded")
         or reported["report_digest"] != sha256(canonical_bytes(native)).hexdigest()
         or reported["computation_dependencies"] != [input_hash]
     ):

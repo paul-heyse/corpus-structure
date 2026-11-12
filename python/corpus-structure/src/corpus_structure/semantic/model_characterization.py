@@ -21,7 +21,6 @@ from corpus_structure.methods.gliner import (
     GlinerReport,
     map_literal,
 )
-from corpus_structure.methods.model_observation import request_digest
 from corpus_structure.methods.native_evidence_layers import (
     NativeEvidenceBuilder,
     digest,
@@ -712,6 +711,13 @@ class ModelCharacterizationBuilder(NativeEvidenceBuilder):
     ) -> dict[str, dict[str, Any]]:
         family, scope = request.family, request.scope
         payload = request.payload
+        receipt = reply.get("batch_receipt")
+        if receipt is not None:
+            from corpus_structure.methods.model_observation import validate_pm2_batch_receipt
+
+            validate_pm2_batch_receipt(receipt, payload, "d1")
+        elif self.operation.get("version") == "2":
+            raise ValueError("current d1 observation requires its native cohort receipt")
         if reply.get("outcome") not in {"succeeded", "empty"}:
             self.unavailable(
                 family,
@@ -817,6 +823,7 @@ class ModelCharacterizationBuilder(NativeEvidenceBuilder):
                     rendered_state=rendered,
                     state_fields=reply["state_fields"],
                     usage=reply.get("native", {}).get("usage"),
+                    batch_receipt=reply.get("batch_receipt"),
                 ),
                 stage=request.stage,
                 candidates=request.candidates,
@@ -975,7 +982,7 @@ def gliner_cue_request(
     )
     item = replace(
         GlinerInput.from_context(scope.mapping.context),
-        operation="text.model_characterization/1:" + family.digest,
+        operation="text.model_characterization/2:" + family.digest,
     )
     return pack, item
 
@@ -997,8 +1004,7 @@ def project_gliner_cues(
         authenticated_gliner_report,
     )
 
-    expected = request_digest(pack, asdict(profile), (item,), threshold, "nested", False, inference)
-    authenticated_gliner_report(
+    authenticated = authenticated_gliner_report(
         dict(pack=asdict(pack), item=asdict(item), threshold=threshold, inference=dict(inference)),
         asdict(native),
         ClassificationProfile(
@@ -1006,6 +1012,9 @@ def project_gliner_cues(
         ),
         overlap_policy="nested",
     )
+    expected = authenticated.request_digest
+    if expected is None:
+        raise ValueError("authenticated cue lacks a request commitment")
     raw = native.raw
     if (
         not isinstance(raw, dict)

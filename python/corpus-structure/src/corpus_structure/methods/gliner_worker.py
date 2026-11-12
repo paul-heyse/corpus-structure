@@ -16,7 +16,9 @@ from multiprocessing.connection import Connection
 from multiprocessing.process import BaseProcess
 from multiprocessing.reduction import ForkingPickler
 from threading import Event, Lock, Thread
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
+
+from corpus_structure.semantic.identity import canonical_bytes
 
 from .gliner import (
     BOUNDARY_DIAGNOSTIC,
@@ -33,6 +35,7 @@ from .gliner import (
     load_model,
     prepare_input,
 )
+from .model_observation import batch_receipt, installed_policy, report_observation_digest
 
 if TYPE_CHECKING:
     from .pm2_source import PM2SourceMap
@@ -57,6 +60,16 @@ class _Request:
     overlap_policy: str
     evaluation: bool
     diagnostic: _Diagnostic | None = None
+    prepare_only: bool = False
+
+
+@dataclass(frozen=True)
+class GlinerAdmission:
+    ordinal: int
+    context_id: str
+    context_digest: str
+    admitted: bool
+    reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -65,6 +78,7 @@ class _Reply:
     reports: tuple[GlinerReport, ...] | None = None
     error: str | None = None
     error_kind: str | None = None
+    admissions: tuple[GlinerAdmission, ...] | None = None
 
 
 def _send_reply(connection: Connection, reply: _Reply, profile: GlinerProfile) -> None:
@@ -76,7 +90,12 @@ def _send_reply(connection: Connection, reply: _Reply, profile: GlinerProfile) -
 
 
 def _native_child(connection: Connection, profile: GlinerProfile) -> None:
-    from .model_observation import installed_policy, observation_digest, request_digest
+    from .model_observation import (
+        batch_receipt,
+        installed_policy,
+        observation_digest,
+        request_digest,
+    )
 
     os.dup2(2, 1)
     # Defense in depth only: detached inputs and absence of DB/provider imports are
@@ -119,6 +138,29 @@ def _native_child(connection: Connection, profile: GlinerProfile) -> None:
                     loading = True
                     model, effective = load_model(profile)
                     loading = False
+                if request.prepare_only:
+                    admissions = []
+                    for ordinal, item in enumerate(request.inputs):
+                        try:
+                            prepare_input(model, schema, item, profile)
+                        except GlinerRefused as refusal:
+                            admissions.append(
+                                GlinerAdmission(
+                                    ordinal,
+                                    item.context_id,
+                                    item.context_digest,
+                                    False,
+                                    str(refusal)[:1800],
+                                )
+                            )
+                        else:
+                            admissions.append(
+                                GlinerAdmission(ordinal, item.context_id, item.context_digest, True)
+                            )
+                    _send_reply(
+                        connection, _Reply(request.serial, admissions=tuple(admissions)), profile
+                    )
+                    continue
                 preparations = tuple(
                     prepare_input(model, schema, item, profile) for item in request.inputs
                 )
@@ -169,6 +211,19 @@ def _native_child(connection: Connection, profile: GlinerProfile) -> None:
                     if any(item.operation for item in request.inputs)
                     else None
                 )
+                receipt = (
+                    batch_receipt(
+                        request.pack,
+                        asdict(profile),
+                        request.inputs,
+                        request.threshold,
+                        request.overlap_policy,
+                        request.evaluation,
+                        inference,
+                    )
+                    if request_key is not None
+                    else None
+                )
                 raw = model.batch_extract(
                     [item.text for item in request.inputs],
                     schema,
@@ -213,14 +268,22 @@ def _native_child(connection: Connection, profile: GlinerProfile) -> None:
                         elapsed,
                         reused,
                         request_digest=request_key,
+                        batch_receipt_json=None if receipt is None else _json(receipt),
+                        member_ordinal=None if receipt is None else ordinal,
                         observation_digest=(
-                            observation_digest(request_key, _json(result), effective)
-                            if request_key
+                            observation_digest(
+                                request_key,
+                                _json(result),
+                                effective,
+                                ordinal=ordinal,
+                                member=receipt["members"][ordinal],
+                            )
+                            if request_key is not None and receipt is not None
                             else None
                         ),
                     )
-                    for item, prepared, result in zip(
-                        request.inputs, preparations, raw, strict=True
+                    for ordinal, (item, prepared, result) in enumerate(
+                        zip(request.inputs, preparations, raw, strict=True)
                     )
                 )
                 _send_reply(connection, _Reply(request.serial, reports=reports), profile)
@@ -241,6 +304,31 @@ def _native_child(connection: Connection, profile: GlinerProfile) -> None:
                     return
     finally:
         connection.close()
+
+
+def validate_request(profile, pack, inputs, *, threshold, overlap_policy, evaluation=False):
+    if not isinstance(inputs, tuple) or not inputs or len(inputs) > profile.max_batch:
+        raise GlinerRefused("batch must be a nonempty bounded immutable tuple")
+    # Decoding policy belongs to the requesting operation. Private language
+    # characterization needs overlapping cues without claiming evaluation custody.
+    supported_overlap = {"flat", "nested", "allow"}
+    if not 0 <= threshold <= 1 or overlap_policy not in supported_overlap:
+        raise GlinerRefused("unsupported threshold or overlap policy")
+    sizes = [len(item.text.encode()) for item in inputs]
+    if max(sizes) > profile.max_input_bytes or sum(sizes) > profile.max_batch_bytes:
+        raise GlinerRefused("live input byte bound exceeded")
+    if len(pack.declaration_json.encode()) > profile.max_schema_bytes:
+        raise GlinerRefused("schema byte bound exceeded")
+    metadata = [
+        pack.release,
+        pack.version,
+        overlap_policy,
+        *(value for item in inputs for value in (item.context_id, item.context_digest)),
+    ]
+    if sum(len(value.encode()) for value in metadata) > profile.max_metadata_bytes:
+        raise GlinerRefused("request metadata byte bound exceeded")
+    if len({item.context_id for item in inputs}) != len(inputs):
+        raise GlinerRefused("batch context identities must be distinct")
 
 
 class GlinerWorker:
@@ -287,6 +375,29 @@ class GlinerWorker:
             process.start()
         finally:
             child.close()
+
+    def prepare_members(
+        self,
+        pack,
+        inputs,
+        *,
+        threshold=0.5,
+        overlap_policy="flat",
+        evaluation=False,
+        check_active=None,
+    ) -> tuple[GlinerAdmission, ...]:
+        return cast(
+            tuple[GlinerAdmission, ...],
+            self._exchange(
+                pack,
+                inputs,
+                threshold=threshold,
+                overlap_policy=overlap_policy,
+                evaluation=evaluation,
+                check_active=check_active,
+                prepare_only=True,
+            ),
+        )
 
     def extract(
         self,
@@ -357,29 +468,16 @@ class GlinerWorker:
         evaluation: bool,
         check_active: Callable[[], None] | None,
         diagnostic: _Diagnostic | None = None,
-    ) -> tuple[GlinerReport, ...]:
-        if not isinstance(inputs, tuple) or not inputs or len(inputs) > self.profile.max_batch:
-            raise GlinerRefused("batch must be a nonempty bounded immutable tuple")
-        # Decoding policy belongs to the requesting operation. Private language
-        # characterization needs overlapping cues without claiming evaluation custody.
-        supported_overlap = {"flat", "nested", "allow"}
-        if not 0 <= threshold <= 1 or overlap_policy not in supported_overlap:
-            raise GlinerRefused("unsupported threshold or overlap policy")
-        sizes = [len(item.text.encode()) for item in inputs]
-        if max(sizes) > self.profile.max_input_bytes or sum(sizes) > self.profile.max_batch_bytes:
-            raise GlinerRefused("live input byte bound exceeded")
-        if len(pack.declaration_json.encode()) > self.profile.max_schema_bytes:
-            raise GlinerRefused("schema byte bound exceeded")
-        metadata = [
-            pack.release,
-            pack.version,
-            overlap_policy,
-            *(value for item in inputs for value in (item.context_id, item.context_digest)),
-        ]
-        if sum(len(value.encode()) for value in metadata) > self.profile.max_metadata_bytes:
-            raise GlinerRefused("request metadata byte bound exceeded")
-        if len({item.context_id for item in inputs}) != len(inputs):
-            raise GlinerRefused("batch context identities must be distinct")
+        prepare_only: bool = False,
+    ) -> Any:
+        validate_request(
+            self.profile,
+            pack,
+            inputs,
+            threshold=threshold,
+            overlap_policy=overlap_policy,
+            evaluation=evaluation,
+        )
         if not self._lock.acquire(blocking=False):
             raise GlinerRefused("native GLiNER admission saturated: one live batch, zero queued")
         io: Thread | None = None
@@ -391,7 +489,14 @@ class GlinerWorker:
                 check_active()
             self._serial += 1
             request = _Request(
-                self._serial, pack, inputs, threshold, overlap_policy, evaluation, diagnostic
+                self._serial,
+                pack,
+                inputs,
+                threshold,
+                overlap_policy,
+                evaluation,
+                diagnostic,
+                prepare_only,
             )
             frame = bytes(ForkingPickler.dumps(request))
             if len(frame) > self.profile.max_request_frame_bytes:
@@ -438,9 +543,52 @@ class GlinerWorker:
                 if reply.error_kind == "request_refused":
                     raise GlinerRefused(reply.error)
                 raise GlinerWorkerError(reply.error)
+            if prepare_only:
+                admissions = reply.admissions
+                if admissions is None or len(admissions) != len(inputs):
+                    raise GlinerWorkerError("native admission omitted context population")
+                for ordinal, (item, admission) in enumerate(zip(inputs, admissions, strict=True)):
+                    if (
+                        not isinstance(admission, GlinerAdmission)
+                        or admission.ordinal != ordinal
+                        or admission.context_id != item.context_id
+                        or admission.context_digest != item.context_digest
+                        or type(admission.admitted) is not bool
+                        or (admission.admitted and admission.reason is not None)
+                        or (not admission.admitted and not admission.reason)
+                    ):
+                        raise GlinerWorkerError(
+                            "native admission differs from exact original context population"
+                        )
+                return admissions
             if reply.reports is None or len(reply.reports) != len(inputs):
                 raise GlinerWorkerError("native reply omitted context reports")
-            for item, report in zip(inputs, reply.reports, strict=True):
+            expected_receipt = None
+            if diagnostic is None and any(item.operation for item in inputs):
+                expected_receipt = batch_receipt(
+                    pack,
+                    asdict(self.profile),
+                    inputs,
+                    threshold,
+                    overlap_policy,
+                    evaluation,
+                    installed_policy()[0]["inference"],
+                )
+            for ordinal, (item, report) in enumerate(zip(inputs, reply.reports, strict=True)):
+                if expected_receipt is not None:
+                    import json
+
+                    if (
+                        report.member_ordinal != ordinal
+                        or canonical_bytes(json.loads(report.batch_receipt_json or "null"))
+                        != canonical_bytes(expected_receipt)
+                        or report.computation != expected_receipt["digest"]
+                        or report.request_digest != expected_receipt["digest"]
+                        or report.observation_digest != report_observation_digest(asdict(report))
+                    ):
+                        raise GlinerWorkerError(
+                            "native batch receipt differs from admitted population"
+                        )
                 if (
                     report.context_id != item.context_id
                     or report.context_digest != item.context_digest

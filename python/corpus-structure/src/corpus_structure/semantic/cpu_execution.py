@@ -6,7 +6,7 @@ import json
 import multiprocessing
 import threading
 from collections.abc import Callable, Generator, Mapping
-from concurrent.futures import ProcessPoolExecutor, TimeoutError
+from concurrent.futures import Future, ProcessPoolExecutor, TimeoutError
 from contextlib import contextmanager, suppress
 from dataclasses import asdict, dataclass
 from hashlib import sha256
@@ -33,8 +33,14 @@ class CapacityExceeded(ValueError):
 
 @dataclass(frozen=True)
 class CPUExecutionPolicy:
-    workers: int = 1
-    max_submissions: int = 1
+    workers: int = 2
+    max_submissions: int = 2
+    max_regions: int = 2
+    max_active_stage_runs: int = 2
+    max_claims: int = 4
+    provider_threads: int = 4
+    provider_interop_threads: int = 1
+    max_provider_jobs: int = 2
     max_owned_bytes: int = 256 * 1024**2
     max_packet_bytes: int = 64 * 1024**2
     max_reply_bytes: int = 8 * 1024**2
@@ -204,19 +210,31 @@ class _KernelContext:
 
 _WORKER_RELEASES: dict[str, PreparedRelease] = {}
 _WORKER_STOP: Any = None
+_WORKER_CANCELLATION: Any = None
+_WORKER_REQUEST: tuple[int, int] | None = None
 
 
-def _initialize(capsule: bytes, stop) -> None:
-    global _WORKER_STOP
+class CPURequestCancelled(RuntimeError):
+    """This private logical request was cancelled; sibling requests remain useful."""
+
+
+def _initialize(capsule: bytes, stop, cancellation=None) -> None:
+    global _WORKER_STOP, _WORKER_CANCELLATION
     prepared = hydrate_capsule(capsule)
     _WORKER_RELEASES.clear()
     _WORKER_RELEASES[prepared.release_id] = prepared
     _WORKER_STOP = stop
+    _WORKER_CANCELLATION = cancellation
 
 
 def _worker_active() -> None:
     if _WORKER_STOP is not None and _WORKER_STOP.is_set():
-        raise RuntimeError("CPU invocation cancelled")
+        raise CPURequestCancelled("CPU invocation cancelled")
+    if _WORKER_CANCELLATION is not None and _WORKER_REQUEST is not None:
+        slot, generation = _WORKER_REQUEST
+        with _WORKER_CANCELLATION.get_lock():
+            if _WORKER_CANCELLATION[slot * 2] != generation or _WORKER_CANCELLATION[slot * 2 + 1]:
+                raise CPURequestCancelled("CPU logical request cancelled")
 
 
 def _compute(content: bytes, capsules: tuple[bytes, ...], max_reply_bytes: int) -> CPUReply:
@@ -275,10 +293,31 @@ def _compute(content: bytes, capsules: tuple[bytes, ...], max_reply_bytes: int) 
     )
 
 
-def _dispatch(content: bytes, capsules: tuple[bytes, ...], max_reply_bytes: int) -> CPUReply:
+def _dispatch(
+    content: bytes,
+    capsules: tuple[bytes, ...],
+    max_reply_bytes: int,
+    slot: int = -1,
+    generation: int = 0,
+) -> CPUReply:
     import os
 
+    global _WORKER_REQUEST
+    _WORKER_REQUEST = None if slot < 0 else (slot, generation)
     try:
+        _worker_active()
+        if json.loads(content).get("method") == "private.spacy_annotations":
+            from .cpu_annotations import compute_annotations
+
+            content_out = compute_annotations(content, _worker_active)
+            if len(content_out) > max_reply_bytes:
+                raise CapacityExceeded("CPU annotation result exceeds admitted reply capacity")
+            return CPUReply(
+                sha256(content).hexdigest(),
+                content_out,
+                os.getpid(),
+                threading.current_thread() is threading.main_thread(),
+            )
         return _compute(content, capsules, max_reply_bytes)
     except Exception as error:
         return CPUReply(
@@ -294,7 +333,82 @@ def _dispatch(content: bytes, capsules: tuple[bytes, ...], max_reply_bytes: int)
 @dataclass
 class _InputAdmission:
     owner: CPUExecutionScope
+    slot: int
+    generation: int
+    reserved: int
     active: bool = True
+    retired: bool = False
+    submitted: bool = False
+
+
+class CPUHandle:
+    def __init__(self, owner, admission, future: Future[CPUReply], digest, check_active):
+        self.owner, self.admission, self.future = owner, admission, future
+        self.digest, self.check_active = digest, check_active
+        self._reply = None
+        self._error: BaseException | None = None
+        self._collected = False
+        self._cancelled = False
+
+    def cancel(self) -> None:
+        if self.admission.active:
+            with self.owner._cancellation.get_lock():
+                offset = self.admission.slot * 2
+                if self.owner._cancellation[offset] == self.admission.generation:
+                    self.owner._cancellation[offset + 1] = 1
+        self._cancelled = True
+        self.future.cancel()
+
+    def collect(self) -> CPUReply:
+        if not self.future.done():
+            raise RuntimeError("CPU request has not completed")
+        if not self._collected:
+            try:
+                self.check_active()
+                if self._cancelled:
+                    raise CPURequestCancelled("CPU logical request cancelled")
+                reply = self.future.result()
+                if reply.request_digest != self.digest or not reply.main_thread:
+                    raise ValueError("CPU reply does not match its request/main-thread contract")
+                if reply.error_type is not None:
+                    kind = {
+                        "ValueError": ValueError,
+                        "ValidationError": ValueError,
+                        "TimeoutError": TimeoutError,
+                        "CapacityExceeded": CapacityExceeded,
+                        "CPURequestCancelled": CPURequestCancelled,
+                    }.get(reply.error_type, RuntimeError)
+                    raise kind(reply.error_message)
+                if len(reply.content) > self.owner.policy.max_reply_bytes:
+                    raise CapacityExceeded("CPU reply exceeds admitted capacity")
+                self._reply = reply
+            except BaseException as error:
+                self._error = error
+                self.cancel()
+            finally:
+                self._collected = True
+                retained = (
+                    0
+                    if self._reply is None
+                    else len(self._reply.content) + len(self._reply.cost or b"")
+                )
+                self.owner._collected(self.admission, retained)
+        if self._error is not None:
+            raise self._error
+        if self._cancelled:
+            raise CPURequestCancelled("CPU logical request cancelled")
+        assert self._reply is not None
+        return self._reply
+
+    def retire(self) -> bool:
+        if not self.future.done():
+            return False
+        if not self._collected:
+            with suppress(BaseException):
+                self.collect()
+        self.owner.release_admission(self.admission)
+        self.owner._handles.discard(self)
+        return True
 
 
 class CPUExecutionScope:
@@ -305,12 +419,13 @@ class CPUExecutionScope:
         self._pool: ProcessPoolExecutor | None = None
         self._context = multiprocessing.get_context("spawn")
         self._stop = self._context.Event()
-        self._slots = threading.BoundedSemaphore(self.policy.max_submissions)
+        self._cancellation = self._context.Array("q", self.policy.max_submissions * 2, lock=True)
+        self._lock = threading.RLock()
         self._closed = False
         self._capsule_bytes = 0
-        self._lock = threading.Lock()
-        self._admission = threading.Condition()
-        self._active_transfers = 0
+        self._free = list(range(self.policy.max_submissions))
+        self._admissions: dict[int, _InputAdmission] = {}
+        self._handles: set[CPUHandle] = set()
 
     def _executor(self):
         with self._lock:
@@ -324,52 +439,123 @@ class CPUExecutionScope:
                     max_workers=self.policy.workers,
                     mp_context=self._context,
                     initializer=_initialize,
-                    initargs=(capsule, self._stop),
+                    initargs=(capsule, self._stop, self._cancellation),
                 )
             return self._pool
 
+    def try_admit(self, check_active: Callable[[], None] = lambda: None) -> _InputAdmission | None:
+        check_active()
+        for handle in tuple(self._handles):
+            if handle._cancelled and handle.future.done():
+                handle.retire()
+        with self._lock:
+            if self._closed or self._stop.is_set():
+                raise RuntimeError("CPU invocation is closed")
+            if not self._free:
+                return None
+            self._executor()
+            size = self.policy.max_packet_bytes + self.policy.max_reply_bytes
+            if size + self._capsule_bytes > self.policy.max_owned_bytes:
+                raise CapacityExceeded(
+                    "CPU policy cannot hold preparation and one complete request"
+                )
+            try:
+                self.budget.reserve(size)
+            except CapacityExceeded:
+                return None
+            slot = self._free.pop(0)
+            with self._cancellation.get_lock():
+                self._cancellation[slot * 2] += 1
+                generation = self._cancellation[slot * 2]
+                self._cancellation[slot * 2 + 1] = 0
+            permit = _InputAdmission(self, slot, generation, size)
+            self._admissions[id(permit)] = permit
+            return permit
+
+    def _collected(self, permit, retained):
+        with self._lock:
+            if not permit.active:
+                return
+            self.budget.release(permit.reserved - retained)
+            permit.reserved = retained
+            permit.active = False
+            self._free.append(permit.slot)
+
+    def release_admission(self, permit) -> None:
+        with self._lock:
+            if permit.owner is not self:
+                raise ValueError("CPU input admission belongs to another invocation")
+            if permit.retired:
+                return
+            if permit.submitted and permit.active:
+                raise RuntimeError("CPU request must drain before retiring admission")
+            if permit.active:
+                permit.active = False
+                self._free.append(permit.slot)
+            self.budget.release(permit.reserved)
+            permit.reserved = 0
+            permit.retired = True
+            self._admissions.pop(id(permit), None)
+
+    def submit(
+        self,
+        admission,
+        content: bytes,
+        releases: Mapping[str, PreparedRelease],
+        check_active: Callable[[], None] = lambda: None,
+    ) -> CPUHandle:
+        check_active()
+        if admission.owner is not self or not admission.active or admission.submitted:
+            raise ValueError("CPU input admission is not active for this invocation")
+        capsules = tuple(
+            release_capsule(value)
+            for key, value in releases.items()
+            if key != self.prepared.release_id
+        )
+        if len(content) + sum(map(len, capsules)) > self.policy.max_packet_bytes:
+            self.release_admission(admission)
+            raise CapacityExceeded("CPU input exceeds admitted packet byte capacity")
+        try:
+            future = self._executor().submit(
+                _dispatch,
+                content,
+                capsules,
+                self.policy.max_reply_bytes,
+                admission.slot,
+                admission.generation,
+            )
+        except BaseException:
+            self.release_admission(admission)
+            raise
+        admission.submitted = True
+        handle = CPUHandle(self, admission, future, sha256(content).hexdigest(), check_active)
+        self._handles.add(handle)
+        return handle
+
+    def collect(
+        self, handle: CPUHandle, check_active: Callable[[], None] = lambda: None
+    ) -> CPUReply | None:
+        check_active()
+        return handle.collect() if handle.future.done() else None
+
+    def retire(self, handle: CPUHandle) -> bool:
+        return handle.retire()
+
+    def cancel(self, handle: CPUHandle) -> None:
+        handle.cancel()
+
     @contextmanager
     def admitted_inputs(self, check_active: Callable[[], None]) -> Generator[_InputAdmission]:
-        """Admit before hydration; reserve full packet/reply capacity through consumption."""
-        acquired = False
-        reserved = False
-        permit = _InputAdmission(self)
-        reservation = self.policy.max_packet_bytes + self.policy.max_reply_bytes
+        permit = None
         try:
-            while not self._slots.acquire(timeout=0.1):
-                check_active()
-                if self._closed or self._stop.is_set():
-                    raise RuntimeError("CPU invocation is closed")
-            acquired = True
-            check_active()
-            self._executor()
-            with self._admission:
-                while True:
-                    check_active()
-                    if self._closed or self._stop.is_set():
-                        raise RuntimeError("CPU invocation is closed")
-                    try:
-                        self.budget.reserve(reservation)
-                        break
-                    except CapacityExceeded:
-                        if not self._active_transfers:
-                            raise
-                        self._admission.wait(timeout=0.1)
-                self._active_transfers += 1
-                reserved = True
+            while permit is None:
+                permit = self.try_admit(check_active)
+                if permit is None:
+                    threading.Event().wait(0.1)
             yield permit
-        except BaseException:
-            self._stop.set()
-            raise
         finally:
-            permit.active = False
-            if reserved:
-                with self._admission:
-                    self.budget.release(reservation)
-                    self._active_transfers -= 1
-                    self._admission.notify_all()
-            if acquired:
-                self._slots.release()
+            if permit is not None and not permit.submitted:
+                self.release_admission(permit)
 
     @contextmanager
     def execute(
@@ -378,7 +564,7 @@ class CPUExecutionScope:
         releases: Mapping[str, PreparedRelease],
         check_active: Callable[[], None],
         *,
-        admission: _InputAdmission | None = None,
+        admission=None,
     ) -> Generator[CPUReply]:
         if admission is None:
             with (
@@ -387,184 +573,188 @@ class CPUExecutionScope:
             ):
                 yield reply
             return
-        if admission.owner is not self or not admission.active:
-            raise ValueError("CPU input admission is not active for this invocation")
-        capsules = tuple(
-            release_capsule(value)
-            for key, value in releases.items()
-            if key != self.prepared.release_id
-        )
-        packet_size = len(content) + sum(map(len, capsules))
-        if packet_size > self.policy.max_packet_bytes:
-            raise CapacityExceeded("CPU input exceeds admitted packet byte capacity")
-        future = None
+        handle = self.submit(admission, content, releases, check_active)
         try:
-            check_active()
-            pool = self._executor()
-            future = pool.submit(_dispatch, content, capsules, self.policy.max_reply_bytes)
-            while True:
+            while not handle.future.done():
                 check_active()
                 if self._closed or self._stop.is_set():
                     raise RuntimeError("CPU invocation is closed")
-                try:
-                    reply = future.result(timeout=0.1)
-                    break
-                except TimeoutError:
-                    if future.done():
-                        raise
-                    continue
-            check_active()
-            if reply.request_digest != sha256(content).hexdigest() or not reply.main_thread:
-                raise ValueError("CPU reply does not match its request/main-thread contract")
-            if reply.error_type is not None:
-                error_class = {
-                    "ValueError": ValueError,
-                    "ValidationError": ValueError,
-                    "TimeoutError": TimeoutError,
-                    "CapacityExceeded": CapacityExceeded,
-                }.get(reply.error_type, RuntimeError)
-                raise error_class(reply.error_message)
-            if len(reply.content) > self.policy.max_reply_bytes:
-                raise CapacityExceeded("CPU reply exceeds admitted capacity")
-            yield reply
+                with suppress(TimeoutError):
+                    handle.future.result(timeout=0.1)
+            yield handle.collect()
         except BaseException:
-            self._stop.set()
-            if self._pool is not None:
-                if future is not None:
-                    future.cancel()
-                    with suppress(BaseException):
-                        future.result(timeout=2.0)
-                self._pool.terminate_workers()
-                self._pool = None
+            handle.cancel()
             raise
+        finally:
+            handle.retire()
+
+    def abort(self) -> None:
+        self._stop.set()
+        for handle in tuple(self._handles):
+            handle.cancel()
+        pool = self._pool
+        self._pool = None
+        if pool is not None:
+            pool.terminate_workers()
 
     def close(self):
-        with self._lock:
-            self._closed = True
-            if self._pool is not None:
-                self._pool.shutdown(wait=True, cancel_futures=True)
-                self._pool = None
-            if self._capsule_bytes:
-                self.budget.release(self._capsule_bytes)
-                self._capsule_bytes = 0
+        self._closed = True
+        self._stop.set()
+        for handle in tuple(self._handles):
+            handle.cancel()
+        pool = self._pool
+        self._pool = None
+        if pool is not None:
+            pool.shutdown(wait=True, cancel_futures=True)
+        for handle in tuple(self._handles):
+            handle.retire()
+        for permit in tuple(self._admissions.values()):
+            if not permit.submitted:
+                self.release_admission(permit)
+        if self._capsule_bytes:
+            self.budget.release(self._capsule_bytes)
+            self._capsule_bytes = 0
 
 
-def run_cpu_method(method, units, cfg, ctx):
-    """Authorize/hydrate in parent, compute in child, validate newly authored output in parent."""
+def cpu_method_plan(method, units, cfg, ctx):
+    """Prepare only after admission; yielding private work never blocks the coordinator."""
     from corpus_structure.core._model.shapes import Cost
-    from corpus_structure.core.method import UnitResult
+    from corpus_structure.core.method import PreparedWork, UnitResult
     from corpus_structure.core.vocab import ObservationOutcome
 
     _base, scope, pins = cfg.require_selection()
     results = []
-    for unit in units:
-        ctx.check_active()
-        if unit.ref not in method.select(unit.run, cfg):
-            raise ValueError("CPU task unit differs from exact selected document")
-        reader = unit.run.reader
-        operation = dict(ctx.characterization_operation(unit.ref))
-        if any(
-            operation.get(k) != v
-            for k, v in dict(
-                key=method.name,
-                version=method.version,
-                model=cfg.model,
-                grammar=cfg.grammar,
-                context=cfg.context,
-            ).items()
-        ):
-            raise ValueError("CPU task determinants differ from its frozen configuration")
-        shared = getattr(reader, "cpu_execution", None)
-        execution = shared if shared is not None else CPUExecutionScope(reader.prepared)
-        try:
-            with execution.admitted_inputs(ctx.check_active) as admitted:
-                layers, pending = {}, pins
-                while pending:
-                    ctx.check_active()
-                    read = reader.characterization_layers(pending)
-                    if set(read) != set(pending):
-                        raise ValueError("CPU input requires complete exact dependency closure")
-                    layers.update(read)
-                    pending = tuple(
-                        dict.fromkeys(
-                            ProductReference(**p)
-                            for report in read.values()
-                            for p in report.payload["dependencies"]
-                            if ProductReference(**p) not in layers
+    owned = []
+    try:
+        for unit in units:
+            ctx.check_active()
+            if unit.ref not in method.select(unit.run, cfg):
+                raise ValueError("CPU task unit differs from exact selected document")
+            reader = unit.run.reader
+            operation = dict(ctx.characterization_operation(unit.ref))
+            if any(
+                operation.get(k) != v
+                for k, v in dict(
+                    key=method.name,
+                    version=method.version,
+                    model=cfg.model,
+                    grammar=cfg.grammar,
+                    context=cfg.context,
+                ).items()
+            ):
+                raise ValueError("CPU task determinants differ from its frozen configuration")
+            execution = getattr(reader, "cpu_execution", None)
+            if execution is None:
+                execution = CPUExecutionScope(reader.prepared)
+                owned.append(execution)
+            prepared_inputs = {}
+            executor = cast(CPUExecutionScope, execution)
+
+            def try_submit(
+                executor=executor,
+                reader=reader,
+                unit=unit,
+                operation=operation,
+                prepared_inputs=prepared_inputs,
+            ):
+                admission = executor.try_admit(ctx.check_active)
+                if admission is None:
+                    return None
+                try:
+                    layers, pending = {}, pins
+                    while pending:
+                        ctx.check_active()
+                        read = reader.characterization_layers(pending)
+                        if set(read) != set(pending):
+                            raise ValueError("CPU input requires complete exact dependency closure")
+                        layers.update(read)
+                        pending = tuple(
+                            dict.fromkeys(
+                                ProductReference(**p)
+                                for report in read.values()
+                                for p in report.payload["dependencies"]
+                                if ProductReference(**p) not in layers
+                            )
                         )
-                    )
-                releases = {reader.prepared.release_id: reader.prepared}
-                for layer in layers.values():
-                    ctx.check_active()
-                    identity = layer.payload["release_id"]
-                    if identity not in releases:
-                        releases[identity] = reader.characterization_release(identity)
-                sources = []
-                for identity in scope["source_view_ids"]:
-                    ctx.check_active()
-                    view = reader.source_view(identity)
-                    sources.append(
+                    releases = {reader.prepared.release_id: reader.prepared}
+                    for layer in layers.values():
+                        ctx.check_active()
+                        identity = layer.payload["release_id"]
+                        if identity not in releases:
+                            releases[identity] = reader.characterization_release(identity)
+                    sources = []
+                    for identity in scope["source_view_ids"]:
+                        ctx.check_active()
+                        view = reader.source_view(identity)
+                        sources.append(
+                            dict(
+                                ref=asdict(view.ref),
+                                text=view.text,
+                                pieces=view.pieces,
+                                items=view.items,
+                                ancestors=view.ancestors,
+                                health=view.health,
+                                text_policy=None
+                                if view.text_policy is None
+                                else asdict(view.text_policy),
+                                analysis_enabled=view.analysis_enabled,
+                                integrated_context=view.integrated_context,
+                            )
+                        )
+                    content = canonical_bytes(
                         dict(
-                            ref=asdict(view.ref),
-                            text=view.text,
-                            pieces=view.pieces,
-                            items=view.items,
-                            ancestors=view.ancestors,
-                            health=view.health,
-                            text_policy=None
-                            if view.text_policy is None
-                            else asdict(view.text_policy),
-                            analysis_enabled=view.analysis_enabled,
-                            integrated_context=view.integrated_context,
+                            request_id=uuid4().hex,
+                            run_id=getattr(unit.run, "run_id", None),
+                            claims=tuple(getattr(ctx.check_active, "active", ())),
+                            method=method.name,
+                            release_id=reader.prepared.release_id,
+                            configuration=cfg.model_dump(mode="json"),
+                            operation=operation,
+                            document_id=unit.ref.unit_id,
+                            sources=sources,
+                            dependencies=[
+                                dict(pin=asdict(pin), content=layer.content.decode())
+                                for pin, layer in layers.items()
+                            ],
                         )
                     )
-                content = canonical_bytes(
-                    dict(
-                        request_id=uuid4().hex,
-                        run_id=getattr(unit.run, "run_id", None),
-                        claims=tuple(getattr(ctx.check_active, "active", ())),
-                        method=method.name,
-                        release_id=reader.prepared.release_id,
-                        configuration=cfg.model_dump(mode="json"),
-                        operation=operation,
-                        document_id=unit.ref.unit_id,
-                        sources=sources,
-                        dependencies=[
-                            dict(pin=asdict(pin), content=layer.content.decode())
-                            for pin, layer in layers.items()
-                        ],
-                    )
+                    prepared_inputs.update(layers=layers, releases=releases)
+                    return executor.submit(admission, content, releases, ctx.check_active)
+                except BaseException:
+                    if not admission.submitted:
+                        executor.release_admission(admission)
+                    raise
+
+            (reply,) = yield (PreparedWork(try_submit),)
+            layers, releases = prepared_inputs["layers"], prepared_inputs["releases"]
+            layer = validate_layer(
+                reader.prepared,
+                json.loads(reply.content),
+                dependencies=layers,
+                releases=releases,
+            )
+            payload = layer.payload
+            if (
+                layer.base_document != _base
+                or payload["source_scope"] != scope
+                or any(payload["operation"].get(key) != value for key, value in operation.items())
+            ):
+                raise ValueError("CPU result differs from exact source/operation request")
+            results.append(
+                UnitResult(
+                    ref=unit.ref,
+                    outcome=ObservationOutcome.PRODUCED,
+                    characterization_layer=layer,
+                    cost=None if reply.cost is None else Cost.model_validate_json(reply.cost),
                 )
-                with execution.execute(
-                    content, releases, ctx.check_active, admission=admitted
-                ) as reply:
-                    layer = validate_layer(
-                        reader.prepared,
-                        json.loads(reply.content),
-                        dependencies=layers,
-                        releases=releases,
-                    )
-                    payload = layer.payload
-                    if (
-                        layer.base_document != _base
-                        or payload["source_scope"] != scope
-                        or any(
-                            payload["operation"].get(key) != value
-                            for key, value in operation.items()
-                        )
-                    ):
-                        raise ValueError("CPU result differs from exact source/operation request")
-                    results.append(
-                        UnitResult(
-                            ref=unit.ref,
-                            outcome=ObservationOutcome.PRODUCED,
-                            characterization_layer=layer,
-                            cost=None
-                            if reply.cost is None
-                            else Cost.model_validate_json(reply.cost),
-                        )
-                    )
-        finally:
-            if shared is None:
-                execution.close()
-    return tuple(results)
+            )
+        return tuple(results)
+    finally:
+        for execution in owned:
+            execution.close()
+
+
+def run_cpu_method(method, units, cfg, ctx):
+    from corpus_structure.core.method import drive_prepared_work
+
+    return drive_prepared_work(cpu_method_plan(method, units, cfg, ctx), ctx.check_active)

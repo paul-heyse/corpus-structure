@@ -165,6 +165,32 @@ def validate_evidence(data, indexes):
                     raise ValueError("formal correspondence differs from literal source")
         if normalized_input and position != len(formal_input["text"]):
             raise ValueError("normalized correspondence requires an ordered complete partition")
+    from corpus_structure.methods.model_observation import validate_pm2_batch_receipt
+
+    from .observations import source_python
+
+    for annotation in annotations.values():
+        receipt_value = annotation.get("native_batch")
+        native_sentence = (
+            annotation["kind"] == "native.sentence" and annotation["family"] == "hanlp.tokens"
+        )
+        if receipt_value is None:
+            if (
+                native_sentence
+                and data["operation"]["key"] == "text.native_evidence"
+                and data["operation"]["version"] == "2"
+            ):
+                raise ValueError("current HanLP sentence requires its physical batch receipt")
+            continue
+        if not native_sentence:
+            raise ValueError("native batch receipt requires a HanLP sentence")
+        receipt = source_python(receipt_value)
+        population = tokens.get(("hanlp", annotation["local_id"]))
+        if population is None:
+            raise ValueError("native batch sentence lacks its canonical token population")
+        sentence = [population[index]["text"] for index in sorted(population)]
+        validate_pm2_batch_receipt(receipt, sentence, "hanlp")
+
     for indices in tokens.values():
         for token in indices.values():
             if "native_head" in token:

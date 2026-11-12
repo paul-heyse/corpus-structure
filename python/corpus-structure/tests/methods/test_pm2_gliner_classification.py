@@ -15,6 +15,7 @@ from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.methods.gliner import GlinerPack
 from corpus_structure.methods.model_observation import (
     MODEL_OBSERVATION_INPUT,
+    batch_receipt,
     installed_policy,
     observation_digest,
     request_digest,
@@ -24,7 +25,9 @@ from corpus_structure.methods.pm2_gliner_classification import (
     METHOD,
     VERSION,
     ClassificationProfile,
+    GlinerRefused,
     classification_mapping,
+    classification_product,
     classification_request,
     profile_digest,
 )
@@ -196,7 +199,21 @@ def _reply(case, labels):
             context_digest=item.context_digest,
             computation=digest,
             request_digest=digest,
-            observation_digest=observation_digest(digest, raw_json, effective),
+            observation_digest=observation_digest(
+                digest,
+                raw_json,
+                effective,
+                ordinal=0,
+                member=batch_receipt(
+                    pack, asdict(profile), (item,), 0.7, "flat", False, request["inference"]
+                )["members"][0],
+            ),
+            batch_receipt_json=json.dumps(
+                batch_receipt(
+                    pack, asdict(profile), (item,), 0.7, "flat", False, request["inference"]
+                )
+            ),
+            member_ordinal=0,
             profile=profile.fingerprint,
             pack=pack.fingerprint,
             preparation=dict(
@@ -339,7 +356,7 @@ def test_detached_replay_verifies_archived_question_and_raw_task_custody(case):
     }
     verify_classification_replay(raw, row, case.view, case.contract)
     wrong_version = deepcopy(raw)
-    wrong_version["body"]["operation_version"] = "2"
+    wrong_version["body"]["operation_version"] = "unsupported-version"
     with pytest.raises(ValueError, match="exact producer"):
         verify_classification_replay(wrong_version, row, case.view, case.contract)
     wrong_source = replace(case.view, text="X" + case.view.text[1:])
@@ -357,3 +374,143 @@ def test_detached_replay_verifies_archived_question_and_raw_task_custody(case):
         verify_classification_replay(
             raw, {**row, "value": source_value(false_product)}, case.view, case.contract
         )
+
+
+def test_batch_receipt_keeps_exact_member_and_choice_projection(case):
+    from dataclasses import replace
+    from hashlib import sha256
+
+    from corpus_structure.methods.gliner import GlinerInput
+    from corpus_structure.methods.model_observation import batch_receipt
+
+    request = case.request
+    item = GlinerInput(**request["item"])
+    other = replace(item, context_id="other-context", context_digest="f" * 64)
+    receipt = batch_receipt(
+        GlinerPack(**request["pack"]),
+        asdict(case.profile.profile),
+        (other, item),
+        0.7,
+        "flat",
+        False,
+        request["inference"],
+    )
+    # Independently assert the wire commitment domains and original ordinal.
+    assert (
+        receipt["members"][1]
+        == sha256(
+            canonical_bytes(
+                [
+                    "located-model-member-2",
+                    item.operation,
+                    item.context_id,
+                    item.context_digest,
+                    item.text,
+                ]
+            )
+        ).hexdigest()
+    )
+    assert (
+        receipt["digest"]
+        == sha256(
+            canonical_bytes(
+                [
+                    "located-model-request-2",
+                    receipt["header"],
+                    receipt["members"],
+                ]
+            )
+        ).hexdigest()
+    )
+    reply = _reply(case, [{"label": "schedule", "confidence": 0.9}])["gliner"]
+    reply.update(
+        computation=receipt["digest"],
+        request_digest=receipt["digest"],
+        batch_receipt_json=json.dumps(receipt),
+        member_ordinal=1,
+    )
+    reply["observation_digest"] = sha256(
+        canonical_bytes(
+            [
+                "located-model-observation-2",
+                receipt["digest"],
+                1,
+                receipt["members"][1],
+                reply["raw_json"],
+                reply["effective_profile_json"],
+            ]
+        )
+    ).hexdigest()
+    product = classification_product(request, reply, case.profile)
+    assert product.value["selected_keys"] == ("schedule",)
+    reply["member_ordinal"] = 0
+    with pytest.raises(GlinerRefused, match="exact released request"):
+        classification_product(request, reply, case.profile)
+
+
+def test_historical_observation_requires_original_policy_and_has_no_batch_provenance(case):
+    from corpus_structure.methods.gliner import GlinerInput
+    from corpus_structure.methods.model_observation import legacy_request_digest
+    from corpus_structure.serve.model_observation_replay import (
+        _retained_request_digest,
+        _verify_request,
+    )
+
+    request = classification_request(
+        case.prepared.release_id,
+        case.family,
+        "purpose",
+        case.mapping,
+        case.profile,
+        installed_policy()[0]["inference"],
+        operation_version="1",
+    )
+    pack, item = GlinerPack(**request["pack"]), GlinerInput(**request["item"])
+    args = (pack, asdict(case.profile.profile), (item,), 0.7, "flat", False, request["inference"])
+    expected = legacy_request_digest(*args)
+    # Independent historical domain/field sequence, rather than a current batch receipt.
+    profile = args[1]
+    normalized = {k: v for k, v in profile.items() if k not in {"snapshot", "artifact_hashes"}}
+    normalized["timeout_seconds"] = str(int(profile["timeout_seconds"]))
+    normalized["artifact_hashes"] = sorted(profile["artifact_hashes"])
+    assert (
+        expected
+        == sha256(
+            canonical_bytes(
+                [
+                    "located-model-request-1",
+                    pack.release,
+                    pack.version,
+                    pack.declaration_json,
+                    normalized,
+                    [[item.operation, item.context_id, item.context_digest, item.text]],
+                    "0.7",
+                    "flat",
+                    False,
+                    request["inference"],
+                ]
+            )
+        ).hexdigest()
+    )
+    report = _reply(case, [{"label": "schedule", "confidence": 0.8}])["gliner"]
+    report.pop("batch_receipt_json")
+    report.pop("member_ordinal")
+    report["request_digest"] = report["computation"] = expected
+    report["observation_digest"] = sha256(
+        canonical_bytes(
+            [
+                expected,
+                report["raw_json"],
+                report["effective_profile_json"],
+            ]
+        )
+    ).hexdigest()
+    historical = {"request_version": "located-model-request-1"}
+    assert _retained_request_digest(historical, *args) == expected
+    _verify_request(report, expected, historical)
+    product = classification_product(
+        request, report, case.profile, request_version="located-model-request-1"
+    )
+    assert product.value["native_answer"]["scores"]["schedule"] == 0.8
+    with pytest.raises(ValueError, match="batch receipt"):
+        _verify_request(report, expected, {"request_version": "located-model-request-2"})

@@ -228,6 +228,12 @@ def _load_profile(profile_path: Path) -> tuple[Payload, Inference]:
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
     import torch
 
+    threads, interop = profile.get("threads", 4), profile.get("interop_threads", 1)
+    if any(type(value) is not int or value < 1 for value in (threads, interop)):
+        raise ValueError("native thread settings must be positive integers")
+    torch.set_num_threads(threads)
+    torch.set_num_interop_threads(interop)
+
     if device == "cuda" and not torch.cuda.is_available():
         raise RuntimeError("CUDA device unavailable")
     if provider == "d1":
@@ -245,6 +251,10 @@ def _load_profile(profile_path: Path) -> tuple[Payload, Inference]:
         "device_name": torch.cuda.get_device_name() if device == "cuda" else None,
         **checked,
         **metadata,
+        "native_threads": {
+            "intra_op": torch.get_num_threads(),
+            "inter_op": torch.get_num_interop_threads(),
+        },
     }, infer
 
 

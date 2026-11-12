@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from types import SimpleNamespace
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import pytest
 import spacy
@@ -126,7 +126,7 @@ def metadata(builder):
         )
 
 
-def hanlp_reply(words, *, missing_predicate=False):
+def hanlp_reply(words, *, missing_predicate=False) -> tuple[dict[str, Any], dict[str, Any]]:
     prepared = [t["text"] if i == 0 else " " + t["text"] for i, t in enumerate(words)]
     # Deliberately disagree with spaCy, including the native root convention.
     arcs = [[len(words), "dep"] for _ in words]
@@ -368,16 +368,26 @@ def test_actual_subword_preparation_resizes_only_outer_batch(native_source):
 
         def infer(self, request, **kwargs):
             self.requests.append(request)
-            if request.get("prepare_only"):
-                return dict(outcome="prepared", row_tokens=[400])
+            if False:
+                yield ()
+            if request.get("prepare_bulk"):
+                return dict(
+                    outcome="prepared_batch",
+                    members=[
+                        dict(ordinal=i, outcome="prepared", row_tokens=400)
+                        for i in range(len(request["sentences"]))
+                    ],
+                )
             # All-head failure is recorded as one attempt, not invented head success.
             return dict(outcome="limited", reason="fixture-native-failure")
 
     worker = Worker()
     entries = [(native_source[3], native_source[2], words, i) for i in range(3)]
-    _batch_sentences(worker, entries, builder, lambda: None)
-    assert len([r for r in worker.requests if r.get("prepare_only")]) == 3
-    inference = [r for r in worker.requests if not r.get("prepare_only")]
+    from corpus_structure.core.method import drive_prepared_work
+
+    drive_prepared_work(_batch_sentences(worker, entries, builder, lambda: None), lambda: None)
+    assert len([r for r in worker.requests if r.get("prepare_bulk")]) == 1
+    inference = [r for r in worker.requests if not r.get("prepare_bulk")]
     assert [len(r["sentences"]) for r in inference] == [1, 1, 1]
     assert all(r["sentences"] == [[t["text"] for t in words]] for r in inference)
     assert all(
@@ -426,9 +436,18 @@ def test_overlong_sentence_is_not_cut_and_cancellation_propagates(native_source)
 
         def infer(self, request, **kwargs):
             assert request["sentences"] == [[t["text"] for t in words]]
-            return dict(outcome="limited", reason="sentence_subwords", limit=512)
+            if False:
+                yield ()
+            return dict(
+                outcome="prepared_batch",
+                members=[dict(ordinal=0, outcome="limited", reason="sentence_subwords", limit=512)],
+            )
 
-    _batch_sentences(LimitedWorker(), [entry], builder, lambda: None)
+    from corpus_structure.core.method import drive_prepared_work
+
+    drive_prepared_work(
+        _batch_sentences(LimitedWorker(), [entry], builder, lambda: None), lambda: None
+    )
     assert all(builder.covered[family][0][1] == "unsupported" for family in HANLP_FAMILIES)
 
     class Cancelled(Exception):
@@ -438,7 +457,7 @@ def test_overlong_sentence_is_not_cut_and_cancellation_propagates(native_source)
         raise Cancelled("fixture task lease lost")
 
     with pytest.raises(Cancelled, match="lease lost"):
-        _batch_sentences(LimitedWorker(), [entry], builder, cancel)
+        drive_prepared_work(_batch_sentences(LimitedWorker(), [entry], builder, cancel), cancel)
 
 
 @pytest.mark.parametrize("producer_name", ("native", "formal", "construction"))
@@ -479,3 +498,56 @@ def test_explicit_primary_scope_keeps_context_only_source_and_exact_base(
         verify(FormalEvidenceMethod())
     else:
         verify(ConstructionCharacterizationMethod())
+
+
+@pytest.mark.parametrize("corruption", (None, "missing", "ordinal", "member", "digest"))
+def test_current_hanlp_sentence_requires_exact_physical_batch_commitment(
+    native_source, prepared, corruption
+):
+    from hashlib import sha256
+
+    from corpus_structure.semantic.characterization import validate_layer
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.observations import source_python, source_value
+
+    output, words = builder_for(native_source)
+    output.operation["version"] = "2"
+    native, preparation = hanlp_reply(words)
+    header = dict(provider="hanlp", profile="b" * 64, runtime="c" * 64)
+    members = [sha256(canonical_bytes([token["text"] for token in words])).hexdigest()]
+    receipt = dict(
+        version=1,
+        header=header,
+        members=members,
+        digest=sha256(canonical_bytes([header, members])).hexdigest(),
+        member_ordinal=0,
+    )
+    preparation["batch_receipt"] = receipt
+    output.hanlp_sentence(
+        native_source[3], native_source[2], words, 0, native, preparation, "hanlp"
+    )
+    metadata(output)
+    layer = output.finish(prepared)
+    payload = layer.payload
+    sentence = next(
+        row
+        for row in payload["annotations"]
+        if row["family"] == "hanlp.tokens" and row["kind"] == "native.sentence"
+    )
+    if corruption is None:
+        assert source_python(sentence["native_batch"]) == receipt
+        return
+    if corruption == "missing":
+        del sentence["native_batch"]
+    else:
+        broken = source_python(sentence["native_batch"])
+        if corruption == "ordinal":
+            broken["member_ordinal"] = 1
+        elif corruption == "member":
+            broken["members"] = ["d" * 64]
+            broken["digest"] = sha256(canonical_bytes([header, broken["members"]])).hexdigest()
+        else:
+            broken["digest"] = "e" * 64
+        sentence["native_batch"] = source_value(broken)
+    with pytest.raises(ValueError, match="batch"):
+        validate_layer(prepared, payload)

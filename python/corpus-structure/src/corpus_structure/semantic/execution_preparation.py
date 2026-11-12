@@ -31,7 +31,17 @@ class VerifiedExecutionPreparation:
 
         self.prepared = prepared
         self.cpu = CPUExecutionScope(prepared)
+        from corpus_structure.methods.characterization_resources import ProviderExecution
+
+        self.providers = ProviderExecution(self.cpu.budget, self.cpu.policy)
         self._closed = False
+        self._method_closers = {}
+
+    def register_methods(self, registry):
+        for method in registry.methods():
+            closer = getattr(method, "close", None)
+            if closer is not None:
+                self._method_closers[id(method)] = closer
 
     def require_release(self, release_id):
         if self._closed or self.prepared.release_id != release_id:
@@ -44,7 +54,13 @@ class VerifiedExecutionPreparation:
 
     def __exit__(self, *exc):
         self._closed = True
-        self.cpu.close()
+        from contextlib import ExitStack
+
+        with ExitStack() as closers:
+            closers.callback(self.cpu.close)
+            closers.callback(self.providers.close)
+            for closer in self._method_closers.values():
+                closers.callback(closer)
 
 
 def prepare_execution(conn, release_id):

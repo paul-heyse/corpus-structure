@@ -3,16 +3,14 @@
 from __future__ import annotations
 
 import time
-from contextlib import ExitStack
 from hashlib import sha256
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from corpus_structure.core._model.shapes import Cost
-from corpus_structure.core.method import Resources, UnitResult
+from corpus_structure.core.method import ReadyGroup, Resources, UnitResult, drive_prepared_work
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.semantic.contextual_characterization import (
     CONTEXT_FAMILIES,
@@ -22,11 +20,11 @@ from corpus_structure.semantic.contextual_characterization import (
     ContextualLayer,
     digest,
 )
+from corpus_structure.semantic.cpu_execution import CapacityExceeded
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.product_reference import ProductReference
 
-from .characterization_resources import borrowed_pm2_worker as open_pm2_worker
-from .characterization_resources import characterization_pm2_preflight as preflight_pm2_runtime
+from .characterization_resources import fork_builder, merge_builder, pm2_client, provider_scope
 from .native_evidence import _artifacts, native_run
 from .native_evidence_layers import NativeEvidenceBuilder, has_selected_native_text
 from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused
@@ -366,238 +364,216 @@ class ContextualCharacterizationMethod:
         )
 
     def run(self, units, cfg, ctx):
-        if cfg.context_rule_digest != context_rule_digest():
-            raise ValueError("contextual rule digest changed after configuration freeze")
-        base, scope = cfg.require_selection()
-        results = []
-        for unit in units:
-            started = time.monotonic()
-            ctx.check_active()
-            if unit.ref not in self.select(unit.run, cfg):
-                raise ValueError("contextual task differs from selected source document")
-            reader = unit.run.reader
-            has_text = any(
-                has_selected_native_text(reader.source_view(identity), scope["selectors"])
-                for identity in scope["source_view_ids"]
-            )
-            operation = ctx.characterization_operation(unit.ref)
-            builder = (
-                ContextualLayer(
-                    base.values(), scope, operation, context_input(reader, scope, cfg.focal)
+        return drive_prepared_work(self.plan(units, cfg, ctx), ctx.check_active)
+
+    def plan(self, units, cfg, ctx):
+        with provider_scope(units) as (_cpu, providers):
+            if cfg.context_rule_digest != context_rule_digest():
+                raise ValueError("contextual rule digest changed after configuration freeze")
+            base, scope = cfg.require_selection()
+            results = []
+            for unit in units:
+                started = time.monotonic()
+                ctx.check_active()
+                if unit.ref not in self.select(unit.run, cfg):
+                    raise ValueError("contextual task differs from selected source document")
+                reader = unit.run.reader
+                has_text = any(
+                    has_selected_native_text(reader.source_view(identity), scope["selectors"])
+                    for identity in scope["source_view_ids"]
                 )
-                if has_text
-                else NativeEvidenceBuilder(
-                    base.values(), scope, operation, profile=REVISION, families=CONTEXT_FAMILIES
-                )
-            )
-            pins = [ProductReference(**p) for p in cfg.characterization_layers]
-            retained = [ProductReference(**p) for p in cfg.retained_native_layers]
-            required = list(dict.fromkeys([*pins, *retained]))
-            layers, pending = {}, required
-            while pending:
-                read = reader.characterization_layers(pending)
-                if set(read) != set(pending):
-                    raise ValueError("context requires exact retained dependency closure")
-                layers.update(read)
-                pending = list(
-                    dict.fromkeys(
-                        ProductReference(**value)
-                        for report in read.values()
-                        for value in report.payload["dependencies"]
-                        if ProductReference(**value) not in layers
+                operation = ctx.characterization_operation(unit.ref)
+                builder = (
+                    ContextualLayer(
+                        base.values(), scope, operation, context_input(reader, scope, cfg.focal)
+                    )
+                    if has_text
+                    else NativeEvidenceBuilder(
+                        base.values(), scope, operation, profile=REVISION, families=CONTEXT_FAMILIES
                     )
                 )
-            if any(layer.base_document != base for layer in layers.values()):
-                raise ValueError("context dependency belongs to another source document")
-            if isinstance(builder, ContextualLayer):
-                builder.depend(layers, semantic_pins=pins)
-            builder.operation["required_layers"] = [p.values() for p in required]
-            releases = {reader.prepared.release_id: reader.prepared}
-            for layer in layers.values():
-                release = layer.payload["release_id"]
-                if release not in releases:
-                    releases[release] = reader.characterization_release(release)
-            if isinstance(builder, ContextualLayer):
-                builder.structural()
-                if cfg.native_mode == "retained":
-                    reuse_native(builder, {pin: layers[pin] for pin in (retained or pins)})
+                pins = [ProductReference(**p) for p in cfg.characterization_layers]
+                retained = [ProductReference(**p) for p in cfg.retained_native_layers]
+                required = list(dict.fromkeys([*pins, *retained]))
+                layers, pending = {}, required
+                while pending:
+                    read = reader.characterization_layers(pending)
+                    if set(read) != set(pending):
+                        raise ValueError("context requires exact retained dependency closure")
+                    layers.update(read)
+                    pending = list(
+                        dict.fromkeys(
+                            ProductReference(**value)
+                            for report in read.values()
+                            for value in report.payload["dependencies"]
+                            if ProductReference(**value) not in layers
+                        )
+                    )
+                if any(layer.base_document != base for layer in layers.values()):
+                    raise ValueError("context dependency belongs to another source document")
+                if isinstance(builder, ContextualLayer):
+                    builder.depend(layers, semantic_pins=pins)
+                builder.operation["required_layers"] = [p.values() for p in required]
+                releases = {reader.prepared.release_id: reader.prepared}
+                for layer in layers.values():
+                    release = layer.payload["release_id"]
+                    if release not in releases:
+                        releases[release] = reader.characterization_release(release)
+                if isinstance(builder, ContextualLayer):
+                    builder.structural()
+                    if cfg.native_mode == "retained":
+                        reuse_native(builder, {pin: layers[pin] for pin in (retained or pins)})
+                    else:
+                        yield from self._native(cfg, ctx, builder, layers, providers)
+                    builder.hypotheses()
                 else:
-                    self._native(cfg, ctx, builder, layers)
-                builder.hypotheses()
-            else:
-                for family in CONTEXT_FAMILIES:
-                    builder.record(family, scope["selectors"], "empty")
-            report = builder.finish(reader.prepared, dependencies=layers, releases=releases)
-            results.append(
-                UnitResult(
-                    ref=unit.ref,
-                    outcome=ObservationOutcome.PRODUCED,
-                    characterization_layer=report,
-                    cost=Cost(wall_ms=round((time.monotonic() - started) * 1000), model=cfg.model),
+                    for family in CONTEXT_FAMILIES:
+                        builder.record(family, scope["selectors"], "empty")
+                report = builder.finish(reader.prepared, dependencies=layers, releases=releases)
+                results.append(
+                    UnitResult(
+                        ref=unit.ref,
+                        outcome=ObservationOutcome.PRODUCED,
+                        characterization_layer=report,
+                        cost=Cost(
+                            wall_ms=round((time.monotonic() - started) * 1000), model=cfg.model
+                        ),
+                    )
                 )
-            )
-        return tuple(results)
+            return tuple(results)
 
-    def _native(self, cfg, ctx, builder, layers):
+    def _native(self, cfg, ctx, builder, layers, providers):
+        selections = (
+            ("maverick", ("maverick.mentions", "maverick.clusters")),
+            ("dipo", ("dipo.edus", "dipo.rst")),
+        )
+        branches = [fork_builder(builder) for _ in selections]
+        yield ReadyGroup(
+            tuple(
+                self._native_provider(cfg, ctx, branch[0], layers, providers, provider, families)
+                for branch, (provider, families) in zip(branches, selections, strict=True)
+            )
+        )
+        for branch in branches:
+            merge_builder(builder, branch)
+
+    def _native_provider(self, cfg, ctx, builder, layers, providers, provider, families):
         script = Path(__file__).with_name("pm2_native.py")
         root = script.resolve().parents[5]
         assets = ctx.settings.model_cache / "pm2"
-        for provider, families in (
-            ("maverick", ("maverick.mentions", "maverick.clusters")),
-            ("dipo", ("dipo.edus", "dipo.rst")),
-        ):
-            ctx.check_active()
-            startup = None
-            checkpoint = (
-                len(builder.annotations),
-                len(builder.memberships),
-                len(builder.roles),
-                len(builder._native_clusters),
-                dict(builder._mention_metadata),
-                len(builder._rst_hosts),
+        ctx.check_active()
+        startup = None
+        checkpoint = (
+            len(builder.annotations),
+            len(builder.memberships),
+            len(builder.roles),
+            len(builder._native_clusters),
+            dict(builder._mention_metadata),
+            len(builder._rst_hosts),
+        )
+        try:
+            if cfg.language.partition("-")[0].lower() != "en":
+                raise Pm2WorkerRefused("selected contextual native profiles support English")
+            runtime, artifacts = (
+                cfg.native_runtime.get(provider),
+                cfg.native_artifacts.get(provider),
             )
-            try:
-                if cfg.language.partition("-")[0].lower() != "en":
-                    raise Pm2WorkerRefused("selected contextual native profiles support English")
-                runtime, artifacts = (
-                    cfg.native_runtime.get(provider),
-                    cfg.native_artifacts.get(provider),
+            if runtime is None or artifacts is None:
+                raise Pm2WorkerRefused(
+                    "native context requires frozen runtime/artifact selection before task creation"
                 )
-                if runtime is None or artifacts is None:
-                    raise Pm2WorkerRefused(
-                        "native context requires frozen runtime/artifact selection "
-                        "before task creation"
-                    )
-                tokens = (
-                    canonical_tokens(builder, layers, cfg.native_token_layer)
-                    if provider == "maverick"
-                    else None
-                )
-                request = (
-                    dict(sentences=builder.sentences(tokens))
-                    if tokens is not None
-                    else dict(text=builder.context.text, mode="learned")
-                )
-                project = root / f"services/pm2-{provider}"
-                checked = preflight_pm2_runtime(
-                    python=project / ".venv/bin/python",
-                    script=script,
-                    project=project,
-                    provider=provider,
-                    assets=assets,
-                    frozen_runtime=runtime,
-                    frozen_artifacts=artifacts,
-                    device=cfg.native_device,
-                    check_active=ctx.check_active,
-                )
-                if checked["runtime_identity"] != runtime or checked["assets"] != artifacts:
-                    raise Pm2WorkerRefused(
-                        "contextual native runtime/artifacts differ from frozen selection"
-                    )
-                with ExitStack() as stack:
-                    temporary = Path(
-                        stack.enter_context(TemporaryDirectory(prefix="contextual-native-profile-"))
-                    )
-                    profile = temporary / f"{provider}.json"
-                    profile.write_bytes(
-                        canonical_bytes(
-                            dict(
-                                provider=provider,
-                                device=cfg.native_device,
-                                assets=str(assets.absolute()),
-                                runtime_identity=runtime,
-                            )
-                        )
-                    )
-                    worker = stack.enter_context(
-                        open_pm2_worker(
-                            provider=provider,
-                            python=project / ".venv/bin/python",
-                            script=script,
-                            profile=profile,
-                            device=cfg.native_device,
-                            check_active=ctx.check_active,
-                            frozen_runtime=runtime,
-                            frozen_artifacts=artifacts,
-                            nemotron_endpoint=ctx.settings.nemotron_endpoint
-                            if cfg.native_device == "cuda"
-                            else None,
-                        )
-                    )
-                    startup = worker.startup
-                    if (
-                        startup.get("runtime_identity") != runtime
-                        or startup.get("assets") != artifacts
-                    ):
-                        raise Pm2WorkerRefused(
-                            "executed contextual provider differs from frozen selection"
-                        )
-                    reply = worker.infer(request, check_active=ctx.check_active)
-                    if reply.get("outcome") not in {"succeeded", "empty"}:
-                        for family in families:
-                            builder.record(
-                                family,
-                                [p.selector() for p in builder.context.parts],
-                                "unsupported",
-                                f"native {provider} scope admission: "
-                                f"{reply.get('reason', reply.get('outcome', 'unknown'))}; "
-                                "crossing remains unexamined",
-                            )
-                    elif provider == "maverick":
-                        builder.maverick(tokens, request, reply)
-                    elif reply.get("outcome") == "empty":
-                        for family in families:
-                            builder.record(family, [p.selector() for p in builder.context.parts])
-                    else:
-                        builder.dipo(request, reply)
-            except (
-                Pm2WorkerError,
-                Pm2WorkerRefused,
-                OSError,
-                ValueError,
-                KeyError,
-                TypeError,
-            ) as error:
-                ctx.check_active()
-                del builder.annotations[checkpoint[0] :]
-                del builder.memberships[checkpoint[1] :]
-                del builder.roles[checkpoint[2] :]
-                del builder._native_clusters[checkpoint[3] :]
-                builder._mention_metadata = checkpoint[4]
-                del builder._rst_hosts[checkpoint[5] :]
+            tokens = (
+                canonical_tokens(builder, layers, cfg.native_token_layer)
+                if provider == "maverick"
+                else None
+            )
+            request = (
+                dict(sentences=builder.sentences(tokens))
+                if tokens is not None
+                else dict(text=builder.context.text, mode="learned")
+            )
+            project = root / f"services/pm2-{provider}"
+            worker = pm2_client(
+                providers,
+                ctx,
+                provider=provider,
+                python=project / ".venv/bin/python",
+                script=script,
+                project=project,
+                assets=assets,
+                runtime=runtime,
+                artifacts=artifacts,
+                device=cfg.native_device,
+            )
+            yield from worker.start()
+            startup = worker.startup
+            if startup.get("runtime_identity") != runtime or startup.get("assets") != artifacts:
+                raise Pm2WorkerRefused("executed contextual provider differs from frozen selection")
+            reply = yield from worker.infer(request, check_active=ctx.check_active)
+            if reply.get("outcome") not in {"succeeded", "empty"}:
                 for family in families:
                     builder.record(
                         family,
                         [p.selector() for p in builder.context.parts],
-                        "failed",
-                        f"native {provider} context attempt failed: {error}",
+                        "unsupported",
+                        f"native {provider} scope admission: "
+                        f"{reply.get('reason', reply.get('outcome', 'unknown'))}; "
+                        "crossing remains unexamined",
                     )
-            if startup is not None:
-                config = startup["native_configuration"]
-                row = native_run(
-                    provider,
-                    REVISION,
-                    config,
-                    model=startup["encoder"],
-                    version="selected-staged-checkpoint",
-                    runtime_version=startup["packages"][
-                        "maverick-coref" if provider == "maverick" else "dipo"
-                    ],
-                    layout=[p.selector() for p in builder.context.parts],
-                    text=builder.context.text,
-                    components=[dict(name=startup["head"], factory=provider)],
-                    packages=[
-                        dict(name=name, version=value)
-                        for name, value in startup["packages"].items()
-                    ],
-                    artifacts=_artifacts(startup),
-                    limits=[
-                        dict(name=name, value=value) for name, value in startup["bounds"].items()
-                    ],
-                    diagnostics=[
-                        "native context observations do not establish complete reference "
-                        "detection or logical discourse meaning"
-                    ],
+            elif provider == "maverick":
+                builder.maverick(tokens, request, reply)
+            elif reply.get("outcome") == "empty":
+                for family in families:
+                    builder.record(family, [p.selector() for p in builder.context.parts])
+            else:
+                builder.dipo(request, reply)
+        except CapacityExceeded:
+            raise
+        except (
+            Pm2WorkerError,
+            Pm2WorkerRefused,
+            OSError,
+            ValueError,
+            KeyError,
+            TypeError,
+        ) as error:
+            ctx.check_active()
+            del builder.annotations[checkpoint[0] :]
+            del builder.memberships[checkpoint[1] :]
+            del builder.roles[checkpoint[2] :]
+            del builder._native_clusters[checkpoint[3] :]
+            builder._mention_metadata = checkpoint[4]
+            del builder._rst_hosts[checkpoint[5] :]
+            for family in families:
+                builder.record(
+                    family,
+                    [p.selector() for p in builder.context.parts],
+                    "failed",
+                    f"native {provider} context attempt failed: {error}",
                 )
-                row["configuration_codec"] = provider + "-config-json-v1"
-                builder.native_runs.append(row)
+        if startup is not None:
+            config = startup["native_configuration"]
+            row = native_run(
+                provider,
+                REVISION,
+                config,
+                model=startup["encoder"],
+                version="selected-staged-checkpoint",
+                runtime_version=startup["packages"][
+                    "maverick-coref" if provider == "maverick" else "dipo"
+                ],
+                layout=[p.selector() for p in builder.context.parts],
+                text=builder.context.text,
+                components=[dict(name=startup["head"], factory=provider)],
+                packages=[
+                    dict(name=name, version=value) for name, value in startup["packages"].items()
+                ],
+                artifacts=_artifacts(startup),
+                limits=[dict(name=name, value=value) for name, value in startup["bounds"].items()],
+                diagnostics=[
+                    "native context observations do not establish complete reference "
+                    "detection or logical discourse meaning"
+                ],
+            )
+            row["configuration_codec"] = provider + "-config-json-v1"
+            builder.native_runs.append(row)

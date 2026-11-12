@@ -1065,6 +1065,7 @@ class BoundReader:
         regional_preparation=None,
     ):
         self.cpu_execution = cpu_execution
+        self.provider_execution: Any = None
         self._regional_preparation = regional_preparation
         self.conn, self.run_id, self.prepared, self.cut_id = conn, run_id, prepared, cut_id
         self._analysis_enabled = analysis

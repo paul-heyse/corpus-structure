@@ -13,7 +13,6 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.core.vocab import Stage
-from corpus_structure.methods.characterization_resources import characterization_resource_session
 from corpus_structure.semantic.characterization import characterization_profiles
 from corpus_structure.semantic.characterization_store import (
     read_inventory,
@@ -25,7 +24,6 @@ from corpus_structure.semantic.structural_products import ExternalSourceRef
 
 from .registry import MethodRegistry
 from .runner import Graph, Step
-from .semantic import run_source_methods
 
 PRIMARY_PRODUCERS = frozenset(
     {
@@ -101,7 +99,19 @@ def _inventory(engine, run_id):
             return rows
 
 
-def enrich_document(
+def enrich_document(*args, **kwargs):
+    from corpus_structure.core.work import drive_prepared_work
+
+    if kwargs.get("execution_preparation") is not None:
+        return drive_prepared_work(_enrich_document_plan(*args, **kwargs), lambda: None)
+    from .ready import owned_source_execution
+
+    with owned_source_execution(kwargs["prepared"]) as execution:
+        kwargs["execution_preparation"] = execution
+        return drive_prepared_work(_enrich_document_plan(*args, **kwargs), lambda: None)
+
+
+def _enrich_document_plan(
     engine,
     *,
     demand: EnrichedDocumentDemand,
@@ -128,6 +138,8 @@ def enrich_document(
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.source_views import load_source_view
 
+    if execution_preparation is None:
+        raise ValueError("incremental enrichment requires an owned execution scope")
     options = method_options or {}
     required = set(characterization_profiles(prepared).get("full_characterization", ()))
     if not demand.source_only and not required:
@@ -446,7 +458,10 @@ def enrich_document(
             ] + [pin]
         if not active:
             return []
-        result = run_source_methods(
+        from .semantic import _source_methods_plan
+
+        result = yield from _source_methods_plan(
+            execution_preparation.cpu,
             engine,
             execution_preparation=execution_preparation,
             regional_preparation=regional_preparation,
@@ -488,8 +503,8 @@ def enrich_document(
     if not demand.source_only and demand.run_missing:
         # Only semantic dependency edges order stages; source evidence and formal syntax
         # are independent operations in the same ordinary execution group.
-        stage(("text.native_evidence", "text.formal_evidence"))
-        stage(("text.constructions",))
+        yield from stage(("text.native_evidence", "text.formal_evidence"))
+        yield from stage(("text.constructions",))
         token_layers = [
             pin
             for pin in active_pins
@@ -506,8 +521,8 @@ def enrich_document(
             if len(token_layers) == 1
             else {}
         )
-        stage(("text.contextual_characterization",), context_options)
-        stage(("text.model_characterization",))
+        yield from stage(("text.contextual_characterization",), context_options)
+        yield from stage(("text.model_characterization",))
         symbolic = [
             pin
             for pin in sorted(
@@ -535,7 +550,7 @@ def enrich_document(
             if layers[pin].payload["operation"]["key"]
             in {"text.contextual_characterization", "text.model_characterization"}
         ]
-        stage(
+        yield from stage(
             ("text.evaluate_context",),
             {"text.evaluate_context": dict(symbolic_roots=roots, context_layers=context_layers)},
         )
@@ -569,7 +584,7 @@ def enrich_document(
         if required <= present
         else "selected_layers"
     )
-    products = stage(
+    products = yield from stage(
         ("text.compose_view",), {"text.compose_view": dict(characterization_profile=profile)}
     )
     views = [ProductReference(**row["reference"]) for row in products if row["kind"] == "view"]
@@ -610,8 +625,13 @@ def execute_characterization_demand(
         return _execute_characterization_demand(execution, **arguments)
 
 
-@characterization_resource_session()
-def _execute_characterization_demand(
+def _execute_characterization_demand(execution, *args, **kwargs):
+    from corpus_structure.core.work import drive_prepared_work
+
+    return drive_prepared_work(_demand_plan(execution, *args, **kwargs), lambda: None)
+
+
+def _demand_plan(
     execution,
     engine,
     request: CharacterizationDemandRequest,
@@ -656,29 +676,31 @@ def _execute_characterization_demand(
     from corpus_structure.semantic.execution_preparation import RegionalPreparation
 
     with RegionalPreparation(execution) as regional:
-        return enrich_document(
-            engine,
-            execution_preparation=execution,
-            regional_preparation=regional,
-            demand=EnrichedDocumentDemand(
-                request.base_document,
-                request.source_scope,
-                request.selected_layers,
-                request.source_only,
-                request.active_layers,
-                request.run_missing,
-                request.fresh_methods,
-            ),
-            project_id=request.project_id,
-            prepared=prepared,
-            binding=binding,
-            registry=selected,
-            method_settings=method_settings,
-            selected_sources=request.selected_sources,
-            method_options=request.method_options,
-            preparation_cache=preparation_cache,
-            domain=request.domain,
-            on_created=on_created,
+        return (
+            yield from _enrich_document_plan(
+                engine,
+                execution_preparation=execution,
+                regional_preparation=regional,
+                demand=EnrichedDocumentDemand(
+                    request.base_document,
+                    request.source_scope,
+                    request.selected_layers,
+                    request.source_only,
+                    request.active_layers,
+                    request.run_missing,
+                    request.fresh_methods,
+                ),
+                project_id=request.project_id,
+                prepared=prepared,
+                binding=binding,
+                registry=selected,
+                method_settings=method_settings,
+                selected_sources=request.selected_sources,
+                method_options=request.method_options,
+                preparation_cache=preparation_cache,
+                domain=request.domain,
+                on_created=on_created,
+            )
         )
 
 
@@ -742,7 +764,6 @@ def characterize_captured_run(
         return _characterize_captured_run(execution, **arguments)
 
 
-@characterization_resource_session()
 def _characterize_captured_run(
     execution,
     engine,
@@ -869,21 +890,28 @@ def _characterize_captured_run(
                 )
             )
     preparation_cache = {}
-    regional = [
-        (
-            request,
-            _execute_characterization_demand(
-                execution,
-                engine,
-                request,
-                method_settings,
-                preparation_cache=preparation_cache,
-                registry=registry,
-                on_created=on_created,
-            ),
+    from corpus_structure.core.work import ReadyGroup, drive_prepared_work
+
+    def regions_plan():
+        return (
+            yield ReadyGroup(
+                tuple(
+                    _demand_plan(
+                        execution,
+                        engine,
+                        request,
+                        method_settings,
+                        preparation_cache=preparation_cache,
+                        registry=registry,
+                        on_created=on_created,
+                    )
+                    for request in requests
+                ),
+                max_active=execution.cpu.policy.max_regions,
+            )
         )
-        for request in requests
-    ]
+
+    regional = list(zip(requests, drive_prepared_work(regions_plan(), lambda: None), strict=True))
     # Natural units bound inference and recovery; one composed document pin brings
     # their selected analyses together without running those producers again.
     from corpus_structure.semantic.characterization_store import read_view

@@ -23,9 +23,12 @@ from corpus_structure.methods.definition_applicability import (
 from corpus_structure.methods.gliner import GlinerInput, GlinerPack, GlinerProfile, GlinerRefused
 from corpus_structure.methods.model_observation import (
     MODEL_OBSERVATION_INPUT,
-    observation_digest,
+    legacy_request_digest,
     released_pack,
-    request_digest,
+    report_observation_digest,
+)
+from corpus_structure.methods.model_observation import (
+    request_digest as current_request_digest,
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
@@ -179,12 +182,21 @@ def _policy(contract):
     return json.loads(content)
 
 
-def _verify_request(entry, expected):
+def _retained_request_digest(policy, *args):
+    version = policy["request_version"]
+    if version == "located-model-request-1":
+        return legacy_request_digest(*args)
+    if version == "located-model-request-2":
+        return current_request_digest(*args)
+    raise ValueError("unsupported retained model request version")
+
+
+def _verify_request(entry, expected, policy):
     if (
         entry["request_digest"] != expected
         or entry["computation"] != expected
         or entry["observation_digest"]
-        != observation_digest(expected, entry["raw_json"], entry["effective_profile_json"])
+        != report_observation_digest(entry, request_version=policy["request_version"])
     ):
         raise ValueError("provider observation differs from exact model request")
 
@@ -208,7 +220,8 @@ def _verify_definition_windows(config, detail, policy, pack, passages, *, operat
                 window.text,
                 "structure.definition_components/" + operation_version,
             )
-            expected = request_digest(
+            expected = _retained_request_digest(
+                policy,
                 pack,
                 profile_values,
                 (request,),
@@ -229,7 +242,7 @@ def _verify_definition_windows(config, detail, policy, pack, passages, *, operat
                 raise ValueError("definition window differs from exact configured population")
             if status == "returned":
                 entry = next(reports, {})
-                _verify_request(entry, expected)
+                _verify_request(entry, expected, policy)
                 if (entry["passage_id"], entry["window_start"], entry["window_end"]) != (
                     passage_id,
                     window.start,
@@ -395,7 +408,8 @@ def _verify_clause_model(report, config, detail, release, payloads, origins, pol
         expected = None
         if policy:
             request = replace(request, operation="structure.clause_classification/2")
-            expected = request_digest(
+            expected = _retained_request_digest(
+                policy,
                 pack,
                 config["profile"],
                 (request,),
@@ -418,7 +432,7 @@ def _verify_clause_model(report, config, detail, release, payloads, origins, pol
             if entry is None:
                 raise ValueError("clause model result lacks retained envelope")
             if expected:
-                _verify_request(entry, expected)
+                _verify_request(entry, expected, policy)
             _verify_envelope(entry, detail, request.text, request.context_digest, "clause-focus:")
             with contextlib.suppress(ValueError):
                 function, presentation, disposition = clause_labels(json.loads(entry["raw_json"]))

@@ -41,6 +41,7 @@ def inputs(prepared):
     operation: dict[str, str] = {
         **{key: value for key, value in draft.operation.items() if isinstance(value, str)},
         "key": "text.model_characterization",
+        "version": ModelCharacterizationMethod.version,
         "model": cfg.model,
         "grammar": cfg.grammar,
         "context": cfg.context,
@@ -65,8 +66,8 @@ def test_unavailable_profiles_publish_partial_family_outcomes_without_hidden_cal
     def forbidden(*args, **kwargs):
         raise AssertionError("unavailable profile started native inference")
 
-    monkeypatch.setattr(model_characterization, "open_pm2_worker", forbidden)
-    monkeypatch.setattr(model_characterization, "borrowed_gliner_worker", forbidden)
+    monkeypatch.setattr(model_characterization, "pm2_client", forbidden)
+    monkeypatch.setattr(model_characterization, "gliner_extract", forbidden)
     method = ModelCharacterizationMethod()
     assert tuple(method.select(unit.run, cfg)) == (unit.ref,)
     (result,) = method.run([unit], cfg, ctx)
@@ -110,10 +111,17 @@ def test_all_source_first_families_run_when_no_candidate_exists(prepared):
                         )
                 wrapped = SimpleNamespace(payload=payload)
                 replies.append(d1_reply(wrapped, questions))
+            if False:
+                yield ()
             return dict(batch=replies)
 
+    from corpus_structure.core.method import drive_prepared_work
+
     worker = FixtureWorker()
-    ModelCharacterizationMethod()._d1_work(worker, ctx, output, [selected], families, {})
+    drive_prepared_work(
+        ModelCharacterizationMethod()._d1_work(worker, ctx, output, [selected], families, {}),
+        ctx.check_active,
+    )
     assert {
         "modal_cue",
         "quantifier_cue",
@@ -163,9 +171,9 @@ def test_candidate_discovery_uses_active_selection_and_retains_validation_closur
     original = method._d1
     seen = []
 
-    def capture(cfg, ctx, builder, scopes, families, dependencies):
+    def capture(cfg, ctx, builder, scopes, families, dependencies, providers):
         seen.extend(dependencies)
-        return original(cfg, ctx, builder, scopes, families, dependencies)
+        return original(cfg, ctx, builder, scopes, families, dependencies, providers)
 
     monkeypatch.setattr(method, "_d1", capture)
     (result,) = method.run([unit], cfg, ctx)

@@ -162,6 +162,45 @@ def _load_hanlp(
             raise ValueError("HanLP requires a nonempty ordered sentence batch")
         if len(sentences) > _MAX_SENTENCES:
             return {"outcome": "limited", "reason": "sentences", "limit": _MAX_SENTENCES}
+        if request.get("prepare_bulk") is True:
+            members: list[Payload | None] = [None for _ in sentences]
+            admitted = []
+            for ordinal, sentence in enumerate(sentences):
+                reason = None
+                if (
+                    not isinstance(sentence, list)
+                    or not sentence
+                    or any(not isinstance(word, str) or not word.strip() for word in sentence)
+                ):
+                    raise ValueError("HanLP bulk preparation requires canonical token lists")
+                if len(sentence) > _MAX_WORDS:
+                    reason = ("sentence_words", _MAX_WORDS)
+                elif max(map(len, sentence)) > _MAX_TOKEN_CHARS:
+                    reason = ("token_chars", _MAX_TOKEN_CHARS)
+                elif sum(map(len, sentence)) > _MAX_BATCH_CHARS:
+                    reason = ("sentence_chars", _MAX_BATCH_CHARS)
+                if reason is not None:
+                    members[ordinal] = dict(
+                        ordinal=ordinal, outcome="limited", reason=reason[0], limit=reason[1]
+                    )
+                else:
+                    admitted.append(ordinal)
+            if admitted:
+                prepared, limit = _prepare(
+                    model, resolved, [sentences[index] for index in admitted]
+                )
+                for ordinal, sample in zip(admitted, prepared, strict=True):
+                    length = len(sample["input_ids"])
+                    members[ordinal] = dict(
+                        ordinal=ordinal,
+                        outcome="prepared" if length <= limit else "limited",
+                        row_tokens=length,
+                        limit=limit,
+                        reason=None if length <= limit else "sentence_subwords",
+                    )
+            return dict(
+                outcome="prepared_batch", members=members, max_padded_subwords=_MAX_PADDED_SUBWORDS
+            )
         if any(not isinstance(row, list) or not row for row in sentences):
             raise ValueError("HanLP requires nonempty canonical token lists")
         if max(map(len, sentences)) > _MAX_WORDS:

@@ -21,12 +21,18 @@ from corpus_structure.semantic.source_contexts import (
 
 from .gliner import GlinerInput, GlinerPack, GlinerProfile, GlinerRefused, GlinerReport, _json
 from .gliner_worker import GlinerWorker, GlinerWorkerError
-from .model_observation import observation_digest, request_digest
+from .model_observation import (
+    batch_digest,
+    batch_receipt,
+    legacy_request_digest,
+    member_request_digest,
+    observation_digest,
+)
 from .pm2_products import ParserProduct
 from .pm2_source import PM2SourceMap, SourceMapSegment
 
 METHOD = "extract.pm2_gliner_classification"
-VERSION = "1"
+VERSION = "2"
 FAMILY = "passage_function_v1"
 _REPORT = TypeAdapter(GlinerReport)
 
@@ -90,6 +96,7 @@ def classification_request(
     inference: dict,
     *,
     characterization_family: str | None = None,
+    operation_version: str = VERSION,
 ) -> dict:
     (question,) = family.select_questions((question_key,))
     context = mapping.context
@@ -126,11 +133,11 @@ def classification_request(
     pack = GlinerPack(release, _json(declaration), "native-combined-v2")
     item = replace(
         GlinerInput.from_context(context),
-        operation=f"{METHOD}/{VERSION}:{family.digest}",
+        operation=f"{METHOD}/{operation_version}:{family.digest}",
     )
     request = {
         "operation": METHOD,
-        "version": VERSION,
+        "version": operation_version,
         "declaration_digest": family.digest,
         "question_key": question.key,
         "label_keys": [option.key for option in question.options],
@@ -154,21 +161,84 @@ def _arguments(request: dict) -> tuple[GlinerPack, GlinerInput]:
 
 
 def authenticated_gliner_report(
-    request: dict, envelope: dict, profile: ClassificationProfile, *, overlap_policy: str = "flat"
+    request: dict,
+    envelope: dict,
+    profile: ClassificationProfile,
+    *,
+    overlap_policy: str = "flat",
+    request_version: str = "located-model-request-2",
 ) -> GlinerReport:
     """The shared exact request/runtime gate for classification and literal cues."""
     pack, item = _arguments(request)
     threshold = request["threshold"]
     native = _REPORT.validate_python(envelope)
-    expected = request_digest(
-        pack,
-        asdict(profile.profile),
-        (item,),
-        threshold,
-        overlap_policy,
-        False,
-        request["inference"],
-    )
+    if request_version == "located-model-request-1":
+        if native.batch_receipt_json is not None or native.member_ordinal is not None:
+            raise GlinerRefused("historical request cannot acquire batch provenance")
+        expected = legacy_request_digest(
+            pack,
+            asdict(profile.profile),
+            (item,),
+            threshold,
+            overlap_policy,
+            False,
+            request["inference"],
+        )
+        observed = observation_digest(expected, native.raw_json, native.effective_profile_json)
+    elif request_version == "located-model-request-2":
+        try:
+            receipt = json.loads(native.batch_receipt_json or "null")
+            if not isinstance(receipt, dict) or set(receipt) != {
+                "version",
+                "header",
+                "members",
+                "digest",
+            }:
+                raise ValueError("batch receipt shape")
+            members = receipt["members"]
+            ordinal = native.member_ordinal
+            own = batch_receipt(
+                pack,
+                asdict(profile.profile),
+                (item,),
+                threshold,
+                overlap_policy,
+                False,
+                request["inference"],
+            )
+            if (
+                receipt["version"] != 2
+                or canonical_bytes(receipt["header"]) != canonical_bytes(own["header"])
+                or not isinstance(members, list)
+                or not 1 <= len(members) <= profile.profile.max_batch
+                or any(
+                    not isinstance(value, str)
+                    or len(value) != 64
+                    or any(c not in "0123456789abcdef" for c in value)
+                    for value in members
+                )
+                or len(set(members)) != len(members)
+                or type(ordinal) is not int
+                or not 0 <= ordinal < len(members)
+                or members[ordinal] != member_request_digest(item)
+            ):
+                raise ValueError("batch member/header mismatch")
+            expected = batch_digest(receipt["header"], members)
+            if receipt["digest"] != expected:
+                raise ValueError("batch commitment mismatch")
+            observed = observation_digest(
+                expected,
+                native.raw_json,
+                native.effective_profile_json,
+                ordinal=ordinal,
+                member=members[ordinal],
+            )
+        except (ValueError, TypeError, KeyError, IndexError) as error:
+            raise GlinerRefused(
+                "classification reply differs from the exact released request batch/member"
+            ) from error
+    else:
+        raise GlinerRefused("unsupported released model request version")
     # GLiNER 2.1.0 appends punctuation to its internal representation. The
     # exact requested slice stays unchanged and the suffix never becomes source.
     suffix = "" if item.text.endswith((".", "!", "?")) else "."
@@ -177,8 +247,7 @@ def authenticated_gliner_report(
     if (
         native.computation != expected
         or native.request_digest != expected
-        or native.observation_digest
-        != observation_digest(expected, native.raw_json, native.effective_profile_json)
+        or native.observation_digest != observed
         or native.context_id != item.context_id
         or native.context_digest != item.context_digest
         or native.preparation.consumed_text != item.text + suffix
@@ -202,9 +271,15 @@ def authenticated_gliner_report(
 
 
 def classification_product(
-    request: dict, envelope: dict, profile: ClassificationProfile
+    request: dict,
+    envelope: dict,
+    profile: ClassificationProfile,
+    *,
+    request_version: str = "located-model-request-2",
 ) -> ParserProduct:
-    native = authenticated_gliner_report(request, envelope, profile)
+    native = authenticated_gliner_report(
+        request, envelope, profile, request_version=request_version
+    )
     threshold = request["threshold"]
 
     raw = native.raw

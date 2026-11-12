@@ -66,6 +66,7 @@ def publish_selected(
     furniture=False,
     characterization_pages=False,
     empty_sections=False,
+    language_sections=False,
     unprojected_formula=False,
 ):
     document = DoclingDocument(name="independently selected source")
@@ -119,6 +120,32 @@ def publish_selected(
             label=GroupLabel.SECTION, name="Image-only selected section", parent=chapter
         )
         document.add_picture(parent=picture_section)
+    if language_sections:
+        from docling_core.types.doc import BoundingBox, CoordOrigin, ProvenanceItem
+
+        for ordinal, passage in enumerate(
+            (
+                "A random variable has an expected value. Its variance measures dispersion.",
+                "Independent observations form a sample. "
+                "The sample mean estimates the population mean.",
+            ),
+            start=1,
+        ):
+            language_section = document.add_group(
+                label=GroupLabel.SECTION,
+                name=f"Language selected section {ordinal}",
+                parent=chapter,
+            )
+            prose = document.add_text(
+                label=DocItemLabel.TEXT, text=passage, parent=language_section
+            )
+            prose.prov = [
+                ProvenanceItem(
+                    page_no=ordinal,
+                    bbox=BoundingBox(l=20, t=60, r=580, b=110, coord_origin=CoordOrigin.TOPLEFT),
+                    charspan=(0, len(passage)),
+                )
+            ]
     if unprojected_formula:
         formula_section = document.add_group(
             label=GroupLabel.SECTION, name="Unprojected formula section", parent=chapter

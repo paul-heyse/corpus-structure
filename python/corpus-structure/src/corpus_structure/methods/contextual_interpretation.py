@@ -110,6 +110,11 @@ class ContextualInterpretationMethod:
             )
         )
 
+    def plan(self, units, cfg, ctx):
+        from corpus_structure.semantic.cpu_execution import cpu_method_plan
+
+        return (yield from cpu_method_plan(self, units, cfg, ctx))
+
     def run(self, units, cfg, ctx):
         from corpus_structure.semantic.cpu_execution import run_cpu_method
 

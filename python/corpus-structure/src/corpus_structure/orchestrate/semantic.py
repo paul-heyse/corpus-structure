@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import Any
@@ -174,22 +174,46 @@ def run_source_methods(
     on_created: Callable[[SourceRunCreated], None] | None = None,
 ) -> BoundRunReport:
     arguments = locals()
-    from corpus_structure.semantic.cpu_execution import CPUExecutionScope
+    from .ready import owned_source_execution
 
     if execution_preparation is not None:
         if execution_preparation.require_release(prepared.release_id) is not prepared:
             raise ValueError("source invocation differs from verified preparation")
-        cpu = execution_preparation.cpu
-    else:
-        cpu = CPUExecutionScope(prepared)
+        return _run_source_methods(execution_preparation.cpu, **arguments)
+    with owned_source_execution(prepared) as execution:
+        arguments["execution_preparation"] = execution
+        return _run_source_methods(execution.cpu, **arguments)
+
+
+def _run_source_methods(cpu_execution, *args, **kwargs):
+    from corpus_structure.core.work import drive_prepared_work
+
+    return drive_prepared_work(_source_methods_plan(cpu_execution, *args, **kwargs), lambda: None)
+
+
+def _method_plan(method, units, config, context):
+    plan = getattr(method, "plan", None)
+    if plan is not None:
+        return (yield from plan(units, config, context))
+    # Ordinary synchronous consumers retain their own semantic implementation.
+    return method.run(units, config, context)
+
+
+def _source_methods_plan(cpu_execution, *args, **kwargs):
+    from corpus_structure.core.work import PreparedWork
+
+    from .ready import source_admission
+
+    execution = kwargs["execution_preparation"]
+    admission = source_admission(execution)
+    (permit,) = yield (PreparedWork(lambda: admission.try_work("stage")),)
     try:
-        return _run_source_methods(cpu, **arguments)
+        return (yield from _source_run_plan(cpu_execution, *args, **kwargs))
     finally:
-        if execution_preparation is None:
-            cpu.close()
+        permit.release()
 
 
-def _run_source_methods(
+def _source_run_plan(
     cpu_execution,
     engine: Any,
     *,
@@ -222,7 +246,7 @@ def _run_source_methods(
     execution_preparation: Any = None,
     regional_preparation: Any = None,
     on_created: Callable[[SourceRunCreated], None] | None = None,
-) -> BoundRunReport:
+) -> Generator[Any, Any, BoundRunReport]:
     """Run the current source graph; hand its immutable cut to consolidation/proposal owners.
 
     This result establishes source preparation only. It does not report grading, inference,
@@ -279,6 +303,8 @@ def _run_source_methods(
         if invocation_input.release_id != prepared.release_id:
             raise OperationConflict("invocation preparation belongs to another release")
     registry = registry.bind_release(prepared)
+    if execution_preparation is not None:
+        execution_preparation.register_methods(registry)
     configurations = dict(configurations or {})
     configs = _source_configurations(registry, graph, configurations)
     if graph.policy_propose and policy_source is not None:
@@ -509,7 +535,10 @@ def _run_source_methods(
             binding.input_revision,
             canonical_bytes(dependency_manifest),
         )
+        from dataclasses import asdict
+
         options = {
+            "physical_policy": asdict(cpu_execution.policy),
             **({"extraction_policy": extraction_policy} if extraction_policy != "phase0" else {}),
             "domain": domain,
             "corpus": dict(corpus_record)
@@ -755,20 +784,285 @@ def _run_source_methods(
 
                     from .source_reader import ScopedSourceReader
 
-                    with engine.connect() as conn:
-                        view = run_view(
-                            conn,
-                            rid,
-                            prepared,
-                            cpu_execution=cpu_execution,
-                            regional_preparation=regional_preparation,
-                        )
-                        bound_reader = view.reader
-                        if not isinstance(bound_reader, BoundReader):
-                            raise TypeError("source execution requires the bound database adapter")
-                        bound_reader.math_readings_batch = shared_math_batch
-                    scoped_reader = ScopedSourceReader(engine, bound_reader)
-                    method_view = replace(view, reader=scoped_reader)
+                    def execute_claim_body(method, config, claimed, math_batch=shared_math_batch):
+                        with engine.connect() as conn:
+                            view = run_view(
+                                conn,
+                                rid,
+                                prepared,
+                                cpu_execution=cpu_execution,
+                                regional_preparation=regional_preparation,
+                            )
+                            bound_reader = view.reader
+                            if not isinstance(bound_reader, BoundReader):
+                                raise TypeError(
+                                    "source execution requires the bound database adapter"
+                                )
+                            bound_reader.math_readings_batch = math_batch
+                            bound_reader.provider_execution = execution_preparation.providers
+                        scoped_reader = ScopedSourceReader(engine, bound_reader)
+                        method_view = replace(view, reader=scoped_reader)
+                        from corpus_structure.semantic.claim_lifetime import maintained_claims
+
+                        with maintained_claims(engine, claimed, holder) as check_active:
+                            _retain_source_originals(
+                                engine,
+                                claimed,
+                                method,
+                                config.config,
+                                holder,
+                                prepared,
+                                check_active,
+                            )
+                            with engine.connect() as conn:
+                                bound_reader.conn = conn
+                                bound_reader.source_producers = _claimed_source_producers(
+                                    conn, claimed, config.params
+                                )
+                                from corpus_structure.semantic.product_reference import (
+                                    ProductReference,
+                                )
+
+                                bound_reader.characterization_selection = tuple(
+                                    ProductReference(**pin)
+                                    for pin in config.params.get("characterization_layers", ())
+                                )
+                                bound_reader.bind_source_tasks(
+                                    {
+                                        int(
+                                            task.unit_id
+                                            if task.unit_type == "document"
+                                            else conn.execute(
+                                                select(table("kb.source_view").c.document_id).where(
+                                                    table("kb.source_view").c.id == task.unit_id
+                                                )
+                                            ).scalar_one()
+                                        ): task.task_id
+                                        for task in claimed
+                                        if task.unit_type in {"document", "source_view"}
+                                        and task.unit_id is not None
+                                    }
+                                )
+                                units = [
+                                    _unit(
+                                        conn,
+                                        view,
+                                        UnitRef(TaskUnitType(t.unit_type), t.unit_id, t.unit_key),
+                                    )
+                                    for t in claimed
+                                ]
+                                from types import MappingProxyType
+
+                                tasks_table = table("ops.task")
+                                task_inputs = dict(
+                                    conn.execute(
+                                        select(tasks_table.c.id, tasks_table.c.input_hash).where(
+                                            tasks_table.c.id.in_([t.task_id for t in claimed])
+                                        )
+                                    ).all()
+                                )
+                                runtime_id = conn.execute(
+                                    select(table("ops.run").c.runtime_id).where(
+                                        table("ops.run").c.id == rid
+                                    )
+                                ).scalar_one()
+                                operation_identities = {
+                                    UnitRef(
+                                        TaskUnitType(t.unit_type), t.unit_id, t.unit_key
+                                    ): MappingProxyType(
+                                        {
+                                            "key": method.name,
+                                            "version": method.version,
+                                            "runtime": runtime_id,
+                                            "configuration": config.config_hash,
+                                            "input": task_inputs[t.task_id],
+                                            **{
+                                                k: config.params.get(k)
+                                                for k in ("model", "grammar", "context")
+                                            },
+                                        }
+                                    )
+                                    for t in claimed
+                                }
+
+                            def characterization_operation(
+                                unit_ref, identities=operation_identities
+                            ):
+                                try:
+                                    identity = identities[unit_ref]
+                                    if any(
+                                        not isinstance(value, str) or not value
+                                        for value in identity.values()
+                                    ):
+                                        raise OperationConflict(
+                                            "characterization requires exact frozen "
+                                            "operation determinants"
+                                        )
+                                    return identity
+                                except KeyError as exc:
+                                    raise OperationConflict(
+                                        "characterization unit is outside owned tasks"
+                                    ) from exc
+
+                            units = [replace(unit, run=method_view) for unit in units]
+
+                            def retain_pdf_observation(
+                                unit_ref,
+                                product,
+                                *,
+                                claimed_tasks=tuple(claimed),
+                                active=check_active,
+                            ):
+                                from corpus_structure.semantic.pdf_integrated import (
+                                    store_pdf_observation,
+                                )
+                                from corpus_structure.semantic.product_reference import (
+                                    ProductReference,
+                                )
+
+                                task = _retained_claim(unit_ref, claimed_tasks, active)
+                                with engine.begin() as publication_conn:
+                                    digest = store_pdf_observation(
+                                        publication_conn,
+                                        task_id=task.task_id,
+                                        attempt=task.attempt,
+                                        holder=holder,
+                                        product=product,
+                                    )
+                                return ProductReference(
+                                    task.task_id, product.values()["product_key"], digest
+                                )
+
+                            def retain_pdf_records(
+                                unit_ref,
+                                product,
+                                *,
+                                claimed_tasks=tuple(claimed),
+                                active=check_active,
+                            ):
+                                from pathlib import Path
+
+                                from corpus_structure.orchestrate.pdf_streaming import (
+                                    publish_pdf_record_draft,
+                                )
+                                from corpus_structure.semantic.product_reference import (
+                                    ProductReference,
+                                )
+
+                                task = _retained_claim(unit_ref, claimed_tasks, active)
+                                published = publish_pdf_record_draft(
+                                    engine,
+                                    task,
+                                    holder,
+                                    product,
+                                    directory=Path("build/pdf-publication"),
+                                    check_active=active,
+                                )
+                                return ProductReference(
+                                    published.task_id,
+                                    published.product_key,
+                                    published.logical_digest,
+                                )
+
+                            def produce_pdf_records(
+                                unit_ref,
+                                request,
+                                *,
+                                claimed_tasks=tuple(claimed),
+                                active=check_active,
+                            ):
+                                from pathlib import Path
+
+                                from corpus_structure.orchestrate.pdf_streaming import (
+                                    produce_published_pdf_records,
+                                )
+                                from corpus_structure.semantic.product_reference import (
+                                    ProductReference,
+                                )
+
+                                task = _retained_claim(unit_ref, claimed_tasks, active)
+                                published = produce_published_pdf_records(
+                                    engine,
+                                    task,
+                                    holder,
+                                    request,
+                                    directory=Path("build/pdf-production"),
+                                    check_active=active,
+                                )
+                                return ProductReference(
+                                    published.task_id,
+                                    published.product_key,
+                                    published.logical_digest,
+                                )
+
+                            from corpus_structure.cli.observation_logging import (
+                                event,
+                            )
+
+                            event(
+                                "method_started",
+                                "Source method started",
+                                selected_tasks=len(claimed),
+                                run_id=rid,
+                                method=method.name,
+                                task_id=claimed[0].task_id,
+                                attempt=claimed[0].attempt,
+                            )
+                            results = yield from _method_plan(
+                                method,
+                                units,
+                                config.config,
+                                MethodContext(
+                                    method_view,
+                                    scoped_reader,
+                                    method_settings,
+                                    logging.getLogger(method.name),
+                                    check_active=check_active,
+                                    characterization_operation=characterization_operation,
+                                    retain_pdf_records=retain_pdf_records,
+                                    produce_pdf_records=produce_pdf_records,
+                                    retain_pdf_observation=retain_pdf_observation,
+                                ),
+                            )
+                            for task, result in zip(claimed, results, strict=True):
+                                from corpus_structure.semantic.operations import (
+                                    prepare_unit_completion,
+                                )
+                                from corpus_structure.semantic.query import read_snapshot
+
+                                with read_snapshot(engine) as preparation_conn:
+                                    intent = prepare_unit_completion(
+                                        preparation_conn,
+                                        task_id=task.task_id,
+                                        attempt=task.attempt,
+                                        holder=holder,
+                                        prepared=prepared,
+                                        result=result,
+                                        method=method,
+                                        configuration_hash=config.config_hash,
+                                        source=result.ref.unit_key or "run",
+                                        records=result.records,
+                                        regional_preparation=regional_preparation,
+                                    )
+                                check_active.settle(task, intent.apply)
+                                if result.error is not None:
+                                    raise OperationConflict(result.error)
+                            event(
+                                "method_finished",
+                                "Source method finished",
+                                selected_tasks=len(claimed),
+                                run_id=rid,
+                                method=method.name,
+                                task_id=claimed[0].task_id,
+                                attempt=claimed[0].attempt,
+                            )
+
+                    def execute_claim(method, config, claimed, permit):
+                        try:
+                            return (yield from execute_claim_body(method, config, claimed))
+                        finally:
+                            permit.release()
+
                     while True:
                         # Child identity is formed only after its declared parent outputs exist.
                         # Ancestor context does not queue agent work or force math values.
@@ -828,298 +1122,63 @@ def _run_source_methods(
                                     registered[(cid, ref.unit_id)] = task_id
                                     ready.append(entry)
                                 deferred = [entry for entry in deferred if entry not in ready]
+                        from .ready import source_admission
+
+                        admission = source_admission(execution_preparation)
                         work = []
+                        saturated = False
                         for method, config, cid in scheduled:
+                            permit = admission.try_take(
+                                "claim",
+                                cpu_execution.policy.max_packet_bytes
+                                if method.name == "text.compose_view"
+                                else None,
+                            )
+                            if permit is None:
+                                saturated = True
+                                break
                             with engine.begin() as conn:
                                 claimed = claim_tasks(
                                     conn,
                                     run_id=RunId(rid),
                                     config_id=MethodConfigId(cid),
                                     holder=holder,
-                                    limit=method.resources.batch_size,
+                                    limit=1,
                                     prepared=prepared,
                                 )
                             if claimed:
-                                work.append((method, config, claimed))
-                                break
+                                work.append((method, config, claimed, permit))
+                            else:
+                                permit.release()
+                        if not work and saturated:
+                            from corpus_structure.core.work import PreparedWork
+
+                            (available,) = yield (
+                                PreparedWork(
+                                    lambda admission=admission: admission.try_work("claim")
+                                ),
+                            )
+                            available.release()
+                            continue
                         if not work:
                             if deferred:
                                 raise OperationConflict(
                                     "required native source context is not ready"
                                 )
                             break
-                        for method, config, claimed in work:
-                            from corpus_structure.semantic.claim_lifetime import maintained_claims
+                        from corpus_structure.core.work import ReadyGroup
 
-                            with maintained_claims(engine, claimed, holder) as check_active:
-                                _retain_source_originals(
-                                    engine,
-                                    claimed,
-                                    method,
-                                    config.config,
-                                    holder,
-                                    prepared,
-                                    check_active,
-                                )
-                                with engine.connect() as conn:
-                                    bound_reader.conn = conn
-                                    bound_reader.source_producers = _claimed_source_producers(
-                                        conn, claimed, config.params
-                                    )
-                                    from corpus_structure.semantic.product_reference import (
-                                        ProductReference,
-                                    )
-
-                                    bound_reader.characterization_selection = tuple(
-                                        ProductReference(**pin)
-                                        for pin in config.params.get("characterization_layers", ())
-                                    )
-                                    bound_reader.bind_source_tasks(
-                                        {
-                                            int(
-                                                task.unit_id
-                                                if task.unit_type == "document"
-                                                else conn.execute(
-                                                    select(
-                                                        table("kb.source_view").c.document_id
-                                                    ).where(
-                                                        table("kb.source_view").c.id == task.unit_id
-                                                    )
-                                                ).scalar_one()
-                                            ): task.task_id
-                                            for task in claimed
-                                            if task.unit_type in {"document", "source_view"}
-                                            and task.unit_id is not None
-                                        }
-                                    )
-                                    units = [
-                                        _unit(
-                                            conn,
-                                            view,
-                                            UnitRef(
-                                                TaskUnitType(t.unit_type), t.unit_id, t.unit_key
-                                            ),
-                                        )
-                                        for t in claimed
-                                    ]
-                                    from types import MappingProxyType
-
-                                    tasks_table = table("ops.task")
-                                    task_inputs = dict(
-                                        conn.execute(
-                                            select(
-                                                tasks_table.c.id, tasks_table.c.input_hash
-                                            ).where(
-                                                tasks_table.c.id.in_([t.task_id for t in claimed])
-                                            )
-                                        ).all()
-                                    )
-                                    runtime_id = conn.execute(
-                                        select(table("ops.run").c.runtime_id).where(
-                                            table("ops.run").c.id == rid
-                                        )
-                                    ).scalar_one()
-                                    operation_identities = {
-                                        UnitRef(
-                                            TaskUnitType(t.unit_type), t.unit_id, t.unit_key
-                                        ): MappingProxyType(
-                                            {
-                                                "key": method.name,
-                                                "version": method.version,
-                                                "runtime": runtime_id,
-                                                "configuration": config.config_hash,
-                                                "input": task_inputs[t.task_id],
-                                                **{
-                                                    k: config.params.get(k)
-                                                    for k in ("model", "grammar", "context")
-                                                },
-                                            }
-                                        )
-                                        for t in claimed
-                                    }
-
-                                def characterization_operation(
-                                    ref, identities=operation_identities
-                                ):
-                                    try:
-                                        identity = identities[ref]
-                                        if any(
-                                            not isinstance(value, str) or not value
-                                            for value in identity.values()
-                                        ):
-                                            raise OperationConflict(
-                                                "characterization requires exact frozen "
-                                                "operation determinants"
-                                            )
-                                        return identity
-                                    except KeyError as exc:
-                                        raise OperationConflict(
-                                            "characterization unit is outside owned tasks"
-                                        ) from exc
-
-                                units = [replace(unit, run=method_view) for unit in units]
-
-                                def retain_pdf_observation(
-                                    ref,
-                                    product,
-                                    *,
-                                    claimed_tasks=tuple(claimed),
-                                    active=check_active,
-                                ):
-                                    from corpus_structure.semantic.pdf_integrated import (
-                                        store_pdf_observation,
-                                    )
-                                    from corpus_structure.semantic.product_reference import (
-                                        ProductReference,
-                                    )
-
-                                    task = _retained_claim(ref, claimed_tasks, active)
-                                    with engine.begin() as publication_conn:
-                                        digest = store_pdf_observation(
-                                            publication_conn,
-                                            task_id=task.task_id,
-                                            attempt=task.attempt,
-                                            holder=holder,
-                                            product=product,
-                                        )
-                                    return ProductReference(
-                                        task.task_id, product.values()["product_key"], digest
-                                    )
-
-                                def retain_pdf_records(
-                                    ref,
-                                    product,
-                                    *,
-                                    claimed_tasks=tuple(claimed),
-                                    active=check_active,
-                                ):
-                                    from pathlib import Path
-
-                                    from corpus_structure.orchestrate.pdf_streaming import (
-                                        publish_pdf_record_draft,
-                                    )
-                                    from corpus_structure.semantic.product_reference import (
-                                        ProductReference,
-                                    )
-
-                                    task = _retained_claim(ref, claimed_tasks, active)
-                                    published = publish_pdf_record_draft(
-                                        engine,
-                                        task,
-                                        holder,
-                                        product,
-                                        directory=Path("build/pdf-publication"),
-                                        check_active=active,
-                                    )
-                                    return ProductReference(
-                                        published.task_id,
-                                        published.product_key,
-                                        published.logical_digest,
-                                    )
-
-                                def produce_pdf_records(
-                                    ref,
-                                    request,
-                                    *,
-                                    claimed_tasks=tuple(claimed),
-                                    active=check_active,
-                                ):
-                                    from pathlib import Path
-
-                                    from corpus_structure.orchestrate.pdf_streaming import (
-                                        produce_published_pdf_records,
-                                    )
-                                    from corpus_structure.semantic.product_reference import (
-                                        ProductReference,
-                                    )
-
-                                    task = _retained_claim(ref, claimed_tasks, active)
-                                    published = produce_published_pdf_records(
-                                        engine,
-                                        task,
-                                        holder,
-                                        request,
-                                        directory=Path("build/pdf-production"),
-                                        check_active=active,
-                                    )
-                                    return ProductReference(
-                                        published.task_id,
-                                        published.product_key,
-                                        published.logical_digest,
-                                    )
-
-                                from corpus_structure.cli.observation_logging import (
-                                    bound,
-                                    event,
-                                    routes,
-                                )
-
-                                selected_task = claimed[0] if len(claimed) == 1 else None
-                                with (
-                                    routes(method.name),
-                                    bound(
-                                        method=method.name,
-                                        run_id=rid,
-                                        task_id=selected_task.task_id
-                                        if selected_task is not None
-                                        else None,
-                                        attempt=selected_task.attempt
-                                        if selected_task is not None
-                                        else None,
-                                    ),
-                                ):
-                                    event(
-                                        "method_started",
-                                        "Source method started",
-                                        selected_tasks=len(claimed),
-                                    )
-                                    results = method.run(
-                                        units,
-                                        config.config,
-                                        MethodContext(
-                                            method_view,
-                                            scoped_reader,
-                                            method_settings,
-                                            logging.getLogger(method.name),
-                                            check_active=check_active,
-                                            characterization_operation=characterization_operation,
-                                            retain_pdf_records=retain_pdf_records,
-                                            produce_pdf_records=produce_pdf_records,
-                                            retain_pdf_observation=retain_pdf_observation,
-                                        ),
-                                    )
-                                    for task, result in zip(claimed, results, strict=True):
-                                        from corpus_structure.semantic.operations import (
-                                            prepare_unit_completion,
-                                        )
-                                        from corpus_structure.semantic.query import read_snapshot
-
-                                        with read_snapshot(engine) as preparation_conn:
-                                            intent = prepare_unit_completion(
-                                                preparation_conn,
-                                                task_id=task.task_id,
-                                                attempt=task.attempt,
-                                                holder=holder,
-                                                prepared=prepared,
-                                                result=result,
-                                                method=method,
-                                                configuration_hash=config.config_hash,
-                                                source=result.ref.unit_key or "run",
-                                                records=result.records,
-                                                regional_preparation=regional_preparation,
-                                            )
-                                        check_active.settle(task, intent.apply)
-                                        if result.error is not None:
-                                            raise OperationConflict(result.error)
-                                    event(
-                                        "method_finished",
-                                        "Source method finished",
-                                        selected_tasks=len(claimed),
-                                    )
+                        yield ReadyGroup(
+                            tuple(
+                                execute_claim(method, config, claimed, permit)
+                                for method, config, claimed, permit in work
+                            )
+                        )
         finally:
             import sys
 
-            _close_source_resources(registry, sys.exception())
+            if execution_preparation is None:
+                _close_source_resources(registry, sys.exception())
         with supervisor_conn.begin():
             conn = supervisor_conn
             cut = seal_cut(conn, rid, "source-ready")
@@ -1148,7 +1207,7 @@ def _run_source_methods(
 
         failure = (
             None
-            if isinstance(exc, (KeyboardInterrupt, CancelledError))
+            if isinstance(exc, (KeyboardInterrupt, CancelledError, GeneratorExit))
             else {"message": str(exc), "exception": type(exc).__name__}
         )
         try:
@@ -1196,13 +1255,13 @@ def _retain_source_originals(engine, claimed, method, config, holder, prepared, 
             )
 
 
-def _retained_claim(ref, claimed_tasks, active):
+def _retained_claim(unit_ref, claimed_tasks, active):
     active()
     matches = [
         task
         for task in claimed_tasks
         if (task.unit_type, task.unit_id, task.unit_key)
-        == (str(ref.unit_type), ref.unit_id, ref.unit_key)
+        == (str(unit_ref.unit_type), unit_ref.unit_id, unit_ref.unit_key)
     ]
     if len(matches) != 1:
         raise OperationConflict("PDF publication is outside the claimed unit")
@@ -1605,7 +1664,13 @@ def _source_step_groups(steps, configs, prepared):
     while index < len(items):
         first = items[index]
         group = [first]
-        if index + 1 < len(items) and supports_shared_math(prepared):
+        if index + 1 < len(items) and {
+            first.config.split("/", 1)[0],
+            items[index + 1].config.split("/", 1)[0],
+        } == {"text.native_evidence", "text.formal_evidence"}:
+            group.append(items[index + 1])
+            index += 1
+        elif index + 1 < len(items) and supports_shared_math(prepared):
             second = items[index + 1]
             names = (first.config.split("/", 1)[0], second.config.split("/", 1)[0])
             if set(names) == {"normalize.formula", "extract.math"}:

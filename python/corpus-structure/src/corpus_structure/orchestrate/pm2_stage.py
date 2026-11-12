@@ -231,7 +231,7 @@ class ClassificationScope(BaseModel):
     extent: Extent
     profile: ClassificationProfile
     family: Literal["passage_function_v1"]
-    version: Literal["1"] = CLASSIFICATION_VERSION
+    version: Literal["2"] = CLASSIFICATION_VERSION
     schedule: bool = True
     questions: tuple[str] = Field(min_length=1, max_length=1)
 

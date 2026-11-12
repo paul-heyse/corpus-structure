@@ -44,6 +44,11 @@ from corpus_structure.core.vocab import (
     TaskUnitType,
 )
 
+from .work import PreparedWork as PreparedWork
+from .work import ReadyGroup as ReadyGroup
+from .work import WorkHandle as WorkHandle
+from .work import drive_prepared_work as drive_prepared_work
+
 if typing.TYPE_CHECKING:
     from docling_core.types.doc import DoclingDocument
 

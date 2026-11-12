@@ -4,17 +4,23 @@ from __future__ import annotations
 
 import time
 from collections.abc import Iterable
-from contextlib import ExitStack
 from dataclasses import asdict
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from corpus_structure.core._model.shapes import Cost
-from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
+from corpus_structure.core.method import (
+    Digest,
+    ReadyGroup,
+    Resources,
+    UnitRef,
+    UnitResult,
+    drive_prepared_work,
+)
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
+from corpus_structure.semantic.cpu_execution import CapacityExceeded
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.interpretation_questions import (
     CHARACTERIZATION_FAMILIES,
@@ -38,9 +44,13 @@ from corpus_structure.semantic.model_characterization import (
 )
 from corpus_structure.semantic.product_reference import ProductReference
 
-from .characterization_resources import borrowed_gliner_worker
-from .characterization_resources import borrowed_pm2_worker as open_pm2_worker
-from .characterization_resources import characterization_pm2_preflight as preflight_pm2_runtime
+from .characterization_resources import (
+    fork_builder,
+    gliner_extract,
+    merge_builder,
+    pm2_client,
+    provider_scope,
+)
 from .gliner_worker import GlinerWorkerError
 from .model_observation import released_policy
 from .pm2_gliner_classification import (
@@ -148,7 +158,7 @@ def _dependency_closure(reader, pins):
 
 class ModelCharacterizationMethod:
     name = METHOD
-    version = "1"
+    version = "2"
     family = MethodFamily.EXTRACT
     unit_type = TaskUnitType.DOCUMENT
     tier = MethodTier.DETERMINISTIC
@@ -190,59 +200,87 @@ class ModelCharacterizationMethod:
         )
 
     def run(self, units, cfg: ModelCharacterizationConfig, ctx):
-        base, scope, pins = cfg.require_selection()
-        results = []
-        for unit in units:
-            started = time.monotonic()
-            ctx.check_active()
-            if unit.ref not in self.select(unit.run, cfg):
-                raise ValueError("model characterization task differs from its selected document")
-            reader = unit.run.reader
-            families = declared_families(reader.prepared.registry_rows)
-            if not set(CHARACTERIZATION_FAMILIES) <= families.keys():
-                raise ValueError(
-                    "release lacks one or more baseline characterization question families"
+        return drive_prepared_work(self.plan(units, cfg, ctx), ctx.check_active)
+
+    def plan(self, units, cfg: ModelCharacterizationConfig, ctx):
+        with provider_scope(units) as (_cpu, providers):
+            base, scope, pins = cfg.require_selection()
+            results = []
+            for unit in units:
+                started = time.monotonic()
+                ctx.check_active()
+                if unit.ref not in self.select(unit.run, cfg):
+                    raise ValueError(
+                        "model characterization task differs from its selected document"
+                    )
+                reader = unit.run.reader
+                families = declared_families(reader.prepared.registry_rows)
+                if not set(CHARACTERIZATION_FAMILIES) <= families.keys():
+                    raise ValueError(
+                        "release lacks one or more baseline characterization question families"
+                    )
+                operation = ctx.characterization_operation(unit.ref)
+                if any(
+                    operation[key] != expected
+                    for key, expected in dict(
+                        key=METHOD,
+                        version=self.version,
+                        model=cfg.model,
+                        grammar=cfg.grammar,
+                        context=cfg.context,
+                    ).items()
+                ):
+                    raise ValueError(
+                        "model characterization task differs from its frozen determinants"
+                    )
+                dependencies = _dependency_closure(reader, pins)
+                if any(layer.base_document != base for layer in dependencies.values()):
+                    raise ValueError(
+                        "model characterization input layer belongs to another base document"
+                    )
+                builder = ModelCharacterizationBuilder(base.values(), scope, operation)
+                builder.operation["required_layers"] = [pin.values() for pin in pins]
+                scopes = self._scopes(reader, cfg, builder)
+                if scopes:
+                    d1 = fork_builder(builder)
+                    gliner = fork_builder(builder)
+                    yield ReadyGroup(
+                        (
+                            self._d1(
+                                cfg,
+                                ctx,
+                                d1[0],
+                                scopes,
+                                families,
+                                {pin: dependencies[pin] for pin in pins},
+                                providers,
+                            ),
+                            self._gliner(
+                                cfg, ctx, reader.prepared, gliner[0], scopes, families, providers
+                            ),
+                        )
+                    )
+                    merge_builder(builder, d1)
+                    merge_builder(builder, gliner)
+                releases = {reader.prepared.release_id: reader.prepared}
+                for layer in dependencies.values():
+                    release_id = layer.payload["release_id"]
+                    if release_id not in releases:
+                        releases[release_id] = reader.characterization_release(release_id)
+                layer = builder.finish(
+                    reader.prepared, dependencies=dependencies, releases=releases
                 )
-            operation = ctx.characterization_operation(unit.ref)
-            if any(
-                operation[key] != expected
-                for key, expected in dict(
-                    key=METHOD,
-                    version=self.version,
-                    model=cfg.model,
-                    grammar=cfg.grammar,
-                    context=cfg.context,
-                ).items()
-            ):
-                raise ValueError("model characterization task differs from its frozen determinants")
-            dependencies = _dependency_closure(reader, pins)
-            if any(layer.base_document != base for layer in dependencies.values()):
-                raise ValueError(
-                    "model characterization input layer belongs to another base document"
+                results.append(
+                    UnitResult(
+                        ref=unit.ref,
+                        outcome=ObservationOutcome.PRODUCED,
+                        characterization_layer=layer,
+                        cost=Cost(
+                            wall_ms=round((time.monotonic() - started) * 1000), model=cfg.model
+                        ),
+                    )
                 )
-            builder = ModelCharacterizationBuilder(base.values(), scope, operation)
-            builder.operation["required_layers"] = [pin.values() for pin in pins]
-            scopes = self._scopes(reader, cfg, builder)
-            if scopes:
-                self._d1(
-                    cfg, ctx, builder, scopes, families, {pin: dependencies[pin] for pin in pins}
-                )
-                self._gliner(cfg, ctx, reader.prepared, builder, scopes, families)
-            releases = {reader.prepared.release_id: reader.prepared}
-            for layer in dependencies.values():
-                release_id = layer.payload["release_id"]
-                if release_id not in releases:
-                    releases[release_id] = reader.characterization_release(release_id)
-            layer = builder.finish(reader.prepared, dependencies=dependencies, releases=releases)
-            results.append(
-                UnitResult(
-                    ref=unit.ref,
-                    outcome=ObservationOutcome.PRODUCED,
-                    characterization_layer=layer,
-                    cost=Cost(wall_ms=round((time.monotonic() - started) * 1000), model=cfg.model),
-                )
-            )
-        return tuple(results)
+            return tuple(results)
 
     def _scopes(self, reader, cfg, builder):
         from .native_evidence_layers import has_selected_native_text
@@ -381,7 +419,7 @@ class ModelCharacterizationMethod:
                             )
         return tuple(scopes)
 
-    def _d1(self, cfg, ctx, builder, scopes, families, dependencies):
+    def _d1(self, cfg, ctx, builder, scopes, families, dependencies, providers):
         script = Path(__file__).with_name("pm2_native.py")
         root = script.resolve().parents[5]
         assets = ctx.settings.model_cache / "pm2"
@@ -390,62 +428,29 @@ class ModelCharacterizationMethod:
                 raise Pm2WorkerRefused(
                     "d1 requires frozen runtime and artifact identities before task creation"
                 )
-            checked = preflight_pm2_runtime(
+            worker = pm2_client(
+                providers,
+                ctx,
+                provider="d1",
                 python=root / ".venv/bin/python",
                 script=script,
                 project=root,
-                provider="d1",
                 assets=assets,
-                frozen_runtime=cfg.d1_runtime,
-                frozen_artifacts=cfg.d1_artifacts,
+                runtime=cfg.d1_runtime,
+                artifacts=cfg.d1_artifacts,
                 device=cfg.d1_device,
-                check_active=ctx.check_active,
             )
+            yield from worker.start()
             if (
-                checked["runtime_identity"] != cfg.d1_runtime
-                or checked["assets"] != cfg.d1_artifacts
+                worker.startup.get("runtime_identity") != cfg.d1_runtime
+                or worker.startup.get("assets") != cfg.d1_artifacts
             ):
                 raise Pm2WorkerRefused(
-                    "d1 installed runtime/artifacts differ from the frozen selection"
+                    "executed d1 runtime/artifacts differ from the frozen selection"
                 )
-            with ExitStack() as stack:
-                temporary = Path(
-                    stack.enter_context(TemporaryDirectory(prefix="characterization-d1-"))
-                )
-                profile = temporary / "d1.json"
-                profile.write_bytes(
-                    canonical_bytes(
-                        dict(
-                            provider="d1",
-                            device=cfg.d1_device,
-                            assets=str(assets.absolute()),
-                            runtime_identity=cfg.d1_runtime,
-                        )
-                    )
-                )
-                worker = stack.enter_context(
-                    open_pm2_worker(
-                        provider="d1",
-                        python=root / ".venv/bin/python",
-                        script=script,
-                        profile=profile,
-                        device=cfg.d1_device,
-                        check_active=ctx.check_active,
-                        frozen_runtime=cfg.d1_runtime,
-                        frozen_artifacts=cfg.d1_artifacts,
-                        nemotron_endpoint=ctx.settings.nemotron_endpoint
-                        if cfg.d1_device == "cuda"
-                        else None,
-                    )
-                )
-                if (
-                    worker.startup.get("runtime_identity") != cfg.d1_runtime
-                    or worker.startup.get("assets") != cfg.d1_artifacts
-                ):
-                    raise Pm2WorkerRefused(
-                        "executed d1 runtime/artifacts differ from the frozen selection"
-                    )
-                self._d1_work(worker, ctx, builder, scopes, families, dependencies)
+            yield from self._d1_work(worker, ctx, builder, scopes, families, dependencies)
+        except CapacityExceeded:
+            raise
         except (Pm2WorkerError, Pm2WorkerRefused, OSError, ValueError) as error:
             ctx.check_active()
             for scope in scopes:
@@ -536,7 +541,7 @@ class ModelCharacterizationMethod:
             for offset in range(0, len(ready), 16):
                 batch = ready[offset : offset + 16]
                 ctx.check_active()
-                reply = worker.infer(
+                reply = yield from worker.infer(
                     dict(batch=[request.payload for _index, request in batch]),
                     check_active=ctx.check_active,
                 )
@@ -557,7 +562,7 @@ class ModelCharacterizationMethod:
                             native=native,
                         )
 
-    def _gliner(self, cfg, ctx, prepared, builder, scopes, families):
+    def _gliner(self, cfg, ctx, prepared, builder, scopes, families, providers):
         profile = cfg.gliner_profile
         if profile is None:
             for scope in scopes:
@@ -570,74 +575,84 @@ class ModelCharacterizationMethod:
                     )
             return
         inference = released_policy(prepared)["inference"]
-        with borrowed_gliner_worker(profile.profile, check_active=ctx.check_active) as worker:
-            # One resident CPU model serves both selected families and all source scopes.
-            for scope in scopes:
-                ctx.check_active()
-                family = families[GLINER_CUES]
-                native = None
-                try:
-                    pack, item = gliner_cue_request(prepared.release_id, family, scope)
-                    (native,) = worker.extract(
-                        pack,
-                        (item,),
-                        threshold=profile.threshold,
-                        overlap_policy="nested",
-                        check_active=ctx.check_active,
-                    )
-                    project_gliner_cues(
-                        builder,
-                        family,
-                        scope,
-                        pack,
-                        item,
-                        native,
-                        profile.profile,
-                        inference,
-                        threshold=profile.threshold,
-                    )
-                except (GlinerWorkerError, OSError, ValueError) as error:
-                    ctx.check_active()
-                    builder.unavailable(
-                        family,
-                        scope,
-                        str(error),
-                        native=None
-                        if native is None
-                        else dict(report=asdict(native), reason=str(error)),
-                    )
-                # The selected classification API has one exact slice and no separate
-                # arbitrary context. Its output declares this narrower examined scope.
-                classification_scope = prepare_model_scope(
-                    scope.view, scope.focal, scope.focal, max_chars=cfg.max_context_chars
+        # One resident CPU model serves both selected families and all source scopes.
+        for scope in scopes:
+            ctx.check_active()
+            family = families[GLINER_CUES]
+            native = None
+            try:
+                pack, item = gliner_cue_request(prepared.release_id, family, scope)
+                (native,) = yield from gliner_extract(
+                    providers,
+                    profile.profile,
+                    pack,
+                    (item,),
+                    threshold=profile.threshold,
+                    overlap_policy="nested",
+                    check_active=ctx.check_active,
                 )
-                family = families[GLINER_FUNCTIONS]
-                native = None
-                try:
-                    request = classification_request(
-                        prepared.release_id,
-                        family,
-                        family.questions[0].key,
-                        classification_scope.mapping,
-                        profile,
-                        inference,
-                        characterization_family=family.family,
-                    )
-                    from .gliner import GlinerInput, GlinerPack
+                project_gliner_cues(
+                    builder,
+                    family,
+                    scope,
+                    pack,
+                    item,
+                    native,
+                    profile.profile,
+                    inference,
+                    threshold=profile.threshold,
+                )
+            except CapacityExceeded:
+                raise
+            except (GlinerWorkerError, OSError, ValueError) as error:
+                ctx.check_active()
+                builder.unavailable(
+                    family,
+                    scope,
+                    str(error),
+                    native=None
+                    if native is None
+                    else dict(report=asdict(native), reason=str(error)),
+                )
+            # The selected classification API has one exact slice and no separate
+            # arbitrary context. Its output declares this narrower examined scope.
+            classification_scope = prepare_model_scope(
+                scope.view, scope.focal, scope.focal, max_chars=cfg.max_context_chars
+            )
+            family = families[GLINER_FUNCTIONS]
+            native = None
+            try:
+                request = classification_request(
+                    prepared.release_id,
+                    family,
+                    family.questions[0].key,
+                    classification_scope.mapping,
+                    profile,
+                    inference,
+                    characterization_family=family.family,
+                )
+                from .gliner import GlinerInput, GlinerPack
 
-                    pack, item = GlinerPack(**request["pack"]), GlinerInput(**request["item"])
-                    (native,) = worker.extract(
-                        pack, (item,), threshold=request["threshold"], check_active=ctx.check_active
-                    )
-                    product = classification_product(request, asdict(native), profile)
-                    builder.classification(family, classification_scope, request, product, native)
-                except (GlinerWorkerError, OSError, ValueError) as error:
-                    ctx.check_active()
-                    builder.unavailable(
-                        family,
-                        classification_scope,
-                        str(error),
-                        native=None
-                        if native is None
-                        else dict(report=asdict(native), reason=str(error)),
-                    )
+                pack, item = GlinerPack(**request["pack"]), GlinerInput(**request["item"])
+                (native,) = yield from gliner_extract(
+                    providers,
+                    profile.profile,
+                    pack,
+                    (item,),
+                    threshold=request["threshold"],
+                    check_active=ctx.check_active,
+                )
+                product = classification_product(request, asdict(native), profile)
+                builder.classification(family, classification_scope, request, product, native)
+            except CapacityExceeded:
+                raise
+            except (GlinerWorkerError, OSError, ValueError) as error:
+                ctx.check_active()
+                builder.unavailable(
+                    family,
+                    classification_scope,
+                    str(error),
+                    native=None
+                    if native is None
+                    else dict(report=asdict(native), reason=str(error)),
+                )

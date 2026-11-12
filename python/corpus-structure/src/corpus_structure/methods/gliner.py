@@ -281,6 +281,8 @@ class GlinerReport:
     )
     request_digest: str | None = None
     observation_digest: str | None = None
+    batch_receipt_json: str | None = None
+    member_ordinal: int | None = None
 
     @property
     def raw(self) -> dict[str, Any]:

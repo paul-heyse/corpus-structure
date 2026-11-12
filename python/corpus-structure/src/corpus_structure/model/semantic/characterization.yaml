@@ -178,6 +178,9 @@ classes:
       native_token:
         range: CharacterizationNativeToken
         inlined: true
+      native_batch:
+        range: SourceValue
+        inlined: true
       formal_input:
         range: CharacterizationFormalInput
         inlined: true

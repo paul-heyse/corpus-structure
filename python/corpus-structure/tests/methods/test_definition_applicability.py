@@ -589,6 +589,17 @@ def test_production_retains_valid_attachment_and_failed_stage_with_indexed_raw_e
                 kwargs.get("evaluation", False),
                 policy["inference"],
             )
+            from corpus_structure.methods.model_observation import batch_receipt
+
+            receipt = batch_receipt(
+                pack,
+                asdict(profile),
+                requests,
+                kwargs["threshold"],
+                kwargs["overlap_policy"],
+                kwargs.get("evaluation", False),
+                policy["inference"],
+            )
             raw = json.dumps(returned)
             return (
                 GlinerReport(
@@ -603,7 +614,11 @@ def test_production_retains_valid_attachment_and_failed_stage_with_indexed_raw_e
                     0.0,
                     False,
                     request_digest=key,
-                    observation_digest=observation_digest(key, raw, "{}"),
+                    observation_digest=observation_digest(
+                        key, raw, "{}", ordinal=0, member=receipt["members"][0]
+                    ),
+                    batch_receipt_json=json.dumps(receipt),
+                    member_ordinal=0,
                 ),
             )
 
@@ -664,8 +679,15 @@ def test_production_retains_valid_attachment_and_failed_stage_with_indexed_raw_e
     # relation is gone. The component can no longer be admitted as a model reading.
     returned["relation_extraction"][cfg.attachment_relation].pop(0)
     retained[0]["raw_json"] = json.dumps(returned)
+    receipt_text = retained[0]["batch_receipt_json"]
+    ordinal = retained[0]["member_ordinal"]
+    assert isinstance(receipt_text, str) and type(ordinal) is int
     retained[0]["observation_digest"] = observation_digest(
-        retained[0]["computation"], retained[0]["raw_json"], "{}"
+        retained[0]["computation"],
+        retained[0]["raw_json"],
+        "{}",
+        ordinal=ordinal,
+        member=json.loads(receipt_text)["members"][ordinal],
     )
     with pytest.raises(ValueError, match="retained directed attachments"):
         _verify_definition_roles(report, config, result.parse_detail, "r", policy, primary=True)

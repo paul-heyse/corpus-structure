@@ -31,6 +31,10 @@ class ScopedSourceReader:
         return self._owner.cpu_execution
 
     @property
+    def provider_execution(self):
+        return getattr(self._owner, "provider_execution", None)
+
+    @property
     def prepared(self):
         return self._owner.prepared
 

@@ -1,99 +1,268 @@
-"""Session lifetime and cancellation controls without starting native providers."""
+"""Explicit lane admission, routing and lifecycle without mocked-provider passage claims."""
 
-import json
 from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, cast
+from threading import Event
 
 import pytest
 
 from corpus_structure.methods import characterization_resources as resources
-from corpus_structure.methods.gliner import GlinerProfile
-from corpus_structure.methods.pm2_worker import Pm2WorkerRefused
+from corpus_structure.semantic.cpu_execution import CPUExecutionPolicy, OwnedByteBudget
+from corpus_structure.semantic.identity import canonical_bytes
 
 
 @pytest.fixture
-def lifetimes(monkeypatch):
-    opened, closed, preflight = [], [], []
+def runtime(monkeypatch):
+    opened, closed = [], []
 
     class Worker:
-        def __init__(self, active, kind):
-            self.active, self.kind, self.closed = active, kind, False
-            self.startup = {"runtime_identity": {"version": "frozen"}, "assets": {}}
-            self.profile = None
+        def __init__(self, active):
+            self.active, self.closed = active, False
+            self.requests = []
+            self.startup = dict(runtime_identity={"runtime": "frozen"}, assets={"artifact": 1})
 
-        def infer(self, payload, *, check_active=None):
+        def infer(self, payload, *, check_active):
             self.active()
-            if check_active is not None:
-                check_active()
+            check_active()
+            self.requests.append(payload)
             return payload
-
-        def extract(self, *_args, check_active=None, **_kwargs):
-            if check_active is not None:
-                check_active()
-            return ()
-
-        def close(self):
-            if not self.closed:
-                self.closed = True
-                closed.append(self)
 
     @contextmanager
     def open_worker(**kwargs):
-        kwargs["check_active"]()
-        worker = Worker(kwargs["check_active"], kwargs["device"])
+        worker = Worker(kwargs["check_active"])
         opened.append(worker)
         try:
             yield worker
         finally:
-            worker.close()
-
-    def gliner(profile):
-        worker = Worker(lambda: None, "gliner")
-        worker.profile = profile
-        opened.append(worker)
-        return worker
-
-    def checked(**kwargs):
-        preflight.append(kwargs)
-        return {"runtime_identity": {"version": "frozen"}, "assets": {"size": 1}}
+            worker.closed = True
+            closed.append(worker)
 
     monkeypatch.setattr(resources, "_open_pm2_worker", open_worker)
-    monkeypatch.setattr(resources, "GlinerWorker", gliner)
-    monkeypatch.setattr(resources, "_preflight_pm2_runtime", checked)
-    return opened, closed, preflight
-
-
-def pm2_arguments(
-    tmp_path, *, provider="hanlp", identity="one", name="profile", device="cpu"
-) -> dict[str, Any]:
-    profile = tmp_path / (name + ".json")
-    profile.write_text(
-        json.dumps(dict(provider=provider, device=device, runtime_identity=identity))
+    monkeypatch.setattr(
+        resources,
+        "_preflight_pm2_runtime",
+        lambda **kwargs: dict(runtime_identity={"runtime": "frozen"}, assets={"artifact": 1}),
     )
-    return dict(
-        provider=provider,
-        python=Path("/fixture/python"),
-        script=Path("/fixture/native.py"),
-        profile=profile,
-        device=device,
-        check_active=lambda: None,
+    policy = CPUExecutionPolicy()
+    execution = resources.ProviderExecution(OwnedByteBudget(policy.max_owned_bytes), policy)
+    try:
+        yield execution, opened, closed
+    finally:
+        execution.close()
+
+
+def selection(provider="maverick", profile=b'{"provider":"maverick","device":"cpu"}'):
+    return resources.PM2Selection(
+        provider,
+        Path("/fixture/python"),
+        Path("/fixture/script"),
+        Path("/fixture/project"),
+        Path("/fixture/assets"),
+        profile,
+        b'{"runtime":"frozen"}',
+        b'{"artifact":1}',
     )
 
 
-def changed_arguments(arguments: dict[str, Any], **updates: Any) -> dict[str, Any]:
-    changed: dict[str, Any] = arguments.copy()
-    changed.update(updates)
-    return changed
+def work(key, value, *, selected=None, active=lambda: None):
+    return resources.PM2Work(selected or selection(), canonical_bytes(value), key, (active,))
 
 
-def gliner_profile(tmp_path):
-    return GlinerProfile(
-        snapshot=tmp_path,
-        checkpoint="fixture",
-        revision="pinned",
-        artifact_hashes=tuple(
+def result(handle):
+    handle.flush()
+    handle.future.result(timeout=5)
+    reply = handle.collect()
+    handle.retire()
+    return reply.payload
+
+
+def test_exact_compatible_requests_share_resident_and_keep_private_correlation(runtime):
+    execution, opened, closed = runtime
+    first = execution.try_submit(work("one", {"value": 1}))
+    assert result(first) == {"value": 1}
+    second = execution.try_submit(work("two", {"value": 2}))
+    assert result(second) == {"value": 2}
+    assert len(opened) == 1
+    assert not closed
+    execution.close()
+    assert closed == opened
+    assert execution.budget.used_bytes == 0
+
+
+def test_completed_reply_holds_byte_capacity_until_parent_retirement(runtime):
+    execution, _, _ = runtime
+    handle = execution.try_submit(work("one", {}))
+    handle.flush()
+    handle.future.result(timeout=5)
+    before = execution.budget.used_bytes
+    assert before > 0
+    handle.collect()
+    assert execution.budget.used_bytes == before
+    handle.retire()
+    assert execution.budget.used_bytes == 0
+
+
+def test_one_exchange_and_one_pending_backpressure_instead_of_refusing_valid_work(runtime):
+    execution, _, _ = runtime
+    entered, release = Event(), Event()
+
+    def active():
+        entered.set()
+        assert release.wait(timeout=5)
+
+    first = execution.try_submit(work("one", {}, active=active))
+    first.flush()
+    assert entered.wait(timeout=5)
+    second = execution.try_submit(work("two", {}))
+    assert second is not None
+    assert execution.try_submit(work("three", {})) is None
+    release.set()
+    assert result(first) == {}
+    assert result(second) == {}
+
+
+def test_profile_replacement_waits_for_active_owner_then_closes_old_resident(runtime):
+    execution, opened, closed = runtime
+    assert result(execution.try_submit(work("one", {}))) == {}
+    changed = replace(
+        selection(), profile=b'{"provider":"maverick","device":"cpu","options":"changed"}'
+    )
+    assert result(execution.try_submit(work("two", {}, selected=changed))) == {}
+    assert len(opened) == 2 and closed == [opened[0]]
+
+
+def test_stale_first_borrower_does_not_stop_useful_batch_member(runtime):
+    execution, opened, _ = runtime
+
+    def stale():
+        raise RuntimeError("lost claim")
+
+    request = resources.PM2Work(selection(), b"{}", "shared", (stale, lambda: None))
+    assert result(execution.try_submit(request)) == {}
+    assert len(opened) == 1
+
+
+def test_frozen_artifact_mismatch_refuses_before_starting(runtime):
+    execution, opened, _ = runtime
+    changed = replace(selection(), artifacts=b'{"artifact":2}')
+    handle = execution.try_submit(work("wrong", {}, selected=changed))
+    handle.flush()
+    handle.future.result(timeout=5)
+    with pytest.raises(resources.Pm2WorkerRefused, match="frozen selection"):
+        _ = handle.collect().payload
+    handle.retire()
+    assert not opened
+
+
+def test_close_attempts_every_native_lane_when_one_closer_fails(runtime):
+    execution, _, _ = runtime
+    assert result(execution.try_submit(work("one", {}))) == {}
+    other = replace(selection(), provider="d1", profile=b'{"provider":"d1","device":"cpu"}')
+    assert (
+        result(execution.try_submit(work("two", {"batch": [{"state": "source"}]}, selected=other)))[
+            "batch"
+        ][0]["state"]
+        == "source"
+    )
+    completed = []
+    first = execution._lanes["maverick"]
+    original = first.close
+
+    def bad():
+        original()
+        raise RuntimeError("teardown failed")
+
+    first.close = bad
+    second = execution._lanes["d1"]
+    closer = second.close
+    second.close = lambda: (closer(), completed.append("d1"))
+    with pytest.raises(RuntimeError, match="teardown failed"):
+        execution.close()
+    assert completed == ["d1"]
+    first.close = original
+
+
+def test_explicit_flush_coalesces_ready_d1_requests_and_preserves_member_commitments(runtime):
+    execution, opened, _ = runtime
+    execution.coalescing_providers = frozenset({"d1"})
+    selected = replace(selection(), provider="d1", profile=b'{"provider":"d1","device":"cpu"}')
+    first = execution.try_submit(work("one", {"batch": [{"state": "first"}]}, selected=selected))
+    second = execution.try_submit(work("two", {"batch": [{"state": "second"}]}, selected=selected))
+    assert not opened  # Admission only; no timing-based dispatch window.
+    first.flush()
+    one, two = result(first), result(second)
+    assert len(opened[0].requests) == 1
+    assert one["batch"][0]["state"] == "first"
+    assert two["batch"][0]["state"] == "second"
+    a, b = one["batch"][0]["batch_receipt"], two["batch"][0]["batch_receipt"]
+    assert a["digest"] == b["digest"]
+    assert (a["member_ordinal"], b["member_ordinal"]) == (0, 1)
+
+
+def test_cancelled_queued_work_releases_owned_body_without_dispatch(runtime):
+    execution, opened, _ = runtime
+    handle = execution.try_submit(work("one", {}))
+    handle.cancel()
+    assert handle.retire()
+    assert not execution._lanes["maverick"].pending
+    assert execution.budget.used_bytes == 0
+    assert not opened
+
+
+def test_gliner_coalescing_refuses_bad_logical_input_before_enqueue_and_preserves_valid(
+    runtime, monkeypatch, tmp_path
+):
+    from dataclasses import dataclass
+
+    from corpus_structure.methods.gliner import (
+        GlinerInput,
+        GlinerPack,
+        GlinerProfile,
+        GlinerRefused,
+    )
+    from corpus_structure.methods.gliner_worker import GlinerAdmission
+
+    calls = []
+
+    @dataclass(frozen=True)
+    class Report:
+        context_id: str
+
+    class Worker:
+        closed = False
+
+        def __init__(self, profile):
+            pass
+
+        def prepare_members(self, pack, inputs, **kwargs):
+            calls.append(("prepare", tuple(item.context_id for item in inputs)))
+            return tuple(
+                GlinerAdmission(
+                    i,
+                    item.context_id,
+                    item.context_digest,
+                    item.context_id != "native-refused",
+                    "native word bound" if item.context_id == "native-refused" else None,
+                )
+                for i, item in enumerate(inputs)
+            )
+
+        def extract(self, pack, inputs, **kwargs):
+            calls.append(("infer", tuple(item.context_id for item in inputs)))
+            return tuple(Report(item.context_id) for item in inputs)
+
+        def close(self):
+            self.closed = True
+
+    monkeypatch.setattr(resources, "GlinerWorker", Worker)
+    execution, _, _ = runtime
+    execution.coalescing_providers = frozenset({"gliner"})
+    profile = GlinerProfile(
+        tmp_path.absolute(),
+        "fixture",
+        "pinned",
+        tuple(
             (name, "a" * 64)
             for name in (
                 "config.json",
@@ -104,192 +273,92 @@ def gliner_profile(tmp_path):
             )
         ),
     )
+    pack = GlinerPack("release", "1", "{}")
 
-
-def test_cpu_resident_reuses_exact_content_across_temporary_paths_and_nested_sessions(
-    tmp_path, lifetimes
-):
-    opened, closed, _ = lifetimes
-    with resources.characterization_resource_session():
-        first = pm2_arguments(tmp_path)
-        with resources.borrowed_pm2_worker(**first) as one:
-            assert one.infer({"first": True}) == {"first": True}
-        first["profile"].unlink()
-        with (
-            resources.characterization_resource_session(),
-            resources.borrowed_pm2_worker(**pm2_arguments(tmp_path, name="another")) as two,
-        ):
-            assert two is one
-        assert len(opened) == 1 and closed == []
-    assert closed == [one]
-
-
-def test_resident_callback_tracks_current_task_and_clears_completed_borrow(tmp_path, lifetimes):
-    calls = []
-    completed = False
-
-    def old_task():
-        assert not completed, "resident invoked the completed task lease"
-        calls.append("old")
-
-    def current_task():
-        calls.append("current")
-
-    with resources.characterization_resource_session():
-        arguments = pm2_arguments(tmp_path)
-        with resources.borrowed_pm2_worker(
-            **changed_arguments(arguments, check_active=old_task)
-        ) as worker:
-            worker.infer({}, check_active=old_task)
-        completed = True
-        calls.clear()
-        with resources.borrowed_pm2_worker(
-            **changed_arguments(arguments, check_active=current_task)
-        ) as reused:
-            assert reused is worker
-            reused.infer({}, check_active=current_task)
-        assert calls and set(calls) == {"current"}
-        with pytest.raises(Pm2WorkerRefused, match="no active borrower"):
-            worker.infer({})
-
-
-def test_profile_replacement_and_session_failure_close_every_resident(tmp_path, lifetimes):
-    opened, closed, _ = lifetimes
-    with (
-        pytest.raises(RuntimeError, match="outer failure"),
-        resources.characterization_resource_session(),
-    ):
-        for provider in ("hanlp", "maverick", "dipo", "d1"):
-            with resources.borrowed_pm2_worker(
-                **pm2_arguments(tmp_path, provider=provider, name=provider)
-            ):
-                pass
-        with resources.borrowed_gliner_worker(gliner_profile(tmp_path)):
-            pass
-        assert len(opened) == 5 and closed == []
-        with resources.borrowed_pm2_worker(**pm2_arguments(tmp_path, identity="changed")):
-            assert len(closed) == 1
-            assert sum(not worker.closed for worker in opened) == 5
-        raise RuntimeError("outer failure")
-    assert len(opened) == len(closed) == 6
-
-
-def test_cancelled_borrow_retires_worker_and_next_task_gets_fresh_owner(tmp_path, lifetimes):
-    opened, closed, _ = lifetimes
-    cancelled = False
-
-    def current():
-        if cancelled:
-            raise RuntimeError("cancelled current task")
-
-    with resources.characterization_resource_session():
-        arguments = pm2_arguments(tmp_path)
-        with (
-            pytest.raises(RuntimeError, match="cancelled current"),
-            resources.borrowed_pm2_worker(
-                **changed_arguments(arguments, check_active=current)
-            ) as worker,
-        ):
-            cancelled = True
-            worker.infer({})
-        assert closed == [worker]
-        with resources.borrowed_pm2_worker(**arguments) as fresh:
-            assert fresh is not worker
-    assert len(opened) == len(closed) == 2
-
-
-def test_borrow_admission_does_not_replace_active_owner(tmp_path, lifetimes):
-    with (
-        resources.characterization_resource_session(),
-        resources.borrowed_pm2_worker(**pm2_arguments(tmp_path)) as active,
-    ):
-        with (
-            pytest.raises(Pm2WorkerRefused, match="active borrower"),
-            resources.borrowed_pm2_worker(**pm2_arguments(tmp_path, identity="other")),
-        ):
-            pytest.fail("overlapping borrow admitted")
-        assert active.infer({"still": "current"}) == {"still": "current"}
-
-
-def test_changed_frozen_artifacts_replace_worker_even_with_identical_profile_file(
-    tmp_path, lifetimes
-):
-    opened, closed, _ = lifetimes
-    args = pm2_arguments(tmp_path)
-    with resources.characterization_resource_session():
-        with resources.borrowed_pm2_worker(**args, frozen_artifacts={"weights": "first"}) as first:
-            pass
-        with resources.borrowed_pm2_worker(
-            **args, frozen_artifacts={"weights": "second"}
-        ) as second:
-            assert second is not first and closed == [first]
-    assert len(opened) == len(closed) == 2
-
-
-@pytest.mark.parametrize("session, device", ((False, "cpu"), (False, "cuda"), (True, "cuda")))
-def test_ordinary_and_cuda_borrows_keep_existing_teardown(tmp_path, lifetimes, session, device):
-    from contextlib import nullcontext
-
-    opened, closed, _ = lifetimes
-    with resources.characterization_resource_session() if session else nullcontext():
-        for _ in range(2):
-            with resources.borrowed_pm2_worker(**pm2_arguments(tmp_path, device=device)):
-                pass
-            assert len(opened) == len(closed)
-    assert len(opened) == 2
-
-
-def test_preflight_selection_cache_is_bounded_and_returns_independent_values(tmp_path, lifetimes):
-    _, _, checked = lifetimes
-    args: dict[str, Any] = dict(
-        python=Path("/fixture/python"),
-        script=Path("/fixture/native.py"),
-        project=tmp_path,
-        provider="hanlp",
-        assets=tmp_path,
-        frozen_runtime={"version": "one"},
-        frozen_artifacts={},
-    )
-    callbacks = []
-    with resources.characterization_resource_session():
-        first = resources.characterization_pm2_preflight(
-            **args, check_active=lambda: callbacks.append("first")
+    def request(identity, text):
+        return resources.GLiNERWork(
+            profile,
+            pack,
+            (GlinerInput(identity, "a" * 64, text),),
+            0.5,
+            "flat",
+            identity,
+            (lambda: None,),
         )
-        first["assets"]["size"] = 999
-        again = resources.characterization_pm2_preflight(
-            **args, check_active=lambda: callbacks.append("second")
-        )
-        assert again["assets"]["size"] == 1 and len(checked) == 1
-        resources.characterization_pm2_preflight(
-            **changed_arguments(args, frozen_runtime={"version": "two"})
-        )
-        resources.characterization_pm2_preflight(**args)
-        assert len(checked) == 3  # Returning to an old profile cannot grow a historical cache.
-    assert callbacks == ["first", "first", "second", "second"]
-    resources.characterization_pm2_preflight(**args)
-    resources.characterization_pm2_preflight(**args)
-    assert len(checked) == 5
+
+    native_bad = execution.try_submit(request("native-refused", "short invalid native preparation"))
+    good = execution.try_submit(request("good", "X is given"))
+    used = execution.budget.used_bytes
+    with pytest.raises(GlinerRefused, match="input byte bound"):
+        execution.try_submit(request("oversized", "X" * 32769))
+    assert execution.budget.used_bytes == used
+    assert len(execution._lanes["gliner"].pending) == 2
+    good.flush()
+    native_bad.future.result(timeout=5)
+    good.future.result(timeout=5)
+    assert native_bad.collect().error_type == "GlinerRefused"
+    assert good.collect().reports == (Report("good"),)
+    assert calls == [("prepare", ("native-refused", "good")), ("infer", ("good",))]
+    native_bad.retire()
+    good.retire()
 
 
-def test_gliner_reuses_exact_profile_and_keeps_current_explicit_callback(tmp_path, lifetimes):
-    opened, closed, _ = lifetimes
-    profile = gliner_profile(tmp_path)
-    calls = []
-    with resources.characterization_resource_session():
-        with resources.borrowed_gliner_worker(
-            profile, check_active=lambda: calls.append("one")
-        ) as one:
-            cast(Any, one).extract(check_active=lambda: calls.append("one"))
-        calls.clear()
-        with resources.borrowed_gliner_worker(
-            profile, check_active=lambda: calls.append("two")
-        ) as two:
-            assert two is one
-            cast(Any, two).extract(check_active=lambda: calls.append("two"))
-        assert calls and set(calls) == {"two"}
-        with resources.borrowed_gliner_worker(
-            replace(profile, threads=profile.threads + 1)
-        ) as changed:
-            assert one.closed and changed is not one
-        assert len(opened) == 2 and closed == [one]
-    assert len(closed) == 2
+def test_unsubmitted_provider_intent_is_charged_and_abandoned_without_native_work(runtime):
+    execution, opened, _ = runtime
+    intent = execution.work(work("pending", {"value": "retained"}))
+    assert execution.budget.used_bytes > 0
+    intent.abandon()
+    assert execution.budget.used_bytes == 0
+    assert not opened
+    another = execution.work(work("owned", {"value": "retained"}))
+    handle = another.try_submit()
+    another.abandon()  # Ownership was transferred; this must not release it twice.
+    assert result(handle) == {"value": "retained"}
+    assert execution.budget.used_bytes == 0
+
+
+def test_lazy_production_intent_waits_for_transient_budget_before_serializing(runtime):
+    execution, _, _ = runtime
+    entered, release = Event(), Event()
+
+    def active():
+        entered.set()
+        assert release.wait(timeout=5)
+
+    first = execution.try_submit(work("active", {"value": "in flight"}, active=active))
+    first.flush()
+    assert entered.wait(timeout=5)
+    remaining = execution.budget.limit - execution.budget.used_bytes
+    execution.budget.reserve(remaining)  # A concurrent CPU/regional reservation.
+    materialized = []
+
+    def factory():
+        materialized.append(True)
+        return work("later", {"value": "after admission"})
+
+    intent = execution.lazy_work(factory, lane_key="maverick")
+    try:
+        assert intent.try_submit() is None
+        assert not materialized
+        assert not first.future.done()  # A real active future can release pressure.
+    finally:
+        execution.budget.release(remaining)
+        release.set()
+    second = intent.try_submit()
+    assert second is not None
+    assert materialized == [True]
+    intent.abandon()  # Successful submission transferred ownership to the handle.
+    assert result(first) == {"value": "in flight"}
+    assert result(second) == {"value": "after admission"}
+    assert execution.budget.used_bytes == 0
+
+
+def test_abandoned_lazy_intent_never_materializes_or_reserves_body(runtime):
+    execution, opened, _ = runtime
+    materialized = []
+    intent = execution.lazy_work(lambda: materialized.append(True), lane_key="maverick")
+    assert execution.budget.used_bytes == 0
+    intent.abandon()
+    with pytest.raises(ValueError, match="abandoned"):
+        intent.try_submit()
+    assert not materialized and not opened

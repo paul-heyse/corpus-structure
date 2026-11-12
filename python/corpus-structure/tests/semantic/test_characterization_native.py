@@ -1979,6 +1979,172 @@ def test_empty_and_image_only_capture_enriches_without_language_provider_calls(
 
 
 @pytest.mark.parametrize("private_build", ["characterization_finalizable_pdf"], indirect=True)
+def test_two_language_regions_complete_captured_characterization_with_actual_providers(
+    private_build, semantic_writer_engine, tmp_path
+):
+    """The book entry point retains both real language regions and exact settled closure."""
+    import os
+    from pathlib import Path
+
+    from corpus_structure.core.method import MethodSettings
+    from corpus_structure.orchestrate.characterization import characterize_captured_run
+    from corpus_structure.semantic.operations import complete_task
+    from corpus_structure.semantic.source_views import load_source_view
+
+    assets = os.environ.get("CORPUS_PM2_NATIVE_TEST_ASSETS")
+    if not assets:
+        pytest.skip("locked native provider assets require CORPUS_PM2_NATIVE_TEST_ASSETS")
+    publication = publish_selected(
+        semantic_writer_engine,
+        private_build,
+        tmp_path / "language-capture",
+        characterization_pages=True,
+        language_sections=True,
+    )
+    base = ProductReference(private_build.task_id, "selected", publication.logical_digest)
+    passages = (
+        "A random variable has an expected value. Its variance measures dispersion.",
+        "Independent observations form a sample. The sample mean estimates the population mean.",
+    )
+    with semantic_writer_engine.begin() as conn:
+        prepared = open_release(conn, private_build.release_id)
+        task = (
+            conn.execute(text("SELECT * FROM ops.task WHERE id=:id"), {"id": private_build.task_id})
+            .mappings()
+            .one()
+        )
+        reader = published_record_reader(conn, base, projection_context=prepared)
+        assert reader is not None
+        drafts = published_section_drafts(
+            reader,
+            document_id=task["unit_id"],
+            selections=("Language selected section 1", "Language selected section 2"),
+            membership="direct",
+            scope=None,
+            consumer_release=prepared.release_id,
+        )
+        assert len(drafts) == 2
+        ids = [
+            store_source_view(
+                conn,
+                run_id=task["run_id"],
+                task_id=task["id"],
+                attempt=task["attempt"],
+                holder=task["claimed_by"],
+                draft=draft,
+                position=position,
+            )
+            for position, draft in enumerate(drafts)
+        ]
+        sources = {identity: load_source_view(conn, identity, analysis=False) for identity in ids}
+        assert tuple(sources[identity].text for identity in ids) == passages
+        complete_task(
+            conn,
+            task_id=task["id"],
+            attempt=task["attempt"],
+            holder=task["claimed_by"],
+            prepared=prepared,
+            observations=[],
+            outcome="empty",
+            error=None,
+        )
+
+    (result,) = characterize_captured_run(
+        semantic_writer_engine,
+        SimpleNamespace(run_id=task["run_id"]),
+        project_id="p",
+        release_id=prepared.release_id,
+        realization_id="z",
+        domain="statistics",
+        method_settings=MethodSettings(
+            data_dir=tmp_path, model_cache=Path(assets).resolve().parent
+        ),
+        method_options={},
+    )
+    with semantic_writer_engine.connect() as conn:
+        view = read_view(conn, result.view).payload
+        layers = {pin: read_layer(conn, pin).payload for pin in result.layers}
+        cuts = (
+            conn.execute(
+                text(
+                    "SELECT run_id FROM ops.input_cut "
+                    "WHERE run_id=ANY(:runs) AND name='source-ready'"
+                ),
+                {"runs": list(result.runs)},
+            )
+            .scalars()
+            .all()
+        )
+        unsettled = conn.execute(
+            text(
+                "SELECT id,status FROM ops.task WHERE run_id=ANY(:runs) "
+                "AND status NOT IN ('done','empty','reused')"
+            ),
+            {"runs": list(result.runs)},
+        ).all()
+    assert set(cuts) == set(result.runs)
+    assert not unsettled
+    assert view["base_document"] == base.values()
+    assert view["profile"] == "full_characterization"
+    assert view["source_scope"]["source_view_ids"] == ids
+    assert {ProductReference(**pin) for pin in view["layers"]} == set(result.layers)
+    assert view["active_layers"] == view["layers"]
+    assert not result.preparation_diagnostics
+    expected_operations = {
+        "text.native_evidence",
+        "text.formal_evidence",
+        "text.constructions",
+        "text.contextual_characterization",
+        "text.model_characterization",
+        "text.evaluate_context",
+    }
+    by_source = {identity: {} for identity in ids}
+    for body in layers.values():
+        (identity,) = body["source_scope"]["source_view_ids"]
+        assert identity in sources
+        operation = body["operation"]["key"]
+        assert operation not in by_source[identity]
+        by_source[identity][operation] = body
+        for occurrence in body["occurrences"]:
+            for extent in occurrence["extents"]:
+                assert extent["source_view_id"] in sources
+                source = sources[extent["source_view_id"]]
+                assert extent["projection"] == source.ref.projection_digest
+                if "start" in extent:
+                    assert 0 <= extent["start"] < extent["end"] <= len(source.text)
+                    assert extent["text"] == source.text[extent["start"] : extent["end"]]
+                    assert (
+                        extent.get("page", ids.index(extent["source_view_id"]) + 1)
+                        == ids.index(extent["source_view_id"]) + 1
+                    )
+    for identity, expected_word in zip(ids, ("variance", "sample"), strict=True):
+        operations = by_source[identity]
+        assert set(operations) == expected_operations
+        native = operations["text.native_evidence"]
+        words = {
+            extent["text"]
+            for occurrence in native["occurrences"]
+            for extent in occurrence["extents"]
+        }
+        assert expected_word in words
+        providers = {
+            run["provider"] for body in operations.values() for run in body.get("native_runs", ())
+        }
+        assert {"spacy", "hanlp", "maverick", "dipo"} <= providers
+        for name in (
+            "text.native_evidence",
+            "text.contextual_characterization",
+            "text.model_characterization",
+        ):
+            coverage = operations[name]["coverage"]
+            assert coverage and all(
+                row["availability"] == "available"
+                and row["outcome"] in {"complete", "empty", "partial"}
+                for row in coverage
+            ), (identity, name, coverage)
+
+
+@pytest.mark.parametrize("private_build", ["characterization_finalizable_pdf"], indirect=True)
 def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
     private_build, semantic_writer_engine, semantic_reader_engine, tmp_path
 ):

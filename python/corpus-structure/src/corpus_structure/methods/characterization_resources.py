@@ -1,259 +1,1026 @@
-"""Explicit characterization-session ownership of the existing CPU model workers."""
+"""Explicit invocation-owned native lanes and detached parent-side work intents."""
 
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Generator, Mapping
-from contextlib import ExitStack, contextmanager
-from contextvars import ContextVar
-from copy import deepcopy
+from collections import deque
+from collections.abc import Callable
+from concurrent.futures import CancelledError, Future
+from contextlib import ExitStack, contextmanager, suppress
+from dataclasses import asdict, dataclass, field
+from hashlib import sha256
 from pathlib import Path
-from threading import Lock
+from tempfile import TemporaryDirectory
+from threading import BoundedSemaphore, Event, Lock, Thread
 from typing import Any, Literal
 
-from .gliner import GlinerProfile
-from .gliner_worker import GlinerWorker
-from .pm2_worker import Pm2Worker, Pm2WorkerRefused
+from corpus_structure.core.method import PreparedWork
+from corpus_structure.semantic.identity import canonical_bytes
+
+from .gliner import GlinerInput, GlinerPack, GlinerProfile, GlinerRefused
+from .gliner_worker import GlinerWorker, validate_request
+from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused
 from .pm2_worker import open_pm2_worker as _open_pm2_worker
 from .pm2_worker import preflight_pm2_runtime as _preflight_pm2_runtime
 
-_PROVIDERS = ("hanlp", "maverick", "dipo", "d1")
-_session: ContextVar[_Session | None] = ContextVar("characterization_resources", default=None)
+
+@dataclass(frozen=True)
+class PM2Selection:
+    provider: str
+    python: Path
+    script: Path
+    project: Path
+    assets: Path
+    profile: bytes
+    runtime: bytes
+    artifacts: bytes
+    device: Literal["cpu", "cuda"] = "cpu"
+    nemotron_endpoint: str | None = None
+
+    @property
+    def identity(self):
+        return (
+            self.provider,
+            str(self.python.absolute()),
+            str(self.script.absolute()),
+            str(self.project.absolute()),
+            str(self.assets.absolute()),
+            self.profile,
+            self.runtime,
+            self.artifacts,
+            self.device,
+            self.nemotron_endpoint,
+        )
 
 
-def _active(check_active: Callable[[], None] | None) -> None:
-    if check_active is not None:
-        check_active()
+@dataclass(frozen=True)
+class PM2Work:
+    selection: PM2Selection
+    payload: bytes | None
+    correlation: str
+    borrowers: tuple[Callable[[], None], ...]
 
 
-class _Pm2Slot:
-    def __init__(self) -> None:
-        self.gate = Lock()
+@dataclass(frozen=True)
+class GLiNERWork:
+    profile: GlinerProfile
+    pack: GlinerPack
+    inputs: tuple[GlinerInput, ...]
+    threshold: float
+    overlap_policy: str
+    correlation: str
+    borrowers: tuple[Callable[[], None], ...]
+    evaluation: bool = False
+    logical_sizes: tuple[int, ...] = ()
+
+
+@dataclass(frozen=True)
+class ProviderReply:
+    correlation: str
+    startup_content: bytes = b"{}"
+    payload_content: bytes = b"{}"
+    reports: tuple = ()
+    admissions: tuple = ()
+    error_type: str | None = None
+    error_message: str | None = None
+
+    @property
+    def startup(self):
+        return json.loads(self.startup_content)
+
+    @property
+    def payload(self):
+        if self.error_type is not None:
+            if self.error_type == "CapacityExceeded":
+                from corpus_structure.semantic.cpu_execution import CapacityExceeded
+
+                raise CapacityExceeded(self.error_message)
+            kind = Pm2WorkerRefused if self.error_type == "Pm2WorkerRefused" else Pm2WorkerError
+            raise kind(self.error_message)
+        return json.loads(self.payload_content)
+
+
+@dataclass(eq=False)
+class ProviderHandle:
+    owner: ProviderExecution
+    lane: _Lane
+    request: PM2Work | GLiNERWork
+    reservation: int
+    future: Future = field(default_factory=Future)
+    stopped: Event = field(default_factory=Event)
+    collected: bool = False
+    retired: bool = False
+
+    def flush(self):
+        self.lane.flush()
+
+    def active(self):
+        if self.owner._stop.is_set() or self.stopped.is_set():
+            raise CancelledError("native physical request cancelled")
+        failures = []
+        for borrower in self.request.borrowers:
+            try:
+                borrower()
+                return
+            except Exception as error:
+                failures.append(error)
+        if failures:
+            raise CancelledError("native request has no live logical borrowers") from failures[0]
+
+    def check_active(self):
+        self.active()
+
+    def collect(self):
+        if not self.future.done():
+            return None
+        if not self.collected:
+            self.collected = True
+            self.lane.slots.release()
+        reply = self.future.result()
+        if reply.correlation != self.request.correlation:
+            raise ValueError("native response correlation differs from admitted request")
+        return reply
+
+    def cancel(self):
+        self.stopped.set()
+        if self.future.cancel():
+            with self.lane.lock, suppress(ValueError):
+                self.lane.pending.remove(self)
+
+    def retire(self):
+        if not self.future.done():
+            return False
+        if not self.collected:
+            self.collected = True
+            self.lane.slots.release()
+        if not self.retired:
+            self.retired = True
+            self.owner.budget.release(self.reservation)
+            self.owner._handles.discard(self)
+        return True
+
+
+class _Lane:
+    def __init__(self, owner, name):
+        self.owner, self.name = owner, name
+        self.pending = deque()
+        self.lock = Lock()
+        self.thread = None
+        self.closed = False
+        self.wake = Event()
+        self.close_error = None
+        self.slots = BoundedSemaphore(owner.policy.max_provider_jobs)
         self.stack = ExitStack()
-        self.worker: Pm2Worker | None = None
-        self.key: object = None
-        self.callback: Callable[[], None] | None = None
-        self.preflight: tuple[bytes, dict[str, Any]] | None = None
+        self.worker = None
+        self.key = None
+        self.current = None
+        self.preflight = None
+        self.broken = None
 
-    def check_active(self) -> None:
-        # This callback, captured by the child owner at startup, never captures a lease.
-        if self.callback is None:
-            raise Pm2WorkerRefused("characterization worker has no active borrower")
-        self.callback()
+    def active(self):
+        if self.current is None:
+            raise CancelledError("native lane has no active physical request")
+        self.current.active()
 
-    def close(self, *exception) -> None:
+    def discard(self):
         stack, self.stack = self.stack, ExitStack()
         self.worker, self.key = None, None
-        if exception:
-            stack.__exit__(*exception)
-        else:
+        try:
             stack.close()
+        except BaseException as error:
+            self.broken = error
+            raise
 
-
-class _GlinerSlot:
-    def __init__(self) -> None:
-        self.gate = Lock()
-        self.worker: GlinerWorker | None = None
-        self.profile: GlinerProfile | None = None
-
-    def close(self) -> None:
-        worker, self.worker = self.worker, None
-        self.profile = None
-        if worker is not None:
-            worker.close()
-
-
-class _Session:
-    def __init__(self, stack: ExitStack) -> None:
-        self.closed = False
-        # One fixed slot per selected provider; profile changes replace a slot.
-        self.pm2 = {provider: _Pm2Slot() for provider in _PROVIDERS}
-        self.gliner = _GlinerSlot()
-        for slot in self.pm2.values():
-            stack.callback(slot.close)
-        stack.callback(self.gliner.close)
-
-
-@contextmanager
-def characterization_resource_session() -> Generator[None]:
-    """Share CPU preparations until the outermost scope exits; nested scopes join it."""
-    current = _session.get()
-    if current is not None:
-        if current.closed:
-            raise Pm2WorkerRefused("characterization resource session is closed")
-        yield
-        return
-    with ExitStack() as stack:
-        current = _Session(stack)
-        token = _session.set(current)
+    def execute(self, handle):
+        self.current = handle
+        request = handle.request
+        startup = {}
         try:
-            yield
-        finally:
-            current.closed = True
-            _session.reset(token)
-
-
-def characterization_pm2_preflight(
-    *,
-    python: Path,
-    script: Path,
-    project: Path,
-    provider: str,
-    assets: Path,
-    frozen_runtime: Mapping[str, Any] | None = None,
-    frozen_artifacts: Mapping[str, Any] | None = None,
-    device: Literal["cpu", "cuda"] = "cpu",
-    check_active: Callable[[], None] | None = None,
-) -> dict[str, Any]:
-    """Memoize one exact preflight selection per CPU provider, never child startup checks."""
-    _active(check_active)
-    current = _session.get()
-    arguments = dict(
-        python=python, script=script, project=project, provider=provider, assets=assets
-    )
-    if current is None or device != "cpu":
-        result = _preflight_pm2_runtime(**arguments)
-    else:
-        if current.closed or provider not in current.pm2:
-            raise Pm2WorkerRefused("unsupported or closed characterization provider session")
-        slot = current.pm2[provider]
-        key = json.dumps(
-            dict(
-                paths=[str(path.absolute()) for path in (python, script, project, assets)],
-                runtime=frozen_runtime,
-                artifacts=frozen_artifacts,
-            ),
-            sort_keys=True,
-            allow_nan=False,
-        ).encode()
-        if not slot.gate.acquire(blocking=False):
-            raise Pm2WorkerRefused("characterization provider already has an active borrower")
-        try:
-            if slot.preflight is None or slot.preflight[0] != key:
-                result = _preflight_pm2_runtime(**arguments)
-                slot.preflight = (key, deepcopy(result))
+            handle.active()
+            if self.broken is not None:
+                raise Pm2WorkerError("native lane has unresolved teardown failure") from self.broken
+            if isinstance(request, PM2Work):
+                selection = request.selection
+                key = selection.identity
+                profile_value = json.loads(selection.profile)
+                if (
+                    not isinstance(profile_value, dict)
+                    or profile_value.get("provider") != selection.provider
+                    or profile_value.get("device") != selection.device
+                ):
+                    raise Pm2WorkerRefused("native profile differs from selected provider/device")
+                if self.worker is None or self.worker.closed or self.key != key:
+                    if self.preflight is None or self.preflight[0] != key:
+                        checked = _preflight_pm2_runtime(
+                            python=selection.python,
+                            script=selection.script,
+                            project=selection.project,
+                            provider=selection.provider,
+                            assets=selection.assets,
+                        )
+                        if checked["runtime_identity"] != json.loads(selection.runtime) or checked[
+                            "assets"
+                        ] != json.loads(selection.artifacts):
+                            raise Pm2WorkerRefused(
+                                "native runtime/artifacts differ from frozen selection"
+                            )
+                        self.preflight = (key, checked)
+                    handle.active()
+                    self.discard()
+                    temporary = Path(
+                        self.stack.enter_context(TemporaryDirectory(prefix="native-lane-"))
+                    )
+                    profile = temporary / (selection.provider + ".json")
+                    value = json.loads(selection.profile)
+                    value["threads"] = self.owner.policy.provider_threads
+                    value["interop_threads"] = self.owner.policy.provider_interop_threads
+                    profile.write_bytes(canonical_bytes(value))
+                    self.worker = self.stack.enter_context(
+                        _open_pm2_worker(
+                            python=selection.python,
+                            script=selection.script,
+                            profile=profile,
+                            device=selection.device,
+                            nemotron_endpoint=selection.nemotron_endpoint,
+                            check_active=self.active,
+                        )
+                    )
+                    self.key = key
+                startup = self.worker.startup
+                if startup.get("runtime_identity") != json.loads(selection.runtime) or startup.get(
+                    "assets"
+                ) != json.loads(selection.artifacts):
+                    raise Pm2WorkerError("executed provider differs from frozen selection")
+                payload = (
+                    {}
+                    if request.payload is None
+                    else self.worker.infer(json.loads(request.payload), check_active=self.active)
+                )
+                reply = ProviderReply(
+                    request.correlation, canonical_bytes(startup), canonical_bytes(payload)
+                )
             else:
-                result = deepcopy(slot.preflight[1])
+                key = request.profile
+                if self.worker is None or self.worker.closed or self.key != key:
+                    self.discard()
+                    self.worker = GlinerWorker(request.profile)
+                    self.stack.callback(self.worker.close)
+                    self.key = key
+                admissions = self.worker.prepare_members(
+                    request.pack,
+                    request.inputs,
+                    threshold=request.threshold,
+                    overlap_policy=request.overlap_policy,
+                    evaluation=request.evaluation,
+                    check_active=self.active,
+                )
+                sizes = request.logical_sizes or (len(request.inputs),)
+                admitted = []
+                offset = 0
+                for length in sizes:
+                    selected = admissions[offset : offset + length]
+                    if all(member.admitted for member in selected):
+                        admitted.extend(request.inputs[offset : offset + length])
+                    offset += length
+                if offset != len(request.inputs):
+                    raise Pm2WorkerError(
+                        "logical native population differs from physical admission"
+                    )
+                reports = (
+                    self.worker.extract(
+                        request.pack,
+                        tuple(admitted),
+                        threshold=request.threshold,
+                        overlap_policy=request.overlap_policy,
+                        evaluation=request.evaluation,
+                        check_active=self.active,
+                    )
+                    if admitted
+                    else ()
+                )
+                reply = ProviderReply(request.correlation, reports=reports, admissions=admissions)
+            handle.active()
+            size = (
+                len(reply.startup_content)
+                + len(reply.payload_content)
+                + len(canonical_bytes([asdict(report) for report in reply.reports]))
+                + len(canonical_bytes([asdict(member) for member in reply.admissions]))
+            )
+            if size > self.owner.policy.max_reply_bytes:
+                from corpus_structure.semantic.cpu_execution import CapacityExceeded
+
+                raise CapacityExceeded("native reply exceeds admitted byte capacity")
+            return reply
+        except Exception as error:
+            try:
+                if (
+                    not isinstance(error, (Pm2WorkerRefused, GlinerRefused))
+                    or self.worker is None
+                    or self.worker.closed
+                ):
+                    self.discard()
+            except BaseException as cleanup:
+                error.add_note("native teardown failed: " + str(cleanup))
+            detail = "; ".join((str(error), *getattr(error, "__notes__", ())))[:1800]
+            return ProviderReply(
+                request.correlation,
+                canonical_bytes(startup),
+                error_type=type(error).__name__,
+                error_message=detail,
+            )
         finally:
-            slot.gate.release()
-    _active(check_active)
-    return result
+            self.current = None
 
+    def enqueue(self, handle):
+        with self.lock:
+            self.pending.append(handle)
 
-@contextmanager
-def borrowed_pm2_worker(
-    *,
-    provider: str,
-    python: Path,
-    script: Path,
-    profile: Path,
-    device: Literal["cpu", "cuda"],
-    nemotron_endpoint: str | None = None,
-    check_active: Callable[[], None] | None = None,
-    frozen_runtime: Mapping[str, Any] | None = None,
-    frozen_artifacts: Mapping[str, Any] | None = None,
-    startup_timeout_seconds: float = 300.0,
-    inference_timeout_seconds: float = 120.0,
-    max_request_bytes: int = 8_388_608,
-    max_reply_bytes: int = 8_388_608,
-) -> Generator[Pm2Worker]:
-    """Borrow a compatible CPU resident, or retain ordinary worker/device custody."""
-    _active(check_active)
-    arguments: dict[str, Any] = dict(
-        python=python,
-        script=script,
-        profile=profile,
-        device=device,
-        nemotron_endpoint=nemotron_endpoint,
-        startup_timeout_seconds=startup_timeout_seconds,
-        inference_timeout_seconds=inference_timeout_seconds,
-        max_request_bytes=max_request_bytes,
-        max_reply_bytes=max_reply_bytes,
-    )
-    current = _session.get()
-    if current is None or device != "cpu":
-        with _open_pm2_worker(**arguments, check_active=check_active) as worker:
-            yield worker
-        return
-    if current.closed or provider not in current.pm2:
-        raise Pm2WorkerRefused("unsupported or closed characterization provider session")
-    slot = current.pm2[provider]
-    if not slot.gate.acquire(blocking=False):
-        raise Pm2WorkerRefused("characterization provider already has an active borrower")
-    slot.callback = check_active if check_active is not None else lambda: None
-    try:
-        content = profile.read_bytes()
-        selected = json.loads(content)
-        if (
-            not isinstance(selected, dict)
-            or selected.get("provider") != provider
-            or selected.get("device") != device
-        ):
-            raise Pm2WorkerRefused(
-                "characterization worker profile differs from selected provider/device"
-            )
-        selection = json.dumps(
-            dict(runtime=frozen_runtime, artifacts=frozen_artifacts),
-            sort_keys=True,
-            allow_nan=False,
-        ).encode()
-        key = (
-            str(python.absolute()),
-            str(script.absolute()),
-            content,
-            selection,
-            nemotron_endpoint,
-            startup_timeout_seconds,
-            inference_timeout_seconds,
-            max_request_bytes,
-            max_reply_bytes,
-        )
-        if slot.worker is None or slot.worker.closed or slot.key != key:
-            slot.close()
-            slot.worker = slot.stack.enter_context(
-                _open_pm2_worker(**arguments, check_active=slot.check_active)
-            )
-            slot.key = key
-        slot.check_active()
-        yield slot.worker
-        slot.check_active()
-    except BaseException as error:
-        slot.close(type(error), error, error.__traceback__)
-        raise
-    finally:
-        slot.callback = None
-        slot.gate.release()
+    def flush(self):
+        with self.lock:
+            if self.closed:
+                return
+            self.wake.set()
+            if self.thread is None:
+                self.thread = Thread(target=self.drain, name="native-" + self.name, daemon=True)
+                self.thread.start()
 
-
-@contextmanager
-def borrowed_gliner_worker(
-    profile: GlinerProfile,
-    *,
-    check_active: Callable[[], None] | None = None,
-) -> Generator[GlinerWorker]:
-    """Borrow the one exact GLiNER CPU profile; inference keeps its explicit callback."""
-    _active(check_active)
-    current = _session.get()
-    if current is None:
-        worker = GlinerWorker(profile)
+    def drain(self):
         try:
-            yield worker
+            while True:
+                with self.lock:
+                    if self.closed:
+                        return
+                    if not self.pending:
+                        self.wake.clear()
+                        group = None
+                    else:
+                        first = self.pending.popleft()
+                        if not first.future.set_running_or_notify_cancel():
+                            continue
+                        group = [first]
+                        if self.name in self.owner.coalescing_providers:
+                            while self.pending and self.owner.compatible(group, self.pending[0]):
+                                following = self.pending.popleft()
+                                if following.future.set_running_or_notify_cancel():
+                                    group.append(following)
+                if group is None:
+                    self.wake.wait()
+                    continue
+                try:
+                    replies = self.owner.exchange(self, group)
+                except BaseException as error:
+                    for handle in group:
+                        handle.future.set_exception(error)
+                else:
+                    for handle, reply in zip(group, replies, strict=True):
+                        handle.future.set_result(reply)
         finally:
-            worker.close()
+            try:
+                # Native context/device tokens are created and closed by this same
+                # persistent owner thread, including explicit CUDA handoff contexts.
+                self.discard()
+            except BaseException as error:
+                self.close_error = error
+
+    def close(self):
+        with self.lock:
+            self.closed = True
+            for handle in self.pending:
+                handle.future.cancel()
+            self.pending.clear()
+            self.wake.set()
+            thread = self.thread
+        if thread is not None:
+            thread.join(timeout=130)
+            if thread.is_alive():
+                raise Pm2WorkerError("native lane did not drain within startup bounds")
+        else:
+            self.discard()
+        if self.close_error is not None or self.broken is not None:
+            raise Pm2WorkerError("native lane teardown failed") from self.close_error or self.broken
+
+
+@dataclass(eq=False)
+class _PendingIntent:
+    owner: Any
+    request: Any
+    size: int
+    held: bool = True
+
+    def abandon(self):
+        with self.owner._lock:
+            if self.held:
+                self.held = False
+                self.owner.budget.release(self.size)
+                self.owner._intents.discard(self)
+
+
+class ProviderExecution:
+    """One owner, bounded admission and serialized exchange for each native provider."""
+
+    def __init__(self, budget, policy):
+        self.budget, self.policy = budget, policy
+        self._lanes = {}
+        self._handles = set()
+        self._intents = set()
+        self._stop = Event()
+        self._lock = Lock()
+        self.coalescing_providers = frozenset({"hanlp", "d1", "gliner"})
+
+    def _request_size(self, request):
+        if isinstance(request, GLiNERWork):
+            validate_request(
+                request.profile,
+                request.pack,
+                request.inputs,
+                threshold=request.threshold,
+                overlap_policy=request.overlap_policy,
+                evaluation=request.evaluation,
+            )
+        size = (
+            len(request.payload or b"")
+            + len(request.selection.profile)
+            + len(request.selection.runtime)
+            + len(request.selection.artifacts)
+            if isinstance(request, PM2Work)
+            else len(
+                canonical_bytes(
+                    dict(
+                        pack=asdict(request.pack), inputs=[asdict(item) for item in request.inputs]
+                    )
+                )
+            )
+        )
+        if size > self.policy.max_packet_bytes:
+            from corpus_structure.semantic.cpu_execution import CapacityExceeded
+
+            raise CapacityExceeded("complete native request exceeds admitted byte capacity")
+        return size
+
+    def try_submit(self, request, pending=None):
+        from corpus_structure.semantic.cpu_execution import CapacityExceeded
+
+        if self._stop.is_set():
+            raise CancelledError("native invocation is closed")
+        provider = request.selection.provider if isinstance(request, PM2Work) else "gliner"
+        if provider not in {"hanlp", "maverick", "dipo", "d1", "gliner"}:
+            raise ValueError("unsupported native provider")
+        size = self._request_size(request) if pending is None else pending.size
+        with self._lock:
+            if self._stop.is_set():
+                raise CancelledError("native invocation is closed")
+            lane_key = (
+                "cuda"
+                if isinstance(request, PM2Work) and request.selection.device == "cuda"
+                else provider
+            )
+            lane = (
+                self._lanes.setdefault(lane_key, _Lane(self, lane_key))
+                if lane_key not in self._lanes
+                else self._lanes[lane_key]
+            )
+            if not lane.slots.acquire(blocking=False):
+                return None
+            reservation = size + self.policy.max_reply_bytes
+            if pending is not None and not pending.held:
+                lane.slots.release()
+                raise ValueError("native pending intent is no longer owned")
+            try:
+                self.budget.reserve(reservation if pending is None else self.policy.max_reply_bytes)
+            except CapacityExceeded:
+                lane.slots.release()
+                return None
+            if pending is not None:
+                pending.held = False
+                self._intents.discard(pending)
+            handle = ProviderHandle(self, lane, request, reservation)
+            self._handles.add(handle)
+            try:
+                lane.enqueue(handle)
+            except BaseException:
+                handle.future.cancel()
+                handle.retire()
+                raise
+            return handle
+
+    def compatible(self, group, following):
+        first = group[0].request
+        other = following.request
+        payloads: list[Any] = []
+        if isinstance(first, GLiNERWork):
+            if not isinstance(other, GLiNERWork) or (
+                first.profile,
+                first.pack,
+                first.threshold,
+                first.overlap_policy,
+                first.evaluation,
+            ) != (
+                other.profile,
+                other.pack,
+                other.threshold,
+                other.overlap_policy,
+                other.evaluation,
+            ):
+                return False
+            inputs = tuple(item for handle in (*group, following) for item in handle.request.inputs)
+            try:
+                validate_request(
+                    first.profile,
+                    first.pack,
+                    inputs,
+                    threshold=first.threshold,
+                    overlap_policy=first.overlap_policy,
+                    evaluation=first.evaluation,
+                )
+            except GlinerRefused:
+                return False
+            return True
+        if not isinstance(other, PM2Work) or first.selection.identity != other.selection.identity:
+            return False
+        requests = [handle.request for handle in (*group, following)]
+        if any(request.payload is None for request in requests):
+            return all(request.payload is None for request in requests)
+        payloads = [json.loads(request.payload) for request in requests]
+        if first.selection.provider == "d1":
+            return (
+                all(isinstance(payload.get("batch"), list) for payload in payloads)
+                and sum(len(payload["batch"]) for payload in payloads) <= 16
+            )
+        if first.selection.provider == "hanlp":
+            options = [
+                {
+                    key: value
+                    for key, value in payload.items()
+                    if key not in {"sentences", "admitted_row_tokens"}
+                }
+                for payload in payloads
+            ]
+            sentences = [
+                sentence for payload in payloads for sentence in payload.get("sentences", ())
+            ]
+            if not payloads[0].get("prepare_bulk"):
+                lengths = [
+                    length
+                    for payload in payloads
+                    for length in payload.get("admitted_row_tokens", ())
+                ]
+                if (
+                    len(lengths) != len(sentences)
+                    or any(type(length) is not int or length < 1 for length in lengths)
+                    or len(lengths) * max(lengths, default=0) > 2048
+                ):
+                    return False
+            return (
+                all(option == options[0] for option in options)
+                and len(sentences) <= 8
+                and sum(len(word) for sentence in sentences for word in sentence) <= 32768
+            )
+        return False
+
+    def exchange(self, lane, group):
+        if (
+            len(group) == 1
+            and isinstance(group[0].request, PM2Work)
+            and group[0].request.selection.provider not in {"d1", "hanlp"}
+        ):
+            return [lane.execute(group[0])]
+        first = group[0].request
+        borrowers = tuple(handle.active for handle in group)
+        digest = sha256(
+            canonical_bytes([handle.request.correlation for handle in group])
+        ).hexdigest()
+        if isinstance(first, PM2Work) and first.payload is None:
+            if any(handle.request.payload is not None for handle in group):
+                raise ValueError("native startup cannot share an inference envelope")
+            combined = PM2Work(first.selection, None, digest, borrowers)
+            reply = lane.execute(ProviderHandle(self, lane, combined, 0))
+            return [
+                ProviderReply(
+                    handle.request.correlation,
+                    reply.startup_content,
+                    reply.payload_content,
+                    error_type=reply.error_type,
+                    error_message=reply.error_message,
+                )
+                for handle in group
+            ]
+        payloads: list[Any] = []
+        key = "batch"
+        if isinstance(first, GLiNERWork):
+            inputs = tuple(item for handle in group for item in handle.request.inputs)
+            lengths = [len(handle.request.inputs) for handle in group]
+            combined = GLiNERWork(
+                first.profile,
+                first.pack,
+                inputs,
+                first.threshold,
+                first.overlap_policy,
+                digest,
+                borrowers,
+                first.evaluation,
+                tuple(lengths),
+            )
+        else:
+            for handle in group:
+                raw = handle.request.payload
+                if raw is None:
+                    raise ValueError("native inference requires its complete envelope")
+                payloads.append(json.loads(raw))
+            key = "batch" if first.selection.provider == "d1" else "sentences"
+            lengths = [len(payload[key]) for payload in payloads]
+            combined_payload = {
+                **payloads[0],
+                key: [value for payload in payloads for value in payload[key]],
+            }
+            if first.selection.provider == "hanlp" and "admitted_row_tokens" in payloads[0]:
+                combined_payload["admitted_row_tokens"] = [
+                    value for payload in payloads for value in payload["admitted_row_tokens"]
+                ]
+            content = canonical_bytes(combined_payload)
+            combined = PM2Work(first.selection, content, digest, borrowers)
+        synthetic = ProviderHandle(self, lane, combined, 0)
+        reply = lane.execute(synthetic)
+        if reply.error_type is not None:
+            return [
+                ProviderReply(
+                    handle.request.correlation,
+                    reply.startup_content,
+                    error_type=reply.error_type,
+                    error_message=reply.error_message,
+                )
+                for handle in group
+            ]
+        replies, offset = [], 0
+        if isinstance(first, GLiNERWork):
+            if len(reply.admissions) != sum(lengths):
+                raise Pm2WorkerError("native admission changed original logical population")
+            report_offset = 0
+            for handle, length in zip(group, lengths, strict=True):
+                members = reply.admissions[offset : offset + length]
+                refused = [member.reason for member in members if not member.admitted]
+                if refused:
+                    replies.append(
+                        ProviderReply(
+                            handle.request.correlation,
+                            error_type="GlinerRefused",
+                            error_message="; ".join(refused),
+                        )
+                    )
+                else:
+                    reports = reply.reports[report_offset : report_offset + length]
+                    if len(reports) != length:
+                        raise Pm2WorkerError("native inference omitted admitted logical member")
+                    replies.append(ProviderReply(handle.request.correlation, reports=reports))
+                    report_offset += length
+                offset += length
+            if report_offset != len(reply.reports):
+                raise Pm2WorkerError("native inference added an unadmitted logical member")
+            return replies
+        body = reply.payload
+        flattened = [value for payload in payloads for value in payload[key]]
+        header = dict(
+            provider=first.selection.provider,
+            profile=sha256(first.selection.profile).hexdigest(),
+            runtime=sha256(first.selection.runtime).hexdigest(),
+        )
+        members = [sha256(canonical_bytes(value)).hexdigest() for value in flattened]
+        receipt = dict(
+            version=1,
+            header=header,
+            members=members,
+            digest=sha256(canonical_bytes([header, members])).hexdigest(),
+        )
+        if first.selection.provider == "d1" and (
+            not isinstance(body.get("batch"), list) or len(body["batch"]) != len(flattened)
+        ):
+            raise Pm2WorkerError("combined d1 response changed admitted batch population")
+        for handle, length in zip(group, lengths, strict=True):
+            part = dict(body)
+            if first.selection.provider == "d1":
+                part["batch"] = [
+                    {**value, "batch_receipt": {**receipt, "member_ordinal": ordinal}}
+                    for ordinal, value in enumerate(body["batch"][offset : offset + length], offset)
+                ]
+            elif body.get("outcome") == "prepared_batch":
+                if len(body.get("members", ())) != len(flattened):
+                    raise Pm2WorkerError("combined HanLP preparation changed admitted population")
+                part["members"] = [
+                    {**value, "ordinal": local, "batch_member_ordinal": offset + local}
+                    for local, value in enumerate(body["members"][offset : offset + length])
+                ]
+            elif body.get("outcome") == "succeeded":
+                native, prepared = body.get("native"), body.get("preparation")
+                if (
+                    not isinstance(native, dict)
+                    or native.get("tok") != flattened
+                    or not isinstance(prepared, list)
+                    or len(prepared) != len(flattened)
+                ):
+                    raise Pm2WorkerError(
+                        "combined HanLP output changed admitted sentence population"
+                    )
+                part["native"] = {
+                    key: value[offset : offset + length]
+                    if isinstance(value, list) and len(value) == len(flattened)
+                    else value
+                    for key, value in native.items()
+                }
+                part["preparation"] = [
+                    {**value, "batch_receipt": {**receipt, "member_ordinal": ordinal}}
+                    for ordinal, value in enumerate(prepared[offset : offset + length], offset)
+                ]
+            part["batch_receipt"] = {
+                **receipt,
+                "member_ordinals": list(range(offset, offset + length)),
+            }
+            replies.append(
+                ProviderReply(
+                    handle.request.correlation, reply.startup_content, canonical_bytes(part)
+                )
+            )
+            offset += length
+        return replies
+
+    def _try_lazy(self, factory, lane_key):
+        from corpus_structure.semantic.cpu_execution import CapacityExceeded
+
+        if lane_key not in {"hanlp", "maverick", "dipo", "d1", "gliner", "cuda"}:
+            raise ValueError("unsupported native provider lane")
+        with self._lock:
+            if self._stop.is_set():
+                raise CancelledError("native invocation is closed")
+            lane = (
+                self._lanes.setdefault(lane_key, _Lane(self, lane_key))
+                if lane_key not in self._lanes
+                else self._lanes[lane_key]
+            )
+            if not lane.slots.acquire(blocking=False):
+                return None
+            reservation = self.policy.max_packet_bytes + self.policy.max_reply_bytes
+            try:
+                self.budget.reserve(reservation)
+            except CapacityExceeded:
+                lane.slots.release()
+                return None
+            try:
+                # Serialized bodies do not exist while admission is waiting. The
+                # factory reads its already-owned immutable semantic/source values.
+                request = factory()
+                actual_lane = (
+                    ("cuda" if request.selection.device == "cuda" else request.selection.provider)
+                    if isinstance(request, PM2Work)
+                    else "gliner"
+                )
+                if actual_lane != lane_key:
+                    raise ValueError("native request changed its admitted lane")
+                size = self._request_size(request)
+                unused = self.policy.max_packet_bytes - size
+                self.budget.release(unused)
+                reservation -= unused
+                handle = ProviderHandle(self, lane, request, reservation)
+                self._handles.add(handle)
+                lane.enqueue(handle)
+                return handle
+            except BaseException:
+                self.budget.release(reservation)
+                lane.slots.release()
+                raise
+
+    def lazy_work(self, factory, *, lane_key):
+        """Wait for lane and byte capacity before materializing a native envelope."""
+        pending: list[Callable[[], PM2Work | GLiNERWork] | None] = [factory]
+
+        def submit():
+            create = pending[0]
+            if create is None:
+                raise ValueError("native work intent was abandoned or submitted")
+            handle = self._try_lazy(create, lane_key)
+            if handle is not None:
+                pending[0] = None
+            return handle
+
+        def abandon():
+            pending[0] = None
+
+        return PreparedWork(submit, abandon=abandon)
+
+    def work(self, request):
+        size = self._request_size(request)
+        with self._lock:
+            if self._stop.is_set():
+                raise CancelledError("native invocation is closed")
+            self.budget.reserve(size)
+            intent = _PendingIntent(self, request, size)
+            self._intents.add(intent)
+        return PreparedWork(lambda: self.try_submit(request, intent), abandon=intent.abandon)
+
+    def close(self):
+        with self._lock:
+            self._stop.set()
+            intents = tuple(self._intents)
+            handles = tuple(self._handles)
+            lanes = tuple(self._lanes.values())
+        for intent in intents:
+            intent.abandon()
+        for handle in handles:
+            handle.cancel()
+        errors = []
+        for lane in lanes:
+            try:
+                lane.close()
+            except BaseException as error:
+                errors.append(error)
+        for handle in tuple(self._handles):
+            handle.retire()
+        if errors:
+            failure = RuntimeError("native invocation teardown failed")
+            for error in errors:
+                failure.add_note(str(error))
+            raise failure
+
+
+class PM2Client:
+    """Parent-only intent builder; the lane owns every actual exchange and resident."""
+
+    def __init__(self, execution, selection_factory, check_active, correlation, lane_key):
+        self.execution, self.selection_factory = execution, selection_factory
+        self.lane_key = lane_key
+        self.check_active, self.correlation = check_active, correlation
+        self.startup = {}
+        self.serial = 0
+
+    def request(self, payload):
+        self.serial += 1
+        correlation = self.correlation + ":" + str(self.serial)
+        return self.execution.lazy_work(
+            lambda: PM2Work(
+                self.selection_factory(),
+                None if payload is None else canonical_bytes(payload),
+                correlation,
+                (self.check_active,),
+            ),
+            lane_key=self.lane_key,
+        )
+
+    def start(self):
+        (reply,) = yield (self.request(None),)
+        self.startup = reply.startup
+        _ = reply.payload  # Raises a structured startup failure inside the parent plan.
+        return self
+
+    def infer(self, payload, *, check_active=None):
+        (reply,) = yield (self.request(payload),)
+        self.startup = reply.startup
+        return reply.payload
+
+
+def pm2_client(
+    execution,
+    ctx,
+    *,
+    provider,
+    python,
+    script,
+    project,
+    assets,
+    runtime,
+    artifacts,
+    device: Literal["cpu", "cuda"] = "cpu",
+):
+    def selection_factory():
+        profile = canonical_bytes(
+            dict(
+                provider=provider,
+                device=device,
+                assets=str(assets.absolute()),
+                runtime_identity=runtime,
+            )
+        )
+        return PM2Selection(
+            provider,
+            python,
+            script,
+            project,
+            assets,
+            profile,
+            canonical_bytes(runtime),
+            canonical_bytes(artifacts),
+            device,
+            ctx.settings.nemotron_endpoint if device == "cuda" else None,
+        )
+
+    claims = tuple(getattr(ctx.check_active, "active", ()))
+    correlation = sha256(
+        canonical_bytes(dict(provider=provider, claims=claims, client=id(selection_factory)))
+    ).hexdigest()
+    return PM2Client(
+        execution,
+        selection_factory,
+        ctx.check_active,
+        correlation,
+        "cuda" if device == "cuda" else provider,
+    )
+
+
+def fork_builder(builder):
+    """Own mutable reduction collections while retaining read-only source/contracts."""
+    from copy import copy
+
+    fork = copy(builder)
+    baseline: dict[str, Any] = {}
+    for name, value in vars(builder).items():
+        if isinstance(value, list):
+            baseline[name] = len(value)
+            setattr(fork, name, list(value))
+        elif isinstance(value, dict):
+            if name == "covered":
+                baseline[name] = {key: len(rows) for key, rows in value.items()}
+                setattr(fork, name, {key: list(rows) for key, rows in value.items()})
+            else:
+                baseline[name] = dict(value)
+                setattr(fork, name, dict(value))
+    return fork, baseline
+
+
+def merge_builder(builder, branch):
+    fork, baseline = branch
+    for name, prior in baseline.items():
+        value, target = getattr(fork, name), getattr(builder, name)
+        if isinstance(prior, int):
+            target.extend(value[prior:])
+        elif name == "covered":
+            for family, rows in value.items():
+                target[family].extend(rows[prior[family] :])
+        else:
+            for key, item in value.items():
+                if key not in prior:
+                    if key in target and target[key] != item:
+                        raise ValueError("independent native branches disagree on shared identity")
+                    target[key] = item
+
+
+@contextmanager
+def provider_scope(units):
+    """Direct method callers own the same runtime used by enclosing source execution."""
+    from corpus_structure.semantic.cpu_execution import CPUExecutionScope
+
+    if not units:
+        yield None, None
         return
-    if current.closed:
-        raise Pm2WorkerRefused("characterization resource session is closed")
-    slot = current.gliner
-    if not slot.gate.acquire(blocking=False):
-        raise Pm2WorkerRefused("characterization GLiNER already has an active borrower")
-    try:
-        if slot.worker is None or slot.worker.closed or slot.profile != profile:
-            slot.close()
-            slot.worker, slot.profile = GlinerWorker(profile), profile
-        yield slot.worker
-        _active(check_active)
-    except BaseException:
-        slot.close()
-        raise
-    finally:
-        slot.gate.release()
+    reader = units[0].run.reader
+    with ExitStack() as stack:
+        cpu = getattr(reader, "cpu_execution", None)
+        if cpu is None:
+            cpu = CPUExecutionScope(reader.prepared)
+            stack.callback(cpu.close)
+        providers = getattr(reader, "provider_execution", None)
+        if providers is None:
+            providers = ProviderExecution(cpu.budget, cpu.policy)
+            stack.callback(providers.close)
+        yield cpu, providers
+
+
+def gliner_extract(
+    providers,
+    profile,
+    pack,
+    inputs,
+    *,
+    threshold,
+    overlap_policy="flat",
+    check_active,
+    evaluation=False,
+):
+    from .gliner_worker import GlinerWorkerError
+
+    correlation = sha256(
+        canonical_bytes(
+            dict(
+                pack=pack.fingerprint,
+                contexts=[(item.context_id, item.context_digest) for item in inputs],
+                threshold=threshold,
+                overlap=overlap_policy,
+            )
+        )
+    ).hexdigest()
+    work = providers.lazy_work(
+        lambda: GLiNERWork(
+            profile,
+            pack,
+            inputs,
+            threshold,
+            overlap_policy,
+            correlation,
+            (check_active,),
+            evaluation,
+        ),
+        lane_key="gliner",
+    )
+    (reply,) = yield (work,)
+    if reply.error_type is not None:
+        if reply.error_type == "CapacityExceeded":
+            from corpus_structure.semantic.cpu_execution import CapacityExceeded
+
+            raise CapacityExceeded(reply.error_message)
+        raise GlinerWorkerError(reply.error_message)
+    return reply.reports

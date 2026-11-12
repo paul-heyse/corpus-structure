@@ -12,7 +12,6 @@ from corpus_structure.methods.gliner import GlinerPreparation, GlinerProfile, Gl
 from corpus_structure.methods.model_observation import (
     installed_policy,
     observation_digest,
-    request_digest,
 )
 from corpus_structure.methods.pm2_gliner_classification import (
     ClassificationProfile,
@@ -619,7 +618,10 @@ def gliner_profile():
 
 def gliner_report(pack, item, profile, raw, *, overlap="nested", threshold=0.5):
     inference = installed_policy()[0]["inference"]
-    expected = request_digest(pack, asdict(profile), (item,), threshold, overlap, False, inference)
+    from corpus_structure.methods.model_observation import batch_receipt
+
+    receipt = batch_receipt(pack, asdict(profile), (item,), threshold, overlap, False, inference)
+    expected = receipt["digest"]
     raw_json = json.dumps(raw)
     effective = json.dumps(
         dict(
@@ -644,7 +646,11 @@ def gliner_report(pack, item, profile, raw, *, overlap="nested", threshold=0.5):
         0.1,
         False,
         request_digest=expected,
-        observation_digest=observation_digest(expected, raw_json, effective),
+        observation_digest=observation_digest(
+            expected, raw_json, effective, ordinal=0, member=receipt["members"][0]
+        ),
+        batch_receipt_json=json.dumps(receipt),
+        member_ordinal=0,
     )
 
 

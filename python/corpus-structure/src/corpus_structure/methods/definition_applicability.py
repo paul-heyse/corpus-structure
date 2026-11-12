@@ -911,9 +911,9 @@ class DefinitionComponentsMethod:
 
     def run(self, units, cfg, ctx):
         from .model_observation import (
-            observation_digest,
             released_pack,
             released_policy,
+            report_observation_digest,
             request_digest,
         )
 
@@ -1033,10 +1033,7 @@ class DefinitionComponentsMethod:
                     if (
                         reply.computation != expected
                         or reply.request_digest != expected
-                        or reply.observation_digest
-                        != observation_digest(
-                            expected, reply.raw_json, reply.effective_profile_json
-                        )
+                        or reply.observation_digest != report_observation_digest(asdict(reply))
                     ):
                         raise GlinerWorkerError("provider reply differs from the selected request")
                     outcome["status"] = "returned"

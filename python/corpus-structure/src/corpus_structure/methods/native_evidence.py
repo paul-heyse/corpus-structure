@@ -3,25 +3,29 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Iterable, Mapping, Sequence
-from contextlib import ExitStack
+from collections.abc import Generator, Iterable, Mapping, Sequence
 from hashlib import sha256
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from corpus_structure.core._model.shapes import Cost
-from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
+from corpus_structure.core.method import (
+    Digest,
+    Resources,
+    UnitRef,
+    UnitResult,
+    drive_prepared_work,
+)
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
-from corpus_structure.ingest.annotations import AnnotationProfile, annotate
+from corpus_structure.ingest.annotations import AnnotationProfile
 from corpus_structure.ingest.sentences import SentenceConfig, pipeline
+from corpus_structure.semantic.cpu_execution import CapacityExceeded
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.product_reference import ProductReference
 
-from .characterization_resources import borrowed_pm2_worker as open_pm2_worker
-from .characterization_resources import characterization_pm2_preflight as preflight_pm2_runtime
+from .characterization_resources import pm2_client, provider_scope
 from .native_evidence_layers import (
     HANLP_FAMILIES,
     SPACY_FAMILIES,
@@ -181,34 +185,43 @@ def _batch_sentences(
     rows: Sequence[tuple[Any, Any, list[dict[str, Any]], int]],
     builder: NativeEvidenceBuilder,
     check_active,
-) -> None:
+) -> Generator:
     """Use actual native subword lengths; resize only a batch, never a sentence."""
     ready = []
     max_sentences = int(worker.startup.get("max_sentences", 8))
     max_chars = int(worker.startup.get("max_batch_chars", 32768))
-    for view, product, words, number in rows:
+    for offset in range(0, len(rows), max_sentences):
+        population = rows[offset : offset + max_sentences]
         check_active()
-        request = {"sentences": [[t["text"] for t in words]], "prepare_only": True}
-        prepared = worker.infer(request, check_active=check_active)
-        if prepared.get("outcome") != "prepared":
-            reason = (
-                "native HanLP admission: "
-                f"{prepared.get('reason', prepared.get('outcome', 'unknown'))} "
-                f"(limit={prepared.get('limit')})"
-            )
-            selector = source_selector(view, words[0]["source"].start, words[-1]["source"].end)
-            for family in HANLP_FAMILIES:
-                builder.record(family, [selector], "unsupported", reason)
-            continue
-        lengths = prepared.get("row_tokens")
+        request = {
+            "sentences": [[token["text"] for token in row[2]] for row in population],
+            "prepare_bulk": True,
+        }
+        prepared = yield from worker.infer(request, check_active=check_active)
+        members = prepared.get("members")
         if (
-            not isinstance(lengths, list)
-            or len(lengths) != 1
-            or type(lengths[0]) is not int
-            or lengths[0] < 1
+            prepared.get("outcome") != "prepared_batch"
+            or not isinstance(members, list)
+            or len(members) != len(population)
         ):
-            raise Pm2WorkerError("HanLP preparation did not return one actual subword length")
-        ready.append(((view, product, words, number), lengths[0]))
+            raise Pm2WorkerError("HanLP bulk preparation changed the admitted population")
+        for ordinal, (row, member) in enumerate(zip(population, members, strict=True)):
+            if not isinstance(member, dict) or member.get("ordinal") != ordinal:
+                raise Pm2WorkerError("HanLP preparation member ordinal differs")
+            view, _product, words, _number = row
+            if member.get("outcome") != "prepared":
+                reason = (
+                    f"native HanLP admission: {member.get('reason', 'unknown')} "
+                    f"(limit={member.get('limit')})"
+                )
+                selector = source_selector(view, words[0]["source"].start, words[-1]["source"].end)
+                for family in HANLP_FAMILIES:
+                    builder.record(family, [selector], "unsupported", reason)
+                continue
+            length = member.get("row_tokens")
+            if type(length) is not int or length < 1:
+                raise Pm2WorkerError("HanLP preparation omitted actual native subword length")
+            ready.append((row, length))
     batch = []
     lengths = []
     chars = 0
@@ -218,7 +231,10 @@ def _batch_sentences(
             return
         check_active()
         sentences = [[t["text"] for t in entry[2]] for entry in batch]
-        reply = worker.infer({"sentences": sentences}, check_active=check_active)
+        reply = yield from worker.infer(
+            {"sentences": sentences, "admitted_row_tokens": list(lengths)},
+            check_active=check_active,
+        )
         if reply.get("outcome") != "succeeded":
             reason = (
                 f"native all-head invocation {reply.get('outcome', 'failed')}: "
@@ -256,12 +272,12 @@ def _batch_sentences(
             or chars + size > max_chars
             or padded > int(worker.startup.get("max_padded_subwords", 2048))
         ):
-            flush()
+            yield from flush()
             batch, lengths, chars = [], [], 0
         batch.append(entry)
         lengths.append(length)
         chars += size
-    flush()
+    yield from flush()
 
 
 def select_document_scope(run, base, scope) -> Iterable[UnitRef]:
@@ -276,7 +292,7 @@ def select_document_scope(run, base, scope) -> Iterable[UnitRef]:
 
 class NativeEvidenceMethod:
     name = METHOD
-    version = "1"
+    version = "2"
     family = MethodFamily.EXTRACT
     unit_type = TaskUnitType.DOCUMENT
     tier = MethodTier.DETERMINISTIC
@@ -302,58 +318,66 @@ class NativeEvidenceMethod:
         )
 
     def run(self, units, cfg: NativeEvidenceConfig, ctx):
-        base, scope = cfg.require_selection()
-        results = []
-        for unit in units:
-            started = time.monotonic()
-            ctx.check_active()
-            if unit.ref not in self.select(unit.run, cfg):
-                raise ValueError("native evidence task unit differs from selected document")
-            reader = unit.run.reader
-            operation = ctx.characterization_operation(unit.ref)
-            builder = NativeEvidenceBuilder(
-                base.values(),
-                scope,
-                operation,
-                profile=cfg.characterization_profile,
-                families=cfg.families,
-            )
-            pins = tuple(ProductReference(**p) for p in cfg.characterization_layers)
-            dependencies = reader.characterization_layers(pins) if pins else {}
-            builder.operation["required_layers"] = [p.values() for p in pins]
-            releases = {reader.prepared.release_id: reader.prepared}
-            for report in dependencies.values():
-                release = report.payload["release_id"]
-                if release not in releases:
-                    releases[release] = reader.characterization_release(release)
-            if not any(
-                has_selected_native_text(reader.source_view(identity), scope["selectors"])
-                for identity in scope["source_view_ids"]
-            ):
-                for family in cfg.families:
-                    builder.record(family, scope["selectors"], "empty")
-            elif cfg.language.partition("-")[0].lower() != "en":
-                for family in cfg.families:
-                    builder.record(
-                        family,
-                        scope["selectors"],
-                        "unsupported",
-                        "selected native linguistic profile supports English",
-                    )
-            else:
-                self._produce(reader, cfg, ctx, builder)
-            report = builder.finish(reader.prepared, dependencies=dependencies, releases=releases)
-            results.append(
-                UnitResult(
-                    ref=unit.ref,
-                    outcome=ObservationOutcome.PRODUCED,
-                    characterization_layer=report,
-                    cost=Cost(wall_ms=round((time.monotonic() - started) * 1000), model=cfg.model),
-                )
-            )
-        return tuple(results)
+        return drive_prepared_work(self.plan(units, cfg, ctx), ctx.check_active)
 
-    def _produce(self, reader, cfg, ctx, builder):
+    def plan(self, units, cfg: NativeEvidenceConfig, ctx):
+        with provider_scope(units) as (cpu, providers):
+            base, scope = cfg.require_selection()
+            results = []
+            for unit in units:
+                started = time.monotonic()
+                ctx.check_active()
+                if unit.ref not in self.select(unit.run, cfg):
+                    raise ValueError("native evidence task unit differs from selected document")
+                reader = unit.run.reader
+                operation = ctx.characterization_operation(unit.ref)
+                builder = NativeEvidenceBuilder(
+                    base.values(),
+                    scope,
+                    operation,
+                    profile=cfg.characterization_profile,
+                    families=cfg.families,
+                )
+                pins = tuple(ProductReference(**p) for p in cfg.characterization_layers)
+                dependencies = reader.characterization_layers(pins) if pins else {}
+                builder.operation["required_layers"] = [p.values() for p in pins]
+                releases = {reader.prepared.release_id: reader.prepared}
+                for report in dependencies.values():
+                    release = report.payload["release_id"]
+                    if release not in releases:
+                        releases[release] = reader.characterization_release(release)
+                if not any(
+                    has_selected_native_text(reader.source_view(identity), scope["selectors"])
+                    for identity in scope["source_view_ids"]
+                ):
+                    for family in cfg.families:
+                        builder.record(family, scope["selectors"], "empty")
+                elif cfg.language.partition("-")[0].lower() != "en":
+                    for family in cfg.families:
+                        builder.record(
+                            family,
+                            scope["selectors"],
+                            "unsupported",
+                            "selected native linguistic profile supports English",
+                        )
+                else:
+                    yield from self._produce(reader, cfg, ctx, builder, cpu, providers)
+                report = builder.finish(
+                    reader.prepared, dependencies=dependencies, releases=releases
+                )
+                results.append(
+                    UnitResult(
+                        ref=unit.ref,
+                        outcome=ObservationOutcome.PRODUCED,
+                        characterization_layer=report,
+                        cost=Cost(
+                            wall_ms=round((time.monotonic() - started) * 1000), model=cfg.model
+                        ),
+                    )
+                )
+            return tuple(results)
+
+    def _produce(self, reader, cfg, ctx, builder, cpu, providers):
         sentence_cfg = cfg.sentences
         if cfg.characterization_profile == "boundary_only":
             sentence_cfg = cfg.sentences.model_copy(
@@ -395,7 +419,12 @@ class NativeEvidenceMethod:
                         for s in selectors
                     )
                 )
-                for product in annotate(inputs, profile, require_complete=False):
+                from corpus_structure.semantic.cpu_annotations import annotation_work
+
+                (annotation_batch,) = yield (
+                    annotation_work(cpu, inputs, profile, ctx.check_active, require_complete=False),
+                )
+                for product in annotation_batch.require_available():
                     ctx.check_active()
                     layouts.append(dict(view=view.ref.id, layout=product.layout_digest))
                     text_pins.append(dict(view=view.ref.id, text=product.text_digest))
@@ -455,6 +484,8 @@ class NativeEvidenceMethod:
                     m for m in builder.memberships if m["family"] in builder.families
                 ]
                 builder.roles[:] = []
+        except CapacityExceeded:
+            raise
         except (OSError, ValueError, RuntimeError) as error:
             ctx.check_active()
             # Keep detached earlier blocks; a producer failure cannot erase siblings.
@@ -499,9 +530,9 @@ class NativeEvidenceMethod:
                     "no complete canonical sentence population available for HanLP",
                 )
             return
-        self._hanlp(cfg, ctx, builder, pending, layouts, text_pins)
+        yield from self._hanlp(cfg, ctx, builder, pending, layouts, text_pins, providers)
 
-    def _hanlp(self, cfg, ctx, builder, pending, layouts, text_pins):
+    def _hanlp(self, cfg, ctx, builder, pending, layouts, text_pins, providers):
         script = Path(__file__).with_name("pm2_native.py")
         root = script.resolve().parents[5]
         project = root / "services/pm2-hanlp"
@@ -513,63 +544,30 @@ class NativeEvidenceMethod:
                     "full_native requires frozen HanLP runtime and artifact identities "
                     "selected before task creation"
                 )
-            checked = preflight_pm2_runtime(
+            worker = pm2_client(
+                providers,
+                ctx,
+                provider="hanlp",
                 python=project / ".venv/bin/python",
                 script=script,
                 project=project,
-                provider="hanlp",
                 assets=assets,
-                frozen_runtime=cfg.hanlp_runtime,
-                frozen_artifacts=cfg.hanlp_artifacts,
+                runtime=cfg.hanlp_runtime,
+                artifacts=cfg.hanlp_artifacts,
                 device=cfg.hanlp_device,
-                check_active=ctx.check_active,
             )
+            yield from worker.start()
+            startup = worker.startup
             if (
-                checked["runtime_identity"] != cfg.hanlp_runtime
-                or checked["assets"] != cfg.hanlp_artifacts
+                startup.get("runtime_identity") != cfg.hanlp_runtime
+                or startup.get("assets") != cfg.hanlp_artifacts
             ):
                 raise Pm2WorkerRefused(
-                    "HanLP installed runtime/artifacts differ from frozen selection"
+                    "executed HanLP runtime/artifacts differ from frozen selection"
                 )
-            with ExitStack() as stack:
-                temporary = Path(
-                    stack.enter_context(TemporaryDirectory(prefix="native-linguistic-profile-"))
-                )
-                path = temporary / "hanlp.json"
-                path.write_bytes(
-                    canonical_bytes(
-                        dict(
-                            provider="hanlp",
-                            device=cfg.hanlp_device,
-                            assets=str(assets.absolute()),
-                            runtime_identity=cfg.hanlp_runtime,
-                        )
-                    )
-                )
-                worker = stack.enter_context(
-                    open_pm2_worker(
-                        provider="hanlp",
-                        python=project / ".venv/bin/python",
-                        script=script,
-                        profile=path,
-                        device=cfg.hanlp_device,
-                        check_active=ctx.check_active,
-                        frozen_runtime=cfg.hanlp_runtime,
-                        frozen_artifacts=cfg.hanlp_artifacts,
-                        nemotron_endpoint=ctx.settings.nemotron_endpoint
-                        if cfg.hanlp_device == "cuda"
-                        else None,
-                    )
-                )
-                startup = worker.startup
-                if (
-                    startup.get("runtime_identity") != cfg.hanlp_runtime
-                    or startup.get("assets") != cfg.hanlp_artifacts
-                ):
-                    raise Pm2WorkerRefused(
-                        "executed HanLP runtime/artifacts differ from frozen selection"
-                    )
-                _batch_sentences(worker, pending, builder, ctx.check_active)
+            yield from _batch_sentences(worker, pending, builder, ctx.check_active)
+        except CapacityExceeded:
+            raise
         except (Pm2WorkerError, Pm2WorkerRefused, OSError, ValueError) as error:
             ctx.check_active()
             for family in HANLP_FAMILIES:
