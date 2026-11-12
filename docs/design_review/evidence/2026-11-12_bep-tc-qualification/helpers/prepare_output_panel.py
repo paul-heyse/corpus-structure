@@ -57,6 +57,23 @@ def write(name,value):
     path.write_bytes(canonical_bytes(value)+b'\n')
 
 
+def capture_release(captured,bound):
+    if (not captured or captured['id']!=CAPTURE or
+        captured['project_id']!=PROJECT or bound['project']!=captured['project_id'] or
+        not isinstance(captured['release_id'],str) or not captured['release_id']):
+        raise ValueError('output panel capture run/project/release metadata differs')
+    return captured['release_id']
+
+
+def frame_outputs(items):
+    distinct={}
+    for item in items:
+        output=item['output']
+        key=canonical_bytes([output['layer'],output['collection'],output['local_id']])
+        distinct.setdefault(key,output)
+    return list(distinct.values())
+
+
 def qualifies(facet,collection,row):
     family=row.get('family','')
     if facet in {'host_choice_questions','referent_choice_questions'}:
@@ -121,6 +138,10 @@ def scope_extents(body,row,collection,sources):
 
 
 def prepare(conn,bound):
+    runs=table('ops.run')
+    captured=conn.execute(select(runs.c.id,runs.c.project_id,runs.c.release_id)
+                          .where(runs.c.id==CAPTURE)).mappings().one_or_none()
+    source_release=capture_release(captured,bound)
     view_pin=ProductReference(**bound['view'])
     view=read_view(conn,view_pin,run_id=bound['run_id'])
     if view.base_document != verifier.ORIGINAL:
@@ -185,11 +206,11 @@ def prepare(conn,bound):
         pin=source_pin(identity,focal=True)
         related=sorted({s for item in items for s in (*item['source_views'],*item['witness_source_views'])}-{identity})
         opportunities=[dict(opportunity_id='output-'+item['facet'],extents=item['extents'],facet='provider_questions' if item['facet'] in {'host_choice_questions','referent_choice_questions'} else item['facet'],source_state='uninspected') for item in items]
-        frame=dict(unit=sources[identity]['key'],release_id=view.payload['release_id'],guideline_version='characterization-candidate-reference-3',rubric_version='chapter-facet-task-semantics-1',context_policy='exact-retained-output-with-protected-witness-context-1',operation_question='\n'.join('output-'+item['facet']+': '+item['question'] for item in items),operation_version='text-characterization-output-panel-2',domain='statistics',direction='output_first',pin=pin,anchor_ids=[],related_pins=[source_pin(s) for s in related],anchor_scopes=[],contribution_ids=[],source_group='grinstead-snell',partition='development',inspected_scope='Exact frozen producer output population, original source extents and protected interpretation-only witness closure; no reference answers inspected.',opportunities=opportunities,exposure_history=['shared-full-book-development','producer-output-selection'],characterization_view=view_pin.values(),selected_layers=list({canonical_bytes(item['output']['layer']):item['output']['layer'] for item in items}.values()),outputs=[item['output'] for item in items])
+        frame=dict(unit=sources[identity]['key'],release_id=source_release,guideline_version='characterization-candidate-reference-3',rubric_version='chapter-facet-task-semantics-1',context_policy='exact-retained-output-with-protected-witness-context-1',operation_question='\n'.join('output-'+item['facet']+': '+item['question'] for item in items),operation_version='text-characterization-output-panel-2',domain='statistics',direction='output_first',pin=pin,anchor_ids=[],related_pins=[source_pin(s) for s in related],anchor_scopes=[],contribution_ids=[],source_group='grinstead-snell',partition='development',inspected_scope='Exact frozen producer output population, original source extents and protected interpretation-only witness closure; no reference answers inspected.',opportunities=opportunities,exposure_history=['shared-full-book-development','producer-output-selection'],characterization_view=view_pin.values(),selected_layers=list({canonical_bytes(item['output']['layer']):item['output']['layer'] for item in items}.values()),outputs=frame_outputs(items))
         wire=dict(protocol='source-operation-frame-3',evaluation_frame=frame,captured_coordinates=[],context_dependency_digest=None)
         decode_frame(wire)
         frames[sources[identity]['key']]=wire
-    manifest=dict(version='bep-tc-output-panel-selection-1',source_run=CAPTURE,source_cut=CUT,project=PROJECT,view=view_pin.values(),binding_sha256=sha256(canonical_bytes(bound)).hexdigest(),selection='First bounded matching actual output per facet in frozen active-layer/collection order; purposive exposed development panel; at most12000 source chars per involved natural unit,1600 direct noncoverage occurrence chars,128KiB graph preview. No correct/incorrect outcome filter.',facets=list(FACETS),selected=selected,missing_facets=sorted(missing),skipped_graphs=skips,semantic_answers_authored=False)
+    manifest=dict(version='bep-tc-output-panel-selection-1',source_run=CAPTURE,source_cut=CUT,source_release_id=source_release,view_release_id=view.payload['release_id'],project=PROJECT,view=view_pin.values(),binding_sha256=sha256(canonical_bytes(bound)).hexdigest(),selection='First bounded matching actual output per facet in frozen active-layer/collection order; purposive exposed development panel; at most12000 source chars per involved natural unit,1600 direct noncoverage occurrence chars,128KiB graph preview. No correct/incorrect outcome filter.',facets=list(FACETS),selected=selected,missing_facets=sorted(missing),skipped_graphs=skips,semantic_answers_authored=False)
     write('manifest.json',manifest)
     write('sample.json',dict(sampling=dict(seed=0,cohort='bep-tc-output-first-facet-and-choice-panel-1',strata={key:'retained-output-facets' for key in frames},inclusion_probabilities={key:1.0 for key in frames},provenance=dict(selection=manifest['selection'],probability_meaning='Certain membership within explicitly selected panel only; no book-wide accuracy inference.',manifest_sha256=sha256(canonical_bytes(manifest)+b'\n').hexdigest(),producer_outputs_inspected=True,reference_answers_inspected=False)),frames=frames))
     print(json.dumps(dict(units=len(frames),outputs=len(selected),missing_facets=sorted(missing))))
@@ -220,6 +241,6 @@ if __name__=='__main__':
     OUTPUT.mkdir(parents=True,exist_ok=True)
     if args.action=='select' and (OUTPUT/'sample.json').exists():parser.error('output already contains frozen selection; use a new output directory')
     if args.action=='packets' and args.set_id is None:parser.error('packets requires exact --set-id')
-    with open_runtime_engine(Settings(),'tc11-output-first-selection',purpose='read') as engine,engine.connect() as conn:
+    with open_runtime_engine(Settings(),'tc11-output-first-selection',purpose='evaluate' if args.action=='packets' else 'read') as engine,engine.connect() as conn:
         conn.exec_driver_sql('SET TRANSACTION READ ONLY')
         prepare(conn,bound) if args.action=='select' else packets(conn,args.set_id)

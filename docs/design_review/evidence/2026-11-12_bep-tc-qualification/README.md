@@ -174,10 +174,19 @@ exercises actual attached-cache acquisition/binding and isolated mutation; reass
 resolved and no other material production/gate/fence issue. Original drafts remain unchanged.
 The BEP coordinator owns disposition; assembled book/provider qualification remains open.
 
-Because orchestrate/semantic.py is a released implementation input, the book requires a fresh
-normally admitted release/input binding after final source maintenance. The release-only
-model-preview/candidate/deploy route supports this without a new SQL migration. The old R905
-registration remains historical; no runtime-pin bypass or old artifact restamping is selected.
+**Runtime/release reconciliation · Interface-checked2026-11-12.** Scheduler Python bytes are
+runtime provenance, not logical semantic assets. Independent source review confirmed that
+contracts.py's semantic subset and runtime_bindings.py preserve this distinction. Each new
+ordinary run calls operations.create_run → require_installed_runtime → persist_runtime_binding
+with current executable inputs; existing run pins remain immutable and enforce current-code
+matching. Consequently the fresh book demand uses the already admitted R905 and existing
+request-v2 input realization. No release/input re-registration is required for E09.
+
+The earlier proposed release-refresh route was unnecessary. Read-only preview
+`9764a459dd224490979f677e9957a88e` of runtime-change.json passed and showed unchanged R905,
+identical artifact set, zero changes and no native effects. No candidate/apply/deploy followed.
+Fresh run/runtime custody supplies the new implementation pin without restamping old artifacts
+or bypassing a guard. Maintenance status still reports semantic_bep_located_v2 on port5434.
 
 Source endpoint `af59ddd4d` commits E09 and the three fixture follow-ups after final maintenance.
 Integrated `uv run ci check --view steps --json` passed/held
@@ -194,8 +203,8 @@ the259-identity union has zero unresolved, with source difference/original failu
 Provider opt-ins were unset. CI ownerPID1848235/startticks15857777 was sampled by PID1849725/session92449;
 clusterPID2486/startticks1242 by PID1849731/session28864, both five-second/10800-second bounds
 and automatic settlement stop with the retained25591009… helper. Both ended18:31:28UTC/253samples,
-exit0. The [runtime-change.json](runtime-change.json) request is prepared for normal release-only
-admission of the refreshed book target; it has not been executed.
+exit0. The [runtime-change.json](runtime-change.json) request was used only for the read-only
+unchanged preview above; its requested admission effect was not needed or executed.
 
 Exclusive `uv run ci test --lane fault --json` result
 `560c4365604948f0bcde1e4cf4aac430` passed8/8 in28seconds on frozen8c0f4f951;
@@ -448,7 +457,7 @@ The planned launch wraps the actual `uv run ci run characterize` command with
 --cpuctxsw=process-tree --sample=none --duration=180 --stop-on-exit=false
 --kill=none --wait=all`, using a unique output path. CUDA tracing includes the
 normally executed native-host child; fork-before-exec tracing stays disabled.
-No workload has yet been launched with this profiler.
+The actual retained-book invocation was launched once with this profiler; see the live receipt below.
 
 Collection stops at the duration bound without signaling the book. The profiler
 may wait for its application tree before finalizing the report. Controlled book
@@ -460,3 +469,97 @@ it cannot establish steady-state throughput if startup consumes the window.
 No stacks, tensor shapes, per-allocation tracing or model function instrumentation
 are selected. The [official Nsight Systems guide](https://docs.nvidia.com/nsight-systems/UserGuide/)
 and installed help describe these collection and process-lifecycle controls.
+
+
+### Initial retained-book launch · Observed2026-11-12
+
+The single installed `ci run characterize --captured-run 496 --release R905
+--realization qualification:bep-tc:2026-11-12:request-v2 --json` invocation is
+`0d8a07f92aa04d83bf4aa8837241ccc7`, started19:19:07UTC. Exact releaseR905 is the
+full905fc29f5d0129571b8254e5f0875f30ab79a479843808326b04795e282765da ID above.
+ActualCI PID1971352/startticks16275556, parentUV1971296/start16275479,
+profiler1971262. Nsight warned that `--wait=all` contradicts
+`--stop-on-exit=false` and ignored wait. Its180-second collection finalized
+`raw/nsys/book-initial-001.nsys-rep`, profiler exited0 and application continued
+with the same authenticated identity. No application signal or second launch
+occurred. Until an anchor/settled regional view exists, the planned interruption
+criterion is unmet. This trace can contain startup only; no kernel-overlap or
+throughput conclusion has been drawn.
+
+Root samplers1975405/session76491 and1975436/session12758 retain CI-tree and
+separate PostgreSQL-cluster observations in `raw/resources/0d8a…-001.jsonl` and
+`0d8a…-pg-001.jsonl`:5seconds,10800seconds maximum, automatic managed-settlement
+stop, unchanged helperSHA25591009e3b9976361cf17d23b628bc4e4ffb51dd5894bfdbdce2cd011d08f20.
+Their roots are1971352/start16275556 and2486/start1242 respectively. One
+nonblocking startup stack(no locals), `raw/resources/0d8a…-stack-startup-001.json`,
+returned0 and found the main thread in psycopg execute/wait. This is a point
+observation rather than elapsed-time attribution or a deadlock conclusion.
+
+
+Initial trace summary extraction `nsys stats --report
+cuda_gpu_kern_sum,cuda_api_sum,osrt_sum --format json …` passed(exit0), with the
+exact command/stdout/stderr retained in `raw/nsys/book-initial-001-stats-receipt.json`.
+The CUDA reports are empty/no recorded CUDA data; the OS-runtime report and
+SQLite export are retained. This qualifies the collection only as a startup
+window, not an NLP inference trace or proof of absent CUDA in the later run.
+
+The no-locals startup stack identifies `characterization._characterize_captured_run`
+→ `RegionalPreparation.source_view` → `load_source_view` → integrated source
+context → bounded native reader. Source inspection locates this before demand
+anchor creation, in the serial selected-source preparation loop. The read-only
+PG point observation `raw/resources/0d8a…-startup-pg-observation-001.json` reports
+an active context-count/byte-bound query, no wait event and no blockers at that
+instant; advancing query start timestamps show successive calls rather than one
+unchanged long query. A later `pg_stat_statements` snapshot is cumulative/shared,
+not invocation-exclusive elapsed time. These observations retain a concrete later
+inquiry without changing the frozen implementation or the qualification demand.
+
+
+### Initial book failure · Observed2026-11-12
+
+Managed0d8a07f92aa04d83bf4aa8837241ccc7 settled **failed** naturally at19:29:07UTC
+(~600seconds), anchor611/source operationae3cdf1b-501d-4573-9dbc-ffddbe46dc09.
+No SIGINT was sent. It did not produce a complete regional enriched view;
+planned successful-region interruption/reuse qualification is **not_run**.
+Exactfrozen request is the managed `characterization-demand` artifact. Graphs
+`raw/book-initial-611-graph-001.json` and
+`raw/book-initial-611-after-failure-graph.json` preserve4runs/8tasks then6runs/12tasks.
+The runtime is5a7f4599ae9bb22d1945fc8b5efe3ae442bb027daf3bc23a91a6909567e0016f;
+R905/request-v2/original1627/capture496/cut614 remain authentic.
+
+Final exception: `RuntimeError: ready work cannot acquire capacity and has no
+in-flight work that can release admission` at core/work.py279. Native task layers
+record `spaCy preparation/inference failed: BrokenPipeError: [Errno32] Brokenpipe`;
+HanLP's `no complete canonical sentence population available for HanLP` follows
+that failure rather than proving an independent HanLP startup failure. All six
+native tasks settled, with partial coverage; formal tasks cancelled. Earlier
+regional failures and the final admission stall are under separate diagnosis.
+The book spaCy fingerprint exactly matches the passed6f9six-provider startup
+profile, and executable/script/assets exist. NativeHost passes an explicit
+environment whitelist; inherited Nsight environment is not an established cause.
+Nativehost stderr inherits parent stderr and was not independently retained after
+the profiler/tool session ended; a stdio/harness effect remains a hypothesis.
+No production change or blind retry follows from these observations.
+
+Both samplers ended normally19:29:09UTC with91samples each; sessions76491/12758
+exited0. `raw/resources/0d8a…-drain-observation-001.json` reports all four sampled
+CI/CPU/nativehost identities absent, alongside UV/profiler absence. It explicitly
+limits observation of short-lived unobserved descendants; nativehost teardown
+also enforces child-group death. The managed result is held and custody settled.
+No force kill, recovery override or fabricated successful interruption is claimed.
+
+### Assessment preparation correction · Interface-checked2026-11-12
+
+Source-first sets41–45 bind original capture496/releasec993… . Actual grades use
+`ci eval run --run 496 --set-id SET --characterization-view FINAL_PIN_JSON
+--project nce-grinstead-snell-full-book --json`; the final prediction pin remains
+separate. Grading under a newer run release would correctly refuse applicability.
+The output-first helper now authenticates original capture/project/release
+metadata for its source frame while preserving the exact current characterization
+view, deduplicates output identities without dropping facet questions/opportunities,
+and uses evaluator custody only for public author-packet delivery. AST and synthetic
+realV3 frame decoding passed, including shared output/two opportunities and wrong
+capture-project refusal. No database/model/reference-answer read was used in these
+checks; actual selection/delivery remains not_run pending final book pin.
+The enriched-document consumer helper does not execute definition/assertion/query12;
+those remain distinct required actual downstream assessments/export closures.
