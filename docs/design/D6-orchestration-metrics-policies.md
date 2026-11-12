@@ -2,24 +2,26 @@
 
 ## Final characterization policy and retained recovery
 
-**Proposed accepted target · 2026-11-11.** One validated `CharacterizationExecutionPolicy`
-owns settings/API admission across explicit demands, books, ingest enrichment, analytical
-preparation and supported resume. Resolve once before admission and report actual values.
-Settings and `--execution-policy FILE` use the same validation; counts/byte overrides are
-result-neutral placement choices. Inference profile/device/precision/thread changes freeze
-under their appropriate configuration/provenance before registration, never by patching a
-claimed task or reinterpreting a retained observation.
+**Proposed accepted target · 2026-11-12; implementation incomplete.** Shared application
+requests explicitly select default analysis, retained-view analysis, capture/enrichment, M1 or a
+configured graph. Graph/registry injection does not select intent. Complete-input validation precedes
+engine acquisition; resolve source/release/domain and settings once, and carry one fully verified
+preparation through registration and execution. Native authorization and claim/publication checks
+remain live. D8 owns public request/result interfaces and D4 the frozen provider semantics.
 
-The selected defaults are two admitted natural regions, two CPU workers, two active stage
-runs, four logical claims and two provider jobs per compatible lane. Each compatible provider/profile retains one
-resident, one active exchange and at most one pending native batch. One foreground DB operation
-preserves independent renewal; dedicated supervisors are bounded by admitted runs. CPU kernels
-use one native thread; supported providers use four native/intra-op threads and one inter-op
-thread before native work. D1 alone requires CUDA/BF16 with 120 second inference; other selected
-NLP providers use CPU. Every caller carries complete `MethodSettings`, including Nemotron
-handoff configuration, through the same custody owner. GLiNER's frozen profile must match the
-selected intra-op thread count, and its supported inter-op count is one; mismatches refuse
-before provider startup or task admission.
+Initial target counts are four regions/stage runs, eight claims, four outstanding jobs per provider,
+and two CPU parser workers/submissions. Hosts retain one model instance per selected profile.
+Different providers execute in bounded threads with model-local streams; mutable instance gates
+and native batching replace GPU-wide execution serialization. A multiplexed host client routes
+out-of-order replies by provider/profile/request/host generation. Shared host failure fences its
+unfinished requests; collected replies retain ordinary settlement rights.
+
+The operation owns one explicit GPU session, acquired lazily after capture. Sleep the dedicated
+Nemotron service once, borrow the lease across threads/hosts, and restore only after all owned CUDA
+children terminate. Never hold NLP custody while requesting recognition. Pure parser/source/
+validation/reduction work remains CPU. D1 stays CUDA/BF16; other selected learned NLP targets
+CUDA/FP32. Source-only/retained reads cause no fresh inference. Actual GPU/runtime/numerical and
+mixed-host lifecycle qualification remains open; the book run is explicitly deferred.
 
 The shared encoded owned-state budget is 2 GiB, with 256 MiB CPU inputs and 64 MiB CPU replies.
 Charge regional bodies, queued packets, completed replies, reductions and publication drafts
@@ -44,7 +46,7 @@ Implementation and qualification belong to the
 SourceView 480 native size repair before the new unselected candidate's full-book execution.
 Accepted target labels do not establish those obligations or a measured performance benefit.
 
-> Decision: [ADR-0087](../adr/0087-book-characterization-policy-and-recovery.md)
+> Decision: [ADR-0088](../adr/0088-gpu-default-native-hosts.md)
 
 ## Bounded ready coordination and provider lanes
 

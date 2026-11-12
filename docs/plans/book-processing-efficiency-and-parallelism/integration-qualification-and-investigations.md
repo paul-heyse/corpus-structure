@@ -1,6 +1,21 @@
 # Integration, qualification and investigations
 
-**BEP-09 incomplete; prior-package implementation gaps remain and qualification is cancelled (audit2026-11-12).** Owns BEP-09 design and bounded investigation routes. The [coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns every scheduled disposition and combined completion; this companion defines what settles it.
+**BEP-09 incomplete; bounded qualification authorized, prior-package implementation gaps remain and full-book acceptance is deferred (2026-11-12).** Owns BEP-09 design and bounded investigation routes. The [coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns every scheduled disposition and combined completion; this companion defines what settles it.
+
+## Current approved execution boundary · 2026-11-12
+
+**Proposed accepted target; implementation incomplete.** The
+[coordinator's approved closure](../book-processing-efficiency-and-parallelism_2026-11-11.md#approved-audit-closure-and-gpu-pivot)
+and [ADR-0088](../../adr/0088-gpu-default-native-hosts.md) govern the GPU-default pivot, shared
+runtime hosts, explicit workflow intent and changed initial counts. D1 remains CUDA/BF16; other
+selected learned NLP targets CUDA/FP32. This supersedes CPU-hybrid/default-device and per-provider
+exclusive GPU-custody assumptions in the original design below. CPU parser deadlines/spawn remain;
+spaCy learned annotation moves to GPU with tokenizer-only preparation staying CPU. GPU phase
+custody begins after capture. Historical scoped receipts retain their dates/source/profile limits.
+
+BEP-E04/E06–14 remain open. Bounded qualification is authorized after implementation and custody
+readiness; the full book, book interruption/resume and full-book consumers remain deferred.
+E05 does not authorize speculative memory diagnosis. This companion is not a second status ledger.
 
 ## BEP-09 · Assembled delivery and retirement
 
@@ -10,7 +25,7 @@ Before production mutation, settle/drain any bound running execution through its
 
 Migrate standalone characterize requests, ordinary ingest enrichment, default analytical demand, explicit retained-layer composition and supported resume paths to the same implementation. Remove replaced serial coordination, ambient borrower ownership and mechanism-specific tests/configuration where superseded; preserve independent behavioral and invalid-input controls. Readers, CLI/MCP, exact exports and detached replay retain the same source/layer/choice semantics. No late inventory-completion phase may hide required callers still using the replaced path.
 
-## Planned qualification
+## Required qualification (book-specific rows deferred by current operator boundary)
 
 | Scenario | Evidence and failure exposed |
 | --- | --- |
@@ -81,7 +96,7 @@ Move enduring architectural meaning into existing owners as implementation close
 
 
 The coordinator's final-increment section now owns selected I04–I06 decisions and current
-qualification. I07–I13 remain untriggered conditional investigations. The selected D1CUDA/otherCPU
+qualification. I07/I08/I10–I13 remain conditional. I09 is settled for the GPU pivot: native bounded host threads/streams are selected; no replacement CPU executor library or external serving framework is required. The selected D1CUDA/otherCPU
 profile does not require other-provider CUDA adoption. Native layer capacity and end-to-end
 recovery receive actual checks before the whole-book run; final acceptance still requires every
 applicable row in the planned qualification table above.

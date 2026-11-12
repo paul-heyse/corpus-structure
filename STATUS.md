@@ -1,27 +1,31 @@
 # Status
 
-_Updated2026-11-12. BEP completion audit corrected overbroad implementation claims.
-Testing/book processing remain cancelled; this audit authorized no production repairs or restart._
+_Updated2026-11-12. BEP GPU-default pivot and audit closure authorized; implementation incomplete.
+Full-book execution and book-specific acceptance remain explicitly deferred._
 
-## Current authority and source
+## Current authority
 
-- [BEP completion audit](docs/plans/book-processing-efficiency-and-parallelism_2026-11-11.md#completion-audit) is the combined current judgment; the same coordinator's findings table owns disposition. All five companions were reconciled. TC plans remain unchanged.
-- Inspected clean main738a7ebe14ee461dab802974300d9cf06545e0fc. This turn changes plans/checkpoint only. Earlier production commits:9f2f78c82 (candidate recreation),4ec2020fa (ADR-0087/policy/recovery/capacity/threadpoolctl3.7.0),a040ac996 (raw summaries through LFS).
-- BEP-00 is complete at its decision/contract/review boundary. Selected BEP-04 resident-lane/private-branch implementation has no additional local delivery gap established. BEP-01–03/05–08 have accepted implementation obligations still open; BEP-09 is incomplete. Historical scoped passes are not an enclosing current-source qualification.
-- Existing E04 preflight/fixture and E05 memory/custody findings remain. Audit E06–14 cover combined-registration preparation, pre-read admission/recovery, CPU bounded teardown, ordinary claim replenishment, local GLiNER batching, merged PM2 frame bounds, normal CLI cutover, aggregate reporting/native inspection and fallback GLiNER policy consistency. Follow the coordinator for source evidence and closure, not a second ledger.
-- Main-demand native anchor/freshness/terminal preservation, shared spawned kernels, immutable regional trust, exact publication/read/replay contracts and selected native batch authentication remain implemented. The audit did not attribute the OOM to a particular process or these source gaps, and did not require speed benchmarks.
+- [Approved BEP closure](docs/plans/book-processing-efficiency-and-parallelism_2026-11-11.md#approved-audit-closure-and-gpu-pivot) owns sequencing and acceptance. Its existing findings table remains the sole E01–14 disposition owner; no audit gap is closed by target acceptance.
+- [ADR-0088](docs/adr/0088-gpu-default-native-hosts.md) supersedes ADR-0087's CPU-hybrid selection/global CUDA lane while preserving native capacity, exact source, demand anchors, replay, cancellation and effect guarantees. D3/D4/D6/D8/§B and all five BEP companions are reconciled.
+- Target: two shared GPU hosts, Python3.14 (D1/GLiNER/HanLP/spaCy) and3.12 (Maverick/DiPO), bounded model threads and independent streams. D1 remains BF16; other selected learned NLP targets FP32. Gates protect mutable instances/DiPO module patches, not all GPU work. HanLP retains native gradient contexts; spaCy needs explicit Thinc/CuPy context.
+- The NLP GPU session begins after capture, never sleeps Nemotron while capture needs it, and restores external custody only after owned hosts die. Shared-host generation fencing and request multiplexing are required production work, not delivered by these docs.
+- SourceRunRequest/ResolvedSourceRun/SourceOperationResult target explicit workflow and shared application validation rather than graph-presence inference. E04/E06–14 remain implementation work, including real CLI/Python parity, read admission, CPU teardown, ready refill, batching, native reporting and profile compatibility.
 
-## Operating choices and retained qualification
+## Delivered boundary and prerequisites
 
-- Selected defaults remain two regions/CPU workers/submissions/stage runs, four claims, two jobs per provider lane,2GiB encoded state,256MiB CPU inputs/64MiB replies,8MiB native frames. These are not RSS guarantees. CPU native threads1, providers4/inter-op1; low-level GLiNER consistency remains E14. D1 always CUDA/BF16/120s; other selected NLP is CPU.
-- Native head semantic_bep_capacity; release03c24857dc91… admitted/deployed, unselected. Target input source:bep-book:03c24857dc91. Original capture496/cut614/product1627 retains316views/518pages. No recognition rerun, activation, result selection, promotion or push.
-- Retained dated2026-11-11 native evidence: capacity6/6,c3df282f91704fa39257f7007f2c6862; recovery2/2,d30ed0edcc3a4ae1832aa32c6bdca97f; analytical retry694783ed2487403fb6e08d01723a00ea and10preparation controls from73edf3d9b7394f22bbf25fb88e48c69b. These do not cover the newly identified scenarios.
-- Read-only `uv run ci results show` on2026-11-12 confirmed second-increment236-node12916646acbc4072ac90cad2dfd458af and recoveryd30ed0edcc3a4ae1832aa32c6bdca97f remain held/settled/passed at their scopes. The interrupted campaign0a78c71ce1a949e38e906c9c5392c1f3 remains held/running in metadata with unsettled custody and fault missing; it supplies no full-campaign pass.
-- Earlier `ci check` ecd5be13e49c43da8c1379b7d570dc24 and doctor8bf3d144537a4d268c202878b995cc05 passed at their stated source. `uv run ci docs check --json` passed2026-11-12,d8d83c317e7741f4b22ba6300084c1a8,892 pages/zero link errors; `just turn-end` passed,1137 Python files unchanged. No product tests/providers/book/migrations/benchmarks or recovery mutations were run for this audit.
+- This increment records the approved target and implements explicit ci test/retry --workers control with requested/observed receipt context. Common GPU runtimes, shared host transport/streams and application request cutover remain unimplemented. No GPU/model run, dependency installation, migration, book run, activation, selection, promotion or push occurred.
+- Scoped dependency prerequisites: direct CuPy14.2.0/Thinc compatibility; one root/HanLP lock; common Python3.12 runtime using TensorBoard2.18.0, Protobuf3.20.0, SentencePiece0.2.0 and Setuptools80.10.2 while preserving primary model libraries. Metadata compatibility is not a native pass.
+- Initial target counts4regions/4stage runs/8claims/4provider jobs, CPUworkers/submissions2; byte limits unchanged. Running product defaults remain the previous2/2/4/2 CPU-hybrid implementation until coherent cutover and qualification.
+- The operator-authored untracked docs/libraries/parsing/torch.md remains untouched and is not included in agent commits. TC plans remain unchanged. Main is the sole worktree.
 
-## Next boundary
+## Last verified · 2026-11-12
 
-- Execution must be separately authorized: finish accepted implementation gaps rather than assuming only a green suite remains. Resolve E05's safe retry/custody prerequisite before any operator-authorized testing; preserve native guards and independent invalid-input/outcome controls while repairing E04.
-- Reconcile the applicable functional/provider/nonfunctional union with final source/context, then complete whole-book execution, interrupted-work recovery and retained native/CLI/MCP/export/detached consumers. E01 final book acceptance remains open. The prepared consumer utility is still unexecuted.
-- systemd-oomd's2026-11-11 23:47:43 local Cursor-group167.1G incident remains [raw evidence](docs/design_review/evidence/2026-11-11_bep-whole-book/raw/test-campaign-oomd.log); individual allocation attribution is unknown. No tests/book processing were restarted.
-- Main is the sole worktree; no parallel production edits, push or default/selection effects.
+- Targeted `uv run ci test --workers 1 --json -- ...` passed37/37,d057530f1d3a418eb4fa28e548184ece; exact command is in the coordinator's prerequisite-delivery section. Requested/actual1/1. Original cb05ccd28a144464828e06b6b04c44cd retains two corrected harness failures; exact retry c2f7182970794024a71c44afc4629fd6 passed2/2. All held; coverage reports required34/covered34/unresolved0 with original failure/source difference preserved.
+- `uv run ci check --only types --view steps --json` passed,e28fb7904cf648469bcc6996f3fc1662; --only lint passed,68d15ea4ca554bcb8386f65e847b3060. `uv run ci docs check --json` passed,c3bd970746ea4a0da25835a118913933,894pages/zero link errors. Initial stale-index publication failure is retained. Final `just turn-end` passed; equivalent final formatting/test literals do not alter tested semantics. Broad/product/native qualification is not_run for this increment.
+
+## Retained evidence and next work
+
+- E05 has no repository/process memory attribution. Do not chase speculative memory causes. Original campaign0a78c71ce1a949e38e906c9c5392c1f3 stays held/unsettled; genuine recovery proof is required and valid refusal remains preserved. Fresh qualification requires excluding conflicting live work.
+- Native head semantic_bep_capacity; release03c24857dc91… deployed/admitted, unselected. Retained capture496/cut614/product1627 remains316views/518pages. E01's full-book acceptance and BEP-09 enclosing completion remain open; the full-book consumer utility remains unexecuted.
+- Earlier native capacity/recovery/D1 and functional/nonfunctional receipts remain dated source/profile-specific evidence in the coordinator; historical CPU passes do not qualify new GPU hosts.
+- Next: finish the shared application contract and locked GPU runtime prerequisites, implement host/multiplexed stream execution and migrate consumers, complete E04/E06–14, independently review assembled source, then qualify the applicable bounded functional/provider/nonfunctional union. Full book stays deferred.

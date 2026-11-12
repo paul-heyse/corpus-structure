@@ -2,16 +2,20 @@
 
 <a id="BEP-06"></a>
 
-**Status: Native authentication/cross-region coalescing delivered; BEP-06 implementation remains incomplete for local GLiNER batching and aggregate PM2 byte admission (audit2026-11-12).** This companion develops **BEP-06**, implementing selected
+**Status: GPU-default shared-host target accepted2026-11-12; native authentication/cross-region coalescing delivered at historical scope, with local GLiNER batching, aggregate PM2 byte admission and current-device qualification incomplete.** This companion develops **BEP-06**, implementing selected
 [O05](../../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md#O05).
 The [series coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns shared
 contracts, package state, opportunity disposition, investigation coverage and assembled acceptance.
 The operator accepted **RC04** on 2026-11-11: separate preparation, inference and deterministic
 reduction, migrating GLiNER batch authentication and projectors together. Acceptance authorizes the
-target and its decision route; the delivery section below records the implemented CPU slice.
+target and its decision route; the historical delivery section records the implemented CPU slice.
+[ADR-0088](../../adr/0088-gpu-default-native-hosts.md) now selects all six learned NLP providers on
+GPU through two shared hosts; [BEP-07/08](resources-devices-and-operations.md) owns that runtime,
+request/consumer cutover and compatibility prerequisites. The GPU target is not a provider pass.
 
-Planning baseline is main `f81a380cd`; inspected production source is `4d0ca7eb7`, dated
-2026-11-11. No provider, probe, test or database operation was run while authoring this companion.
+Original planning baseline is main `f81a380cd`; current focused source inspection is
+`33085983a`, dated2026-11-12. No provider, probe, test or database operation was run while
+authoring this companion.
 TC-E06 indexes, TC-E07 line-safe literals, existing model residency and existing native batches
 are implemented baseline, not work claimed by BEP-06. The existing TC plan retains its scope.
 
@@ -25,8 +29,10 @@ source coordinate. Requests from several admitted regions can share a provider i
 the same compatibility and attribution contract qualifies that grouping.
 
 The provider lane receives prepared immutable requests, admits a bounded compatible population,
-executes the selected native batch API and returns an attributed response for each member. The
-coordinator owns durable task identity, claims and completion; one owner reduces each region's
+executes the selected native batch API and returns an attributed response for each member.
+Different resident models can execute concurrently on their host threads/streams; narrow
+provider-instance/module gates preserve mutable wrapper state without a GPU-wide inference lock.
+The coordinator owns durable task identity, claims and completion; one owner reduces each region's
 responses into its builder in the declared stable order. Provider callbacks do not concurrently
 mutate builders. Semantic families remain distinct even when one physical invocation serves them.
 The [D6 lifecycle owner](../../design/D6-orchestration-metrics-policies.md),
@@ -49,11 +55,11 @@ implementation.
 
 | Provider path | Existing capability to preserve | BEP-06 change and consequential conditions |
 | --- | --- | --- |
-| spaCy | [ingest/annotations.py](../../../python/corpus-structure/src/corpus_structure/ingest/annotations.py), lines236–279, streams prepared Docs through `Language.pipe(..., as_tuples=True, batch_size=..., n_process=1)`; [sentences.py](../../../python/corpus-structure/src/corpus_structure/ingest/sentences.py), lines56 onward, caches the selected pipeline. Native text/layout/token checks protect atom-preserving inputs. | Keep this native batching and residency through method-seam changes. Feed compatible prepared inputs without retokenizing them. Adding `n_process` is not the selected whole-pipeline execution mechanism; any later selection must fit BEP-04/07 ownership and avoid nested process pools. |
-| HanLP | [native_evidence.py](../../../python/corpus-structure/src/corpus_structure/methods/native_evidence.py), lines179–264, admits each sentence with `prepare_only`, then packs inference using actual subword lengths, sentence/character and padded-subword bounds. [pm2_hanlp.py](../../../python/corpus-structure/src/corpus_structure/methods/pm2_hanlp.py), lines72–112/159–205, uses actual task transforms/dataset samples and one multitask `model(sentences, tasks=..., skip_tasks="tok", resolved_tasks=...)` invocation. | Deliver bounded bulk sentence admission and correct member results. Investigate whether the installed native route can reuse the exact prepared samples through inference without duplicating native planning. Reuse is selected only if its complete supported route preserves word/subword correspondence, head population and native preparation behavior. Every sentence remains whole. |
-| D1 | [model_characterization.py](../../../python/corpus-structure/src/corpus_structure/methods/model_characterization.py), lines455–558, batches ready independent question jobs by sixteen while retaining per-job prior answers and real question-stage dependencies. [pm2_native.py](../../../python/corpus-structure/src/corpus_structure/methods/pm2_native.py), lines117–156, invokes native `system_one_batch(..., set_size=16)`, repacks by row length and scatters by request ordinal. | Preserve these capabilities; expose compatible ready jobs to the lane across admitted regions. Keep each original state, context, options, candidate population and prior-answer prerequisites. A ready job need not wait for an unrelated region's question stage. Do not replace native length packing with a second application packing engine. |
-| GLiNER | [gliner_worker.py](../../../python/corpus-structure/src/corpus_structure/methods/gliner_worker.py), lines157–218/350–384, already calls `model.batch_extract` with bounded inputs under one selected pack/profile/policy and one active exchange. Characterization currently sends singleton cue and function scopes. | Batch compatible scopes and migrate the complete batch/member authentication path. Native report computation/request digests bind the full admitted input population. [classification authentication](../../../python/corpus-structure/src/corpus_structure/methods/pm2_gliner_classification.py), lines156–201, and [cue projection](../../../python/corpus-structure/src/corpus_structure/semantic/model_characterization.py), lines957–1008, currently reconstruct singleton digests; changing only the tuple length is incorrect. |
-| Maverick / DiPO | [contextual_characterization.py](../../../python/corpus-structure/src/corpus_structure/methods/contextual_characterization.py), lines441 onward, supplies different native requests: canonical sentences for Maverick, exact context text for DiPO. | BEP-04 overlaps their independent lanes. BEP-06 batches them only if a focused examination of the selected provider interface establishes independent-document/context semantics and useful native support. Lack of such a route leaves scalar requests in their concurrent resident lanes; it does not block the selected HanLP/D1/GLiNER delivery. |
+| spaCy | [ingest/annotations.py](../../../python/corpus-structure/src/corpus_structure/ingest/annotations.py), lines236–279, streams prepared Docs through `Language.pipe(..., as_tuples=True, batch_size=..., n_process=1)`; [sentences.py](../../../python/corpus-structure/src/corpus_structure/ingest/sentences.py), lines56 onward, caches the selected pipeline. Native text/layout/token checks protect atom-preserving inputs. | Keep native pipe batching on the shared3.14 GPU host, preserving the selected FP32 learned pipeline and CPU tokenizer/layout preparation. No model per CPU worker, parent GPU duplicate, added n_process pool or changed tokenizer/model is selected. |
+| HanLP | [native_evidence.py](../../../python/corpus-structure/src/corpus_structure/methods/native_evidence.py), bulk-admits sentences using native preparation, then packs inference using actual subword lengths, sentence/character and padded-subword bounds. [pm2_hanlp.py](../../../python/corpus-structure/src/corpus_structure/methods/pm2_hanlp.py), lines72–112/159–205, uses actual task transforms/dataset samples and one multitask `model(sentences, tasks=..., skip_tasks="tok", resolved_tasks=...)` invocation. | Preserve delivered bulk admission and whole-sentence/member results on CUDA/FP32. The accepted negative prepared-sample-reuse decision retains native inference preparation: do not reopen it as an unfulfilled speedup or imitate HanLP planning. Preserve exact word/subword/head correspondence. |
+| D1 | [model_characterization.py](../../../python/corpus-structure/src/corpus_structure/methods/model_characterization.py), lines455–558, batches ready independent question jobs by sixteen while retaining per-job prior answers and real question-stage dependencies. [pm2_native.py](../../../python/corpus-structure/src/corpus_structure/methods/pm2_native.py), lines117–156, invokes native `system_one_batch(..., set_size=16)`, repacks by row length and scatters by request ordinal. | Preserve CUDA/BF16 and these capabilities; expose compatible ready jobs to the host across admitted regions. Keep each original state, context, options, candidate population and prior-answer prerequisites. A ready job need not wait for an unrelated region's question stage. Do not replace native length packing with a second application packing engine. |
+| GLiNER | [gliner_worker.py](../../../python/corpus-structure/src/corpus_structure/methods/gliner_worker.py), lines157–218/350–384, already calls `model.batch_extract` with bounded inputs under one selected pack/profile/policy and one active exchange. Characterization currently sends singleton cue and function scopes. | Deliver bounded local same-pack cohorts even at provider-job/region capacity one, with independent per-input admission/outcomes and CUDA/FP32 profile identity. Native report computation/request digests bind the actual admitted physical population. [classification authentication](../../../python/corpus-structure/src/corpus_structure/methods/pm2_gliner_classification.py), lines156–201, and [cue projection](../../../python/corpus-structure/src/corpus_structure/semantic/model_characterization.py), lines957–1008, share current v2 batch/member authentication; preserve that owner while adding aligned independent outcomes. Changing only tuple length still leaves the E10 refusal/scatter defect. |
+| Maverick / DiPO | [contextual_characterization.py](../../../python/corpus-structure/src/corpus_structure/methods/contextual_characterization.py), lines441 onward, supplies different native requests: canonical sentences for Maverick, exact context text for DiPO. | Their separate CUDA/FP32 models overlap through the common3.12 host and streams, with wrapper/module gates. Preserve scalar-document native semantics; no new multi-document batch API is selected. Existing source/token/EDU limits and outcomes remain. |
 
 ## Shared contract and working integration dependencies
 
@@ -123,41 +129,94 @@ uncommitted members and form/authenticate the actual admitted envelope. After di
 member loses completion rights; useful surviving members may finish. Do not reuse that ordinal
 for another request. Cancel shared native work when invocation cancellation or loss of every live
 borrower removes its usefulness. Any contract-required change in the admitted population creates
-an actual new envelope; the original outcome remains attributable. Lane crash retires the lane
-and follows existing coordinator/task retry policy, never an additional provider retry loop.
+an actual new envelope; the original outcome remains attributable. A shared-host crash retires that host generation and fences its unfinished requests; preserve
+collected replies and other-host completion rights. Narrow provider refusal need not retire useful
+sibling residents. Follow existing coordinator/task retry policy, never another provider retry loop.
 Publication and uncertain publication recovery remain the coordinator's fenced durable route.
 
-## Bounded investigations before dependent implementation
+## Local cohorts and exact merged-frame admission
 
-These are mandatory questions with finite decision outputs, not a benchmark campaign or optional
-future research. Inspect the installed version/source first; use a small retained functional
-probe only where the consequential behavior remains uncertain. During execution, place necessary
-probe evidence and records through the existing evidence route. Source inspection can settle an
-unsupported API; it cannot establish actual selected-provider fidelity on its own.
+**Proposed accepted target · 2026-11-12; E10/E11 implementation outstanding.**
+[ModelCharacterizationMethod._gliner](../../../python/corpus-structure/src/corpus_structure/methods/model_characterization.py)
+currently awaits singleton cue then function work for every scope. Exposing one generator per
+scope in a ReadyGroup is insufficient at max_provider_jobs=1: no second singleton can join the
+first admitted exchange. Build stable bounded local cohorts from scopes already available in the
+demand, preserving separate cue/function packs, thresholds, overlap policy and exact context.
+Flush when the next useful member would exceed the frozen profile's max_batch, text/schema/
+metadata/request-frame limits or shared bytes. Submit smaller populations without waiting for
+unavailable regions; an individually invalid/oversized scope retains its own outcome. Bound the
+local window and retained replies rather than materializing the whole document's requests.
 
-| ID | Question and bounded settling evidence | Decision output and dependent work |
-| --- | --- | --- |
-| BEP-06-I1 | Examine installed HanLP task transform, dataset/dataloader, native multitask dispatch and model call at the selected pinned revision. Establish how bulk admission reports each original sentence's actual subword length, and whether inference accepts/reuses prepared samples without retokenizing or changing head execution. If source leaves uncertainty, exercise only representative short/long, mixed-size and inadmissible sentences through the real selected path. | Choose the complete supported prepared-sample route and verify word/subword/head correspondence, or explicitly retain native inference preparation while delivering bulk admission. Do not introduce an application imitation of HanLP's planner. Settles the HanLP implementation branch before removing any preparation checks. A supported reuse route is implemented when found; unsupported reuse closes that branch with its reason rather than leaving an open speedup promise. |
-| BEP-06-I2 | Trace `request_digest`, `GlinerWorker._exchange`, report creation, `authenticated_gliner_report`, `classification_product` and `project_gliner_cues`. Settle one exact batch/member envelope shared by both projectors, including retained report/replay meaning. Use independently authored mismatch cases and a real compatible multi-context response to settle binding and scatter. | Specify and implement batch-level authentication plus member association through both producers and affected retained/detached consumers. Any needed released schema/operation-version change goes through BEP-00's authority route. Blocks GLiNER batching cutover, not preservation of current native calls during investigation. |
-| BEP-06-I3 | For selected real HanLP/D1/GLiNER paths, compare singleton and compatible mixed-size batches, reordered members, and admissible regrouping on the same exact source inputs. Inspect the native numerical/packing behavior and distinguish expected numerical variation from changed semantic output or attribution. Do not assume identical bytes across arbitrary batch/device choices. | Record each provider's qualified compatibility, inference-identity and stable-grouping rule under BEP-00, with any supported variation and limits. Apply the rule before cross-region task identity/dispatch. A device-policy change consumes BEP-07's actual qualification; CPU evidence does not qualify CUDA. |
-| BEP-06-I4 | Through working BEP-04/05 lanes, exercise one cancelled/stale member with useful siblings, whole-operation cancellation, a partial/invalid reply and a provider crash. Observe ownership, exact admitted envelope, completion fences, retained siblings, bounded outstanding state and lane retirement. | Close cross-region cancellation/failure integration only when the working route preserves member attribution and existing retry ownership. A prior contract agreement or mocked provider result does not satisfy actual provider obligations. |
+The inspected [GLiNERWork/ProviderReply/exchange owner](../../../python/corpus-structure/src/corpus_structure/methods/characterization_resources.py)
+already has logical_sizes and per-input native admissions, but exchange overwrites segments with
+each whole handle's input count and collapses one refusal into a whole-handle error. Local cohorts
+must declare independent per-scope segments, normally (1,...,1). Validate positive segments and
+exact total population, preserve them when coalescing across regions, and retain original handle
+lengths separately for scatter. Do not erase a real explicitly atomic multi-input group.
 
-## CPU and selected-device prerequisite slices
+Return an aligned outcome per original input using authenticated admission plus its exact native
+report or refusal. Infer only admitted groups, then scatter using the actual admitted population;
+reject missing/extra/duplicate/context-mismatched native members. A member refusal does not discard
+useful reports in the same local handle. Whole-envelope corruption, startup/transport failure or
+cohort inference failure retains its actual broader failure scope. Existing cue/classification
+projectors consume successful outcomes and record unavailable family/scope outcomes independently;
+CapacityExceeded retains its operational contract. Reduce in stable original scope order, retaining
+cue/function association through bounded windows and existing parent-owned builders.
 
-BEP-06 first delivers and qualifies the working CPU batch route, including envelope/member
-authentication and cross-region borrower handling. BEP-07b consumes that working slice to select
-and qualify device/runtime arrangements. Each newly selected device profile then receives its
-BEP-06 batch-specific qualification before BEP-09. CPU completion does not qualify CUDA batches;
-a GPU batch prerequisite does not prevent CPU delivery. BEP-06-I3 records the separate scope of
-each result. Whole-package completion is not a prerequisite in both directions.
+Original-input admission ordinals and **actual native batch member ordinals are different** when
+members refuse. Preserve each report's authentic admitted cohort/ordinal/receipt; never renumber it
+to the pre-admission position or manufacture participation for a refused input. Preserve shared
+v2 authentication and original historical v1 semantics through both live and detached consumers.
+
+For E11, count/padding compatibility alone cannot admit a combined PM2 envelope. Share the exact
+native framing calculation between packing and the transport writer, including ordered JSON
+framing/metadata overhead, and check the combined request before grouping. Leave nonfitting useful
+members for separate legal exchanges; do not turn two legal requests into unavailable coverage
+because their combined frame fails. GLiNER local/cross-region packing likewise shares the frozen
+worker framing/profile validation instead of estimating only text bytes. Admission precedes
+serialization; request, merged buffers, reply and reduction credit remain owned until their final
+consumer. Multiplexed host identity/framing adds overhead that must be included, not ignored by
+reusing an old provider-only byte count.
+
+## Settled investigations and current qualification obligations
+
+Retain BEP-06-I1–I4 as source/evidence identities. Their historical decisions below remain useful;
+do not reopen settled unsupported prepared-sample reuse as new work. A selected GPU profile and
+shared host do require current applicability/native qualification where their behavior changed.
+No provider/probe execution occurs during this documentation follow-up.
+
+| ID | Current treatment and dependent work |
+| --- | --- |
+| BEP-06-I1 | HanLP2.1.7's supported multitask predict route does not accept reusable prepared samples. Preserve bulk native admission and native inference preparation, whole sentence/head correspondence and the accepted negative decision. GPU integration qualifies this route; it does not introduce an imitation native planner or deferred reuse promise. |
+| BEP-06-I2 | Preserve delivered v2 batch/member authentication and authentic historical v1 reads. Extend the same production owner for E10 aligned per-input admission/outcomes, local segments and scatter; migrate cue/function projectors and affected retained/detached consumers together. Deliberate wrong population/context/ordinal cases retain independent expectations. |
+| BEP-06-I3 | Preserve actual native confidence, ordered grouping and released thresholds. Qualify current GPU HanLP/D1/GLiNER grouping/member attribution on bounded mixed-size, reordered and regrouped inputs without asserting CPU equality, byte equality or universal threshold stability. Freeze changed runtime/profile/numerical identity before task registration. |
+| BEP-06-I4 | Qualify current shared-host cancellation/failure scope: stale member with useful siblings, whole-operation cancellation, invalid replies, bounded host crash/drain and exact completion fences. Preserve collected results and other-host completion rights; old isolated-worker panels do not prove the new failure boundary. |
+
+## Current-device prerequisites and preserved historical evidence
+
+**Proposed accepted target · 2026-11-12.** BEP-07's two common locked hosts and selected CUDA profiles
+precede their native qualification; BEP-06 then qualifies current batching/member projection and
+BEP-09 consumes the combined final scope. Existing CPU panels remain evidence for their original
+CPU profiles and any demonstrably unchanged contracts, not qualification of CUDA or a requirement
+to repeat an otherwise settled CPU investigation. D1 retains CUDA/BF16; HanLP/GLiNER and the
+Maverick/DiPO models retain FP32 on CUDA, and spaCy learned pipe execution uses its selected GPU
+backend. Do not infer CPU equality, fresh bitwise equality or arbitrary threshold stability.
+
+The [host/policy companion](resources-devices-and-operations.md#selected-gpu-profiles-and-compatible-host-groups)
+owns native gradient/thread/stream contexts, CuPy/Thinc prerequisites, compatible3.12 dependency
+pins, host failure/custody and actual device validation. Shared-host startup establishes globals
+once; use explicit streams and provider-local completion without a GPU-wide inference gate.
+The actual profile/runtime/math selection freezes before task registration. Profile shape changes
+must retain original historical CPU digest/authentication rather than parsing old data under new
+GPU defaults. Batch numerical/receipt policy and affected projectors/readers migrate together.
 
 ## BEP-06 delivery and consumer migration
 
 First settle the BEP-00/BEP-07a interfaces and the internal investigations needed for the selected
 provider routes. Preserve current spaCy and D1 native batches while exposing their inputs and
-responses at the BEP-04 seams. Deliver HanLP bulk admission and its settled prepared-sample
-choice; deliver GLiNER batch-aware shared authentication, producers and projections together.
-This can use already available compatible scopes inside an operation while coordinator work
+responses at the BEP-04 host seams. Preserve HanLP bulk admission and its settled negative
+prepared-sample-reuse choice; extend GLiNER shared authentication, independent local outcomes,
+producers and projections together. This can use already available compatible scopes inside an operation while coordinator work
 continues. Complete cross-region batching through the actual BEP-04/05 dispatch, cancellation and
 reduction paths after their working prerequisites exist. Provider-specific bounds and useful
 progress under short populations are part of the capability, not follow-up tuning.
@@ -177,8 +236,10 @@ operation versions and affected live/detached readers within the same delivery, 
 authority route. Do not rewrite historical products or manufacture missing batch provenance for
 them. Remove superseded singleton digest reconstruction and obsolete mechanism-specific tests
 after their consumers migrate; preserve independent source/semantic expectations and deliberate
-invalid native controls. No new provider service, batch ledger or compatibility adapter is
-required merely to stage the change.
+invalid native controls. The two shared native hosts are the selected runtime, not a new
+service/queue per provider. No
+batch ledger or compatibility adapter is required merely to stage the change; durable historical
+read authentication remains necessary under its original contract.
 
 ## Completion evidence and limits
 
@@ -213,7 +274,7 @@ correct compatible batching, removed scalar admission where selected, complete a
 integration with bounded useful parallelism. Quantitative benefit claims require separate
 representative measurement if later made.
 
-## Delivered CPU batch contract and investigation decisions
+## Historical delivered CPU batch contract and investigation decisions · 2026-11-11
 
 - **I1 / BEP-I02:** HanLP2.1.7's supported multitask predict route does not accept reusable prepared
   samples. Bulk native admission returns each original sentence's actual subword length and
@@ -242,14 +303,15 @@ The [evidence owner](../../design_review/evidence/2026-11-11_book-provider-batch
 retains exact commands, raw replies, source checks, failed attempts, numerical limits and record
 supersession. Native probe execution predates the final lazy-admission repair; unchanged worker/
 coalescer semantics remain applicable, while the final root union qualifies admission and DB
-integration. spaCy annotation now runs through detached CPU work while retaining native pipe and
+integration. At that source, spaCy annotation ran through detached CPU work while retaining native pipe and
 atom/layout checks. D1 preserves native16-job length packing and actual per-job dependencies.
 Maverick/DiPO retain independent scalar-document semantics in concurrently admitted resident lanes;
 no qualified multi-document native batch API was selected for them.
 
 Public demand and capture enrichment use the same method plans, lane owner and parent reduction.
 The JSONB optional native_batch field requires a new semantic release, not a physical column.
-CUDA-specific batch qualification remains conditional on BEP-07b's selected device profiles.
+Current GPU-default batch qualification is now required for the selected profiles under BEP-07b;
+these historical CPU results do not establish it.
 
 
 ## Historical selected D1 device and native-order correction · 2026-11-11
@@ -288,5 +350,10 @@ scope (BEP-E10). PM2 compatibility checks counts/padding but not the merged fram
 requests can fail only because of grouping under a supported smaller byte policy (E11).
 Complete those accepted obligations through the existing authenticated lane and stable reduction.
 Current disposition/qualification remains with the coordinator; no new provider/test execution or
-measurement was performed. Other-provider CUDA and multi-document Maverick/DiPO batching remain
-outside the explicitly selected operating scope.
+measurement was performed. The2026-11-12 target now includes CUDA for all six learned NLP
+providers, with current-device qualification outstanding. Multi-document Maverick/DiPO batching
+remains unselected; independent scalar requests can overlap on different model streams. E10/E11
+closure requires the local-cohort/independent-outcome and exact merged-frame obligations above,
+not only existing cross-region coalescing or a broad test rerun. All current disposition stays in
+the coordinator. This documentation follow-up runs no providers, models, tests or book work:
+**not_run**; later authorized qualification follows BEP-09.

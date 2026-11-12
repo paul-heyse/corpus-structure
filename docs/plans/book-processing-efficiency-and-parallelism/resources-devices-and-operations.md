@@ -1,9 +1,12 @@
 # Resources, devices and operator workflows
 
-**Status: Selected policy and major mechanisms delivered; BEP-07/08 integration incomplete and qualification cancelled, completion-audited2026-11-12.** This companion owns BEP-07 and BEP-08 in the
+**Status: GPU-default shared-host and common-request target accepted2026-11-12; BEP-07/08 implementation and qualification remain incomplete.** This companion owns BEP-07 and BEP-08 in the
 [book-processing series](../book-processing-efficiency-and-parallelism_2026-11-11.md).
-Planning baseline is `f81a380cd`; inspected production source is `4d0ca7eb7`. The source
-[functional review](../../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md#O06)
+Original planning baseline is `f81a380cd`; the current focused source assessment inspected
+`33085983a` on2026-11-12. [ADR-0088](../../adr/0088-gpu-default-native-hosts.md) records the
+operator-approved replacement for ADR-0087's CPU/hybrid device selection. Historical receipts below
+retain their original scope. This document schedules implementation; it establishes no provider pass.
+The source [functional review](../../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md#O06)
 supplies O06, and [O08](../../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md#O08)
 supplies the operational scope. RC01–RC04 were explicitly accepted by the operator on
 2026-11-11; the coordinator owns their decision routes and current series disposition.
@@ -13,24 +16,28 @@ The intended result is one usable local execution policy: independent book work 
 without multiplying native thread pools, model fleets, outstanding payloads or database
 borrowers without a bound. The operator selects and inspects that policy through existing
 operations, can explain a wait, and can cancel or resume retained work without managing workers.
-The running book and the TC plans remain untouched by plan authoring. Protected reference sets,
-source-first exposure boundaries and independent assessment remain under their existing owners.
+This companion edit itself runs no book, provider or product tests. Implementation and qualification
+are authorized through the coordinator's approved execution sequence; native/book work follows its
+later prerequisites. The TC plans remain untouched.
+Protected reference sets, source-first exposure boundaries and independent assessment remain under
+their existing owners.
 
 ## Baseline and responsibility boundaries
 
-The hybrid target separates durable ownership from physical placement. BEP-03 owns process-main-thread
-CPU kernels; BEP-04 owns resident provider lanes; BEP-05 owns dependency-ready coordination and
-publication; BEP-06 owns native batch authentication and deterministic item projection. Those
-packages consume the early BEP-07a contract below. BEP-07b subsequently selects concrete counts and
-the supported device profile from the integrated implementation, before BEP-09 full qualification.
+The target separates durable ownership from physical placement. BEP-03 owns process-main-thread
+pure CPU kernels; BEP-04 owns resident providers in two shared native hosts; BEP-05 owns
+dependency-ready coordination and publication; BEP-06 owns native batch authentication and
+deterministic item projection. Those
+packages consume the early BEP-07a contract below. BEP-07b integrates the selected GPU profiles and
+bounded host concurrency before BEP-09 full qualification.
 BEP-08 migrates all existing entry points and operator-facing reports to that same ownership.
 
 The source-established constraints are:
 
 | Existing owner | Consequence for this work |
 | --- | --- |
-| [Resources and MethodSettings](../../../python/corpus-structure/src/corpus_structure/core/method.py), lines806–831 | `Resources.max_concurrency` is a declaration, not the current scheduler's implemented dispatch policy. `MethodSettings` currently holds result-neutral paths/endpoints; do not hide an inference-changing choice in it merely because it is operational. |
-| [Resource session](../../../python/corpus-structure/src/corpus_structure/methods/characterization_resources.py), lines66–94/175–225/244–259 | Current CPU residency is one provider slot with ContextVar/nonblocking borrower ownership. The replacement gives each resident an explicit operation/lane owner; a queue must not repeatedly trigger the old saturation refusal. |
+| [Resources and MethodSettings](../../../python/corpus-structure/src/corpus_structure/core/method.py) | MethodSettings carries paths/endpoints and execution policy; classify each setting by its semantic effect rather than treating every field there as result-neutral. Resource declarations do not independently implement dispatch. |
+| [Provider execution](../../../python/corpus-structure/src/corpus_structure/methods/characterization_resources.py) | Existing explicit lanes retain one resident/exchange and bounded pending work; CUDA work currently shares one lane key. Replace that internal GPU-wide serialization with shared-host admission and narrow provider gates. |
 | [PM2 launch](../../../python/corpus-structure/src/corpus_structure/methods/pm2_worker.py), lines378–465 | The child receives a constructed environment, explicit device and bounded IPC. Parent-only OMP settings do not reach this child automatically. CUDA startup and teardown already hold device/Nemotron custody. |
 | [GLiNER worker](../../../python/corpus-structure/src/corpus_structure/methods/gliner_worker.py), lines98–102/272–283/350–383; [model load](../../../python/corpus-structure/src/corpus_structure/methods/gliner.py), lines502–511 | GLiNER already uses spawn, profile-sized immutable batches, OMP/MKL limits and PyTorch intra/inter-op controls. Preserve those bounds and qualify the batch contract through BEP-06. |
 | [Database settings](../../../python/corpus-structure/src/corpus_structure/settings.py), lines40–66; [store](../../../python/corpus-structure/src/corpus_structure/core/db/store.py), lines124–157 | The default ordinary pool has maximum4 connections and4 waiters. CPU/native computation must not create a pool per worker. Pool/admission selection must preserve renewal progress. |
@@ -40,14 +47,14 @@ The source-established constraints are:
 The review observed16 physical/32 logical CPUs, approximately188GiB visible RAM, an RTX5090 with
 approximately32GiB device memory, and native multicore provider activity. These are dated
 2026-11-11 observations, not a selected worker count, reserved capacity or acceleration result.
-The root interpreter is CPython3.14.10 with the GIL enabled; provider services retain their own
-locked interpreter boundaries. Native intra-operation parallelism exists even when outer
-orchestration is serial.
+The root interpreter is CPython3.14.10 with the GIL enabled. The selected target groups providers
+by compatible locked interpreter/runtime rather than retaining one process per model. Native
+intra-operation parallelism exists even when outer orchestration is serial.
 
 <a id="bep-07a"></a>
 ## BEP-07a · Shared physical policy and admission contract
 
-**Input:** BEP-00's accepted ownership/rule treatment and the hybrid responsibilities above.
+**Input:** BEP-00's accepted ownership/rule treatment and the responsibilities above.
 **Output:** one implemented, validated physical-policy/admission boundary consumed by BEP-02–06
 and BEP-08, with its selected values recorded through the existing invocation/run reporting route.
 This is an early slice of BEP-07, not closure of its device/count obligations.
@@ -98,24 +105,19 @@ pure placement change. These are focused behavioral checks at the integrated cap
 not an integrated gate after each edit. Actual count selection remains BEP-07b.
 
 <a id="bep-07b"></a>
-## BEP-07b · Coordinated counts and mandatory device investigation
+## BEP-07b · GPU-default shared hosts and coordinated admission
 
-**Input:** BEP-07a plus working BEP-02–05 and the delivered/qualified CPU batch slice of BEP-06.
-**Output:** a selected supported operating policy with reasoned concrete counts, scoped native-thread
-coverage and an explicit CUDA qualification/adoption decision. BEP-09 consumes that final policy
-for full qualification; an arbitrary32-worker default cannot substitute for this package.
-
-The prerequisite order is CPU batch delivery/qualification, then BEP-07b device selection and
-scoped device/runtime qualification, then BEP-06 qualification of batches for each newly selected
-device. BEP-09 consumes the combined final evidence. This package does not require all
-device-specific BEP-06 work to finish before selecting its device arrangements.
+**Input:** BEP-07a plus working BEP-02–05 and the retained BEP-06 attribution contracts.
+**Output:** the approved two-host GPU-default implementation, compatible frozen provider profiles,
+finite shared admission and scoped current-device qualification. BEP-09 consumes the final policy.
+Historical CPU batch evidence informs preservation; it does not qualify the new CUDA profiles or
+require another CPU campaign before implementing the accepted target.
 
 ### Native threads, state and connection progress
 
-Inspect actual selected child runtimes before fixing counts. PM2 currently disables HF tokenizer
-parallelism but leaves corresponding OMP/MKL/PyTorch limits unspecified in its launch/profile path.
-Apply supported controls inside each child before native work, and retain GLiNER's existing
-profile treatment. Use
+Initialize each shared host before concurrent work. Existing provider loaders independently set
+OMP/MKL/PyTorch controls; consolidate those process-scoped settings under one host owner instead
+of invoking them again for every resident or request. Preserve compatible frozen profile treatment. Use
 [PyTorch set_num_threads](https://docs.pytorch.org/docs/stable/generated/torch.set_num_threads.html)
 before eager/JIT/autograd work and
 [set_num_interop_threads](https://docs.pytorch.org/docs/stable/generated/torch.set_num_interop_threads.html)
@@ -144,56 +146,133 @@ cannot occupy every path needed for renewal. Count dedicated supervisors separat
 pass engines to CPU workers or introduce a pool per lane. Verify checkout/renewal progress under
 the maximum admitted state, preserving finite server deadlines and exact completion replay.
 
-### CUDA is investigated, then explicitly selected or declined
+### Selected GPU profiles and compatible host groups
 
-The CUDA investigation is mandatory even if CPU remains the eventual supported selection. Its
-question is which selected provider/profile can use the RTX5090 coherently, not whether all
-providers must move to GPU. Inspect the locked service interpreter/wheels, actual device support,
-required precision, model loading and exact output attribution before executing a bounded real
-provider case. The existing d1 loader explicitly chooses CPUfloat32/CUDAbfloat16 and checks BF16
-support in [pm2_native.py](../../../python/corpus-structure/src/corpus_structure/methods/pm2_native.py),
-lines70–88; CUDA is therefore not assumed to be an invisible physical substitution. BEP-06 and
-BEP-09 define the applicable semantic/numerical comparison and native-member qualification.
+**Proposed accepted target · 2026-11-12; Interface-checked source basis, not native qualification.**
+All six learned NLP providers default to GPU. Missing prerequisites refuse the selected GPU
+profile; no runtime error, timeout or capacity pressure silently substitutes CPU, another model,
+reduced precision, truncation or a different family. Lark/SymPy, source mapping, tokenization,
+projection, validation and parent reduction remain CPU responsibilities.
 
-Device custody covers the **whole owned native lifetime**, from capacity acquisition through
-startup, all admitted requests and final child teardown. Reuse the existing
-[pdf_gpu_slot and suspend_resident_nemotron](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_capacity.py),
-lines21–46/129–159, and
-[native_before_nemotron](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_capacity.py),
-lines49–126. They serialize participating local work across processes, authenticate the dedicated
-local endpoint, sleep the configured resident service when needed and restore it on success,
-failure or cancellation. Preserve PM2 process-group kill/join before releasing custody; a signal
-sent is not confirmation that device users have exited.
+| Provider / host | Selected execution and preservation | Actual migration obligation |
+| --- | --- | --- |
+| D1 / CPython3.14.10 | CUDA/BF16, existing checkpoint, set-size16 and ordered question/state/dependency semantics | Preserve its existing native profile; move residency into the shared host without changing input order or precision. |
+| GLiNER / CPython3.14.10 | CUDA/FP32, existing GLiNER2.5 boundary checkpoint, standard attention and exact splitter/threshold recipes | Replace CPU-only loader/profile/authentication assumptions, including cue projection and supported direct workers; retain historical CPU authentication under its original identity. |
+| HanLP / CPython3.14.10 | CUDA/FP32, existing ModernBERT MTL checkpoint, selected heads and canonical pretokenized inputs | Select the already device-aware adapter's CUDA route; preserve sentinel repair, whole sentences and actual native preparation. |
+| spaCy / CPython3.14.10 | CUDA/FP32 learned components of en_core_web_sm3.8.0; unchanged tokenizer, rules, protected atoms and coordinates | Move learned annotation out of the pure CPU pool. Separate tokenizer-only source preparation from full pipeline residency, avoiding a parent GPU model or a model per CPU worker. |
+| Maverick / CPython3.12.3 | CUDA/FP32, existing MES head and DeBERTa checkpoint | Retain native document semantics and exact token/mention mapping in the common3.12 host. |
+| DiPO / CPython3.12.3 | CUDA/FP32, existing DMRST/CRF/Ettin selection, compile_encoder=False | Retain learned/forced boundary provenance and exact EDU mapping in the common3.12 host. |
 
-RC02 permits replacing ambient ContextVar borrower ownership; it does not authorize bypassing the
-cross-process device exclusion or repeatedly sleeping/waking Nemotron around each scalar request.
-A single operation owner must hold and release custody on the correct execution context. Do not
-send that ownership implicitly through arbitrary thread ContextVar copying. Initial CUDA support
-may serialize GPU residents or explicitly replace one resident while CPU lanes continue. Concurrent
-GPU residency is conditional on established combined memory, ownership and failure behavior; it is
-not obtained by starting several existing exclusive contexts that wait on one another.
+The target has **two supervised shared provider hosts**, each with a small bounded thread pool,
+one resident per selected compatible profile and explicit per-provider streams. The3.14 host
+reuses the root environment with exact HanLP/hanlp-common and direct CuPy dependencies; the3.12
+host combines Maverick/DiPO with deliberate compatible transitive pins. This retains real
+interpreter/dependency boundaries while removing incidental per-model processes. Do not add
+multi-document batching to Maverick/DiPO without a supported native semantic contract.
 
-Investigate these outcomes and carry their consequences into the owning packages:
+The full [Transformers overview](../../libraries/parsing/transformers.md) was read for the focused
+assessment. It targets5.22.2; selected runtimes use5.22.1 and Torch2.15.0. Existing locks already
+carry CUDA13 components and Linux CPython3.14/3.12 Torch wheels. No Torch/Transformers upgrade,
+quantization, attention replacement, compilation, automatic offload or dtype change is selected
+merely to move inference to GPU. FP32 dtype does not by itself declare CPU/GPU numerical equality
+or a particular TF32/math mode; freeze consequential effective settings with their owner.
 
-| Outcome | Required disposition and dependency |
+### Dependency prerequisites established by inspection
+
+These are **Interface-checked2026-11-12**, not passed environment/native results. Reconcile exact
+pins and regenerate only the intended lock footprint during implementation; never merge two
+existing lock identities and claim the environment unchanged.
+
+- Root/HanLP share their selected Python/Torch/Transformers versions but their locks differ,
+  including huggingface-hub1.33.0/2.4.0. HanLP's installed metadata has broad compatible bounds;
+  add its exact dependencies to the3.14 host and establish one actual runtime identity.
+- spaCy3.8.18/Thinc8.3.14 require CuPy for CUDA. Select direct
+  `cupy-cuda13x==14.2.0`; its ordinary CPython3.14 Linux wheel is published. The installed spaCy
+  CUDA extras constrain CuPy below13, so do not use those extras as the installation recipe.
+  Thinc/CuPy operation compatibility, root NumPy2.5.4 and actual backend/device execution remain
+  explicit prerequisites. Use `spacy.require_gpu()` before loading the selected pipeline, never
+  `prefer_gpu()` fallback. See [spaCy GPU setup](https://spacy.io/usage#gpu),
+  [device API](https://spacy.io/api/top-level#spacy.require_gpu),
+  [CuPy installation](https://docs.cupy.dev/en/stable/install.html) and
+  [exact wheel release](https://pypi.org/project/cupy-cuda13x/14.2.0/#files).
+- Maverick1.0.7 requires Protobuf3.20 and SentencePiece0.2.0. DiPO0.2.1 currently selects
+  TensorBoard2.21.0 requiring Protobuf>=6.31.1, so the current locked sets cannot coexist.
+  The selected scoped compatibility candidate is `tensorboard==2.18.0`, `protobuf==3.20.0`,
+  `sentencepiece==0.2.0`, `setuptools==80.10.2`, retaining exact primary model libraries.
+  [Official TensorBoard2.18 metadata](https://pypi.org/pypi/tensorboard/2.18.0/json) permits
+  Protobuf>=3.19.6 except4.24.0, Setuptools>=41 and Python>=3.9; the selected Setuptools also
+  satisfies DiPO<81 and Torch>=77.0.3. No TensorBoard/SummaryWriter use was found in the installed
+  DiPO Python source or selected inference path. Resolution, imports and native fidelity remain
+  required; metadata agreement is not a qualification pass. Further concrete incompatibilities
+  return to the coordinator rather than prompting an arbitrary provider upgrade or CPU fallback.
+
+### Different-model concurrency and narrow wrapper gates
+
+Use bounded concurrent submission for **different** resident providers, each in its explicit
+`torch.cuda.device`/`torch.cuda.stream` context. A CUDA-capable tensor runtime does not establish
+reentrancy of a mutable wrapper. Current source gives these narrow protections:
+
+| Owner | Source-established reason and selected protection |
 | --- | --- |
-| Suitable provider/profile qualified on CUDA | Select its explicit runtime/device/precision identity and supported residency arrangement; BEP-04 implements its ownership and BEP-06 qualifies applicable batching. BEP-09 includes it in the actual-provider union. |
-| Technically compatible but a poor fit for the combined operation | Retain CPU for that provider, record the concrete residency/coexistence or fidelity tradeoff and revisit trigger; do not leave GPU adoption ambiguously pending. |
-| Incompatible wheel/interpreter/device/profile or missing prerequisite | Name the blocker, supported CPU selection and affected qualification obligation. Resolve it before claiming the selected CUDA profile supported, or explicitly decline that profile with reason. An unperformed required investigation remains open. |
+| D1 | Retained attention.py installs/removes a request-capturing forward pre-hook for state/set attention. One active call per instance; preserve batched independent questions and actual prior-state dependencies. |
+| Maverick | pm2_dispatched.py installs a per-request forward hook and shares a post-tokenizer counter. One active call per wrapper instance. |
+| DiPO | pm2_dispatched.py temporarily replaces module-global EDU recovery/tokenization functions and instance prediction functions. One active DiPO module scope while those patches remain; two instance locks alone would not protect shared module functions. |
+| HanLP | Selected MTL prediction changes BOS/EOS flags on the shared tokenizer transform; the sentinel repair is installed once. One active wrapper call with its native bulk population. |
+| GLiNER | Extraction changes eval/processor mode and lazily creates a collator. Its tokenization LRU is thread-safe, but complete extractor reentrancy is unqualified. One active call per extractor, preserving local cohorts. |
+| spaCy | Backend context and pipeline/vocabulary ownership require their own scope. One active call per resident pipeline; independent Torch models can overlap. |
 
-No inference error silently falls back to another device, precision or provider. Missing GPU
-prerequisites do not erase useful CPU results or turn unavailable coverage into successful empty
-output. The investigation may conclude that no CUDA profile is worth adopting; successful package
-closure requires that explicit assessed decision, not GPU adoption by quota. Retain accepted probe
-records under the existing evidence route when a probe is needed; BEP-09 owns the assembled
-investigation/qualification account. Never inspect protected reference answers to tune scheduling,
-thread counts, device selection or prompts.
+These gates protect their named state; they are not a global GPU lock. Serialize model loading,
+import-time registrations and loader patches, then serve independent residents concurrently.
+Initialize Torch intra/inter-op controls, threadpool limits, offline/cache environment and other
+host globals once, not by competing loader/request threads. Retain provider-aware gradient
+contexts: **do not blanket-wrap the host in torch.inference_mode()**, because HanLP's constituency
+CRF deliberately enables gradients for its marginal calculation. Other providers retain their
+appropriate inference contexts.
 
-**Acceptance:** the selected policy has concrete coordinated values; native thread-control coverage
-and limits are explicit; maximum admitted state leaves renewal/completion progress; device custody
-restores the dedicated service after success, error and cancellation; every selected profile has
-its scoped actual-provider evidence or remains openly blocked. Numerical speedup is not a closure
-condition. A changed final policy after qualification requires reassessing affected evidence.
+Thinc's current operations use ContextVar/thread-local state; establish the selected backend in
+each spaCy execution thread. CuPy's current stream is per-thread/per-device and defaults to the
+legacy null stream. A Torch stream context does not select a CuPy stream: enter an explicit
+CuPy device/non-default stream as well. See [CuPy stream semantics](https://docs.cupy.dev/en/stable/user_guide/basic.html#current-stream).
+Preserve detached CPU packet/reply boundaries; no cross-library GPU tensor-sharing layer is needed.
+
+The bounded selected-source scan found GLiNER current-stream synchronization for grouped CPU
+readback and provider-local host readbacks in D1/Maverick/DiPO/HanLP. Those dependencies remain;
+they do not justify a device-wide synchronization or global inference gate. No explicit
+inference-path torch.cuda.synchronize/empty_cache or forced default-stream override was found
+within the inspected adapters and selected implementations. This is a bounded source observation,
+not absence of synchronization inside native kernels or guaranteed kernel overlap. Complete replies
+and release memory against stream-local events/completion, never by assuming submission means done.
+
+### Multiplexed protocol, custody and failure boundary
+
+Replace single-provider synchronous request/reply transport with bounded multiplexed host framing.
+Each request and reply binds host generation, request ID, provider/profile identity and the exact
+logical population; replies may arrive out of order. Preserve ordered native JSON bytes and
+existing provider codecs; do not let canonical hashing reorder computational input. Serialize
+only small transport writes/shared updates, not inference. Admit before serialization/submission;
+executor futures do not create an unbounded queue behind bounded provider lanes. Parent claims,
+renewal, DB work, validation, deterministic reduction and publication retain their existing owners.
+
+One operation owns GPU/Nemotron custody across both admitted hosts. Reuse the existing
+[pdf capacity owner](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_capacity.py)
+for exclusion against unrelated operations and service suspension/restoration, but replace the
+per-resident exclusive acquisition that would make internal providers wait on one another.
+Do not copy ambient ContextVar ownership into arbitrary threads. Host generations and explicit
+operation ownership correlate participants. Hold custody until both hosts have drained or
+terminated; a sent signal or cancelled future does not establish native exit.
+
+A shared host enlarges the failure boundary. Bound startup, drain and termination; a wedged native
+thread can require terminating that host and fencing its unfinished replies. Preserve already
+collected useful results, actual failed/interrupted attempts and other-host completion rights.
+There is no provider-local retry loop or new durable scheduler. This is the tradeoff against
+separate per-provider processes, accepted to remove redundant runtimes and permit independent
+streams; no measured throughput, simultaneous-kernel or RSS guarantee is claimed.
+
+**Acceptance:** compatible locked hosts, actual selected device/dtype/backend, bounded multiplexed
+work, independent different-model submission, narrow wrapper protections, stream-local completion,
+renewal progress and custody restoration must be established through the coordinator's later
+qualification. Historical CPU receipts do not qualify the new profiles. Maximum-admitted-state
+checks resolve progress/lifetime concerns; a speedup benchmark is not an additional closure gate.
 
 <a id="bep-08"></a>
 ## BEP-08 · Existing commands, status, cancellation and direct cutover
@@ -203,24 +282,81 @@ decision routes. **Output:** the existing characterization, ingest and analytica
 all use the same operation-owned execution implementation, with usable progress and retained-work
 recovery. BEP-07b's final operating selection must be in place before assembled BEP-09 qualification.
 
-### Entry points and policy selection
+### One source-operation request and resolved selection
 
-Migrate these real consumers together; the examples describe existing routes, not final new flag
-spellings that must be copied into every request format:
+**Proposed accepted target · 2026-11-12.** E04/E06/E12 share a consequential boundary defect:
+CLI and direct callers interpret the same source operation separately, while graph injection
+stands in for intent. In inspected [commands.py](../../../python/corpus-structure/src/corpus_structure/orchestrate/commands.py),
+`ordinary_graph = graph is None and registry_for is None` controls automatic characterization.
+The normal CLI explicitly injects those very defaults and bypasses it. Public preparation also
+precedes pure argument checks; registration independently reloads the same release. Fix these
+owners and consumers together rather than omitting CLI arguments or renaming the boolean.
 
-| Consumer | Required integration |
+Use an immutable `SourceRunRequest` below CLI with project/target selection, source selection,
+freshness and an explicit workflow. Ordinary functions and closed typed variants are sufficient:
+
+| Workflow / primary input | Meaning |
 | --- | --- |
-| [ci run characterize --request FILE](../../../python/corpus-structure/src/corpus_structure/cli/orchestrate.py), lines599–632 | Keep typed `CharacterizationDemandRequest` and exact completed-source/layer pins. Select the shared physical policy at the operation boundary, validate it before admission, and report resolved values through the managed result. |
-| [Ingest enrichment](../../../python/corpus-structure/src/corpus_structure/cli/orchestrate.py), lines461–544 | Existing `--enrichment-options` retains semantic method choices. Ingest completes capture before the shared demand coordinator runs; selecting parallelism does not repeat PDF recognition. |
-| [Default analytical demand](../../../python/corpus-structure/src/corpus_structure/orchestrate/commands.py), lines335–400 | Preserve capture → primary demand → exact-view binding, selected custom registry, freshness and consumer configuration authority. Supply the same physical policy through this path instead of recreating a serial loop. |
-| Retained composition and explicit views | Preserve `run_missing=False`, source-only operation and exact selected active/closure pins. No inference lane starts for pure retained composition or a reader query. |
+| Phase0Analysis / EnsurePrimary | Default capture → shared primary demand → exact-view binding → analytical consumers. |
+| Phase0Analysis / RetainedViews | Consume exact selected enriched-view pins and original source custody; no replacement capture or fresh NLP. |
+| Capture / optional CharacterizationOptions | Capture only, or capture followed by explicit shared enrichment, as selected by ingest. |
+| M1Candidate | Exact retained integrated product, named supported M1 configuration and applicable record policy. Preserve source-only/default/described/readings/contextual semantics without incidental phase0 preparation. |
+| ConfiguredGraph / DeclaredInputs or RetainedViews | Deliberately execute supplied graph/registry authority as configured, or bind explicit retained views. Graph/registry are separate implementation dependencies, never an intent test. |
 
-Use one validated settings/policy route and one resolved report representation. CLI overrides,
-where useful, resolve through it rather than independently patching provider profiles. The
-semantic demand remains portable independently of workstation capacity. Device/inference choices
-retain their identity treatment from BEP-07a; recorded physical policy does not relabel archived
-producer provenance. Reject unsupported combinations before starting workers where their
-incompatibility is knowable; later genuine failures retain their actual outcomes.
+Do not add speculative custom-graph production strategies or a universal operation framework.
+Represent source selection as PackDefault, NamedSlice, NamedScope or WholeDocument, with separate
+native/integrated product roles and direct/descendants membership. Registration's corpus directory
+is distinct from the retired run corpus selector. Preserve that selector's refusal and mutually
+exclusive scopes. Existing method/configuration owners still define semantic consumers and their
+required primary families.
+
+Construct/validate the request before opening an engine or acquiring preparation. One shared pure
+boundary owns selector/product completeness, M1/record-policy applicability, retained-pin/freshness
+constraints and other knowable incompatibilities; Typer parses transport and presents refusals.
+Valid direct callers supply complete typed MethodSettings; repair stale valid None fixtures while
+preserving deliberately invalid-engine/no-effects controls. Parsing a file remains the adapter's
+responsibility, not a second interpretation of its content.
+
+Resolve once into `ResolvedSourceRun`: exact project/release/input realization/domain, source
+records, selected workflow, configs and provider profiles. Reuse `resolve_source_binding`,
+`resolve_source_domain`, `slices.records` and existing custody readers as the owning algorithms.
+Omitted domain resolves from the selected release; an explicit domain constrains resolution.
+Operator overrides/omissions remain distinguishable from this resolved selection. Execution must
+not apply pack defaults a second time or silently reinterpret retained inputs.
+
+Keep resolved intent separate from `VerifiedExecutionPreparation`: the latter is an invocation-local
+capability established by full release verification and owns CPU/provider lifetimes. It is not
+serialized authority, and neither historical open_release nor registry hydration grants it. Use one
+public source-operation composition with optional registration, the resolved request, complete
+MethodSettings and callbacks. After pure preflight and release admission, share one preparation
+through registration, capture, enrichment and analysis. Initialization creating the source
+realization occurs before resolving that resulting input. Internal registration consumes this
+verified capability, retaining construct_project and live native checks; standalone project init
+still owns its own full verification. Preserve renewal, attempts, current native admission and
+publication fences rather than substituting an old verification token for live authority.
+
+One application factory resolves settings plus typed policy overrides and complete MethodSettings;
+the CLI reads an optional policy file and reports errors. Device/dtype/provider/thread semantics
+freeze under their provider owner before tasks; counts, queue/byte limits and stream placement do
+not become semantic identity merely because they occur in the same settings object. Reports show
+resolved values, not just the override fragment.
+
+### Actual consumer cutover and deletion obligations
+
+| Current consumer | Required integration |
+| --- | --- |
+| [Normal CLI run](../../../python/corpus-structure/src/corpus_structure/cli/orchestrate.py) and direct start_bound_run | Construct the same explicit workflow request and call the shared application owner. Remove graph-is-None inference and duplicated CLI policy checks. Preserve deliberate custom graphs/registries and explicit retained views. |
+| [Ingest](../../../python/corpus-structure/src/corpus_structure/cli/orchestrate.py) | Optional corpus-directory registration, capture and optional enrichment share one preparation and result. Remove adapter calls to private _start_bound_run/_characterize_captured_run. |
+| [Regenerate](../../../python/corpus-structure/src/corpus_structure/cli/regenerate.py) and [project init](../../../python/corpus-structure/src/corpus_structure/orchestrate/project.py) | Combined registration/execution shares one verified preparation; standalone registration verifies once. Preserve admission, retained original custody and explicit activation/result-selection effects. |
+| Explicit demand, retained captured-run characterization and characterization resume | Keep CharacterizationDemandRequest and the native frozen envelope as their actual semantic starting states, sharing execution/policy/result ownership rather than rebuilding source selectors or freshness. |
+| Supported low-level methods/custom primary graphs | Share provider admission/custody, including E14 frozen GLiNER threads/inter-op compatibility before queueing/startup. High-level preflight reuses that check for earlier refusal. |
+| Retained composition, CLI/MCP/query/export/detached readers | Continue exact pinned reads without fresh NLP. inspect_enriched_document is a read-only inspection consumer, not an inference entry point. Preserve purpose/project/run/target fences. |
+
+Return a typed `SourceOperationResult` containing the actual capture/analytical reports, native
+characterization anchor(s), created run IDs and settled exact view pins. It is a derived projection;
+the first actual stage's native demand anchor remains durable authority. Do not create a synthetic
+control run or progress database. Remove superseded parallel argument signatures/locals forwarding,
+adapter workflow loops and mechanism-specific dispatch assertions after actual consumers migrate.
 
 ### Explain work through current managed reporting
 
@@ -229,13 +365,20 @@ lines415–443/590–596, [status projection](../../../python/corpus-structure/s
 lines755–805, and
 [observation logging](../../../python/corpus-structure/src/corpus_structure/cli/observation_logging.py).
 Use existing invocation/run/task lineage and `on_created` correlation for the stage runs the
-coordinator actually creates. Surface aggregate progress by unit/stage/provider and explain
+coordinator actually creates. Normal run, standalone characterize and recovery must acquire the
+actual observation bindings and storage target consumed by result inspection, including an
+all-settled recovery that creates no run. record_characterization_run currently copies child IDs
+and envelopes without establishing that native join; correct the shared reporting owner. Surface
+aggregate progress by unit/stage/provider and explain
 prerequisite wait, capacity wait, active computation, reduction and publication. Keep source
 capture readiness, family coverage and final-view readiness separate from physical activity.
 
 Durable task outcomes remain authoritative. A transient lane state is a live observation, not a
-new durable task status or a second progress database. Historical/last-observed diagnostics must
-say when their live owner is gone; do not infer continuing activity from an old event. Reports
+new durable task status or a second progress database. Historical/last-observed diagnostics carry
+observation time and known owner availability; do not
+infer continuing activity from an old event or absent native state from missing journal events.
+Build the bounded aggregate from authentic anchors, actual child/task lineage and published views,
+verify the acquired storage target before native joins, and remain usable after managed expiry. Reports
 identify the selected policy, relevant run/task IDs, settled regional views, final combined pin
 when present, and failed/unavailable scope without per-token output or duplicated payloads.
 
@@ -269,8 +412,8 @@ assert those obsolete mechanics. Do not remove independent semantic, source-cust
 invalid-input or lifecycle controls. A one-slot policy is the same implementation with less
 admission, not a permanent legacy execution branch. Preserve natural scope/recovery, full requested
 families, old source/evidence/plan records and independently settled products. Reader/CLI/MCP/export
-consumers continue to receive exact regional/final views; no compatibility decoder or progress
-service is introduced merely for the transition.
+consumers continue to receive exact regional/final views. Retain necessary historical profile/receipt
+decoding without adding a second current execution implementation or progress service.
 
 **Acceptance:** explicit request, ingest enrichment and default analytical paths expose the same
 resolved policy and coordinator behavior; capacity/prerequisite waits and out-of-order completion
@@ -280,12 +423,33 @@ no inference; final views preserve exact selected closure. BEP-09 owns combined 
 qualification and protected-reference separation. No product/provider tests or operational changes
 were performed while authoring this companion: **not_run**.
 
+### Focused acceptance journeys after implementation
+
+The decisive E12 check invokes the real Typer run callback through the actual application owner
+and default graph/registry, comparing workflow and native custody with a direct typed request.
+Do not mock the former public helper and call that CLI parity. Exercise explicit retained views
+with no recognition/NLP, deliberate custom graphs unchanged in intent, and pure invalid requests
+refusing before engine/preparation. Combined registration+capture/enrichment and registration+
+analysis establish one full verification while each actual operation retains live admission.
+
+Adapt existing test_m1_cli, test_whole_document, test_m1_review_repairs, test_execution_preparation,
+test_characterization_recovery and acceptance/test_regeneration controls. Preserve independent
+preflight/no-effects/native-outcome assertions while removing obsolete dispatch mechanics.
+Standalone characterization and all-settled recovery must acquire usable result-inspection native
+bindings; aggregate checks challenge partial families, settled partial views, missing/expired
+journals and timestamped historical activity. Shared low-level GLiNER checks refuse mismatched
+threads/inter-op before startup even outside the main demand. GPU host controls cover wrong
+actual device/dtype/backend, capacity-one progress, different-model submission, narrow gates,
+out-of-order replies, stream-local completion and bounded host failure/custody. Existing actual
+primary-demand/two-language-region/native replay controls supply their scoped provider obligations
+under the new profiles; empty/image-only controls do not establish provider passage.
+
 ## Execution handoff
 
 Deliver BEP-07a early, then let BEP-02–06 and BEP-08 consume its real contract. BEP-07b needs the
-integrated state/worker lifetimes to choose counts and decide device support; its assessment
-cannot be deferred until after full-book qualification. BEP-08 can develop reporting and entry
-point integration alongside those owners, but closes only after all affected paths adopt the
+integrated state/worker lifetimes to establish the selected two-host GPU design and compatibility;
+that implementation cannot be deferred until after full-book qualification. BEP-08 can develop
+reporting and entry point integration alongside those owners, but closes only after all affected paths adopt the
 replacement. The [coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md#BEP-07)
 owns current package disposition; this companion owns the detailed policy/operational contract.
 Follow [BEP-09](../book-processing-efficiency-and-parallelism_2026-11-11.md#BEP-09) for actual
@@ -322,37 +486,39 @@ also passed. BEP-E02/E03 are closed there; BEP-E01 and other07b/08/09 scope rema
 coordinator owns exact commands, receipt IDs and source/context applicability.
 
 
-## Current final operating selection
+## Current operating selection and completion boundary
 
-**Selected operating values; full integration/qualification not established (audit2026-11-12).** ADR-0087 and the coordinator's
-final-increment section supersede the provisional numeric slice above. The shared validated
-policy selects two regions/workers/submissions/stage runs, four claims, two jobs per provider
-lane,2GiB encoded owned state,256MiB CPU inputs/64MiB replies and unchanged8MiB native frames.
-CPU native threads1 and providers4/inter-op1 are controlled inside their selected runtimes.
-GLiNER requires its frozen profile thread count to match policy and supports inter-op1.
-D1 alone uses CUDA/BF16; all other selected NLP remains CPU.
+**Proposed accepted target · 2026-11-12; implementation/qualification outstanding.**
+[ADR-0088](../../adr/0088-gpu-default-native-hosts.md) and the coordinator own the approved GPU-default
+replacement. The approved initial target admits four regions and four stage runs, eight claims,
+four outstanding jobs per compatible provider, and two CPU parser workers/submissions. Retain
+2GiB encoded owned state,256MiB CPU inputs/64MiB replies and8MiB native frames. These configurable
+initial bounds replace the historical two-region/four-claim/two-job selection; they are not optimal
+counts or residency guarantees. Shared hosts add bounded thread submission under the same combined
+admission, not another unbounded executor. CPU native threads1 and compatible host provider
+threads4/inter-op1 remain selected; host globals initialize once. GLiNER's frozen thread profile
+must match before any supported low-level admission. D1 uses CUDA/BF16; HanLP/GLiNER/Maverick/DiPO
+and spaCy learned inference use CUDA/FP32. Provider-specific instance/module gates and stream-local
+completion permit different models to progress without an internal GPU-wide lock.
 
 The first actual stage owns the native frozen demand; children refer to its anchor.
 `ci run characterize --captured-run RUN --release RELEASE --realization INPUT` reuses exact
 retained capture under a current admitted target. `ci run resume RUN --characterization`
-reconstructs from native authority, preserves the original freshness seed and compatible settled
-products, and permits capacity-only changes. The coordinator owns actual qualification, findings
-and receipts; these interfaces do not establish full-book completion.
-
-
-## Completion audit boundary · 2026-11-12
+reconstructs native authority, preserves original freshness and compatible settled products, and
+permits capacity-only changes. New GPU/runtime/profile identities require ordinary invalidation
+and qualification; old CPU receipts remain truthful CPU evidence. SourceRunRequest resolves intent,
+SourceOperationResult reports actual native identities, and neither replaces the retained envelope.
 
 The [coordinator audit](../book-processing-efficiency-and-parallelism_2026-11-11.md#completion-audit)
-retains the chosen counts, D1 CUDA/BF16/other-NLP CPU selection, main-demand GLiNER profile check,
-native anchor/freshness authority and the working retained routes. These do not establish complete
-BEP-07/08 delivery. The findings table owns E04 (pure preflight order/affected fixtures), E06
-(combined registration preparation), E07/E08 (read admission/CPU teardown), E11 (merged PM2 bytes),
-E12 (normal CLI primary-demand cutover), E13 (operation aggregate/native inspection) and E14
-(low-level GLiNER policy compatibility). Per-run metadata/raw events remain implemented; the
-promised aggregate is unfinished. Main demand preflight refuses thread/profile mismatch, but
-supported low-level callers still need the same shared admission rule.
+and its findings table remain the single disposition owner. E04/E06/E12 require the common-request
+and once-per-operation consumer cutover; E13 requires aggregate/native inspection; E14 requires
+shared low-level compatibility. E07/E08/E11 and E05 remain dependencies with their existing owners.
+Accepted decisions do not close any of those findings. Compatibility metadata/source observations
+are Interface-checked only; resolver/import/actual-device/native qualification is outstanding.
 
-Maximum-admitted-state renewal/completion, interrupted-work recovery and current selected-provider
-qualification remain obligations, not inferred from chosen values or an all-settled resume pass.
-Testing/book processing remain cancelled. E05 owns the test-memory/custody prerequisite; group-level
-OOM evidence does not identify a process or establish failure of the book's selected counts.
+Implement and migrate the complete selected scope before the coordinator's final qualification
+union. Preserve original failed/interrupted receipts, historical device/numerical policy, protected
+reference separation and the E05 test-memory/custody prerequisite. Documentation authoring runs no
+product/provider tests or book work: **not_run**. Later authorized native qualification and the
+actual retained book/CLI/MCP/export/detached journeys follow BEP-09; this text establishes no pass,
+book completion, speedup or per-process explanation of the earlier group-level OOM.

@@ -2,21 +2,27 @@
 
 ## Selected provider execution profiles and complete settings
 
-**Proposed accepted target · 2026-11-11.** Current D1 alone uses CUDA/BF16 with 120 second
-inference; every other selected NLP provider uses CPU. CPU kernels use one native thread;
-supported provider startup uses four native/intra-op threads and one inter-op thread before
-native work. Profile/device/precision/thread changes are frozen under the appropriate inference
-configuration/provenance before task registration. A result-neutral counts/bytes override cannot
-change a model profile or relabel authentic retained evidence. Native numerical observations
-and batch/source attribution retain their provider-specific contracts below.
+**Proposed accepted target · 2026-11-12; not implemented or GPU-qualified.** D1 retains
+CUDA/BF16/120second inference. HanLP, GLiNER, Maverick, DiPO and spaCy learned inference target
+CUDA/FP32 with unchanged checkpoints/thresholds/attention recipes. One frozen execution profile
+owns requested device/dtype/runtime meaning; resolved placement and actual startup observations
+are separate, checked values. No automatic CPU fallback or relabelling of authentic old CPU results.
 
-All explicit-demand, ingest-enrichment, analytical and supported-resume entry points propagate
-complete `MethodSettings`, including Nemotron endpoints/handoff settings, to the shared provider
-and custody owner. D1 startup, inference, cancellation, failure and teardown retain that one
-GPU/Nemotron handoff owner. Missing CUDA/BF16 refuses without fallback. This selects the final
-hybrid profile; other GPU profiles or resident replicas are not implicitly qualified.
+Two shared GPU hosts retain the Python3.14 (D1/GLiNER/HanLP/spaCy) and Python3.12 (Maverick/DiPO)
+boundaries. Reconcile their locked dependencies before native qualification. Load models serially,
+configure host-global settings once, then use bounded model threads and independent streams.
+One active call per mutable instance remains; DiPO's temporary module-global patches share a gate.
+HanLP retains native local gradient-enabled CRF decoding; do not blanket-wrap it in inference_mode.
+spaCy requires a qualified Thinc/CuPy backend and explicit per-thread device/stream context.
+Tokenizer-only preparation remains CPU and cannot create a second full GPU model in the parent.
 
-> Decision: [ADR-0087](../adr/0087-book-characterization-policy-and-recovery.md)
+Complete MethodSettings and the selected profile reach every application/direct caller through
+shared admission. Device, precision, numerical policy and result-affecting threads freeze before
+registration; capacity overrides cannot silently alter them. Historical profile shape/digest/receipt
+semantics remain original. Current CUDA GLiNER profile/observation policy migration remains BEP work.
+CPU parser kernels use one native thread; provider hosts initially use four/inter-op1.
+
+> Decision: [ADR-0088](../adr/0088-gpu-default-native-hosts.md)
 
 ## Current D1 requires CUDA and BF16
 

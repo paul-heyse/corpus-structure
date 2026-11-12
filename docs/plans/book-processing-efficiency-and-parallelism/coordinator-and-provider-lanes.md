@@ -2,6 +2,21 @@
 
 **Selected resident lanes and captured-region frontier implemented; ordinary-source replenishment remains incomplete (audit2026-11-12).** Owns BEP-04/05. [Coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns scope and O03/O04/O07 disposition.
 
+## Current approved execution boundary · 2026-11-12
+
+**Proposed accepted target; implementation incomplete.** The
+[coordinator's approved closure](../book-processing-efficiency-and-parallelism_2026-11-11.md#approved-audit-closure-and-gpu-pivot)
+and [ADR-0088](../../adr/0088-gpu-default-native-hosts.md) govern the GPU-default pivot, shared
+runtime hosts, explicit workflow intent and changed initial counts. D1 remains CUDA/BF16; other
+selected learned NLP targets CUDA/FP32. This supersedes CPU-hybrid/default-device and per-provider
+exclusive GPU-custody assumptions in the original design below. CPU parser deadlines/spawn remain;
+spaCy learned annotation moves to GPU with tokenizer-only preparation staying CPU. GPU phase
+custody begins after capture. Historical scoped receipts retain their dates/source/profile limits.
+
+BEP-E04/E06–14 remain open. Bounded qualification is authorized after implementation and custody
+readiness; the full book, book interruption/resume and full-book consumers remain deferred.
+E05 does not authorize speculative memory diagnosis. This companion is not a second status ledger.
+
 ## Shared execution contract and BEP-00 foundation work
 
 Before dependent implementation, record acceptedRC01–04 through the ADR route and amend the owning architecture as accepted target. The binding's applicable target review occurs before substantial boundary implementation and again at assembled scope; focused authoring advice is not a full-system qualification.

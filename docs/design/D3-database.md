@@ -21,7 +21,7 @@ resolves the anchor even from a terminal child, creates new runs for unfinished 
 compatible settled products. Managed delivery artifacts are copies whose expiry cannot remove
 native recovery authority. Before the first actual run exists, no durable run identity is invented.
 
-> Decision: [ADR-0087](../adr/0087-book-characterization-policy-and-recovery.md)
+> Decision: [ADR-0088](../adr/0088-gpu-default-native-hosts.md)
 
 ## Ready work, claims and reduction custody
 

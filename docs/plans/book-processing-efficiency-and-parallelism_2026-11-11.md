@@ -1,6 +1,6 @@
 # Book-processing efficiency and parallelism
 
-**Status: completion-audited2026-11-12; BEP-00 and selected BEP-04 implementation complete at their bounded scope; BEP-01–03/05–08 have open implementation obligations; BEP-09 incomplete, testing cancelled.** Owns BEP-00–BEP-09 and the scheduled disposition of the [source review](../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md)'s O01–O08 and RC01–RC04. This coordinator owns combined acceptance and investigation decisions; companions own the detailed contracts identified below.
+**Status: GPU-pivot/audit-closure execution active2026-11-12; BEP-01–08 integration incomplete and BEP-09 book acceptance deferred** Owns BEP-00–BEP-09 and the scheduled disposition of the [source review](../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md)'s O01–O08 and RC01–RC04. This coordinator owns combined acceptance and investigation decisions; companions own the detailed contracts identified below.
 
 ## Authority, scope and baseline
 
@@ -183,9 +183,8 @@ unsettled custody, no final lane counts and fault missing. It was interrupted by
 kill; no rerun, recovery mutation, migration, provider/book execution or functional test was performed
 for this audit. E04 owns the known preflight regression and affected fixtures; E05 owns memory-safe
 retry prerequisites and custody. Book acceptance and actual consumers remain E01/BEP-09 work,
-not silently deferred completed scope. D1 CUDA/BF16 with other NLP on CPU is the accepted selection;
-other-provider CUDA, unsupported prepared-sample reuse and conditional distributed/shared-memory
-branches do not become new audit obligations.
+not silently deferred completed scope. At the inspected audit baseline, D1 CUDA/BF16 with other NLP on CPU was the accepted selection;
+At that audit baseline other-provider CUDA was not an obligation. The subsequently approved GPU pivot below deliberately changes that selection; unsupported prepared-sample reuse and conditional distributed/shared-memory branches remain excluded.
 
 The OOM log proves Cursor's group-level167.1G incident, not an individual allocation source or
 failure of the book's selected operating counts. The2GiB limit is encoded owned state, not RSS.
@@ -194,11 +193,10 @@ claim is supported. Removed per-region verification, shared spawn/model residenc
 advancing captured regions are source-supported expected benefits; residual barriers/batching gaps
 limit their reach. Missing performance benchmarks alone are not unfinished scope.
 
-Audit authorization covers these plan corrections and handoff, **not production repairs**. When
+The completion-audit authorization covered plan corrections, not production repairs. Subsequent execution authorization is recorded in Approved audit closure and GPU pivot below. When
 execution is separately authorized, finish the listed implementation obligations, reconcile the
 required scoped evidence and outstanding campaign under the agreed closeout, then complete actual
-book/lifecycle/retained-consumer acceptance. Testing and book processing remain cancelled unless
-resumed by the operator.
+book/lifecycle/retained-consumer acceptance. At the audit boundary testing/book processing remained cancelled. The later approved closure authorizes bounded qualification; the book remains deferred.
 
 Documentation-only verification2026-11-12: `uv run ci docs check --json` **passed**, result
 `d8d83c317e7741f4b22ba6300084c1a8` (initial pass `f991e3d7cf134ae3a09623bd545ce3df`),892 canonical pages and zero link errors. Two pre-existing
@@ -207,7 +205,173 @@ Root `just turn-end` **passed**,1137 Python files unchanged. Subsequent receipt-
 not alter product source or link targets; TC plans remain unchanged and main is the sole worktree.
 Product qualification is **not_run** for this audit, consistent with the operator's cancellation.
 
-## Combined target and foundation assessment
+## Approved audit closure and GPU pivot
+
+**Proposed accepted target · 2026-11-12; execution authorized, implementation incomplete.**
+The operator approved the conversational execution approach, including the GPU pivot and shared
+runtime hosts. [ADR-0088](../adr/0088-gpu-default-native-hosts.md) supersedes the CPU-hybrid decision
+while carrying forward its native capacity, exact source, recovery and effect guarantees. The
+Completion audit above remains a dated judgment of its inspected baseline, not a GPU implementation
+claim. This section owns current execution sequencing; E04/E06–14 remain open until actual closure.
+
+### Target and responsibilities
+
+D1 retains CUDA/BF16/120second inference. HanLP, GLiNER, Maverick, DiPO and spaCy learned inference
+target CUDA/FP32 with their original checkpoints, thresholds, source mapping and attention recipes.
+CPU still owns tokenizer-only preparation, Lark/symbolic kernels, validation, stable reduction and
+publication. One frozen provider execution profile owns requested model/artifact/runtime/device/
+dtype/backend/numerical meaning; actual startup observations validate it. Physical placement is
+separate. CPU history cannot acquire a new CUDA default or changed profile fingerprint on read.
+
+Two shared runtime hosts serve detached native work: Python3.14 (D1/GLiNER/HanLP/spaCy) and
+Python3.12 (Maverick/DiPO). Independent model threads use independent streams; retain one active
+batch per mutable model and a DiPO module-scoped gate. Load declared residents serially before
+concurrent serving; set host-global threads/math/environment once. HanLP's native CRF gradient
+contexts survive. spaCy uses explicit Thinc/CuPy thread context, not just a Torch stream context.
+
+One operation owns capture and NLP phases, but acquires NLP custody lazily only after capture
+releases its GPU slot. The GPU session sleeps Nemotron once and lends explicit authority to both
+hosts; it does not serialize inference. Both hosts must terminate before restoration/release.
+Multiplexed requests/replies bind provider/profile/request/host generation and permit out-of-order
+completion. Bound admission before ThreadPoolExecutor submission; serialize transport writes and
+short state changes only. A fatal host failure fences all unfinished work in that host, while
+collected CPU-materialized replies retain normal publication rights. A single member cancellation
+normally discards only that result, preserving useful siblings until a real host failure/deadline.
+
+SourceRunRequest explicitly models default analysis (ensure primary), retained-view analysis,
+capture with optional enrichment, M1 and deliberately configured graphs. Source selection has
+pack-default/slice/scope/whole-document variants and explicit native/integrated product roles;
+membership is independent. Validate complete-input rules before engine acquisition. Resolve once
+into ResolvedSourceRun, execute through one application owner and return SourceOperationResult with
+actual capture/characterization/analytical lineage and exact pins. Graph/registry objects, engine,
+execution scope and on_created callbacks are dependencies outside serialized intent. Injection does
+not select workflow semantics. Preserve callbacks for every actual created run, not only the last.
+Omitted domain resolves from the selected release; explicit domain constrains that resolution.
+
+Move policy merging and complete MethodSettings construction below CLI. Typer retains Annotated
+options, finite domain types, callback dispatch and the existing version-coupled live-tree reference.
+CliRunner tests use the real app/application owner rather than mocking away composition. Remove
+CLI-recreated semantic rules, locals forwarding and private-helper calls. Registration+execution
+shares one full verification with all native live admission preserved. This closes the cause of
+E04/E06/E12, rather than recognizing the default graph by object equality or adding another boolean.
+
+### Implementation queue
+
+| Order / owner | Required delivery | Closure obligations |
+| --- | --- | --- |
+| 1 · coordinator/architecture | Reconcile existing plans and D3/D4/D6/D8/§B owners; accept ADR-0088; focused assessment of changed boundary | Record target separately from implemented/qualified state. No fresh broad diagnostic audit. |
+| 2 · application owner | Shared request/resolution/settings/result contract; registration preparation; migrate real CLI/Python/ingest/regenerate/characterize/resume | E04/E06/E12; preserve M1, retained-only, custom graph and pure refusal controls. |
+| 3 · native runtime owner | Reconcile locked host environments, provider execution profiles, multiplexed transport, model/stream contexts and phase-scoped GPU session | GPU pivot, E14; actual CUDA profile/authentication migration and historical read preservation. |
+| 4 · shared execution owner | Pre-read shared admission, bounded CPU drain/termination, ordinary-source completion-driven refill | E07/E08/E09; preserve exact parent dependencies, renewal, late-result fences and partial progress. |
+| 5 · provider owner | Local GLiNER cohorts/per-input results and exact PM2 merged framing | E10/E11; keep useful members, original contexts, actual native ordinals and stable reduction. |
+| 6 · application/native read owner | Operation result/native binding and bounded aggregate in existing status/result interfaces | E13; distinct capture/family/final readiness, unknown versus absent activity and original producer provenance. |
+| 7 · coordinator | Independent assembled review, final maintenance and applicable functional/provider/nonfunctional qualification | Bounded closure only; actual book acceptance stays deferred. |
+
+The application and runtime contracts precede dependent consumers. Independent executor work may
+advance disjoint ready responsibilities; one owner reconciles shared declarations and final status.
+Do not introduce another workflow scheduler, progress database, CUDA-kernel scheduler, global GPU
+mutex, standing benchmark, memory estimator or automatic CPU fallback. Remove replaced mechanisms
+with affected consumers; preserve independent semantic, invalid-input and lifecycle expectations.
+
+### Concrete library/runtime prerequisites
+
+The selected Torch2.15/Transformers5.22.1 wheels already carry CUDA support; no blanket library
+upgrade is selected. Root/HanLP locks differ and must become one deliberately reconciled executable
+identity. Python3.12's current Maverick/DiPO locks have a real Protobuf conflict; the selected
+compatibility candidate is TensorBoard2.18.0, Protobuf3.20.0, SentencePiece0.2.0 and Setuptools80.10.2.
+It settles the identified metadata conflict, not import/native compatibility. Preserve the exact
+primary model-library pins and review only intended lock movement.
+
+spaCy requires direct cupy-cuda13x==14.2.0 rather than its incompatible older CUDA-extra constraint.
+Qualify the chosen Thinc/CuPy/NumPy operations and native pipeline before cutover. Separate CPU
+same-artifact tokenization from GPU learned inference to avoid parent residency and replicas per
+CPU parser worker. Shared host identity, loader, profile caches, task inputs, native observations,
+projectors and detached authentication must agree; changing a device default alone is insufficient.
+
+Use native batched model APIs and exact compatible populations. Torch eval/inference contexts
+are provider-specific; HanLP retains local enable_grad. CUDA streams require load-completion
+synchronization and tensor lifetime ownership. Retain current-stream readback required by GLiNER;
+do not replace it with device-wide synchronization. Two host processes still have separate CUDA
+contexts; same-context stream overlap is within a host, with no measured speedup promise.
+
+### Admission, qualification and operator boundary
+
+Initial target policy: four regions/stage runs, eight claims, four outstanding jobs per provider;
+two CPU parser workers/submissions; CPU native threads1, provider hosts4/inter-op1. Retain2GiB
+encoded owned state,256MiB CPU input/64MiB reply,8MiB native frames,64MiB layer/view and256MiB
+aggregate native-response pages. These are configurable initial bounds, not optimal counts or
+RSS/VRAM quotas. E07 admits before hydration and converts credit to actual retained ownership;
+recovery reads authenticated metadata where bodies are unnecessary. Fixed stalls refuse honestly.
+E08 normal teardown gives five-second cooperative grace then forceful shutdown with bounded death
+confirmation and all closers attempted. E09 replenishes ordinary claims after individual settlement.
+
+E05's group-level OOM has no repository/process attribution. The operator explicitly excludes
+speculative memory diagnosis. Preserve the interrupted receipt/hold, recover only on genuine proof,
+and retain valid refusals. A fresh required selection may run only after confirming no conflicting
+live work; lack of historical proof never manufactures old completion markers. Explicit positive
+ci test/retry --workers must flow through the owned recipe/supervisor and be recorded. Default
+auto remains; fault remains serial. Use two ordinary workers and one for selected native panels.
+
+Focused checks cover actual CLI/application parity, pre-effect refusal, one verification across
+combined registration, retained reads without fresh NLP, actual GPU device/dtype/backend/runtime,
+stream/model state isolation, batch/member/frame/source fidelity, shared admission, individual
+claim replenishment, bounded cleanup/host failure/Nemotron restoration and usable native inspection.
+At complete functional scope, perform final maintenance then applicable managed test/fault/provider/
+nonfunctional union and documentation checks; reconcile exact identities and final source/context.
+Historical CPU passes do not qualify new CUDA hosts. Preserve all failed/interrupted records.
+
+Normal bounded observations may record batch population, waits, host/device/stream identity and
+host-level allocator high-water marks for later processing decisions. No synthetic benchmark or
+unattributed crash investigation is required. Full-book execution, book interruption/resume and
+full-book consumer utility are explicitly deferred. E01 final book acceptance and enclosing BEP-09
+stay open. Bounded actual native/CLI/MCP/export/detached consumer checks remain in this closure.
+No recognition rerun, activation, project selection, promotion, push or TC-plan edit is included.
+
+## GPU-pivot prerequisite delivery · 2026-11-12
+
+**Implemented bounded test-worker control; GPU/application replacement not implemented.**
+ADR-0088 and D3/D4/D6/D8/§B plus all five companions now record the approved target, concrete
+library/runtime prerequisites and the single current execution queue. Focused independent source
+assessment retained HanLP's local gradient semantics and capture-before-NLP custody as necessary
+corrections; it is not GPU qualification or an enclosing architecture pass.
+
+Installed `ci test --workers N` and `ci test retry ID --workers N` now accept a positive ordinary
+worker count, carry it through the owning just recipe/supervisor and retain requested/observed
+counts in managed scope and receipt context. Default ordinary auto and fault serial0 remain;
+fault-only worker overrides refuse before operation effects. Ambient worker transport is stripped.
+Legacy missing metadata stays unknown. No arbitrary forwarded pytest worker-policy override is added.
+
+```sh
+uv run ci test --workers 1 --json -- tests/scripts/test_test_receipts.py python/corpus-structure/tests/test_cli_test_evidence.py -k 'workers or worker_facts or managed_pytest_forwarding or managed_fault_retry or unresolved_export_fresh_collection or unresolved_export_preserves_configured_import_mode or union_surfaces_source_context_differences or installed_failures_compare_execution_context'
+uv run ci test retry cb05ccd28a144464828e06b6b04c44cd --lane ordinary --workers 1 --json
+uv run ci test coverage cb05ccd28a144464828e06b6b04c44cd c2f7182970794024a71c44afc4629fd6 d057530f1d3a418eb4fa28e548184ece --view unresolved --limit 5 --json
+```
+
+The final narrow selection **passed37/37**,d057530f1d3a418eb4fa28e548184ece; requested/actual
+workers1/1. Original cb05ccd28a144464828e06b6b04c44cd remains **failed**,32passed/two new CLI
+harness failures. Corrected fresh-collection retry **passed2/2**,c2f7182970794024a71c44afc4629fd6.
+Coverage delivery **passed**, required34/covered34/unresolved0/missing lanesnone; its original
+failure/source difference remain visible. All three are held. These controls ran no DB/providers.
+Final source differs only by safe formatting and equivalent test-string concatenation after the
+37-control pass; inspected semantics are unchanged, not a full current-source campaign claim.
+
+`uv run ci check --only types --view steps --json` **passed**,e28fb7904cf648469bcc6996f3fc1662;
+`--only lint` **passed**,68d15ea4ca554bcb8386f65e847b3060. `uv run ci docs check --json`
+**passed**,c3bd970746ea4a0da25835a118913933,894pages/zero link errors, with two existing phase0
+unclosed-tag warnings. Initial publication b9beece2b93548b7b2ecfbad68105369 remains **failed** for
+stale generated ADR index; final maintenance regenerated it. Root `just turn-end` **passed** after
+repairing two new test literal line lengths;1137files unchanged at the final endpoint. Subsequent
+receipt-only prose changes no production/link target. The nonfunctional passing receipts are held.
+
+This is a prerequisite increment, not completed execution of the whole approved plan. Shared
+requests/consumer migration, reconciled GPU locks, native hosts/transport/streams, E04/E06–14 and
+bounded native qualification remain in the execution queue above. E05 worker selection is delivered;
+original custody stays unsettled and memory attribution unknown. E01 book acceptance and BEP-09
+remain open. No dependency installs, GPU/model execution, migrations, recovery mutations, book,
+recognition rerun, activation, selection, promotion or push occurred. TC plans remain unchanged.
+The operator-authored untracked Torch overview is preserved untouched and excluded from our commit.
+
+## Original target and foundation assessment · historical baseline
 
 One invocation-owned coordinator advances a bounded set of ready natural units. Warm spawned CPU workers execute parser-bearing kernels on their process main threads. Persistent provider/profile lanes retain model state and service compatible requests. Independent inference returns private responses; each regional builder reduces them in stable source/provider/question order. The coordinator owns task/run supervision, publication and final composition.
 
@@ -274,7 +438,7 @@ Implementation performs targeted checks during delivery. After complete function
 
 Private deployment/regeneration is distinct from default activation, project selection and promotion. Those final effects require their existing authority. The later handoff identifies actual implemented changes and remaining TC reconciliation; it does not edit TC plans as part of this series.
 
-## Authoring outcome
+## Original authoring outcome · 2026-11-11
 
 Created the new series only, plus publication/checkpoint links. Product tests, native execution, migrations and benefit measurements for BEP: **not_run**; this is plan authoring. Independent coherence assessment found no material coverage/authority gaps; its CPU/device prerequisite ambiguity was corrected in this coordinator and both affected companions. The TC plan paths were checked unchanged against HEAD. uv run ci docs check --json: **passed**2026-11-11, result5da6588a33f4441490a36dffd3c97e1c,880 canonical pages/zero link errors. git diff --check: **passed**. Production/provider checks remain **not_run** for this authoring-only scope.
 
@@ -303,7 +467,7 @@ SymPy; unrelated scientific/domain consumers are outside this increment.
 | BEP-E02 | D1 device selection; closed in this increment | Actual two-prose-region capture exposes the incorrect CPU default: D1 exceeds120s and produces failed/unavailable family coverage. Original91203c735f4b4b1e87dddfa0f6dd89a2 and diagnostic retryf0766f5fa43141029e614de30b99e2e0 remain failed. Operator requires D1 always CUDA (2026-11-11). Current D1 configs/launches require CUDA/BF16 with120s inference and no CPU fallback. Native question/cohort/source/custody qualification passed bep.d1-cuda-ordered-native; actual captured-prose/native publication passed4/4,6dfe911f0ea14484a2bcd95d8bda8635. The tentative600s CPU override is removed. |
 | BEP-E03 | PM2 native transport/member authentication; closed in this increment | Actual CUDA literal-question probe exposed canonical JSON sorting of meaningful declared question/option/state order in new client/coalescer/reply seams. Shared ordered-native codec and version2 member/cohort receipts restore the existing contract; originalversion1 reads retain original hashes. Focused58 controls passed1918758d82714f83af87baad129fb849 and actual CUDA ordered/source checks passed; final current-source native publication passed4/4,6dfe911f0ea14484a2bcd95d8bda8635. |
 | BEP-E04 | Public analytical preflight and affected test callers; open | Default campaign exposed database preparation before pure argument refusal in start_bound_run, stale None MethodSettings fixtures, obsolete prepared-characterization callback mocks and field inventory. Preserve refusal-before-effects/native-outcome controls when repairing; no repair or retry after operator cancelled testing. |
-| BEP-E05 | Test campaign aggregate memory/custody; open | systemd-oomd killed Cursor application cgroup at2026-11-11 23:47:43 local with167.1G group usage. Campaign0a78c71ce1a949e38e906c9c5392c1f3 had16xdist workers. Per-process peak/cause remains unknown; PostgreSQL server is a separate service cgroup. Resolve memory-safe test selection and dead-owner custody before any operator-authorized retry. |
+| BEP-E05 | Test campaign custody/explicit worker control; partial, original custody open | systemd-oomd killed Cursor application cgroup at2026-11-11 23:47:43 local with167.1G group usage. Campaign0a78c71ce1a949e38e906c9c5392c1f3 had16xdist workers. Per-process peak/cause remains unknown; PostgreSQL server is a separate service cgroup. Explicit positive test/retry worker control is implemented and scoped-tested in the GPU-pivot prerequisite increment. Preserve unknown memory attribution; operator excludes speculative diagnosis. Original dead-owner custody remains open; use genuine settlement proof and exclude conflicting live work before fresh qualification. |
 | BEP-E06 | Combined preparation consumers; open BEP-01/08 | Registration+ingest/regenerate repeats full verification; [audit obligation](#BEP-E06). Close by reusing one verified preparation across the actual combined route with live admission intact. |
 | BEP-E07 | Source/layer/recovery admission; open BEP-02/07/08 | Full bodies can hydrate before combined credit; [audit obligation](#BEP-E07). Close all named paths with pre-read reservation/backpressure or authenticated metadata, retaining authorization. |
 | BEP-E08 | CPU lifecycle; open BEP-03/05/07 | Ordinary close can wait indefinitely and never invokes its termination fallback; [audit obligation](#BEP-E08). Close through actual bounded teardown and applicable lifecycle evidence. |
@@ -654,7 +818,7 @@ project result selection, promotion or push is authorized by this increment.
 
 ### Final operating design and investigations
 
-**Selected mechanisms implemented; integration incomplete (audit2026-11-12).** [ADR-0087](../adr/0087-book-characterization-policy-and-recovery.md)
+**Selected mechanisms implemented; integration incomplete (audit2026-11-12).** `ADR-0087` (historical; current authority is [ADR-0088](../adr/0088-gpu-default-native-hosts.md))
 and D3/D4/D6/D8 own the enduring design. The shared frozen
 `CharacterizationExecutionPolicy` resolves through settings and `--execution-policy FILE` once
 before effects. It reaches explicit demand, retained capture, ingest, default analytical work,

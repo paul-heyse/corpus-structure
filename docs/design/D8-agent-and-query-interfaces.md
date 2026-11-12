@@ -2,15 +2,20 @@
 
 ## Shared policy settings, status and characterization resume
 
-**Proposed accepted target · 2026-11-11.** One validated `CharacterizationExecutionPolicy`
-is selected through settings/API and optional `--execution-policy FILE`, resolving result-neutral
-count/byte overrides before admission. D6 owns selected defaults and combined admission; D4 owns
-inference profiles and thread treatment. Every characterization entry point passes complete
-`MethodSettings`, including Nemotron endpoints/handoff, rather than constructing a reduced copy.
-Explicit requests, ingest enrichment and analytical preparation use the same coordinator.
-Retained composition/source-only/query/export reads start no fresh NLP.
+**Proposed accepted target · 2026-11-12; consumer cutover incomplete.** SourceRunRequest
+represents explicit workflow and source-selection meaning; ResolvedSourceRun freezes exact selected
+values, and SourceOperationResult reports actual capture/primary/analytical lineage and settled pins.
+CLI and Python share validation, resolution and execution. Dependency injection cannot change
+workflow meaning. Omitted domain resolves from the selected release; explicit domain constrains it.
+Settings/policy merging and complete MethodSettings construction live below CLI. Typer owns parsing,
+help and dispatch, not another implementation of domain rules. Real CliRunner checks exercise the
+actual application composition; mocking that owner does not establish CLI/Python parity.
 
-Existing managed reports expose resolved policy, frozen original source/release selections,
+One frozen provider profile owns requested model/runtime/device/dtype/backend/numerical semantics;
+resolved physical placement and actual startup metadata validate it. D4/D6 own GPU defaults,
+streamed shared hosts and admission. Retained/source-only/query/export reads perform no fresh NLP.
+
+The accepted aggregate target for existing managed reports exposes resolved policy, frozen original source/release selections,
 the actual first-run demand anchor, participating run/task IDs, settled regional views, final
 combined pin when present and failed/unavailable scope. Prerequisite/capacity wait, computation,
 reduction and publication are live observations, distinct from durable task outcomes, source
@@ -33,7 +38,7 @@ alone never establishes that native work stopped. Source and final consumer pins
 original meaning throughout recovery. BEP-09 owns actual integrated consumer/full-book qualification;
 this target authorizes no PDF recognition, activation, selection or TC-plan reconciliation.
 
-> Decision: [ADR-0087](../adr/0087-book-characterization-policy-and-recovery.md)
+> Decision: [ADR-0088](../adr/0088-gpu-default-native-hosts.md)
 
 ## D1 profile selection and retained device provenance
 
@@ -118,7 +123,7 @@ interpretation implicitly.
 
 Persisted composition and live export use authenticated layer manifests for source/family/dependency
 metadata, hydrating full inventories only for the selected operation. A document view has a finite
-64MiB metadata read bound; individual full layers retain their8MiB bound. Public response budgets
+64MiB metadata read bound; individual full layers retain their64MiB bound. Public response budgets
 remain independently smaller. Every inspection exposes the exact retained coverage-row total and
 whether its bounded inline prefix is truncated. `view=coverage` pages the original exact rows;
 its continuation binds the same view/run without node filters. Filtering displayed annotations

@@ -2,6 +2,21 @@
 
 **Core preparation/kernel implementation present; completion audit2026-11-12 identifies remaining BEP-01–03 obligations.** Owns BEP-01–03 design; the [coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns package state and O01/O02/O04 disposition.
 
+## Current approved execution boundary · 2026-11-12
+
+**Proposed accepted target; implementation incomplete.** The
+[coordinator's approved closure](../book-processing-efficiency-and-parallelism_2026-11-11.md#approved-audit-closure-and-gpu-pivot)
+and [ADR-0088](../../adr/0088-gpu-default-native-hosts.md) govern the GPU-default pivot, shared
+runtime hosts, explicit workflow intent and changed initial counts. D1 remains CUDA/BF16; other
+selected learned NLP targets CUDA/FP32. This supersedes CPU-hybrid/default-device and per-provider
+exclusive GPU-custody assumptions in the original design below. CPU parser deadlines/spawn remain;
+spaCy learned annotation moves to GPU with tokenizer-only preparation staying CPU. GPU phase
+custody begins after capture. Historical scoped receipts retain their dates/source/profile limits.
+
+BEP-E04/E06–14 remain open. Bounded qualification is authorized after implementation and custody
+readiness; the full book, book interruption/resume and full-book consumers remain deferred.
+E05 does not authorize speculative memory diagnosis. This companion is not a second status ledger.
+
 ## Baseline and boundary
 
 The [demand owner](../../../python/corpus-structure/src/corpus_structure/orchestrate/characterization.py) calls full load_release for each natural region. The [release owner](../../../python/corpus-structure/src/corpus_structure/semantic/releases.py) distinguishes full current-compiler verification from historical open_release. [Layer validation](../../../python/corpus-structure/src/corpus_structure/semantic/characterization.py) recursively validates dependencies in a fresh context; report payload/reference access repeats decoding/hashing. Existing pure compilation/archive caches and selective source reads remain useful.

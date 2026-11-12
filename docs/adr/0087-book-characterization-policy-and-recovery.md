@@ -1,10 +1,10 @@
 ---
 id: ADR-0087
 title: Share final characterization policy and retain native demand anchors for recovery
-status: accepted
+status: superseded
 date: 2026-11-11
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0088
 design: [§B1, §B2, §B4, §B5]
 evidence: Proposed
 revisit: A supported natural SourceView cannot materialize within the selected coherent bounds, or retained native demand anchors cannot reconstruct exact unfinished work without a second authority.
