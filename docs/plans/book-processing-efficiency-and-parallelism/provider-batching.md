@@ -2,7 +2,7 @@
 
 <a id="BEP-06"></a>
 
-**Status: Selected provider implementation delivered; selected CPU/CUDA scope qualified · 2026-11-11.** This companion develops **BEP-06**, implementing selected
+**Status: Native authentication/cross-region coalescing delivered; BEP-06 implementation remains incomplete for local GLiNER batching and aggregate PM2 byte admission (audit2026-11-12).** This companion develops **BEP-06**, implementing selected
 [O05](../../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md#O05).
 The [series coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns shared
 contracts, package state, opportunity disposition, investigation coverage and assembled acceptance.
@@ -252,7 +252,7 @@ The JSONB optional native_batch field requires a new semantic release, not a phy
 CUDA-specific batch qualification remains conditional on BEP-07b's selected device profiles.
 
 
-## Current D1 device and native-order correction
+## Historical selected D1 device and native-order correction · 2026-11-11
 
 Operator steering2026-11-11 requires D1 CUDA/BF16 for current primary and managed execution.
 There is no CPU execution fallback. ADR-0086 records that selected inference profile; other07b
@@ -276,3 +276,17 @@ Final second-increment acceptance2026-11-11 is **scoped-qualified** in the coord
 checks passed after final source freeze. The CUDA D1 ordered-question/cohort/source/custody panel
 also passed. BEP-E02/E03 are closed there; BEP-E01 and other07b/08/09 scope remain open. The
 coordinator owns exact commands, receipt IDs and source/context applicability.
+
+
+## Completion audit boundary · 2026-11-12
+
+The [coordinator audit](../book-processing-efficiency-and-parallelism_2026-11-11.md#completion-audit)
+retains shared current/historical authentication, exact source/member projection and the bounded
+selected-provider panels. It does not infer local batching from cross-region coalescing.
+Model characterization still awaits each local cue/function singleton before exposing the next
+scope (BEP-E10). PM2 compatibility checks counts/padding but not the merged frame size, so legal
+requests can fail only because of grouping under a supported smaller byte policy (E11).
+Complete those accepted obligations through the existing authenticated lane and stable reduction.
+Current disposition/qualification remains with the coordinator; no new provider/test execution or
+measurement was performed. Other-provider CUDA and multi-document Maverick/DiPO batching remain
+outside the explicitly selected operating scope.

@@ -1,6 +1,6 @@
 # Book-processing efficiency and parallelism
 
-**Status: BEP-00–06 scoped-qualified; BEP-07/08 implemented with scoped native checks; BEP-09 testing cancelled after memory-pressure kill · Updated2026-11-11.** Owns BEP-00–BEP-09 and the scheduled disposition of the [source review](../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md)'s O01–O08 and RC01–RC04. This coordinator owns combined acceptance and investigation decisions; companions own the detailed contracts identified below.
+**Status: completion-audited2026-11-12; BEP-00 and selected BEP-04 implementation complete at their bounded scope; BEP-01–03/05–08 have open implementation obligations; BEP-09 incomplete, testing cancelled.** Owns BEP-00–BEP-09 and the scheduled disposition of the [source review](../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md)'s O01–O08 and RC01–RC04. This coordinator owns combined acceptance and investigation decisions; companions own the detailed contracts identified below.
 
 ## Authority, scope and baseline
 
@@ -15,6 +15,197 @@ The operator chose to keep the current book running unchanged during authoring. 
 [D6](../design/D6-orchestration-metrics-policies.md), [D3](../design/D3-database.md), [ADR-0081](../adr/0081-enriched-document-analysis-layers.md) and [ADR-0082](../adr/0082-explicit-analysis-selection.md) govern the implemented baseline. Apply [core principles](../design_review/design_principles/core/design-principles.md), [efficiency heuristics](../design_review/design_principles/core/efficient-architecture-heuristics.md), code-intelligence profile and binding through standard.toml. Focused foundation assessment here does not initiate a broad audit or certify the enclosing architecture.
 
 The retained source basis is project nce-grinstead-snell-full-book, capture496/cut614, release c9939039081ddcfbc382e9dc323e12e31f9b3683fb479c773ea3fd72ac6a6189. Native input is task1627/product integrated/digest35f4384ea386e630448d804621c0767881650937c45cd4294182cb0dd91ce8fb. The original PDF digest is763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e. Preserve inherited display/inline/cell recognition and source-health limits separately from source membership.
+
+## Completion audit
+
+**Interface-checked by source inspection · 2026-11-12.** Audited clean main
+`738a7ebe14ee461dab802974300d9cf06545e0fc`, including all five companions, the selected source-review
+opportunities, accepted decisions, actual producers/consumers and retained evidence. Two fresh,
+read-only implementation reviewers independently assessed preparation/CPU and coordination/batching;
+the coordination reviewer also assessed operational routes. This section is the current combined
+judgment; the execution-findings table below is the single disposition owner. The dated increment
+accounts retain historical receipts, not blanket completion of today's implementation.
+
+The claimed boundary was BEP-00–06 scoped completion and BEP-07/08 implemented with scoped native
+checks. BEP-09 was already open. **That claimed implementation boundary is incomplete:** nine
+additional accepted-scope gaps are recorded as BEP-E06–14, alongside the already-open E04 preflight
+regression. These are missing consumer, admission, lifecycle or batching obligations, not newly
+preferred architecture. A successful broad test rerun alone would not close them.
+
+| Package | Current implementation judgment | Qualification boundary |
+| --- | --- | --- |
+| BEP-00 | Complete at its accepted decision/contract/review boundary | Accepted RC01–04, ADRs and scoped reviews remain evidence of that boundary, not assembled product qualification. |
+| BEP-01 | Core book/stage reuse implemented; combined registration consumers incomplete (E06) | Earlier call-count/native evidence covers the exercised route; it does not cover the omitted registration combination. |
+| BEP-02 | Protected immutable regional reuse implemented; pre-read combined admission incomplete (E07) | Primary-reader reservation controls passed; unreserved source/layer/recovery paths remain outside that closure. |
+| BEP-03 | Shared spawned main-thread kernels implemented; bounded teardown incomplete (E08) | Prior spawn/deadline/cancellation controls remain scoped evidence, not proof of noncooperative startup/close handling. |
+| BEP-04 | Selected resident lanes/private branches implemented; no additional local implementation gap established | Retained selected-provider/lifecycle evidence remains dated and bounded; downstream dispatch, batching and final-policy qualification are separate. |
+| BEP-05 | Captured-region frontier implemented; ordinary multi-unit claim replenishment incomplete (E09), with shared E07/E08 dependencies | Existing overlap/fencing checks do not establish the missing ordinary-source scenario or full-book recovery. |
+| BEP-06 | Current/historical authentication and cross-region coalescing implemented; local GLiNER batching and combined PM2 byte admission incomplete (E10/E11) | Preserve the qualified CPU HanLP/GLiNER and CUDA/BF16 D1 panels within their actual contexts; they do not exercise these gaps. |
+| BEP-07 | Counts/devices/thread controls selected and largely wired; shared admission/lifecycle and fallback compatibility incomplete (E07/E08/E14) | Maximum-admitted-state progress and final selected-policy union remain incomplete. E05 does not prove which process caused the OOM. |
+| BEP-08 | Retained demand/seed/recovery and several entry points implemented; complete consumer/reporting cutover not delivered (E04/E06/E12–14) | Passing direct-demand/native controls do not establish the normal CLI route, aggregate reporting or interrupted whole-book recovery. |
+| BEP-09 | Incomplete; no enclosing completion was established | Full functional/fault union, selected-provider reconciliation, actual316-view/518-page execution, book interruption/resume and retained native/CLI/MCP/export/replay remain open. |
+
+### Remaining implementation obligations
+
+Each item below records the accepted obligation, decisive source and closure meaning. Current
+status stays in the findings table; this is not a second execution ledger.
+
+<a id="BEP-E06"></a>
+**E06 · Complete once-per-operation preparation across registration.**
+The main book/stage and ingest capture→enrichment paths share their prepared execution correctly.
+However, `ci ingest --corpus` calls
+[init_bound_project](../../python/corpus-structure/src/corpus_structure/orchestrate/project.py):48
+through [ingest](../../python/corpus-structure/src/corpus_structure/cli/orchestrate.py):545–559,
+then performs another full `prepare_execution`/`load_release` in the same invocation. Regenerate
+combines project initialization and public `start_bound_run` in the same way
+([regenerate.py](../../python/corpus-structure/src/corpus_structure/cli/regenerate.py):292,333).
+This is constant duplicate verification, not the removed per-region amplification. The accepted
+once-per-operation/consumer-migration promise contains no registration exclusion. Carry one verified
+preparation across those internal consumers while preserving live native admission; do not substitute
+historical `open_release` or silently exempt the route. Owner: BEP-01/08, O01.
+
+<a id="BEP-E07"></a>
+**E07 · Admit temporary source/layer/recovery reads before hydration.**
+[RegionalPreparation](../../python/corpus-structure/src/corpus_structure/semantic/execution_preparation.py):116–135,165–179
+loads/canonicalizes source or layer content before reserving its retained bytes. Stage collection
+calls this layer path outside CPU-packet admission
+([characterization.py](../../python/corpus-structure/src/corpus_structure/orchestrate/characterization.py):490–498);
+initial selected-layer reads do so as well. Recovery also performs full reads before regional
+admission while cataloguing base/scope/operation metadata
+([characterization_recovery.py](../../python/corpus-structure/src/corpus_structure/orchestrate/characterization_recovery.py):251,265).
+A body can therefore materialize before the combined capacity refusal. Individual64MiB product
+limits remain effective; they do not satisfy combined admission-before-hydration. The primary-reader
+path already reserves response credit before reading and charges cached bodies cumulatively.
+Extend the required bounded admission/backpressure to the other actual paths, using authenticated
+metadata where full bodies are unnecessary, without weakening current source/product authorization.
+This is an encoded-state boundary finding, not an RSS guarantee or attribution of the memory crash.
+Owner: BEP-02/07, recovery integration BEP-08, O02/O06/O07.
+
+<a id="BEP-E08"></a>
+**E08 · Put bounded CPU drain/termination on the normal teardown path.**
+[CPUExecutionScope.close](../../python/corpus-structure/src/corpus_structure/semantic/cpu_execution.py):630–640
+signals cooperative stop and calls `pool.shutdown(wait=True, cancel_futures=True)` without a bounded
+fallback. `abort()` contains termination but has no production caller. Verified and standalone
+owners register `close`. A noncooperative initializer, native load, serialization or operation can
+therefore block cancellation indefinitely; parser deadlines do not cover the entire lifetime.
+Deliver bounded drain/termination through the actual teardown owner, attempt remaining closers,
+preserve late-result fences and qualify that lifecycle when execution is authorized.
+Owner: BEP-03/05/07, O04/O07.
+
+<a id="BEP-E09"></a>
+**E09 · Replenish ordinary-source claims on individual completion.**
+The captured-document region frontier progresses independently. The ordinary source loop in
+[semantic.py](../../python/corpus-structure/src/corpus_structure/orchestrate/semantic.py):1259–1321
+claims at most one task per scheduled method, then yields a fixed `ReadyGroup`.
+[The driver](../../python/corpus-structure/src/corpus_structure/core/work.py):89–97 resumes that
+claim loop only when every child in that group settles. Multiple independent units of one method
+remain serial, and a slow other-method sibling prevents replenishing freed claim capacity. This
+leaves the explicitly selected ordinary claim/execute barrier in place. Deliver a bounded
+completion-driven claim frontier through the same ownership, real dependencies and fences;
+exercise several units of one method and a slow sibling with an available slot. No general durable
+DAG or second scheduler is required. Owner: BEP-05, O03/O04/O07.
+
+<a id="BEP-E10"></a>
+**E10 · Batch compatible GLiNER scopes already available in one demand.**
+[ModelCharacterizationMethod._gliner](../../python/corpus-structure/src/corpus_structure/methods/model_characterization.py):579–658
+awaits singleton cue and function work for each scope before exposing the next scope. With multiple
+compatible local scopes in a standalone or capacity-one demand, the coalescer never receives their
+known same-pack population together. Cross-region coalescing and the shared v2 projector/replay
+migration are implemented, but do not discharge this selected local-scope obligation. Submit bounded
+compatible local populations through the existing authenticated lane, preserve separate cue/function
+packs and exact context, and reduce in stable scope order with independent outcomes.
+Owner: BEP-06, O05.
+
+<a id="BEP-E11"></a>
+**E11 · Admit combined PM2 wire bytes before coalescing.**
+[ProviderExecution.compatible](../../python/corpus-structure/src/corpus_structure/methods/characterization_resources.py):558–598
+checks D1 count or HanLP count/padding/characters, but not the merged encoded frame. Individually
+admitted requests can be combined and then refused by
+[Pm2Worker._encode_request](../../python/corpus-structure/src/corpus_structure/methods/pm2_worker.py):115–134.
+Under a supported smaller native byte policy, two useful legal D1 requests can thus become
+unavailable solely because of grouping. Account for exact combined framing during batch admission
+and leave nonfitting members for a separate useful exchange, with byte ownership retained through
+merge/scatter. A whole-batch frame refusal is not the selected bounded-packing behavior.
+Owner: BEP-06/07, O05/O06.
+
+<a id="BEP-E12"></a>
+**E12 · Route normal `ci run` through primary characterization.**
+[The CLI](../../python/corpus-structure/src/corpus_structure/cli/orchestrate.py):299–308 passes the
+non-null default graph and registry supplied by `_phase0()`.
+[The command owner](../../python/corpus-structure/src/corpus_structure/orchestrate/commands.py):194
+therefore marks it non-ordinary and skips automatic capture→primary demand→view binding at379–389.
+Default mathematical methods then require primary pins that the stock configurations do not contain
+([math methods](../../python/corpus-structure/src/corpus_structure/methods/math/methods.py):138–139).
+Direct Python default callers reach the route; the ordinary CLI consumer does not. Deliver that
+actual default CLI composition while preserving deliberate custom-graph/registry authority and
+explicit retained selections. Qualification must exercise the real CLI composition, not only direct
+command calls or a mock of the former public helper. Owner: BEP-08, O08.
+
+<a id="BEP-E13"></a>
+**E13 · Deliver the accepted operation aggregate in existing reports.**
+[bound_status](../../python/corpus-structure/src/corpus_structure/orchestrate/commands.py):719–837
+reports one run's counts plus policy/anchor/region/stage. The
+[characterization receipt helper](../../python/corpus-structure/src/corpus_structure/orchestrate/characterization_recovery.py):314–358
+records child IDs and latest-stage details, but does not acquire the bindings consumed by
+[native result inspection](../../python/corpus-structure/src/corpus_structure/cli/result_inspection.py):72–81.
+Standalone characterization results consequently lack that native join; other callers may retain
+only a capture/run binding. Bounded raw events do not provide the promised aggregate of regions,
+stages/providers, settled views and final readiness. Provider-lane activity is not exposed through
+that aggregate either. Implement the accepted view through existing reports/native lineage,
+separating capture, family and final-view readiness and live versus historical activity. Do not
+add another progress database or infer absent native state from missing events.
+Owner: BEP-08, O08.
+
+<a id="BEP-E14"></a>
+**E14 · Enforce GLiNER policy compatibility for supported low-level callers.**
+The main demand/capture/resume preflight checks the frozen GLiNER profile against the policy.
+Direct method/source callers instead reach
+[the shared GLiNER launch](../../python/corpus-structure/src/corpus_structure/methods/characterization_resources.py):275–280
+without that check. A selected policy with threads2 or inter-op2 can be recorded while
+[GLiNER](../../python/corpus-structure/src/corpus_structure/methods/gliner.py):512–513 actually uses
+its frozen four-thread/inter-op1 profile. Enforce compatibility at shared admission before startup;
+preserve the frozen profile rather than silently retuning its meaning. Carry this through actual
+standalone/custom primary-graph callers. Owner: BEP-07/08, O06/O08.
+
+### Qualification, evidence and benefit limits
+
+Read-only managed inspection on2026-11-12 confirmed `12916646acbc4072ac90cad2dfd458af` remains
+settled/passed236 at its selected second-increment scope, and
+`d30ed0edcc3a4ae1832aa32c6bdca97f` remains settled/passed2 at its final-increment recovery scope.
+Those receipts are held and their original dates/contexts remain immutable. The other scoped
+capacity, analytical, provider and nonfunctional records below remain evidence within their stated
+boundaries. Their existence does not establish the newly identified scenarios, default CLI reach,
+all interrupted-work recovery or current-source full qualification. Later source/setting changes
+require affected-evidence reconciliation; a historical green selection is not a universal pass.
+
+The default campaign `0a78c71ce1a949e38e906c9c5392c1f3` is still held, recorded running with
+unsettled custody, no final lane counts and fault missing. It was interrupted by the memory-pressure
+kill; no rerun, recovery mutation, migration, provider/book execution or functional test was performed
+for this audit. E04 owns the known preflight regression and affected fixtures; E05 owns memory-safe
+retry prerequisites and custody. Book acceptance and actual consumers remain E01/BEP-09 work,
+not silently deferred completed scope. D1 CUDA/BF16 with other NLP on CPU is the accepted selection;
+other-provider CUDA, unsupported prepared-sample reuse and conditional distributed/shared-memory
+branches do not become new audit obligations.
+
+The OOM log proves Cursor's group-level167.1G incident, not an individual allocation source or
+failure of the book's selected operating counts. The2GiB limit is encoded owned state, not RSS.
+Do not assign the crash to E07 without process-level evidence. No speedup/accuracy/optimal-count
+claim is supported. Removed per-region verification, shared spawn/model residency and independently
+advancing captured regions are source-supported expected benefits; residual barriers/batching gaps
+limit their reach. Missing performance benchmarks alone are not unfinished scope.
+
+Audit authorization covers these plan corrections and handoff, **not production repairs**. When
+execution is separately authorized, finish the listed implementation obligations, reconcile the
+required scoped evidence and outstanding campaign under the agreed closeout, then complete actual
+book/lifecycle/retained-consumer acceptance. Testing and book processing remain cancelled unless
+resumed by the operator.
+
+Documentation-only verification2026-11-12: `uv run ci docs check --json` **passed**, result
+`d8d83c317e7741f4b22ba6300084c1a8` (initial pass `f991e3d7cf134ae3a09623bd545ce3df`),892 canonical pages and zero link errors. Two pre-existing
+unclosed-tag warnings in the phase0 plans remain outside this audit. `git diff --check` **passed**.
+Root `just turn-end` **passed**,1137 Python files unchanged. Subsequent receipt-only prose does
+not alter product source or link targets; TC plans remain unchanged and main is the sole worktree.
+Product qualification is **not_run** for this audit, consistent with the operator's cancellation.
 
 ## Combined target and foundation assessment
 
@@ -41,9 +232,9 @@ BEP-00 uses the ADR skill and applicable D3/D4/D6/D8 owners for durable rational
 
 ## Package ownership and execution dependencies
 
-BEP-00–03 are **implemented and scoped-qualified** by the first-increment receipts below. BEP-04/05, BEP-06 batching and required07a are implemented; operator-required D1 CUDA/BF16 qualification passed in this increment, with final scoped acceptance below. BEP-07b/08 are implemented with final qualification in progress; BEP-09 is active. An agreed interface permits design work; working integration requires delivered prerequisites.
+The **Completion audit** above owns current package judgments. BEP-00 and the selected BEP-04 implementation boundary stand; BEP-01–03/05–08 have the listed remaining implementation obligations. Historical first/second-increment scoped qualification does not close those gaps or BEP-09. The table below defines accepted capabilities and dependencies, not completed delivery.
 
-| Package | Required input | Delivered capability and owner |
+| Package | Required input | Accepted capability and owner |
 | --- | --- | --- |
 | <a id="BEP-00"></a>BEP-00 | Review, acceptedRC decisions, current source | Record target decisions, source/worker/attempt/branch contracts and formal review route; coordinator owns shared target. |
 | <a id="BEP-01"></a>BEP-01 | BEP-00 preparation validity | Once-per-operation/address-space verified release preparation, consumed throughout internal execution; [prepared state](book-processing-efficiency-and-parallelism/prepared-state-and-cpu-kernels.md). |
@@ -64,14 +255,14 @@ BEP-06 first delivers working CPU batch contracts and integration. BEP-07b can c
 
 | Source | Disposition / responsible package | Closure meaning |
 | --- | --- | --- |
-| O01 | Implemented/scoped-qualified BEP-01 | Full preparation amortized over valid scope through all execution layers; live admission preserved. |
-| O02 | Implemented/scoped-qualified BEP-02 | Bounded immutable regional reuse with fresh-value public APIs and trust protections. |
-| O03 | Implemented/scoped-qualified BEP-05 | Independent regions progress without unrelated ordering barriers. |
-| O04 | Implemented/scoped-qualified BEP-03/04/05 | Main-thread CPU execution, resident lanes and deterministic private-result reduction work together. |
-| O05 | Scoped-qualified CPU HanLP/GLiNER and CUDA-required D1; selected CPU providers retained; current-source qualification remains BEP-09 | Existing batching preserved; selected native admission/batch contracts migrated and qualified. |
-| O06 | Required07a and selected D1 CUDA slice delivered; final operating selection implemented; current-source qualification remains BEP-09 | Coordinated policy delivered; mandatory CUDA investigation and selected profiles explicitly disposed. |
-| O07 | Scoped05/07a implementation; enclosing09 remains open | Fences, renewal, DB progress, proportional recovery and exact composition remain effective. |
-| O08 | Implemented BEP-08; native/full-book qualification in progress | Existing operations expose policy and meaningful capacity/prerequisite progress; cancel/resume usable. |
+| O01 | Partial BEP-01/08; E06 open | Core book/stage reuse delivered; combined registration/ingest/regenerate preparation still duplicates full verification. Live admission remains required. |
+| O02 | Partial BEP-02/07/08; E07 open | Immutable reuse and live cache-hit authorization delivered; actual source/layer/recovery reads still need pre-hydration combined admission. |
+| O03 | Captured frontier delivered; ordinary-source BEP-05 incomplete, E09 | Replenish independent ready claims without the remaining fixed claim-group barrier. |
+| O04 | Shared kernels/selected lanes delivered; E08/E09 open | Main-thread/private reduction works; CPU bounded teardown and ordinary-source replenishment remain. |
+| O05 | Shared native contracts/cross-region coalescing delivered; BEP-06 incomplete, E10/E11 | Preserve selected-provider evidence; complete compatible local GLiNER populations and aggregate PM2 frame admission. |
+| O06 | Policy/device decisions delivered; BEP-07 incomplete, E07/E08/E11/E14 | Complete shared admission, teardown and fallback policy compatibility; final operating qualification remains open under E05/BEP-09. |
+| O07 | Fences/exact composition delivered; E07/E08/E09 and BEP-09 open | Keep scoped renewal/replay evidence; complete bounded lifecycle/admission and qualify maximum-state progress/interrupted book recovery. |
+| O08 | BEP-08 partial; E04/E06/E12–14 open | Native anchors/seed and several routes delivered; complete ordinary CLI cutover, shared preflight/fallback compatibility and aggregate reporting. |
 
 The investigation and capability tables in the qualification companion are part of this coordinator's scope; they do not create another execution ledger. Opportunities remain opportunities, not relabelled diagnostic defects. New execution findings belong here with responsible component, consequence and closure evidence.
 
@@ -91,6 +282,10 @@ just turn-end: **passed**2026-11-11,1122 Python files unchanged. No production o
 
 ## Authorized first increment · 2026-11-11
 
+**Historical increment account.** The receipts below retain their original scope/source/date.
+Current package completion and carried-forward obligations are corrected by the Completion audit
+and execution-findings table; these earlier claims are not an enclosing current-source pass.
+
 The operator authorized BEP-00–03 and the minimum BEP-07a prerequisite slice from the
 conversational execution approach. BEP-04–09, provider lanes, batching, CUDA and final operating
 counts remain later scope. TC plan files remain unchanged. Source baseline is539a437da.
@@ -109,6 +304,15 @@ SymPy; unrelated scientific/domain consumers are outside this increment.
 | BEP-E03 | PM2 native transport/member authentication; closed in this increment | Actual CUDA literal-question probe exposed canonical JSON sorting of meaningful declared question/option/state order in new client/coalescer/reply seams. Shared ordered-native codec and version2 member/cohort receipts restore the existing contract; originalversion1 reads retain original hashes. Focused58 controls passed1918758d82714f83af87baad129fb849 and actual CUDA ordered/source checks passed; final current-source native publication passed4/4,6dfe911f0ea14484a2bcd95d8bda8635. |
 | BEP-E04 | Public analytical preflight and affected test callers; open | Default campaign exposed database preparation before pure argument refusal in start_bound_run, stale None MethodSettings fixtures, obsolete prepared-characterization callback mocks and field inventory. Preserve refusal-before-effects/native-outcome controls when repairing; no repair or retry after operator cancelled testing. |
 | BEP-E05 | Test campaign aggregate memory/custody; open | systemd-oomd killed Cursor application cgroup at2026-11-11 23:47:43 local with167.1G group usage. Campaign0a78c71ce1a949e38e906c9c5392c1f3 had16xdist workers. Per-process peak/cause remains unknown; PostgreSQL server is a separate service cgroup. Resolve memory-safe test selection and dead-owner custody before any operator-authorized retry. |
+| BEP-E06 | Combined preparation consumers; open BEP-01/08 | Registration+ingest/regenerate repeats full verification; [audit obligation](#BEP-E06). Close by reusing one verified preparation across the actual combined route with live admission intact. |
+| BEP-E07 | Source/layer/recovery admission; open BEP-02/07/08 | Full bodies can hydrate before combined credit; [audit obligation](#BEP-E07). Close all named paths with pre-read reservation/backpressure or authenticated metadata, retaining authorization. |
+| BEP-E08 | CPU lifecycle; open BEP-03/05/07 | Ordinary close can wait indefinitely and never invokes its termination fallback; [audit obligation](#BEP-E08). Close through actual bounded teardown and applicable lifecycle evidence. |
+| BEP-E09 | Ordinary source ready frontier; open BEP-05 | Fixed claim groups leave same-method units serial and delay replenishment; [audit obligation](#BEP-E09). Close with bounded individual-completion replenishment and meaningful multi-unit/skew checks. |
+| BEP-E10 | Local GLiNER batching; open BEP-06 | Compatible scopes in one demand remain singleton; [audit obligation](#BEP-E10). Close with bounded authenticated same-pack local populations and stable reduction. |
+| BEP-E11 | PM2 coalesced byte admission; open BEP-06/07 | Legal requests can exceed the shared wire bound only when combined; [audit obligation](#BEP-E11). Close with exact aggregate framing admission and separate useful exchanges when needed. |
+| BEP-E12 | Normal CLI analytical cutover; open BEP-08 | Explicitly passed default graph/registry bypasses primary demand; [audit obligation](#BEP-E12). Close the real default CLI route without overriding deliberate custom selections. |
+| BEP-E13 | Aggregate progress/native inspection; open BEP-08 | Per-run fields/raw events do not deliver the selected operation aggregate or standalone native inspection join; [audit obligation](#BEP-E13). Close through existing reports and actual native lineage. |
+| BEP-E14 | GLiNER fallback policy consistency; open BEP-07/08 | Low-level primary callers can report a thread policy differing from actual frozen GLiNER execution; [audit obligation](#BEP-E14). Close by refusing incompatible shared admission before startup. |
 
 Qualification for this increment is targeted preparation/trust/native-publication and actual-spawn
 behavior. It does not establish final policy, provider parallelism or whole-book qualification.
@@ -116,7 +320,8 @@ Implementation and check receipts will be recorded here against the integrated s
 
 ### First-increment implementation and scoped verification
 
-**Implemented; scoped checks2026-11-11.** ADR-0083 and the
+**Historical delivery claim; scoped checks2026-11-11.** The completion audit reopens E06–08;
+the following records retain their original bounded scope. ADR-0083 and the
 [foundation review](../design_review/reviews/design_review_book-execution-foundations_2026-11-11.md)
 record BEP-00 target and assembled acceptance. BEP-01/02 and BEP-03 are integrated through the
 actual entry points and three CPU method adapters; the [prepared-state owner](book-processing-efficiency-and-parallelism/prepared-state-and-cpu-kernels.md)
@@ -191,7 +396,11 @@ Only main remains as a worktree; no push, default activation, selection or promo
 
 ## Authorized second increment · 2026-11-11
 
-**Implemented and scoped-qualified.** The operator approved BEP-04/05 and BEP-06 CPU delivery plus required07a
+**Historical increment account.** The receipts below retain their original scope/source/date.
+Current package completion and carried-forward obligations are corrected by the Completion audit
+and execution-findings table; these earlier claims are not an enclosing current-source pass.
+
+**Historical delivery claim, corrected by the completion audit.** The operator approved BEP-04/05 and BEP-06 CPU delivery plus required07a
 provider/database/thread controls. Subsequent operator steering adds CUDA-required D1/BF16 now;
 other BEP-07b device/final-count work remains later. TC plans stay
 unchanged and BEP-E01/full-book restart remain outside this increment. Baseline380fecc74.
@@ -334,7 +543,7 @@ provider-scoped released model policyv3 binds this selected numerical profile. N
 question/batch/source population or threshold is silently changed to pass qualification.
 
 
-### Current-source CUDA/order qualification
+### Historical CUDA/order qualification · 2026-11-11 source
 
 The final current-source selection repeats the main functional controls after CUDA-only guards,
 released policyv3 and ordered PM2receiptv2 integration, and adds managed interpretation admission.
@@ -377,8 +586,9 @@ this increment claims only its explicitly selected applicable union.
 
 ### Second-increment closure · 2026-11-11
 
-**Implemented and scoped-qualified:** BEP-04/05, selected BEP-06 CPU HanLP/GLiNER plus required
-CUDA/BF16 D1, and required07a admission/thread/custody integration. D1 CUDA was explicitly selected
+**Historical scoped acceptance:** the receipts below cover the exercised BEP-04/05, selected
+BEP-06 CPU HanLP/GLiNER plus required CUDA/BF16 D1, and07a controls. They do not close the
+completion-audit implementation gaps. D1 CUDA was explicitly selected
 by the operator during execution; all current D1 defaults/launches require CUDA/BF16 and refuse
 CPU fallback. No600s CPU override remains. ADR-0086 and commitbd53c0fa1 record that selection and
 ordered-native transport/receipt correction, following foundation commits0ce41be43/adf024fd7.
@@ -433,6 +643,10 @@ activation, selection, promotion, recognition restart or book rerun occurred.
 
 ## Authorized final increment · 2026-11-11
 
+**Partially delivered.** Selected mechanisms and native controls below remain useful; the
+Completion audit identifies remaining accepted implementation scope. This account does not
+establish BEP-07/08 completion or BEP-09 qualification.
+
 The operator authorized BEP-07–09, including the actual full-book run after final source
 qualification. D1 alone uses CUDA/BF16 with its existing120s inference bound; all other selected
 NLP providers remain CPU. TC plans stay unchanged. No recognition restart, default activation,
@@ -440,7 +654,7 @@ project result selection, promotion or push is authorized by this increment.
 
 ### Final operating design and investigations
 
-**Implemented; qualification in progress2026-11-11.** [ADR-0087](../adr/0087-book-characterization-policy-and-recovery.md)
+**Selected mechanisms implemented; integration incomplete (audit2026-11-12).** [ADR-0087](../adr/0087-book-characterization-policy-and-recovery.md)
 and D3/D4/D6/D8 own the enduring design. The shared frozen
 `CharacterizationExecutionPolicy` resolves through settings and `--execution-policy FILE` once
 before effects. It reaches explicit demand, retained capture, ingest, default analytical work,
@@ -451,16 +665,17 @@ four claims and two provider jobs per compatible lane (one active, one pending).
 The encoded owned-state bound is2GiB, CPU input256MiB/reply64MiB, native request/reply8MiB.
 Native canonical layer publication/full reads admit64MiB; views retain64MiB. Primary native
 read responses admit256MiB per page, with exact-reference paging preserving complete closure.
-Execution hydration reserves response capacity before reads and charges retained bodies
-cumulatively to regional capacity; retained-reader/export budgets remain their own contracts.
+The primary-reader path reserves response capacity before reads and charges retained bodies
+cumulatively to regional capacity. Other source/layer/recovery reads remain E07;
+retained-reader/export budgets remain their own contracts.
 These are finite encoded-state limits, not RSS guarantees or measured optimal counts.
 
 BEP-I04 selects CPU-kernel native threads1 and supported provider threads4/inter-op1.
 Supported BLAS/OpenMP pools are inspected after libraries/model load and limited with
 threadpoolctl3.7.0. That exact dependency was added to the three locked PM2 CPU service
 environments; no unrelated dependency upgrade was selected. GLiNER retains its frozen semantic
-profile: its intra-op count must match policy and its supported inter-op count is one, with
-mismatches refused before startup/admission. Native thread choices enter primary task identity;
+profile: its intra-op count must match policy and its supported inter-op count is one. Main-demand
+preflight refuses mismatches; shared low-level admission remains E14. Native thread choices enter primary task identity;
 placement counts/bytes do not.
 
 BEP-I05's selected arrangement is the operator-required hybrid: D1 CUDA/BF16, HanLP/Maverick/DiPO/
@@ -518,10 +733,10 @@ and stale-preview refusald966849c69cd40eab3eabf7fc55c37a8 remain preserved.
 
 Final qualification still owes the applicable default functional/fault campaign, current native
 providers and end-to-end recovery, repository checks, actual316-view/518-page book completion
-and retained native/CLI/MCP/export/detached consumers. Scope is implemented, not yet accepted complete.
+and retained native/CLI/MCP/export/detached consumers. The audit also identifies incomplete implementation; this is not solely unperformed qualification.
 
 
-### Final-source integration endpoint
+### Historical final-source integration endpoint · 2026-11-11
 
 The [assembled review](../design_review/reviews/design_review_book-final-policy-and-recovery_2026-11-11.md)
 accepts the scoped design as Interface-checked, with no native pass claimed by inspection.
@@ -612,5 +827,5 @@ the original receipt/raw prefix. No test or book restart occurred.
 
 The final book run, interruption/resume on that book, remaining selected-provider union and
 actual retained consumers/export/replay are **not_run**. The prepared evidence-only consumer
-utility has not been executed. BEP-09, BEP-E01 final book acceptance, E04 and E05 remain open;
+utility has not been executed. BEP-09, BEP-E01 final book acceptance and the current execution-findings obligations remain open;
 no enclosing completion or full qualification is claimed.

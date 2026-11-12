@@ -1,6 +1,6 @@
 # Prepared state and CPU kernels
 
-**Implemented first increment · 2026-11-11; scoped qualification is owned by the coordinator.** Owns BEP-01–03 design; the [coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns package state and O01/O02/O04 disposition.
+**Core preparation/kernel implementation present; completion audit2026-11-12 identifies remaining BEP-01–03 obligations.** Owns BEP-01–03 design; the [coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns package state and O01/O02/O04 disposition.
 
 ## Baseline and boundary
 
@@ -52,7 +52,8 @@ separate. Regional source bytes reconstruct independent mutable working views; c
 layers and private immutable decoded premise views survive between stage readers. Exact transitive
 proofs retain original release owners, validate new roots and release their charged state on close.
 
-The semantic cpu_execution module owns the policy, private trusted-parent archive capsules,
+The shared core execution_policy module owns policy; semantic cpu_execution consumes it and owns
+private trusted-parent archive capsules,
 spawn initializer, bounded admitted-input lifetime and narrow source/dependency reader. All three
 actual adapters use that path: formal evidence, constructions and contextual evaluation. Admission
 reserves a submission plus packet/reply capacity before hydration. Parent claim checks and exact
@@ -60,16 +61,26 @@ request correlation remain active through input preparation, waiting and result 
 historical worker preparations live only for the call. Worker replies retain canonical layer bytes
 and original cost fields. No worker owns a database connection, claim or publication.
 
-The current second-increment policy admits two workers/submissions,256MiB canonical retained
-bodies,64MiB input packets and8MiB replies. These are finite integration ceilings, not RSS bounds
-or optimal operating counts. An oversized indivisible input refuses; temporary pressure from active
-work waits. BEP-05 supplies independent cancellation slots/generations and cooperative deadlines
-before concurrent logical claims; invocation/broken-pool teardown remains separate. spaCy annotation
-also uses detached worker inputs with native pipe/atom/layout behavior preserved. Required provider/
-database admission is integrated under07a; final counts/devices remain07b. Native publication
-limits remain unchanged.
+The selected current policy admits two workers/submissions,2GiB encoded owned state,256MiB CPU
+input packets and64MiB replies. D3 owns64MiB canonical-layer/full-read bounds and256MiB aggregate
+response pages; native frames retain8MiB. These are finite encoded-state ceilings, not RSS bounds
+or measured optimal counts. CPU request admission and fixed-stall refusal are implemented, as are
+independent cancellation slots/generations and process-main-thread deadlines. They do not establish
+pre-read combined admission on every regional path or bounded normal CPU teardown: those are
+E07/E08. spaCy uses detached worker inputs with native pipe/atom/layout behavior preserved.
+Current device/count selection and historical receipts stay with the coordinator.
 
 The [assembled review](../../design_review/reviews/design_review_book-execution-foundations_2026-11-11.md)
 accepts this scoped boundary. Actual verification receipts and applicability are recorded only in
 the coordinator, including original unsuccessful attempts. The second-increment ready review and coordinator separately assess the integrated lanes;
 this first-increment foundation receipt does not claim full-book qualification.
+
+
+## Completion audit boundary · 2026-11-12
+
+The [coordinator's completion audit](../book-processing-efficiency-and-parallelism_2026-11-11.md#completion-audit)
+retains core book/stage reuse, immutable trust/mutation boundaries and the shared spawned kernel
+implementation. It reopens combined registration preparation (BEP-E06), pre-read source/layer/recovery
+admission (E07) and bounded CPU teardown (E08). The current findings table owns disposition and
+closure requirements. Earlier scoped evidence does not prove those unexercised scenarios; no new
+runtime checks were executed during this audit.

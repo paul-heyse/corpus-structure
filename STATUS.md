@@ -1,26 +1,27 @@
 # Status
 
-_Updated2026-11-11. Testing cancelled by the operator after Cursor/Codex memory-pressure crash.
-No tests or book processing may restart without renewed instruction. BEP-09 remains incomplete._
+_Updated2026-11-12. BEP completion audit corrected overbroad implementation claims.
+Testing/book processing remain cancelled; this audit authorized no production repairs or restart._
 
-## Current implementation
+## Current authority and source
 
-- [BEP coordinator](docs/plans/book-processing-efficiency-and-parallelism_2026-11-11.md) owns current scope, findings, receipts and required union. BEP-07/08 is implemented with scoped native checks; final campaign/book qualification is incomplete. TC plans are unchanged.
-- Commits:9f2f78c82 (native candidate recreation),4ec2020fa (ADR-0087/shared policy/native recovery/capacity/threadpoolctl3.7.0),a040ac996 (raw summaries through LFS; artifact bytes unchanged). Main is the sole worktree; no push/activation/result selection/promotion.
-- Defaults: two regions/CPU workers/submissions/stage runs, four claims, two jobs per provider lane,2GiB encoded state,256MiB CPU inputs/64MiB replies,8MiB native frames. CPU native threads1; providers4/inter-op1. D1 always CUDA/BF16/120s; all other selected NLP remains CPU.
-- Native head semantic_bep_capacity; release03c24857dc91… admitted/deployed, unselected. Target input source:bep-book:03c24857dc91. Authentic source remains capture496/cut614/product1627:316views over518pages; no recognition rerun.
-- First actual stage stores frozen native demand/seed; children reference its anchor. Retained capture/characterization resume use that authority. Full native layer/read cap64MiB, aggregate response256MiB/page, exact closure paging. Digest/ancestor/claim scopes own bounded analytical reads.
+- [BEP completion audit](docs/plans/book-processing-efficiency-and-parallelism_2026-11-11.md#completion-audit) is the combined current judgment; the same coordinator's findings table owns disposition. All five companions were reconciled. TC plans remain unchanged.
+- Inspected clean main738a7ebe14ee461dab802974300d9cf06545e0fc. This turn changes plans/checkpoint only. Earlier production commits:9f2f78c82 (candidate recreation),4ec2020fa (ADR-0087/policy/recovery/capacity/threadpoolctl3.7.0),a040ac996 (raw summaries through LFS).
+- BEP-00 is complete at its decision/contract/review boundary. Selected BEP-04 resident-lane/private-branch implementation has no additional local delivery gap established. BEP-01–03/05–08 have accepted implementation obligations still open; BEP-09 is incomplete. Historical scoped passes are not an enclosing current-source qualification.
+- Existing E04 preflight/fixture and E05 memory/custody findings remain. Audit E06–14 cover combined-registration preparation, pre-read admission/recovery, CPU bounded teardown, ordinary claim replenishment, local GLiNER batching, merged PM2 frame bounds, normal CLI cutover, aggregate reporting/native inspection and fallback GLiNER policy consistency. Follow the coordinator for source evidence and closure, not a second ledger.
+- Main-demand native anchor/freshness/terminal preservation, shared spawned kernels, immutable regional trust, exact publication/read/replay contracts and selected native batch authentication remain implemented. The audit did not attribute the OOM to a particular process or these source gaps, and did not require speed benchmarks.
 
-## Verified scope2026-11-11
+## Operating choices and retained qualification
 
-- [Capacity evidence](docs/design_review/evidence/2026-11-11_bep-layer-capacity/README.md): actual complete13-family bodies9,253,073bytes (view480) and49,326,509bytes (largest-by-text561), independent current custody/digests. Original method1 body was not recovered.
-- Native capacity publication/replay/export/paging/refusal passed6/6,c3df282f91704fa39257f7007f2c6862. Final-source native recovery passed2/2,d30ed0edcc3a4ae1832aa32c6bdca97f; exact analytical native retry passed694783ed2487403fb6e08d01723a00ea, with10preparation controls from73edf3d9b7394f22bbf25fb88e48c69b. Original failed attempts remain.
-- `uv run ci check --view steps --json` passedecd5be13e49c43da8c1379b7d570dc24 (rules not_run: empty registry). `uv run ci doctor --json` passed8bf3d144537a4d268c202878b995cc05. rustc1.102.0-nightly(9c5648833,2026-11-10). Assembled review is Interface-checked, not native qualification.
+- Selected defaults remain two regions/CPU workers/submissions/stage runs, four claims, two jobs per provider lane,2GiB encoded state,256MiB CPU inputs/64MiB replies,8MiB native frames. These are not RSS guarantees. CPU native threads1, providers4/inter-op1; low-level GLiNER consistency remains E14. D1 always CUDA/BF16/120s; other selected NLP is CPU.
+- Native head semantic_bep_capacity; release03c24857dc91… admitted/deployed, unselected. Target input source:bep-book:03c24857dc91. Original capture496/cut614/product1627 retains316views/518pages. No recognition rerun, activation, result selection, promotion or push.
+- Retained dated2026-11-11 native evidence: capacity6/6,c3df282f91704fa39257f7007f2c6862; recovery2/2,d30ed0edcc3a4ae1832aa32c6bdca97f; analytical retry694783ed2487403fb6e08d01723a00ea and10preparation controls from73edf3d9b7394f22bbf25fb88e48c69b. These do not cover the newly identified scenarios.
+- Read-only `uv run ci results show` on2026-11-12 confirmed second-increment236-node12916646acbc4072ac90cad2dfd458af and recoveryd30ed0edcc3a4ae1832aa32c6bdca97f remain held/settled/passed at their scopes. The interrupted campaign0a78c71ce1a949e38e906c9c5392c1f3 remains held/running in metadata with unsettled custody and fault missing; it supplies no full-campaign pass.
+- Earlier `ci check` ecd5be13e49c43da8c1379b7d570dc24 and doctor8bf3d144537a4d268c202878b995cc05 passed at their stated source. `uv run ci docs check --json` passed2026-11-12,d8d83c317e7741f4b22ba6300084c1a8,892 pages/zero link errors; `just turn-end` passed,1137 Python files unchanged. No product tests/providers/book/migrations/benchmarks or recovery mutations were run for this audit.
 
-## Interrupted campaign and next work
+## Next boundary
 
-- Default `uv run ci test --json`,0a78c71ce1a949e38e906c9c5392c1f3, was interrupted in ordinary; fault not_started. Sixteen xdist workers were running. Bounded live observations showed at least29failures, not a complete final inventory. No full-campaign pass is claimed.
-- systemd-oomd killed Cursor's application cgroup at23:47:43 local after167.1G group usage. Per-process attribution is unknown. PostgreSQL server is a separate service cgroup; last sampled test queries were reads/publication/runtime registration, not migration. Earlier development migration had finished. [Raw journal](docs/design_review/evidence/2026-11-11_bep-whole-book/raw/test-campaign-oomd.log).
-- No pytest/test_receipts/ci-test processes were observed after crash; original parent already gone before requested SIGINT. `ci results recover` refuses unproven settlement; managed receipt still says running/custody_unsettled and is held. Do not manually relabel it or retry without resolving custody.
-- BEP-E04 owns preflight-before-DB regression and affected settings/callback fixtures; not repaired yet. BEP-E05 owns aggregate test-memory diagnosis and dead-owner custody before a memory-safe, operator-authorized retry. Source workers are stopped; no testing/book restart.
-- Whole-book execution, book interruption/resume, remaining selected-provider union and actual consumers/export/detached replay are not_run. Prepared consumer utility is unexecuted. BEP-E01 final book acceptance and BEP-09 remain open.
+- Execution must be separately authorized: finish accepted implementation gaps rather than assuming only a green suite remains. Resolve E05's safe retry/custody prerequisite before any operator-authorized testing; preserve native guards and independent invalid-input/outcome controls while repairing E04.
+- Reconcile the applicable functional/provider/nonfunctional union with final source/context, then complete whole-book execution, interrupted-work recovery and retained native/CLI/MCP/export/detached consumers. E01 final book acceptance remains open. The prepared consumer utility is still unexecuted.
+- systemd-oomd's2026-11-11 23:47:43 local Cursor-group167.1G incident remains [raw evidence](docs/design_review/evidence/2026-11-11_bep-whole-book/raw/test-campaign-oomd.log); individual allocation attribution is unknown. No tests/book processing were restarted.
+- Main is the sole worktree; no parallel production edits, push or default/selection effects.

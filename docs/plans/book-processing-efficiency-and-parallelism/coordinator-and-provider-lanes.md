@@ -1,6 +1,6 @@
 # Coordinator and provider lanes
 
-**Implemented; final scoped qualification is recorded by the coordinator · 2026-11-11.** Owns BEP-04/05. [Coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns scope and O03/O04/O07 disposition.
+**Selected resident lanes and captured-region frontier implemented; ordinary-source replenishment remains incomplete (audit2026-11-12).** Owns BEP-04/05. [Coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns scope and O03/O04/O07 disposition.
 
 ## Shared execution contract and BEP-00 foundation work
 
@@ -47,9 +47,11 @@ Acceptance includes independent-unit overlap, simultaneous native/formal readine
 ADR-0084 records the accepted realization. `core/work.py` supplies PreparedWork/ReadyGroup and
 one parent driver for standalone and captured-document execution. `orchestrate/ready.py` owns
 invocation-local stage/claim admission; existing native task ownership remains authoritative.
-The regional loop and ordinary source methods now yield private CPU/provider work, allowing
-independent admitted regions and provider branches to progress while builders reduce in stable
-order. All registration and publication stay in the parent. Capacity-one uses this same path.
+The regional loop and ordinary source methods share private CPU/provider work primitives.
+Captured regions and independent provider branches progress while builders reduce in stable
+order. Ordinary multi-unit source execution still uses fixed claim groups, so completion-driven
+replenishment remains E09. All registration/publication stay in the parent; capacity-one uses
+the same implementation.
 
 ProviderExecution owns persistent lane threads, resident compatibility, one active exchange and
 one pending compatible batch. Production lazy intents reserve lane and maximum request/reply
@@ -63,8 +65,20 @@ receipts and final applicability; neither this delivery nor its review closes fu
 final operating counts/CUDA or the existing oversized-layer finding BEP-E01.
 
 
-Final second-increment acceptance2026-11-11 is **scoped-qualified** in the coordinator:
+Historical second-increment acceptance2026-11-11 was **scoped-qualified** at its recorded source
+in the coordinator. It does not close the later completion-audit obligations:
 236 functional/managed-admission controls,186 adjacent controls and4 actual native document-path
 checks passed after final source freeze. The CUDA D1 ordered-question/cohort/source/custody panel
 also passed. BEP-E02/E03 are closed there; BEP-E01 and other07b/08/09 scope remain open. The
 coordinator owns exact commands, receipt IDs and source/context applicability.
+
+
+## Completion audit boundary · 2026-11-12
+
+The [coordinator audit](../book-processing-efficiency-and-parallelism_2026-11-11.md#completion-audit)
+found no additional local delivery gap in the selected resident-lane/private-branch implementation.
+BEP-05 remains incomplete for ordinary same-method multi-unit progress and claim replenishment
+(BEP-E09). It also depends on shared read admission and bounded CPU teardown (E07/E08).
+Existing claim/renewal/publication fences and historical component evidence remain; maximum-state,
+interrupted-book and enclosing qualification are still open. The coordinator owns current status;
+this audit ran no tests or providers.

@@ -1,6 +1,6 @@
 # Resources, devices and operator workflows
 
-**Status: BEP-07/08 implemented; final native and integrated qualification in progress · 2026-11-11.** This companion owns BEP-07 and BEP-08 in the
+**Status: Selected policy and major mechanisms delivered; BEP-07/08 integration incomplete and qualification cancelled, completion-audited2026-11-12.** This companion owns BEP-07 and BEP-08 in the
 [book-processing series](../book-processing-efficiency-and-parallelism_2026-11-11.md).
 Planning baseline is `f81a380cd`; inspected production source is `4d0ca7eb7`. The source
 [functional review](../../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md#O06)
@@ -292,9 +292,9 @@ Follow [BEP-09](../book-processing-efficiency-and-parallelism_2026-11-11.md#BEP-
 investigation records, final-policy qualification and evidence reassessment rather than creating
 another results ledger here.
 
-## Delivered early admission and thread slice
+## Historical early admission and thread slice · 2026-11-11
 
-The current integrated CPU defaults admit two regions, two CPU workers/submissions, two stage
+The provisional second-increment CPU defaults admitted two regions, two CPU workers/submissions, two stage
 runs and four logical claims, with a256MiB shared canonical-body budget,64MiB CPU packets and
 8MiB replies. Provider lanes allow one active exchange and one pending batch per compatible
 resident. Lazy production admission reserves before envelope serialization; physical occupancy
@@ -324,7 +324,7 @@ coordinator owns exact commands, receipt IDs and source/context applicability.
 
 ## Current final operating selection
 
-**Implemented; final qualification in progress2026-11-11.** ADR-0087 and the coordinator's
+**Selected operating values; full integration/qualification not established (audit2026-11-12).** ADR-0087 and the coordinator's
 final-increment section supersede the provisional numeric slice above. The shared validated
 policy selects two regions/workers/submissions/stage runs, four claims, two jobs per provider
 lane,2GiB encoded owned state,256MiB CPU inputs/64MiB replies and unchanged8MiB native frames.
@@ -338,3 +338,21 @@ retained capture under a current admitted target. `ci run resume RUN --character
 reconstructs from native authority, preserves the original freshness seed and compatible settled
 products, and permits capacity-only changes. The coordinator owns actual qualification, findings
 and receipts; these interfaces do not establish full-book completion.
+
+
+## Completion audit boundary · 2026-11-12
+
+The [coordinator audit](../book-processing-efficiency-and-parallelism_2026-11-11.md#completion-audit)
+retains the chosen counts, D1 CUDA/BF16/other-NLP CPU selection, main-demand GLiNER profile check,
+native anchor/freshness authority and the working retained routes. These do not establish complete
+BEP-07/08 delivery. The findings table owns E04 (pure preflight order/affected fixtures), E06
+(combined registration preparation), E07/E08 (read admission/CPU teardown), E11 (merged PM2 bytes),
+E12 (normal CLI primary-demand cutover), E13 (operation aggregate/native inspection) and E14
+(low-level GLiNER policy compatibility). Per-run metadata/raw events remain implemented; the
+promised aggregate is unfinished. Main demand preflight refuses thread/profile mismatch, but
+supported low-level callers still need the same shared admission rule.
+
+Maximum-admitted-state renewal/completion, interrupted-work recovery and current selected-provider
+qualification remain obligations, not inferred from chosen values or an all-settled resume pass.
+Testing/book processing remain cancelled. E05 owns the test-memory/custody prerequisite; group-level
+OOM evidence does not identify a process or establish failure of the book's selected counts.

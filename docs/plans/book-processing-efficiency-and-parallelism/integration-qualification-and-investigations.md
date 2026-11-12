@@ -1,6 +1,6 @@
 # Integration, qualification and investigations
 
-**Target implemented; BEP-09 qualification active · 2026-11-11.** Owns BEP-09 design and bounded investigation routes. The [coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns every scheduled disposition and combined completion; this companion defines what settles it.
+**BEP-09 incomplete; prior-package implementation gaps remain and qualification is cancelled (audit2026-11-12).** Owns BEP-09 design and bounded investigation routes. The [coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns every scheduled disposition and combined completion; this companion defines what settles it.
 
 ## BEP-09 · Assembled delivery and retirement
 
@@ -85,3 +85,16 @@ qualification. I07–I13 remain untriggered conditional investigations. The sele
 profile does not require other-provider CUDA adoption. Native layer capacity and end-to-end
 recovery receive actual checks before the whole-book run; final acceptance still requires every
 applicable row in the planned qualification table above.
+
+
+## Completion audit boundary · 2026-11-12
+
+The [coordinator's completion audit](../book-processing-efficiency-and-parallelism_2026-11-11.md#completion-audit)
+is the current combined judgment. BEP-09 was never established complete. Reconcile the identified
+implementation gaps before claiming the assembled target or performing final acceptance; a broad
+green suite alone cannot establish omitted consumer behavior. Preserve the planned qualification
+table, scoped native/functional/nonfunctional receipts, selected/declined device decisions and
+conditional investigation triggers. No new benchmark, GPU-profile quota or diagnostic audit is
+introduced. The interrupted default campaign remains held with unsettled custody/fault missing;
+whole-book/lifecycle and actual retained-consumer/export/replay acceptance remain unperformed.
+This audit executes no tests/providers/book/migrations or recovery mutations.
