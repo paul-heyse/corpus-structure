@@ -7,7 +7,7 @@ from collections import deque
 from collections.abc import Callable
 from concurrent.futures import CancelledError, Future
 from contextlib import ExitStack, contextmanager, suppress
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from hashlib import sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -24,6 +24,7 @@ from .model_observation import ordered_native_bytes, pm2_cohort_digest, pm2_memb
 from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused
 from .pm2_worker import open_pm2_worker as _open_pm2_worker
 from .pm2_worker import preflight_pm2_runtime as _preflight_pm2_runtime
+from .pm2_worker import request_frame_size
 
 
 @dataclass(frozen=True)
@@ -78,6 +79,12 @@ class GLiNERWork:
     borrowers: tuple[Callable[[], None], ...]
     evaluation: bool = False
     logical_sizes: tuple[int, ...] = ()
+
+
+def validate_gliner_policy(profile: GlinerProfile, policy: CharacterizationExecutionPolicy):
+    """Reject a selected policy that cannot execute the immutable GLiNER profile."""
+    if profile.threads != policy.provider_threads or policy.provider_interop_threads != 1:
+        raise GlinerRefused("frozen GLiNER threads/inter-op differ from execution policy")
 
 
 @dataclass(frozen=True)
@@ -447,6 +454,12 @@ class ProviderExecution:
 
     def _request_size(self, request):
         if isinstance(request, GLiNERWork):
+            validate_gliner_policy(request.profile, self.policy)
+            if request.logical_sizes and (
+                any(type(size) is not int or size < 1 for size in request.logical_sizes)
+                or sum(request.logical_sizes) != len(request.inputs)
+            ):
+                raise GlinerRefused("logical GLiNER sizes differ from admitted inputs")
             validate_request(
                 request.profile,
                 request.pack,
@@ -473,7 +486,30 @@ class ProviderExecution:
             from corpus_structure.semantic.cpu_execution import CapacityExceeded
 
             raise CapacityExceeded("complete native request exceeds admitted byte capacity")
+        if isinstance(request, PM2Work) and request.payload is not None:
+            # Keep the serialized frame owned as well as the frozen selection.
+            try:
+                size = max(
+                    size,
+                    request_frame_size(
+                        json.loads(request.payload), self.policy.max_native_request_bytes
+                    ),
+                )
+            except Pm2WorkerRefused as error:
+                from corpus_structure.semantic.cpu_execution import CapacityExceeded
+
+                raise CapacityExceeded(str(error)) from error
         return size
+
+    @staticmethod
+    def _pm2_payload(payloads, provider):
+        key = "batch" if provider == "d1" else "sentences"
+        combined = {**payloads[0], key: [value for payload in payloads for value in payload[key]]}
+        if provider == "hanlp" and "admitted_row_tokens" in payloads[0]:
+            combined["admitted_row_tokens"] = [
+                value for payload in payloads for value in payload["admitted_row_tokens"]
+            ]
+        return combined
 
     def try_submit(self, request, pending=None):
         from corpus_structure.semantic.cpu_execution import CapacityExceeded
@@ -524,6 +560,8 @@ class ProviderExecution:
             return handle
 
     def compatible(self, group, following):
+        from corpus_structure.semantic.cpu_execution import CapacityExceeded
+
         first = group[0].request
         other = following.request
         payloads: list[Any] = []
@@ -544,15 +582,8 @@ class ProviderExecution:
                 return False
             inputs = tuple(item for handle in (*group, following) for item in handle.request.inputs)
             try:
-                validate_request(
-                    first.profile,
-                    first.pack,
-                    inputs,
-                    threshold=first.threshold,
-                    overlap_policy=first.overlap_policy,
-                    evaluation=first.evaluation,
-                )
-            except GlinerRefused:
+                self._request_size(replace(first, inputs=inputs, logical_sizes=()))
+            except (GlinerRefused, CapacityExceeded):
                 return False
             return True
         if not isinstance(other, PM2Work) or first.selection.identity != other.selection.identity:
@@ -562,11 +593,11 @@ class ProviderExecution:
             return all(request.payload is None for request in requests)
         payloads = [json.loads(request.payload) for request in requests]
         if first.selection.provider == "d1":
-            return (
+            admitted = (
                 all(isinstance(payload.get("batch"), list) for payload in payloads)
                 and sum(len(payload["batch"]) for payload in payloads) <= 16
             )
-        if first.selection.provider == "hanlp":
+        elif first.selection.provider == "hanlp":
             options = [
                 {
                     key: value
@@ -590,12 +621,30 @@ class ProviderExecution:
                     or len(lengths) * max(lengths, default=0) > 2048
                 ):
                     return False
-            return (
+            admitted = (
                 all(option == options[0] for option in options)
                 and len(sentences) <= 8
                 and sum(len(word) for sentence in sentences for word in sentence) <= 32768
             )
-        return False
+        else:
+            return False
+        if not admitted:
+            return False
+        lane = group[0].lane
+        request_id = (
+            getattr(lane.worker, "next_request_id", 1)
+            if lane.key == first.selection.identity and not lane.worker.closed
+            else 1
+        )
+        try:
+            request_frame_size(
+                self._pm2_payload(payloads, first.selection.provider),
+                self.policy.max_native_request_bytes,
+                request_id=request_id,
+            )
+        except Pm2WorkerRefused:
+            return False
+        return True
 
     def exchange(self, lane, group):
         if (
@@ -638,7 +687,11 @@ class ProviderExecution:
                 digest,
                 borrowers,
                 first.evaluation,
-                tuple(lengths),
+                tuple(
+                    length
+                    for handle in group
+                    for length in (handle.request.logical_sizes or (len(handle.request.inputs),))
+                ),
             )
         else:
             for handle in group:
@@ -648,14 +701,7 @@ class ProviderExecution:
                 payloads.append(json.loads(raw))
             key = "batch" if first.selection.provider == "d1" else "sentences"
             lengths = [len(payload[key]) for payload in payloads]
-            combined_payload = {
-                **payloads[0],
-                key: [value for payload in payloads for value in payload[key]],
-            }
-            if first.selection.provider == "hanlp" and "admitted_row_tokens" in payloads[0]:
-                combined_payload["admitted_row_tokens"] = [
-                    value for payload in payloads for value in payload["admitted_row_tokens"]
-                ]
+            combined_payload = self._pm2_payload(payloads, first.selection.provider)
             content = ordered_native_bytes(combined_payload)
             combined = PM2Work(first.selection, content, digest, borrowers)
         synthetic = ProviderHandle(self, lane, combined, 0)
@@ -678,7 +724,22 @@ class ProviderExecution:
             for handle, length in zip(group, lengths, strict=True):
                 members = reply.admissions[offset : offset + length]
                 refused = [member.reason for member in members if not member.admitted]
-                if refused:
+                if handle.request.logical_sizes:
+                    count = 0
+                    local_offset = 0
+                    for logical_size in handle.request.logical_sizes:
+                        selected = members[local_offset : local_offset + logical_size]
+                        if all(member.admitted for member in selected):
+                            count += logical_size
+                        local_offset += logical_size
+                    reports = reply.reports[report_offset : report_offset + count]
+                    if len(reports) != count:
+                        raise Pm2WorkerError("native inference omitted admitted logical member")
+                    replies.append(
+                        ProviderReply(handle.request.correlation, reports=reports, admissions=members)
+                    )
+                    report_offset += count
+                elif refused:
                     replies.append(
                         ProviderReply(
                             handle.request.correlation,
@@ -1014,6 +1075,7 @@ def gliner_extract(
     overlap_policy="flat",
     check_active,
     evaluation=False,
+    independent=False,
 ):
     from .gliner_worker import GlinerWorkerError
 
@@ -1037,6 +1099,7 @@ def gliner_extract(
             correlation,
             (check_active,),
             evaluation,
+            (1,) * len(inputs) if independent else (),
         ),
         lane_key="gliner",
     )
@@ -1047,4 +1110,64 @@ def gliner_extract(
 
             raise CapacityExceeded(reply.error_message)
         raise GlinerWorkerError(reply.error_message)
+    if independent:
+        if len(reply.admissions) != len(inputs):
+            raise GlinerWorkerError("native admission changed local scope population")
+        reports = iter(reply.reports)
+        outcomes = tuple(
+            next(reports) if member.admitted else GlinerWorkerError(member.reason)
+            for member in reply.admissions
+        )
+        if next(reports, None) is not None:
+            raise GlinerWorkerError("native inference added an unadmitted local scope")
+        return outcomes
     return reply.reports
+
+
+def gliner_extract_members(
+    providers, profile, pack, inputs, *, threshold, overlap_policy="flat", check_active
+):
+    """Pack known local scopes, preserving an independent outcome for each input."""
+    from .gliner_worker import GlinerWorkerError
+    from corpus_structure.semantic.cpu_execution import CapacityExceeded
+
+    validate_gliner_policy(profile, providers.policy)
+
+    def admit(items):
+        return providers._request_size(
+            GLiNERWork(
+                profile, pack, items, threshold, overlap_policy, "", (check_active,),
+                logical_sizes=(1,) * len(items),
+            )
+        )
+
+    def extract(items):
+        try:
+            return (yield from gliner_extract(
+                providers, profile, pack, items, threshold=threshold,
+                overlap_policy=overlap_policy, check_active=check_active, independent=True,
+            ))
+        except (GlinerWorkerError, OSError, ValueError) as error:
+            check_active()
+            return (error,) * len(items)
+
+    outcomes, cohort = [], ()
+    for item in inputs:
+        check_active()
+        try:
+            admit((item,))
+        except GlinerRefused as error:
+            if cohort:
+                outcomes.extend((yield from extract(cohort)))
+                cohort = ()
+            outcomes.append(error)
+            continue
+        try:
+            admit((*cohort, item))
+        except (GlinerRefused, CapacityExceeded):
+            outcomes.extend((yield from extract(cohort)))
+            cohort = ()
+        cohort = (*cohort, item)
+    if cohort:
+        outcomes.extend((yield from extract(cohort)))
+    return tuple(outcomes)

@@ -113,3 +113,40 @@ These are raw historical snapshots, not importable managed receipts or live cust
 retained records above preserve their own accepted scope. No failed/unsettled outcome was changed.
 
 `raw/isolated-source/` retains the exact CPU implementation and lifecycle tests from the isolated17-case pass before main integration corrections.
+
+## Provider batching and ordinary claim controls · 2026-11-12
+
+**passed75/75**, `e38c9f0703e44d5f96962a9a017a8e13`, in the isolated batching checkout:
+
+```sh
+uv run ci test --workers 1 --json -- python/corpus-structure/tests/methods/test_characterization_resources.py python/corpus-structure/tests/methods/test_model_characterization.py python/corpus-structure/tests/methods/test_pm2_worker.py python/corpus-structure/tests/methods/test_pm2_gliner_classification.py python/corpus-structure/tests/semantic/test_model_characterization.py
+```
+
+The checkout used the shared root environment with its own product source on PYTHONPATH and
+`uv --no-sync`; imports/context were checked. No dependency installation, models, GPU or database
+was selected. Tests cover local same-pack GLiNER populations with per-input refusals, exact
+UTF-8/JSONL framing at the next native ordinal, separate useful exchanges for nonfitting merges,
+shared byte ownership and low-level frozen thread-policy refusal before launch.
+[Retained final75](../2026-11-12_cli-e38c9f0703e44d5f96962a9a017a8e13/README.md).
+
+The E09 final controlled panel **passed74/74**, `d32b4b9665fb46faa9ee41d9b34be334`:
+
+```sh
+uv run ci test --workers 1 --json -- python/corpus-structure/tests/orchestrate/test_ready_coordination.py python/corpus-structure/tests/orchestrate/test_source_configurations.py python/corpus-structure/tests/orchestrate/test_execution_preparation.py python/corpus-structure/tests/methods/test_model_characterization.py python/corpus-structure/tests/methods/test_characterization_resources.py
+```
+
+The isolated execution used the same explicit PYTHONPATH/`--no-sync` boundary described above.
+[retained final74](../2026-11-12_cli-d32b4b9665fb46faa9ee41d9b34be334/README.md).
+It exercises ordinary same-method fill/refill alongside a slow sibling, failure drain/cancellation,
+registration-read waits without holding a snapshot, existing useful claims during deferred
+registration waits, renewable exact-source prewarm, and zero-claim temporary shared-byte waits.
+Native DB/provider and assembled final-source qualification remain open.
+
+Five original failed selections retain their actual fixture/context/assertion failures and separate
+passing replacements; they are not relabelled:
+`31ec928f5d054cf6adac0159c1d61b08`, `ae77a68fbb0b43698b11e9653822ac8f`,
+`739e448496c54c678267181d87a31de2`, `8d784ab52b6947dc88fdc3ee324976ee`,
+`314163c24f804fdfa43787462c11c5cd`. Each has a dated retained CLI evidence folder.
+`raw/batching-managed-history/` additionally preserves177 files from the isolated managed store;
+[manifest](batching-history-manifest.json) records byte counts/SHA-256. These raw snapshots are
+historical data, not importable receipts or live custody.

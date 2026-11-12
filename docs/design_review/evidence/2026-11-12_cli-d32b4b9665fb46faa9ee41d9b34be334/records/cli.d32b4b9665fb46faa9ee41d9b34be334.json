@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "id": "cli.d32b4b9665fb46faa9ee41d9b34be334",
+  "title": "Retained CLI invocation d32b4b9665fb46faa9ee41d9b34be334",
+  "group": null,
+  "package": null,
+  "finalized": "2026-11-12",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What evidence did test produce for BEP-E09?",
+  "answers": [],
+  "method": "Copy the selected published artifact under the invocation lease.",
+  "commands": [],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "invocation.json",
+      "role": "invocation-provenance",
+      "sha256": "15f60132f83b5028cb245ca5f1117d51c484bb5e282d12ca0a5c3fe30dc0203d"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/ordinary",
+      "role": "retained-artifact",
+      "sha256": "62ee28607b7308adaafb3bc4b921f0bc0aa6af7912065d3ea8befd94fbda89e5"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "invocation_outcome",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The retained invocation settled as passed.",
+  "consumed_by": [
+    "BEP-E09"
+  ]
+}

@@ -134,6 +134,11 @@ def _encode_request(request_id: int, payload: dict[str, Any], limit: int) -> byt
     return frame
 
 
+def request_frame_size(payload: dict[str, Any], limit: int, *, request_id: int = 1) -> int:
+    """Admit the exact JSONL frame using the transport's own encoding contract."""
+    return len(_encode_request(request_id, payload, limit))
+
+
 def _json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in pairs:
@@ -206,6 +211,10 @@ class Pm2Worker:
     @property
     def closed(self) -> bool:
         return self._closed
+
+    @property
+    def next_request_id(self) -> int:
+        return self._request_id + 1
 
     @property
     def pid(self) -> int:
