@@ -395,6 +395,10 @@ def boundary_diagnostic(
     )
     if len(batch) != 1 or batch.original_texts[0] != prepared.consumed_text:
         raise GlinerRefused("native diagnostic collation differs from the prepared scope")
+    parameter = next(model.parameters())
+    # The native batch_extract route performs this transfer itself. Public
+    # score_candidates/encode consume an already device-owned PreprocessedBatch.
+    batch = batch.to(parameter.device, parameter.dtype if parameter.dtype != torch.float32 else None)
     starts, ends = batch.start_mappings[0], batch.end_mappings[0]
     prefix = int(batch.text_word_counts[0]) - len(starts)
     layout = batch.query_layouts[0].queries
@@ -471,7 +475,7 @@ def boundary_diagnostic(
                 encoded.text_lengths[0]
             ) != prefix + len(starts):
                 raise GlinerRefused("native explicit scoring changed the extractive query layout")
-            indices = torch.tensor(aligned, dtype=torch.long)[None, None].expand(
+            indices = torch.tensor(aligned, dtype=torch.long, device=encoded.text_states.device)[None, None].expand(
                 1, len(layout), -1, -1
             )
             try:
