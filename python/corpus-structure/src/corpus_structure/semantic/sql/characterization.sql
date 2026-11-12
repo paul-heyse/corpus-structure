@@ -602,7 +602,31 @@ BEGIN
   RAISE EXCEPTION 'invalid characterization inventory bounds/cursor' USING ERRCODE='23514'; END IF;
  SELECT coalesce(jsonb_agg(body ORDER BY task_id,product_key),'[]') INTO rows_ FROM (
   SELECT DISTINCT p.task_id,p.product_key,jsonb_build_object('reference',jsonb_build_object('task_id',p.task_id,'product_key',p.product_key,'content_digest',p.content_digest),
-   'kind',p.kind,'release_id',p.release_id,'method',m.name,'configuration',cfg.config_hash,'source_view_ids',(SELECT jsonb_agg(s.source_view_id ORDER BY s.source_view_id) FROM kb.characterization_source_scope s WHERE (s.task_id,s.product_key,s.content_digest)=(p.task_id,p.product_key,p.content_digest))) body
+   'kind',p.kind,'release_id',p.release_id,'method',m.name,'configuration',cfg.config_hash,
+   'producer_run_id',producer.id,
+   'source_view_ids',(SELECT jsonb_agg(s.source_view_id ORDER BY s.source_view_id) FROM kb.characterization_source_scope s WHERE (s.task_id,s.product_key,s.content_digest)=(p.task_id,p.product_key,p.content_digest)),
+   'summary',jsonb_build_object(
+    'version',1,'base_document',p.payload->'base_document','profile',p.payload->'profile',
+    'outcome',p.payload->'outcome',
+    'readiness',CASE WHEN p.kind<>'view' THEN NULL
+      WHEN p.payload->>'profile'='source_only' THEN 'source_only'
+      WHEN p.payload->>'profile'='full_characterization' AND NOT EXISTS(
+       SELECT FROM jsonb_array_elements(coalesce(p.payload->'coverage','[]')) c WHERE c->>'outcome' NOT IN ('complete','empty')) THEN 'enriched'
+      ELSE 'partial' END,
+    'coverage',coalesce((SELECT jsonb_agg(jsonb_build_object('family',c.value->'family','outcome',c.value->'outcome','availability',c.value->'availability') ORDER BY c.ord)
+      FROM jsonb_array_elements(coalesce(p.payload->'coverage','[]')) WITH ORDINALITY c(value,ord) WHERE c.ord<=64),'[]'),
+    'coverage_omitted',greatest(jsonb_array_length(coalesce(p.payload->'coverage','[]'))-64,0),
+    'layer_count',jsonb_array_length(coalesce(p.payload->'layers','[]')),
+    'active_layer_count',jsonb_array_length(coalesce(p.payload->'active_layers',p.payload->'layers','[]')),
+    'providers',coalesce((SELECT jsonb_agg(jsonb_build_object(
+      'provider',n.value->'provider','profile',n.value->'profile','model',n.value->'model',
+      'model_version',n.value->'model_version','runtime_version',n.value->'runtime_version',
+      'configuration_digest',n.value->'configuration_digest',
+      'availability',coalesce((SELECT jsonb_agg(jsonb_build_object('family',a.value->'family','attribute',a.value->'attribute','status',a.value->'status') ORDER BY a.ord)
+        FROM jsonb_array_elements(coalesce(n.value->'availability','[]')) WITH ORDINALITY a(value,ord) WHERE a.ord<=32),'[]'),
+      'availability_omitted',greatest(jsonb_array_length(coalesce(n.value->'availability','[]'))-32,0)) ORDER BY n.ord)
+      FROM jsonb_array_elements(coalesce(p.payload->'native_runs','[]')) WITH ORDINALITY n(value,ord) WHERE n.ord<=16),'[]'),
+    'providers_omitted',greatest(jsonb_array_length(coalesce(p.payload->'native_runs','[]'))-16,0))) body
   FROM ops.task selected JOIN ops.characterization_product p ON p.task_id=coalesce(selected.reused_task_id,selected.id)
    JOIN ops.task origin ON origin.id=p.task_id JOIN ops.run producer ON producer.id=origin.run_id
    JOIN ops.method_config cfg ON cfg.id=origin.method_config_id JOIN ops.method m ON m.id=cfg.method_id

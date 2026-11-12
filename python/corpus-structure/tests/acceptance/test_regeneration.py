@@ -374,7 +374,19 @@ def test_retained_integrated_cli_lifecycle(
             obj=CliState(settings_factory=lambda: writer_only),
         )
         assert ingested.exit_code == 0, (ingested.output, ingested.exception)
-        prepared_only = json.loads(ingested.stdout)
+        source_operation = json.loads(ingested.stdout)
+        prepared_only = source_operation["capture"]
+        assert source_operation["analytical"] is None
+        assert source_operation["created_run_ids"] == [prepared_only["run_id"]]
+        assert source_operation["characterization_views"] == []
+        assert (
+            source_operation["execution_policy"]["provider_threads"]
+            == settings.characterization_execution.provider_threads
+        )
+        assert (
+            source_operation["execution_policy"]["max_owned_bytes"]
+            == settings.characterization_execution.max_owned_bytes
+        )
         assert prepared_only["release_id"] == report["release_id"]
         assert prepared_only["realization_id"] == output
         assert prepared_only["status"] == "source_ready" and prepared_only["cut_id"] > 0
@@ -388,7 +400,7 @@ def test_initial_source_failure_retains_committed_run(
 
     from corpus_structure.cli.managed import ResultStore
     from corpus_structure.ingest.pdf_recognition_methods import IngestPdfIntegrated
-    from corpus_structure.orchestrate import commands, semantic
+    from corpus_structure.orchestrate import semantic, source_operation
     from corpus_structure.orchestrate.liveness import observe_supervisor
 
     case = retained_integrated_cli(semantic_db_engine, tmp_path, monkeypatch, "toy", "transfer")
@@ -398,7 +410,7 @@ def test_initial_source_failure_retains_committed_run(
     with semantic_db_engine.connect() as conn:
         before = set(conn.scalars(select(runs.c.id)))
     created, selected, closed = [], [], []
-    native_start = commands.start_bound_run
+    native_start = source_operation.run_source_operation
     native_groups = semantic._source_step_groups
     native_close = IngestPdfIntegrated.close
     primary = (
@@ -448,7 +460,7 @@ def test_initial_source_failure_retains_committed_run(
         closed.append(self.name)
         return native_close(self)
 
-    monkeypatch.setattr(commands, "start_bound_run", start)
+    monkeypatch.setattr(source_operation, "run_source_operation", start)
     monkeypatch.setattr(semantic, "_source_step_groups", groups)
     monkeypatch.setattr(IngestPdfIntegrated, "run", stop)
     monkeypatch.setattr(IngestPdfIntegrated, "close", close)

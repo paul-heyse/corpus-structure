@@ -22,6 +22,12 @@ later prerequisites. The TC plans remain untouched.
 Protected reference sets, source-first exposure boundaries and independent assessment remain under
 their existing owners.
 
+## Operator closeout checkpoint · 2026-11-12
+
+The [coordinator checkpoint](../book-processing-efficiency-and-parallelism_2026-11-11.md#audit-repair-execution)
+owns integrated delivery, scoped evidence and remaining execution. GPU foundations remain
+unselected; native/assembled qualification and full-book acceptance are not established here.
+
 ## Baseline and responsibility boundaries
 
 The target separates durable ownership from physical placement. BEP-03 owns process-main-thread

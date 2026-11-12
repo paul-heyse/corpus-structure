@@ -110,8 +110,10 @@ while expected refusals retain their existing validation owner. CLD-CA03 complet
 regeneration under ADR-0080: a frozen one-shot SourceRunCreated notification carries actual
 run/project/release after native commit and supervisor adoption, inside both cleanup regions and
 before graph selection. Its optional callback leaves native resource/settlement authority intact.
-The CLI persists those bindings beside acquired storage and enters bound context in its own
-ExitStack across source work. Ordinary diagnostic binding failure is isolated; BaseException still
+The CLI persists those bindings beside acquired storage. The current interleaved replacement is
+governed by [ADR-0089](../../adr/0089-isolated-source-plan-observations.md): native plans bind
+identity in per-node driver contexts; BEP owns its implementation and qualification. Earlier
+CLD receipts describe the preceding linear execution boundary. Ordinary diagnostic binding failure is isolated; BaseException still
 reaches native cleanup. Actual initial-source failure/interruption and independent native queries
 exercise this boundary. Association is never inferred from method rows, and the notification
 does not promise atomicity across native and managed stores. Qualification remains coordinator-owned.

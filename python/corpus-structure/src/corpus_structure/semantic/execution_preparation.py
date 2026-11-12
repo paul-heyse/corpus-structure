@@ -7,6 +7,8 @@ never confers execution admission; each native operation retains its live checks
 from __future__ import annotations
 
 import json
+from concurrent.futures import Future
+from contextlib import contextmanager
 from hashlib import sha256
 from types import MappingProxyType
 
@@ -76,6 +78,25 @@ def prepare_execution(conn, release_id, *, policy: CharacterizationExecutionPoli
     )
 
 
+class _ReadCapacityUnavailable(ValueError):
+    """A synchronous read must yield before opening its next payload."""
+
+
+class _ReadResult:
+    def __init__(self, value):
+        self.future = Future()
+        self.future.set_result(value)
+
+    def collect(self):
+        return self.future.result()
+
+    def cancel(self):
+        pass
+
+    def retire(self):
+        return True
+
+
 class RegionalPreparation:
     """Canonical owned values shared by independently connection-bound stage readers.
 
@@ -91,6 +112,7 @@ class RegionalPreparation:
         self._decoded = {}
         self._release_owners = {}
         self._reserved = 0
+        self._read_credit = None
         self._closed = False
 
     def _require_open(self):
@@ -102,8 +124,62 @@ class RegionalPreparation:
         self.execution.cpu.budget.reserve(size)
         self._reserved += size
 
+    def _read_bound(self, contract):
+        from .cpu_execution import CapacityExceeded
+
+        bound = min(contract, self.execution.cpu.budget.limit - self._reserved)
+        if bound < 1:
+            raise CapacityExceeded("retained region leaves no capacity for another read")
+        return bound
+
+    @contextmanager
+    def _read_window(self, bound):
+        from .cpu_execution import CapacityExceeded
+
+        self._require_open()
+        budget = self.execution.cpu.budget
+        if bound > budget.limit:
+            raise CapacityExceeded("one complete read exceeds the owned byte policy")
+        try:
+            budget.reserve(bound)
+        except CapacityExceeded as error:
+            raise _ReadCapacityUnavailable(str(error)) from error
+        previous = self._read_credit
+        credit = [bound]
+        self._read_credit = credit
+        try:
+            yield
+        finally:
+            self._read_credit = previous
+            budget.release(credit[0])
+
+    def read_work(self, read):
+        """Retry only pre-hydration capacity waits, after the read snapshot closes.
+
+        The callable owns its connection/transaction. Successful cache entries remain
+        charged to this region; no partial payload is returned on a capacity wait.
+        """
+        from corpus_structure.core.work import PreparedWork
+
+        def try_read():
+            try:
+                return _ReadResult(read())
+            except _ReadCapacityUnavailable:
+                return None
+
+        return PreparedWork(try_read)
+
     def _retain(self, content):
-        self._retain_size(len(content))
+        size = len(content)
+        if self._read_credit is None:
+            self._retain_size(size)
+        else:
+            if size > self._read_credit[0]:
+                from .cpu_execution import CapacityExceeded
+
+                raise CapacityExceeded("canonical read exceeds its admitted byte window")
+            self._read_credit[0] -= size
+            self._reserved += size
         return content
 
     def source_view(self, conn, reference, *, analysis, prepared, read_budget=None):
@@ -111,29 +187,41 @@ class RegionalPreparation:
         from .source_views import load_source_view
 
         self.execution.require_release(prepared.release_id)
-        key = (reference, prepared.release_id)
+        identity = reference if isinstance(reference, int) else reference.id
+        key = (identity, prepared.release_id)
         if key not in self._sources:
-            source = load_source_view(
-                conn,
-                reference.id,
-                analysis=False,
-                analysis_context=prepared,
-                read_budget=read_budget,
-            )
-            if source.ref != reference:
-                raise ValueError("regional source differs from the admitted source pin")
-            body = canonical_bytes(
-                dict(
-                    text=source.text,
-                    pieces=source.pieces,
-                    items=source.items,
-                    ancestors=source.ancestors,
-                    health=source.health,
-                    integrated_context=source.integrated_context,
+            from .pdf_record_reader import PublishedReadBudget
+
+            bound = self._read_bound(min(256 * 1024**2, self.execution.cpu.policy.max_packet_bytes))
+            if read_budget is not None and read_budget.max_bytes > bound:
+                from .cpu_execution import CapacityExceeded
+
+                raise CapacityExceeded("source read budget exceeds its admitted byte window")
+            bounded_budget = read_budget or PublishedReadBudget(bound, bound)
+            with self._read_window(bound):
+                source = load_source_view(
+                    conn,
+                    identity,
+                    analysis=False,
+                    analysis_context=prepared,
+                    read_budget=bounded_budget,
                 )
-            )
-            self._sources[key] = (source.ref, source.text_policy, self._retain(body))
+                if not isinstance(reference, int) and source.ref != reference:
+                    raise ValueError("regional source differs from the admitted source pin")
+                body = canonical_bytes(
+                    dict(
+                        text=source.text,
+                        pieces=source.pieces,
+                        items=source.items,
+                        ancestors=source.ancestors,
+                        health=source.health,
+                        integrated_context=source.integrated_context,
+                    )
+                )
+                self._sources[key] = (source.ref, source.text_policy, self._retain(body))
         ref, policy, content = self._sources[key]
+        if not isinstance(reference, int) and ref != reference:
+            raise ValueError("regional source differs from the admitted source pin")
         if analysis:
             from .analysis_contracts import prepare_text_policy
 
@@ -160,10 +248,14 @@ class RegionalPreparation:
         # Native manifest admission checks the current run/source/permissions. The
         # exact pin authenticates cached immutable bytes, not arbitrary caller input.
         if reference in self._layers:
-            read_layer_manifest(conn, reference, run_id=run_id)
+            bound = self._read_bound(8 * 1024**2)
+            with self._read_window(bound):
+                read_layer_manifest(conn, reference, run_id=run_id, max_bytes=bound)
         else:
-            report = read_layer(conn, reference, run_id=run_id)
-            self.retain_native_layer(reference, report)
+            bound = self._read_bound(64 * 1024**2)
+            with self._read_window(bound):
+                report = read_layer(conn, reference, run_id=run_id, max_bytes=bound)
+                self.retain_native_layer(reference, report)
         return self._layers[reference]
 
     def retain_native_layer(self, reference, report):
@@ -190,7 +282,7 @@ class RegionalPreparation:
         self._require_open()
         from .characterization_store import read_primary_layers
 
-        bound = min(256 * 1024**2, self.execution.cpu.policy.max_packet_bytes)
+        bound = self._read_bound(min(256 * 1024**2, self.execution.cpu.policy.max_packet_bytes))
         budget = self.execution.cpu.budget
         budget.reserve(bound)
         try:

@@ -2,7 +2,7 @@
 
 <a id="BEP-06"></a>
 
-**Status: GPU-default shared-host target accepted2026-11-12; native authentication/cross-region coalescing delivered at historical scope, with local GLiNER batching, aggregate PM2 byte admission and current-device qualification incomplete.** This companion develops **BEP-06**, implementing selected
+**Status: local GLiNER cohorts and exact current PM2 merged framing implemented/scoped-tested; GPU shared-host cutover and native qualification remain incomplete (checkpoint2026-11-12).** This companion develops **BEP-06**, implementing selected
 [O05](../../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md#O05).
 The [series coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns shared
 contracts, package state, opportunity disposition, investigation coverage and assembled acceptance.
@@ -18,6 +18,12 @@ Original planning baseline is main `f81a380cd`; current focused source inspectio
 authoring this companion.
 TC-E06 indexes, TC-E07 line-safe literals, existing model residency and existing native batches
 are implemented baseline, not work claimed by BEP-06. The existing TC plan retains its scope.
+
+## Operator closeout checkpoint · 2026-11-12
+
+The [coordinator checkpoint](../book-processing-efficiency-and-parallelism_2026-11-11.md#audit-repair-execution)
+owns integrated delivery, scoped evidence and remaining execution. GPU foundations remain
+unselected; native/assembled qualification and full-book acceptance are not established here.
 
 ## Resulting capability and responsibility
 

@@ -43,8 +43,19 @@ def registry():
 
 
 def test_anchor_is_first_actual_stage_and_children_reference_it():
+    from uuid import UUID
+
+    from corpus_structure.orchestrate.source_lineage import SourceOperationLink
+
+    link = SourceOperationLink(
+        operation_id=UUID("00000000-0000-0000-0000-000000000123"), role="primary", capture_run_id=77
+    )
     operation = CharacterizationOperation.freeze(
-        (demand(), demand()), registry(), {}, policy=CharacterizationExecutionPolicy()
+        (demand(), demand()),
+        registry(),
+        {},
+        policy=CharacterizationExecutionPolicy(),
+        source_operation=link,
     )
     first = operation.options(0, ("text.native_evidence", "text.formal_evidence"))
     assert operation.anchor_run_id is None
@@ -61,7 +72,15 @@ def test_anchor_is_first_actual_stage_and_children_reference_it():
         "characterization_anchor": 91,
         "characterization_region": 1,
         "characterization_stage": ["text.constructions"],
+        "source_operation": {
+            "version": 1,
+            "operation_id": "00000000-0000-0000-0000-000000000123",
+            "role": "primary",
+            "capture_run_id": 77,
+        },
     }
+    assert first["source_operation"] == child["source_operation"]
+    assert "source_operation" not in first["characterization_demand"]
     operation.created(SimpleNamespace(run_id=92, project="project", release_id="release"))
     assert operation.anchor_run_id == 91
     assert len(callbacks) == 1
@@ -195,7 +214,7 @@ def test_interleaved_first_region_stages_persist_exactly_one_anchor(monkeypatch)
     snapshots = []
 
     def source_plan(*args, **kwargs):
-        options = kwargs["characterization_run_options"]
+        options = kwargs["source_run_options"]
         assert callable(options), "persisted options must resolve after stage admission"
         yield ()  # Both region plans have entered, neither has acquired its actual run yet.
         snapshots.append(options())
@@ -248,10 +267,11 @@ def test_public_fallbacks_preserve_selected_execution_policy(monkeypatch):
 
     from corpus_structure.core import work
     from corpus_structure.orchestrate import characterization, ready, semantic
+    from corpus_structure.semantic.cpu_execution import OwnedByteBudget
 
     policy = replace(CharacterizationExecutionPolicy(), max_regions=1)
     observed = []
-    execution = SimpleNamespace(cpu=object())
+    execution = SimpleNamespace(cpu=SimpleNamespace(budget=OwnedByteBudget(policy.max_owned_bytes)))
 
     @contextmanager
     def owned(prepared, *, policy=None):
@@ -310,7 +330,7 @@ def test_optional_managed_receipt_failure_cannot_replace_native_recovery():
 
 
 @pytest.mark.parametrize(
-    "threads,interop,error", [(2, 1, "matching semantic"), (4, 2, "interop_threads=1")]
+    "threads,interop,error", [(2, 1, "frozen GLiNER"), (4, 2, "frozen GLiNER")]
 )
 def test_gliner_thread_policy_refuses_mismatched_frozen_profile_before_preflight(
     monkeypatch, tmp_path, threads, interop, error

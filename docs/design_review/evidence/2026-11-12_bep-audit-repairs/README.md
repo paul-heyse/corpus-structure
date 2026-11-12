@@ -150,3 +150,60 @@ passing replacements; they are not relabelled:
 `raw/batching-managed-history/` additionally preserves177 files from the isolated managed store;
 [manifest](batching-history-manifest.json) records byte counts/SHA-256. These raw snapshots are
 historical data, not importable receipts or live custody.
+
+## Unselected GPU-host closeout checkpoint · 2026-11-12
+
+The nine GPU-owned files were copied byte-for-byte from the temporary checkout before it and its
+branch were removed. [Integration manifest](gpu-checkpoint-integration.json) records those source
+hashes **before root formatting**, not final-source native qualification. Main is the sole remaining
+worktree. The complete tracked worktree diff is preserved at `raw/gpu-worktree-checkpoint.diff`;
+it also contains previously supplied/read-only integration context and must not be applied as a
+single patch over main.
+
+**passed6/6**, `2d45ae835f5346a1aa74700bb08fc166`, controlled pure checks:
+
+```sh
+uv run ci test --workers 1 --json -- python/corpus-structure/tests/methods/test_native_host.py
+```
+
+The isolated run used its own product PYTHONPATH with shared root environment and `uv --no-sync`.
+[Retained final6](../2026-11-12_cli-2d45ae835f5346a1aa74700bb08fc166/README.md).
+The preceding five-control pass `e9c0f049eec24ec89e06d135ed5427fe` has its separate retained folder;
+`e24c1e387ddf4bd88c0cc4ada3ec4e88` retains its earlier source. The new48 raw managed-result files
+are preserved under `raw/gpu-checkpoint-managed-history/`; [manifest](gpu-history-manifest.json)
+records byte counts and SHA-256. These snapshots are historical data, not importable receipts or
+live custody.
+
+The controls establish immutable profile snapshot/copy behavior, complete UTF-8 multiplex frame
+sizing, controlled out-of-order routing/generation failure, fake-host group custody and explicit
+refusal of missing real adapters. **No actual child/model/provider/GPU behavior is qualified.**
+Scoped Pyrefly and syntax checks passed for the three new source modules. Root314 and combined312
+metadata lock checks passed (411/118 packages), adding9 root resolved packages and changing no
+existing resolved version. Metadata success is not import, installed-runtime or GPU compatibility.
+
+Real adapters, declaration/resource callers, CUDA GLiNER/policy migration, learned spaCy routing,
+target defaults and complete lifecycle controls remain unfinished. In particular, ownership of
+partly constructed hosts with failed/unproven cleanup must be hardened before selection. The new
+modules are explicitly unselected; the running product retains prior defaults and its existing
+provider implementation.
+
+## Integrated closeout controls · 2026-11-12
+
+**passed145/145**, `c8a25a5d64d846849a7f8a54ca3b78c4`:
+
+```sh
+UV_NO_SYNC=1 uv run ci test --workers 1 --json -- python/corpus-structure/tests/orchestrate/test_source_operation.py python/corpus-structure/tests/orchestrate/test_source_progress.py python/corpus-structure/tests/orchestrate/test_work_context.py python/corpus-structure/tests/orchestrate/test_execution_preparation.py python/corpus-structure/tests/orchestrate/test_ready_coordination.py python/corpus-structure/tests/orchestrate/test_characterization_recovery.py python/corpus-structure/tests/orchestrate/test_characterization_demand.py python/corpus-structure/tests/orchestrate/test_source_configurations.py python/corpus-structure/tests/methods/test_native_host.py
+```
+
+**passed35/35**, `a1da73b63481409faeed5036a3fbd4e8`, final affected control selection:
+
+```sh
+UV_NO_SYNC=1 uv run ci test --workers 1 --json -- python/corpus-structure/tests/methods/test_characterization_resources.py python/corpus-structure/tests/methods/test_native_host.py
+```
+
+The prefix preserves the current environment while new GPU runtime dependencies remain metadata
+prerequisites. The35-case replacement follows only fixture typing and an equivalent validated
+profile-parameter annotation correction; the integrated application/coordination implementation
+is unchanged. Both results are held/retained. These are controlled functional checks, not actual
+provider/GPU/SQL qualification. Required native regressions and forward-reader qualification remain
+open in the coordinator. Full-book execution remains deferred.

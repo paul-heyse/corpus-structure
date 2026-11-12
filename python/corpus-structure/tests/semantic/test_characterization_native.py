@@ -1291,9 +1291,12 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
                 UnitResult(ref=unit.ref, outcome=ObservationOutcome.EMPTY) for unit in units
             )
 
+    from corpus_structure.orchestrate.source_request import ConfiguredGraph, RetainedViews
+
     pack = tmp_path / "consumer-pack" / "retained"
     pack.mkdir(parents=True)
     (pack / "guideline.md").write_text("Consume the exact selected retained source.\n")
+    (pack / "semantic.yaml").write_text("name: m\n")
     with semantic_writer_engine.connect() as conn:
         before_views = conn.scalar(text("SELECT count(*) FROM kb.source_view"))
     result = start_bound_run(
@@ -1304,7 +1307,7 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
         domain="retained",
         domains=pack.parent,
         method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
-        characterization_views=(original_view_pin,),
+        workflow=ConfiguredGraph(RetainedViews((original_view_pin,))),
         registry_for=lambda _: MethodRegistry(
             (RetainedSourceConsumer(), ComposeViewMethod()),
             MethodsFile(
@@ -1372,7 +1375,7 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
         domain="retained",
         domains=pack.parent,
         method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
-        characterization_views=(unfinished_view_pin,),
+        workflow=ConfiguredGraph(RetainedViews((unfinished_view_pin,))),
         fresh=("native-binding",),
         registry_for=lambda _: MethodRegistry((RetainedSourceConsumer(),), MethodsFile()),
         graph=Graph(((Stage.EXTRACT, (Step("native-binding/default"),)),), policy_propose=False),
@@ -2678,3 +2681,58 @@ def test_layer_above_64_mib_refuses_before_atomic_publication(
                 )
                 == 0
             )
+
+
+def test_protected_inventory_summarizes_exact_native_provenance_without_annotation_payload(
+    characterization_source, semantic_writer_engine, semantic_reader_engine
+):
+    """Controlled retained metadata exercises the native reader, not a model provider."""
+    from corpus_structure.semantic.characterization_store import (
+        CharacterizationProductSummary,
+        read_inventory,
+    )
+
+    source = characterization_source
+    configuration = "historical private configuration; never a summary field"
+    with semantic_writer_engine.begin() as conn:
+        task, claim, config_hash = make_task(conn, source)
+        body = layer_payload(source, config_hash)
+        body["native_runs"] = [
+            dict(
+                local_id="historic-provider",
+                provider="hanlp",
+                profile="original-cpu-profile",
+                model="historical-model",
+                model_version="original-model-version",
+                runtime_version="original-runtime",
+                configuration=configuration,
+                configuration_codec="hanlp-config-json-v1",
+                configuration_digest=sha256(configuration.encode()).hexdigest(),
+                layout_recipe="original-layout",
+                layout_digest="a" * 64,
+                text_digest="b" * 64,
+                availability=[dict(family="syntax", attribute="dependency", status="complete")],
+            )
+        ]
+        pin = publish_layer(
+            conn,
+            task_id=task,
+            attempt=claim.attempt,
+            holder="characterization-fixture",
+            layer=validate_layer(source.prepared, body),
+        )
+    with semantic_reader_engine.connect() as conn:
+        rows = read_inventory(conn, source.task["run_id"], after=(task - 1, ""), limit=1)
+    (selected,) = rows["products"]
+    assert selected["reference"] == pin.values()
+    assert selected["producer_run_id"] == source.task["run_id"]
+    summary = CharacterizationProductSummary.model_validate(selected["summary"])
+    assert summary.base_document == source.base
+    assert summary.outcome == body["outcome"]
+    assert summary.coverage[0].family == "syntax" and summary.coverage[0].outcome == "complete"
+    assert summary.providers[0].provider == "hanlp"
+    assert summary.providers[0].profile == "original-cpu-profile"
+    assert summary.providers[0].runtime_version == "original-runtime"
+    assert summary.providers[0].availability[0].status == "complete"
+    assert configuration not in summary.model_dump_json()
+    assert "annotations" not in summary.model_dump() and "occurrences" not in summary.model_dump()

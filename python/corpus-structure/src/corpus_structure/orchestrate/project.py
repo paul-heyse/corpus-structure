@@ -36,16 +36,57 @@ def init_bound_project(
     native_product: ProductReference | None = None,
     integrated_product: ProductReference | None = None,
 ) -> SourceProjectReport:
+    from corpus_structure.semantic.execution_preparation import prepare_execution
+
+    from .source_request import validate_source_roles
+
+    try:
+        validate_source_roles(native_product, integrated_product)
+        execution = prepare_execution(conn, release_id)
+    except KeyError as error:
+        raise ProjectError("semantic release is not admitted") from error
+    except ValueError as error:
+        raise ProjectError(str(error)) from error
+    with execution:
+        return _init_prepared_project(
+            conn,
+            execution=execution,
+            domain=domain,
+            corpus=corpus,
+            release_id=release_id,
+            realization_id=realization_id,
+            name=name,
+            domains=domains,
+            registry=registry,
+            native_product=native_product,
+            integrated_product=integrated_product,
+        )
+
+
+def _init_prepared_project(
+    conn: Connection,
+    *,
+    execution,
+    domain: str,
+    corpus: Path,
+    release_id: str,
+    realization_id: str,
+    name: str | None = None,
+    domains: Path | None = None,
+    registry: MethodRegistry | None = None,
+    native_product: ProductReference | None = None,
+    integrated_product: ProductReference | None = None,
+) -> SourceProjectReport:
     """Register real indexed source documents against an explicitly admitted interpretation."""
     from corpus_structure.orchestrate.phase0 import registry as registry_for
     from corpus_structure.schema.pack import DOMAINS
     from corpus_structure.semantic.operations import register_document
-    from corpus_structure.semantic.releases import load_release
 
-    if native_product is not None and integrated_product is not None:
-        raise ProjectError("native and integrated source pins are mutually exclusive")
+    from .source_request import validate_source_roles
+
+    validate_source_roles(native_product, integrated_product)
     try:
-        prepared = load_release(conn, release_id)
+        prepared = execution.require_release(release_id)
         from corpus_structure.semantic.contracts import require_bound_operation
 
         require_bound_operation(prepared, "construct_project")

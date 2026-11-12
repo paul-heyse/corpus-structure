@@ -53,11 +53,11 @@ class SourceAdmission:
         if reserve:
             from corpus_structure.semantic.cpu_execution import CapacityExceeded
 
+            if reserve > self.budget.limit:
+                raise CapacityExceeded("one complete source claim exceeds owned byte capacity")
             try:
                 self.budget.reserve(reserve)
             except CapacityExceeded:
-                if not self.used["claim"]:
-                    raise
                 return None
         self.used[kind] += 1
         return _Permit(self, kind, reserve)
@@ -65,6 +65,72 @@ class SourceAdmission:
     def try_work(self, kind):
         permit = self.try_take(kind)
         return None if permit is None else _AdmissionHandle(permit)
+
+
+class SourceClaimFrontier:
+    """Replenish ordinary source claims through their existing native owner."""
+
+    def __init__(
+        self, scheduled, admission, *, claim, execute, prepare, has_prerequisites, capacity_wait
+    ):
+        self.scheduled, self.admission = tuple(scheduled), admission
+        self.claim, self.execute, self.prepare = claim, execute, prepare
+        self.has_prerequisites, self.capacity_wait = has_prerequisites, capacity_wait
+        self.cursor = 0
+        self.permits = set()
+        self.exhausted = False
+
+    def _run(self, method, config, claimed, permit):
+        try:
+            return (yield from self.execute(method, config, claimed, permit))
+        finally:
+            self.permits.discard(permit)
+            permit.release()
+
+    def admit(self):
+        # A deferred child's read wait cannot hide already registered useful work.
+        blocked = not self.prepare()
+        for _ in range(len(self.scheduled)):
+            method, config, cid = self.scheduled[self.cursor]
+            self.cursor = (self.cursor + 1) % len(self.scheduled)
+            permit = self.admission.try_take(
+                "claim",
+                self.admission.policy.max_packet_bytes
+                if method.name == "text.compose_view"
+                else None,
+            )
+            if permit is None:
+                self.capacity_wait(method)
+                blocked = True
+                continue
+            try:
+                claimed = self.claim(method, config, cid)
+            except BaseException:
+                permit.release()
+                raise
+            if claimed:
+                self.permits.add(permit)
+                return self._run(method, config, claimed, permit)
+            permit.release()
+        if not self.permits and not blocked:
+            if self.has_prerequisites():
+                from corpus_structure.semantic.operations import OperationConflict
+
+                raise OperationConflict("required native source context is not ready")
+            self.exhausted = True
+        return None
+
+    def plan(self):
+        from corpus_structure.core.work import ReadyFrontier
+
+        try:
+            yield ReadyFrontier(
+                self.admit, lambda: self.exhausted, self.admission.policy.max_claims
+            )
+        finally:
+            # Admission may be interrupted before a child generator first runs.
+            for permit in self.permits:
+                permit.release()
 
 
 def source_admission(execution):

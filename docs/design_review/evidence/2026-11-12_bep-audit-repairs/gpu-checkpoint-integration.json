@@ -1,0 +1,50 @@
+{
+  "standing": "worktree source copied byte-equal before root formatting; unselected checkpoint, not native qualification",
+  "files": [
+    {
+      "path": "python/corpus-structure/src/corpus_structure/methods/native_profiles.py",
+      "bytes": 5143,
+      "sha256": "80e73f489f91e6fe7af97114f935e9f6269d9ca119d6d1d3ff2447e8a9375285"
+    },
+    {
+      "path": "python/corpus-structure/src/corpus_structure/methods/native_host.py",
+      "bytes": 20188,
+      "sha256": "4cbd0e23efc76f087dc3286f9c84f21cf638147ff260034e57e9c0d51ed612e9"
+    },
+    {
+      "path": "python/corpus-structure/src/corpus_structure/methods/native_host_worker.py",
+      "bytes": 12921,
+      "sha256": "04648ffa0d2825ed0627c2c102c6fc17c4648b619e257b564340882cbf571a01"
+    },
+    {
+      "path": "python/corpus-structure/tests/methods/test_native_host.py",
+      "bytes": 6388,
+      "sha256": "ba2518b1eb193ec84c3c97a57fd0195aefd3f6df9a02c6dc963b7c46c264164a"
+    },
+    {
+      "path": "python/corpus-structure/pyproject.toml",
+      "bytes": 2089,
+      "sha256": "24419ba19f31956917c63b89f13ef0d6691df7583509f00b8aecc6e1b8300245"
+    },
+    {
+      "path": "uv.lock",
+      "bytes": 769627,
+      "sha256": "e899e585486b1a6a58898a23cb64ad9abaea72e41488c14783b3c35df7a102c2"
+    },
+    {
+      "path": "services/nlp-host-312/pyproject.toml",
+      "bytes": 502,
+      "sha256": "7c233890dea6a0584e638eba22f54282330b78ca1b1ab9ae46d3f836d10e4b89"
+    },
+    {
+      "path": "services/nlp-host-312/uv.lock",
+      "bytes": 99415,
+      "sha256": "f8ac2e4ee8f673998aafca0f57a31ff868a8d3bac9681b1100f3ffd8ec4b0259"
+    },
+    {
+      "path": "services/nlp-host-312/.python-version",
+      "bytes": 7,
+      "sha256": "fa682ae9d943f5c8076e68335c9ba3ab4d063ad035c07ac6928653dd4ac50af7"
+    }
+  ]
+}

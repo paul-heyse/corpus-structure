@@ -82,9 +82,9 @@ def test_standalone_source_view_unit_uses_bounded_inputs_and_release_affinity(mo
         "b" * 64,
         "c" * 64,
     )
-    source = PreparedSourceView(reference, "X", (), (), (), {"ok": True})
     monkeypatch.setattr(
-        "corpus_structure.semantic.source_views.load_source_view", lambda *args, **kwargs: source
+        "corpus_structure.semantic.source_views.load_source_view",
+        lambda *args, **kwargs: pytest.fail("metadata-only unit construction hydrated source"),
     )
     with owned_source_execution(prepared) as execution:
         assert execution.require_release("release") is prepared
@@ -104,7 +104,7 @@ def test_standalone_source_view_unit_uses_bounded_inputs_and_release_affinity(mo
                 None, SimpleNamespace(reader=reader), UnitRef(TaskUnitType.SOURCE_VIEW, 11)
             )
             assert unit.source_view_id == 11 and unit.document_id == 1
-            assert execution.cpu.budget.used_bytes > 0
+            assert execution.cpu.budget.used_bytes == 0
         assert execution.cpu.budget.used_bytes == 0
     with pytest.raises(ValueError, match="closed"):
         execution.require_release("release")
@@ -201,7 +201,7 @@ def test_protected_layer_reuse_still_admits_each_current_run(monkeypatch):
         lambda conn, ref, **kwargs: calls.append(("body", kwargs["run_id"])) or report,
     )
 
-    def admit(conn, ref, *, run_id):
+    def admit(conn, ref, *, run_id, max_bytes):
         calls.append(("admission", run_id))
         if run_id == 3:
             raise ValueError("current run refused")
@@ -371,3 +371,96 @@ def test_regional_layer_cache_rejects_mismatched_pin_and_reuses_exact_bytes():
             regional.retain_native_layer(pin, wrong)
         assert execution.cpu.budget.used_bytes == len(report.content)
     assert execution.cpu.budget.used_bytes == 0
+
+
+def test_source_payload_is_not_loaded_until_shared_read_window_is_admitted(monkeypatch):
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    prepared = SimpleNamespace(release_id="release")
+    execution = _primary_execution(page_bytes=1024, owned_bytes=2048)
+    execution.require_release = lambda identity: prepared
+    reference = SourceViewRef(
+        11,
+        "source",
+        1,
+        ProductReference(7, "native", "a" * 64),
+        "#/groups/0",
+        "direct",
+        "b" * 64,
+        "c" * 64,
+    )
+    source = PreparedSourceView(reference, "X", (), (), (), {"ok": True})
+    budget = execution.cpu.budget
+    loads = []
+
+    def load(*args, **kwargs):
+        loads.append((budget.used_bytes, kwargs["read_budget"].max_bytes))
+        return source
+
+    monkeypatch.setattr("corpus_structure.semantic.source_views.load_source_view", load)
+    with RegionalPreparation(execution) as regional:
+        budget.reserve(1500)  # Another live CPU/provider/region owns this credit.
+        work = regional.read_work(
+            lambda: regional.source_view(None, reference, analysis=False, prepared=prepared)
+        )
+        assert work.try_submit() is None
+        assert loads == []
+        assert budget.used_bytes == 1500
+        budget.release(1500)
+        handle = work.try_submit()
+        assert handle is not None
+        assert handle.collect().text == "X"
+        assert loads == [(1024, 1024)]
+        expected = canonical_bytes(
+            dict(
+                text="X",
+                pieces=(),
+                items=(),
+                ancestors=(),
+                health={"ok": True},
+                integrated_context=source.integrated_context,
+            )
+        )
+        assert budget.used_bytes == len(expected)
+        assert handle.retire()
+    assert budget.used_bytes == 0
+
+
+def test_layer_read_transfers_admitted_bytes_and_preserves_cache_authorization(monkeypatch):
+    from corpus_structure.semantic.characterization import LayerReport
+
+    execution = _primary_execution(page_bytes=1024, owned_bytes=2048)
+    budget = execution.cpu.budget
+    report = LayerReport(b'{"value":[]}')
+    pin = report.reference(4)
+    reads = []
+
+    def body(conn, ref, *, run_id, max_bytes):
+        reads.append(("body", budget.used_bytes, max_bytes, run_id))
+        assert max_bytes == 2048
+        return report
+
+    def manifest(conn, ref, *, run_id, max_bytes):
+        reads.append(("manifest", budget.used_bytes, max_bytes, run_id))
+        raise ValueError("current run refused")
+
+    monkeypatch.setattr("corpus_structure.semantic.characterization_store.read_layer", body)
+    monkeypatch.setattr(
+        "corpus_structure.semantic.characterization_store.read_layer_manifest", manifest
+    )
+    with RegionalPreparation(execution) as regional:
+        budget.reserve(1)
+        work = regional.read_work(lambda: regional.layer(None, pin, run_id=1))
+        assert work.try_submit() is None
+        assert reads == []
+        budget.release(1)
+        handle = work.try_submit()
+        assert handle is not None
+        assert handle.collect() is report
+        assert budget.used_bytes == len(report.content)
+        with pytest.raises(ValueError, match="current run refused"):
+            regional.layer(None, pin, run_id=2)
+        assert reads[0] == ("body", 2048, 2048, 1)
+        assert reads[1] == ("manifest", 2048, 2048 - len(report.content), 2)
+        assert budget.used_bytes == len(report.content)
+    assert budget.used_bytes == 0

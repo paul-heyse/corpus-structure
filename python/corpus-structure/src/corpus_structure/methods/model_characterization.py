@@ -600,13 +600,19 @@ class ModelCharacterizationMethod:
                             # Classification examines the exact focal slice, without
                             # borrowing the cue's wider context or labels.
                             selected_scope = prepare_model_scope(
-                                scope.view, scope.focal, scope.focal,
+                                scope.view,
+                                scope.focal,
+                                scope.focal,
                                 max_chars=cfg.max_context_chars,
                             )
                             job["scope"] = selected_scope
                             request = classification_request(
-                                prepared.release_id, family, family.questions[0].key,
-                                selected_scope.mapping, profile, inference,
+                                prepared.release_id,
+                                family,
+                                family.questions[0].key,
+                                selected_scope.mapping,
+                                profile,
+                                inference,
                                 characterization_family=family.family,
                             )
                             pack = GlinerPack(**request["pack"])
@@ -620,9 +626,12 @@ class ModelCharacterizationMethod:
                         job["error"] = error
             for (_kind, pack, threshold, overlap), members in groups.items():
                 outcomes = yield from gliner_extract_members(
-                    providers, profile.profile, pack,
+                    providers,
+                    profile.profile,
+                    pack,
                     tuple(job["item"] for job in members),
-                    threshold=threshold, overlap_policy=overlap,
+                    threshold=threshold,
+                    overlap_policy=overlap,
                     check_active=ctx.check_active,
                 )
                 for job, outcome in zip(members, outcomes, strict=True):
@@ -635,8 +644,15 @@ class ModelCharacterizationMethod:
                         raise job["error"]
                     if job["request"] is None:
                         project_gliner_cues(
-                            builder, family, selected_scope, job["pack"], job["item"], native,
-                            profile.profile, inference, threshold=profile.threshold,
+                            builder,
+                            family,
+                            selected_scope,
+                            job["pack"],
+                            job["item"],
+                            native,
+                            profile.profile,
+                            inference,
+                            threshold=profile.threshold,
                         )
                     else:
                         request = job["request"]
@@ -647,6 +663,10 @@ class ModelCharacterizationMethod:
                 except (GlinerWorkerError, OSError, ValueError) as error:
                     ctx.check_active()
                     builder.unavailable(
-                        family, selected_scope, str(error),
-                        native=None if native is None else dict(report=asdict(native), reason=str(error)),
+                        family,
+                        selected_scope,
+                        str(error),
+                        native=None
+                        if native is None
+                        else dict(report=asdict(native), reason=str(error)),
                     )

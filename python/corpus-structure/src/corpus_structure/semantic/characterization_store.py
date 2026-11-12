@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Sequence
-from typing import Any, cast
+from typing import Any, Literal, cast
 
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Connection
 from sqlalchemy.exc import DBAPIError
 
@@ -22,6 +23,49 @@ from .characterization import (
 )
 from .identity import canonical_bytes
 from .product_reference import ProductReference
+
+
+class FamilyOutcomeSummary(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    family: str
+    outcome: Literal["complete", "empty", "partial", "failed", "unknown", "unsupported"]
+    availability: Literal["available", "unknown", "unsupported", "unavailable"]
+
+
+class ProviderAvailabilitySummary(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    family: str
+    attribute: str
+    status: Literal["complete", "partial", "absent", "not_applicable"]
+
+
+class HistoricalProviderSummary(BaseModel):
+    """Actual retained provider metadata, never current physical activity."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    provider: str
+    profile: str
+    model: str
+    model_version: str
+    runtime_version: str
+    configuration_digest: str
+    availability: tuple[ProviderAvailabilitySummary, ...] = Field(max_length=32)
+    availability_omitted: int = Field(ge=0)
+
+
+class CharacterizationProductSummary(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    version: Literal[1] = 1
+    base_document: ProductReference
+    profile: str | None
+    outcome: str | None
+    readiness: Literal["source_only", "enriched", "partial"] | None
+    coverage: tuple[FamilyOutcomeSummary, ...] = Field(max_length=64)
+    coverage_omitted: int = Field(ge=0)
+    layer_count: int = Field(ge=0)
+    active_layer_count: int = Field(ge=0)
+    providers: tuple[HistoricalProviderSummary, ...] = Field(max_length=16)
+    providers_omitted: int = Field(ge=0)
 
 
 def _publish(
@@ -169,7 +213,7 @@ def read_inventory(
     """Bounded run-selected original pins, including reused products; no latest lookup."""
     from ._operation_calls import read_characterization_inventory
 
-    return cast(
+    result = cast(
         dict[str, Any],
         read_characterization_inventory(
             connection,
@@ -180,6 +224,12 @@ def read_inventory(
             max_bytes=max_bytes,
         ),
     )
+    for product in result["products"]:
+        if "summary" in product:
+            product["summary"] = CharacterizationProductSummary.model_validate(
+                product["summary"]
+            ).model_dump(mode="json")
+    return result
 
 
 def read_primary_layers(

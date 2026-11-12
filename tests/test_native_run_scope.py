@@ -1,5 +1,6 @@
 """Direct source execution refuses incompatible scopes before registering any run or task."""
 
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -7,6 +8,7 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy import Connection, Engine
 
+from corpus_structure.core.method import MethodSettings
 from corpus_structure.core.vocab import Stage
 from corpus_structure.ingest.pdf_methods import IngestPdf
 from corpus_structure.ingest.pdf_recognition_methods import IngestPdfIntegrated
@@ -74,7 +76,9 @@ def run_scope(monkeypatch, source_release):
             binding=OperationBinding(source_release.release_id, "input", 0, b"{}"),
             registry=registry,
             graph=Graph(((Stage.INGEST, (Step(method.name + "/default"),)),)),
-            method_settings=None,
+            method_settings=MethodSettings(
+                data_dir=Path("build/data"), model_cache=Path("build/models")
+            ),
             scope_record=scope,
         )
 

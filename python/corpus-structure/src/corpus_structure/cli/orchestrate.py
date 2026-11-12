@@ -122,16 +122,19 @@ def project_init(
     """Create or update the project: its documents and the pack's versions."""
     from corpus_structure.cli.regenerate import read_product_pin
     from corpus_structure.orchestrate import project
+    from corpus_structure.orchestrate.source_request import validate_source_roles
 
-    if native_source is not None and integrated_source is not None:
-        raise typer.BadParameter("native-source and integrated-source are mutually exclusive")
+    try:
+        validate_source_roles(native_source, integrated_source)
+    except ValueError as error:
+        raise typer.BadParameter(str(error)) from error
+    if semantic_release is None or realization is None:
+        raise typer.BadParameter("initialization requires --semantic-release and --realization")
+    native_product = read_product_pin(native_source, "native")
+    integrated_product = read_product_pin(integrated_source, "integrated")
     settings = state(ctx).settings()
     seams = PHASE0()
     with _refusals(json), ENGINE(settings) as engine, engine.begin() as conn:
-        native_product = read_product_pin(native_source, "native")
-        integrated_product = read_product_pin(integrated_source, "integrated")
-        if semantic_release is None or realization is None:
-            raise typer.BadParameter("initialization requires --semantic-release and --realization")
         report = project.init_bound_project(
             conn,
             domain=domain,
@@ -183,13 +186,14 @@ def run(
         str | None, typer.Option(help="Explicit semantic input realization.")
     ] = None,
     domain: Annotated[
-        str, typer.Option(help="Method pack for explicit semantic source execution.")
-    ] = "statistics",
+        str | None, typer.Option(help="Method pack for explicit semantic source execution.")
+    ] = None,
     extraction_policy: Annotated[
-        str, typer.Option(help="Explicit source policy: phase0 or m1-candidate.")
+        Literal["phase0", "m1-candidate"],
+        typer.Option(help="Explicit source policy: phase0 or m1-candidate."),
     ] = "phase0",
     m1_configuration: Annotated[
-        str,
+        Literal["default", "described", "readings", "contextual", "source-only"],
         typer.Option(
             help="M1 policy: source-only freezing or "
             "default/described/readings/contextual CPU extraction."
@@ -224,90 +228,82 @@ def run(
     """Start a run over the project's corpus and run it to its end."""
     if ctx.invoked_subcommand is not None:
         return
-    from corpus_structure.orchestrate import commands
-
-    if whole_document and (slice is not None or scope is not None):
-        raise typer.BadParameter("whole-document is mutually exclusive with slice and scope")
-    settings = state(ctx).settings()
+    from corpus_structure.orchestrate.source_operation import (
+        preflight_source_operation,
+        run_source_operation,
+    )
+    from corpus_structure.orchestrate.source_request import (
+        SourceRunRequest,
+        integrated_product_pin,
+        source_selection,
+        source_workflow,
+    )
     from corpus_structure.semantic.product_reference import ProductReference
 
-    product_fields = (integrated_product_task, integrated_product_key, integrated_product_digest)
-    if any(value is not None for value in product_fields) and not all(
-        value is not None for value in product_fields
-    ):
-        raise typer.BadParameter(
-            "integrated product task, key and digest must be supplied together"
-        )
-    if extraction_policy not in {"phase0", "m1-candidate"}:
-        raise typer.BadParameter("unknown extraction policy")
-    if m1_configuration not in {"default", "described", "readings", "contextual", "source-only"}:
-        raise typer.BadParameter(
-            "M1 configuration must be default, described, readings, contextual or source-only"
-        )
-    if extraction_policy == "phase0" and m1_configuration != "default":
-        raise typer.BadParameter("nondefault M1 configuration requires the m1-candidate policy")
-    if extraction_policy == "m1-candidate" and integrated_product_task is None:
-        raise typer.BadParameter("M1 requires an exact retained integrated product pin")
-    try:
-        integrated_product = (
-            ProductReference(
-                integrated_product_task, integrated_product_key, integrated_product_digest
-            )
-            if integrated_product_task is not None
-            and integrated_product_key is not None
-            and integrated_product_digest is not None
-            else None
-        )
-    except (TypeError, ValueError) as error:
-        raise typer.BadParameter(str(error)) from error
-    from corpus_structure.semantic.runtime import resolve_source_binding
-
+    settings = state(ctx).settings()
     method_settings = resolved_method_settings(settings, execution_policy)
-    if gpu_mode is not None:
-        raise typer.BadParameter("the selected semantic graph has no GPU operation")
-    project = project or settings.runtime.default_project
-    with _refusals(json), ENGINE(settings) as engine:
-        with engine.connect() as conn:
-            release_id, realization_id = resolve_source_binding(
-                conn, project, release_id=semantic_release, realization_id=realization
-            )
-        report = commands.start_bound_run(
-            engine,
-            release_id=release_id,
-            realization_id=realization_id,
-            project_id=project,
+    try:
+        request = SourceRunRequest(
+            project_id=project or settings.runtime.default_project,
+            release_id=semantic_release,
+            realization_id=realization,
             domain=domain,
-            method_settings=method_settings,
-            phase=phase,
+            selection=source_selection(
+                slice=slice, scope=scope, whole_document=whole_document, corpus=corpus
+            ),
+            workflow=source_workflow(
+                extraction_policy=extraction_policy,
+                m1_configuration=m1_configuration,
+                record_policy=loads(record_policy.read_bytes()) if record_policy else None,
+                characterization_views=tuple(
+                    ProductReference(**loads(value)) for value in characterization_view or ()
+                ),
+            ),
+            integrated_product=integrated_product_pin(
+                integrated_product_task, integrated_product_key, integrated_product_digest
+            ),
+            membership=source_membership,
             fresh=tuple(fresh or ()),
-            slice=slice,
-            scope=scope,
-            whole_document=whole_document,
-            source_membership=source_membership,
-            corpus=corpus,
+            phase=phase,
             agent_mode=str(agent_mode or AgentMode.COMPLETE),
             agent_reuse=str(agent_reuse or AgentReuse.FULL),
-            extraction_policy=extraction_policy,
-            m1_configuration=m1_configuration,
-            record_policy=__import__("json").loads(record_policy.read_text())
-            if record_policy
-            else None,
-            integrated_product=integrated_product,
-            characterization_views=tuple(
-                ProductReference(**loads(value)) for value in characterization_view or ()
-            ),
-            **{
-                k: v
-                for k, v in PHASE0().items()
-                if k
-                in (
-                    {"domains"}
-                    if extraction_policy == "m1-candidate"
-                    else {"registry_for", "graph", "domains"}
-                )
-            },
         )
-    emit(report, json=json)
+        seams = PHASE0()
+        dependencies = {"domains": seams["domains"]}
+        if extraction_policy == "phase0":
+            dependencies.update(graph=seams["graph"], registry_for=seams["registry_for"])
+        preflight_source_operation(
+            request,
+            method_settings,
+            **{key: value for key, value in dependencies.items() if key != "domains"},
+        )
+    except (OSError, TypeError, ValueError) as error:
+        raise typer.BadParameter(str(error)) from error
+    if gpu_mode is not None:
+        raise typer.BadParameter("the selected semantic graph has no GPU operation")
+    from pydantic import RootModel
+
+    from corpus_structure.cli.managed import result_store
+    from corpus_structure.orchestrate.source_reporting import record_source_run
+
+    with (
+        result_store(ctx).operation(
+            "run", scope={"project": request.project_id}, observations=True
+        ) as invocation,
+        _refusals(json),
+        ENGINE(settings) as engine,
+    ):
+        report = run_source_operation(
+            engine,
+            request,
+            method_settings,
+            on_created=lambda created: record_source_run(invocation, engine, created),
+            **dependencies,
+        )
+    emit(
+        RootModel[dict]({**report.model_dump(mode="json"), "invocation_id": invocation.id}),
+        json=json,
+    )
 
 
 @run_app.command("cancel")
@@ -355,9 +351,9 @@ def run_resume(
         from corpus_structure.cli.managed import result_store
         from corpus_structure.orchestrate.characterization_recovery import (
             record_characterization_run,
-            record_frozen_characterization,
             resume_characterization,
         )
+        from corpus_structure.orchestrate.source_reporting import record_recovery_binding
 
         settings = state(ctx).settings()
         method_settings = resolved_method_settings(settings, execution_policy)
@@ -374,8 +370,8 @@ def run_resume(
                 method_settings,
                 project_id=project,
                 on_created=lambda created: record_characterization_run(invocation, engine, created),
-                on_frozen=lambda anchor, envelope: record_frozen_characterization(
-                    invocation, anchor, envelope, method_settings.execution_policy
+                on_frozen=lambda anchor, envelope: record_recovery_binding(
+                    invocation, engine, anchor, envelope, method_settings.execution_policy
                 ),
             )
             report = RootModel[dict](
@@ -511,98 +507,63 @@ def ingest(
     execution_policy: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
 ) -> None:
     """Prepare a source cut for an existing bound project."""
-    from corpus_structure.cli.regenerate import read_product_pin
-    from corpus_structure.orchestrate import commands
-    from corpus_structure.orchestrate.project import init_bound_project
-    from corpus_structure.semantic.runtime import resolve_source_binding
-
-    if whole_document and (slice is not None or scope is not None):
-        raise typer.BadParameter("whole-document is mutually exclusive with slice and scope")
     from corpus_structure.cli.managed import result_store
-    from corpus_structure.orchestrate.characterization_recovery import record_characterization_run
+    from corpus_structure.cli.regenerate import read_product_pin
+    from corpus_structure.orchestrate.source_operation import (
+        preflight_source_operation,
+        run_source_operation,
+    )
+    from corpus_structure.orchestrate.source_reporting import record_source_run
+    from corpus_structure.orchestrate.source_request import (
+        Capture,
+        CharacterizationOptions,
+        SourceRunRequest,
+        source_selection,
+        validate_source_roles,
+    )
 
     settings = state(ctx).settings()
     method_settings = resolved_method_settings(settings, execution_policy)
+    try:
+        validate_source_roles(native_source, integrated_source)
+        request = SourceRunRequest(
+            project_id=project or settings.runtime.default_project,
+            release_id=semantic_release,
+            realization_id=realization,
+            domain=domain,
+            selection=source_selection(slice=slice, scope=scope, whole_document=whole_document),
+            workflow=Capture(
+                CharacterizationOptions.from_options(loads(enrichment_options.read_bytes()))
+                if enrichment_options
+                else None
+            ),
+            membership=source_membership,
+            registration_corpus=corpus,
+            native_product=read_product_pin(native_source, "native"),
+            integrated_product=read_product_pin(integrated_source, "integrated"),
+        )
+        preflight_source_operation(request, method_settings)
+    except (OSError, TypeError, ValueError) as error:
+        raise typer.BadParameter(str(error)) from error
     with (
         result_store(ctx).operation(
-            "ingest", scope={"project": project}, observations=True
+            "ingest", scope={"project": request.project_id}, observations=True
         ) as invocation,
         _refusals(json),
         ENGINE(settings) as engine,
     ):
-        project = project or settings.runtime.default_project
-        if native_source is not None and integrated_source is not None:
-            raise commands.CommandError(
-                "native-source and integrated-source are mutually exclusive"
-            )
-        native_product = read_product_pin(native_source, "native")
-        integrated_product = read_product_pin(integrated_source, "integrated")
-        with engine.begin() as conn:
-            release, source = resolve_source_binding(
-                conn, project, release_id=semantic_release, realization_id=realization
-            )
-            domain = commands.resolve_source_domain(conn, project, release, domain)
-            if corpus is not None:
-                init_bound_project(
-                    conn,
-                    domain=domain,
-                    corpus=corpus,
-                    release_id=release,
-                    realization_id=source,
-                    name=project,
-                    native_product=native_product,
-                    integrated_product=integrated_product,
-                )
-        from corpus_structure.semantic.execution_preparation import prepare_execution
+        result = run_source_operation(
+            engine,
+            request,
+            method_settings,
+            on_created=lambda created: record_source_run(invocation, engine, created),
+        )
+    from pydantic import RootModel
 
-        with engine.connect() as conn:
-            execution = prepare_execution(conn, release, policy=method_settings.execution_policy)
-        with execution:
-            result = commands._start_bound_run(
-                execution,
-                engine,
-                release_id=release,
-                realization_id=source,
-                project_id=project,
-                domain=domain,
-                method_settings=method_settings,
-                slice=slice,
-                scope=scope,
-                whole_document=whole_document,
-                source_membership=source_membership,
-                native_product=native_product,
-                integrated_product=integrated_product,
-                source_only=True,
-            )
-            if enrichment_options is not None:
-                from dataclasses import asdict
-
-                from pydantic import RootModel
-
-                from corpus_structure.orchestrate.characterization import _characterize_captured_run
-
-                enriched = _characterize_captured_run(
-                    execution,
-                    engine,
-                    result,
-                    project_id=project,
-                    release_id=release,
-                    realization_id=source,
-                    domain=domain,
-                    method_settings=method_settings,
-                    method_options=__import__("json").loads(enrichment_options.read_bytes()),
-                    on_created=lambda created: record_characterization_run(
-                        invocation, engine, created
-                    ),
-                )
-                result = RootModel[dict](
-                    dict(
-                        invocation_id=invocation.id,
-                        capture=result.model_dump(mode="json"),
-                        enrichment=[asdict(value) for value in enriched],
-                    )
-                )
-    emit(result, json=json)
+    emit(
+        RootModel[dict]({**result.model_dump(mode="json"), "invocation_id": invocation.id}),
+        json=json,
+    )
 
 
 @run_app.command("parsers")
@@ -693,6 +654,18 @@ def run_characterize_command(
         raise typer.BadParameter("--request owns its release, source and method selections")
     settings = state(ctx).settings()
     method_settings = resolved_method_settings(settings, execution_policy)
+    demand = (
+        CharacterizationDemandRequest.model_validate_json(request.read_bytes())
+        if request is not None
+        else None
+    )
+    from corpus_structure.orchestrate.source_request import CharacterizationOptions
+
+    parsed_options = (
+        CharacterizationOptions.from_options(loads(method_options.read_bytes())).options()
+        if method_options
+        else {}
+    )
     with (
         result_store(ctx).operation(
             "run.characterize",
@@ -707,7 +680,7 @@ def run_characterize_command(
             record_characterization_run(invocation, engine, created)
 
         if request is not None:
-            demand = CharacterizationDemandRequest.model_validate_json(request.read_bytes())
+            assert demand is not None
             result = execute_characterization_demand(
                 engine, demand, method_settings, on_created=callback
             )
@@ -743,7 +716,7 @@ def run_characterize_command(
                 realization_id=target_realization,
                 domain=domain,
                 method_settings=method_settings,
-                method_options=loads(method_options.read_bytes()) if method_options else {},
+                method_options=parsed_options,
                 fresh_methods=tuple(fresh or ()),
                 on_created=callback,
             )

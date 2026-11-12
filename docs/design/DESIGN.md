@@ -188,7 +188,7 @@ child transfer. Native settlement, purpose roles, effects and raw disclosure ret
 [D8](D8-agent-and-query-interfaces.md#safe-operation-observation-custody) owns the interface detail;
 the CLI plan owns implementation and qualification separately from the accepted decision.
 
-> Decision: ADR-0001, ADR-0002, ADR-0071, ADR-0006, ADR-0007, ADR-0008, ADR-0010, ADR-0069, ADR-0079, ADR-0080
+> Decision: ADR-0001, ADR-0002, ADR-0071, ADR-0006, ADR-0007, ADR-0008, ADR-0010, ADR-0069, ADR-0079, ADR-0089
 
 
 Product binding decisions follow. Each is `### §Bn <decision stated as a sentence>` with a
@@ -431,6 +431,14 @@ legacy wait barrier rather than implying that every old option is supported.
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
 
+**Proposed accepted operation-lineage target · 2026-11-12.** Actual capture, primary and analytical
+runs share a typed operation identity in existing immutable native run options. Original product
+producers remain separate from current invocation membership; historical missing links remain
+unknown. [D3](D3-database.md#native-source-operation-lineage) owns storage/report detail and BEP-E13
+owns implementation and qualification. No new progress store or synthetic run is introduced.
+
+> Decision: [ADR-0090](../adr/0090-native-source-operation-lineage.md)
+
 **Proposed accepted final execution target · 2026-11-11.** Native JSONB/TOAST retains one logical SourceView layer, original digest meaning and atomic publication under coherent 64 MiB layer/full-layer read bounds, the existing 64 MiB per-view bound and 256 MiB aggregate full-read admission. The first actual stage run retains the versioned frozen demand once in immutable options; later runs reference that anchor. Managed delivery copies do not replace native recovery authority. No synthetic run or progress service is introduced. [D3](D3-database.md#coherent-characterization-bounds-and-native-demand-anchors) owns size/materialization and retained-anchor contracts; SourceView 480/BEP-E01 native qualification remains open with BEP.
 
 > Decision: [ADR-0088](../adr/0088-gpu-default-native-hosts.md)
@@ -649,7 +657,7 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 
 **Proposed accepted final execution target · 2026-11-11.** Result-neutral execution settings resolve through one policy owner; inference profile/device/precision/thread changes retain frozen result-affecting authority before registration. Freeze semantic demand, exact source/release/dependency selections and freshness seed once, then reuse them during supported recovery. BEP qualifies bounded actual-provider/consumer fixtures first; the full retained capture496/cut614 run (316views/518pages) and book acceptance are operator-deferred; acceptance of this target establishes neither implementation nor qualification. [D6](D6-orchestration-metrics-policies.md#final-characterization-policy-and-retained-recovery) owns the boundary; the [BEP coordinator](../plans/book-processing-efficiency-and-parallelism_2026-11-11.md) owns completion. Activation, selection and TC-plan reconciliation remain separate.
 
-> Decision: [ADR-0088](../adr/0088-gpu-default-native-hosts.md)
+> Decision: [ADR-0088](../adr/0088-gpu-default-native-hosts.md), [ADR-0090](../adr/0090-native-source-operation-lineage.md) (operation lineage is outside semantic determinants)
 
 **Proposed accepted D1 CUDA target · 2026-11-11.** Released numerical policy distinguishes D1 CUDA BF16 from GLiNER CPU float32 and binds actual configuration/runtime/artifacts/device/precision. Current authoring requires CUDA; historical original CPU read contracts remain intact. Scoped actual D1 CUDA qualification is authorized now, without qualifying other07b GPU profiles.
 

@@ -2,7 +2,7 @@
 
 ## Shared policy settings, status and characterization resume
 
-**Proposed accepted target · 2026-11-12; consumer cutover incomplete.** SourceRunRequest
+**Application implementation/scoped controls present · 2026-11-12; native/assembled qualification pending.** SourceRunRequest
 represents explicit workflow and source-selection meaning; ResolvedSourceRun freezes exact selected
 values, and SourceOperationResult reports actual capture/primary/analytical lineage and settled pins.
 CLI and Python share validation, resolution and execution. Dependency injection cannot change
@@ -15,12 +15,25 @@ One frozen provider profile owns requested model/runtime/device/dtype/backend/nu
 resolved physical placement and actual startup metadata validate it. D4/D6 own GPU defaults,
 streamed shared hosts and admission. Retained/source-only/query/export reads perform no fresh NLP.
 
-The accepted aggregate target for existing managed reports exposes resolved policy, frozen original source/release selections,
+[ADR-0090](../adr/0090-native-source-operation-lineage.md) makes operation membership explicit in
+existing immutable native run options. One application operation identifies its actual capture,
+primary and analytical runs independently of reused products' original producers. Recovery preserves
+recorded links; historical missing associations remain unknown. The typed
+[source lineage contract](../../python/corpus-structure/src/corpus_structure/orchestrate/source_lineage.py)
+owns the fields; the BEP plan owns implementation and qualification.
+
+> Decision: ADR-0088, ADR-0089, ADR-0090
+
+The implemented aggregate projection for existing managed reports exposes resolved policy, frozen original source/release selections,
 the actual first-run demand anchor, participating run/task IDs, settled regional views, final
 combined pin when present and failed/unavailable scope. Prerequisite/capacity wait, computation,
 reduction and publication are live observations, distinct from durable task outcomes, source
 readiness, family coverage and final-view readiness. Last-observed activity names its observation
 time and cannot imply a still-live owner. No second progress database or service is introduced.
+Protected inventory-summary SQL is prospective until its forward native candidate is registered and
+qualified; older inventory responses report unavailable summary metadata. Controlled projections
+and CLI checks do not establish actual new native SQL/type/ACL behavior. The BEP checkpoint owns
+that remaining boundary and the unselected GPU host foundation.
 
 `ci run resume RUN --characterization` resolves the versioned demand stored once in the first
 actual native run's `options`; later child runs store its anchor reference. It reconstructs the
@@ -201,15 +214,25 @@ terminal or sharing consumer before adding their display/custody lifetimes.
 
 ## Committed source creation notification
 
-**Implemented; scoped Tested, 2026-11-10.** Initial source execution publishes a frozen native
-run/project/release identity through an optional synchronous callback after commit and supervisor
-adoption, before source selection/effects. The native function retains its resource and cleanup
-lifetime. CLI observation custody persists that association beside acquired storage and scopes
-logging context through the call. Ordinary diagnostic errors remain optional; cancellation and
-native settlement retain their owners. This does not promise cross-store crash atomicity.
-The [CLD coordinator](../plans/cli-and-logging_2026-11-10.md#CLD-CA03) owns delivery and qualification.
+**Proposed accepted interleaved target · 2026-11-12; current qualification open.** Native source
+execution notifies a frozen actual run/project/release identity after commit and supervisor adoption,
+inside its cleanup lifetime and before graph selection/work. Each actual run notifies once;
+a composed source operation can notify for several runs. Managed association publication remains
+CLI-owned beside acquired storage; characterization callbacks require that same actual native join.
 
-> Decision: [ADR-0080](../adr/0080-observe-committed-source-run.md)
+The prepared-work driver gives each node a copied Context. Advancement, throwing, submission,
+collection, retirement, flush and close run in that node's context; children inherit their parent's
+current values. Native source plans bind committed identity for their own suspended/resumed scope,
+reset in that same context and restore parent/caller context. CLI-global ambient run bindings cannot
+span interleaved plans. Context copying grants no native effect, device or worker-envelope authority.
+Ordinary diagnostic failures cannot replace native outcomes; arbitrary callback bugs still propagate
+through native cleanup. Neither notification nor managed publication promises cross-store atomicity.
+
+The earlier [CLD coordinator](../plans/cli-and-logging_2026-11-10.md#CLD-CA03) retains its dated
+receipts. [Current BEP repairs](../plans/book-processing-efficiency-and-parallelism_2026-11-11.md#approved-audit-closure-and-gpu-pivot)
+own the changed implementation and preserved native/context assertions.
+
+> Decision: [ADR-0089](../adr/0089-isolated-source-plan-observations.md)
 
 ## Attributed interpretations and correction custody
 

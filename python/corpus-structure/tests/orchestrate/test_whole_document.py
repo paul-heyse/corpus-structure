@@ -8,8 +8,11 @@ import pytest
 from typer.testing import CliRunner
 
 from corpus_structure.cli.app import app
+from corpus_structure.core.method import MethodSettings
 from corpus_structure.ingest.pdf_recognition_methods import PdfIntegratedIngestConfig
 from corpus_structure.orchestrate import commands, phase0
+from corpus_structure.orchestrate.semantic import BoundRunReport
+from corpus_structure.orchestrate.source_request import ConfiguredGraph
 from corpus_structure.semantic.product_reference import ProductReference
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -67,8 +70,12 @@ def test_explicit_whole_document_bypasses_default_scope_and_is_frozen(monkeypatc
     )
     engine = MagicMock()
     engine.connect.return_value.__enter__.return_value = conn
+    monkeypatch.setattr(commands, "resolve_source_domain", lambda *a, **k: "statistics")
     monkeypatch.setattr(releases, "load_release", lambda *a: SimpleNamespace(release_id="release"))
-    started = MagicMock(return_value="captured")
+    captured = BoundRunReport(
+        run_id=17, status="source_ready", release_id="release", realization_id="source"
+    )
+    started = MagicMock(return_value=captured)
     monkeypatch.setattr(semantic, "run_source_methods", started)
     result = commands.start_bound_run(
         engine,
@@ -77,12 +84,12 @@ def test_explicit_whole_document_bypasses_default_scope_and_is_frozen(monkeypatc
         project_id="project",
         domain="statistics",
         domains=tmp_path,
-        method_settings=None,
+        method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
         whole_document=whole,
         source_membership="direct",
         source_only=True,
     )
-    assert result == "captured"
+    assert result == captured
     options = started.call_args.kwargs
     assert options["whole_document"] is whole
     assert options["source_membership"] == "direct"
@@ -114,8 +121,12 @@ def test_full_policy_scope_requires_explicit_intent(monkeypatch, tmp_path, whole
     )
     engine = MagicMock()
     engine.connect.return_value.__enter__.return_value = conn
+    monkeypatch.setattr(commands, "resolve_source_domain", lambda *a, **k: "statistics")
     monkeypatch.setattr(releases, "load_release", lambda *a: SimpleNamespace(release_id="release"))
-    started = MagicMock(return_value="captured")
+    captured = BoundRunReport(
+        run_id=17, status="source_ready", release_id="release", realization_id="source"
+    )
+    started = MagicMock(return_value=captured)
     monkeypatch.setattr(semantic, "run_source_methods", started)
     kwargs = dict(
         release_id="release",
@@ -123,14 +134,16 @@ def test_full_policy_scope_requires_explicit_intent(monkeypatch, tmp_path, whole
         project_id="project",
         domain="statistics",
         domains=tmp_path,
-        method_settings=None,
+        method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
         whole_document=whole,
+        workflow=ConfiguredGraph(),
+        registry_for=phase0.registry,
         graph=Graph(
             ((Stage.INGEST, (Step("ingest.pdf_integrated/default"),)),), policy_propose=True
         ),
     )
     if whole:
-        assert commands.start_bound_run(engine, **kwargs) == "captured"
+        assert commands.start_bound_run(engine, **kwargs) == captured
         assert started.call_args.kwargs["whole_document"] is True
     else:
         with pytest.raises(commands.CommandError, match="requires a scope"):

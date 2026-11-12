@@ -23,6 +23,19 @@ native recovery authority. Before the first actual run exists, no durable run id
 
 > Decision: [ADR-0088](../adr/0088-gpu-default-native-hosts.md)
 
+## Native source operation lineage
+
+**Application links/read projections implemented at scoped controls · 2026-11-12; BEP-E13 owns native/assembled qualification.**
+Existing immutable `ops.run.options` carries a typed operation link for actual capture, primary and
+analytical runs. One application operation shares that identity independently of reused product
+origins. The characterization anchor retains it outside semantic demand determinants; recovery
+preserves the recorded link, while historical missing associations remain unknown. Native read
+reports use recorded membership under the same project/release and keep original producer pins
+separate. The prospective forward native inventory extension supplies bounded readiness and historical provider summaries; it has not been registered/deployed at the closeout checkpoint. Existing native responses without summaries retain explicit unavailable standing;
+missing observations do not establish absent live work. No new progress store or control run exists.
+
+> Decision: [ADR-0090](../adr/0090-native-source-operation-lineage.md)
+
 ## Ready work, claims and reduction custody
 
 **Proposed accepted target · 2026-11-11.** Parent coordination owns durable stage/task/claim

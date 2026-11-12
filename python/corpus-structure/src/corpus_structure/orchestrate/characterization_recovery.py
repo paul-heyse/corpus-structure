@@ -14,6 +14,7 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from .characterization import CharacterizationDemandRequest
+from .source_lineage import SourceOperationLink
 
 
 def native_thread_profile(policy):
@@ -41,12 +42,17 @@ class CharacterizationOperation:
     envelope: CharacterizationDemand
     anchor_run_id: int | None = None
     recovering: bool = False
+    source_operation: SourceOperationLink | None = None
     recovered_layers: set = field(default_factory=set)
     recovered_views: dict = field(default_factory=dict)
     recovered_runs: dict = field(default_factory=dict)
 
     @classmethod
-    def freeze(cls, requests, registry, profiles, diagnostics=(), policy=None):
+    def freeze(
+        cls, requests, registry, profiles, diagnostics=(), policy=None, *, source_operation=None
+    ):
+        if source_operation is not None and source_operation.role != "primary":
+            raise ValueError("characterization requires primary operation provenance")
         envelope = CharacterizationDemand(
             requests=requests,
             freshness_seed=uuid4().hex,
@@ -55,13 +61,18 @@ class CharacterizationOperation:
             preparation_diagnostics=diagnostics,
             execution_native_profile=native_thread_profile(policy),
         )
-        return cls(CharacterizationDemand.model_validate_json(envelope.model_dump_json()))
+        return cls(
+            CharacterizationDemand.model_validate_json(envelope.model_dump_json()),
+            source_operation=source_operation or SourceOperationLink(role="primary"),
+        )
 
     def request(self, index, fallback):
         return self.envelope.requests[index] if index >= 0 else fallback
 
     def options(self, region, stages):
         options = {"characterization_region": region, "characterization_stage": list(stages)}
+        if self.source_operation is not None:
+            options.update(self.source_operation.options())
         if self.anchor_run_id is None:
             options["characterization_demand"] = self.envelope.model_dump(mode="json")
         else:
@@ -118,7 +129,9 @@ def resolve_characterization_anchor(conn, run_id):
     return anchor, envelope
 
 
-def _validate_current_profiles(engine, envelope, registry, prepared, method_settings):
+def _validate_current_profiles(
+    engine, envelope, registry, prepared, method_settings, *, execution_preparation=None
+):
     from corpus_structure.semantic.operations import OperationConflict
 
     from .characterization import _freeze_request
@@ -155,6 +168,7 @@ def _validate_current_profiles(engine, envelope, registry, prepared, method_sett
             prepared,
             method_settings,
             cache,
+            execution_preparation=execution_preparation,
         )
     if cache != envelope.provider_profiles:
         raise OperationConflict(
@@ -220,8 +234,24 @@ def resume_characterization(
         selected = (registry or registry_for(DOMAINS / request.domain)).bind_release(
             execution.prepared
         )
-        _validate_current_profiles(engine, envelope, selected, execution.prepared, method_settings)
-        operation = CharacterizationOperation(envelope, anchor_run_id=anchor, recovering=True)
+        _validate_current_profiles(
+            engine,
+            envelope,
+            selected,
+            execution.prepared,
+            method_settings,
+            execution_preparation=execution,
+        )
+        anchor_row = next(row for row in retained if int(row["id"]) == anchor)
+        retained_link = anchor_row["options"].get("source_operation")
+        source_operation = (
+            SourceOperationLink.model_validate(retained_link) if retained_link is not None else None
+        )
+        if source_operation is not None and source_operation.role != "primary":
+            raise OperationConflict("retained characterization has another source operation role")
+        operation = CharacterizationOperation(
+            envelope, anchor_run_id=anchor, recovering=True, source_operation=source_operation
+        )
         for retained_run in retained:
             operation.recovered_runs.setdefault(
                 retained_run["options"].get("characterization_region"), []
@@ -234,7 +264,7 @@ def resume_characterization(
             active = list(
                 request.selected_layers if request.active_layers is None else request.active_layers
             )
-            from corpus_structure.semantic.characterization_store import read_layer
+            from corpus_structure.semantic.characterization_store import read_layer_manifest
 
             for row in retained:
                 if row["options"].get("characterization_region") != index:
@@ -248,7 +278,7 @@ def resume_characterization(
                         continue
                     pin = ProductReference(**product["reference"])
                     with read_snapshot(engine) as conn:
-                        layer = read_layer(conn, pin, run_id=row["id"])
+                        layer = read_layer_manifest(conn, pin, run_id=row["id"])
                     if (
                         layer.base_document != request.base_document
                         or layer.payload["source_scope"] != request.source_scope
@@ -262,7 +292,7 @@ def resume_characterization(
             latest = {}
             with read_snapshot(engine) as conn:
                 for pin in dict.fromkeys(active):
-                    latest[read_layer(conn, pin).payload["operation"]["key"]] = pin
+                    latest[read_layer_manifest(conn, pin).payload["operation"]["key"]] = pin
             recovered.append(
                 request.model_copy(
                     update={"selected_layers": tuple(pins), "active_layers": tuple(latest.values())}
@@ -312,28 +342,77 @@ def resume_characterization(
 
 
 def record_characterization_run(invocation, engine, created):
-    """Copy a native anchor into the current managed result and correlate actual runs.
+    """Bind each actual native child and copy its anchor without granting authority."""
 
-    No context binding crosses a generator yield: each observation carries its own run.
-    Optional receipt failure cannot replace native execution or its original failure.
-    """
-    from sqlalchemy import select
-
-    from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.storage_target import acquired_target
 
+    recognized = False
     try:
+        from sqlalchemy import text
+
         with read_snapshot(engine) as conn:
-            runs = table("ops.run")
-            options = conn.scalar(select(runs.c.options).where(runs.c.id == created.run_id))
-            if not ({"characterization_demand", "characterization_anchor"} & options.keys()):
+            row = (
+                conn.execute(
+                    text("""SELECT id,project_id,release_id,input_realization_id,
+                                options-'characterization_demand' AS options,options ?
+                'characterization_demand' AS has_demand
+                FROM ops.run WHERE id=:run"""),
+                    dict(run=created.run_id),
+                )
+                .mappings()
+                .one()
+            )
+            if row["project_id"] != created.project or row["release_id"] != created.release_id:
+                raise ValueError("characterization callback differs from native run identity")
+            options = row["options"]
+            if not row["has_demand"] and "characterization_anchor" not in options:
                 return False
-            anchor, envelope = resolve_characterization_anchor(conn, int(created.run_id))
+            recognized = True
+            target = acquired_target(conn, purpose="write")
+            anchor = (
+                int(created.run_id) if row["has_demand"] else options["characterization_anchor"]
+            )
+            header = (
+                conn.execute(
+                    text("""SELECT project_id,release_id,input_realization_id,
+                                options ? 'characterization_demand' AS has_demand FROM ops.run
+                WHERE id=:anchor"""),
+                    dict(anchor=anchor),
+                )
+                .mappings()
+                .one()
+            )
+            if not header["has_demand"] or any(
+                header[key] != row[key]
+                for key in ("project_id", "release_id", "input_realization_id")
+            ):
+                raise ValueError("characterization anchor differs from native run binding")
+            envelope = None
+            if "characterization-demand" not in invocation.manifest.artifacts:
+                body = conn.scalar(
+                    text("""SELECT CASE WHEN
+octet_length(data.canonical_json(options->'characterization_demand'))<=8388608
+                    THEN options->'characterization_demand' END FROM ops.run WHERE id=:anchor"""),
+                    dict(anchor=anchor),
+                )
+                if body is not None:
+                    envelope = CharacterizationDemand.model_validate(body)
+        invocation.manifest.details["observation_target"] = target.model_dump(mode="json")
+        if options.get("source_operation") is not None:
+            invocation.manifest.details["source_operation_id"] = str(
+                SourceOperationLink.model_validate(options["source_operation"]).operation_id
+            )
+
         selected = invocation.manifest.details.setdefault("characterization_runs", [])
         if int(created.run_id) not in selected:
             selected.append(int(created.run_id))
+        # Associate the committed native run before optional artifact/stage publication.
+        invocation.bind_observations(
+            run_id=created.run_id, project=created.project, release_id=created.release_id
+        )
         role = "characterization-demand"
-        if role not in invocation.manifest.artifacts:
+        if role not in invocation.manifest.artifacts and envelope is not None:
             path = invocation.directory / "characterization-demand.json"
             path.write_text(envelope.model_dump_json(), encoding="utf-8")
             invocation.publish(role, path)
@@ -349,14 +428,21 @@ def record_characterization_run(invocation, engine, created):
         )
         return True
     except Exception as error:
+        reason = type(error).__name__
+        invocation.manifest.details["observation_binding_unavailable"] = reason
         with suppress(Exception):
             invocation.observe(
                 "binding_unavailable",
                 "Characterization receipt binding unavailable",
                 run_id=int(created.run_id),
-                reason=type(error).__name__,
+                reason=reason,
             )
-        return False
+            from corpus_structure.cli.output import diagnostic
+
+            diagnostic("Native run observation binding unavailable: " + reason)
+        # A recognized child's failed diagnostic binding must not be retried by the
+        # ordinary-capture callback or replace its actual source outcome.
+        return recognized
 
 
 def record_frozen_characterization(invocation, anchor, envelope, policy):

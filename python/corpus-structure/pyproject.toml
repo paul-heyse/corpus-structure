@@ -52,6 +52,11 @@ dependencies = [
     "pronto==2.7.4",
     "fastobo==0.14.2",
     "structlog==26.1.0",
+    "hanlp==2.1.7",
+    "hanlp-common==0.0.24",
+    "cupy-cuda13x==14.2.0",
+    "torch==2.15.0",
+    "transformers==5.22.1",
 ]
 
 [project.scripts]
@@ -66,3 +71,4 @@ module-name = "corpus_structure"
 
 [tool.uv.sources]
 en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
+hanlp-common = { git = "https://github.com/hankcs/HanLP.git", rev = "959a6966f6e7e26d2e89c4112ca9bafbe32eb743", subdirectory = "plugins/hanlp_common" }

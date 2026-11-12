@@ -33,7 +33,13 @@ def runtime(monkeypatch):
             check_active()
             self.requests.append(payload)
             if payload.get("prepare_bulk"):
-                return dict(outcome="prepared_batch", members=[dict(ordinal=i, text=sentence) for i, sentence in enumerate(payload["sentences"])])
+                return dict(
+                    outcome="prepared_batch",
+                    members=[
+                        dict(ordinal=i, text=sentence)
+                        for i, sentence in enumerate(payload["sentences"])
+                    ],
+                )
             return payload
 
     @contextmanager
@@ -543,23 +549,40 @@ def test_pm2_coalescing_admits_exact_merged_utf8_wire_frame(runtime, provider, f
 
     execution, opened, _ = runtime
     selected = replace(
-        selection(), provider=provider, device="cuda" if provider == "d1" else "cpu",
-        profile=canonical_bytes(dict(provider=provider, device="cuda" if provider == "d1" else "cpu")),
+        selection(),
+        provider=provider,
+        device="cuda" if provider == "d1" else "cpu",
+        profile=canonical_bytes(
+            dict(provider=provider, device="cuda" if provider == "d1" else "cpu")
+        ),
     )
     key = "batch" if provider == "d1" else "sentences"
-    members = ([{"state": "é" * 200}], [{"state": "界" * 200}]) if provider == "d1" else (
-        [["é" * 200]], [["界" * 200]],
+    members = (
+        ([{"state": "é" * 200}], [{"state": "界" * 200}])
+        if provider == "d1"
+        else (
+            [["é" * 200]],
+            [["界" * 200]],
+        )
     )
     options = {} if provider == "d1" else {"prepare_bulk": True}
     payloads = [{**options, key: value} for value in members]
     merged = {**options, key: [value for member in members for value in member]}
     # Independent actual wire representation, including framing, UTF-8 and newline.
-    frame = json.dumps(
-        dict(kind="infer", request_id=1, payload=merged),
-        ensure_ascii=False, allow_nan=False, separators=(",", ":"),
-    ).encode() + b"\n"
+    frame = (
+        json.dumps(
+            dict(kind="infer", request_id=1, payload=merged),
+            ensure_ascii=False,
+            allow_nan=False,
+            separators=(",", ":"),
+        ).encode()
+        + b"\n"
+    )
     execution.policy = replace(execution.policy, max_native_request_bytes=len(frame) - (not fits))
-    handles = [execution.try_submit(work(str(i), payload, selected=selected)) for i, payload in enumerate(payloads)]
+    handles = [
+        execution.try_submit(work(str(i), payload, selected=selected))
+        for i, payload in enumerate(payloads)
+    ]
     held = execution.budget.used_bytes
     assert held > 0
     handles[0].flush()
@@ -571,12 +594,14 @@ def test_pm2_coalescing_admits_exact_merged_utf8_wire_frame(runtime, provider, f
     assert execution.budget.used_bytes == held
     assert len(opened[0].requests) == (1 if fits else 2)
     if provider == "d1":
-        assert [reply["batch"][0]["state"] for reply in replies] == [member[0]["state"] for member in members]
+        assert [reply["batch"][0]["state"] for reply in replies] == ["é" * 200, "界" * 200]
         receipts = [reply["batch"][0]["batch_receipt"] for reply in replies]
         assert [receipt["member_ordinal"] for receipt in receipts] == ([0, 1] if fits else [0, 0])
         assert (receipts[0]["digest"] == receipts[1]["digest"]) == fits
     else:
-        assert [[member["text"] for member in reply["members"]] for reply in replies] == list(members)
+        assert [[member["text"] for member in reply["members"]] for reply in replies] == list(
+            members
+        )
     for handle in handles:
         handle.retire()
     assert execution.budget.used_bytes == 0
@@ -588,16 +613,26 @@ def test_gliner_frozen_thread_mismatch_refuses_shared_admission_before_startup(
     runtime, monkeypatch, threads, interop, route
 ):
     from semantic.test_model_characterization import gliner_profile
+
     from corpus_structure.methods.gliner import GlinerInput, GlinerPack, GlinerRefused
 
     execution, _, _ = runtime
     execution.policy = replace(
-        execution.policy, provider_threads=threads, provider_interop_threads=interop,
+        execution.policy,
+        provider_threads=threads,
+        provider_interop_threads=interop,
     )
-    monkeypatch.setattr(resources, "GlinerWorker", lambda *args: pytest.fail("launched mismatched profile"))
+    monkeypatch.setattr(
+        resources, "GlinerWorker", lambda *args: pytest.fail("launched mismatched profile")
+    )
     request = resources.GLiNERWork(
-        gliner_profile().profile, GlinerPack("release", "1", "{}"),
-        (GlinerInput("context", "a" * 64, "source"),), 0.5, "flat", "one", (lambda: None,),
+        gliner_profile().profile,
+        GlinerPack("release", "1", "{}"),
+        (GlinerInput("context", "a" * 64, "source"),),
+        0.5,
+        "flat",
+        "one",
+        (lambda: None,),
     )
     with pytest.raises(GlinerRefused, match="threads/inter-op"):
         if route == "eager":
@@ -615,14 +650,19 @@ def test_pm2_combined_frame_fit_uses_actual_next_resident_request_ordinal(runtim
     import json
 
     execution, opened, _ = runtime
-    selected = replace(selection(), provider="d1", device="cuda", profile=b'{"provider":"d1","device":"cuda"}')
+    selected = replace(
+        selection(), provider="d1", device="cuda", profile=b'{"provider":"d1","device":"cuda"}'
+    )
     startup = execution.try_submit(resources.PM2Work(selected, None, "startup", (lambda: None,)))
     assert result(startup) == {}
     opened[0].next_request_id = 10
     first_payload = {"batch": [{"state": "a" * 200}]}
     second_payload = {"batch": [{"state": "b" * 200}]}
     merged = {"batch": [*first_payload["batch"], *second_payload["batch"]]}
-    frame = json.dumps(dict(kind="infer", request_id=1, payload=merged), separators=(",", ":")).encode() + b"\n"
+    frame = (
+        json.dumps(dict(kind="infer", request_id=1, payload=merged), separators=(",", ":")).encode()
+        + b"\n"
+    )
     execution.policy = replace(execution.policy, max_native_request_bytes=len(frame))
     first = execution.try_submit(work("one", first_payload, selected=selected))
     second = execution.try_submit(work("two", second_payload, selected=selected))

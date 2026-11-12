@@ -47,7 +47,7 @@ def test_source_capture_cannot_claim_selected_analysis():
 
 
 def test_analytical_preparation_preserves_only_selected_exact_named_declarations():
-    from corpus_structure.orchestrate.commands import _consumer_characterization_options
+    from corpus_structure.orchestrate.source_operation import _consumer_characterization_options
 
     class Config(BaseModel):
         annotation_rules: tuple[AnnotationRule, ...] = ()

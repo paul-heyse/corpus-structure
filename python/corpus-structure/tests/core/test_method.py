@@ -274,6 +274,7 @@ def test_a_unit_result_keeps_rule_2() -> None:
 
 def test_method_settings_hold_only_their_declared_fields(monkeypatch: pytest.MonkeyPatch) -> None:
     assert set(MethodSettings.model_fields) == {
+        "execution_policy",
         "data_dir",
         "model_cache",
         "nemotron_endpoint",
@@ -285,6 +286,13 @@ def test_method_settings_hold_only_their_declared_fields(monkeypatch: pytest.Mon
     monkeypatch.setenv("CORPUS_PATHS__DATA_DIR", "/elsewhere")
     settings = MethodSettings(data_dir=Path("d"), model_cache=Path("m"))
     assert settings.data_dir == Path("d")  # the environment is never read
+    assert settings.execution_policy.cpu_native_threads == 1
+    assert settings.execution_policy.provider_interop_threads == 1
+    assert settings.execution_policy.max_owned_bytes == 2 * 1024**3
+    with pytest.raises(ValidationError):
+        MethodSettings.model_validate(
+            {"data_dir": Path("d"), "model_cache": Path("m"), "execution_policy": {"workers": 0}}
+        )
     with pytest.raises(ValidationError):
         MethodSettings.model_validate(
             {"data_dir": Path("d"), "model_cache": Path("m"), "database_url": "postgresql:///x"}

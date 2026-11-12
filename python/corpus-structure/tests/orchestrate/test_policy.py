@@ -14,6 +14,7 @@ from typing import Any
 
 import pytest
 
+from corpus_structure.core.method import MethodSettings
 from corpus_structure.core.vocab import ConfidenceSource, PolicyChain, TaskUnitType
 from corpus_structure.orchestrate import phase0
 from corpus_structure.orchestrate.policy import (
@@ -243,7 +244,9 @@ def test_source_policy_refusal_precedes_run_and_task_effects(monkeypatch, chain,
             binding=OperationBinding("r", "policy-input", 0, b"{}"),
             registry=registry,
             graph=SimpleNamespace(stages=(), policy_propose=True),
-            method_settings=None,
+            method_settings=MethodSettings(
+                data_dir=Path("build/data"), model_cache=Path("build/models")
+            ),
             policy_source=(
                 f'version: "1"\nchains:\n {chain}:\n  - key: unsupported\n'
                 f'    when: "{when}"\n    do: {{method: agent.opus/extract}}\n'

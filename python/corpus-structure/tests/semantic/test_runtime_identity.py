@@ -124,3 +124,37 @@ def test_runtime_archive_tampering_is_not_a_compatible_repair(foundation):
     archive["inputs"][0]["content_hex"] += "00"
     with pytest.raises(RuntimeBindingError, match="digest differs"):
         validate_runtime_binding(replace(binding, archive=canonical_bytes(archive)), prepared)
+
+
+@pytest.mark.parametrize(
+    "named,package",
+    [
+        ("invocation/source-request.py", "package/orchestrate/source_request.py"),
+        ("invocation/source-operation.py", "package/orchestrate/source_operation.py"),
+    ],
+)
+def test_source_application_inputs_are_exact_runtime_provenance_not_semantic_identity(
+    foundation, named, package
+):
+    from pathlib import Path
+
+    sources, execution, _, _, _, prepared = foundation
+    archived = {source.name: source for source in sources}
+    assert archived[named].content == archived[package].content
+    relative = package.removeprefix("package/")
+    installed = Path(__file__).parents[2] / "src/corpus_structure" / relative
+    assert archived[named].content == installed.read_bytes()
+    changed = tuple(
+        replace(source, content=source.content + b"\n# controlled runtime-only repair\n")
+        if source.name in {named, package}
+        else source
+        for source in sources
+    )
+    assert semantic_implementation_inputs(changed) == execution.implementations
+    current_runtime = prepare_runtime_binding(prepared, sources)
+    repaired_runtime = prepare_runtime_binding(prepared, changed)
+    assert repaired_runtime.release_id == current_runtime.release_id == prepared.release_id
+    assert repaired_runtime.runtime_id != current_runtime.runtime_id
+    validate_runtime_binding(repaired_runtime, prepared)
+    with pytest.raises(RuntimeBindingError, match="installed runtime differs"):
+        require_installed_runtime(prepared, repaired_runtime)

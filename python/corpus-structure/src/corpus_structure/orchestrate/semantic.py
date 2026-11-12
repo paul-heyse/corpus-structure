@@ -23,6 +23,7 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operation_results import ClaimedTask, MethodConfigId, RunId, TaskId
 from corpus_structure.semantic.operations import (
+    BoundReader,
     BoundSourceProducer,
     OperationBinding,
     OperationConflict,
@@ -171,7 +172,7 @@ def run_source_methods(
     characterization_views: Sequence[ProductReference] = (),
     execution_preparation: Any = None,
     regional_preparation: Any = None,
-    characterization_run_options: Mapping[str, Any] | Callable[[], Mapping[str, Any]] | None = None,
+    source_run_options: Mapping[str, Any] | Callable[[], Mapping[str, Any]] | None = None,
     freshness_seed: str | None = None,
     on_created: Callable[[SourceRunCreated], None] | None = None,
 ) -> BoundRunReport:
@@ -201,6 +202,25 @@ def _method_plan(method, units, config, context):
     return method.run(units, config, context)
 
 
+def _claim_source_work(engine, run_id, prepared, claimed, region, check_active):
+    """Warm exact claimed sources under renewable ownership and cooperative byte admission."""
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.source_views import selected_source_views
+
+    def read():
+        check_active()
+        with read_snapshot(engine) as conn:
+            for task in claimed:
+                if task.unit_type != "source_view":
+                    continue
+                selected = selected_source_views(conn, run_id, source_view_id=task.unit_id)
+                if len(selected) != 1 or selected[0].id != task.unit_id:
+                    raise OperationConflict("claimed source view is outside bound run")
+                region.source_view(conn, selected[0], analysis=False, prepared=prepared)
+
+    return region.read_work(read)
+
+
 def _source_methods_plan(cpu_execution, *args, **kwargs):
     from corpus_structure.core.work import PreparedWork
 
@@ -216,7 +236,7 @@ def _source_methods_plan(cpu_execution, *args, **kwargs):
         if permit is None and not waited:
             from corpus_structure.cli.observation_logging import event
 
-            details = kwargs.get("characterization_run_options") or {}
+            details = kwargs.get("source_run_options") or {}
             if callable(details):
                 details = details()
             event(
@@ -269,7 +289,7 @@ def _source_run_plan(
     characterization_views: Sequence[ProductReference] = (),
     execution_preparation: Any = None,
     regional_preparation: Any = None,
-    characterization_run_options: Mapping[str, Any] | Callable[[], Mapping[str, Any]] | None = None,
+    source_run_options: Mapping[str, Any] | Callable[[], Mapping[str, Any]] | None = None,
     freshness_seed: str | None = None,
     on_created: Callable[[SourceRunCreated], None] | None = None,
 ) -> Generator[Any, Any, BoundRunReport]:
@@ -286,15 +306,12 @@ def _source_run_plan(
     from corpus_structure.core.provenance import code_commit
     from corpus_structure.semantic.identity import canonical_bytes
 
-    if agent_mode != "complete":
-        raise OperationConflict(
-            "semantic agent wait barrier is not implemented; "
-            "use complete and finalize after automated tasks finish"
-        )
-    if agent_reuse != "full":
-        raise OperationConflict(
-            "semantic agent reuse requires the full immutable packet and configuration"
-        )
+    from .source_request import SourceRequestError, validate_source_agent_policy
+
+    try:
+        validate_source_agent_policy(agent_mode, agent_reuse)
+    except SourceRequestError as error:
+        raise OperationConflict(str(error)) from error
     if binding.release_id != prepared.release_id:
         raise OperationConflict("run release differs from prepared interpretation")
     import json
@@ -567,9 +584,7 @@ def _source_run_plan(
         from dataclasses import asdict
 
         resolved_run_options = (
-            characterization_run_options()
-            if callable(characterization_run_options)
-            else characterization_run_options
+            source_run_options() if callable(source_run_options) else source_run_options
         )
         options = {
             **dict(resolved_run_options or {}),
@@ -629,10 +644,19 @@ def _source_run_plan(
         transaction.commit()
         supervisor = startup.pop_all()
     holder = f"semantic-source:{rid}"
+    run_context = ExitStack()
     try:
+        from corpus_structure.cli.observation_logging import bound
+
+        run_context.enter_context(
+            bound(run_id=rid, project=project_id, release_id=prepared.release_id)
+        )
         try:
             if on_created is not None:
                 on_created(SourceRunCreated(RunId(rid), project_id, prepared.release_id))
+            from corpus_structure.semantic.execution_preparation import RegionalPreparation
+
+            source_reads = run_context.enter_context(RegionalPreparation(execution_preparation))
             registered = {}
             reported_prerequisite_wait = False
             reported_capacity_wait = False
@@ -737,133 +761,158 @@ def _source_run_plan(
                                 select_reused_source_views(conn, run_id=rid, task_id=task_id)
                         return task_id
 
-                    deferred = []
-                    for step in group:
-                        name = step.config.split("/", 1)[0]
-                        method = registry.method(name)
-                        config = configs[name]
+                    def register_initial_group(group=group):
+                        next_registered = dict(registered)
+                        next_scheduled, next_deferred = [], []
                         with engine.begin() as conn:
-                            cid = record_method(
-                                conn,
-                                method,
-                                config.name,
-                                config.params,
-                                config.config_hash,
-                                prepared=prepared,
-                            )
-                            view = run_view(
-                                conn,
-                                rid,
-                                prepared,
-                                cpu_execution=cpu_execution,
-                                regional_preparation=regional_preparation,
-                            )
-                            from corpus_structure.orchestrate.source_reader import BoundReader
-                            from corpus_structure.semantic.product_reference import ProductReference
-
-                            if not isinstance(view.reader, BoundReader):
-                                raise TypeError("source selection requires its owned bound reader")
-                            view.reader.characterization_selection = tuple(
-                                ProductReference(**pin)
-                                for pin in config.params.get("characterization_layers", ())
-                            )
-                            refs = list(method.select(view, config.config))
-                            if config.params.get("source_dependencies") == "ancestor_source_view":
-
-                                def ancestor_refs(source_view_id):
-                                    from corpus_structure.semantic.execution_preparation import (
-                                        RegionalPreparation,
-                                    )
-
-                                    # Ancestor discovery hydrates the focal source. Only
-                                    # detached refs survive this per-source read scope.
-                                    with ExitStack() as inputs:
-                                        ancestor_region = regional_preparation
-                                        if ancestor_region is None:
-                                            ancestor_region = inputs.enter_context(
-                                                RegionalPreparation(execution_preparation)
-                                            )
-                                        ancestor_view = run_view(
-                                            conn,
-                                            rid,
-                                            prepared,
-                                            cpu_execution=cpu_execution,
-                                            regional_preparation=ancestor_region,
-                                        )
-                                        return ancestor_view.reader.ancestor_source_views(
-                                            source_view_id
-                                        )
-
-                                required = {ref.unit_id: ref for ref in refs}
-                                parent_ids = {}
-                                for ref in tuple(refs):
-                                    for ancestor in ancestor_refs(ref.unit_id):
-                                        required.setdefault(
-                                            ancestor.id,
-                                            UnitRef(
-                                                TaskUnitType.SOURCE_VIEW, ancestor.id, ancestor.key
-                                            ),
-                                        )
-                                for identity in required:
-                                    parent_ids[identity] = tuple(
-                                        a.id for a in ancestor_refs(identity) if a.id in required
-                                    )
-                                for identity, ref in required.items():
-                                    if parent_ids[identity]:
-                                        deferred.append(
-                                            (
-                                                method,
-                                                config,
-                                                cid,
-                                                ref,
-                                                tuple(
-                                                    (cid, parent) for parent in parent_ids[identity]
-                                                ),
-                                            )
-                                        )
-                                    else:
-                                        registered[(cid, identity)] = register_ref(
-                                            conn, method, config, cid, ref
-                                        )
-                            elif (
-                                config.params.get("source_dependencies") in _SAME_VIEW_DEPENDENCIES
-                            ):
-                                prerequisite_name = config.params.get("source_dependency_method")
-                                if prerequisite_name not in configs:
-                                    raise OperationConflict(
-                                        "required source producer configuration is unavailable"
-                                    )
-                                prerequisite = registry.method(prerequisite_name)
-                                prerequisite_config = configs[prerequisite_name]
-                                prerequisite_cid = record_method(
+                            for step in group:
+                                name = step.config.split("/", 1)[0]
+                                method = registry.method(name)
+                                config = configs[name]
+                                cid = record_method(
                                     conn,
-                                    prerequisite,
-                                    prerequisite_config.name,
-                                    prerequisite_config.params,
-                                    prerequisite_config.config_hash,
+                                    method,
+                                    config.name,
+                                    config.params,
+                                    config.config_hash,
                                     prepared=prepared,
                                 )
-                                if not any(entry[2] == prerequisite_cid for entry in scheduled):
-                                    scheduled.append(
-                                        (prerequisite, prerequisite_config, prerequisite_cid)
-                                    )
-                                for ref in refs:
-                                    key = (prerequisite_cid, ref.unit_id)
-                                    if key not in registered:
-                                        registered[key] = register_ref(
-                                            conn,
-                                            prerequisite,
-                                            prerequisite_config,
-                                            prerequisite_cid,
-                                            ref,
+                                with ExitStack() as selection_inputs:
+                                    selection_region = regional_preparation
+                                    if selection_region is None:
+                                        selection_region = selection_inputs.enter_context(
+                                            RegionalPreparation(execution_preparation)
                                         )
-                                    deferred.append((method, config, cid, ref, (key,)))
-                            else:
-                                for ref in refs:
-                                    registered[(cid, ref.unit_id)] = register_ref(
-                                        conn, method, config, cid, ref
+                                    view = run_view(
+                                        conn,
+                                        rid,
+                                        prepared,
+                                        cpu_execution=cpu_execution,
+                                        regional_preparation=selection_region,
                                     )
-                        scheduled.append((method, config, cid))
+                                    from corpus_structure.semantic.product_reference import (
+                                        ProductReference,
+                                    )
+
+                                    if not isinstance(view.reader, BoundReader):
+                                        raise TypeError(
+                                            "source selection requires its owned bound reader"
+                                        )
+                                    view.reader.characterization_selection = tuple(
+                                        ProductReference(**pin)
+                                        for pin in config.params.get("characterization_layers", ())
+                                    )
+                                    refs = list(method.select(view, config.config))
+                                if (
+                                    config.params.get("source_dependencies")
+                                    == "ancestor_source_view"
+                                ):
+
+                                    def ancestor_refs(source_view_id):
+                                        # Ancestor discovery hydrates the focal source. Only
+                                        # detached refs survive this per-source read scope.
+                                        with ExitStack() as inputs:
+                                            ancestor_region = regional_preparation
+                                            if ancestor_region is None:
+                                                ancestor_region = inputs.enter_context(
+                                                    RegionalPreparation(execution_preparation)
+                                                )
+                                            ancestor_view = run_view(
+                                                conn,
+                                                rid,
+                                                prepared,
+                                                cpu_execution=cpu_execution,
+                                                regional_preparation=ancestor_region,
+                                            )
+                                            return ancestor_view.reader.ancestor_source_views(
+                                                source_view_id
+                                            )
+
+                                    required = {ref.unit_id: ref for ref in refs}
+                                    parent_ids = {}
+                                    for ref in tuple(refs):
+                                        for ancestor in ancestor_refs(ref.unit_id):
+                                            required.setdefault(
+                                                ancestor.id,
+                                                UnitRef(
+                                                    TaskUnitType.SOURCE_VIEW,
+                                                    ancestor.id,
+                                                    ancestor.key,
+                                                ),
+                                            )
+                                    for identity in required:
+                                        parent_ids[identity] = tuple(
+                                            a.id
+                                            for a in ancestor_refs(identity)
+                                            if a.id in required
+                                        )
+                                    for identity, ref in required.items():
+                                        if parent_ids[identity]:
+                                            next_deferred.append(
+                                                (
+                                                    method,
+                                                    config,
+                                                    cid,
+                                                    ref,
+                                                    tuple(
+                                                        (cid, parent)
+                                                        for parent in parent_ids[identity]
+                                                    ),
+                                                )
+                                            )
+                                        else:
+                                            next_registered[(cid, identity)] = register_ref(
+                                                conn, method, config, cid, ref
+                                            )
+                                elif (
+                                    config.params.get("source_dependencies")
+                                    in _SAME_VIEW_DEPENDENCIES
+                                ):
+                                    prerequisite_name = config.params.get(
+                                        "source_dependency_method"
+                                    )
+                                    if prerequisite_name not in configs:
+                                        raise OperationConflict(
+                                            "required source producer configuration is unavailable"
+                                        )
+                                    prerequisite = registry.method(prerequisite_name)
+                                    prerequisite_config = configs[prerequisite_name]
+                                    prerequisite_cid = record_method(
+                                        conn,
+                                        prerequisite,
+                                        prerequisite_config.name,
+                                        prerequisite_config.params,
+                                        prerequisite_config.config_hash,
+                                        prepared=prepared,
+                                    )
+                                    if not any(
+                                        entry[2] == prerequisite_cid for entry in next_scheduled
+                                    ):
+                                        next_scheduled.append(
+                                            (prerequisite, prerequisite_config, prerequisite_cid)
+                                        )
+                                    for ref in refs:
+                                        key = (prerequisite_cid, ref.unit_id)
+                                        if key not in next_registered:
+                                            next_registered[key] = register_ref(
+                                                conn,
+                                                prerequisite,
+                                                prerequisite_config,
+                                                prerequisite_cid,
+                                                ref,
+                                            )
+                                        next_deferred.append((method, config, cid, ref, (key,)))
+                                else:
+                                    for ref in refs:
+                                        next_registered[(cid, ref.unit_id)] = register_ref(
+                                            conn, method, config, cid, ref
+                                        )
+                                next_scheduled.append((method, config, cid))
+                        return next_scheduled, next_deferred, next_registered
+
+                    (registration,) = yield (source_reads.read_work(register_initial_group),)
+                    scheduled, deferred, next_registered = registration
+                    registered.update(next_registered)
                     shared_math_batch = None
                     if len(group) > 1:
                         from corpus_structure.methods.math.methods import MathReadingsBatch
@@ -896,6 +945,12 @@ def _source_run_plan(
                         from corpus_structure.semantic.claim_lifetime import maintained_claims
 
                         with maintained_claims(engine, claimed, holder) as check_active:
+                            if any(task.unit_type == "source_view" for task in claimed):
+                                yield (
+                                    _claim_source_work(
+                                        engine, rid, prepared, claimed, claim_region, check_active
+                                    ),
+                                )
                             _retain_source_originals(
                                 engine,
                                 claimed,
@@ -1130,20 +1185,23 @@ def _source_run_plan(
                                 )
                                 from corpus_structure.semantic.query import read_snapshot
 
-                                with read_snapshot(engine) as preparation_conn:
-                                    intent = prepare_unit_completion(
-                                        preparation_conn,
-                                        task_id=task.task_id,
-                                        attempt=task.attempt,
-                                        holder=holder,
-                                        prepared=prepared,
-                                        result=result,
-                                        method=method,
-                                        configuration_hash=config.config_hash,
-                                        source=result.ref.unit_key or "run",
-                                        records=result.records,
-                                        regional_preparation=claim_region,
-                                    )
+                                def prepare_completion(task=task, result=result):
+                                    with read_snapshot(engine) as preparation_conn:
+                                        return prepare_unit_completion(
+                                            preparation_conn,
+                                            task_id=task.task_id,
+                                            attempt=task.attempt,
+                                            holder=holder,
+                                            prepared=prepared,
+                                            result=result,
+                                            method=method,
+                                            configuration_hash=config.config_hash,
+                                            source=result.ref.unit_key or "run",
+                                            records=result.records,
+                                            regional_preparation=claim_region,
+                                        )
+
+                                (intent,) = yield (claim_region.read_work(prepare_completion),)
                                 event(
                                     "task_publication",
                                     "Publishing source task",
@@ -1171,149 +1229,134 @@ def _source_run_plan(
                             RegionalPreparation,
                         )
 
-                        try:
-                            with ExitStack() as inputs:
-                                claim_region = regional_preparation
-                                if claim_region is None:
-                                    claim_region = inputs.enter_context(
-                                        RegionalPreparation(execution_preparation)
-                                    )
-                                return (
-                                    yield from execute_claim_body(
-                                        method, config, claimed, claim_region
-                                    )
+                        with ExitStack() as inputs:
+                            claim_region = regional_preparation
+                            if claim_region is None:
+                                claim_region = inputs.enter_context(
+                                    RegionalPreparation(execution_preparation)
                                 )
-                        finally:
-                            permit.release()
+                            return (
+                                yield from execute_claim_body(method, config, claimed, claim_region)
+                            )
 
-                    while True:
-                        # Child identity is formed only after its declared parent outputs exist.
-                        # Ancestor context does not queue agent work or force math values.
-                        if deferred:
-                            with engine.begin() as dependency_conn:
-                                ready = []
-                                for entry in deferred:
-                                    method, config, cid, ref, parents = entry
-                                    if not all(parent in registered for parent in parents):
-                                        continue
-                                    parent_tasks = [registered[parent] for parent in parents]
-                                    task_table = table("ops.task")
-                                    parent_rows = dependency_conn.execute(
+                    from .ready import SourceClaimFrontier, source_admission
+
+                    def register_ready_dependencies(pending=deferred):
+                        nonlocal reported_prerequisite_wait
+                        with engine.begin() as dependency_conn:
+                            ready, updates = [], {}
+                            for entry in pending:
+                                method, config, cid, ref, parents = entry
+                                if not all(
+                                    parent in registered or parent in updates for parent in parents
+                                ):
+                                    continue
+                                parent_tasks = [
+                                    updates[parent] if parent in updates else registered[parent]
+                                    for parent in parents
+                                ]
+                                task_table = table("ops.task")
+                                parent_rows = dependency_conn.execute(
+                                    select(
+                                        task_table.c.id,
+                                        task_table.c.status,
+                                        task_table.c.reused_task_id,
+                                    ).where(task_table.c.id.in_(parent_tasks))
+                                ).all()
+                                if len(parent_rows) != len(parent_tasks) or not all(
+                                    row.status in _READY_SOURCE_TASKS for row in parent_rows
+                                ):
+                                    if not reported_prerequisite_wait:
+                                        from corpus_structure.cli.observation_logging import (
+                                            event,
+                                        )
+
+                                        event(
+                                            "method_prerequisite_wait",
+                                            "Waiting for method prerequisites",
+                                            run_id=rid,
+                                            task_ids=parent_tasks,
+                                            method=method.name,
+                                            activity="prerequisite_wait",
+                                        )
+                                        reported_prerequisite_wait = True
+                                    continue
+                                producer = None
+                                if (
+                                    config.params.get("source_dependencies")
+                                    in _SAME_VIEW_DEPENDENCIES
+                                ):
+                                    (parent,) = parent_rows
+                                    producer = BoundSourceProducer(
+                                        parent.id, parent.reused_task_id or parent.id
+                                    )
+                                task_id = register_ref(
+                                    dependency_conn,
+                                    method,
+                                    config,
+                                    cid,
+                                    ref,
+                                    producer=producer,
+                                )
+                                for parent_task in parent_tasks:
+                                    dependency_conn.execute(
                                         select(
-                                            task_table.c.id,
-                                            task_table.c.status,
-                                            task_table.c.reused_task_id,
-                                        ).where(task_table.c.id.in_(parent_tasks))
-                                    ).all()
-                                    if len(parent_rows) != len(parent_tasks) or not all(
-                                        row.status in _READY_SOURCE_TASKS for row in parent_rows
-                                    ):
-                                        if not reported_prerequisite_wait:
-                                            from corpus_structure.cli.observation_logging import (
-                                                event,
-                                            )
-
-                                            event(
-                                                "method_prerequisite_wait",
-                                                "Waiting for method prerequisites",
-                                                run_id=rid,
-                                                task_ids=parent_tasks,
-                                                method=method.name,
-                                                activity="prerequisite_wait",
-                                            )
-                                            reported_prerequisite_wait = True
-                                        continue
-                                    producer = None
-                                    if (
-                                        config.params.get("source_dependencies")
-                                        in _SAME_VIEW_DEPENDENCIES
-                                    ):
-                                        (parent,) = parent_rows
-                                        producer = BoundSourceProducer(
-                                            parent.id, parent.reused_task_id or parent.id
-                                        )
-                                    task_id = register_ref(
-                                        dependency_conn,
-                                        method,
-                                        config,
-                                        cid,
-                                        ref,
-                                        producer=producer,
-                                    )
-                                    for parent_task in parent_tasks:
-                                        dependency_conn.execute(
-                                            select(
-                                                func.ops.add_source_task_dependency(
-                                                    task_id, parent_task
-                                                )
+                                            func.ops.add_source_task_dependency(
+                                                task_id, parent_task
                                             )
                                         )
-                                    registered[(cid, ref.unit_id)] = task_id
-                                    ready.append(entry)
-                                deferred = [entry for entry in deferred if entry not in ready]
-                        from .ready import source_admission
-
-                        admission = source_admission(execution_preparation)
-                        work = []
-                        saturated = False
-                        for method, config, cid in scheduled:
-                            permit = admission.try_take(
-                                "claim",
-                                cpu_execution.policy.max_packet_bytes
-                                if method.name == "text.compose_view"
-                                else None,
-                            )
-                            if permit is None:
-                                if not reported_capacity_wait:
-                                    from corpus_structure.cli.observation_logging import event
-
-                                    event(
-                                        "method_capacity_wait",
-                                        "Waiting for method capacity",
-                                        run_id=rid,
-                                        method=method.name,
-                                        activity="capacity_wait",
                                     )
-                                    reported_capacity_wait = True
-                                saturated = True
-                                break
-                            with engine.begin() as conn:
-                                claimed = claim_tasks(
-                                    conn,
-                                    run_id=RunId(rid),
-                                    config_id=MethodConfigId(cid),
-                                    holder=holder,
-                                    limit=1,
-                                    prepared=prepared,
-                                )
-                            if claimed:
-                                work.append((method, config, claimed, permit))
-                            else:
-                                permit.release()
-                        if not work and saturated:
-                            from corpus_structure.core.work import PreparedWork
+                                updates[(cid, ref.unit_id)] = task_id
+                                ready.append(entry)
+                        return ready, updates
 
-                            (available,) = yield (
-                                PreparedWork(
-                                    lambda admission=admission: admission.try_work("claim")
-                                ),
-                            )
-                            available.release()
-                            continue
-                        if not work:
-                            if deferred:
-                                raise OperationConflict(
-                                    "required native source context is not ready"
-                                )
-                            break
-                        from corpus_structure.core.work import ReadyGroup
+                    def prepare_claims(pending=deferred):
+                        # Each transaction closes before a capacity wait. Only its
+                        # committed identities enter invocation-local state.
+                        if pending:
+                            read = source_reads.read_work(register_ready_dependencies).try_submit()
+                            if read is None:
+                                return False
+                            ready, updates = read.collect()
+                            read.retire()
+                            registered.update(updates)
+                            pending[:] = [entry for entry in pending if entry not in ready]
+                        return True
 
-                        yield ReadyGroup(
-                            tuple(
-                                execute_claim(method, config, claimed, permit)
-                                for method, config, claimed, permit in work
+                    def claim_next(method, config, cid):
+                        with engine.begin() as conn:
+                            return claim_tasks(
+                                conn,
+                                run_id=RunId(rid),
+                                config_id=MethodConfigId(cid),
+                                holder=holder,
+                                limit=1,
+                                prepared=prepared,
                             )
-                        )
+
+                    def capacity_wait(method):
+                        nonlocal reported_capacity_wait
+                        if not reported_capacity_wait:
+                            from corpus_structure.cli.observation_logging import event
+
+                            event(
+                                "method_capacity_wait",
+                                "Waiting for method capacity",
+                                run_id=rid,
+                                method=method.name,
+                                activity="capacity_wait",
+                            )
+                            reported_capacity_wait = True
+
+                    yield from SourceClaimFrontier(
+                        scheduled,
+                        source_admission(execution_preparation),
+                        claim=claim_next,
+                        execute=execute_claim,
+                        prepare=prepare_claims,
+                        has_prerequisites=lambda pending=deferred: bool(pending),
+                        capacity_wait=capacity_wait,
+                    ).plan()
         finally:
             import sys
 
@@ -1357,7 +1400,10 @@ def _source_run_plan(
             exc.add_note(f"source run cleanup failed: {cleanup_error}")
         raise
     finally:
-        supervisor.close()
+        try:
+            supervisor.close()
+        finally:
+            run_context.close()
 
 
 def _retain_source_originals(engine, claimed, method, config, holder, prepared, active):
@@ -1412,14 +1458,14 @@ def _unit(conn: Any, view: Any, ref: Any) -> UnitView:
     if ref.unit_type == TaskUnitType.DOCUMENT:
         return UnitView(ref, view, document_id=ref.unit_id)
     if ref.unit_type == TaskUnitType.SOURCE_VIEW:
-        source = view.reader.source_view(ref.unit_id)
+        source = view.reader.source_view_ref(ref.unit_id)
         return UnitView(
             ref,
             view,
-            document_id=source.ref.document_id,
-            source_view_id=source.ref.id,
+            document_id=source.document_id,
+            source_view_id=source.id,
             context_only=(
-                not source.ref.analysis_eligible
+                not source.analysis_eligible
                 or ref.unit_id not in {r.id for r in view.reader.source_views()}
             ),
         )

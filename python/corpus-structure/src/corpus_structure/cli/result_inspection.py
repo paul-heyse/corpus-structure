@@ -13,6 +13,7 @@ from rich.table import Table
 from rich.text import Text
 
 from corpus_structure.cli.observations import Bindings, ObservationPage, ObservationSelection
+from corpus_structure.orchestrate.source_progress import SourceOperationProgress
 
 
 class NextAction(BaseModel):
@@ -30,6 +31,8 @@ class NativeInspection(BaseModel):
     receipt_observations: tuple[int, ...] | None = None
     counts: dict[str, int] | None = None
     denominator: int | None = None
+    operation: SourceOperationProgress | None = None
+    operation_unavailable_reason: str | None = None
     detail_omissions: tuple[str, ...] = ()
 
 
@@ -59,7 +62,7 @@ def native_inspection(
 ) -> NativeInspection:
     """Join only an exact recorded run on the same acquired storage target, with reader purpose."""
     from psycopg import Error as PsycopgError
-    from sqlalchemy import select
+    from sqlalchemy import and_, or_, select
     from sqlalchemy.exc import SQLAlchemyError
 
     from corpus_structure.cli import orchestrate
@@ -79,13 +82,60 @@ def native_inspection(
             reason="The native storage binding is unavailable; no lookup was inferred."
         )
     try:
+        from corpus_structure.semantic.query import read_snapshot
+
         expected = StorageTarget.model_validate(target)
-        with orchestrate.READ_ENGINE(state(ctx).settings()) as engine, engine.connect() as conn:
+        with (
+            orchestrate.READ_ENGINE(state(ctx).settings()) as engine,
+            read_snapshot(engine) as conn,
+        ):
             verify_target(conn, expected, purpose="read")
-            progress = commands.bound_status(conn, run_id)
+            progress = commands.bound_status(
+                conn, run_id, project_id=bindings.get("project"), operation_region_limit=2
+            )
             run = progress.run
             if run is None:
                 return NativeInspection(reason="The exact native run is unavailable.")
+            if bindings.get("release_id") is not None and bindings["release_id"] != run.release_id:
+                return NativeInspection(
+                    reason="Recorded native release differs from the selected run."
+                )
+            operation = run.operation
+            if operation is not None:
+                run_ids = {value.run_id for value in operation.runs}
+                events = [
+                    value
+                    for value in page.rows
+                    if value.bindings.run_id in run_ids
+                    and value.fields.get("activity")
+                    in {
+                        "prerequisite_wait",
+                        "capacity_wait",
+                        "computation",
+                        "reduction",
+                        "publication",
+                        "settled",
+                    }
+                ]
+                if events:
+                    last = events[-1]
+                    operation = operation.model_copy(
+                        update={
+                            "activity": operation.activity.model_copy(
+                                update={
+                                    "last_observed": {
+                                        "observed_at": last.timestamp,
+                                        "phase": last.fields["activity"],
+                                        "run_id": last.bindings.run_id,
+                                        "standing": (
+                                            "historical_observation; "
+                                            "does not establish current activity"
+                                        ),
+                                    }
+                                }
+                            )
+                        }
+                    )
             counts: dict[str, int] = {}
             for group in run.stages:
                 counts[group.status] = counts.get(group.status, 0) + group.count
@@ -93,6 +143,25 @@ def native_inspection(
             receipt_observations = None
             if selection.task is not None:
                 tasks = table("ops.task")
+                native_runs = table("ops.run")
+                task_scope = tasks.c.run_id == run_id
+                if operation is not None and operation.operation_id is not None:
+                    task_scope = and_(
+                        native_runs.c.project_id == operation.project_id,
+                        native_runs.c.release_id == operation.release_id,
+                        native_runs.c.options["source_operation"]["operation_id"].as_string()
+                        == str(operation.operation_id),
+                    )
+                elif operation is not None and operation.anchor_run_id is not None:
+                    task_scope = and_(
+                        native_runs.c.project_id == operation.project_id,
+                        native_runs.c.release_id == operation.release_id,
+                        or_(
+                            native_runs.c.id == operation.anchor_run_id,
+                            native_runs.c.options["characterization_anchor"].as_integer()
+                            == operation.anchor_run_id,
+                        ),
+                    )
                 task = (
                     conn.execute(
                         select(
@@ -101,13 +170,17 @@ def native_inspection(
                             tasks.c.stage,
                             tasks.c.status,
                             tasks.c.attempt,
-                        ).where(tasks.c.id == selection.task, tasks.c.run_id == run_id)
+                        )
+                        .join(native_runs, native_runs.c.id == tasks.c.run_id)
+                        .where(tasks.c.id == selection.task, task_scope)
                     )
                     .mappings()
                     .one_or_none()
                 )
                 if task is not None:
-                    task_value = dict(task)
+                    task_value = {
+                        name: task[name] for name in ("id", "run_id", "stage", "status", "attempt")
+                    }
                     task_value["selected_attempt_standing"] = (
                         "current"
                         if selection.attempt is None or selection.attempt == task["attempt"]
@@ -122,7 +195,7 @@ def native_inspection(
                         reported_ids = receipt.get("observation_ids", [])
                         if isinstance(reported_ids, list):
                             ids.update(value for value in reported_ids if type(value) is int)
-                if ids:
+                if ids and task is not None:
                     observations = table("kb.observation")
                     receipt_observations = tuple(
                         conn.execute(
@@ -153,6 +226,8 @@ def native_inspection(
                 receipt_observations=receipt_observations,
                 counts=counts,
                 denominator=sum(counts.values()),
+                operation=operation,
+                operation_unavailable_reason=run.operation_unavailable_reason,
                 detail_omissions=(
                     "run.stages: selected aggregate counts",
                     "run.pm2_scope_coverage: inspect native status for detail",
@@ -228,16 +303,39 @@ def inspect_result(
                     owner="semantic_run",
                 )
             )
-            if (
-                native.availability == "available"
-                and native.run is not None
-                and native.run.get("readiness") == "source_ready"
-                and bindings.project is not None
-            ):
-                command = shlex.join(
-                    ["ci", "run", "resume", str(bindings.run_id), "--project", bindings.project]
-                )
-                actions.append(NextAction(kind="resume_run", command=command, owner="semantic_run"))
+            if native.availability == "available" and bindings.project is not None:
+                operation = native.operation
+                if (
+                    operation is not None
+                    and operation.selected_role == "primary"
+                    and operation.anchor_run_id is not None
+                ):
+                    if operation.view_readiness not in {"enriched", "source_only"}:
+                        command = shlex.join(
+                            [
+                                "ci",
+                                "run",
+                                "resume",
+                                str(operation.anchor_run_id),
+                                "--characterization",
+                                "--project",
+                                bindings.project,
+                            ]
+                        )
+                        actions.append(
+                            NextAction(kind="resume_run", command=command, owner="semantic_run")
+                        )
+                elif (
+                    (operation is None or operation.selected_role == "analytical")
+                    and native.run is not None
+                    and native.run.get("readiness") == "source_ready"
+                ):
+                    command = shlex.join(
+                        ["ci", "run", "resume", str(bindings.run_id), "--project", bindings.project]
+                    )
+                    actions.append(
+                        NextAction(kind="resume_run", command=command, owner="semantic_run")
+                    )
         if manifest.action in {"test", "test.retry"} and not manifest.custody_settled():
             actions.append(
                 NextAction(
@@ -280,6 +378,13 @@ def inspect_result(
         )
         # Bound the complete joined envelope, including zero-row filtered pages. Detail
         # omission never changes recorded operation outcome or claims unknown counts are zero.
+        if (
+            len(report.model_dump_json().encode()) > selection.max_bytes
+            and report.native.operation is not None
+        ):
+            report.native = report.native.model_copy(
+                update={"operation": report.native.operation.without_details()}
+            )
         if len(report.model_dump_json().encode()) > selection.max_bytes:
             report.provider_receipts_omitted += len(report.provider_receipts)
             report.provider_receipts = ()
@@ -345,6 +450,8 @@ def render_inspection(report: ResultInspection) -> Group:
         )
     else:
         parts.append(Text(report.native.reason or "Native evidence unavailable"))
+    if report.native.operation is not None:
+        parts.append(render_operation(report.native.operation))
     if report.view != "summary":
         table = Table("seq", "severity", "stage", "message", "binding / assurance", expand=True)
         for row in report.observations.rows:
@@ -381,4 +488,45 @@ def render_inspection(report: ResultInspection) -> Group:
     if report.observations.collection_omitted:
         parts.append(Text(f"Collection omitted {report.observations.collection_omitted} events."))
     parts.extend(Text(action.command) for action in report.next_actions)
+    return Group(*parts)
+
+
+def render_operation(operation: SourceOperationProgress) -> Group:
+    table = Table(
+        "operation",
+        "native outcome",
+        title=f"Source operation {operation.operation_id or 'historical anchor'}",
+    )
+    table.add_row(
+        "capture", f"{operation.capture_readiness}; run {operation.capture_run_id or 'unavailable'}"
+    )
+    table.add_row(
+        "primary regions",
+        f"{operation.region_count if operation.region_count is not None else 'unknown'}; "
+        f"anchor {operation.anchor_run_id or 'unavailable'}",
+    )
+    table.add_row("enriched views", operation.view_readiness)
+    table.add_row("tasks", str(operation.task_counts))
+    table.add_row(
+        "physical activity", "unavailable; native task state does not establish provider activity"
+    )
+    if operation.activity.last_observed is not None:
+        table.add_row("last observation (historical)", str(operation.activity.last_observed))
+    regions = Table("region", "readiness", "family outcomes", "settled views")
+    for region in operation.regions:
+        regions.add_row(
+            str(region.index),
+            region.readiness,
+            ", ".join(f"{value.family}: {value.outcome}" for value in region.families),
+            str(len(region.views)),
+        )
+    parts: list[Any] = [table, regions]
+    if operation.continuation is not None:
+        parts.append(
+            Text(
+                f"Continue: ci status {operation.selected_run_id} "
+                f"--operation-after {operation.continuation}"
+            )
+        )
+    parts.extend(Text(value) for value in operation.detail_omissions)
     return Group(*parts)

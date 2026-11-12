@@ -71,6 +71,12 @@ def _render_status(result: BaseModel) -> RenderableType:
                 str(c.count),
             )
         parts += [head, stages]
+        if run.operation is not None:
+            from corpus_structure.cli.result_inspection import render_operation
+
+            parts.append(render_operation(run.operation))
+        elif run.operation_unavailable_reason:
+            parts.append(Text(run.operation_unavailable_reason))
     if progress is not None and progress.orphaned is None:
         parts.append(Text("orphan assessment: not assessed"))
     if progress is not None and progress.orphaned:
@@ -87,6 +93,13 @@ def status(
         str | None, typer.Option(help="Project (default: runtime.default_project).")
     ] = None,
     semantic: Annotated[bool, typer.Option(hidden=True)] = False,
+    operation_after: Annotated[
+        str | None,
+        typer.Option(help="Continue native operation progress using its returned cursor."),
+    ] = None,
+    operation_limit: Annotated[
+        int, typer.Option(min=1, max=32, help="Regions per native operation page.")
+    ] = 8,
     json: JsonOpt = False,
 ) -> None:
     """Show a run's progress (the latest by default) and the resolved settings."""
@@ -98,13 +111,20 @@ def status(
     from corpus_structure.orchestrate import commands
 
     with failure_boundary(json, expected=(commands.CommandError, ValueError)):
+        from corpus_structure.orchestrate.source_progress import OperationProgressCursor
+        from corpus_structure.semantic.query import read_snapshot
+
+        if operation_after is not None:
+            OperationProgressCursor.decode(operation_after)
         settings = state(ctx).settings()
         report = cli_settings_report(settings)
         try:
-            with orchestrate.READ_ENGINE(settings) as engine, engine.connect() as conn:
+            with orchestrate.READ_ENGINE(settings) as engine, read_snapshot(engine) as conn:
                 progress = commands.bound_status(
                     conn,
                     run_id,
+                    operation_cursor=operation_after,
+                    operation_region_limit=operation_limit,
                     project_id=project
                     or (settings.runtime.default_project if run_id is None else None),
                 )

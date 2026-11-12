@@ -56,7 +56,6 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0076](0076-qualified-terminology-products.md) | Retain qualified terminology projections and source metadata with each release | 2026-11-10 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0077](0077-attributed-interpretations-and-correction-custody.md) | Retain source interpretations separately and make correction custody explicit | 2026-11-10 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0079](0079-safe-observation-custody-authority.md) | Keep safe observation custody under the canonical interface authority | 2026-11-10 | [§2](../design/DESIGN.md#section-2) | Proposed | ADR-0078 |
-| [ADR-0080](0080-observe-committed-source-run.md) | Observe committed source-run identity before source execution | 2026-11-10 | [§2](../design/DESIGN.md#section-2) | Proposed |  |
 | [ADR-0081](0081-enriched-document-analysis-layers.md) | Compose immutable analysis layers over an exact published document | 2026-11-10 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0082](0082-explicit-analysis-selection.md) | Select active analyses independently of retained dependency closure | 2026-11-11 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0083](0083-operation-owned-characterization-execution.md) | Characterization execution owns verified preparation and bounded workers | 2026-11-11 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
@@ -64,6 +63,8 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0085](0085-qualified-native-batch-numerics.md) | Retain authentic native batch observations under explicit numerical semantics | 2026-11-11 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0086](0086-d1-requires-cuda-bfloat16.md) | Run current D1 characterization on CUDA with explicit BF16 provenance | 2026-11-11 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0088](0088-gpu-default-native-hosts.md) | Run GPU-default NLP in shared hosts with explicit workflow intent | 2026-11-12 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0087](0087-book-characterization-policy-and-recovery.md) |
+| [ADR-0089](0089-isolated-source-plan-observations.md) | Isolate native source-plan logging context while retaining committed creation notifications | 2026-11-12 | [§2](../design/DESIGN.md#section-2) | Proposed | [ADR-0080](0080-observe-committed-source-run.md) |
+| [ADR-0090](0090-native-source-operation-lineage.md) | Persist source operation lineage in native run options | 2026-11-12 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 
@@ -95,6 +96,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0057](0057-m1-retained-reading-execution.md) | Separate retained CPU extraction from evaluated reading policies | 2026-11-04 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0055](0055-m1-record-admission.md) |
 | [ADR-0066](0066-witnessed-component-policies.md) | Retain witnessed components and assess exact operation questions independently | 2026-11-06 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0068](0068-single-corpus-method-development.md) | Develop and assess corpus structuring on one shared Grinstead–Snell corpus | 2026-11-06 | [§B1](../design/DESIGN.md#section-b1), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0080](0080-observe-committed-source-run.md) | Observe committed source-run identity before source execution | 2026-11-10 | [§2](../design/DESIGN.md#section-2) | Proposed |  |
 | [ADR-0087](0087-book-characterization-policy-and-recovery.md) | Share final characterization policy and retain native demand anchors for recovery | 2026-11-11 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 Unlinked identifiers under *Replaces* are retired records. Their surviving meaning is in the records above; recover the text from Git ([historical recovery](../README.md#historical-recovery)).

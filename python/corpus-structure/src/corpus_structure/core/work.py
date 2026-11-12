@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Generator
 from concurrent.futures import FIRST_COMPLETED, Future, wait
+from contextvars import Context, copy_context
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -34,6 +35,23 @@ class ReadyGroup:
             raise ValueError("ready plan admission requires a positive window")
 
 
+@dataclass(frozen=True)
+class ReadyFrontier:
+    """Replenish bounded independent plans as each child settles.
+
+    Admission returns None while temporarily blocked or empty. Only the owner's
+    complete predicate establishes exhaustion; task/dependency authority stays there.
+    """
+
+    admit: Callable[[], Generator[Any, Any, Any] | None]
+    complete: Callable[[], bool]
+    max_active: int
+
+    def __post_init__(self):
+        if self.max_active < 1:
+            raise ValueError("ready frontier admission requires a positive window")
+
+
 @dataclass
 class _Node:
     plan: Generator[Any, Any, Any]
@@ -45,7 +63,11 @@ class _Node:
     children: dict[int, Any] = field(default_factory=dict)
     handles: dict[int, WorkHandle] = field(default_factory=dict)
     replies: dict[int, Any] = field(default_factory=dict)
-    retiring: list[WorkHandle] = field(default_factory=list)
+    # Deferred retirement retains its originating scope even after child reduction.
+    retiring: list[tuple[Context, WorkHandle]] = field(default_factory=list)
+    context: Context = field(default_factory=copy_context)
+    frontier_error: BaseException | None = None
+    frontier_serial: int = 0
 
     def abandon_requests(self):
         if isinstance(self.yielded, tuple):
@@ -68,14 +90,22 @@ class _Node:
         except Exception as failure:
             self.done, self.error = True, failure
         self.children, self.handles, self.replies = {}, {}, {}
+        self.frontier_error, self.frontier_serial = None, 0
 
     def tick(self):
-        self.retiring = [handle for handle in self.retiring if not handle.retire()]
+        return self.context.run(self._tick)
+
+    def _tick(self):
+        self.retiring = [
+            (context, handle) for context, handle in self.retiring if not context.run(handle.retire)
+        ]
         if self.done:
             return False
         if not self.started:
             self.advance()
             return True
+        if isinstance(self.yielded, ReadyFrontier):
+            return self._tick_frontier(self.yielded)
         if isinstance(self.yielded, ReadyGroup):
             group = self.yielded
             active = sum(not child.done for child in self.children.values())
@@ -114,31 +144,75 @@ class _Node:
                     self.replies[index] = handle.collect()
                     progress = True
             if len(self.replies) == len(group):
-                handles = tuple(self.handles.values())
+                handles = tuple((copy_context(), handle) for handle in self.handles.values())
                 values = tuple(self.replies[i] for i in range(len(group)))
                 # Reduction happens in the generator before input/reply credit retires.
                 self.advance(values)
-                for handle in handles:
-                    if not handle.retire():
-                        self.retiring.append(handle)
+                for context, handle in handles:
+                    if not context.run(handle.retire):
+                        self.retiring.append((context, handle))
                 return True
         except Exception as failure:
-            handles = tuple(self.handles.values())
-            for handle in handles:
-                handle.cancel()
+            handles = tuple((copy_context(), handle) for handle in self.handles.values())
+            for context, handle in handles:
+                context.run(handle.cancel)
             self.advance(error=failure)
-            for handle in handles:
-                if not handle.retire():
-                    self.retiring.append(handle)
+            for context, handle in handles:
+                if not context.run(handle.retire):
+                    self.retiring.append((context, handle))
             return True
         return progress
 
+    def _tick_frontier(self, frontier):
+        progress = False
+        for child in tuple(self.children.values()):
+            progress = child.tick() or progress
+        for index, child in tuple(self.children.items()):
+            if child.done:
+                self.frontier_error = self.frontier_error or child.error
+                self.retiring.extend(child.retiring)
+                child.retiring = []
+                del self.children[index]
+                progress = True
+        if self.frontier_error is None:
+            try:
+                for _ in range(frontier.max_active - len(self.children)):
+                    plan = frontier.admit()
+                    if plan is None:
+                        break
+                    self.children[self.frontier_serial] = _Node(plan)
+                    self.frontier_serial += 1
+                    progress = True
+            except Exception as error:
+                self.frontier_error = error
+        if not self.children:
+            try:
+                complete = self.frontier_error is not None or frontier.complete()
+            except Exception as error:
+                self.frontier_error, complete = error, True
+            if complete:
+                self.advance(error=self.frontier_error)
+                return True
+        return progress
+
     def futures(self):
-        return [
-            h.future for h in (*self.handles.values(), *self.retiring) if not h.future.done()
-        ] + [future for child in self.children.values() for future in child.futures()]
+        return self.context.run(self._futures)
+
+    def _futures(self):
+        return (
+            [h.future for h in self.handles.values() if not h.future.done()]
+            + [
+                context.run(lambda handle=handle: handle.future)
+                for context, handle in self.retiring
+                if not context.run(lambda handle=handle: handle.future.done())
+            ]
+            + [future for child in self.children.values() for future in child.futures()]
+        )
 
     def flush(self):
+        return self.context.run(self._flush)
+
+    def _flush(self):
         for handle in self.handles.values():
             flush = getattr(handle, "flush", None)
             if flush is not None:
@@ -147,6 +221,9 @@ class _Node:
             child.flush()
 
     def close(self):
+        return self.context.run(self._close)
+
+    def _close(self):
         failures = []
         try:
             self.abandon_requests()
@@ -157,10 +234,16 @@ class _Node:
                 child.close()
             except BaseException as error:
                 failures.append(error)
-        for handle in (*self.handles.values(), *self.retiring):
+        for handle in self.handles.values():
             try:
                 handle.cancel()
                 handle.retire()
+            except BaseException as error:
+                failures.append(error)
+        for context, handle in self.retiring:
+            try:
+                context.run(handle.cancel)
+                context.run(handle.retire)
             except BaseException as error:
                 failures.append(error)
         try:

@@ -2,6 +2,12 @@
 
 **BEP-09 incomplete; bounded qualification authorized, prior-package implementation gaps remain and full-book acceptance is deferred (2026-11-12).** Owns BEP-09 design and bounded investigation routes. The [coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns every scheduled disposition and combined completion; this companion defines what settles it.
 
+## Operator closeout checkpoint · 2026-11-12
+
+The [coordinator checkpoint](../book-processing-efficiency-and-parallelism_2026-11-11.md#audit-repair-execution)
+owns integrated delivery, scoped evidence and remaining execution. GPU foundations remain
+unselected; native/assembled qualification and full-book acceptance are not established here.
+
 ## Current approved execution boundary · 2026-11-12
 
 **Proposed accepted target; implementation incomplete.** The
@@ -13,7 +19,7 @@ exclusive GPU-custody assumptions in the original design below. CPU parser deadl
 spaCy learned annotation moves to GPU with tokenizer-only preparation staying CPU. GPU phase
 custody begins after capture. Historical scoped receipts retain their dates/source/profile limits.
 
-BEP-E04/E06–14 remain open. Bounded qualification is authorized after implementation and custody
+BEP-E04/E06–14 retain qualification/cutover obligations; implemented/scoped-tested repairs are distinguished in the coordinator. Bounded qualification is authorized after implementation and custody
 readiness; the full book, book interruption/resume and full-book consumers remain deferred.
 E05 does not authorize speculative memory diagnosis. This companion is not a second status ledger.
 

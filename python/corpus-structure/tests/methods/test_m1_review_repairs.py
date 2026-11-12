@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy import Engine
 
+from corpus_structure.core.method import MethodSettings
 from corpus_structure.methods.m1_source import M1Config, _structural_groups
 from corpus_structure.orchestrate.m1 import RetainedIntegratedConfig, RetainedIntegratedPdf
 from corpus_structure.semantic.product_reference import ProductReference
@@ -252,6 +253,7 @@ def test_command_preflight_precedes_run_creation_and_narrows_corpus(
     conn.execute.return_value.mappings.return_value.__iter__.side_effect = lambda: iter(docs)
     engine = MagicMock()
     engine.connect.return_value.__enter__.return_value = conn
+    monkeypatch.setattr(commands, "resolve_source_domain", lambda *a, **k: "statistics")
     monkeypatch.setattr(releases, "load_release", lambda *a: SimpleNamespace(release_id="release"))
     preflight = []
 
@@ -262,8 +264,14 @@ def test_command_preflight_precedes_run_creation_and_narrows_corpus(
         return m1.RetainedDocument(2, "other-book", "b" * 64, "other_book/Full.pdf")
 
     monkeypatch.setattr(m1, "retained_document", selected)
-    captured = SimpleNamespace(run_id=17)
-    started = MagicMock(side_effect=[captured, "candidate-source-result"])
+    from corpus_structure.orchestrate.characterization import EnrichedDocumentResult
+    from corpus_structure.orchestrate.semantic import BoundRunReport
+
+    captured = BoundRunReport(
+        run_id=17, status="source_ready", release_id="release", realization_id="input"
+    )
+    final = captured.model_copy(update={"run_id": 18})
+    started = MagicMock(side_effect=[captured, final])
     monkeypatch.setattr(semantic, "run_source_methods", started)
     layer_pin = ProductReference(24, "layer", "d" * 64)
     view_pin = ProductReference(25, "view", "e" * 64)
@@ -281,8 +289,10 @@ def test_command_preflight_precedes_run_creation_and_narrows_corpus(
         recipe_digest="c" * 64,
         coordinate_version=3,
     )
-    enriched = MagicMock(return_value=(SimpleNamespace(view=view_pin),))
-    monkeypatch.setattr(characterization, "characterize_captured_run", enriched)
+    enriched = MagicMock(
+        return_value=(EnrichedDocumentResult(view_pin, (layer_pin,), (24,), "ready", ()),)
+    )
+    monkeypatch.setattr(characterization, "_characterize_captured_run", enriched)
     monkeypatch.setattr(characterization, "characterization_sources", lambda *a, **k: (source,))
     monkeypatch.setattr(query, "read_snapshot", lambda engine: engine.connect())
     conn.scalar.return_value = "project"
@@ -301,7 +311,7 @@ def test_command_preflight_precedes_run_creation_and_narrows_corpus(
         project_id="project",
         domain="statistics",
         domains=tmp_path,
-        method_settings=None,
+        method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
         extraction_policy="m1-candidate",
         integrated_product=ProductReference(23, "integrated", "a" * 64),
         m1_configuration=configuration,
@@ -312,10 +322,10 @@ def test_command_preflight_precedes_run_creation_and_narrows_corpus(
         started.assert_not_called()
         enriched.assert_not_called()
     else:
-        assert commands.start_bound_run(engine, **kwargs) == "candidate-source-result"
+        assert commands.start_bound_run(engine, **kwargs) == final
         result = started.call_args.kwargs
         assert started.call_count == 2
-        assert enriched.call_args.args[1] is captured
+        assert enriched.call_args.args[2] is captured
         capture = started.call_args_list[0].kwargs
         assert capture["corpus_record"]["documents"] == ["other-book"]
         assert len(capture["graph"].stages) == 1

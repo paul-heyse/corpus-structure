@@ -1,10 +1,10 @@
 ---
 id: ADR-0080
 title: Observe committed source-run identity before source execution
-status: accepted
+status: superseded
 date: 2026-11-10
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0089
 design: [§2]
 evidence: Proposed
 revisit: A supported consumer needs separately acquired and independently executed source work.

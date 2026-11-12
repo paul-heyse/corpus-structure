@@ -14,7 +14,7 @@ from corpus_structure.cli.characterization_options import (
     method_settings as resolved_method_settings,
 )
 from corpus_structure.cli.failures import failure_boundary
-from corpus_structure.cli.output import JsonOpt, diagnostic, emit, state, stderr_console
+from corpus_structure.cli.output import JsonOpt, emit, state, stderr_console
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.refusals import SemanticRefusal
 
@@ -113,10 +113,17 @@ def regenerate(
         finalize_bound_run,
         run_readiness,
         run_source_ready,
-        start_bound_run,
     )
     from corpus_structure.orchestrate.liveness import supervise_run
-    from corpus_structure.orchestrate.project import init_bound_project
+    from corpus_structure.orchestrate.source_operation import (
+        preflight_source_operation,
+        run_source_operation,
+    )
+    from corpus_structure.orchestrate.source_request import (
+        SourceRunRequest,
+        source_selection,
+        validate_source_roles,
+    )
     from corpus_structure.schema.pack import DOMAINS
     from corpus_structure.semantic.authored_sql import (
         AuthoredSQL,
@@ -144,8 +151,10 @@ def regenerate(
         ):
             return analyze_archived_sql(sql_conn, release_id)
 
-    if whole_document and (slice is not None or scope is not None):
-        raise typer.BadParameter("whole-document is mutually exclusive with slice and scope")
+    try:
+        selection = source_selection(slice=slice, scope=scope, whole_document=whole_document)
+    except ValueError as error:
+        raise typer.BadParameter(str(error)) from error
     if resume_run is not None and (
         whole_document or source_membership is not None or slice is not None or scope is not None
     ):
@@ -189,20 +198,29 @@ def regenerate(
         project = project or settings.runtime.default_project
         if not automated and (select_result or activate):
             raise SemanticRefusal("source preparation cannot select a result or activate a release")
-        if native_source is not None and integrated_source is not None:
-            raise SemanticRefusal("native-source and integrated-source are mutually exclusive")
+        validate_source_roles(native_source, integrated_source)
         if resume_run is not None and (native_source is not None or integrated_source is not None):
             raise SemanticRefusal("a resumed run retains its original source input binding")
+        source_request: SourceRunRequest | None = None
         native_product = read_product_pin(native_source, "native")
         integrated_product = read_product_pin(integrated_source, "integrated")
+        if resume_run is None:
+            source_request = SourceRunRequest(
+                project_id=project,
+                domain=domain,
+                selection=selection,
+                membership=source_membership,
+                native_product=native_product,
+                integrated_product=integrated_product,
+                registration_corpus=corpus,
+            )
+            preflight_source_operation(source_request, method_settings)
         completed = None
         readiness = "source_ready"
         run_state = "running"
         if resume_run is None:
             if domain is None or corpus is None:
                 raise SemanticRefusal("a new run requires --domain and --corpus")
-            if Path(domain).name != domain:
-                raise SemanticRefusal("domain must name a declared pack")
             bundle, deps, profile, prepared = prepare_pack(DOMAINS / domain)
             failure.bind(prepared, "regenerate")
             source_id = f"source:{project}:{prepared.release_id}"
@@ -288,63 +306,24 @@ def regenerate(
             if resume_run is None:
                 assert prepared is not None and source_id is not None
                 assert domain is not None and corpus is not None
-                with engine.begin() as conn:
-                    init_bound_project(
-                        conn,
-                        domain=domain,
-                        corpus=corpus.resolve(),
-                        name=project,
-                        release_id=prepared.release_id,
-                        realization_id=source_id,
-                        native_product=native_product,
-                        integrated_product=integrated_product,
-                    )
-                from corpus_structure.orchestrate.semantic import SourceRunCreated
+                from dataclasses import replace
 
-                def source_created(created: SourceRunCreated) -> None:
-                    from corpus_structure.orchestrate.characterization_recovery import (
-                        record_characterization_run,
-                    )
+                from corpus_structure.orchestrate.source_reporting import record_source_run
 
-                    if record_characterization_run(invocation, engine, created):
-                        return
-                    bindings = {
-                        "run_id": created.run_id,
-                        "project": created.project,
-                        "release_id": created.release_id,
-                    }
-                    try:
-                        invocation.bind_observations(**bindings)
-                        invocation.stage("source_running", run_id=created.run_id)
-                    except Exception as binding_error:
-                        # Optional diagnostics cannot replace native source work or its failure.
-                        reason = type(binding_error).__name__
-                        invocation.manifest.details["observation_binding_unavailable"] = reason
-                        try:
-                            invocation.observe(
-                                "binding_unavailable",
-                                "Native run observation binding unavailable",
-                                reason=reason,
-                            )
-                            diagnostic("Native run observation binding unavailable: " + reason)
-                        except Exception:
-                            pass
-
-                run = start_bound_run(
-                    engine,
-                    on_created=source_created,
+                assert source_request is not None
+                request = replace(
+                    source_request,
                     release_id=prepared.release_id,
                     realization_id=source_id,
-                    project_id=project,
-                    domain=domain,
-                    method_settings=method_settings,
-                    slice=slice,
-                    scope=scope,
-                    whole_document=whole_document,
-                    source_membership=source_membership,
-                    native_product=native_product,
-                    integrated_product=integrated_product,
+                    registration_corpus=corpus.resolve(),
                 )
+                operation = run_source_operation(
+                    engine,
+                    request,
+                    method_settings,
+                    on_created=lambda created: record_source_run(invocation, engine, created),
+                )
+                run = operation.run
                 run_id = run.run_id
             else:
                 run_id = resume_run

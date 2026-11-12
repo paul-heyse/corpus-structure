@@ -217,13 +217,17 @@ def test_direct_method_rejects_frozen_gliner_policy_before_native_startup(
     prepared, monkeypatch, threads, interop
 ):
     from dataclasses import replace
+
     from semantic.test_model_characterization import gliner_profile
+
     from corpus_structure.methods import characterization_resources as resources
     from corpus_structure.methods.gliner import GlinerRefused
 
     _selected, _draft, cfg, unit, ctx = inputs(prepared)
     cfg = cfg.model_copy(update={"gliner_profile": gliner_profile()})
-    policy = replace(ctx.settings.execution_policy, provider_threads=threads, provider_interop_threads=interop)
+    policy = replace(
+        ctx.settings.execution_policy, provider_threads=threads, provider_interop_threads=interop
+    )
     ctx = replace(ctx, settings=ctx.settings.model_copy(update={"execution_policy": policy}))
     monkeypatch.setattr(resources, "GlinerWorker", lambda *args: pytest.fail("native startup"))
     with pytest.raises(GlinerRefused, match="threads/inter-op differ from execution policy"):
@@ -236,18 +240,27 @@ def test_local_gliner_scopes_batch_at_capacity_one_and_reduce_independent_authen
 ):
     import json
     from dataclasses import asdict, replace
+    from hashlib import sha256
+
     from semantic.test_model_characterization import gliner_profile, gliner_report
+
     from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
     from corpus_structure.core.method import drive_prepared_work
     from corpus_structure.methods import characterization_resources as resources
     from corpus_structure.methods.gliner_worker import GlinerAdmission
-    from corpus_structure.methods.model_observation import batch_receipt, installed_policy, observation_digest
+    from corpus_structure.methods.model_observation import (
+        MODEL_OBSERVATION_INPUT,
+        batch_receipt,
+        installed_policy,
+        observation_digest,
+    )
     from corpus_structure.semantic.cpu_execution import OwnedByteBudget
-    from corpus_structure.semantic.model_characterization import GLINER_CUES, GLINER_FUNCTIONS, prepare_model_scope
-
-    from hashlib import sha256
-    from corpus_structure.methods.model_observation import MODEL_OBSERVATION_INPUT
     from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.model_characterization import (
+        GLINER_CUES,
+        GLINER_FUNCTIONS,
+        prepare_model_scope,
+    )
 
     manifest = json.loads(prepared.manifest)
     manifest["dependencies"].append([MODEL_OBSERVATION_INPUT, installed_policy()[1]])
@@ -259,10 +272,14 @@ def test_local_gliner_scopes_batch_at_capacity_one_and_reduce_independent_authen
     )
 
     complete = scope("may. may. may. may. may.")
-    scopes = [prepare_model_scope(complete.view, (i, i + 3), (i, i + 4)) for i in (0, 5, 10, 15, 20)]
+    scopes = [
+        prepare_model_scope(complete.view, (i, i + 3), (i, i + 4)) for i in (0, 5, 10, 15, 20)
+    ]
     output = builder(complete)
     profile = gliner_profile()
-    profile = profile.model_copy(update={"profile": replace(profile.profile, max_batch_bytes=batch_bytes)})
+    profile = profile.model_copy(
+        update={"profile": replace(profile.profile, max_batch_bytes=batch_bytes)}
+    )
     _selected, _draft, cfg, _unit, ctx = inputs(prepared)
     cfg = cfg.model_copy(update={"gliner_profile": profile})
     families = declared_families(prepared.registry_rows)
@@ -285,23 +302,54 @@ def test_local_gliner_scopes_batch_at_capacity_one_and_reduce_independent_authen
             cue = "entities" in json.loads(pack.declaration_json)
             calls.append(("prepare", cue, tuple(item.text for item in inputs)))
             return tuple(
-                GlinerAdmission(i, item.context_id, item.context_digest, not (cue and i == 1), "native member refused" if cue and i == 1 else None)
+                GlinerAdmission(
+                    i,
+                    item.context_id,
+                    item.context_digest,
+                    not (cue and i == 1),
+                    "native member refused" if cue and i == 1 else None,
+                )
                 for i, item in enumerate(inputs)
             )
 
         def extract(self, pack, inputs, *, threshold, overlap_policy, **kwargs):
             cue = "entities" in json.loads(pack.declaration_json)
             calls.append(("infer", cue, tuple(item.text for item in inputs)))
-            receipt = batch_receipt(pack, asdict(profile.profile), inputs, threshold, overlap_policy, False, installed_policy()[0]["inference"])
+            receipt = batch_receipt(
+                pack,
+                asdict(profile.profile),
+                inputs,
+                threshold,
+                overlap_policy,
+                False,
+                installed_policy()[0]["inference"],
+            )
             reports = []
             for ordinal, item in enumerate(inputs):
-                raw = {"entities": {question.key: [] for question in families[GLINER_CUES].questions}} if cue else {"functions": [{"label": "assertion", "confidence": 0.8}]}
-                native = gliner_report(pack, item, profile.profile, raw, overlap=overlap_policy, threshold=threshold)
-                reports.append(replace(
-                    native, computation=receipt["digest"], request_digest=receipt["digest"],
-                    batch_receipt_json=json.dumps(receipt), member_ordinal=ordinal,
-                    observation_digest=observation_digest(receipt["digest"], native.raw_json, native.effective_profile_json, ordinal=ordinal, member=receipt["members"][ordinal]),
-                ))
+                raw = (
+                    {"entities": {question.key: [] for question in families[GLINER_CUES].questions}}
+                    if cue
+                    else {"functions": [{"label": "assertion", "confidence": 0.8}]}
+                )
+                native = gliner_report(
+                    pack, item, profile.profile, raw, overlap=overlap_policy, threshold=threshold
+                )
+                reports.append(
+                    replace(
+                        native,
+                        computation=receipt["digest"],
+                        request_digest=receipt["digest"],
+                        batch_receipt_json=json.dumps(receipt),
+                        member_ordinal=ordinal,
+                        observation_digest=observation_digest(
+                            receipt["digest"],
+                            native.raw_json,
+                            native.effective_profile_json,
+                            ordinal=ordinal,
+                            member=receipt["members"][ordinal],
+                        ),
+                    )
+                )
             return tuple(reports)
 
         def close(self):
@@ -311,22 +359,62 @@ def test_local_gliner_scopes_batch_at_capacity_one_and_reduce_independent_authen
     policy = CharacterizationExecutionPolicy(max_provider_jobs=1)
     execution = resources.ProviderExecution(OwnedByteBudget(policy.max_owned_bytes), policy)
     try:
-        drive_prepared_work(ModelCharacterizationMethod()._gliner(cfg, ctx, prepared, output, scopes, families, execution), ctx.check_active)
-        expected = [
-            ("prepare", True, 4), ("infer", True, 3), ("prepare", False, 4), ("infer", False, 4),
-            ("prepare", True, 1), ("infer", True, 1), ("prepare", False, 1), ("infer", False, 1),
-        ] if batch_bytes == 65536 else [
-            ("prepare", True, 2), ("infer", True, 1), ("prepare", True, 2), ("infer", True, 1),
-            ("prepare", False, 2), ("infer", False, 2), ("prepare", False, 2), ("infer", False, 2),
-            ("prepare", True, 1), ("infer", True, 1), ("prepare", False, 1), ("infer", False, 1),
-        ]
+        drive_prepared_work(
+            ModelCharacterizationMethod()._gliner(
+                cfg, ctx, prepared, output, scopes, families, execution
+            ),
+            ctx.check_active,
+        )
+        expected = (
+            [
+                ("prepare", True, 4),
+                ("infer", True, 3),
+                ("prepare", False, 4),
+                ("infer", False, 4),
+                ("prepare", True, 1),
+                ("infer", True, 1),
+                ("prepare", False, 1),
+                ("infer", False, 1),
+            ]
+            if batch_bytes == 65536
+            else [
+                ("prepare", True, 2),
+                ("infer", True, 1),
+                ("prepare", True, 2),
+                ("infer", True, 1),
+                ("prepare", False, 2),
+                ("infer", False, 2),
+                ("prepare", False, 2),
+                ("infer", False, 2),
+                ("prepare", True, 1),
+                ("infer", True, 1),
+                ("prepare", False, 1),
+                ("infer", False, 1),
+            ]
+        )
         assert [(phase, cue, len(items)) for phase, cue, items in calls] == expected
-        assert all(sum(len(text.encode()) for text in items) <= batch_bytes for _, _, items in calls)
-        assert all(all(text == ("may." if cue else "may") for text in items) for _, cue, items in calls)
-        assert [(family, start) for family, start, _ in reductions] == [(family, start) for start in (0, 5, 10, 15, 20) for family in (GLINER_CUES, GLINER_FUNCTIONS)]
+        assert all(
+            sum(len(text.encode()) for text in items) <= batch_bytes for _, _, items in calls
+        )
+        assert all(
+            all(text == ("may." if cue else "may") for text in items) for _, cue, items in calls
+        )
+        assert [(family, start) for family, start, _ in reductions] == [
+            (family, start)
+            for start in (0, 5, 10, 15, 20)
+            for family in (GLINER_CUES, GLINER_FUNCTIONS)
+        ]
         assert [outcome for _, _, outcome in reductions] == [
-            "complete", "complete", "failed", "complete", "complete", "complete",
-            "complete" if batch_bytes == 65536 else "failed", "complete", "complete", "complete",
+            "complete",
+            "complete",
+            "failed",
+            "complete",
+            "complete",
+            "complete",
+            "complete" if batch_bytes == 65536 else "failed",
+            "complete",
+            "complete",
+            "complete",
         ]
         assert execution.budget.used_bytes == 0
     finally:

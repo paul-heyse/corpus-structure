@@ -21,10 +21,9 @@ from corpus_structure.semantic.identity import canonical_bytes
 from .gliner import GlinerInput, GlinerPack, GlinerProfile, GlinerRefused
 from .gliner_worker import GlinerWorker, validate_request
 from .model_observation import ordered_native_bytes, pm2_cohort_digest, pm2_member_digest
-from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused
+from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused, request_frame_size
 from .pm2_worker import open_pm2_worker as _open_pm2_worker
 from .pm2_worker import preflight_pm2_runtime as _preflight_pm2_runtime
-from .pm2_worker import request_frame_size
 
 
 @dataclass(frozen=True)
@@ -583,7 +582,7 @@ class ProviderExecution:
             inputs = tuple(item for handle in (*group, following) for item in handle.request.inputs)
             try:
                 self._request_size(replace(first, inputs=inputs, logical_sizes=()))
-            except (GlinerRefused, CapacityExceeded):
+            except GlinerRefused, CapacityExceeded:
                 return False
             return True
         if not isinstance(other, PM2Work) or first.selection.identity != other.selection.identity:
@@ -736,7 +735,9 @@ class ProviderExecution:
                     if len(reports) != count:
                         raise Pm2WorkerError("native inference omitted admitted logical member")
                     replies.append(
-                        ProviderReply(handle.request.correlation, reports=reports, admissions=members)
+                        ProviderReply(
+                            handle.request.correlation, reports=reports, admissions=members
+                        )
                     )
                     report_offset += count
                 elif refused:
@@ -1128,25 +1129,40 @@ def gliner_extract_members(
     providers, profile, pack, inputs, *, threshold, overlap_policy="flat", check_active
 ):
     """Pack known local scopes, preserving an independent outcome for each input."""
-    from .gliner_worker import GlinerWorkerError
     from corpus_structure.semantic.cpu_execution import CapacityExceeded
+
+    from .gliner_worker import GlinerWorkerError
 
     validate_gliner_policy(profile, providers.policy)
 
     def admit(items):
         return providers._request_size(
             GLiNERWork(
-                profile, pack, items, threshold, overlap_policy, "", (check_active,),
+                profile,
+                pack,
+                items,
+                threshold,
+                overlap_policy,
+                "",
+                (check_active,),
                 logical_sizes=(1,) * len(items),
             )
         )
 
     def extract(items):
         try:
-            return (yield from gliner_extract(
-                providers, profile, pack, items, threshold=threshold,
-                overlap_policy=overlap_policy, check_active=check_active, independent=True,
-            ))
+            return (
+                yield from gliner_extract(
+                    providers,
+                    profile,
+                    pack,
+                    items,
+                    threshold=threshold,
+                    overlap_policy=overlap_policy,
+                    check_active=check_active,
+                    independent=True,
+                )
+            )
         except (GlinerWorkerError, OSError, ValueError) as error:
             check_active()
             return (error,) * len(items)
@@ -1164,7 +1180,7 @@ def gliner_extract_members(
             continue
         try:
             admit((*cohort, item))
-        except (GlinerRefused, CapacityExceeded):
+        except GlinerRefused, CapacityExceeded:
             outcomes.extend((yield from extract(cohort)))
             cohort = ()
         cohort = (*cohort, item)

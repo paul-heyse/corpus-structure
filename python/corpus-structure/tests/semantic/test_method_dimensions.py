@@ -1,6 +1,7 @@
 """Method/release dimensions are admission data, independent from operation protocol outcomes."""
 
 from dataclasses import replace
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -8,7 +9,7 @@ import pytest
 import yaml
 from pydantic import BaseModel
 
-from corpus_structure.core.method import ObservationDraft, UnitRef, UnitResult
+from corpus_structure.core.method import MethodSettings, ObservationDraft, UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
 from corpus_structure.semantic.observations import bind_result
@@ -163,7 +164,9 @@ def test_source_graph_metadata_refuses_before_run_or_task_effects(prepared, monk
             binding=OperationBinding(prepared.release_id, "z", 0, b"{}"),
             registry=registry,
             graph=graph,
-            method_settings=None,
+            method_settings=MethodSettings(
+                data_dir=Path("build/data"), model_cache=Path("build/models")
+            ),
         )
     engine.begin.assert_not_called()
     engine.connect.assert_not_called()
