@@ -84,14 +84,8 @@ def _configure(profiles):
 
 
 def _load(declaration, torch):
-    provider = declaration["profile"]["provider"]
-    # Remaining integration belongs to the accepted GPU package: PM2 loaders must
-    # avoid per-loader process-global retuning; GLiNER needs its distinct CUDA DTO;
-    # spaCy needs its native CuPy/Thinc adapter and detached columns. Refusing here
-    # keeps this checkpoint unselected rather than invoking a legacy CPU backend.
-    raise NotImplementedError(
-        f"shared CUDA adapter for {provider} is not integrated; host checkpoint is unselected"
-    )
+    adapter = runpy.run_path(str(Path(__file__).with_name("native_host_adapters.py")))
+    return adapter["load"](declaration, torch)
 
 
 class _Resident:

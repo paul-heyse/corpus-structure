@@ -34,6 +34,8 @@ class GlinerRefused(ValueError):
 
 WHITESPACE_PROFILE = "gliner2-2.1.0-cpu-fp32-standard-whitespace-v1"
 CODEPOINT_PROFILE = "gliner2-2.1.0-cpu-fp32-standard-codepoints-v1"
+CUDA_WHITESPACE_PROFILE = "gliner2-2.1.0-cuda-fp32-standard-whitespace-v1"
+CUDA_CODEPOINT_PROFILE = "gliner2-2.1.0-cuda-fp32-standard-codepoints-v1"
 BOUNDARY_DIAGNOSTIC = "boundary-span-diagnostic-1"
 MAX_DIAGNOSTIC_SPANS = 256
 
@@ -71,7 +73,7 @@ class GlinerProfile:
             raise GlinerRefused(
                 "profile requires an absolute local snapshot and immutable identity"
             )
-        if self.version not in {WHITESPACE_PROFILE, CODEPOINT_PROFILE}:
+        if self.version not in {WHITESPACE_PROFILE, CODEPOINT_PROFILE, CUDA_WHITESPACE_PROFILE, CUDA_CODEPOINT_PROFILE}:
             raise GlinerRefused("unsupported execution profile")
         for bound in (
             self.threads,
@@ -115,6 +117,14 @@ class GlinerProfile:
         for _, digest in self.artifact_hashes:
             if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
                 raise GlinerRefused("artifact identity must be SHA-256")
+
+    @property
+    def device(self) -> str:
+        return "cuda" if self.version in {CUDA_WHITESPACE_PROFILE, CUDA_CODEPOINT_PROFILE} else "cpu"
+
+    @property
+    def codepoint_splitter(self) -> bool:
+        return self.version in {CODEPOINT_PROFILE, CUDA_CODEPOINT_PROFILE}
 
     @property
     def fingerprint(self) -> str:
@@ -501,7 +511,7 @@ def effective_profile_fingerprint(effective_json: str) -> str:
     return _digest(identity)
 
 
-def load_model(profile: GlinerProfile) -> tuple[Any, str]:
+def load_model(profile: GlinerProfile, *, configure_process: bool = True) -> tuple[Any, str]:
     profile.verify_artifacts()
     if importlib.metadata.version("gliner2") != "2.1.0":
         raise GlinerRefused("native adapter requires gliner2==2.1.0")
@@ -509,28 +519,33 @@ def load_model(profile: GlinerProfile) -> tuple[Any, str]:
     from gliner2 import AutoExtractor
     from gliner2.processing.word_splitter import WhitespaceTokenSplitter
 
-    torch.set_num_threads(profile.threads)
-    torch.set_num_interop_threads(1)
+    if configure_process:
+        torch.set_num_threads(profile.threads)
+        torch.set_num_interop_threads(1)
+    if profile.device == "cuda" and not torch.cuda.is_available():
+        raise GlinerRefused("CUDA GLiNER requires an available GPU")
     model = AutoExtractor.from_pretrained(
         str(profile.snapshot),
-        map_location="cpu",
+        map_location=profile.device,
         word_splitter=(
-            UnicodeCodepointSplitter() if profile.version == CODEPOINT_PROFILE else "whitespace"
+            UnicodeCodepointSplitter() if profile.codepoint_splitter else "whitespace"
         ),
         attention_backend="standard",
     )
+    model.to(profile.device)
     model.eval()
     from threadpoolctl import threadpool_info, threadpool_limits
 
-    limiter = threadpool_limits(limits=profile.threads)
-    import atexit
+    if configure_process:
+        limiter = threadpool_limits(limits=profile.threads)
+        import atexit
 
-    atexit.register(limiter.restore_original_limits)
-    if any(p.device.type != "cpu" or p.dtype != torch.float32 for p in model.parameters()):
-        raise GlinerRefused("resident weights are not FP32 CPU")
+        atexit.register(limiter.restore_original_limits)
+    if any(p.device.type != profile.device or p.dtype != torch.float32 for p in model.parameters()):
+        raise GlinerRefused("resident weights differ from selected FP32 device")
     expected_splitter = (
         UnicodeCodepointSplitter
-        if profile.version == CODEPOINT_PROFILE
+        if profile.codepoint_splitter
         else WhitespaceTokenSplitter
     )
     if type(model.processor.word_splitter) is not expected_splitter:
@@ -549,7 +564,7 @@ def load_model(profile: GlinerProfile) -> tuple[Any, str]:
             "boundary_settings": settings,
             "splitter": expected_splitter.__name__,
             "dtype": "float32",
-            "device": "cpu",
+            "device": profile.device,
             "attention_backend": "standard",
             "threads": torch.get_num_threads(),
             "interop_threads": torch.get_num_interop_threads(),

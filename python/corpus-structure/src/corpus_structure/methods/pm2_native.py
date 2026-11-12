@@ -27,6 +27,8 @@ _ARTIFACT_GROUPS = {
     "maverick": ("maverick", "deberta"),
 }
 _RUNTIME_PACKAGES = {
+    "gliner": {"gliner2": "2.1.0", "torch": "2.15.0", "transformers": "5.22.1"},
+    "spacy": {"spacy": "3.8.18", "cupy-cuda13x": "14.2.0"},
     "d1": {
         "torch": "2.15.0",
         "transformers": "5.22.1",
@@ -172,10 +174,10 @@ def _load_d1(assets: Path, device: str) -> tuple[Payload, Inference]:
     }, infer
 
 
-def _runtime_identity(provider: str) -> Payload:
+def _runtime_identity(provider: str, *, project: Path | None = None) -> Payload:
     """Identify this isolated interpreter without importing any model packages."""
     python = platform.python_version()
-    expected_python = "3.14.10" if provider in {"d1", "hanlp"} else "3.12.3"
+    expected_python = "3.14.10" if provider in {"d1", "hanlp", "gliner", "spacy"} else "3.12.3"
     if python != expected_python:
         raise ValueError(f"{provider} requires CPython {expected_python}, got {python}")
     packages = {name: version(name) for name in _RUNTIME_PACKAGES[provider]}
@@ -191,7 +193,7 @@ def _runtime_identity(provider: str) -> Payload:
             raise ValueError(f"missing installed PM2 distribution record for {name}")
         inventory[name] = (installed.version, sha256(record.encode()).hexdigest())
     root = Path(__file__).resolve().parents[5]
-    project = root if provider == "d1" else root / f"services/pm2-{provider}"
+    project = (root if provider == "d1" else root / f"services/pm2-{provider}") if project is None else project
     with (project / "uv.lock").open("rb") as lock, Path(sys.executable).open("rb") as binary:
         return {
             "version": "pm2-runtime-1",
