@@ -43,7 +43,7 @@ from corpus_structure.semantic.structural_products import StructuralProductRepor
 
 
 def _reports(body):
-    if body.get("operation_version") == "11":
+    if body.get("operation_version") in {"11", "12"}:
         for op in body.get("contribution_operations", ()):
             if "contextual_enrichment" in op:
                 yield op["contextual_enrichment"]
@@ -246,7 +246,7 @@ def _verify_section_report(retained, reports, sources, documents, contract, *, p
 
     body, configuration = retained["body"], retained["configuration"]
     version = body["operation_version"]
-    if version != "11" or body["configuration_hash"] != config_key(
+    if version not in {"11", "12"} or body["configuration_hash"] != config_key(
         "retrieve.contextual", version, configuration
     ):
         raise ValueError("section citation differs from exact retained configuration")
@@ -633,7 +633,7 @@ def verify_contextual_witness_closure(root, manifest, *, retained_primary=None):
     for retained in reports.values():
         body = retained.get("body") or {}
         version = body.get("operation_version")
-        if retained.get("method") == "retrieve.contextual" and version == "11":
+        if retained.get("method") == "retrieve.contextual" and version in {"11", "12"}:
             (report,) = tuple(_reports(body))
             verify_detached_neighborhood(report, native_ranks=True)
     relevant = [
@@ -664,10 +664,10 @@ def verify_contextual_witness_closure(root, manifest, *, retained_primary=None):
         }
     for retained in relevant:
         body = retained["body"]
-        if body["operation_version"] != "11":
-            raise ValueError("contextual witness replay requires current operation 11")
+        if body["operation_version"] not in {"11", "12"}:
+            raise ValueError("contextual witness replay requires current primary contextual operation 11 or 12")
         if body["configuration_hash"] != config_key(
-            "retrieve.contextual", "11", retained["configuration"]
+            "retrieve.contextual", body["operation_version"], retained["configuration"]
         ):
             raise ValueError("contextual witness differs from exact retained configuration")
         primary_layers, _ = primary_layers_for_report(
@@ -689,7 +689,7 @@ def verify_contextual_witness_closure(root, manifest, *, retained_primary=None):
         nodes = {i["self_ref"]: i for i in source["context"]["items"]}
         carriers = tuple(_possible_carriers(body))
         alias_refs = retained["configuration"].get("definition_alias_refs", ())
-        if alias_refs and body["operation_version"] not in {"10", "11"}:
+        if alias_refs and body["operation_version"] not in {"10", "11", "12"}:
             raise ValueError("definition aliases require contextual operation 10 or 11")
         if alias_refs and body["configuration_hash"] != config_key(
             "retrieve.contextual", body["operation_version"], retained["configuration"]

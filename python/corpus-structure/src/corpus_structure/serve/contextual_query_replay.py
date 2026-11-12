@@ -21,11 +21,6 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.record_contracts import anchor_identity
 
-_PARSER_METHOD = {
-    "located-frame-1": "extract.pm2_hanlp",
-    "located-referent-1": "extract.pm2_maverick",
-    "located-discourse-neighbor-1": "extract.pm2_dipo",
-}
 _QUESTION = "retained producer occurrence roles and contextual encoder products"
 
 
@@ -33,13 +28,15 @@ def retained_query_selection(method, version, configuration):
     if method != "retrieve.contextual":
         return None
     raw = configuration.get("query_context")
-    if version == "11":
+    if version == "12":
         if raw is not None:
             return QueryContextSelection.model_validate(raw)
         ContextualQueryConfig.model_validate(configuration)
         return None
     if raw is not None:
-        raise ValueError("retained query context differs from contextual operation 11")
+        raise ValueError("obsolete contextual query arm requires regeneration as operation 12")
+    if version == "11":
+        ContextualQueryConfig.model_validate(configuration)
     return None
 
 
@@ -47,7 +44,7 @@ def query_context_dependency(origin, reference):
     return {
         "required_by": f"origin-task:{origin}",
         "reason": "declared_query_context",
-        "reference": reference.model_dump(mode="json"),
+        "reference": reference.values(),
     }
 
 
@@ -116,30 +113,40 @@ def _receipt_outcome(occurrence, signal, operation, phases, rendered, vector):
     raise ValueError("detached query context lacks its retained encoder refusal")
 
 
-def _verify_receipts(retained, selection, payloads, nodes, pin):
+def _verify_receipts(retained, selection, layers, source):
+    from corpus_structure.semantic.proposals import native_source_frame
+    from corpus_structure.semantic.source_contexts import record_source_pin
+    from .review_bundle import _retained_review_source_view
+
+    frame = native_source_frame(_retained_review_source_view(source), ())
+    pin = record_source_pin(frame)
+    nodes = {node["self_ref"]: node for node in source["context"]["items"]}
+    for pointer, node in tuple(nodes.items()):
+        for index, cell in enumerate(node.get("data", {}).get("table_cells", ())):
+            nodes[f"{pointer}/data/table_cells/{index}"] = cell
     body, config = retained["body"], retained["configuration"]
     cfg = ContextualQueryConfig.model_validate(config)
     profile = E5 if cfg.profile == "e5" else QWEN
     operations = body.get("contribution_operations", ())
     matches = [operation for operation in operations if "contextual_enrichment" in operation]
-    key = operation_identity("retrieve.contextual", "11", cfg.model_dump(mode="json"), pin)
+    key = operation_identity("retrieve.contextual", "12", cfg.model_dump(mode="json"), pin)
     if (
         len(matches) != 1
         or body.get("source") != pin["source"]
-        or body.get("configuration_hash") != config_key("retrieve.contextual", "11", config)
+        or body.get("configuration_hash") != config_key("retrieve.contextual", "12", config)
         or matches[0].get("operation_key") != key
-        or matches[0].get("operation_version") != "11"
+        or matches[0].get("operation_version") != "12"
         or matches[0].get("question") != _QUESTION
     ):
         raise ValueError("detached query context differs from its contextual producer")
     (operation,) = matches
     if any(
-        binding.evidence.contribution_id not in operation["computation_dependencies"]
+        binding.evidence.identity not in operation["computation_dependencies"]
         for binding in selection.bindings
     ):
-        raise ValueError("detached query context is missing a declared parser dependency")
+        raise ValueError("detached query context is missing a declared primary dependency")
     carriers, contexts = _focal_inputs(body, selection, operation, nodes, pin)
-    expected = resolve_query_contexts(selection, payloads, carriers, nodes, pin)
+    expected = resolve_query_contexts(selection, layers, carriers, frame)
     detail = source_python(body["parse_detail"])
     receipts = detail.get("query_context", {})
     if receipts.keys() != expected.keys():
@@ -162,7 +169,7 @@ def _verify_receipts(retained, selection, payloads, nodes, pin):
         if canonical_bytes(receipts[occurrence]) != canonical_bytes(
             dict(signal.report(), outcome=outcome)
         ):
-            raise ValueError("detached query context receipt differs from original parser evidence")
+            raise ValueError("detached query context receipt differs from original primary evidence")
         if rendered is None or vector is None:
             continue
         text, start, end = contexts[occurrence]
@@ -202,7 +209,8 @@ def _verify_receipts(retained, selection, payloads, nodes, pin):
 
 
 def verify_contextual_query_closure(root, manifest, scopes, inventory, report_inventory):
-    from .review_bundle import _detached_relation, _retained_contribution_payloads
+    from .review_bundle import _detached_relation
+    from .primary_characterization_replay import primary_layers_for_report, retained_primary_layers
 
     reports, duplicates = {}, set()
     for row in _detached_relation(root, manifest, "reports"):
@@ -219,7 +227,7 @@ def verify_contextual_query_closure(root, manifest, scopes, inventory, report_in
         selection = retained_query_selection(
             row.get("method"), body.get("operation_version"), config
         )
-        if row.get("method") == "retrieve.contextual" and body.get("operation_version") == "11":
+        if row.get("method") == "retrieve.contextual" and body.get("operation_version") in {"11", "12"}:
             expected = set(config.get("required_occurrence_ids", ()))
             actual = {
                 c.get("occurrence_id")
@@ -241,28 +249,9 @@ def verify_contextual_query_closure(root, manifest, scopes, inventory, report_in
         return set()
 
     sources = {row["source_view_id"]: row for row in _detached_relation(root, manifest, "sources")}
-    references = tuple(dict.fromkeys(b.evidence for _, _, sel in enriched for b in sel.bindings))
-    selected_origins = {origin for origin, _, _ in enriched} | {
-        ref.origin_task_id for ref in references
-    }
-    if duplicates & selected_origins:
+    if duplicates & {origin for origin, _, _ in enriched}:
         raise ValueError("detached query context repeats an original report")
-    payloads = dict(
-        zip(
-            references,
-            _retained_contribution_payloads(
-                root,
-                manifest,
-                [(None, ref) for ref in references],
-                scopes,
-                inventory,
-                origin_sources=True,
-                require_cut_member=True,
-                origin_reports=reports,
-            ),
-            strict=True,
-        )
-    )
+    retained_primary = retained_primary_layers(root, manifest)
     selected = {}
     for (index, task, origin), report in report_inventory.items():
         if report.get("cut_member") is True and type(task) is int and index in scopes:
@@ -283,34 +272,12 @@ def verify_contextual_query_closure(root, manifest, scopes, inventory, report_in
             for scope, member in selected.get(origin, ())
         ):
             raise ValueError("detached query context lacks the selected contextual report")
-        ref = source["ref"]
-        native = ref["native_product"]
-        pin = dict(
-            source=ref["key"],
-            native_product_task_id=native["task_id"],
-            product_key=native["product_key"],
-            product_digest=native["content_digest"],
-            projection_digest=ref["projection_digest"],
-            recipe_digest=ref["recipe_digest"],
-            source_view_id=source_id,
+        layers, _ = primary_layers_for_report(
+            root, manifest, row, source_view_id=source_id, retained=retained_primary
         )
-        nodes = {node["self_ref"]: node for node in source["context"]["items"]}
-        for pointer, node in tuple(nodes.items()):
-            for index, cell in enumerate(node.get("data", {}).get("table_cells", ())):
-                nodes[f"{pointer}/data/table_cells/{index}"] = cell
         for binding in selection.bindings:
-            ref = binding.evidence
-            parser = reports[ref.origin_task_id]
-            if (
-                (ref.project_id, ref.release_id) != (row["project_id"], row["body"]["release_id"])
-                or parser["method"] != _PARSER_METHOD[selection.recipe]
-                or parser["project_id"] != ref.project_id
-                or parser["origin_unit_id"] != source_id
-                or parser["body"].get("source") != pin["source"]
-            ):
-                raise ValueError("detached query context has a foreign parser origin")
-            reasons.add(canonical_bytes(query_context_dependency(origin, ref)))
-        _verify_receipts(
-            row, selection, tuple(payloads[b.evidence] for b in selection.bindings), nodes, pin
-        )
+            if binding.evidence.layer not in layers:
+                raise ValueError("detached query context lacks its selected primary layer")
+            reasons.add(canonical_bytes(query_context_dependency(origin, binding.evidence)))
+        _verify_receipts(row, selection, layers, source)
     return reasons
