@@ -14,10 +14,10 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.core.method import UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
-from corpus_structure.methods import pm2_native
 from corpus_structure.methods.pm2_result import pm2_input_digest, pm2_unit_result
 from corpus_structure.methods.pm2_source import D1SourceField, PM2SourceMap, SourceMapSegment
-from corpus_structure.methods.pm2_worker import Pm2Worker, open_pm2_worker
+from corpus_structure.methods.native_host_clients import HostedPM2
+from .native_provider_support import actual_provider
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.orchestrate.pm2 import settle_pm2_claim
 from corpus_structure.orchestrate.pm2_stage import _interpretation_dependency_reader
@@ -216,7 +216,7 @@ def test_completed_empty_d1_keeps_native_empty_and_publishes_unresolved_question
             settle_pm2_claim(
                 owner,
                 held,
-                cast(Pm2Worker, SimpleNamespace(startup=profile)),
+                cast(HostedPM2, SimpleNamespace(startup=profile)),
                 mapping,
                 request,
                 expected_profile=profile,
@@ -328,15 +328,7 @@ def test_native_mapped_answer_and_limited_operation_survive_a_retained_read(
     if assets:
         # Opt-in native pass uses the same PostgreSQL fixture and public read as the
         # deterministic case. CUDA takes the configured shared device handoff.
-        profile_file = tmp_path / "d1.json"
-        profile_file.write_text(json.dumps({"provider": "d1", "device": "cuda", "assets": assets}))
-        with open_pm2_worker(
-            python=Path(sys.executable),
-            script=Path(pm2_native.__file__),
-            profile=profile_file,
-            device="cuda",
-            nemotron_endpoint=Settings().nemotron.endpoint,
-        ) as worker:
+        with actual_provider("d1", assets, endpoint=Settings().nemotron.endpoint) as worker:
             profile = worker.startup
             digest = pm2_input_digest(mapping, profile, request, **options)
             held = _claim(case, digest, unit_key=source.unit_ref)
@@ -584,17 +576,8 @@ def _settle_reassigned_dipo(case, tmp_path, admin, assets):
         (),
     )
     request = {"text": context.text}
-    profile_file = tmp_path / "dipo.json"
-    profile_file.write_text(json.dumps({"provider": "dipo", "device": "cpu", "assets": assets}))
-    child = Path(pm2_native.__file__)
-    interpreter = child.parents[5] / "services/pm2-dipo/.venv/bin/python"
     dimensions = {"question": "locate_discourse_units", "operation_version": "1"}
-    with open_pm2_worker(
-        python=interpreter,
-        script=child,
-        profile=profile_file,
-        device="cpu",
-    ) as worker:
+    with actual_provider("dipo", assets, endpoint=Settings().nemotron.endpoint) as worker:
         profile = worker.startup
         digest = pm2_input_digest(mapping, profile, request, **dimensions)
         held = _claim(case, digest, view_id=case.other_view, unit_key=key)

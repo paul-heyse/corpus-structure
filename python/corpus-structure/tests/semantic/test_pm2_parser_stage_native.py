@@ -45,8 +45,7 @@ def private_source_options(parser_samples):
 def test_alternate_domain_parser_run_retains_siblings_after_profile_refusal(
     private_source, parser_samples, tmp_path
 ):
-    from corpus_structure.methods import pm2_native
-    from corpus_structure.methods.pm2_worker import open_pm2_worker
+    from .native_provider_support import actual_provider_population
 
     case = private_source
     with case.writer.begin() as conn:
@@ -75,35 +74,11 @@ def test_alternate_domain_parser_run_retains_siblings_after_profile_refusal(
     scopes: list[dict[str, Any]] = []
     start = 0
     settings = Settings()
-    for provider, literal in zip(("hanlp", "maverick", "dipo"), parser_samples, strict=True):
-        # Capture the actual installed locked model's startup contract. Historical
-        # investigation profiles cannot stand in for today's admitted runtime/assets.
-        profile_file = tmp_path / f"{provider}-cuda.json"
-        profile_file.write_text(
-            json.dumps(
-                {
-                    "provider": provider,
-                    "device": "cuda",
-                    "assets": os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"],
-                }
-            )
-        )
-        with open_pm2_worker(
-            python=ROOT / f"services/pm2-{provider}/.venv/bin/python",
-            script=Path(pm2_native.__file__),
-            profile=profile_file,
-            device="cuda",
-            nemotron_endpoint=settings.nemotron.endpoint,
-        ) as worker:
-            profile = dict(worker.startup)
-        scopes.append(
-            dict(
-                source=source.model_dump(mode="json"),
-                extent=[start, start + len(literal)],
-                profile=dict(provider=provider, device="cuda", startup=profile),
-            )
-        )
-        start += len(literal) + 1
+    with actual_provider_population(("hanlp", "maverick", "dipo"), os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"], endpoint=settings.nemotron.endpoint) as population:
+        for provider, literal in zip(("hanlp", "maverick", "dipo"), parser_samples, strict=True):
+            profile = dict(population[provider].startup)
+            scopes.append(dict(source=source.model_dump(mode="json"), extent=[start, start + len(literal)], profile=dict(provider=provider, device="cuda", startup=profile)))
+            start += len(literal) + 1
     refused = dict(scopes[-1])
     refused["profile"] = {
         **refused["profile"],
