@@ -44,7 +44,18 @@ def fixture():
     vector=dict(vector_id=identity("context-vector",binding),object_id=occurrence,source_binding=pin["source"],profile_id=E5.profile_id,input_digest=rendered["final_input_digest"],representation_digest=representation,values=[1.0,*([0.0]*(E5.dimension-1))])
     report=dict(origin_task_id=21,origin_unit_id=1,unit_type="source_view",project_id="project",method="retrieve.contextual",configuration=cfg,origin_run_id=19,runtime_fingerprint="runtime",body=dict(source=pin["source"],operation_version="12",release_id="release",configuration_hash=config_key("retrieve.contextual","12",cfg),contributions=[carrier],parse_detail=source_value(dict(query_context={occurrence:dict(receipt,outcome="rendered")},encoder_inputs=[rendered])),contribution_operations=[dict(operation_key=key,operation_version="12",outcome="succeeded",question="retained producer occurrence roles and contextual encoder products",computation_dependencies=[reference.identity],contextual_enrichment=dict(vectors=[vector]))]))
     context=__import__('json').loads(frame.native_context)
-    ref=SourceViewRef(frame.source_view_id,frame.unit_ref,1,frame.native_product,frame.section_pointer,frame.membership,frame.projection_digest,frame.recipe_digest,frame.version)
+    assert frame.membership == "direct"
+    ref = SourceViewRef(
+        id=frame.source_view_id,
+        key=frame.unit_ref,
+        document_id=1,
+        native_product=frame.native_product,
+        section_pointer=frame.section_pointer,
+        membership="direct",
+        projection_digest=frame.projection_digest,
+        recipe_digest=frame.recipe_digest,
+        analysis_eligible=True,
+    )
     captured=dict(source_view_id=1,ref=asdict(ref),text=frame.text,context=context)
     return report,layers,captured,receipt,rendered,vector
 
