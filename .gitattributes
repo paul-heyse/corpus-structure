@@ -135,3 +135,4 @@ docs/design_review/evidence/2026-11-11_text-characterization-assessment/output-p
 
 # Frozen BEP native capacity authoring outputs retain their exact compiler bytes.
 python/corpus-structure/semantic_alembic/versions/semantic_bep_capacity_* filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-11_bep-layer-capacity/*summary.json filter=lfs diff=lfs merge=lfs -text
