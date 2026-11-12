@@ -261,7 +261,9 @@ def fixture():
     )
     native_layer = native.finish(prepared())
     primary.record(PRIMARY_RULE_FAMILY, scope["selectors"][0], "complete")
-    primary_layer = primary.finish(prepared())
+    from corpus_structure.semantic.constructions.retained_declarations import populate_declaration_readings
+    populate_declaration_readings(primary, view, {native_layer.reference(101): native_layer})
+    primary_layer = primary.finish(prepared(), dependencies={native_layer.reference(101): native_layer})
     layers = {
         native_layer.reference(101): native_layer,
         primary_layer.reference(102): primary_layer,
@@ -286,6 +288,9 @@ def test_primary_native_declaration_chain_keeps_exact_roles_without_private_pars
         "hanlp_products",
         lambda *_args, **_kwargs: pytest.fail("consumer reran linguistic recognition"),
     )
+    from corpus_structure.semantic.constructions import retained_declarations
+    monkeypatch.setattr(retained_declarations, "_sentences", lambda *_a, **_k: pytest.fail("consumer reconstructed native sentences"))
+    monkeypatch.setattr(retained_declarations, "_facts", lambda *_a, **_k: pytest.fail("consumer recognized declaration syntax"))
     component = primary_declaration_component(layers, view, passage)
     assert component.term.text == "samples"
     assert component.content.text == (

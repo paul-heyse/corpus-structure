@@ -68,65 +68,6 @@ def _facets(ops, rows):
     }
 
 
-def test_parser_join_preserves_roles_and_located_parts_when_siblings_are_missing():
-    operation = _operation(10, "pm2.hanlp.frames")
-    other = _operation(20, "pm2.hanlp.frames")
-    host = _row(
-        operation,
-        "host",
-        "linguistic.predicate_frame",
-        value={
-            "predicate": "verb",
-            "focus": "verb",
-            "dependency_arguments": [{"role": "nsubj:pass", "location": "subject"}],
-            "srl_frames": [
-                {"predicate": "verb", "arguments": [{"role": "ARG1", "location": "subject"}]}
-            ],
-        },
-        members=("verb",),
-        missing=("subject",),
-    )
-    cue = _row(
-        operation,
-        "cue",
-        "linguistic.qualifier_cue",
-        value={"location": "condition", "marker": "if", "candidates": ["host"]},
-        members=("condition", "if", "host"),
-    )
-    products = (
-        host,
-        cue,
-        _row(operation, "condition", "source_occurrence", located=True),
-        _row(operation, "verb", "source_occurrence", located=True),
-        # A row in another operation has the same key and identity but is not this member.
-        _row(other, "if", "source_occurrence", located=True),
-    )
-    parts = _facets((operation, other), products)
-    assert [(role["role"], role["state"]) for role in parts["cue-id"]["roles"]] == [
-        ("cue", "source_located"),
-        ("marker", "outside_selection"),
-        ("host", "retained"),
-    ]
-    assert parts["cue-id"]["roles"][2]["reference"]["contribution_id"] == "host-id"
-    assert [
-        (role["role_family"], role["role"], role["state"]) for role in parts["host-id"]["roles"]
-    ] == [
-        ("frame", "predicate", "source_located"),
-        ("frame", "focus", "source_located"),
-        ("native_dependency", "nsubj:pass", "source_unavailable"),
-        ("native_srl", "PRED", "source_located"),
-        ("native_srl", "ARG1", "source_unavailable"),
-    ]
-    with pytest.raises(SemanticRefusal, match="original source member"):
-        substituted = {
-            **_row(operation, "if", "source_occurrence", located=True),
-            "pin": {**PIN, "source": "other-source"},
-        }
-        _facets((operation, other), (*products, substituted))
-    with pytest.raises(SemanticRefusal, match="exact producing operation"):
-        _facets((other,), products)
-
-
 def test_discourse_returns_only_located_members_of_the_selected_ordered_arm():
     operation = _operation(10, "pm2.dipo.discourse")
     root = _row(
@@ -175,62 +116,6 @@ def _located(op, key, start, end, literal):
     row = _row(op, key, "source_occurrence", located=True)
     row["anchors"][0].update(pointer="#/texts/0", start=start, end=end, source_piece=literal)
     return row
-
-
-def test_retained_host_and_srl_modifier_do_not_require_complete_svo():
-    op = _operation(10, "pm2.hanlp.frames")
-    verb = _located(op, "verb", 10, 14, "wait")
-    qualifier = _located(op, "qualifier", 20, 27, "if busy")
-    marker = _located(op, "marker", 20, 22, "if")
-    temporal = _located(op, "temporal", 15, 19, "soon")
-    clause_extent = _located(op, "extent", 0, 19, "Operators wait soon")
-    frame = _row(
-        op,
-        "frame",
-        "linguistic.predicate_frame",
-        value={
-            "sentence": 0,
-            "predicate": "verb",
-            "focus": "verb",
-            "dependency_arguments": [],
-            "srl_frames": [
-                {"predicate": "verb", "arguments": [{"role": "ARGM-TMP", "location": "temporal"}]}
-            ],
-        },
-        members=("verb", "temporal"),
-    )
-    cue = _row(
-        op,
-        "cue",
-        "linguistic.qualifier_cue",
-        value={
-            "kind": "condition",
-            "location": "qualifier",
-            "marker": "marker",
-            "candidates": ["frame"],
-        },
-        members=("qualifier", "marker", "frame"),
-    )
-    clause = _row(
-        op,
-        "clause",
-        "linguistic.constituent",
-        value={"sentence": 0, "label": "S", "location": "extent"},
-        members=("extent",),
-    )
-    selected = (frame, cue, clause, verb, qualifier, marker, temporal, clause_extent)
-    result = _facets((op,), selected)
-    (association,) = result["cue-id"]["qualifier_host_candidates"]
-    assert association["status"] == "candidate"
-    assert association["host"]["anchor_ids"] == ("verb-anchor",)
-    assert association["qualifier"]["anchor_ids"] == ("qualifier-anchor",)
-    (modifier,) = result["frame-id"]["modifier_candidates"]
-    assert modifier["modifier"]["role"] == "ARGM-TMP"
-    assert modifier["modifier"]["anchor_ids"] == ("temporal-anchor",)
-    assert result["frame-id"]["clause_containment"][0]["clause"]["contribution_id"] == "clause-id"
-    without_host = _facets((op,), tuple(row for row in selected if row is not verb))
-    assert "qualifier_host_candidates" not in without_host["cue-id"]
-    assert "modifier_candidates" not in without_host["frame-id"]
 
 
 def test_maverick_nominal_comparator_reuses_only_exact_selected_phrase_evidence():

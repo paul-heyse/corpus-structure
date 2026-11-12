@@ -83,24 +83,9 @@ def test_conditional_host_alternatives_and_srl_roles_remain_independent():
         constituent=(4, 6),
     )
     result = hanlp_products(mapping, request, native)
-    products = {row.key: row.value for row in result.products}
-    frame = products["s0/predicate/7"]
-    assert frame["scheme"] == "hanlp-ud-ptb-propbank-1"
-    assert _quoted(result, frame["predicate"]) == ["close"]
-    assert _quoted(result, frame["focus"]) == ["the valve must close", "."]
-    native_roles = frame["srl_frames"][0]["arguments"]
-    assert [(role["role"], _quoted(result, role["location"])) for role in native_roles] == [
-        ("ARG1", ["the valve"]),
-        ("R-ARG1", ["pressure"]),
-        ("C-ARG1", ["remain"]),
-    ]
-    assert products["s0/predicate/9"]["srl_frames"] == []
-    cue = products["s0/cue/0/condition"]
-    assert _quoted(result, cue["location"]) == ["If pressure rises ,"]
-    assert cue["candidates"] == ["s0/predicate/7", "s0/predicate/9"]
-    modal = products["s0/cue/6/modality"]
-    assert modal["candidates"] == ["s0/predicate/7"]
-    assert _quoted(result, modal["location"]) == ["must"]
+    assert {row.semantic_type for row in result.products} == {"linguistic.constituent"}
+    labels = {row.value["label"] for row in result.products}
+    assert {"TOP", "S", "NP", "MD", "IN"} <= labels
     phrase = next(row.value for row in result.products if row.value.get("label") == "NP")
     assert _quoted(result, phrase["location"]) == ["the valve"]
 
@@ -118,43 +103,8 @@ def test_conditional_host_alternatives_and_srl_roles_remain_independent():
     )
     assert {row["semantic_type"]: row["contract"] for row in retained.contributions or ()} == {
         "source_occurrence": "RetainedContributionSemantics",
-        "linguistic.predicate_frame": "PM2HanLPFrameContributionV1",
-        "linguistic.qualifier_cue": "PM2HanLPCueContributionV1",
         "linguistic.constituent": "PM2HanLPPhraseContributionV1",
     }
-
-
-@pytest.mark.parametrize("noun", ["médiane", "valve"])
-def test_reported_passive_keeps_grammatical_roles_and_nested_attribution(noun):
-    words = ["They", "said", "the", noun, "was", "not", "replaced", "by", "Jo", "."]
-    tags = ["PRP", "VBD", "DT", "NN", "VBD", "RB", "VBN", "IN", "NNP", "."]
-    arcs = [
-        [2, "nsubj"],
-        [0, "root"],
-        [4, "det"],
-        [7, "nsubj:pass"],
-        [7, "aux:pass"],
-        [7, "advmod"],
-        [2, "ccomp"],
-        [9, "case"],
-        [7, "obl:agent"],
-        [2, "punct"],
-    ]
-    lemmas = ["they", "say", "the", noun, "be", "not", "replace", "by", "Jo", "."]
-    result = hanlp_products(*_scope(words, tags, arcs, lemmas=lemmas))
-    products = {row.key: row.value for row in result.products}
-    frame = products["s0/predicate/6"]
-    assert frame["voice"] == "passive"
-    assert [
-        (role["role"], _quoted(result, role["location"])) for role in frame["dependency_arguments"]
-    ] == [
-        ("nsubj:pass", ["the " + noun]),
-        ("obl:agent", ["by Jo"]),
-    ]
-    assert products["s0/cue/5/negation"]["candidates"] == ["s0/predicate/6"]
-    attribution = products["s0/cue/6/attribution"]
-    assert attribution["attribution_source"] == "s0/predicate/1"
-    assert attribution["candidates"] == ["s0/predicate/6"]
 
 
 def test_forged_yield_refuses_and_partial_atom_retains_unmapped_location():
@@ -165,10 +115,10 @@ def test_forged_yield_refuses_and_partial_atom_retains_unmapped_location():
         words, tags, arcs, atoms=((0, 3),), srl=((("ARG0", 0, 1), ("PRED", 2, 3)),)
     )
     result = hanlp_products(mapping, request, reply)
-    frame = next(row.value for row in result.products if row.key == "s0/predicate/2")
-    argument = frame["srl_frames"][0]["arguments"][0]
-    assert isinstance(result.locations[argument["location"]], SourceMapRefused)
-    assert _quoted(result, frame["predicate"]) == ["changes"]
+    leaf = next(row.value for row in result.products if row.value["label"] == "NN")
+    assert isinstance(result.locations[leaf["location"]], SourceMapRefused)
+    verb = next(row.value for row in result.products if row.value["label"] == "VBZ")
+    assert _quoted(result, verb["location"]) == ["changes"]
 
     forged = deepcopy(reply)
     forged["native"]["con"][0][1][0][1][0][1] = ["y"]
@@ -176,21 +126,15 @@ def test_forged_yield_refuses_and_partial_atom_retains_unmapped_location():
         hanlp_products(mapping, request, forged)
 
 
-@pytest.mark.parametrize(("head", "host"), [(2, 1), (4, 3)])
-def test_same_marker_distinguishes_defining_act_from_content_by_native_governor(head, host):
-    words = ["It", "defines", "what", "works", "if", "pressure", "rises"]
-    tags = ["PRP", "VBZ", "WP", "VBZ", "IN", "NN", "VBZ"]
-    arcs = [
-        [2, "nsubj"],
-        [0, "root"],
-        [4, "nsubj"],
-        [2, "ccomp"],
-        [7, "mark"],
-        [7, "nsubj"],
-        [head, "advcl"],
-    ]
-    result = hanlp_products(*_scope(words, tags, arcs))
-    cue = next(row.value for row in result.products if row.key == "s0/cue/4/condition")
-    assert _quoted(result, cue["marker"]) == ["if"]
-    assert _quoted(result, cue["location"]) == ["if pressure rises"]
-    assert cue["candidates"] == [f"s0/predicate/{host}"]
+@pytest.mark.parametrize("corruption", ["dependency", "srl_bounds", "srl_text"])
+def test_native_input_protection_survives_interpretation_retirement(corruption):
+    mapping, request, reply = _scope(["X", "moves"], ["NN", "VBZ"], [[2,"nsubj"],[0,"root"]],
+                                  srl=((("ARG0",0,1),("PRED",1,2)),))
+    if corruption == "dependency":
+        reply["native"]["dep"][0][0][0] = 99
+    elif corruption == "srl_bounds":
+        reply["native"]["srl"][0][0][0] = ("X","ARG0",0,99)
+    else:
+        reply["native"]["srl"][0][0][0] = ("forged","ARG0",0,1)
+    with pytest.raises(ValueError):
+        hanlp_products(mapping,request,reply)

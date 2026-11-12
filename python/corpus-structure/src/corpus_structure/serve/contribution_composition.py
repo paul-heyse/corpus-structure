@@ -26,9 +26,7 @@ from corpus_structure.methods.pm2_products import (
     PARSER_PROVIDER,
     PARSER_QUESTIONS,
     ClusterView,
-    CueView,
     EDUView,
-    FrameView,
     MentionView,
     ParserValue,
     PhraseView,
@@ -162,49 +160,6 @@ class _Parts:
 
 
 def _parser_roles(value: ParserValue, parts: _Parts) -> list[dict[str, Any]]:
-    if isinstance(value, FrameView):
-        if value.focus is None:
-            raise SemanticRefusal("retained PM2 frame lacks a focal member")
-        roles = [
-            parts.role("frame", "predicate", value.predicate),
-            parts.role("frame", "focus", value.focus),
-            *(
-                parts.role("native_dependency", item.role, item.location)
-                for item in value.dependency_arguments
-            ),
-        ]
-        for group, frame in enumerate(value.srl_frames):
-            if frame.predicate is None:
-                raise SemanticRefusal("retained PM2 frame lacks its SRL predicate")
-            roles.append(parts.role("native_srl", "PRED", frame.predicate, group=group))
-            roles.extend(
-                parts.role("native_srl", item.role, item.location, group=group)
-                for item in frame.arguments
-            )
-        return roles
-    if isinstance(value, CueView):
-        return [
-            parts.role("qualifier", "cue", value.location),
-            parts.role("qualifier", "marker", value.marker),
-            *(
-                parts.role(
-                    "qualifier_candidate", "host", key, semantic_type="linguistic.predicate_frame"
-                )
-                for key in value.candidates
-            ),
-            *(
-                [
-                    parts.role(
-                        "qualifier_candidate",
-                        "attribution_source",
-                        source,
-                        semantic_type="linguistic.predicate_frame",
-                    )
-                ]
-                if (source := value.attribution_source) is not None
-                else []
-            ),
-        ]
     if isinstance(value, ClusterView):
         return [
             parts.role("local_coreference", "mention", key, semantic_type="maverick.mention")
@@ -220,59 +175,6 @@ def _parser_roles(value: ParserValue, parts: _Parts) -> list[dict[str, Any]]:
             raise SemanticRefusal("retained PM2 product lacks an extent member")
         return [parts.role("source", "extent", key)]
     return []
-
-
-def _frame_associations(frame: FrameView, parts: _Parts) -> list[dict[str, Any]]:
-    """Expose explicit SRL modifiers without turning native roles into semantic claims."""
-    host = parts.role("frame", "predicate", frame.predicate)
-    if host["state"] != "source_located":
-        return []
-    result = []
-    for group, reading in enumerate(frame.srl_frames):
-        for argument in reading.arguments:
-            # PropBank continuation and reference roles keep their native spelling.
-            role = argument.role.removeprefix("C-").removeprefix("R-")
-            scheme, _, modifier_role = role.partition("-")
-            if scheme not in {"ARGM", "AM"} or modifier_role not in _MODIFIER_ROLES:
-                continue
-            modifier = parts.role("native_srl", argument.role, argument.location, group=group)
-            if modifier["state"] == "source_located":
-                result.append(
-                    dict(basis="native_srl_group", status="candidate", host=host, modifier=modifier)
-                )
-    return result
-
-
-def _cue_associations(cue: CueView, parts: _Parts) -> list[dict[str, Any]]:
-    qualifier = parts.role("qualifier", "cue", cue.location)
-    marker = parts.role("qualifier", "marker", cue.marker)
-    if qualifier["state"] != "source_located" or marker["state"] != "source_located":
-        return []
-    result = []
-    for key in cue.candidates:
-        _, frame = parts.resolve(key, "linguistic.predicate_frame")
-        if frame is None:
-            continue
-        value = parser_view(frame)
-        if not isinstance(value, FrameView):
-            raise SemanticRefusal("retained qualifier candidate is not a predicate frame")
-        frame_parts = _Parts.read(
-            frame, value.location_keys, value.unlocated_members, parts.selection
-        )
-        host = frame_parts.role("qualifier_candidate", "host_predicate", value.predicate)
-        if host["state"] == "source_located":
-            result.append(
-                dict(
-                    basis="native_qualifier_cue",
-                    status="candidate",
-                    qualifier_kind=cue.kind,
-                    qualifier=qualifier,
-                    marker=marker,
-                    host_frame=_reference(frame),
-                    host=host,
-                )
-            )
-    return result
 
 
 def _located_member(parts: _Parts, key: str) -> Row | None:
@@ -681,7 +583,6 @@ def composition_facets(
     facets: dict[tuple[Custody, str], dict[str, Any]] = {}
     edus: dict[tuple[Custody, str], EDUView] = {}
     trees: dict[tuple[Custody, str], tuple[Row, TreeView, _Parts]] = {}
-    frames: list[tuple[tuple[Custody, str], FrameView, _Parts]] = []
     clauses: dict[tuple[Custody, int], list[tuple[Row, Row]]] = {}
     nominals: dict[tuple[int, tuple[str, ...]], Row] = {}
     clusters: list[tuple[Row, ClusterView, _Parts]] = []
@@ -787,16 +688,6 @@ def composition_facets(
             }
         elif isinstance(parser_value, TreeView):
             trees[ref] = (row, parser_value, parts)
-        elif isinstance(parser_value, FrameView):
-            associations = _frame_associations(parser_value, parts)
-            if associations:
-                facets[ref]["modifier_candidates"] = associations
-            if parser_value.sentence is not None:
-                frames.append((ref, parser_value, parts))
-        elif isinstance(parser_value, CueView):
-            associations = _cue_associations(parser_value, parts)
-            if associations:
-                facets[ref]["qualifier_host_candidates"] = associations
         elif isinstance(parser_value, PhraseView):
             location = _located_member(parts, parser_value.location)
             if location is not None and parser_value.sentence is not None:
@@ -824,17 +715,6 @@ def composition_facets(
         elif isinstance(parser_value, ClusterView):
             clusters.append((row, parser_value, parts))
 
-    for ref, frame, parts in frames:
-        host = _located_member(parts, frame.predicate)
-        if host is None or frame.sentence is None:
-            continue
-        containing = [
-            {"clause": _reference(clause), "anchor_ids": _exact_anchors(location)}
-            for clause, location in clauses.get((ref[0], frame.sentence), ())
-            if _contains_source(location, host)
-        ]
-        if containing:
-            facets[ref]["clause_containment"] = containing
     _local_referents(clusters, nominals, facets)
     for ref, (tree, value, parts) in trees.items():
         located = {}

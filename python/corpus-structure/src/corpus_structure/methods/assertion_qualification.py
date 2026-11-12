@@ -28,7 +28,7 @@ from .predicate_frames import (
 )
 from .record_assembly import LiteralSpan, NativeRecordGroup, RoleInput
 
-ASSERTION_QUALIFICATION_VERSION = "1"
+ASSERTION_QUALIFICATION_VERSION = "2"
 
 
 def _record_extent(
@@ -179,25 +179,12 @@ class AssertionQualification:
             if any(block.tokens[index].sentence == frame.sentence for index in cue.basis.tokens)
         )
         sentence_cues.update(unowned)
-        resolved_negation = {
-            index
-            for cue in sentence_cues
-            if cue.kind == "negation" and len(cue.hosts) == 1 and _owned(cue, cue.hosts[0])
-            for index in cue.basis.tokens
-        }
-        tokens = tuple(
-            (index, token)
-            for index, token in enumerate(block.tokens)
-            if token.sentence == frame.sentence and token.role == "prose"
-        )
         unresolved_negation = any(
-            (
-                token.dependency == "neg"
-                or {"Polarity=Neg", "PronType=Neg"}.intersection(token.morphology)
-            )
-            and index not in resolved_negation
-            for index, token in tokens
-        ) or any(cue.kind == "negation" and cue.status != "located" for cue in sentence_cues)
+            cue.kind == "negation"
+            and (cue.status != "located" or len(cue.hosts) != 1
+                 or not _owned(cue, cue.hosts[0]))
+            for cue in sentence_cues
+        )
         affirmative = frame.polarity == "positive" and not unresolved_negation
 
         fields = []
@@ -228,18 +215,10 @@ class AssertionQualification:
             )
 
         modals = tuple(cue for cue in frame.cues if cue.kind == "modality")
-        located_modal_tokens = {
-            index
-            for cue in sentence_cues
-            if cue.kind == "modality" and cue.status == "located"
-            for index in cue.basis.tokens
-        }
         scope_competes = (
             unresolved_negation
             or any(cue.kind not in {"negation", "modality"} for cue in (*frame.cues, *unowned))
-            or any(
-                token.tag == "MD" and index not in located_modal_tokens for index, token in tokens
-            )
+            or any(cue.kind == "modality" and cue.status != "located" for cue in sentence_cues)
         )
         if fields and not scope_competes:
             label, cues, reason = None, focus, ""
@@ -255,7 +234,7 @@ class AssertionQualification:
                 if (
                     modal.variant == "might"
                     and layout == "prose"
-                    and block.tokens[predicate_token].dependency in {"ROOT", "conj"}
+                    and frame.clause_role == "main_or_coordinate"
                 ):
                     label = "possible"
                     reason = "located possibility modal owned by the matched predicate"

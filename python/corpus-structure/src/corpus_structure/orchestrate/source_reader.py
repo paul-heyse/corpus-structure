@@ -176,9 +176,6 @@ class ScopedSourceReader:
     def retained_source_contribution(self, reference):
         return self._read(lambda reader: reader.retained_source_contribution(reference))
 
-    def retained_declaration_parser(self, reference):
-        return self._read(lambda reader: reader.retained_declaration_parser(reference))
-
     def prepare_table_correspondence(self, source_view_id, contributions, weight_scale):
         return self._read(
             lambda reader: reader.prepare_table_correspondence(

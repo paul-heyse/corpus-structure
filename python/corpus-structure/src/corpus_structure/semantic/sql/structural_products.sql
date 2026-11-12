@@ -2140,15 +2140,68 @@ EXCEPTION WHEN no_data_found OR too_many_rows OR invalid_text_representation OR 
 END $$;
 REVOKE ALL ON FUNCTION ops.validate_definition_basis(jsonb,jsonb,jsonb,jsonb,jsonb) FROM PUBLIC;
 
+CREATE OR REPLACE FUNCTION ops.primary_declaration_fact_value(p_layers jsonb,p_ref jsonb,p_node jsonb)
+RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE edge jsonb; child jsonb; result jsonb; n integer:=0; array_ boolean;
+BEGIN
+ IF p_node->>'family' IS DISTINCT FROM 'construction.source_readings'
+  OR p_node->>'vocabulary' IS DISTINCT FROM 'source-linguistic-rules-1'
+  OR p_node->>'status' IS DISTINCT FROM 'interpreted'
+  OR NOT ops.primary_characterization_choices(p_layers,p_ref,p_node,'[]') THEN
+  RAISE EXCEPTION 'declaration fact is not a resolved primary source reading' USING ERRCODE='23514'; END IF;
+ IF jsonb_array_length(coalesce(p_node->'children','[]'))=0 THEN
+  RETURN (p_node->>'value')::jsonb;
+ END IF;
+ array_:=p_node->>'value'='[]'; result:=CASE WHEN array_ THEN '[]'::jsonb ELSE '{}'::jsonb END;
+ FOR edge IN SELECT value FROM jsonb_array_elements(p_node->'children') ORDER BY (value->>'order')::integer NULLS FIRST LOOP
+  IF edge->>'structural' IS DISTINCT FROM 'true' OR NOT edge ? 'target' OR edge ? 'choice_group'
+   OR (array_ AND (edge->>'role'<>'item' OR (edge->>'order')::integer<>n))
+   OR (NOT array_ AND result ? (edge->>'role')) THEN
+   RAISE EXCEPTION 'declaration fact loses its exact structural children' USING ERRCODE='23514'; END IF;
+  child:=ops.primary_characterization_node(p_layers,jsonb_build_object('layer',p_ref->'layer','local_id',edge->>'target'));
+  child:=ops.primary_declaration_fact_value(p_layers,p_ref,child);
+  result:=CASE WHEN array_ THEN result||jsonb_build_array(child) ELSE result||jsonb_build_object(edge->>'role',child) END;
+  n:=n+1;
+ END LOOP;
+ RETURN result;
+END $$;
+REVOKE ALL ON FUNCTION ops.primary_declaration_fact_value(jsonb,jsonb,jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.primary_declaration_role_members(p_layers jsonb,p_sentence jsonb,p_frame text,p_role text)
+RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE premise jsonb; group_ jsonb; body jsonb; role_ jsonb; member_ jsonb; token_ jsonb; indices jsonb:='[]'; found_ integer:=0;
+BEGIN
+ FOR premise IN SELECT value FROM jsonb_array_elements(p_sentence->'external_premises') LOOP
+  IF 'annotation:'||encode(sha256(convert_to(data.canonical_json(premise),'UTF8')),'hex')<>p_frame THEN CONTINUE; END IF;
+  group_:=ops.primary_characterization_node(p_layers,premise);
+  IF group_->>'kind' IS DISTINCT FROM 'native.srl_group' THEN RAISE EXCEPTION 'declaration frame is not retained native SRL' USING ERRCODE='23514'; END IF;
+  found_:=found_+1; body:=p_layers->data.canonical_json(premise->'layer');
+  FOR role_ IN SELECT a FROM jsonb_array_elements(body->'annotations') a WHERE a->>'kind'='native.srl_role'
+   AND a->>'native_label'=p_role AND EXISTS(SELECT FROM jsonb_array_elements(body->'memberships') m
+    WHERE m->>'group'=group_->>'local_id' AND m->>'member'=a->>'local_id' AND m->>'role'=p_role) LOOP
+   FOR member_ IN SELECT value FROM jsonb_array_elements(body->'memberships')
+    WHERE value->>'group'=role_->>'local_id' AND value->>'role'='token' ORDER BY (value->>'order')::integer LOOP
+    token_:=ops.primary_characterization_node(p_layers,jsonb_build_object('layer',premise->'layer','local_id',member_->>'member'));
+    IF NOT p_sentence->'external_premises' @> jsonb_build_array(jsonb_build_object('layer',premise->'layer','local_id',member_->>'member'))
+     OR token_->>'kind' IS DISTINCT FROM 'native.token' THEN RAISE EXCEPTION 'declaration SRL member is outside exact sentence support' USING ERRCODE='23514'; END IF;
+    indices:=indices||jsonb_build_array(token_->'native_token'->'index');
+   END LOOP;
+  END LOOP;
+ END LOOP;
+ IF found_<>1 THEN RAISE EXCEPTION 'declaration native SRL frame is missing or ambiguous' USING ERRCODE='23514'; END IF;
+ SELECT coalesce(jsonb_agg(i ORDER BY (i #>> '{}')::integer),'[]') INTO indices FROM jsonb_array_elements(indices) i;
+ RETURN indices;
+END $$;
+REVOKE ALL ON FUNCTION ops.primary_declaration_role_members(jsonb,jsonb,text,text) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION ops.validate_primary_declaration_component(
  component jsonb,p_passage jsonb,p_source jsonb,p_config jsonb,p_release text)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE proof jsonb:=component->'declaration_chain'; layers jsonb; v kb.source_view; refs jsonb; ref jsonb; node jsonb; token jsonb; extents jsonb;
- rows_ jsonb:='[]'; tokens_ jsonb; sentences jsonb; sentence_ jsonb; body jsonb; native_ jsonb; members_ jsonb; role_ jsonb;
- group_ jsonb; groups_ jsonb:='{}'; roles_ jsonb; membership jsonb; role_ref jsonb; span_ jsonb; predicate_ref jsonb; token_ref jsonb;
- voice_ jsonb; voice_ref jsonb; predicate jsonb; expected_extents jsonb; group_extents jsonb; voices jsonb:='[]'; counts integer; item text; binding jsonb;
- first_ jsonb; construction jsonb; naming jsonb; subject jsonb; use_ jsonb; constructed jsonb; antecedent jsonb;
- native_pin jsonb; lo bigint; hi bigint; label_span jsonb;
+DECLARE proof jsonb:=component->'declaration_chain'; layers jsonb; v kb.source_view; refs jsonb; ref jsonb;
+ node jsonb; extents jsonb; body jsonb; premise jsonb; support jsonb; support_body jsonb; annotation jsonb;
+ data_ jsonb; words_ jsonb; positions_ jsonb; rows_ jsonb:='[]'; row_ jsonb; native_pin jsonb; tokens_ jsonb; source_node jsonb; role_indices jsonb;
+ first_ jsonb; construction jsonb; naming jsonb; intro jsonb; constructed jsonb; named jsonb;
+ binding jsonb; intro_ jsonb; found_ integer; i integer; lo bigint; hi bigint; last_end bigint; label_span jsonb;
 BEGIN
  IF component->>'basis' IS DISTINCT FROM 'declaration_chain' OR component->>'interpretation' IS DISTINCT FROM 'definition'
   OR nullif(component->'witness','null') IS NOT NULL OR nullif(proof->'parser','null') IS NOT NULL
@@ -2160,120 +2213,117 @@ BEGIN
  layers:=p_config->'_primary_layers'->(v.id::text); refs:=proof->'primary_evidence';
  native_pin:=jsonb_build_object('source',v.key,'source_view_id',v.id,'native_product_task_id',v.native_task_id,'product_key',v.native_product_key,'product_digest',v.native_content_digest,'projection_digest',v.projection_digest,'recipe_digest',v.recipe_digest);
  IF proof->>'scope_digest' IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(jsonb_build_object('source',native_pin,'passage',jsonb_build_array(p_passage->'start',p_passage->'end'),'policy','primary-declaration-roles-1')),'UTF8')),'hex')
-  OR jsonb_typeof(refs) IS DISTINCT FROM 'array' OR jsonb_array_length(refs)=0
+  OR jsonb_typeof(refs) IS DISTINCT FROM 'array' OR jsonb_array_length(refs)<>3
   OR (SELECT count(*)<>count(DISTINCT value) FROM jsonb_array_elements(refs)) THEN
-  RAISE EXCEPTION 'declaration requires a distinct exact primary scope witness' USING ERRCODE='23514'; END IF;
+  RAISE EXCEPTION 'declaration requires three distinct exact primary sentence witnesses' USING ERRCODE='23514'; END IF;
  FOR ref IN SELECT value FROM jsonb_array_elements(refs) LOOP
-  node:=ops.primary_characterization_node(layers,ref); extents:=ops.primary_characterization_extents(layers,ref,node,v);
-  IF NOT ops.primary_characterization_choices(layers,ref,node,'[]') OR jsonb_array_length(extents)=0
-   OR EXISTS(SELECT FROM jsonb_array_elements(extents) e WHERE e->>'synthetic' IS DISTINCT FROM 'false' OR (e->>'start')::bigint<(p_passage->>'start')::bigint OR (e->>'end')::bigint>(p_passage->>'end')::bigint)
-   OR NOT coalesce(node->>'kind' IN ('native.token','native.srl_group','native.srl_role') OR node->>'kind'='predicate' AND node->>'vocabulary'='source-linguistic-rules-1',false) THEN
-   RAISE EXCEPTION 'declaration evidence lacks exact literal native roles or primary voice' USING ERRCODE='23514'; END IF;
-  rows_:=rows_||jsonb_build_array(jsonb_build_object('reference',ref,'node',node,'extents',extents,'identity','annotation:'||encode(sha256(convert_to(data.canonical_json(ref),'UTF8')),'hex')));
-  IF node->>'kind'='native.token' THEN
-   native_:=node->'native_token'; body:=layers->data.canonical_json(ref->'layer');
-   IF native_->>'head_index_base' IS DISTINCT FROM '1' OR NOT native_ ?& ARRAY['lemma','tag','dependency','native_head','sentence']
-    OR NOT EXISTS(SELECT FROM jsonb_array_elements(body->'native_runs') run WHERE run->>'local_id'=native_->>'native_run' AND run->>'provider'='hanlp')
-    OR EXISTS(SELECT family FROM unnest(ARRAY['hanlp.tokens','hanlp.lemma','hanlp.pos','hanlp.dependency','hanlp.srl']) family WHERE NOT EXISTS(
-      SELECT FROM jsonb_array_elements(body->'coverage') c WHERE c->>'family'=family AND c->>'availability'='available' AND c->>'outcome' IN ('complete','empty')))
-    OR EXISTS(SELECT FROM jsonb_array_elements(body->'annotations') t WHERE t->'native_token'->'native_run'=native_->'native_run' AND t->'native_token'->'container'=native_->'container'
-     AND NOT refs @> jsonb_build_array(jsonb_build_object('layer',ref->'layer','local_id',t->>'local_id'))) THEN
-    RAISE EXCEPTION 'declaration token population or native coverage is incomplete' USING ERRCODE='23514'; END IF;
-  ELSIF node->>'kind'='predicate' THEN
-   predicate:=ops.primary_characterization_child(layers,ref,node,'predicate'); voice_:=ops.primary_characterization_child(layers,ref,node,'voice');
-   body:=layers->data.canonical_json(ref->'layer');
-   IF NOT EXISTS(SELECT FROM jsonb_array_elements(body->'coverage') c WHERE c->>'family'='construction.source_readings' AND c->>'availability'='available' AND c->>'outcome' IN ('complete','empty'))
-    OR NOT coalesce(voice_->>'value' IN ('active','passive','copular'),false) THEN RAISE EXCEPTION 'declaration primary voice is incomplete' USING ERRCODE='23514'; END IF;
-   voices:=voices||jsonb_build_array(jsonb_build_object('voice',voice_->>'value','extents',ops.primary_characterization_extents(layers,ref,predicate,v)));
-  END IF;
- END LOOP;
- SELECT coalesce(jsonb_agg(row_ ORDER BY (row_->>'start')::bigint),'[]') INTO sentences FROM (
-  SELECT jsonb_build_object('population',jsonb_build_array(r->'reference'->'layer',r->'node'->'native_token'->'native_run',r->'node'->'native_token'->'container'),
-   'tokens',jsonb_agg(r ORDER BY (r->'node'->'native_token'->>'index')::bigint),
-   'start',min((e->>'start')::bigint),'end',max((e->>'end')::bigint)) row_
-  FROM jsonb_array_elements(rows_) r CROSS JOIN LATERAL jsonb_array_elements(r->'extents') e WHERE r->'node'->>'kind'='native.token'
-  GROUP BY r->'reference'->'layer',r->'node'->'native_token'->'native_run',r->'node'->'native_token'->'container'
- ) populations;
- IF jsonb_array_length(sentences)<>3 OR sentences->0->'start' IS DISTINCT FROM p_passage->'start'
-  OR sentences->2->'end' IS DISTINCT FROM p_passage->'end' THEN RAISE EXCEPTION 'declaration requires three complete exact native sentences' USING ERRCODE='23514'; END IF;
- FOR sentence_ IN SELECT value FROM jsonb_array_elements(sentences) LOOP
-  tokens_:=sentence_->'tokens';
-  IF EXISTS(SELECT FROM jsonb_array_elements(tokens_) WITH ORDINALITY t(r,n) WHERE r->'node'->'native_token'->'index' IS DISTINCT FROM to_jsonb(n-1)) THEN
-   RAISE EXCEPTION 'declaration sentence token indices are incomplete' USING ERRCODE='23514'; END IF;
- END LOOP;
- FOR group_ IN SELECT value FROM jsonb_array_elements(rows_) WHERE value->'node'->>'kind'='native.srl_group' LOOP
-  ref:=group_->'reference'; body:=layers->data.canonical_json(ref->'layer'); roles_:='{}'; predicate_ref:=NULL; group_extents:='[]';
-  FOR membership IN SELECT value FROM jsonb_array_elements(body->'memberships') WHERE value->>'group'=group_->'node'->>'local_id' ORDER BY (value->>'order')::bigint LOOP
-   role_ref:=jsonb_build_object('layer',ref->'layer','local_id',membership->>'member'); role_:=ops.primary_characterization_node(layers,role_ref);
-   IF NOT refs @> jsonb_build_array(role_ref) OR role_->>'kind' IS DISTINCT FROM 'native.srl_role' OR role_->>'native_label' IS DISTINCT FROM membership->>'role' THEN
-    RAISE EXCEPTION 'declaration native SRL role loses its exact group membership' USING ERRCODE='23514'; END IF;
-   SELECT coalesce(jsonb_agg(jsonb_build_object('layer',ref->'layer','local_id',m->>'member') ORDER BY (m->>'order')::bigint),'[]') INTO members_
-    FROM jsonb_array_elements(body->'memberships') m WHERE m->>'group'=role_->>'local_id' AND m->>'role'='token';
-   IF NOT refs @> members_ THEN RAISE EXCEPTION 'declaration SRL role cites unselected native tokens' USING ERRCODE='23514'; END IF;
-   expected_extents:='[]';
-   FOR token_ref IN SELECT value FROM jsonb_array_elements(members_) LOOP
-    token:=ops.primary_characterization_node(layers,token_ref);
-    expected_extents:=expected_extents||ops.primary_characterization_extents(layers,token_ref,token,v);
-   END LOOP;
-   IF ops.primary_characterization_extents(layers,role_ref,role_,v) IS DISTINCT FROM expected_extents THEN
-    RAISE EXCEPTION 'declaration SRL role source differs from its retained token membership' USING ERRCODE='23514'; END IF;
-   group_extents:=group_extents||expected_extents;
-   span_:=ops.primary_structural_token_span(layers,members_,v);
-   IF roles_ ? (role_->>'native_label') THEN
-    IF role_->>'native_label'='PRED' THEN RAISE EXCEPTION 'declaration SRL group repeats its predicate' USING ERRCODE='23514'; END IF;
-    members_:=(roles_->(role_->>'native_label')->'members')||members_;
-    SELECT jsonb_agg(r ORDER BY (ops.primary_characterization_node(layers,r)->'native_token'->>'index')::bigint) INTO members_ FROM jsonb_array_elements(members_) r;
-    span_:=ops.primary_structural_token_span(layers,members_,v);
-   END IF;
-   roles_:=roles_||jsonb_build_object(role_->>'native_label',jsonb_build_object('members',members_,'span',span_));
-   IF role_->>'native_label'='PRED' THEN
-    IF jsonb_array_length(members_)<>1 THEN RAISE EXCEPTION 'declaration SRL predicate must be one native token' USING ERRCODE='23514'; END IF;
-    predicate_ref:=members_->0;
+  node:=ops.primary_characterization_node(layers,ref); body:=layers->data.canonical_json(ref->'layer');
+  extents:=ops.primary_characterization_extents(layers,ref,node,v);
+  IF node->>'value' IS DISTINCT FROM 'declaration_sentence' OR node->>'kind' IS DISTINCT FROM 'operator'
+   OR body->'operation'->>'key' IS DISTINCT FROM 'text.constructions'
+   OR jsonb_array_length(extents)=0 OR EXISTS(SELECT FROM jsonb_array_elements(extents) e WHERE e->>'synthetic' IS DISTINCT FROM 'false'
+      OR (e->>'start')::bigint<(p_passage->>'start')::bigint OR (e->>'end')::bigint>(p_passage->>'end')::bigint)
+   OR NOT EXISTS(SELECT FROM jsonb_array_elements(body->'coverage') c WHERE c->>'family'='construction.source_readings'
+     AND c->>'availability'='available' AND c->>'outcome' IN ('complete','empty') AND coalesce(c->'unexamined','[]')='[]') THEN
+   RAISE EXCEPTION 'declaration requires complete located primary sentence characterization' USING ERRCODE='23514'; END IF;
+  SELECT value INTO STRICT annotation FROM jsonb_array_elements(body->'annotations') a
+   WHERE node->'premises' ? (a->>'local_id') AND a->>'rule_id'='tc.source.declaration_syntax.v1'
+    AND a->>'native_scheme'='retained-hanlp-declaration-syntax-1' AND a->>'status'='interpreted';
+  IF annotation->'external_premises' IS DISTINCT FROM node->'external_premises'
+   OR annotation->'occurrences' IS DISTINCT FROM node->'occurrences'
+   OR jsonb_array_length(coalesce(node->'external_premises','[]'))=0 THEN
+   RAISE EXCEPTION 'declaration syntax lacks exact native witness closure' USING ERRCODE='23514'; END IF;
+  data_:=ops.primary_declaration_fact_value(layers,ref,node); words_:=data_->'words'; positions_:=data_->'positions';
+  IF jsonb_typeof(words_) IS DISTINCT FROM 'array' OR jsonb_array_length(words_)=0
+   OR jsonb_array_length(words_) IS DISTINCT FROM jsonb_array_length(positions_) THEN
+   RAISE EXCEPTION 'declaration sentence word/position population differs' USING ERRCODE='23514'; END IF;
+  tokens_:='[]';
+  FOR premise IN SELECT value FROM jsonb_array_elements(node->'external_premises') LOOP
+   support:=ops.primary_characterization_node(layers,premise); support_body:=layers->data.canonical_json(premise->'layer');
+   PERFORM ops.primary_characterization_extents(layers,premise,support,v);
+   IF NOT body->'dependencies' @> jsonb_build_array(premise->'layer')
+    OR support->>'kind' NOT IN ('native.token','native.srl_group','native.srl_role') THEN
+    RAISE EXCEPTION 'declaration support is not an exact declared native dependency' USING ERRCODE='23514'; END IF;
+   IF support->>'kind'='native.token' THEN
+    IF support->'native_token'->>'head_index_base' IS DISTINCT FROM '1'
+     OR NOT support->'native_token' ?& ARRAY['lemma','tag','dependency','native_head','sentence']
+     OR EXISTS(SELECT family FROM unnest(ARRAY['hanlp.tokens','hanlp.lemma','hanlp.pos','hanlp.dependency','hanlp.srl']) family WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(support_body->'coverage') c WHERE c->>'family'=family AND c->>'availability'='available' AND c->>'outcome' IN ('complete','empty') AND coalesce(c->'unexamined','[]')='[]'))
+     OR NOT EXISTS(SELECT FROM jsonb_array_elements(support_body->'native_runs') r
+        WHERE r->>'local_id'=support->'native_token'->>'native_run' AND r->>'provider'='hanlp') THEN
+     RAISE EXCEPTION 'declaration support loses its native role scheme' USING ERRCODE='23514'; END IF;
+    tokens_:=tokens_||jsonb_build_array(jsonb_build_object('node',support,'reference',premise));
    END IF;
   END LOOP;
-  extents:=ops.primary_characterization_extents(layers,ref,group_->'node',v);
-  IF NOT extents @> group_extents OR NOT group_extents @> extents THEN
-   RAISE EXCEPTION 'declaration SRL group source differs from its retained role members' USING ERRCODE='23514'; END IF;
-  IF predicate_ref IS NULL THEN RAISE EXCEPTION 'declaration SRL group lacks its native predicate' USING ERRCODE='23514'; END IF;
-  token:=ops.primary_characterization_node(layers,predicate_ref);
-  SELECT count(*) INTO counts FROM jsonb_array_elements(voices) voice WHERE voice->'extents'=ops.primary_characterization_extents(layers,predicate_ref,token,v);
-  IF counts<>1 THEN RAISE EXCEPTION 'declaration native predicate lacks a unique exact primary voice' USING ERRCODE='23514'; END IF;
-  SELECT voice INTO STRICT voice_ FROM jsonb_array_elements(voices) voice WHERE voice->'extents'=ops.primary_characterization_extents(layers,predicate_ref,token,v);
-  groups_:=groups_||jsonb_build_object(group_->>'identity',jsonb_build_object('roles',roles_,'predicate',predicate_ref,'voice',voice_->>'voice','population',jsonb_build_array(predicate_ref->'layer',token->'native_token'->'native_run',token->'native_token'->'container')));
+  SELECT jsonb_agg(t ORDER BY (t->'node'->'native_token'->>'index')::integer) INTO tokens_ FROM jsonb_array_elements(tokens_) t;
+  IF jsonb_array_length(tokens_) IS DISTINCT FROM jsonb_array_length(words_) THEN
+   RAISE EXCEPTION 'declaration syntax lacks complete native token support' USING ERRCODE='23514'; END IF;
+  support_body:=layers->data.canonical_json(tokens_->0->'reference'->'layer');
+  IF (SELECT count(*) FROM jsonb_array_elements(support_body->'annotations') t WHERE
+      t->'native_token'->'native_run'=tokens_->0->'node'->'native_token'->'native_run'
+      AND t->'native_token'->'container'=tokens_->0->'node'->'native_token'->'container')<>jsonb_array_length(tokens_) THEN
+   RAISE EXCEPTION 'declaration primary sentence omits retained native tokens' USING ERRCODE='23514'; END IF;
+  last_end:=-1;
+  FOR i IN 0..jsonb_array_length(words_)-1 LOOP
+   support:=tokens_->i->'node'; premise:=tokens_->i->'reference';
+   lo:=(positions_->i->>0)::bigint; hi:=(positions_->i->>1)::bigint;
+   IF support->'native_token'->'index' IS DISTINCT FROM to_jsonb(i)
+    OR support->'native_token'->'text' IS DISTINCT FROM words_->i OR lo<last_end OR hi<=lo
+    OR words_->>i IS DISTINCT FROM substring(v.projection->>'text' FROM lo::integer+1 FOR (hi-lo)::integer)
+    OR NOT EXISTS(SELECT FROM jsonb_array_elements(ops.primary_characterization_extents(layers,premise,support,v)) e
+      WHERE e->'start'=to_jsonb(lo) AND e->'end'=to_jsonb(hi) AND e->>'synthetic'='false') THEN
+    RAISE EXCEPTION 'declaration fact token differs from its exact native source' USING ERRCODE='23514'; END IF;
+   last_end:=hi;
+  END LOOP;
+  rows_:=rows_||jsonb_build_array(jsonb_build_object('data',data_,'reference',ref,'node',node,'identity','annotation:'||encode(sha256(convert_to(data.canonical_json(ref),'UTF8')),'hex')));
  END LOOP;
- construction:=groups_->(proof->>'construction_frame'); naming:=groups_->(proof->>'naming_frame');
- IF construction IS NULL OR naming IS NULL OR construction->'population' IS DISTINCT FROM sentences->1->'population'
-  OR naming->'population' IS DISTINCT FROM sentences->2->'population' OR construction->>'voice' IS DISTINCT FROM 'copular' OR naming->>'voice' IS DISTINCT FROM 'passive' THEN
-  RAISE EXCEPTION 'declaration construction/naming frame differs from retained native roles' USING ERRCODE='23514'; END IF;
- constructed:=sentences->1->'tokens'->((proof->>'construction_subject_token')::integer);
- antecedent:=sentences->2->'tokens'->((proof->>'naming_antecedent_token')::integer);
- IF constructed IS NULL OR antecedent IS NULL OR construction->'roles'->'ARG1'->'members' IS DISTINCT FROM jsonb_build_array(constructed->'reference')
-  OR NOT coalesce(naming->'roles'->'ARG1'->'members','[]') @> jsonb_build_array(antecedent->'reference')
-  OR constructed->'node'->'native_token'->>'text' IS DISTINCT FROM antecedent->'node'->'native_token'->>'text' THEN
-  RAISE EXCEPTION 'declaration constructed subject loses its retained naming antecedent' USING ERRCODE='23514'; END IF;
+ SELECT jsonb_agg(r ORDER BY (r->'data'->'positions'->0->>0)::bigint) INTO rows_ FROM jsonb_array_elements(rows_) r;
+ first_:=rows_->0->'data'; construction:=rows_->1->'data'; naming:=rows_->2->'data';
+ IF first_->'positions'->0->0 IS DISTINCT FROM p_passage->'start'
+  OR naming->'positions'->(jsonb_array_length(naming->'positions')-1)->1 IS DISTINCT FROM p_passage->'end'
+  OR proof->'construction_frame' IS DISTINCT FROM rows_->1->'identity' OR proof->'naming_frame' IS DISTINCT FROM rows_->2->'identity'
+  OR jsonb_array_length(construction->'facts'->'intros')<>1 THEN
+  RAISE EXCEPTION 'declaration chain differs from exact primary sentence ordering' USING ERRCODE='23514'; END IF;
+ intro:=construction->'facts'->'intros'->0; named:=naming->'facts'->'naming';
+ IF ops.primary_declaration_role_members(layers,rows_->1->'node',intro->>'frame','ARG1') IS DISTINCT FROM jsonb_build_array(intro->'subject') THEN
+  RAISE EXCEPTION 'construction subject lacks its exact native SRL witness' USING ERRCODE='23514'; END IF;
+
+ constructed:=construction->'words'->((proof->>'construction_subject_token')::integer);
+ IF named='null' OR constructed IS NULL OR intro->'subject' IS DISTINCT FROM proof->'construction_subject_token'
+  OR named->'antecedent' IS DISTINCT FROM proof->'naming_antecedent_token'
+  OR constructed IS DISTINCT FROM naming->'words'->((named->>'antecedent')::integer)
+  OR NOT ops.primary_declaration_role_members(layers,rows_->2->'node',named->>'frame','ARG1') @> jsonb_build_array(named->'antecedent')
+  OR jsonb_array_length(proof->'bindings') IS DISTINCT FROM jsonb_array_length(first_->'facts'->'intros') THEN
+  RAISE EXCEPTION 'declaration construction/naming binding differs from characterized roles' USING ERRCODE='23514'; END IF;
+ IF (SELECT count(*)<>count(DISTINCT value->'subject_token') OR count(*)<>count(DISTINCT value->'use_token') FROM jsonb_array_elements(proof->'bindings')) THEN
+  RAISE EXCEPTION 'declaration repeats a subject/use binding' USING ERRCODE='23514'; END IF;
  FOR binding IN SELECT value FROM jsonb_array_elements(proof->'bindings') LOOP
-  first_:=groups_->(binding->>'frame'); subject:=sentences->0->'tokens'->((binding->>'subject_token')::integer); use_:=sentences->1->'tokens'->((binding->>'use_token')::integer);
-  IF first_ IS NULL OR subject IS NULL OR use_ IS NULL OR first_->'population' IS DISTINCT FROM sentences->0->'population'
-   OR first_->>'voice' IS DISTINCT FROM 'copular' OR first_->'roles'->'ARG1'->'members' IS DISTINCT FROM jsonb_build_array(subject->'reference')
-   OR NOT coalesce(construction->'roles'->'ARG2'->'members','[]') @> jsonb_build_array(use_->'reference')
-   OR subject->'node'->'native_token'->>'text' IS DISTINCT FROM use_->'node'->'native_token'->>'text' THEN
-   RAISE EXCEPTION 'declaration binding loses its exact native subject/use roles' USING ERRCODE='23514'; END IF;
+  SELECT count(*),jsonb_agg(f)->0 INTO found_,intro_ FROM jsonb_array_elements(first_->'facts'->'intros') f
+   WHERE f->'subject'=binding->'subject_token';
+  IF found_<>1 OR ops.primary_declaration_role_members(layers,rows_->0->'node',intro_->>'frame','ARG1') IS DISTINCT FROM jsonb_build_array(binding->'subject_token')
+   OR NOT ops.primary_declaration_role_members(layers,rows_->1->'node',intro->>'frame','ARG2') @> jsonb_build_array(binding->'use_token')
+   OR binding->'frame' IS DISTINCT FROM rows_->0->'identity'
+   OR first_->'words'->((binding->>'subject_token')::integer) IS DISTINCT FROM construction->'words'->((binding->>'use_token')::integer)
+   OR NOT EXISTS(SELECT FROM jsonb_array_elements(intro->'relative_uses') u WHERE u @> jsonb_build_array(binding->'use_token')) THEN
+   RAISE EXCEPTION 'declaration subject/use binding differs from primary syntax' USING ERRCODE='23514'; END IF;
  END LOOP;
- lo:=(naming->'roles'->'ARG2'->'span'->>0)::bigint; hi:=(naming->'roles'->'ARG2'->'span'->>1)::bigint;
- IF (component->'term'->>'start')::bigint<>lo THEN
-  ref:=naming->'roles'->'ARG2'->'members'->0; node:=ops.primary_characterization_node(layers,ref);
-  IF node->'native_token'->>'dependency' IS DISTINCT FROM 'det' OR jsonb_array_length(naming->'roles'->'ARG2'->'members')<2 THEN
-   RAISE EXCEPTION 'declaration term drops a retained native role member' USING ERRCODE='23514'; END IF;
-  ref:=naming->'roles'->'ARG2'->'members'->1; node:=ops.primary_characterization_node(layers,ref); extents:=ops.primary_characterization_extents(layers,ref,node,v); lo:=(extents->0->>'start')::bigint;
- END IF;
- label_span:=proof->'label';
+ role_indices:=ops.primary_declaration_role_members(layers,rows_->2->'node',named->>'frame','ARG2');
+ IF jsonb_array_length(role_indices)=0 OR (named->>'term_end')::integer<>(role_indices->>(jsonb_array_length(role_indices)-1))::integer+1
+  OR (named->>'term_start')::integer NOT BETWEEN (role_indices->>0)::integer AND (role_indices->>0)::integer+1 THEN
+  RAISE EXCEPTION 'naming term loses its retained native role span' USING ERRCODE='23514'; END IF;
+ IF (named->>'term_start')::integer=(role_indices->>0)::integer+1 AND NOT EXISTS(
+   SELECT FROM jsonb_array_elements(rows_->2->'node'->'external_premises') r
+   WHERE ops.primary_characterization_node(layers,r)->'native_token'->'index'=role_indices->0
+    AND ops.primary_characterization_node(layers,r)->'native_token'->>'dependency'='det') THEN
+  RAISE EXCEPTION 'naming term drops a non-determiner native member' USING ERRCODE='23514'; END IF;
+ label_span:=proof->'label'; lo:=(naming->'positions'->((named->>'term_start')::integer)->>0)::bigint;
+ hi:=(naming->'positions'->((named->>'term_end')::integer-1)->>1)::bigint;
  IF component->'term'->'start' IS DISTINCT FROM to_jsonb(lo) OR component->'term'->'end' IS DISTINCT FROM to_jsonb(hi)
-  OR component->'content'->'end' IS DISTINCT FROM naming->'roles'->'ARG1'->'span'->1
+  OR component->'content'->'start' IS DISTINCT FROM first_->'positions'->((first_->'facts'->'intros'->0->>'start')::integer)->0
+  OR component->'content'->'end' IS DISTINCT FROM naming->'positions'->((named->>'subject_end')::integer-1)->1
   OR label_span->>'passage_id' IS DISTINCT FROM p_passage->>'passage_id' OR label_span->'start' IS DISTINCT FROM p_passage->'start'
-  OR label_span->'end' IS DISTINCT FROM sentences->0->'tokens'->1->'extents'->0->'end'
-  OR component->'content'->'start' IS DISTINCT FROM sentences->0->'tokens'->2->'extents'->0->'start'
+  OR label_span->'end' IS DISTINCT FROM first_->'positions'->1->1
   OR label_span->>'text' IS DISTINCT FROM substring(v.projection->>'text' FROM (label_span->>'start')::integer+1 FOR (label_span->>'end')::integer-(label_span->>'start')::integer) THEN
-  RAISE EXCEPTION 'declaration term/content/label differs from exact retained role boundaries' USING ERRCODE='23514'; END IF;
+  RAISE EXCEPTION 'declaration term/content/label differs from exact characterized boundaries' USING ERRCODE='23514'; END IF;
 EXCEPTION WHEN no_data_found OR too_many_rows OR invalid_text_representation OR numeric_value_out_of_range THEN
  RAISE EXCEPTION 'declaration cannot resolve exact selected primary evidence' USING ERRCODE='23514';
 END $$;
