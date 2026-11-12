@@ -1,5 +1,19 @@
 # D8 · Agent and query interfaces
 
+## Shared characterization execution boundary
+
+**Proposed accepted target · 2026-11-11.** Explicit characterization demands, book processing,
+ingest enrichment and default analytical source preparation carry one private verified invocation
+context through their internal calls. Standalone entry points construct their own context; public
+semantic requests and exact source/layer identities keep their meaning. Execution placement does
+not select fewer families or smaller focal/context scopes. Current authorization and publication
+remain live. Query, MCP, export and detached replay keep consuming pinned published products;
+worker completion is never a newly visible document view. Source-only composition retains its
+weaker declared coverage and performs no NLP. Later BEP-08 exposes resolved operational policy
+through existing status/operation routes, without creating a second progress service.
+
+> Decision: [ADR-0083](../adr/0083-operation-owned-characterization-execution.md)
+
 ## Pin-native enriched-document reads
 
 **Implemented; bounded functional scope Tested · 2026-11-11.** CLI, MCP and downstream algorithms

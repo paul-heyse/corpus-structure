@@ -1,5 +1,21 @@
 # D4 · Method catalog
 
+## Owned characterization preparation and CPU kernels
+
+**Proposed accepted target · 2026-11-11.** Method adapters authorize and hydrate exact operation
+inputs in the parent. Formal, construction and contextual-evaluation kernels consume sufficient
+owned source/configuration/dependency values and return private canonical drafts from spawned
+process main threads. Contextual evaluation interprets retained graphs; it does not implicitly
+become a SymPy/scientific-domain operation. Source-specialized grammars retain exact protected
+positions/lexical conditions. No reader, connection, live PreparedRelease, mutable builder or
+publication capability crosses the worker boundary. Parent adapters check result correlation,
+validate new results and use the existing completion owner. The current serial driver first
+consumes real futures; later ready scheduling consumes the same kernels without a legacy inline
+backend. Provider preparation/inference/reduction and authenticated batch member projection
+retain their semantic owners as BEP-04/06 deliver those seams.
+
+> Decision: [ADR-0083](../adr/0083-operation-owned-characterization-execution.md)
+
 ## Primary characterization operation boundary
 
 **Implemented; bounded functional scope Tested · 2026-11-11.** Characterization operations

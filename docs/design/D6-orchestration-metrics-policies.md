@@ -1,5 +1,35 @@
 # D6 · Orchestration, metrics and policies
 
+## Invocation-owned characterization execution
+
+**Proposed accepted target · 2026-11-11.** A private invocation execution context is constructed
+only after full release verification and reused through internal demand/stage/registry paths.
+Standalone operations own their own context. Historical archive opening or registry preparation
+does not confer verification. Structural preparation follows its actual compiler/runtime/release
+determinants; regional text and result-neutral capacity settings do not force full recompilation.
+Each spawned worker hydrates exact authenticated preparation once per address space and checks
+runtime correspondence; hydration supplies no live DB admission.
+
+One invocation owns regional lifetimes and physical admission across retained bodies, submitted
+packets and completed replies awaiting consumption. Initial capacity-one execution uses the same
+implementation as later overlap. Current preparation scopes use one CPU worker/submission,
+256MiB canonical retained-body capacity,64MiB input packets and8MiB replies; these are explicit
+initial physical limits, not RSS bounds or selected final operating counts. Oversized indivisible
+input refuses without truncating semantic scope. BEP-07b owns final coordinated counts/devices.
+
+Warm ProcessPoolExecutor workers use explicit spawn and main-thread parser execution. The parent
+retains durable claims, renewal, validation, completion and publication. Stop prevents admission,
+signals cooperative cancellation and discards late results; bounded drain may terminate the owned
+pool. Operation-wide cancellation applies to the first serial integration. Independently admitted
+claims require independently addressable cancellation before BEP-05 concurrency. Provider lanes
+replace ambient borrower refusal under explicit operation-owned admission in BEP-04; native branch
+replies are reduced under their semantic operation in stable order. Real dependencies remain;
+unrelated units need not reach terminal state before independent work advances.
+Implementation/qualification and remaining whole-book obligations belong to the
+[BEP coordinator](../plans/book-processing-efficiency-and-parallelism_2026-11-11.md).
+
+> Decision: [ADR-0083](../adr/0083-operation-owned-characterization-execution.md)
+
 ## Characterization layer lifecycle
 
 **Implemented; bounded functional scope Tested · 2026-11-11.** Layer computation is private
@@ -267,8 +297,9 @@ retained historical schema tests do not authorize an alternate production route.
   submission transaction. FastMCP background tasks are not used: they
   would duplicate `ops.task`, and Claude Code accepts MCP tasks only from the main conversation.
   > Status: **Proposed** (source-read and reasoned; not probed end to end against PostgreSQL)
-- **Stages are barriers.** All tasks of a stage reach a terminal status before the next stage
-  starts. At this corpus size the simplicity is worth more than overlap (`OPEN-D6-1`).
+- **Real dependencies determine readiness.** Accepted target under ADR-0083: unrelated natural
+  units/producers may overlap; a stage-wide terminal barrier is not a semantic prerequisite.
+  Existing synchronous execution remains until the BEP ready coordinator is implemented.
 - **Policies decide escalation; methods never do.** Every task that is not part of a base stage
   names the policy rule that created it and the metric values that rule saw.
 - **Every eligible unit's fate is recorded, per run.** A unit is eligible for a stage when its
@@ -887,7 +918,7 @@ and per-iteration agent budgets bound how much Opus is asked to do (§7.4).
 
 | ID | Question | Resolved by |
 |---|---|---|
-| OPEN-D6-1 | Stage barriers versus per-unit dataflow once the corpus grows beyond first-pass chapters | Phase 2 timing |
+| OPEN-D6-1 | Resolved target: dependency-ready natural-unit progress, ADR-0083 | [BEP coordinator](../plans/book-processing-efficiency-and-parallelism_2026-11-11.md) owns implementation |
 | OPEN-D6-2 | Co-resident or exclusive GPU mode by default, given the S3 model choice | Spikes S3, S7 |
 | OPEN-D6-3 | Default iteration limit and agent budgets that keep debugging output reviewable | Phase 0 practice |
 

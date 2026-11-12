@@ -51,6 +51,15 @@ checks the recorded hash (`semantic_server.py:72–106`); queue preparation reus
 state (`orchestrate/semantic.py:900–918,1111–1118`). Distinct source units still require their own
 packets. No equivalent current redundant-work manifestation was established.
 
+**Primary-characterization reconciliation, Interface-checked2026-11-11, source539a437da.**
+The earlier corrected conclusion remains true of routine historical readers, but not the new
+book path: `orchestrate/characterization.py:583–605` calls full verification for each demand;
+`:810–824,872` invokes it per region and final composition. This repeats immutable release/compiler
+work without a changed structural premise. Registry and stage APIs already carry a prepared release.
+This concrete manifestation concerns invocation lifetime, not removal of live admission checks or
+proof that publication assurance is redundant. The [BEP coordinator](../../plans/book-processing-efficiency-and-parallelism_2026-11-11.md)
+owns scheduled O01 disposition; no numerical speedup was measured.
+
 <a id="da-043"></a>
 
 ## DA-043 — Repeated candidate reconstruction premise corrected at AC scope

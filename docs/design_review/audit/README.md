@@ -6,6 +6,34 @@ The living diagnostic account maintained by the
 owns freshness and disposition. This account diagnoses current design; reviews own solution
 reasoning, and implementation plans own scheduled work and closure evidence.
 
+<a id="book-execution-entry-refresh"></a>
+
+## Book-execution entry refresh · 2026-11-11
+
+**Interface-checked.** Inspected source `539a437da`; this bounded reconciliation supplies the
+BEP-00 target review. Core3.3, heuristics1.0, code-intelligence1.4 and the binding apply.
+The scope is release loading through book/demand/stage execution, regional source/dependency
+ownership, parser-bearing method boundaries and native completion. It inherits unrelated audit
+observations at their original dates; no whole-system or test-architecture refresh is claimed.
+
+[DA-042](execution-fit.md#da-042)'s earlier absence-of-manifestation conclusion no longer covers
+primary characterization: demand execution fully loads the same release for each regional request
+and final composition. Region-specific work remains necessary, while the repeated verification
+has no distinct changing compiler input. Preparation already passes through stage/registry APIs;
+that existing capability is contrary evidence against requiring a new global cache. BoundReader
+retains source values locally, but successive stage readers reload exact dependency layers.
+Public report payloads remain fresh mutable values and cannot safely become shared cached dictionaries.
+
+The actual CPU seams are formal recognition, witnessed construction and retained contextual
+evaluation. PreparedRelease includes locks/lazy closures; live readers temporarily own connections.
+Neither is a transferable worker input. Native completion retains the independent run/task/attempt/
+holder fence. Provider residency currently uses ambient ContextVar plus nonblocking borrower refusal;
+this is not a waiting/admission contract for parallel work. Publication's existing8MiB layer bound
+remains separate from executor capacity; no claim that scheduling repairs oversized products follows.
+The source functional review retains O01–08; current execution disposition belongs to the
+[BEP coordinator](../../plans/book-processing-efficiency-and-parallelism_2026-11-11.md).
+Tests/providers/probes: **not_run** for this static reconciliation.
+
 <a id="text-characterization-entry-refresh"></a>
 
 ## Text-characterization entry refresh · 2026-11-10

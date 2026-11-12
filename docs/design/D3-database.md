@@ -1,5 +1,19 @@
 # D3 · Database
 
+## Prepared characterization reads and publication authority
+
+**Proposed accepted target · 2026-11-11.** An invocation-owned regional preparation retains
+canonical source/dependency values and immutable decoded views under exact original release,
+source/projection/recipe and dependency-closure premises. Each reader owns its own short connection
+borrow; no database connection or engine enters a CPU worker. Protected acquisition/validation
+establishes internal reusable guarantees. A matching digest or caller-constructed report does not.
+Public layer payload access remains fresh. New results validate; current database admission,
+permissions and native task/run/attempt/holder publication fences remain authoritative.
+Large bodies leave after their last regional consumer; compact manifests/pins survive composition.
+The existing layer publication limit remains independent of transport/admission limits.
+
+> Decision: [ADR-0083](../adr/0083-operation-owned-characterization-execution.md)
+
 ## Immutable characterization storage and publication
 
 **Implemented; bounded functional scope Tested · 2026-11-11.** `physical.yaml` owns stored

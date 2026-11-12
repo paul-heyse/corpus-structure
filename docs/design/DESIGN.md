@@ -212,6 +212,10 @@ The [audit-closure coordinator](../plans/audit-closure_2026-11-03.md) owns remai
 
 ### §B1 Qualified assertion occurrences and semantic facts have distinct identities
 
+**Proposed accepted physical target · 2026-11-11.** Physical characterization placement preserves exact occurrence/source, term and choice identities. Owned regional inputs and CPU envelopes retain original extents and dependency pins; workers cannot reinterpret equal text as equal source. [D4](D4-method-catalog.md#owned-characterization-preparation-and-cpu-kernels) owns the method seam.
+
+> Decision: [ADR-0083](../adr/0083-operation-owned-characterization-execution.md)
+
 **Implemented; bounded functional scope Tested · 2026-11-11.** Enriched-document views bind a
 full exact published document and immutable analysis-layer pins. SourceViews are scoped
 projections beneath the base. Source occurrences preserve original native/projection coordinates
@@ -302,6 +306,10 @@ semantic decoder fallback.
 
 ### §B2 Methods write observations; only consolidation writes knowledge, per run
 
+**Proposed accepted physical target · 2026-11-11.** Characterization workers return private drafts. The parent retains validation, claims, renewal and native completion/publication; child completion confers neither visibility nor knowledge standing. [D6](D6-orchestration-metrics-policies.md#invocation-owned-characterization-execution) owns execution lifetime.
+
+> Decision: [ADR-0083](../adr/0083-operation-owned-characterization-execution.md)
+
 **Implemented; bounded functional scope Tested · 2026-11-11.** Characterization layer/view
 publication provides immutable private analysis through protected task completion. It confers no
 knowledge admission. A valid layer can retain actual failed/partial/unavailable family outcomes
@@ -390,6 +398,10 @@ legacy wait barrier rather than implying that every old option is supported.
 <a id="section-b4"></a>
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
+
+**Proposed accepted physical target · 2026-11-11.** Invocation-owned regional preparation carries authentic immutable input guarantees while current DB admission, source authorization and native attempt fences remain live. CPU workers hold no connections or engines. [D3](D3-database.md#prepared-characterization-reads-and-publication-authority) owns this boundary.
+
+> Decision: [ADR-0083](../adr/0083-operation-owned-characterization-execution.md)
 
 **Implemented; bounded functional scope Tested · 2026-11-11.** D3 extends generated physical
 storage for canonical analysis products and indexed relationship projections. Native completion
@@ -594,6 +606,10 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Proposed accepted physical target · 2026-11-11.** Full verification creates a private invocation preparation reused under exact release/compiler/runtime premises. Historical archive hydration and arbitrary prepared objects confer no such authority; workers hydrate local state from authenticated capsules. [D6](D6-orchestration-metrics-policies.md#invocation-owned-characterization-execution) and [D8](D8-agent-and-query-interfaces.md#shared-characterization-execution-boundary) own the affected consumers.
+
+> Decision: [ADR-0083](../adr/0083-operation-owned-characterization-execution.md)
 
 **Accepted target, Proposed until implemented · 2026-11-10.** The trusted characterization
 module is explicitly acquired and archived with release inputs. D2's typed declarations govern
