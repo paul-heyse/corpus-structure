@@ -216,8 +216,8 @@ indexed rows before hydrating context. Membership queries retrieve every recorde
 continuations, retaining off-page flags. Selected source items and their ancestors accompany the
 analysis under the original base pin. Cursor identity binds the exact view and filters.
 An unrecorded member page remains explicitly unknown rather than being labelled outside a page.
-Native membership/node pages admit at most1000 rows and8MiB; canonical layer/view reports are capped at
-8MiB. A reading requires one exact layer/root and admits that layer within the caller's byte budget
+Native membership/node pages admit at most1000 rows and8MiB. Canonical layer/view reports were capped at
+8MiB at delivery; BEP-E01/ADR-0087 replaced that bound with64MiB after the actual book exceeded it. A reading requires one exact layer/root and admits that layer within the caller's byte budget
 before projecting its supported DAG. Oversized requests refuse explicitly. These are supported
 bounds, not measured performance claims; natural source scopes supply the producer boundary.
 

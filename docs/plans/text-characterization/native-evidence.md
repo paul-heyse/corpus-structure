@@ -1,6 +1,8 @@
 # Native linguistic evidence and positioned formal syntax
 
-**Implemented; bounded functional scope Tested · 2026-11-11.** TC-03 and TC-04 deliver native
+**Implemented; bounded functional scope Tested on 2026-11-11 source. TC-03 reopened by the
+2026-11-12 completion audit for one obligation: the HanLP projector's frame/cue interpretation is
+not retired ([TC-E09](../text-characterization_2026-11-10.md#TC-E09)).** TC-03 and TC-04 deliver native
 and formal layers; independent semantic assessment and full-book qualification remain TC-10/11.
 This document develops the native-evidence portion of the
 [text-characterization series](../text-characterization_2026-11-10.md). The coordinator owns
@@ -39,10 +41,11 @@ The [HanLP worker](../../../python/corpus-structure/src/corpus_structure/methods
 already shares one multitask invocation over canonical sentence tokens, verifies prepared word and
 subword coverage, skips tokenization and returns the native head outputs. Its
 [projector](../../../python/corpus-structure/src/corpus_structure/methods/pm2_hanlp_products.py)
-then narrowed constituency to `_PHRASES` and converted dependencies/SRL into private frame/cue
+narrows constituency to `_PHRASES` and converts dependencies/SRL into private frame/cue
 products. The delivered TC-03 retains all thirteen selected native evidence families without that
-reduction. General role, coordination and cue interpretation now belongs to [TC-05/06](constructions-and-interpretation.md),
+reduction. General role, coordination and cue interpretation belongs to [TC-05/06](constructions-and-interpretation.md),
 so a new interpretation reuses evidence instead of rerunning HanLP or extending another projector.
+The projector itself is unchanged and still live beside the new owner (TC-E09).
 
 [Mathematical parsing](../../../python/corpus-structure/src/corpus_structure/methods/math/grammar.py)
 already separates syntax, contextual interpretation and optional native symbolic construction;
@@ -214,6 +217,12 @@ projector once its consumers read TC-05/06 output. Preserve source checks and na
 removal is of duplicate meaning authorities. The downstream consumer package owns final removal of
 private frame/recipe dependencies across enrichment, admission and replay. TC-03 must provide their
 required evidence and explicit origin references before that migration can complete.
+
+**Open, 2026-11-12 audit (TC-E09).** The shared producers and readable layers are delivered. The
+retirement is not: `pm2_hanlp_products.py` was not changed by the TC implementation, still narrows
+constituency and authors frames and cues, and is reachable through `ci run parsers` with current
+readers. TC-03 has supplied the evidence those readers need; the remaining work is their migration
+and the removal, or an operator decision to retain the private parser route as a non-primary surface.
 
 Functional acceptance requirements (closure evidence is in the coordinator):
 

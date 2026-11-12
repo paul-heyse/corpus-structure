@@ -1,8 +1,192 @@
 # Enriched-document text characterization implementation series
 
-**Status: TC-00–09 functionally qualified; TC-10/11 execution in progress · 2026-11-11.**
+**Status: completion audit 2026-11-12 reopened TC-03, TC-05, TC-07, TC-08 and TC-09; TC-10 partially delivered and paused; TC-11 not delivered.**
 This coordinator owns TC-00–TC-11, TC-I01–09, O01–O07 disposition and combined completion.
-Supporting plans own package design; this page owns current package state. The required functional/provider union for TC-03–09 and its TC-01/02 prerequisites is covered. TC-10/11 independent semantic assessment and full-book qualification are now authorized and in progress. Activation/selection retains its explicit final effect authority; conditional branches remain trigger-driven.
+Supporting plans own package design; this page owns current package state. The [Completion audit](#completion-audit) is the current judgment: producers and the retained frame are implemented, consumer migration and retirement are incomplete (TC-E08–E11), and part of the provider acceptance was never exercised (TC-E12). The 2026-11-11 functional union remains dated evidence for its own source; it does not qualify the current source. Activation/selection retains its explicit final effect authority; conditional branches remain trigger-driven.
+
+<a id="completion-audit"></a>
+
+## Completion audit
+
+**Interface-checked by source inspection · 2026-11-12.** Audited committed main
+`54d6d66591f372bc51474e1af0d67dc4a9272570`: the TC implementation (`e9025e949`, `088cf9fdd`, last
+TC commit `4d0ca7eb7`) as it stands beneath 17 later commits, chiefly the
+[BEP series](book-processing-efficiency-and-parallelism_2026-11-11.md). Uncommitted concurrent BEP
+work was read only where it bears on a judgment and is not part of this baseline. Three fresh,
+read-only implementation reviewers independently assessed frame and consumers (TC-01/02/09), the
+deterministic producer chain (TC-03–05 and TC-06 phase one) and contextual/model characterization
+plus BEP drift (TC-07/08 and TC-06 phase two). The coordinator read the decisive source for every
+gap recorded here. No test, provider, migration or book run was started for this audit. This
+section is the current combined judgment; the [execution-findings table](#execution-findings) is
+the single disposition owner. Dated sections below keep their receipts at their original scope.
+
+The claimed boundary was TC-00–09 "Complete, Tested", producer-review F01–F04 closed, O01–O06
+delivered and TC-E01–E07 bounded Tested. TC-10/11 were not claimed complete; their state is
+accounted below, not certified.
+
+**Implementation.** The released model, retention and combined reads (TC-01/02), all thirteen native
+families, positioned formal syntax, shared constructions, packed symbolic terms, the single
+contextual evaluator and the eight question families (TC-03–08) are implemented as accepted, and
+F01–F04 hold for the admission and codec obligations they name. **The claimed boundary is
+nevertheless incomplete at TC-09 and at the retirement obligations of TC-03 and TC-05:** the
+default `ci run` route never reaches primary characterization (TC-E08), the HanLP projector's
+private frame/cue interpretation was not retired and still has current consumers (TC-E09),
+contextual query still reads the private parser products (TC-E10), and two consumers still
+recognize language from raw native columns (TC-E11). These are accepted obligations of the
+migration inventory and retirement text, present in the TC-era source. They are not newly
+preferred architecture and BEP did not introduce them.
+
+**Layering with BEP.** A TC mechanism replaced under accepted BEP scope is an authorized change,
+not a TC gap, and this plan's older wording about it is historical:
+
+- Layer and view publication/read bound: 8 MiB replaced by 64 MiB (BEP-E01, ADR-0087), after the
+  actual book failed the 8 MiB layer contract. Membership/node pages keep 1000 rows and 8 MiB.
+- d1 device: the TC-era CPU default exceeded its 120 s bound on real prose and produced failed
+  coverage (BEP-E02). d1 is now CUDA/BF16 only, method version 2 (ADR-0086).
+- Provider custody and residency: per-task borrowed workers replaced by provider lanes, one freeze
+  per demand and bounded native threads (ADR-0083/0084). Constructions, formal evidence and
+  contextual evaluation run in spawned CPU kernels whose results the parent re-validates.
+- Reuse: retained primary products are reused only under a matching native thread profile
+  (ADR-0087). Runs from before BEP carry none, so the TC-era partial book products (invocations
+  497–523) are regenerated rather than resumed.
+
+No TC obligation was found broken by BEP and left unrestored at this baseline.
+
+**Verification and qualification.** The 2026-11-11 composite union still reads as recorded:
+`uv run ci test coverage 71e97b485e59479b80b9d5e086f48570 2e2d74eb026b42b78068d523ce6ca5da --view unresolved --limit 5 --json`
+reported required 6,407, covered 6,407, unresolved 0 on 2026-11-12, with the original attempt still
+**failed**. That union was taken before BEP changed 48 source files. It is dated evidence for
+`e9025e949`/`088cf9fdd` and does not establish qualification of the current source. Reassessment is
+needed for d1 and GLiNER requests and receipts, Maverick/DiPO provider runs and retained-native
+reuse, HanLP bulk preparation, the spawned-kernel method routes, publication-time validation
+(including the F02 and witness controls), read bounds and paged primary reads, demand reuse and
+recovery, zero-input coverage and changed-cost replay refusal. TC-11 owns re-establishing the
+required union on final source once BEP's remaining scope has landed. Two acceptance limits were
+also present in the original union (TC-E12): the candidate-centered question families were never
+posed to the actual provider, and actual Maverick/DiPO projection ran only over a mathematical-literal
+source.
+
+The intended reader route was exercised read-only on 2026-11-12 under native head
+`semantic_bep_capacity` (`uv run ci db status --json`): `uv run ci source enriched 518 --producing-task 2420 …`
+**passed** for the one retained composed view of the book (one of 316 SourceViews), returning all
+56 family coverage rows of the full profile (25 complete, 25 partial, 6 empty). The MCP
+`inspect_enriched_document` route for that pin is **blocked**: it needs a server bound to
+`nce-grinstead-snell-full-book`, and the audit session's server was bound to another project and
+refused correctly.
+
+**Benefit claims.** The series claims no measured benefit, linguistic accuracy or full-book
+quality, and none is required for completion. The audit found no claim stronger than its evidence
+beyond the completion statements corrected here.
+
+**TC-10 and TC-11.** TC-10 is partially delivered and paused. Delivered and bounded Tested: V3
+operation frames, protected A/B/C custody, native task scoring, the source-anchored task
+comparison (TC-E05), frozen source sets 40–44 with their adjudications, and bounded evaluator
+inspection. Not delivered: any source-first or output-first grade of actual producer output, the
+output-first panel (it needs the final book view), and assessment of migrated consumers. TC-11 is
+not delivered. The [qualification account](../design_review/evidence/2026-11-11_text-characterization-assessment/qualification/README.md)
+records the source account as passed and the primary-family and combined-view consumer accounts as
+**not_run**; one of 316 SourceViews reached a local composed view before the last interruption.
+Actual 316-view/518-page execution is now owned by [BEP-09](book-processing-efficiency-and-parallelism_2026-11-11.md#BEP-09).
+TC-11 consumes its final view pin and still owns the family coverage account, semantic assessment
+through TC-10, the required check union on final source, current-only cutover and adoption.
+
+| Package | Current implementation judgment | Qualification boundary |
+| --- | --- | --- |
+| TC-00 | Complete at its decision boundary | ADR-0081, owning sections and the entry review stand. |
+| TC-01 | Complete; no gap found | Dated 2026-11-11 union; the model change since is BEP's additive batch receipt. |
+| TC-02 | Complete; the 8 MiB layer bound is replaced under BEP-E01 | Read bounds and paged primary reads changed after the union; reassess at TC-11. |
+| TC-03 | Native delivery complete; projector retirement open (TC-E09) | HanLP bulk preparation changed after the union. |
+| TC-04 | Complete; no gap found | Formal routes now run in spawned kernels; reassess at TC-11. |
+| TC-05 | Producers complete; downstream recognizers not all retired (TC-E09, TC-E11); coverage meaning of unparsed input undecided (TC-E13) | Same kernel-route reassessment. |
+| TC-06 | Complete in both phases; no gap found | F02 and witness native controls predate the current publication-validation path. |
+| TC-07 | Implementation complete | Actual Maverick/DiPO projection on prose was outside the TC union (TC-E12). |
+| TC-08 | Implementation complete; d1 device replaced under ADR-0086 | Candidate-centered families never posed to the actual provider (TC-E12). |
+| TC-09 | Incomplete: TC-E08–E11 | No cited selection exercises the unpatched default CLI composition, contextual query over primary layers, or the absence of projector interpretation. |
+| TC-10 | Partially delivered, paused | Framework and references bounded Tested; no grade of actual output. |
+| TC-11 | Not delivered | Full-book coverage account, consumers, required union on final source and adoption all open. |
+
+### Remaining obligations
+
+Each item records the accepted obligation, the decisive source and what closes it. Current status
+stays in the [execution-findings table](#execution-findings); this is not a second ledger.
+
+<a id="TC-E08"></a>
+**TC-E08 · Reach primary characterization from the default `ci run` route.** TC-09 accepted that
+"the default analytical command graph also performs capture, primary demand and exact-view binding
+before consumers". [The CLI](../../python/corpus-structure/src/corpus_structure/cli/orchestrate.py):56–64, 298–310
+always passes the phase-0 graph and registry, so
+[the command owner](../../python/corpus-structure/src/corpus_structure/orchestrate/commands.py):194
+treats the run as non-ordinary and skips the demand at 379–389. Mathematical source methods then
+require primary pins that the stock configurations do not contain. The condition is unchanged since `e9025e949`; only direct Python
+callers, `ci regenerate` and the M1 policy reach the demand. BEP's audit recorded the same defect
+as [BEP-E12](book-processing-efficiency-and-parallelism_2026-11-11.md#BEP-E12), which owns the
+repair. It closes here when BEP-E12 closes with a control over the real, unpatched CLI composition.
+Owner: TC-09, O06.
+
+<a id="TC-E09"></a>
+**TC-E09 · Retire the HanLP projector's frame/cue interpretation.** TC-03 accepted retiring "the
+frame/cue interpretation inside the HanLP projector once its consumers read TC-05/06 output", and
+the TC-09 inventory assigns that interpretation to the shared construction owner.
+[The projector](../../python/corpus-structure/src/corpus_structure/methods/pm2_hanlp_products.py):17–23
+still holds the `_PHRASES` narrowing and private condition, exception, negator and reporting
+lexicons, and still emits `linguistic.predicate_frame` (288) and `linguistic.qualifier_cue`
+(325–356). The TC implementation commit did not touch the file, and the route is live through
+`ci run parsers`. Current readers of those products are
+[contribution composition](../../python/corpus-structure/src/corpus_structure/serve/contribution_composition.py):191–253,
+the retained declaration parser in
+[operations](../../python/corpus-structure/src/corpus_structure/semantic/operations.py):1422,
+source-contribution admission (`source_contributions.sql`:2285) and contextual query (TC-E10).
+`hanlp_condition_groups` in `methods/m1_source_capture.py` has no production caller; only the
+2026-11-09 evidence replay imports it. Closure is one of two routes: migrate these readers to
+primary construction and source-reading terms, remove the projector's interpretation while keeping
+its native evidence, and replace the tests that assert the old mechanics; or record an operator
+decision through the ADR route that the private parser route is a retained non-primary surface and
+amend the inventory. Owner: TC-03 retirement and TC-09, O02/O06.
+
+<a id="TC-E10"></a>
+**TC-E10 · Move contextual query onto the contextual layers.** The inventory row "Contextual
+query/retrieval and model replay" requires consuming retained mentions, referents and contextual
+layers. [Contextual query](../../python/corpus-structure/src/corpus_structure/methods/contextual_query.py):15–22
+binds its three recipes to the private parser's predicate frames, Maverick clusters and DiPO trees,
+and its replay pins `extract.pm2_hanlp`, `extract.pm2_maverick` and `extract.pm2_dipo`. The reader
+is the opt-in `query_context` selection of contextual candidates. Closure: bind the recipes to
+pinned TC-07 layers and primary terms, or record an explicit retirement of this arm.
+Owner: TC-09, O04/O06.
+
+<a id="TC-E11"></a>
+**TC-E11 · Remove private recognition from definition and assertion consumers.** The inventory
+says these consumers "do not repeat lexical/dependency recognition privately".
+[Assertion qualification](../../python/corpus-structure/src/corpus_structure/methods/assertion_qualification.py)
+consumes primary frames, then re-scans raw tokens for negation (193–198), the `MD` tag (239–242)
+and a `ROOT`/`conj` dependency gate for the "possible" label (256–259).
+[Definition declaration](../../python/corpus-structure/src/corpus_structure/methods/definition_declaration.py)
+walks retained HanLP dependency columns to recognize "let … be", copular, relative-clause and
+passive naming patterns beside the primary naming construction. The assertion residue is unfinished
+scope. The declaration chain needs a decision: either its linguistic premises move to TC-05
+constructions or source readings, or it is recorded as domain-owned interpretation. The repair
+should also settle whether `source_layout` in `methods/predicate_frames.py` may return `prose`
+when the layout edge is missing, since that reads an unknown as a known. Owner: TC-05/06 consumer
+cutover and TC-09, O02/O06.
+
+<a id="TC-E12"></a>
+**TC-E12 · Exercise the candidate-centered families and contextual providers on prose.** TC-08
+acceptance requires actual native acceptance of "every new applicable baseline family", including
+competing scope, host and referent cases. The only actual-provider demand control asserts that the
+candidate families are empty because its mathematical-literal source has no linguistic focus
+(`tests/semantic/test_characterization_native.py`:1801–1806); host and referent questions ran only
+against synthetic replies. Actual Maverick/DiPO projection on prose was likewise outside the TC
+union. This is open verification, not missing implementation. It closes with an actual d1 (CUDA)
+and Maverick/DiPO run over authenticated prose with non-empty host and referent hypothesis
+populations, graded through TC-10. Owner: TC-07/08 acceptance, discharged in TC-10/11.
+
+<a id="TC-E13"></a>
+**TC-E13 · Decide what construction coverage reports for unparsed input.**
+[Packed recognition](../../python/corpus-structure/src/corpus_structure/semantic/constructions/forest.py):663–664
+reports `empty` for every `UnexpectedInput`, including text the grammar cannot tokenize. TC-05
+defines a valid grammar no-match as recognized coverage, while TC-11 requires that unassessed
+regions "cannot count as successful empty". Before the full-book family account is accepted, decide
+whether input outside the grammar is recognized-empty or unsupported and make the account follow
+that decision. Owner: TC-05 coverage contract, decided for TC-11.
 
 ## Target and basis
 
@@ -114,9 +298,11 @@ inventory. Documents and graph nodes are not mandatory synchronization or proces
 
 ## Execution queue and current state
 
-The authorized TC-03–09 implementation and TC-01/02 integration prerequisites are delivered on
-shared `main`, 2026-11-11. Native integration is deployed through
-`semantic_tc03_09_literals`, release
+The [Completion audit](#completion-audit) owns current package judgments. This paragraph and the
+table's closure column describe the 2026-11-11 delivery, corrected where the audit reopened a
+package. The authorized TC-03–09 implementation and TC-01/02 integration prerequisites were
+delivered on shared `main`, 2026-11-11. Native integration was then deployed through
+`semantic_tc03_09_literals` (the head has since advanced; see the audit), release
 `release:81dd8c0986138654fe434c1742072585ed968d70a4973961b6e89aa6e2713371`.
 The default remains `/10`; the project remains unselected. No activation or promotion occurred.
 The [integration evidence](../design_review/evidence/2026-11-11_text-characterization-integration/README.md)
@@ -129,15 +315,15 @@ behavior. It makes no claim of exhaustive linguistic meaning, measured benefit o
 | <a id="TC-00"></a>TC-00 · Target authority | Approved implementation scope; relevant current owners | **Complete:** [ADR-0081](../adr/0081-enriched-document-analysis-layers.md), D1/D2/D3/D4/D6/D8 authority and [entry review](../design_review/reviews/design_review_text-characterization-entry_2026-11-10.md) Accept scoped. No source/admission rule reversal. |
 | [TC-01](text-characterization/model-and-retention.md#TC-01) | TC-00 decision | **Complete, Tested:** released contracts, exact source/analysis identity, private-product classification, DAG/choice/coverage validation, original-release closure and independent examples |
 | [TC-02](text-characterization/model-and-retention.md#TC-02) | TC-01 | **Complete, Tested:** protected native products/projections/completion, indexed reads, CLI/MCP, composition and detached closure. All native foundation cases and the final required functional union are covered below. |
-| [TC-03](text-characterization/native-evidence.md#TC-03) | Working TC-02 input/layer contract | **Complete, Tested:** all 13 native families, exact native columns/schemes, runtime/artifact custody and explicit weaker profiles; actual-provider and native admission controls covered in the final union |
+| [TC-03](text-characterization/native-evidence.md#TC-03) | Working TC-02 input/layer contract | **Reopened 2026-11-12 for retirement only ([TC-E09](#TC-E09)).** Native delivery implemented, Tested 2026-11-11: all 13 native families, exact native columns/schemes, runtime/artifact custody and explicit weaker profiles. The HanLP projector's frame/cue interpretation is not retired. |
 | [TC-04](text-characterization/native-evidence.md#TC-04) | Working TC-02 | **Complete, Tested:** direct shared SPPF syntax, normalized/literal/recognized correspondence, separately reported symbol outcomes and source-first inline nominations; scientific assessment separate |
-| [TC-05](text-characterization/constructions-and-interpretation.md#TC-05) | TC-03 plus early TC-04 positioned-input slice | **Complete, Tested:** spaCy named/source constructions, Lark direct packed reduction and primary navigation/naming/math-scope facts; downstream recognizers retired |
+| [TC-05](text-characterization/constructions-and-interpretation.md#TC-05) | TC-03 plus early TC-04 positioned-input slice | **Reopened 2026-11-12 ([TC-E09](#TC-E09), [TC-E11](#TC-E11), [TC-E13](#TC-E13)).** Producers implemented, Tested 2026-11-11: spaCy named/source constructions, Lark direct packed reduction and primary navigation/naming/math-scope facts. Downstream recognizers are not all retired, and the coverage meaning of unparsed input is undecided. |
 | [TC-06](text-characterization/constructions-and-interpretation.md#TC-06) | TC-05 for symbolic slice; TC-07/08 evidence for contextual closure | **Complete, Tested:** explicit choice sites, shared terms and environment evaluation; transitive external selection and witness conservation implemented, native controls covered in the final union |
-| [TC-07](text-characterization/contextual-characterization.md#TC-07) | TC-03 and context/source maps, relevant constructions | **Complete, Tested:** raw Maverick/Dipo populations, linear cluster membership, private hypotheses, exact context/gaps and retained-native mode; actual-provider admission covered in the final union |
-| [TC-08](text-characterization/contextual-characterization.md#TC-08) | TC-06 symbolic slice/TC-07 hypotheses for candidates; source-only route independently | **Complete, Tested:** eight released question families, source-first and frozen-candidate stages, declaration/request identity and explicit missing/none/insufficient outcomes; actual-provider checks covered in the final union |
-| [TC-09](text-characterization/consumer-migration-and-integration.md#TC-09) | Required primary layers available | **Complete, Tested:** primary-only consumers, current native guards, demand/ingest and view bindings, detached analytical closure, current-only retirement, explicit zero-input coverage and bounded provider residency |
-| [TC-10](text-characterization/assessment-and-investigations.md#TC-10) | TC-01 semantics; delivered producers for execution | Independent source/output assessment and faithful native/retained controls |
-| <a id="TC-11"></a>TC-11 · Assembled qualification | TC-01–10 and selected conditional outcomes | Working native full-profile pipeline, full-book coverage account, named semantic assessments, current-only cutover and complete required check union |
+| [TC-07](text-characterization/contextual-characterization.md#TC-07) | TC-03 and context/source maps, relevant constructions | **Implemented; acceptance reopened 2026-11-12 ([TC-E12](#TC-E12)).** Raw Maverick/Dipo populations, linear cluster membership, private hypotheses, exact context/gaps and retained-native mode. The 2026-11-11 union covered actual-provider admission over a mathematical-literal source, not projection on prose. |
+| [TC-08](text-characterization/contextual-characterization.md#TC-08) | TC-06 symbolic slice/TC-07 hypotheses for candidates; source-only route independently | **Implemented; acceptance reopened 2026-11-12 ([TC-E12](#TC-E12)).** Eight released question families, source-first and frozen-candidate stages, declaration/request identity and explicit missing/none/insufficient outcomes. The candidate-centered families were never posed to the actual provider; d1 now runs under ADR-0086. |
+| [TC-09](text-characterization/consumer-migration-and-integration.md#TC-09) | Required primary layers available | **Reopened 2026-11-12, incomplete ([TC-E08](#TC-E08)–[TC-E11](#TC-E11)).** Delivered: current native guards, the demand/ingest route and view bindings, detached analytical closure and explicit zero-input coverage. Not delivered: the default `ci run` composition, primary-only consumers for the listed surfaces and current-only retirement. Provider residency is now BEP's. |
+| [TC-10](text-characterization/assessment-and-investigations.md#TC-10) | TC-01 semantics; delivered producers for execution | **Partially delivered, paused.** Assessment framework and frozen references bounded Tested; no grade of actual producer output, no output-first panel, no consumer assessment. Also discharges TC-E12. |
+| <a id="TC-11"></a>TC-11 · Assembled qualification | TC-01–10 and selected conditional outcomes; the final book view from [BEP-09](book-processing-efficiency-and-parallelism_2026-11-11.md#BEP-09) | **Not delivered.** Open: full-book family coverage account (with TC-E13 decided), named semantic assessments, current-only cutover after TC-E08–E11, and the complete required check union re-established on final source. |
 
 ## Authorized TC-03–09 continuation
 
@@ -166,7 +352,7 @@ accepts the revised target only, with these implementation obligations:
 | Producer review F01 | TC-03/04, released characterization model | Closed, Tested in the final required union: typed tokens/native run columns and formal inputs/nodes/correspondence, kind-specific requirements and independent retention/refusal controls |
 | Producer review F02 | TC-06, native validation and live/detached readers | Closed, Tested in the final required union: typed qualified upstream choices, transitive joint selection and original released-contract validation through live/detached paths |
 | Producer review F03 | TC-06, packed algebra/codec/reading | Closed, Tested in the final required union: explicit child choice sites, single-valued root selection, unresolved partial sites and site/root cycle edges; packed diamond/native cycle controls |
-| Producer review F04 | TC-05/09, construction declarations/native guards | Closed, Tested in the final required union: released mechanical witness constraints and wrong-host/source/choice refusals; current primary-only consumers and retirement of duplicate SQL language production |
+| Producer review F04 | TC-05/09, construction declarations/native guards | Closed for its guard obligation, Tested in the final required union: released mechanical witness constraints, wrong-host/source/choice refusals and retirement of duplicate SQL language production. Its "primary-only consumers" statement did not hold for every consumer; those surfaces are TC-E09–E11. |
 
 Native producers obtain per-unit determinants from the execution-owned port and retain exact provider
 costs at protected completion. Native controls exercise changed-cost replay refusal. Model/runtime
@@ -214,12 +400,12 @@ Independent semantic assessment and all 518 physical-page qualification remain T
 | Review item | Component and intended correction | Disposition/dependency | Closure evidence |
 | --- | --- | --- | --- |
 | [O01](../functional_reviews/text-characterization_2026-11-10.md#O01) | Source/document and native-evidence owners preserve positioned units and schemes | Delivered, functional scope Tested · TC-01–04 | Exact source/atom maps and native availability through combined reads |
-| [O02](../functional_reviews/text-characterization_2026-11-10.md#O02) | Shared primary construction owner replaces scattered recognizers | Delivered, functional scope Tested · TC-05/09 | Reused construction outputs and retired duplicate production |
+| [O02](../functional_reviews/text-characterization_2026-11-10.md#O02) | Shared primary construction owner replaces scattered recognizers | Partial · TC-05/09; TC-E09 and TC-E11 open | Construction outputs are reused; the HanLP projector and two consumers still recognize language privately |
 | [O03](../functional_reviews/text-characterization_2026-11-10.md#O03) | Explicit semantic terms, operators and correlated alternatives | Delivered, functional scope Tested · TC-01/02/06 | Independent scope/choice expectations, packed retention and replay |
-| [O04](../functional_reviews/text-characterization_2026-11-10.md#O04) | Context and model operations enrich the same document | Delivered, functional scope Tested · TC-07/08 | Cross-boundary support, source-first discovery and native provider evidence |
+| [O04](../functional_reviews/text-characterization_2026-11-10.md#O04) | Context and model operations enrich the same document | Delivered through the demand route · TC-07/08; TC-E10 and TC-E12 open | Cross-boundary support and source-first discovery; contextual query not migrated, candidate families and prose projection not exercised on actual providers |
 | [O05](../functional_reviews/text-characterization_2026-11-10.md#O05) | Released operation/storage/read owners serve retained primary products | Delivered, functional scope Tested · TC-02/09 | Indexed membership, partial layers, invalidation and detached reads |
-| [O06](../functional_reviews/text-characterization_2026-11-10.md#O06) | Enrichment/admission consumers use primary semantics | Delivered, functional scope Tested · TC-09 | Complete migration inventory and independent native support refusals |
-| [O07](../functional_reviews/text-characterization_2026-11-10.md#O07) | Evaluation/model lifecycle owners extend granular assessment | Planned · TC-10/11; triggered TC-I branches | Source-first/output-first results, task-specific supervision and actual qualification |
+| [O06](../functional_reviews/text-characterization_2026-11-10.md#O06) | Enrichment/admission consumers use primary semantics | Partial · TC-09; TC-E08–E11 open | Independent native support refusals delivered; the migration inventory is incomplete for the default CLI route, HanLP projection, contextual query and definition/assertion consumers |
+| [O07](../functional_reviews/text-characterization_2026-11-10.md#O07) | Evaluation/model lifecycle owners extend granular assessment | Partial, paused · TC-10/11; triggered TC-I branches | Framework and frozen references delivered; source-first/output-first results, task-specific supervision and actual qualification open |
 
 The operator directed this series to stand on its own on2026-11-10. Existing plans are not
 inputs, prerequisites or sequencing authorities for this series, and none is edited. Current
@@ -272,7 +458,7 @@ selection requires explicit effect authority after qualification; private stagin
 remain separate outcomes. Unavailable required evidence
 keeps qualification open. Publication of this plan does not execute these effects.
 
-**Next for this series:** TC-10 independent expectation and semantic assessment, then TC-11 full-book qualification and adoption under their separate execution authority. No dependency on another plan is selected. The original authoring-only outcomes below retain their 2026-11-10 scope; current functional qualification is recorded above.
+**Next for this series (2026-11-12 audit):** repair TC-E09–E11 under TC-09, with the operator decisions those items name; TC-E08 closes through BEP-E12. Decide TC-E13 before the family account. Then resume TC-10 grading, including TC-E12, on the final book view from BEP-09, and complete TC-11 with the required union re-established on final source. Repairs need their own execution authority; the audit authorized plan corrections only. The series now depends on BEP-09 for actual book execution and on BEP-E12 for the default CLI route. The original authoring-only outcomes below retain their 2026-11-10 scope.
 
 ## Authoring handoff and publication · 2026-11-10
 
@@ -317,20 +503,30 @@ Its source report says display recognition partial and inline/cell coverage unkn
 or resolve these limits through the existing source-demand owners; do not claim complete
 recognition from conversion success. No new qualification is established by this authorization.
 
+<a id="execution-findings"></a>
+
 ### Execution findings and acceptance refinements
 
-This table owns findings revealed by TC-10/11 execution; the earlier producer-review IDs retain
-their original owners and bounded closure claims.
+This table owns findings revealed by TC-10/11 execution (TC-E01–E07) and by the 2026-11-12
+completion audit (TC-E08–E13); the earlier producer-review IDs retain their original owners and
+bounded closure claims. TC-E01–E07 statements about a resuming book run are dated 2026-11-11: that
+run did not complete, and its partial products are not reused (see the audit).
 
 | Finding | Responsible component | Current disposition and closure evidence |
 | --- | --- | --- |
 | TC-E01 | Protected reference admission | Corrected, bounded Tested2026-11-11: initially uninspected opportunities permit independent source-state authoring; known frozen states remain exact. Native12 receipt`ff28f9ed40754f9ba377194e6a28faa4`. |
 | TC-E02 | Output-first author packets | Corrected, bounded Tested2026-11-11: exactly pinned witness closure is separate from the frozen assessed population; native12 receipt above. |
-| TC-E03 | Combined view and detached consumers | Implemented, bounded Tested2026-11-11: streaming/lazy closure, bounded node and exact coverage pages,64MiB document metadata versus8MiB layers. Pure89 receipt`46b3d8a087dd45219d03925911bf8630`; native2 receipt`401fc5c94a7241f598a05f2b996768bb` publishes/reads a valid composed view beyond8MiB. Actual full-book consumer qualification remains open. |
+| TC-E03 | Combined view and detached consumers | Implemented, bounded Tested2026-11-11: streaming/lazy closure, bounded node and exact coverage pages,64MiB document metadata versus8MiB layers. Pure89 receipt`46b3d8a087dd45219d03925911bf8630`; native2 receipt`401fc5c94a7241f598a05f2b996768bb` publishes/reads a valid composed view beyond8MiB. Actual full-book consumer qualification remains open. The8MiB layer bound was later replaced by64MiB under BEP-E01/ADR-0087. |
 | TC-E04 | Construction lexical projection | Corrected, bounded Tested2026-11-11: native layout-only tokens remain evidence without participant terms; multiline interpreted lexical labels declare whitespace normalization while original spelling remains retained. Construction41 receipt`edac73abd9be47deb03fbf9ec824df15`. Authentic second-unit construction520 completed after failed stage504; full-book replay remains open. |
 | TC-E05 | Independent source-semantic comparison | Implemented, bounded Tested2026-11-11: versioned source-anchored task projections declare role scheme, witness/complete named slots and correlated choice constraints. Pure149 receipt`7a4cf5560f684e0f9f81d1b6eef76cf7`; native11`949f73df6d744b8a8ccec1f8eb110175`; full typing`23c0444400b24135ac496c75031f96e7`. Actual source/output grades remain open. Preserve exact native/retained graph checks, original set40/C210–230 and all failed attempts. Unsupported comparison contracts are unavailable, not linguistic errors. |
 | TC-E06 | Primary layer validation/materialization | Corrected, bounded Tested2026-11-11: operation-local dependency indexes and a production-to-term index preserve every identity/source/node/choice check and term order while removing repeated whole-dependency and whole-term work. Receipt`6daeba6f757a448091af826dc92ff270` passed141/blocked1 (native assets setting omitted); actual-provider replacement`4c90354fce9a46c6abd0e1babd62de25` passed1. Their142-identity union is covered; the source difference is a comment clarification and the native bindings differ between private fixtures. Original blocked outcome is retained. Independent static review found no semantic regression. No parser/runtime substitution or measured speedup is claimed. Invocation513–523 partial products/cancellation remain retained; full-book replay resumed. |
 | TC-E07 | Construction source-regex serialization | Corrected, bounded Tested2026-11-11: a source-independent multiline protected atom raised Lark GrammarError because generated regex literals contained physical newlines. Line-safe regex serialization preserves exact literal controls, positions and atom boundaries; interpreted token labels declare whitespace folding while original occurrences remain exact. Construction51 receipt`00baf630d73d474abcd96619cf31e024`, typing`f3f6babda9d54ea2b58d21c60eec7eff`, actual-provider primary/reuse case`379c96dd3c5e4340b94c82f889657c19` passed1. Static review found no material defect. The latest prior book invocation was intentionally interrupted before correction; full-book execution resumes from frozen source. |
+| TC-E08 | TC-09 default analytical command route · O06 | **Open, 2026-11-12 audit.** Default `ci run` skips capture, primary demand and view binding. Repair and its real-CLI control are owned by [BEP-E12](book-processing-efficiency-and-parallelism_2026-11-11.md#BEP-E12); this row closes with it. [Obligation](#TC-E08). |
+| TC-E09 | TC-03 retirement, TC-09 inventory; HanLP projector and its readers · O02/O06 | **Open, 2026-11-12 audit.** Projector frame/cue interpretation and `_PHRASES` narrowing remain live with current readers. Closes by migration and retirement, or by a recorded operator decision to retain the private parser route. [Obligation](#TC-E09). |
+| TC-E10 | TC-09 inventory; contextual query and replay · O04/O06 | **Open, 2026-11-12 audit.** Recipes still bind private parser frames, Maverick clusters and DiPO trees. Closes by binding TC-07 layers and primary terms, or by explicit retirement of the arm. [Obligation](#TC-E10). |
+| TC-E11 | TC-05/06 consumer cutover, TC-09; assertion qualification and definition declaration · O02/O06 | **Open, 2026-11-12 audit.** Assertion qualification re-scans raw tokens; the declaration chain walks raw dependency columns and needs a domain-owned-or-migrate decision. Closes with primary-only controls for each consumer. [Obligation](#TC-E11). |
+| TC-E12 | TC-07/08 actual-provider acceptance, discharged in TC-10/11 | **Open verification, 2026-11-12 audit.** Candidate-centered families and Maverick/DiPO prose projection were not exercised on actual providers in the TC union. Closes with graded actual runs over authenticated prose. [Obligation](#TC-E12). |
+| TC-E13 | TC-05 coverage contract, decided for TC-11 | **Open decision, 2026-11-12 audit.** Unparsed input reports `empty`; decide recognized-empty versus unsupported before the full-book family account. [Obligation](#TC-E13). |
 
 Set40 froze26 source opportunities across21units/all12chapters before the relevant producer
 outputs. Fresh independent A/B/C passes are retained; C210–230 cover28 cases, including13 native

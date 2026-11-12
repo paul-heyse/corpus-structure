@@ -1,6 +1,8 @@
 # Contextual characterization and grounded proposals
 
-**Implemented; bounded functional scope Tested · 2026-11-11.** This companion develops [TC-07](#TC-07) and
+**Implemented; acceptance reopened by the 2026-11-12 completion audit
+([TC-E12](../text-characterization_2026-11-10.md#TC-E12)): the candidate-centered question families and
+Maverick/DiPO projection on prose were not exercised on actual providers.** This companion develops [TC-07](#TC-07) and
 [TC-08](#TC-08) in the [text-characterization coordinator](../text-characterization_2026-11-10.md).
 The coordinator owns authorization, package state, source-opportunity disposition and adoption.
 The [model and retention companion](model-and-retention.md) owns the enriched-document model,
@@ -272,3 +274,14 @@ model characterization, actual selected providers, retained populations and repe
 Maverick/Dipo mention/discourse populations remain attributed evidence; model answers and inherited
 hypotheses remain private proposals. The functional result does not establish linguistic accuracy,
 complete corpus coverage, training benefit or full-book qualification.
+
+**2026-11-12 audit.** That union's actual-provider demand control used a mathematical-literal
+source. It establishes provider admission, the six source-first families and explicit empty
+coverage for unposed candidate questions. It does not exercise the host and referent candidate
+families, which ran only against synthetic replies, or Maverick/DiPO projection on prose. The
+"actual native acceptance" above is therefore open as TC-E12 and is discharged through TC-10/11 on
+authenticated prose. Since that union, accepted BEP decisions replaced parts of the runtime
+described here: d1 requires CUDA/BF16 with method version 2 and cohort receipts (ADR-0086, after
+the CPU default failed on real prose), providers run through shared lanes with bounded threads
+(ADR-0083/0084), and reuse of retained native observations also requires a matching native thread
+profile (ADR-0087). Evidence taken before those changes needs reassessment at TC-11.

@@ -1,6 +1,10 @@
 # Consumer migration, native admission and ingest integration
 
-**Implemented; bounded functional scope Tested · 2026-11-11.** Owns TC-09 design; the
+**Reopened by the 2026-11-12 completion audit: TC-09 is incomplete (TC-E08–E11).** The demand,
+ingest, view-binding, native-guard and detached-closure parts are implemented and were Tested on
+2026-11-11 source; the default `ci run` composition, three inventory rows and current-only
+retirement are not delivered. [Open TC-09 obligations](#open-tc-09-obligations) holds the local
+detail. Owns TC-09 design; the
 [coordinator](../text-characterization_2026-11-10.md) owns current state and O05/O06 disposition.
 Consumes [model/retention](model-and-retention.md), [primary semantics](constructions-and-interpretation.md)
 and [contextual layers](contextual-characterization.md). The coordinator distinguishes implemented source, native deployment and qualification. Existing plans are not inputs or prerequisites.
@@ -35,8 +39,26 @@ and declared mechanical witness checks while replacing duplicated language-produ
 The implemented migration covered call sites of `predicate_frames`, `procedure_frames`, predicate qualifier
 and cross-block helpers, `DefinitionBasisWitness`, annotation restoration and current math tree
 codecs. Current producer/read/admission paths use shared primary products and mechanical native
-support constraints. Superseded recognizers, SQL NLP helpers and mechanism-specific policies were
-retired; the current contract inventory below names the delivered consumers.
+support constraints. SQL NLP helpers and the superseded recognizers behind those call sites were
+retired; the current contract inventory below names the delivered consumers. The migration did not
+cover every inventory row.
+
+<a id="open-tc-09-obligations"></a>
+
+### Open TC-09 obligations · 2026-11-12 audit
+
+The [coordinator](../text-characterization_2026-11-10.md#completion-audit) owns status and closure;
+this table records which inventory rows and statements in this document are not yet true.
+
+| Finding | Inventory row or statement here | What is still the case |
+| --- | --- | --- |
+| [TC-E08](../text-characterization_2026-11-10.md#TC-E08) | "The default analytical command graph also performs capture, primary demand and exact-view binding before consumers" | True for direct Python callers, `ci regenerate` and the M1 policy. The `ci run` CLI passes the phase-0 graph and registry, so the demand is skipped. Repair owned by BEP-E12. |
+| [TC-E09](../text-characterization_2026-11-10.md#TC-E09) | HanLP native projection: "frame/cue interpretation belongs to the shared construction owner" | The private parser projector still authors predicate frames and qualifier cues from its own lexicons, and contribution composition, the retained declaration parser and source-contribution admission still read them. |
+| [TC-E10](../text-characterization_2026-11-10.md#TC-E10) | Contextual query/retrieval and model replay: "consume retained mentions/referents/definition applicability and contextual layers" | Contextual query binds private parser frames, Maverick clusters and DiPO trees. It is absent from the migrated-contract list below. |
+| [TC-E11](../text-characterization_2026-11-10.md#TC-E11) | Definition declaration/applicability and assertion qualification: "do not repeat lexical/dependency recognition privately" | Assertion qualification re-scans raw tokens for negation, modal tag and a dependency gate. The declaration chain walks raw HanLP dependency columns and awaits a domain-owned-or-migrate decision. |
+
+Consequently the acceptance statement "Old private interpretation branches have no current
+callers" is not yet met, and current-only retirement under ADR-0067 is open for these surfaces.
 
 ### Native validation and independent correctness
 
@@ -109,7 +131,10 @@ TC-10/11; a passing pure function test does not establish corpus quality.
 
 ## Implemented execution interfaces
 
-**Implemented; bounded functional scope Tested · 2026-11-11.** `ci run characterize --request FILE`
+**Implemented except the default `ci run` composition (TC-E08); bounded functional scope Tested on
+2026-11-11 source.** Provider residency, release preparation, reuse compatibility and recovery
+described here have since been replaced or extended under BEP (ADR-0083–0087); the coordinator's
+audit records that layering. `ci run characterize --request FILE`
 executes the typed `CharacterizationDemandRequest` from
 [the demand owner](../../../python/corpus-structure/src/corpus_structure/orchestrate/characterization.py).
 The request binds project, release, realization, domain, exact native base, original source scope
@@ -125,8 +150,8 @@ pure contextual refresh selects original raw populations. Ingest's `--enrichment
 uses these same operations after completing source capture, publishes natural-unit results and
 composes one document view. The existing task/cut lifecycle remains the recovery boundary.
 
-The default analytical command graph also performs capture, primary demand and exact-view binding
-before consumers. It uses the selected custom domain registry throughout and moves effective
+The default analytical command graph is accepted to perform capture, primary demand and exact-view
+binding before consumers; the `ci run` CLI does not yet reach that route (TC-E08). It uses the selected custom domain registry throughout and moves effective
 consumer named-rule declarations into primary construction; conflicting definitions refuse rather
 than selecting a winner. Source-only execution and explicitly authored custom graphs retain their
 declared boundaries. The analytical run's immutable options and reports retain exact view pins,

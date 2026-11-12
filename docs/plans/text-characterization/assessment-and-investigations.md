@@ -1,6 +1,10 @@
 # Independent assessment and conditional investigations
 
-**Accepted target; execution in progress · 2026-11-11.** This companion develops [TC-10](#TC-10) and the bounded
+**Accepted target; TC-10 partially delivered and paused (2026-11-12 completion audit).** The
+assessment framework, protected custody, native task scoring, source-anchored task comparison and
+frozen source sets 40–44 are delivered and bounded Tested. No grade of actual producer output, no
+output-first panel and no migrated-consumer assessment exist yet; they wait on the final book view.
+TC-10 also discharges [TC-E12](../text-characterization_2026-11-10.md#TC-E12). This companion develops [TC-10](#TC-10) and the bounded
 [TC-I01–TC-I09](#conditional-investigations) branches of the
 [text-characterization coordinator](../text-characterization_2026-11-10.md).
 The coordinator owns package state, scheduled dispositions and combined completion. The

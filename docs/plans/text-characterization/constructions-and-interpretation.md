@@ -1,6 +1,10 @@
 # Shared constructions and packed primary interpretation
 
-**Implemented; bounded functional scope Tested · 2026-11-11.** TC-05 and TC-06 deliver shared
+**Implemented; bounded functional scope Tested on 2026-11-11 source. TC-05 reopened by the
+2026-11-12 completion audit: downstream recognizers are not all retired
+([TC-E09](../text-characterization_2026-11-10.md#TC-E09), [TC-E11](../text-characterization_2026-11-10.md#TC-E11))
+and the coverage meaning of unparsed input is undecided ([TC-E13](../text-characterization_2026-11-10.md#TC-E13)).
+TC-06 has no gap.** TC-05 and TC-06 deliver shared
 constructions and packed/contextual interpretation; TC-10/11 retain independent assessment and
 full-book qualification.
 The [series coordinator](../text-characterization_2026-11-10.md) owns selected scope, opportunity
@@ -36,8 +40,9 @@ named roles, actual nodes and dependency identities. This is a useful constructi
 [qualifier recipes](../../../python/corpus-structure/src/corpus_structure/semantic/constructions/retained_rules.py)
 and [HanLP products](../../../python/corpus-structure/src/corpus_structure/methods/pm2_hanlp_products.py)
 then authored overlapping predicate, role, coordination, operator and host policies. The delivered
-replacement places their linguistic interpretations under the shared primary construction and
-interpretation owner. Useful native matching and independently expected semantic cases survive.
+replacement places the predicate-frame, procedure-role and qualifier-recipe interpretations under
+the shared primary construction and interpretation owner. The HanLP products' own interpretation
+still runs beside it (TC-E09). Useful native matching and independently expected semantic cases survive.
 
 The [source contribution SQL](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql)
 at that baseline authenticated annotation origin and reconstructed expected role/reading support.
@@ -396,6 +401,16 @@ scope structures. A missing reusable language distinction is an extension here r
 consumer regex. The consumer package owns final downstream migration, native admission and replay
 cutover. TC-06 supplies its typed meanings and authenticatable evidence; completion cannot be claimed
 while the only usable route still reconstructs old private frames.
+
+**Open, 2026-11-12 audit (TC-E11, TC-E13).** Two definition-side consumers still hold private
+recognition. Assertion qualification consumes primary frames and then re-scans raw tokens for
+negation, the modal tag and a dependency gate. Definition declaration recognizes "let … be",
+copular, relative-clause and passive naming patterns from raw HanLP dependency columns beside the
+primary naming construction; whether that chain is domain-owned interpretation or a missing
+reusable distinction is an open decision. Separately, packed recognition reports `empty` for input
+the grammar cannot parse or tokenize. "Valid grammar no-match is recognized coverage" above does
+not settle whether out-of-grammar input is recognized-empty or unsupported; TC-11's family account
+needs that decided.
 
 ### Meaningful acceptance and qualification
 
