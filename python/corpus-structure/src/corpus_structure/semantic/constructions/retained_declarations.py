@@ -307,7 +307,7 @@ def _sentences(layers, view, passage, *, sentence_key=None, prepared=None):
             )
             return key
 
-        groups = {}
+        groups: dict[int, list[dict[str, Any]]] = {}
         keys = {}
         for group in group_index.get(_sentence, ()):
             args, predicate = [], None
@@ -358,8 +358,11 @@ def _sentences(layers, view, passage, *, sentence_key=None, prepared=None):
             evidence.extend(group_evidence)
         frames = {}
         for predicate, srl in groups.items():
+            syntactic_head = heads[predicate] if relations[predicate] == "cop" else predicate
+            if syntactic_head is None:
+                raise DeclarationNotQualified("copular predicate lacks its native syntactic head")
             frames[predicate] = _Frame(
-                heads[predicate] if relations[predicate] == "cop" else predicate,
+                syntactic_head,
                 located(predicate, predicate + 1),
                 "copular" if relations[predicate] == "cop" else "passive"
                 if any(relations[i] == "aux:pass" for i in children[predicate]) else "active",
@@ -536,7 +539,7 @@ def declaration_sentences(layers, view, passage):
         body = report.payload
         terms = {row["local_id"]: row for row in body["terms"]}
         occurrences = {row["local_id"]: row for row in body["occurrences"]}
-        def read(term, *, terms=terms):
+        def read(term: dict[str, Any], *, terms=terms) -> Any:
             children = term.get("children", ())
             if not children:
                 return json.loads(term["value"])
@@ -573,6 +576,8 @@ def declaration_sentences(layers, view, passage):
                 }:
                     raise DeclarationNotQualified("declaration native support is unavailable")
             data = read(term)
+            if not isinstance(data, dict):
+                raise DeclarationNotQualified("primary declaration sentence is not a structured mapping")
             if (len(data["words"]) != len(data["positions"])
                 or any(not 0 <= a < b <= len(view.text) or view.text[a:b] != word
                        for word,(a,b) in zip(data["words"],data["positions"],strict=True))
