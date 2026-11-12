@@ -312,3 +312,8 @@ def test_qualification_reads_primary_predication_without_recognition(tmp_path, m
         ("polarity", "positive"),
         ("modality", "possible"),
     }
+
+
+def test_missing_primary_layout_is_unknown():
+    from corpus_structure.methods.predicate_frames import source_layout
+    assert source_layout(SimpleNamespace(primary_layers={}), "arbitrary source", (), {}) == "unknown"

@@ -426,6 +426,9 @@ class ConstructionCharacterizationMethod:
                 populate_named(
                     builder, view, pin, report, named, check_active=check_active, admitted=admitted
                 )
+        from corpus_structure.semantic.constructions.retained_declarations import populate_declaration_readings
+
+        populate_declaration_readings(builder, view, dependencies, check_active=check_active, admitted=admitted)
         from corpus_structure.semantic.constructions.navigation import populate_navigation
 
         populate_navigation(

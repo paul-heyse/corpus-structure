@@ -24,7 +24,7 @@ from corpus_structure.ingest.annotations import AnnotationProduct, AnnotationUna
 
 PREDICATE_FRAME_VERSION = "2"
 type RoleSpan = tuple[int, int]
-type FrameLayout = Literal["prose", "example", "policy", "instruction"]
+type FrameLayout = Literal["prose", "example", "policy", "instruction", "unknown"]
 
 
 @lru_cache(maxsize=1)
@@ -150,6 +150,7 @@ class PredicateFrame:
     polarity: Literal["positive", "negative", "negative_scope_unresolved", "unresolved"]
     interpretation: str
     primary_ref: Any = None
+    clause_role: str = "unresolved"
 
 
 @dataclass(frozen=True, slots=True)
@@ -984,6 +985,8 @@ class _FrameBlock:
                 or origin not in self.predicates
                 or not self.same_sentence(origin, index)
             ):
+                span = self.span((index,))
+                self.add_cue("modality", token.lower_, span, span, (), unresolved=True)
                 continue
             span = self.span((index,))
             hosts = tuple(
@@ -992,10 +995,17 @@ class _FrameBlock:
                 if peer == origin or self.shared_coordinate(origin, peer)
             )
             self.add_cue("modality", token.lower_, span, span, hosts, origin=origin)
-        for (index,) in self.lexical["negation"]:
+        negative = set(self.lexical["negation"])
+        negative.update(
+            (token.i,) for token in self.doc
+            if {"Polarity=Neg", "PronType=Neg"}.intersection(str(token.morph).split("|"))
+        )
+        for (index,) in sorted(negative):
             token = self.doc[index]
             origin = token.head.i
             if origin not in self.predicates or not self.same_sentence(origin, index):
+                span = self.span((index,))
+                self.add_cue("negation", "predicate_negation", span, span, (), unresolved=True)
                 continue
             span = self.span((index,))
             hosts = {origin}

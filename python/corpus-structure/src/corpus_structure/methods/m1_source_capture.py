@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from collections import Counter
 from collections.abc import Mapping
-from dataclasses import asdict
 from hashlib import sha256
 from itertools import pairwise
 
@@ -23,8 +21,6 @@ from .annotation_rules import (
     LocatedRole,
     PreparedAnnotationRules,
 )
-from .pm2_products import CueView, FrameView, ParserProducts
-from .pm2_source import MappedSource, PM2TokenMap, SourceMapSegment
 from .record_assembly import LiteralSpan, NativeRecordGroup, RoleInput
 from .record_packs import classification, family_roles, field_kind
 
@@ -72,99 +68,6 @@ def _extent(
     return LiteralSpan(start + offset, end + offset, text[start:end])
 
 
-def hanlp_condition_groups(
-    mapping: PM2TokenMap,
-    products: ParserProducts,
-    *,
-    request_digest: str,
-) -> tuple[NativeRecordGroup, ...]:
-    """Compose a private assertion from a unique, exactly located HanLP condition and host."""
-    source_map = mapping.mapping
-    context = source_map.context
-    if source_map.segments != (SourceMapSegment(0, len(context.text), 0),):
-        return ()  # This adapter consumes the exact-copy HanLP character map only.
-    pin = NativeSourcePin.from_source(context.primary)
-
-    def spans(key: str) -> tuple[LiteralSpan, ...]:
-        location = products.locations.get(key)
-        if (
-            not isinstance(location, MappedSource)
-            or (location.scope_digest, location.source_map_digest, location.input_digest)
-            != (source_map.scope_digest, source_map.input_digest, mapping.input_digest)
-            or not location.pieces
-            or any(piece.source != pin for piece in location.pieces)
-        ):
-            return ()
-        return tuple(LiteralSpan(s.start, s.end, s.literal) for s in location.provider_spans)
-
-    frames = {
-        row.key: row
-        for row in products.products
-        if row.semantic_type == "linguistic.predicate_frame"
-    }
-    selected = []
-    candidate_counts: Counter[str] = Counter()
-    for row in products.products:
-        if row.semantic_type != "linguistic.qualifier_cue" or row.value.get("kind") != "condition":
-            continue
-        cue = CueView.model_validate_json(canonical_bytes(row.value))
-        candidate_counts.update(cue.candidates)
-        if len(cue.candidates) != 1:
-            continue
-        (host_key,) = cue.candidates
-        host = frames.get(host_key)
-        if (
-            host is None
-            or host.value.get("voice") != "active"
-            or row.value.get("sentence") != host.value.get("sentence")
-            or not {cue.location, cue.marker, host_key} <= set(row.members)
-        ):
-            continue
-        frame = FrameView.model_validate_json(canonical_bytes(host.value))
-        subject = [a.location for a in frame.dependency_arguments if a.role == "nsubj"]
-        object_ = [a.location for a in frame.dependency_arguments if a.role == "obj"]
-        if len(subject) != 1 or len(object_) != 1:
-            continue
-        locations = (subject[0], frame.predicate, object_[0], cue.location)
-        if not {subject[0], frame.predicate, object_[0]} <= set(host.members):
-            continue
-        fields = tuple(spans(key) for key in locations)
-        marker = spans(cue.marker)
-        if (
-            any(not field for field in fields)
-            or not marker
-            or any(
-                not any(start.start <= part.start < part.end <= start.end for start in fields[-1])
-                for part in marker
-            )
-        ):
-            continue
-        ordered = sorted((span.start, span.end) for field in fields for span in field)
-        if any(left[1] > right[0] for left, right in pairwise(ordered)):
-            continue
-        selected.append(
-            (
-                host_key,
-                NativeRecordGroup(
-                    tuple(
-                        RoleInput(role, spans=field)
-                        for role, field in zip(
-                            ("subject", "predicate", "object", "condition"),
-                            fields,
-                            strict=True,
-                        )
-                    ),
-                    "one HanLP condition cue and its uniquely located active host",
-                    (
-                        "source-parser-input:" + mapping.input_digest,
-                        "source-parser-request:" + request_digest,
-                        "source-parser-products:"
-                        + sha256(canonical_bytes([asdict(row), asdict(host)])).hexdigest(),
-                    ),
-                ),
-            )
-        )
-    return tuple(group for key, group in selected if candidate_counts[key] == 1)
 
 
 class SourceRecordCapture:

@@ -101,7 +101,7 @@ def source_layout(product, text, pieces, items):
                             return value
     except ValueError:
         pass
-    return "prose"
+    return "unknown"
 
 
 def predicate_frames(text, annotations, *, layout="prose"):
@@ -275,6 +275,7 @@ def _project(text, product):
                 members["polarity"]["value"],
                 members["interpretation"]["value"],
                 annotation_reference(pin, term["local_id"]),
+                members.get("clause_role", {}).get("value", "unresolved"),
             )
         cues = {}
         for term in terms.values():
