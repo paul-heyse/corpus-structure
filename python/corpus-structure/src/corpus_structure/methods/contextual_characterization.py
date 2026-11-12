@@ -464,6 +464,7 @@ class ContextualCharacterizationMethod:
         assets = ctx.settings.model_cache / "pm2"
         ctx.check_active()
         startup = None
+        selection = None
         checkpoint = (
             len(builder.annotations),
             len(builder.memberships),
@@ -502,6 +503,7 @@ class ContextualCharacterizationMethod:
                 artifacts=artifacts,
                 device=cfg.native_device,
             )
+            selection = worker.selection_factory()
             yield from worker.start()
             startup = worker.startup
             if startup.get("runtime_identity") != runtime or startup.get("assets") != artifacts:
@@ -573,7 +575,8 @@ class ContextualCharacterizationMethod:
                 ],
             )
             from corpus_structure.semantic.observations import source_value
-            row["execution_profile"] = source_value(worker.selection_factory().native.wire)
+            assert selection is not None  # A startup observation requires its admitted selection.
+            row["execution_profile"] = source_value(selection.native.wire)
             row["startup_observation"] = source_value(startup)
             row["configuration_codec"] = provider + "-config-json-v1"
             builder.native_runs.append(row)

@@ -9,6 +9,7 @@ import pytest
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.methods import characterization_resources as resources
+from corpus_structure.methods.native_profiles import Provider
 from corpus_structure.semantic.cpu_execution import OwnedByteBudget
 from corpus_structure.semantic.identity import canonical_bytes
 
@@ -83,7 +84,7 @@ def runtime(monkeypatch):
         execution.close()
 
 
-def selection(provider="maverick", profile=None, artifacts=None):
+def selection(provider: Provider = "maverick", profile=None, artifacts=None):
     from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
     return NativeSelection(NativeProfile(provider, {"runtime": "frozen"}, {"artifact": 1} if artifacts is None else artifacts, {} if profile is None else {"variant": profile.decode()}, "bfloat16" if provider == "d1" else "float32", "fixture"), Path("/fixture/assets"))
 

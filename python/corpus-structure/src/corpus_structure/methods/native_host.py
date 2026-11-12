@@ -168,9 +168,10 @@ class NativeHost:
         return not self._accepting
 
     def _leader_exited(self):
-        return (
-            self._process.returncode is not None
-            or os.waitid(os.P_PID, self._process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+        process = self._process
+        return process is None or (
+            process.returncode is not None
+            or os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
             is not None
         )
 
@@ -180,7 +181,10 @@ class NativeHost:
 
     def _write_frame(self, frame, deadline):
         with self._write_lock:
-            stream = self._process.stdin
+            process = self._process
+            if process is None:
+                raise Pm2WorkerError("native host has not started")
+            stream = process.stdin
             if stream is None or stream.closed:
                 raise Pm2WorkerError("native host input is closed")
             os.set_blocking(stream.fileno(), False)
@@ -209,7 +213,11 @@ class NativeHost:
                 request.future.set_exception(error)
 
     def _read(self):
-        stream = self._process.stdout
+        process = self._process
+        if process is None:
+            self._fail(Pm2WorkerError("native host reader has no owned process"))
+            return
+        stream = process.stdout
         assert stream is not None
         buffer = bytearray()
         try:

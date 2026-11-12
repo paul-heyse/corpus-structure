@@ -1129,7 +1129,7 @@ def selections_for_characterization(options, settings):
     return tuple({value.identity: value for value in selected}.values())
 
 
-def freeze_characterization_profiles(name, parameters, settings, *, cache=None):
+def freeze_characterization_profiles(name, parameters, settings, *, cache: dict[tuple[Any, ...], Any] | None = None):
     """Freeze runtime/device meaning into task configuration before reuse checks."""
     from corpus_structure.ingest.sentences import SentenceConfig
     from .native_profiles import preflight_native_runtime, spacy_selection
@@ -1154,7 +1154,7 @@ def freeze_characterization_profiles(name, parameters, settings, *, cache=None):
         parameters["gliner_runtime"] = cache[key]
 
 
-def freeze_analytical_profile(name, parameters, settings, *, cache=None):
+def freeze_analytical_profile(name, parameters, settings, *, cache: dict[tuple[Any, ...], Any] | None = None):
     """Freeze a selected domain encoder before its configuration/task is recorded."""
     from .native_profiles import NativeProfile, gliner_selection, preflight_native_runtime
 
