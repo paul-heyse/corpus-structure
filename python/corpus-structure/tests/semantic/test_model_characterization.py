@@ -613,6 +613,7 @@ def gliner_profile():
             )
         ),
     )
+    profile = replace(profile, version="gliner2-2.1.0-cpu-fp32-standard-whitespace-v1")
     return ClassificationProfile(provider="gliner", device="cpu", profile=profile)
 
 

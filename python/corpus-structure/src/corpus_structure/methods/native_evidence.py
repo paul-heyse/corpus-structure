@@ -429,8 +429,8 @@ class NativeEvidenceMethod:
                 if not inputs:
                     continue
                 batches = yield tuple(
-                    annotation_work(providers, inputs[offset:offset + min(8, profile.configuration.batch_size)], profile, ctx.check_active, native_profile=cfg.spacy_native_profile, require_complete=False)
-                    for offset in range(0, len(inputs), min(8, profile.configuration.batch_size))
+                    annotation_work(providers, (item,), profile, ctx.check_active, native_profile=cfg.spacy_native_profile, require_complete=False)
+                    for item in inputs
                 )
                 for product in (product for batch in batches for product in batch.require_available()):
                     ctx.check_active()
@@ -541,9 +541,6 @@ class NativeEvidenceMethod:
         yield from self._hanlp(cfg, ctx, builder, pending, layouts, text_pins, providers)
 
     def _hanlp(self, cfg, ctx, builder, pending, layouts, text_pins, providers):
-        script = Path(__file__).with_name("pm2_native.py")
-        root = script.resolve().parents[5]
-        project = root / "services/pm2-hanlp"
         assets = ctx.settings.model_cache / "pm2"
         startup = None
         try:
@@ -556,9 +553,6 @@ class NativeEvidenceMethod:
                 providers,
                 ctx,
                 provider="hanlp",
-                python=project / ".venv/bin/python",
-                script=script,
-                project=project,
                 assets=assets,
                 runtime=cfg.hanlp_runtime,
                 artifacts=cfg.hanlp_artifacts,

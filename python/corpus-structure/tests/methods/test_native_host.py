@@ -88,7 +88,7 @@ def test_reader_routes_out_of_order_and_fences_only_unfinished_generation_member
     assert all(permit.acquire(False) for permit in permits)
 
 
-def test_declared_group_is_lazy_and_keeps_custody_until_both_host_deaths_are_proven(monkeypatch):
+def test_declared_group_is_lazy_and_keeps_custody_until_host_death_is_proven(monkeypatch):
     events, hosts = [], []
 
     @contextmanager
@@ -122,15 +122,15 @@ def test_declared_group_is_lazy_and_keeps_custody_until_both_host_deaths_are_pro
     group.declare(values)
     assert not hosts and events == []
     group.ensure(lambda: None)
-    assert {host.name for host in hosts} == {"primary", "isolated"}
+    assert {host.name for host in hosts} == {"primary"}
     with pytest.raises(Pm2WorkerRefused, match="not declared"):
         group.declare((selection(parameters={"new": True}),))
     with pytest.raises(Pm2WorkerError, match="unproven"):
         group.close()
-    assert events == ["lease-enter", "close-primary", "close-isolated"]
+    assert events == ["lease-enter", "close-primary"]
     group.close()
     group.close()
-    assert events[-3:] == ["close-primary", "close-isolated", "lease-exit"]
+    assert events[-2:] == ["close-primary", "lease-exit"]
 
 
 def test_real_adapter_rejects_missing_profile_before_model_loading():
@@ -264,8 +264,8 @@ def test_direct_spacy_facade_loads_only_tokenizer_and_closes_phase_preserving_do
     events = []
 
     class Group:
-        def __init__(self, policy):
-            pass
+        def __init__(self, policy, endpoint=None):
+            assert endpoint == "http://127.0.0.1:8035/v1"
         def __enter__(self):
             events.append("enter")
             return self

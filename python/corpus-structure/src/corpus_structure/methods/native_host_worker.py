@@ -324,7 +324,7 @@ if __name__ == "__main__":
             try:
                 provider, assets = sys.argv[2], Path(sys.argv[3])
                 root = Path(__file__).resolve().parents[5]
-                project = root if provider in {"d1", "hanlp", "gliner", "spacy"} else root / "services/nlp-host-isolated"
+                project = root
                 result = dict(runtime_identity=adapter["_runtime_identity"](provider, project=project), assets=adapter["_verify_assets"](assets.resolve(strict=True), provider) if provider in {"d1", "hanlp", "maverick", "dipo"} else {})
                 message = dict(kind="ready", payload=result)
             except Exception as error:

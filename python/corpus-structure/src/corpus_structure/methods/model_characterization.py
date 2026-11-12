@@ -425,8 +425,6 @@ class ModelCharacterizationMethod:
         return tuple(scopes)
 
     def _d1(self, cfg, ctx, builder, scopes, families, dependencies, providers):
-        script = Path(__file__).with_name("pm2_native.py")
-        root = script.resolve().parents[5]
         assets = ctx.settings.model_cache / "pm2"
         try:
             if cfg.d1_runtime is None or cfg.d1_artifacts is None:
@@ -437,9 +435,6 @@ class ModelCharacterizationMethod:
                 providers,
                 ctx,
                 provider="d1",
-                python=root / ".venv/bin/python",
-                script=script,
-                project=root,
                 assets=assets,
                 runtime=cfg.d1_runtime,
                 artifacts=cfg.d1_artifacts,

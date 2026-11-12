@@ -123,6 +123,7 @@ def test_loader_requests_and_proves_actual_splitter_without_model_execution(
     received = []
     model = SimpleNamespace(
         eval=lambda: None,
+        to=lambda device: model,
         parameters=lambda: iter(()),
         architecture="boundary",
         boundary_settings=Settings(),

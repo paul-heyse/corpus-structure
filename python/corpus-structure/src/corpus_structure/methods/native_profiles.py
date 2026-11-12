@@ -11,14 +11,7 @@ from typing import Any, Literal
 from corpus_structure.semantic.identity import canonical_bytes
 
 Provider = Literal["d1", "gliner", "hanlp", "spacy", "maverick", "dipo"]
-_HOSTS = {
-    "d1": "primary",
-    "gliner": "primary",
-    "hanlp": "primary",
-    "spacy": "primary",
-    "maverick": "isolated",
-    "dipo": "isolated",
-}
+_PROVIDERS = frozenset({"d1", "gliner", "hanlp", "spacy", "maverick", "dipo"})
 
 
 @dataclass(frozen=True, init=False)
@@ -47,7 +40,7 @@ class NativeProfile:
         cudnn_allow_tf32: bool = False,
         version: Literal["nlp-gpu-profile-1"] = "nlp-gpu-profile-1",
     ):
-        if provider not in _HOSTS or device != "cuda":
+        if provider not in _PROVIDERS or device != "cuda":
             raise ValueError("selected native profile requires a supported CUDA provider")
         if dtype != ("bfloat16" if provider == "d1" else "float32"):
             raise ValueError("selected native provider dtype differs from its numerical recipe")
@@ -132,7 +125,7 @@ class NativeProfile:
 
     @property
     def host(self):
-        return _HOSTS[self.provider]
+        return "primary"
 
     @property
     def content(self):
@@ -177,7 +170,7 @@ class NativeSelection:
     @property
     def project(self):
         root = Path(__file__).resolve().parents[5]
-        return root if self.native.host == "primary" else root / "services/nlp-host-isolated"
+        return root
 
     @property
     def python(self):
@@ -222,7 +215,7 @@ def preflight_native_runtime(provider, assets):
     from .pm2_worker import preflight_pm2_runtime
 
     root = Path(__file__).resolve().parents[5]
-    project = root if _HOSTS[provider] == "primary" else root / "services/nlp-host-isolated"
+    project = root
     return preflight_pm2_runtime(python=project / ".venv/bin/python", script=Path(__file__).with_name("native_host_worker.py"), project=project, provider=provider, assets=assets)
 
 

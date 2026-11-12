@@ -19,7 +19,7 @@ def load(declaration, torch):
     provider = profile["provider"]
     assets = Path(declaration["assets"]).resolve(strict=True)
     root = Path(__file__).resolve().parents[5]
-    project = root if provider in {"d1", "hanlp", "gliner", "spacy"} else root / "services/nlp-host-isolated"
+    project = root
     native = runpy.run_path(str(Path(__file__).with_name("pm2_native.py")))
     runtime = native["_runtime_identity"](provider, project=project)
     if runtime != profile["runtime_identity"]:
