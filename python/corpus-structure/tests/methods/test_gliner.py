@@ -602,3 +602,17 @@ def test_oversized_peer_reply_retires_owner(profile, mode):
     with pytest.raises(GlinerWorkerError, match="IPC failed"):
         worker.extract(GlinerPack("release", "{}"), (GlinerInput("one", "a" * 64, mode),))
     assert worker.closed and worker.pid is None
+
+
+def test_cuda_profiles_are_explicit_and_cannot_reinterpret_cpu_history(profile):
+    from corpus_structure.methods.gliner import CUDA_CODEPOINT_PROFILE, CUDA_WHITESPACE_PROFILE
+
+    original = asdict(profile)
+    whitespace = replace(profile, version=CUDA_WHITESPACE_PROFILE)
+    codepoint = replace(profile, version=CUDA_CODEPOINT_PROFILE)
+    assert profile.device == "cpu" and not profile.codepoint_splitter
+    assert whitespace.device == codepoint.device == "cuda"
+    assert not whitespace.codepoint_splitter and codepoint.codepoint_splitter
+    assert len({profile.fingerprint, whitespace.fingerprint, codepoint.fingerprint}) == 3
+    assert asdict(profile) == original
+    assert "device" not in original  # historical serialized shape is unchanged

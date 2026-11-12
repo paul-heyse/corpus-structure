@@ -101,11 +101,12 @@ def test_declared_group_is_lazy_and_keeps_custody_until_both_host_deaths_are_pro
             events.append("lease-exit")
 
     class Host:
-        def __init__(self, selections, policy, *, check_active):
+        def __init__(self, selections, policy, *, check_active, adopt):
             check_active()
             self.name = selections[0].native.host
             self.failed_once = self.name == "314"
             hosts.append(self)
+            adopt(self)
             self.startup = {entry.native.fingerprint: {} for entry in selections}
 
         def close(self):
@@ -132,8 +133,8 @@ def test_declared_group_is_lazy_and_keeps_custody_until_both_host_deaths_are_pro
     assert events[-3:] == ["close-314", "close-312", "lease-exit"]
 
 
-def test_unselected_child_does_not_claim_a_real_provider_adapter_exists():
-    with pytest.raises(NotImplementedError, match=r"not integrated.*unselected"):
+def test_real_adapter_rejects_missing_profile_before_model_loading():
+    with pytest.raises(KeyError, match="assets"):
         _load({"profile": {"provider": "gliner"}}, None)
 
 
@@ -155,3 +156,95 @@ def test_profile_nested_aliases_and_returned_declarations_cannot_change_identity
     assert selected.declaration() == declaration
     assert json.loads(selected.runtime) == {"versions": [{"torch": "selected"}]}
     assert json.loads(selected.artifacts) == {"files": {"weights": ["original"]}}
+
+
+def test_partial_constructor_remains_owned_when_cleanup_is_unproven(monkeypatch):
+    events = []
+
+    @contextmanager
+    def custody(endpoint, *, check_active):
+        events.append("lease-enter")
+        try:
+            yield
+        finally:
+            events.append("lease-exit")
+
+    class PartialHost:
+        def __init__(self, selections, policy, *, check_active, adopt):
+            self.refuse_cleanup = True
+            adopt(self)
+            raise RuntimeError("startup failed after spawn")
+
+        def close(self):
+            events.append("close")
+            if self.refuse_cleanup:
+                self.refuse_cleanup = False
+                raise RuntimeError("physical death not proven")
+
+    monkeypatch.setattr(native_host, "suspend_resident_nemotron", custody)
+    group = native_host.NativeHostGroup(CharacterizationExecutionPolicy(), host_factory=PartialHost)
+    group.declare((selection(),))
+    with pytest.raises(RuntimeError, match="startup failed"):
+        group.ensure(lambda: None)
+    assert "314" in group._hosts
+    with pytest.raises(Pm2WorkerError, match="unproven"):
+        group.close()
+    assert events == ["lease-enter", "close"]
+    group.close()
+    assert events == ["lease-enter", "close", "close", "lease-exit"]
+
+
+def test_cancelled_startup_borrower_does_not_wait_for_shared_ready():
+    from concurrent.futures import CancelledError
+
+    group = native_host.NativeHostGroup(CharacterizationExecutionPolicy())
+    group._ready = Future()
+
+    def cancelled():
+        raise CancelledError("logical borrower cancelled")
+
+    with pytest.raises(CancelledError, match="logical borrower"):
+        group.ensure(cancelled)
+    assert not group._ready.done()
+    assert not group._stop.is_set()
+
+
+def test_conflicting_host_cache_declaration_refuses_atomically_before_custody():
+    group = native_host.NativeHostGroup(CharacterizationExecutionPolicy())
+    first = selection()
+    other = NativeSelection(selection("hanlp").native, Path("/other-assets"))
+    with pytest.raises(Pm2WorkerRefused, match="one offline backbone cache"):
+        group.declare((first, other))
+    assert group._selections == {}
+    assert group._thread is None
+
+
+@pytest.mark.parametrize("provider", ["d1", "hanlp", "maverick", "dipo"])
+def test_shared_pm2_adapters_authenticate_and_delegate_without_global_retuning(provider, tmp_path, monkeypatch):
+    from corpus_structure.methods import native_host_adapters
+
+    calls = []
+    observed = {"device": "cuda:0", "dtype": "torch.bfloat16" if provider == "d1" else "torch.float32", "attention_implementation": "sdpa"}
+    runtime, artifacts = {"lock": "shared-runtime"}, {"checkpoint": "exact"}
+
+    def loader(assets, device):
+        calls.append((provider, assets, device))
+        return dict(observed), lambda request: {"native": request}
+
+    def run(path):
+        if Path(path).name == "pm2_native.py":
+            return {"_runtime_identity": lambda selected, *, project: runtime, "_verify_assets": lambda assets, selected: artifacts, "_load_d1": loader}
+        return {"load_" + provider: loader}
+
+    monkeypatch.setattr(native_host_adapters.runpy, "run_path", run)
+    monkeypatch.setenv("HF_HUB_CACHE", str(tmp_path / "hub"))
+    profile = dict(provider=provider, runtime_identity=runtime, artifacts=artifacts, backend="sdpa")
+    metadata, infer = native_host_adapters.load({"profile": profile, "assets": str(tmp_path)}, object())
+    assert calls == [(provider, tmp_path, "cuda")]
+    assert metadata["runtime_identity"] == runtime and metadata["assets"] == artifacts
+    assert metadata["attention_implementation"] == "sdpa"
+    assert infer({"ordered": [2, 1]}) == {"native": {"ordered": [2, 1]}}
+    profile["runtime_identity"] = {"lock": "foreign"}
+    with pytest.raises(ValueError, match="runtime differs"):
+        native_host_adapters.load({"profile": profile, "assets": str(tmp_path)}, object())
+    assert len(calls) == 1

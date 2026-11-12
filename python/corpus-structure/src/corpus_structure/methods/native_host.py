@@ -71,7 +71,7 @@ class _Pending:
 class NativeHost:
     """One supervised process, shared by a frozen declared resident population."""
 
-    def __init__(self, selections, policy, *, check_active, startup_timeout=300.0, command=None):
+    def __init__(self, selections, policy, *, check_active, startup_timeout=300.0, command=None, adopt=None):
         self.generation = uuid4().hex
         self.policy, self.selections = policy, tuple(selections)
         self._lock, self._write_lock, self._close_lock = Lock(), Lock(), Lock()
@@ -81,7 +81,14 @@ class NativeHost:
         self._failure = None
         self._ready = Future()
         self.startup = {}
+        self._process = None
+        self._reader = None
+        if adopt is not None:
+            adopt(self)
         first = self.selections[0]
+        caches = {str(s.assets.absolute() / "hub") for s in self.selections if s.provider in {"d1", "hanlp", "maverick", "dipo"}}
+        if len(caches) > 1:
+            raise Pm2WorkerRefused("shared host residents require one offline backbone cache")
         environment = dict(
             PATH=os.defpath,
             HF_HUB_OFFLINE="1",
@@ -90,6 +97,8 @@ class NativeHost:
             OMP_NUM_THREADS=str(first.native.threads),
             MKL_NUM_THREADS=str(first.native.threads),
         )
+        if caches:
+            environment["HF_HUB_CACHE"] = next(iter(caches))
         self._process = subprocess.Popen(
             command or [str(first.python.absolute()), "-I", "-u", str(first.script.absolute())],
             stdin=subprocess.PIPE,
@@ -132,8 +141,11 @@ class NativeHost:
             for identity, observation in metadata.items():
                 self._validate_startup(expected[identity], observation)
             self.startup = metadata
-        except BaseException:
-            self.close(grace_seconds=0)
+        except BaseException as error:
+            try:
+                self.close(grace_seconds=0)
+            except BaseException as cleanup:
+                error.add_note(f"native host startup cleanup remains unproven: {cleanup}")
             raise
 
     @staticmethod
@@ -316,7 +328,7 @@ class NativeHost:
         with self._close_lock:
             self._accepting = False
             process = self._process
-            if process.returncode is not None:
+            if process is None:
                 return
             if not self._leader_exited() and grace_seconds:
                 with suppress(Exception):
@@ -341,7 +353,7 @@ class NativeHost:
                 raise Pm2WorkerError("native host process-group death remains unproven")
             process.wait(timeout=1)
             self._fail(Pm2WorkerError("native host generation closed"))
-            if current_thread() is not self._reader:
+            if self._reader is not None and self._reader.ident is not None and current_thread() is not self._reader:
                 self._reader.join(timeout=1)
                 if self._reader.is_alive():
                     raise Pm2WorkerError("native host reader did not drain")
@@ -369,9 +381,10 @@ class NativeHostGroup:
     def declare(self, selections):
         with self._lock:
             self._active()
+            proposed = dict(self._selections)
             for selection in selections:
                 key = selection.native.fingerprint
-                existing = self._selections.get(key)
+                existing = proposed.get(key)
                 if existing is not None:
                     if existing.identity != selection.identity:
                         raise Pm2WorkerRefused(
@@ -389,7 +402,14 @@ class NativeHostGroup:
                     raise Pm2WorkerRefused(
                         "native frozen profile differs from shared host thread policy"
                     )
-                self._selections[key] = selection
+                proposed[key] = selection
+            caches = {}
+            for selection in proposed.values():
+                if selection.provider in {"d1", "hanlp", "maverick", "dipo"}:
+                    caches.setdefault(selection.native.host, set()).add(str(selection.assets.absolute() / "hub"))
+            if any(len(population) > 1 for population in caches.values()):
+                raise Pm2WorkerRefused("shared host residents require one offline backbone cache")
+            self._selections = proposed
 
     def _active(self):
         if self._stop.is_set():
@@ -406,16 +426,10 @@ class NativeHostGroup:
                 self._thread = Thread(target=self._manage, name="native-gpu-custody", daemon=True)
                 self._thread.start()
             ready = self._ready
-        cancelled = None
         while True:
-            try:
-                check_active()
-            except BaseException as error:
-                cancelled = cancelled or error
+            check_active()
             try:
                 ready.result(timeout=0.1)
-                if cancelled is not None:
-                    raise cancelled
                 return
             except TimeoutError:
                 pass
@@ -431,8 +445,9 @@ class NativeHostGroup:
                 groups.setdefault(selection.native.host, []).append(selection)
             for name, population in groups.items():
                 self._active()
-                self._hosts[name] = self.host_factory(
-                    population, self.policy, check_active=self._active
+                self.host_factory(
+                    population, self.policy, check_active=self._active,
+                    adopt=lambda host, name=name: self._hosts.__setitem__(name, host),
                 )
         except BaseException as error:
             ready.set_exception(error)
