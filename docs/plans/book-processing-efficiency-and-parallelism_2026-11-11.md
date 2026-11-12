@@ -1,6 +1,6 @@
 # Book-processing efficiency and parallelism
 
-**Status: BEP-00–06 scoped-qualified; BEP-07/08 implemented, final qualification in progress; BEP-09 active · Updated2026-11-11.** Owns BEP-00–BEP-09 and the scheduled disposition of the [source review](../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md)'s O01–O08 and RC01–RC04. This coordinator owns combined acceptance and investigation decisions; companions own the detailed contracts identified below.
+**Status: BEP-00–06 scoped-qualified; BEP-07/08 implemented with scoped native checks; BEP-09 testing cancelled after memory-pressure kill · Updated2026-11-11.** Owns BEP-00–BEP-09 and the scheduled disposition of the [source review](../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md)'s O01–O08 and RC01–RC04. This coordinator owns combined acceptance and investigation decisions; companions own the detailed contracts identified below.
 
 ## Authority, scope and baseline
 
@@ -107,6 +107,8 @@ SymPy; unrelated scientific/domain consumers are outside this increment.
 | BEP-E01 | Native-evidence production/publication; coherent capacity replacement implemented/native-tested, whole-book acceptance pending | Run610/task2528 failed when publication exceeded the existing8MiB layer contract. `uv run ci status 610 --project nce-grinstead-snell-full-book --json` passed2026-11-11: failed run, terminal supervisor/readiness, zero unresolved agents/orphans. Original failure remains in native history and build/tc11-book-execution.log. No cap change, semantic truncation or book restart is included in00–03. Transport bounds do not repair an oversized canonical product. |
 | BEP-E02 | D1 device selection; closed in this increment | Actual two-prose-region capture exposes the incorrect CPU default: D1 exceeds120s and produces failed/unavailable family coverage. Original91203c735f4b4b1e87dddfa0f6dd89a2 and diagnostic retryf0766f5fa43141029e614de30b99e2e0 remain failed. Operator requires D1 always CUDA (2026-11-11). Current D1 configs/launches require CUDA/BF16 with120s inference and no CPU fallback. Native question/cohort/source/custody qualification passed bep.d1-cuda-ordered-native; actual captured-prose/native publication passed4/4,6dfe911f0ea14484a2bcd95d8bda8635. The tentative600s CPU override is removed. |
 | BEP-E03 | PM2 native transport/member authentication; closed in this increment | Actual CUDA literal-question probe exposed canonical JSON sorting of meaningful declared question/option/state order in new client/coalescer/reply seams. Shared ordered-native codec and version2 member/cohort receipts restore the existing contract; originalversion1 reads retain original hashes. Focused58 controls passed1918758d82714f83af87baad129fb849 and actual CUDA ordered/source checks passed; final current-source native publication passed4/4,6dfe911f0ea14484a2bcd95d8bda8635. |
+| BEP-E04 | Public analytical preflight and affected test callers; open | Default campaign exposed database preparation before pure argument refusal in start_bound_run, stale None MethodSettings fixtures, obsolete prepared-characterization callback mocks and field inventory. Preserve refusal-before-effects/native-outcome controls when repairing; no repair or retry after operator cancelled testing. |
+| BEP-E05 | Test campaign aggregate memory/custody; open | systemd-oomd killed Cursor application cgroup at2026-11-11 23:47:43 local with167.1G group usage. Campaign0a78c71ce1a949e38e906c9c5392c1f3 had16xdist workers. Per-process peak/cause remains unknown; PostgreSQL server is a separate service cgroup. Resolve memory-safe test selection and dead-owner custody before any operator-authorized retry. |
 
 Qualification for this increment is targeted preparation/trust/native-publication and actual-spawn
 behavior. It does not establish final policy, provider parallelism or whole-book qualification.
@@ -573,3 +575,42 @@ the original failure/source difference and historical native-context unknown rat
 relabelling them; the frozen-source passing replacement supplies current applicability.
 No provider is claimed for the deliberately empty eligibility case. Final broad campaign and
 whole-book execution remain pending.
+
+
+### Operator cancellation and memory-pressure interruption · 2026-11-11
+
+The operator cancelled testing after Codex/Surrounding Cursor crashed. Do not restart tests or
+book execution without renewed operator instruction. Production implementation is committed in
+4ec2020fa (ADR-0087, including exact threadpoolctl3.7.0 service additions); a040ac996 moves
+raw capacity summaries through LFS without changing artifact bytes. Native candidate repair is
+9f2f78c82. TC plans remain unchanged, and only main exists as a worktree.
+
+`uv run ci test --json` started default ordinary/fault campaign
+0a78c71ce1a949e38e906c9c5392c1f3 with16xdist workers. It did not settle the ordinary lane;
+the fault lane was not started. Live bounded diagnostics had exposed at least29 failing test
+identities and over3000passes, but these are incomplete observations, not a qualified total.
+BEP-E04 owns the preflight/fixture failures; do not suppress their independent no-effects and
+native-outcome assertions.
+
+`journalctl -u systemd-oomd` records23:47:43 local: Cursor's application cgroup used167.1G and
+was killed for sustained memory pressure. This is a group-level fact, not a per-process peak
+or proof that one repository caused the allocation. Our tests were launched under Cursor/Codex;
+the group can include other work. PostgreSQL18/corpus is in a separate system service cgroup.
+The last bounded database sample before the kill showed active product/manifest reads, derived
+publication and runtime registration, with no blockers; it did not show an active migration.
+The development capacity migration had already finished before this campaign. Isolated test
+fixtures can independently run migrations during setup. The
+[raw oomd journal](../design_review/evidence/2026-11-11_bep-whole-book/raw/test-campaign-oomd.log)
+is retained; individual-worker memory attribution remains open.
+
+Post-crash process inspection found no pytest/test_receipts/ci-test workers. The original parent
+had already disappeared before the requested SIGINT could be sent. `uv run ci results recover
+0a78c71ce1a949e38e906c9c5392c1f3 --json` refused with test settlement unproven; preserve that
+custody boundary rather than manually relabelling the receipt. The CLI still reports running/
+custody_unsettled, despite no observed live test process. `ci results hold` succeeded and protects
+the original receipt/raw prefix. No test or book restart occurred.
+
+The final book run, interruption/resume on that book, remaining selected-provider union and
+actual retained consumers/export/replay are **not_run**. The prepared evidence-only consumer
+utility has not been executed. BEP-09, BEP-E01 final book acceptance, E04 and E05 remain open;
+no enclosing completion or full qualification is claimed.

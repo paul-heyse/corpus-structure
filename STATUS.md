@@ -1,29 +1,26 @@
 # Status
 
-_Updated2026-11-11. BEP-07/08 implementation and final BEP-09 qualification are in progress.
-D1 remains CUDA/BF16; all other selected NLP remains CPU. Native head is
-semantic_bep_capacity. Default activation, project result selection and TC plans are unchanged._
+_Updated2026-11-11. Testing cancelled by the operator after Cursor/Codex memory-pressure crash.
+No tests or book processing may restart without renewed instruction. BEP-09 remains incomplete._
 
-## Current implementation and authority
+## Current implementation
 
-- [BEP coordinator](docs/plans/book-processing-efficiency-and-parallelism_2026-11-11.md) owns current scope, findings, investigations and required union. Its final-increment section records selected operating values and actual receipts. Existing BEP-00–06 scoped acceptance remains there.
-- ADR-0087 and D3/D4/D6/D8 own shared validated policy, native demand anchoring/recovery and coherent capacity. The first actual stage owns the frozen demand/freshness seed; children reference its anchor. CLI exposes retained capture and explicit characterization resume.
-- Defaults: two regions/CPU workers/submissions/stage runs, four claims, two jobs per provider lane,2GiB encoded state,256MiB CPU packets/64MiB replies; native IPC remains8MiB. CPU native threads1, provider threads4/inter-op1. GLiNER's frozen profile must match; inter-op1 is supported.
-- Native canonical layer/full-layer bounds are64MiB; views remain64MiB and each aggregate native read response is bounded256MiB, with exact closure paging. Execution bodies remain charged to regional capacity. Ordinary analytical digest/ancestor/claim scopes now own bounded lifetimes.
-- D1 always CUDA/BF16 with120s inference and no CPU fallback. Other selected NLP stays CPU. threadpoolctl3.7.0 was added exactly to the three PM2 CPU service environments for supported loaded native pools.
-- New current release03c24857dc91… is admitted/deployed, unselected. Target input is source:bep-book:03c24857dc91. Original capture496/cut614/product1627 remains the authentic316-view/518-page basis; no recognition was repeated.
+- [BEP coordinator](docs/plans/book-processing-efficiency-and-parallelism_2026-11-11.md) owns current scope, findings, receipts and required union. BEP-07/08 is implemented with scoped native checks; final campaign/book qualification is incomplete. TC plans are unchanged.
+- Commits:9f2f78c82 (native candidate recreation),4ec2020fa (ADR-0087/shared policy/native recovery/capacity/threadpoolctl3.7.0),a040ac996 (raw summaries through LFS; artifact bytes unchanged). Main is the sole worktree; no push/activation/result selection/promotion.
+- Defaults: two regions/CPU workers/submissions/stage runs, four claims, two jobs per provider lane,2GiB encoded state,256MiB CPU inputs/64MiB replies,8MiB native frames. CPU native threads1; providers4/inter-op1. D1 always CUDA/BF16/120s; all other selected NLP remains CPU.
+- Native head semantic_bep_capacity; release03c24857dc91… admitted/deployed, unselected. Target input source:bep-book:03c24857dc91. Authentic source remains capture496/cut614/product1627:316views over518pages; no recognition rerun.
+- First actual stage stores frozen native demand/seed; children reference its anchor. Retained capture/characterization resume use that authority. Full native layer/read cap64MiB, aggregate response256MiB/page, exact closure paging. Digest/ancestor/claim scopes own bounded analytical reads.
 
-## Verification2026-11-11
+## Verified scope2026-11-11
 
-- [Capacity evidence](docs/design_review/evidence/2026-11-11_bep-layer-capacity/README.md): actual view480 complete13-family native body9,253,073bytes; largest-by-text561 complete13-family body49,326,509bytes. Both preserve exact source/context and independent current custody/digests. Original method1 body was not recovered.
-- Native capacity publication/replay/export/paging/refusal controls passed6/6,c3df282f91704fa39257f7007f2c6862. Local recovery/anchor/policy/receipt controls passed13/13,4c0bdc4845e6429aa01e9e1cdb52ee0e. Primary-reader capacity controls passed10/10,4561837d285c4564ba2b94503fe6cf4f.
-- Candidate bef94253783f46da9bcefcf8469deaad passed; registration7a1c10f3773c4e788510b9a10f1384da and development deployment7b6d0475a0244ad387dde1eaffb54e8e passed. No activation or selection occurred.
-- Broad `uv run ci check --view steps --json` a71d30e25b81497aad78a82c82b2c57c passed lint/docs/deps/Clippy, failed only new test-stub typing. `--only types` replacement228fc0b8b1014655bbdd8b18684aad69 passed before the last analytical-lifetime correction. rustc1.102.0-nightly(9c5648833,2026-11-10).
-- Native candidate recreation defect repaired in commit9f2f78c82; scoped regression passed. Original failures/refusals and intermediate check failures remain preserved. Final-source native recovery passed2/2,d30ed0edcc3a4ae1832aa32c6bdca97f; native analytical retry694783ed2487403fb6e08d01723a00ea passed. Final default functional/fault campaign and whole-book acceptance remain pending.
+- [Capacity evidence](docs/design_review/evidence/2026-11-11_bep-layer-capacity/README.md): actual complete13-family bodies9,253,073bytes (view480) and49,326,509bytes (largest-by-text561), independent current custody/digests. Original method1 body was not recovered.
+- Native capacity publication/replay/export/paging/refusal passed6/6,c3df282f91704fa39257f7007f2c6862. Final-source native recovery passed2/2,d30ed0edcc3a4ae1832aa32c6bdca97f; exact analytical native retry passed694783ed2487403fb6e08d01723a00ea, with10preparation controls from73edf3d9b7394f22bbf25fb88e48c69b. Original failed attempts remain.
+- `uv run ci check --view steps --json` passedecd5be13e49c43da8c1379b7d570dc24 (rules not_run: empty registry). `uv run ci doctor --json` passed8bf3d144537a4d268c202878b995cc05. rustc1.102.0-nightly(9c5648833,2026-11-10). Assembled review is Interface-checked, not native qualification.
 
-## Next
+## Interrupted campaign and next work
 
-- Production source is frozen with native recovery/analytical controls passed. Run the default functional/fault campaign, remaining selected-provider union and final checks before book execution.
-- Execute all316 retained views/all six stages, deliberately qualify interruption/resume preserving settled fresh pins, then verify final exact native/CLI/MCP/export/detached consumers. BEP-E01 final closure waits for that acceptance.
-- TC plans remain unchanged; later TC reconciliation and protected assessment retain their existing owners. No new protected reference reads were used for policy or scheduling.
-- Main is the sole worktree. Only the native-candidate repair is committed this increment; remaining integrated edits are dirty. No push, activation, selection or promotion.
+- Default `uv run ci test --json`,0a78c71ce1a949e38e906c9c5392c1f3, was interrupted in ordinary; fault not_started. Sixteen xdist workers were running. Bounded live observations showed at least29failures, not a complete final inventory. No full-campaign pass is claimed.
+- systemd-oomd killed Cursor's application cgroup at23:47:43 local after167.1G group usage. Per-process attribution is unknown. PostgreSQL server is a separate service cgroup; last sampled test queries were reads/publication/runtime registration, not migration. Earlier development migration had finished. [Raw journal](docs/design_review/evidence/2026-11-11_bep-whole-book/raw/test-campaign-oomd.log).
+- No pytest/test_receipts/ci-test processes were observed after crash; original parent already gone before requested SIGINT. `ci results recover` refuses unproven settlement; managed receipt still says running/custody_unsettled and is held. Do not manually relabel it or retry without resolving custody.
+- BEP-E04 owns preflight-before-DB regression and affected settings/callback fixtures; not repaired yet. BEP-E05 owns aggregate test-memory diagnosis and dead-owner custody before a memory-safe, operator-authorized retry. Source workers are stopped; no testing/book restart.
+- Whole-book execution, book interruption/resume, remaining selected-provider union and actual consumers/export/detached replay are not_run. Prepared consumer utility is unexecuted. BEP-E01 final book acceptance and BEP-09 remain open.
