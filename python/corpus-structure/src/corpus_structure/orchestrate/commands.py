@@ -134,6 +134,45 @@ def start_bound_run(
     characterization_views: Sequence[ProductReference] = (),
     on_created: Callable[[SourceRunCreated], None] | None = None,
 ):
+    arguments = locals()
+    from corpus_structure.semantic.execution_preparation import prepare_execution
+
+    with engine.connect() as conn:
+        execution = prepare_execution(conn, release_id)
+    with execution:
+        return _start_bound_run(execution, **arguments)
+
+
+def _start_bound_run(
+    execution,
+    engine: Engine,
+    *,
+    release_id: str,
+    realization_id: str,
+    project_id: str,
+    domain: str,
+    method_settings: Any,
+    phase: int = 0,
+    domains: Path | None = None,
+    fresh: Sequence[str] = (),
+    slice: str | None = None,
+    scope: str | None = None,
+    whole_document: bool = False,
+    source_membership: str | None = None,
+    corpus: str | None = None,
+    agent_mode: str = "complete",
+    agent_reuse: str = "full",
+    registry_for: Any = None,
+    graph: Any = None,
+    native_product: ProductReference | None = None,
+    integrated_product: ProductReference | None = None,
+    extraction_policy: str = "phase0",
+    m1_configuration: str = "default",
+    record_policy: dict[str, Any] | None = None,
+    source_only: bool = False,
+    characterization_views: Sequence[ProductReference] = (),
+    on_created: Callable[[SourceRunCreated], None] | None = None,
+):
     """Explicit semantic source execution through the current command entry point."""
     from sqlalchemy import select
 
@@ -143,7 +182,6 @@ def start_bound_run(
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.operations import OperationBinding
-    from corpus_structure.semantic.releases import load_release
 
     if whole_document and (slice is not None or scope is not None):
         raise CommandError("whole-document is mutually exclusive with slice and scope")
@@ -174,7 +212,7 @@ def start_bound_run(
         graph, registry_for = source_graph(m1_configuration), m1_registry
 
     with engine.connect() as conn:
-        prepared = load_release(conn, release_id)
+        prepared = execution.require_release(release_id)
         r = table("data.realization")
         row = (
             conn.execute(
@@ -347,7 +385,7 @@ def start_bound_run(
     ):
         from corpus_structure.core.vocab import Stage
 
-        from .characterization import PRIMARY_PRODUCERS, characterize_captured_run
+        from .characterization import PRIMARY_PRODUCERS, _characterize_captured_run
 
         overrides = (
             {"extract.m1_candidates": m1_configuration}
@@ -357,6 +395,7 @@ def start_bound_run(
         options = _consumer_characterization_options(selected_registry, selected_graph, overrides)
         capture = run_source_methods(
             engine,
+            execution_preparation=execution,
             on_created=on_created,
             project_id=project_id,
             domain=domain,
@@ -377,7 +416,8 @@ def start_bound_run(
             source_membership=source_membership,
             kind="slice" if slice else "full",
         )
-        characterized = characterize_captured_run(
+        characterized = _characterize_captured_run(
+            execution,
             engine,
             capture,
             project_id=project_id,
@@ -462,6 +502,7 @@ def start_bound_run(
         )
     return run_source_methods(
         engine,
+        execution_preparation=execution,
         on_created=on_created,
         project_id=project_id,
         domain=domain,

@@ -115,6 +115,8 @@ def enrich_document(
     method_options: Mapping[str, Mapping[str, Any]] | None = None,
     preparation_cache: dict[str, dict[str, Any] | None] | None = None,
     on_created=None,
+    execution_preparation=None,
+    regional_preparation=None,
 ):
     """Fulfil an explicit demand; provider profiles are frozen ordinary method options.
 
@@ -135,7 +137,11 @@ def enrich_document(
     layers = {}
     with read_snapshot(engine) as conn:
         for pin in pins:
-            layers[pin] = (read_layer if demand.run_missing else read_layer_manifest)(conn, pin)
+            layers[pin] = (
+                regional_preparation.layer(conn, pin, run_id=None)
+                if demand.run_missing and regional_preparation is not None
+                else (read_layer if demand.run_missing else read_layer_manifest)(conn, pin)
+            )
         has_text = any(
             has_selected_native_text(
                 load_source_view(conn, identity, analysis=False), demand.source_scope["selectors"]
@@ -442,6 +448,8 @@ def enrich_document(
             return []
         result = run_source_methods(
             engine,
+            execution_preparation=execution_preparation,
+            regional_preparation=regional_preparation,
             on_created=on_created,
             project_id=project_id,
             prepared=prepared,
@@ -465,7 +473,11 @@ def enrich_document(
                 if row["kind"] == "layer":
                     pin = ProductReference(**row["reference"])
                     if pin not in layers:
-                        layers[pin] = read_layer(conn, pin, run_id=result.run_id)
+                        layers[pin] = (
+                            regional_preparation.layer(conn, pin, run_id=result.run_id)
+                            if regional_preparation is not None
+                            else read_layer(conn, pin, run_id=result.run_id)
+                        )
                         pins.append(pin)
                     name = layers[pin].payload["operation"]["key"]
                     active_pins = [
@@ -579,8 +591,28 @@ def enrich_document(
     )
 
 
-@characterization_resource_session()
 def execute_characterization_demand(
+    engine,
+    request: CharacterizationDemandRequest,
+    method_settings,
+    *,
+    preparation_cache=None,
+    registry=None,
+    on_created=None,
+):
+    arguments = locals()
+    from corpus_structure.semantic.execution_preparation import prepare_execution
+    from corpus_structure.semantic.query import read_snapshot
+
+    with read_snapshot(engine) as conn:
+        execution = prepare_execution(conn, request.release_id)
+    with execution:
+        return _execute_characterization_demand(execution, **arguments)
+
+
+@characterization_resource_session()
+def _execute_characterization_demand(
+    execution,
     engine,
     request: CharacterizationDemandRequest,
     method_settings,
@@ -597,12 +629,11 @@ def execute_characterization_demand(
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.operations import OperationBinding
     from corpus_structure.semantic.query import read_snapshot
-    from corpus_structure.semantic.releases import load_release
 
     from .phase0 import registry as registry_for
 
     with read_snapshot(engine) as conn:
-        prepared = load_release(conn, request.release_id)
+        prepared = execution.require_release(request.release_id)
         realization = table("data.realization")
         source = (
             conn.execute(
@@ -622,28 +653,33 @@ def execute_characterization_demand(
         canonical_bytes(dict(domain=request.domain, release=request.release_id)),
     )
     selected = (registry or registry_for(DOMAINS / request.domain)).bind_release(prepared)
-    return enrich_document(
-        engine,
-        demand=EnrichedDocumentDemand(
-            request.base_document,
-            request.source_scope,
-            request.selected_layers,
-            request.source_only,
-            request.active_layers,
-            request.run_missing,
-            request.fresh_methods,
-        ),
-        project_id=request.project_id,
-        prepared=prepared,
-        binding=binding,
-        registry=selected,
-        method_settings=method_settings,
-        selected_sources=request.selected_sources,
-        method_options=request.method_options,
-        preparation_cache=preparation_cache,
-        domain=request.domain,
-        on_created=on_created,
-    )
+    from corpus_structure.semantic.execution_preparation import RegionalPreparation
+
+    with RegionalPreparation(execution) as regional:
+        return enrich_document(
+            engine,
+            execution_preparation=execution,
+            regional_preparation=regional,
+            demand=EnrichedDocumentDemand(
+                request.base_document,
+                request.source_scope,
+                request.selected_layers,
+                request.source_only,
+                request.active_layers,
+                request.run_missing,
+                request.fresh_methods,
+            ),
+            project_id=request.project_id,
+            prepared=prepared,
+            binding=binding,
+            registry=selected,
+            method_settings=method_settings,
+            selected_sources=request.selected_sources,
+            method_options=request.method_options,
+            preparation_cache=preparation_cache,
+            domain=request.domain,
+            on_created=on_created,
+        )
 
 
 def bind_characterization_views(registry, views, layers):
@@ -682,8 +718,33 @@ def bind_characterization_views(registry, views, layers):
     )
 
 
-@characterization_resource_session()
 def characterize_captured_run(
+    engine,
+    run,
+    *,
+    project_id,
+    release_id,
+    realization_id,
+    domain,
+    method_settings,
+    method_options,
+    registry=None,
+    on_created=None,
+    fresh_methods=(),
+):
+    arguments = locals()
+    from corpus_structure.semantic.execution_preparation import prepare_execution
+    from corpus_structure.semantic.query import read_snapshot
+
+    with read_snapshot(engine) as conn:
+        execution = prepare_execution(conn, release_id)
+    with execution:
+        return _characterize_captured_run(execution, **arguments)
+
+
+@characterization_resource_session()
+def _characterize_captured_run(
+    execution,
     engine,
     run,
     *,
@@ -811,7 +872,8 @@ def characterize_captured_run(
     regional = [
         (
             request,
-            execute_characterization_demand(
+            _execute_characterization_demand(
+                execution,
                 engine,
                 request,
                 method_settings,
@@ -869,8 +931,8 @@ def characterize_captured_run(
             run_missing=False,
             method_options={"text.compose_view": method_options.get("text.compose_view", {})},
         )
-        result = execute_characterization_demand(
-            engine, request, method_settings, registry=registry, on_created=on_created
+        result = _execute_characterization_demand(
+            execution, engine, request, method_settings, registry=registry, on_created=on_created
         )
         missing = tuple(
             sorted(

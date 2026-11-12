@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Iterable
+from functools import lru_cache
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -26,6 +28,19 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.product_reference import ProductReference
 
 from .annotation_rules import AnnotationRule, PreparedAnnotationRules
+
+
+@lru_cache(maxsize=1)
+def _construction_resources():
+    vocab = English().vocab
+    return vocab, PreparedConstructions(vocab)
+
+
+@lru_cache(maxsize=16)
+def _named_resources(content: bytes):
+    vocab, _prepared = _construction_resources()
+    rules = tuple(AnnotationRule.model_validate(value) for value in json.loads(content))
+    return PreparedAnnotationRules(vocab, rules=rules)
 
 
 class ConstructionConfig(BaseModel):
@@ -111,13 +126,19 @@ class ConstructionCharacterizationMethod:
             )
         )
 
-    def run(self, units, cfg: ConstructionConfig, ctx):
+    def run(self, units, cfg, ctx):
+        from corpus_structure.semantic.cpu_execution import run_cpu_method
+
+        return run_cpu_method(self, units, cfg, ctx)
+
+    def _run_prepared(self, units, cfg: ConstructionConfig, ctx):
         base, scope, pins = cfg.require_selection()
         results = []
-        vocab = English().vocab
-        prepared = PreparedConstructions(vocab)
+        vocab, prepared = _construction_resources()
         named = (
-            PreparedAnnotationRules(vocab, rules=cfg.annotation_rules)
+            _named_resources(
+                canonical_bytes([rule.model_dump(mode="json") for rule in cfg.annotation_rules])
+            )
             if cfg.annotation_rules
             else None
         )

@@ -1102,3 +1102,55 @@ def test_reading_checks_selected_member_support_even_when_root_is_direct(prepare
                 AnnotationReference(unrelated, "nested-left"),
             ],
         )
+
+
+def test_regional_validation_reuses_exact_dependency_proofs_but_validates_each_new_root(
+    prepared, monkeypatch
+):
+    from types import SimpleNamespace
+
+    import corpus_structure.semantic.characterization as owner
+    from corpus_structure.semantic.cpu_execution import CPUExecutionScope
+    from corpus_structure.semantic.execution_preparation import RegionalPreparation
+
+    calls = []
+    original = owner._shape
+
+    def shape(*args):
+        calls.append(args[1])
+        return original(*args)
+
+    monkeypatch.setattr(owner, "_shape", shape)
+    cpu = CPUExecutionScope(prepared)
+    with RegionalPreparation(SimpleNamespace(cpu=cpu)) as regional:
+        first = regional.validate_layer(
+            prepared,
+            layer_payload(prepared),
+            dependencies={},
+            releases={prepared.release_id: prepared},
+        )
+        first_pin = first.reference(12)
+        second_payload = layer_payload(prepared)
+        second_payload["dependencies"] = [first_pin.values()]
+        second = regional.validate_layer(
+            prepared,
+            second_payload,
+            dependencies={first_pin: first},
+            releases={prepared.release_id: prepared},
+        )
+        assert len(calls) == 2  # Both new roots validate; the exact dependency is already proven.
+        assert second.payload["dependencies"] == [first_pin.values()]
+        with pytest.raises(TypeError):
+            regional._decoded[first.content_digest]["base_document"]["task_id"] = 22
+        wrong = copy.deepcopy(first.payload)
+        wrong["outcome"] = "failed"
+        with pytest.raises(ValueError, match="exact dependency closure"):
+            regional.validate_layer(
+                prepared,
+                second_payload,
+                dependencies={first_pin: owner.LayerReport(owner.canonical_bytes(wrong))},
+                releases={prepared.release_id: prepared},
+            )
+        assert cpu.budget.used_bytes > 0
+    assert cpu.budget.used_bytes == 0
+    cpu.close()

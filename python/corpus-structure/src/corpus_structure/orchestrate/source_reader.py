@@ -27,6 +27,10 @@ class ScopedSourceReader:
         self._read_lock = RLock()
 
     @property
+    def cpu_execution(self):
+        return self._owner.cpu_execution
+
+    @property
     def prepared(self):
         return self._owner.prepared
 

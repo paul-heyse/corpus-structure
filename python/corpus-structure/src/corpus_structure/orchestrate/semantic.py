@@ -169,6 +169,58 @@ def run_source_methods(
     structural_admission: Sequence[Mapping[str, Any]] = (),
     selected_sources: Sequence[ExternalSourceRef] = (),
     characterization_views: Sequence[ProductReference] = (),
+    execution_preparation: Any = None,
+    regional_preparation: Any = None,
+    on_created: Callable[[SourceRunCreated], None] | None = None,
+) -> BoundRunReport:
+    arguments = locals()
+    from corpus_structure.semantic.cpu_execution import CPUExecutionScope
+
+    if execution_preparation is not None:
+        if execution_preparation.require_release(prepared.release_id) is not prepared:
+            raise ValueError("source invocation differs from verified preparation")
+        cpu = execution_preparation.cpu
+    else:
+        cpu = CPUExecutionScope(prepared)
+    try:
+        return _run_source_methods(cpu, **arguments)
+    finally:
+        if execution_preparation is None:
+            cpu.close()
+
+
+def _run_source_methods(
+    cpu_execution,
+    engine: Any,
+    *,
+    project_id: str,
+    prepared: Any,
+    binding: OperationBinding,
+    registry: Any,
+    graph: Any,
+    method_settings: Any,
+    phase: int = 0,
+    domain: str = "statistics",
+    configurations: Mapping[str, str] | None = None,
+    guideline: str = "",
+    fresh: Any = (),
+    corpus_record: Mapping[str, Any] | None = None,
+    scope_record: Mapping[str, Any] | None = None,
+    whole_document: bool = False,
+    source_membership: str | None = None,
+    policy_source: str | None = None,
+    agent_mode: str = "complete",
+    agent_reuse: str = "full",
+    kind: str = "full",
+    extraction_policy: str = "phase0",
+    extraction_policy_config: str | None = None,
+    record_acceptance: Sequence[Mapping[str, Any]] = (),
+    local_semantic_admission: Sequence[Mapping[str, Any]] = (),
+    structural_admission: Sequence[Mapping[str, Any]] = (),
+    selected_sources: Sequence[ExternalSourceRef] = (),
+    characterization_views: Sequence[ProductReference] = (),
+    execution_preparation: Any = None,
+    regional_preparation: Any = None,
     on_created: Callable[[SourceRunCreated], None] | None = None,
 ) -> BoundRunReport:
     """Run the current source graph; hand its immutable cut to consolidation/proposal owners.
@@ -603,7 +655,13 @@ def run_source_methods(
                                 config.config_hash,
                                 prepared=prepared,
                             )
-                            view = run_view(conn, rid, prepared)
+                            view = run_view(
+                                conn,
+                                rid,
+                                prepared,
+                                cpu_execution=cpu_execution,
+                                regional_preparation=regional_preparation,
+                            )
                             from corpus_structure.orchestrate.source_reader import BoundReader
                             from corpus_structure.semantic.product_reference import ProductReference
 
@@ -698,7 +756,13 @@ def run_source_methods(
                     from .source_reader import ScopedSourceReader
 
                     with engine.connect() as conn:
-                        view = run_view(conn, rid, prepared)
+                        view = run_view(
+                            conn,
+                            rid,
+                            prepared,
+                            cpu_execution=cpu_execution,
+                            regional_preparation=regional_preparation,
+                        )
                         bound_reader = view.reader
                         if not isinstance(bound_reader, BoundReader):
                             raise TypeError("source execution requires the bound database adapter")
@@ -728,7 +792,13 @@ def run_source_methods(
                                         row.status in _READY_SOURCE_TASKS for row in parent_rows
                                     ):
                                         continue
-                                    dependency_view = run_view(dependency_conn, rid, prepared)
+                                    dependency_view = run_view(
+                                        dependency_conn,
+                                        rid,
+                                        prepared,
+                                        cpu_execution=cpu_execution,
+                                        regional_preparation=regional_preparation,
+                                    )
                                     producer = None
                                     if (
                                         config.params.get("source_dependencies")
@@ -1036,6 +1106,7 @@ def run_source_methods(
                                                 configuration_hash=config.config_hash,
                                                 source=result.ref.unit_key or "run",
                                                 records=result.records,
+                                                regional_preparation=regional_preparation,
                                             )
                                         check_active.settle(task, intent.apply)
                                         if result.error is not None:

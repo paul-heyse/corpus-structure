@@ -1907,6 +1907,17 @@ def test_empty_and_image_only_capture_enriches_without_language_provider_calls(
     monkeypatch.setattr(ContextualCharacterizationMethod, "_native", unrequested)
     monkeypatch.setattr(ModelCharacterizationMethod, "_d1", unrequested)
     monkeypatch.setattr(ModelCharacterizationMethod, "_gliner", unrequested)
+    # Observe the real verifier across two regions and all dependent stages.
+    from corpus_structure.semantic import releases
+
+    full_load = releases.load_release
+    full_loads = []
+
+    def verified_load(*args, **kwargs):
+        full_loads.append((args[1:], kwargs))
+        return full_load(*args, **kwargs)
+
+    monkeypatch.setattr(releases, "load_release", verified_load)
     result = characterize_captured_run(
         semantic_writer_engine,
         SimpleNamespace(run_id=task["run_id"]),
@@ -1917,6 +1928,7 @@ def test_empty_and_image_only_capture_enriches_without_language_provider_calls(
         method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
         method_options={},
     )
+    assert len(full_loads) == 1
     assert len(result) == 1
     with semantic_writer_engine.connect() as conn:
         view = read_view(conn, result[0].view).payload
@@ -1947,6 +1959,7 @@ def test_empty_and_image_only_capture_enriches_without_language_provider_calls(
         method_options={},
         fresh_methods=("text.formal_evidence",),
     )
+    assert len(full_loads) == 2
     with semantic_writer_engine.connect() as conn:
 
         def producer_pins(result, method):

@@ -106,7 +106,12 @@ class FormalEvidenceMethod:
             )
         )
 
-    def run(
+    def run(self, units, cfg, ctx):
+        from corpus_structure.semantic.cpu_execution import run_cpu_method
+
+        return run_cpu_method(self, units, cfg, ctx)
+
+    def _run_prepared(
         self, units: Sequence[UnitView], cfg: FormalEvidenceConfig, ctx: MethodContext
     ) -> Sequence[UnitResult]:
         results = []

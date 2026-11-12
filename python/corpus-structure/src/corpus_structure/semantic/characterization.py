@@ -438,7 +438,9 @@ class _LayerValidation:
                 report = self.dependencies.get(pin) if self.dependencies is not None else None
                 if report is None or report.reference(pin.task_id) != pin:
                     raise ValueError("layer requires exact dependency closure")
-                validated = self.validate(report.payload)
+                validated = self.validated.get(report.content_digest)
+                if validated is None:
+                    validated = self.validate(report.payload)
                 if validated.content != report.content:
                     raise ValueError("dependency differs from its own released canonical contract")
             policies = attachment_policies(prepared)

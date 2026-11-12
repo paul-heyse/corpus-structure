@@ -501,54 +501,61 @@ def ingest(
                     native_product=native_product,
                     integrated_product=integrated_product,
                 )
-        result = commands.start_bound_run(
-            engine,
-            release_id=release,
-            realization_id=source,
-            project_id=project,
-            domain=domain,
-            method_settings=MethodSettings(
-                data_dir=settings.paths.data_dir,
-                model_cache=settings.paths.model_cache,
-                nemotron_endpoint=settings.nemotron.endpoint,
-                nemotron_python=settings.nemotron.python,
-                nemotron_worker=settings.nemotron.worker,
-                nemotron_receipts=settings.nemotron.receipts,
-                nemotron_timeout_seconds=settings.nemotron.timeout_seconds,
-            ),
-            slice=slice,
-            scope=scope,
-            whole_document=whole_document,
-            source_membership=source_membership,
-            native_product=native_product,
-            integrated_product=integrated_product,
-            source_only=True,
-        )
-        if enrichment_options is not None:
-            from dataclasses import asdict
+        from corpus_structure.semantic.execution_preparation import prepare_execution
 
-            from pydantic import RootModel
-
-            from corpus_structure.orchestrate.characterization import characterize_captured_run
-
-            enriched = characterize_captured_run(
+        with engine.connect() as conn:
+            execution = prepare_execution(conn, release)
+        with execution:
+            result = commands._start_bound_run(
+                execution,
                 engine,
-                result,
-                project_id=project,
                 release_id=release,
                 realization_id=source,
+                project_id=project,
                 domain=domain,
                 method_settings=MethodSettings(
-                    data_dir=settings.paths.data_dir, model_cache=settings.paths.model_cache
+                    data_dir=settings.paths.data_dir,
+                    model_cache=settings.paths.model_cache,
+                    nemotron_endpoint=settings.nemotron.endpoint,
+                    nemotron_python=settings.nemotron.python,
+                    nemotron_worker=settings.nemotron.worker,
+                    nemotron_receipts=settings.nemotron.receipts,
+                    nemotron_timeout_seconds=settings.nemotron.timeout_seconds,
                 ),
-                method_options=__import__("json").loads(enrichment_options.read_bytes()),
+                slice=slice,
+                scope=scope,
+                whole_document=whole_document,
+                source_membership=source_membership,
+                native_product=native_product,
+                integrated_product=integrated_product,
+                source_only=True,
             )
-            result = RootModel[dict](
-                dict(
-                    capture=result.model_dump(mode="json"),
-                    enrichment=[asdict(value) for value in enriched],
+            if enrichment_options is not None:
+                from dataclasses import asdict
+
+                from pydantic import RootModel
+
+                from corpus_structure.orchestrate.characterization import _characterize_captured_run
+
+                enriched = _characterize_captured_run(
+                    execution,
+                    engine,
+                    result,
+                    project_id=project,
+                    release_id=release,
+                    realization_id=source,
+                    domain=domain,
+                    method_settings=MethodSettings(
+                        data_dir=settings.paths.data_dir, model_cache=settings.paths.model_cache
+                    ),
+                    method_options=__import__("json").loads(enrichment_options.read_bytes()),
                 )
-            )
+                result = RootModel[dict](
+                    dict(
+                        capture=result.model_dump(mode="json"),
+                        enrichment=[asdict(value) for value in enriched],
+                    )
+                )
     emit(result, json=json)
 
 
