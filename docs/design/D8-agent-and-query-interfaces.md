@@ -11,8 +11,9 @@ Settings/policy merging and complete MethodSettings construction live below CLI.
 help and dispatch, not another implementation of domain rules. Real CliRunner checks exercise the
 actual application composition; mocking that owner does not establish CLI/Python parity.
 
-Explicit retained characterization views determine the effective analytical graph before profile
-resolution/freezing. Their existing capture/PDF-enrichment custody removes those unreachable steps;
+Explicit retained characterization views bind their exact input pins and determine the effective
+analytical graph before dependent configuration resolution and profile freezing. Their existing
+capture/PDF-enrichment custody removes those unreachable steps;
 genuinely selected missing methods still refuse. Fresh capture and primary execution retain complete
 early declaration of their selected provider population.
 

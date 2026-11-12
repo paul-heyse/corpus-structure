@@ -134,6 +134,58 @@ def _retained_analytical_graph(graph):
     )
 
 
+def _bind_characterization_inputs(
+    engine, selected_registry, characterization_views, *, project_id, integrated_product
+):
+    """Bind exact available primary inputs before resolving dependent configurations."""
+    from sqlalchemy import select
+
+    from corpus_structure.orchestrate.characterization import (
+        bind_characterization_views,
+        characterization_sources,
+    )
+    from corpus_structure.semantic.characterization_store import read_layer_manifest, read_view
+    from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.query import read_snapshot
+
+    from .commands import CommandError
+
+    views, layers, primary_sources = [], {}, {}
+    with read_snapshot(engine) as conn:
+        producing_task, producing_run = table("ops.task"), table("ops.run")
+        for reference in characterization_views:
+            owner = conn.scalar(
+                select(producing_run.c.project_id)
+                .select_from(
+                    producing_task.join(
+                        producing_run, producing_run.c.id == producing_task.c.run_id
+                    )
+                )
+                .where(producing_task.c.id == reference.task_id)
+            )
+            if owner != project_id:
+                raise CommandError("characterization view belongs to a different project")
+            view = read_view(conn, reference)
+            if integrated_product is not None and view.base_document != integrated_product:
+                raise CommandError(
+                    "characterization view belongs to a different integrated document"
+                )
+            views.append(view)
+            for source in characterization_sources(conn, reference, view, project_id=project_id):
+                prior = primary_sources.setdefault(source.source_view_id, source)
+                if prior != source:
+                    raise CommandError(
+                        "enriched views select different original custody for one source"
+                    )
+            for value in view.payload["layers"]:
+                pin = ProductReference(**value)
+                if pin not in layers:
+                    layers[pin] = read_layer_manifest(conn, pin)
+    return bind_characterization_views(selected_registry, views, layers), tuple(
+        primary_sources.values()
+    )
+
+
 def _freeze_analytical_profiles(execution, registry, graph, configurations, settings):
     """Freeze and declare selected analytical residents before primary serving."""
     from corpus_structure.methods.characterization_resources import freeze_analytical_profile
@@ -452,12 +504,10 @@ def resolve_source_run(engine, execution, request, *, domains=None, graph=None, 
 def _execute_source_run(
     engine, execution, resolved, method_settings, on_created, created_run_ids, operation_id
 ):
-    from sqlalchemy import select
 
     from corpus_structure.orchestrate.phase0 import registry
     from corpus_structure.orchestrate.semantic import run_source_methods
     from corpus_structure.schema.pack import DOMAINS
-    from corpus_structure.semantic.metadata import table
 
     from .commands import CommandError
 
@@ -483,7 +533,15 @@ def _execute_source_run(
         resolved.policy_source,
     )
     domains = pack.parent
+    selected_primary_sources = ()
     if characterization_views:
+        selected_registry, selected_primary_sources = _bind_characterization_inputs(
+            engine,
+            selected_registry,
+            characterization_views,
+            project_id=project_id,
+            integrated_product=integrated_product,
+        )
         selected_graph = _retained_analytical_graph(selected_graph)
     if not source_only:
         overrides = (
@@ -560,54 +618,13 @@ def _execute_source_run(
         characterization_views = tuple(result.view for result in characterized)
         if not characterization_views:
             raise CommandError("analytical execution has no captured primary source views")
-    selected_primary_sources = ()
-    if characterization_views:
-        from corpus_structure.orchestrate.characterization import (
-            bind_characterization_views,
-            characterization_sources,
+        selected_registry, selected_primary_sources = _bind_characterization_inputs(
+            engine,
+            selected_registry,
+            characterization_views,
+            project_id=project_id,
+            integrated_product=integrated_product,
         )
-        from corpus_structure.semantic.characterization_store import read_layer_manifest, read_view
-        from corpus_structure.semantic.query import read_snapshot
-
-        views, layers, primary_sources = [], {}, {}
-        with read_snapshot(engine) as conn:
-            producing_task, producing_run = table("ops.task"), table("ops.run")
-            for reference in characterization_views:
-                owner = conn.scalar(
-                    select(producing_run.c.project_id)
-                    .select_from(
-                        producing_task.join(
-                            producing_run, producing_run.c.id == producing_task.c.run_id
-                        )
-                    )
-                    .where(producing_task.c.id == reference.task_id)
-                )
-                if owner != project_id:
-                    raise CommandError("characterization view belongs to a different project")
-                view = read_view(conn, reference)
-                if integrated_product is not None and view.base_document != integrated_product:
-                    raise CommandError(
-                        "characterization view belongs to a different integrated document"
-                    )
-                views.append(view)
-                for source in characterization_sources(
-                    conn, reference, view, project_id=project_id
-                ):
-                    prior = primary_sources.setdefault(source.source_view_id, source)
-                    if prior != source:
-                        raise CommandError(
-                            "enriched views select different original custody for one source"
-                        )
-                for value in view.payload["layers"]:
-                    pin = ProductReference(**value)
-                    if pin not in layers:
-                        layers[pin] = read_layer_manifest(conn, pin)
-        selected_registry = bind_characterization_views(selected_registry, views, layers)
-        selected_primary_sources = tuple(primary_sources.values())
-        from corpus_structure.core.vocab import Stage
-
-        # Exact retained primary inputs already include capture/recognition. New
-        # release-specific SourceViews would no longer address those layer pins.
         selected_graph = _retained_analytical_graph(selected_graph)
     from corpus_structure.core.vocab import Stage
 

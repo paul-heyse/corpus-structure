@@ -158,7 +158,8 @@ def completed_component_case(case, tmp_path):
     )
 
     class ControlledComponentWorker:
-        def __init__(self, declared_profile):
+        def __init__(self, declared_profile, *, group, native_profile):
+            assert group is not None
             self.profile = declared_profile
 
         def close(self):
@@ -211,7 +212,7 @@ def completed_component_case(case, tmp_path):
     def produce_component(*, structural_admission=()):
         with pytest.MonkeyPatch.context() as patch:
             patch.setattr(
-                "corpus_structure.methods.definition_applicability.GlinerWorker",
+                "corpus_structure.methods.definition_applicability.HostedGliner",
                 ControlledComponentWorker,
             )
             component_run = semantic.run_source_methods(
@@ -250,6 +251,7 @@ def completed_component_case(case, tmp_path):
         ).scalar_one()
     report = StructuralProductReport.model_validate(component_body["structural_product"])
     assert report.definition_components is not None
+    assert report.definition_components.components, report.definition_components.stages
     (component,) = report.definition_components.components
     assert component.term.text == component.content.text == "12"
     finalize_bound_run(case.writer, component_run.run_id, "wce-components")
