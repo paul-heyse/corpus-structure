@@ -9,8 +9,6 @@ from concurrent.futures import CancelledError, Future
 from contextlib import ExitStack, contextmanager, suppress
 from dataclasses import asdict, dataclass, field, replace
 from hashlib import sha256
-from pathlib import Path
-from tempfile import TemporaryDirectory
 from threading import BoundedSemaphore, Event, Lock, Thread
 from typing import Any, Literal
 
@@ -19,51 +17,16 @@ from corpus_structure.core.method import PreparedWork
 from corpus_structure.semantic.identity import canonical_bytes
 
 from .gliner import GlinerInput, GlinerPack, GlinerProfile, GlinerRefused
-from .gliner_worker import GlinerWorker, validate_request
+from .gliner_worker import validate_request
 from .native_profiles import NativeSelection, pm2_selection
 from .native_host import NativeHostGroup, host_request_frame_size
 from .model_observation import ordered_native_bytes, pm2_cohort_digest, pm2_member_digest
-from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused, request_frame_size
-from .pm2_worker import open_pm2_worker as _open_pm2_worker
-from .pm2_worker import preflight_pm2_runtime as _preflight_pm2_runtime
-
-
-@dataclass(frozen=True)
-class PM2Selection:
-    provider: str
-    python: Path
-    script: Path
-    project: Path
-    assets: Path
-    profile: bytes
-    runtime: bytes
-    artifacts: bytes
-    device: Literal["cpu", "cuda"] = "cpu"
-    nemotron_endpoint: str | None = None
-
-    def __post_init__(self):
-        if self.provider == "d1" and self.device != "cuda":
-            raise ValueError("d1 execution requires CUDA; CPU execution is not selected")
-
-    @property
-    def identity(self):
-        return (
-            self.provider,
-            str(self.python.absolute()),
-            str(self.script.absolute()),
-            str(self.project.absolute()),
-            str(self.assets.absolute()),
-            self.profile,
-            self.runtime,
-            self.artifacts,
-            self.device,
-            self.nemotron_endpoint,
-        )
+from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused
 
 
 @dataclass(frozen=True)
 class PM2Work:
-    selection: PM2Selection | NativeSelection
+    selection: NativeSelection
     payload: bytes | None
     correlation: str
     borrowers: tuple[Callable[[], None], ...]
@@ -86,6 +49,8 @@ def validate_gliner_policy(profile: GlinerProfile, policy: CharacterizationExecu
     """Reject a selected policy that cannot execute the immutable GLiNER profile."""
     if profile.threads != policy.provider_threads or policy.provider_interop_threads != 1:
         raise GlinerRefused("frozen GLiNER threads/inter-op differ from execution policy")
+    if profile.device != "cuda":
+        raise GlinerRefused("current native execution requires an explicit CUDA GLiNER profile")
 
 
 @dataclass(frozen=True)
@@ -188,7 +153,6 @@ class _Lane:
         self.worker = None
         self.key = None
         self.current = None
-        self.preflight = None
         self.broken = None
 
     def active(self):
@@ -215,91 +179,17 @@ class _Lane:
                 raise Pm2WorkerError("native lane has unresolved teardown failure") from self.broken
             if isinstance(request, PM2Work):
                 selection = request.selection
-                key = selection.identity
-                if isinstance(selection, NativeSelection):
-                    group = self.owner.native_group
-                    group.declare((selection,))
-                    startup = group.startup(selection, self.active)
-                    payload = {} if request.payload is None else group.infer(selection, json.loads(request.payload), self.active)
-                    reply = ProviderReply(request.correlation, canonical_bytes(startup), ordered_native_bytes(payload))
-                    handle.active()
-                    if len(reply.startup_content) + len(reply.payload_content) > self.owner.policy.max_native_reply_bytes:
-                        from corpus_structure.semantic.cpu_execution import CapacityExceeded
-                        raise CapacityExceeded("native reply exceeds admitted byte capacity")
-                    return reply
-                profile_value = json.loads(selection.profile)
-                if (
-                    not isinstance(profile_value, dict)
-                    or profile_value.get("provider") != selection.provider
-                    or profile_value.get("device") != selection.device
-                ):
-                    raise Pm2WorkerRefused("native profile differs from selected provider/device")
-                if self.worker is None or self.worker.closed or self.key != key:
-                    if self.preflight is None or self.preflight[0] != key:
-                        checked = _preflight_pm2_runtime(
-                            python=selection.python,
-                            script=selection.script,
-                            project=selection.project,
-                            provider=selection.provider,
-                            assets=selection.assets,
-                        )
-                        if checked["runtime_identity"] != json.loads(selection.runtime) or checked[
-                            "assets"
-                        ] != json.loads(selection.artifacts):
-                            raise Pm2WorkerRefused(
-                                "native runtime/artifacts differ from frozen selection"
-                            )
-                        self.preflight = (key, checked)
-                    handle.active()
-                    self.discard()
-                    temporary = Path(
-                        self.stack.enter_context(TemporaryDirectory(prefix="native-lane-"))
-                    )
-                    profile = temporary / (selection.provider + ".json")
-                    value = json.loads(selection.profile)
-                    value["threads"] = self.owner.policy.provider_threads
-                    value["interop_threads"] = self.owner.policy.provider_interop_threads
-                    profile.write_bytes(canonical_bytes(value))
-                    self.worker = self.stack.enter_context(
-                        _open_pm2_worker(
-                            python=selection.python,
-                            script=selection.script,
-                            profile=profile,
-                            device=selection.device,
-                            nemotron_endpoint=selection.nemotron_endpoint,
-                            check_active=self.active,
-                            max_request_bytes=self.owner.policy.max_native_request_bytes,
-                            max_reply_bytes=self.owner.policy.max_native_reply_bytes,
-                        )
-                    )
-                    self.key = key
-                startup = self.worker.startup
-                if startup.get("runtime_identity") != json.loads(selection.runtime) or startup.get(
-                    "assets"
-                ) != json.loads(selection.artifacts):
-                    raise Pm2WorkerError("executed provider differs from frozen selection")
-                if selection.provider == "d1" and (
-                    str(startup.get("device", "")).split(":")[0] != "cuda"
-                    or startup.get("dtype") != "torch.bfloat16"
-                ):
-                    raise Pm2WorkerError("executed d1 profile requires CUDA bfloat16")
-                payload = (
-                    {}
-                    if request.payload is None
-                    else self.worker.infer(json.loads(request.payload), check_active=self.active)
-                )
-                reply = ProviderReply(
-                    request.correlation, canonical_bytes(startup), ordered_native_bytes(payload)
-                )
+                group = self.owner.native_group
+                group.declare((selection,))
+                startup = group.startup(selection, self.active)
+                payload = {} if request.payload is None else group.infer(selection, json.loads(request.payload), self.active)
+                reply = ProviderReply(request.correlation, canonical_bytes(startup), ordered_native_bytes(payload))
             else:
                 key = request.profile
                 if self.worker is None or self.worker.closed or self.key != key:
                     self.discard()
-                    if request.profile.device == "cuda":
-                        from .native_host_clients import HostedGliner
-                        self.worker = HostedGliner(request.profile, group=self.owner.native_group)
-                    else:
-                        self.worker = GlinerWorker(request.profile)
+                    from .native_host_clients import HostedGliner
+                    self.worker = HostedGliner(request.profile, group=self.owner.native_group)
                     self.stack.callback(self.worker.close)
                     self.key = key
                 admissions = self.worker.prepare_members(
@@ -519,10 +409,7 @@ class ProviderExecution:
             try:
                 size = max(
                     size,
-                    host_request_frame_size(request.selection, json.loads(request.payload), self.policy.max_native_request_bytes)
-                    if isinstance(request.selection, NativeSelection) else request_frame_size(
-                        json.loads(request.payload), self.policy.max_native_request_bytes
-                    ),
+                    host_request_frame_size(request.selection, json.loads(request.payload), self.policy.max_native_request_bytes),
                 )
             except Pm2WorkerRefused as error:
                 from corpus_structure.semantic.cpu_execution import CapacityExceeded
@@ -552,9 +439,7 @@ class ProviderExecution:
         with self._lock:
             if self._stop.is_set():
                 raise CancelledError("native invocation is closed")
-            lane_key = provider if isinstance(request, PM2Work) and isinstance(request.selection, NativeSelection) else (
-                "cuda" if isinstance(request, PM2Work) and request.selection.device == "cuda" else provider
-            )
+            lane_key = provider
             lane = (
                 self._lanes.setdefault(lane_key, _Lane(self, lane_key))
                 if lane_key not in self._lanes
@@ -660,21 +545,8 @@ class ProviderExecution:
             return False
         if not admitted:
             return False
-        lane = group[0].lane
-        request_id = (
-            getattr(lane.worker, "next_request_id", 1)
-            if lane.key == first.selection.identity and not lane.worker.closed
-            else 1
-        )
         try:
-            if isinstance(first.selection, NativeSelection):
-                host_request_frame_size(first.selection, self._pm2_payload(payloads, first.selection.provider), self.policy.max_native_request_bytes)
-            else:
-                request_frame_size(
-                    self._pm2_payload(payloads, first.selection.provider),
-                    self.policy.max_native_request_bytes,
-                    request_id=request_id,
-                )
+            host_request_frame_size(first.selection, self._pm2_payload(payloads, first.selection.provider), self.policy.max_native_request_bytes)
         except Pm2WorkerRefused:
             return False
         return True
@@ -868,7 +740,7 @@ class ProviderExecution:
     def _try_lazy(self, factory, lane_key):
         from corpus_structure.semantic.cpu_execution import CapacityExceeded
 
-        if lane_key not in {"hanlp", "maverick", "dipo", "d1", "gliner", "spacy", "cuda"}:
+        if lane_key not in {"hanlp", "maverick", "dipo", "d1", "gliner", "spacy"}:
             raise ValueError("unsupported native provider lane")
         with self._lock:
             if self._stop.is_set():
@@ -891,7 +763,7 @@ class ProviderExecution:
                 # factory reads its already-owned immutable semantic/source values.
                 request = factory()
                 actual_lane = (
-                    (request.selection.provider if isinstance(request.selection, NativeSelection) else "cuda" if request.selection.device == "cuda" else request.selection.provider)
+                    request.selection.provider
                     if isinstance(request, PM2Work)
                     else "gliner"
                 )
@@ -968,7 +840,7 @@ class ProviderExecution:
 
 
 class PM2Client:
-    """Parent-only intent builder; the lane owns every actual exchange and resident."""
+    """Parent-only intent builder; lanes admit work and the shared host owns residents."""
 
     def __init__(self, execution, selection_factory, check_active, correlation, lane_key):
         self.execution, self.selection_factory = execution, selection_factory

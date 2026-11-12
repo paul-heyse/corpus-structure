@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from collections.abc import Callable
 
 from pydantic import TypeAdapter
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 
-from .gliner import GlinerReport
-from .gliner_worker import GlinerAdmission, GlinerWorker, validate_request
+from .gliner import GlinerInput, GlinerPack, GlinerRefused, GlinerReport, MAX_DIAGNOSTIC_SPANS
+from .gliner_worker import GlinerAdmission, GlinerWorkerError, _Diagnostic, validate_request
 from .native_host import NativeHostGroup, host_request_frame_size
 from .native_profiles import NativeProfile, NativeSelection, gliner_selection, preflight_native_runtime
 
@@ -20,6 +21,8 @@ def gliner_host_payload(pack, inputs, threshold, overlap_policy, evaluation=Fals
 
 class HostedGliner:
     def __init__(self, profile, *, group=None, native_profile=None):
+        if profile.device != "cuda":
+            raise GlinerRefused("current GLiNER execution requires an explicit CUDA profile")
         self.profile, self._closed = profile, False
         self._owns_group = group is None
         from corpus_structure.settings import NemotronSettings
@@ -28,13 +31,22 @@ class HostedGliner:
         values = asdict(profile)
         values.pop("snapshot")
         matches = [s for s in self.group._selections.values() if s.provider == "gliner" and canonical_bytes(s.native.parameters.get("gliner_profile")) == canonical_bytes(values) and s.native.artifacts == dict(profile.artifact_hashes)]
+        self._selection = None
         if native_profile is not None:
-            self.selection = NativeSelection(NativeProfile(**native_profile), profile.snapshot)
-            if gliner_selection(profile, self.selection.native.runtime_identity).native != self.selection.native:
+            self._selection = NativeSelection(NativeProfile(**native_profile), profile.snapshot)
+            if gliner_selection(profile, self._selection.native.runtime_identity).native != self._selection.native:
                 raise ValueError("requested analytical profile differs from its frozen native execution")
-        else:
-            self.selection = matches[0] if len(matches) == 1 else gliner_selection(profile, preflight_native_runtime("gliner", profile.snapshot)["runtime_identity"])
-        self.group.declare((self.selection,))
+        elif len(matches) == 1:
+            self._selection = matches[0]
+        if self._selection is not None:
+            self.group.declare((self._selection,))
+
+    @property
+    def selection(self):
+        if self._selection is None:
+            self._selection = gliner_selection(self.profile, preflight_native_runtime("gliner", self.profile.snapshot)["runtime_identity"])
+            self.group.declare((self._selection,))
+        return self._selection
 
     @property
     def closed(self):
@@ -47,13 +59,22 @@ class HostedGliner:
 
     def _exchange(self, pack, inputs, *, threshold=0.5, overlap_policy="flat", evaluation=False, check_active=None, prepare_only=False, diagnostic=None):
         if self._closed:
-            raise ValueError("native GLiNER owner is closed")
+            raise GlinerWorkerError("native GLiNER owner is closed")
         validate_request(self.profile, pack, inputs, threshold=threshold, overlap_policy=overlap_policy, evaluation=evaluation)
         payload = gliner_host_payload(pack, inputs, threshold, overlap_policy, evaluation, prepare_only)
         if diagnostic is not None:
             payload["diagnostic"] = asdict(diagnostic)
-        host_request_frame_size(self.selection, payload, min(self.group.policy.max_native_request_bytes, self.profile.max_request_frame_bytes))
-        reply = self.group.infer(self.selection, payload, check_active or (lambda: None), timeout=self.profile.timeout_seconds)
+        active = check_active or (lambda: None)
+        active()
+        from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused
+        try:
+            host_request_frame_size(self.selection, payload, min(self.group.policy.max_native_request_bytes, self.profile.max_request_frame_bytes))
+            reply = self.group.infer(self.selection, payload, active, timeout=self.profile.timeout_seconds)
+        except Pm2WorkerRefused as error:
+            raise GlinerRefused(str(error)) from error
+        except Pm2WorkerError as error:
+            self._closed = True
+            raise GlinerWorkerError(str(error)) from error
         if prepare_only:
             return TypeAdapter(tuple[GlinerAdmission, ...]).validate_python(reply["admissions"])
         return TypeAdapter(tuple[GlinerReport, ...]).validate_python(reply["reports"])
@@ -64,8 +85,46 @@ class HostedGliner:
     def extract(self, pack, inputs, **kwargs):
         return self._exchange(pack, inputs, **kwargs)
 
-    def diagnose(self, *args, **kwargs):
-        return GlinerWorker.diagnose(self, *args, **kwargs)
+    def diagnose(
+        self,
+        pack: GlinerPack,
+        mapping,
+        supplied: tuple[tuple[int, int], ...] = (),
+        *,
+        check_active: Callable[[], None] | None = None,
+    ) -> GlinerReport:
+        """Observe the ordinary pool and optional source-authorized spans without decoding."""
+        from corpus_structure.semantic.source_contexts import ContextRefused
+
+        from .pm2_source import ProviderSpan
+
+        context = mapping.context
+        if mapping.provider_text != context.text:
+            raise GlinerRefused("GLiNER diagnosis requires the exact selected source text")
+        if not isinstance(supplied, tuple) or len(supplied) > MAX_DIAGNOSTIC_SPANS:
+            raise GlinerRefused("diagnostic supplied span population exceeds its bound")
+        try:
+            context.require_native_projection()
+            for start, end in supplied:
+                if type(start) is not int or type(end) is not int:
+                    raise GlinerRefused("supplied spans require integer half-open coordinates")
+                mapping.map_extents(
+                    (ProviderSpan(start, end, context.text[start:end]),),
+                    scope_digest=mapping.scope_digest,
+                )
+        except ContextRefused as error:
+            raise GlinerRefused(str(error)) from error
+        (report,) = self._exchange(
+            pack,
+            (GlinerInput.from_context(context),),
+            threshold=0.5,
+            overlap_policy="flat",
+            evaluation=True,
+            check_active=check_active,
+            diagnostic=_Diagnostic(mapping.input_digest, supplied),
+        )
+        return report
+
 
     def close(self):
         self._closed = True

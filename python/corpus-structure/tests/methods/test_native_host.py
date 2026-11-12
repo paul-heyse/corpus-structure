@@ -328,3 +328,119 @@ def test_selected_domain_profile_freezes_once_and_none_preserves_old_config_shap
     assert frozen is not None
     assert parameters["native_execution_profile"] == frozen.native.wire
     assert freeze_analytical_profile("extract.m1_candidates", parameters, SimpleNamespace(), cache=cache) == frozen
+
+
+def test_spacy_placement_permits_only_native_upper_cpu_arrays():
+    from types import SimpleNamespace
+    import numpy
+    from corpus_structure.methods.native_host_adapters import _spacy_placement
+
+    class GPUArray:
+        dtype = numpy.dtype("float32")
+        shape = (2, 3)
+
+    class Node:
+        param_names = ("W",)
+        def __init__(self, name, array):
+            self.name, self.array = name, array
+        def has_param(self, name):
+            return True
+        def get_param(self, name):
+            return self.array
+        def walk(self):
+            return [self]
+
+    lower = Node("lower", GPUArray())
+    upper = Node("upper", numpy.zeros((2, 3), dtype="float32"))
+    model = SimpleNamespace(attrs={"has_upper": True}, has_ref=lambda name: name == "upper", get_ref=lambda name: upper, walk=lambda: [lower, upper])
+    nlp = SimpleNamespace(pipeline=[("parser", SimpleNamespace(model=model))], config={"components": {"parser": {"model": {"@architectures": "spacy.TransitionBasedParser.v2", "use_upper": True}}}}, get_pipe_meta=lambda name: SimpleNamespace(factory="parser"))
+    xp = SimpleNamespace(ndarray=GPUArray, float32=numpy.float32)
+    count, native_cpu = _spacy_placement(nlp, xp, numpy)
+    assert count == 1 and [(row["node"], row["parameter"], row["reason"]) for row in native_cpu] == [("upper", "W", "spacy-transition-native-cpu-upper")]
+    lower.array = numpy.zeros((2, 3), dtype="float32")
+    with pytest.raises(RuntimeError, match="parser/lower/W.*numpy.ndarray"):
+        _spacy_placement(nlp, xp, numpy)
+    lower.array = GPUArray()
+    nlp.config["components"]["parser"]["model"]["use_upper"] = False
+    with pytest.raises(RuntimeError, match="parser/upper/W"):
+        _spacy_placement(nlp, xp, numpy)
+
+
+@pytest.fixture
+def physical_host():
+    import sys
+    peers = []
+    def create(*population, **changes):
+        policy = CharacterizationExecutionPolicy(max_native_reply_bytes=4096)
+        host = native_host.NativeHost(population or (selection(),), policy, check_active=lambda: None, startup_timeout=5, command=[sys.executable, "-I", "-u", str(Path(__file__).with_name("native_host_cases.py"))], **changes)
+        peers.append(host)
+        return host
+    try:
+        yield create
+    finally:
+        for host in peers:
+            host.close(grace_seconds=0)
+
+
+def test_real_host_peer_refusal_preserves_residency_and_healthy_siblings(physical_host):
+    selected = selection()
+    host = physical_host(selected)
+    pid = host._process.pid
+    with pytest.raises(Pm2WorkerRefused, match="controlled member refusal"):
+        host.infer(selected, {"mode": "refused"}, check_active=lambda: None)
+    assert host.infer(selected, {"value": "independent"}, check_active=lambda: None) == {"value": "independent"}
+    assert not host.closed and host._process.pid == pid
+
+
+@pytest.mark.parametrize("mode", ["crash", "foreign", "oversized", "hang"])
+def test_real_host_peer_failure_fences_and_proves_process_death(physical_host, mode):
+    selected = selection()
+    host = physical_host(selected)
+    with pytest.raises(Pm2WorkerError):
+        host.infer(selected, {"mode": mode}, check_active=lambda: None, timeout=0.3)
+    assert host.closed
+    assert not native_host._live_group(host._process.pid)
+
+
+def test_real_host_cancelled_member_preserves_other_provider_result(physical_host):
+    from concurrent.futures import ThreadPoolExecutor, CancelledError
+    from threading import Event
+    first, second = selection(), selection("maverick")
+    host = physical_host(first, second)
+    cancelled, submitted = Event(), Event()
+    def active():
+        submitted.set()
+        if cancelled.is_set():
+            raise CancelledError("member cancelled")
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(host.infer, first, {"mode": "wait"}, check_active=active)
+        assert submitted.wait(2)
+        cancelled.set()
+        assert host.infer(second, {"value": "useful sibling"}, check_active=lambda: None) == {"value": "useful sibling"}
+        with pytest.raises(CancelledError):
+            future.result(timeout=3)
+    assert not host.closed
+
+
+def test_real_host_startup_cancellation_keeps_adopted_physical_owner():
+    import sys
+    from concurrent.futures import CancelledError
+    adopted = []
+    def cancelled():
+        raise CancelledError("claim ended during startup")
+    with pytest.raises(CancelledError, match="claim ended"):
+        native_host.NativeHost((selection(),), CharacterizationExecutionPolicy(), check_active=cancelled, adopt=adopted.append, command=[sys.executable, "-I", "-u", str(Path(__file__).with_name("native_host_cases.py")), "startup-hang"])
+    assert len(adopted) == 1
+    assert not native_host._live_group(adopted[0]._process.pid)
+
+
+def test_real_host_close_kills_descendant_even_after_leader_was_reaped(physical_host):
+    selected = selection()
+    host = physical_host(selected)
+    reply = host.infer(selected, {"mode": "descendant"}, check_active=lambda: None)
+    assert reply["child"] != host._process.pid
+    assert host._process.wait(timeout=2) == 0
+    assert native_host._live_group(host._process.pid)
+    host.close(grace_seconds=0)
+    assert not native_host._live_group(host._process.pid)
+    assert not host._reader.is_alive()

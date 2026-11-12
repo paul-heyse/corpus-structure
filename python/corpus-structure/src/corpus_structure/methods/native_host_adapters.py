@@ -1,4 +1,4 @@
-"""Provider loaders for the two locked hosts; no database or orchestration state.
+"""Provider loaders for the locked common CUDA host; no database or orchestration state.
 
 The host configures process-global state before calling these loaders. Adapters own
 model-specific inference contexts and return only CPU-owned JSON values.
@@ -147,6 +147,36 @@ def _spacy(profile, assets):
     nlp = spacy.load(parameters["model"], exclude=parameters["exclude"])
     import cupy
     import numpy
+    parameters_seen, cpu_upper_parameters = _spacy_placement(nlp, cupy, numpy)
+    if spacy.__version__ != parameters["spacy_version"] or nlp.meta["version"] != parameters["model_version"]:
+        raise ValueError("spaCy native package/model differs from frozen profile")
+    from corpus_structure.methods.native_profiles import spacy_artifacts
+    if spacy_artifacts(assets) != profile["artifacts"]:
+        raise ValueError("spaCy model files differ from frozen profile")
+    digest = sha256(nlp.config.to_str().encode()).hexdigest()
+
+    def infer(request):
+        if request.get("version") != "spacy-host-1":
+            raise ValueError("unsupported spaCy host request")
+        population = request["documents"]
+        if not isinstance(population, list) or not 1 <= len(population) <= parameters["batch_size"]:
+            raise ValueError("spaCy native batch exceeds declared population")
+        docs = []
+        for item in population:
+            docs.append(Doc(nlp.vocab).from_bytes(base64.b64decode(item["content"], validate=True)))
+        result = []
+        originals = [(doc.text, len(doc)) for doc in docs]
+        for original, doc in zip(originals, nlp.pipe(docs, batch_size=parameters["batch_size"], n_process=1), strict=True):
+            if (doc.text, len(doc)) != original:
+                raise RuntimeError("spaCy changed prepared source layout")
+            result.append(base64.b64encode(doc.to_bytes()).decode("ascii"))
+        return {"documents": result}
+
+    return dict(dtype="torch.float32", device="cuda", backend="cupy", pipeline_sha256=digest, native_configuration=nlp.config.to_str(), gpu_parameter_arrays=parameters_seen, native_cpu_upper_parameters=cpu_upper_parameters, components=[dict(name=name, factory=nlp.get_pipe_meta(name).factory) for name in nlp.pipe_names]), infer
+
+
+def _spacy_placement(nlp, cupy, numpy):
+    """Check all arrays, with only the pinned transition upper CPU exception."""
     parameters_seen, cpu_upper_parameters = 0, []
     for component_name, component in nlp.pipeline:
         model = getattr(component, "model", None)
@@ -178,28 +208,4 @@ def _spacy(profile, assets):
                     raise RuntimeError(f"spaCy resident parameter {component_name}/{node.name}/{name} differs from CUDA FP32: {type(value).__module__}.{type(value).__name__}, dtype={getattr(value, 'dtype', None)}, shape={getattr(value, 'shape', None)}")
     if not parameters_seen:
         raise ValueError("learned spaCy profile has no resident GPU parameters")
-    if spacy.__version__ != parameters["spacy_version"] or nlp.meta["version"] != parameters["model_version"]:
-        raise ValueError("spaCy native package/model differs from frozen profile")
-    from corpus_structure.methods.native_profiles import spacy_artifacts
-    if spacy_artifacts(assets) != profile["artifacts"]:
-        raise ValueError("spaCy model files differ from frozen profile")
-    digest = sha256(nlp.config.to_str().encode()).hexdigest()
-
-    def infer(request):
-        if request.get("version") != "spacy-host-1":
-            raise ValueError("unsupported spaCy host request")
-        population = request["documents"]
-        if not isinstance(population, list) or not 1 <= len(population) <= parameters["batch_size"]:
-            raise ValueError("spaCy native batch exceeds declared population")
-        docs = []
-        for item in population:
-            docs.append(Doc(nlp.vocab).from_bytes(base64.b64decode(item["content"], validate=True)))
-        result = []
-        originals = [(doc.text, len(doc)) for doc in docs]
-        for original, doc in zip(originals, nlp.pipe(docs, batch_size=parameters["batch_size"], n_process=1), strict=True):
-            if (doc.text, len(doc)) != original:
-                raise RuntimeError("spaCy changed prepared source layout")
-            result.append(base64.b64encode(doc.to_bytes()).decode("ascii"))
-        return {"documents": result}
-
-    return dict(dtype="torch.float32", device="cuda", backend="cupy", pipeline_sha256=digest, native_configuration=nlp.config.to_str(), gpu_parameter_arrays=parameters_seen, native_cpu_upper_parameters=cpu_upper_parameters, components=[dict(name=name, factory=nlp.get_pipe_meta(name).factory) for name in nlp.pipe_names]), infer
+    return parameters_seen, cpu_upper_parameters

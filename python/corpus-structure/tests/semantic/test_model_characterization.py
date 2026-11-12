@@ -627,7 +627,7 @@ def gliner_report(pack, item, profile, raw, *, overlap="nested", threshold=0.5):
     effective = json.dumps(
         dict(
             profile=profile.fingerprint,
-            device="cpu",
+            device=profile.device,
             dtype="float32",
             attention_backend="standard",
             threads=profile.threads,

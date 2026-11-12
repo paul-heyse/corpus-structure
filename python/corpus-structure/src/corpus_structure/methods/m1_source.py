@@ -308,7 +308,7 @@ class M1Candidates:
     resources = Resources(worker="cpu", batch_size=1, max_concurrency=1)
 
     def __init__(self) -> None:
-        self._worker: GlinerWorker | HostedGliner | None = None
+        self._worker: HostedGliner | None = None
 
     def close(self) -> None:
         if self._worker is not None:

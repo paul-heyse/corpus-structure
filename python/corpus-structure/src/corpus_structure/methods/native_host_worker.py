@@ -1,8 +1,7 @@
-"""Unselected shared-host checkpoint (CPython 3.14, primary/isolated environments, no database imports).
+"""Shared CPython3.14 CUDA host with serial resident loading and model streams.
 
-The protocol/lifecycle implementation accepts an injected adapter for controlled
-checks. Real provider adapters are deliberately refused until their shared-host
-profile/loading cutover is complete. No production execution selects this module.
+Only detached, bounded requests cross this protocol; no database imports or
+publication authority enters the host.
 """
 
 from __future__ import annotations
@@ -148,8 +147,10 @@ class _Resident:
             if (
                 self.torch.get_num_threads() != self.profile["threads"]
                 or self.torch.get_num_interop_threads() != self.profile["interop_threads"]
+                or self.torch.get_float32_matmul_precision() != self.profile["matmul_precision"]
+                or self.torch.backends.cudnn.allow_tf32 is not self.profile["cudnn_allow_tf32"]
             ):
-                raise RuntimeError("native worker thread differs from frozen host policy")
+                raise RuntimeError("native worker execution settings differ from frozen host policy")
             # Native adapters retain their own gradient contexts. In particular,
             # HanLP enables gradients for constituency CRF marginal decoding.
             result = self.infer(payload)

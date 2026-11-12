@@ -28,10 +28,7 @@ from corpus_structure.methods.gliner import (
 from corpus_structure.methods.gliner_worker import (
     GlinerWorker,
     GlinerWorkerError,
-    _Reply,
-    _send_reply,
 )
-from methods.gliner_worker_cases import controlled_child
 
 
 @pytest.fixture
@@ -116,127 +113,6 @@ def test_native_preparation_boundaries(profile):
         prepare_input(model, "schema", item, profile)
 
 
-class ControlledWorker(GlinerWorker):
-    _child_target = staticmethod(controlled_child)
-
-
-def test_resident_worker_empty_is_success(profile):
-    worker = ControlledWorker(profile)
-    pack = GlinerPack("release", "{}")
-    try:
-        result = worker.extract(pack, (GlinerInput("one", "a" * 64, "empty"),))
-        pid = worker.pid
-        assert result[0].raw == {}
-        second = worker.extract(pack, (GlinerInput("two", "b" * 64, "empty"),))
-        assert worker.pid == pid and second[0].context_id == "two"
-    finally:
-        worker.close()
-    assert worker.closed and worker.pid is None
-
-
-@pytest.mark.parametrize("mode", ["crash", "error", "stale"])
-def test_failure_retires_owner(profile, mode):
-    worker = ControlledWorker(profile)
-    with pytest.raises(GlinerWorkerError):
-        worker.extract(GlinerPack("release", "{}"), (GlinerInput("one", "a" * 64, mode),))
-    assert worker.closed and worker.pid is None
-    with pytest.raises(GlinerWorkerError, match="closed"):
-        worker.extract(GlinerPack("release", "{}"), (GlinerInput("one", "a" * 64, "empty"),))
-
-
-def test_request_refusal_keeps_the_same_healthy_resident_for_independent_input(profile):
-    worker = ControlledWorker(profile)
-    try:
-        with pytest.raises(GlinerRefused, match="controlled request limit"):
-            worker.extract(GlinerPack("release", "{}"), (GlinerInput("one", "a" * 64, "refused"),))
-        first_pid = worker.pid
-        assert first_pid is not None and not worker.closed
-        (report,) = worker.extract(
-            GlinerPack("release", "{}"), (GlinerInput("two", "b" * 64, "empty"),)
-        )
-        assert report.context_id == "two"
-        assert worker.pid == first_pid and not worker.closed
-    finally:
-        worker.close()
-
-
-def test_production_child_loop_continues_after_native_preparation_refusal(profile):
-    from methods.gliner_worker_cases import native_protocol_child
-
-    class NativeProtocolWorker(GlinerWorker):
-        _child_target = staticmethod(native_protocol_child)
-
-    # This checks protocol recovery, not startup latency. Real preparation imports
-    # compete with the full suite; the dedicated timeout test retains its short budget.
-    worker = NativeProtocolWorker(replace(profile, timeout_seconds=60))
-    pack = GlinerPack.from_declaration("release", {"entities": ["term"]}, version="native-local-v1")
-    try:
-        with pytest.raises(GlinerRefused, match="subword bound"):
-            worker.extract(pack, (GlinerInput("one", "a" * 64, "refused"),))
-        first_pid = worker.pid
-        (report,) = worker.extract(pack, (GlinerInput("two", "b" * 64, "empty"),))
-        assert worker.pid == first_pid and not worker.closed
-        assert report.resident_reused and report.raw == {"entities": {"term": []}}
-        from corpus_structure.methods.model_observation import installed_policy, request_digest
-
-        inference = installed_policy()[0]["inference"]
-        for policy in ("nested", "allow"):
-            item = GlinerInput(policy, "c" * 64, "empty", "text.model_characterization/1:cue")
-            (overlapping,) = worker.extract(pack, (item,), overlap_policy=policy)
-            assert worker.pid == first_pid and overlapping.resident_reused
-            assert overlapping.computation == request_digest(
-                pack, asdict(worker.profile), (item,), 0.5, policy, False, inference
-            )
-            assert overlapping.computation != request_digest(
-                pack, asdict(worker.profile), (item,), 0.5, policy, True, inference
-            )
-    finally:
-        worker.close()
-
-
-def test_timeout_kills_and_joins(profile):
-    worker = ControlledWorker(replace(profile, timeout_seconds=0.5))
-    with pytest.raises(GlinerWorkerError, match="timed out"):
-        worker.extract(GlinerPack("release", "{}"), (GlinerInput("one", "a" * 64, "hang"),))
-    assert worker.closed and worker.pid is None
-
-
-def test_cancellation_startup_and_inference(profile):
-    class Cancelled(BaseException):
-        pass
-
-    worker = ControlledWorker(profile)
-    calls = 0
-
-    def check_active():
-        nonlocal calls
-        calls += 1
-        if calls >= 3:
-            raise Cancelled()
-
-    with pytest.raises(Cancelled):
-        worker.extract(
-            GlinerPack("release", "{}"),
-            (GlinerInput("one", "a" * 64, "hang"),),
-            check_active=check_active,
-        )
-    assert worker.closed and worker.pid is None
-
-
-def test_admission_before_start(profile):
-    worker = ControlledWorker(replace(profile, max_batch_bytes=2))
-    with pytest.raises(GlinerRefused, match="byte bound"):
-        worker.extract(GlinerPack("release", "{}"), (GlinerInput("one", "a" * 64, "too long"),))
-    assert worker.pid is None
-    worker._lock.acquire()
-    try:
-        with pytest.raises(GlinerRefused, match="saturated"):
-            worker.extract(GlinerPack("release", "{}"), (GlinerInput("one", "a" * 64, "ok"),))
-    finally:
-        worker._lock.release()
-        worker.close()
-
-
 def test_native_splitter_unicode_coordinates():
     from gliner2.processing.word_splitter import WhitespaceTokenSplitter
 
@@ -257,40 +133,6 @@ def test_profile_identity_and_artifact_mismatch(profile):
     path.write_text("changed")
     with pytest.raises(GlinerRefused, match="snapshot artifact differs"):
         profile.verify_artifacts()
-
-
-def test_cancellation_before_native_start(profile):
-    worker = ControlledWorker(profile)
-
-    def no_ownership():
-        raise RuntimeError("lease lost")
-
-    with pytest.raises(RuntimeError, match="lease lost") as error:
-        worker.extract(
-            GlinerPack("release", "{}"),
-            (GlinerInput("one", "a" * 64, "empty"),),
-            check_active=no_ownership,
-        )
-    assert worker.closed and worker.pid is None
-    assert any("operation=batch_extract" in note for note in error.value.__notes__)
-
-
-def test_independent_ipc_cleanup_after_process_failure(profile):
-    worker = ControlledWorker(profile)
-    process = Mock(spec=BaseProcess)
-    process.pid = 123
-    process.is_alive.side_effect = [True, True, False]
-    process.terminate.side_effect = RuntimeError("terminate failure")
-    connection = Mock(spec=Connection)
-    worker._process = process
-    worker._connection = connection
-    with pytest.raises(GlinerWorkerError, match="teardown failed") as failure:
-        worker._stop(graceful=False)
-    process.kill.assert_called_once_with()
-    assert any("terminate failure" in note for note in failure.value.__notes__)
-    connection.close.assert_called_once_with()
-    assert worker._connection is None
-    assert worker._process is None and worker.closed
 
 
 @pytest.fixture
@@ -546,65 +388,6 @@ def test_relocated_snapshot_and_permuted_manifest_preserve_computation_identity(
     assert effective_left["config"]["_name_or_path"] == str(left.snapshot)
 
 
-@pytest.mark.parametrize("metadata", ["context_id", "release", "pack_version"])
-def test_oversized_detached_metadata_refused_before_child_start(profile, metadata):
-    worker = ControlledWorker(profile)
-    pack, item = GlinerPack("release", "{}"), GlinerInput("one", "a" * 64, "x")
-    too_large = "x" * (profile.max_metadata_bytes + 1)
-    if metadata == "context_id":
-        item = replace(item, context_id=too_large)
-    elif metadata == "release":
-        pack = replace(pack, release=too_large)
-    else:
-        pack = replace(pack, version=too_large)
-    with pytest.raises(GlinerRefused, match="metadata byte bound"):
-        worker.extract(pack, (item,))
-    assert worker.pid is None
-    worker.close()
-
-
-def test_entire_request_frame_refused_before_child_start(profile):
-    worker = ControlledWorker(replace(profile, max_request_frame_bytes=128))
-    with pytest.raises(GlinerRefused, match="request frame byte bound"):
-        worker.extract(GlinerPack("release", "{}"), (GlinerInput("one", "a" * 64, "x"),))
-    assert worker.pid is None and not worker.closed
-
-
-@pytest.mark.parametrize("oversized", ["preparation", "metadata", "effective_config"])
-def test_entire_native_reply_frame_includes_preparation_and_metadata(profile, oversized):
-    bounded = replace(profile, max_reply_frame_bytes=2048)
-    report = GlinerReport(
-        "one",
-        "a" * 64,
-        "compute",
-        "profile",
-        "pack",
-        GlinerPreparation("x", "", 1, 2, 1),
-        "{}",
-        "{}",
-        0.0,
-        False,
-    )
-    if oversized == "preparation":
-        report = replace(report, preparation=replace(report.preparation, consumed_text="x" * 5000))
-    elif oversized == "metadata":
-        report = replace(report, context_id="x" * 5000)
-    else:
-        report = replace(report, effective_profile_json="x" * 5000)
-    connection = Mock(spec=Connection)
-    with pytest.raises(GlinerRefused, match="reply frame byte bound"):
-        _send_reply(connection, _Reply(1, reports=(report,)), bounded)
-    connection.send_bytes.assert_not_called()
-
-
-@pytest.mark.parametrize("mode", ["oversized-preparation", "oversized-metadata"])
-def test_oversized_peer_reply_retires_owner(profile, mode):
-    worker = ControlledWorker(replace(profile, max_reply_frame_bytes=2048))
-    with pytest.raises(GlinerWorkerError, match="IPC failed"):
-        worker.extract(GlinerPack("release", "{}"), (GlinerInput("one", "a" * 64, mode),))
-    assert worker.closed and worker.pid is None
-
-
 def test_cuda_profiles_are_explicit_and_cannot_reinterpret_cpu_history(profile):
     from corpus_structure.methods.gliner import CUDA_CODEPOINT_PROFILE, CUDA_WHITESPACE_PROFILE
 
@@ -624,3 +407,29 @@ def test_new_profiles_default_to_cuda_without_changing_explicit_cpu_history(prof
     values.pop("version")
     assert GlinerProfile(**values).device == "cuda"
     assert GlinerProfile(**asdict(profile)).device == "cpu"
+
+
+@pytest.mark.parametrize("kind", ["metadata", "frame", "input"])
+def test_hosted_gliner_refuses_invalid_request_before_native_start(profile, kind):
+    from types import SimpleNamespace
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+    from corpus_structure.methods.native_profiles import gliner_selection
+    from corpus_structure.methods.native_host_clients import HostedGliner
+    from corpus_structure.methods.gliner import CUDA_WHITESPACE_PROFILE
+
+    selected = replace(profile, version=CUDA_WHITESPACE_PROFILE)
+    if kind == "frame":
+        selected = replace(selected, max_request_frame_bytes=128)
+    frozen = gliner_selection(selected, {"runtime": "frozen-before-task"})
+    calls = []
+    group = SimpleNamespace(_selections={frozen.native.fingerprint: frozen}, policy=CharacterizationExecutionPolicy(), declare=lambda values: None, infer=lambda *args, **kwargs: calls.append(True))
+    worker = HostedGliner(selected, group=group, native_profile=frozen.native.wire)
+    pack = GlinerPack("release", "{}")
+    item = GlinerInput("one", "a" * 64, "source")
+    if kind == "metadata":
+        pack = replace(pack, release="x"*(selected.max_metadata_bytes+1))
+    elif kind == "input":
+        item = replace(item, text="x"*(selected.max_input_bytes+1))
+    with pytest.raises(GlinerRefused):
+        worker.extract(pack, (item,))
+    assert not calls and not worker.closed
