@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "id": "bep.production-gliner-batch-packs",
+  "title": "Production GLiNER cue and passage-function CPU batch qualification",
+  "group": "book-processing-efficiency-and-parallelism",
+  "package": "BEP-06",
+  "finalized": "2026-11-11",
+  "status": "superseded",
+  "supersedes": [],
+  "superseded_by": "bep.production-gliner-exact-operations",
+  "question": "Do the actual production cue and passage-function schemas retain exact member authentication, source correspondence and unchanged exact-threshold projection under this CPU batch panel?",
+  "answers": [
+    "BEP-06-I3"
+  ],
+  "method": "Compile current archived characterization question declarations, construct the exact producer cue/classification schemas, normalize the selected ClassificationProfile before starting actual CPU GlinerWorker, request singleton/mixed/reversed/regrouped populations, compare native member outputs, authenticate every response with the shared production validator and apply classification_product using the exact unrounded native score threshold. Custody refresh: root formatting and safe source cleanup preserve probe parameters and assertions. Native execution predates the later lazy-admission repair; the coordinator judges native worker, lane exchange and coalescer semantics unchanged. These receipts qualify their stated native batch/projection/lifecycle questions, not the final scheduler's pre-hydration admission timing, retention or DB fencing. Final integrated native checks are separately coordinator-owned.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-11_book-provider-batches/production_packs.py",
+    "uv run python docs/design_review/evidence/2026-11-11_book-provider-batches/authenticate_packs.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "production_packs.py",
+      "role": "Actual native production-schema probe",
+      "sha256": "43aa5832e157d34a990ded67af6b5fd83f1ba22cccb68721e7926188d92b961b"
+    },
+    {
+      "path": "authenticate_packs.py",
+      "role": "Shared authentication and exact-threshold projection check",
+      "sha256": "c124034618c0ca42bcfd7c1311c30779d9ae3d1a4870ac43f0d8a7b64a2543cb"
+    },
+    {
+      "path": "compare.py",
+      "role": "Independent member comparison",
+      "sha256": "8a4fb8b0d1e43582ae86bbaa4c2b79c00bbe859dfac49e3592eb0092ca391c07"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/production-packs.json",
+      "role": "Actual native output, diagnostic or independent comparison",
+      "sha256": "6b1a2d336cc2a06ef53037670f78abdd990121970c31d4b6df0fbd648010f18a"
+    },
+    {
+      "path": "raw/production-summary.json",
+      "role": "Actual native output, diagnostic or independent comparison",
+      "sha256": "654ac151aaa5bea37bda1e644cc132a251b357138f768e2c6656e0674159a891"
+    },
+    {
+      "path": "raw/production-packs.log",
+      "role": "Actual native output, diagnostic or independent comparison",
+      "sha256": "a955b4f07a058563d98caaf5bf620922157446129178d44f93f3085de0d194c9"
+    },
+    {
+      "path": "raw/production-authentication.json",
+      "role": "Actual native output, diagnostic or independent comparison",
+      "sha256": "73d0fc9aa47f4697bf68e01432880106736f626e1ef8cb47e3e26e18fb7286cc"
+    },
+    {
+      "path": "raw/production-authentication.log",
+      "role": "Actual native output, diagnostic or independent comparison",
+      "sha256": "4d57deb29d1f82135df680fb41f311ef6eaf9310e230839c5f2247e02056d42e"
+    },
+    {
+      "path": "raw/initial-profile-production-packs.json",
+      "role": "Actual native output, diagnostic or independent comparison",
+      "sha256": "d53c0cbbbc13e968254f781d434055e6c678db51f1c123ffe0f6ac874e0af551"
+    },
+    {
+      "path": "raw/initial-profile-production-summary.json",
+      "role": "Actual native output, diagnostic or independent comparison",
+      "sha256": "654ac151aaa5bea37bda1e644cc132a251b357138f768e2c6656e0674159a891"
+    },
+    {
+      "path": "raw/initial-profile-production-packs.log",
+      "role": "Actual native output, diagnostic or independent comparison",
+      "sha256": "a955b4f07a058563d98caaf5bf620922157446129178d44f93f3085de0d194c9"
+    },
+    {
+      "path": "raw/initial-profile-production-authentication.log",
+      "role": "Actual native output, diagnostic or independent comparison",
+      "sha256": "f956565aecf538032128ac33b00fe8c6aa131cf10f4554c301a597c4da59a2f7"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Bounded CPU panel authenticates all26 member responses. Cue replies exact, function labels/cardinality unchanged with confidence variation up to3.5762786865234375e-7. Every literal extent matches the original input slice and classification_product applies native confidence >=0.5 unchanged. This supports explicit batch-observation numerical semantics; it does not establish arbitrary near-threshold/grouping invariance, accuracy, CUDA, real-source DB provenance or lane cancellation/crash qualification.",
+  "consumed_by": [
+    "BEP-06-I3"
+  ]
+}

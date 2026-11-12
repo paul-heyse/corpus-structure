@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "id": "bep.cpu-batch-regroup",
+  "title": "Actual CPU provider batch and ordinal correspondence",
+  "group": "book-processing-efficiency-and-parallelism",
+  "package": "BEP-06",
+  "finalized": "2026-11-11",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do selected CPU native providers preserve member outputs across this bounded singleton/mixed/reversed/regroup panel?",
+  "answers": [
+    "BEP-06-I1",
+    "BEP-06-I3"
+  ],
+  "method": "Actual resident native workers over three original member contexts, including equal-text distinct-context members; compare complete native singleton replies to mixed/reversed/regrouped replies, separating discrete structure from floating values. Custody refresh: root formatting and safe source cleanup preserve probe parameters and assertions. Native execution predates the later lazy-admission repair; the coordinator judges native worker, lane exchange and coalescer semantics unchanged. These receipts qualify their stated native batch/projection/lifecycle questions, not the final scheduler's pre-hydration admission timing, retention or DB fencing. Final integrated native checks are separately coordinator-owned.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-11_book-provider-batches/probe.py hanlp",
+    "uv run python docs/design_review/evidence/2026-11-11_book-provider-batches/probe.py d1",
+    "uv run python docs/design_review/evidence/2026-11-11_book-provider-batches/probe.py gliner",
+    "uv run python docs/design_review/evidence/2026-11-11_book-provider-batches/compare.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "Probe source",
+      "sha256": "867466ed70e646224cc78bbc3dfefa5e7aede3827cad13d5c40d5f73ba7b4086"
+    },
+    {
+      "path": "compare.py",
+      "role": "Probe source",
+      "sha256": "8a4fb8b0d1e43582ae86bbaa4c2b79c00bbe859dfac49e3592eb0092ca391c07"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/d1-initial-path-failure.log",
+      "role": "Retained native output or diagnostic",
+      "sha256": "8bdbb4ddf4575f5cedb6a5179825191cd033a3354e7774f13fd37b03b5a07bb4"
+    },
+    {
+      "path": "raw/d1-second-path-failure.log",
+      "role": "Retained native output or diagnostic",
+      "sha256": "5947a7dde2e3c5025b5a5d8409dffe8ff77b02188916136a86a28a91df8501c1"
+    },
+    {
+      "path": "raw/d1.json",
+      "role": "Retained native output or diagnostic",
+      "sha256": "aaf070726c90502fbf4cda014bbb4c071bf9ace3f147f39f2eadea69a27b41a0"
+    },
+    {
+      "path": "raw/d1.log",
+      "role": "Retained native output or diagnostic",
+      "sha256": "5ee1d805926128c540af352caa15ef4ef738b5934700179c6804f7146d4b1fdd"
+    },
+    {
+      "path": "raw/gliner-initial-probe-failure.log",
+      "role": "Retained native output or diagnostic",
+      "sha256": "be69a9815cb5b41c688f13d60e7291f288cc11c3b02bf229cec513adbcdc66f0"
+    },
+    {
+      "path": "raw/gliner.json",
+      "role": "Retained native output or diagnostic",
+      "sha256": "d6739111707ef0a1e1ac7d6db3e7cf2b8aac317ecf2acdea8fa61477c4c75198"
+    },
+    {
+      "path": "raw/gliner.log",
+      "role": "Retained native output or diagnostic",
+      "sha256": "1cf243a8fda6ced706f5cc696a5fa5b30b5b4b3bb6ded8404f00c1f091726118"
+    },
+    {
+      "path": "raw/hanlp.json",
+      "role": "Retained native output or diagnostic",
+      "sha256": "b36ea591191e2d7f8db0e681488430bec81ece1498e547cf6f3dbce440afa3d5"
+    },
+    {
+      "path": "raw/hanlp.log",
+      "role": "Retained native output or diagnostic",
+      "sha256": "bcd498c697dd2e9bc970c265fc641b27fc61f7d0c9525986ede361355eb2fb91"
+    },
+    {
+      "path": "raw/summary.json",
+      "role": "Retained native output or diagnostic",
+      "sha256": "e9d1fbd149f418f9b41a9109e793a234d364f9f01bbe14203699a0c182243a12"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Actual panel has no discrete member/source-position differences. HanLP/D1 replies are exact; GLiNER confidence varies up to2.384185791015625e-7. This rules out assuming byte-identical GLiNER outputs under arbitrary grouping. Native startup/word-subword/head identity and mixed HanLP/D1 admission are retained. Production-specific cue/function packs, arbitrary near-threshold stability, CUDA and lane-integrated cancellation are not qualified by this probe.",
+  "consumed_by": [
+    "BEP-06-I1",
+    "BEP-06-I3"
+  ]
+}

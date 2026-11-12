@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "id": "bep.production-gliner-nested-projection",
+  "title": "Exact nested cue and flat function native batch projections",
+  "group": "book-processing-efficiency-and-parallelism",
+  "package": "BEP-06",
+  "finalized": "2026-11-11",
+  "status": "current",
+  "supersedes": [
+    "bep.production-gliner-exact-operations"
+  ],
+  "superseded_by": null,
+  "question": "Do the exact production request factories and projection consumers preserve original source attribution under nested cue and flat function CPU batches?",
+  "answers": [
+    "BEP-06-I3"
+  ],
+  "method": "Compile current characterization questions, construct distinct owned ModelScopes using the existing source testfixture with SourceViewIDs11/12/13, call actual gliner_cue_request and classification_request, native GlinerWorker.extract under nested/flat respectively, then actual project_gliner_cues or classification_product. Independently check52 projected original-source extents and all26 exact member header/ordinal/threshold/source-context associations across singleton/mixed/reversed/regrouped populations. Custody refresh: root formatting and safe source cleanup preserve probe parameters and assertions. Native execution predates the later lazy-admission repair; the coordinator judges native worker, lane exchange and coalescer semantics unchanged. These receipts qualify their stated native batch/projection/lifecycle questions, not the final scheduler's pre-hydration admission timing, retention or DB fencing. Final integrated native checks are separately coordinator-owned.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-11_book-provider-batches/nested_production.py",
+    "uv run python docs/design_review/evidence/2026-11-11_book-provider-batches/check_nested.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "nested_production.py",
+      "role": "Native projection probe source",
+      "sha256": "fed8c7e4b032dd00d3b2aa62b207bf36bf3152f4d3f26fb5c9d363c8546db2d6"
+    },
+    {
+      "path": "check_nested.py",
+      "role": "Native projection probe source",
+      "sha256": "f8240907fa2eab5a7383b381e59a9c3073c7909065933013375cfa6373fc9680"
+    },
+    {
+      "path": "compare.py",
+      "role": "Native projection probe source",
+      "sha256": "8a4fb8b0d1e43582ae86bbaa4c2b79c00bbe859dfac49e3592eb0092ca391c07"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/nested-production.json",
+      "role": "Actual native projection output or independent source check",
+      "sha256": "98d1bae69fcf79e3118197bbac029a3aa8a5435590f17f431a945a0a5ffc38f4"
+    },
+    {
+      "path": "raw/nested-production-summary.json",
+      "role": "Actual native projection output or independent source check",
+      "sha256": "a52ba38ee5eb86ef018585a7b3e228af67e76639cf342694b95422d41c6cb673"
+    },
+    {
+      "path": "raw/nested-production.log",
+      "role": "Actual native projection output or independent source check",
+      "sha256": "a72dfff92d571de54c13a9070c15bf98fb1c2d73a0e79d2945c1545eb794c684"
+    },
+    {
+      "path": "raw/nested-projection-check.json",
+      "role": "Actual native projection output or independent source check",
+      "sha256": "d4884df276ac6ecdd155d9fe99042db0788395b74ffe22965626f1bcc58f8fd7"
+    },
+    {
+      "path": "raw/nested-projection-check.log",
+      "role": "Actual native projection output or independent source check",
+      "sha256": "5fa8d5e39eddf4cc5a8222b9e7ab19c2c92d8a1cc55a41e36d76baa0703375b3"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "All26 members pass actual consumers with correct nested cue and flat function policy. All52 projected occurrence extents independently match original text, source-view ID and native pointer. Equal-text distinct SourceViews preserve distinct actual source-context IDs. Nested cue replies exact inpanel; flat function confidence differs by up to3.5762786865234375e-7 with no discrete change. Exact threshold0.5 remains unrounded. Prior flat-cue panels do not qualify nested production cues and are superseded, not relabelled. This fixture-based native/projection result does not establish DB-backed capture/lease/publication or universal numerical/accuracy invariance.",
+  "consumed_by": [
+    "BEP-06-I3"
+  ]
+}

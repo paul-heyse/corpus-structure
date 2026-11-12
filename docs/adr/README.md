@@ -60,6 +60,8 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0081](0081-enriched-document-analysis-layers.md) | Compose immutable analysis layers over an exact published document | 2026-11-10 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0082](0082-explicit-analysis-selection.md) | Select active analyses independently of retained dependency closure | 2026-11-11 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0083](0083-operation-owned-characterization-execution.md) | Characterization execution owns verified preparation and bounded workers | 2026-11-11 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0084](0084-characterization-ready-coordination-and-batch-receipts.md) | Coordinate ready characterization work with exact versioned batch receipts | 2026-11-11 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0085](0085-qualified-native-batch-numerics.md) | Retain authentic native batch observations under explicit numerical semantics | 2026-11-11 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

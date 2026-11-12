@@ -1,5 +1,18 @@
 # D3 · Database
 
+## Ready work, claims and reduction custody
+
+**Proposed accepted target · 2026-11-11.** Parent coordination owns durable stage/task/claim
+registration and exact attempt settlement. Dependent inputs name actual settled predecessors;
+no placeholder product or general cross-run DAG is introduced. One foreground DB operation is
+admitted alongside independently owned renewal and bounded dedicated supervisors. CPU/provider
+work holds no reader/connection. Reply credit remains through parent reduction; output draft
+credit transfers to the claim/region until native settlement or retirement, while terminal
+physical slots can serve subsequent work. A stale batch member cannot publish, but useful siblings
+retain their exact completion rights. Existing native admission/source/role/choice/fencing remains.
+
+> Decision: [ADR-0084](../adr/0084-characterization-ready-coordination-and-batch-receipts.md)
+
 ## Prepared characterization reads and publication authority
 
 **Proposed accepted target · 2026-11-11.** An invocation-owned regional preparation retains

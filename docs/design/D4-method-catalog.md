@@ -1,5 +1,46 @@
 # D4 · Method catalog
 
+## Qualified CPU native numerical observations
+
+**Proposed accepted target · 2026-11-11.** The released CPU batch policy permits native float32
+numerical nondeterminism, including threshold/decoder-tie boundary label or span changes. Preserve
+actual raw scores without rounding, retain unchanged thresholds and apply them to the actual
+unrounded values. Exact source/context/member attribution and complete actual batch provenance
+remain required. Logical request reuse selects an authentic retained observation under its exact
+qualified inference policy, not byte-identical fresh execution or universal selection stability.
+No numerical epsilon follows from the bounded probe's observed variation.
+
+Actual cue/classification CPU packs must qualify before cross-region batching cutover. Invalid
+mapping, cross-context leakage or unexplained missing members are not excused as numerical noise.
+Changed device/precision profiles need their own qualification. Historical v1 retains original
+read-only meaning without a retrospective equivalence claim. Cohort identity before task formation
+remains required outside the qualified numerical contract when grouping changes declared meaning;
+scalar operation with an open batching obligation remains the fallback for unsupported routes.
+The [BEP owner](../plans/book-processing-efficiency-and-parallelism_2026-11-11.md) owns actual
+provider qualification; accepted policy is not provider passage or full-book completion.
+
+> Decision: [ADR-0085](../adr/0085-qualified-native-batch-numerics.md)
+
+## Incremental method plans and authenticated batch members
+
+**Proposed accepted target · 2026-11-11.** One parent-owned method.plan generator yields tuples
+of lazy PreparedWork and receives private replies; standalone synchronous driving uses the same
+plan. PreparedWork.try_submit admits owned work and returns WorkHandleProtocol future/collect/
+cancel/retire. Parent adapters prepare exact inputs; CPU/native compute returns immutable responses;
+one owner reduces them in declared source/provider/question order. Provider callbacks cannot
+mutate builders. spaCy annotation detaches positioned results while preserving prepared-Doc pipe
+batching. HanLP bulk admission and D1 native batches retain their exact lengths/prerequisites.
+
+GLiNER v2 header plus ordered exact member digests/ordinal commits to complete native grouping;
+observation identity binds batch, ordinal, own member, raw response and effective profile. One
+shared validator serves cue/classification producers, PM2 reconstruction and retained replay.
+Changed request semantics use released policy and affected operation versions. I3 actual CPU
+investigation qualifies the declared numerical contract before cross-region task formation.
+Grouping outside that contract binds exact cohort identity before registration or leaves the
+batching obligation open. No native ordinal becomes a source coordinate or implicit coverage claim.
+
+> Decision: [ADR-0084](../adr/0084-characterization-ready-coordination-and-batch-receipts.md)
+
 ## Owned characterization preparation and CPU kernels
 
 **Proposed accepted target · 2026-11-11.** Method adapters authorize and hydrate exact operation

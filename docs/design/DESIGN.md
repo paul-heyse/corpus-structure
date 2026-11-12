@@ -212,6 +212,14 @@ The [audit-closure coordinator](../plans/audit-closure_2026-11-03.md) owns remai
 
 ### §B1 Qualified assertion occurrences and semantic facts have distinct identities
 
+**Proposed accepted numerical target · 2026-11-11.** Native probabilistic confidence remains exact as reported and source/member attributed. The qualified CPU policy permits numerical and threshold/tie-boundary selection variation without relabelling that evidence as deterministic truth; actual batch provenance remains retained.
+
+> Decision: [ADR-0085](../adr/0085-qualified-native-batch-numerics.md)
+
+**Proposed accepted ready-execution target · 2026-11-11.** Batched observations retain exact original source/context identity and member ordinals as computation provenance; ordinals do not become source coordinates. [D4](D4-method-catalog.md#incremental-method-plans-and-authenticated-batch-members) owns versioned batch authentication.
+
+> Decision: [ADR-0084](../adr/0084-characterization-ready-coordination-and-batch-receipts.md)
+
 **Proposed accepted physical target · 2026-11-11.** Physical characterization placement preserves exact occurrence/source, term and choice identities. Owned regional inputs and CPU envelopes retain original extents and dependency pins; workers cannot reinterpret equal text as equal source. [D4](D4-method-catalog.md#owned-characterization-preparation-and-cpu-kernels) owns the method seam.
 
 > Decision: [ADR-0083](../adr/0083-operation-owned-characterization-execution.md)
@@ -306,6 +314,14 @@ semantic decoder fallback.
 
 ### §B2 Methods write observations; only consolidation writes knowledge, per run
 
+**Proposed accepted numerical target · 2026-11-11.** Logical request reuse selects an authentic retained observation under the released native numerical policy. Private proposal standing and exact native settlement are unchanged; no fresh-run byte equality or admitted-knowledge claim follows.
+
+> Decision: [ADR-0085](../adr/0085-qualified-native-batch-numerics.md)
+
+**Proposed accepted ready-execution target · 2026-11-11.** Incremental method plans return private replies to one parent builder/reduction owner. Physical slot release is distinct from reply/draft custody through native settlement; member cancellation cannot publish stale output or erase useful siblings. [D6](D6-orchestration-metrics-policies.md#bounded-ready-coordination-and-provider-lanes) owns the realization.
+
+> Decision: [ADR-0084](../adr/0084-characterization-ready-coordination-and-batch-receipts.md)
+
 **Proposed accepted physical target · 2026-11-11.** Characterization workers return private drafts. The parent retains validation, claims, renewal and native completion/publication; child completion confers neither visibility nor knowledge standing. [D6](D6-orchestration-metrics-policies.md#invocation-owned-characterization-execution) owns execution lifetime.
 
 > Decision: [ADR-0083](../adr/0083-operation-owned-characterization-execution.md)
@@ -398,6 +414,10 @@ legacy wait barrier rather than implying that every old option is supported.
 <a id="section-b4"></a>
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
+
+**Proposed accepted ready-execution target · 2026-11-11.** Existing task/run/attempt/holder and original-source publication remain authoritative under bounded ready coordination. Actual predecessor pins precede dependent task registration; foreground admission preserves independent renewal. [D3](D3-database.md#ready-work-claims-and-reduction-custody) owns these effects.
+
+> Decision: [ADR-0084](../adr/0084-characterization-ready-coordination-and-batch-receipts.md)
 
 **Proposed accepted physical target · 2026-11-11.** Invocation-owned regional preparation carries authentic immutable input guarantees while current DB admission, source authorization and native attempt fences remain live. CPU workers hold no connections or engines. [D3](D3-database.md#prepared-characterization-reads-and-publication-authority) owns this boundary.
 
@@ -606,6 +626,14 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Proposed accepted numerical target · 2026-11-11.** Released native batch policy explicitly declares CPU float32 numerical nondeterminism with unrounded scores and unchanged thresholds. Actual cue/classification pack qualification precedes coalescing cutover; historical v1 retains original meaning without retrospective equivalence. [D4](D4-method-catalog.md#qualified-cpu-native-numerical-observations) owns the inference contract.
+
+> Decision: [ADR-0085](../adr/0085-qualified-native-batch-numerics.md)
+
+**Proposed accepted ready-execution target · 2026-11-11.** Changed batch request/observation semantics use explicit released policy and affected operation versions. Historical v1 receipts keep original read-only meaning; current v2 production does not rewrite them. [D8](D8-agent-and-query-interfaces.md#versioned-native-batch-receipt-reads) owns the caller/read boundary.
+
+> Decision: [ADR-0084](../adr/0084-characterization-ready-coordination-and-batch-receipts.md)
 
 **Proposed accepted physical target · 2026-11-11.** Full verification creates a private invocation preparation reused under exact release/compiler/runtime premises. Historical archive hydration and arbitrary prepared objects confer no such authority; workers hydrate local state from authenticated capsules. [D6](D6-orchestration-metrics-policies.md#invocation-owned-characterization-execution) and [D8](D8-agent-and-query-interfaces.md#shared-characterization-execution-boundary) own the affected consumers.
 

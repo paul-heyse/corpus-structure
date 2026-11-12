@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "id": "bep.actual-provider-lane-lifecycle",
+  "title": "Actual HanLP and GLiNER lane/coalescer lifecycle controls",
+  "group": "book-processing-efficiency-and-parallelism",
+  "package": "BEP-06",
+  "finalized": "2026-11-11",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do actual CPU provider lanes preserve a useful coalesced sibling after one borrower stops, drain on operation cancellation, report owned-child crashes, and isolate static/native GLiNER member refusals?",
+  "answers": [
+    "BEP-06-I4"
+  ],
+  "method": "Use actual ProviderExecution and native HanLP/GLiNER children. Controlled reply-read gates run after the native request is sent (GLiNER admission first completes), then stop one running borrower, cancel the operation or SIGKILL only the captured owned native child. Independently inspect survivor context/correlation, original or reduced batch ordinals, refusal, byte retirement and actual joined/closed child ownership. Test32769byte GLiNER early refusal and600word native-preparation refusal alongside a useful sibling. Custody refresh: root formatting and safe source cleanup preserve probe parameters and assertions. Native execution predates the later lazy-admission repair; the coordinator judges native worker, lane exchange and coalescer semantics unchanged. These receipts qualify their stated native batch/projection/lifecycle questions, not the final scheduler's pre-hydration admission timing, retention or DB fencing. Final integrated native checks are separately coordinator-owned.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-11_book-provider-batches/lifecycle.py hanlp stale",
+    "uv run python docs/design_review/evidence/2026-11-11_book-provider-batches/lifecycle.py hanlp cancel",
+    "uv run python docs/design_review/evidence/2026-11-11_book-provider-batches/lifecycle.py hanlp crash",
+    "uv run python docs/design_review/evidence/2026-11-11_book-provider-batches/lifecycle.py gliner stale",
+    "uv run python docs/design_review/evidence/2026-11-11_book-provider-batches/lifecycle.py gliner cancel",
+    "uv run python docs/design_review/evidence/2026-11-11_book-provider-batches/lifecycle.py gliner crash",
+    "uv run python docs/design_review/evidence/2026-11-11_book-provider-batches/lifecycle.py gliner invalid",
+    "uv run python docs/design_review/evidence/2026-11-11_book-provider-batches/lifecycle.py gliner words",
+    "uv run python docs/design_review/evidence/2026-11-11_book-provider-batches/check_lifecycle.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "lifecycle.py",
+      "role": "Actual native lifecycle probe source",
+      "sha256": "5c7197987cc4daad026894670471767606dbd5761cd04cc6d076383b7f884898"
+    },
+    {
+      "path": "check_lifecycle.py",
+      "role": "Actual native lifecycle probe source",
+      "sha256": "7fc2657720c11aa4355c266a3085e2d6a9e3da68f2ca98a97504cc5f043ea9b7"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/lifecycle-hanlp-stale.json",
+      "role": "Actual native lane lifecycle response or diagnostic",
+      "sha256": "8f4448952130a5919990bb525772fdcb8daaa084e3cca1672df72c095eec8865"
+    },
+    {
+      "path": "raw/lifecycle-hanlp-stale.log",
+      "role": "Actual native lane lifecycle response or diagnostic",
+      "sha256": "0983fd59c5ab60ff8f9f41be0d3654001d42aa354569cdd34af790327fb8f4cf"
+    },
+    {
+      "path": "raw/lifecycle-hanlp-cancel.json",
+      "role": "Actual native lane lifecycle response or diagnostic",
+      "sha256": "0857eaf77d590a79ced275c2fddb81515a0e77fb79119b26635e4eca3c1618ca"
+    },
+    {
+      "path": "raw/lifecycle-hanlp-cancel.log",
+      "role": "Actual native lane lifecycle response or diagnostic",
+      "sha256": "d2428bba48fdfc97d2d8deb77dc01a355f593b601ef8b6bfa7bafb8db7ac4465"
+    },
+    {
+      "path": "raw/lifecycle-hanlp-crash.json",
+      "role": "Actual native lane lifecycle response or diagnostic",
+      "sha256": "1de1727f495acbb0873f14c357a595370f3a9dce8f054bfff98b1c1fc44eafaa"
+    },
+    {
+      "path": "raw/lifecycle-hanlp-crash.log",
+      "role": "Actual native lane lifecycle response or diagnostic",
+      "sha256": "591dfcceb5305bd109c93428d4b557b8925c04894629f8bb26bddafd8107aef0"
+    },
+    {
+      "path": "raw/lifecycle-gliner-stale.json",
+      "role": "Actual native lane lifecycle response or diagnostic",
+      "sha256": "7bae610e8b4d6ba1e9069b8fd6b57b533ec56f17bdd4472910bdb0342357f752"
+    },
+    {
+      "path": "raw/lifecycle-gliner-stale.log",
+      "role": "Actual native lane lifecycle response or diagnostic",
+      "sha256": "782338e62fe50681d7f74126ca1f4f16e2c4704187fc0965b95888d405a915d9"
+    },
+    {
+      "path": "raw/lifecycle-gliner-cancel.json",
+      "role": "Actual native lane lifecycle response or diagnostic",
+      "sha256": "03698e9d54536fe736afd42ba71be57334e26da1f0b092fc67cdcbe617fb6b9d"
+    },
+    {
+      "path": "raw/lifecycle-gliner-cancel.log",
+      "role": "Actual native lane lifecycle response or diagnostic",
+      "sha256": "8aa2e9865d7c4d53cbed2ca1b354fd278da0b40b3d1e2c767cb7447824e78b0b"
+    },
+    {
+      "path": "raw/lifecycle-gliner-crash.json",
+      "role": "Actual native lane lifecycle response or diagnostic",
+      "sha256": "4a9bb620e9e0336ee9f3bb25495d07e30a00494fc3a53b15427a7ecef89eaeaf"
+    },
+    {
+      "path": "raw/lifecycle-gliner-crash.log",
+      "role": "Actual native lane lifecycle response or diagnostic",
+      "sha256": "653497930e40ce059df3b568a63ea7552289e39f5691c4ea29827800d8c1d55a"
+    },
+    {
+      "path": "raw/lifecycle-gliner-invalid.json",
+      "role": "Actual native lane lifecycle response or diagnostic",
+      "sha256": "66997507cf6820674806d22aec21af21a514855b1db358baca23ded7938d282d"
+    },
+    {
+      "path": "raw/lifecycle-gliner-invalid.log",
+      "role": "Actual native lane lifecycle response or diagnostic",
+      "sha256": "ab7b35774c7bdad464dee8e16dc49f88b81eeb1ffea8882c381cc2b7b51d8265"
+    },
+    {
+      "path": "raw/lifecycle-gliner-words.json",
+      "role": "Actual native lane lifecycle response or diagnostic",
+      "sha256": "7cc6db20afadff3165cb5edadd1b7af95fb3c9a5327d843d2e30feadc2259e42"
+    },
+    {
+      "path": "raw/lifecycle-gliner-words.log",
+      "role": "Actual native lane lifecycle response or diagnostic",
+      "sha256": "f5ebd4182f006390c87a85b6505686b678e9db777ead6766026012faea8ba6d6"
+    },
+    {
+      "path": "raw/lifecycle-summary.json",
+      "role": "Independent expected correlation/ordinal/lifetime check",
+      "sha256": "4d5d49905e8d754df93a62144421d765efcd0c8e2042e50c48c269a13860c14e"
+    }
+  ],
+  "depends_on": [
+    "bep.production-gliner-exact-operations"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "All8 bounded actual-native scenarios passed. Stale siblings retain original two-member envelope ordinal1; independently refused GLiNER siblings leave one-member native envelope ordinal0 for context source-1. Operation stop and provider crash return private errors, all owned native children stop and all owners release byte capacity tozero. This exercises candidate coalescing through actual ProviderExecution; DB-backed claim loss/publication fencing, all-provider crash matrices and CUDA remain separate qualification.",
+  "consumed_by": [
+    "BEP-06-I4"
+  ]
+}

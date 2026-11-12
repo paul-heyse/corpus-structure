@@ -1,0 +1,1 @@
+{"provider": "d1", "device": "cpu", "assets": "/home/paul/corpus-structure/build/models/pm2", "threads": 4, "interop_threads": 1}

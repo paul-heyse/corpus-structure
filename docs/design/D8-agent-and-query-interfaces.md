@@ -1,5 +1,28 @@
 # D8 · Agent and query interfaces
 
+## Versioned native batch receipt reads
+
+**Proposed accepted target · 2026-11-11.** Public/book/ingest/analytics entry points use shared
+incremental characterization ownership. Live and detached reads retain exact historical/current
+native receipts without fresh inference. Current GLiNER producers emit compact v2 header/member
+commitments and ordinals; authentic v1 remains read-only under its recorded original contract.
+No old digest is rewritten or historical batch membership manufactured. SourceValue can retain
+the receipt without implying unchanged inference meaning. Own-member validation reconstructs
+that exact retained context; other-member hashes are commitments, not independently reconstructed
+source. Full-cohort reconstruction, when claimed, exports exact source/context closure rather
+than repeating complete texts in every annotation. Current-only installed policy admission and
+historical policy replay remain distinct.
+
+Retained CPU-native confidences remain exact as reported. The governing policy exposes native
+numerical nondeterminism, including possible threshold/tie selection changes, without promising
+fresh-run byte equality or universal threshold stability. Query/export/replay preserves the
+original response, selected alternatives and actual batch provenance; it never rounds or rewrites
+old evidence. Historical v1 acquires no new numerical-equivalence claim.
+
+> Decision: [ADR-0085](../adr/0085-qualified-native-batch-numerics.md)
+
+> Decision: [ADR-0084](../adr/0084-characterization-ready-coordination-and-batch-receipts.md)
+
 ## Shared characterization execution boundary
 
 **Proposed accepted target · 2026-11-11.** Explicit characterization demands, book processing,

@@ -6,6 +6,32 @@ The living diagnostic account maintained by the
 owns freshness and disposition. This account diagnoses current design; reviews own solution
 reasoning, and implementation plans own scheduled work and closure evidence.
 
+<a id="book-ready-execution-refresh"></a>
+
+## Ready-execution entry refresh · 2026-11-11
+
+**Interface-checked**, source380fecc74, core3.3/heuristics1.0/code-intelligence1.4/binding.
+This bounded reconciliation supplies the BEP-04–06 target review; unrelated account observations
+keep their original dates and limits. BEP-00–03 replaces DA-042's book-demand repeated full-load
+manifestation with verified invocation preparation and regional canonical values/proof reuse.
+Native live admission/publication remains independently enforced. No numerical benefit follows.
+
+Current characterization orchestration still comprehends natural regions serially and source
+execution awaits method results synchronously. Provider resources retain ambient ContextVar plus
+nonblocking exclusive-borrower refusal; this is not queued multi-borrower admission. Existing
+spaCy Language.pipe, D1 native batches, GLiNER batch_extract and HanLP length planning are strengths.
+GLiNER request_digest binds the full ordered input population, but classification and cue consumers
+reconstruct singleton identity; changing tuple length without changing those consumers would fail
+authentication. Existing detached SourceValue payload flexibility does not establish changed
+request-hash semantics or historical policy compatibility. CPU operation-wide cancellation from
+the serial foundation does not supply independently cancelled useful siblings. These are bounded
+extension premises for the existing functional review O03–08, not whole-system defect conclusions.
+
+Inspecting source/stage owners, provider resource/launch and GLiNER request/report/projector paths
+was sufficient for this reconciliation. Whole-system/test-architecture audit and actual provider,
+probe or test execution: **not_run**. The [BEP coordinator](../../plans/book-processing-efficiency-and-parallelism_2026-11-11.md)
+owns scheduled disposition; the target review owns alternatives and correction judgment.
+
 <a id="book-execution-entry-refresh"></a>
 
 ## Book-execution entry refresh · 2026-11-11

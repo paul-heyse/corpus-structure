@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "id": "bep.production-gliner-exact-operations",
+  "title": "Exact production GLiNER operation identities and batch observations",
+  "group": "book-processing-efficiency-and-parallelism",
+  "package": "BEP-06",
+  "finalized": "2026-11-11",
+  "status": "superseded",
+  "supersedes": [
+    "bep.production-gliner-batch-packs"
+  ],
+  "superseded_by": "bep.production-gliner-nested-projection",
+  "question": "Do the actual production cue and passage-function schemas retain exact member authentication, source correspondence and unchanged exact-threshold projection under this CPU batch panel?",
+  "answers": [
+    "BEP-06-I3"
+  ],
+  "method": "Compile current archived characterization question declarations, construct the exact producer cue/classification schemas, normalize the selected ClassificationProfile before starting actual CPU GlinerWorker, request singleton/mixed/reversed/regrouped populations, compare native member outputs, authenticate every response with the shared production validator and apply classification_product using the exact unrounded native score threshold. Custody refresh: root formatting and safe source cleanup preserve probe parameters and assertions. Native execution predates the later lazy-admission repair; the coordinator judges native worker, lane exchange and coalescer semantics unchanged. These receipts qualify their stated native batch/projection/lifecycle questions, not the final scheduler's pre-hydration admission timing, retention or DB fencing. Final integrated native checks are separately coordinator-owned.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-11_book-provider-batches/production_packs_exact.py",
+    "uv run python docs/design_review/evidence/2026-11-11_book-provider-batches/authenticate_packs_exact.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "production_packs_exact.py",
+      "role": "Exact producer-operation probe",
+      "sha256": "6f4f4c89374b97b7c7ed92f33ff6cb41e68c36c64dddb150cc2af6f6b80f5c57"
+    },
+    {
+      "path": "authenticate_packs_exact.py",
+      "role": "Exact producer-operation probe",
+      "sha256": "030cfa5f1a275574638fe8ea5ae7215132759624732b57ecc2084fc3ac168110"
+    },
+    {
+      "path": "compare.py",
+      "role": "Exact producer-operation probe",
+      "sha256": "8a4fb8b0d1e43582ae86bbaa4c2b79c00bbe859dfac49e3592eb0092ca391c07"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/production-packs-exact.json",
+      "role": "Actual native or shared-authentication output",
+      "sha256": "7568fb547e17e32b61eb0a034547b348f3373f37c5de2c0feb89a79a5471ee13"
+    },
+    {
+      "path": "raw/production-summary-exact.json",
+      "role": "Actual native or shared-authentication output",
+      "sha256": "654ac151aaa5bea37bda1e644cc132a251b357138f768e2c6656e0674159a891"
+    },
+    {
+      "path": "raw/production-packs-exact.log",
+      "role": "Actual native or shared-authentication output",
+      "sha256": "a955b4f07a058563d98caaf5bf620922157446129178d44f93f3085de0d194c9"
+    },
+    {
+      "path": "raw/production-authentication-exact.json",
+      "role": "Actual native or shared-authentication output",
+      "sha256": "b3ef36461564a2b4f7004aa38683db949bd958b506994ac07825fa81f7ae15c4"
+    },
+    {
+      "path": "raw/production-authentication-exact.log",
+      "role": "Actual native or shared-authentication output",
+      "sha256": "4d57deb29d1f82135df680fb41f311ef6eaf9310e230839c5f2247e02056d42e"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Bounded CPU panel authenticates all26 member responses. Cue replies exact, function labels/cardinality unchanged with confidence variation up to3.5762786865234375e-7. Every literal extent matches the original input slice and classification_product applies native confidence >=0.5 unchanged. This supports explicit batch-observation numerical semantics; it does not establish arbitrary near-threshold/grouping invariance, accuracy, CUDA, real-source DB provenance or lane cancellation/crash qualification. Final operation bindings match the actual cue producer text.model_characterization/2 and classification producer extract.pm2_gliner_classification/2 respectively; this supersedes the earlier panel that used the cue prefix for both.",
+  "consumed_by": [
+    "BEP-06-I3"
+  ]
+}

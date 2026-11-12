@@ -1,5 +1,35 @@
 # D6 · Orchestration, metrics and policies
 
+## Bounded ready coordination and provider lanes
+
+**Proposed accepted target · 2026-11-11.** The invocation coordinator advances independent ready
+regions/stages by completion through actual existing stage-run boundaries and exact predecessor
+pins. Initial CPU delivery admits two natural regions, two workers in one spawn pool, two stage
+runs and four claims, with256MiB encoded owned state,64MiB CPU input and8MiB CPU result bounds.
+Capacity-one uses the same dispatcher. One foreground DB operation preserves independent renewal;
+active dedicated supervisors remain bounded. Provider/profile owners retain one compatible
+resident, one exchange and at most one pending native batch. PM2 CPU startup applies four native/
+intra-op threads and one inter-op thread before native work. Final counts/devices remain07b.
+
+Admission precedes hydration/serialization/queueing. CPU fixed shared slots and generations
+cooperatively cancel one request under existing parser deadlines without poisoning a useful
+sibling. Physical occupancy lasts through terminal/drained future collection; reply/draft credits
+follow actual parent reduction and settlement. Global stop or broken-pool recovery may terminate
+the pool. Provider borrower usefulness is member-specific: one cancelled member does not cancel
+useful native siblings; stop the exchange when none remain or the invocation stops. Never reuse
+an in-flight ordinal. Parent builders/reductions remain serially owned, closers all run and the
+existing claim/uncertain-completion owner supplies retry policy. No new scheduler or batch ledger.
+
+The qualified CPU numerical policy permits authentic native float32 observation variation with
+exact actual batch provenance and unrounded scores. Logical task reuse includes the governing
+policy and selects retained authentic evidence; it makes no byte-reproducible fresh-inference
+promise. Actual cue/classification CPU qualification precedes coalescing cutover; outside that
+policy exact cohorts must be bound before task registration or the batching obligation stays open.
+
+> Decision: [ADR-0085](../adr/0085-qualified-native-batch-numerics.md)
+
+> Decision: [ADR-0084](../adr/0084-characterization-ready-coordination-and-batch-receipts.md)
+
 ## Invocation-owned characterization execution
 
 **Proposed accepted target · 2026-11-11.** A private invocation execution context is constructed
@@ -11,17 +41,17 @@ Each spawned worker hydrates exact authenticated preparation once per address sp
 runtime correspondence; hydration supplies no live DB admission.
 
 One invocation owns regional lifetimes and physical admission across retained bodies, submitted
-packets and completed replies awaiting consumption. Initial capacity-one execution uses the same
-implementation as later overlap. Current preparation scopes use one CPU worker/submission,
-256MiB canonical retained-body capacity,64MiB input packets and8MiB replies; these are explicit
-initial physical limits, not RSS bounds or selected final operating counts. Oversized indivisible
-input refuses without truncating semantic scope. BEP-07b owns final coordinated counts/devices.
+packets and completed replies awaiting consumption. Capacity-one uses the same implementation
+as overlap; the ready-coordination boundary above owns the selected next-increment limits and
+per-request cancellation extension. Limits cover encoded owned bodies, not interpreter RSS.
+Oversized indivisible input refuses without truncating semantic scope. BEP-07b owns final
+coordinated counts/devices.
 
 Warm ProcessPoolExecutor workers use explicit spawn and main-thread parser execution. The parent
 retains durable claims, renewal, validation, completion and publication. Stop prevents admission,
 signals cooperative cancellation and discards late results; bounded drain may terminate the owned
-pool. Operation-wide cancellation applies to the first serial integration. Independently admitted
-claims require independently addressable cancellation before BEP-05 concurrency. Provider lanes
+pool. Independently admitted claims use the request-specific cancellation contract above;
+operation-wide cancellation remains invocation stop. Provider lanes
 replace ambient borrower refusal under explicit operation-owned admission in BEP-04; native branch
 replies are reduced under their semantic operation in stable order. Real dependencies remain;
 unrelated units need not reach terminal state before independent work advances.
