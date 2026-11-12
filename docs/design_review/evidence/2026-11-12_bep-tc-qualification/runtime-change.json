@@ -1,0 +1,9 @@
+{
+  "baseline": "8c0f4f951",
+  "packs": [
+    "statistics"
+  ],
+  "archive_release": "release:905fc29f5d0129571b8254e5f0875f30ab79a479843808326b04795e282765da",
+  "deployment": true,
+  "deployment_profile": "development"
+}

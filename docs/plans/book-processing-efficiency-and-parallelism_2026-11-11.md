@@ -1,6 +1,38 @@
 # Book-processing efficiency and parallelism
 
-**Status: combined functional implementation integrated2026-11-12; coordinated native revision deployed; final combined qualification and BEP-09 book acceptance deferred** Owns BEP-00–BEP-09 and the scheduled disposition of the [source review](../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md)'s O01–O08 and RC01–RC04. This coordinator owns combined acceptance and investigation decisions; companions own the detailed contracts identified below.
+
+## Combined qualification execution · 2026-11-12
+
+**Authorized and in progress.** The operator approved one de-duplicated functional/fault/provider,
+book/recovery, independent-assessment and retained-consumer campaign for BEP and TC. The prior
+full-book deferral is lifted for this execution: reuse capture496/cut614/product1627, all316views/
+518pages; no new recognition. Two ordinary test workers and serial provider/fault selections preserve
+production policy4regions/4stage runs/8claims/4provider jobs/2CPU workers. Qualification support adds
+host/referent task adapters and independently frozen source-only references before new output
+inspection. Existing references and failed/interrupted history remain immutable. Actual results and
+limits are retained in [shared evidence](../design_review/evidence/2026-11-12_bep-tc-qualification/README.md).
+Existing findings tables remain the disposition owners; no completion is claimed at authorization.
+
+**BEP-I13 bounded inquiry selected2026-11-12.** The operator observed low GPU power/VRAM
+use and asked whether thread/stream submission or other bottlenecks can accelerate the stage.
+Read-only inspection confirms per-resident streams/threads already exist; one active batch per
+mutable resident, batch fill, CPU preparation and serial native settlement remain candidates.
+Use the planned initial book/interruption window for a bounded CPU/CUDA timeline before changing
+concurrency, batching, synchronization or numerical recipes. Current ordinary/fault qualification
+remains frozen; no GPU scarcity or measured speedup is inferred from power/VRAM readings.
+
+**Qualification sequencing/resource steering · 2026-11-12.** Prioritize the combined
+qualification and retain readily available managed/native stage observations and
+bounded external host/process/GPU samples alongside its evidence. These can support
+later dependency and utilization assessment. Existing task-dependency edges and
+provider load/infer boundaries provide part of that basis; some readiness conditions
+are still in-process rather than durable declarative dependencies. A stronger
+ports/adapters and dependency-driven design remains a subsequent inquiry, not an
+additional refactor required before this qualification. Preserve the distinction
+between recorded absence, unavailable observations and dependencies not yet registered.
+
+
+**Status: combined qualification in progress2026-11-12; E09/E15–E19 scoped repairs and exclusive fault controls covered; forward native deployment remains; actual-provider/book/assessment/consumer acceptance and refreshed runtime admission remain open.** Owns BEP-00–BEP-09 and the scheduled disposition of the [source review](../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md)'s O01–O08 and RC01–RC04. This coordinator owns combined acceptance and investigation decisions; companions own the detailed contracts identified below.
 
 ## Authority, scope and baseline
 
@@ -499,8 +531,8 @@ original failures and native candidate/register/deploy receipts are in the execu
 Functional integration is complete for this authorized increment. Next is combined final qualification of both series:
 full applicable functional/provider/fault/check union, original three native regression identities,
 real CLI/Python parity and retained CLI/MCP/export/replay, actual shared-population lifecycle and
-TC-E12/TC-10 semantic assessments. Full-book execution/interruption/resume and book consumers stay
-deferred in this increment. BEP-E01 and enclosing BEP-09 acceptance remain open.
+TC-E12/TC-10 semantic assessments. Full-book execution/interruption/resume and book consumers are now authorized by the combined
+qualification engagement above. BEP-E01 and enclosing BEP-09 acceptance remain open.
 
 E05's old0a78c71ce1a949e38e906c9c5392c1f3 remains held/unsettled. Standard `ci results recover`
 refused2026-11-12 because test settlement is unproven; no invented settlement or memory attribution.
@@ -606,12 +638,18 @@ SymPy; unrelated scientific/domain consumers are outside this increment.
 | BEP-E06 | Combined preparation consumers; repair implemented/scoped-tested, assembled qualification pending BEP-01/08 | Shared application preparation now spans registration, ingest and regenerate while live admission remains; [audit obligation](#BEP-E06). Actual native consumer regression reconciliation remains open. |
 | BEP-E07 | Source/layer/recovery admission; implemented/scoped-tested, native/assembled qualification pending BEP-02/07/08 | Pre-hydration shared windows transfer actual retained credit; waits close snapshots; recovery reads authenticated metadata. [Audit obligation](#BEP-E07); final native path reconciliation remains open. |
 | BEP-E08 | CPU lifecycle; implemented/scoped native-tested2026-11-12, assembled qualification pending | Normal close now bounds cooperative drain/kill/death confirmation, concurrent submit and IPC-lock failure paths; [repair evidence](../design_review/evidence/2026-11-12_bep-audit-repairs/README.md), current CPU18/18 pass27f55c0d6f1e4552b28cd529887ca8fe. This does not qualify new GPU hosts or the enclosing policy. |
-| BEP-E09 | Ordinary source ready frontier; implemented/scoped-tested, native/assembled qualification pending BEP-05 | Existing driver refills individual completions with global claim/byte admission, renewable source prewarm and transaction-safe registration. Controlled panel74/74 passed; [audit obligation](#BEP-E09) still requires native/assembled reconciliation. |
+| BEP-E09 | Ordinary source ready frontier; **ownership correction/scoped native controls Tested2026-11-12**, assembled qualification open · BEP-05 | Controlled panel74/74 did not cover a per-claim reader/group MathReadingsBatch mismatch. cda568ce54a7428ba0a0d900f22746ec exposed obsolete serial/global-running assertions masking the strict bind guard. Commitaf59ddd4d removes group injection; extraction's mutable cache is exact-reader-local, normalization uses retained upstream record/primary syntax, and immutable RegionalPreparation reuse remains. All three revised default-frontier native controls passed52874dee549449c4bbc98a627276b567, preserving exact claims, six native dependencies/decoy avoidance, first-four durable outputs, renewal/stale-victim0writes. Formal26 passed, including parse-free syntax/private mutable isolation. Independent review P2 was repaired/reassessed before integration. The259-identity union with36a0e7d52aa14bc0ac855b784fa5e7f2 has zero unresolved; its sole old batch-drift expectation failure remains preserved. Refresh released implementation/input binding before the book. [Audit obligation](#BEP-E09). |
 | BEP-E10 | Local GLiNER batching; implemented/scoped-tested, final CUDA/provider qualification pending BEP-06 | Bounded local same-pack populations preserve independent refusals and stable reduction; part of75/75 controls. [Audit obligation](#BEP-E10); The integrated CUDA host retains these guarantees; final provider qualification remains open. |
 | BEP-E11 | PM2 coalesced byte admission; implemented/scoped-tested, final host framing qualification pending BEP-06/07 | Shared current JSONL encoder checks exact merged bytes/ordinal and separates nonfitting useful members. The integrated host checks exact envelope framing; [the obligation](#BEP-E11) retains final current-source qualification. |
 | BEP-E12 | Normal CLI analytical cutover; repair implemented/scoped-tested, assembled qualification pending BEP-08 | Real Typer app and Python boundary use the same explicit workflow application owner; graph injection no longer bypasses primary demand. Configured graphs and retained inputs remain explicit. [Audit obligation](#BEP-E12); native union remains pending. |
 | BEP-E13 | Aggregate progress/native inspection; implementation checkpoint, native reader delivered; combined/template qualification pending BEP-08 | Explicit operation links, shared managed binding and bounded status/result projections are present. The inventory-summary revision semantic_bep_inventory is registered/deployed and native reader1/1 passed5ff5b9a4414241e09a153ad880735569; combined/template qualification remains open; [audit obligation](#BEP-E13). |
 | BEP-E14 | GLiNER policy consistency; implemented/scoped-tested, CUDA profile migration integrated; combined qualification pending BEP-07/08 | Shared low-level admission and high-level preflight use one frozen-profile/thread compatibility rule, before startup. CUDA profiles preserve the shared frozen-policy refusal; combined qualification remains open. |
+| BEP-E15 | Retained spaCy annotation execution identity; implemented, scoped identity/refusal controls covered 2026-11-12; affected native/provider/consumer qualification open | Full campaign 9ef99551d8744b379176c96086ff3cec exposed named-definition identity failures. Source inspection confirms `retained_annotation_products` reconstructs an annotation profile from the caller without incorporating or authenticating the retained native run's `execution_profile`. This can omit recorded device/numerical/runtime/artifact/thread identity or accept a mismatched caller fingerprint. Preserve the recorded profile in reconstruction, reject explicit mismatches, migrate controlled fixtures coherently, and qualify direct/retained identity plus actual primary publication before book execution. Applied after campaign 9ef99551d8744b379176c96086ff3cec settled with child-drain proof. Focused 28-identity union is covered through 5d223fbdc35a432dba4da98ef355162a/b969d2d1e734433e92704738c77e662a; original failure remains. Restoration also preserves canonical direct attribute order and nondefault detached replay configuration. |
+| BEP-E16 | Retained analytical graph preparation order; implemented, focused graph control passed; actual cross-release acceptance open | `test_native_new_rule_release_reuses_original_native_layer_and_detached_contract[characterization_finalizable_pdf]` fails resolving unreachable `ingest.pdf`: analytical profile freezing runs before the existing retained-view graph pruning. Determine the effective graph before freezing when exact retained views are supplied; retain early complete declaration for fresh primary execution and refusals for genuinely selected missing methods. Preserve original-native-layer byte equality, cross-release/detached contract and no-new-SourceView controls. Do not add dummy capture methods or skip arbitrary registry misses. |
+| BEP-E17 | Managed diagnostic schema/custody reporting; generator and error classification repairs integrated 2026-11-12; affected functional acceptance open | Generated operation-report schemas are stale. Additionally, `read_diagnostic` catches the installed-schema `SemanticRefusal` as a generic `ValueError` and calls an intact retained artifact malformed/corrupt. Regenerate through the owning generator and distinguish schema unavailability from artifact corruption without weakening byte-digest, supported-schema or raw-retrieval guards. Qualify direct/CLI diagnostic and MCP registration consumers; unrelated MCP connection-closure failures retain unknown cause until diagnosed. |
+| BEP-E18 | Located GLiNER request/observation native admission; implemented/native deployed 2026-11-12; focused protocol/application acceptance open | Current Python and released policy use version 2 header/member batch receipts, while `ops.located_model_request` reconstructs the old flat digest and `ops.located_model_observation_matches` verifies only the legacy observation digest. Exact definition-window admission consequently rejects the correct configured population. Reconstruct the released version in SQL, retain policy-gated version 1 support, verify the version 2 receipt/member/ordinal commitment, and migrate current controlled replies without changing independent role expectations or relaxing population equality. Reviewed preview4084ddca88444e32b8162975a7fb6584/candidate952f1189cac94cd8a1d1dc788cd76571/register1904af8795b644968219b9c573a7f266/deploy8326021458d244638ab42fcf29b61f55 passed, four function changes and unchanged owners/ACL. Native head semantic_bep_located_v2, release905fc29f5d0129571b8254e5f0875f30ab79a479843808326b04795e282765da; exact new book input registration remains. E15 alone required no native migration. |
+| BEP-E19 | Native SQL explanation statement boundaries; implemented, scoped unit/CLI coverage complete 2026-11-12; integrated checks open | Candidate SQL inspection combined separately executable statements without separators and falsely reported syntax refusal; native authoring/deployment itself succeeded. One native_sql_script serializer now serves production script generation and explanations, preserving statement body/order/owner/ACL and deliberate unsupported DDL structural comparison. Existing frozen reports stay unchanged. Functional 31-identity union covered by 4acb12eb295d4cb2b86f8c8cef3db6dc/e2d9ab2235914ec181c6d9cb8d0dd875; the first failure was a corrected fixture tuple/JSON-list assertion, preserved as failed. |
+
 
 Qualification for this increment is targeted preparation/trust/native-publication and actual-spawn
 behavior. It does not establish final policy, provider parallelism or whole-book qualification.

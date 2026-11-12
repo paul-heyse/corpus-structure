@@ -1,5 +1,24 @@
 # Enriched-document text characterization implementation series
 
+
+## Combined qualification execution · 2026-11-12
+
+**Authorized and in progress.** The operator approved one de-duplicated functional/fault/provider,
+book/recovery, independent-assessment and retained-consumer campaign for BEP and TC. The prior
+full-book deferral is lifted for this execution: reuse capture496/cut614/product1627, all316views/
+518pages; no new recognition. Two ordinary test workers and serial provider/fault selections preserve
+production policy4regions/4stage runs/8claims/4provider jobs/2CPU workers. Qualification support adds
+host/referent task adapters and independently frozen source-only references before new output
+inspection. Existing references and failed/interrupted history remain immutable. Actual results and
+limits are retained in [shared evidence](../design_review/evidence/2026-11-12_bep-tc-qualification/README.md).
+Existing findings tables remain the disposition owners; no completion is claimed at authorization.
+
+Combined qualification has exposed shared retained-identity, preparation, receipt-admission
+and reporting gaps. [BEP-E15–E19 in the BEP findings table](book-processing-efficiency-and-parallelism_2026-11-11.md#execution-findings)
+owns those repairs and their direct/retained, consumer and actual-provider verification;
+TC does not duplicate its disposition. Book execution follows the repaired source
+and affected qualification.
+
 **Status: TC audit functional repairs integrated2026-11-12; coordinated native integration deployed; TC-10 assessment and TC-11 combined qualification remain open.**
 This coordinator owns TC-00–TC-11, TC-I01–09, O01–O07 disposition and combined completion.
 Supporting plans own package design; this page owns current package state. The [Completion audit](#completion-audit) is the current judgment: producers and retained framing are implemented; subsequent combined execution repaired consumer migration/retirement (TC-E08–E11), with native integration deployed and actual-provider acceptance still open (TC-E12). The 2026-11-11 functional union remains dated evidence for its own source; it does not qualify the current source. Activation/selection retains its explicit final effect authority; conditional branches remain trigger-driven.

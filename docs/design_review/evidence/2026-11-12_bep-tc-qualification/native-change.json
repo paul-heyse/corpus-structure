@@ -1,0 +1,10 @@
+{
+  "baseline": "ba82c284e",
+  "packs": [
+    "statistics"
+  ],
+  "native_predecessor": "semantic_tc_choice_assessment",
+  "native_revision": "semantic_bep_located_v2",
+  "deployment": true,
+  "deployment_profile": "development"
+}

@@ -1032,7 +1032,7 @@ set-based effective-origin frame reads retain current attempt/source fences and 
 
 ## Prepared interpretation execution
 
-**Implemented; qualification open2026-11-12.** Compatible source methods share the
+**Implemented; scoped native/formal controls Tested2026-11-12; assembled qualification open.** Compatible source methods share the
 dependency-ready frontier and its bounded claim admission. Each claim has a private BoundReader
 and ScopedSourceReader; connection state, source-task/producer bindings and characterization
 selection do not cross claim branches. Authenticated immutable source/layer preparation remains

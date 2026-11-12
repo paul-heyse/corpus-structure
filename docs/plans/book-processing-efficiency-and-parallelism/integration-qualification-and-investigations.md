@@ -1,6 +1,6 @@
 # Integration, qualification and investigations
 
-**BEP-09 incomplete; bounded qualification authorized, prior-package functional repairs are integrated and full-book acceptance is deferred (2026-11-12).** Owns BEP-09 design and bounded investigation routes. The [coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns every scheduled disposition and combined completion; this companion defines what settles it.
+**BEP-09 incomplete; combined qualification and full-book acceptance authorized/in progress (2026-11-12).** Owns BEP-09 design and bounded investigation routes. The [coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns every scheduled disposition and combined completion; this companion defines what settles it.
 
 ## Operator closeout checkpoint · 2026-11-12
 
@@ -20,8 +20,12 @@ exclusive GPU-custody assumptions in the original design below. CPU parser deadl
 spaCy learned annotation moves to GPU with tokenizer-only preparation staying CPU. GPU phase
 custody begins after capture. Historical scoped receipts retain their dates/source/profile limits.
 
-BEP-E04/E06–14 retain qualification/cutover obligations; implemented/scoped-tested repairs are distinguished in the coordinator. Bounded qualification is authorized after implementation and custody
-readiness; the full book, book interruption/resume and full-book consumers remain deferred.
+BEP-E04/E06–19 retain the qualification/cutover obligations distinguished in the coordinator.
+The operator has authorized combined qualification with TC, including the retained full book,
+controlled interruption/resume and full-book consumers. Reuse capture496/cut614/product1627,
+all316views/518pages, without new recognition. Perform the ordinary, exclusive fault and serial
+actual-provider checks before the book. Current receipts and source/context applicability remain
+with the coordinator and shared evidence; authorization does not establish a passing outcome.
 E05 does not authorize speculative memory diagnosis. This companion is not a second status ledger.
 
 ## BEP-09 · Assembled delivery and retirement
@@ -32,7 +36,7 @@ Before production mutation, settle/drain any bound running execution through its
 
 Migrate standalone characterize requests, ordinary ingest enrichment, default analytical demand, explicit retained-layer composition and supported resume paths to the same implementation. Remove replaced serial coordination, ambient borrower ownership and mechanism-specific tests/configuration where superseded; preserve independent behavioral and invalid-input controls. Readers, CLI/MCP, exact exports and detached replay retain the same source/layer/choice semantics. No late inventory-completion phase may hide required callers still using the replaced path.
 
-## Required qualification (book-specific rows deferred by current operator boundary)
+## Required qualification
 
 | Scenario | Evidence and failure exposed |
 | --- | --- |
@@ -61,7 +65,7 @@ Mandatory decisions must settle before their dependent use; a negative result se
 | BEP-I02 | HanLP prepared-sample reuse, BEP-06 | Installed source/API and bounded native behavior determine supported reuse. Always deliver bulk admission; use native preparation inside inference if no safe supported reuse route exists. |
 | BEP-I03 | Batch identity and semantic equivalence, BEP-06 | Check whole-envelope digests, member ordinals, context/option grouping and numerical/order effects per provider. Select stable grouping or explicit result-affecting inference identity before cross-region batching. |
 | BEP-I04 | PM2 native thread defaults, BEP-07 | Inspect each service runtime and supported OMP/MKL/PyTorch controls; select explicit inner thread policy inside child startup. |
-| BEP-I05 | CUDA feasibility/qualification, BEP-07 | For suitable selected providers inspect service wheels/interpreters and device custody, then qualify actual source-aligned outputs/precision and combined residency. Adopt qualifying profiles or explicitly defer unsupported ones with prerequisite/revisit trigger; CPU hybrid still delivers. |
+| BEP-I05 | CUDA feasibility/qualification, BEP-07 | ADR-0091 selects the shared Python3.14 GPU host, D1CUDA/BF16 and other learned providersCUDA/FP32. Qualify actual source-aligned outputs/precision and combined residency. An unavailable selected provider is blocked with its prerequisite; do not silently substitute CPU or relabel prior CPU evidence. |
 | BEP-I06 | Finite operating counts, BEP-07 | Choose recorded region/CPU/lane/byte/connection limits from actual ownership and resident/thread conditions before full qualification. Use bounded operating checks for real uncertainty; no auto-tuner or fabricated optimum. |
 | BEP-I07 | mmap/SharedMemory, BEP-03 conditional | Trigger: substantial repeated packet transfer remains material. Compare existing artifact-backed descriptors, mapping and shared memory; require ownership/cleanup. Default bounded immutable transfer remains. |
 | BEP-I08 | Extra provider replicas, BEP-07 conditional | Trigger: a saturated lane remains after work reduction/batching and additional residents fit coordinated capacity. Qualify replica identity/routing/cancellation; default one resident per profile. |
@@ -97,16 +101,19 @@ This table covers every capability disposition in the source review; mention is 
 
 ## Completion handoff
 
-BEP closes only with baseline delivery, mandatory decisions, triggered branch dispositions and applicable actual qualification. CUDA deferral must name its missing support rather than claim native success. Default activation/project selection/promotion retain separate effect authority.
+BEP closes only with baseline delivery, mandatory decisions, triggered branch dispositions and applicable actual qualification. An unavailable selected CUDA provider must name its missing support rather than claim native success. Default activation/project selection/promotion retain separate effect authority.
 
 Move enduring architectural meaning into existing owners as implementation closes. Deliver a concise mapping of actual changes and preserved limits for later TC reconciliation, while leaving TC plan documents unchanged throughout this scope. This companion creates no second mutable progress or opportunity ledger.
 
 
-The coordinator's final-increment section now owns selected I04–I06 decisions and current
-qualification. I07/I08/I10–I13 remain conditional. I09 is settled for the GPU pivot: native bounded host threads/streams are selected; no replacement CPU executor library or external serving framework is required. The selected D1CUDA/otherCPU
-profile does not require other-provider CUDA adoption. Native layer capacity and end-to-end
-recovery receive actual checks before the whole-book run; final acceptance still requires every
-applicable row in the planned qualification table above.
+The coordinator owns selected I04–I06 decisions and current qualification. I07/I08/I10–I12
+remain conditional. I09 is settled for the GPU pivot: native bounded host threads/streams are
+selected; no replacement CPU executor library or external serving framework is required.
+ADR-0091 selects D1CUDA/BF16 and the other learned providersCUDA/FP32. I13's bounded timeline
+inquiry is selected alongside the actual book; readily available sequencing/resource observations
+are retained for subsequent dependency/throughput assessment. It does not add a scheduler or
+ports/adapters refactor to this qualification. Final acceptance still requires every applicable
+row in the qualification table above.
 
 
 ## Completion audit boundary · 2026-11-12
@@ -117,6 +124,7 @@ implementation gaps before claiming the assembled target or performing final acc
 green suite alone cannot establish omitted consumer behavior. Preserve the planned qualification
 table, scoped native/functional/nonfunctional receipts, selected/declined device decisions and
 conditional investigation triggers. No new benchmark, GPU-profile quota or diagnostic audit is
-introduced. The interrupted default campaign remains held with unsettled custody/fault missing;
-whole-book/lifecycle and actual retained-consumer/export/replay acceptance remain unperformed.
-This audit executes no tests/providers/book/migrations or recovery mutations.
+introduced. The historical interrupted default campaign remains held with unsettled custody;
+its missing obligations cannot be counted as passed. Current combined execution and replacements
+are recorded in the coordinator. Whole-book/lifecycle and actual retained-consumer/export/replay
+acceptance remain open. This audit itself executed no tests/providers/book/migrations or recovery mutations.
