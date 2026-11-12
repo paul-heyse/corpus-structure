@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from contextlib import ExitStack
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -11,6 +10,9 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, RootModel
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 
+from corpus_structure.cli.characterization_options import (
+    method_settings as resolved_method_settings,
+)
 from corpus_structure.cli.failures import failure_boundary
 from corpus_structure.cli.output import JsonOpt, diagnostic, emit, state, stderr_console
 from corpus_structure.semantic.product_reference import ProductReference
@@ -99,13 +101,13 @@ def regenerate(
         bool, typer.Option("--activate-release", help="Explicitly activate the run's release.")
     ] = False,
     json: JsonOpt = False,
+    execution_policy: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
 ) -> None:
     """Prepare, ingest, extract, consolidate and infer from actual source documents.
 
     Run `ci db init` first. This command never migrates or reads a legacy knowledge database.
     Reference grading is a separate `ci eval` operation with evaluator credentials.
     """
-    from corpus_structure.core.method import MethodSettings
     from corpus_structure.intervene.automated import extract_run
     from corpus_structure.orchestrate.commands import (
         finalize_bound_run,
@@ -181,9 +183,9 @@ def regenerate(
                 ReleaseConflict,
             ),
         ) as failure,
-        ExitStack() as source_observations,
     ):
         settings = state(ctx).settings()
+        method_settings = resolved_method_settings(settings, execution_policy)
         project = project or settings.runtime.default_project
         if not automated and (select_result or activate):
             raise SemanticRefusal("source preparation cannot select a result or activate a release")
@@ -300,6 +302,12 @@ def regenerate(
                 from corpus_structure.orchestrate.semantic import SourceRunCreated
 
                 def source_created(created: SourceRunCreated) -> None:
+                    from corpus_structure.orchestrate.characterization_recovery import (
+                        record_characterization_run,
+                    )
+
+                    if record_characterization_run(invocation, engine, created):
+                        return
                     bindings = {
                         "run_id": created.run_id,
                         "project": created.project,
@@ -307,7 +315,6 @@ def regenerate(
                     }
                     try:
                         invocation.bind_observations(**bindings)
-                        source_observations.enter_context(bound(**bindings))
                         invocation.stage("source_running", run_id=created.run_id)
                     except Exception as binding_error:
                         # Optional diagnostics cannot replace native source work or its failure.
@@ -330,15 +337,7 @@ def regenerate(
                     realization_id=source_id,
                     project_id=project,
                     domain=domain,
-                    method_settings=MethodSettings(
-                        data_dir=settings.paths.data_dir,
-                        model_cache=settings.paths.model_cache,
-                        nemotron_endpoint=settings.nemotron.endpoint,
-                        nemotron_python=settings.nemotron.python,
-                        nemotron_worker=settings.nemotron.worker,
-                        nemotron_receipts=settings.nemotron.receipts,
-                        nemotron_timeout_seconds=settings.nemotron.timeout_seconds,
-                    ),
+                    method_settings=method_settings,
                     slice=slice,
                     scope=scope,
                     whole_document=whole_document,

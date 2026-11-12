@@ -59,6 +59,11 @@ def test_actual_spawned_annotation_preserves_native_atoms_pieces_and_token_posit
         assert product.layout_digest
         assert all(row.status in {"complete", "not_applicable"} for row in product.availability)
         assert all(not hasattr(value, "vocab") for value in asdict(product).values())
+        assert execution.native_thread_reports
+        for report in execution.native_thread_reports.values():
+            assert report["threads"] == 1
+            assert report["pools"]
+            assert all(pool["num_threads"] == 1 for pool in report["pools"])
     finally:
         execution.close()
     assert execution.budget.used_bytes == 0

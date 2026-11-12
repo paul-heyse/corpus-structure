@@ -1,6 +1,6 @@
 # Book-processing efficiency and parallelism
 
-**Status: BEP-00–06 selected scope and required07a implemented/scoped-qualified; other07b/08/09 planned · Authored2026-11-11.** Owns BEP-00–BEP-09 and the scheduled disposition of the [source review](../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md)'s O01–O08 and RC01–RC04. This coordinator owns combined acceptance and investigation decisions; companions own the detailed contracts identified below.
+**Status: BEP-00–06 scoped-qualified; BEP-07/08 implemented, final qualification in progress; BEP-09 active · Updated2026-11-11.** Owns BEP-00–BEP-09 and the scheduled disposition of the [source review](../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md)'s O01–O08 and RC01–RC04. This coordinator owns combined acceptance and investigation decisions; companions own the detailed contracts identified below.
 
 ## Authority, scope and baseline
 
@@ -41,7 +41,7 @@ BEP-00 uses the ADR skill and applicable D3/D4/D6/D8 owners for durable rational
 
 ## Package ownership and execution dependencies
 
-BEP-00–03 are **implemented and scoped-qualified** by the first-increment receipts below. BEP-04/05, BEP-06 batching and required07a are implemented; operator-required D1 CUDA/BF16 qualification passed in this increment, with final scoped acceptance below. Other BEP-07b/08/09 remain **planned**. An agreed interface permits design work; working integration requires delivered prerequisites.
+BEP-00–03 are **implemented and scoped-qualified** by the first-increment receipts below. BEP-04/05, BEP-06 batching and required07a are implemented; operator-required D1 CUDA/BF16 qualification passed in this increment, with final scoped acceptance below. BEP-07b/08 are implemented with final qualification in progress; BEP-09 is active. An agreed interface permits design work; working integration requires delivered prerequisites.
 
 | Package | Required input | Delivered capability and owner |
 | --- | --- | --- |
@@ -68,10 +68,10 @@ BEP-06 first delivers working CPU batch contracts and integration. BEP-07b can c
 | O02 | Implemented/scoped-qualified BEP-02 | Bounded immutable regional reuse with fresh-value public APIs and trust protections. |
 | O03 | Implemented/scoped-qualified BEP-05 | Independent regions progress without unrelated ordering barriers. |
 | O04 | Implemented/scoped-qualified BEP-03/04/05 | Main-thread CPU execution, resident lanes and deterministic private-result reduction work together. |
-| O05 | Scoped-qualified CPU HanLP/GLiNER and CUDA-required D1; other devices remain07b | Existing batching preserved; selected native admission/batch contracts migrated and qualified. |
-| O06 | Required07a and selected D1 CUDA slice delivered; other devices/final counts remain BEP-07b | Coordinated policy delivered; mandatory CUDA investigation and selected profiles explicitly disposed. |
+| O05 | Scoped-qualified CPU HanLP/GLiNER and CUDA-required D1; selected CPU providers retained; current-source qualification remains BEP-09 | Existing batching preserved; selected native admission/batch contracts migrated and qualified. |
+| O06 | Required07a and selected D1 CUDA slice delivered; final operating selection implemented; current-source qualification remains BEP-09 | Coordinated policy delivered; mandatory CUDA investigation and selected profiles explicitly disposed. |
 | O07 | Scoped05/07a implementation; enclosing09 remains open | Fences, renewal, DB progress, proportional recovery and exact composition remain effective. |
-| O08 | Planned BEP-08 | Existing operations expose policy and meaningful capacity/prerequisite progress; cancel/resume usable. |
+| O08 | Implemented BEP-08; native/full-book qualification in progress | Existing operations expose policy and meaningful capacity/prerequisite progress; cancel/resume usable. |
 
 The investigation and capability tables in the qualification companion are part of this coordinator's scope; they do not create another execution ledger. Opportunities remain opportunities, not relabelled diagnostic defects. New execution findings belong here with responsible component, consequence and closure evidence.
 
@@ -104,7 +104,7 @@ SymPy; unrelated scientific/domain consumers are outside this increment.
 
 | ID | Responsible component / disposition | Evidence and consequence |
 | --- | --- | --- |
-| BEP-E01 | Native-evidence production/publication; open, required before full-book qualification | Run610/task2528 failed when publication exceeded the existing8MiB layer contract. `uv run ci status 610 --project nce-grinstead-snell-full-book --json` passed2026-11-11: failed run, terminal supervisor/readiness, zero unresolved agents/orphans. Original failure remains in native history and build/tc11-book-execution.log. No cap change, semantic truncation or book restart is included in00–03. Transport bounds do not repair an oversized canonical product. |
+| BEP-E01 | Native-evidence production/publication; coherent capacity replacement implemented/native-tested, whole-book acceptance pending | Run610/task2528 failed when publication exceeded the existing8MiB layer contract. `uv run ci status 610 --project nce-grinstead-snell-full-book --json` passed2026-11-11: failed run, terminal supervisor/readiness, zero unresolved agents/orphans. Original failure remains in native history and build/tc11-book-execution.log. No cap change, semantic truncation or book restart is included in00–03. Transport bounds do not repair an oversized canonical product. |
 | BEP-E02 | D1 device selection; closed in this increment | Actual two-prose-region capture exposes the incorrect CPU default: D1 exceeds120s and produces failed/unavailable family coverage. Original91203c735f4b4b1e87dddfa0f6dd89a2 and diagnostic retryf0766f5fa43141029e614de30b99e2e0 remain failed. Operator requires D1 always CUDA (2026-11-11). Current D1 configs/launches require CUDA/BF16 with120s inference and no CPU fallback. Native question/cohort/source/custody qualification passed bep.d1-cuda-ordered-native; actual captured-prose/native publication passed4/4,6dfe911f0ea14484a2bcd95d8bda8635. The tentative600s CPU override is removed. |
 | BEP-E03 | PM2 native transport/member authentication; closed in this increment | Actual CUDA literal-question probe exposed canonical JSON sorting of meaningful declared question/option/state order in new client/coalescer/reply seams. Shared ordered-native codec and version2 member/cohort receipts restore the existing contract; originalversion1 reads retain original hashes. Focused58 controls passed1918758d82714f83af87baad129fb849 and actual CUDA ordered/source checks passed; final current-source native publication passed4/4,6dfe911f0ea14484a2bcd95d8bda8635. |
 
@@ -427,3 +427,149 @@ Final root `just turn-end` **passed**,1131 Python files unchanged. `git diff --c
 TC coordinator/companions are unchanged against380fecc74. Only main exists as a worktree.
 Later receipt-only prose preserves source and publication applicability. No push, project/default
 activation, selection, promotion, recognition restart or book rerun occurred.
+
+
+## Authorized final increment · 2026-11-11
+
+The operator authorized BEP-07–09, including the actual full-book run after final source
+qualification. D1 alone uses CUDA/BF16 with its existing120s inference bound; all other selected
+NLP providers remain CPU. TC plans stay unchanged. No recognition restart, default activation,
+project result selection, promotion or push is authorized by this increment.
+
+### Final operating design and investigations
+
+**Implemented; qualification in progress2026-11-11.** [ADR-0087](../adr/0087-book-characterization-policy-and-recovery.md)
+and D3/D4/D6/D8 own the enduring design. The shared frozen
+`CharacterizationExecutionPolicy` resolves through settings and `--execution-policy FILE` once
+before effects. It reaches explicit demand, retained capture, ingest, default analytical work,
+standalone method fallbacks and explicit characterization recovery with complete MethodSettings.
+The defaults are two regions, two spawned CPU workers/submissions, two active stage runs,
+four claims and two provider jobs per compatible lane (one active, one pending).
+
+The encoded owned-state bound is2GiB, CPU input256MiB/reply64MiB, native request/reply8MiB.
+Native canonical layer publication/full reads admit64MiB; views retain64MiB. Primary native
+read responses admit256MiB per page, with exact-reference paging preserving complete closure.
+Execution hydration reserves response capacity before reads and charges retained bodies
+cumulatively to regional capacity; retained-reader/export budgets remain their own contracts.
+These are finite encoded-state limits, not RSS guarantees or measured optimal counts.
+
+BEP-I04 selects CPU-kernel native threads1 and supported provider threads4/inter-op1.
+Supported BLAS/OpenMP pools are inspected after libraries/model load and limited with
+threadpoolctl3.7.0. That exact dependency was added to the three locked PM2 CPU service
+environments; no unrelated dependency upgrade was selected. GLiNER retains its frozen semantic
+profile: its intra-op count must match policy and its supported inter-op count is one, with
+mismatches refused before startup/admission. Native thread choices enter primary task identity;
+placement counts/bytes do not.
+
+BEP-I05's selected arrangement is the operator-required hybrid: D1 CUDA/BF16, HanLP/Maverick/DiPO/
+GLiNER/spaCy CPU, one resident per compatible profile, existing GPU/Nemotron custody through
+teardown. Other-provider CUDA is explicitly declined for this operating selection, preserving
+the already qualified CPU routes and avoiding additional GPU residents/custody contention.
+Revisit only for a concrete selected workload/device benefit and its own native qualification.
+Generic standalone provider APIs remain available; characterization rejects a different device
+selection rather than falling back. BEP-I06 selects the finite counts above, one foreground
+DB operation with independently borrowed renewal and bounded dedicated supervisors.
+Conditional I07–I13 remain untriggered; no new replicas, distributed scheduler, runtime upgrade,
+shared-memory layer or standing benchmark is introduced.
+
+### Implemented recovery and operational surfaces
+
+The first actual stage run owns the versioned frozen demand in immutable native `options`;
+children reference that anchor. Options resolve after stage admission so concurrent initial
+regions cannot create competing anchors. The envelope freezes source/release/configuration/
+provider choices and a single fresh-work seed. Managed artifacts copy that authority and may
+expire independently. `ci run resume RUN --characterization` resolves a terminal child or
+anchor, preserves settled exact fresh products and creates ordinary runs only for unfinished
+work. Capacity-only policy changes remain compatible; thread/provider changes require a new
+demand. Original terminal records remain immutable.
+
+`ci run characterize --captured-run 496 --release RELEASE --realization INPUT` reuses authentic
+capture496/cut614/product1627 under an explicitly admitted current target. The original source
+release/cut/native-product associations survive; no PDF recognition is repeated. Existing
+status/events expose actual child/task identities, resolved policy, prerequisite/capacity waits
+and computation/reduction/publication settlement. Cancellation remains owned by the existing
+invocation/run/task lifecycle.
+
+### Capacity and integration evidence so far
+
+The [capacity investigation](../design_review/evidence/2026-11-11_bep-layer-capacity/README.md)
+retains exact source selections and actual complete CPU-native bodies: view480 produces
+9,253,073canonicalbytes (all13families), and largest-by-text view561 produces49,326,509bytes
+(all13families). The original failed method1 body was not recovered; current method2 outputs
+have their own frozen custody/digests. No original failure is relabelled. Full-book coverage
+remains a separate obligation.
+
+| Command / obligation | Outcome2026-11-11 / receipt |
+| --- | --- |
+| `uv run ci model change candidate b363e44ca72b40bbb3632dabdff02f77 --json` | passed,bef94253783f46da9bcefcf8469deaad |
+| `uv run ci model change register bef94253783f46da9bcefcf8469deaad --json` | passed,7a1c10f3773c4e788510b9a10f1384da |
+| `uv run ci model change deploy bef94253783f46da9bcefcf8469deaad --json` | passed,7b6d0475a0244ad387dde1eaffb54e8e; native head semantic_bep_capacity, release03c24857dc91… admitted/deployed, unselected |
+| `uv run ci test --json -- python/corpus-structure/tests/semantic/test_characterization_native.py -k 'large_layer_full_reads or layer_above_64_mib or native_composition_source_only_and_indexed_keyset_pages or native_publication_replay_partial_family_and_pin_read or native_layer_manifest_is_bounded_sealed_metadata'` | passed6/6,c3df282f91704fa39257f7007f2c6862; exact large-layer publication/replay/export, per-response paging, >64MiB refusal, compact projections |
+| `uv run ci test --json -- python/corpus-structure/tests/orchestrate/test_characterization_recovery.py` | passed13/13,4c0bdc4845e6429aa01e9e1cdb52ee0e; local envelope/anchor/policy/receipt controls only |
+
+Candidate authoring exposed a CLI defect: a temporary recreation drop was treated as permanent
+retirement. The adapter now excludes identities still desired without weakening native admission,
+and preserves frozen drop/create operations. Regression retry615109cf7d57400a9a0a296f07a01f43
+passed3/3; the original9aae46b455f44a8db26fdcb7f35a33b3 passed the other11cases.
+The original unexpected candidate failurede40456eb3104607938892d2d35d2d34, valid recreation-intent refusal5c15e890d7cb44b99c5a77e851681603
+and stale-preview refusald966849c69cd40eab3eabf7fc55c37a8 remain preserved.
+
+Final qualification still owes the applicable default functional/fault campaign, current native
+providers and end-to-end recovery, repository checks, actual316-view/518-page book completion
+and retained native/CLI/MCP/export/detached consumers. Scope is implemented, not yet accepted complete.
+
+
+### Final-source integration endpoint
+
+The [assembled review](../design_review/reviews/design_review_book-final-policy-and-recovery_2026-11-11.md)
+accepts the scoped design as Interface-checked, with no native pass claimed by inspection.
+Its material primary-reader finding is implemented across actual default analytical callers:
+registration digests and ancestor discovery own bounded per-source readers, claimed batches own
+inputs through completion, and borrowed characterization regions retain their existing lifetime.
+The standalone owner now supplies only open/release affinity, without a verification token.
+Seven execution implementation modules are included in archived runtime inputs, remaining outside
+the positive semantic-release input set. These corrections preserve native authorization and avoid
+a book-wide source/layer cache.
+
+`uv run ci test --json -- python/corpus-structure/tests/orchestrate/test_execution_preparation.py
+python/corpus-structure/tests/semantic/test_characterization_native.py::test_native_new_rule_release_reuses_original_native_layer_and_detached_contract`
+produced73edf3d9b7394f22bbf25fb88e48c69b:10preparation tests passed; the native case correctly
+refused a controlled fixture whose complete syntax coverage described only a text prefix.
+Only that test-local fixture was expanded to the actual retained text before authoring.
+`uv run ci test retry 73edf3d9b7394f22bbf25fb88e48c69b --lane ordinary --json` passed1/1,
+694783ed2487403fb6e08d01723a00ea, on unchanged production. The native case exercises real
+`start_bound_run`, original-source reuse under a new release, digest/claim primary reads,
+ancestor discovery and owner cleanup.
+
+`uv run ci check --view steps --json` passedecd5be13e49c43da8c1379b7d570dc24: agents/ADR/lint/
+types/docs/dependencies/Clippy passed; rules scan/tests were not_run because no rules exist.
+`uv run ci doctor --json` passed8bf3d144537a4d268c202878b995cc05. Rust result uses
+rustc1.102.0-nightly(9c5648833,2026-11-10). Assembled-review publication passed
+6c1199f748014534989db47b00751c6e. Later local test-fixture correction does not change the checked
+production; final campaign/check reconciliation remains required.
+
+Native recovery attempt5946b7adf0034b3da7ae6b1bf1e6541d remains failed: the first case verified
+all-settled exact resume/no new runs before its existing repeat exposed dynamic composition-profile
+validation. That production defect was corrected before stable-source retry. The other case
+correctly refused a changed live runtime while integration work was still active. Native
+analytical attemptd661ef47d26c499d8e022399734ff7c0 also retains its valid runtime-pin refusal.
+Neither refusal was bypassed or relabelled. Final-source provider/recovery qualification remains
+underway; full book and consumer acceptance remain not_run at this checkpoint.
+
+
+Final frozen-source recovery replacement:
+
+```sh
+CORPUS_PM2_NATIVE_TEST_ASSETS=/home/paul/corpus-structure/build/models/pm2 uv run ci test retry 5946b7adf0034b3da7ae6b1bf1e6541d --lane ordinary --json
+```
+
+**passed2/2**,d30ed0edcc3a4ae1832aa32c6bdca97f. The actual-provider case resumes a completed
+terminal child under workers/regions1 and preserves exact view/layers/anchor without created runs;
+its ordinary repeated demand also passes. The empty/image case retains the fresh formal seed and
+exact settled view without providers/new runs, and rejects a changed native thread profile.
+`uv run ci test coverage 5946b7adf0034b3da7ae6b1bf1e6541d d30ed0edcc3a4ae1832aa32c6bdca97f --view unresolved --limit 10 --json`
+reports2required/2covered/0unresolved and no active/unsettled attempts or missing lanes. It retains
+the original failure/source difference and historical native-context unknown rather than
+relabelling them; the frozen-source passing replacement supplies current applicability.
+No provider is claimed for the deliberately empty eligibility case. Final broad campaign and
+whole-book execution remain pending.

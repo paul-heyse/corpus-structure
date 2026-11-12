@@ -1,11 +1,57 @@
 # D6 · Orchestration, metrics and policies
 
+## Final characterization policy and retained recovery
+
+**Proposed accepted target · 2026-11-11.** One validated `CharacterizationExecutionPolicy`
+owns settings/API admission across explicit demands, books, ingest enrichment, analytical
+preparation and supported resume. Resolve once before admission and report actual values.
+Settings and `--execution-policy FILE` use the same validation; counts/byte overrides are
+result-neutral placement choices. Inference profile/device/precision/thread changes freeze
+under their appropriate configuration/provenance before registration, never by patching a
+claimed task or reinterpreting a retained observation.
+
+The selected defaults are two admitted natural regions, two CPU workers, two active stage
+runs, four logical claims and two provider jobs per compatible lane. Each compatible provider/profile retains one
+resident, one active exchange and at most one pending native batch. One foreground DB operation
+preserves independent renewal; dedicated supervisors are bounded by admitted runs. CPU kernels
+use one native thread; supported providers use four native/intra-op threads and one inter-op
+thread before native work. D1 alone requires CUDA/BF16 with 120 second inference; other selected
+NLP providers use CPU. Every caller carries complete `MethodSettings`, including Nemotron
+handoff configuration, through the same custody owner. GLiNER's frozen profile must match the
+selected intra-op thread count, and its supported inter-op count is one; mismatches refuse
+before provider startup or task admission.
+
+The shared encoded owned-state budget is 2 GiB, with 256 MiB CPU inputs and 64 MiB CPU replies.
+Charge regional bodies, queued packets, completed replies, reductions and publication drafts
+until their final consumer. Admission precedes hydration/serialization; a full downstream owner
+backpressures upstream work. D3 owns coherent 64 MiB canonical-layer/full-layer read bounds,
+the existing 64 MiB per-view bound and 256 MiB aggregate full-read response admission per native page. Native IPC/page reads
+keep their smaller independent bounds. These are encoded-state limits, not RSS guarantees or
+measured optimal counts. Capacity-one uses the same dispatcher.
+
+Freeze semantic demand, source/release/dependency selections and freshness seed once. D3's
+first-actual-run `options` anchor owns the versioned retained demand; later runs carry its
+reference. `ci run resume RUN --characterization` reconstructs it even from a terminal child,
+creates new runs for unfinished work and reuses compatible settled products. It preserves the
+original freshness seed and uncertain-publication replay owner. Existing run cancellation stays
+run-scoped; managed-operation cancellation/SIGINT stops the whole owned operation, fences late
+replies, drains/terminates children and restores device custody. Useful sibling members retain
+their completion rights. There is no synthetic control run, durable progress service or recovery
+dependence on expiring delivered artifacts.
+
+Implementation and qualification belong to the
+[BEP coordinator](../plans/book-processing-efficiency-and-parallelism_2026-11-11.md), including
+SourceView 480 native size repair before the new unselected candidate's full-book execution.
+Accepted target labels do not establish those obligations or a measured performance benefit.
+
+> Decision: [ADR-0087](../adr/0087-book-characterization-policy-and-recovery.md)
+
 ## Bounded ready coordination and provider lanes
 
 **Proposed accepted target · 2026-11-11.** The invocation coordinator advances independent ready
 regions/stages by completion through actual existing stage-run boundaries and exact predecessor
-pins. Initial CPU delivery admits two natural regions, two workers in one spawn pool, two stage
-runs and four claims, with256MiB encoded owned state,64MiB CPU input and8MiB CPU result bounds.
+pins. The final policy above owns operating counts, thread/device profiles and coherent byte
+bounds; it replaces the initial CPU delivery limits without changing these ownership contracts.
 Capacity-one uses the same dispatcher. One foreground DB operation preserves independent renewal;
 active dedicated supervisors remain bounded. Provider/profile owners retain one compatible
 resident, one exchange and at most one pending native batch. PM2 CPU startup applies four native/
@@ -25,7 +71,8 @@ The [scoped review](../design_review/reviews/design_review_book-ready-coordinati
 distinguishes that evidence from final captured-source DB/native qualification, which remains
 pending with the BEP owner. Exact native confidence can vary across GPU groupings; retain actual
 unrounded scores without CPU-equivalence, epsilon or universal selection-stability claims. CPU
-timeout and earlier order failures stay diagnostic evidence. Other devices/final counts remain07b.
+timeout and earlier order failures stay diagnostic evidence. Final selected profiles/counts are
+recorded above; actual assembled qualification remains with BEP.
 
 > Decision: [ADR-0086](../adr/0086-d1-requires-cuda-bfloat16.md)
 
@@ -62,8 +109,8 @@ One invocation owns regional lifetimes and physical admission across retained bo
 packets and completed replies awaiting consumption. Capacity-one uses the same implementation
 as overlap; the ready-coordination boundary above owns the selected next-increment limits and
 per-request cancellation extension. Limits cover encoded owned bodies, not interpreter RSS.
-Oversized indivisible input refuses without truncating semantic scope. BEP-07b owns final
-coordinated counts/devices.
+Oversized indivisible input refuses without truncating semantic scope. The final policy above
+owns selected coordinated counts/devices and the remaining materialization decision route.
 
 Warm ProcessPoolExecutor workers use explicit spawn and main-thread parser execution. The parent
 retains durable claims, renewal, validation, completion and publication. Stop prevents admission,

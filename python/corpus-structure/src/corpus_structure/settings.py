@@ -13,15 +13,27 @@ ignored, so `settings_report` lists every `CORPUS_*` name that matches no field.
 from __future__ import annotations
 
 import inspect
+import json
 import os
 from collections.abc import Mapping
+from dataclasses import fields, is_dataclass
 from pathlib import Path
 from typing import Any, Literal, get_args
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, SecretStr, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 from pydantic_settings.sources import EnvSettingsSource, InitSettingsSource
+
+from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 
 ENV_PREFIX = "CORPUS_"
 NESTED_DELIMITER = "__"
@@ -219,12 +231,26 @@ class Settings(BaseSettings):
     nemotron: NemotronSettings = NemotronSettings()
     gpu: GpuSettings = GpuSettings()
     analytics: AnalyticsSettings = AnalyticsSettings()
+    characterization_execution: CharacterizationExecutionPolicy = Field(
+        default_factory=CharacterizationExecutionPolicy
+    )
     runtime: RuntimeSettings = RuntimeSettings()
     ci_results: Path | None = None
     _origins: dict[str, str] = PrivateAttr(default_factory=dict)
     _environment_names: tuple[str, ...] = PrivateAttr(default=())
     _known_names: frozenset[str] = PrivateAttr(default_factory=frozenset)
     _source_policy: dict[str, str | bool | None] = PrivateAttr(default_factory=dict)
+
+    @field_validator("characterization_execution", mode="before")
+    @classmethod
+    def decode_execution_environment(cls, value):
+        # Environment leaves are strings; the shared policy itself remains strict.
+        if isinstance(value, Mapping):
+            return {
+                key: json.loads(item) if isinstance(item, str) else item
+                for key, item in value.items()
+            }
+        return value
 
     def __init__(self, **values: Any) -> None:
         # These pinned 2.16.1 native hooks prepare sources once and give them back to
@@ -337,6 +363,10 @@ def known_env_names(source: EnvSettingsSource) -> frozenset[str]:
         for child in get_args(info.annotation) or (info.annotation,):
             if isinstance(child, type) and issubclass(child, BaseModel):
                 children(child, base)
+            elif isinstance(child, type) and is_dataclass(child):
+                for field in fields(child):
+                    if field.init:
+                        names.add(normalize(base + source.env_nested_delimiter + field.name))
 
     for name, info in source.settings_cls.model_fields.items():
         # Native root extraction owns env_prefix_target, AliasChoices/AliasPath,

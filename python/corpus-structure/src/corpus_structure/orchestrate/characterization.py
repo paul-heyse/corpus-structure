@@ -7,7 +7,7 @@ task reuse, worker ownership and source cuts remain authoritative; no query runs
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -84,6 +84,8 @@ class EnrichedDocumentResult:
     readiness: str
     missing_families: tuple[str, ...]
     preparation_diagnostics: tuple[str, ...] = ()
+    anchor_run_id: int | None = None
+    execution_policy: dict[str, Any] | None = None
 
 
 def _inventory(engine, run_id):
@@ -106,7 +108,9 @@ def enrich_document(*args, **kwargs):
         return drive_prepared_work(_enrich_document_plan(*args, **kwargs), lambda: None)
     from .ready import owned_source_execution
 
-    with owned_source_execution(kwargs["prepared"]) as execution:
+    with owned_source_execution(
+        kwargs["prepared"], policy=kwargs["method_settings"].execution_policy
+    ) as execution:
         kwargs["execution_preparation"] = execution
         return drive_prepared_work(_enrich_document_plan(*args, **kwargs), lambda: None)
 
@@ -127,6 +131,8 @@ def _enrich_document_plan(
     on_created=None,
     execution_preparation=None,
     regional_preparation=None,
+    characterization_operation=None,
+    region_index=0,
 ):
     """Fulfil an explicit demand; provider profiles are frozen ordinary method options.
 
@@ -134,12 +140,36 @@ def _enrich_document_plan(
     provide existing independent recovery/reuse boundaries between actual dependency stages.
     They are never selected or promoted here.
     """
-    from corpus_structure.methods.native_evidence_layers import has_selected_native_text
     from corpus_structure.semantic.query import read_snapshot
-    from corpus_structure.semantic.source_views import load_source_view
 
     if execution_preparation is None:
         raise ValueError("incremental enrichment requires an owned execution scope")
+    if characterization_operation is None:
+        from .characterization_recovery import CharacterizationOperation
+
+        request = CharacterizationDemandRequest(
+            project_id=project_id,
+            release_id=binding.release_id,
+            realization_id=binding.input_realization_id,
+            domain=domain,
+            base_document=demand.base_document,
+            source_scope=dict(demand.source_scope),
+            selected_sources=tuple(selected_sources),
+            selected_layers=demand.selected_layers,
+            source_only=demand.source_only,
+            active_layers=demand.active_layers,
+            run_missing=demand.run_missing,
+            fresh_methods=demand.fresh_methods,
+            method_options=dict(method_options or {}),
+        )
+        cache = {} if preparation_cache is None else preparation_cache
+        request, diagnostics = _freeze_request(
+            engine, request, registry, prepared, method_settings, cache
+        )
+        characterization_operation = CharacterizationOperation.freeze(
+            (request,), registry, cache, diagnostics, method_settings.execution_policy
+        )
+        method_options = request.method_options
     options = method_options or {}
     required = set(characterization_profiles(prepared).get("full_characterization", ()))
     if not demand.source_only and not required:
@@ -154,12 +184,6 @@ def _enrich_document_plan(
                 if demand.run_missing and regional_preparation is not None
                 else (read_layer if demand.run_missing else read_layer_manifest)(conn, pin)
             )
-        has_text = any(
-            has_selected_native_text(
-                load_source_view(conn, identity, analysis=False), demand.source_scope["selectors"]
-            )
-            for identity in demand.source_scope["source_view_ids"]
-        )
     if any(layer.base_document != base for layer in layers.values()):
         raise ValueError("enrichment selection mixes native documents")
     from corpus_structure.semantic.characterization import scope_contains
@@ -188,83 +212,16 @@ def _enrich_document_plan(
     active_pins = list(pins if demand.active_layers is None else demand.active_layers)
     if len(set(active_pins)) != len(active_pins) or not set(active_pins) <= set(pins):
         raise ValueError("active demand layers must be a distinct subset of retained closure")
-    runs = []
-    preparation_diagnostics = []
-    native_profiles: dict[str, dict[str, Any] | None] = (
-        {} if preparation_cache is None else preparation_cache
+    runs = (
+        list(characterization_operation.recovered_runs.get(region_index, ()))
+        if characterization_operation is not None
+        else []
     )
-
-    def native_profile(provider):
-        if provider not in native_profiles:
-            from pathlib import Path
-
-            import corpus_structure.methods.pm2_native as native_module
-            from corpus_structure.methods.pm2_worker import (
-                Pm2WorkerError,
-                Pm2WorkerRefused,
-                preflight_pm2_runtime,
-            )
-
-            script = Path(native_module.__file__)
-            root = script.resolve().parents[5]
-            project = root if provider == "d1" else root / f"services/pm2-{provider}"
-            try:
-                native_profiles[provider] = preflight_pm2_runtime(
-                    python=project / ".venv/bin/python",
-                    script=script,
-                    project=project,
-                    provider=provider,
-                    assets=method_settings.model_cache / "pm2",
-                )
-            except (Pm2WorkerError, Pm2WorkerRefused) as error:
-                native_profiles[provider] = None
-                preparation_diagnostics.append(f"{provider}: {error}")
-        return native_profiles[provider]
-
-    def freeze_providers(name, parameters):
-        # Authentication precedes task/configuration identity and every reuse lookup.
-        if not has_text:
-            return
-        if (
-            name == "text.native_evidence"
-            and parameters.get("characterization_profile", "full_native") == "full_native"
-        ):
-            if (
-                parameters.get("hanlp_runtime") is None
-                and parameters.get("hanlp_artifacts") is None
-            ):
-                profile = native_profile("hanlp")
-                if profile is not None:
-                    parameters.update(
-                        hanlp_runtime=profile["runtime_identity"], hanlp_artifacts=profile["assets"]
-                    )
-        elif (
-            name == "text.contextual_characterization"
-            and parameters.get("native_mode", "infer") == "infer"
-        ):
-            runtimes, artifacts = (
-                dict(parameters.get("native_runtime", {})),
-                dict(parameters.get("native_artifacts", {})),
-            )
-            for provider in ("maverick", "dipo"):
-                if provider not in runtimes and provider not in artifacts:
-                    profile = native_profile(provider)
-                    if profile is not None:
-                        runtimes[provider], artifacts[provider] = (
-                            profile["runtime_identity"],
-                            profile["assets"],
-                        )
-            parameters.update(native_runtime=runtimes, native_artifacts=artifacts)
-        elif (
-            name == "text.model_characterization"
-            and parameters.get("d1_runtime") is None
-            and parameters.get("d1_artifacts") is None
-        ):
-            profile = native_profile("d1")
-            if profile is not None:
-                parameters.update(
-                    d1_runtime=profile["runtime_identity"], d1_artifacts=profile["assets"]
-                )
+    preparation_diagnostics = (
+        list(characterization_operation.envelope.preparation_diagnostics)
+        if characterization_operation is not None
+        else []
+    )
 
     def retained_context(parameters):
         """Reuse raw populations only under the same complete inference request."""
@@ -308,6 +265,8 @@ def _enrich_document_plan(
         with read_snapshot(engine) as conn:
             for pin in active_pins:
                 body = layers[pin].payload
+                if not compatible_execution(pin):
+                    continue
                 if body["operation"]["key"] != "text.contextual_characterization":
                     continue
                 if not all(
@@ -347,6 +306,26 @@ def _enrich_document_plan(
                 "rival retained context populations require explicit native evidence selection"
             )
         return candidates
+
+    def compatible_execution(pin):
+        from sqlalchemy import select
+
+        from corpus_structure.semantic.metadata import table
+
+        from .characterization_recovery import native_thread_profile
+
+        task, run = table("ops.task"), table("ops.run")
+        with read_snapshot(engine) as conn:
+            previous = conn.scalar(
+                select(run.c.options)
+                .select_from(task.join(run, task.c.run_id == run.c.id))
+                .where(task.c.id == pin.task_id)
+            )
+        profile = (previous or {}).get("physical_policy", {})
+        return all(
+            profile.get(key) == value
+            for key, value in native_thread_profile(method_settings.execution_policy).items()
+        )
 
     def stage(names: Sequence[str], additions=None):
         nonlocal pins, active_pins
@@ -414,7 +393,6 @@ def _enrich_document_plan(
                 parameters.setdefault("question_manifest", question_manifest(prepared))
             for key, value in (additions or {}).get(name, {}).items():
                 parameters.setdefault(key, value)
-            freeze_providers(name, parameters)
             if (
                 name == "text.contextual_characterization"
                 and "native_mode" not in options.get(name, {})
@@ -444,11 +422,23 @@ def _enrich_document_plan(
                 and layer.payload["operation"]["version"] == selected.method(name).version
                 and layer.payload["operation"]["configuration"] == expected.config_hash
                 and layer.payload["source_scope"] == dict(demand.source_scope)
+                and (name not in PRIMARY_PRODUCERS or compatible_execution(pin))
             ]
+            if (
+                name in demand.fresh_methods
+                and characterization_operation is not None
+                and characterization_operation.recovering
+            ):
+                matches = [
+                    pin for pin in matches if pin in characterization_operation.recovered_layers
+                ]
+            reusable = name not in demand.fresh_methods or (
+                characterization_operation is not None and characterization_operation.recovering
+            )
             selected_matches = [pin for pin in matches if pin in active_pins]
-            if name not in demand.fresh_methods and len(selected_matches or matches) > 1:
+            if reusable and len(selected_matches or matches) > 1:
                 raise ValueError("rival reusable layers require an explicit active selection")
-            if name != "text.compose_view" and name not in demand.fresh_methods and matches:
+            if name != "text.compose_view" and reusable and matches:
                 reused[name] = (selected_matches or matches)[0]
             else:
                 active.append(name)
@@ -465,7 +455,21 @@ def _enrich_document_plan(
             engine,
             execution_preparation=execution_preparation,
             regional_preparation=regional_preparation,
-            on_created=on_created,
+            on_created=lambda created: (
+                characterization_operation.created(created, on_created)
+                if characterization_operation is not None
+                else on_created(created)
+                if on_created is not None
+                else None
+            ),
+            characterization_run_options=(
+                lambda: characterization_operation.options(region_index, names)
+            )
+            if characterization_operation is not None
+            else None,
+            freshness_seed=characterization_operation.envelope.freshness_seed
+            if characterization_operation is not None
+            else None,
             project_id=project_id,
             prepared=prepared,
             binding=binding,
@@ -584,9 +588,27 @@ def _enrich_document_plan(
         if required <= present
         else "selected_layers"
     )
-    products = yield from stage(
-        ("text.compose_view",), {"text.compose_view": dict(characterization_profile=profile)}
-    )
+    products: list[dict[str, Any]] | None = None
+    if characterization_operation is not None and characterization_operation.recovering:
+        from corpus_structure.semantic.characterization_store import read_view
+
+        for reference in reversed(characterization_operation.recovered_views.get(region_index, ())):
+            with read_snapshot(engine) as conn:
+                body = read_view(conn, reference).payload
+            if (
+                body["base_document"] == base.values()
+                and body["source_scope"] == dict(demand.source_scope)
+                and body["layers"] == [pin.values() for pin in pins]
+                and body.get("active_layers", body["layers"])
+                == [pin.values() for pin in active_pins]
+                and body["profile"] == profile
+            ):
+                products = [{"kind": "view", "reference": reference.values()}]
+                break
+    if products is None:
+        products = yield from stage(
+            ("text.compose_view",), {"text.compose_view": dict(characterization_profile=profile)}
+        )
     views = [ProductReference(**row["reference"]) for row in products if row["kind"] == "view"]
     if len(views) != 1:
         raise ValueError("enrichment demand did not produce one exact composed view")
@@ -596,6 +618,22 @@ def _enrich_document_plan(
             | {row["family"] for row in coverage if row["outcome"] not in {"complete", "empty"}}
         )
     )
+    from corpus_structure.cli.observation_logging import event
+
+    event(
+        "characterization_region_settled",
+        "Characterization view settled",
+        anchor_run_id=characterization_operation.anchor_run_id
+        if characterization_operation is not None
+        else None,
+        region=region_index,
+        run_ids=runs,
+        task_id=views[0].task_id,
+        view=views[0].values(),
+        readiness="source_only" if not pins else "partial" if missing else "enriched",
+        missing_families=list(missing),
+        activity="settled",
+    )
     return EnrichedDocumentResult(
         views[0],
         tuple(pins),
@@ -603,7 +641,195 @@ def _enrich_document_plan(
         "source_only" if not pins else "partial" if missing else "enriched",
         missing,
         tuple(preparation_diagnostics),
+        characterization_operation.anchor_run_id
+        if characterization_operation is not None
+        else None,
+        asdict(execution_preparation.cpu.policy),
     )
+
+
+def _freeze_request(engine, request, registry, prepared, method_settings, preparation_cache):
+    """Freeze semantic provider/configuration selection before the first task is admitted."""
+    from corpus_structure.methods.native_evidence_layers import has_selected_native_text
+    from corpus_structure.semantic.operations import OperationConflict
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.source_views import load_source_view
+
+    preparation_diagnostics = []
+    native_profiles = preparation_cache
+    with read_snapshot(engine) as conn:
+        has_text = any(
+            has_selected_native_text(
+                load_source_view(conn, identity, analysis=False), request.source_scope["selectors"]
+            )
+            for identity in request.source_scope["source_view_ids"]
+        )
+
+    def native_profile(provider):
+        if provider not in native_profiles:
+            from pathlib import Path
+
+            import corpus_structure.methods.pm2_native as native_module
+            from corpus_structure.methods.pm2_worker import (
+                Pm2WorkerError,
+                Pm2WorkerRefused,
+                preflight_pm2_runtime,
+            )
+
+            script = Path(native_module.__file__)
+            root = script.resolve().parents[5]
+            project = root if provider == "d1" else root / f"services/pm2-{provider}"
+            try:
+                native_profiles[provider] = preflight_pm2_runtime(
+                    python=project / ".venv/bin/python",
+                    script=script,
+                    project=project,
+                    provider=provider,
+                    assets=method_settings.model_cache / "pm2",
+                )
+            except (Pm2WorkerError, Pm2WorkerRefused) as error:
+                native_profiles[provider] = None
+                preparation_diagnostics.append(f"{provider}: {error}")
+        return native_profiles[provider]
+
+    def freeze_providers(name, parameters):
+        # Authentication precedes task/configuration identity and every reuse lookup.
+        if not has_text:
+            return
+        if (
+            name == "text.native_evidence"
+            and parameters.get("characterization_profile", "full_native") == "full_native"
+        ):
+            if (
+                parameters.get("hanlp_runtime") is None
+                and parameters.get("hanlp_artifacts") is None
+            ):
+                profile = native_profile("hanlp")
+                if profile is not None:
+                    parameters.update(
+                        hanlp_runtime=profile["runtime_identity"], hanlp_artifacts=profile["assets"]
+                    )
+        elif (
+            name == "text.contextual_characterization"
+            and parameters.get("native_mode", "infer") == "infer"
+        ):
+            runtimes, artifacts = (
+                dict(parameters.get("native_runtime", {})),
+                dict(parameters.get("native_artifacts", {})),
+            )
+            for provider in ("maverick", "dipo"):
+                if provider not in runtimes and provider not in artifacts:
+                    profile = native_profile(provider)
+                    if profile is not None:
+                        runtimes[provider], artifacts[provider] = (
+                            profile["runtime_identity"],
+                            profile["assets"],
+                        )
+            parameters.update(native_runtime=runtimes, native_artifacts=artifacts)
+        elif (
+            name == "text.model_characterization"
+            and parameters.get("d1_runtime") is None
+            and parameters.get("d1_artifacts") is None
+        ):
+            profile = native_profile("d1")
+            if profile is not None:
+                parameters.update(
+                    d1_runtime=profile["runtime_identity"], d1_artifacts=profile["assets"]
+                )
+
+    options = {}
+    names = (
+        (*sorted(PRIMARY_PRODUCERS), "text.compose_view")
+        if request.run_missing and not request.source_only
+        else ("text.compose_view",)
+    )
+    for name in names:
+        parameters = dict(registry.file.configs.get(name, {}).get("default", {}))
+        parameters.update(request.method_options.get(name, {}))
+        if {
+            "characterization_base_document",
+            "characterization_source_scope",
+            "characterization_layers",
+        } & parameters.keys():
+            raise ValueError("method options cannot replace demand source/dependency pins")
+        if name == "text.formal_evidence":
+            parameters.setdefault(
+                "macros", registry.file.sections.get("math", {}).get("macros", {})
+            )
+        if name == "text.constructions":
+            parameters.setdefault("math_scope_binders", registry.file.sections.get("binders"))
+            parameters.setdefault(
+                "math_domain_rules",
+                registry.file.sections.get("math", {}).get("native_domain_rules", ()),
+            )
+        if name == "text.model_characterization":
+            from corpus_structure.semantic.model_characterization import question_manifest
+
+            parameters.setdefault("question_manifest", question_manifest(prepared))
+        device_fields = {
+            "text.native_evidence": {"hanlp_device": "cpu"},
+            "text.contextual_characterization": {"native_device": "cpu"},
+            "text.model_characterization": {"d1_device": "cuda"},
+        }
+        for field, device in device_fields.get(name, {}).items():
+            if parameters.get(field, device) != device:
+                raise OperationConflict(f"characterization requires {field}={device}")
+            parameters.setdefault(field, device)
+        config_type = registry.method(name).Config
+        supplied = dict(parameters)
+        if name == "text.compose_view":
+            parameters.setdefault(
+                "characterization_profile",
+                "selected_layers" if request.selected_layers else "source_only",
+            )
+        selected_fields = {
+            "characterization_base_document": request.base_document.values(),
+            "characterization_source_scope": request.source_scope,
+            "characterization_layers": [pin.values() for pin in request.selected_layers],
+        }
+        resolved = config_type.model_validate(
+            {
+                **parameters,
+                **{
+                    key: value
+                    for key, value in selected_fields.items()
+                    if key in config_type.model_fields
+                },
+            }
+        ).model_dump(mode="json")
+        if name == "text.model_characterization" and resolved.get("gliner_profile") is not None:
+            gliner_threads = resolved["gliner_profile"]["profile"]["threads"]
+            if gliner_threads != method_settings.execution_policy.provider_threads:
+                raise OperationConflict(
+                    "characterization GLiNER profile threads must match execution policy "
+                    "provider_threads; select a matching semantic GLiNER profile"
+                )
+            # The selected GLiNER launcher has an explicit fixed inter-op setting.
+            if method_settings.execution_policy.provider_interop_threads != 1:
+                raise OperationConflict(
+                    "characterization GLiNER requires provider_interop_threads=1"
+                )
+        for key in selected_fields:
+            resolved.pop(key, None)
+        # These inputs are determined from actual predecessor products at their stage.
+        dynamic = {
+            "native_token_layer",
+            "retained_native_layers",
+            "native_mode",
+            "symbolic_roots",
+            "context_layers",
+            "characterization_active_layers",
+        }
+        if name == "text.compose_view":
+            dynamic.add("characterization_profile")
+        for key in dynamic - supplied.keys():
+            resolved.pop(key, None)
+        options[name] = resolved
+    # Resolve every knowable config/profile refusal before launching preflight children.
+    if request.run_missing and not request.source_only:
+        for name, parameters in options.items():
+            freeze_providers(name, parameters)
+    return request.model_copy(update={"method_options": options}), tuple(preparation_diagnostics)
 
 
 def execute_characterization_demand(
@@ -620,7 +846,9 @@ def execute_characterization_demand(
     from corpus_structure.semantic.query import read_snapshot
 
     with read_snapshot(engine) as conn:
-        execution = prepare_execution(conn, request.release_id)
+        execution = prepare_execution(
+            conn, request.release_id, policy=method_settings.execution_policy
+        )
     with execution:
         return _execute_characterization_demand(execution, **arguments)
 
@@ -640,6 +868,8 @@ def _demand_plan(
     preparation_cache=None,
     registry=None,
     on_created=None,
+    characterization_operation=None,
+    region_index=0,
 ):
     """Public execution boundary: exact released demand, never a query-side parser."""
     from sqlalchemy import select
@@ -653,7 +883,14 @@ def _demand_plan(
     from .phase0 import registry as registry_for
 
     with read_snapshot(engine) as conn:
+        from sqlalchemy import text
+
         prepared = execution.require_release(request.release_id)
+        for selected_source in request.selected_sources:
+            conn.execute(
+                text("SELECT ops.validate_structural_source(CAST(:source AS jsonb))"),
+                {"source": canonical_bytes(selected_source.model_dump(mode="json")).decode()},
+            ).scalar_one()
         realization = table("data.realization")
         source = (
             conn.execute(
@@ -673,6 +910,17 @@ def _demand_plan(
         canonical_bytes(dict(domain=request.domain, release=request.release_id)),
     )
     selected = (registry or registry_for(DOMAINS / request.domain)).bind_release(prepared)
+    if characterization_operation is None:
+        from .characterization_recovery import CharacterizationOperation
+
+        cache = {} if preparation_cache is None else preparation_cache
+        request, diagnostics = _freeze_request(
+            engine, request, selected, prepared, method_settings, cache
+        )
+        characterization_operation = CharacterizationOperation.freeze(
+            (request,), selected, cache, diagnostics, method_settings.execution_policy
+        )
+    request = characterization_operation.request(region_index, request)
     from corpus_structure.semantic.execution_preparation import RegionalPreparation
 
     with RegionalPreparation(execution) as regional:
@@ -681,6 +929,8 @@ def _demand_plan(
                 engine,
                 execution_preparation=execution,
                 regional_preparation=regional,
+                characterization_operation=characterization_operation,
+                region_index=region_index,
                 demand=EnrichedDocumentDemand(
                     request.base_document,
                     request.source_scope,
@@ -759,7 +1009,7 @@ def characterize_captured_run(
     from corpus_structure.semantic.query import read_snapshot
 
     with read_snapshot(engine) as conn:
-        execution = prepare_execution(conn, release_id)
+        execution = prepare_execution(conn, release_id, policy=method_settings.execution_policy)
     with execution:
         return _characterize_captured_run(execution, **arguments)
 
@@ -791,7 +1041,18 @@ def _characterize_captured_run(
 
     # A capture branch has no knowledge promotion. Completing its existing run is
     # necessary for portable original-source references used by later stages.
-    finalize_bound_run(engine, int(run.run_id), f"characterization-capture:{int(run.run_id)}")
+    with read_snapshot(engine) as conn:
+        source_runs = table("ops.run")
+        origin = (
+            conn.execute(select(source_runs).where(source_runs.c.id == int(run.run_id)))
+            .mappings()
+            .one()
+        )
+        if origin["project_id"] != project_id:
+            raise ValueError("captured source belongs to another project")
+        origin_release_id = origin["release_id"]
+    if origin["status"] != "finished" or not origin["sealed"]:
+        finalize_bound_run(engine, int(run.run_id), f"characterization-capture:{int(run.run_id)}")
     requests = []
     with read_snapshot(engine) as conn:
         completed, batch, source_run, selection = map(
@@ -818,7 +1079,7 @@ def _characterize_captured_run(
                     )
                     .where(
                         source_run.c.project_id == project_id,
-                        source_run.c.release_id == release_id,
+                        source_run.c.release_id == origin_release_id,
                         source_run.c.status == "finished",
                         source_run.c.sealed,
                         select(selection.c.source_view_id)
@@ -842,7 +1103,7 @@ def _characterize_captured_run(
                         project_id=project_id,
                         run_id=result["id"],
                         cut_id=result["cut_id"],
-                        release_id=release_id,
+                        release_id=origin_release_id,
                         result_revision=result["data_revision"],
                         source_view_id=ref.id,
                         native_task_id=base.task_id,
@@ -890,6 +1151,29 @@ def _characterize_captured_run(
                 )
             )
     preparation_cache = {}
+    from corpus_structure.schema.pack import DOMAINS
+
+    from .characterization_recovery import CharacterizationOperation
+    from .phase0 import registry as registry_for
+
+    selected = (registry or registry_for(DOMAINS / domain)).bind_release(
+        execution.require_release(release_id)
+    )
+    frozen, diagnostics = [], []
+    for request in requests:
+        request, messages = _freeze_request(
+            engine, request, selected, execution.prepared, method_settings, preparation_cache
+        )
+        frozen.append(request)
+        diagnostics.extend(messages)
+    requests = frozen
+    operation = CharacterizationOperation.freeze(
+        tuple(requests),
+        selected,
+        preparation_cache,
+        tuple(diagnostics),
+        method_settings.execution_policy,
+    )
     from corpus_structure.core.work import ReadyGroup, drive_prepared_work
 
     def regions_plan():
@@ -904,17 +1188,35 @@ def _characterize_captured_run(
                         preparation_cache=preparation_cache,
                         registry=registry,
                         on_created=on_created,
+                        characterization_operation=operation,
+                        region_index=index,
                     )
-                    for request in requests
+                    for index, request in enumerate(requests)
                 ),
                 max_active=execution.cpu.policy.max_regions,
             )
         )
 
     regional = list(zip(requests, drive_prepared_work(regions_plan(), lambda: None), strict=True))
+    return _combine_characterization_results(
+        execution,
+        engine,
+        regional,
+        method_settings,
+        registry=registry,
+        on_created=on_created,
+        operation=operation,
+    )
+
+
+def _combine_characterization_results(
+    execution, engine, regional, method_settings, *, registry=None, on_created=None, operation=None
+):
     # Natural units bound inference and recovery; one composed document pin brings
     # their selected analyses together without running those producers again.
     from corpus_structure.semantic.characterization_store import read_view
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.query import read_snapshot
 
     documents = {}
     for request, result in regional:
@@ -947,20 +1249,29 @@ def _characterize_captured_run(
         for name in ("source_views", "selectors"):
             scope[name] = list({canonical_bytes(value): value for value in scope[name]}.values())
         request = CharacterizationDemandRequest(
-            project_id=project_id,
-            release_id=release_id,
-            realization_id=realization_id,
-            domain=domain,
+            project_id=entries[0][0].project_id,
+            release_id=entries[0][0].release_id,
+            realization_id=entries[0][0].realization_id,
+            domain=entries[0][0].domain,
             base_document=base,
             source_scope=scope,
             selected_sources=tuple(sources),
             selected_layers=tuple(dict.fromkeys(refs)),
             active_layers=tuple(dict.fromkeys(active)),
             run_missing=False,
-            method_options={"text.compose_view": method_options.get("text.compose_view", {})},
+            method_options={
+                "text.compose_view": entries[0][0].method_options.get("text.compose_view", {})
+            },
         )
         result = _execute_characterization_demand(
-            execution, engine, request, method_settings, registry=registry, on_created=on_created
+            execution,
+            engine,
+            request,
+            method_settings,
+            registry=registry,
+            on_created=on_created,
+            characterization_operation=operation,
+            region_index=-1,
         )
         missing = tuple(
             sorted(
@@ -972,7 +1283,11 @@ def _characterize_captured_run(
                 result,
                 missing_families=missing,
                 readiness="partial" if missing else result.readiness,
-                runs=tuple(run for _, part in entries for run in part.runs) + result.runs,
+                runs=tuple(
+                    dict.fromkeys(
+                        tuple(run for _, part in entries for run in part.runs) + result.runs
+                    )
+                ),
                 preparation_diagnostics=tuple(
                     message for _, part in entries for message in part.preparation_diagnostics
                 ),

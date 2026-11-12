@@ -321,7 +321,7 @@ class NativeEvidenceMethod:
         return drive_prepared_work(self.plan(units, cfg, ctx), ctx.check_active)
 
     def plan(self, units, cfg: NativeEvidenceConfig, ctx):
-        with provider_scope(units) as (cpu, providers):
+        with provider_scope(units, policy=ctx.settings.execution_policy) as (cpu, providers):
             base, scope = cfg.require_selection()
             results = []
             for unit in units:

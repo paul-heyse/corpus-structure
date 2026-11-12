@@ -1,36 +1,29 @@
 # Status
 
-_Updated2026-11-11. BEP-00–06 selected scope and required07a are implemented/scoped-qualified.
-D1 requires CUDA/BF16. Other07b/08/09 remain planned. Native head remains
-semantic_tc10_task_semantics; `/10` is default, project unselected._
-
-Commits: b85404293/bdb2bae11 (BEP-00–03),0ce41be43 (ADR-0084/0085/evidence),
-adf024fd7 (ready coordination/batching),bd53c0fa1 (ADR-0086/CUDA D1/ordered native input).
+_Updated2026-11-11. BEP-07/08 implementation and final BEP-09 qualification are in progress.
+D1 remains CUDA/BF16; all other selected NLP remains CPU. Native head is
+semantic_bep_capacity. Default activation, project result selection and TC plans are unchanged._
 
 ## Current implementation and authority
 
-- [BEP coordinator](docs/plans/book-processing-efficiency-and-parallelism_2026-11-11.md) owns package/opportunity disposition, required union, investigation decisions and BEP-E01–03. TC plans are unchanged.
-- One parent driver advances bounded natural-region/method plans, owning readers, claims/renewal, builders, stable reduction and fenced publication. Private warm CPU workers and persistent provider lanes return owned results. Standalone and captured-document paths share this implementation.
-- CPU kernels preserve process-main-thread deadlines and independent cancellation. Compatible HanLP/D1/GLiNER jobs coalesce; Maverick/DiPO remain independent scalar-document lanes. D1 always uses CUDA/BF16 in current execution, with no CPU fallback and the existing120s inference bound.
-- Lazy admission reserves before serialization. Slots retire after collection, replies after reduction and draft credit at settlement. Required07a defaults: two regions, two CPU workers/submissions, two stage runs, four claims,256MiB canonical-body budget,64MiB packets/8MiB replies; native inner threads4/interop1. These are finite integration defaults, not final optimum/count selection.
-- Ordered PM2 receiptv2 binds exact native question/option/state order. Historicalv1 retains original read/hash semantics. GLiNER v2 authenticates both cue/function members and retained replay. Provider-scoped policyv3 preserves unrounded native scores and exact provenance without fresh-inference bitwise or arbitrary threshold-stability promises.
-- [Assembled review](docs/design_review/reviews/design_review_book-ready-coordination_2026-11-11.md) accepts scoped Interface-checked. D3/D4/D6/D8 and ADR-0084/0085/0086 own enduring contracts. Final33-source fingerprint9d2b51c7ae7958e2bd438b416baa2195930ba96ac91ddbc12c640677cb3e714b matches delivered source.
+- [BEP coordinator](docs/plans/book-processing-efficiency-and-parallelism_2026-11-11.md) owns current scope, findings, investigations and required union. Its final-increment section records selected operating values and actual receipts. Existing BEP-00–06 scoped acceptance remains there.
+- ADR-0087 and D3/D4/D6/D8 own shared validated policy, native demand anchoring/recovery and coherent capacity. The first actual stage owns the frozen demand/freshness seed; children reference its anchor. CLI exposes retained capture and explicit characterization resume.
+- Defaults: two regions/CPU workers/submissions/stage runs, four claims, two jobs per provider lane,2GiB encoded state,256MiB CPU packets/64MiB replies; native IPC remains8MiB. CPU native threads1, provider threads4/inter-op1. GLiNER's frozen profile must match; inter-op1 is supported.
+- Native canonical layer/full-layer bounds are64MiB; views remain64MiB and each aggregate native read response is bounded256MiB, with exact closure paging. Execution bodies remain charged to regional capacity. Ordinary analytical digest/ancestor/claim scopes now own bounded lifetimes.
+- D1 always CUDA/BF16 with120s inference and no CPU fallback. Other selected NLP stays CPU. threadpoolctl3.7.0 was added exactly to the three PM2 CPU service environments for supported loaded native pools.
+- New current release03c24857dc91… is admitted/deployed, unselected. Target input is source:bep-book:03c24857dc91. Original capture496/cut614/product1627 remains the authentic316-view/518-page basis; no recognition was repeated.
 
 ## Verification2026-11-11
 
-- Final main `uv run ci test` selection: passed236/236,12916646acbc4072ac90cad2dfd458af. Adjacent formal/construction/contextual/validation/replay/completion/composition selection: passed186/186,b81ae84d529c4744bd1c915eeb363b9e. Exact commands and applicability are in coordinator.
-- Actual-provider native publication/reuse, empty/image capture, formula publication/replay and two-language-region captured-document path: passed4/4,6dfe911f0ea14484a2bcd95d8bda8635. Required locked asset prefix/command in coordinator. Each region retains all six stages and exact source coordinates in one composed view.
-- `uv run ci test coverage` for final236-node and4-node selections: passed, all required identities covered; zero unresolved/source/context differences/unknown contexts/missing lanes or unsettled attempts, complete native observations. The separate186-node pass is current-source applicable.
-- [CUDA D1 evidence](docs/design_review/evidence/2026-11-11_book-d1-cuda/README.md): passed actual CUDA/BF16 native batching, two coalesced logical jobs, ordered questions/options/literals, actual staged prior, original extents, cancellation and GPU-custody reacquisition. Raw native probability variation is retained honestly; no CPU equivalence/accuracy/speedup claim.
-- [Earlier I3/I4 evidence](docs/design_review/evidence/2026-11-11_book-provider-batches/README.md) retains CPU HanLP/GLiNER regrouping/projection/lifecycle controls. Old D1 CPU evidence is historical. All failed/partial/superseded attempts remain; raw artifacts use Git LFS.
-- `uv run ci check --only types --view steps --json`: passed8a93c21b4922479eadc93181332dbd25. `--only lint`: passedcb421cc1e22c4e1ebf39d3959ae7fcc5. `uv run ci doctor --json`: passed822a98a09978489f89dac91869287d11. No dependency changes.
-- `uv run ci docs check --json`: passed715c428a493149a79830d99413face0e,888 pages/zero link errors, including ADR/agent lint. Final root turn-end passed with1131 Python files unchanged; final receipt-only prose preserves applicability.
-- Broader237-node attempt03786217ec8043279fcf695c5f815084 remains blocked only on opt-in other-provider CUDA coverage, outside this D1-only device increment;236 applicable controls passed. Final required236-node selection explicitly excludes that07b scenario. Original failures and operator-interrupted CPU attempts remain held, with no relabelling.
+- [Capacity evidence](docs/design_review/evidence/2026-11-11_bep-layer-capacity/README.md): actual view480 complete13-family native body9,253,073bytes; largest-by-text561 complete13-family body49,326,509bytes. Both preserve exact source/context and independent current custody/digests. Original method1 body was not recovered.
+- Native capacity publication/replay/export/paging/refusal controls passed6/6,c3df282f91704fa39257f7007f2c6862. Local recovery/anchor/policy/receipt controls passed13/13,4c0bdc4845e6429aa01e9e1cdb52ee0e. Primary-reader capacity controls passed10/10,4561837d285c4564ba2b94503fe6cf4f.
+- Candidate bef94253783f46da9bcefcf8469deaad passed; registration7a1c10f3773c4e788510b9a10f1384da and development deployment7b6d0475a0244ad387dde1eaffb54e8e passed. No activation or selection occurred.
+- Broad `uv run ci check --view steps --json` a71d30e25b81497aad78a82c82b2c57c passed lint/docs/deps/Clippy, failed only new test-stub typing. `--only types` replacement228fc0b8b1014655bbdd8b18684aad69 passed before the last analytical-lifetime correction. rustc1.102.0-nightly(9c5648833,2026-11-10).
+- Native candidate recreation defect repaired in commit9f2f78c82; scoped regression passed. Original failures/refusals and intermediate check failures remain preserved. Final-source native recovery passed2/2,d30ed0edcc3a4ae1832aa32c6bdca97f; native analytical retry694783ed2487403fb6e08d01723a00ea passed. Final default functional/fault campaign and whole-book acceptance remain pending.
 
-## Remaining work
+## Next
 
-- BEP-E02 (incorrect D1 CPU default) and BEP-E03 (native order regression) are closed with CUDA/source/native evidence in the coordinator. BEP-E01 stays open: run610/task2528 exceeded the8MiB native-layer publication contract. Prior read-only status verified terminal supervision and no unresolved agents/orphans. No cap change, truncation or book restart occurred.
-- Next: BEP-07b other-device/final-count decisions, BEP-08 operating surfaces and BEP-09 whole-book/consumer qualification. Resolve BEP-E01 before full-book acceptance. Full campaign, CUDA for other providers and book rerun are not_run at this increment.
-- Authentic capture496/cut614 retains316 direct SourceViews over518 original pages, prior release c9939039081ddcfbc382e9dc323e12e31f9b3683fb479c773ea3fd72ac6a6189. Inherited recognition/health limits remain explicit.
-- [TC coordinator](docs/plans/text-characterization_2026-11-10.md) retains TC-10/11 and TC-E01–07; [assessment account](docs/design_review/evidence/2026-11-11_text-characterization-assessment/qualification/README.md) retains protected references41–44 and independent output-first assessment. TC plans were not edited.
-- Main is the sole worktree; no push, activation, selection or promotion occurred.
+- Production source is frozen with native recovery/analytical controls passed. Run the default functional/fault campaign, remaining selected-provider union and final checks before book execution.
+- Execute all316 retained views/all six stages, deliberately qualify interruption/resume preserving settled fresh pins, then verify final exact native/CLI/MCP/export/detached consumers. BEP-E01 final closure waits for that acceptance.
+- TC plans remain unchanged; later TC reconciliation and protected assessment retain their existing owners. No new protected reference reads were used for policy or scheduling.
+- Main is the sole worktree. Only the native-candidate repair is committed this increment; remaining integrated edits are dirty. No push, activation, selection or promotion.

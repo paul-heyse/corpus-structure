@@ -52,6 +52,10 @@ class RunProgress(BaseModel):
     unresolved_agent_tasks: int
     readiness: Literal["completed", "source_ready", "incomplete", "terminal"]
     supervisor: Literal["active", "waiting", "orphaned", "unassessed", "terminal"]
+    physical_policy: dict[str, JsonValue] | None = None
+    characterization_anchor: int | None = None
+    characterization_region: int | None = None
+    characterization_stage: tuple[str, ...] | None = None
     pm2_scope_coverage: tuple[ScopeCoverage, ...] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
@@ -138,7 +142,7 @@ def start_bound_run(
     from corpus_structure.semantic.execution_preparation import prepare_execution
 
     with engine.connect() as conn:
-        execution = prepare_execution(conn, release_id)
+        execution = prepare_execution(conn, release_id, policy=method_settings.execution_policy)
     with execution:
         return _start_bound_run(execution, **arguments)
 
@@ -809,6 +813,14 @@ def bound_status(
             cut_id=latest_cut.id if latest_cut else None,
             cut_name=latest_cut.name if latest_cut else None,
             output_realization_id=row["result_realization_id"],
+            physical_policy=row["options"].get("physical_policy"),
+            characterization_anchor=(
+                run
+                if "characterization_demand" in row["options"]
+                else row["options"].get("characterization_anchor")
+            ),
+            characterization_region=row["options"].get("characterization_region"),
+            characterization_stage=row["options"].get("characterization_stage"),
             stages=[StageCount.model_validate(dict(x)) for x in counts],
             unresolved_agent_tasks=unresolved,
             readiness=readiness,

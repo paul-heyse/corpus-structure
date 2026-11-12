@@ -21,6 +21,9 @@ from rich.console import Group, RenderableType
 from rich.table import Table
 from rich.text import Text
 
+from corpus_structure.cli.characterization_options import (
+    method_settings as resolved_method_settings,
+)
 from corpus_structure.cli.output import JsonOpt, emit, state
 from corpus_structure.core.vocab import AgentMode, AgentReuse, GpuMode, TaskStatus
 
@@ -216,11 +219,11 @@ def run(
         str | None, typer.Option(help="Exact retained integrated SHA-256 digest.")
     ] = None,
     json: JsonOpt = False,
+    execution_policy: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
 ) -> None:
     """Start a run over the project's corpus and run it to its end."""
     if ctx.invoked_subcommand is not None:
         return
-    from corpus_structure.core.method import MethodSettings
     from corpus_structure.orchestrate import commands
 
     if whole_document and (slice is not None or scope is not None):
@@ -259,15 +262,7 @@ def run(
         raise typer.BadParameter(str(error)) from error
     from corpus_structure.semantic.runtime import resolve_source_binding
 
-    method_settings = MethodSettings(
-        data_dir=settings.paths.data_dir,
-        model_cache=settings.paths.model_cache,
-        nemotron_endpoint=settings.nemotron.endpoint,
-        nemotron_python=settings.nemotron.python,
-        nemotron_worker=settings.nemotron.worker,
-        nemotron_receipts=settings.nemotron.receipts,
-        nemotron_timeout_seconds=settings.nemotron.timeout_seconds,
-    )
+    method_settings = resolved_method_settings(settings, execution_policy)
     if gpu_mode is not None:
         raise typer.BadParameter("the selected semantic graph has no GPU operation")
     project = project or settings.runtime.default_project
@@ -341,8 +336,53 @@ def run_resume(
     ] = False,
     activate_release: Annotated[bool, typer.Option(help="Activate the retained release.")] = False,
     json: JsonOpt = False,
+    characterization: Annotated[
+        bool, typer.Option(help="Recover the frozen multi-stage characterization demand.")
+    ] = False,
+    execution_policy: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
 ) -> None:
     """Resume the run using its retained source and release binding."""
+    if characterization:
+        if not automated or select_result or activate_release:
+            raise typer.BadParameter(
+                "characterization recovery produces exact views; "
+                "use ordinary result selection separately"
+            )
+        from dataclasses import asdict
+
+        from pydantic import RootModel
+
+        from corpus_structure.cli.managed import result_store
+        from corpus_structure.orchestrate.characterization_recovery import (
+            record_characterization_run,
+            record_frozen_characterization,
+            resume_characterization,
+        )
+
+        settings = state(ctx).settings()
+        method_settings = resolved_method_settings(settings, execution_policy)
+        with (
+            result_store(ctx).operation(
+                "run.resume", scope={"run_id": run_id, "characterization": True}, observations=True
+            ) as invocation,
+            _refusals(json),
+            ENGINE(settings) as engine,
+        ):
+            results = resume_characterization(
+                engine,
+                run_id,
+                method_settings,
+                project_id=project,
+                on_created=lambda created: record_characterization_run(invocation, engine, created),
+                on_frozen=lambda anchor, envelope: record_frozen_characterization(
+                    invocation, anchor, envelope, method_settings.execution_policy
+                ),
+            )
+            report = RootModel[dict](
+                dict(invocation_id=invocation.id, enrichment=[asdict(value) for value in results])
+            )
+        emit(report, json=json)
+        return
     from corpus_structure.cli.regenerate import regenerate
 
     regenerate(
@@ -352,6 +392,7 @@ def run_resume(
         automated=automated,
         select_result=select_result,
         activate=activate_release,
+        execution_policy=execution_policy,
         json=json,
     )
 
@@ -467,17 +508,28 @@ def ingest(
         ),
     ] = None,
     json: JsonOpt = False,
+    execution_policy: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
 ) -> None:
     """Prepare a source cut for an existing bound project."""
     from corpus_structure.cli.regenerate import read_product_pin
-    from corpus_structure.core.method import MethodSettings
     from corpus_structure.orchestrate import commands
     from corpus_structure.orchestrate.project import init_bound_project
     from corpus_structure.semantic.runtime import resolve_source_binding
 
     if whole_document and (slice is not None or scope is not None):
         raise typer.BadParameter("whole-document is mutually exclusive with slice and scope")
-    with _refusals(json), ENGINE(settings := state(ctx).settings()) as engine:
+    from corpus_structure.cli.managed import result_store
+    from corpus_structure.orchestrate.characterization_recovery import record_characterization_run
+
+    settings = state(ctx).settings()
+    method_settings = resolved_method_settings(settings, execution_policy)
+    with (
+        result_store(ctx).operation(
+            "ingest", scope={"project": project}, observations=True
+        ) as invocation,
+        _refusals(json),
+        ENGINE(settings) as engine,
+    ):
         project = project or settings.runtime.default_project
         if native_source is not None and integrated_source is not None:
             raise commands.CommandError(
@@ -504,7 +556,7 @@ def ingest(
         from corpus_structure.semantic.execution_preparation import prepare_execution
 
         with engine.connect() as conn:
-            execution = prepare_execution(conn, release)
+            execution = prepare_execution(conn, release, policy=method_settings.execution_policy)
         with execution:
             result = commands._start_bound_run(
                 execution,
@@ -513,15 +565,7 @@ def ingest(
                 realization_id=source,
                 project_id=project,
                 domain=domain,
-                method_settings=MethodSettings(
-                    data_dir=settings.paths.data_dir,
-                    model_cache=settings.paths.model_cache,
-                    nemotron_endpoint=settings.nemotron.endpoint,
-                    nemotron_python=settings.nemotron.python,
-                    nemotron_worker=settings.nemotron.worker,
-                    nemotron_receipts=settings.nemotron.receipts,
-                    nemotron_timeout_seconds=settings.nemotron.timeout_seconds,
-                ),
+                method_settings=method_settings,
                 slice=slice,
                 scope=scope,
                 whole_document=whole_document,
@@ -545,13 +589,15 @@ def ingest(
                     release_id=release,
                     realization_id=source,
                     domain=domain,
-                    method_settings=MethodSettings(
-                        data_dir=settings.paths.data_dir, model_cache=settings.paths.model_cache
-                    ),
+                    method_settings=method_settings,
                     method_options=__import__("json").loads(enrichment_options.read_bytes()),
+                    on_created=lambda created: record_characterization_run(
+                        invocation, engine, created
+                    ),
                 )
                 result = RootModel[dict](
                     dict(
+                        invocation_id=invocation.id,
                         capture=result.model_dump(mode="json"),
                         enrichment=[asdict(value) for value in enriched],
                     )
@@ -606,34 +652,104 @@ def register(app: typer.Typer) -> None:
 @run_app.command("characterize")
 def run_characterize_command(
     ctx: typer.Context,
-    request: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    request: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
+    captured_run: Annotated[
+        int | None, typer.Option(help="Reuse this exact completed capture; no recognition.")
+    ] = None,
+    release: Annotated[
+        str | None, typer.Option(help="Target admitted execution release for retained capture.")
+    ] = None,
+    realization: Annotated[str | None, typer.Option(help="Exact target input realization.")] = None,
+    method_options: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
+    fresh: Annotated[
+        list[str] | None, typer.Option(help="Fresh primary producers for this new demand.")
+    ] = None,
     json: JsonOpt = False,
+    execution_policy: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
 ) -> None:
-    """Fulfil a frozen enriched-document demand from exact completed source pins."""
+    """Fulfil a frozen demand or enrich an exact retained capture without recognition."""
     from dataclasses import asdict
+    from types import SimpleNamespace
 
     from pydantic import RootModel
+    from sqlalchemy import select
 
-    from corpus_structure.core.method import MethodSettings
+    from corpus_structure.cli.managed import result_store
     from corpus_structure.orchestrate.characterization import (
         CharacterizationDemandRequest,
+        characterize_captured_run,
         execute_characterization_demand,
     )
+    from corpus_structure.orchestrate.characterization_recovery import record_characterization_run
+    from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.operations import OperationConflict
+    from corpus_structure.semantic.runtime import resolve_source_binding
 
+    if (request is None) == (captured_run is None):
+        raise typer.BadParameter("select exactly one of --request and --captured-run")
+    if request is not None and (
+        release is not None or realization is not None or method_options is not None or fresh
+    ):
+        raise typer.BadParameter("--request owns its release, source and method selections")
     settings = state(ctx).settings()
-    with _refusals(json), ENGINE(settings) as engine:
-        demand = CharacterizationDemandRequest.model_validate_json(request.read_bytes())
-        result = execute_characterization_demand(
-            engine,
-            demand,
-            MethodSettings(
-                data_dir=settings.paths.data_dir,
-                model_cache=settings.paths.model_cache,
-                nemotron_endpoint=settings.nemotron.endpoint,
-                nemotron_python=settings.nemotron.python,
-                nemotron_worker=settings.nemotron.worker,
-                nemotron_receipts=settings.nemotron.receipts,
-                nemotron_timeout_seconds=settings.nemotron.timeout_seconds,
-            ),
-        )
-    emit(RootModel[dict](asdict(result)), json=json)
+    method_settings = resolved_method_settings(settings, execution_policy)
+    with (
+        result_store(ctx).operation(
+            "run.characterize",
+            scope={"request": str(request) if request else None, "captured_run": captured_run},
+            observations=True,
+        ) as invocation,
+        _refusals(json),
+        ENGINE(settings) as engine,
+    ):
+
+        def callback(created):
+            record_characterization_run(invocation, engine, created)
+
+        if request is not None:
+            demand = CharacterizationDemandRequest.model_validate_json(request.read_bytes())
+            result = execute_characterization_demand(
+                engine, demand, method_settings, on_created=callback
+            )
+            report = {**asdict(result), "invocation_id": invocation.id}
+        else:
+            with engine.connect() as conn:
+                runs = table("ops.run")
+                origin = (
+                    conn.execute(select(runs).where(runs.c.id == captured_run)).mappings().one()
+                )
+                if origin["status"] != "finished" or not origin["sealed"]:
+                    raise OperationConflict("--captured-run requires a completed original capture")
+                target_release = release or origin["release_id"]
+                target_realization = realization or (
+                    origin["input_realization_id"]
+                    if target_release == origin["release_id"]
+                    else None
+                )
+                target_release, target_realization = resolve_source_binding(
+                    conn,
+                    origin["project_id"],
+                    release_id=target_release,
+                    realization_id=target_realization,
+                )
+                domain = origin["options"].get("domain")
+                if not domain:
+                    raise OperationConflict("captured run has no frozen domain selection")
+            values = characterize_captured_run(
+                engine,
+                SimpleNamespace(run_id=captured_run),
+                project_id=origin["project_id"],
+                release_id=target_release,
+                realization_id=target_realization,
+                domain=domain,
+                method_settings=method_settings,
+                method_options=loads(method_options.read_bytes()) if method_options else {},
+                fresh_methods=tuple(fresh or ()),
+                on_created=callback,
+            )
+            report = dict(
+                invocation_id=invocation.id,
+                capture_run_id=captured_run,
+                enrichment=[asdict(value) for value in values],
+            )
+    emit(RootModel[dict](report), json=json)

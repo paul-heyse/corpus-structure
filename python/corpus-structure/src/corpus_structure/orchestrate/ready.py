@@ -4,6 +4,8 @@ from concurrent.futures import Future
 from contextlib import ExitStack, contextmanager
 from types import SimpleNamespace
 
+from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+
 
 class _Permit:
     def __init__(self, owner, kind, reserved=0):
@@ -74,7 +76,7 @@ def source_admission(execution):
 
 
 @contextmanager
-def owned_source_execution(prepared):
+def owned_source_execution(prepared, *, policy: CharacterizationExecutionPolicy | None = None):
     """Own physical state for a low-level caller already supplying its released contract.
 
     This scope does not grant full release verification; live source/native admission stays
@@ -84,11 +86,17 @@ def owned_source_execution(prepared):
     from corpus_structure.semantic.cpu_execution import CPUExecutionScope
 
     with ExitStack() as closers:
-        cpu = CPUExecutionScope(prepared)
+        cpu = CPUExecutionScope(prepared, policy)
         closers.callback(cpu.close)
         providers = ProviderExecution(cpu.budget, cpu.policy)
         closers.callback(providers.close)
         methods = set()
+        opened = True
+
+        def require_release(release_id):
+            if not opened or cpu.prepared.release_id != release_id:
+                raise ValueError("source execution is closed or belongs to another release")
+            return cpu.prepared
 
         def register(registry):
             for method in registry.methods():
@@ -97,4 +105,13 @@ def owned_source_execution(prepared):
                     methods.add(id(method))
                     closers.callback(close)
 
-        yield SimpleNamespace(cpu=cpu, providers=providers, register_methods=register)
+        try:
+            yield SimpleNamespace(
+                cpu=cpu,
+                policy=cpu.policy,
+                providers=providers,
+                register_methods=register,
+                require_release=require_release,
+            )
+        finally:
+            opened = False

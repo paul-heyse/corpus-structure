@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "id": "bep.e01-canonical-layer-reproduction",
+  "title": "Captured native layer exceeds the former eight MiB contract",
+  "group": "BEP",
+  "package": "BEP-E01",
+  "finalized": "2026-11-11",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the retained failed source selection still produce a complete native layer above eight MiB, and what are its canonical size and framing?",
+  "answers": [
+    "BEP-E01"
+  ],
+  "method": "Read exact source view480 in captured run610/cut614, authenticate integrated product1627, freeze current HanLP custody with the existing preflight, and execute actual current spaCy/HanLP CPU producers privately. Retain complete canonical UTF-8 bytes and independent JSON size/framing checks. No PDF recognition or publication.",
+  "commands": [
+    "uv run ci source native-products 610 --json",
+    "uv run python docs/design_review/evidence/2026-11-11_bep-layer-capacity/reproduce.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "reproduce.py",
+      "role": "Reproduction driver",
+      "sha256": "a5b014606a369e5cc23357b647b93df8a2797c46ac81843c1d73916399bb8660"
+    },
+    {
+      "path": "raw/task-selection.json",
+      "role": "Original cancelled task and frozen selection",
+      "sha256": "1ccff4b2bca81cad59f0bfb8da733e0221b95c981f91e2571d3f7c91a48df33a"
+    },
+    {
+      "path": "raw/retained-source.json",
+      "role": "Exact retained native source",
+      "sha256": "b0d456451adf67261c9f38a9fbfdb88f55486c7593bc7ff0842170e6c17adfc9"
+    },
+    {
+      "path": "raw/recomputation-config.json",
+      "role": "Current configuration frozen before inference",
+      "sha256": "ff92c239fe30e7e819cd60c67e6c4aae9ca79cdfffb845a9bb81fb38ff2a24d7"
+    },
+    {
+      "path": "raw/current-hanlp-custody.json",
+      "role": "Actual runtime/artifact preflight",
+      "sha256": "8318515bf752fe0035dcba6e9630cbd3cd45ecb4a1ccb7089a91a21071488853"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/layer.json",
+      "role": "Complete canonical layer bytes",
+      "sha256": "3ec0f35ca65ca2f6587d50982beac594aa3a8507d68ce1b43002fa4798765cf0"
+    },
+    {
+      "path": "summary.json",
+      "role": "Canonical counts, framing, custody and limitations",
+      "sha256": "e9ec44620d71596397c46f76f1b612e3a04073fa7f1b254d7812456366b3b181"
+    },
+    {
+      "path": "raw/attempt-04.log",
+      "role": "Successful actual-provider command log",
+      "sha256": "1d4d5fd6482068e5ac49a954bb439571a927ab3204cbfb270cc59f59577b8504"
+    },
+    {
+      "path": "raw/attempt-01.log",
+      "role": "Retained serialization failure",
+      "sha256": "80b507159fa394fdd7fce76c5f55a2e321324577df746bbdbee076e64e903037"
+    },
+    {
+      "path": "raw/attempt-02.log",
+      "role": "Retained incorrect-cache partial attempt",
+      "sha256": "a3386d97fd4725d53336fc725921fe49c9bbc884198afe731a1efc46951570bf"
+    },
+    {
+      "path": "raw/attempt-02-layer.json",
+      "role": "Retained incorrect-cache partial canonical body",
+      "sha256": "569cda5ee5eaac210c9a93b34a45fd968492f5b2fb29e2c00fee97188b573ab5"
+    },
+    {
+      "path": "attempt-02-summary.json",
+      "role": "Retained incorrect-cache partial summary",
+      "sha256": "4fd28d2765d5aefc58ab8e42d1e830d15da3425dd86a413d5e9df620e9ed2c1b"
+    },
+    {
+      "path": "raw/attempt-03.log",
+      "role": "Retained historical-runtime refusal",
+      "sha256": "2f5b9960d7d689c78f04c73fdf36bf10bcfbc215a75894cb9ef2af8b20e2d3cf"
+    },
+    {
+      "path": "raw/attempt-03-layer.json",
+      "role": "Retained historical-runtime partial canonical body",
+      "sha256": "e3207e4b9541b4fae8a42584b06acf6279b293ebf54413f2d767f0a806e9e0e0"
+    },
+    {
+      "path": "attempt-03-summary.json",
+      "role": "Retained historical-runtime partial summary",
+      "sha256": "ed638d12baa85566ff04ea5ca3dd7e850ab09b0156f04d03a39934c3ae4afbc9"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Canonical layer size",
+      "value": 9253073,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "Complete families",
+      "value": 13,
+      "of": 13,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Annotations",
+      "value": 5058,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Memberships",
+      "value": 9470,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Roles",
+      "value": 2657,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Actual current native producers on the exact captured source produced all13 families complete in9253073 canonical bytes, exceeding8388608 and fitting67108864. The retained current-method-v2 body has digest3ec0f35ca65ca2f6587d50982beac594aa3a8507d68ce1b43002fa4798765cf0. Original method-v1 failure retains only a9588829-character SQL repr description; its original canonical bytes/hash were not recovered. This settles the capacity reproduction, not publication, whole-book acceptance or runtime equivalence.",
+  "consumed_by": [
+    "BEP-E01"
+  ]
+}

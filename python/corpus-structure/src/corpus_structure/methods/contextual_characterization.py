@@ -367,7 +367,7 @@ class ContextualCharacterizationMethod:
         return drive_prepared_work(self.plan(units, cfg, ctx), ctx.check_active)
 
     def plan(self, units, cfg, ctx):
-        with provider_scope(units) as (_cpu, providers):
+        with provider_scope(units, policy=ctx.settings.execution_policy) as (_cpu, providers):
             if cfg.context_rule_digest != context_rule_digest():
                 raise ValueError("contextual rule digest changed after configuration freeze")
             base, scope = cfg.require_selection()

@@ -171,6 +171,8 @@ def run_source_methods(
     characterization_views: Sequence[ProductReference] = (),
     execution_preparation: Any = None,
     regional_preparation: Any = None,
+    characterization_run_options: Mapping[str, Any] | Callable[[], Mapping[str, Any]] | None = None,
+    freshness_seed: str | None = None,
     on_created: Callable[[SourceRunCreated], None] | None = None,
 ) -> BoundRunReport:
     arguments = locals()
@@ -180,7 +182,7 @@ def run_source_methods(
         if execution_preparation.require_release(prepared.release_id) is not prepared:
             raise ValueError("source invocation differs from verified preparation")
         return _run_source_methods(execution_preparation.cpu, **arguments)
-    with owned_source_execution(prepared) as execution:
+    with owned_source_execution(prepared, policy=method_settings.execution_policy) as execution:
         arguments["execution_preparation"] = execution
         return _run_source_methods(execution.cpu, **arguments)
 
@@ -206,7 +208,29 @@ def _source_methods_plan(cpu_execution, *args, **kwargs):
 
     execution = kwargs["execution_preparation"]
     admission = source_admission(execution)
-    (permit,) = yield (PreparedWork(lambda: admission.try_work("stage")),)
+    waited = False
+
+    def acquire_stage():
+        nonlocal waited
+        permit = admission.try_work("stage")
+        if permit is None and not waited:
+            from corpus_structure.cli.observation_logging import event
+
+            details = kwargs.get("characterization_run_options") or {}
+            if callable(details):
+                details = details()
+            event(
+                "characterization_capacity_wait",
+                "Waiting for stage capacity",
+                activity="capacity_wait",
+                anchor_run_id=details.get("characterization_anchor"),
+                region=details.get("characterization_region"),
+                stage=details.get("characterization_stage"),
+            )
+            waited = True
+        return permit
+
+    (permit,) = yield (PreparedWork(acquire_stage),)
     try:
         return (yield from _source_run_plan(cpu_execution, *args, **kwargs))
     finally:
@@ -245,6 +269,8 @@ def _source_run_plan(
     characterization_views: Sequence[ProductReference] = (),
     execution_preparation: Any = None,
     regional_preparation: Any = None,
+    characterization_run_options: Mapping[str, Any] | Callable[[], Mapping[str, Any]] | None = None,
+    freshness_seed: str | None = None,
     on_created: Callable[[SourceRunCreated], None] | None = None,
 ) -> Generator[Any, Any, BoundRunReport]:
     """Run the current source graph; hand its immutable cut to consolidation/proposal owners.
@@ -469,6 +495,9 @@ def _source_run_plan(
             )
         if graph.policy_propose:
             library_names.update(("rapidfuzz", "regex", "rule-engine"))
+        from .characterization_recovery import native_thread_profile
+
+        execution_native_profile = native_thread_profile(cpu_execution.policy)
         dependency_manifest = {
             **(
                 {
@@ -537,7 +566,13 @@ def _source_run_plan(
         )
         from dataclasses import asdict
 
+        resolved_run_options = (
+            characterization_run_options()
+            if callable(characterization_run_options)
+            else characterization_run_options
+        )
         options = {
+            **dict(resolved_run_options or {}),
             "physical_policy": asdict(cpu_execution.policy),
             **({"extraction_policy": extraction_policy} if extraction_policy != "phase0" else {}),
             "domain": domain,
@@ -599,21 +634,47 @@ def _source_run_plan(
             if on_created is not None:
                 on_created(SourceRunCreated(RunId(rid), project_id, prepared.release_id))
             registered = {}
+            reported_prerequisite_wait = False
+            reported_capacity_wait = False
             for stage, steps in graph.stages:
                 for group in _source_step_groups(steps, configs, prepared):
                     scheduled = []
 
-                    def register_ref(
-                        conn, view, method, config, cid, ref, stage=stage, *, producer=None
-                    ):
-                        if producer is not None:
-                            if not isinstance(view.reader, BoundReader):
+                    def register_ref(conn, method, config, cid, ref, stage=stage, *, producer=None):
+                        from corpus_structure.semantic.execution_preparation import (
+                            RegionalPreparation,
+                        )
+
+                        # Digest preparation can read full primary layers. A fresh reader
+                        # keeps default analytical registration bounded to this unit.
+                        with ExitStack() as inputs:
+                            input_region = regional_preparation
+                            if input_region is None:
+                                input_region = inputs.enter_context(
+                                    RegionalPreparation(execution_preparation)
+                                )
+                            input_view = run_view(
+                                conn,
+                                rid,
+                                prepared,
+                                cpu_execution=cpu_execution,
+                                regional_preparation=input_region,
+                            )
+                            if not isinstance(input_view.reader, BoundReader):
                                 raise TypeError("source dependency requires BoundReader")
-                            view.reader.source_producers = {
-                                (ref.unit_id, config.params["source_dependency_method"]): producer
-                            }
-                        unit = _unit(conn, view, ref)
-                        digest = method.input_digest(unit, config.config)
+                            input_view.reader.characterization_selection = tuple(
+                                ProductReference(**pin)
+                                for pin in config.params.get("characterization_layers", ())
+                            )
+                            if producer is not None:
+                                input_view.reader.source_producers = {
+                                    (
+                                        ref.unit_id,
+                                        config.params["source_dependency_method"],
+                                    ): producer
+                                }
+                            unit = _unit(conn, input_view, ref)
+                            digest = method.input_digest(unit, config.config)
                         from sqlalchemy import func, literal
                         from sqlalchemy.dialects.postgresql import JSONB
 
@@ -639,6 +700,12 @@ def _source_run_plan(
                             # Reused parent invocations share the same immutable producer.
                             # A fresh origin invalidates the child even if its digest omits custody.
                             inputs.append(["source_producer_origin", producer.origin_task_id])
+                        from .characterization import PRIMARY_PRODUCERS
+
+                        if method.name in PRIMARY_PRODUCERS:
+                            inputs.append(["execution_native_profile", execution_native_profile])
+                        if freshness_seed is not None and method.name in fresh:
+                            inputs.append(["characterization_freshness", freshness_seed])
                         ih = sha256(canonical_bytes(inputs)).hexdigest()
                         task_id = create_task(
                             conn,
@@ -650,7 +717,7 @@ def _source_run_plan(
                             unit_key=ref.unit_key,
                             input_hash=ih,
                             packet_hash=digest.packet_hash,
-                            fresh=method.name in fresh,
+                            fresh=method.name in fresh and freshness_seed is None,
                         )
                         if ref.unit_type == TaskUnitType.DOCUMENT and ref.unit_id is not None:
                             task_table = table("ops.task")
@@ -702,10 +769,35 @@ def _source_run_plan(
                             )
                             refs = list(method.select(view, config.config))
                             if config.params.get("source_dependencies") == "ancestor_source_view":
+
+                                def ancestor_refs(source_view_id):
+                                    from corpus_structure.semantic.execution_preparation import (
+                                        RegionalPreparation,
+                                    )
+
+                                    # Ancestor discovery hydrates the focal source. Only
+                                    # detached refs survive this per-source read scope.
+                                    with ExitStack() as inputs:
+                                        ancestor_region = regional_preparation
+                                        if ancestor_region is None:
+                                            ancestor_region = inputs.enter_context(
+                                                RegionalPreparation(execution_preparation)
+                                            )
+                                        ancestor_view = run_view(
+                                            conn,
+                                            rid,
+                                            prepared,
+                                            cpu_execution=cpu_execution,
+                                            regional_preparation=ancestor_region,
+                                        )
+                                        return ancestor_view.reader.ancestor_source_views(
+                                            source_view_id
+                                        )
+
                                 required = {ref.unit_id: ref for ref in refs}
                                 parent_ids = {}
                                 for ref in tuple(refs):
-                                    for ancestor in view.reader.ancestor_source_views(ref.unit_id):
+                                    for ancestor in ancestor_refs(ref.unit_id):
                                         required.setdefault(
                                             ancestor.id,
                                             UnitRef(
@@ -714,9 +806,7 @@ def _source_run_plan(
                                         )
                                 for identity in required:
                                     parent_ids[identity] = tuple(
-                                        a.id
-                                        for a in view.reader.ancestor_source_views(identity)
-                                        if a.id in required
+                                        a.id for a in ancestor_refs(identity) if a.id in required
                                     )
                                 for identity, ref in required.items():
                                     if parent_ids[identity]:
@@ -733,7 +823,7 @@ def _source_run_plan(
                                         )
                                     else:
                                         registered[(cid, identity)] = register_ref(
-                                            conn, view, method, config, cid, ref
+                                            conn, method, config, cid, ref
                                         )
                             elif (
                                 config.params.get("source_dependencies") in _SAME_VIEW_DEPENDENCIES
@@ -762,7 +852,6 @@ def _source_run_plan(
                                     if key not in registered:
                                         registered[key] = register_ref(
                                             conn,
-                                            view,
                                             prerequisite,
                                             prerequisite_config,
                                             prerequisite_cid,
@@ -772,7 +861,7 @@ def _source_run_plan(
                             else:
                                 for ref in refs:
                                     registered[(cid, ref.unit_id)] = register_ref(
-                                        conn, view, method, config, cid, ref
+                                        conn, method, config, cid, ref
                                     )
                         scheduled.append((method, config, cid))
                     shared_math_batch = None
@@ -784,14 +873,16 @@ def _source_run_plan(
 
                     from .source_reader import ScopedSourceReader
 
-                    def execute_claim_body(method, config, claimed, math_batch=shared_math_batch):
+                    def execute_claim_body(
+                        method, config, claimed, claim_region, math_batch=shared_math_batch
+                    ):
                         with engine.connect() as conn:
                             view = run_view(
                                 conn,
                                 rid,
                                 prepared,
                                 cpu_execution=cpu_execution,
-                                regional_preparation=regional_preparation,
+                                regional_preparation=claim_region,
                             )
                             bound_reader = view.reader
                             if not isinstance(bound_reader, BoundReader):
@@ -1007,6 +1098,7 @@ def _source_run_plan(
                                 method=method.name,
                                 task_id=claimed[0].task_id,
                                 attempt=claimed[0].attempt,
+                                activity="computation",
                             )
                             results = yield from _method_plan(
                                 method,
@@ -1023,6 +1115,14 @@ def _source_run_plan(
                                     produce_pdf_records=produce_pdf_records,
                                     retain_pdf_observation=retain_pdf_observation,
                                 ),
+                            )
+                            event(
+                                "method_reduction",
+                                "Reducing source method replies",
+                                run_id=rid,
+                                task_ids=[task.task_id for task in claimed],
+                                method=method.name,
+                                activity="reduction",
                             )
                             for task, result in zip(claimed, results, strict=True):
                                 from corpus_structure.semantic.operations import (
@@ -1042,8 +1142,17 @@ def _source_run_plan(
                                         configuration_hash=config.config_hash,
                                         source=result.ref.unit_key or "run",
                                         records=result.records,
-                                        regional_preparation=regional_preparation,
+                                        regional_preparation=claim_region,
                                     )
+                                event(
+                                    "task_publication",
+                                    "Publishing source task",
+                                    run_id=rid,
+                                    task_id=task.task_id,
+                                    attempt=task.attempt,
+                                    method=method.name,
+                                    activity="publication",
+                                )
                                 check_active.settle(task, intent.apply)
                                 if result.error is not None:
                                     raise OperationConflict(result.error)
@@ -1058,8 +1167,22 @@ def _source_run_plan(
                             )
 
                     def execute_claim(method, config, claimed, permit):
+                        from corpus_structure.semantic.execution_preparation import (
+                            RegionalPreparation,
+                        )
+
                         try:
-                            return (yield from execute_claim_body(method, config, claimed))
+                            with ExitStack() as inputs:
+                                claim_region = regional_preparation
+                                if claim_region is None:
+                                    claim_region = inputs.enter_context(
+                                        RegionalPreparation(execution_preparation)
+                                    )
+                                return (
+                                    yield from execute_claim_body(
+                                        method, config, claimed, claim_region
+                                    )
+                                )
                         finally:
                             permit.release()
 
@@ -1085,14 +1208,21 @@ def _source_run_plan(
                                     if len(parent_rows) != len(parent_tasks) or not all(
                                         row.status in _READY_SOURCE_TASKS for row in parent_rows
                                     ):
+                                        if not reported_prerequisite_wait:
+                                            from corpus_structure.cli.observation_logging import (
+                                                event,
+                                            )
+
+                                            event(
+                                                "method_prerequisite_wait",
+                                                "Waiting for method prerequisites",
+                                                run_id=rid,
+                                                task_ids=parent_tasks,
+                                                method=method.name,
+                                                activity="prerequisite_wait",
+                                            )
+                                            reported_prerequisite_wait = True
                                         continue
-                                    dependency_view = run_view(
-                                        dependency_conn,
-                                        rid,
-                                        prepared,
-                                        cpu_execution=cpu_execution,
-                                        regional_preparation=regional_preparation,
-                                    )
                                     producer = None
                                     if (
                                         config.params.get("source_dependencies")
@@ -1104,7 +1234,6 @@ def _source_run_plan(
                                         )
                                     task_id = register_ref(
                                         dependency_conn,
-                                        dependency_view,
                                         method,
                                         config,
                                         cid,
@@ -1135,6 +1264,17 @@ def _source_run_plan(
                                 else None,
                             )
                             if permit is None:
+                                if not reported_capacity_wait:
+                                    from corpus_structure.cli.observation_logging import event
+
+                                    event(
+                                        "method_capacity_wait",
+                                        "Waiting for method capacity",
+                                        run_id=rid,
+                                        method=method.name,
+                                        activity="capacity_wait",
+                                    )
+                                    reported_capacity_wait = True
                                 saturated = True
                                 break
                             with engine.begin() as conn:

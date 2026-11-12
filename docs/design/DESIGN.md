@@ -212,6 +212,10 @@ The [audit-closure coordinator](../plans/audit-closure_2026-11-03.md) owns remai
 
 ### §B1 Qualified assertion occurrences and semantic facts have distinct identities
 
+**Proposed accepted final execution target · 2026-11-11.** D1 alone uses CUDA/BF16 with 120 second inference; other selected NLP providers remain CPU. Profile/device/precision/thread changes freeze before registration under their appropriate provenance; physical count/byte overrides preserve exact source, observation and retained batch identities. [D4](D4-method-catalog.md#selected-provider-execution-profiles-and-complete-settings) owns selected profiles and complete settings propagation.
+
+> Decision: [ADR-0087](../adr/0087-book-characterization-policy-and-recovery.md)
+
 **Proposed accepted D1 CUDA target · 2026-11-11.** Current D1 observations retain exact CUDA/BF16 device/precision provenance; authentic old CPU outputs remain CPU evidence, with no CPU/GPU equivalence or relabelling. [D4](D4-method-catalog.md#current-d1-requires-cuda-and-bf16) owns the selected inference profile.
 
 > Decision: [ADR-0086](../adr/0086-d1-requires-cuda-bfloat16.md)
@@ -318,6 +322,10 @@ semantic decoder fallback.
 
 ### §B2 Methods write observations; only consolidation writes knowledge, per run
 
+**Proposed accepted final execution target · 2026-11-11.** One shared validated execution policy governs all characterization callers. Managed-operation cancellation/SIGINT stops its owned scope; existing run cancellation remains run-scoped. Retained characterization resume creates new runs for unfinished work and reuses compatible settled pins even from a terminal child, preserving native fences and original terminal evidence. [D6](D6-orchestration-metrics-policies.md#final-characterization-policy-and-retained-recovery) and [D8](D8-agent-and-query-interfaces.md#shared-policy-settings-status-and-characterization-resume) own execution and operator contracts.
+
+> Decision: [ADR-0087](../adr/0087-book-characterization-policy-and-recovery.md)
+
 **Proposed accepted D1 CUDA target · 2026-11-11.** Current D1 requires CUDA/BF16 and refuses CPU/missing prerequisites without fallback. GPU custody and actual scoped qualification are immediate obligations; private proposal standing and native settlement remain unchanged.
 
 > Decision: [ADR-0086](../adr/0086-d1-requires-cuda-bfloat16.md)
@@ -422,6 +430,10 @@ legacy wait barrier rather than implying that every old option is supported.
 <a id="section-b4"></a>
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
+
+**Proposed accepted final execution target · 2026-11-11.** Native JSONB/TOAST retains one logical SourceView layer, original digest meaning and atomic publication under coherent 64 MiB layer/full-layer read bounds, the existing 64 MiB per-view bound and 256 MiB aggregate full-read admission. The first actual stage run retains the versioned frozen demand once in immutable options; later runs reference that anchor. Managed delivery copies do not replace native recovery authority. No synthetic run or progress service is introduced. [D3](D3-database.md#coherent-characterization-bounds-and-native-demand-anchors) owns size/materialization and retained-anchor contracts; SourceView 480/BEP-E01 native qualification remains open with BEP.
+
+> Decision: [ADR-0087](../adr/0087-book-characterization-policy-and-recovery.md)
 
 **Proposed accepted ready-execution target · 2026-11-11.** Existing task/run/attempt/holder and original-source publication remain authoritative under bounded ready coordination. Actual predecessor pins precede dependent task registration; foreground admission preserves independent renewal. [D3](D3-database.md#ready-work-claims-and-reduction-custody) owns these effects.
 
@@ -634,6 +646,10 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Proposed accepted final execution target · 2026-11-11.** Result-neutral execution settings resolve through one policy owner; inference profile/device/precision/thread changes retain frozen result-affecting authority before registration. Freeze semantic demand, exact source/release/dependency selections and freshness seed once, then reuse them during supported recovery. BEP-09 prepares a new unselected candidate and qualifies all six stages over retained capture 496/cut 614 (316 views, 518 pages) after source freeze and native size repair; acceptance of this target establishes neither implementation nor qualification. [D6](D6-orchestration-metrics-policies.md#final-characterization-policy-and-retained-recovery) owns the boundary; the [BEP coordinator](../plans/book-processing-efficiency-and-parallelism_2026-11-11.md) owns completion. Activation, selection and TC-plan reconciliation remain separate.
+
+> Decision: [ADR-0087](../adr/0087-book-characterization-policy-and-recovery.md)
 
 **Proposed accepted D1 CUDA target · 2026-11-11.** Released numerical policy distinguishes D1 CUDA BF16 from GLiNER CPU float32 and binds actual configuration/runtime/artifacts/device/precision. Current authoring requires CUDA; historical original CPU read contracts remain intact. Scoped actual D1 CUDA qualification is authorized now, without qualifying other07b GPU profiles.
 

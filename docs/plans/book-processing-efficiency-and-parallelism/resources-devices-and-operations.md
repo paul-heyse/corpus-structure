@@ -1,6 +1,6 @@
 # Resources, devices and operator workflows
 
-**Status: Required BEP-07a and selected D1 CUDA slice scoped-qualified; other07b/08 remain planned · 2026-11-11.** This companion owns BEP-07 and BEP-08 in the
+**Status: BEP-07/08 implemented; final native and integrated qualification in progress · 2026-11-11.** This companion owns BEP-07 and BEP-08 in the
 [book-processing series](../book-processing-efficiency-and-parallelism_2026-11-11.md).
 Planning baseline is `f81a380cd`; inspected production source is `4d0ca7eb7`. The source
 [functional review](../../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md#O06)
@@ -320,3 +320,21 @@ Final second-increment acceptance2026-11-11 is **scoped-qualified** in the coord
 checks passed after final source freeze. The CUDA D1 ordered-question/cohort/source/custody panel
 also passed. BEP-E02/E03 are closed there; BEP-E01 and other07b/08/09 scope remain open. The
 coordinator owns exact commands, receipt IDs and source/context applicability.
+
+
+## Current final operating selection
+
+**Implemented; final qualification in progress2026-11-11.** ADR-0087 and the coordinator's
+final-increment section supersede the provisional numeric slice above. The shared validated
+policy selects two regions/workers/submissions/stage runs, four claims, two jobs per provider
+lane,2GiB encoded owned state,256MiB CPU inputs/64MiB replies and unchanged8MiB native frames.
+CPU native threads1 and providers4/inter-op1 are controlled inside their selected runtimes.
+GLiNER requires its frozen profile thread count to match policy and supports inter-op1.
+D1 alone uses CUDA/BF16; all other selected NLP remains CPU.
+
+The first actual stage owns the native frozen demand; children refer to its anchor.
+`ci run characterize --captured-run RUN --release RELEASE --realization INPUT` reuses exact
+retained capture under a current admitted target. `ci run resume RUN --characterization`
+reconstructs from native authority, preserves the original freshness seed and compatible settled
+products, and permits capacity-only changes. The coordinator owns actual qualification, findings
+and receipts; these interfaces do not establish full-book completion.

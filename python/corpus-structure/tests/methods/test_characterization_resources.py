@@ -7,8 +7,9 @@ from threading import Event
 
 import pytest
 
+from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.methods import characterization_resources as resources
-from corpus_structure.semantic.cpu_execution import CPUExecutionPolicy, OwnedByteBudget
+from corpus_structure.semantic.cpu_execution import OwnedByteBudget
 from corpus_structure.semantic.identity import canonical_bytes
 
 
@@ -35,6 +36,8 @@ def runtime(monkeypatch):
 
     @contextmanager
     def open_worker(**kwargs):
+        assert kwargs["max_request_bytes"] == execution.policy.max_native_request_bytes
+        assert kwargs["max_reply_bytes"] == execution.policy.max_native_reply_bytes
         worker = Worker(kwargs["check_active"], kwargs["device"])
         opened.append(worker)
         try:
@@ -49,7 +52,7 @@ def runtime(monkeypatch):
         "_preflight_pm2_runtime",
         lambda **kwargs: dict(runtime_identity={"runtime": "frozen"}, assets={"artifact": 1}),
     )
-    policy = CPUExecutionPolicy()
+    policy = CharacterizationExecutionPolicy()
     execution = resources.ProviderExecution(OwnedByteBudget(policy.max_owned_bytes), policy)
     try:
         yield execution, opened, closed
@@ -104,6 +107,42 @@ def test_completed_reply_holds_byte_capacity_until_parent_retirement(runtime):
     assert before > 0
     handle.collect()
     assert execution.budget.used_bytes == before
+    handle.retire()
+    assert execution.budget.used_bytes == 0
+
+
+def test_native_lazy_admission_uses_native_limits_independently_of_cpu(runtime):
+    execution, _, _ = runtime
+    execution.policy = replace(
+        execution.policy,
+        max_packet_bytes=1,
+        max_reply_bytes=1,
+        max_native_request_bytes=1024,
+        max_native_reply_bytes=2048,
+    )
+    request = work("native", {"body": "x" * 100})
+    intent = execution.lazy_work(lambda: request, lane_key="maverick")
+    handle = intent.try_submit()
+    assert handle is not None
+    assert execution.budget.used_bytes == execution._request_size(request) + 2048
+    assert result(handle) == {"body": "x" * 100}
+    assert execution.budget.used_bytes == 0
+
+
+def test_native_request_and_reply_limits_are_enforced_independently(runtime):
+    from corpus_structure.semantic.cpu_execution import CapacityExceeded
+
+    execution, _, _ = runtime
+    execution.policy = replace(execution.policy, max_native_request_bytes=16)
+    with pytest.raises(CapacityExceeded, match="native request"):
+        execution.try_submit(work("oversize", {"body": "x" * 100}))
+    execution.policy = replace(
+        execution.policy, max_native_request_bytes=1024, max_native_reply_bytes=16
+    )
+    handle = execution.try_submit(work("reply", {}))
+    handle.flush()
+    handle.future.result(timeout=5)
+    assert handle.collect().error_type == "CapacityExceeded"
     handle.retire()
     assert execution.budget.used_bytes == 0
 

@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "id": "bep.e01-largest-native-layer",
+  "title": "Complete largest-by-text captured unit fits the selected layer limit",
+  "group": "BEP",
+  "package": "BEP-E01",
+  "finalized": "2026-11-11",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the complete current native layer for the largest-by-text captured source fit 64 MiB without splitting or truncation?",
+  "answers": [
+    "BEP-E01"
+  ],
+  "method": "Authenticate exact SourceView 561 under capture 496/cut 614 and integrated product 1627 in a read-only REPEATABLE READ snapshot. Freeze current HanLP custody before inference and execute actual current spaCy/HanLP CPU producers on the complete natural unit; retain canonical output and all source/configuration inputs. No publication or PDF recognition.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-11_bep-layer-capacity/largest_native.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "largest_native.py",
+      "role": "Upper-tail reproduction driver",
+      "sha256": "450bac0695994224e4bf8cc82c72c0da5933994ea669782fc144129beb6d6cff"
+    },
+    {
+      "path": "raw/largest-source.json",
+      "role": "Complete exact source and integrated context",
+      "sha256": "1d4901c0a0f4a85b1f878c648b2c70056b645e10210fc594c48e3f349417ed3c"
+    },
+    {
+      "path": "raw/largest-config.json",
+      "role": "Configuration frozen before inference",
+      "sha256": "49891385e95f677a9997beba9420cb45f64c2036f9ff863181673c7159593ce6"
+    },
+    {
+      "path": "raw/largest-current-hanlp-custody.json",
+      "role": "Actual provider runtime/artifact preflight",
+      "sha256": "8318515bf752fe0035dcba6e9630cbd3cd45ecb4a1ccb7089a91a21071488853"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/largest-layer.json",
+      "role": "Complete canonical layer bytes",
+      "sha256": "9ac4dc41d89ddb3a101dc29f95fbdec0fea566e398667e2aa5e92a67b425fd89"
+    },
+    {
+      "path": "largest-summary.json",
+      "role": "Canonical size, digest, inventories and exact source pins",
+      "sha256": "8984e4a0a9e4220e00e29f6681e055367233d1aaabf86a7bf585221ee27a58b1"
+    },
+    {
+      "path": "raw/largest-attempt-02.log",
+      "role": "Passed actual-provider production log",
+      "sha256": "fe7613642e74f7483a7c71fd4878196857eebb11e034ebd9345d7b5aca42e731"
+    },
+    {
+      "path": "raw/largest-attempt-01.log",
+      "role": "Interrupted during release compilation before provider launch to select explicit snapshot route",
+      "sha256": "ceda53245a0ba51e60182140c4b98f0dfbfdb4e81af29deb624e6d624b22b1d0"
+    }
+  ],
+  "depends_on": [
+    "bep.e01-source-capacity-inventory"
+  ],
+  "results": [
+    {
+      "name": "Canonical layer size",
+      "value": 49326509,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "Fits selected 64 MiB layer contract",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Complete native families",
+      "value": 13,
+      "of": 13,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Annotations",
+      "value": 27823,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Memberships",
+      "value": 50116,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Roles",
+      "value": 14551,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The current method-v2 private layer for SourceView 561 (#/groups/456), the largest by projected text among 316 effective captured views, completed all 13 native families in 49,326,509 canonical UTF-8 bytes, below 67,108,864. Its digest is 9ac4dc41d89ddb3a101dc29f95fbdec0fea566e398667e2aa5e92a67b425fd89. This actual upper-tail result supports the selected capacity for this unit; it is neither a guarantee for all source shapes nor native publication or whole-book acceptance. No semantic truncation, sentence splitting or weaker profile was used.",
+  "consumed_by": [
+    "BEP-E01"
+  ]
+}

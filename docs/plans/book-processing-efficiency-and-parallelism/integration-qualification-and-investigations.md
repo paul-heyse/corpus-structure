@@ -1,6 +1,6 @@
 # Integration, qualification and investigations
 
-**Proposed target · 2026-11-11.** Owns BEP-09 design and bounded investigation routes. The [coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns every scheduled disposition and combined completion; this companion defines what settles it.
+**Target implemented; BEP-09 qualification active · 2026-11-11.** Owns BEP-09 design and bounded investigation routes. The [coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns every scheduled disposition and combined completion; this companion defines what settles it.
 
 ## BEP-09 · Assembled delivery and retirement
 
@@ -78,3 +78,10 @@ This table covers every capability disposition in the source review; mention is 
 BEP closes only with baseline delivery, mandatory decisions, triggered branch dispositions and applicable actual qualification. CUDA deferral must name its missing support rather than claim native success. Default activation/project selection/promotion retain separate effect authority.
 
 Move enduring architectural meaning into existing owners as implementation closes. Deliver a concise mapping of actual changes and preserved limits for later TC reconciliation, while leaving TC plan documents unchanged throughout this scope. This companion creates no second mutable progress or opportunity ledger.
+
+
+The coordinator's final-increment section now owns selected I04–I06 decisions and current
+qualification. I07–I13 remain untriggered conditional investigations. The selected D1CUDA/otherCPU
+profile does not require other-provider CUDA adoption. Native layer capacity and end-to-end
+recovery receive actual checks before the whole-book run; final acceptance still requires every
+applicable row in the planned qualification table above.

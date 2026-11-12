@@ -59,12 +59,15 @@ _BATCH = TypeAdapter(AnnotationBatch)
 
 def compute_annotations(content: bytes, check_active: Callable[[], None]) -> bytes:
     packet = _AnnotationPacket.model_validate_json(content)
-    from .cpu_execution import _WORKER_RELEASES
+    from .cpu_execution import _WORKER_RELEASES, _apply_native_thread_limits
 
     if packet.release_id not in _WORKER_RELEASES:
         raise ValueError("annotation packet differs from initialized release")
 
     def checked_inputs():
+        # annotate() loads its pipeline before consuming inputs. Discover any pools
+        # loaded by that pipeline before make_doc/Language.pipe executes native work.
+        _apply_native_thread_limits()
         for item in packet.inputs:
             check_active()
             yield item

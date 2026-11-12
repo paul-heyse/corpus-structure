@@ -15,6 +15,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict
 
+from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.core.method import SourceViewRef, UnitRef, UnitView
 from corpus_structure.core.vocab import TaskUnitType
 
@@ -29,27 +30,6 @@ from .types import PreparationProfile, PreparedArtifact, PreparedRelease, Source
 
 class CapacityExceeded(ValueError):
     """The complete owned input cannot fit the selected physical policy."""
-
-
-@dataclass(frozen=True)
-class CPUExecutionPolicy:
-    workers: int = 2
-    max_submissions: int = 2
-    max_regions: int = 2
-    max_active_stage_runs: int = 2
-    max_claims: int = 4
-    provider_threads: int = 4
-    provider_interop_threads: int = 1
-    max_provider_jobs: int = 2
-    max_owned_bytes: int = 256 * 1024**2
-    max_packet_bytes: int = 64 * 1024**2
-    max_reply_bytes: int = 8 * 1024**2
-
-    def __post_init__(self):
-        if any(type(v) is not int or v < 1 for v in asdict(self).values()):
-            raise ValueError("CPU policy requires positive finite integer bounds")
-        if self.max_packet_bytes + self.max_reply_bytes > self.max_owned_bytes:
-            raise ValueError("CPU transfer bounds exceed combined owned-state capacity")
 
 
 class OwnedByteBudget:
@@ -170,6 +150,8 @@ class CPUReply:
     error_type: str | None = None
     error_message: str | None = None
     cost: bytes | None = None
+    native_thread_limit: int | None = None
+    native_pools: tuple[dict[str, Any], ...] = ()
 
 
 class _KernelReader:
@@ -212,15 +194,47 @@ _WORKER_RELEASES: dict[str, PreparedRelease] = {}
 _WORKER_STOP: Any = None
 _WORKER_CANCELLATION: Any = None
 _WORKER_REQUEST: tuple[int, int] | None = None
+_WORKER_NATIVE_THREADS: int | None = None
+_WORKER_NATIVE_LIMITER: Any = None
+_WORKER_NATIVE_POOLS: tuple[dict[str, Any], ...] = ()
 
 
 class CPURequestCancelled(RuntimeError):
     """This private logical request was cancelled; sibling requests remain useful."""
 
 
-def _initialize(capsule: bytes, stop, cancellation=None) -> None:
-    global _WORKER_STOP, _WORKER_CANCELLATION
+def _apply_native_thread_limits() -> None:
+    """Refresh after library loads; supported BLAS/OpenMP pools stay limited until exit.
+
+    A fresh controller discovers newly loaded libraries. It cannot constrain unsupported
+    native runtimes, Python threads, tokenizers or GPU execution.
+    """
+    global _WORKER_NATIVE_LIMITER, _WORKER_NATIVE_POOLS
+    if _WORKER_NATIVE_THREADS is None:
+        return
+    from threadpoolctl import threadpool_info, threadpool_limits
+
+    _WORKER_NATIVE_LIMITER = threadpool_limits(limits=_WORKER_NATIVE_THREADS)
+    _WORKER_NATIVE_POOLS = tuple(threadpool_info())
+    if any(pool.get("num_threads") != _WORKER_NATIVE_THREADS for pool in _WORKER_NATIVE_POOLS):
+        raise RuntimeError("CPU native runtime did not apply the selected thread bound")
+
+
+def _initialize(capsule: bytes, stop, cancellation=None, native_threads: int = 1) -> None:
+    import os
+
+    global _WORKER_STOP, _WORKER_CANCELLATION, _WORKER_NATIVE_THREADS
+    _WORKER_NATIVE_THREADS = native_threads
+    for variable in (
+        "OMP_NUM_THREADS",
+        "MKL_NUM_THREADS",
+        "OPENBLAS_NUM_THREADS",
+        "BLIS_NUM_THREADS",
+    ):
+        os.environ[variable] = str(native_threads)
+    _apply_native_thread_limits()
     prepared = hydrate_capsule(capsule)
+    _apply_native_thread_limits()
     _WORKER_RELEASES.clear()
     _WORKER_RELEASES[prepared.release_id] = prepared
     _WORKER_STOP = stop
@@ -247,6 +261,7 @@ def _compute(content: bytes, capsules: tuple[bytes, ...], max_reply_bytes: int) 
     from corpus_structure.methods.contextual_interpretation import ContextualInterpretationMethod
     from corpus_structure.methods.formal_evidence import FormalEvidenceMethod
 
+    _apply_native_thread_limits()
     _worker_active()
     packet = _Input.model_validate_json(content)
     releases = dict(_WORKER_RELEASES)
@@ -290,6 +305,8 @@ def _compute(content: bytes, capsules: tuple[bytes, ...], max_reply_bytes: int) 
         os.getpid(),
         threading.current_thread() is threading.main_thread(),
         cost=None if result.cost is None else result.cost.model_dump_json().encode(),
+        native_thread_limit=_WORKER_NATIVE_THREADS,
+        native_pools=_WORKER_NATIVE_POOLS,
     )
 
 
@@ -317,6 +334,8 @@ def _dispatch(
                 content_out,
                 os.getpid(),
                 threading.current_thread() is threading.main_thread(),
+                native_thread_limit=_WORKER_NATIVE_THREADS,
+                native_pools=_WORKER_NATIVE_POOLS,
             )
         return _compute(content, capsules, max_reply_bytes)
     except Exception as error:
@@ -381,6 +400,9 @@ class CPUHandle:
                     raise kind(reply.error_message)
                 if len(reply.content) > self.owner.policy.max_reply_bytes:
                     raise CapacityExceeded("CPU reply exceeds admitted capacity")
+                self.owner.native_thread_reports[reply.pid] = dict(
+                    threads=reply.native_thread_limit, pools=reply.native_pools
+                )
                 self._reply = reply
             except BaseException as error:
                 self._error = error
@@ -412,9 +434,11 @@ class CPUHandle:
 
 
 class CPUExecutionScope:
-    def __init__(self, prepared: PreparedRelease, policy: CPUExecutionPolicy | None = None):
+    def __init__(
+        self, prepared: PreparedRelease, policy: CharacterizationExecutionPolicy | None = None
+    ):
         self.prepared = prepared
-        self.policy = policy or CPUExecutionPolicy()
+        self.policy = policy or CharacterizationExecutionPolicy()
         self.budget = OwnedByteBudget(self.policy.max_owned_bytes)
         self._pool: ProcessPoolExecutor | None = None
         self._context = multiprocessing.get_context("spawn")
@@ -426,6 +450,7 @@ class CPUExecutionScope:
         self._free = list(range(self.policy.max_submissions))
         self._admissions: dict[int, _InputAdmission] = {}
         self._handles: set[CPUHandle] = set()
+        self.native_thread_reports: dict[int, dict[str, Any]] = {}
 
     def _executor(self):
         with self._lock:
@@ -439,7 +464,12 @@ class CPUExecutionScope:
                     max_workers=self.policy.workers,
                     mp_context=self._context,
                     initializer=_initialize,
-                    initargs=(capsule, self._stop, self._cancellation),
+                    initargs=(
+                        capsule,
+                        self._stop,
+                        self._cancellation,
+                        self.policy.cpu_native_threads,
+                    ),
                 )
             return self._pool
 
@@ -645,7 +675,9 @@ def cpu_method_plan(method, units, cfg, ctx):
                 raise ValueError("CPU task determinants differ from its frozen configuration")
             execution = getattr(reader, "cpu_execution", None)
             if execution is None:
-                execution = CPUExecutionScope(reader.prepared)
+                execution = CPUExecutionScope(
+                    reader.prepared, getattr(ctx.settings, "execution_policy", None)
+                )
                 owned.append(execution)
             prepared_inputs = {}
             executor = cast(CPUExecutionScope, execution)

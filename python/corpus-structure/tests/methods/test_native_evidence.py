@@ -8,7 +8,7 @@ import pytest
 import spacy
 from ingest.test_annotations import ControlledPipeline, item
 
-from corpus_structure.core.method import UnitRef
+from corpus_structure.core.method import MethodSettings, UnitRef
 from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.ingest import annotations
 from corpus_structure.ingest.annotations import annotate
@@ -292,7 +292,7 @@ def test_optional_spacy_columns_retain_independent_available_families(native_sou
 
 
 def test_method_uses_authoritative_operation_and_retains_cost_without_private_frames(
-    native_source, prepared, monkeypatch
+    native_source, prepared, monkeypatch, tmp_path
 ):
     controlled, request, _, view, base, scope, operation = native_source
     monkeypatch.setattr(producer, "pipeline", lambda _: controlled)
@@ -306,7 +306,9 @@ def test_method_uses_authoritative_operation_and_retains_cost_without_private_fr
     run = SimpleNamespace(reader=reader)
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.DOCUMENT, 17), run=run)
     ctx = SimpleNamespace(
-        check_active=lambda: None, characterization_operation=lambda ref: operation
+        check_active=lambda: None,
+        characterization_operation=lambda ref: operation,
+        settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
     )
     cfg = NativeEvidenceConfig(
         characterization_base_document=base,
@@ -326,7 +328,9 @@ def test_method_uses_authoritative_operation_and_retains_cost_without_private_fr
     assert result.parse_detail is None and result.contributions is None
 
 
-def test_language_refusal_and_boundary_profile_are_explicit_weaker_results(native_source, prepared):
+def test_language_refusal_and_boundary_profile_are_explicit_weaker_results(
+    native_source, prepared, tmp_path
+):
     _, _, _, view, base, scope, operation = native_source
     reader = SimpleNamespace(
         prepared=prepared,
@@ -338,7 +342,9 @@ def test_language_refusal_and_boundary_profile_are_explicit_weaker_results(nativ
         ref=UnitRef(TaskUnitType.DOCUMENT, 17), run=SimpleNamespace(reader=reader)
     )
     ctx = SimpleNamespace(
-        check_active=lambda: None, characterization_operation=lambda ref: operation
+        check_active=lambda: None,
+        characterization_operation=lambda ref: operation,
+        settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
     )
     cfg = NativeEvidenceConfig(
         characterization_base_document=base,

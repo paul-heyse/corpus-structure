@@ -14,6 +14,7 @@ from tempfile import TemporaryDirectory
 from threading import BoundedSemaphore, Event, Lock, Thread
 from typing import Any, Literal
 
+from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.core.method import PreparedWork
 from corpus_structure.semantic.identity import canonical_bytes
 
@@ -248,6 +249,8 @@ class _Lane:
                             device=selection.device,
                             nemotron_endpoint=selection.nemotron_endpoint,
                             check_active=self.active,
+                            max_request_bytes=self.owner.policy.max_native_request_bytes,
+                            max_reply_bytes=self.owner.policy.max_native_reply_bytes,
                         )
                     )
                     self.key = key
@@ -316,7 +319,7 @@ class _Lane:
                 + len(canonical_bytes([asdict(report) for report in reply.reports]))
                 + len(canonical_bytes([asdict(member) for member in reply.admissions]))
             )
-            if size > self.owner.policy.max_reply_bytes:
+            if size > self.owner.policy.max_native_reply_bytes:
                 from corpus_structure.semantic.cpu_execution import CapacityExceeded
 
                 raise CapacityExceeded("native reply exceeds admitted byte capacity")
@@ -433,7 +436,7 @@ class _PendingIntent:
 class ProviderExecution:
     """One owner, bounded admission and serialized exchange for each native provider."""
 
-    def __init__(self, budget, policy):
+    def __init__(self, budget, policy: CharacterizationExecutionPolicy):
         self.budget, self.policy = budget, policy
         self._lanes = {}
         self._handles = set()
@@ -466,7 +469,7 @@ class ProviderExecution:
                 )
             )
         )
-        if size > self.policy.max_packet_bytes:
+        if size > self.policy.max_native_request_bytes:
             from corpus_structure.semantic.cpu_execution import CapacityExceeded
 
             raise CapacityExceeded("complete native request exceeds admitted byte capacity")
@@ -496,12 +499,14 @@ class ProviderExecution:
             )
             if not lane.slots.acquire(blocking=False):
                 return None
-            reservation = size + self.policy.max_reply_bytes
+            reservation = size + self.policy.max_native_reply_bytes
             if pending is not None and not pending.held:
                 lane.slots.release()
                 raise ValueError("native pending intent is no longer owned")
             try:
-                self.budget.reserve(reservation if pending is None else self.policy.max_reply_bytes)
+                self.budget.reserve(
+                    reservation if pending is None else self.policy.max_native_reply_bytes
+                )
             except CapacityExceeded:
                 lane.slots.release()
                 return None
@@ -771,7 +776,7 @@ class ProviderExecution:
             )
             if not lane.slots.acquire(blocking=False):
                 return None
-            reservation = self.policy.max_packet_bytes + self.policy.max_reply_bytes
+            reservation = self.policy.max_native_request_bytes + self.policy.max_native_reply_bytes
             try:
                 self.budget.reserve(reservation)
             except CapacityExceeded:
@@ -789,7 +794,7 @@ class ProviderExecution:
                 if actual_lane != lane_key:
                     raise ValueError("native request changed its admitted lane")
                 size = self._request_size(request)
-                unused = self.policy.max_packet_bytes - size
+                unused = self.policy.max_native_request_bytes - size
                 self.budget.release(unused)
                 reservation -= unused
                 handle = ProviderHandle(self, lane, request, reservation)
@@ -979,7 +984,7 @@ def merge_builder(builder, branch):
 
 
 @contextmanager
-def provider_scope(units):
+def provider_scope(units, *, policy: CharacterizationExecutionPolicy | None = None):
     """Direct method callers own the same runtime used by enclosing source execution."""
     from corpus_structure.semantic.cpu_execution import CPUExecutionScope
 
@@ -990,7 +995,7 @@ def provider_scope(units):
     with ExitStack() as stack:
         cpu = getattr(reader, "cpu_execution", None)
         if cpu is None:
-            cpu = CPUExecutionScope(reader.prepared)
+            cpu = CPUExecutionScope(reader.prepared, policy)
             stack.callback(cpu.close)
         providers = getattr(reader, "provider_execution", None)
         if providers is None:

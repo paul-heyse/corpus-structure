@@ -10,6 +10,8 @@ import json
 from hashlib import sha256
 from types import MappingProxyType
 
+from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+
 from .identity import canonical_bytes
 
 _VERIFIED = object()
@@ -24,13 +26,16 @@ def _immutable(value):
 
 
 class VerifiedExecutionPreparation:
-    def __init__(self, prepared, *, _authority):
+    def __init__(
+        self, prepared, *, policy: CharacterizationExecutionPolicy | None = None, _authority
+    ):
         if _authority is not _VERIFIED:
             raise ValueError("execution preparation requires full release verification")
         from .cpu_execution import CPUExecutionScope
 
         self.prepared = prepared
-        self.cpu = CPUExecutionScope(prepared)
+        self.cpu = CPUExecutionScope(prepared, policy)
+        self.policy = self.cpu.policy
         from corpus_structure.methods.characterization_resources import ProviderExecution
 
         self.providers = ProviderExecution(self.cpu.budget, self.cpu.policy)
@@ -63,10 +68,12 @@ class VerifiedExecutionPreparation:
                 closers.callback(closer)
 
 
-def prepare_execution(conn, release_id):
+def prepare_execution(conn, release_id, *, policy: CharacterizationExecutionPolicy | None = None):
     from .releases import load_release
 
-    return VerifiedExecutionPreparation(load_release(conn, release_id), _authority=_VERIFIED)
+    return VerifiedExecutionPreparation(
+        load_release(conn, release_id), policy=policy, _authority=_VERIFIED
+    )
 
 
 class RegionalPreparation:
@@ -156,9 +163,47 @@ class RegionalPreparation:
             read_layer_manifest(conn, reference, run_id=run_id)
         else:
             report = read_layer(conn, reference, run_id=run_id)
-            self._retain(report.content)
-            self._layers[reference] = report
+            self.retain_native_layer(reference, report)
         return self._layers[reference]
+
+    def retain_native_layer(self, reference, report):
+        """Retain exact authenticated canonical bytes once across regional consumers."""
+        self._require_open()
+        if report.reference(reference.task_id) != reference:
+            raise ValueError("regional layer differs from its exact published pin")
+        if reference in self._layers:
+            cached = self._layers[reference]
+            if cached.content != report.content:
+                raise ValueError("regional layer differs from retained canonical content")
+            return cached
+        self._retain(report.content)
+        self._layers[reference] = report
+        return report
+
+    def primary_layers(self, conn, run_id, source_view_id, references):
+        """Admit a bounded native page before reading; retain complete selected layers.
+
+        Native authorization still runs for every selection, including cache hits. The
+        temporary credit covers a live page while its canonical bodies enter the cache;
+        accumulated bodies stay charged until this region's final consumer releases them.
+        """
+        self._require_open()
+        from .characterization_store import read_primary_layers
+
+        bound = min(256 * 1024**2, self.execution.cpu.policy.max_packet_bytes)
+        budget = self.execution.cpu.budget
+        budget.reserve(bound)
+        try:
+            return read_primary_layers(
+                conn,
+                run_id,
+                source_view_id,
+                references,
+                max_bytes=bound,
+                retain=self.retain_native_layer,
+            )
+        finally:
+            budget.release(bound)
 
     def validate_layer(self, prepared, payload, *, dependencies, releases):
         self._require_open()

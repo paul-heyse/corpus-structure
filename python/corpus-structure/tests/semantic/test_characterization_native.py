@@ -545,12 +545,12 @@ def test_native_composition_source_only_and_indexed_keyset_pages(
         )
     with semantic_reader_engine.connect() as conn:
         assert read_view(conn, weak_pin).payload["layers"] == []
-        # Book-wide metadata has a separate finite bound from natural-unit layers.
+        # Full canonical layers and views share the finite 64 MiB bound.
         assert read_view(conn, view_pin, max_bytes=64 * 1024**2).content == view.content
         with pytest.raises(DBAPIError), conn.begin_nested():
             read_view(conn, view_pin, max_bytes=64 * 1024**2 + 1)
         with pytest.raises(DBAPIError), conn.begin_nested():
-            read_layer(conn, layer_pin, max_bytes=8 * 1024**2 + 1)
+            read_layer(conn, layer_pin, max_bytes=64 * 1024**2 + 1)
         with pytest.raises(DBAPIError), conn.begin_nested():
             conn.execute(
                 text("SELECT ops.read_characterization_product(:t,:k,:d,'view',NULL,NULL)"),
@@ -614,7 +614,7 @@ def test_native_composition_source_only_and_indexed_keyset_pages(
 
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
-def test_document_view_can_combine_metadata_beyond_one_layer_budget(
+def test_document_view_combines_large_metadata_with_independent_read_budget(
     characterization_source, semantic_writer_engine, semantic_reader_engine
 ):
     source = characterization_source
@@ -886,11 +886,31 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
     from corpus_structure.semantic._operation_calls import select_source_view
     from corpus_structure.semantic._operation_ids import RunId, SourceViewId
     from corpus_structure.semantic.operations import OperationBinding, complete_task, create_run
+    from corpus_structure.semantic.source_views import load_source_view
 
     from .operation_scenario_support import prepare_operation_scenario
 
     old = characterization_source
     with semantic_writer_engine.begin() as conn:
+        # This controlled consumer exercises the complete-primary read boundary;
+        # unlike the shared fixture's seven-character slice, its declared coverage
+        # must include the full retained native source population.
+        native_source = load_source_view(conn, old.scope["source_view_ids"][0], analysis=False)
+        old = SimpleNamespace(
+            **{
+                **vars(old),
+                "scope": dict(
+                    old.scope,
+                    selectors=[
+                        dict(
+                            projection=native_source.ref.projection_digest,
+                            start=0,
+                            end=len(native_source.text),
+                        )
+                    ],
+                ),
+            }
+        )
         task, claim, config_hash = make_task(conn, old)
         old_body = layer_payload(old, config_hash)
         old_body.update(roles=[], terms=[], choices=[])
@@ -1213,7 +1233,7 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
     from corpus_structure.orchestrate.runner import Graph, Step
     from corpus_structure.semantic.characterization_store import read_inventory
 
-    calls = []
+    calls, input_regions, claim_regions, selection_readers = [], [], [], []
 
     class RetainedSourceConsumer:
         name = "native-binding"
@@ -1224,10 +1244,13 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
         unit_type = TaskUnitType.SOURCE_VIEW
         resources = Resources()
         Config = create_model(
-            "ExactRetainedSourceConsumer", characterization_layers=(tuple[dict, ...], ())
+            "ExactRetainedSourceConsumer",
+            characterization_layers=(tuple[dict, ...], ()),
+            source_dependencies=(str, "ancestor_source_view"),
         )
 
         def select(self, run, cfg):
+            selection_readers.append(run.reader)
             assert tuple(ProductReference(**value) for value in cfg.characterization_layers) == (
                 original_pin,
             )
@@ -1239,6 +1262,14 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
             )
 
         def input_digest(self, unit, cfg):
+            region = unit.run.reader._regional_preparation
+            assert region is not None and not region._closed
+            retained = unit.run.reader.primary_characterization(
+                unit.ref.unit_id, families=("syntax",)
+            )
+            assert retained[original_pin].content == original.content
+            assert region._reserved >= len(original.content)
+            input_regions.append(region)
             return Digest(str((unit.ref, cfg.characterization_layers)).encode())
 
         def run(self, units, cfg, ctx):
@@ -1246,9 +1277,15 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
                 assert unit.ref.unit_id == old.scope["source_view_ids"][0]
                 source = ctx.reader.source_view(unit.ref.unit_id)
                 assert source.ref.native_product == old.base
-                retained = ctx.reader.characterization_layers((original_pin,))
+                region = ctx.reader._owner._regional_preparation
+                assert region is not None and not region._closed
+                retained = ctx.reader.primary_characterization(
+                    unit.ref.unit_id, families=("syntax",)
+                )
                 assert retained[original_pin].content == original.content
                 assert retained[original_pin].payload["release_id"] == old.prepared.release_id
+                assert region._reserved >= len(original.content)
+                claim_regions.append(region)
                 calls.append(unit.ref.unit_id)
             return tuple(
                 UnitResult(ref=unit.ref, outcome=ObservationOutcome.EMPTY) for unit in units
@@ -1342,6 +1379,17 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
     )
     assert rebound.status == "source_ready"
     assert calls == old.scope["source_view_ids"] * 2
+    # Default analytical execution has no book-wide regional cache. Registration
+    # and each claimed batch retain their inputs only through their own consumer.
+    assert len(input_regions) == len(claim_regions) == 2
+    assert len({id(region) for region in (*input_regions, *claim_regions)}) == 4
+    assert all(
+        region._closed and region._reserved == 0 for region in (*input_regions, *claim_regions)
+    )
+    # Ancestor discovery also hydrates source bodies; the metadata selection reader
+    # must not accumulate those bodies across its full reference population.
+    assert len(selection_readers) == 2
+    assert all(not getattr(reader, "_native_views", {}) for reader in selection_readers)
     with semantic_writer_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM kb.source_view")) == before_views
         rebound_manifest = json.loads(
@@ -1763,6 +1811,23 @@ def test_real_primary_demand_publishes_all_stages_and_reuses_exact_products(
         or row["availability"] != "available"
     ]
     assert not unavailable, unavailable
+    # Capacity-only recovery from the terminal child keeps the original native demand.
+    from dataclasses import replace
+
+    from corpus_structure.orchestrate.characterization_recovery import resume_characterization
+
+    created = []
+    capacity_settings = settings.model_copy(
+        update={"execution_policy": replace(settings.execution_policy, workers=1, max_regions=1)}
+    )
+    (recovered,) = resume_characterization(
+        semantic_writer_engine, result.runs[-1], capacity_settings, on_created=created.append
+    )
+    assert recovered.view == result.view
+    assert set(recovered.layers) == set(result.layers)
+    assert recovered.anchor_run_id == result.anchor_run_id
+    assert not created
+
     # Ordinary repeated demand selects exact settled pins without new inference runs.
     repeated = execute_characterization_demand(
         semantic_writer_engine,
@@ -1918,6 +1983,7 @@ def test_empty_and_image_only_capture_enriches_without_language_provider_calls(
         return full_load(*args, **kwargs)
 
     monkeypatch.setattr(releases, "load_release", verified_load)
+    settings = MethodSettings(data_dir=tmp_path, model_cache=tmp_path)
     result = characterize_captured_run(
         semantic_writer_engine,
         SimpleNamespace(run_id=task["run_id"]),
@@ -1925,7 +1991,7 @@ def test_empty_and_image_only_capture_enriches_without_language_provider_calls(
         release_id=prepared.release_id,
         realization_id="z",
         domain="statistics",
-        method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+        method_settings=settings,
         method_options={},
     )
     assert len(full_loads) == 1
@@ -1955,7 +2021,7 @@ def test_empty_and_image_only_capture_enriches_without_language_provider_calls(
         release_id=prepared.release_id,
         realization_id="z",
         domain="statistics",
-        method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+        method_settings=settings,
         method_options={},
         fresh_methods=("text.formal_evidence",),
     )
@@ -1976,6 +2042,55 @@ def test_empty_and_image_only_capture_enriches_without_language_provider_calls(
             result[0], "text.native_evidence"
         )
         assert read_view(conn, result[0].view).payload == view
+
+    from dataclasses import replace
+
+    from corpus_structure.orchestrate.characterization_recovery import (
+        resolve_characterization_anchor,
+        resume_characterization,
+    )
+    from corpus_structure.semantic.operations import OperationConflict
+
+    terminal_child = refreshed[0].runs[-1]
+    with semantic_writer_engine.connect() as conn:
+        original_anchor, frozen = resolve_characterization_anchor(conn, terminal_child)
+    assert original_anchor == refreshed[0].anchor_run_id
+    assert frozen.freshness_seed
+    assert all(request.fresh_methods == ("text.formal_evidence",) for request in frozen.requests)
+    created, restored = [], []
+    (recovered,) = resume_characterization(
+        semantic_writer_engine,
+        terminal_child,
+        settings.model_copy(
+            update={
+                "execution_policy": replace(settings.execution_policy, workers=1, max_regions=1)
+            }
+        ),
+        on_created=created.append,
+        on_frozen=lambda anchor, demand: restored.append((anchor, demand)),
+    )
+    assert recovered.view == refreshed[0].view
+    assert set(recovered.layers) == set(refreshed[0].layers)
+    assert recovered.anchor_run_id == original_anchor
+    assert restored == [(original_anchor, frozen)]
+    assert not created
+    with semantic_writer_engine.connect() as conn:
+        assert resolve_characterization_anchor(conn, terminal_child) == (original_anchor, frozen)
+    with pytest.raises(OperationConflict, match="native thread profile changed"):
+        resume_characterization(
+            semantic_writer_engine,
+            terminal_child,
+            settings.model_copy(
+                update={
+                    "execution_policy": replace(
+                        settings.execution_policy,
+                        provider_threads=settings.execution_policy.provider_threads + 1,
+                    )
+                }
+            ),
+            on_created=created.append,
+        )
+    assert not created
 
 
 @pytest.mark.parametrize("private_build", ["characterization_finalizable_pdf"], indirect=True)
@@ -2367,3 +2482,199 @@ def test_native_layer_manifest_is_bounded_sealed_metadata(
         changed = ProductReference(pin.task_id, pin.product_key, "f" * 64)
         with pytest.raises(DBAPIError), conn.begin_nested():
             read_layer_manifest(conn, changed)
+
+
+@pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
+def test_large_layer_full_reads_preserve_exact_bytes_and_aggregate_framing(
+    characterization_source,
+    semantic_writer_engine,
+    semantic_reader_engine,
+    semantic_db_engine,
+    tmp_path,
+):
+    """Multibyte payload exceeds the old cap; independent SQL size and pins agree."""
+    from corpus_structure.semantic.characterization_store import read_primary_layers
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    source = characterization_source
+    with semantic_writer_engine.begin() as conn:
+        task, claim, config_hash = make_task(conn, source)
+        wire = layer_payload(source, config_hash)
+        wire["annotations"][0]["vocabulary"] = "界" * (3 * 1024**2)
+        report = validate_layer(source.prepared, wire)
+        wire = report.payload
+        assert 8 * 1024**2 < len(report.content) < 64 * 1024**2
+        pin = publish_layer(
+            conn,
+            task_id=task,
+            attempt=claim.attempt,
+            holder="characterization-fixture",
+            layer=report,
+        )
+        assert (
+            publish_layer(
+                conn,
+                task_id=task,
+                attempt=claim.attempt,
+                holder="characterization-fixture",
+                layer=report,
+            )
+            == pin
+        )
+        second_task, second_claim, second_hash = make_task(conn, source)
+        second_pin = publish_layer(
+            conn,
+            task_id=second_task,
+            attempt=second_claim.attempt,
+            holder="characterization-fixture",
+            layer=report,
+        )
+        assert second_hash == config_hash
+        view = validate_view(
+            source.prepared,
+            dict(
+                format="enriched-document-view-v1",
+                base_document=source.base.values(),
+                release_id=source.prepared.release_id,
+                source_scope=source.scope,
+                layers=[pin.values()],
+                profile="selected_layers",
+                coverage=wire["coverage"],
+            ),
+            {pin: report},
+        )
+        view_task, view_claim, _ = make_task(conn, source, compose=True, layers=(pin,))
+        view_pin = compose_view(
+            conn,
+            task_id=view_task,
+            attempt=view_claim.attempt,
+            holder="characterization-fixture",
+            view=view,
+        )
+    with semantic_db_engine.connect() as conn:
+        size, digest = conn.execute(
+            text(
+                "SELECT octet_length(data.canonical_json(payload)),content_digest "
+                "FROM ops.characterization_product WHERE task_id=:task"
+            ),
+            {"task": task},
+        ).one()
+        assert size == len(report.content)
+        assert digest == sha256(report.content).hexdigest()
+        assert (
+            conn.scalar(
+                text("SELECT count(*) FROM kb.characterization_annotation WHERE task_id=:task"),
+                {"task": task},
+            )
+            == 2
+        )
+    with semantic_reader_engine.connect() as conn:
+        assert read_layer(conn, pin).content == report.content
+        assert (
+            read_primary_layers(
+                conn, source.task["run_id"], source.scope["source_view_ids"][0], [pin]
+            )[pin].content
+            == report.content
+        )
+        expected_size = len(
+            canonical_bytes({"layers": [{"reference": pin.values(), "payload": wire}]})
+        )
+        assert (
+            read_primary_layers(
+                conn,
+                source.task["run_id"],
+                source.scope["source_view_ids"][0],
+                [pin],
+                max_bytes=expected_size,
+            )[pin].content
+            == report.content
+        )
+        assert read_primary_layers(
+            conn,
+            source.task["run_id"],
+            source.scope["source_view_ids"][0],
+            [pin, second_pin, pin],
+            max_bytes=max(
+                expected_size,
+                len(
+                    canonical_bytes(
+                        {"layers": [{"reference": second_pin.values(), "payload": wire}]}
+                    )
+                ),
+            ),
+        ) == {pin: report, second_pin: report}
+        with pytest.raises(DBAPIError), conn.begin_nested():
+            read_primary_layers(
+                conn,
+                source.task["run_id"],
+                source.scope["source_view_ids"][0],
+                [pin],
+                max_bytes=expected_size - 1,
+            )
+        with pytest.raises(DBAPIError), conn.begin_nested():
+            read_layer(conn, pin, max_bytes=8 * 1024**2)
+
+    from corpus_structure.core.db.cancellation import OperationCancellation
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.serve.characterization_replay import (
+        CharacterizationReviewSelection,
+        capture_characterization_review,
+    )
+    from corpus_structure.serve.review_bundle import verify_review_bundle
+
+    cancellation = OperationCancellation()
+    destination = tmp_path / "large-layer-review"
+    destination.mkdir()
+    with read_snapshot(semantic_reader_engine, cancellation=cancellation.postgresql) as conn:
+        captured = capture_characterization_review(
+            conn,
+            CharacterizationReviewSelection(run_id=source.task["run_id"], **view_pin.values()),
+            destination,
+            cancellation,
+        )
+    assert (destination / "layer-0.json").read_bytes() == report.content
+    assert verify_review_bundle(destination) == captured
+
+
+@pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
+def test_layer_above_64_mib_refuses_before_atomic_publication(
+    characterization_source, semantic_writer_engine, semantic_db_engine
+):
+    from corpus_structure.semantic.characterization import LayerReport
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    source = characterization_source
+    with semantic_writer_engine.begin() as conn:
+        task, claim, config_hash = make_task(conn, source)
+        wire = layer_payload(source, config_hash)
+        wire["annotations"][0]["vocabulary"] = "x" * (64 * 1024**2)
+        oversized = LayerReport(canonical_bytes(wire))
+        assert len(oversized.content) > 64 * 1024**2
+        with pytest.raises(DBAPIError) as failure, conn.begin_nested():
+            publish_layer(
+                conn,
+                task_id=task,
+                attempt=claim.attempt,
+                holder="characterization-fixture",
+                layer=oversized,
+            )
+        from psycopg import Error as PsycopgError
+
+        assert isinstance(failure.value.orig, PsycopgError)
+        assert failure.value.orig.sqlstate == "54000"
+    with semantic_db_engine.connect() as conn:
+        assert (
+            conn.scalar(text("SELECT status FROM ops.task WHERE id=:task"), {"task": task})
+            == "running"
+        )
+        for table in (
+            "ops.characterization_product",
+            "kb.characterization_annotation",
+            "ops.task_result",
+        ):
+            assert (
+                conn.scalar(
+                    text(f"SELECT count(*) FROM {table} WHERE task_id=:task"), {"task": task}
+                )
+                == 0
+            )

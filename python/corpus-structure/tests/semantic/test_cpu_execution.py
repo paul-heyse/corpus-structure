@@ -11,9 +11,9 @@ from uuid import uuid4
 import pytest
 from methods.test_formal_evidence import inputs
 
+from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.semantic.cpu_execution import (
     CapacityExceeded,
-    CPUExecutionPolicy,
     CPUExecutionScope,
     CPUReply,
     OwnedByteBudget,
@@ -56,11 +56,17 @@ def packet(prepared):
 
 
 def test_real_worker_main_thread_warm_process_and_source_exactness(prepared):
-    execution = CPUExecutionScope(prepared, CPUExecutionPolicy(workers=1, max_submissions=1))
+    execution = CPUExecutionScope(
+        prepared, CharacterizationExecutionPolicy(workers=1, max_submissions=1)
+    )
     try:
         with execution.execute(packet(prepared), {}, lambda: None) as first:
             first_pid = first.pid
             assert first_pid != os.getpid() and first.main_thread
+            assert first.native_thread_limit == 1
+            assert first.native_pools
+            assert all(pool["num_threads"] == 1 for pool in first.native_pools)
+            assert execution.native_thread_reports[first_pid]["pools"] == first.native_pools
             layer = json.loads(first.content)
             assert any(
                 extent["text"] == "x≥2" for row in layer["occurrences"] for extent in row["extents"]
@@ -89,9 +95,9 @@ def test_capsule_tampering_and_malformed_packet_refuse(prepared):
 
 def test_finite_policy_and_encoded_capacity():
     with pytest.raises(ValueError):
-        CPUExecutionPolicy(workers=True)
+        CharacterizationExecutionPolicy(workers=True)
     with pytest.raises(ValueError):
-        CPUExecutionPolicy(max_submissions=0)
+        CharacterizationExecutionPolicy(max_submissions=0)
     budget = OwnedByteBudget(10)
     budget.reserve(7)
     with pytest.raises(CapacityExceeded):
@@ -102,7 +108,7 @@ def test_finite_policy_and_encoded_capacity():
 
 
 def test_packet_limit_and_real_inflight_cancellation_release_owned_capacity(prepared):
-    policy = CPUExecutionPolicy(max_packet_bytes=64)
+    policy = CharacterizationExecutionPolicy(max_packet_bytes=64)
     execution = CPUExecutionScope(prepared, policy)
     try:
         with pytest.raises(CapacityExceeded), execution.execute(packet(prepared), {}, lambda: None):
@@ -216,7 +222,7 @@ def test_two_real_workers_complete_out_of_order_without_crossing_requests(prepar
     from concurrent.futures import ThreadPoolExecutor
     from hashlib import sha256
 
-    policy = CPUExecutionPolicy(workers=2, max_submissions=2)
+    policy = CharacterizationExecutionPolicy(workers=2, max_submissions=2)
     execution = CPUExecutionScope(prepared, policy)
     try:
         with multiprocessing.get_context("spawn").Manager() as manager:
@@ -253,10 +259,13 @@ def test_transient_byte_saturation_backpressures_before_second_submission(prepar
 
     slow, fast = _identified_packet(prepared, "slow"), _identified_packet(prepared, "fast")
     capsule_bytes = len(release_capsule(prepared))
-    policy = CPUExecutionPolicy(
+    policy = CharacterizationExecutionPolicy(
         workers=2,
         max_submissions=2,
         max_packet_bytes=len(slow),
+        max_reply_bytes=8 * 1024**2,
+        max_native_request_bytes=1,
+        max_native_reply_bytes=1,
         max_owned_bytes=capsule_bytes + len(slow) + 8 * 1024**2,
     )
     execution = CPUExecutionScope(prepared, policy)
@@ -307,7 +316,9 @@ def test_full_slot_blocks_method_source_hydration_before_input_factory(prepared,
     from corpus_structure.methods.formal_evidence import FormalEvidenceMethod
 
     unit, cfg, ctx, _operation = inputs(prepared)
-    execution = CPUExecutionScope(prepared, CPUExecutionPolicy(workers=1, max_submissions=1))
+    execution = CPUExecutionScope(
+        prepared, CharacterizationExecutionPolicy(workers=1, max_submissions=1)
+    )
     monkeypatch.setattr(unit.run.reader, "cpu_execution", execution, raising=False)
     source_view = unit.run.reader.source_view
     gate: Future[str] = Future()

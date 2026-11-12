@@ -1154,3 +1154,35 @@ def test_regional_validation_reuses_exact_dependency_proofs_but_validates_each_n
         assert cpu.budget.used_bytes > 0
     assert cpu.budget.used_bytes == 0
     cpu.close()
+
+
+def test_primary_layer_reader_pages_complete_exact_reference_population(monkeypatch):
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic import _operation_calls
+    from corpus_structure.semantic.characterization import LayerReport
+    from corpus_structure.semantic.characterization_store import read_primary_layers
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    reports = [LayerReport(canonical_bytes({"independent_row": index})) for index in range(1017)]
+    pins = [report.reference(index + 1) for index, report in enumerate(reports)]
+    rows = {pin: report for pin, report in zip(pins, reports, strict=True)}
+    calls = []
+    connection = SimpleNamespace(begin_nested=nullcontext)
+
+    def invoke(conn, **kwargs):
+        assert conn is connection
+        assert kwargs["max_bytes"] == 268435456
+        selected = [ProductReference(**ref) for ref in kwargs["references"]]
+        calls.append(selected)
+        return {
+            "layers": [
+                {"reference": pin.values(), "payload": rows[pin].payload} for pin in selected
+            ]
+        }
+
+    monkeypatch.setattr(_operation_calls, "read_primary_characterization", invoke)
+    assert read_primary_layers(connection, 7, 9, [*pins, pins[0]]) == rows
+    assert [len(selected) for selected in calls] == [1000, 17]
+    assert calls[0][0] == pins[0] and calls[1][-1] == pins[-1]

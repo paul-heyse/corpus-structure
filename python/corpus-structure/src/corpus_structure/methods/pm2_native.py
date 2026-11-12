@@ -249,6 +249,12 @@ def _load_profile(profile_path: Path) -> tuple[Payload, Inference]:
         file = "pm2_hanlp.py" if provider == "hanlp" else "pm2_dispatched.py"
         loader = runpy.run_path(str(Path(__file__).with_name(file)))[f"load_{provider}"]
     metadata, infer = loader(assets, device)
+    from threadpoolctl import threadpool_info, threadpool_limits
+
+    limiter = threadpool_limits(limits=threads)
+    import atexit
+
+    atexit.register(limiter.restore_original_limits)
     return {
         "provider": provider,
         "python": checked["runtime_identity"]["python"],
@@ -261,6 +267,7 @@ def _load_profile(profile_path: Path) -> tuple[Payload, Inference]:
         "native_threads": {
             "intra_op": torch.get_num_threads(),
             "inter_op": torch.get_num_interop_threads(),
+            "supported_pools": threadpool_info(),
         },
     }, infer
 

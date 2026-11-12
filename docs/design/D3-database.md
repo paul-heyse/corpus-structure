@@ -1,5 +1,28 @@
 # D3 · Database
 
+## Coherent characterization bounds and native demand anchors
+
+**Proposed accepted target · 2026-11-11.** Native JSONB/TOAST retains one logical canonical
+layer per natural SourceView, its original digest/source/closure meaning and atomic publication.
+Canonical layer publication and full-layer reads permit 64 MiB per layer; the existing 64 MiB
+per-view bound remains, with 256 MiB aggregate full-read response admission per native page. Provider IPC and bounded
+page reads retain their smaller independent bounds. Larger read/write caps do not establish
+successful materialization or permit semantic truncation. BEP-E01 first exercises native
+publication/read for SourceView 480; rechunking requires a concrete materialization failure and
+an owning decision. The [BEP coordinator](../plans/book-processing-efficiency-and-parallelism_2026-11-11.md)
+owns the failure's disposition and qualification.
+
+The first actual native stage run stores the versioned frozen characterization demand once
+in immutable `options`, including exact source/release/dependency selections and the once-frozen
+freshness seed. Later participating runs retain its anchor reference, not another demand copy.
+No synthetic control run or progress database is introduced. Original native run/task/attempt
+fences remain authoritative; terminal runs stay terminal. Supported characterization resume
+resolves the anchor even from a terminal child, creates new runs for unfinished work and reuses
+compatible settled products. Managed delivery artifacts are copies whose expiry cannot remove
+native recovery authority. Before the first actual run exists, no durable run identity is invented.
+
+> Decision: [ADR-0087](../adr/0087-book-characterization-policy-and-recovery.md)
+
 ## Ready work, claims and reduction custody
 
 **Proposed accepted target · 2026-11-11.** Parent coordination owns durable stage/task/claim

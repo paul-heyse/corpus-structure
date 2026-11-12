@@ -1,5 +1,23 @@
 # D4 · Method catalog
 
+## Selected provider execution profiles and complete settings
+
+**Proposed accepted target · 2026-11-11.** Current D1 alone uses CUDA/BF16 with 120 second
+inference; every other selected NLP provider uses CPU. CPU kernels use one native thread;
+supported provider startup uses four native/intra-op threads and one inter-op thread before
+native work. Profile/device/precision/thread changes are frozen under the appropriate inference
+configuration/provenance before task registration. A result-neutral counts/bytes override cannot
+change a model profile or relabel authentic retained evidence. Native numerical observations
+and batch/source attribution retain their provider-specific contracts below.
+
+All explicit-demand, ingest-enrichment, analytical and supported-resume entry points propagate
+complete `MethodSettings`, including Nemotron endpoints/handoff settings, to the shared provider
+and custody owner. D1 startup, inference, cancellation, failure and teardown retain that one
+GPU/Nemotron handoff owner. Missing CUDA/BF16 refuses without fallback. This selects the final
+hybrid profile; other GPU profiles or resident replicas are not implicitly qualified.
+
+> Decision: [ADR-0087](../adr/0087-book-characterization-policy-and-recovery.md)
+
 ## Current D1 requires CUDA and BF16
 
 **Proposed accepted target · 2026-11-11.** Current D1 authoring/defaults and native execution
@@ -20,8 +38,9 @@ release-owned numerical policy is provider/device scoped and does not promise CP
 Bounded actual D1 CUDA evidence establishes ordered question/batch/member/source mapping,
 actual prior-answer propagation and cancellation/custody recovery under CUDA/BF16. Final authentic
 captured-source DB/native qualification remains with BEP. Native BF16 confidence variation is
-retained honestly without CPU-equivalence or universal threshold-stability claims. Other07b
-devices/final counts remain separate.
+retained honestly without CPU-equivalence or universal threshold-stability claims. The selected
+provider execution profile above owns the final operating selection; actual assembled
+qualification remains with BEP.
 
 > Decision: [ADR-0086](../adr/0086-d1-requires-cuda-bfloat16.md)
 

@@ -519,7 +519,7 @@ BEGIN
  END IF;
  IF r.sealed OR r.status NOT IN ('created','running') OR t.status<>'running' OR t.attempt<>p_attempt OR t.claimed_by IS DISTINCT FROM p_holder THEN
   RAISE EXCEPTION 'characterization task attempt lost or run sealed' USING ERRCODE='P0004'; END IF;
- IF octet_length(coalesce(data.canonical_json(p_layer),''))>8388608 OR octet_length(coalesce(data.canonical_json(p_view),''))>67108864 THEN
+ IF octet_length(coalesce(data.canonical_json(p_layer),''))>67108864 OR octet_length(coalesce(data.canonical_json(p_view),''))>67108864 THEN
   RAISE EXCEPTION 'characterization report exceeds bounded payload contract' USING ERRCODE='54000'; END IF;
  -- Fresh publication executes today's released producer; immutable upstream reads
  -- independently use their original read contracts.
@@ -562,14 +562,15 @@ END $$;
 
 CREATE OR REPLACE FUNCTION ops.read_primary_characterization(p_run bigint,p_view bigint,p_refs jsonb,p_max_bytes bigint)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE ref jsonb; body jsonb; rows_ jsonb:='[]'; remaining bigint:=p_max_bytes; project_ text;
+DECLARE ref jsonb; body jsonb; row_ jsonb; rows_ jsonb:='[]'; remaining bigint:=p_max_bytes-octet_length('{"layers":[]}'); project_ text;
 BEGIN
  IF pg_has_role(session_user,'corpus_sem_reader','USAGE') THEN PERFORM data.require_runtime_principal('read');
  ELSIF pg_has_role(session_user,'corpus_sem_writer','USAGE') THEN PERFORM data.require_runtime_principal('write');
  ELSE PERFORM data.require_runtime_principal('evaluate'); END IF;
  SELECT project_id INTO STRICT project_ FROM ops.run WHERE id=p_run;
- IF p_max_bytes NOT BETWEEN 1 AND 8388608 OR jsonb_typeof(p_refs)<>'array' OR jsonb_array_length(p_refs)>1000 THEN
+ IF p_max_bytes IS NULL OR p_max_bytes NOT BETWEEN 1 AND 268435456 OR jsonb_typeof(p_refs)<>'array' OR jsonb_array_length(p_refs)>1000 THEN
   RAISE EXCEPTION 'invalid primary selection bounds' USING ERRCODE='23514'; END IF;
+ IF remaining<0 THEN RAISE EXCEPTION 'primary layers exceed source read budget' USING ERRCODE='54000'; END IF;
  IF (SELECT count(*)<>count(DISTINCT value) FROM jsonb_array_elements(p_refs)) OR EXISTS(
   SELECT FROM jsonb_array_elements(p_refs) r WHERE NOT EXISTS(SELECT FROM ops.characterization_product p JOIN ops.task t ON t.id=p.task_id JOIN ops.run job ON job.id=t.run_id
    WHERE p.task_id=(r->>'task_id')::bigint AND p.product_key=r->>'product_key' AND p.content_digest=r->>'content_digest'
@@ -579,9 +580,11 @@ BEGIN
   ON scope.task_id=(r->>'task_id')::bigint AND scope.product_key=r->>'product_key' AND scope.content_digest=r->>'content_digest'
   WHERE scope.source_view_id=p_view ORDER BY scope.task_id,scope.product_key LOOP
   IF remaining<=0 THEN RAISE EXCEPTION 'primary layers exceed source read budget' USING ERRCODE='54000'; END IF;
-  body:=ops.read_characterization_product((ref->>'task_id')::bigint,ref->>'product_key',ref->>'content_digest','layer',p_run,remaining);
-  remaining:=remaining-octet_length(data.canonical_json(body));
-  rows_:=rows_||jsonb_build_array(jsonb_build_object('reference',ref,'payload',body));
+  body:=ops.read_characterization_product((ref->>'task_id')::bigint,ref->>'product_key',ref->>'content_digest','layer',p_run,least(remaining,67108864));
+  row_:=jsonb_build_object('reference',ref,'payload',body);
+  remaining:=remaining-octet_length(data.canonical_json(row_))-CASE WHEN jsonb_array_length(rows_)>0 THEN 1 ELSE 0 END;
+  IF remaining<0 THEN RAISE EXCEPTION 'primary layers exceed source read budget' USING ERRCODE='54000'; END IF;
+  rows_:=rows_||jsonb_build_array(row_);
  END LOOP;
  RETURN jsonb_build_object('layers',rows_);
 END $$;
@@ -618,7 +621,7 @@ BEGIN
  RETURN result_;
 END $$;
 
-CREATE OR REPLACE FUNCTION ops.read_characterization_product(p_task bigint,p_key text,p_digest text,p_kind text,p_run bigint DEFAULT NULL,p_max_bytes bigint DEFAULT 8388608)
+CREATE OR REPLACE FUNCTION ops.read_characterization_product(p_task bigint,p_key text,p_digest text,p_kind text,p_run bigint DEFAULT NULL,p_max_bytes bigint DEFAULT 67108864)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE product ops.characterization_product; project_ text;
 BEGIN
@@ -635,9 +638,8 @@ BEGIN
  IF p_run IS NOT NULL AND NOT EXISTS(SELECT FROM ops.run requested JOIN ops.task origin ON origin.id=p_task
   JOIN ops.run producing ON producing.id=origin.run_id WHERE requested.id=p_run AND requested.project_id=producing.project_id) THEN
   RAISE EXCEPTION 'characterization product outside requested project' USING ERRCODE='23514'; END IF;
- -- A document view contains the book's bounded source/family metadata, rather than
- -- annotation inventories. Keep natural-unit layer payloads under their smaller cap.
- IF p_max_bytes IS NULL OR p_max_bytes NOT BETWEEN 1 AND (CASE p_kind WHEN 'view' THEN 67108864 ELSE 8388608 END)
+ -- Full canonical layers and document views share the finite 64 MiB product bound.
+ IF p_max_bytes IS NULL OR p_max_bytes NOT BETWEEN 1 AND 67108864
  OR octet_length(data.canonical_json(product.payload))>p_max_bytes THEN
   RAISE EXCEPTION 'characterization product exceeds read byte bound' USING ERRCODE='54000'; END IF;
  RETURN product.payload;

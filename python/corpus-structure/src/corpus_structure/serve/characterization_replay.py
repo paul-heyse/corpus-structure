@@ -35,7 +35,7 @@ class CharacterizationReviewSelection(BaseModel):
     task_id: int = Field(strict=True, gt=0)
     product_key: str = Field(min_length=1)
     content_digest: str = Field(pattern="^[0-9a-f]{64}$")
-    max_bytes: int = Field(default=134_217_728, strict=True, gt=0)
+    max_bytes: int = Field(default=268_435_456, strict=True, gt=0)
     max_source_rows: int = Field(default=100_000, strict=True, gt=0)
 
     def reference(self):
@@ -143,7 +143,9 @@ def capture_characterization_review(conn, selection, root, cancellation):
     for index, value in enumerate(view.payload.get("layers", ())):
         pin = ProductReference(**value)
         layers[pin] = read_layer_manifest(conn, pin, run_id=selection.run_id)
-        layer = read_layer(conn, pin, run_id=selection.run_id)
+        layer = read_layer(
+            conn, pin, run_id=selection.run_id, max_bytes=min(budget.remaining, 67_108_864)
+        )
         layer_members.append(
             {"reference": pin.values(), "path": store(f"layer-{index}.json", layer.content)}
         )

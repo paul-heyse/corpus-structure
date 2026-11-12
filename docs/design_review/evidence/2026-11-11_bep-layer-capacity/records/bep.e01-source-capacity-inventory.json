@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "id": "bep.e01-source-capacity-inventory",
+  "title": "Largest retained book source units before full-book acceptance",
+  "group": "BEP",
+  "package": "BEP-E01",
+  "finalized": "2026-11-11",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which effective retained source views in capture496 are the largest, and does the failed selection represent that upper tail?",
+  "answers": [
+    "BEP-E01"
+  ],
+  "method": "Read effective non-superseded source selections from ops.run_source_view joined to immutable kb.source_view projections for runs496 and610; count text codepoints/UTF-8 bytes and native pieces/items under exact integrated product1627. No inference or publication.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-11_bep-layer-capacity/source_sizes.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "source_sizes.py",
+      "role": "Bounded read-only diagnostic",
+      "sha256": "2236134495d57ded71847a329c5e447ad485b9ee393c48418e3d057789deac9f"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/source-size-inventory.json",
+      "role": "Population counts and exact five largest source pins",
+      "sha256": "c17931d6d228482cb470e8828eb1d3b26617f6ea5005c5808010993c83623c69"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Captured source views",
+      "value": 316,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Largest source text",
+      "value": 26956,
+      "of": null,
+      "unit": "Unicode codepoints",
+      "note": "SourceView561, #/groups/456;27094 UTF-8 bytes"
+    },
+    {
+      "name": "Failed source rank by text size",
+      "value": 61,
+      "of": 316,
+      "unit": null,
+      "note": "SourceView480 has5204 Unicode codepoints"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The failed unit is not the largest captured input. SourceView561 is the largest by text size;733 and612 follow. This inventory selects a consequential upper-tail test and does not establish that its canonical native layer fits64MiB. Actual largest-unit production remains a separate required check before whole-book acceptance.",
+  "consumed_by": [
+    "BEP-E01"
+  ]
+}

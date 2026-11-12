@@ -1110,8 +1110,14 @@ class BoundReader:
         from .characterization_store import read_primary_layers
 
         return select_primary_layers(
-            read_primary_layers(
-                self.conn, self.run_id, source_view_id, self.characterization_selection
+            (
+                self._regional_preparation.primary_layers(
+                    self.conn, self.run_id, source_view_id, self.characterization_selection
+                )
+                if self._regional_preparation is not None
+                else read_primary_layers(
+                    self.conn, self.run_id, source_view_id, self.characterization_selection
+                )
             ),
             self.source_view(source_view_id),
             families=families,

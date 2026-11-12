@@ -520,6 +520,12 @@ def load_model(profile: GlinerProfile) -> tuple[Any, str]:
         attention_backend="standard",
     )
     model.eval()
+    from threadpoolctl import threadpool_info, threadpool_limits
+
+    limiter = threadpool_limits(limits=profile.threads)
+    import atexit
+
+    atexit.register(limiter.restore_original_limits)
     if any(p.device.type != "cpu" or p.dtype != torch.float32 for p in model.parameters()):
         raise GlinerRefused("resident weights are not FP32 CPU")
     expected_splitter = (
@@ -547,6 +553,7 @@ def load_model(profile: GlinerProfile) -> tuple[Any, str]:
             "attention_backend": "standard",
             "threads": torch.get_num_threads(),
             "interop_threads": torch.get_num_interop_threads(),
+            "supported_pools": threadpool_info(),
             "versions": {
                 name: importlib.metadata.version(name)
                 for name in ("gliner2", "torch", "transformers", "tokenizers", "safetensors")

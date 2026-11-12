@@ -7,7 +7,7 @@ one transaction with task completion; no inference or publication occurs on read
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any, cast
 
 from sqlalchemy import Connection
@@ -120,7 +120,7 @@ def read_layer(
     reference: ProductReference,
     *,
     run_id: int | None = None,
-    max_bytes: int = 8388608,
+    max_bytes: int = 67108864,
 ) -> LayerReport:
     return _read(connection, reference, "layer", run_id, LayerReport, max_bytes)
 
@@ -182,27 +182,52 @@ def read_inventory(
     )
 
 
-def read_primary_layers(connection, run_id, source_view_id, references, *, max_bytes=8388608):
-    """Select scope metadata in sets before hydrating a bounded exact layer population."""
+def read_primary_layers(
+    connection,
+    run_id,
+    source_view_id,
+    references,
+    *,
+    max_bytes=268435456,
+    retain: Callable[[ProductReference, LayerReport], LayerReport] | None = None,
+):
+    """Hydrate complete exact selections in bounded pages under the caller's snapshot."""
     from ._operation_calls import read_primary_characterization
 
-    page = cast(
-        dict[str, Any],
-        read_primary_characterization(
-            connection,
-            run_id=RunId(run_id),
-            source_view_id=SourceViewId(source_view_id),
-            references=[ref.values() for ref in references],
-            max_bytes=max_bytes,
-        ),
-    )
+    references = list(dict.fromkeys(references))
     layers = {}
-    for row in page["layers"]:
-        pin = ProductReference(**row["reference"])
-        report = LayerReport(canonical_bytes(row["payload"]))
-        if report.reference(pin.task_id) != pin:
-            raise ValueError("primary product differs from its exact pin")
-        layers[pin] = report
+
+    def read_page(selected):
+        try:
+            # A refused aggregate must not abort the caller's read transaction.
+            with connection.begin_nested():
+                page = cast(
+                    dict[str, Any],
+                    read_primary_characterization(
+                        connection,
+                        run_id=RunId(run_id),
+                        source_view_id=SourceViewId(source_view_id),
+                        references=[ref.values() for ref in selected],
+                        max_bytes=max_bytes,
+                    ),
+                )
+        except DBAPIError as error:
+            if getattr(error.orig, "sqlstate", None) != "54000" or len(selected) < 2:
+                raise
+            middle = len(selected) // 2
+            read_page(selected[:middle])
+            read_page(selected[middle:])
+            return
+        for row in page["layers"]:
+            pin = ProductReference(**row["reference"])
+            report = LayerReport(canonical_bytes(row["payload"]))
+            if report.reference(pin.task_id) != pin:
+                raise ValueError("primary product differs from its exact pin")
+            layers[pin] = report if retain is None else retain(pin, report)
+
+    # Even an empty selection goes through native authorization and bound checks.
+    for start in range(0, max(len(references), 1), 1000):
+        read_page(references[start : start + 1000])
     return layers
 
 

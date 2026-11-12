@@ -203,7 +203,7 @@ class ModelCharacterizationMethod:
         return drive_prepared_work(self.plan(units, cfg, ctx), ctx.check_active)
 
     def plan(self, units, cfg: ModelCharacterizationConfig, ctx):
-        with provider_scope(units) as (_cpu, providers):
+        with provider_scope(units, policy=ctx.settings.execution_policy) as (_cpu, providers):
             base, scope, pins = cfg.require_selection()
             results = []
             for unit in units:

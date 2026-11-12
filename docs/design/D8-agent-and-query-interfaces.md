@@ -1,14 +1,51 @@
 # D8 · Agent and query interfaces
 
+## Shared policy settings, status and characterization resume
+
+**Proposed accepted target · 2026-11-11.** One validated `CharacterizationExecutionPolicy`
+is selected through settings/API and optional `--execution-policy FILE`, resolving result-neutral
+count/byte overrides before admission. D6 owns selected defaults and combined admission; D4 owns
+inference profiles and thread treatment. Every characterization entry point passes complete
+`MethodSettings`, including Nemotron endpoints/handoff, rather than constructing a reduced copy.
+Explicit requests, ingest enrichment and analytical preparation use the same coordinator.
+Retained composition/source-only/query/export reads start no fresh NLP.
+
+Existing managed reports expose resolved policy, frozen original source/release selections,
+the actual first-run demand anchor, participating run/task IDs, settled regional views, final
+combined pin when present and failed/unavailable scope. Prerequisite/capacity wait, computation,
+reduction and publication are live observations, distinct from durable task outcomes, source
+readiness, family coverage and final-view readiness. Last-observed activity names its observation
+time and cannot imply a still-live owner. No second progress database or service is introduced.
+
+`ci run resume RUN --characterization` resolves the versioned demand stored once in the first
+actual native run's `options`; later child runs store its anchor reference. It reconstructs the
+frozen source/release/dependency selections and freshness seed even when the named child is
+terminal, creates new runs for unfinished work and reuses exact compatible settled products.
+Original terminal attempts remain terminal. A different result-neutral capacity policy is
+permitted; inference changes use ordinary invalidation/provenance. Managed demand/report artifacts
+are delivered copies, not the sole authority after expiry. Interrupt reporting retains enough
+original binding and created-run/anchor correlation to invoke recovery without rebuilding selectors.
+
+`ci run cancel RUN` retains its run scope. Managed-operation cancellation/SIGINT stops its whole
+owned operation and reaches queued/native borrowers, bounded child drain/termination and custody
+restoration. Useful members beyond a cancelled run retain completion rights; future cancellation
+alone never establishes that native work stopped. Source and final consumer pins retain their
+original meaning throughout recovery. BEP-09 owns actual integrated consumer/full-book qualification;
+this target authorizes no PDF recognition, activation, selection or TC-plan reconciliation.
+
+> Decision: [ADR-0087](../adr/0087-book-characterization-policy-and-recovery.md)
+
 ## D1 profile selection and retained device provenance
 
 **Proposed accepted target · 2026-11-11.** Current managed/standalone D1 interfaces default to
 and require CUDA/BF16, refusing CPU or missing GPU/BF16 prerequisites rather than falling back.
 Readers/export/replay preserve original actual device/precision and numerical-policy provenance.
 Authentic historical CPU observations remain CPU evidence under their original contracts; no
-CPU/GPU equivalence or retrospective qualification is inferred. Actual bounded D1 CUDA request/batch/source/custody evidence is retained; final captured-source
-DB/native qualification remains a BEP-04–06/required07a obligation, distinct from other07b device
-work and full-book qualification. Private proposal standing, exact pins and native source/attempt fences are unchanged.
+CPU/GPU equivalence or retrospective qualification is inferred. Actual bounded D1 CUDA
+request/batch/source/custody evidence is retained; final assembled captured-source DB/native and
+full-book qualification remain with BEP. The final provider selection above does not strengthen
+earlier scoped evidence. Private proposal standing, exact pins and native source/attempt fences
+are unchanged.
 Current PM2 receiptv2 and retained SourceValue field positions preserve meaningful native
 question/option/state/reply order. Historical receiptv1 reads validate the original canonical
 member/cohort contract; they acquire neither ordered-wire provenance nor a new receipt version.
@@ -47,8 +84,8 @@ semantic requests and exact source/layer identities keep their meaning. Executio
 not select fewer families or smaller focal/context scopes. Current authorization and publication
 remain live. Query, MCP, export and detached replay keep consuming pinned published products;
 worker completion is never a newly visible document view. Source-only composition retains its
-weaker declared coverage and performs no NLP. Later BEP-08 exposes resolved operational policy
-through existing status/operation routes, without creating a second progress service.
+weaker declared coverage and performs no NLP. The shared policy/status/resume contract above
+exposes the resolved operational policy through existing status/operation routes.
 
 > Decision: [ADR-0083](../adr/0083-operation-owned-characterization-execution.md)
 

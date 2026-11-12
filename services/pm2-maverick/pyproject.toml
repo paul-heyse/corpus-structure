@@ -6,6 +6,7 @@ dependencies = [
   "huggingface-hub==1.33.0",
   "maverick-coref==1.0.7",
   "pytorch-lightning==2.6.6",
+  "threadpoolctl==3.7.0",
   "torch==2.15.0",
   "transformers==5.22.1",
 ]

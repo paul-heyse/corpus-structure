@@ -44,6 +44,7 @@ from corpus_structure.core.vocab import (
     TaskUnitType,
 )
 
+from .execution_policy import CharacterizationExecutionPolicy
 from .work import PreparedWork as PreparedWork
 from .work import ReadyGroup as ReadyGroup
 from .work import WorkHandle as WorkHandle
@@ -827,6 +828,7 @@ class MethodSettings(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    execution_policy: CharacterizationExecutionPolicy = CharacterizationExecutionPolicy()
     data_dir: Path
     model_cache: Path
     nemotron_endpoint: str = "http://127.0.0.1:8035/v1"
