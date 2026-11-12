@@ -10,6 +10,21 @@ ADR that responds to a finding.
 - **Retention:** a review stays while it supplies an open finding or needed decision evidence;
   then it is deleted and recovered from Git.
 
+## Declared data operations target inquiry
+
+[Declared data operations](design_review_declared-data-operations_2026-11-12.md) (2026-11-12) is
+an operator-requested design/target inquiry at product source `8c0f4f951`, written by the root
+session, not an independent `design-reviewer` engagement; it consumes no refreshed audit. It
+proposes one declared form for every data operation, with identity, eligibility and change need
+derived from the declarations in place of run and runtime identity. It gives `F01`–`F09`,
+corrections `C1`–`C7` and rule impacts `RC01`–`RC07`. Supporting pages hold the
+[operations](declared-data-operations/operations-and-sequencing-baseline.md) and
+[identity](declared-data-operations/identity-and-provenance-baseline.md) baselines, the
+[design authority map](declared-data-operations/design-authority-map.md) and the
+[target contracts](declared-data-operations/target-contracts-and-storage.md). Decision: Revise;
+every remedy is Proposed, no decision record is changed, and every finding is Deferred until a
+plan selects it.
+
 ## Test architecture and efficiency target review
 
 [Test architecture and efficiency](design_review_test-architecture-and-efficiency_2026-11-12.md)
