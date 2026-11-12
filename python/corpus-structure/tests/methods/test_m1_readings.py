@@ -22,7 +22,7 @@ def retained_fixture(monkeypatch, *, mode="definition"):
     ctx = SimpleNamespace(reader=reader, check_active=lambda: None)
     producer = M1Candidates()
     worker = ControlledDecoder(mode)
-    monkeypatch.setattr(producer, "_resident", lambda _: worker)
+    monkeypatch.setattr(producer, "_resident", lambda _, *, providers, native_profile: worker)
     cfg = registry(ROOT / "domains/statistics").overlay(producer.name, "default")
     (product,) = producer.run((unit,), cfg, ctx)
     assert product.parse_detail is not None

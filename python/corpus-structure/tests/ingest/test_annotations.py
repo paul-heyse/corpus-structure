@@ -32,6 +32,21 @@ class ControlledPipeline:
         self.config = SimpleNamespace(to_str=lambda: "controlled-unit-fixture-1")
         self.calls = []
         self.omit = None
+        self.configuration = SentenceConfig(exclude=("ner",))
+
+    def selection(self):
+        from corpus_structure.methods.native_profiles import NativeProfile
+
+        return SimpleNamespace(
+            native=NativeProfile(
+                "spacy",
+                {"fixture": "controlled-native-columns-v1"},
+                {"fixture": "no-model-weights"},
+                self.configuration.model_dump(mode="json"),
+                "float32",
+                "cupy",
+            )
+        )
 
     def get_pipe_meta(self, name):
         return SimpleNamespace(factory="controlled-unit-fixture:" + name)
@@ -62,7 +77,12 @@ class ControlledPipeline:
 @pytest.fixture
 def controlled(monkeypatch):
     nlp = ControlledPipeline()
-    monkeypatch.setattr(annotations, "pipeline", lambda _: nlp)
+
+    def configured(configuration):
+        nlp.configuration = configuration
+        return nlp
+
+    monkeypatch.setattr(annotations, "pipeline", configured)
     return nlp
 
 
@@ -99,11 +119,16 @@ def item(
     return AnnotationInput(pin(identity), block_id, kind, block, layout, pieces)
 
 
-def primary_product(text, product):
+def primary_product(text, product, *, native_profile):
     """Characterize the authored columns before testing downstream interpretation."""
     from methods.primary_reading_fixture import primary_product as characterize
 
-    return characterize(" " * product.block_start + text, product, AnnotationProfile())
+    return characterize(
+        " " * product.block_start + text,
+        product,
+        AnnotationProfile(configuration=SentenceConfig.model_validate(native_profile.parameters)),
+        native_profile=native_profile,
+    )
 
 
 def test_prepared_unicode_whitespace_math_and_reference_coordinates_survive_wrong_pos(controlled):
@@ -730,7 +755,13 @@ def test_authored_constructive_copula_requires_operation_and_preserves_polarity(
             replace(token, head=positions[head], dependency=dependency, pos=pos, lemma=lemma)
         )
     view = annotation_view(
-        primary_product(text, replace(product, tokens=tuple(tokens))), text, controlled.vocab
+        primary_product(
+            text,
+            replace(product, tokens=tuple(tokens)),
+            native_profile=controlled.selection().native,
+        ),
+        text,
+        controlled.vocab,
     )
     raw = yaml.safe_load((DOMAINS / "statistics/m1-methods.yaml").read_text())["configs"][
         "extract.m1_candidates"
@@ -839,7 +870,11 @@ def test_constructive_copula_preserves_literal_mean_source_endpoints(controlled)
         for i, (t, h, d, p) in enumerate(zip(product.tokens, heads, deps, pos, strict=True))
     )
     view = annotation_view(
-        primary_product(text, replace(product, tokens=tokens)), text, controlled.vocab
+        primary_product(
+            text, replace(product, tokens=tokens), native_profile=controlled.selection().native
+        ),
+        text,
+        controlled.vocab,
     )
     recipe = yaml.safe_load((DOMAINS / "statistics/m1-methods.yaml").read_text())["configs"][
         "extract.m1_candidates"

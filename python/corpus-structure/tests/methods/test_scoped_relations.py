@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -35,13 +36,21 @@ def discover_relations(frame, **kwargs):
     from .navigation_fixture import primary_navigation, view_from_frame
 
     view = view_from_frame(frame)
-    products = (
-        tuple(kwargs["annotations"])
-        if "annotations" in kwargs
-        else prepare_source(view, annotations_only=True).annotations
-    )
+    native_profile = kwargs.pop("annotation_native_profile", None)
+    if "annotations" in kwargs:
+        products = tuple(kwargs["annotations"])
+    else:
+        from corpus_structure.ingest.annotations import AnnotationProfile
+        from corpus_structure.ingest.sentences import pipeline
+
+        profile = AnnotationProfile()
+        nlp: Any = pipeline(profile.configuration)
+        native_profile = nlp.selection().native
+        products = prepare_source(view, profile=profile, annotations_only=True).annotations
     layers = dict(kwargs.pop("primary_layers", {}))
-    layers.update(primary_navigation(view, products, formal=not layers))
+    layers.update(
+        primary_navigation(view, products, formal=not layers, native_profile=native_profile)
+    )
     kwargs["annotations"] = tuple(
         PrimaryAnnotationProduct(
             primary_layers=layers,
@@ -55,6 +64,14 @@ def discover_relations(frame, **kwargs):
         frame, primary_layers=layers, predicate_version="6", named_link_version="4", **kwargs
     )
     return dict(output, _primary_layers=layers)
+
+
+def _direct_profile():
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.ingest.sentences import pipeline
+
+    nlp: Any = pipeline(AnnotationProfile().configuration)
+    return nlp.selection().native
 
 
 def complete_native_fields(view):
@@ -197,6 +214,7 @@ def test_condition_host_preserves_located_parts_after_declaration_refusal(
     result = discover_relations(
         native_source_frame(view, ()),
         annotations=prepared.annotations,
+        annotation_native_profile=_direct_profile(),
         predicate_version="5",
         qualifier_preflight=lambda component: predicate_qualifier_refusal(release, component),
     )
@@ -347,6 +365,7 @@ def test_selected_action_preserves_wholly_clipped_role_without_an_anchor(predica
     output = discover_relations(
         native_source_frame(view, ()),
         annotations=prepared.annotations,
+        annotation_native_profile=_direct_profile(),
         passages=(selected,),
         predicate_version=predicate_version,
     )
@@ -390,6 +409,7 @@ def test_named_procedure_reference_binds_verb_to_caption_under_selected_version(
         native_source_frame(view, ()),
         source_work="fixture-parent",
         annotations=annotation.annotations,
+        annotation_native_profile=_direct_profile(),
         passages=(
             StructuralPassage(
                 passage_id="procedure",
@@ -784,7 +804,11 @@ def test_retained_predicate_publication_preserves_exact_hosts_and_refuses_swappe
     view = complete_native_fields(source(text, labels=("text",)))
     annotations = prepare_source(view, profile=AnnotationProfile(), annotations_only=True)
     assert annotations.annotations and not annotations.annotation_errors
-    output = discover_relations(native_source_frame(view, ()), annotations=annotations.annotations)
+    output = discover_relations(
+        native_source_frame(view, ()),
+        annotations=annotations.annotations,
+        annotation_native_profile=_direct_profile(),
+    )
     rows = output["contributions"]
     by_id = {row["contribution_id"]: row for row in rows}
     conditions = [

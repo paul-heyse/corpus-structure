@@ -254,10 +254,17 @@ def annotate(
     """
     profile = AnnotationProfile() if profile is None else profile
     nlp: Any = pipeline(profile.configuration)
-    if profile.execution_profile is None and processed_docs is None:
+    if processed_docs is None:
         from dataclasses import replace
 
-        profile = replace(profile, execution_profile=nlp.selection().native.fingerprint)
+        executed = nlp.selection().native.fingerprint
+        if profile.execution_profile is not None and profile.execution_profile != executed:
+            raise ValueError(
+                "requested annotation execution profile differs from selected pipeline"
+            )
+        profile = replace(profile, execution_profile=executed)
+    elif profile.execution_profile is None:
+        raise ValueError("processed annotation Docs require their authenticated execution profile")
     missing = tuple(name for name in _COMPONENTS if name not in nlp.pipe_names)
     if missing and require_complete:
         raise AnnotationUnavailable(

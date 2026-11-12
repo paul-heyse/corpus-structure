@@ -35,6 +35,7 @@ def annotation(text, specifications):
         TokenAnnotation,
     )
     from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
+    from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.product_reference import ProductReference
     from corpus_structure.semantic.source_contexts import NativeSourcePin
 
@@ -94,7 +95,7 @@ def annotation(text, specifications):
         layout_digest=digest,
         layout_recipe="canonical-token-layout-1",
         profile_recipe=profile.recipe,
-        profile_digest=digest,
+        profile_digest=sha256(canonical_bytes(profile.identity())).hexdigest(),
         spacy_version=profile.configuration.spacy_version,
         model=profile.configuration.model,
         model_version=profile.configuration.model_version,

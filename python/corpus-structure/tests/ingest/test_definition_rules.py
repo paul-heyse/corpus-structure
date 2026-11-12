@@ -29,7 +29,11 @@ def matched(controlled, text, heads, deps, pos, lemmas, *, display=None):
         for t, h, d, p, lemma in zip(product.tokens, heads, deps, pos, lemmas, strict=True)
     )
     view = annotation_view(
-        primary_product(text, replace(product, tokens=tokens)), text, controlled.vocab
+        primary_product(
+            text, replace(product, tokens=tokens), native_profile=controlled.selection().native
+        ),
+        text,
+        controlled.vocab,
     )
     recipe = yaml.safe_load((DOMAINS / "statistics/m1-methods.yaml").read_text())["configs"][
         "extract.m1_candidates"

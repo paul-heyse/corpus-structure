@@ -28,9 +28,66 @@ def prepared():
     )
 
 
+def native_execution_for_product(product, profile=None, *, native_profile=None):
+    """Authenticate a fixture's carried execution; legacy fixtures remain unprofiled."""
+    from dataclasses import replace
+    from hashlib import sha256
+
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.ingest.sentences import SentenceConfig
+    from corpus_structure.methods.native_profiles import NativeProfile
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.observations import source_python
+
+    retained = {
+        canonical_bytes(source_python(row["execution_profile"]))
+        for layer in getattr(product, "primary_layers", {}).values()
+        for row in layer.payload.get("native_runs", ())
+        if row["provider"] == "spacy" and "execution_profile" in row
+    }
+    if len(retained) > 1:
+        raise ValueError("fixture contains competing native execution profiles")
+    carried = NativeProfile.from_content(next(iter(retained))) if retained else None
+    if native_profile is None:
+        native_profile = carried
+    elif carried is not None and native_profile != carried:
+        raise ValueError("explicit fixture execution differs from retained native profile")
+    if profile is None:
+        configuration = (
+            SentenceConfig.model_validate(native_profile.parameters)
+            if native_profile is not None
+            else SentenceConfig(
+                spacy_version=product.spacy_version,
+                model=product.model,
+                model_version=product.model_version,
+                exclude=("ner",),
+            )
+        )
+        profile = AnnotationProfile(configuration)
+    if native_profile is None:
+        if profile.execution_profile is not None:
+            raise ValueError("explicit fixture execution requires a complete native snapshot")
+        if product.profile_digest != sha256(canonical_bytes(profile.identity())).hexdigest():
+            raise ValueError(
+                "profiled fixture columns require their original complete native snapshot"
+            )
+        return None
+    effective = replace(profile, execution_profile=native_profile.fingerprint)
+    if sha256(canonical_bytes(effective.identity())).hexdigest() != product.profile_digest:
+        raise ValueError("fixture must carry the exact execution profile of its annotation product")
+    return native_profile
+
+
 def primary_product(
-    text, product, profile, *, configuration="independent-native-columns", rules=()
+    text,
+    product,
+    profile,
+    *,
+    configuration="independent-native-columns",
+    rules=(),
+    native_profile=None,
 ):
+    execution = native_execution_for_product(product, profile, native_profile=native_profile)
     pin = product.source
     view = SimpleNamespace(
         ref=SimpleNamespace(
@@ -96,6 +153,10 @@ def primary_product(
         components=[asdict(c) for c in product.components],
     )
     run["configuration_digest"] = product.pipeline_config_digest
+    if execution is not None:
+        from corpus_structure.semantic.observations import source_value
+
+        run["execution_profile"] = source_value(execution.wire)
     from corpus_structure.methods.native_evidence_layers import SPACY_COLUMNS
 
     run["availability"] = [

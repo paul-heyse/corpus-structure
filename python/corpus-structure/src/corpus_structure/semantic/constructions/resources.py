@@ -35,6 +35,8 @@ def construction_digest() -> str:
     ]
     matcher = root.parent.parent / "methods/annotation_rules.py"
     material.append(["annotation_rules.py", sha256(matcher.read_bytes()).hexdigest()])
+    restoration = root.parent.parent / "methods/native_evidence_layers.py"
+    material.append(["native_evidence_layers.py", sha256(restoration.read_bytes()).hexdigest()])
     producer = root.parent.parent / "methods/construction_characterization.py"
     material.append(["construction_characterization.py", sha256(producer.read_bytes()).hexdigest()])
     digest = sha256(canonical_bytes(material)).hexdigest()

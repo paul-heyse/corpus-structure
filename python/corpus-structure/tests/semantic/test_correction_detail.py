@@ -156,6 +156,33 @@ def test_retained_raw_requires_explicit_retrieval_opt_in(tmp_path):
     assert "private-token" in json.dumps(read_diagnostic(store, invocation.id, raw_evidence=True))
 
 
+def test_retained_diagnostic_distinguishes_schema_refusal_from_artifact_corruption(
+    tmp_path, monkeypatch
+):
+    from corpus_structure.cli.diagnostic_artifacts import publish_diagnostic, read_diagnostic
+    from corpus_structure.cli.managed import ResultError, ResultStore
+    from corpus_structure.semantic import operation_reporting
+    from corpus_structure.semantic.refusals import SemanticRefusal
+
+    store = ResultStore(tmp_path / "results")
+    error = next(Draft202012Validator({"type": "integer"}).iter_errors("private-token"))
+    with store.operation("test") as invocation:
+        publish_diagnostic(invocation, operation_reporting.validation_failure_report(error))
+    artifact = invocation.directory / "diagnostic-report.json"
+    original = artifact.read_bytes()
+    unavailable = SemanticRefusal("Report schema product differs from its source")
+
+    def unavailable_schema(_name):
+        raise unavailable
+
+    monkeypatch.setattr(operation_reporting, "report_schema", unavailable_schema)
+    with pytest.raises(ResultError, match="diagnostic report schema is unavailable") as caught:
+        read_diagnostic(store, invocation.id)
+    assert caught.value.__cause__ is unavailable
+    assert artifact.read_bytes() == original
+    assert "malformed or corrupt" not in str(caught.value)
+
+
 def test_graph_input_iri_withheld_and_combined_budget():
     from rdflib import URIRef
 

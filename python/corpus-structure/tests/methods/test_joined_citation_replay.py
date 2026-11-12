@@ -92,10 +92,15 @@ def _joined_view():
     )
 
 
-def _retained_reports(view, release):
+def _retained_reports(view, release, *, batch_size=64):
     method_version, named_version = SCOPED_VERSION, "4"
     frame = native_source_frame(view, ())
-    annotations = prepare_source(view, annotations_only=True)
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.ingest.sentences import SentenceConfig, pipeline
+
+    profile = AnnotationProfile(SentenceConfig(batch_size=batch_size, exclude=("ner",)))
+    native_profile = pipeline(profile.configuration).selection().native
+    annotations = prepare_source(view, profile=profile, annotations_only=True)
     assert not annotations.annotation_errors
     (block,) = annotations.annotations
     assert block.block_id == "#/texts/0"
@@ -134,6 +139,7 @@ def _retained_reports(view, release):
     output = discover_relations(
         frame,
         annotations=annotations.annotations,
+        annotation_native_profile=native_profile,
         annotation_origin_task_id=41,
         passages=(passage,),
         predicate_version="5",
@@ -197,6 +203,14 @@ def test_historical_named_cue_replay_requires_current_primary_regeneration():
 
 
 def test_joined_citation_replays_exact_annotation_and_native_piece():
+    _assert_joined_citation_replay(batch_size=64)
+
+
+def test_joined_citation_replays_nondefault_native_batch_configuration():
+    _assert_joined_citation_replay(batch_size=2)
+
+
+def _assert_joined_citation_replay(*, batch_size):
     policy = (
         files("corpus_structure")
         .joinpath("semantic/constructions/navigation_native_pieces.json")
@@ -204,7 +218,7 @@ def test_joined_citation_replays_exact_annotation_and_native_piece():
     )
     contract = _contract(policy)
     scoped, source_row, producer, primary = _retained_reports(
-        _joined_view(), contract["release_id"]
+        _joined_view(), contract["release_id"], batch_size=batch_size
     )
     archived = archived_named_link_native_pieces(contract)
     (cue,) = [

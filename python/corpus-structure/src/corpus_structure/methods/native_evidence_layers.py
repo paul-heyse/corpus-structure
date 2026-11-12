@@ -816,11 +816,74 @@ class PrimaryAnnotationProduct(AnnotationProduct):
         object.__setattr__(self, "primary_layers", MappingProxyType(dict(primary_layers or {})))
 
 
+def retained_annotation_profile(native_run, requested=None):
+    """Recover the retained execution identity, never an ambient installed profile.
+
+    Absent execution metadata preserves the historical unprofiled contract. An
+    explicit request cannot authenticate against missing or different metadata.
+    """
+    from dataclasses import replace
+
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.ingest.sentences import SentenceConfig
+    from corpus_structure.methods.native_profiles import NativeProfile
+    from corpus_structure.semantic.observations import source_python
+
+    native = None
+    if "execution_profile" in native_run:
+        wire = source_python(native_run["execution_profile"])
+        if not isinstance(wire, dict):
+            raise ValueError("retained native execution profile is not an object")
+        try:
+            native = NativeProfile(**wire)
+        except (TypeError, ValueError) as error:
+            raise ValueError("retained native execution profile is invalid") from error
+        if canonical_bytes(native.wire) != canonical_bytes(wire):
+            raise ValueError("retained native execution profile is not a complete frozen snapshot")
+        if native.provider != "spacy":
+            raise ValueError("retained annotation execution profile belongs to another provider")
+        configuration = SentenceConfig.model_validate(native.parameters)
+        if canonical_bytes(configuration.model_dump(mode="json")) != canonical_bytes(
+            native.parameters
+        ):
+            raise ValueError(
+                "retained native execution parameters are not a complete frozen configuration"
+            )
+    else:
+        configuration = SentenceConfig(
+            spacy_version=native_run["runtime_version"],
+            model=native_run["model"],
+            model_version=native_run["model_version"],
+            exclude=("ner",),
+        )
+    if (configuration.model, configuration.model_version, configuration.spacy_version) != (
+        native_run["model"],
+        native_run["model_version"],
+        native_run["runtime_version"],
+    ):
+        raise ValueError("retained execution configuration differs from native model/runtime")
+    fingerprint = None if native is None else native.fingerprint
+    if requested is None:
+        return AnnotationProfile(configuration, execution_profile=fingerprint)
+    if (
+        requested.configuration.model,
+        requested.configuration.model_version,
+        requested.configuration.spacy_version,
+    ) != (configuration.model, configuration.model_version, configuration.spacy_version):
+        raise ValueError("retained native producer differs from demanded model/runtime")
+    if native is not None and requested.configuration != configuration:
+        raise ValueError("retained annotation configuration differs from requested parameters")
+    if requested.execution_profile is not None and requested.execution_profile != fingerprint:
+        raise ValueError("retained annotation execution profile differs or is unavailable")
+    return replace(requested, execution_profile=fingerprint)
+
+
 def retained_annotation_products(layers, view, profile):
     """Restore exact whole-block native working columns without NLP or private policy."""
     from dataclasses import asdict
 
     from corpus_structure.ingest.annotations import (
+        _ATTRIBUTES,
         AnnotationAvailability,
         ComponentPin,
         SentenceAnnotation,
@@ -861,6 +924,7 @@ def retained_annotation_products(layers, view, profile):
         annotations = {a["local_id"]: a for a in body["annotations"]}
         occurrences = {o["local_id"]: o for o in body["occurrences"]}
         runs = {r["local_id"]: r for r in body.get("native_runs", ()) if r["provider"] == "spacy"}
+        profiles = {key: retained_annotation_profile(run, profile) for key, run in runs.items()}
         blocks = {}
         for annotation in annotations.values():
             token = annotation.get("native_token")
@@ -888,7 +952,8 @@ def retained_annotation_products(layers, view, profile):
             extents = [e for oid in block["occurrences"] for e in occurrences[oid]["extents"]]
             start, end = extents[0]["start"], extents[-1]["end"]
             native_run = runs[rows[0]["native_run"]]
-            cfg = profile.configuration
+            effective_profile = profiles[rows[0]["native_run"]]
+            cfg = effective_profile.configuration
             if (
                 native_run["model"],
                 native_run["model_version"],
@@ -957,12 +1022,12 @@ def retained_annotation_products(layers, view, profile):
             )
             statuses = {a["family"]: a["status"] for a in native_run.get("availability", ())}
             availability = tuple(
-                AnnotationAvailability(column, statuses.get(family, "absent"))
-                for column, family in SPACY_COLUMNS.items()
+                AnnotationAvailability(column, statuses.get(SPACY_COLUMNS[column], "absent"))
+                for column in _ATTRIBUTES
             )
             components = tuple(ComponentPin(**row) for row in native_run.get("components", ()))
             layout_digest = digest(asdict(layout))
-            profile_digest = digest(profile.identity())
+            profile_digest = digest(effective_profile.identity())
             identity = dict(
                 source=asdict(source),
                 block_id=block_id,
@@ -986,7 +1051,7 @@ def retained_annotation_products(layers, view, profile):
                     native_pieces=pieces,
                     layout_digest=layout_digest,
                     layout_recipe=layout.recipe,
-                    profile_recipe=profile.recipe,
+                    profile_recipe=effective_profile.recipe,
                     profile_digest=profile_digest,
                     spacy_version=cfg.spacy_version,
                     model=cfg.model,

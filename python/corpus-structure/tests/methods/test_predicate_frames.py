@@ -1,7 +1,7 @@
 """Retained-source frame boundaries and qualifier ownership."""
 
 from dataclasses import replace
-from typing import Literal
+from typing import Any, Literal
 
 import pytest
 
@@ -29,7 +29,9 @@ def retained(
     pieces=None,
 ):
     block = Block(text, (), (), ())
-    layout = prepare_layout(pipeline(profile.configuration), block, start=len(_PREFIX))
+    nlp: Any = pipeline(profile.configuration)
+    native_profile = nlp.selection().native
+    layout = prepare_layout(nlp, block, start=len(_PREFIX))
     source = NativeSourcePin(
         7,
         "source:7",
@@ -46,7 +48,9 @@ def retained(
     (product,) = annotate((request,), profile)
     from .primary_reading_fixture import primary_product
 
-    return _PREFIX + text, primary_product(_PREFIX + text, product, profile)
+    return _PREFIX + text, primary_product(
+        _PREFIX + text, product, profile, native_profile=native_profile
+    )
 
 
 def strings(text, span):
@@ -215,9 +219,12 @@ def test_noncontiguous_role_stays_separate_with_controlled_retained_heads(profil
             strict=True,
         )
     )
-    from .primary_reading_fixture import primary_product
+    from .primary_reading_fixture import native_execution_for_product, primary_product
 
-    adjusted = primary_product(text, replace(product, tokens=tokens), profile)
+    original_execution = native_execution_for_product(product, profile)
+    adjusted = primary_product(
+        text, replace(product, tokens=tokens), profile, native_profile=original_execution
+    )
     frame = readings(text, predicate_frames(text, (adjusted,)))["reviews"]
     assert role(text, frame, "object") == (("current", "files"),)
     assert strings(text, frame.focus) == ("Manager reviews current", "files")

@@ -5,15 +5,16 @@ from __future__ import annotations
 from typing import Any
 
 from corpus_structure.ingest.annotation_views import annotation_view
-from corpus_structure.ingest.annotations import AnnotationProfile
-from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.annotation_rules import (
     AnnotationRuleMatch,
     AnnotationRuleResult,
     LocatedRole,
     PreparedAnnotationRules,
 )
-from corpus_structure.methods.native_evidence_layers import retained_annotation_products
+from corpus_structure.methods.native_evidence_layers import (
+    retained_annotation_products,
+    retained_annotation_profile,
+)
 from corpus_structure.semantic.characterization import AnnotationReference
 from corpus_structure.semantic.product_reference import ProductReference
 
@@ -45,14 +46,7 @@ def populate_named(
     if len(runs) != 1:
         raise ValueError("named rules require one exact native spaCy run")
     run = runs[0]
-    profile = AnnotationProfile(
-        SentenceConfig(
-            spacy_version=run["runtime_version"],
-            model=run["model"],
-            model_version=run["model_version"],
-            exclude=("ner",),
-        )
-    )
+    profile = retained_annotation_profile(run)
     products = retained_annotation_products({native_pin: native_layer}, view, profile)
     annotations = {a["local_id"]: a for a in native_payload["annotations"]}
     source_occurrences = {o["local_id"]: o for o in native_payload["occurrences"]}

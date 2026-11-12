@@ -3,8 +3,12 @@
 import json
 import struct
 import sys
+from copy import deepcopy
 from hashlib import sha256
+from types import SimpleNamespace
+from typing import Any
 
+import pytest
 from sqlalchemy import text
 
 
@@ -72,6 +76,340 @@ def test_located_request_binds_ordered_schema_and_exact_inference(semantic_db_en
             )
             != expected_key
         )
+
+
+def _literal_hash(value):
+    # Independent native reference bytes, deliberately not the producer's hash helper.
+    return sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    ).hexdigest()
+
+
+def _literal_current_observation():
+    profile = {
+        "snapshot": "/acquired",
+        "checkpoint": "checkpoint",
+        "timeout_seconds": 120.0,
+        "artifact_hashes": [["z", "last"], ["a", "first"]],
+        "device": "cuda",
+        "dtype": "float32",
+        "execution_profile": "exact-numerical-identity",
+    }
+    policy = {
+        "request_version": "located-model-request-2",
+        "definition": {"bare": ['{"entities":[', {"field": "term_entity"}, "]}"]},
+        "inference": {"operation": "batch_extract", "include_spans": True},
+    }
+    config = dict(profile=profile, description_arm="bare", term_entity="term", threshold=0.5)
+    header = {
+        "release": "r",
+        "version": "native-local-v1",
+        "declaration": '{"entities":["term"]}',
+        "profile": {
+            "checkpoint": "checkpoint",
+            "timeout_seconds": "120",
+            "artifact_hashes": [["a", "first"], ["z", "last"]],
+            "device": "cuda",
+            "dtype": "float32",
+            "execution_profile": "exact-numerical-identity",
+        },
+        "threshold": "0.5",
+        "overlap": "flat",
+        "evaluation": False,
+        "inference": {"operation": "batch_extract", "include_spans": True},
+    }
+    member = _literal_hash(
+        [
+            "located-model-member-2",
+            "structure.definition_components/10",
+            "context",
+            "digest",
+            " \u03b1\t\u03b2",
+        ]
+    )
+    key = _literal_hash(["located-model-request-2", header, [member]])
+    receipt = dict(version=2, header=header, members=[member], digest=key)
+    report = dict(
+        request_digest=key,
+        computation=key,
+        raw_json='{"entities":{}}',
+        effective_profile_json='{"device":"cuda","dtype":"float32"}',
+        batch_receipt_json=json.dumps(receipt),
+        member_ordinal=0,
+    )
+    report["observation_digest"] = _literal_hash(
+        [
+            "located-model-observation-2",
+            key,
+            0,
+            member,
+            report["raw_json"],
+            report["effective_profile_json"],
+        ]
+    )
+    return policy, config, receipt, report
+
+
+def test_located_v2_native_and_python_requests_match_independent_header_member_bytes(
+    semantic_db_engine,
+):
+    from corpus_structure.methods.model_observation import batch_receipt, report_observation_digest
+
+    policy, config, receipt, report = _literal_current_observation()
+    pack = SimpleNamespace(
+        release="r", version="native-local-v1", declaration_json=receipt["header"]["declaration"]
+    )
+    member = SimpleNamespace(
+        operation="structure.definition_components/10",
+        context_id="context",
+        context_digest="digest",
+        text=" \u03b1\t\u03b2",
+    )
+    assert (
+        batch_receipt(pack, config["profile"], (member,), 0.5, "flat", False, policy["inference"])
+        == receipt
+    )
+    assert report_observation_digest(report) == report["observation_digest"]
+    query = text(
+        "SELECT ops.located_model_request('r','structure.definition_components/10',"
+        "CAST(:policy AS jsonb),CAST(:config AS jsonb),'context','digest',:body)"
+    )
+    with semantic_db_engine.connect() as conn, conn.begin():
+        params = dict(policy=json.dumps(policy), config=json.dumps(config), body=" \u03b1\t\u03b2")
+        assert conn.scalar(query, params) == receipt["digest"]
+        # Every inference and normalized-profile field participates, including native policy.
+        changed = deepcopy(config)
+        changed["profile"]["execution_profile"] = "different-numerical-identity"
+        assert conn.scalar(query, {**params, "config": json.dumps(changed)}) != receipt["digest"]
+        changed_policy = deepcopy(policy)
+        changed_policy["inference"]["include_spans"] = False
+        assert (
+            conn.scalar(query, {**params, "policy": json.dumps(changed_policy)})
+            != receipt["digest"]
+        )
+        assert (
+            conn.scalar(
+                query,
+                {**params, "policy": json.dumps({**policy, "request_version": "unsupported"})},
+            )
+            is None
+        )
+
+
+def test_located_native_observation_checks_legacy_and_full_v2_commitments(semantic_db_engine):
+    _, _, receipt, report = _literal_current_observation()
+    query = text("SELECT ops.located_model_observation_matches(CAST(:report AS jsonb),:request)")
+    with semantic_db_engine.connect() as conn, conn.begin():
+
+        def matches(candidate, key=report["request_digest"]):
+            return conn.scalar(query, dict(report=json.dumps(candidate), request=key))
+
+        assert matches(report) is True
+        # A generic batch receipt binds its actual member ordinal, not always zero.
+        members = ["b" * 64, receipt["members"][0]]
+        key = _literal_hash(["located-model-request-2", receipt["header"], members])
+        second = {
+            **report,
+            "request_digest": key,
+            "computation": key,
+            "member_ordinal": 1,
+            "batch_receipt_json": json.dumps(
+                dict(version=2, header=receipt["header"], members=members, digest=key)
+            ),
+            "observation_digest": _literal_hash(
+                [
+                    "located-model-observation-2",
+                    key,
+                    1,
+                    members[1],
+                    report["raw_json"],
+                    report["effective_profile_json"],
+                ]
+            ),
+        }
+        assert matches(second, key) is True
+        assert matches({**second, "member_ordinal": 0}, key) is False
+        legacy = {
+            key: value
+            for key, value in report.items()
+            if key not in {"batch_receipt_json", "member_ordinal"}
+        }
+        legacy["observation_digest"] = _literal_hash(
+            [legacy["request_digest"], legacy["raw_json"], legacy["effective_profile_json"]]
+        )
+        assert matches(legacy) is True
+        # Legacy history remains valid, but cannot acquire an invented batch ordinal.
+        assert matches({**legacy, "member_ordinal": 0}) is False
+        assert (
+            matches({**report, "computation": "physical-cohort-instead-of-client-request"}) is False
+        )
+        assert matches({**report, "observation_digest": legacy["observation_digest"]}) is False
+        assert matches({**report, "raw_json": "{}"}) is False
+        assert matches({**report, "effective_profile_json": "{}"}) is False
+        assert matches({**report, "raw_json": {}}) is False
+        for ordinal in (-1, 1, True, 0.0, "0", None, 2**63):
+            assert matches({**report, "member_ordinal": ordinal}) is False
+        for raw_receipt in ("not-json", "[]", "null", "{}"):
+            assert matches({**report, "batch_receipt_json": raw_receipt}) is False
+        changed_receipts: list[dict[str, Any]] = []
+        changed_receipts.append({**receipt, "extra": "not-declared"})
+        changed_receipts.append({key: value for key, value in receipt.items() if key != "version"})
+        for version in (1, True, 2.0, "2"):
+            changed_receipts.append({**receipt, "version": version})
+        changed_receipts.extend(
+            [
+                {**receipt, "header": {**receipt["header"], "threshold": "0.7"}},
+                {**receipt, "members": ["f" * 64]},
+                {**receipt, "digest": "f" * 64},
+            ]
+        )
+        for changed in changed_receipts:
+            assert matches({**report, "batch_receipt_json": json.dumps(changed)}) is False
+        # Recompute all hashes for malformed shapes: their own hashes cannot make them valid.
+        malformed = [
+            ({**receipt["header"], "extra": True}, receipt["members"]),
+            (
+                {key: value for key, value in receipt["header"].items() if key != "profile"},
+                receipt["members"],
+            ),
+            ({**receipt["header"], "evaluation": "false"}, receipt["members"]),
+            (receipt["header"], []),
+            (receipt["header"], receipt["members"] * 2),
+            (receipt["header"], ["not-a-member-hash"]),
+            (receipt["header"], ["A" * 64]),
+        ]
+        for header, members in malformed:
+            key = _literal_hash(["located-model-request-2", header, members])
+            altered = {
+                **report,
+                "request_digest": key,
+                "computation": key,
+                "batch_receipt_json": json.dumps(
+                    dict(version=2, header=header, members=members, digest=key)
+                ),
+                "observation_digest": _literal_hash(
+                    [
+                        "located-model-observation-2",
+                        key,
+                        0,
+                        members[0] if members else "",
+                        report["raw_json"],
+                        report["effective_profile_json"],
+                    ]
+                ),
+            }
+            assert matches(altered, key) is False
+
+
+def test_current_definition_window_refuses_legacy_or_missing_batch_receipt(semantic_db_engine):
+    from sqlalchemy.exc import DBAPIError
+
+    from corpus_structure.semantic.releases import persist_release
+
+    from .native_record_fixtures import prepare_record_source
+
+    preparation = prepare_record_source()
+    passage = dict(passage_id="p", start=0, end=4, text="term", scope="literal-source")
+    config = dict(
+        use_model=True,
+        target_ids=["p"],
+        profile=dict(
+            snapshot="/acquired",
+            checkpoint="checkpoint",
+            timeout_seconds=120.0,
+            max_input_bytes=65536,
+            artifact_hashes=[["a", "first"]],
+            device="cuda",
+            dtype="float32",
+        ),
+        description_arm="bare",
+        term_entity="term",
+        content_entity="content",
+        attachment_relation="attachment",
+        threshold=0.5,
+    )
+    digest = _literal_hash(passage)
+    with semantic_db_engine.connect() as conn, conn.begin():
+        persist_release(conn, *preparation.preparation_inputs, preparation.prepared)
+        release = preparation.prepared.release_id
+        policy = conn.scalar(
+            text("SELECT ops.model_observation_policy(:release)"), dict(release=release)
+        )
+        assert policy["request_version"] == "located-model-request-2"
+        declaration = "".join(
+            json.dumps(config[part["field"]], ensure_ascii=False)
+            if isinstance(part, dict)
+            else part
+            for part in policy["definition"]["bare"]
+        )
+        member = _literal_hash(
+            [
+                "located-model-member-2",
+                "structure.definition_components/10",
+                "definition-target:" + digest,
+                digest,
+                "term",
+            ]
+        )
+        header = dict(
+            release=release,
+            version="native-local-v1",
+            declaration=declaration,
+            profile={key: value for key, value in config["profile"].items() if key != "snapshot"},
+            threshold="0.5",
+            overlap="flat",
+            evaluation=False,
+            inference=policy["inference"],
+        )
+        header["profile"]["timeout_seconds"] = "120"
+        request = _literal_hash(["located-model-request-2", header, [member]])
+        report = dict(
+            passage_id="p",
+            window_start=0,
+            window_end=4,
+            context_digest=digest,
+            request_digest=request,
+            computation=request,
+            raw_json="{}",
+            effective_profile_json="{}",
+            batch_receipt_json=json.dumps(
+                dict(version=2, header=header, members=[member], digest=request)
+            ),
+            member_ordinal=0,
+            observation_digest=_literal_hash(
+                ["located-model-observation-2", request, 0, member, "{}", "{}"]
+            ),
+        )
+        detail = dict(
+            schema_declaration=declaration,
+            raw_reports=[report],
+            window_outcomes=[
+                dict(passage_id="p", start=0, end=4, request_digest=request, status="returned")
+            ],
+        )
+        query = text(
+            "SELECT ops.validate_definition_window_requests("
+            ":release,CAST(:detail AS jsonb),CAST(:config AS jsonb),CAST(:passages AS jsonb))"
+        )
+        params = dict(
+            release=release, config=json.dumps(config), passages=json.dumps({"p": passage})
+        )
+        conn.execute(query, {**params, "detail": json.dumps(detail)})
+        legacy = {
+            key: value
+            for key, value in report.items()
+            if key not in {"batch_receipt_json", "member_ordinal"}
+        }
+        legacy["observation_digest"] = _literal_hash([request, "{}", "{}"])
+        for candidate in (
+            legacy,
+            {**report, "batch_receipt_json": None},
+            {**report, "member_ordinal": 1},
+        ):
+            with pytest.raises(DBAPIError, match="selected request"), conn.begin_nested():
+                conn.execute(
+                    query, {**params, "detail": json.dumps({**detail, "raw_reports": [candidate]})}
+                )
 
 
 def test_native_model_report_preserves_exact_binary_profile_and_scores(semantic_db_engine):
@@ -234,7 +572,9 @@ def test_native_definition_scope_uses_retained_act_and_content_ownership(semanti
                     )
                 ),
             )
-            product = primary_product(words, product, AnnotationProfile())
+            product = primary_product(
+                words, product, AnnotationProfile(), native_profile=controlled.selection().native
+            )
             roles = [
                 LocatedRole(
                     "defining_cue",

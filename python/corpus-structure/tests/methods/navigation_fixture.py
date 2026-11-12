@@ -3,6 +3,7 @@
 import json
 from dataclasses import asdict
 from types import SimpleNamespace
+from typing import Any
 
 from corpus_structure.methods.native_evidence import native_run
 from corpus_structure.methods.native_evidence_layers import SPACY_FAMILIES, NativeEvidenceBuilder
@@ -15,9 +16,17 @@ from corpus_structure.semantic.formal_evidence import build_formal_layer
 from .primary_reading_fixture import prepared
 
 
-def primary_navigation(view, annotations=None, *, formal=False, task_start=201):
+def primary_navigation(
+    view, annotations=None, *, formal=False, task_start=201, native_profile=None
+):
     if annotations is None:
-        annotations = prepare_source(view, annotations_only=True).annotations
+        from corpus_structure.ingest.annotations import AnnotationProfile
+        from corpus_structure.ingest.sentences import pipeline
+
+        profile = AnnotationProfile()
+        nlp: Any = pipeline(profile.configuration)
+        native_profile = nlp.selection().native
+        annotations = prepare_source(view, profile=profile, annotations_only=True).annotations
     scope = dict(
         source_view_ids=[view.ref.id],
         source_views=[
@@ -67,6 +76,13 @@ def primary_navigation(view, annotations=None, *, formal=False, task_start=201):
             components=[asdict(c) for c in product.components],
         )
         run["configuration_digest"] = product.pipeline_config_digest
+        from corpus_structure.semantic.observations import source_value
+
+        from .primary_reading_fixture import native_execution_for_product
+
+        execution = native_execution_for_product(product, native_profile=native_profile)
+        if execution is not None:
+            run["execution_profile"] = source_value(execution.wire)
         from corpus_structure.methods.native_evidence_layers import SPACY_COLUMNS
 
         run["availability"] = [

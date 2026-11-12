@@ -451,6 +451,72 @@ def test_failed_preparation_retains_unicode_sql_diagnostics_without_effect_autho
     assert "settled digest" in _inspect(invocation.id, "--view", "sql").stderr
 
 
+def test_candidate_sql_view_reads_frozen_native_statement_boundaries(model_results, monkeypatch):
+    from corpus_structure.schema.model_explanation import explanation_from_native
+
+    create = (
+        "CREATE OR REPLACE FUNCTION selected.f() RETURNS text LANGUAGE sql "
+        "AS $body$SELECT '100%: source; Ω'$body$"
+    )
+    raw = json.dumps(
+        dict(
+            version=1,
+            operations=[
+                dict(
+                    version=1,
+                    before=None,
+                    recreate=False,
+                    after=dict(
+                        source="native.sql",
+                        statements=[
+                            create,
+                            "ALTER FUNCTION selected.f() OWNER TO publisher;\n",
+                            "REVOKE ALL ON FUNCTION selected.f() FROM PUBLIC",
+                        ],
+                    ),
+                )
+            ],
+        )
+    ).encode()
+    with model_results.operation("model.candidate") as invocation:
+        model._publish_sql_explanation(invocation, explanation_from_native(raw))
+        invocation.settle()
+    path = invocation.directory / "sql-explanation.json"
+    retained = path.read_bytes()
+    monkeypatch.setattr(
+        model, "_prepare_release", lambda *_a, **_k: pytest.fail("reader prepared SQL")
+    )
+    inspected = CliRunner().invoke(
+        app,
+        [
+            "model",
+            "change",
+            "inspect-candidate",
+            invocation.id,
+            "--view",
+            "sql",
+            "--limit",
+            "1",
+            "--json",
+        ],
+    )
+    assert inspected.exit_code == 0, inspected.output
+    body = json.loads(inspected.stdout)
+    (change,) = body["items"]
+    assert change["identity"] == "frozen-operation:1"
+    assert change["before"] is None
+    assert change["after"]["status"] == "parsed"
+    assert change["after"]["statement_total"] == 3
+    assert [item["kind"] for item in change["after"]["statements"]] == [
+        "CreateFunctionStmt",
+        "AlterOwnerStmt",
+        "GrantStmt",
+    ]
+    assert change["after"]["statements"][0]["excerpt"] == create
+    assert "supports single parsed SELECTs" in change["structural_status"]
+    assert path.read_bytes() == retained
+
+
 def test_candidate_operation_view_uses_frozen_hash_without_current_generators(
     model_results, tmp_path, monkeypatch
 ):

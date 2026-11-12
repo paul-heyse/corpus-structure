@@ -11,6 +11,7 @@ from corpus_structure.ingest.sentences import make_doc, pipeline
 from corpus_structure.methods.characterization_resources import PM2Work
 from corpus_structure.methods.model_observation import ordered_native_bytes
 from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+from corpus_structure.semantic.identity import canonical_bytes
 
 
 @dataclass(frozen=True)
@@ -86,16 +87,31 @@ def annotation_work(
         ),
         None,
     )
-    selection = (
-        NativeSelection(
-            NativeProfile(**native_profile),
+    if native_profile is not None:
+        supplied = NativeProfile(**native_profile)
+        if canonical_bytes(supplied.wire) != canonical_bytes(native_profile):
+            raise ValueError("admitted annotation execution requires a complete frozen snapshot")
+        selection = NativeSelection(
+            supplied,
             spacy.util.get_package_path(profile.configuration.model),
         )
-        if native_profile is not None
-        else selected
-        if selected is not None
-        else nlp.selection()
-    )
+    elif selected is not None:
+        selection = selected
+    else:
+        selection = nlp.selection()
+    if selection.provider != "spacy":
+        raise ValueError("admitted annotation execution profile belongs to another provider")
+    if canonical_bytes(selection.native.parameters) != canonical_bytes(
+        profile.configuration.model_dump(mode="json")
+    ):
+        raise ValueError(
+            "admitted annotation execution parameters differ from requested configuration"
+        )
+    if (
+        profile.execution_profile is not None
+        and profile.execution_profile != selection.native.fingerprint
+    ):
+        raise ValueError("requested annotation execution profile differs from admitted selection")
     execution.declare_native((selection,))
     if profile.execution_profile is None:
         from dataclasses import replace

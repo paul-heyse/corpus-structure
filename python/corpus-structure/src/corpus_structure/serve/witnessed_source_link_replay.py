@@ -512,9 +512,10 @@ def verify_annotated_named_links(
     report, source, producers, *, native_piece_policy=None, primary_layers=None
 ):
     """Verify current source-role projections from exported primary closure, without NLP."""
-    from corpus_structure.ingest.annotations import AnnotationProfile
-    from corpus_structure.ingest.sentences import SentenceConfig
-    from corpus_structure.methods.native_evidence_layers import retained_annotation_products
+    from corpus_structure.methods.native_evidence_layers import (
+        retained_annotation_products,
+        retained_annotation_profile,
+    )
     from corpus_structure.methods.scoped_relations import SCOPED_VERSION
     from corpus_structure.semantic.proposals import native_source_frame
     from corpus_structure.semantic.source_contexts import NativeSourcePin, record_source_pin
@@ -567,14 +568,7 @@ def verify_annotated_named_links(
     for pin, layer in (primary_layers or {}).items():
         for run in layer.payload.get("native_runs", ()):
             if run["provider"] == "spacy":
-                profile = AnnotationProfile(
-                    SentenceConfig(
-                        spacy_version=run["runtime_version"],
-                        model=run["model"],
-                        model_version=run["model_version"],
-                        exclude=("ner",),
-                    )
-                )
+                profile = retained_annotation_profile(run)
                 annotations.extend(retained_annotation_products({pin: layer}, view, profile))
     expected = match_named_source_links(
         view.text,

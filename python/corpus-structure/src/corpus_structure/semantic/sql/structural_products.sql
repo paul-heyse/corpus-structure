@@ -1589,27 +1589,86 @@ RETURNS text LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS
  WITH definition AS (SELECT method_='structure.definition_components/10' enabled),
  profile AS (SELECT config_->'profile' p),
  schema_ AS (SELECT CASE WHEN enabled THEN ops.model_definition_declaration(policy,config_)
-                        ELSE policy->>'clause' END declaration FROM definition)
- SELECT encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
-  policy->>'request_version',release_,CASE WHEN enabled THEN 'native-local-v1' ELSE 'native-combined-v2' END,
-  declaration,(p-ARRAY['snapshot','artifact_hashes','timeout_seconds'])||jsonb_build_object(
+                        ELSE policy->>'clause' END declaration FROM definition),
+ request_ AS (SELECT enabled,declaration,
+  (p-ARRAY['snapshot','artifact_hashes','timeout_seconds'])||jsonb_build_object(
    'timeout_seconds',data.decimal_canonical(p->>'timeout_seconds'),
-   'artifact_hashes',(SELECT jsonb_agg(a ORDER BY (a->>0) COLLATE "C") FROM jsonb_array_elements(p->'artifact_hashes') a)),
-  jsonb_build_array(jsonb_build_array(method_,context_id,context_digest,body)),
-  CASE WHEN enabled THEN data.decimal_canonical(config_->>'threshold') ELSE '0.5' END,
-  CASE WHEN enabled THEN COALESCE(config_->>'evaluation_overlap','flat') ELSE 'flat' END,
-  enabled AND (config_->>'evaluation_overlap') IS NOT NULL,policy->'inference')),'UTF8')),'hex')
- FROM definition,profile,schema_
+   'artifact_hashes',(SELECT jsonb_agg(a ORDER BY (a->>0) COLLATE "C",(a->>1) COLLATE "C")
+                     FROM jsonb_array_elements(p->'artifact_hashes') a)) profile_,
+  CASE WHEN enabled THEN data.decimal_canonical(config_->>'threshold') ELSE '0.5' END threshold_,
+  CASE WHEN enabled THEN COALESCE(config_->>'evaluation_overlap','flat') ELSE 'flat' END overlap_,
+  enabled AND (config_->>'evaluation_overlap') IS NOT NULL evaluation_
+  FROM definition,profile,schema_),
+ value_ AS (SELECT CASE policy->>'request_version'
+  WHEN 'located-model-request-1' THEN jsonb_build_array(
+   'located-model-request-1',release_,CASE WHEN enabled THEN 'native-local-v1' ELSE 'native-combined-v2' END,
+   declaration,profile_,jsonb_build_array(jsonb_build_array(method_,context_id,context_digest,body)),
+   threshold_,overlap_,evaluation_,policy->'inference')
+  WHEN 'located-model-request-2' THEN jsonb_build_array(
+   'located-model-request-2',jsonb_build_object(
+    'release',release_,'version',CASE WHEN enabled THEN 'native-local-v1' ELSE 'native-combined-v2' END,
+    'declaration',declaration,'profile',profile_,'threshold',threshold_,'overlap',overlap_,
+    'evaluation',evaluation_,'inference',policy->'inference'),
+   jsonb_build_array(encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
+    'located-model-member-2',method_,context_id,context_digest,body)),'UTF8')),'hex')))
+  ELSE NULL END payload FROM request_)
+ SELECT encode(sha256(convert_to(data.canonical_json(payload),'UTF8')),'hex') FROM value_
 $$;
 REVOKE ALL ON FUNCTION ops.located_model_request(text,text,jsonb,jsonb,text,text,text) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.located_model_observation_matches(report jsonb,request_ text)
-RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
- SELECT request_ IS NOT NULL AND report->>'request_digest'=request_ AND report->>'computation'=request_
- AND report->>'raw_json' IS NOT NULL AND report->>'effective_profile_json' IS NOT NULL
- AND report->>'observation_digest'=encode(sha256(convert_to(data.canonical_json(
-  jsonb_build_array(request_,report->>'raw_json',report->>'effective_profile_json')),'UTF8')),'hex')
-$$;
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE receipt jsonb; header_ jsonb; members_ jsonb; ordinal_ integer; expected_ text;
+BEGIN
+ IF request_ IS NULL OR jsonb_typeof(report) IS DISTINCT FROM 'object'
+  OR report->>'request_digest' IS DISTINCT FROM request_
+  OR report->>'computation' IS DISTINCT FROM request_
+  OR jsonb_typeof(report->'raw_json') IS DISTINCT FROM 'string'
+  OR jsonb_typeof(report->'effective_profile_json') IS DISTINCT FROM 'string' THEN RETURN false; END IF;
+ IF report->>'batch_receipt_json' IS NULL THEN
+  IF report->>'member_ordinal' IS NOT NULL THEN RETURN false; END IF;
+  -- Historical receipts remain readable, but the caller must admit them under v1.
+  expected_:=encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
+   request_,report->>'raw_json',report->>'effective_profile_json')),'UTF8')),'hex');
+ ELSE
+  IF jsonb_typeof(report->'batch_receipt_json') IS DISTINCT FROM 'string'
+   OR jsonb_typeof(report->'member_ordinal') IS DISTINCT FROM 'number'
+   OR report->>'member_ordinal' !~ '^(0|[1-9][0-9]*)$' THEN RETURN false; END IF;
+  receipt:=(report->>'batch_receipt_json')::jsonb;
+  IF jsonb_typeof(receipt) IS DISTINCT FROM 'object'
+   OR receipt-ARRAY['version','header','members','digest']<>'{}'::jsonb
+   OR NOT (receipt ?& ARRAY['version','header','members','digest'])
+   OR jsonb_typeof(receipt->'version') IS DISTINCT FROM 'number'
+   OR receipt->>'version' IS DISTINCT FROM '2'
+   OR jsonb_typeof(receipt->'header') IS DISTINCT FROM 'object'
+   OR jsonb_typeof(receipt->'members') IS DISTINCT FROM 'array'
+   OR jsonb_typeof(receipt->'digest') IS DISTINCT FROM 'string' THEN RETURN false; END IF;
+  header_:=receipt->'header'; members_:=receipt->'members';
+  IF header_-ARRAY['release','version','declaration','profile','threshold','overlap','evaluation','inference']<>'{}'::jsonb
+   OR NOT (header_ ?& ARRAY['release','version','declaration','profile','threshold','overlap','evaluation','inference'])
+   OR EXISTS(SELECT FROM unnest(ARRAY['release','version','declaration','threshold','overlap']) k
+             WHERE jsonb_typeof(header_->k) IS DISTINCT FROM 'string')
+   OR jsonb_typeof(header_->'profile') IS DISTINCT FROM 'object'
+   OR jsonb_typeof(header_->'evaluation') IS DISTINCT FROM 'boolean'
+   OR jsonb_typeof(header_->'inference') IS DISTINCT FROM 'object'
+   OR jsonb_array_length(members_)=0
+   OR EXISTS(SELECT FROM jsonb_array_elements(members_) m
+             WHERE jsonb_typeof(m) IS DISTINCT FROM 'string' OR m#>>'{}' !~ '^[0-9a-f]{64}$')
+   OR (SELECT count(*)<>count(DISTINCT m) FROM jsonb_array_elements(members_) m)
+   OR receipt->>'digest' IS DISTINCT FROM request_
+   OR encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
+       'located-model-request-2',header_,members_)),'UTF8')),'hex') IS DISTINCT FROM request_
+   THEN RETURN false; END IF;
+  ordinal_:=(report->>'member_ordinal')::integer;
+  IF ordinal_>=jsonb_array_length(members_) THEN RETURN false; END IF;
+  expected_:=encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
+   'located-model-observation-2',request_,ordinal_,members_->>ordinal_,
+   report->>'raw_json',report->>'effective_profile_json')),'UTF8')),'hex');
+ END IF;
+ RETURN report->>'observation_digest' IS NOT DISTINCT FROM expected_;
+EXCEPTION WHEN invalid_text_representation OR numeric_value_out_of_range OR invalid_parameter_value THEN
+ RETURN false;
+END $$;
 REVOKE ALL ON FUNCTION ops.located_model_observation_matches(jsonb,text) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.validate_definition_window_requests(
@@ -1620,7 +1679,9 @@ DECLARE policy jsonb:=ops.model_observation_policy(release_); passage_id text; p
  overlap_ integer; windows integer; limit_ integer; boundary_ integer; cursor_ integer:=0; count_ integer:=0;
  offset_ integer; digest_ text; request_ text; envelope jsonb; code integer; status_ text;
 BEGIN
- IF policy IS NULL OR jsonb_typeof(detail->'window_outcomes') IS DISTINCT FROM 'array' THEN
+ IF policy IS NULL OR COALESCE(policy->>'request_version','') NOT IN
+  ('located-model-request-1','located-model-request-2')
+  OR jsonb_typeof(detail->'window_outcomes') IS DISTINCT FROM 'array' THEN
   RAISE EXCEPTION 'definition window outcomes lack the released model policy' USING ERRCODE='23514'; END IF;
  IF (config_->>'use_model')::boolean THEN
   IF detail->>'schema_declaration' IS DISTINCT FROM ops.model_definition_declaration(policy,config_) THEN
@@ -1652,7 +1713,11 @@ BEGIN
      RAISE EXCEPTION 'definition window differs from exact configured population' USING ERRCODE='23514'; END IF;
     IF status_='returned' THEN
      envelope:=detail->'raw_reports'->count_; count_:=count_+1;
-     IF ops.located_model_observation_matches(envelope,request_) IS DISTINCT FROM true
+     IF (policy->>'request_version'='located-model-request-2' AND
+          (envelope->>'batch_receipt_json' IS NULL OR envelope->>'member_ordinal' IS NULL))
+      OR (policy->>'request_version'='located-model-request-1' AND
+          (envelope->>'batch_receipt_json' IS NOT NULL OR envelope->>'member_ordinal' IS NOT NULL))
+      OR ops.located_model_observation_matches(envelope,request_) IS DISTINCT FROM true
       OR envelope->>'context_digest' IS DISTINCT FROM digest_
       OR envelope->>'passage_id' IS DISTINCT FROM passage_id
       OR envelope->'window_start' IS DISTINCT FROM to_jsonb(offset_+start_)

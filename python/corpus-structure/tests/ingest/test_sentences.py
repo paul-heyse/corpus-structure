@@ -61,6 +61,32 @@ def test_a_configuration_naming_other_versions_is_refused() -> None:
         pipeline(SentenceConfig(model_version="3.7.1"))
 
 
+@pytest.mark.parametrize(
+    ("missing_name", "expected_error"),
+    (("selected_model", OSError), ("model_dependency", ModuleNotFoundError)),
+)
+def test_hosted_pipeline_distinguishes_absent_model_from_package_dependency(
+    monkeypatch: pytest.MonkeyPatch, missing_name, expected_error
+) -> None:
+    import spacy
+
+    from corpus_structure.ingest.hosted_spacy import HostedPipeline
+
+    missing = ModuleNotFoundError("package import failed", name=missing_name)
+
+    def unavailable(_model):
+        raise missing
+
+    monkeypatch.setattr(spacy.util, "get_package_path", unavailable)
+    with pytest.raises(expected_error) as caught:
+        HostedPipeline(SentenceConfig(model="selected_model"))
+    if expected_error is OSError:
+        assert caught.value.__cause__ is missing
+        assert "selected_model" in str(caught.value)
+    else:
+        assert caught.value is missing
+
+
 def test_prepared_layout_roundtrips_absolute_offsets_without_retokenizing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

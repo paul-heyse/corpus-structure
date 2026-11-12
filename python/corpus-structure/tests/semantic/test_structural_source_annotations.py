@@ -95,7 +95,9 @@ def retained_named_product(monkeypatch, states):
         ),
     )
     (native,) = annotate((request,), require_complete=False)
-    return primary_product("X", native, AnnotationProfile(), rules=rules), rules
+    return primary_product(
+        "X", native, AnnotationProfile(), rules=rules, native_profile=nlp.selection().native
+    ), rules
 
 
 def test_definition_consumer_uses_owned_original_source_read_not_current_run_view(monkeypatch):

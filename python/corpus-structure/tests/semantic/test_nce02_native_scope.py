@@ -113,7 +113,9 @@ def authored_product(monkeypatch, spelling, columns):
             for token, (pos, dep, head, lemma) in zip(product.tokens, columns, strict=True)
         ),
     )
-    return primary_product(spelling, product, AnnotationProfile())
+    return primary_product(
+        spelling, product, AnnotationProfile(), native_profile=controlled.selection().native
+    )
 
 
 def test_native_list_host_requires_exact_selected_membership(semantic_db_engine):

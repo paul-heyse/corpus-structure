@@ -33,9 +33,9 @@ from corpus_structure.methods.contextual_candidates import (
 )
 from corpus_structure.methods.contextual_embeddings import EncodedVector, EncoderResult, identity
 from corpus_structure.methods.model_observation import (
+    batch_receipt,
     installed_policy,
     observation_digest,
-    request_digest,
 )
 from corpus_structure.orchestrate import semantic
 from corpus_structure.orchestrate.commands import finalize_bound_run
@@ -175,7 +175,7 @@ def completed_component_case(case, tmp_path):
                     "term is defined or explained by": [dict(head=endpoint, tail=endpoint)]
                 },
             )
-            key = request_digest(
+            receipt = batch_receipt(
                 pack,
                 asdict(self.profile),
                 requests,
@@ -184,6 +184,7 @@ def completed_component_case(case, tmp_path):
                 kwargs.get("evaluation", False),
                 installed_policy()[0]["inference"],
             )
+            key = receipt["digest"]
             raw_json = json.dumps(raw)
             return tuple(
                 GlinerReport(
@@ -198,9 +199,13 @@ def completed_component_case(case, tmp_path):
                     0.0,
                     False,
                     request_digest=key,
-                    observation_digest=observation_digest(key, raw_json, "{}"),
+                    observation_digest=observation_digest(
+                        key, raw_json, "{}", ordinal=ordinal, member=receipt["members"][ordinal]
+                    ),
+                    batch_receipt_json=json.dumps(receipt),
+                    member_ordinal=ordinal,
                 )
-                for request in requests
+                for ordinal, request in enumerate(requests)
             )
 
     def produce_component(*, structural_admission=()):

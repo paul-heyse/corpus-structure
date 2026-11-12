@@ -1837,9 +1837,10 @@ def populate(
     member cites exact native token annotations. Scientific numeric lowering is not
     performed here; a condition retains its located source and operator meaning.
     """
-    from corpus_structure.ingest.annotations import AnnotationProfile
-    from corpus_structure.ingest.sentences import SentenceConfig
-    from corpus_structure.methods.native_evidence_layers import retained_annotation_products
+    from corpus_structure.methods.native_evidence_layers import (
+        retained_annotation_products,
+        retained_annotation_profile,
+    )
 
     from .forest import identity
 
@@ -1852,14 +1853,7 @@ def populate(
     if len(native_runs) != 1:
         raise ValueError("source readings require one exact retained spaCy producer")
     run = native_runs[0]
-    profile = AnnotationProfile(
-        SentenceConfig(
-            spacy_version=run["runtime_version"],
-            model=run["model"],
-            model_version=run["model_version"],
-            exclude=("ner",),
-        )
-    )
+    profile = retained_annotation_profile(run)
     native_products = retained_annotation_products({native_pin: native_layer}, view, profile)
     products = tuple(
         product for product in native_products if admitted(product.block_start, product.block_end)

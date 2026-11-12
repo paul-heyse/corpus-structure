@@ -105,6 +105,9 @@ def test_named_rules_execute_upstream_once_and_replay_exact_roles_without_nlp(
         text=[],
         components=[asdict(c) for c in product.components],
     )
+    from corpus_structure.semantic.observations import source_value
+
+    run["execution_profile"] = source_value(controlled.selection().native.wire)
     run["availability"] = [
         dict(family=SPACY_COLUMNS[c.attribute], attribute=c.attribute, status=c.status)
         for c in product.availability

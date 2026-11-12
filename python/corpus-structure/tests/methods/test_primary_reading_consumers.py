@@ -149,6 +149,9 @@ def primary_fixture(source, prepared, monkeypatch, *, heading=None):
         layout=[],
         text=[],
     )
+    from corpus_structure.semantic.observations import source_value
+
+    run["execution_profile"] = source_value(controlled.selection().native.wire)
     run["availability"] = _availability(native, "spacy")
     native.native_runs.append(run)
     native_layer = native.finish(prepared)

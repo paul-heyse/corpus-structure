@@ -188,6 +188,7 @@ def retain_optional_diagnostic(invocation, report=None, *, context, error=None):
 
 def read_diagnostic(store, result_id, *, raw_evidence=False, max_bytes=MAX_ARTIFACT_BYTES):
     from corpus_structure.cli.managed import ResultError
+    from corpus_structure.semantic.refusals import SemanticRefusal
 
     if type(max_bytes) is not int or not 1024 <= max_bytes <= MAX_ARTIFACT_BYTES:
         raise ResultError("diagnostic read limit exceeds supported range")
@@ -217,6 +218,8 @@ def read_diagnostic(store, result_id, *, raw_evidence=False, max_bytes=MAX_ARTIF
                     raise ResultError("raw diagnostic retrieval requires --raw-evidence")
         except ResultError:
             raise
+        except SemanticRefusal as error:
+            raise ResultError(f"diagnostic report schema is unavailable: {error}") from error
         except (KeyError, TypeError, ValueError) as error:
             raise ResultError("diagnostic artifact is malformed or corrupt") from error
         return document

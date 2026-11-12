@@ -15,10 +15,8 @@ from typing import Any, Literal
 from corpus_structure.ingest.annotation_views import annotation_view
 from corpus_structure.ingest.annotations import (
     AnnotationProduct,
-    AnnotationProfile,
     AnnotationUnavailable,
 )
-from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.annotation_rules import (
     AnnotationRule,
     PreparedAnnotationRules,
@@ -808,7 +806,10 @@ def populate_navigation(
     layer, view, dependencies, *, check_active=lambda: None, admitted=lambda a, b: True
 ):
     """Characterize source navigation once; target selection remains a consumer operation."""
-    from corpus_structure.methods.native_evidence_layers import retained_annotation_products
+    from corpus_structure.methods.native_evidence_layers import (
+        retained_annotation_products,
+        retained_annotation_profile,
+    )
     from corpus_structure.semantic.characterization import annotation_reference
 
     from .nodes import identity
@@ -828,14 +829,7 @@ def populate_navigation(
         if len(runs) != 1:
             raise ValueError("navigation requires one exact native spaCy run per layer")
         run = runs[0]
-        profile = AnnotationProfile(
-            SentenceConfig(
-                spacy_version=run["runtime_version"],
-                model=run["model"],
-                model_version=run["model_version"],
-                exclude=("ner",),
-            )
-        )
+        profile = retained_annotation_profile(run)
         products.extend(
             product
             for product in retained_annotation_products({pin: report}, view, profile)

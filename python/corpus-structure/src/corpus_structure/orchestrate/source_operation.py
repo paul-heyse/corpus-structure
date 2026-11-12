@@ -117,6 +117,23 @@ def _consumer_characterization_options(registry, graph, configurations):
     return {"text.constructions": {"annotation_rules": list(rules.values())}}
 
 
+def _retained_analytical_graph(graph):
+    """Retained primary inputs already own capture and PDF enrichment custody."""
+    from corpus_structure.core.vocab import Stage
+
+    return replace(
+        graph,
+        stages=tuple(
+            (
+                stage,
+                tuple(step for step in steps if step.config.partition("/")[0] != "enrich.pdf_math"),
+            )
+            for stage, steps in graph.stages
+            if stage != Stage.INGEST
+        ),
+    )
+
+
 def _freeze_analytical_profiles(execution, registry, graph, configurations, settings):
     """Freeze and declare selected analytical residents before primary serving."""
     from corpus_structure.methods.characterization_resources import freeze_analytical_profile
@@ -466,6 +483,8 @@ def _execute_source_run(
         resolved.policy_source,
     )
     domains = pack.parent
+    if characterization_views:
+        selected_graph = _retained_analytical_graph(selected_graph)
     if not source_only:
         overrides = (
             {"extract.m1_candidates": m1_configuration}
@@ -589,19 +608,7 @@ def _execute_source_run(
 
         # Exact retained primary inputs already include capture/recognition. New
         # release-specific SourceViews would no longer address those layer pins.
-        selected_graph = replace(
-            selected_graph,
-            stages=tuple(
-                (
-                    stage,
-                    tuple(
-                        step for step in steps if step.config.partition("/")[0] != "enrich.pdf_math"
-                    ),
-                )
-                for stage, steps in selected_graph.stages
-                if stage != Stage.INGEST
-            ),
-        )
+        selected_graph = _retained_analytical_graph(selected_graph)
     from corpus_structure.core.vocab import Stage
 
     capture_only = (

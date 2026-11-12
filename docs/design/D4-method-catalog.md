@@ -30,6 +30,17 @@ Reported pool thread counts must match the admitted intra-op policy; intra/inter
 all other model/runtime/artifact/numerical fields remain strict. Raw actual rosters/streams remain
 retained observations. A different library inventory/order/path is not a different inference recipe.
 
+Direct and retained spaCy annotations preserve the same complete requested execution profile and
+SentenceConfig, including nondefault batch and component selections. Retained restoration derives
+identity from the recorded NativeProfile; an explicitly different or incomplete request refuses.
+Named rules, navigation, predicate readings and detached witnessed-link replay use that same
+restoration owner. Already processed Docs keep their admitted profile without selecting an ambient
+runtime. Historical records lacking execution metadata remain explicitly unprofiled. The shared
+restoration source is part of the construction-resource fingerprint, so corrected interpretation
+invalidates derived layers and their downstream exact pins rather than relying on a fresh-run flag.
+Canonical annotation attribute order comes from the direct annotation model. **Implemented;
+focused identity/refusal controls Tested 2026-11-12; assembled qualification remains open.**
+
 
 > Decision: [ADR-0091](../adr/0091-gpu-native-environment-boundaries.md)
 
@@ -53,7 +64,7 @@ retired; native evidence and full constituency labels remain available.
 
 ## Current D1 requires CUDA and BF16
 
-**Proposed accepted target · 2026-11-11.** Current D1 authoring/defaults and native execution
+**Implemented; bounded actual CUDA checks Tested 2026-11-12; full-book qualification open.** Current D1 authoring/defaults and native execution
 select CUDA only, with BF16, and explicitly refuse CPU selection or unavailable CUDA/BF16 support.
 No CPU fallback or extended CPU-timeout route remains. Frozen configuration/released provider
 policy, runtime/artifacts, request/resident identity and executed startup/model metadata preserve
@@ -66,8 +77,9 @@ canonical-hash read semantics. Current D1 CUDA production requires receiptv2 and
 metadata under the newly released native-order policy. This repairs the existing exact-input
 contract rather than changing declaration order or reinterpreting old producer2 CPU observations.
 Authentic historical CPU observations stay readable as CPU
-evidence and are never relabelled CUDA. GLiNER retains its separately qualified CPU float32 profile;
-release-owned numerical policy is provider/device scoped and does not promise CPU/GPU equivalence.
+evidence and are never relabelled CUDA. Historical GLiNER CPU float32 observations retain their
+original profile; the selected current CUDA/FP32 profile above owns new processing. Release-owned
+numerical policy is provider/device scoped and does not promise CPU/GPU equivalence.
 Bounded actual D1 CUDA evidence establishes ordered question/batch/member/source mapping,
 actual prior-answer propagation and cancellation/custody recovery under CUDA/BF16. Final authentic
 captured-source DB/native qualification remains with BEP. Native BF16 confidence variation is

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterable
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 
@@ -32,6 +33,11 @@ def _quote(value: str) -> str:
 def execute_native_sql(connection: Connection, sql: str) -> None:
     """Preserve trusted literal percent/colon content on the caller's Connection."""
     connection.exec_driver_sql(sql, execution_options={"no_parameters": True})
+
+
+def native_sql_script(statements: Iterable[str]) -> str:
+    """Join separately executable native statements without rewriting their bodies."""
+    return "\n".join(statement.rstrip(";\n") + ";" for statement in statements)
 
 
 @contextmanager

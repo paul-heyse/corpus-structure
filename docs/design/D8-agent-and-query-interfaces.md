@@ -11,6 +11,11 @@ Settings/policy merging and complete MethodSettings construction live below CLI.
 help and dispatch, not another implementation of domain rules. Real CliRunner checks exercise the
 actual application composition; mocking that owner does not establish CLI/Python parity.
 
+Explicit retained characterization views determine the effective analytical graph before profile
+resolution/freezing. Their existing capture/PDF-enrichment custody removes those unreachable steps;
+genuinely selected missing methods still refuse. Fresh capture and primary execution retain complete
+early declaration of their selected provider population.
+
 One frozen provider profile owns requested model/runtime/device/dtype/backend/numerical semantics;
 resolved physical placement and actual startup metadata validate it. D4/D6 own GPU defaults,
 streamed shared hosts and admission. Retained/source-only/query/export reads perform no fresh NLP.
@@ -22,7 +27,7 @@ recorded links; historical missing associations remain unknown. The typed
 [source lineage contract](../../python/corpus-structure/src/corpus_structure/orchestrate/source_lineage.py)
 owns the fields; the BEP plan owns implementation and qualification.
 
-> Decision: ADR-0088, ADR-0089, ADR-0090
+> Decision: [ADR-0091](../adr/0091-gpu-native-environment-boundaries.md), ADR-0089, ADR-0090
 
 The implemented aggregate projection for existing managed reports exposes resolved policy, frozen original source/release selections,
 the actual first-run demand anchor, participating run/task IDs, settled regional views, final
@@ -30,10 +35,10 @@ combined pin when present and failed/unavailable scope. Prerequisite/capacity wa
 reduction and publication are live observations, distinct from durable task outcomes, source
 readiness, family coverage and final-view readiness. Last-observed activity names its observation
 time and cannot imply a still-live owner. No second progress database or service is introduced.
-Protected inventory-summary SQL is prospective until its forward native candidate is registered and
-qualified; older inventory responses report unavailable summary metadata. Controlled projections
-and CLI checks do not establish actual new native SQL/type/ACL behavior. The BEP checkpoint owns
-that remaining boundary and the unselected GPU host foundation.
+Protected inventory-summary SQL is deployed, with bounded native reader qualification dated
+2026-11-12; older inventory responses retain unavailable summary metadata. Controlled projections
+and scoped native checks do not establish assembled qualification. The BEP checkpoint owns that
+remaining boundary; ADR-0091 owns the selected shared GPU-host foundation.
 
 `ci run resume RUN --characterization` resolves the versioned demand stored once in the first
 actual native run's `options`; later child runs store its anchor reference. It reconstructs the
@@ -48,10 +53,11 @@ original binding and created-run/anchor correlation to invoke recovery without r
 owned operation and reaches queued/native borrowers, bounded child drain/termination and custody
 restoration. Useful members beyond a cancelled run retain completion rights; future cancellation
 alone never establishes that native work stopped. Source and final consumer pins retain their
-original meaning throughout recovery. BEP-09 owns actual integrated consumer/full-book qualification;
-this target authorizes no PDF recognition, activation, selection or TC-plan reconciliation.
+original meaning throughout recovery. Retained characterization performs no new PDF recognition.
+Activation, selection and promotion remain separate explicit effects. The BEP and TC coordinators
+own their current combined consumer/full-book qualification scope.
 
-> Decision: [ADR-0088](../adr/0088-gpu-default-native-hosts.md)
+> Decision: [ADR-0091](../adr/0091-gpu-native-environment-boundaries.md)
 
 ## D1 profile selection and retained device provenance
 
@@ -82,6 +88,13 @@ that exact retained context; other-member hashes are commitments, not independen
 source. Full-cohort reconstruction, when claimed, exports exact source/context closure rather
 than repeating complete texts in every annotation. Current-only installed policy admission and
 historical policy replay remain distinct.
+
+Native definition-window admission reconstructs the released request version from its exact
+configured population. Version 2 binds the normalized header and ordered member commitments,
+then verifies the retained receipt, ordinal and versioned observation digest; a legacy-shaped
+answer cannot satisfy the current policy. Version 1 retains its explicit original digest contract.
+SQL and Python follow the same released request/observation protocol. **Native repair deployed
+2026-11-12; focused native qualification pending.**
 
 Retained CPU-native confidences remain exact as reported. The governing policy exposes native
 numerical nondeterminism, including possible threshold/tie selection changes, without promising

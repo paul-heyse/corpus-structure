@@ -15,7 +15,14 @@ class HostedPipeline:
     def __init__(self, configuration):
         self.configuration = configuration
         self._selection = None
-        package = spacy.util.get_package_path(configuration.model)
+        try:
+            package = spacy.util.get_package_path(configuration.model)
+        except ModuleNotFoundError as error:
+            if error.name != configuration.model:
+                raise
+            raise OSError(
+                f"spaCy model package {configuration.model!r} is not installed"
+            ) from error
         paths = tuple(package.glob("*/config.cfg"))
         if len(paths) != 1:
             raise ValueError("selected spaCy package has no unique pipeline configuration")
@@ -33,11 +40,18 @@ class HostedPipeline:
             self._base.tokenizer,
             self._base.meta,
         )
-        if (
-            spacy.__version__ != configuration.spacy_version
-            or self.meta.get("version") != configuration.model_version
-        ):
-            raise ValueError("installed spaCy package/model differs from configured identity")
+        from .sentences import SentenceConfigError
+
+        if spacy.__version__ != configuration.spacy_version:
+            raise SentenceConfigError(
+                f"spaCy {spacy.__version__} is installed; the configuration names "
+                f"{configuration.spacy_version}"
+            )
+        if self.meta.get("version") != configuration.model_version:
+            raise SentenceConfigError(
+                f"{configuration.model} {self.meta.get('version')} is installed; "
+                f"the configuration names {configuration.model_version}"
+            )
 
     @property
     def config(self):

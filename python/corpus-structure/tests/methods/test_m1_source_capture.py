@@ -25,7 +25,9 @@ def compare(monkeypatch, text, rules):
     source = view(text)
     reader = owned_reader(source)
     method = M1Candidates()
-    monkeypatch.setattr(method, "_resident", lambda _: ControlledDecoder("empty"))
+    monkeypatch.setattr(
+        method, "_resident", lambda _, *, providers, native_profile: ControlledDecoder("empty")
+    )
     cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
     ctx = SimpleNamespace(reader=reader, check_active=lambda: None)

@@ -327,13 +327,15 @@ def capture_sql_changes(root, baseline: str, packs=()) -> ModelChangeExplanation
 
 
 def explanation_from_native(raw: bytes, previous: ModelChangeExplanation | None = None):
+    from corpus_structure.semantic.native_objects import native_sql_script
+
     payload = json.loads(raw)
     changes = list(previous.changes if previous else ())
     for ordinal, item in enumerate(payload.get("operations", ()), 1):
         sides = []
         for side in ("before", "after"):
             obj = item.get(side)
-            sides.append("\n".join(obj.get("statements", ())) if obj is not None else None)
+            sides.append(native_sql_script(obj.get("statements", ())) if obj is not None else None)
         changes.append(sql_change(f"frozen-operation:{ordinal}", *sides))
     return ModelChangeExplanation(
         source_basis="retained preview source plus frozen native transitions",

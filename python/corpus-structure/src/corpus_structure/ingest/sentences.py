@@ -32,6 +32,8 @@ from spacy.tokens import Doc
 from corpus_structure.core.text_structure import source_atoms
 from corpus_structure.core.vocab import SegmentKind
 
+from .hosted_spacy import HostedPipeline
+
 MATH_TAG = "NNP"
 
 
@@ -54,18 +56,14 @@ class SentenceConfigError(RuntimeError):
 
 
 @functools.cache
-def pipeline(config: SentenceConfig) -> Language:
+def pipeline(config: SentenceConfig) -> HostedPipeline:
     """The configured pipeline, loaded once per process; refuses a version that differs."""
     if spacy.__version__ != config.spacy_version:
         raise SentenceConfigError(
             f"spaCy {spacy.__version__} is installed; the configuration names "
             f"{config.spacy_version}"
         )
-    from typing import cast
-
-    from .hosted_spacy import HostedPipeline
-
-    return cast(Language, HostedPipeline(config))
+    return HostedPipeline(config)
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,7 +125,11 @@ class TextLayout:
 
 
 def prepare_layout(
-    nlp: Language, block: Block, *, start: int = 0, recipe: str = "canonical-token-layout-1"
+    nlp: Language | HostedPipeline,
+    block: Block,
+    *,
+    start: int = 0,
+    recipe: str = "canonical-token-layout-1",
 ) -> TextLayout:
     """Tokenize prose once, preserving atom boundaries and all whitespace tokens."""
     atoms = source_atoms(len(block.text), tuple(block.inline), tuple(block.markers))
@@ -163,7 +165,7 @@ def prepare_layout(
 
 
 def make_doc(
-    nlp: Language,
+    nlp: Language | HostedPipeline,
     block: Block,
     layout: TextLayout | None = None,
     *,

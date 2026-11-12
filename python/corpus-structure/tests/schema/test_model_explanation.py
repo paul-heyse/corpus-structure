@@ -78,6 +78,62 @@ def test_frozen_operation_multiplicity_order_acl_and_unknown_dependency_are_pres
         explain_native_operations(raw, "candidate", after=3)
 
 
+def test_native_function_explanation_preserves_statement_boundaries_body_and_acl():
+    from corpus_structure.semantic.native_candidate import definition_sql
+    from corpus_structure.semantic.native_objects import NativeDefinition, NativeIdentity
+
+    before = (
+        'CREATE OR REPLACE FUNCTION "native test".f() RETURNS text LANGUAGE sql '
+        "AS $body$SELECT '100%: untouched; Ω'$body$"
+    )
+    after = before.replace("untouched", "updated")
+    owner = 'ALTER FUNCTION "native test".f() OWNER TO publisher'
+    revoke = 'REVOKE ALL ON FUNCTION "native test".f() FROM PUBLIC'
+    identity = NativeIdentity("function", "native test", "f")
+    # The production source script keeps the existing exact termination convention.
+    assert definition_sql((NativeDefinition(identity, before, "native.sql", "publisher"),)) == (
+        before + ";\n" + owner + ";\n" + revoke + ";"
+    )
+
+    def obj(create):
+        return dict(
+            identity=identity.payload(),
+            source="native.sql",
+            catalog=dict(owner="publisher", acl=[["reader", "EXECUTE", False]]),
+            statements=[create, owner + ";\n", revoke],
+        )
+
+    payload = dict(
+        version=1,
+        operations=[
+            dict(
+                version=1,
+                before=obj(before),
+                after=obj(after),
+                recreate=False,
+            )
+        ],
+    )
+    raw = json.dumps(payload).encode()
+    (change,) = explanation_from_native(raw).changes
+    for fact, create in ((change.before, before), (change.after, after)):
+        assert fact is not None
+        assert fact.text == create + ";\n" + owner + ";\n" + revoke + ";"
+        assert fact.status == "parsed"
+        assert [statement.kind for statement in fact.statements] == [
+            "CreateFunctionStmt",
+            "AlterOwnerStmt",
+            "GrantStmt",
+        ]
+        assert fact.statements[0].excerpt == create
+    assert not change.structural_edits
+    assert change.structural_status == "unavailable: structural diff supports single parsed SELECTs"
+    (operation,) = explain_native_operations(raw, "candidate").items
+    assert operation.before_owner == operation.after_owner == "publisher"
+    assert operation.before_acl == operation.after_acl == [["reader", "EXECUTE", False]]
+    assert json.dumps(payload).encode() == raw
+
+
 @pytest.mark.parametrize("committed", [False, True])
 def test_baseline_retirement_is_captured_after_index_or_commit_deletion(tmp_path, committed):
     import subprocess

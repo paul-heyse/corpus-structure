@@ -157,6 +157,8 @@ def owned_reader(source, *, annotation_rules=None):
     cfg = source_registry.overlay(M1Annotations.name, "default")
     assert isinstance(cfg, M1AnnotationConfig)
     profile = AnnotationProfile(cfg.sentences)
+    nlp = pipeline(profile.configuration)
+    original_execution = nlp.selection().native
     products = tuple(annotate(annotation_inputs(source, profile=profile), profile))
     selected = dict(
         source_view_ids=[source.ref.id],
@@ -193,7 +195,6 @@ def owned_reader(source, *, annotation_rules=None):
     )
     for product in products:
         native.spacy(source, product, "spacy")
-    nlp = pipeline(profile.configuration)
     first = products[0]
     run = native_run(
         "spacy",
@@ -206,6 +207,9 @@ def owned_reader(source, *, annotation_rules=None):
         text=[],
         components=[asdict(component) for component in first.components],
     )
+    from corpus_structure.semantic.observations import source_value
+
+    run["execution_profile"] = source_value(original_execution.wire)
     run["availability"] = [
         dict(family=SPACY_COLUMNS[row.attribute], attribute=row.attribute, status=row.status)
         for row in first.availability
@@ -285,7 +289,9 @@ def test_local_schema_and_retained_lower_rule_products_survive_empty_record_outp
 
     source = view()
     method = m1_source.M1Candidates()
-    monkeypatch.setattr(method, "_resident", lambda _: LocalDecoder("empty"))
+    monkeypatch.setattr(
+        method, "_resident", lambda _, *, providers, native_profile: LocalDecoder("empty")
+    )
     cfg = (
         registry(ROOT / "domains/statistics")
         .overlay(method.name, "default")
@@ -390,7 +396,9 @@ def test_generic_role_guidance_runs_only_through_explicit_detached_helper(monkey
 
     source = view()
     method = m1_source.M1Candidates()
-    monkeypatch.setattr(method, "_resident", lambda _: ControlledDecoder("empty"))
+    monkeypatch.setattr(
+        method, "_resident", lambda _, *, providers, native_profile: ControlledDecoder("empty")
+    )
     cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
     ctx = SimpleNamespace(reader=owned_reader(source), check_active=lambda: None)
@@ -468,7 +476,7 @@ def test_request_limit_continues_independent_context_but_worker_fault_fences_it(
 
     decoder = LimitedDecoder("empty")
     method = m1_source.M1Candidates()
-    monkeypatch.setattr(method, "_resident", lambda _: decoder)
+    monkeypatch.setattr(method, "_resident", lambda _, *, providers, native_profile: decoder)
     monkeypatch.setattr(
         method, "close", lambda: pytest.fail("input refusal must not retire resident")
     )
@@ -589,7 +597,7 @@ def test_explicit_regions_execute_only_requested_primary_and_keep_unrequested_in
     )
     method = m1_source.M1Candidates()
     worker = ControlledDecoder("empty")
-    monkeypatch.setattr(method, "_resident", lambda _: worker)
+    monkeypatch.setattr(method, "_resident", lambda _, *, providers, native_profile: worker)
     cfg = (
         registry(ROOT / "domains/statistics")
         .overlay(method.name, "default")
@@ -692,7 +700,7 @@ def test_producer_keeps_candidates_empty_denominator_and_failure_dispositions(mo
     source = view()
     method = m1_source.M1Candidates()
     worker = ControlledDecoder(mode)
-    monkeypatch.setattr(method, "_resident", lambda profile: worker)
+    monkeypatch.setattr(method, "_resident", lambda profile, *, providers, native_profile: worker)
     from corpus_structure.orchestrate.m1 import registry
 
     cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
@@ -798,7 +806,7 @@ def test_native_table_geometry_produces_zero_and_inspected_blank_without_decoder
     )
     method = m1_source.M1Candidates()
     worker = ControlledDecoder("empty")
-    monkeypatch.setattr(method, "_resident", lambda profile: worker)
+    monkeypatch.setattr(method, "_resident", lambda profile, *, providers, native_profile: worker)
     from corpus_structure.orchestrate.m1 import registry
 
     cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")

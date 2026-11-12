@@ -339,7 +339,7 @@ def test_missing_cue_columns_withhold_only_unsupported_conclusions(
 
     from corpus_structure.ingest.annotations import AnnotationProduct
 
-    from .primary_reading_fixture import primary_product
+    from .primary_reading_fixture import native_execution_for_product, primary_product
 
     source_view = view(text)
     reader = owned_reader(source_view)
@@ -347,6 +347,7 @@ def test_missing_cue_columns_withhold_only_unsupported_conclusions(
     annotations, errors, _ = consume_annotations(reader, source_view, profile)
     assert annotations and not errors
     original = annotations[0]
+    original_execution = native_execution_for_product(original, profile)
     native = AnnotationProduct(
         **{field.name: getattr(original, field.name) for field in fields(AnnotationProduct)}
     )
@@ -357,7 +358,7 @@ def test_missing_cue_columns_withhold_only_unsupported_conclusions(
             for row in native.availability
         ),
     )
-    characterized = primary_product(text, native, profile)
+    characterized = primary_product(text, native, profile, native_profile=original_execution)
     coverage = next(
         row
         for layer in characterized.primary_layers.values()

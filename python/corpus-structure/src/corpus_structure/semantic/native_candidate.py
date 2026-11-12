@@ -24,6 +24,7 @@ from .native_objects import (
     NativeIdentity,
     NativeObject,
     definition_from_sql,
+    native_sql_script,
     prepare_native_authoring,
     semantic_namespace_owner,
 )
@@ -1608,8 +1609,8 @@ def _predecessor_source(connection, *, predecessor=None, predecessor_state=None)
         raise NativeAuthoringError(
             "explicit native predecessor must include its descriptor and enforcing guard"
         )
-    state_admission = "\n".join(
-        statement.rstrip(";\n") + ";"
+    state_admission = native_sql_script(
+        statement
         for item in declared_admission
         for statement in (item.statements if isinstance(item, NativeObject) else item.install_sql)
     )
@@ -1810,9 +1811,7 @@ def _physical_check_contract(connection, target_metadata, authoring):
     descriptor = next(
         item for item in authoring.desired if item.identity.name == "execution_contract_descriptor"
     )
-    expected = _admission_descriptor(
-        "\n".join(statement.rstrip(";\n") + ";" for statement in descriptor.statements)
-    )
+    expected = _admission_descriptor(native_sql_script(descriptor.statements))
     present = connection.scalar(
         text("SELECT source_digest FROM sem.physical_contract WHERE physical_id=:physical"),
         {"physical": expected["physical_id"]},
@@ -2108,6 +2107,4 @@ def prepare_series_candidate(
 
 def definition_sql(definitions) -> str:
     """Inspection/admission input; frozen revisions execute serialized native operations."""
-    return "\n".join(
-        statement.rstrip(";\n") + ";" for item in definitions for statement in item.install_sql
-    )
+    return native_sql_script(statement for item in definitions for statement in item.install_sql)
