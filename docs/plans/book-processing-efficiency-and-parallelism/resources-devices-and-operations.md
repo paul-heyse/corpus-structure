@@ -1,6 +1,6 @@
 # Resources, devices and operator workflows
 
-**Status: Proposed · 2026-11-11.** This companion owns BEP-07 and BEP-08 in the
+**Status: Required BEP-07a and selected D1 CUDA slice scoped-qualified; other07b/08 remain planned · 2026-11-11.** This companion owns BEP-07 and BEP-08 in the
 [book-processing series](../book-processing-efficiency-and-parallelism_2026-11-11.md).
 Planning baseline is `f81a380cd`; inspected production source is `4d0ca7eb7`. The source
 [functional review](../../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md#O06)
@@ -291,3 +291,32 @@ owns current package disposition; this companion owns the detailed policy/operat
 Follow [BEP-09](../book-processing-efficiency-and-parallelism_2026-11-11.md#BEP-09) for actual
 investigation records, final-policy qualification and evidence reassessment rather than creating
 another results ledger here.
+
+## Delivered early admission and thread slice
+
+The current integrated CPU defaults admit two regions, two CPU workers/submissions, two stage
+runs and four logical claims, with a256MiB shared canonical-body budget,64MiB CPU packets and
+8MiB replies. Provider lanes allow one active exchange and one pending batch per compatible
+resident. Lazy production admission reserves before envelope serialization; physical occupancy
+ends after drained collection, reply credit after reduction and draft credit after durable
+settlement. Parent foreground DB work stays serialized while existing renewal owners progress.
+
+PM2 children receive explicit four-thread OMP/MKL/PyTorch intra-op controls and one inter-op
+thread; GLiNER retains its existing four-thread policy. These are finite integration defaults,
+not a measured optimum or final BEP-07b count/device selection. The root's scoped receipt union
+owns actual implementation checks. CUDA investigation, supported device decisions, final counts
+and remaining operator policy/status surfaces stay with BEP-07b/08.
+
+
+Operator steering2026-11-11 requires current D1 to run on CUDA/BF16 by default and without a CPU
+fallback. This selected D1 device slice now joins the current increment; other07b device/count
+work remains later. The inherited120s inference limit remains while actual D1 CUDA question/batch
+and captured-prose qualification is performed. The CPU600s proposal is withdrawn. BEP-E02's
+single disposition and exact evidence remain in the coordinator.
+
+
+Final second-increment acceptance2026-11-11 is **scoped-qualified** in the coordinator:
+236 functional/managed-admission controls,186 adjacent controls and4 actual native document-path
+checks passed after final source freeze. The CUDA D1 ordered-question/cohort/source/custody panel
+also passed. BEP-E02/E03 are closed there; BEP-E01 and other07b/08/09 scope remain open. The
+coordinator owns exact commands, receipt IDs and source/context applicability.

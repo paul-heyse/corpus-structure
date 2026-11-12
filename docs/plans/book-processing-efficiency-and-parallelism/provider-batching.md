@@ -2,13 +2,13 @@
 
 <a id="BEP-06"></a>
 
-**Status: Proposed · 2026-11-11.** This companion develops **BEP-06**, implementing selected
+**Status: Selected provider implementation delivered; selected CPU/CUDA scope qualified · 2026-11-11.** This companion develops **BEP-06**, implementing selected
 [O05](../../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md#O05).
 The [series coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns shared
 contracts, package state, opportunity disposition, investigation coverage and assembled acceptance.
 The operator accepted **RC04** on 2026-11-11: separate preparation, inference and deterministic
 reduction, migrating GLiNER batch authentication and projectors together. Acceptance authorizes the
-target and its decision route; this document establishes no implemented or qualified behavior.
+target and its decision route; the delivery section below records the implemented CPU slice.
 
 Planning baseline is main `f81a380cd`; inspected production source is `4d0ca7eb7`, dated
 2026-11-11. No provider, probe, test or database operation was run while authoring this companion.
@@ -206,9 +206,73 @@ where behavior changes; do not mirror the projector to generate its expected out
 actual providers for their native obligations and retain failed/interrupted results. Package
 verification feeds the coordinator's final required union; it does not trigger a full campaign
 after each edit. Commands and managed receipt IDs are recorded when executed under the `ci`
-workflow. Currently all execution checks are **not_run**: this is proposed planning only.
+workflow. Current scoped checks and their actual outcomes are recorded in the coordinator and the delivery section below.
 
 No measured speedup, numerical optimum or new benchmark obligation follows. Completion establishes
 correct compatible batching, removed scalar admission where selected, complete attribution and
 integration with bounded useful parallelism. Quantitative benefit claims require separate
 representative measurement if later made.
+
+## Delivered CPU batch contract and investigation decisions
+
+- **I1 / BEP-I02:** HanLP2.1.7's supported multitask predict route does not accept reusable prepared
+  samples. Bulk native admission returns each original sentence's actual subword length and
+  limitations; inference retains native preparation. No application tokenizer/planner imitation
+  or deferred unsupported prepared-sample promise remains.
+- **I2:** Current GLiNER producer2 emits a compact v2 header, ordered exact logical member hashes
+  and ordinal-bound observations. Whole-population admission and shared member authentication
+  cover cue/function projection and retained replay. Historical v1 uses its original authenticated
+  policy and request/observation hashes, without manufactured provenance. HanLP producer2 sentence
+  annotations retain native_batch; D1 retains its exact member/cohort receipt. Shared validators
+  own strict header, cohort, ordinal and exact request checks.
+- **I3 / BEP-I03:** ADR-0085 selects released CPU float32 native numerical semantics. Raw returned
+  scores and thresholds remain unchanged. Actual grouping is authenticated provenance; authentic
+  retained observation reuse does not promise bitwise-identical fresh inference. GLiNER confidence
+  varied in the bounded real panels, while discrete outputs agreed there. This is no universal
+  epsilon or threshold-stability claim. The corrected production panel uses nested cues and flat
+  function classification; earlier flat-cue panels remain explicitly superseded.
+- **I4:** Eight actual HanLP/GLiNER lane scenarios cover stale borrowers with useful siblings,
+  invocation cancellation, owned native-child crashes and individual GLiNER byte/native-preparation
+  refusal. Useful members retain actual envelope/ordinal and original context; all probe-owned
+  children drain and budget returns to zero. Controlled corruption tests and native DB tests
+  supply their separate obligations. This is bounded CPU evidence, not every provider/device
+  crash combination.
+
+The [evidence owner](../../design_review/evidence/2026-11-11_book-provider-batches/README.md)
+retains exact commands, raw replies, source checks, failed attempts, numerical limits and record
+supersession. Native probe execution predates the final lazy-admission repair; unchanged worker/
+coalescer semantics remain applicable, while the final root union qualifies admission and DB
+integration. spaCy annotation now runs through detached CPU work while retaining native pipe and
+atom/layout checks. D1 preserves native16-job length packing and actual per-job dependencies.
+Maverick/DiPO retain independent scalar-document semantics in concurrently admitted resident lanes;
+no qualified multi-document native batch API was selected for them.
+
+Public demand and capture enrichment use the same method plans, lane owner and parent reduction.
+The JSONB optional native_batch field requires a new semantic release, not a physical column.
+CUDA-specific batch qualification remains conditional on BEP-07b's selected device profiles.
+
+
+## Current D1 device and native-order correction
+
+Operator steering2026-11-11 requires D1 CUDA/BF16 for current primary and managed execution.
+There is no CPU execution fallback. ADR-0086 records that selected inference profile; other07b
+GPU profiles/counts remain later. The original D1 CPU panels remain authentic historical evidence
+and do not qualify current D1. Actual CUDA batching, questions/source projection and owned GPU
+teardown must pass under the current selected profile before this increment closes.
+
+The first actual CUDA probe confirmed native CUDA/BF16 execution but exposed sorted question/
+option keys in the new lane's canonical JSON transport. The declared QuestionRequest intentionally
+preserves that order. The repair separates order-preserving native wire/reply bytes from semantic
+canonical hashing. PM2 receiptv2 commits each member's ordered native bytes and a version-domain
+cohort hash; current D1 authoring requires that receipt and actual CUDA/BF16 startup. Originalv1
+receipt reads retain original canonical semantics. This restores the existing declared-input
+contract; it does not select a new semantic question order. The new semantic release/policy and
+CUDA configuration/runtime retain their own exact identities. Native question/dependency checks
+and unsupported/unknown outcomes remain intact. BEP-E02 and the coordinator own final receipts.
+
+
+Final second-increment acceptance2026-11-11 is **scoped-qualified** in the coordinator:
+236 functional/managed-admission controls,186 adjacent controls and4 actual native document-path
+checks passed after final source freeze. The CUDA D1 ordered-question/cohort/source/custody panel
+also passed. BEP-E02/E03 are closed there; BEP-E01 and other07b/08/09 scope remain open. The
+coordinator owns exact commands, receipt IDs and source/context applicability.

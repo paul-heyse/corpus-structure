@@ -60,14 +60,16 @@ request correlation remain active through input preparation, waiting and result 
 historical worker preparations live only for the call. Worker replies retain canonical layer bytes
 and original cost fields. No worker owns a database connection, claim or publication.
 
-The initial policy is one worker/submission,256MiB canonical retained bodies,64MiB input packet
-and8MiB reply. These are conservative finite placement ceilings, not RSS bounds or optimal operating
-counts. An oversized indivisible input refuses; temporary pressure from an active transfer waits.
-Operation-wide stop is sufficient for the current synchronous driver. BEP-05 must add independently
-addressable cancellation before admitting concurrent durable logical claims. Final counts and full
-provider/database admission remain in BEP-07. The native publication limit remains unchanged.
+The current second-increment policy admits two workers/submissions,256MiB canonical retained
+bodies,64MiB input packets and8MiB replies. These are finite integration ceilings, not RSS bounds
+or optimal operating counts. An oversized indivisible input refuses; temporary pressure from active
+work waits. BEP-05 supplies independent cancellation slots/generations and cooperative deadlines
+before concurrent logical claims; invocation/broken-pool teardown remains separate. spaCy annotation
+also uses detached worker inputs with native pipe/atom/layout behavior preserved. Required provider/
+database admission is integrated under07a; final counts/devices remain07b. Native publication
+limits remain unchanged.
 
 The [assembled review](../../design_review/reviews/design_review_book-execution-foundations_2026-11-11.md)
 accepts this scoped boundary. Actual verification receipts and applicability are recorded only in
-the coordinator, including original unsuccessful attempts. This is not a claim of full-book or
-provider-lane parallelism.
+the coordinator, including original unsuccessful attempts. The second-increment ready review and coordinator separately assess the integrated lanes;
+this first-increment foundation receipt does not claim full-book qualification.

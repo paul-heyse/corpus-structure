@@ -1,6 +1,6 @@
 # Coordinator and provider lanes
 
-**Proposed target · 2026-11-11.** Owns BEP-04/05. [Coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns scope and O03/O04/O07 disposition.
+**Implemented; final scoped qualification is recorded by the coordinator · 2026-11-11.** Owns BEP-04/05. [Coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns scope and O03/O04/O07 disposition.
 
 ## Shared execution contract and BEP-00 foundation work
 
@@ -41,3 +41,30 @@ A shared batch can have several logical borrowers. Cancellation/stale-claim hand
 Compose after the declared regional outcomes settle, using manifests and exact selected closure in original source order. Partial/unavailable family state remains explicit. Already settled regional views remain readable even if another unit fails. Capacity-one execution uses this same coordinator, enabling controlled verification without retaining the superseded implementation.
 
 Acceptance includes independent-unit overlap, simultaneous native/formal readiness, slow early region with later completion, stale writer refusal, renewal under read/publication contention, uncertain completion replay and final view fidelity. Conditional run/projection restructuring remains BEP-I11, not a prerequisite.
+
+## Delivered second increment
+
+ADR-0084 records the accepted realization. `core/work.py` supplies PreparedWork/ReadyGroup and
+one parent driver for standalone and captured-document execution. `orchestrate/ready.py` owns
+invocation-local stage/claim admission; existing native task ownership remains authoritative.
+The regional loop and ordinary source methods now yield private CPU/provider work, allowing
+independent admitted regions and provider branches to progress while builders reduce in stable
+order. All registration and publication stay in the parent. Capacity-one uses this same path.
+
+ProviderExecution owns persistent lane threads, resident compatibility, one active exchange and
+one pending compatible batch. Production lazy intents reserve lane and maximum request/reply
+credit before serialization, then shrink to actual bytes. Saturation waits without materializing
+an uncharged request. Submission, cancellation, collection, reduction and teardown have explicit
+ownership. Invocation teardown attempts every closer and preserves cleanup errors.
+
+The [assembled review](../../design_review/reviews/design_review_book-ready-coordination_2026-11-11.md#assembled-ready-execution-assessment--2026-11-11)
+accepts this scope at Interface-checked strength. The coordinator owns actual functional/native
+receipts and final applicability; neither this delivery nor its review closes full-book BEP-09,
+final operating counts/CUDA or the existing oversized-layer finding BEP-E01.
+
+
+Final second-increment acceptance2026-11-11 is **scoped-qualified** in the coordinator:
+236 functional/managed-admission controls,186 adjacent controls and4 actual native document-path
+checks passed after final source freeze. The CUDA D1 ordered-question/cohort/source/custody panel
+also passed. BEP-E02/E03 are closed there; BEP-E01 and other07b/08/09 scope remain open. The
+coordinator owns exact commands, receipt IDs and source/context applicability.
