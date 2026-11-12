@@ -619,3 +619,44 @@ def test_parser_startup_comparison_excludes_only_process_local_stream(changed):
     assert not admitted_startup_matches(observed, admitted)
     # Ignoring the handle at admission cannot rewrite historical receipt identity.
     assert admitted["host_stream"] == 123
+
+
+def test_parser_startup_pool_roster_is_observation_but_thread_count_is_a_contract():
+    from copy import deepcopy
+
+    from corpus_structure.methods.native_profiles import admitted_startup_matches
+
+    admitted: dict[str, Any] = dict(
+        provider="hanlp",
+        native_threads=dict(
+            intra_op=4,
+            inter_op=1,
+            supported_pools=[dict(filepath="/first/blas.so", user_api="blas", num_threads=4)],
+        ),
+    )
+    observed: dict[str, Any] = dict(
+        provider="hanlp",
+        native_threads=dict(
+            intra_op=4,
+            inter_op=1,
+            supported_pools=[
+                dict(filepath="/other/openmp.so", user_api="openmp", num_threads=4),
+                dict(filepath="/other/blas.so", user_api="blas", num_threads=4),
+            ],
+        ),
+    )
+    original = deepcopy(admitted)
+    assert admitted_startup_matches(observed, admitted)
+    observed["native_threads"]["supported_pools"].reverse()
+    assert admitted_startup_matches(observed, admitted)
+    assert admitted == original
+    for count in (1, 0, -1, None, "4", True):
+        changed = deepcopy(observed)
+        changed["native_threads"]["supported_pools"][0]["num_threads"] = count
+        assert not admitted_startup_matches(changed, admitted)
+    missing = deepcopy(observed)
+    missing["native_threads"]["supported_pools"][0].pop("num_threads")
+    assert not admitted_startup_matches(missing, admitted)
+    unknown = deepcopy(observed)
+    unknown["native_threads"]["new_semantic_thread_field"] = 4
+    assert not admitted_startup_matches(unknown, admitted)

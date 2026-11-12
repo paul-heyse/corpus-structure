@@ -43,8 +43,10 @@ def private_source_options(parser_samples):
     not os.environ.get("CORPUS_PM2_NATIVE_TEST_ASSETS"), reason="locked native assets are opt-in"
 )
 def test_alternate_domain_parser_run_retains_siblings_after_profile_refusal(
-    private_source, parser_samples, tmp_path
+    private_source, parser_samples, tmp_path, monkeypatch
 ):
+    from corpus_structure.methods import native_profiles
+
     from .native_provider_support import actual_provider_population
 
     case = private_source
@@ -103,6 +105,25 @@ def test_alternate_domain_parser_run_retains_siblings_after_profile_refusal(
             scopes=[*scopes, refused],
         )
     )
+    startup_differences = []
+    original_match = native_profiles.admitted_startup_matches
+
+    def compare_startup(observed, admitted):
+        matched = original_match(observed, admitted)
+        if not matched:
+            startup_differences.append(
+                dict(
+                    provider=admitted.get("provider"),
+                    fields=sorted(
+                        key
+                        for key in set(observed) | set(admitted)
+                        if key != "host_stream" and observed.get(key) != admitted.get(key)
+                    ),
+                )
+            )
+        return matched
+
+    monkeypatch.setattr(native_profiles, "admitted_startup_matches", compare_startup)
     result = run_parsers(case.writer, settings, request)
     with read_snapshot(case.writer) as conn:
         page = serve_contributions(
@@ -118,9 +139,12 @@ def test_alternate_domain_parser_run_retains_siblings_after_profile_refusal(
         row["semantic_type"] for population, row in rows if population == "contribution"
     }
     operations = [row for population, row in rows if population == "operation"]
-    assert {"linguistic.constituent", "maverick.cluster", "dipo.tree"} <= semantic_types, [
-        {key: row.get(key) for key in ("question", "outcome", "reason")} for row in operations
-    ]
+    assert {"linguistic.constituent", "maverick.cluster", "dipo.tree"} <= semantic_types, dict(
+        operations=[
+            {key: row.get(key) for key in ("question", "outcome", "reason")} for row in operations
+        ],
+        startup_differences=startup_differences,
+    )
     assert any(
         row["outcome"] == "failed" and "differs from the admitted profile" in row["reason"]
         for row in operations

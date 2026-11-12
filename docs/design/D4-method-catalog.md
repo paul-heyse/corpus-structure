@@ -24,6 +24,13 @@ semantics remain original. Current CUDA GLiNER profile/observation policy migrat
 full provider and numerical qualification remains BEP-09 work.
 CPU parser kernels use one native thread; provider hosts initially use four/inter-op1.
 
+Parser admission and claim settlement compare the frozen semantic startup contract, excluding
+only the process-local CUDA stream handle and the loaded-library roster in supported_pools.
+Reported pool thread counts must match the admitted intra-op policy; intra/inter-op counts and
+all other model/runtime/artifact/numerical fields remain strict. Raw actual rosters/streams remain
+retained observations. A different library inventory/order/path is not a different inference recipe.
+
+
 > Decision: [ADR-0091](../adr/0091-gpu-native-environment-boundaries.md)
 
 ## Primary language ownership and contextual query

@@ -16,15 +16,41 @@ _PROVIDERS = frozenset({"d1", "gliner", "hanlp", "spacy", "maverick", "dipo"})
 
 
 def admitted_startup_matches(observed: Mapping[str, Any], admitted: Mapping[str, Any]) -> bool:
-    """Compare the admitted startup contract without a process-local stream handle.
+    """Compare declared execution meaning while retaining runtime observations.
 
-    This is deliberately a closed exception, not subset matching: all model,
-    artifact, runtime, numerical and thread fields (including unknown future
-    fields) must remain equal. Original config/receipt digests stay untouched.
+    Stream handles and the supported-pool roster (paths, order and loaded-library
+    population) are process observations. Every reported pool must still satisfy
+    the admitted native thread count. All other fields, including future fields,
+    remain exact. Original config/receipt dictionaries and hashes are untouched.
     """
-    return {key: value for key, value in observed.items() if key != "host_stream"} == {
-        key: value for key, value in admitted.items() if key != "host_stream"
-    }
+    threads = admitted.get("native_threads", {})
+    limit = threads.get("intra_op") if isinstance(threads, Mapping) else None
+
+    def semantic(startup):
+        value = {key: item for key, item in startup.items() if key != "host_stream"}
+        native = value.get("native_threads")
+        if isinstance(native, Mapping):
+            if "supported_pools" in native:
+                pools = native["supported_pools"]
+                if (
+                    type(limit) is not int
+                    or limit < 1
+                    or not isinstance(pools, list)
+                    or any(
+                        not isinstance(pool, Mapping)
+                        or type(pool.get("num_threads")) is not int
+                        or pool["num_threads"] != limit
+                        for pool in pools
+                    )
+                ):
+                    return None
+            value["native_threads"] = {
+                key: item for key, item in native.items() if key != "supported_pools"
+            }
+        return value
+
+    actual, expected = semantic(observed), semantic(admitted)
+    return actual is not None and expected is not None and actual == expected
 
 
 @dataclass(frozen=True, init=False)
