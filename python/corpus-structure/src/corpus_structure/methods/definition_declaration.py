@@ -92,18 +92,23 @@ class DeclarationComponentsMethod:
         ctx.reader.validate_structural_inputs(cfg.inputs)
         passages = {passage.passage_id: passage for passage in cfg.inputs.passages}
         refs = {source.identity: source for source in cfg.inputs.sources}
+        from corpus_structure.semantic.product_reference import ProductReference
+        # Resolve this task's frozen products once. Source-local selection keeps
+        # unrelated documents and incomplete sentence populations independent.
+        frozen = ctx.reader.characterization_layers(
+            tuple(ProductReference(**pin) for pin in cfg.characterization_layers)
+        )
+        by_source = {}
+        for pin, report in frozen.items():
+            for identity in report.payload["source_scope"]["source_view_ids"]:
+                by_source.setdefault(identity, {})[pin] = report
         found = []
         for item in cfg.selections:
             ctx.check_active()
             passage = passages[item.passage_id]
             source_ref = refs[passage.source_ref]
             view = ctx.reader.source_view(source_ref.source_view_id)
-            layers = ctx.reader.primary_characterization(
-                source_ref.source_view_id,
-                families=(
-                    "construction.source_readings",
-                ),
-            )
+            layers = by_source.get(source_ref.source_view_id, {})
             found.append(primary_declaration_component(layers, view, passage))
         report = StructuralProductReport(
             kind="definition_components",

@@ -151,6 +151,8 @@ class PredicateFrame:
     interpretation: str
     primary_ref: Any = None
     clause_role: str = "unresolved"
+    negation_examined: bool = False
+    modality_examined: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -2064,6 +2066,8 @@ def populate(
             )
             result = PredicateFrameResult((), (issue,))
         results.append((product, result))
+        negation_examined = {"DEP", "MORPH"} <= _available(product)
+        modality_examined = {"DEP", "TAG"} <= _available(product)
         for frame in result.frames:
             key = identity(
                 "source-predication",
@@ -2082,9 +2086,11 @@ def populate(
             ]
             for name, value in (
                 ("voice", frame.voice),
-                ("polarity", frame.polarity),
-                ("interpretation", frame.interpretation),
+                ("polarity", "unresolved" if frame.polarity == "positive" and not negation_examined else frame.polarity),
+                ("interpretation", frame.interpretation if negation_examined and modality_examined else "unresolved"),
                 ("layout", layout),
+                ("negation_examination", "complete" if negation_examined else "unavailable"),
+                ("modality_examination", "complete" if modality_examined else "unavailable"),
                 (
                     "clause_role",
                     "subordinate"
@@ -2141,11 +2147,13 @@ def populate(
         selector = dict(
             projection=view.ref.projection_digest, start=product.block_start, end=product.block_end
         )
+        blocking = tuple(issue for issue in result.issues
+                         if not issue.reason.startswith("optional retained columns:"))
         layer.record(
             family,
             selector,
-            "partial" if result.issues else "complete",
-            "; ".join(issue.reason for issue in result.issues) if result.issues else None,
+            "partial" if blocking else "complete",
+            "; ".join(issue.reason for issue in blocking) if blocking else None,
         )
     # Hosting is relational. It never makes an operator point back through its own DAG.
     for key, (product, candidate) in cue_ids.items():

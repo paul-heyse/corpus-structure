@@ -2144,7 +2144,7 @@ CREATE OR REPLACE FUNCTION ops.primary_declaration_fact_value(p_layers jsonb,p_r
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 DECLARE edge jsonb; child jsonb; result jsonb; n integer:=0; array_ boolean;
 BEGIN
- IF p_node->>'family' IS DISTINCT FROM 'construction.source_readings'
+ IF p_node->>'family' IS DISTINCT FROM 'construction.declaration_syntax'
   OR p_node->>'vocabulary' IS DISTINCT FROM 'source-linguistic-rules-1'
   OR p_node->>'status' IS DISTINCT FROM 'interpreted'
   OR NOT ops.primary_characterization_choices(p_layers,p_ref,p_node,'[]') THEN
@@ -2223,8 +2223,14 @@ BEGIN
    OR body->'operation'->>'key' IS DISTINCT FROM 'text.constructions'
    OR jsonb_array_length(extents)=0 OR EXISTS(SELECT FROM jsonb_array_elements(extents) e WHERE e->>'synthetic' IS DISTINCT FROM 'false'
       OR (e->>'start')::bigint<(p_passage->>'start')::bigint OR (e->>'end')::bigint>(p_passage->>'end')::bigint)
-   OR NOT EXISTS(SELECT FROM jsonb_array_elements(body->'coverage') c WHERE c->>'family'='construction.source_readings'
-     AND c->>'availability'='available' AND c->>'outcome' IN ('complete','empty') AND coalesce(c->'unexamined','[]')='[]') THEN
+   OR NOT EXISTS(SELECT FROM jsonb_array_elements(body->'coverage') c WHERE c->>'family'='construction.declaration_syntax'
+     AND c->>'availability'='available' AND c->>'outcome' IN ('complete','empty','partial')
+     AND EXISTS(SELECT FROM jsonb_array_elements(c->'examined') e WHERE e->>'projection'=v.projection_digest
+       AND (e->>'start')::bigint<=(extents->0->>'start')::bigint
+       AND (e->>'end')::bigint>=(extents->(jsonb_array_length(extents)-1)->>'end')::bigint)
+     AND NOT EXISTS(SELECT FROM jsonb_array_elements(c->'unexamined') e WHERE e->>'projection'=v.projection_digest
+       AND (e->>'start')::bigint<(extents->(jsonb_array_length(extents)-1)->>'end')::bigint
+       AND (e->>'end')::bigint>(extents->0->>'start')::bigint)) THEN
    RAISE EXCEPTION 'declaration requires complete located primary sentence characterization' USING ERRCODE='23514'; END IF;
   SELECT value INTO STRICT annotation FROM jsonb_array_elements(body->'annotations') a
    WHERE node->'premises' ? (a->>'local_id') AND a->>'rule_id'='tc.source.declaration_syntax.v1'
@@ -2247,7 +2253,13 @@ BEGIN
    IF support->>'kind'='native.token' THEN
     IF support->'native_token'->>'head_index_base' IS DISTINCT FROM '1'
      OR NOT support->'native_token' ?& ARRAY['lemma','tag','dependency','native_head','sentence']
-     OR EXISTS(SELECT family FROM unnest(ARRAY['hanlp.tokens','hanlp.lemma','hanlp.pos','hanlp.dependency','hanlp.srl']) family WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(support_body->'coverage') c WHERE c->>'family'=family AND c->>'availability'='available' AND c->>'outcome' IN ('complete','empty') AND coalesce(c->'unexamined','[]')='[]'))
+     OR EXISTS(SELECT family FROM unnest(ARRAY['hanlp.tokens','hanlp.lemma','hanlp.pos','hanlp.dependency','hanlp.srl']) family WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(support_body->'coverage') c WHERE c->>'family'=family AND c->>'availability'='available' AND c->>'outcome' IN ('complete','empty','partial')
+      AND EXISTS(SELECT FROM jsonb_array_elements(c->'examined') e WHERE e->>'projection'=v.projection_digest
+       AND (e->>'start')::bigint<=(extents->0->>'start')::bigint
+       AND (e->>'end')::bigint>=(extents->(jsonb_array_length(extents)-1)->>'end')::bigint)
+      AND NOT EXISTS(SELECT FROM jsonb_array_elements(c->'unexamined') e WHERE e->>'projection'=v.projection_digest
+       AND (e->>'start')::bigint<(extents->(jsonb_array_length(extents)-1)->>'end')::bigint
+       AND (e->>'end')::bigint>(extents->0->>'start')::bigint)))
      OR NOT EXISTS(SELECT FROM jsonb_array_elements(support_body->'native_runs') r
         WHERE r->>'local_id'=support->'native_token'->>'native_run' AND r->>'provider'='hanlp') THEN
      RAISE EXCEPTION 'declaration support loses its native role scheme' USING ERRCODE='23514'; END IF;
