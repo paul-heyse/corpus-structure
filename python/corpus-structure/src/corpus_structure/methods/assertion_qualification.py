@@ -185,7 +185,7 @@ class AssertionQualification:
                  or not _owned(cue, cue.hosts[0]))
             for cue in sentence_cues
         )
-        affirmative = frame.polarity == "positive" and not unresolved_negation
+        affirmative = frame.negation_examined and frame.polarity == "positive" and not unresolved_negation
 
         fields = []
         negation = tuple(cue for cue in frame.cues if cue.kind == "negation")
@@ -216,7 +216,9 @@ class AssertionQualification:
 
         modals = tuple(cue for cue in frame.cues if cue.kind == "modality")
         scope_competes = (
-            unresolved_negation
+            not frame.negation_examined
+            or not frame.modality_examined
+            or unresolved_negation
             or any(cue.kind not in {"negation", "modality"} for cue in (*frame.cues, *unowned))
             or any(cue.kind == "modality" and cue.status != "located" for cue in sentence_cues)
         )

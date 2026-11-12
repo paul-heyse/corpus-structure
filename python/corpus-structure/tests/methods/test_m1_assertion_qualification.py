@@ -317,3 +317,37 @@ def test_qualification_reads_primary_predication_without_recognition(tmp_path, m
 def test_missing_primary_layout_is_unknown():
     from corpus_structure.methods.predicate_frames import source_layout
     assert source_layout(SimpleNamespace(primary_layers={}), "arbitrary source", (), {}) == "unknown"
+
+
+@pytest.mark.parametrize(
+    ("missing", "text", "expected"),
+    [
+        ("TAG", "The pumps might drain the tanks.", {("polarity", "positive")}),
+        ("MORPH", "The pumps drain the tanks.", set()),
+        ("MORPH", "The pumps do not drain the tanks.", {("polarity", "negative")}),
+    ],
+)
+def test_missing_cue_columns_withhold_only_unsupported_conclusions(tmp_path, missing, text, expected):
+    from dataclasses import fields
+    from corpus_structure.ingest.annotations import AnnotationProduct
+    from .primary_reading_fixture import primary_product
+
+    source_view = view(text)
+    reader = owned_reader(source_view)
+    profile = AnnotationProfile(config(tmp_path).sentences)
+    annotations, errors, _ = consume_annotations(reader, source_view, profile)
+    assert annotations and not errors
+    original = annotations[0]
+    native = AnnotationProduct(**{field.name: getattr(original, field.name) for field in fields(AnnotationProduct)})
+    native = replace(native, availability=tuple(replace(row, status="absent") if row.attribute == missing else row for row in native.availability))
+    characterized = primary_product(text, native, profile)
+    coverage = next(row for layer in characterized.primary_layers.values() for row in layer.payload["coverage"] if row["family"] == "construction.source_readings")
+    assert coverage["outcome"] == "complete"
+    source = native_source_frame(source_view, ())
+    context = NativeSourceContext(source, (), (SourceSlice(source_view.ref.id,0,len(text)),),
+                                  "partial cue examination", "test", "exact source")
+    pack = configured_packs(reader.prepared, config(tmp_path))["assertion"]
+    row = group(context.text, "The pumps", "drain", "the tanks")
+    retained = report(context,pack,"assertion",[row])
+    result = AssertionQualification(source,(characterized,),source_view.pieces,source_view.items).supplement(context,pack,retained,row)
+    assert ({(field.role,field.label) for field in result.fields} if result else set()) == expected

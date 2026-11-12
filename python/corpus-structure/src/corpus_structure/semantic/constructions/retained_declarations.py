@@ -15,8 +15,11 @@ from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import ContextRefused, NativeSourceContext, NativeSpanEvidence, SourceSlice, evidence_anchor
 from corpus_structure.methods.pm2_source import MappedSource
 from corpus_structure.methods.pm2_hanlp_products import _dependency_graph
-from .retained_rules import PRIMARY_RULE_FAMILY, PRIMARY_RULE_VOCABULARY
+from .retained_rules import PRIMARY_RULE_VOCABULARY
+
 from .forest import identity
+
+DECLARATION_FAMILY = "construction.declaration_syntax"
 
 _SCOPE_MARKERS = frozenset({"if", "unless", "although", "except", "not", "never", "reportedly", "allegedly"})
 _QUOTES = frozenset({'"', "\u201c", "\u201d", "\u2018", "\u2019", "``", "''"})
@@ -148,55 +151,67 @@ class _Sentence:
         return copula, subject, copular_head, roles
 
 
-def _sentences(layers, view, passage):
+def _prepare_sentences(layers, view, passage):
+    """Decode and index each immutable dependency once for this characterization."""
     source = native_source_frame(view, ())
-    if (
-        not 0 <= passage.start < passage.end <= len(view.text)
-        or view.text[passage.start : passage.end] != passage.text
-    ):
+    if (not 0 <= passage.start < passage.end <= len(view.text)
+        or view.text[passage.start:passage.end] != passage.text):
         raise DeclarationNotQualified("declaration passage differs from exact source")
-    context = NativeSourceContext(
-        source,
-        (),
-        (SourceSlice(view.ref.id, passage.start, passage.end),),
-        "primary declaration roles",
-        "primary-declaration-roles-1",
-        "exact selected passage",
-        max_chars=len(passage.text),
-        max_pieces=1024,
-    )
-    evidence, native_sentences = [], []
+    context = NativeSourceContext(source, (), (SourceSlice(view.ref.id,passage.start,passage.end),),
+        "primary declaration roles", "primary-declaration-roles-1", "exact selected passage",
+        max_chars=len(passage.text),max_pieces=1024)
+    prepared = {}
     for pin, report in layers.items():
-        if report.reference(pin.task_id) != pin or report.base_document != view.ref.native_product:
-            raise DeclarationNotQualified("declaration primary layer pin or base differs")
         body = report.payload
-        occurrences = {row["local_id"]: row for row in body["occurrences"]}
-
-        def extents(node, *, occurrences=occurrences):
-            values = [
-                part for key in node.get("occurrences", ()) for part in occurrences[key]["extents"]
-            ]
-            if not values or any(
-                part.get("synthetic")
-                or part["source_view_id"] != view.ref.id
-                or part["projection"] != view.ref.projection_digest
-                or part.get("text") != view.text[part.get("start", -1) : part.get("end", -1)]
-                for part in values
-            ):
-                raise DeclarationNotQualified(
-                    "declaration native role has no exact selected source"
-                )
-            return tuple((part["start"], part["end"]) for part in values)
-
-        runs = {
-            row["local_id"] for row in body.get("native_runs", ()) if row["provider"] == "hanlp"
-        }
-        annotations = {row["local_id"]: row for row in body["annotations"]}
-        sentences = {}
-        for row in annotations.values():
+        if report.reference(pin.task_id) != pin or body["base_document"] != view.ref.native_product.values():
+            raise DeclarationNotQualified("declaration primary layer pin or base differs")
+        runs = {row["local_id"] for row in body.get("native_runs", ()) if row["provider"] == "hanlp"}
+        if not runs:
+            continue
+        native_annotations = {row["local_id"]:row for row in body["annotations"]}
+        occurrences = {row["local_id"]:row for row in body["occurrences"]}
+        memberships = {}
+        for row in body["memberships"]:
+            memberships.setdefault(row["group"],[]).append(row)
+        sentences, token_keys = {}, {}
+        for row in native_annotations.values():
             token = row.get("native_token")
             if token is not None and token["native_run"] in runs:
-                sentences.setdefault(token["sentence"], []).append(row)
+                key = (token["native_run"],token["container"],token["sentence"])
+                sentences.setdefault(key,[]).append(row)
+                token_keys[row["local_id"]] = key
+        groups = {}
+        for group in native_annotations.values():
+            if group["kind"] != "native.srl_group":
+                continue
+            keys = {token_keys[token["member"]]
+                    for member in memberships.get(group["local_id"],())
+                    for token in memberships.get(member["member"],())
+                    if token["role"] == "token" and token["member"] in token_keys}
+            if not keys:
+                # Native IDs locate the enclosing sentence even when its role support
+                # is missing entirely. They are used only to route a local refusal.
+                keys = {key for key in sentences if group["local_id"].startswith(key[1]+"/srl/")}
+            for key in keys:
+                groups.setdefault(key,[]).append(group)
+        prepared[pin] = (body,native_annotations,occurrences,memberships,sentences,groups)
+    return context, prepared
+
+
+def _sentences(layers, view, passage, *, sentence_key=None, prepared=None):
+    context, indexed = prepared if prepared is not None else _prepare_sentences(layers,view,passage)
+    evidence, native_sentences = [], []
+    for pin, (body,native_annotations,occurrences,memberships,population,group_index) in indexed.items():
+        def extents(node, *, occurrences=occurrences):
+            values = [part for key in node.get("occurrences",()) for part in occurrences[key]["extents"]]
+            if not values or any(part.get("synthetic") or part["source_view_id"] != view.ref.id
+                or part["projection"] != view.ref.projection_digest
+                or part.get("text") != view.text[part.get("start",-1):part.get("end",-1)] for part in values):
+                raise DeclarationNotQualified("declaration native role has no exact selected source")
+            return tuple((part["start"],part["end"]) for part in values)
+        sentences = population if sentence_key is None else (
+            {sentence_key[1]: population[sentence_key[1]]}
+            if sentence_key[0] == pin and sentence_key[1] in population else {})
         for sentence, rows in sentences.items():
             rows.sort(key=lambda row: row["native_token"]["index"])
             spans = [extents(row) for row in rows]
@@ -220,8 +235,11 @@ def _sentences(layers, view, passage):
                 if (
                     coverage is None
                     or coverage["availability"] != "available"
-                    or coverage["outcome"] not in {"complete", "empty"}
-                    or coverage.get("unexamined")
+                    or coverage["outcome"] not in {"complete", "empty", "partial"}
+                    or any(selector.get("projection") == view.ref.projection_digest
+                           and selector.get("start", 0) < positions[-1][1]
+                           and selector.get("end", len(view.text)) > positions[0][0]
+                           for selector in coverage.get("unexamined", ()))
                     or not any(
                         selector["projection"] == view.ref.projection_digest
                         and selector.get("start", 0) <= positions[0][0]
@@ -231,13 +249,13 @@ def _sentences(layers, view, passage):
                 ):
                     raise DeclarationNotQualified("declaration native role coverage is incomplete")
             native_sentences.append(
-                (positions[0][0], pin, body, annotations, sentence, rows, positions)
+                (positions[0][0], pin, body, native_annotations, sentence, rows, positions, memberships, group_index)
             )
     native_sentences.sort(key=lambda row: row[0])
     if any(left[0] == right[0] for left, right in pairwise(native_sentences)):
         raise DeclarationNotQualified("declaration requires unique exact native sentences")
     sentences = []
-    for number, (_start, pin, body, annotations, _sentence, rows, positions) in enumerate(
+    for number, (_start, pin, _body, native_annotations, _sentence, rows, positions, memberships, group_index) in enumerate(
         native_sentences
     ):
         evidence_start = len(evidence)
@@ -289,19 +307,16 @@ def _sentences(layers, view, passage):
             )
             return key
 
-        memberships = body["memberships"]
         groups = {}
         keys = {}
-        for group in annotations.values():
-            if group["kind"] != "native.srl_group":
-                continue
+        for group in group_index.get(_sentence, ()):
             args, predicate = [], None
             group_evidence = [annotation_reference(pin, group["local_id"])]
             for member in sorted(
-                (row for row in memberships if row["group"] == group["local_id"]),
+                memberships.get(group["local_id"], ()),
                 key=lambda row: row.get("order", 0),
             ):
-                role = annotations.get(member["member"])
+                role = native_annotations.get(member["member"])
                 if role is None or role["kind"] != "native.srl_role":
                     raise DeclarationNotQualified("declaration native SRL member is missing")
                 ids = [
@@ -309,17 +324,14 @@ def _sentences(layers, view, passage):
                     for row in sorted(
                         (
                             row
-                            for row in memberships
-                            if row["group"] == role["local_id"] and row["role"] == "token"
+                            for row in memberships.get(role["local_id"], ())
+                            if row["role"] == "token"
                         ),
                         key=lambda row: row.get("order", 0),
                     )
                 ]
                 if not ids or not all(key in references for key in ids):
-                    if any(key in references for key in ids):
-                        raise DeclarationNotQualified("declaration native SRL crosses sentences")
-                    args = []
-                    break
+                    raise DeclarationNotQualified("declaration native SRL has missing or cross-sentence token support")
                 indices = tuple(references[key] for key in ids)
                 if indices != tuple(range(indices[0], indices[-1] + 1)):
                     raise DeclarationNotQualified(
@@ -336,8 +348,8 @@ def _sentences(layers, view, passage):
                 else:
                     args.append(dict(role=label, location=location, head=None))
                 group_evidence.append(annotation_reference(pin, role["local_id"]))
-            if predicate is None or not args:
-                continue
+            if predicate is None:
+                raise DeclarationNotQualified("declaration native SRL has no retained predicate")
             predicate_location = located(predicate, predicate + 1)
             groups.setdefault(predicate, []).append(
                 dict(predicate=predicate_location, arguments=args)
@@ -446,16 +458,35 @@ def populate_declaration_readings(layer, view, dependencies, *, check_active=lam
     if not any(any(run["provider"] == "hanlp" for run in report.payload.get("native_runs", ()))
                for report in dependencies.values()):
         return
-    try:
-        sentences, _evidence = _sentences(dependencies, view, passage)
-    except (DeclarationNotQualified, ValueError, KeyError, IndexError) as error:
-        for selector in layer.scope["selectors"]:
-            layer.record(PRIMARY_RULE_FAMILY, selector, "partial", "declaration syntax: " + str(error))
-        return
-    for sentence in sentences:
+    if DECLARATION_FAMILY not in layer.families:
+        layer.families = (*layer.families, DECLARATION_FAMILY)
+        layer.operation["produced_families"].append(DECLARATION_FAMILY)
+    candidates = []
+    prepared = _prepare_sentences(dependencies,view,passage)
+    for pin, (_body,_annotations,occurrences,_memberships,grouped,_groups) in prepared[1].items():
+        for key, rows in grouped.items():
+            spans = [part for row in rows for oid in row.get("occurrences", ())
+                     for part in occurrences.get(oid, {}).get("extents", ())
+                     if part.get("projection") == view.ref.projection_digest and "start" in part and "end" in part]
+            if not spans:
+                # No located premise means no sentence can be characterized. It does not
+                # invalidate located sibling inventories or their positive coverage.
+                continue
+            start, end = min(part["start"] for part in spans), max(part["end"] for part in spans)
+            if not admitted(start, end):
+                continue
+            candidates.append(((pin, key), dict(projection=view.ref.projection_digest, start=start, end=end)))
+    for sentence_key, selector in candidates:
         check_active()
-        if not admitted(sentence.positions[0][0], sentence.positions[-1][1]):
+        try:
+            sentences, _evidence = _sentences(dependencies, view, passage, sentence_key=sentence_key, prepared=prepared)
+            if len(sentences) != 1:
+                raise DeclarationNotQualified("native sentence population is missing or ambiguous")
+            (sentence,) = sentences
+        except (DeclarationNotQualified, ValueError, KeyError, IndexError) as error:
+            layer.record(DECLARATION_FAMILY, selector, "unknown", "declaration syntax: " + str(error))
             continue
+        layer.record(DECLARATION_FAMILY, selector, "complete")
         facts = _facts(sentence)
         root = identity("declaration-sentence", [view.ref.id, sentence.positions])
         premises = [dict(layer=ref.layer.values(), local_id=ref.local_id) for ref in sentence.evidence]
@@ -473,7 +504,7 @@ def populate_declaration_readings(layer, view, dependencies, *, check_active=lam
                             for i, item in enumerate(value)]
             else:
                 kind, label = "participant", json.dumps(value, ensure_ascii=False)
-            layer.terms[key] = dict(local_id=key, family=PRIMARY_RULE_FAMILY, kind=kind,
+            layer.terms[key] = dict(local_id=key, family=DECLARATION_FAMILY, kind=kind,
                 vocabulary=PRIMARY_RULE_VOCABULARY, value=label, status="interpreted",
                 occurrences=[layer.occurrence(view, a, b) for a,b in positions],
                 children=children)
@@ -486,7 +517,7 @@ def populate_declaration_readings(layer, view, dependencies, *, check_active=lam
         layer.terms[key]["external_premises"] = premises
         annotation = identity("declaration-syntax", [root])
         layer.annotations[annotation] = dict(
-            local_id=annotation, family=PRIMARY_RULE_FAMILY, kind="construction",
+            local_id=annotation, family=DECLARATION_FAMILY, kind="construction",
             vocabulary=PRIMARY_RULE_VOCABULARY, rule_id="tc.source.declaration_syntax.v1",
             native_scheme="retained-hanlp-declaration-syntax-1", native_label="declaration_sentence",
             status="interpreted", occurrences=layer.terms[key]["occurrences"],
@@ -523,9 +554,16 @@ def declaration_sentences(layers, view, passage):
                        or part["projection"] != view.ref.projection_digest
                        or part["text"] != view.text[part["start"]:part["end"]] for part in extents)):
                 raise DeclarationNotQualified("declaration passage cuts primary sentence")
-            if any(row["family"] == PRIMARY_RULE_FAMILY and
-                   (row["outcome"] not in {"complete","empty"} or row.get("unexamined"))
-                   for row in body["coverage"]):
+            coverage = next((row for row in body["coverage"] if row["family"] == DECLARATION_FAMILY), None)
+            if (coverage is None or coverage["availability"] != "available"
+                or not any(selector.get("projection") == view.ref.projection_digest
+                           and selector.get("start", 0) <= extents[0]["start"]
+                           and selector.get("end", len(view.text)) >= extents[-1]["end"]
+                           for selector in coverage.get("examined", ()))
+                or any(selector.get("projection") == view.ref.projection_digest
+                       and selector.get("start", 0) < extents[-1]["end"]
+                       and selector.get("end", len(view.text)) > extents[0]["start"]
+                       for selector in coverage.get("unexamined", ()))):
                 raise DeclarationNotQualified("declaration primary coverage is incomplete")
             from corpus_structure.semantic.product_reference import ProductReference
             for premise in term.get("external_premises", ()):

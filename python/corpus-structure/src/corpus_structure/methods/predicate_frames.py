@@ -168,10 +168,21 @@ def _project(text, product):
     for pin, report in _reports(product):
         body = report.payload
         for coverage in body["coverage"]:
-            if coverage["family"] == PRIMARY_RULE_FAMILY and coverage["outcome"] not in {
-                "complete",
-                "empty",
-            }:
+            if coverage["family"] != PRIMARY_RULE_FAMILY:
+                continue
+            examined = coverage["availability"] == "available" and any(
+                selector.get("projection") == product.source.projection_digest
+                and selector.get("start", 0) <= product.block_start
+                and selector.get("end", len(text)) >= product.block_end
+                for selector in coverage.get("examined", ())
+            )
+            unexamined = any(
+                selector.get("projection") == product.source.projection_digest
+                and selector.get("start", 0) < product.block_end
+                and selector.get("end", len(text)) > product.block_start
+                for selector in coverage.get("unexamined", ())
+            )
+            if not examined or unexamined:
                 issues.append(
                     FrameIssue(
                         product.block_id,
@@ -228,6 +239,8 @@ def _project(text, product):
                         "interpretation",
                         "layout",
                         "clause_role",
+                        "negation_examination",
+                        "modality_examination",
                     }
                     or "target" not in edge
                 ):
@@ -276,6 +289,8 @@ def _project(text, product):
                 members["interpretation"]["value"],
                 annotation_reference(pin, term["local_id"]),
                 members.get("clause_role", {}).get("value", "unresolved"),
+                members.get("negation_examination", {}).get("value") == "complete",
+                members.get("modality_examination", {}).get("value") == "complete",
             )
         cues = {}
         for term in terms.values():
