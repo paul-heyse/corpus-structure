@@ -1,6 +1,6 @@
 # Prepared state and CPU kernels
 
-**Proposed target · 2026-11-11.** Owns BEP-01–03 design; the [coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns package state and O01/O02/O04 disposition.
+**Implemented first increment · 2026-11-11; scoped qualification is owned by the coordinator.** Owns BEP-01–03 design; the [coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns package state and O01/O02/O04 disposition.
 
 ## Baseline and boundary
 
@@ -41,3 +41,33 @@ The [formal forest](../../../python/corpus-structure/src/corpus_structure/semant
 Use compact immutable bytes/descriptors initially. Memory mapping/shared memory is conditional on BEP-I07's demonstrated movement burden, with existing artifact custody and explicit cleanup. Keep source-specialized grammar preparation distinct from stable declaration compilation; a generic cached parser cannot silently change lexical ambiguity or protected positions.
 
 Cancellation is cooperative with bounded deadline fallback. If a pool must be terminated, its database-free kernels contain the effects; the coordinator fences discarded late results and owns subsequent recovery. Acceptance covers start/shutdown failures, malformed packets, parser timeout, lost claims, out-of-order completion and exact source/choice preservation.
+
+## Delivered execution boundary · 2026-11-11
+
+**Interface-checked.** The private semantic execution_preparation module owns full-loader-created
+VerifiedExecutionPreparation and RegionalPreparation. Public demand/book/run wrappers prepare once;
+private internal paths carry the same invocation through stages and capture/enrichment. Standalone
+source execution owns an equivalent CPU scope. Historical archives and current DB admission remain
+separate. Regional source bytes reconstruct independent mutable working views; canonical protected
+layers and private immutable decoded premise views survive between stage readers. Exact transitive
+proofs retain original release owners, validate new roots and release their charged state on close.
+
+The semantic cpu_execution module owns the policy, private trusted-parent archive capsules,
+spawn initializer, bounded admitted-input lifetime and narrow source/dependency reader. All three
+actual adapters use that path: formal evidence, constructions and contextual evaluation. Admission
+reserves a submission plus packet/reply capacity before hydration. Parent claim checks and exact
+request correlation remain active through input preparation, waiting and result validation. Secondary
+historical worker preparations live only for the call. Worker replies retain canonical layer bytes
+and original cost fields. No worker owns a database connection, claim or publication.
+
+The initial policy is one worker/submission,256MiB canonical retained bodies,64MiB input packet
+and8MiB reply. These are conservative finite placement ceilings, not RSS bounds or optimal operating
+counts. An oversized indivisible input refuses; temporary pressure from an active transfer waits.
+Operation-wide stop is sufficient for the current synchronous driver. BEP-05 must add independently
+addressable cancellation before admitting concurrent durable logical claims. Final counts and full
+provider/database admission remain in BEP-07. The native publication limit remains unchanged.
+
+The [assembled review](../../design_review/reviews/design_review_book-execution-foundations_2026-11-11.md)
+accepts this scoped boundary. Actual verification receipts and applicability are recorded only in
+the coordinator, including original unsuccessful attempts. This is not a claim of full-book or
+provider-lane parallelism.

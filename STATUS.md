@@ -1,57 +1,34 @@
 # Status
 
-_Updated 2026-11-11. TC-03–09 and their TC-01/02 prerequisites are implemented; TC-10/11 execution is active.
-Native head is `semantic_tc10_task_semantics`; `/10` remains default and the project unselected._
+_Updated2026-11-11. BEP-00–03 implemented and scoped-qualified; remaining BEP packages planned.
+Native head remains semantic_tc10_task_semantics; `/10` is default, project unselected._
 
-## Current scope and authority
+Implementation commits: b85404293 (BEP-00/ADR-0083), bdb2bae11 (BEP-01–03).
 
-- [TC coordinator](docs/plans/text-characterization_2026-11-10.md) owns package acceptance, O01–O07 and producer-review F01–F04. Authorized TC-03–09 functional scope and prerequisite integration are complete; TC-10/11 independent semantic assessment and full-book qualification are authorized and in progress. The operator selected a chapter-and-facet reference panel with exhaustive518-page/family execution coverage.
-- ADR-0081/0082 and D1/D2/D3/D4/D6/D8 own the implemented enriched-document contract: the full exact native document, immutable positioned layers under their original released contracts, and explicit active analyses distinct from retained dependency closure.
-- Delivered six primary stages: native linguistic evidence, positioned formal evidence, constructions, contextual evidence, eight-family model characterization and one contextual evaluator. Analytics reads their exact retained outputs; old duplicate recognizers and SQL language production are retired.
-- Default capture/characterize/consume and demand reuse, typed native admission, indexed live/detached reads, analytical export closure, exact determinants/provider costs, zero-text coverage and bounded provider residency are integrated.
-- [Integration evidence](docs/design_review/evidence/2026-11-11_text-characterization-integration/README.md) retains frozen forward migrations, failed receipts and final applicability judgment. Release `81dd8c0986138654fe434c1742072585ed968d70a4973961b6e89aa6e2713371` is deployed privately; no activation, promotion or project selection occurred.
-- TC-10 assessment edits are in shared main. TC-11 source/composition commits `ea148b738` and `7827f8076` are merged; the isolated parallel worktree was removed. Prior implementation is `e9025e949`/`088cf9fdd`; no push occurred.
+## Current authority and implementation
 
-## Prior TC-03–09 verification · 2026-11-11
+- [BEP coordinator](docs/plans/book-processing-efficiency-and-parallelism_2026-11-11.md) owns the authorized first increment, package status, review O01–08 and BEP-E01. TC plan files remain unchanged; reconciliation is later.
+- ADR-0083 and D3/D4/D6/D8 record accepted operation-owned preparation, workers and admission. The independent foundation review accepts the scoped assembled boundary; full hybrid scheduler/provider target remains partly unimplemented.
+- Full release verification now occurs once per invocation and is carried through demands, regions, capture/enrichment and stage readers. Current DB admission remains uncached.
+- Regional canonical sources/layers, immutable dependency views and exact scoped validation proofs are owned and bounded. Public payload values remain fresh; newly authored roots and native publication still validate.
+- Formal/construction/contextual-evaluation methods use warm spawn workers on process main threads. Parent retains claims, renewal, authorization, result validation and publication. Admission precedes hydration; cancellation and late-result fencing remain explicit.
+- Minimum CPU/regional07a delivered: one worker/submission,256MiB retained canonical bodies,64MiB packet,8MiB reply. Final counts/devices, provider/database admission, ready frontier, lanes and batches remain later BEP scope.
 
-- `CORPUS_PM2_NATIVE_TEST_ASSETS=/home/paul/corpus-structure/build/models/pm2 uv run ci test --json`: **failed**, `71e97b485e59479b80b9d5e086f48570`; ordinary: 6,399 selected/6,394 passed/four failed/one blocked; fault: 8/8 **passed**. Rust **not_run**, zero selected; rustc1.101.0-nightly (2d20b42b8 2026-11-04).
-- `CORPUS_GLINER_DIAGNOSTIC=1 uv run ci test --json -- python/corpus-structure/tests/methods/test_contextual_characterization.py python/corpus-structure/tests/methods/test_m1_review_repairs.py python/corpus-structure/tests/semantic/test_analysis_resources.py python/corpus-structure/tests/methods/test_gliner.py`: **passed**,82/82, `2e2d74eb026b42b78068d523ce6ca5da`, including the actual opt-in diagnostic.
-- `uv run ci test coverage 71e97b485e59479b80b9d5e086f48570 2e2d74eb026b42b78068d523ce6ca5da --view unresolved --limit 20 --json`: **covered**,6,407/6,407 required identities, zero unresolved/missing lanes/unknown contexts/unsettled attempts. The coordinator judges the three test-local double repairs and scoped native-binding difference applicable; product bytes were unchanged. Original failures remain held, not relabelled passed.
-- `uv run ci check --view steps --json`: **passed**, `16c68b4634774b619f59110c779a85a2`; empty rule lanes **not_run**. `uv run ci docs check --json`: **passed**, `45a282ed4379434d84d4a2dbda836824`,872 canonical pages and zero link errors. Earlier publication failure and anchor repair remain in the integration evidence.
-- `just turn-end`: **passed**; maintenance left all1108 Python files unchanged. Later receipt-only prose changes do not alter qualified product source.
-- `uv run ci doctor`: **passed**, `865caaa0e1014f2fa0e38a23177df4bf`. A transient pinned-wheel metadata timeout used the existing locked cache offline; no dependencies changed.
+## Verification2026-11-11
 
-## Active execution
+- Preparation/whole-document/retained-source/characterization `uv run ci test` selection: passed65,15967b88310d499cb1b1d94aa172182b; exact command in coordinator.
+- Adjacent CLI/configuration/slice/demand/reader `uv run ci test` selection: passed46,f39fe2fd16ac409084b1bb9d621e2b20; exact command in coordinator.
+- Final worker/formal/preparation/characterization selection: passed61,c60b17ff58d54b1497b401712f62e6b5. Test-only typing cleanup control passed1,6b25a68e206648bbb4de704bf3a1108e. `ci test coverage` reports all61 required identities covered, no unresolved/missing lanes/unknown context.
+- `uv run ci check --only types --view steps --json`: passed,e03e680a846f43f882b56f1daa61abe8. `--only lint`: passed,8c8f040e75c64a9f8b814172f902e982.
+- `uv run ci docs check --json`: passed,c7b25e6bbc9243d89eec5608677afdcf;882 pages,zero link errors. `uv run ci doctor --json`: passed,11e1b132b2ec4bafa06decb891e19f22. No dependency changes or offline override.
+- Actual-provider primary/reuse, two-region empty/image preparation and native formula publication passed3/3 against frozen source,fcad375338c54560955a717574e9532a; exact assets/command in coordinator. Earlier native2e5564c6e7334635844c4908441e293e remains failed after source changed during its runtime-bound execution; no runtime guard was weakened.
+- Full BEP campaign, whole-book rerun and benefit measurements: not_run at this partial-series boundary. Root turn-end passed; final source and scoped applicability are accounted for in coordinator.
 
-The [coordinator](docs/plans/text-characterization_2026-11-10.md#authorized-remaining-scope-execution--2026-11-11)
-owns TC-10/11 scope and TC-E01–07. Assessment V3, native task scoring, authenticated manifests,
-bounded composition/consumers and source-anchored semantic task comparison are implemented.
-Commits4d32fd596/47b0554b5/0503a13bf retain the latest producer, native and independent-reference slices.
-Deployment`d805bd19fbbc4ac58dc7c9f5d46f5908` passed; release remains
-`c9939039081ddcfbc382e9dc323e12e31f9b3683fb479c773ea3fd72ac6a6189`.
-Source capture496/cut614 retains316 direct SourceViews and the original518-page base.
-The [source account](docs/design_review/evidence/2026-11-11_text-characterization-assessment/qualification/README.md)
-preserves recognition/mapping limits separately from source membership and page presence.
-Original set40/C210–230 is immutable. Revised sets41–44 freeze31opportunities/26units;
-independent A/B and C283–308 are submitted. No producer grade is claimed.
-`uv run ci test --json -- python/corpus-structure/tests/evaluate/test_task_semantics.py python/corpus-structure/tests/evaluate/test_characterization_assessment.py python/corpus-structure/tests/evaluate/test_characterization_native_columns.py python/corpus-structure/tests/evaluate/test_operation_assessment.py`: **passed**,149,`7a4cf5560f684e0f9f81d1b6eef76cf7`.
-`uv run ci test --json -- python/corpus-structure/tests/evaluate/test_characterization_assessment_native.py python/corpus-structure/tests/evaluate/test_operation_assessment_native.py`: **passed**,11,`949f73df6d744b8a8ccec1f8eb110175`.
-`uv run ci check --view steps --json`: **passed**,`4a635015b2854be89243c21df4f68568`, before TC-E06; empty rule lanes **not_run**. Rustc1.102.0-nightly(9c5648833 2026-11-10).
-`uv run ci docs check --json`: **passed**,`51c04f8616554278874404a0ada10674`,873pages/zero link errors.
-TC-E06's dependency/term indexing passed141 controls in`6daeba6f757a448091af826dc92ff270`; one case was
-blocked by an omitted assets setting, then **passed** as`4c90354fce9a46c6abd0e1babd62de25` with existing assets.
-Their142-identity union is covered; comment-only source/private-binding differences retain bounded applicability.
-Typing **passed**,`2d2ff5a115bb467bad92de33fa1054c6`. Invocation513–523 was intentionally interrupted;
-TC-E07's line-safe source regex correction is implemented. Construction51
-**passed**,`00baf630d73d474abcd96619cf31e024`; typing **passed**,`f3f6babda9d54ea2b58d21c60eec7eff`.
-Actual-provider primary/reuse case **passed**,`379c96dd3c5e4340b94c82f889657c19`.
-The operator chose to keep the network-enabled book run active during review; final combined view/qualification are open.
+## Retained book and TC state
 
-Next: complete book execution, then separate output-first assessment;
-grade exact retained products, resolve triggered gaps and complete the final applicable test union.
-Activation/selection remains a separate final effect. Preserve prior receipts at their own scope.
+- Run610 failed on native-evidence publication exceeding the8MiB layer contract. Read-only `uv run ci status 610 --project nce-grinstead-snell-full-book --json` confirmed terminal supervisor/readiness and no orphan/unresolved agents. BEP-E01 owns the full-book limit; no cap change, truncation or restart occurred.
+- Authentic capture496/cut614 retains316 direct SourceViews over the original518-page base. Prior release is c9939039081ddcfbc382e9dc323e12e31f9b3683fb479c773ea3fd72ac6a6189. Source recognition/health limits remain distinct from source membership.
+- [TC coordinator](docs/plans/text-characterization_2026-11-10.md) retains TC-10/11 assessment/qualification and TC-E01–07 disposition. Earlier TC-03–09 delivery/receipts remain at their recorded scope; no new TC completion claim is made.
+- [TC source/assessment account](docs/design_review/evidence/2026-11-11_text-characterization-assessment/qualification/README.md) preserves recognition limits, reference sets41–44 and outstanding independent output-first assessment. No activation, project selection, promotion or push occurred.
 
-The [BEP coordinator](docs/plans/book-processing-efficiency-and-parallelism_2026-11-11.md) now owns the new Proposed BEP-00–09 series from the efficiency review O01–08. RC01–04 explicitly accepted for planning2026-11-11; implementation remains planned.
-Five companions cover preparation/kernels, coordinator/lanes, batches, resources/devices/operations and qualification/investigations. TC plan files remain unchanged; reconciliation follows later.
-Next BEP action: implementation authorization/execution planning. The running book remains unchanged; no BEP production/provider work occurred during authoring.
-BEP authoring verification2026-11-11: uv run ci docs check --json **passed**,5da6588a33f4441490a36dffd3c97e1c,880pages/zero link errors; product/provider tests **not_run** (documentation only); just turn-end **passed**,1122 Python files unchanged.
+Next: BEP-04 onward through the existing execution route; first increment is complete at scoped qualification. Resolve BEP-E01 before eventual full-book qualification.
