@@ -2683,6 +2683,7 @@ def test_layer_above_64_mib_refuses_before_atomic_publication(
             )
 
 
+@pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_protected_inventory_summarizes_exact_native_provenance_without_annotation_payload(
     characterization_source, semantic_writer_engine, semantic_reader_engine
 ):
