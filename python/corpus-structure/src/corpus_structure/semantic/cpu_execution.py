@@ -325,20 +325,6 @@ def _dispatch(
     _WORKER_REQUEST = None if slot < 0 else (slot, generation)
     try:
         _worker_active()
-        if json.loads(content).get("method") == "private.spacy_annotations":
-            from .cpu_annotations import compute_annotations
-
-            content_out = compute_annotations(content, _worker_active)
-            if len(content_out) > max_reply_bytes:
-                raise CapacityExceeded("CPU annotation result exceeds admitted reply capacity")
-            return CPUReply(
-                sha256(content).hexdigest(),
-                content_out,
-                os.getpid(),
-                threading.current_thread() is threading.main_thread(),
-                native_thread_limit=_WORKER_NATIVE_THREADS,
-                native_pools=_WORKER_NATIVE_POOLS,
-            )
         return _compute(content, capsules, max_reply_bytes)
     except Exception as error:
         return CPUReply(

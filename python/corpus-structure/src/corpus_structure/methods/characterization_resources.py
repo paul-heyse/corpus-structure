@@ -20,6 +20,8 @@ from corpus_structure.semantic.identity import canonical_bytes
 
 from .gliner import GlinerInput, GlinerPack, GlinerProfile, GlinerRefused
 from .gliner_worker import GlinerWorker, validate_request
+from .native_profiles import NativeSelection, pm2_selection
+from .native_host import NativeHostGroup, host_request_frame_size
 from .model_observation import ordered_native_bytes, pm2_cohort_digest, pm2_member_digest
 from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused, request_frame_size
 from .pm2_worker import open_pm2_worker as _open_pm2_worker
@@ -61,7 +63,7 @@ class PM2Selection:
 
 @dataclass(frozen=True)
 class PM2Work:
-    selection: PM2Selection
+    selection: PM2Selection | NativeSelection
     payload: bytes | None
     correlation: str
     borrowers: tuple[Callable[[], None], ...]
@@ -214,6 +216,17 @@ class _Lane:
             if isinstance(request, PM2Work):
                 selection = request.selection
                 key = selection.identity
+                if isinstance(selection, NativeSelection):
+                    group = self.owner.native_group
+                    group.declare((selection,))
+                    startup = group.startup(selection, self.active)
+                    payload = {} if request.payload is None else group.infer(selection, json.loads(request.payload), self.active)
+                    reply = ProviderReply(request.correlation, canonical_bytes(startup), ordered_native_bytes(payload))
+                    handle.active()
+                    if len(reply.startup_content) + len(reply.payload_content) > self.owner.policy.max_native_reply_bytes:
+                        from corpus_structure.semantic.cpu_execution import CapacityExceeded
+                        raise CapacityExceeded("native reply exceeds admitted byte capacity")
+                    return reply
                 profile_value = json.loads(selection.profile)
                 if (
                     not isinstance(profile_value, dict)
@@ -282,7 +295,11 @@ class _Lane:
                 key = request.profile
                 if self.worker is None or self.worker.closed or self.key != key:
                     self.discard()
-                    self.worker = GlinerWorker(request.profile)
+                    if request.profile.device == "cuda":
+                        from .native_host_clients import HostedGliner
+                        self.worker = HostedGliner(request.profile, group=self.owner.native_group)
+                    else:
+                        self.worker = GlinerWorker(request.profile)
                     self.stack.callback(self.worker.close)
                     self.key = key
                 admissions = self.worker.prepare_members(
@@ -450,6 +467,14 @@ class ProviderExecution:
         self._stop = Event()
         self._lock = Lock()
         self.coalescing_providers = frozenset({"hanlp", "d1", "gliner"})
+        self.native_group = NativeHostGroup(policy)
+
+    def declare_native(self, selections, endpoint=None):
+        if endpoint is not None:
+            if self.native_group._serving and self.native_group.endpoint != endpoint:
+                raise Pm2WorkerRefused("native custody endpoint changed after serving")
+            self.native_group.endpoint = endpoint
+        self.native_group.declare(tuple(selections))
 
     def _request_size(self, request):
         if isinstance(request, GLiNERWork):
@@ -481,6 +506,10 @@ class ProviderExecution:
                 )
             )
         )
+        if isinstance(request, GLiNERWork) and request.profile.device == "cuda":
+            from .native_host_clients import HostedGliner, gliner_host_payload
+            selected = HostedGliner(request.profile, group=self.native_group).selection
+            size = max(size, host_request_frame_size(selected, gliner_host_payload(request.pack, request.inputs, request.threshold, request.overlap_policy, request.evaluation), min(self.policy.max_native_request_bytes, request.profile.max_request_frame_bytes)))
         if size > self.policy.max_native_request_bytes:
             from corpus_structure.semantic.cpu_execution import CapacityExceeded
 
@@ -490,7 +519,8 @@ class ProviderExecution:
             try:
                 size = max(
                     size,
-                    request_frame_size(
+                    host_request_frame_size(request.selection, json.loads(request.payload), self.policy.max_native_request_bytes)
+                    if isinstance(request.selection, NativeSelection) else request_frame_size(
                         json.loads(request.payload), self.policy.max_native_request_bytes
                     ),
                 )
@@ -516,16 +546,14 @@ class ProviderExecution:
         if self._stop.is_set():
             raise CancelledError("native invocation is closed")
         provider = request.selection.provider if isinstance(request, PM2Work) else "gliner"
-        if provider not in {"hanlp", "maverick", "dipo", "d1", "gliner"}:
+        if provider not in {"hanlp", "maverick", "dipo", "d1", "gliner", "spacy"}:
             raise ValueError("unsupported native provider")
         size = self._request_size(request) if pending is None else pending.size
         with self._lock:
             if self._stop.is_set():
                 raise CancelledError("native invocation is closed")
-            lane_key = (
-                "cuda"
-                if isinstance(request, PM2Work) and request.selection.device == "cuda"
-                else provider
+            lane_key = provider if isinstance(request, PM2Work) and isinstance(request.selection, NativeSelection) else (
+                "cuda" if isinstance(request, PM2Work) and request.selection.device == "cuda" else provider
             )
             lane = (
                 self._lanes.setdefault(lane_key, _Lane(self, lane_key))
@@ -636,11 +664,14 @@ class ProviderExecution:
             else 1
         )
         try:
-            request_frame_size(
-                self._pm2_payload(payloads, first.selection.provider),
-                self.policy.max_native_request_bytes,
-                request_id=request_id,
-            )
+            if isinstance(first.selection, NativeSelection):
+                host_request_frame_size(first.selection, self._pm2_payload(payloads, first.selection.provider), self.policy.max_native_request_bytes)
+            else:
+                request_frame_size(
+                    self._pm2_payload(payloads, first.selection.provider),
+                    self.policy.max_native_request_bytes,
+                    request_id=request_id,
+                )
         except Pm2WorkerRefused:
             return False
         return True
@@ -826,7 +857,7 @@ class ProviderExecution:
     def _try_lazy(self, factory, lane_key):
         from corpus_structure.semantic.cpu_execution import CapacityExceeded
 
-        if lane_key not in {"hanlp", "maverick", "dipo", "d1", "gliner", "cuda"}:
+        if lane_key not in {"hanlp", "maverick", "dipo", "d1", "gliner", "spacy", "cuda"}:
             raise ValueError("unsupported native provider lane")
         with self._lock:
             if self._stop.is_set():
@@ -849,7 +880,7 @@ class ProviderExecution:
                 # factory reads its already-owned immutable semantic/source values.
                 request = factory()
                 actual_lane = (
-                    ("cuda" if request.selection.device == "cuda" else request.selection.provider)
+                    (request.selection.provider if isinstance(request.selection, NativeSelection) else "cuda" if request.selection.device == "cuda" else request.selection.provider)
                     if isinstance(request, PM2Work)
                     else "gliner"
                 )
@@ -914,6 +945,10 @@ class ProviderExecution:
                 errors.append(error)
         for handle in tuple(self._handles):
             handle.retire()
+        try:
+            self.native_group.close()
+        except BaseException as error:
+            errors.append(error)
         if errors:
             failure = RuntimeError("native invocation teardown failed")
             for error in errors:
@@ -969,31 +1004,19 @@ def pm2_client(
     artifacts,
     device: Literal["cpu", "cuda"] | None = None,
 ):
-    device = ("cuda" if provider == "d1" else "cpu") if device is None else device
+    device = "cuda" if device is None else device
     if provider == "d1" and device != "cuda":
         raise Pm2WorkerRefused("d1 execution requires CUDA; CPU execution is not selected")
 
+    if device != "cuda":
+        raise Pm2WorkerRefused("learned PM2 execution requires explicit CUDA selection")
+
     def selection_factory():
-        profile = canonical_bytes(
-            dict(
-                provider=provider,
-                device=device,
-                assets=str(assets.absolute()),
-                runtime_identity=runtime,
-            )
-        )
-        return PM2Selection(
-            provider,
-            python,
-            script,
-            project,
-            assets,
-            profile,
-            canonical_bytes(runtime),
-            canonical_bytes(artifacts),
-            device,
-            ctx.settings.nemotron_endpoint if device == "cuda" else None,
-        )
+        return pm2_selection(provider, assets, runtime, artifacts, threads=execution.policy.provider_threads, interop_threads=execution.policy.provider_interop_threads)
+
+    # Declaration itself is side-effect-free; enclosing characterization declares
+    # its complete population before any stage flushes these work intents.
+    execution.declare_native((selection_factory(),), ctx.settings.nemotron_endpoint)
 
     claims = tuple(getattr(ctx.check_active, "active", ()))
     correlation = sha256(
@@ -1004,7 +1027,7 @@ def pm2_client(
         selection_factory,
         ctx.check_active,
         correlation,
-        "cuda" if device == "cuda" else provider,
+        provider,
     )
 
 
@@ -1187,3 +1210,61 @@ def gliner_extract_members(
     if cohort:
         outcomes.extend((yield from extract(cohort)))
     return tuple(outcomes)
+
+
+def selections_for_characterization(options, settings):
+    """The complete selected resident population; no GPU custody or model loading."""
+    from pydantic import TypeAdapter
+    from corpus_structure.ingest.sentences import SentenceConfig
+    from .native_profiles import gliner_selection, preflight_native_runtime, spacy_selection
+
+    policy = settings.execution_policy
+    selected = []
+    native = options.get("text.native_evidence")
+    if native is not None:
+        config = SentenceConfig.model_validate(native.get("sentences", {}))
+        if native.get("characterization_profile") == "boundary_only":
+            config = config.model_copy(update={"exclude": ("ner", "tagger", "attribute_ruler", "lemmatizer")})
+        frozen = native.get("spacy_native_profile")
+        if frozen is not None:
+            from .native_profiles import NativeProfile
+            import spacy
+            selected.append(NativeSelection(NativeProfile(**frozen), spacy.util.get_package_path(config.model)))
+        else:
+            selected.append(spacy_selection(config, threads=policy.provider_threads, interop_threads=policy.provider_interop_threads))
+        if native.get("characterization_profile", "full_native") == "full_native" and native.get("hanlp_runtime") is not None:
+            selected.append(pm2_selection("hanlp", settings.model_cache / "pm2", native["hanlp_runtime"], native["hanlp_artifacts"], threads=policy.provider_threads, interop_threads=policy.provider_interop_threads))
+    contextual = options.get("text.contextual_characterization")
+    if contextual is not None and contextual.get("native_mode", "infer") == "infer":
+        for provider in ("maverick", "dipo"):
+            if provider in contextual.get("native_runtime", {}):
+                selected.append(pm2_selection(provider, settings.model_cache / "pm2", contextual["native_runtime"][provider], contextual["native_artifacts"][provider], threads=policy.provider_threads, interop_threads=policy.provider_interop_threads))
+    model = options.get("text.model_characterization")
+    if model is not None:
+        if model.get("d1_runtime") is not None:
+            selected.append(pm2_selection("d1", settings.model_cache / "pm2", model["d1_runtime"], model["d1_artifacts"], threads=policy.provider_threads, interop_threads=policy.provider_interop_threads))
+        if model.get("gliner_profile") is not None:
+            profile = TypeAdapter(GlinerProfile).validate_python(model["gliner_profile"]["profile"])
+            runtime = model.get("gliner_runtime")
+            if runtime is None:
+                runtime = preflight_native_runtime("gliner", profile.snapshot)["runtime_identity"]
+            selected.append(gliner_selection(profile, runtime))
+    return tuple({value.identity: value for value in selected}.values())
+
+
+def freeze_characterization_profiles(name, parameters, settings):
+    """Freeze runtime/device meaning into task configuration before reuse checks."""
+    from corpus_structure.ingest.sentences import SentenceConfig
+    from .native_profiles import preflight_native_runtime, spacy_selection
+
+    if name == "text.native_evidence" and parameters.get("spacy_native_profile") is None:
+        config = SentenceConfig.model_validate(parameters.get("sentences", {}))
+        if parameters.get("characterization_profile") == "boundary_only":
+            config = config.model_copy(update={"exclude": ("ner", "tagger", "attribute_ruler", "lemmatizer")})
+        parameters["spacy_native_profile"] = spacy_selection(config, threads=settings.execution_policy.provider_threads, interop_threads=settings.execution_policy.provider_interop_threads).native.wire
+    if name == "text.model_characterization" and parameters.get("gliner_profile") is not None and parameters.get("gliner_runtime") is None:
+        from pydantic import TypeAdapter
+        profile = TypeAdapter(GlinerProfile).validate_python(parameters["gliner_profile"]["profile"])
+        if profile.device != "cuda":
+            raise GlinerRefused("current model characterization requires an explicit CUDA GLiNER profile")
+        parameters["gliner_runtime"] = preflight_native_runtime("gliner", profile.snapshot)["runtime_identity"]

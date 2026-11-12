@@ -12,12 +12,12 @@ from corpus_structure.semantic.identity import canonical_bytes
 
 Provider = Literal["d1", "gliner", "hanlp", "spacy", "maverick", "dipo"]
 _HOSTS = {
-    "d1": "314",
-    "gliner": "314",
-    "hanlp": "314",
-    "spacy": "314",
-    "maverick": "312",
-    "dipo": "312",
+    "d1": "primary",
+    "gliner": "primary",
+    "hanlp": "primary",
+    "spacy": "primary",
+    "maverick": "isolated",
+    "dipo": "isolated",
 }
 
 
@@ -177,7 +177,7 @@ class NativeSelection:
     @property
     def project(self):
         root = Path(__file__).resolve().parents[5]
-        return root if self.native.host == "314" else root / "services/nlp-host-312"
+        return root if self.native.host == "primary" else root / "services/nlp-host-isolated"
 
     @property
     def python(self):
@@ -197,3 +197,50 @@ class NativeSelection:
             fingerprint=self.native.fingerprint,
             assets=str(self.assets.absolute()),
         )
+
+
+def pm2_selection(provider, assets, runtime, artifacts, *, threads=4, interop_threads=1):
+    """Select the reviewed native recipe in the shared interpreter, before task reuse."""
+    backends = {"d1": "d1", "hanlp": "sdpa", "maverick": "eager", "dipo": "sdpa"}
+    if provider not in backends:
+        raise ValueError("unsupported PM2 shared-host provider")
+    return NativeSelection(NativeProfile(provider, runtime, artifacts, {"adapter": "pm2-native-1"}, "bfloat16" if provider == "d1" else "float32", backends[provider], threads, interop_threads), assets)
+
+
+def gliner_selection(profile, runtime):
+    from dataclasses import asdict
+
+    if profile.device != "cuda":
+        raise ValueError("shared GLiNER selection requires an explicit CUDA profile")
+    values = asdict(profile)
+    values.pop("snapshot")
+    return NativeSelection(NativeProfile("gliner", runtime, dict(profile.artifact_hashes), {"gliner_profile": values}, "float32", "standard", profile.threads, 1), profile.snapshot)
+
+
+def preflight_native_runtime(provider, assets):
+    """Inspect an already prepared shared environment and assets without loading models."""
+    from .pm2_worker import preflight_pm2_runtime
+
+    root = Path(__file__).resolve().parents[5]
+    project = root if _HOSTS[provider] == "primary" else root / "services/nlp-host-isolated"
+    return preflight_pm2_runtime(python=project / ".venv/bin/python", script=Path(__file__).with_name("native_host_worker.py"), project=project, provider=provider, assets=assets)
+
+
+def spacy_selection(config, *, threads=4, interop_threads=1):
+    """Freeze the installed model files and shared runtime without loading weights."""
+    import spacy
+
+    assets = spacy.util.get_package_path(config.model)
+    artifacts = spacy_artifacts(assets)
+    runtime = preflight_native_runtime("spacy", assets)["runtime_identity"]
+    return NativeSelection(NativeProfile("spacy", runtime, artifacts, config.model_dump(mode="json"), "float32", "cupy", threads, interop_threads), assets)
+
+
+def spacy_artifacts(assets):
+    from hashlib import file_digest
+    files = {}
+    for path in sorted(assets.rglob("*")):
+        if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc":
+            with path.open("rb") as stream:
+                files[path.relative_to(assets).as_posix()] = file_digest(stream, "sha256").hexdigest()
+    return {"files": files}

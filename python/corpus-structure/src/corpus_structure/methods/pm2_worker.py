@@ -47,7 +47,7 @@ def preflight_pm2_runtime(
     }
     # The root d1 environment can also hold optional workspace groups. They are
     # all captured by the worker inventory, even when not needed for this check.
-    inexact = ["--inexact"] if provider == "d1" else []
+    inexact = ["--inexact"] if project.resolve() == Path(__file__).resolve().parents[5] else []
     try:
         with lock.open("rb") as stream:
             lock_digest = file_digest(stream, "sha256").hexdigest()

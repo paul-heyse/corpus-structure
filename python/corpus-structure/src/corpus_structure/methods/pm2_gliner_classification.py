@@ -41,7 +41,7 @@ class ClassificationProfile(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     provider: Literal["gliner"]
-    device: Literal["cpu"]
+    device: Literal["cpu", "cuda"]
     profile: GlinerProfile
     threshold: float = Field(default=0.5, ge=0, le=1)
 

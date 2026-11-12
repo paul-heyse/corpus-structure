@@ -6,7 +6,9 @@ from corpus_structure.core.work import drive_prepared_work
 from corpus_structure.ingest.annotations import AnnotationInput, AnnotationProfile
 from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
 from corpus_structure.ingest.sentences import Block, SentenceConfig, pipeline, prepare_layout
-from corpus_structure.semantic.cpu_annotations import annotation_work
+from corpus_structure.semantic.native_annotations import annotation_work
+from corpus_structure.methods.characterization_resources import ProviderExecution
+import pytest
 from corpus_structure.semantic.cpu_execution import CPUExecutionScope
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.source_contexts import NativeSourcePin
@@ -18,7 +20,7 @@ def _plan(work):
     return reply
 
 
-def test_actual_spawned_annotation_preserves_native_atoms_pieces_and_token_positions(prepared):
+def test_actual_hosted_annotation_preserves_native_atoms_pieces_and_token_positions(prepared):
     profile = AnnotationProfile()
     text = "Let x+y be a value [3]."
     start = 23
@@ -42,7 +44,8 @@ def test_actual_spawned_annotation_preserves_native_atoms_pieces_and_token_posit
         layout,
         (ProjectedPiece("#/texts/7", start, start + len(text), "native_text"),),
     )
-    execution = CPUExecutionScope(prepared)
+    cpu = CPUExecutionScope(prepared)
+    execution = ProviderExecution(cpu.budget, cpu.policy)
     try:
         result = drive_prepared_work(
             _plan(annotation_work(execution, (item,), profile, lambda: None)), lambda: None
@@ -59,26 +62,22 @@ def test_actual_spawned_annotation_preserves_native_atoms_pieces_and_token_posit
         assert product.layout_digest
         assert all(row.status in {"complete", "not_applicable"} for row in product.availability)
         assert all(not hasattr(value, "vocab") for value in asdict(product).values())
-        assert execution.native_thread_reports
-        for report in execution.native_thread_reports.values():
-            assert report["threads"] == 1
-            assert report["pools"]
-            assert all(pool["num_threads"] == 1 for pool in report["pools"])
     finally:
         execution.close()
+        cpu.close()
     assert execution.budget.used_bytes == 0
 
 
 def test_spawned_annotation_profile_refusal_retains_structured_availability(prepared):
-    execution = CPUExecutionScope(prepared)
+    cpu = CPUExecutionScope(prepared)
+    execution = ProviderExecution(cpu.budget, cpu.policy)
     profile = AnnotationProfile(SentenceConfig(spacy_version="0.0.0"))
     try:
-        result = drive_prepared_work(
-            _plan(annotation_work(execution, (), profile, lambda: None)), lambda: None
-        )
-        assert result.products == ()
-        assert result.unavailable_type == "SentenceConfigError"
-        assert result.message and "0.0.0" in result.message
+        from corpus_structure.ingest.sentences import SentenceConfigError
+        with pytest.raises(SentenceConfigError, match="0.0.0"):
+            annotation_work(execution, (), profile, lambda: None)
+        assert not execution.native_group._serving
     finally:
         execution.close()
+        cpu.close()
     assert execution.budget.used_bytes == 0

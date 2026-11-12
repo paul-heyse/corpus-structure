@@ -341,6 +341,12 @@ class GlinerWorker:
 
     _child_target = staticmethod(_native_child)
 
+    def __new__(cls, profile):
+        if cls is GlinerWorker and profile.device == "cuda":
+            from .native_host_clients import HostedGliner
+            return HostedGliner(profile)
+        return super().__new__(cls)
+
     def __init__(self, profile: GlinerProfile) -> None:
         self.profile = profile
         self._process: BaseProcess | None = None

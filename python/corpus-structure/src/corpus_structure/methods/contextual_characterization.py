@@ -56,7 +56,7 @@ class ContextualCharacterizationConfig(BaseModel):
     native_token_layer: dict[str, Any] | None = None
     native_runtime: dict[str, dict[str, Any]] = Field(default_factory=dict)
     native_artifacts: dict[str, dict[str, Any]] = Field(default_factory=dict)
-    native_device: Literal["cpu", "cuda"] = "cpu"
+    native_device: Literal["cuda"] = "cuda"
     language: str = "en"
     model: str = MODEL
     grammar: str = "none"
@@ -368,6 +368,9 @@ class ContextualCharacterizationMethod:
 
     def plan(self, units, cfg, ctx):
         with provider_scope(units, policy=ctx.settings.execution_policy) as (_cpu, providers):
+            from .characterization_resources import selections_for_characterization
+            if providers is not None:
+                providers.declare_native(selections_for_characterization({'text.contextual_characterization': cfg.model_dump(mode="json")}, ctx.settings), ctx.settings.nemotron_endpoint)
             if cfg.context_rule_digest != context_rule_digest():
                 raise ValueError("contextual rule digest changed after configuration freeze")
             base, scope = cfg.require_selection()
