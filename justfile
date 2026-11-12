@@ -20,6 +20,9 @@ test-all *args:
     set -euo pipefail
     if [[ -n ${CORPUS_CI_RECEIPT_DIR:-} ]]; then
       options=(--managed-lane ordinary --out-dir "$CORPUS_CI_RECEIPT_DIR")
+      if [[ -n ${CORPUS_CI_TEST_WORKERS:-} ]]; then
+        options+=(--workers "$CORPUS_CI_TEST_WORKERS")
+      fi
       if [[ -n ${CORPUS_CI_SELECTION_FILE:-} ]]; then
         options+=(--selection-file "$CORPUS_CI_SELECTION_FILE")
       fi

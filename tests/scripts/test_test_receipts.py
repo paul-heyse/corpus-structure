@@ -1472,6 +1472,109 @@ def test_managed_fault_retry_keeps_only_owned_selection(tmp_path: Path) -> None:
         )
 
 
+@pytest.mark.parametrize("workers, expected", [(None, "auto"), (1, "1"), (3, "3")])
+def test_managed_ordinary_workers_preserve_policy_and_exact_retry(tmp_path, workers, expected):
+    from test_receipts import _managed_pytest_args
+
+    node = (
+        "tests/scripts/test_test_receipts.py::"
+        "test_pure_python_success_does_not_require_native_context"
+    )
+    selection = tmp_path / "ordinary-selection.txt"
+    selection.write_text(node + "\n")
+    for args, selected in [(["-k", "workers"], None), ([], selection)]:
+        command = _managed_pytest_args(
+            args,
+            lane="ordinary",
+            directory=tmp_path / "ordinary",
+            selection_file=selected,
+            workers=workers,
+        )
+        assert command == [
+            "-n",
+            expected,
+            "--dist=loadgroup",
+            "-m",
+            "not shared_cluster_fault",
+            *([node] if selected else args),
+        ]
+
+
+@pytest.mark.parametrize("workers", ["0", "-1", "1.5", "auto"])
+def test_supervisor_workers_reject_invalid_before_workspace(tmp_path, workers):
+    from test_receipts import main
+
+    directory = tmp_path / "ordinary"
+    with pytest.raises(SystemExit) as error:
+        main(
+            ["run", "--out-dir", str(directory), "--managed-lane", "ordinary", "--workers", workers]
+        )
+    assert error.value.code == 2
+    assert not directory.exists()
+
+
+def test_supervisor_fault_workers_reject_before_workspace(tmp_path):
+    from test_receipts import main
+
+    directory = tmp_path / "fault"
+    with pytest.raises(SystemExit) as error:
+        main(["run", "--out-dir", str(directory), "--managed-lane", "fault", "--workers", "1"])
+    assert error.value.code == 2
+    assert not directory.exists()
+
+
+def test_worker_facts_keep_actual_count_separate_from_requested():
+    from test_receipts import _worker_facts
+
+    assert _worker_facts([])["actual"] is None
+    assert _worker_facts([{"event": "session_start", "xdist_numprocesses": 0}])["actual"] == 0
+    assert _worker_facts([{"event": "session_start", "xdist_numprocesses": 4}])["actual"] is None
+    assert _worker_facts([{"event": "workers_created", "count": 2}])["actual"] == 2
+
+
+def test_managed_workers_ignore_ambient_pytest_overrides(tmp_path, monkeypatch):
+    import test_receipts
+
+    overrides = {
+        "PYTEST_ADDOPTS": "-n 999",
+        "PYTEST_PLUGINS": "caller_plugin",
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTEST_XDIST_AUTO_NUM_WORKERS": "999",
+        "PYTEST_XDIST_WORKER": "gw999",
+        "PYTEST_XDIST_WORKER_COUNT": "999",
+        "PYTEST_XDIST_TESTRUNUID": "inherited",
+    }
+    for name, value in overrides.items():
+        monkeypatch.setenv(name, value)
+
+    def process(argv, directory, prefix, **options):
+        assert argv[3:5] == ["-n", "1"]
+        assert overrides.keys().isdisjoint(options["env"])
+        return {"returncode": 0}
+
+    monkeypatch.setattr(test_receipts, "run_process", process)
+    assert test_receipts.run_python(tmp_path, ["-n", "1"], managed=True)["returncode"] == 0
+
+
+def test_workers_are_reported_as_coverage_context_differences():
+    from test_receipts import _coverage_context
+
+    contexts = [
+        {
+            "invocation": {"workers": {"requested": requested, "actual": actual}},
+            "native_provenance": {"status": "not_required"},
+        }
+        for requested, actual in [("auto", 4), (1, 1)]
+    ]
+    differences, unknowns = _coverage_context(contexts)
+    assert "workers" in differences
+    assert "workers" not in unknowns
+    contexts[1]["invocation"] = {}
+    differences, unknowns = _coverage_context(contexts)
+    assert "workers" not in differences
+    assert "workers" in unknowns
+
+
 def test_receipt_distinguishes_empty_selection_from_test_failure(tmp_path: Path) -> None:
     directory = receipt(tmp_path, [], selected=(), returncode=5)
     stream(

@@ -29,6 +29,9 @@ from corpus_structure.cli.recipes import RecipeError, checkout, run_owned, run_r
 Lane = Literal["ordinary", "fault"]
 Phase = Literal["collection", "setup", "call", "teardown", "unknown"]
 ReportLimit = Annotated[int, typer.Option(min=1, max=100)]
+Workers = Annotated[
+    int | None, typer.Option(min=1, help="Ordinary pytest workers (default: auto).")
+]
 _DEFAULT_LIMIT = 20
 _LANES: tuple[Lane, ...] = ("ordinary", "fault")
 app = typer.Typer(invoke_without_command=True, help="Run, retry and reconcile test campaigns.")
@@ -469,6 +472,7 @@ def _lane(
     *,
     selection: Path | None = None,
     narrowed: bool = False,
+    workers: int | None = None,
 ) -> str:
     name = "test-all" if lane == "ordinary" else "test-native-faults"
     directory = result.directory / lane
@@ -477,9 +481,17 @@ def _lane(
     env = {
         key: value
         for key, value in os.environ.items()
-        if key not in {"CORPUS_CI_RECEIPT_DIR", "CORPUS_CI_SELECTION_FILE", "CORPUS_CI_PYTHON_ONLY"}
+        if key
+        not in {
+            "CORPUS_CI_RECEIPT_DIR",
+            "CORPUS_CI_SELECTION_FILE",
+            "CORPUS_CI_PYTHON_ONLY",
+            "CORPUS_CI_TEST_WORKERS",
+        }
     }
     env["CORPUS_CI_RECEIPT_DIR"] = str(directory)
+    if lane == "ordinary" and workers is not None:
+        env["CORPUS_CI_TEST_WORKERS"] = str(workers)
     if selection is not None:
         env["CORPUS_CI_SELECTION_FILE"] = str(selection)
     if lane == "ordinary" and (narrowed or selection is not None):
@@ -501,6 +513,7 @@ def _lane(
     except ValueError as error:
         raise ResultError("test supervisor did not report its settlement") from error
     counts = classified["counts"]
+    result.manifest.scope.setdefault("workers", {})[lane] = classified.get("workers")
     result.manifest.details.setdefault("lane_counts", {})[lane] = counts
     if classified.get("custody_unsettled"):
         result.manifest.details["custody_unsettled"] = True
@@ -558,15 +571,18 @@ def _finish(result: Invocation, outcomes: dict[str, str], json: bool) -> None:
 def run_tests(
     ctx: typer.Context,
     lane: Annotated[Lane | None, typer.Option()] = None,
+    workers: Workers = None,
     json: JsonOpt = False,
 ) -> None:
     """Run applicable test lanes, or select one with --lane."""
     if ctx.invoked_subcommand is not None:
-        if state(ctx).test_args or lane is not None or json:
+        if state(ctx).test_args or lane is not None or workers is not None or json:
             raise typer.BadParameter("place command options on the selected test subcommand")
         return
     args = state(ctx).test_args
     with result_boundary(json):
+        if lane == "fault" and workers is not None:
+            raise ResultError("--workers applies only to the ordinary lane")
         narrowed = _validate(args)
         if narrowed and lane == "fault":
             raise ResultError("the exclusive fault lane owns its selection")
@@ -574,12 +590,25 @@ def run_tests(
         required_lanes = ["ordinary", "fault"] if declared == "all" else [declared]
         with result_store(ctx).operation(
             "test",
-            scope={"lane": declared, "required_lanes": required_lanes, "narrowed": narrowed},
+            scope={
+                "lane": declared,
+                "required_lanes": required_lanes,
+                "narrowed": narrowed,
+                "workers": {
+                    name: {
+                        "requested": (workers or "auto") if name == "ordinary" else 0,
+                        "actual": None,
+                    }
+                    for name in required_lanes
+                },
+            },
             observations=True,
         ) as result:
             outcomes: dict[str, str] = {}
             if lane != "fault":
-                outcomes["ordinary"] = _lane(result, "ordinary", args, narrowed=narrowed)
+                outcomes["ordinary"] = _lane(
+                    result, "ordinary", args, narrowed=narrowed, workers=workers
+                )
             if (
                 not narrowed
                 and lane != "ordinary"
@@ -977,22 +1006,28 @@ def retry(
     ctx: typer.Context,
     original: str,
     lane: Annotated[Lane | None, typer.Option()] = None,
+    workers: Workers = None,
     json: JsonOpt = False,
 ) -> None:
     """Recollect and retry the unresolved identities from a retained receipt."""
     with result_boundary(json):
+        if lane == "fault" and workers is not None:
+            raise ResultError("--workers applies only to the ordinary lane")
         store = result_store(ctx)
         with store.lease(original), ExitStack() as receipts_open:
             manifest = store.show(original, role=lane)
             if manifest.details.get("custody_unsettled"):
                 raise ResultError(f"settle the predecessor with ci results recover {original}")
             receipts = _receipts(store, manifest, receipts_open, lane=lane)
+            if workers is not None and "ordinary" not in receipts:
+                raise ResultError("--workers requires an ordinary retry lane")
             with store.operation(
                 "test.retry",
                 observations=True,
                 scope={
                     "retry_of": original,
                     "required_lanes": [],
+                    "workers": {},
                 },
             ) as result:
                 outcomes: dict[str, str] = {}
@@ -1034,7 +1069,13 @@ def retry(
                             opened={path: fd},
                         )
                         result.manifest.scope["required_lanes"].append(current)
-                        outcomes[current] = _lane(result, current, selection=selection)
+                        result.manifest.scope["workers"][current] = {
+                            "requested": (workers or "auto") if current == "ordinary" else 0,
+                            "actual": None,
+                        }
+                        outcomes[current] = _lane(
+                            result, current, selection=selection, workers=workers
+                        )
                         if outcomes[current] == "interrupted" or result.manifest.details.get(
                             "custody_unsettled"
                         ):

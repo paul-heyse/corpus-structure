@@ -72,6 +72,130 @@ def _receipt(
     )
 
 
+@pytest.mark.parametrize("retry", [False, True])
+@pytest.mark.parametrize("workers", ["0", "-1", "1.5", "auto"])
+def test_cli_workers_reject_invalid_before_operation(cli, tmp_path, retry, workers):
+    arguments = ["test", *(["retry", "missing"] if retry else []), "--workers", workers]
+    result = cli(*arguments, env={"CORPUS_CI_RESULTS": str(tmp_path / "results")})
+    assert result.exit_code == 2, result.output
+    assert not (tmp_path / "results").exists()
+
+
+@pytest.mark.parametrize("retry", [False, True])
+def test_cli_fault_workers_reject_before_operation(cli, tmp_path, monkeypatch, retry):
+    from corpus_structure.cli import testing
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("fault worker refusal must precede validation, store access and execution")
+
+    monkeypatch.setattr(testing, "_validate", unexpected)
+    monkeypatch.setattr(testing, "result_store", unexpected)
+    arguments = [
+        "test",
+        *(["retry", "missing"] if retry else []),
+        "--lane",
+        "fault",
+        "--workers",
+        "1",
+        "--json",
+    ]
+    result = cli(*arguments, env={"CORPUS_CI_RESULTS": str(tmp_path / "results")})
+    assert result.exit_code == 1, result.output
+    assert "ordinary lane" in json.loads(result.stdout)["error"]["message"]
+    assert not (tmp_path / "results").exists()
+
+
+@pytest.mark.parametrize("retry", [False, True])
+@pytest.mark.parametrize("workers", [None, 1])
+def test_cli_workers_reach_owned_recipe_and_scope(cli, tmp_path, monkeypatch, retry, workers):
+    from corpus_structure.cli import testing
+
+    store = ResultStore(tmp_path / "results")
+    node = (
+        "tests/scripts/test_test_receipts.py::"
+        "test_worker_facts_keep_actual_count_separate_from_requested"
+    )
+    original_id = None
+    if retry:
+        with store.operation("test", scope={"lane": "ordinary"}) as original:
+            directory = original.directory / "ordinary"
+            _receipt(directory, [node], fail=True)
+            original.publish("ordinary", directory)
+            original.settle("failed", lanes={"ordinary": "failed"})
+            original_id = original.id
+    monkeypatch.setenv("CORPUS_CI_TEST_WORKERS", "999")
+    monkeypatch.setenv("PYTEST_XDIST_AUTO_NUM_WORKERS", "999")
+    calls = []
+    collections = []
+
+    def recipe(name, *args, env):
+        assert name == "test-all"
+        assert env.get("CORPUS_CI_TEST_WORKERS") == (str(workers) if workers else None)
+        assert env["CORPUS_CI_PYTHON_ONLY"] == "1"
+        if retry:
+            selection = Path(env["CORPUS_CI_SELECTION_FILE"])
+            assert selection.read_text() == node + "\n"
+        else:
+            assert args == (node,)
+        directory = Path(env["CORPUS_CI_RECEIPT_DIR"])
+        directory.mkdir()
+        (directory / "classification.json").write_text("{}")
+        facts = {"requested": workers or "auto", "actual": 1}
+        calls.append(facts)
+        return subprocess.CompletedProcess(
+            [],
+            0,
+            json.dumps(
+                {
+                    "counts": {"selected": 1, "passed": 1},
+                    "workers": facts,
+                    "custody_unsettled": False,
+                    "retryable": False,
+                    "status": "passed",
+                    "empty": False,
+                }
+            ),
+            "",
+        )
+
+    def supervisor(*args, **kwargs):
+        if args == ("context",):
+            return {}
+        if "--write-unresolved" in args:
+            collections.append(args)
+            Path(args[args.index("--write-unresolved") + 1]).write_text(node + "\n")
+        return {
+            "custody_unsettled": False,
+            "retryable": True,
+            "required_unresolved": [node],
+            "contexts": [{"invocation": {}}],
+        }
+
+    monkeypatch.setattr(testing, "run_recipe", recipe)
+    monkeypatch.setattr(testing, "_supervisor", supervisor)
+    monkeypatch.setattr(testing, "_validate", lambda args: True)
+    arguments = ["test", *(["retry", original_id, "--lane", "ordinary"] if retry else [])]
+    if workers is not None:
+        arguments += ["--workers", str(workers)]
+    arguments += ["--json"]
+    from corpus_structure.cli.app import app
+    from corpus_structure.cli.output import CliState
+
+    result = cli.runner.invoke(
+        app,
+        arguments,
+        obj=CliState(test_args=() if retry else (node,)),
+        env={"CORPUS_CI_RESULTS": str(store.root)},
+    )
+    assert result.exit_code == 0, result.output
+    manifest = store.show(json.loads(result.stdout)["id"])
+    assert manifest.scope["workers"] == {"ordinary": calls[0]}
+    assert manifest.scope["required_lanes"] == ["ordinary"]
+    assert len(collections) == int(retry)
+    if retry:
+        assert "--managed-selection" in collections[0]
+
+
 def test_installed_compact_coverage_and_exact_failures(tmp_path):
     store = ResultStore(tmp_path)
     nodes = [f"tests/test_sample.py::test_case_{index:03}" for index in range(103)]

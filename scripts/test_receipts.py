@@ -820,6 +820,15 @@ def _worker_facts(events: list[dict[str, Any]]) -> dict[str, Any]:
             active.discard(worker)
         peak = max(peak, len(active))
     return {
+        "actual": next(
+            (e["count"] for e in events if e.get("event") == "workers_created"),
+            0
+            if any(
+                e.get("event") == "session_start" and e.get("xdist_numprocesses") == 0
+                for e in events
+            )
+            else None,
+        ),
         "created": [e for e in events if e.get("event") == "workers_created"],
         "ready": sorted({e["ready_worker"] for e in events if e.get("event") == "worker_ready"}),
         "executing": executing,
@@ -1010,13 +1019,14 @@ def classify(
 
 def _coverage_context(contexts: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
     """Compare recorded facts without treating unknown as a different value."""
-    observations: dict[str, list[Any]] = {"source": [], "python": []}
+    observations: dict[str, list[Any]] = {"source": [], "python": [], "workers": []}
     observations.update({name: [] for name in _INVOCATION_PACKAGES})
     for context in contexts:
         invocation = context["invocation"] or {}
         versions = invocation.get("versions") or {}
         observations["source"].append(invocation.get("source"))
         observations["python"].append(invocation.get("python"))
+        observations["workers"].append(invocation.get("workers"))
         for name in _INVOCATION_PACKAGES:
             observations[name].append(versions.get(name))
         provenance = context["native_provenance"]["status"]
@@ -1406,6 +1416,16 @@ def _positive_timeout(value: str) -> float:
     return timeout
 
 
+def _positive_workers(value: str) -> int:
+    try:
+        workers = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("workers must be a positive integer") from error
+    if workers <= 0:
+        raise argparse.ArgumentTypeError("workers must be a positive integer")
+    return workers
+
+
 def _canonical_node_id(node: object) -> bool:
     return (
         isinstance(node, str)
@@ -1533,8 +1553,17 @@ def validate_pytest_args(args: list[str]) -> bool:
 
 
 def _managed_pytest_args(
-    args: list[str], *, lane: str, directory: Path, selection_file: Path | None
+    args: list[str],
+    *,
+    lane: str,
+    directory: Path,
+    selection_file: Path | None,
+    workers: int | None = None,
 ) -> list[str]:
+    if workers is not None and (type(workers) is not int or workers <= 0):
+        raise ValueError("workers must be a positive integer")
+    if lane == "fault" and workers is not None:
+        raise ValueError("--workers applies only to the ordinary lane")
     has_selector = validate_pytest_args(args)
     if lane == "fault" and has_selector:
         raise ValueError("the exclusive fault lane owns its selection")
@@ -1554,7 +1583,14 @@ def _managed_pytest_args(
     if lane == "fault":
         selectors = [] if has_selector else ["tests/scripts/test_native_auth.py"]
         return ["-n", "0", "-m", "shared_cluster_fault", *selectors, *args]
-    return ["-n", "auto", "--dist=loadgroup", "-m", "not shared_cluster_fault", *args]
+    return [
+        "-n",
+        str(workers) if workers is not None else "auto",
+        "--dist=loadgroup",
+        "-m",
+        "not shared_cluster_fault",
+        *args,
+    ]
 
 
 def _after_separator(args: list[str]) -> list[str]:
@@ -1568,6 +1604,7 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--out-dir", type=Path, required=True)
     run.add_argument("--python-only", action="store_true")
     run.add_argument("--managed-lane", choices=("ordinary", "fault"))
+    run.add_argument("--workers", type=_positive_workers)
     run.add_argument("--selection-file", type=Path)
     run.add_argument("--test-timeout", type=_positive_timeout, default=TEST_TIMEOUT)
     run.add_argument("--command-timeout", type=_positive_timeout, default=SESSION_TIMEOUT)
@@ -1650,10 +1687,13 @@ def main(argv: list[str] | None = None) -> int:
                     lane=args.managed_lane,
                     directory=directory,
                     selection_file=args.selection_file,
+                    workers=args.workers,
                 )
                 args.python_only |= args.managed_lane == "fault"
             elif args.selection_file is not None:
                 raise ValueError("retry selection files require a managed lane")
+            elif args.workers is not None:
+                raise ValueError("--workers requires the managed ordinary lane")
         except (OSError, ValueError) as error:
             parser.error(str(error))
         directory.mkdir(parents=not args.managed_lane, exist_ok=False, mode=0o700)
@@ -1669,6 +1709,14 @@ def main(argv: list[str] | None = None) -> int:
                     "test_timeout": args.test_timeout,
                     "python_only": args.python_only,
                     "managed_lane": args.managed_lane,
+                    "workers": {
+                        "requested": (args.workers or "auto")
+                        if args.managed_lane == "ordinary"
+                        else 0
+                        if args.managed_lane == "fault"
+                        else None,
+                        "actual": None,
+                    },
                 },
             )
             process = run_python(
@@ -1692,6 +1740,9 @@ def main(argv: list[str] | None = None) -> int:
                 )
             control.persist(directory)
             result = classify([directory])
+            invocation = result["receipts"][0]["invocation"]
+            invocation["workers"]["actual"] = result["receipts"][0]["worker_facts"]["actual"]
+            write_json(directory / "invocation.json", invocation)
             write_json(directory / "classification.json", result)
     if args.action == "run" and args.managed_lane:
         receipt = result["receipts"][0]
@@ -1702,6 +1753,7 @@ def main(argv: list[str] | None = None) -> int:
                     "custody_unsettled": result["custody_unsettled"],
                     "empty": not receipt["selected"] and receipt["reporting_complete"],
                     "retryable": _retryable(result),
+                    "workers": receipt["invocation"]["workers"],
                     "counts": {"selected": len(receipt["selected"])}
                     | dict(Counter(node["status"] for node in receipt["nodes"].values())),
                 }
