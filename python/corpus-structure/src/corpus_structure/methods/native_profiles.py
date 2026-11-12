@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
@@ -12,6 +13,18 @@ from corpus_structure.semantic.identity import canonical_bytes
 
 Provider = Literal["d1", "gliner", "hanlp", "spacy", "maverick", "dipo"]
 _PROVIDERS = frozenset({"d1", "gliner", "hanlp", "spacy", "maverick", "dipo"})
+
+
+def admitted_startup_matches(observed: Mapping[str, Any], admitted: Mapping[str, Any]) -> bool:
+    """Compare the admitted startup contract without a process-local stream handle.
+
+    This is deliberately a closed exception, not subset matching: all model,
+    artifact, runtime, numerical and thread fields (including unknown future
+    fields) must remain equal. Original config/receipt digests stay untouched.
+    """
+    return {key: value for key, value in observed.items() if key != "host_stream"} == {
+        key: value for key, value in admitted.items() if key != "host_stream"
+    }
 
 
 @dataclass(frozen=True, init=False)

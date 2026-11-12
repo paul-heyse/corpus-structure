@@ -118,7 +118,7 @@ def test_alternate_domain_parser_run_retains_siblings_after_profile_refusal(
         row["semantic_type"] for population, row in rows if population == "contribution"
     }
     operations = [row for population, row in rows if population == "operation"]
-    assert {"linguistic.predicate_frame", "maverick.cluster", "dipo.tree"} <= semantic_types, [
+    assert {"linguistic.constituent", "maverick.cluster", "dipo.tree"} <= semantic_types, [
         {key: row.get(key) for key in ("question", "outcome", "reason")} for row in operations
     ]
     assert any(

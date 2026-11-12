@@ -43,7 +43,7 @@ configs:                                               # named configurations, r
     default:
       gliner_profile:
         provider: gliner
-        device: cpu
+        device: cuda
         profile:
           snapshot: /home/paul/.cache/huggingface/hub/models--fastino--gliner2.5-base-v1/snapshots/54785d51df8d86a0d8f2eb212fec15871aad2c4d
           checkpoint: fastino/gliner2.5-base-v1

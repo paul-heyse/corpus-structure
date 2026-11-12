@@ -214,7 +214,7 @@ def test_completed_empty_d1_keeps_native_empty_and_publishes_unresolved_question
             settle_pm2_claim(
                 owner,
                 held,
-                cast(HostedPM2, SimpleNamespace(startup=profile)),
+                cast(HostedPM2, SimpleNamespace(startup={**profile, "host_stream": 901})),
                 mapping,
                 request,
                 expected_profile=profile,

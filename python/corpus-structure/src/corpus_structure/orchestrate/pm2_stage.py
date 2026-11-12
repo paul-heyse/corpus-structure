@@ -1125,7 +1125,11 @@ def _run_scopes(
                             )
                             with worker_context as worker:
                                 entered = True
-                                if worker.startup != profile.startup:
+                                from corpus_structure.methods.native_profiles import (
+                                    admitted_startup_matches,
+                                )
+
+                                if not admitted_startup_matches(worker.startup, profile.startup):
                                     startup_error = (
                                         "loaded parser differs from the admitted profile"
                                     )

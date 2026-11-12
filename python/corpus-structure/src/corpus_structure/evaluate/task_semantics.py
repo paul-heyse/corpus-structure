@@ -39,6 +39,11 @@ Operator value is modality:<exact declared option> (epistemic/deontic/dynamic/ot
 no_modal/insufficient), never a probability or native auxiliary alias. The operator
 is anchored at its located modal cue; cue and target assertions point to literal
 source entities. Absent/insufficient/withheld questions never fabricate a relation.
+model-question-source-v1 supports host_choice/referent_choice only. Question operators
+use value=<task>:<answer state> at the frozen focal source, with focus and host/referent
+roles to exact source entities. Only explicitly compatible offered host sets have
+multiple endpoints; nonpositive states preserve focus without inventing an endpoint.
+Retained candidate identities, extents and external choices supply all correspondence.
 contextual-source-hypotheses-1 binding: declared_binding_site links binder to its
 explicit variable site. Reference/binding/host assertions retain their literal
 context-role names. Private hypotheses remain private in returned witnesses.
@@ -82,6 +87,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.observations import source_python
 
 VERSION = "characterization-task-reference-v1"
 
@@ -130,6 +136,8 @@ TASK_ROLES = {
     "binding": frozenset({"variable", "declared_binding_site"}),
     "choices": frozenset(),
     "modal_force": frozenset({"cue", "target"}),
+    "host_choice": frozenset({"focus", "host"}),
+    "referent_choice": frozenset({"focus", "referent"}),
     "formal": frozenset(
         {
             "left",
@@ -169,6 +177,8 @@ ROLE_DEFINITIONS = {
     "auxiliary": "Explicit auxiliary.",
     "aspect": "Explicit aspect cue.",
     "focus": "Declared focal endpoint.",
+    "host": "Exact source endpoint of the selected offered host or compatible host set.",
+    "referent": "Exact source antecedent selected from the frozen offered population.",
     "governor": "Declared governing endpoint.",
     "head": "Declared head.",
     "modifier": "Declared modifier.",
@@ -262,9 +272,21 @@ class JointQuery(_Closed):
 
 class SemanticTaskReference(_Closed):
     version: Literal["characterization-task-reference-v1"]
-    task: Literal["roles", "scope", "binding", "choices", "modal_force", "formal"]
+    task: Literal[
+        "roles",
+        "scope",
+        "binding",
+        "choices",
+        "modal_force",
+        "formal",
+        "host_choice",
+        "referent_choice",
+    ]
     role_scheme: Literal[
-        "construction-children-v1", "contextual-source-hypotheses-1", "formal-children-v1"
+        "construction-children-v1",
+        "contextual-source-hypotheses-1",
+        "formal-children-v1",
+        "model-question-source-v1",
     ]
     mode: Literal["witness", "complete_slots"]
     focus: str = Field(min_length=1)
@@ -328,6 +350,10 @@ class SemanticTaskReference(_Closed):
             raise ValueError("formal task and formal-child scheme must be selected together")
         if self.role_scheme == "contextual-source-hypotheses-1" and self.task != "binding":
             raise ValueError("contextual scheme currently declares only binding tasks")
+        if (self.role_scheme == "model-question-source-v1") != (
+            self.task in {"host_choice", "referent_choice"}
+        ):
+            raise ValueError("candidate question tasks require the model-question source scheme")
         return self
 
 
@@ -669,6 +695,20 @@ class TaskPopulation:
         try:
             row = self.nodes[key]["value"]
             collection, kind = row["collection"], row.get("kind")
+            if (
+                source
+                and self.reference.task in {"host_choice", "referent_choice"}
+                and collection in {"terms", "annotations"}
+            ):
+                identity = key + "#source"
+                self.entities[identity] = dict(
+                    id=identity,
+                    kind="source",
+                    extents=self.extents(key),
+                    value=None,
+                    witness=self.nodes[key]["qualified_identity"],
+                )
+                return identity
             if collection == "annotations" and kind in {
                 "context.symbolic_site",
                 "context.evidence_site",
@@ -680,6 +720,16 @@ class TaskPopulation:
                     )
                 return self.entity(endpoints[0]["target"], variable=variable, source=source)
             children = self.links(key, "child")
+            if source and collection == "annotations":
+                identity = key + "#source"
+                self.entities[identity] = dict(
+                    id=identity,
+                    kind="source",
+                    extents=self.extents(key),
+                    value=None,
+                    witness=self.nodes[key]["qualified_identity"],
+                )
+                return identity
             if collection == "terms":
                 readings = [e for e in children if e.get("role") == "reading"]
                 if len(children) == len(readings) == 1:
@@ -768,6 +818,11 @@ class TaskPopulation:
 
     def build(self):
         ref = self.reference
+        if ref.task in {"host_choice", "referent_choice"}:
+            self._candidate_questions()
+            if ref.groups or any(a["requires"] for a in self.assertions):
+                self._choices()
+            return self
         if ref.task == "formal":
             if self.family != "formal.math" or ref.role_scheme != "formal-children-v1":
                 raise ContractUnavailable(
@@ -919,6 +974,161 @@ class TaskPopulation:
             self._choices()
         return self
 
+    def _candidate_questions(self):
+        """Read the frozen question population, never infer language or candidate identity."""
+        task = self.reference.task
+        family, question, role = (
+            ("character_host_choice_v1", "host", "host")
+            if task == "host_choice"
+            else ("character_referent_choice_v1", "referent", "referent")
+        )
+        if self.family != family:
+            raise ContractUnavailable("candidate question family differs from declared task")
+        index = {
+            (
+                canonical_bytes(n["qualified_identity"]["layer"]),
+                n["qualified_identity"]["local_id"],
+            ): k
+            for k, n in self.nodes.items()
+        }
+
+        def resolve(reference):
+            try:
+                return index[(canonical_bytes(reference["layer"]), reference["local_id"])]
+            except (KeyError, TypeError) as error:
+                raise ContractUnavailable(
+                    "frozen candidate lacks its exact retained endpoint"
+                ) from error
+
+        def endpoint(description):
+            key = resolve(description["reference"])
+            expected = [
+                {field: extent[field] for field in _EXTENTS}
+                for extent in description["source_members"]
+            ]
+            if self.extents(key) != expected:
+                raise ContractUnavailable("frozen candidate source differs from retained endpoint")
+            identity = key + "#source"
+            self.entities[identity] = dict(
+                id=identity,
+                kind="source",
+                extents=expected,
+                value=None,
+                witness=self.nodes[key]["qualified_identity"],
+            )
+            return identity
+
+        def required(*descriptions):
+            return sorted(
+                {
+                    resolve(choice)
+                    for d in descriptions
+                    for choice in d.get("required_external_choices", ())
+                }
+            )
+
+        for key, node in self.nodes.items():
+            row = node["value"]
+            answer = row.get("model_answer", {})
+            if (
+                row["collection"] != "annotations"
+                or row.get("family") != family
+                or answer.get("question_key") != question
+                or (self.output_first and key not in self.claim_roots)
+            ):
+                continue
+            if not self.output_first:
+                expected_focus = next(
+                    entity
+                    for entity in self.reference.entities
+                    if entity.id == self.reference.focus
+                )
+                # A missing request is an unavailable result only where its recorded
+                # question scope intersects the independently inspected focal source.
+                # Other scopes cannot poison this source-first question's population.
+                if not any(
+                    all(actual[field] == getattr(expected, field) for field in _EXTENTS[:3])
+                    and actual["start"] < expected.end
+                    and expected.start < actual["end"]
+                    for actual in self.extents(key)
+                    for expected in expected_focus.extents
+                ):
+                    continue
+            if answer.get("family") != family or answer.get("answer_kind") != "choice":
+                raise ContractUnavailable("candidate question is not the declared typed choice")
+            try:
+                native = source_python(answer["native_answer"])
+                frozen = native["request"]["interpretation"]["frozen_candidates"]
+                focus = frozen["focus"]
+                alternatives = {a["key"]: a for a in frozen["alternatives"]}
+                if len(alternatives) != len(frozen["alternatives"]):
+                    raise ContractUnavailable("frozen candidate keys are not unique")
+                focus_id = endpoint(focus)
+                state = answer["state"]
+                operator = key + "#" + task
+                self.entities[operator] = dict(
+                    id=operator,
+                    kind="operator",
+                    extents=self.entities[focus_id]["extents"],
+                    value=task + ":" + state,
+                    witness=node["qualified_identity"],
+                )
+                self.assertions.append(
+                    dict(
+                        subject=operator,
+                        relation="focus",
+                        object=focus_id,
+                        requires=required(focus),
+                        order=None,
+                        standing="private_proposal",
+                        witness=node["qualified_identity"],
+                    )
+                )
+                selected = answer.get("selected_keys", ())
+                if state != "proposed":
+                    if selected:
+                        raise ContractUnavailable(
+                            "nonpositive candidate answer selects an endpoint"
+                        )
+                    continue
+                if len(selected) != 1 or selected[0] not in alternatives:
+                    raise ContractUnavailable(
+                        "selected candidate was not one frozen offered option"
+                    )
+                offered = alternatives[selected[0]]
+                members = offered["members"]
+                if not members or (
+                    len(members) > 1
+                    and (task != "host_choice" or offered.get("compatibility") != "compatible")
+                ):
+                    raise ContractUnavailable(
+                        "multiple endpoints lack explicit compatible host-set meaning"
+                    )
+                if len({canonical_bytes(m["reference"]) for m in members}) != len(members):
+                    raise ContractUnavailable("candidate option repeats an endpoint")
+                for member in members:
+                    target = endpoint(member)
+                    for support in offered.get(
+                        "hypothesis_supports", [dict(required_external_choices=[])]
+                    ):
+                        self.assertions.append(
+                            dict(
+                                subject=operator,
+                                relation=role,
+                                object=target,
+                                requires=required(focus, member, support),
+                                order=None,
+                                standing="private_proposal",
+                                witness=node["qualified_identity"],
+                            )
+                        )
+            except (KeyError, TypeError, ValueError) as error:
+                if isinstance(error, ContractUnavailable):
+                    raise
+                raise ContractUnavailable(
+                    "candidate question lacks its exact frozen source population"
+                ) from error
+
     def _modal_questions(self):
         local_index = {
             (
@@ -1037,7 +1247,10 @@ class TaskPopulation:
                         id=member_id,
                         root=self.formal_entity(roots[0]["target"])
                         if self.reference.task == "formal"
-                        else self.entity(roots[0]["target"]),
+                        else self.entity(
+                            roots[0]["target"],
+                            source=self.reference.task in {"host_choice", "referent_choice"},
+                        ),
                         requires=self.requirements(member_id),
                     )
                 )

@@ -579,3 +579,43 @@ def test_real_host_close_kills_descendant_even_after_leader_was_reaped(physical_
     host.close(grace_seconds=0)
     assert not native_host._live_group(host._process.pid)
     assert not host._reader.is_alive()
+
+
+@pytest.mark.parametrize(
+    "changed",
+    [
+        "head",
+        "runtime_identity",
+        "assets",
+        "device",
+        "dtype",
+        "backend",
+        "native_threads",
+        "profile",
+        "new_semantic_field",
+    ],
+)
+def test_parser_startup_comparison_excludes_only_process_local_stream(changed):
+    from corpus_structure.methods.native_profiles import admitted_startup_matches
+
+    admitted: dict[str, Any] = dict(
+        provider="hanlp",
+        head="mtl",
+        runtime_identity={"python": "3.14.10"},
+        assets={"checkpoint": "exact"},
+        device="cuda:0",
+        dtype="torch.float32",
+        backend="sdpa",
+        native_threads={"intra_op": 4, "inter_op": 1},
+        profile="frozen",
+        host_stream=123,
+    )
+    observed: dict[str, Any] = {**admitted, "host_stream": 987}
+    assert admitted_startup_matches(observed, admitted)
+    assert admitted_startup_matches(
+        {key: value for key, value in observed.items() if key != "host_stream"}, admitted
+    )
+    observed[changed] = "different"
+    assert not admitted_startup_matches(observed, admitted)
+    # Ignoring the handle at admission cannot rewrite historical receipt identity.
+    assert admitted["host_stream"] == 123

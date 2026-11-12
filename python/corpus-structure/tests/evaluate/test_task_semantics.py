@@ -1326,3 +1326,290 @@ def test_output_first_choice_cannot_substitute_correct_unselected_witness_group(
     # Source-first witness semantics still asks whether the relevant population
     # contains a supported positive characterization, rather than a selected ID.
     assert score_task(ref, "construction.scope", selected("first"))["exact_match"] is True
+
+
+def candidate_question_wire(
+    task: str = "host_choice", *, state: str = "proposed", compatible: bool = False
+) -> dict[str, Any]:
+    family = "character_host_choice_v1" if task == "host_choice" else "character_referent_choice_v1"
+    question = "host" if task == "host_choice" else "referent"
+
+    def description(identity: str, start: int, end: int) -> dict[str, Any]:
+        return dict(
+            reference=dict(layer=PIN, local_id=identity),
+            source_members=[extent(start, end)],
+            required_external_choices=[],
+        )
+
+    focus = description("focal", 0, 2)
+    members = [description("endpoint", 3, 6)]
+    if compatible:
+        members.append(description("second", 7, 9))
+    frozen = dict(
+        focus=focus,
+        alternatives=[
+            dict(
+                key="offered-1",
+                members=members,
+                compatibility="compatible" if compatible else "exclusive",
+            )
+        ],
+    )
+    return dict(
+        annotations=[
+            dict(
+                local_id=identity,
+                kind="native.mention",
+                occurrences=[identity + "-loc"],
+                family="context.reference",
+            )
+            for identity in ("focal", "endpoint", "second")
+        ]
+        + [
+            dict(
+                local_id="question",
+                kind="model.question",
+                family=family,
+                occurrences=["focal-loc"],
+                external_premises=[
+                    dict(layer=PIN, local_id=identity)
+                    for identity in ("focal", "endpoint", "second")
+                ],
+                model_answer=dict(
+                    family=family,
+                    question_key=question,
+                    answer_kind="choice",
+                    state=state,
+                    selected_keys=["offered-1"] if state == "proposed" else [],
+                    native_answer=dict(request=dict(interpretation=dict(frozen_candidates=frozen))),
+                ),
+            )
+        ],
+        occurrences=[
+            dict(local_id=identity + "-loc", extents=[extent(a, b)])
+            for identity, a, b in (("focal", 0, 2), ("endpoint", 3, 6), ("second", 7, 9))
+        ],
+        coverage=[],
+    )
+
+
+def candidate_question_reference(
+    task: str = "host_choice", *, state: str = "proposed", compatible: bool = False
+) -> dict[str, Any]:
+    role = "host" if task == "host_choice" else "referent"
+    endpoints = [entity("target", "source", 3, 6)] if state == "proposed" else []
+    if compatible and state == "proposed":
+        endpoints.append(entity("second", "source", 7, 9))
+    return reference(
+        task=task,
+        role_scheme="model-question-source-v1",
+        focus="question",
+        entities=[
+            entity("question", "operator", 0, 2, value=task + ":" + state),
+            entity("focus", "source", 0, 2),
+            *endpoints,
+        ],
+        assertions=[
+            dict(subject="question", relation="focus", object="focus", standing="private_proposal"),
+            *(
+                dict(subject="question", relation=role, object=e["id"], standing="private_proposal")
+                for e in endpoints
+            ),
+        ],
+        complete_slots=[dict(subject="question", relation=r) for r in ("focus", role)],
+    )
+
+
+def candidate_predictions(wire: dict[str, Any], **kwargs):
+    from corpus_structure.semantic.observations import source_value
+
+    retained = deepcopy(wire)
+    for node in retained["annotations"]:
+        if "native_answer" in node.get("model_answer", {}):
+            node["model_answer"]["native_answer"] = source_value(
+                node["model_answer"]["native_answer"]
+            )
+    return predictions(retained, **kwargs)
+
+
+@pytest.mark.parametrize("task", ["host_choice", "referent_choice"])
+def test_candidate_question_task_resolves_frozen_exact_source_endpoints(task):
+    wire = candidate_question_wire(task)
+    family = wire["annotations"][-1]["family"]
+    result = score_task(candidate_question_reference(task), family, candidate_predictions(wire))
+    assert result["status"] == "scored" and result["exact_match"] is True
+    wrong = candidate_question_reference(task)
+    wrong["entities"][-1]["extents"] = [extent(7, 9)]
+    assert score_task(wrong, family, candidate_predictions(wire))["exact_match"] is False
+    assert (
+        score_task(
+            candidate_question_reference(task),
+            family,
+            candidate_predictions(wire, selected=["question"]),
+            output_first=True,
+        )["exact_match"]
+        is True
+    )
+    assert (
+        score_task(
+            candidate_question_reference(task),
+            family,
+            candidate_predictions(wire, selected=["endpoint"]),
+            output_first=True,
+        )["exact_match"]
+        is False
+    )
+
+
+@pytest.mark.parametrize(
+    "state", ["no_match", "missing_candidate", "insufficient_evidence", "withheld"]
+)
+def test_candidate_question_nonpositive_states_remain_distinct_without_invented_edges(state):
+    wire = candidate_question_wire(state=state)
+    family = wire["annotations"][-1]["family"]
+    assert (
+        score_task(candidate_question_reference(state=state), family, candidate_predictions(wire))[
+            "exact_match"
+        ]
+        is True
+    )
+    assert (
+        score_task(
+            candidate_question_reference(state="proposed"), family, candidate_predictions(wire)
+        )["exact_match"]
+        is False
+    )
+
+
+def test_candidate_question_compatible_host_set_keeps_every_member():
+    wire = candidate_question_wire(compatible=True)
+    family = wire["annotations"][-1]["family"]
+    assert (
+        score_task(
+            candidate_question_reference(compatible=True), family, candidate_predictions(wire)
+        )["exact_match"]
+        is True
+    )
+    assert (
+        score_task(candidate_question_reference(), family, candidate_predictions(wire))[
+            "exact_match"
+        ]
+        is False
+    )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["unoffered", "wrong_source", "wrong_identity", "incompatible", "duplicate", "missing_choice"],
+)
+def test_candidate_question_refuses_unbound_or_undeclared_frozen_population(mutation):
+    wire = candidate_question_wire(compatible=True)
+    answer = wire["annotations"][-1]["model_answer"]
+    frozen = answer["native_answer"]["request"]["interpretation"]["frozen_candidates"]
+    offered = frozen["alternatives"][0]
+    if mutation == "unoffered":
+        answer["selected_keys"] = ["not-offered"]
+    elif mutation == "wrong_source":
+        offered["members"][0]["source_members"][0]["source_view_id"] = 99
+    elif mutation == "wrong_identity":
+        offered["members"][0]["reference"]["layer"] = dict(PIN, task_id=88)
+    elif mutation == "incompatible":
+        offered["compatibility"] = "exclusive"
+    elif mutation == "missing_choice":
+        offered["members"][0]["required_external_choices"] = [
+            dict(layer=PIN, local_id="unretained-choice")
+        ]
+    else:
+        offered["members"].append(deepcopy(offered["members"][0]))
+    result = score_task(
+        candidate_question_reference(compatible=True),
+        "character_host_choice_v1",
+        candidate_predictions(wire),
+    )
+    assert result["status"] == "unavailable"
+
+
+@pytest.mark.parametrize("state", ["failed", "dependency_unresolved"])
+def test_candidate_question_unavailable_scope_does_not_poison_other_foci(state):
+    wire = candidate_question_wire()
+    failed = deepcopy(wire["annotations"][-1])
+    failed.update(local_id="failed-question", occurrences=["other-loc"], external_premises=[])
+    failed["model_answer"].update(state=state, selected_keys=[])
+    failed["model_answer"].pop("native_answer")
+    wire["annotations"].append(failed)
+    wire["occurrences"].append(dict(local_id="other-loc", extents=[extent(15, 20)]))
+    assert (
+        score_task(
+            candidate_question_reference(), "character_host_choice_v1", candidate_predictions(wire)
+        )["exact_match"]
+        is True
+    )
+    failed["occurrences"] = ["focal-loc"]
+    assert (
+        score_task(
+            candidate_question_reference(), "character_host_choice_v1", candidate_predictions(wire)
+        )["status"]
+        == "unavailable"
+    )
+    wire["annotations"] = [row for row in wire["annotations"] if row["local_id"] != "question"]
+    failed["occurrences"] = ["other-loc"]
+    result = score_task(
+        candidate_question_reference(), "character_host_choice_v1", candidate_predictions(wire)
+    )
+    assert result["status"] == "scored" and result["exact_match"] is False
+
+
+def test_candidate_choice_prerequisite_preserves_full_term_root_not_normalized_head():
+    wire = candidate_question_wire()
+    # The offered endpoint is an entire retained predicate term; its lexical head
+    # is narrower. Choice roots and selected endpoints must use the same exact one.
+    wire["annotations"] = [row for row in wire["annotations"] if row["local_id"] != "endpoint"]
+    wire["terms"] = [
+        dict(
+            local_id="endpoint",
+            family="construction.predication",
+            kind="predicate",
+            occurrences=["endpoint-loc"],
+            children=[dict(role="predicate", target="head", structural=True)],
+        ),
+        dict(
+            local_id="head",
+            family="construction.predication",
+            kind="participant",
+            occurrences=["head-loc"],
+            children=[],
+        ),
+    ]
+    wire["occurrences"].append(dict(local_id="head-loc", extents=[extent(4, 5)]))
+    wire["choices"] = [
+        dict(
+            local_id="host-choice",
+            family="construction.predication",
+            compatibility="exclusive",
+            members=[dict(local_id="host-member", root="endpoint")],
+        )
+    ]
+    question = wire["annotations"][-1]
+    question["external_premises"].append(dict(layer=PIN, local_id="host-member"))
+    frozen = question["model_answer"]["native_answer"]["request"]["interpretation"][
+        "frozen_candidates"
+    ]
+    frozen["alternatives"][0]["members"][0]["required_external_choices"] = [
+        dict(layer=PIN, local_id="host-member")
+    ]
+    ref = candidate_question_reference()
+    ref["groups"] = [
+        dict(
+            id="selected-host",
+            compatibility="exclusive",
+            members=[dict(id="one-host", root="target")],
+        )
+    ]
+    ref["assertions"][-1]["requires"] = ["one-host"]
+    result = score_task(ref, "character_host_choice_v1", candidate_predictions(wire))
+    assert result["status"] == "scored" and result["exact_match"] is True
+    ref["entities"][-1]["extents"] = [extent(4, 5)]
+    assert (
+        score_task(ref, "character_host_choice_v1", candidate_predictions(wire))["exact_match"]
+        is False
+    )

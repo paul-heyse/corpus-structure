@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import func, select
 
 from corpus_structure.core.method import UnitRef
+from corpus_structure.methods.native_profiles import admitted_startup_matches
 from corpus_structure.methods.pm2_products import PARSER_QUESTIONS
 from corpus_structure.methods.pm2_result import (
     pm2_input_digest,
@@ -62,7 +63,7 @@ def settle_pm2_claim(
     if admitted is None:
         raise OperationConflict("PM2 claim attempt lost before inference")
     if (
-        (worker is not None and worker.startup != expected_profile)
+        (worker is not None and not admitted_startup_matches(worker.startup, expected_profile))
         or admitted
         != pm2_input_digest(
             mapping,
