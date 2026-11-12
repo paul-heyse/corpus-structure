@@ -172,6 +172,28 @@ claim. It did not reread the reading union. Its effect on the published account:
 - **Confirmed as drafted:** DTA-018, and the corrections of DTA-021, DTA-022, DTA-023 and the
   qualification limit.
 
+## Refinements returned by the design review — 2026-11-12
+
+The [design review of test architecture and efficiency](../reviews/design_review_test-architecture-and-efficiency_2026-11-12.md)
+consumed this account at publication `cf24c0e80` and reconciled it to `main` `784d86f11`, where
+every site cited in the files that were dirty at capture is unchanged. Its reviewer challenged
+each diagnosis; the following refinements are recorded in the topic pages with that attribution
+and were confirmed in source by the coordinator:
+
+- **DTA-025:** two listed families leave the footprint as written (one commits per case, one has
+  genuinely different scenarios); the lease premise is narrower.
+- **DTA-009:** the open duplicate-module question is settled: test modules in non-package
+  directories that are imported by absolute name load twice.
+- **DTA-029:** seven copies rather than nine; the digest handling splits three to three.
+- **DTA-030:** a second sweep-escaping database name and one unreferenced support module.
+- **DTA-026:** production's adapter shares the dependency on executor internals; the
+  test-specific concern is writing private attributes.
+
+The review's own findings (`F01` sweep and lease keys differ, `F02` module- and session-scoped
+preparation rebuilt per worker, `F03` committing consumers rebuild identical scenarios) keep
+their review identities and are not copied here. Remedies, rule impacts and current
+dispositions live in the review.
+
 ## Library and system-tooling assessment
 
 No new library research was needed for this refresh; the 2026-11-05 assessment of pytest,

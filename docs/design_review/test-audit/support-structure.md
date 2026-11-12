@@ -71,12 +71,19 @@ coupling currently changes what a test asserts. Dedicated owners already exist a
 alternative (`domain_scenarios.py`, `reference_scenarios.py`, `serving_scenarios.py`,
 `witnessed_scenario_support.py`, root `tests/pdf_region_support.py`);
 `tests/semantic/test_scenario_ports.py:59–87` guards against eager preparation at import.
-The same support module is imported under two names in places
-(`tests/semantic/test_native_attributed_evidence.py:33` uses `semantic.native_record_fixtures`
-while `:35–36` use the relative form; `test_runtime_identity.py:24` uses the absolute
-`semantic.test_execution_release` where siblings use the relative one). Whether that yields
-two module objects, and so duplicated fixtures and caches, under `--import-mode=importlib` was
-not determined.
+Test modules are also loaded twice in some cases (settled by the
+[design review](../reviews/design_review_test-architecture-and-efficiency_2026-11-12.md),
+2026-11-12, from pytest 9.1.1's `import_path`). Only `tests/semantic/` and `tests/methods/` are
+packages. A test file in a non-package directory is collected under a rootdir-relative module
+name, and importing it by absolute name through the configured `pythonpath` executes the file
+again as a second module object with its own classes, fixtures and caches. Importers exist, for
+example `from evaluate.test_operation_assessment_native import freeze`
+(`tests/evaluate/test_characterization_assessment_native.py:10`,
+`tests/semantic/test_review_cli_native.py:13`) and `from ingest.test_annotations import …`
+(`tests/semantic/test_nce02_native_scope.py:103`, `tests/methods/test_native_evidence.py:9`).
+Absolute and relative imports of `semantic.*` and `methods.*` modules resolve to one module, so
+they are not duplicates. Whether the duplicated state changes any test's result was not
+established.
 
 **Large mode-flag builders decide unrelated cases.** `build_domain_case`
 (`tests/semantic/domain_scenarios.py:65–95`) takes about twenty-five keyword switches and
@@ -92,24 +99,24 @@ fragment are recorded under [DTA-018](execution-and-qualification.md#dta-018).
 **FP-03/04, DP-06/16; A3; companion §2.** The sequence that turns a controlled annotation into
 a native primary layer — construct `NativeEvidenceBuilder`, call `native.spacy(...)`, build
 `native_run("spacy", "spacy_only", …)`, attach availability rows mapped through
-`SPACY_COLUMNS`, then finish — is written out separately in
-`tests/methods/primary_reading_fixture.py:84–104`, `tests/methods/navigation_fixture.py:56–75`,
-`tests/methods/test_construction_named.py:95–111`,
-`tests/methods/test_contextual_characterization.py:46–57`,
-`tests/methods/test_math_scope_primary.py`, `tests/methods/test_m1_producer.py`,
-`tests/methods/test_primary_reading_consumers.py`,
-`tests/methods/test_definition_declaration_primary.py` and `tests/native_math_primary.py`.
-`tests/methods/test_native_evidence.py` constructs the builder as its subject under test and is
-not part of this footprint.
+`SPACY_COLUMNS`, then finish — is written out separately in seven files:
+`tests/methods/primary_reading_fixture.py:83–104`, `tests/methods/navigation_fixture.py:47–75`,
+`tests/native_math_primary.py:84–118`, `tests/methods/test_math_scope_primary.py:82–90`,
+`tests/methods/test_construction_named.py:93–111`, `tests/methods/test_m1_producer.py:187–198`
+and `tests/methods/test_primary_reading_consumers.py:116–142`. Not part of this footprint
+(footprint refined by the [design review](../reviews/design_review_test-architecture-and-efficiency_2026-11-12.md),
+2026-11-12): `tests/methods/test_native_evidence.py` constructs the builder as its subject under
+test, `tests/methods/test_contextual_characterization.py:46–57` only appends provider metadata
+rows, and `tests/methods/test_definition_declaration_primary.py` uses the HanLP path.
 
 The copies restate how production assembles the layer rather than expected results, so they
 are not independent oracles; they are parallel setup. A change to the assembly contract must
 be mirrored in each copy, and a copy that lags keeps passing against an obsolete shape. Each
 copy chooses its own operation, profile and configuration text, which decide what the
-consuming test exercises. The copies already differ in one visible respect: the shared fixture
-and the navigation copy pass placeholder configuration and overwrite `configuration_digest`,
-while the construction-named copy passes real configuration text and lets `native_run` derive
-the digest (`src/corpus_structure/methods/native_evidence.py:117`). That difference looks
+consuming test exercises. The copies already differ in one visible respect: the shared fixture,
+the navigation copy and `native_math_primary` overwrite `configuration_digest` with the pipeline
+digest, while the math-scope, construction-named and M1-producer copies let `native_run` derive
+it (`src/corpus_structure/methods/native_evidence.py:117`). That difference looks
 deliberate; it shows that a reader cannot tell intended variation from drift without comparing
 the copies.
 

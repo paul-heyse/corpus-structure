@@ -10,6 +10,17 @@ ADR that responds to a finding.
 - **Retention:** a review stays while it supplies an open finding or needed decision evidence;
   then it is deleted and recovered from Git.
 
+## Test architecture and efficiency target review
+
+[Test architecture and efficiency](design_review_test-architecture-and-efficiency_2026-11-12.md)
+(2026-11-12) is a test-scope design/target review at `main` `784d86f11`, consuming test audit
+publication `cf24c0e80`. It gives a target state and change set for all thirty DTA findings, adds
+`F01`–`F03`, and proposes rule impacts `RC01` (ADR-0032) and `RC02` (default workers for narrowed
+selections) for operator confirmation in plan creation. Its
+[supporting inventory](test-architecture-and-efficiency/efficiency-opportunities.md) ranks wider
+efficiency opportunities structurally, without measurement. Decision: Revise; every remedy is
+Proposed and every open finding is Deferred until a plan selects it.
+
 ## Current unified-model target review
 
 [Deepening the unified domain model](design_review_unified-domain-model_2026-11-01.md)

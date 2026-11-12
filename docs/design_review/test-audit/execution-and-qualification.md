@@ -84,12 +84,16 @@ Representative sites:
   passes and two grades, a new run and `seal_cut`; the forged publication is rolled back and
   absence is asserted (`:637–660`).
 - `tests/semantic/test_local_admission_native.py` (seven witness refusals),
-  `tests/semantic/test_witnessed_applicability_native.py:36–126,172–280` (six corruptions over a
-  function-scoped fixture that runs four runs and two finalizations),
-  `tests/semantic/test_arrow_publication.py:456–493` (six),
-  `tests/semantic/test_structural_native_replay.py:147–217` (fourteen, some with genuinely
-  different source text) and `tests/semantic/test_contextual_enrichment_native.py:65–157`
-  (thirteen).
+  `tests/semantic/test_arrow_publication.py:456–493` (six) and
+  `tests/semantic/test_contextual_enrichment_native.py:65–157` (thirteen).
+
+Two families first listed here are not in this footprint as written (refined by the
+[design review](../reviews/design_review_test-architecture-and-efficiency_2026-11-12.md),
+2026-11-12, and confirmed in source). `tests/semantic/test_witnessed_applicability_native.py:172–197`
+commits a new run, task and claim in each case before its refusal, so it is rollback-only only
+if those rows move inside the rolled-back transaction.
+`tests/semantic/test_structural_native_replay.py:147–217` gives each of its fourteen cases its
+own source text through the committed source view (`:57–70`), so its scenarios genuinely differ.
 
 Pure native-function checks show the same shape at smaller scale:
 `tests/semantic/test_local_semantic_admission.py:121–147` gives seventeen parametrized JSON cases
@@ -111,7 +115,9 @@ in this footprint. The positive control inside each refusal test is valuable and
 real committed state. Sharing has real validity premises to establish: `case` objects are
 mutable namespaces and some tests assign to them; a claimed task holds a five-minute lease
 taken from the server clock (`src/corpus_structure/semantic/sql/execution_projection.sql:86,103`),
-which a longer-lived scenario would have to keep valid; and whether every helper in these
+which matters only for refused operations that reach a lease-checking guard, since
+`ops.complete_task` refuses on status, attempt, holder and sealed run rather than lease expiry
+(`src/corpus_structure/semantic/sql/native_task_completion.sql:15–16`); and whether every helper in these
 families is read-only on the committed database was not verified for all sites. Under
 `--dist=loadgroup` without a group mark, the cases of one family spread across workers, so
 any shared scenario is still per worker and its benefit is bounded by [DTA-024](#dta-024). The
@@ -183,7 +189,11 @@ construct their interleavings by writing CPython `ProcessPoolExecutor` private s
 `_initargs`, `_initializer`, `_executor_manager_thread_wakeup`, `_broken`, `_shutdown_lock` and
 `_executor_manager_thread` (`:92–94,144–145,208–209,261–265,326–327`). The protected contract is the scope's
 close behavior; the observation depends on one interpreter's executor implementation. The
-interpreter is pinned, which bounds the exposure, but a toolchain move would break these
+interpreter is pinned, which bounds the exposure. Production's own pool-ownership adapter also
+depends on executor internals and says so (`cpu_execution.py:461–467,508–513`), so the
+test-specific part of this concern is the writing of private attributes to inject an
+initializer, for which the module's factory seam already exists (`:62–68` uses it). A toolchain
+move would break these
 controls for reasons unrelated to the product.
 
 A suspected, unobserved weakness: `test_packet_limit_and_real_inflight_cancellation_…`

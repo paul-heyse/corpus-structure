@@ -35,8 +35,11 @@ migration owns the objects. The module still imports the migration machinery and
 under `docs/design_review/evidence/` that only the unreachable branch would read. The copy
 also names its databases `cs_sem_m1_attributed_<hex>` with no process id (`:53`), which falls
 outside the names `sweep` recognises (`scripts/native_test_support.py:587–595`): residue from
-an interrupted run of this module would not be reclaimed, and it is the only native fixture
-name found that escapes the sweep.
+an interrupted run of this module would not be reclaimed. A second name escapes the sweep in
+the same way (added by the [design review](../reviews/design_review_test-architecture-and-efficiency_2026-11-12.md),
+2026-11-12): `tests/semantic/test_serving_scenario_lifecycle.py:39` names its second clone
+`cs_sem_test_<hex20>` with no process id. `tests/semantic/snapshot_restore.py` has no importer
+or reference outside retained evidence.
 
 The consequence is maintained and tested surface for behavior with no producer, and a divergent
 copy of a shared fixture that will not follow changes to the original. The design-stage
