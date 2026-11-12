@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "id": "bep-tc.gpu-runtime-compatibility",
+  "title": "Python 3.14 and a Protobuf override support selected native CUDA paths",
+  "group": "BEP-TC",
+  "package": "BEP-07",
+  "finalized": "2026-11-12",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the selected native paths require Python 3.12 or Protobuf 3.20, and do the integrated CUDA adapters execute small exact inputs?",
+  "answers": [
+    "ADR-0091",
+    "BEP-07",
+    "BEP-08"
+  ],
+  "method": "Install the exact isolated pins on Python3.14, replace Protobuf with6.33.6, then execute actual Maverick/DiPO CUDA paths in isolated and combined root environments. Exercise D1/HanLP through one production common host with concurrent submission, and native spaCy/GLiNER targeted controls. Preserve original failures and distinguish compatibility from semantic qualification.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-12_combined-bep-tc-execution/python314_probe.py",
+    "uv run python docs/design_review/evidence/2026-11-12_combined-bep-tc-execution/shared_host_probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "python314_probe.py",
+      "role": "Same-pin Python and Protobuf compatibility driver",
+      "sha256": "fa362d5ef5352ea7fdb15289b28b6d52c2212cc1580f108ba6d07bfbf427d4e5"
+    },
+    {
+      "path": "shared_host_probe.py",
+      "role": "Actual shared-host D1/HanLP driver",
+      "sha256": "6488d83320083e0a915f017cfbb811d8cdeca74f35cdf514fd82e9280ac79eec"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "runtime-compatibility.json",
+      "role": "Bounded reported outcomes and managed receipt identities",
+      "sha256": "735ec4d4b33404b40d4e9eda02378af88975d10e11412f4e62e24866d1a056c2"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "The tested paths do not require Python3.12 or the upstream Protobuf3.20 pin. Python3.14.10/Protobuf6.33.6 actual CUDA paths pass in the root environment. SpaCy retains its pinned intrinsic CPU upper classifier, and GLiNER diagnostic tensors follow the model device. Full shared population, fault/provider union and linguistic grades remain unqualified.",
+  "consumed_by": [
+    "ADR-0091",
+    "BEP-07",
+    "BEP-08",
+    "TC-09"
+  ]
+}

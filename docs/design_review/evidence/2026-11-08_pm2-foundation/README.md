@@ -88,11 +88,15 @@ passed for each. The HanLP 2.1.7 wheel requires `hanlp-common==0.0.24`,
 which was unavailable from PyPI. The HanLP lock selects that version from
 the exact upstream source revision.
 
+These historical service locks were retired under ADR-0091. Recover their exact files from
+Git at868e1befe using [historical recovery](../../../README.md#historical-recovery); the original
+hashes below are unchanged.
+
 | Profile | Lock SHA-256 |
 | --- | --- |
-| [HanLP](../../../../services/pm2-hanlp/uv.lock) | `96efee4f263aaaa75cc52688259ad9c0cae75c6f5a454996fc05cc98bbe5f677` |
-| [Maverick](../../../../services/pm2-maverick/uv.lock) | `c6075ef25c2a6aec8d7227343f18dbfb4c9ad64df6b502f89371938c2bce6e89` |
-| [Dipo](../../../../services/pm2-dipo/uv.lock) | `7b25ec5e2627c48fa14cf00ee91b383ff21c70fc232f2ba6a0c0502c100cb2b6` |
+| HanLP (`services/pm2-hanlp/uv.lock`) | `96efee4f263aaaa75cc52688259ad9c0cae75c6f5a454996fc05cc98bbe5f677` |
+| Maverick (`services/pm2-maverick/uv.lock`) | `c6075ef25c2a6aec8d7227343f18dbfb4c9ad64df6b502f89371938c2bce6e89` |
+| Dipo (`services/pm2-dipo/uv.lock`) | `7b25ec5e2627c48fa14cf00ee91b383ff21c70fc232f2ba6a0c0502c100cb2b6` |
 | [d1 workspace](../../../../uv.lock) | `0d26f2c23d30e478537d0d29cde4cbd2e119223c46cb8178cd479a47710ab750` |
 
 ```sh

@@ -1,18 +1,19 @@
 # Integration, qualification and investigations
 
-**BEP-09 incomplete; bounded qualification authorized, prior-package implementation gaps remain and full-book acceptance is deferred (2026-11-12).** Owns BEP-09 design and bounded investigation routes. The [coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns every scheduled disposition and combined completion; this companion defines what settles it.
+**BEP-09 incomplete; bounded qualification authorized, prior-package functional repairs are integrated and full-book acceptance is deferred (2026-11-12).** Owns BEP-09 design and bounded investigation routes. The [coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns every scheduled disposition and combined completion; this companion defines what settles it.
 
 ## Operator closeout checkpoint · 2026-11-12
 
 The [coordinator checkpoint](../book-processing-efficiency-and-parallelism_2026-11-11.md#audit-repair-execution)
-owns integrated delivery, scoped evidence and remaining execution. GPU foundations remain
-unselected; native/assembled qualification and full-book acceptance are not established here.
+owns integrated delivery, scoped evidence and remaining execution. GPU-default production cutover and audit functional repairs are integrated;
+combined final qualification and full-book acceptance remain open. Historical receipts retain their
+original source/context. The coordinator owns the current evidence and remaining qualification.
 
 ## Current approved execution boundary · 2026-11-12
 
-**Proposed accepted target; implementation incomplete.** The
+**Implemented; focused controls Tested2026-11-12; combined qualification open.** The
 [coordinator's approved closure](../book-processing-efficiency-and-parallelism_2026-11-11.md#approved-audit-closure-and-gpu-pivot)
-and [ADR-0088](../../adr/0088-gpu-default-native-hosts.md) govern the GPU-default pivot, shared
+and [ADR-0091](../../adr/0091-gpu-native-environment-boundaries.md) govern the GPU-default pivot, shared
 runtime hosts, explicit workflow intent and changed initial counts. D1 remains CUDA/BF16; other
 selected learned NLP targets CUDA/FP32. This supersedes CPU-hybrid/default-device and per-provider
 exclusive GPU-custody assumptions in the original design below. CPU parser deadlines/spawn remain;

@@ -9,6 +9,14 @@ detail. Owns TC-09 design; the
 Consumes [model/retention](model-and-retention.md), [primary semantics](constructions-and-interpretation.md)
 and [contextual layers](contextual-characterization.md). The coordinator distinguishes implemented source, native deployment and qualification. Existing plans are not inputs or prerequisites.
 
+**Current implementation update · 2026-11-12:** combined execution has repaired TC-E08–E11.
+The coordinator's current findings own remaining native integration and qualification. Historical
+open-obligation descriptions below record the audit baseline, not a requirement to repeat repairs.
+Primary declaration syntax now has sentence-local coverage in construction.declaration_syntax;
+source_readings records cue-examination availability. Contextual query12 uses three -2 recipes over
+exact primary references. Native-only HanLP inspection remains; frame/cue producers, dead parser
+reader and obsolete product contracts are retired. Combined final qualification remains deferred.
+
 <a id="TC-09"></a>
 
 ## TC-09 · One primary meaning owner with complete consumer migration

@@ -1,9 +1,9 @@
 # Resources, devices and operator workflows
 
-**Status: GPU-default shared-host and common-request target accepted2026-11-12; BEP-07/08 implementation and qualification remain incomplete.** This companion owns BEP-07 and BEP-08 in the
+**Status: GPU-default shared-host and common-request implementation integrated2026-11-12; combined qualification remains open.** This companion owns BEP-07 and BEP-08 in the
 [book-processing series](../book-processing-efficiency-and-parallelism_2026-11-11.md).
 Original planning baseline is `f81a380cd`; the current focused source assessment inspected
-`33085983a` on2026-11-12. [ADR-0088](../../adr/0088-gpu-default-native-hosts.md) records the
+`33085983a` on2026-11-12. [ADR-0091](../../adr/0091-gpu-native-environment-boundaries.md) records the
 operator-approved replacement for ADR-0087's CPU/hybrid device selection. Historical receipts below
 retain their original scope. This document schedules implementation; it establishes no provider pass.
 The source [functional review](../../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md#O06)
@@ -18,20 +18,21 @@ borrowers without a bound. The operator selects and inspects that policy through
 operations, can explain a wait, and can cancel or resume retained work without managing workers.
 This companion edit itself runs no book, provider or product tests. Implementation and qualification
 are authorized through the coordinator's approved execution sequence; native/book work follows its
-later prerequisites. The TC plans remain untouched.
+later prerequisites. The combined execution also repairs the TC audit findings under their own coordinator.
 Protected reference sets, source-first exposure boundaries and independent assessment remain under
 their existing owners.
 
 ## Operator closeout checkpoint · 2026-11-12
 
 The [coordinator checkpoint](../book-processing-efficiency-and-parallelism_2026-11-11.md#audit-repair-execution)
-owns integrated delivery, scoped evidence and remaining execution. GPU foundations remain
-unselected; native/assembled qualification and full-book acceptance are not established here.
+owns integrated delivery, scoped evidence and remaining execution. GPU-default production cutover and audit functional repairs are integrated;
+combined final qualification and full-book acceptance remain open. Historical receipts retain their
+original source/context. The coordinator owns the current evidence and remaining qualification.
 
 ## Baseline and responsibility boundaries
 
 The target separates durable ownership from physical placement. BEP-03 owns process-main-thread
-pure CPU kernels; BEP-04 owns resident providers in two shared native hosts; BEP-05 owns
+pure CPU kernels; BEP-04 owns resident providers in one shared native host; BEP-05 owns
 dependency-ready coordination and publication; BEP-06 owns native batch authentication and
 deterministic item projection. Those
 packages consume the early BEP-07a contract below. BEP-07b integrates the selected GPU profiles and
@@ -154,7 +155,7 @@ the maximum admitted state, preserving finite server deadlines and exact complet
 
 ### Selected GPU profiles and compatible host groups
 
-**Proposed accepted target · 2026-11-12; Interface-checked source basis, not native qualification.**
+**Implemented; bounded actual compatibility Tested2026-11-12; full provider/lifecycle qualification open.**
 All six learned NLP providers default to GPU. Missing prerequisites refuse the selected GPU
 profile; no runtime error, timeout or capacity pressure silently substitutes CPU, another model,
 reduced precision, truncation or a different family. Lark/SymPy, source mapping, tokenization,
@@ -166,15 +167,17 @@ projection, validation and parent reduction remain CPU responsibilities.
 | GLiNER / CPython3.14.10 | CUDA/FP32, existing GLiNER2.5 boundary checkpoint, standard attention and exact splitter/threshold recipes | Replace CPU-only loader/profile/authentication assumptions, including cue projection and supported direct workers; retain historical CPU authentication under its original identity. |
 | HanLP / CPython3.14.10 | CUDA/FP32, existing ModernBERT MTL checkpoint, selected heads and canonical pretokenized inputs | Select the already device-aware adapter's CUDA route; preserve sentinel repair, whole sentences and actual native preparation. |
 | spaCy / CPython3.14.10 | CUDA/FP32 learned components of en_core_web_sm3.8.0; unchanged tokenizer, rules, protected atoms and coordinates | Move learned annotation out of the pure CPU pool. Separate tokenizer-only source preparation from full pipeline residency, avoiding a parent GPU model or a model per CPU worker. |
-| Maverick / CPython3.12.3 | CUDA/FP32, existing MES head and DeBERTa checkpoint | Retain native document semantics and exact token/mention mapping in the common3.12 host. |
-| DiPO / CPython3.12.3 | CUDA/FP32, existing DMRST/CRF/Ettin selection, compile_encoder=False | Retain learned/forced boundary provenance and exact EDU mapping in the common3.12 host. |
+| Maverick / CPython3.14.10 | CUDA/FP32, existing MES head and DeBERTa checkpoint | Retain native document semantics and exact token/mention mapping in the common root3.14 host. |
+| DiPO / CPython3.14.10 | CUDA/FP32, existing DMRST/CRF/Ettin selection, compile_encoder=False | Retain learned/forced boundary provenance and exact EDU mapping in the common root3.14 host. |
 
-The target has **two supervised shared provider hosts**, each with a small bounded thread pool,
-one resident per selected compatible profile and explicit per-provider streams. The3.14 host
-reuses the root environment with exact HanLP/hanlp-common and direct CuPy dependencies; the3.12
-host combines Maverick/DiPO with deliberate compatible transitive pins. This retains real
-interpreter/dependency boundaries while removing incidental per-model processes. Do not add
-multi-document batching to Maverick/DiPO without a supported native semantic contract.
+The implementation uses **one supervised root Python3.14 provider host**, with bounded model
+threads, one resident per selected profile and explicit per-provider streams. The upstream Maverick
+Protobuf3.20 pin is explicitly overridden to6.33.6. Same-pin installation on3.14, isolated override
+inference and combined-root actual Maverick/DiPO inference all passed bounded compatibility checks.
+The original interpreter split was an untested assumption, not demonstrated incompatibility.
+ADR-0091 and the coordinator own this correction and its evidence. No new multi-document batch API
+is selected for Maverick/DiPO. spaCy's checkpoint retains its intrinsic CPU upper classifier while
+remaining learned parameters must use CuPy/FP32; this does not authorize whole-model CPU fallback.
 
 The full [Transformers overview](../../libraries/parsing/transformers.md) was read for the focused
 assessment. It targets5.22.2; selected runtimes use5.22.1 and Torch2.15.0. Existing locks already
@@ -495,7 +498,7 @@ coordinator owns exact commands, receipt IDs and source/context applicability.
 ## Current operating selection and completion boundary
 
 **Proposed accepted target · 2026-11-12; implementation/qualification outstanding.**
-[ADR-0088](../../adr/0088-gpu-default-native-hosts.md) and the coordinator own the approved GPU-default
+[ADR-0091](../../adr/0091-gpu-native-environment-boundaries.md) and the coordinator own the approved GPU-default
 replacement. The approved initial target admits four regions and four stage runs, eight claims,
 four outstanding jobs per compatible provider, and two CPU parser workers/submissions. Retain
 2GiB encoded owned state,256MiB CPU inputs/64MiB replies and8MiB native frames. These configurable

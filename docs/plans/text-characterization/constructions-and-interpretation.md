@@ -470,3 +470,13 @@ Authoring evidence on 2026-11-10 was source/reference inspection only; product/p
 consumer integration, packed diamond/cycle and contextual-choice controls in the applicable
 functional union. Independent semantic assessment, fitting, benchmarks and full-book adoption
 are not established by those results.
+
+### Grammar-relative no-match clarification · 2026-11-12
+
+**Interface-checked by source inspection.** TC-E13 retains the accepted TC-05 meaning:
+`empty` means the exact declared grammar/profile examined its retained source scope and produced
+no matching construction. `UnexpectedInput` can express that no-match; it is not by itself
+evidence of an unavailable execution. Limits, missing premises, uncovered scope and interruption
+retain distinct unsupported/partial/unavailable outcomes. Coverage is operation-relative, not a
+claim that language has no construction outside that grammar. Independent semantic assessment can
+grade examined-empty output as a miss. The TC coordinator owns the finding disposition.

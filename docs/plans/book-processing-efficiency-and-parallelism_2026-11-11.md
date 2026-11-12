@@ -1,6 +1,6 @@
 # Book-processing efficiency and parallelism
 
-**Status: operator closeout checkpoint2026-11-12; audit repairs integrated at scoped evidence, GPU cutover and assembled qualification incomplete; BEP-09 book acceptance deferred** Owns BEP-00–BEP-09 and the scheduled disposition of the [source review](../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md)'s O01–O08 and RC01–RC04. This coordinator owns combined acceptance and investigation decisions; companions own the detailed contracts identified below.
+**Status: combined functional implementation integrated2026-11-12; coordinated native revision deployed; final combined qualification and BEP-09 book acceptance deferred** Owns BEP-00–BEP-09 and the scheduled disposition of the [source review](../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md)'s O01–O08 and RC01–RC04. This coordinator owns combined acceptance and investigation decisions; companions own the detailed contracts identified below.
 
 ## Authority, scope and baseline
 
@@ -8,7 +8,7 @@ Planning input is the review at commit f81a380cd, inspected product source4d0ca7
 
 The target is comprehensive processing of the retained Grinstead–Snell book:316 natural SourceViews over the original518-page document, every selected characterization family, independently useful layers and one combined document view. Preserve context, source coordinates, provider attribution, packed choices, coverage and uncertainty. Reuse authentic native capture rather than repeating PDF recognition.
 
-This is a standalone series. Existing text-characterization plan files are intentionally unchanged and supply no sequencing authority. BEP does not claim or transfer TC completion, outstanding semantic assessment, or TC-E01–07 disposition. Current implemented contracts and retained evidence supply integration inputs. Reconciliation of the TC plans is a separate later task, after this scope completes.
+The operator authorized coordinated remaining BEP functionality and TC audit repairs on2026-11-12. Each series retains its own finding ownership; TC semantic assessment and final qualification are not transferred here. Complete the functional changes before one combined qualification engagement. Earlier standalone authoring/closeout accounts below retain their dated scope.
 
 The operator chose to keep the current book running unchanged during authoring. Future production changes must occur only after its bound execution has settled or an explicitly authorized cancellation has drained owned work. Preserve earlier outputs and unsuccessful attempts; a live run is not qualification of this target.
 
@@ -446,35 +446,65 @@ semantics. Broad/native/provider/fault qualification is **not_run** at this part
 All implementation agents stopped. All owned worktree edits/evidence are preserved in main and the
 other worktree/branch is deleted. The operator-authored Torch overview remains untracked/untouched.
 
-### Remaining execution after this checkpoint
+### Combined execution correction · 2026-11-12
 
-1. Complete actual314/312 adapters and serial resident loading, provider/profile declaration and
-   resource-lane cutover, CUDA GLiNER DTO/authentication/policy migration, and learned spaCy routing.
-   Parent/token-only preparation stays CPU; direct/HTML learned calls need a phase-local host scope
-   that ends before PDF/Nemotron capture, while primary characterization shares its post-capture
-   operation scope. No incomplete child adapter or CPU fallback may be selected.
-2. Wire host-envelope byte admission through its actual encoder, explicit thread custody borrowing,
-   generation/failure fencing, model-specific stream/gradient/Thinc contexts and bounded cleanup.
-   A partly constructed host whose cleanup is unproven must remain owned before group custody can
-   restore; the unselected checkpoint still needs that lifecycle hardening and its failure control.
-   Retire superseded live worker paths only after every affected consumer migrates. Apply target
-   counts/device defaults at coherent cutover, rather than activating the checkpoint skeleton.
-3. Review intended lock movement, prepare the actual common runtimes and verify imports/native
-   profiles. Metadata resolution alone is not installed/import/GPU compatibility. Preserve old CPU
-   hashes, archived policy/receipt interpretation and original producer attribution.
-4. Author/register the forward protected-reader revision for E13's inventory summary through the
-   existing native candidate route, combining other ready native declaration changes where useful.
-   Preserve semantic_bep_capacity and all frozen migrations. Exercise actual new summary/type/ACL
-   behavior on the sealed native test template; do not treat grammar-only checks as a native pass.
-5. Independently review assembled source, perform final maintenance and reconcile the applicable
-   bounded functional/provider/fault/nonfunctional union. Include the original three native
-   regression identities, real CLI/application parity, source admission/refill, native operation
-   reporting, cross-model CUDA/lifecycle/custody and retained CLI/MCP/export/replay consumers.
-   Preserve failed/interrupted receipts and final source/context differences.
+The operator authorized remaining BEP functionality plus TC-E09–E11 repairs, with final combined
+qualification afterwards. ADR-0091 replaces the assumed interpreter split: exact pinned Maverick/DiPO
+installation, imports and small actual CUDA/FP32 inferences pass on Python3.14.10. The operator then authorized a Protobuf6.33.6 override; both actual CUDA paths pass in the
+combined root environment. Use one root3.14 host, retaining explicit overridden metadata rather
+than treating the old pin as proven execution incompatibility. See the combined execution evidence.
+BEP-E13's semantic_bep_inventory forward revision is registered/deployed on development; protected
+reader control5ff5b9a4414241e09a153ad880735569 passed1/1. Enclosing qualification remains open.
 
-Full-book execution, interruption/resume and full-book consumers remain deferred. E01 and enclosing
-BEP-09 remain open; E05's old custody and memory attribution are unchanged. No speedup, RSS guarantee,
-model-quality claim, activation, project selection, promotion or push follows from this checkpoint.
+### Current integrated functional scope · 2026-11-12
+
+**Implemented; scoped controls and bounded actual compatibility Tested.** ADR-0091 selects one
+root Python3.14 host, all selected learned providers default CUDA, D1/BF16 and other providers/FP32.
+A declared native profile freezes runtime/artifact/backend/thread meaning; actual startup remains
+separate retained observation. Serial loading precedes per-model streams/threads; HanLP gradient
+contexts and spaCy's intrinsic CPU upper classifier are preserved explicitly. There is no
+whole-model CPU fallback or GPU-wide inference lane.
+
+The operation declares primary and selected analytical profiles before serving, acquires GPU
+custody after capture, and keeps complete declaration on resume. Direct/HTML spaCy phases close
+before subsequent capture. Admission uses actual complete host frames; native JSONL routing,
+member cancellation, generation fences and adopted partial-startup ownership are integrated.
+Current counts are4regions/4stages/8claims/4provider jobs, with existing byte bounds and2CPU workers.
+Per-provider CPU/PM2 workers and unused service manifests are retired; historical profile/receipt
+meaning remains original. TC's coordinator owns the primary-language and consumer repairs.
+
+BEP-E13's inventory reader is deployed as semantic_bep_inventory and its actual protected native
+control passed1/1. The coordinated TC/native revision semantic_tc_primary_gpu is registered/deployed on
+development (candidate21b9cb5a4cc5484b972719cef3f10615, deploy2469124379844faba5fab736fb390b74). [Execution evidence](../design_review/evidence/2026-11-12_combined-bep-tc-execution/README.md)
+owns exact scoped receipts, original failures and the bounded runtime compatibility record.
+
+### Integrated verification and cleanup · 2026-11-12
+
+Root integrationd50f6be65 contains the current cutover and TC consumer/native repairs.
+All14 worker commits were confirmed patch-equivalent in main before preserving their original
+histories in merge4d6a12b48. All three worktrees/branches are deleted;23 original managed-result
+directories and their source/context are retained in the execution evidence.
+
+Focused integration082c8d819c524621bdfc989f70c31f25 passed106/114; its eight failures shared one
+controlled decoder fixture missing the new provider arguments. Exact retry78d9f49d5ebf45209177e62473d78f57
+passed8/8 after that fixture-only repair. Coverage reports114/114 identities with zero unresolved;
+that is scoped coverage, not enclosing qualification. Typesbcd60113ed7f4ba5bf7590d871fe4e6a,
+lintbf30507ec2a643a0b3d2a83c9e65614f, deps11f4ad6d37a7475f9fb1086802e42d0a and
+doctor d1b50072037448aa8a10dd0bf8a217f0 passed. Documentationda4c010c45ba4d228a761e21a242769c
+passed918canonical pages/zero link errors. Exact commands, actual GPU compatibility checks,
+original failures and native candidate/register/deploy receipts are in the execution evidence.
+
+### Remaining qualification boundary
+
+Functional integration is complete for this authorized increment. Next is combined final qualification of both series:
+full applicable functional/provider/fault/check union, original three native regression identities,
+real CLI/Python parity and retained CLI/MCP/export/replay, actual shared-population lifecycle and
+TC-E12/TC-10 semantic assessments. Full-book execution/interruption/resume and book consumers stay
+deferred in this increment. BEP-E01 and enclosing BEP-09 acceptance remain open.
+
+E05's old0a78c71ce1a949e38e906c9c5392c1f3 remains held/unsettled. Standard `ci results recover`
+refused2026-11-12 because test settlement is unproven; no invented settlement or memory attribution.
+No speedup, RSS guarantee, semantic grade, activation, selection, promotion or push is claimed.
 
 ## Original target and foundation assessment · historical baseline
 
@@ -501,7 +531,7 @@ BEP-00 uses the ADR skill and applicable D3/D4/D6/D8 owners for durable rational
 
 ## Package ownership and execution dependencies
 
-The **Completion audit** above owns current package judgments. BEP-00 and the selected BEP-04 implementation boundary stand; BEP-01–03/05–08 have the listed remaining implementation obligations. Historical first/second-increment scoped qualification does not close those gaps or BEP-09. The table below defines accepted capabilities and dependencies, not completed delivery.
+The **Current integrated functional scope** above owns present implementation state; the completion audit records its dated baseline. BEP-00–08 functional repairs are integrated, with coordinated native integration deployed and enclosing qualification open. Historical first/second-increment scoped qualification does not close those gaps or BEP-09. The table below defines accepted capabilities and dependencies, not completed delivery.
 
 | Package | Required input | Accepted capability and owner |
 | --- | --- | --- |
@@ -524,14 +554,14 @@ BEP-06 first delivers working CPU batch contracts and integration. BEP-07b can c
 
 | Source | Disposition / responsible package | Closure meaning |
 | --- | --- | --- |
-| O01 | Partial BEP-01/08; E06 open | Core book/stage reuse delivered; combined registration/ingest/regenerate preparation still duplicates full verification. Live admission remains required. |
-| O02 | Partial BEP-02/07/08; E07 open | Immutable reuse and live cache-hit authorization delivered; actual source/layer/recovery reads still need pre-hydration combined admission. |
-| O03 | Captured frontier delivered; ordinary-source BEP-05 incomplete, E09 | Replenish independent ready claims without the remaining fixed claim-group barrier. |
-| O04 | Shared kernels/selected lanes delivered; E08/E09 open | Main-thread/private reduction works; CPU bounded teardown and ordinary-source replenishment remain. |
-| O05 | Shared native contracts/cross-region coalescing delivered; BEP-06 incomplete, E10/E11 | Preserve selected-provider evidence; complete compatible local GLiNER populations and aggregate PM2 frame admission. |
-| O06 | Policy/device decisions delivered; BEP-07 incomplete, E07/E08/E11/E14 | Complete shared admission, teardown and fallback policy compatibility; final operating qualification remains open under E05/BEP-09. |
-| O07 | Fences/exact composition delivered; E07/E08/E09 and BEP-09 open | Keep scoped renewal/replay evidence; complete bounded lifecycle/admission and qualify maximum-state progress/interrupted book recovery. |
-| O08 | BEP-08 partial; E04/E06/E12–14 open | Native anchors/seed and several routes delivered; complete ordinary CLI cutover, shared preflight/fallback compatibility and aggregate reporting. |
+| O01 | Functional repair integrated BEP-01/08; E06 qualification open | One verified preparation spans registration/ingest/regenerate; native admission remains live. |
+| O02 | Functional repair integrated BEP-02/07/08; E07 qualification open | Shared admission precedes source/layer hydration; recovery reads metadata and transfers retained credit. |
+| O03 | Functional repair integrated BEP-05; E09 qualification open | Ordinary-source frontier refills individual completions within global claim/byte admission. |
+| O04 | Functional repair integrated BEP-03/04/05; E08/E09 qualification open | Main-thread CPU kernels, bounded teardown and independent ready progress are integrated. |
+| O05 | Functional repair integrated BEP-06; E10/E11 qualification open | Local GLiNER cohorts, member outcomes and exact complete host-frame admission are integrated. |
+| O06 | Functional repair integrated BEP-07; E05/BEP-09 qualification open | One314 CUDA-default host, frozen profiles, bounded admission and lifecycle replace the hybrid runtime. |
+| O07 | Functional repair integrated; BEP-09 qualification open | Fences, bounded lifecycle/admission and resume population declaration are integrated; maximum-state/book recovery qualification remains. |
+| O08 | Functional repair integrated BEP-08; E04/E06/E12–14 qualification open | Explicit workflow, shared preflight and protected native aggregates are integrated; real CLI/native combined qualification remains. |
 
 The investigation and capability tables in the qualification companion are part of this coordinator's scope; they do not create another execution ledger. Opportunities remain opportunities, not relabelled diagnostic defects. New execution findings belong here with responsible component, consequence and closure evidence.
 
@@ -541,7 +571,7 @@ Complete every baseline package, settle mandatory investigations and record trig
 
 Implementation performs targeted checks during delivery. After complete functional scope and final maintenance, run applicable uv run ci test and uv run ci check, explicit native/provider selections and the retained required test-identity union. Documentation uses uv run ci docs check. Original failed/interrupted receipts remain; later evidence must match final source/context or have an explicit applicability judgment.
 
-Private deployment/regeneration is distinct from default activation, project selection and promotion. Those final effects require their existing authority. The later handoff identifies actual implemented changes and remaining TC reconciliation; it does not edit TC plans as part of this series.
+Private deployment/regeneration is distinct from default activation, project selection and promotion. Those final effects require their existing authority. The coordinated handoff identifies actual implemented changes and remaining combined qualification; TC owns its repaired findings and semantic assessments.
 
 ## Original authoring outcome · 2026-11-11
 
@@ -577,11 +607,11 @@ SymPy; unrelated scientific/domain consumers are outside this increment.
 | BEP-E07 | Source/layer/recovery admission; implemented/scoped-tested, native/assembled qualification pending BEP-02/07/08 | Pre-hydration shared windows transfer actual retained credit; waits close snapshots; recovery reads authenticated metadata. [Audit obligation](#BEP-E07); final native path reconciliation remains open. |
 | BEP-E08 | CPU lifecycle; implemented/scoped native-tested2026-11-12, assembled qualification pending | Normal close now bounds cooperative drain/kill/death confirmation, concurrent submit and IPC-lock failure paths; [repair evidence](../design_review/evidence/2026-11-12_bep-audit-repairs/README.md), current CPU18/18 pass27f55c0d6f1e4552b28cd529887ca8fe. This does not qualify new GPU hosts or the enclosing policy. |
 | BEP-E09 | Ordinary source ready frontier; implemented/scoped-tested, native/assembled qualification pending BEP-05 | Existing driver refills individual completions with global claim/byte admission, renewable source prewarm and transaction-safe registration. Controlled panel74/74 passed; [audit obligation](#BEP-E09) still requires native/assembled reconciliation. |
-| BEP-E10 | Local GLiNER batching; implemented/scoped-tested, final CUDA/provider qualification pending BEP-06 | Bounded local same-pack populations preserve independent refusals and stable reduction; part of75/75 controls. [Audit obligation](#BEP-E10); CUDA host cutover must retain these guarantees. |
-| BEP-E11 | PM2 coalesced byte admission; implemented/scoped-tested, final host framing qualification pending BEP-06/07 | Shared current JSONL encoder checks exact merged bytes/ordinal and separates nonfitting useful members. New host-envelope framing must preserve [the obligation](#BEP-E11) at cutover. |
+| BEP-E10 | Local GLiNER batching; implemented/scoped-tested, final CUDA/provider qualification pending BEP-06 | Bounded local same-pack populations preserve independent refusals and stable reduction; part of75/75 controls. [Audit obligation](#BEP-E10); The integrated CUDA host retains these guarantees; final provider qualification remains open. |
+| BEP-E11 | PM2 coalesced byte admission; implemented/scoped-tested, final host framing qualification pending BEP-06/07 | Shared current JSONL encoder checks exact merged bytes/ordinal and separates nonfitting useful members. The integrated host checks exact envelope framing; [the obligation](#BEP-E11) retains final current-source qualification. |
 | BEP-E12 | Normal CLI analytical cutover; repair implemented/scoped-tested, assembled qualification pending BEP-08 | Real Typer app and Python boundary use the same explicit workflow application owner; graph injection no longer bypasses primary demand. Configured graphs and retained inputs remain explicit. [Audit obligation](#BEP-E12); native union remains pending. |
-| BEP-E13 | Aggregate progress/native inspection; implementation checkpoint, forward native reader/assembled qualification pending BEP-08 | Explicit operation links, shared managed binding and bounded status/result projections are present. Prospective inventory-summary SQL still needs forward candidate/template qualification; [audit obligation](#BEP-E13). |
-| BEP-E14 | GLiNER policy consistency; implemented/scoped-tested, CUDA profile migration pending BEP-07/08 | Shared low-level admission and high-level preflight use one frozen-profile/thread compatibility rule, before startup. New CUDA profiles must preserve [this obligation](#BEP-E14). |
+| BEP-E13 | Aggregate progress/native inspection; implementation checkpoint, native reader delivered; combined/template qualification pending BEP-08 | Explicit operation links, shared managed binding and bounded status/result projections are present. The inventory-summary revision semantic_bep_inventory is registered/deployed and native reader1/1 passed5ff5b9a4414241e09a153ad880735569; combined/template qualification remains open; [audit obligation](#BEP-E13). |
+| BEP-E14 | GLiNER policy consistency; implemented/scoped-tested, CUDA profile migration integrated; combined qualification pending BEP-07/08 | Shared low-level admission and high-level preflight use one frozen-profile/thread compatibility rule, before startup. CUDA profiles preserve the shared frozen-policy refusal; combined qualification remains open. |
 
 Qualification for this increment is targeted preparation/trust/native-publication and actual-spawn
 behavior. It does not establish final policy, provider parallelism or whole-book qualification.
@@ -923,7 +953,7 @@ project result selection, promotion or push is authorized by this increment.
 
 ### Final operating design and investigations
 
-**Selected mechanisms implemented; integration incomplete (audit2026-11-12).** `ADR-0087` (historical; current authority is [ADR-0088](../adr/0088-gpu-default-native-hosts.md))
+**Selected mechanisms implemented; integration incomplete (audit2026-11-12).** `ADR-0087` (historical; current authority is [ADR-0091](../adr/0091-gpu-native-environment-boundaries.md))
 and D3/D4/D6/D8 own the enduring design. The shared frozen
 `CharacterizationExecutionPolicy` resolves through settings and `--execution-policy FILE` once
 before effects. It reaches explicit demand, retained capture, ingest, default analytical work,

@@ -144,9 +144,9 @@ semantic scope, actor identity or unconditional role sharing. Whole-block native
 heads and sentence ownership; `Span.as_doc()` is not a transparent slice because heads outside a
 span can be rewired. [Token](https://spacy.io/api/token) · [Span.as_doc](https://spacy.io/api/span#as_doc).
 
-Reuse the existing independent HanLP runtime, currently `hanlp==2.1.7`, `hanlp-common==0.0.24`
+Use the shared root Python3.14 runtime (ADR-0091), currently `hanlp==2.1.7`, `hanlp-common==0.0.24`
 from its pinned repository revision, `torch==2.15.0`, `transformers==5.22.1`, as declared in
-[its manifest](../../../services/pm2-hanlp/pyproject.toml) and lockfile. The selected checkpoint is
+[the root manifest](../../../pyproject.toml) and lockfile. The selected checkpoint is
 `EN_TOK_LEM_POS_NER_SRL_UDEP_SDP_CON_MODERNBERT_LARGE`, archive
 `en_tok_lem_pos_ner_srl_udep_sdp_con_modernbert_large_prepend_false_20250107_181612`, with the
 ModernBERT-large snapshot `45bb4654a4d5aaff24dd11d4781fa46d39bf8c13` and the current staged

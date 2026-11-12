@@ -2,15 +2,15 @@
 
 <a id="BEP-06"></a>
 
-**Status: local GLiNER cohorts and exact current PM2 merged framing implemented/scoped-tested; GPU shared-host cutover and native qualification remain incomplete (checkpoint2026-11-12).** This companion develops **BEP-06**, implementing selected
+**Status: local GLiNER cohorts and exact current PM2 merged framing implemented/scoped-tested; GPU shared-host cutover integrated; combined native/provider qualification remains open (checkpoint2026-11-12).** This companion develops **BEP-06**, implementing selected
 [O05](../../functional_reviews/book-processing-efficiency-and-parallelism_2026-11-11.md#O05).
 The [series coordinator](../book-processing-efficiency-and-parallelism_2026-11-11.md) owns shared
 contracts, package state, opportunity disposition, investigation coverage and assembled acceptance.
 The operator accepted **RC04** on 2026-11-11: separate preparation, inference and deterministic
 reduction, migrating GLiNER batch authentication and projectors together. Acceptance authorizes the
 target and its decision route; the historical delivery section records the implemented CPU slice.
-[ADR-0088](../../adr/0088-gpu-default-native-hosts.md) now selects all six learned NLP providers on
-GPU through two shared hosts; [BEP-07/08](resources-devices-and-operations.md) owns that runtime,
+[ADR-0091](../../adr/0091-gpu-native-environment-boundaries.md) now selects all six learned NLP providers on
+GPU through one shared host; [BEP-07/08](resources-devices-and-operations.md) owns that runtime,
 request/consumer cutover and compatibility prerequisites. The GPU target is not a provider pass.
 
 Original planning baseline is main `f81a380cd`; current focused source inspection is
@@ -22,8 +22,9 @@ are implemented baseline, not work claimed by BEP-06. The existing TC plan retai
 ## Operator closeout checkpoint · 2026-11-12
 
 The [coordinator checkpoint](../book-processing-efficiency-and-parallelism_2026-11-11.md#audit-repair-execution)
-owns integrated delivery, scoped evidence and remaining execution. GPU foundations remain
-unselected; native/assembled qualification and full-book acceptance are not established here.
+owns integrated delivery, scoped evidence and remaining execution. GPU-default production cutover and audit functional repairs are integrated;
+combined final qualification and full-book acceptance remain open. Historical receipts retain their
+original source/context. The coordinator owns the current evidence and remaining qualification.
 
 ## Resulting capability and responsibility
 
@@ -65,7 +66,7 @@ implementation.
 | HanLP | [native_evidence.py](../../../python/corpus-structure/src/corpus_structure/methods/native_evidence.py), bulk-admits sentences using native preparation, then packs inference using actual subword lengths, sentence/character and padded-subword bounds. [pm2_hanlp.py](../../../python/corpus-structure/src/corpus_structure/methods/pm2_hanlp.py), lines72–112/159–205, uses actual task transforms/dataset samples and one multitask `model(sentences, tasks=..., skip_tasks="tok", resolved_tasks=...)` invocation. | Preserve delivered bulk admission and whole-sentence/member results on CUDA/FP32. The accepted negative prepared-sample-reuse decision retains native inference preparation: do not reopen it as an unfulfilled speedup or imitate HanLP planning. Preserve exact word/subword/head correspondence. |
 | D1 | [model_characterization.py](../../../python/corpus-structure/src/corpus_structure/methods/model_characterization.py), lines455–558, batches ready independent question jobs by sixteen while retaining per-job prior answers and real question-stage dependencies. [pm2_native.py](../../../python/corpus-structure/src/corpus_structure/methods/pm2_native.py), lines117–156, invokes native `system_one_batch(..., set_size=16)`, repacks by row length and scatters by request ordinal. | Preserve CUDA/BF16 and these capabilities; expose compatible ready jobs to the host across admitted regions. Keep each original state, context, options, candidate population and prior-answer prerequisites. A ready job need not wait for an unrelated region's question stage. Do not replace native length packing with a second application packing engine. |
 | GLiNER | [gliner_worker.py](../../../python/corpus-structure/src/corpus_structure/methods/gliner_worker.py), lines157–218/350–384, already calls `model.batch_extract` with bounded inputs under one selected pack/profile/policy and one active exchange. Characterization currently sends singleton cue and function scopes. | Deliver bounded local same-pack cohorts even at provider-job/region capacity one, with independent per-input admission/outcomes and CUDA/FP32 profile identity. Native report computation/request digests bind the actual admitted physical population. [classification authentication](../../../python/corpus-structure/src/corpus_structure/methods/pm2_gliner_classification.py), lines156–201, and [cue projection](../../../python/corpus-structure/src/corpus_structure/semantic/model_characterization.py), lines957–1008, share current v2 batch/member authentication; preserve that owner while adding aligned independent outcomes. Changing only tuple length still leaves the E10 refusal/scatter defect. |
-| Maverick / DiPO | [contextual_characterization.py](../../../python/corpus-structure/src/corpus_structure/methods/contextual_characterization.py), lines441 onward, supplies different native requests: canonical sentences for Maverick, exact context text for DiPO. | Their separate CUDA/FP32 models overlap through the common3.12 host and streams, with wrapper/module gates. Preserve scalar-document native semantics; no new multi-document batch API is selected. Existing source/token/EDU limits and outcomes remain. |
+| Maverick / DiPO | [contextual_characterization.py](../../../python/corpus-structure/src/corpus_structure/methods/contextual_characterization.py), lines441 onward, supplies different native requests: canonical sentences for Maverick, exact context text for DiPO. | Their separate CUDA/FP32 models overlap through the common root3.14 host and streams, with wrapper/module gates. Preserve scalar-document native semantics; no new multi-document batch API is selected. Existing source/token/EDU limits and outcomes remain. |
 
 ## Shared contract and working integration dependencies
 
@@ -209,7 +210,7 @@ Maverick/DiPO models retain FP32 on CUDA, and spaCy learned pipe execution uses 
 backend. Do not infer CPU equality, fresh bitwise equality or arbitrary threshold stability.
 
 The [host/policy companion](resources-devices-and-operations.md#selected-gpu-profiles-and-compatible-host-groups)
-owns native gradient/thread/stream contexts, CuPy/Thinc prerequisites, compatible3.12 dependency
+owns native gradient/thread/stream contexts, CuPy/Thinc prerequisites, compatible root3.14 dependency
 pins, host failure/custody and actual device validation. Shared-host startup establishes globals
 once; use explicit streams and provider-local completion without a GPU-wide inference gate.
 The actual profile/runtime/math selection freezes before task registration. Profile shape changes
@@ -242,7 +243,7 @@ operation versions and affected live/detached readers within the same delivery, 
 authority route. Do not rewrite historical products or manufacture missing batch provenance for
 them. Remove superseded singleton digest reconstruction and obsolete mechanism-specific tests
 after their consumers migrate; preserve independent source/semantic expectations and deliberate
-invalid native controls. The two shared native hosts are the selected runtime, not a new
+invalid native controls. The one shared native host are the selected runtime, not a new
 service/queue per provider. No
 batch ledger or compatibility adapter is required merely to stage the change; durable historical
 read authentication remains necessary under its original contract.

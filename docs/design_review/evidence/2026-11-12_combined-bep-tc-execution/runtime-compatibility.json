@@ -1,0 +1,56 @@
+{
+  "date": "2026-11-12",
+  "scope": "bounded runtime/adapter compatibility; not combined qualification or semantic grading",
+  "python": "3.14.10",
+  "protobuf": "6.33.6",
+  "maverick": {
+    "outcome": "passed",
+    "device": "cuda:0",
+    "dtype": "torch.float32",
+    "mentions": 4,
+    "clusters": 2,
+    "tokens": 8
+  },
+  "dipo": {
+    "outcome": "passed",
+    "device": "cuda:0",
+    "dtype": "torch.float32",
+    "edus": 2,
+    "rst_splits": 1
+  },
+  "shared_host": {
+    "providers": [
+      "d1",
+      "hanlp"
+    ],
+    "concurrent_submission": true,
+    "d1": {
+      "outcome": "succeeded",
+      "dtype": "torch.bfloat16",
+      "value": "12"
+    },
+    "hanlp": {
+      "outcome": "succeeded",
+      "dtype": "torch.float32",
+      "tokens": [
+        "Let",
+        "X",
+        "be",
+        "a",
+        "value",
+        "."
+      ]
+    }
+  },
+  "spacy": {
+    "outcome": "passed",
+    "managed_result": "9d74149cbe2b49c9927a974b0099beaf",
+    "native_cpu_upper_preserved": true
+  },
+  "gliner": {
+    "outcome": "passed",
+    "managed_result": "a63fceb6841a4296838b3a4bb9dc81de"
+  },
+  "custody": "all compatibility probe scopes returned after host termination and Nemotron restoration",
+  "output_kind": "selected reported properties, not a raw transcript"
+}
