@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from dataclasses import asdict, dataclass, field
 from hashlib import sha256
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import TypeAdapter
 
@@ -249,7 +249,7 @@ def annotate(
     available columns and retain missing family outcomes without inventing sentences.
     """
     profile = AnnotationProfile() if profile is None else profile
-    nlp = pipeline(profile.configuration)
+    nlp: Any = pipeline(profile.configuration)
     if profile.execution_profile is None and processed_docs is None:
         from dataclasses import replace
         profile = replace(profile, execution_profile=nlp.selection().native.fingerprint)

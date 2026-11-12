@@ -65,3 +65,22 @@ class HostedGliner:
         self._closed = True
         if self._owns_group:
             self.group.close()
+
+
+class HostedPM2:
+    """A claim-scoped borrower; closing it never kills useful group siblings."""
+    def __init__(self, selection, group, check_active):
+        self.selection, self.group = selection, group
+        self.startup = group.startup(selection, check_active)
+        self._closed = False
+
+    @property
+    def closed(self):
+        host = self.group._hosts.get(self.selection.native.host)
+        return self._closed or (host is not None and host.closed)
+
+    def infer(self, payload, *, check_active):
+        return self.group.infer(self.selection, payload, check_active)
+
+    def close(self):
+        self._closed = True

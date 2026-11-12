@@ -138,6 +138,7 @@ def case():
             threshold=0.6,
             profile=dict(
                 snapshot="/immutable/gliner-model",
+                version="gliner2-2.1.0-cpu-fp32-standard-whitespace-v1",
                 checkpoint="gliner/model",
                 revision="f" * 40,
                 artifact_hashes=[

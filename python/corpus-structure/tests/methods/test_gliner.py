@@ -51,6 +51,7 @@ def profile(tmp_path):
             )
         ),
         timeout_seconds=5,
+        version="gliner2-2.1.0-cpu-fp32-standard-whitespace-v1",
     )
 
 
@@ -616,3 +617,10 @@ def test_cuda_profiles_are_explicit_and_cannot_reinterpret_cpu_history(profile):
     assert len({profile.fingerprint, whitespace.fingerprint, codepoint.fingerprint}) == 3
     assert asdict(profile) == original
     assert "device" not in original  # historical serialized shape is unchanged
+
+
+def test_new_profiles_default_to_cuda_without_changing_explicit_cpu_history(profile):
+    values = asdict(profile)
+    values.pop("version")
+    assert GlinerProfile(**values).device == "cuda"
+    assert GlinerProfile(**asdict(profile)).device == "cpu"

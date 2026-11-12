@@ -461,8 +461,6 @@ class ContextualCharacterizationMethod:
             merge_builder(builder, branch)
 
     def _native_provider(self, cfg, ctx, builder, layers, providers, provider, families):
-        script = Path(__file__).with_name("pm2_native.py")
-        root = script.resolve().parents[5]
         assets = ctx.settings.model_cache / "pm2"
         ctx.check_active()
         startup = None
@@ -495,14 +493,10 @@ class ContextualCharacterizationMethod:
                 if tokens is not None
                 else dict(text=builder.context.text, mode="learned")
             )
-            project = root / f"services/pm2-{provider}"
             worker = pm2_client(
                 providers,
                 ctx,
                 provider=provider,
-                python=project / ".venv/bin/python",
-                script=script,
-                project=project,
                 assets=assets,
                 runtime=runtime,
                 artifacts=artifacts,

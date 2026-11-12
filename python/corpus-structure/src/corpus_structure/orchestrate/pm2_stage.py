@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import json
-import sys
 from collections import Counter, defaultdict, deque
 from collections.abc import Callable, Iterable
 from contextlib import closing
 from dataclasses import dataclass
 from hashlib import sha256
-from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
@@ -50,8 +47,6 @@ from corpus_structure.methods.pm2_source import (
 from corpus_structure.methods.pm2_worker import (
     Pm2WorkerError,
     Pm2WorkerRefused,
-    open_pm2_worker,
-    preflight_pm2_runtime,
 )
 from corpus_structure.semantic._operation_calls import select_source_view
 from corpus_structure.semantic._operation_ids import RunId, SourceViewId
@@ -268,13 +263,14 @@ class _Work:
     parent_input_digest: str | None = None
 
 
-def _sentences(view) -> list[tuple[int, int]]:
+def _sentences(view, *, endpoint=None) -> list[tuple[int, int]]:
     atoms = tuple((token.start, token.end) for token in view.layout.tokens if token.role != "prose")
     (bounds,) = split(
         [Block(view.text, atoms, (), ())],
         SentenceConfig(),
         layouts=[view.layout],
         policy=view.text_policy,
+        endpoint=endpoint,
     )
     return bounds
 
@@ -765,21 +761,14 @@ def _run_scopes(
 ) -> ParserRunReport:
     interpretation = isinstance(request, InterpretationRunRequest)
     stage = "interpretation" if interpretation else "parsers"
-    script = Path(__file__).resolve().parents[1] / "methods" / "pm2_native.py"
-    root = script.parents[5]
-    interpreters = {
-        scope.profile.provider: (
-            Path(sys.executable)
-            if scope.profile.provider == "d1"
-            else root / f"services/pm2-{scope.profile.provider}/.venv/bin/python"
-        )
-        for scope in request.scopes
-        if not isinstance(scope, ClassificationScope)
-    }
+    from corpus_structure.methods.native_host import NativeHostGroup
+    from corpus_structure.methods.native_host_clients import HostedPM2
+    from corpus_structure.methods.native_profiles import gliner_selection, pm2_selection, preflight_native_runtime
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
     # Verify before deriving task identities or allowing create_task to reuse a result.
     # A GPU worker may never be opened for a reuse hit.
     verified: dict[str, dict[str, Any] | str] = {}
-    verified_classification: dict[ClassificationProfile, str | None] = {}
+    verified_classification: dict[str, str | None] = {}
     scopes: list[ParserScope | InterpretationSelection] = []
     scheduled_positions = []
     held: dict[int, ScopeIntent] = {}
@@ -810,15 +799,27 @@ def _run_scopes(
                 reason="scope retained without requesting execution",
             )
             continue
+        if profile.device != "cuda":
+            held[position] = ScopeIntent(**intent, disposition="failed", reason="current learned provider execution requires CUDA; historical CPU profiles are read-only")
+            continue
         if isinstance(profile, ClassificationProfile):
-            if profile not in verified_classification:
+            if profile.runtime_identity is None:
+                try:
+                    runtime = preflight_native_runtime("gliner", profile.profile.snapshot)["runtime_identity"]
+                except (Pm2WorkerError, Pm2WorkerRefused) as exc:
+                    held[position] = ScopeIntent(**intent, disposition="failed", reason=str(exc))
+                    continue
+                profile = profile.model_copy(update={"runtime_identity": runtime})
+                scope = scope.model_copy(update={"profile": profile})
+            classification_key = profile.model_dump_json()
+            if classification_key not in verified_classification:
                 try:
                     profile.verify()
                 except (GlinerRefused, OSError) as exc:
-                    verified_classification[profile] = str(exc)
+                    verified_classification[classification_key] = str(exc)
                 else:
-                    verified_classification[profile] = None
-            failure = verified_classification[profile]
+                    verified_classification[classification_key] = None
+            failure = verified_classification[classification_key]
             if failure is not None:
                 held[position] = ScopeIntent(**intent, disposition="failed", reason=failure)
             else:
@@ -828,13 +829,7 @@ def _run_scopes(
         provider = profile.provider
         if provider not in verified:
             try:
-                verified[provider] = preflight_pm2_runtime(
-                    python=interpreters[provider],
-                    script=script,
-                    project=root if provider == "d1" else root / f"services/pm2-{provider}",
-                    provider=provider,
-                    assets=request.assets,
-                )
+                verified[provider] = preflight_native_runtime(provider, request.assets)
             except (Pm2WorkerError, Pm2WorkerRefused) as exc:
                 verified[provider] = str(exc)
         identity = verified[provider]
@@ -956,7 +951,7 @@ def _run_scopes(
                 for scope in scopes
                 if isinstance(scope, ParserScope) and scope.profile.provider != "dipo"
             }
-            sentence_bounds = {identity: _sentences(views[identity]) for identity in token_views}
+            sentence_bounds = {identity: _sentences(views[identity], endpoint=settings.nemotron.endpoint) for identity in token_views}
             work = [
                 _work(
                     scope,
@@ -1031,21 +1026,15 @@ def _run_scopes(
 
     holder = f"pm2-{stage}:{run}"
     remaining_splits = 64
-    with supervise_run(engine, run), TemporaryDirectory(prefix="pm2-profiles-") as tmp:
-        profile_path = Path(tmp) / "profile.json"
+    with supervise_run(engine, run), NativeHostGroup(CharacterizationExecutionPolicy(), settings.nemotron.endpoint) as native_group:
+        selections = {}
+        for item in work:
+            profile = item.profile
+            selected = gliner_selection(profile.profile, profile.runtime_identity) if isinstance(profile, ClassificationProfile) else pm2_selection(profile.provider, request.assets, profile.startup["runtime_identity"], profile.startup["assets"])
+            selections[profile.model_dump_json()] = selected
+        native_group.declare(tuple(selections.values()))
         for (config, config_hash), items in groups.items():
             profile = next(iter(items.values())).profile
-            if not isinstance(profile, ClassificationProfile):
-                profile_path.write_text(
-                    json.dumps(
-                        {
-                            "provider": profile.provider,
-                            "device": profile.device,
-                            "assets": str(request.assets.resolve()),
-                            "runtime_identity": profile.startup["runtime_identity"],
-                        }
-                    )
-                )
 
             def settle(
                 owner,
@@ -1095,18 +1084,9 @@ def _run_scopes(
                         entered = False
                         try:
                             worker_context = (
-                                closing(ClassificationWorker(profile))
+                                closing(ClassificationWorker(profile, group=native_group))
                                 if isinstance(profile, ClassificationProfile)
-                                else open_pm2_worker(
-                                    python=interpreters[profile.provider],
-                                    script=script,
-                                    profile=profile_path,
-                                    device=profile.device,
-                                    check_active=owner,
-                                    nemotron_endpoint=settings.nemotron.endpoint
-                                    if profile.device == "cuda"
-                                    else None,
-                                )
+                                else closing(HostedPM2(selections[profile.model_dump_json()], native_group, owner))
                             )
                             with worker_context as worker:
                                 entered = True

@@ -66,7 +66,7 @@ class GlinerProfile:
     max_request_frame_bytes: int = 131072
     max_reply_frame_bytes: int = 1048576
     timeout_seconds: float = 120
-    version: str = WHITESPACE_PROFILE
+    version: str = CUDA_WHITESPACE_PROFILE
 
     def __post_init__(self) -> None:
         if not self.snapshot.is_absolute() or not self.checkpoint or not self.revision:

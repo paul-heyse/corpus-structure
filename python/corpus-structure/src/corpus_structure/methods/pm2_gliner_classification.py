@@ -6,9 +6,9 @@ import json
 from dataclasses import asdict, replace
 from hashlib import sha256
 from importlib.metadata import PackageNotFoundError, version
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.interpretation_questions import QuestionFamily
@@ -44,15 +44,22 @@ class ClassificationProfile(BaseModel):
     device: Literal["cpu", "cuda"]
     profile: GlinerProfile
     threshold: float = Field(default=0.5, ge=0, le=1)
+    runtime_identity: dict[str, Any] | None = None
 
     @field_validator("profile")
     @classmethod
     def stable_timeout(cls, value: GlinerProfile) -> GlinerProfile:
         return replace(value, timeout_seconds=float(value.timeout_seconds))
 
+    @model_validator(mode="after")
+    def selected_device(self):
+        if self.device != self.profile.device:
+            raise ValueError("GLiNER requested device differs from its frozen profile")
+        return self
+
     @property
     def startup(self) -> dict:
-        return self.model_dump(mode="json")
+        return self.model_dump(mode="json", exclude_none=True)
 
     def verify(self) -> None:
         self.profile.verify_artifacts()
@@ -338,9 +345,13 @@ def classification_product(
 class ClassificationWorker:
     """Adapt detached worker replies to the managed PM2 task settlement protocol."""
 
-    def __init__(self, profile: ClassificationProfile) -> None:
+    def __init__(self, profile: ClassificationProfile, *, group=None) -> None:
         self.startup = profile.startup
-        self._worker = GlinerWorker(profile.profile)
+        if group is not None and profile.profile.device == "cuda":
+            from .native_host_clients import HostedGliner
+            self._worker = HostedGliner(profile.profile, group=group)
+        else:
+            self._worker = GlinerWorker(profile.profile)
 
     @property
     def closed(self) -> bool:

@@ -60,7 +60,7 @@ def runtime(monkeypatch):
         "_preflight_pm2_runtime",
         lambda **kwargs: dict(runtime_identity={"runtime": "frozen"}, assets={"artifact": 1}),
     )
-    policy = CharacterizationExecutionPolicy()
+    policy = CharacterizationExecutionPolicy(max_provider_jobs=2)
     execution = resources.ProviderExecution(OwnedByteBudget(policy.max_owned_bytes), policy)
     try:
         yield execution, opened, closed
@@ -329,6 +329,7 @@ def test_gliner_coalescing_refuses_bad_logical_input_before_enqueue_and_preserve
             )
         ),
     )
+    profile = replace(profile, version="gliner2-2.1.0-cpu-fp32-standard-whitespace-v1")
     pack = GlinerPack("release", "1", "{}")
 
     def request(identity, text):
@@ -429,9 +430,6 @@ def test_d1_client_defaults_to_cuda_and_cpu_requests_refuse_before_admission(run
     )
     arguments = dict(
         provider="d1",
-        python=Path("/fixture/python"),
-        script=Path("/fixture/script"),
-        project=Path("/fixture/project"),
         assets=Path("/fixture/assets"),
         runtime={"runtime": "frozen"},
         artifacts={"artifact": 1},
@@ -446,7 +444,7 @@ def test_d1_client_defaults_to_cuda_and_cpu_requests_refuse_before_admission(run
     assert execution.budget.used_bytes == 0
 
 
-def test_native_client_cohort_and_reply_preserve_declared_question_option_and_state_order(runtime):
+def test_native_client_cohort_and_reply_preserve_declared_question_option_and_state_order(runtime, monkeypatch):
     import json
     from hashlib import sha256
     from types import SimpleNamespace
@@ -462,13 +460,20 @@ def test_native_client_cohort_and_reply_preserve_declared_question_option_and_st
     )
     arguments = dict(
         provider="d1",
-        python=Path("/fixture/python"),
-        script=Path("/fixture/script"),
-        project=Path("/fixture/project"),
         assets=Path("/fixture/assets"),
         runtime={"runtime": "frozen"},
         artifacts={"artifact": 1},
     )
+    session = SimpleNamespace(requests=[])
+    opened.append(session)
+    monkeypatch.setattr(execution.native_group, "startup", lambda selected, active: dict(runtime_identity={"runtime": "frozen"}, assets={"artifact": 1}, device="cuda", dtype="torch.bfloat16"))
+
+    def infer(selected, payload, active):
+        active()
+        session.requests.append(payload)
+        return payload
+
+    monkeypatch.setattr(execution.native_group, "infer", infer)
     clients = [resources.pm2_client(execution, ctx, **arguments) for _ in range(2)]
     member = {
         "state": {"z_state": "first", "a_state": "second"},

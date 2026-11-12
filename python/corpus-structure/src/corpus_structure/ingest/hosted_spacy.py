@@ -50,7 +50,7 @@ class HostedPipeline:
     def decode(self, values):
         return [Doc(self.vocab).from_bytes(base64.b64decode(value, validate=True)) for value in values]
 
-    def pipe(self, inputs, *, as_tuples=False, batch_size=None, n_process=1):
+    def pipe(self, inputs, *, as_tuples=False, batch_size=None, n_process=1, endpoint=None):
         from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
         from corpus_structure.methods.native_host import NativeHostGroup
 
@@ -59,7 +59,8 @@ class HostedPipeline:
         selection = self.selection()
         # A direct/HTML operation owns this same host implementation only for its
         # learned phase. Exhaustion/close proves host death before returning.
-        with NativeHostGroup(CharacterizationExecutionPolicy()) as group:
+        from corpus_structure.settings import NemotronSettings
+        with NativeHostGroup(CharacterizationExecutionPolicy(), endpoint or NemotronSettings().endpoint) as group:
             group.declare((selection,))
             iterator = iter(inputs)
             while population := list(islice(iterator, min(batch_size or self.configuration.batch_size, self.configuration.batch_size))):

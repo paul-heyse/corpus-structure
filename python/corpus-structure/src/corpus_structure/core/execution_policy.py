@@ -14,13 +14,13 @@ class CharacterizationExecutionPolicy:
 
     workers: _PositiveInt = 2
     max_submissions: _PositiveInt = 2
-    max_regions: _PositiveInt = 2
-    max_active_stage_runs: _PositiveInt = 2
-    max_claims: _PositiveInt = 4
+    max_regions: _PositiveInt = 4
+    max_active_stage_runs: _PositiveInt = 4
+    max_claims: _PositiveInt = 8
     provider_threads: _PositiveInt = 4
     provider_interop_threads: _PositiveInt = 1
     cpu_native_threads: _PositiveInt = 1
-    max_provider_jobs: _PositiveInt = 2
+    max_provider_jobs: _PositiveInt = 4
     max_owned_bytes: _PositiveInt = 2 * 1024**3
     max_packet_bytes: _PositiveInt = 256 * 1024**2
     max_reply_bytes: _PositiveInt = 64 * 1024**2

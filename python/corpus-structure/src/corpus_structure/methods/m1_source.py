@@ -18,6 +18,7 @@ from corpus_structure.methods.annotation_rules import AnnotationRule
 from corpus_structure.methods.gliner import (
     ASSERTION_LITERAL_PACK,
     WHITESPACE_PROFILE,
+    CUDA_WHITESPACE_PROFILE,
     GlinerInput,
     GlinerPack,
     GlinerProfile,
@@ -177,7 +178,9 @@ class M1Config(BaseModel):
     execution_profile: Literal[
         "gliner2-2.1.0-cpu-fp32-standard-whitespace-v1",
         "gliner2-2.1.0-cpu-fp32-standard-codepoints-v1",
-    ] = WHITESPACE_PROFILE
+        "gliner2-2.1.0-cuda-fp32-standard-whitespace-v1",
+        "gliner2-2.1.0-cuda-fp32-standard-codepoints-v1",
+    ] = CUDA_WHITESPACE_PROFILE
     max_words: int = Field(default=512, gt=0)
     max_subwords: int = Field(default=2048, gt=0)
     formula_prose: bool = False
