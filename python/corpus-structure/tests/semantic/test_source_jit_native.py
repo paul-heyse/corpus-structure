@@ -1,5 +1,6 @@
-"""Actual scheduler leases and shared reader lifetime with controlled method kernels."""
+"""Actual native claim frontiers and private reader lifetimes with controlled kernels."""
 
+from collections import Counter
 from collections.abc import Iterable, Sequence
 
 from pydantic import BaseModel
@@ -32,6 +33,63 @@ from corpus_structure.semantic.operations import OperationBinding, register_docu
 from .operation_scenario_support import prepare_operation_scenario
 
 
+def _current_claim_rows(writer, ctx, units, method, policy):
+    """Query actual owned claim identities separately from the global running window."""
+    owner = ctx.check_active
+    assert isinstance(owner, ClaimOwner)
+    owner()
+    with owner.lock:
+        claims = tuple(owner.active.values())
+    assert len(claims) == len(units) == 1
+    with writer.connect() as conn:
+        rows = (
+            conn.execute(
+                text(
+                    "SELECT t.id,t.unit_id,t.unit_type,t.attempt,t.claimed_by,m.name,"
+                    "t.method_config_id,c.config_hash FROM ops.task t "
+                    "JOIN ops.method_config c ON c.id=t.method_config_id "
+                    "JOIN ops.method m ON m.id=c.method_id "
+                    "WHERE t.run_id=:run AND t.status='running' "
+                    "AND t.id=ANY(CAST(:owned AS bigint[])) ORDER BY t.id"
+                ),
+                dict(run=ctx.run.run_id, owned=[claim.task_id for claim in claims]),
+            )
+            .mappings()
+            .all()
+        )
+        running = conn.scalar(
+            text("SELECT count(*) FROM ops.task WHERE run_id=:run AND status='running'"),
+            dict(run=ctx.run.run_id),
+        )
+    assert len(rows) == len(claims)
+    assert {(row["id"], row["attempt"], row["claimed_by"]) for row in rows} == {
+        (claim.task_id, claim.attempt, claim.holder) for claim in claims
+    }
+    assert {(row["unit_type"], row["unit_id"]) for row in rows} == {
+        (unit.ref.unit_type.value, unit.ref.unit_id) for unit in units
+    }
+    assert {row["name"] for row in rows} == {method}
+    assert len(claims) <= running <= policy.max_claims
+    return owner, claims, rows, running
+
+
+def _controlled_math_batch(reader, identity):
+    # This is an actual controlled consumer of the production reader property and
+    # strict binding contract, rather than a stand-alone cache lookalike. The old
+    # orchestrator injection fails bind() when a second live claim reader arrives.
+    batch = reader.math_readings_batch
+    if batch is None:
+        batch = MathReadingsBatch()
+        reader.math_readings_batch = batch
+    batch.bind(reader)
+    assert batch.owner is reader
+    assert not batch.native, "another claim leaked mutable mathematical state"
+    marker = object()
+    batch.native[identity] = (marker,)
+    assert reader.math_readings_batch.native[identity] == (marker,)
+    return batch
+
+
 def test_ready_methods_claim_only_current_batch_and_keep_group_reader(
     semantic_db_engine, semantic_writer_engine, tmp_path
 ):
@@ -53,7 +111,12 @@ def test_ready_methods_claim_only_current_batch_and_keep_group_reader(
                 original=original,
                 mime="application/pdf",
             )
-    batches, readers, preparations = [], [], []
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+
+    policy = CharacterizationExecutionPolicy()
+    assert policy.max_claims == 8
+    batches, readers, running_windows, caches = [], [], [], []
+    invoked_units = []
 
     class ControlledMath[C: BaseModel]:
         version = "jit-control-1"
@@ -74,24 +137,16 @@ def test_ready_methods_claim_only_current_batch_and_keep_group_reader(
         def run(
             self, units: Sequence[UnitView], cfg: C, ctx: MethodContext
         ) -> Sequence[UnitResult]:
-            with semantic_writer_engine.connect() as conn:
-                running = conn.execute(
-                    text(
-                        "SELECT m.name,t.id FROM ops.task t JOIN ops.method_config c "
-                        "ON c.id=t.method_config_id JOIN ops.method m ON m.id=c.method_id "
-                        "WHERE t.run_id=:run AND t.status='running'"
-                    ),
-                    {"run": ctx.run.run_id},
-                ).all()
-            assert len(running) == len(units) <= 4
-            assert {row.name for row in running} == {self.name}
+            _owner, claims, _rows, running = _current_claim_rows(
+                semantic_writer_engine, ctx, units, self.name, policy
+            )
+            running_windows.append(running)
             batches.append((self.name, len(units)))
             readers.append(ctx.reader)
             assert isinstance(ctx.reader, ScopedSourceReader)
-            batch = ctx.reader.math_readings_batch
-            assert isinstance(batch, MathReadingsBatch)
-            batch.bind(ctx.reader)
-            preparations.append(batch)
+            assert ctx.reader.prepared is prepared
+            caches.append(_controlled_math_batch(ctx.reader, (self.name, units[0].ref.unit_id)))
+            invoked_units.extend((self.name, claim.unit_id) for claim in claims)
             for unit in units:
                 assert unit.ref.unit_id is not None
                 assert ctx.reader.original(unit.ref.unit_id).startswith(b"%PDF-")
@@ -118,16 +173,21 @@ def test_ready_methods_claim_only_current_batch_and_keep_group_reader(
         graph=Graph(
             ((Stage.EXTRACT, (Step("extract.math/default"), Step("normalize.formula/default"))),)
         ),
-        method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+        method_settings=MethodSettings(
+            data_dir=tmp_path, model_cache=tmp_path, execution_policy=policy
+        ),
     )
-    assert batches == [
-        ("extract.math", 4),
-        ("extract.math", 2),
-        ("normalize.formula", 4),
-        ("normalize.formula", 2),
-    ]
-    assert all(reader is readers[0] for reader in readers)
-    assert all(batch is preparations[0] for batch in preparations)
+    assert Counter(batches) == {("extract.math", 1): 6, ("normalize.formula", 1): 6}
+    assert len(invoked_units) == len(set(invoked_units)) == 12
+    assert {identity for name, identity in invoked_units if name == "extract.math"} == {
+        identity for name, identity in invoked_units if name == "normalize.formula"
+    }
+    assert max(running_windows) > 1
+    assert len({id(reader) for reader in readers}) == len(readers)
+    assert len({id(cache) for cache in caches}) == len(readers)
+    assert all(len(cache.native) == 1 for cache in caches)
+    caches[0].native.clear()
+    assert all(len(cache.native) == 1 for cache in caches[1:])
     assert result.status == "source_ready"
     with semantic_db_engine.connect() as conn:
         assert (
@@ -141,13 +201,17 @@ def test_ready_methods_claim_only_current_batch_and_keep_group_reader(
 
 def _run_source_view_dependency_case(admin, writer, directory, monkeypatch, *, reclaim):
     """Six real published views; only mathematical computation is a controlled kernel."""
+    from concurrent.futures import Future
     from contextlib import contextmanager
     from threading import Event
+    from time import monotonic
 
     import pytest
     from pdf_acceptance_support import publish_controlled_pdf_views, write_controlled_pdf
 
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
     from corpus_structure.core.method import ObservationDraft
+    from corpus_structure.core.work import PreparedWork
     from corpus_structure.semantic import claim_lifetime, operations
     from corpus_structure.semantic.operations import (
         BoundReader,
@@ -176,8 +240,10 @@ def _run_source_view_dependency_case(admin, writer, directory, monkeypatch, *, r
             original=original,
             mime="application/pdf",
         )
-    native_views, batches, durable_counts, readiness = [], [], [], []
-    readers, preparations, reclaimed = [], [], []
+    policy = CharacterizationExecutionPolicy()
+    assert policy.max_claims == 8
+    native_views, batches, running_windows, readers, reclaimed, caches = [], [], [], [], [], []
+    original_claims, ready_snapshots, decoys = {}, [], []
     slow_original, renewal_during_custody = Event(), Event()
     actual_read, actual_renew = operations.read_original, claim_lifetime.renew_claim
     actual_owner = claim_lifetime.maintained_claims
@@ -234,6 +300,66 @@ def _run_source_view_dependency_case(admin, writer, directory, monkeypatch, *, r
             )
             return (UnitResult(ref=units[0].ref, outcome=ObservationOutcome.EMPTY),)
 
+    class GateReply:
+        def __init__(self):
+            self.future: Future[None] = Future()
+            self.future.set_result(None)
+
+        def collect(self):
+            return self.future.result()
+
+        def cancel(self):
+            self.future.cancel()
+
+        def retire(self):
+            return self.future.done()
+
+    def first_four_dependencies(run_id):
+        first = [view.ref.id for view in native_views[:4]]
+        with writer.connect() as conn:
+            parents = (
+                conn.execute(
+                    text(
+                        "SELECT t.id,t.unit_id,t.status FROM ops.task t "
+                        "JOIN ops.method_config c ON c.id=t.method_config_id "
+                        "JOIN ops.method m ON m.id=c.method_id WHERE t.run_id=:run "
+                        "AND m.name='extract.math' AND t.input_hash<>'decoy' "
+                        "AND t.unit_id=ANY(CAST(:first AS bigint[]))"
+                    ),
+                    dict(run=run_id, first=first),
+                )
+                .mappings()
+                .all()
+            )
+            children = (
+                conn.execute(
+                    text(
+                        "SELECT child.id,child.unit_id,parent.id AS parent_id,"
+                        "parent.unit_id AS parent_unit "
+                        "FROM ops.task child JOIN ops.method_config c "
+                        "ON c.id=child.method_config_id "
+                        "JOIN ops.method m ON m.id=c.method_id "
+                        "JOIN ops.task_dependency d ON d.task_id=child.id "
+                        "JOIN ops.task parent ON parent.id=d.dependency_task_id "
+                        "WHERE child.run_id=:run AND m.name='normalize.formula' "
+                        "AND d.kind='source_view_interpretation' AND parent.status='done' "
+                        "AND parent.input_hash<>'decoy' "
+                        "AND parent.unit_id=ANY(CAST(:first AS bigint[]))"
+                    ),
+                    dict(run=run_id, first=first),
+                )
+                .mappings()
+                .all()
+            )
+        assert len(parents) == 4
+        if not all(parent["status"] == "done" for parent in parents) or len(children) < 4:
+            return None
+        expected = {(parent["unit_id"], parent["id"]) for parent in parents}
+        assert len(children) == 4
+        assert {(child["unit_id"], child["parent_id"]) for child in children} == expected
+        assert all(child["unit_id"] == child["parent_unit"] for child in children)
+        return expected
+
     class ControlledMath[C: BaseModel]:
         version, tier, confidence_source = "jit-views-math-1", "deterministic", None
         unit_type, resources = TaskUnitType.SOURCE_VIEW, Resources(batch_size=4)
@@ -259,68 +385,77 @@ def _run_source_view_dependency_case(admin, writer, directory, monkeypatch, *, r
                 assert upstream is not None and upstream["input_hash"] != "decoy"
             return Digest(f"actual-native-view:{unit.ref.unit_key}".encode())
 
+        def plan(self, units, cfg, ctx):
+            assert len(native_views) == 6 and len(units) == 1
+            # Keep default eight-claim concurrency. Only the final two producer
+            # kernels wait, cooperatively, for actual prior native settlement and
+            # child registration; no worker/thread or global scheduling gate exists.
+            if self.name == "extract.math" and units[0].ref.unit_id in {
+                view.ref.id for view in native_views[4:]
+            }:
+                deadline = monotonic() + 10
+
+                def try_gate():
+                    ctx.check_active()
+                    assert monotonic() < deadline, "prior native source dependencies did not settle"
+                    ready = first_four_dependencies(ctx.run.run_id)
+                    if ready is None:
+                        return None
+                    ready_snapshots.append(ready)
+                    return GateReply()
+
+                yield (PreparedWork(try_gate),)
+            return self.run(units, cfg, ctx)
+
         def run(
             self, units: Sequence[UnitView], cfg: C, ctx: MethodContext
         ) -> Sequence[UnitResult]:
-            with writer.connect() as conn:
-                rows = (
-                    conn.execute(
-                        text(
-                            "SELECT t.id,t.attempt,t.claimed_by,m.name,t.method_config_id,"
-                            "c.config_hash "
-                            "FROM ops.task t JOIN ops.method_config c ON c.id=t.method_config_id "
-                            "JOIN ops.method m ON m.id=c.method_id "
-                            "WHERE t.run_id=:run AND t.status='running' ORDER BY t.id"
-                        ),
-                        {"run": ctx.run.run_id},
-                    )
-                    .mappings()
-                    .all()
-                )
-                done = conn.scalar(
-                    text(
-                        "SELECT count(*) FROM ops.task t "
-                        "JOIN ops.method_config c ON c.id=t.method_config_id "
-                        "JOIN ops.method m ON m.id=c.method_id WHERE t.run_id=:run "
-                        "AND m.name='extract.math' AND t.status='done'"
-                    ),
-                    {"run": ctx.run.run_id},
-                )
-                ready = conn.scalar(
-                    text(
-                        "SELECT count(*) FROM ops.task t "
-                        "JOIN ops.method_config c ON c.id=t.method_config_id "
-                        "JOIN ops.method m ON m.id=c.method_id WHERE t.run_id=:run "
-                        "AND m.name='normalize.formula' AND t.status='pending' "
-                        "AND EXISTS(SELECT FROM ops.task_dependency d WHERE d.task_id=t.id) "
-                        "AND NOT EXISTS(SELECT FROM ops.task_dependency d JOIN ops.task p "
-                        "ON p.id=d.dependency_task_id WHERE d.task_id=t.id "
-                        "AND p.status NOT IN ('done','empty','reused'))"
-                    ),
-                    {"run": ctx.run.run_id},
-                )
-            assert len(rows) == len(units) <= 4
-            assert {row["name"] for row in rows} == {self.name}
+            owner, claims, rows, running = _current_claim_rows(
+                writer, ctx, units, self.name, policy
+            )
+            (claim,), (row,) = claims, rows
+            running_windows.append(running)
             batches.append((self.name, len(units)))
-            durable_counts.append(done)
-            readiness.append(ready)
             readers.append(ctx.reader)
             assert isinstance(ctx.reader, ScopedSourceReader)
-            batch = ctx.reader.math_readings_batch
-            assert isinstance(batch, MathReadingsBatch)
-            batch.bind(ctx.reader)
-            preparations.append(batch)
-            if not reclaim and self.name == "extract.math" and done == 4:
-                # A second valid completed invocation of the producer method for this
-                # view must not make the ordinary child's declared dependency ambiguous.
+            assert ctx.reader.prepared is prepared
+            caches.append(_controlled_math_batch(ctx.reader, (self.name, units[0].ref.unit_id)))
+            key = self.name, claim.unit_id
+            assert key not in original_claims
+            original_claims[key] = claim
+            if self.name == "normalize.formula":
+                with writer.connect() as conn:
+                    parents = (
+                        conn.execute(
+                            text(
+                                "SELECT d.dependency_task_id,p.unit_id,p.status,p.input_hash "
+                                "FROM ops.task_dependency d JOIN ops.task p "
+                                "ON p.id=d.dependency_task_id "
+                                "WHERE d.task_id=:task AND d.kind='source_view_interpretation'"
+                            ),
+                            dict(task=claim.task_id),
+                        )
+                        .mappings()
+                        .all()
+                    )
+                (parent,) = parents
+                expected = original_claims["extract.math", claim.unit_id]
+                assert parent["dependency_task_id"] == expected.task_id
+                assert parent["unit_id"] == claim.unit_id and parent["status"] == "done"
+                assert parent["input_hash"] != "decoy"
+                upstream = ctx.reader.source_result(claim.unit_id, "extract.math")
+                assert upstream is not None and upstream["input_hash"] != "decoy"
+            late = self.name == "extract.math" and claim.unit_id in {
+                view.ref.id for view in native_views[4:]
+            }
+            if late and not reclaim and not decoys:
                 ref = units[0].ref
                 assert ref.unit_key is not None
                 with writer.begin() as conn:
-                    decoy_config = rows[0]["method_config_id"]
                     decoy = create_task(
                         conn,
                         run_id=RunId(ctx.run.run_id),
-                        config_id=decoy_config,
+                        config_id=row["method_config_id"],
                         stage="extract",
                         unit_type="source_view",
                         unit_id=ref.unit_id,
@@ -330,7 +465,7 @@ def _run_source_view_dependency_case(admin, writer, directory, monkeypatch, *, r
                     (decoy_claim,) = claim_tasks(
                         conn,
                         run_id=RunId(ctx.run.run_id),
-                        config_id=decoy_config,
+                        config_id=row["method_config_id"],
                         holder="scheduler-decoy",
                         limit=1,
                         prepared=prepared,
@@ -344,54 +479,54 @@ def _run_source_view_dependency_case(admin, writer, directory, monkeypatch, *, r
                         prepared=prepared,
                         result=UnitResult(ref=ref, outcome=ObservationOutcome.EMPTY),
                         method=self,
-                        configuration_hash=rows[0]["config_hash"],
+                        configuration_hash=row["config_hash"],
                         source=ref.unit_key,
                     )
-            if self.name == "normalize.formula":
-                for unit in units:
-                    assert unit.ref.unit_id is not None
-                    upstream = ctx.reader.source_result(unit.ref.unit_id, "extract.math")
-                    assert upstream is not None and upstream["input_hash"] != "decoy"
-            if reclaim and self.name == "extract.math" and done == 4:
-                assert ready == 4
-                victim = rows[0]
-                # Administrative clock control changes only lease age. Reclaim and both
-                # stale/new fences use the actual protected native operations.
-                owner = ctx.check_active
-                assert isinstance(owner, ClaimOwner)
+                    decoys.append(decoy)
+            if late and reclaim and not reclaimed:
+                # Expire only this invocation's exact current claim. A global first
+                # running row could belong to another concurrently useful sibling.
                 with owner.lock:
                     with admin.begin() as conn:
                         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
                         conn.execute(
                             text(
-                                "UPDATE ops.task "
-                                "SET lease_until=clock_timestamp()-interval '1 second' "
+                                "UPDATE ops.task SET lease_until="
+                                "clock_timestamp()-interval '1 second' "
                                 "WHERE id=:id"
                             ),
-                            {"id": victim["id"]},
+                            dict(id=claim.task_id),
                         )
                     with writer.begin() as conn:
                         (replacement,) = claim_tasks(
                             conn,
                             run_id=RunId(ctx.run.run_id),
-                            config_id=victim["method_config_id"],
+                            config_id=row["method_config_id"],
                             holder="source-view-reclaimer",
                             limit=1,
                             prepared=prepared,
                         )
-                    assert replacement.task_id == victim["id"]
-                    assert replacement.attempt == victim["attempt"] + 1
+                    assert replacement.task_id == claim.task_id
+                    assert replacement.attempt == claim.attempt + 1
                     with pytest.raises(OperationConflict), writer.begin() as conn:
                         complete_task(
                             conn,
-                            task_id=victim["id"],
-                            attempt=victim["attempt"],
-                            holder=victim["claimed_by"],
+                            task_id=claim.task_id,
+                            attempt=claim.attempt,
+                            holder=claim.holder,
                             prepared=prepared,
                             observations=(),
                             outcome="empty",
                         )
-                    reclaimed.append((victim, replacement))
+                    with writer.connect() as conn:
+                        assert (
+                            conn.scalar(
+                                text("SELECT count(*) FROM kb.observation WHERE task_id=:task"),
+                                dict(task=claim.task_id),
+                            )
+                            == 0
+                        )
+                    reclaimed.append((claim, replacement))
             return tuple(
                 UnitResult(
                     ref=unit.ref,
@@ -435,7 +570,9 @@ def _run_source_view_dependency_case(admin, writer, directory, monkeypatch, *, r
                 (Stage.EXTRACT, (Step("extract.math/default"), Step("normalize.formula/default"))),
             )
         ),
-        method_settings=MethodSettings(data_dir=directory, model_cache=directory),
+        method_settings=MethodSettings(
+            data_dir=directory, model_cache=directory, execution_policy=policy
+        ),
     )
     result = None
     if reclaim:
@@ -446,55 +583,74 @@ def _run_source_view_dependency_case(admin, writer, directory, monkeypatch, *, r
         assert result.status == "source_ready"
     assert len(native_views) == 6 and len({view.ref.id for view in native_views}) == 6
     assert renewal_during_custody.is_set()
-    assert batches[:2] == [("extract.math", 4), ("extract.math", 2)]
-    assert durable_counts[:2] == [0, 4] and readiness[1] == 4
-    assert all(reader is readers[0] for reader in readers)
-    assert all(batch is preparations[0] for batch in preparations)
+    assert max(running_windows) > 1
+    assert all(size == 1 for _, size in batches)
+    assert len({id(reader) for reader in readers}) == len(readers)
+    assert len({id(cache) for cache in caches}) == len(readers)
+    assert all(len(cache.native) == 1 for cache in caches)
+    caches[0].native.clear()
+    assert all(len(cache.native) == 1 for cache in caches[1:])
+    assert ready_snapshots and all(len(snapshot) == 4 for snapshot in ready_snapshots)
+    first_tasks = [
+        original_claims["extract.math", view.ref.id].task_id for view in native_views[:4]
+    ]
     with admin.connect() as conn:
+        # Exact prior native producer outputs survive either outcome; a useful
+        # independent sibling may also settle while a stale failure is drained.
+        assert (
+            conn.scalar(
+                text(
+                    "SELECT count(*) FROM kb.observation o JOIN ops.task t ON t.id=o.task_id "
+                    "WHERE t.id=ANY(CAST(:prior AS bigint[])) AND t.status='done'"
+                ),
+                dict(prior=first_tasks),
+            )
+            == 4
+        )
         if reclaim:
             ((victim, replacement),) = reclaimed
             assert (
                 conn.scalar(
-                    text(
-                        "SELECT count(*) FROM kb.observation o JOIN ops.task t ON t.id=o.task_id "
-                        "JOIN ops.method_config c ON c.id=t.method_config_id "
-                        "JOIN ops.method m ON m.id=c.method_id "
-                        "WHERE t.run_id=:run AND m.name='extract.math' AND t.status='done'"
-                    ),
-                    {"run": replacement.run_id},
+                    text("SELECT count(*) FROM kb.observation WHERE task_id=:id"),
+                    dict(id=victim.task_id),
                 )
-                == 4
+                == 0
             )
             assert (
-                conn.scalar(text("SELECT attempt FROM ops.task WHERE id=:id"), {"id": victim["id"]})
+                conn.scalar(
+                    text("SELECT attempt FROM ops.task WHERE id=:id"), dict(id=victim.task_id)
+                )
                 == replacement.attempt
             )
         else:
-            assert result is not None
-            assert batches == [
-                ("extract.math", 4),
-                ("extract.math", 2),
-                ("normalize.formula", 4),
-                ("normalize.formula", 2),
-            ]
+            assert result is not None and len(decoys) == 1
+            expected = {
+                (method, view.ref.id)
+                for method in ("extract.math", "normalize.formula")
+                for view in native_views
+            }
+            assert set(original_claims) == expected
+            assert Counter(batches) == {("extract.math", 1): 6, ("normalize.formula", 1): 6}
+            dependencies = conn.execute(
+                text(
+                    "SELECT t.unit_id,d.dependency_task_id FROM ops.task_dependency d "
+                    "JOIN ops.task t ON t.id=d.task_id WHERE t.run_id=:run "
+                    "AND d.kind='source_view_interpretation'"
+                ),
+                dict(run=result.run_id),
+            ).all()
+            assert len(dependencies) == 6
+            assert set(dependencies) == {
+                (view.ref.id, original_claims["extract.math", view.ref.id].task_id)
+                for view in native_views
+            }
             assert (
                 conn.scalar(
                     text(
-                        "SELECT count(*) FROM ops.task_dependency d "
-                        "JOIN ops.task t ON t.id=d.task_id "
-                        "WHERE t.run_id=:run AND d.kind='source_view_interpretation'"
+                        "SELECT count(*) FROM kb.observation o "
+                        "JOIN ops.task t ON t.id=o.task_id WHERE t.run_id=:run"
                     ),
-                    {"run": result.run_id},
-                )
-                == 6
-            )
-            assert (
-                conn.scalar(
-                    text(
-                        "SELECT count(*) FROM kb.observation o JOIN ops.task t ON t.id=o.task_id "
-                        "WHERE t.run_id=:run"
-                    ),
-                    {"run": result.run_id},
+                    dict(run=result.run_id),
                 )
                 == 12
             )

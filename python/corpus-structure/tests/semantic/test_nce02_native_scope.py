@@ -210,13 +210,21 @@ def test_native_list_host_requires_exact_selected_membership(semantic_db_engine)
 
 
 def test_native_clipped_role_population_detects_omitted_roles(semantic_db_engine):
+    from corpus_structure.ingest.sentences import pipeline
+
     spelling = "The analyst records the input."
     view = complete_native_fields(source(spelling, labels=("text",)))
-    prepared = prepare_source(view, annotations_only=True)
+    profile = AnnotationProfile()
+    nlp = pipeline(profile.configuration)
+    original_execution = nlp.selection().native
+    prepared = prepare_source(view, profile=profile, annotations_only=True)
     start = spelling.index("records")
     frame = native_source_frame(view, ())
     output = discover_relations(
-        frame, annotations=prepared.annotations, passages=(passage(spelling),)
+        frame,
+        annotations=prepared.annotations,
+        annotation_native_profile=original_execution,
+        passages=(passage(spelling),),
     )
     (whole,) = frame_rows(output)
     members = {m["role"]: m for m in whole["frame_members"]}
@@ -225,6 +233,7 @@ def test_native_clipped_role_population_detects_omitted_roles(semantic_db_engine
     action = discover_relations(
         frame,
         annotations=prepared.annotations,
+        annotation_native_profile=original_execution,
         primary_layers=output["_primary_layers"],
         passages=(passage(spelling, start, start + len("records")),),
     )
@@ -236,6 +245,7 @@ def test_native_clipped_role_population_detects_omitted_roles(semantic_db_engine
     determiner = discover_relations(
         frame,
         annotations=prepared.annotations,
+        annotation_native_profile=original_execution,
         primary_layers=output["_primary_layers"],
         passages=(passage(spelling, start, spelling.index("input")),),
     )

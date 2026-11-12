@@ -913,18 +913,11 @@ def _source_run_plan(
                     (registration,) = yield (source_reads.read_work(register_initial_group),)
                     scheduled, deferred, next_registered = registration
                     registered.update(next_registered)
-                    shared_math_batch = None
-                    if len(group) > 1:
-                        from corpus_structure.methods.math.methods import MathReadingsBatch
-
-                        shared_math_batch = MathReadingsBatch()
                     from dataclasses import replace
 
                     from .source_reader import ScopedSourceReader
 
-                    def execute_claim_body(
-                        method, config, claimed, claim_region, math_batch=shared_math_batch
-                    ):
+                    def execute_claim_body(method, config, claimed, claim_region):
                         with engine.connect() as conn:
                             view = run_view(
                                 conn,
@@ -938,7 +931,6 @@ def _source_run_plan(
                                 raise TypeError(
                                     "source execution requires the bound database adapter"
                                 )
-                            bound_reader.math_readings_batch = math_batch
                             bound_reader.provider_execution = execution_preparation.providers
                         scoped_reader = ScopedSourceReader(engine, bound_reader)
                         method_view = replace(view, reader=scoped_reader)

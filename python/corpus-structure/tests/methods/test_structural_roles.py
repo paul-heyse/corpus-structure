@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from corpus_structure.methods.structural_roles import procedure_frames
 
 
-def annotation(text, specifications):
+def annotation(text, specifications, *, source_pin=None):
     tokens = []
     cursor = 0
     for word, pos, dependency, head, tag in specifications:
@@ -75,7 +75,8 @@ def annotation(text, specifications):
         for t in tokens
     )
     product = AnnotationProduct(
-        source=NativeSourcePin(
+        source=source_pin
+        or NativeSourcePin(
             7,
             "source:7",
             ProductReference(17, "integrated", "a" * 64),

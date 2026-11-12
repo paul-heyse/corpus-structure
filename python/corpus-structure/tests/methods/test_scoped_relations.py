@@ -446,10 +446,13 @@ def test_named_procedure_reference_binds_verb_to_caption_under_selected_version(
 
 
 def test_retained_linguistic_roles_join_action_to_its_real_scoped_artifact():
+    from corpus_structure.semantic.source_contexts import NativeSourcePin
+
     from .test_structural_roles import annotation
 
     text = "Table 5.1 must be reviewed by Manager."
     view = complete_native_fields(source(text, labels=("text",)))
+    frame = native_source_frame(view, ())
     product = annotation(
         text,
         [
@@ -461,10 +464,9 @@ def test_retained_linguistic_roles_join_action_to_its_real_scoped_artifact():
             ("by", "ADP", "agent", 4, "IN"),
             ("Manager", "NOUN", "pobj", 5, "NN"),
         ],
+        source_pin=NativeSourcePin.from_source(frame),
     )
-    output = discover_relations(
-        native_source_frame(view, ()), source_work="parent", annotations=(product,)
-    )
+    output = discover_relations(frame, source_work="parent", annotations=(product,))
     rows = output["contributions"]
     by_id = {
         r["contribution_id"]: (source_python(r["value"]) if "value" in r else {}) for r in rows

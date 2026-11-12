@@ -276,6 +276,7 @@ def test_pm2_cli_refuses_invalid_extent_before_run_admission(
 
     from corpus_structure.cli.app import app
     from corpus_structure.cli.output import CliState
+    from corpus_structure.methods import native_host, native_profiles
     from corpus_structure.orchestrate import pm2_stage
     from corpus_structure.semantic.metadata import table
 
@@ -304,13 +305,32 @@ def test_pm2_cli_refuses_invalid_extent_before_run_admission(
         ),
     ).sources
 
-    # Satisfy the profile identity check without launching a provider; the
-    # canonical-boundary controls must reach real source preparation.
-    monkeypatch.setattr(
-        pm2_stage,
-        "preflight_pm2_runtime",
-        lambda **_: {"assets": {}, "runtime_identity": "extent-control"},
-    )
+    # Control asset/runtime admission at its actual owner. Original source loading
+    # and canonical-token validation remain real; learned sentence inference is isolated.
+    checked_providers = []
+
+    def preflight(provider, assets):
+        assert provider in {"hanlp", "d1"}
+        assert assets == tmp_path
+        checked_providers.append(provider)
+        return {"assets": {}, "runtime_identity": {"fixture": "extent-control"}}
+
+    monkeypatch.setattr(native_profiles, "preflight_native_runtime", preflight)
+
+    def canonical_sentences(view, *, endpoint=None):
+        # Independently supplied whole-source sentence control: [0,2) cuts it,
+        # while [1,2) must first fail the actual canonical-token boundary check.
+        assert view.text.startswith(parser_samples[0])
+        return [(0, len(parser_samples[0]))]
+
+    monkeypatch.setattr(pm2_stage, "_sentences", canonical_sentences)
+
+    # With sentence bounds supplied above, this guards the later PM2 execution
+    # host. It does not establish behavior of the unmocked spaCy inference path.
+    def refuse_provider_start(self):
+        pytest.fail("invalid source extent reached the PM2 execution host")
+
+    monkeypatch.setattr(native_host.NativeHostGroup, "__enter__", refuse_provider_start)
     run, task = table("ops.run"), table("ops.task")
 
     def inventory():
@@ -341,10 +361,10 @@ def test_pm2_cli_refuses_invalid_extent_before_run_admission(
             "extent": extent,
             "profile": {
                 "provider": provider,
-                "device": "cpu" if command == "parsers" else "cuda",
+                "device": "cuda",
                 "startup": {
                     "provider": provider,
-                    "device": "cpu" if command == "parsers" else "cuda",
+                    "device": "cuda",
                     "dtype": "torch.float32" if command == "parsers" else "torch.bfloat16",
                     "assets": {},
                 },
@@ -372,6 +392,8 @@ def test_pm2_cli_refuses_invalid_extent_before_run_admission(
         error = json.loads(result.stdout)["error"]
         assert (error["code"], error["reason"]) == ("Pm2ScopeRefused", reason), error
         assert inventory() == before
+
+    assert checked_providers == ["hanlp", "d1", "hanlp", "hanlp"]
 
 
 def test_cancelled_pm2_scope_does_not_gain_an_operation_result(private_source):

@@ -653,6 +653,53 @@ def test_native_method_readings_seed_primary_syntax_once_before_domain_interpret
     assert readings(view, cfg, reader)[0] is result[0]
 
 
+def test_native_math_reading_caches_are_private_to_their_reader_with_shared_primary_input(
+    prepared, monkeypatch
+):
+    from types import SimpleNamespace
+
+    from corpus_structure.methods.math.methods import ExtractMathConfig
+    from corpus_structure.methods.math.native import readings
+    from corpus_structure.methods.math.prepared import StageState
+
+    view = source(("x+1", "formula", "x+1", "succeeded"))
+    layer = build_formal_layer(view, prepared, operation())
+    layers = {layer.reference(42): layer}
+
+    def reader():
+        return SimpleNamespace(
+            prepared=None,
+            primary_characterization=lambda _id, **_kw: layers,
+            ancestor_source_views=lambda _id: (),
+        )
+
+    left, right = reader(), reader()
+    cfg = ExtractMathConfig(characterization_layers=(layer.reference(42).values(),))
+    monkeypatch.setattr(
+        math_grammar, "syntax", lambda *_a, **_k: pytest.fail("reader reparsed retained syntax")
+    )
+    monkeypatch.setattr(
+        math_grammar,
+        "syntax_forest",
+        lambda *_a, **_k: pytest.fail("reader rebuilt retained forest"),
+    )
+    (first,) = readings(view, cfg, left)
+    (second,) = readings(view, cfg, right)
+    assert first is not second and first.prepared is not second.prepared
+    assert first.result.status is second.result.status is ParseOutcome.OK
+    assert [(o.name, o.start, o.end) for o in first.result.occurrences] == [("x", 0, 1)]
+    assert [(o.name, o.start, o.end) for o in second.result.occurrences] == [("x", 0, 1)]
+    assert left.math_readings_batch is not right.math_readings_batch
+    assert readings(view, cfg, left)[0] is first
+    assert readings(view, cfg, right)[0] is second
+    first.prepared._states["private-control"] = StageState("failed", "partial", "controlled")
+    left.math_readings_batch.native.clear()
+    assert "private-control" not in second.prepared._states
+    assert readings(view, cfg, right)[0] is second
+    with pytest.raises(ValueError, match="another source reader"):
+        left.math_readings_batch.bind(right)
+
+
 def test_private_native_choice_factoring_preserves_correlated_pairs_and_shared_children():
     from lark import Token, Tree
 

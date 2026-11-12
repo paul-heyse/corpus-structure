@@ -1032,6 +1032,18 @@ set-based effective-origin frame reads retain current attempt/source fences and 
 
 ## Prepared interpretation execution
 
-**Implemented (scoped verification,2026-10-30).** The source loop coexecutes only model-admitted compatible M09/M11 steps within a bounded rendition batch. Claims, configuration identity, task completion and observation provenance remain separate; batch state cannot transfer to another reader.
+**Implemented; qualification open2026-11-12.** Compatible source methods share the
+dependency-ready frontier and its bounded claim admission. Each claim has a private BoundReader
+and ScopedSourceReader; connection state, source-task/producer bindings and characterization
+selection do not cross claim branches. Authenticated immutable source/layer preparation remains
+operation-owned through RegionalPreparation.
+
+Mutable MathReadingsBatch state belongs to exactly one reader. Extraction creates/reuses that
+working cache lazily within its claim; the binding guard rejects transfer to another reader.
+Normalization restores its exact declared upstream occurrence record and retained primary syntax,
+rather than reusing extraction's mutable preparation or recognizing source language again. There
+is no orchestration-level group math cache. Claims, configuration identity, native dependencies,
+completion and observation provenance remain distinct. The [BEP-E09 disposition](../plans/book-processing-efficiency-and-parallelism_2026-11-11.md#BEP-E09)
+owns native renewal, stale-write and assembled qualification.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
