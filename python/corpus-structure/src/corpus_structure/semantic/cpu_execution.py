@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 import multiprocessing
+import sys
 import threading
 from collections.abc import Callable, Generator, Mapping
 from concurrent.futures import Future, ProcessPoolExecutor, TimeoutError
 from contextlib import contextmanager, suppress
 from dataclasses import asdict, dataclass
 from hashlib import sha256
+from time import monotonic
 from typing import Any, Literal, cast
 from uuid import uuid4
 
@@ -368,15 +370,30 @@ class CPUHandle:
         self._error: BaseException | None = None
         self._collected = False
         self._cancelled = False
+        self._cancel_pending = False
+
+    def _signal_cancellation(self) -> None:
+        if not self._cancel_pending or not self.admission.active:
+            return
+        lock = self.owner._cancellation.get_lock()
+        if not lock.acquire(False):
+            return
+        try:
+            offset = self.admission.slot * 2
+            flags = self.owner._cancellation.get_obj()
+            if flags[offset] == self.admission.generation:
+                flags[offset + 1] = 1
+            self._cancel_pending = False
+        finally:
+            lock.release()
 
     def cancel(self) -> None:
-        if self.admission.active:
-            with self.owner._cancellation.get_lock():
-                offset = self.admission.slot * 2
-                if self.owner._cancellation[offset] == self.admission.generation:
-                    self.owner._cancellation[offset + 1] = 1
         self._cancelled = True
+        self._cancel_pending = True
+        # Cancellation never waits on an IPC lock a dead child may have held.
+        # The parent fence is immediate; retirement/admission retry a busy flag.
         self.future.cancel()
+        self._signal_cancellation()
 
     def collect(self) -> CPUReply:
         if not self.future.done():
@@ -384,7 +401,7 @@ class CPUHandle:
         if not self._collected:
             try:
                 self.check_active()
-                if self._cancelled:
+                if self._cancelled or self.owner._closed:
                     raise CPURequestCancelled("CPU logical request cancelled")
                 reply = self.future.result()
                 if reply.request_digest != self.digest or not reply.main_thread:
@@ -423,6 +440,9 @@ class CPUHandle:
         return self._reply
 
     def retire(self) -> bool:
+        self._signal_cancellation()
+        if self.owner._closed and not self.owner._physical_retired:
+            return False
         if not self.future.done():
             return False
         if not self._collected:
@@ -433,6 +453,147 @@ class CPUHandle:
         return True
 
 
+_COOPERATIVE_CLOSE_SECONDS = 5.0
+_WORKER_EXIT_SECONDS = 5.0
+
+
+@dataclass
+class _PoolOwnership:
+    """CPython 3.14's actual worker registry, retained across public shutdown.
+
+    _spawn_worker receives this same dictionary before Process.start(), then adds
+    the started Process to it. Retaining the dictionary, rather than a snapshot,
+    keeps a concurrent spawn owned even after shutdown clears executor attributes.
+    No worker recycling is selected. Native locks/state stay inside this adapter.
+    """
+
+    registry: dict[int, Any]
+    manager: threading.Thread | None
+    retired: bool = False
+
+    @property
+    def processes(self) -> tuple[Any, ...]:
+        return tuple(self.registry.values())
+
+    @classmethod
+    def capture(cls, pool: ProcessPoolExecutor) -> _PoolOwnership:
+        native = cast(Any, pool)
+        registry = native._processes
+        if registry is None:
+            raise RuntimeError("CPU worker ownership must be captured before shutdown")
+        return cls(registry, native._executor_manager_thread)
+
+    def shutdown(
+        self,
+        pool: ProcessPoolExecutor,
+        handles: Callable[[], tuple[CPUHandle, ...]],
+        submissions: tuple[threading.Event, ...],
+        companions: tuple[threading.Thread, ...],
+        deadline: float,
+    ) -> None:
+        def pending():
+            return any(not event.is_set() for event in submissions) or any(
+                not handle.future.done() for handle in handles()
+            )
+
+        while pending() and monotonic() < deadline:
+            threading.Event().wait(min(0.05, max(0, deadline - monotonic())))
+        forceful = pending()
+        failures: list[BaseException] = []
+        finished = threading.Event()
+
+        def shutdown_pool():
+            try:
+                native = cast(Any, pool)
+                with native._shutdown_lock:
+                    # Match shutdown's native admission fence before capturing
+                    # its manager. A queued submit must not create a new manager
+                    # between capture and the public API discarding that handle.
+                    native._shutdown_thread = True
+                    self.manager = native._executor_manager_thread or self.manager
+                if forceful:
+                    pool.kill_workers()
+                else:
+                    pool.shutdown(wait=False, cancel_futures=True)
+            except BaseException as error:
+                failures.append(error)
+            finally:
+                finished.set()
+
+        # A broken manager holds the native shutdown lock while joining siblings
+        # that may ignore SIGTERM. Keep public shutdown/kill off the caller, and
+        # keep the live registry available while native submissions unblock.
+        closer = threading.Thread(target=shutdown_pool, name="cpu-pool-close", daemon=True)
+        closer.start()
+
+        def join_until(owners, until):
+            for owner in owners:
+                try:
+                    owner.join(max(0, until - monotonic()))
+                except BaseException as error:
+                    failures.append(error)
+
+        finished.wait(max(0, deadline - monotonic()))
+        join_until(self.processes, deadline)
+        if self.manager is not None:
+            join_until((self.manager,), deadline)
+
+        # Never chain terminate_workers then kill_workers: the first API erases
+        # executor ownership. Kill actual owned Process handles, including any
+        # late insertion by an already-started native submission. The total
+        # grace/death deadline includes native and scope lock acquisition.
+        exit_deadline = deadline + _WORKER_EXIT_SECONDS
+        while True:
+            for process in self.processes:
+                try:
+                    if process.is_alive():
+                        process.kill()
+                except ProcessLookupError:
+                    pass
+                except BaseException as error:
+                    failures.append(error)
+            interval = min(exit_deadline, monotonic() + 0.05)
+            join_until(self.processes, interval)
+            if self.manager is not None:
+                join_until((self.manager,), interval)
+            join_until((closer, *companions), interval)
+            living = tuple(process.pid for process in self.processes if process.is_alive())
+            if (
+                not living
+                and all(event.is_set() for event in submissions)
+                and (self.manager is None or not self.manager.is_alive())
+                and finished.is_set()
+                and not closer.is_alive()
+                and not any(thread.is_alive() for thread in companions)
+            ):
+                self.retired = True
+                break
+            if monotonic() >= exit_deadline:
+                unsettled = sum(not event.is_set() for event in submissions)
+                live_threads = tuple(
+                    thread.name for thread in (closer, *companions) if thread.is_alive()
+                )
+                failures.append(
+                    RuntimeError(
+                        f"CPU shutdown could not confirm physical retirement; live PIDs {living}; "
+                        f"unfinished submissions/signals {unsettled}; "
+                        f"live cleanup threads {live_threads}"
+                    )
+                )
+                break
+            threading.Event().wait(min(0.01, max(0, exit_deadline - monotonic())))
+        if failures:
+            raise BaseExceptionGroup("CPU pool shutdown failed", failures)
+
+
+def _report_cleanup_failure(error: BaseException) -> None:
+    primary = sys.exception()
+    if primary is not None and primary is not error:
+        primary.add_note(f"CPU cleanup also failed: {error!r}")
+    else:
+        raise error
+
+
 class CPUExecutionScope:
     def __init__(
         self, prepared: PreparedRelease, policy: CharacterizationExecutionPolicy | None = None
@@ -441,11 +602,17 @@ class CPUExecutionScope:
         self.policy = policy or CharacterizationExecutionPolicy()
         self.budget = OwnedByteBudget(self.policy.max_owned_bytes)
         self._pool: ProcessPoolExecutor | None = None
+        self._pool_ownership: _PoolOwnership | None = None
+        self._submissions: set[threading.Event] = set()
         self._context = multiprocessing.get_context("spawn")
         self._stop = self._context.Event()
         self._cancellation = self._context.Array("q", self.policy.max_submissions * 2, lock=True)
         self._lock = threading.RLock()
         self._closed = False
+        self._close_lock = threading.Lock()
+        self._close_finished = False
+        self._close_error: BaseException | None = None
+        self._physical_retired = False
         self._capsule_bytes = 0
         self._free = list(range(self.policy.max_submissions))
         self._admissions: dict[int, _InputAdmission] = {}
@@ -454,7 +621,7 @@ class CPUExecutionScope:
 
     def _executor(self):
         with self._lock:
-            if self._closed or self._stop.is_set():
+            if self._closed:
                 raise RuntimeError("CPU invocation is closed")
             if self._pool is None:
                 capsule = release_capsule(self.prepared)
@@ -471,15 +638,16 @@ class CPUExecutionScope:
                         self.policy.cpu_native_threads,
                     ),
                 )
+                self._pool_ownership = _PoolOwnership.capture(self._pool)
             return self._pool
 
     def try_admit(self, check_active: Callable[[], None] = lambda: None) -> _InputAdmission | None:
         check_active()
         for handle in tuple(self._handles):
-            if handle._cancelled and handle.future.done():
+            if handle._cancelled:
                 handle.retire()
         with self._lock:
-            if self._closed or self._stop.is_set():
+            if self._closed:
                 raise RuntimeError("CPU invocation is closed")
             if not self._free:
                 return None
@@ -493,18 +661,25 @@ class CPUExecutionScope:
                 self.budget.reserve(size)
             except CapacityExceeded:
                 return None
-            slot = self._free.pop(0)
-            with self._cancellation.get_lock():
-                self._cancellation[slot * 2] += 1
-                generation = self._cancellation[slot * 2]
-                self._cancellation[slot * 2 + 1] = 0
+            lock = self._cancellation.get_lock()
+            if not lock.acquire(timeout=0.1):
+                self.budget.release(size)
+                raise RuntimeError("CPU cancellation state did not become available")
+            try:
+                slot = self._free.pop(0)
+                flags = self._cancellation.get_obj()
+                flags[slot * 2] += 1
+                generation = flags[slot * 2]
+                flags[slot * 2 + 1] = 0
+            finally:
+                lock.release()
             permit = _InputAdmission(self, slot, generation, size)
             self._admissions[id(permit)] = permit
             return permit
 
     def _collected(self, permit, retained):
         with self._lock:
-            if not permit.active:
+            if not permit.active or (self._closed and not self._physical_retired):
                 return
             self.budget.release(permit.reserved - retained)
             permit.reserved = retained
@@ -545,8 +720,19 @@ class CPUExecutionScope:
         if len(content) + sum(map(len, capsules)) > self.policy.max_packet_bytes:
             self.release_admission(admission)
             raise CapacityExceeded("CPU input exceeds admitted packet byte capacity")
+        with self._lock:
+            pool = self._executor()
+            if not admission.active or admission.submitted:
+                raise ValueError("CPU input admission is no longer active")
+            submitted = threading.Event()
+            self._submissions.add(submitted)
+            admission.submitted = True
+        # Native submit can fail after enqueuing its packet but before returning
+        # a future. Its admission stays owned until physical teardown is proven.
         try:
-            future = self._executor().submit(
+            # The native executor lock may be held by broken-pool cleanup. Never
+            # keep the invocation lock while entering that potentially wedged API.
+            future = pool.submit(
                 _dispatch,
                 content,
                 capsules,
@@ -554,13 +740,21 @@ class CPUExecutionScope:
                 admission.slot,
                 admission.generation,
             )
-        except BaseException:
-            self.release_admission(admission)
-            raise
-        admission.submitted = True
-        handle = CPUHandle(self, admission, future, sha256(content).hexdigest(), check_active)
-        self._handles.add(handle)
-        return handle
+            with self._lock:
+                handle = CPUHandle(
+                    self, admission, future, sha256(content).hexdigest(), check_active
+                )
+                handle._cancelled = self._closed
+                self._handles.add(handle)
+                closed = self._closed
+            if closed:
+                future.cancel()
+                raise CPURequestCancelled("CPU invocation closed during submission")
+            return handle
+        finally:
+            with self._lock:
+                submitted.set()
+                self._submissions.discard(submitted)
 
     def collect(
         self, handle: CPUHandle, check_active: Callable[[], None] = lambda: None
@@ -607,7 +801,7 @@ class CPUExecutionScope:
         try:
             while not handle.future.done():
                 check_active()
-                if self._closed or self._stop.is_set():
+                if self._closed:
                     raise RuntimeError("CPU invocation is closed")
                 with suppress(TimeoutError):
                     handle.future.result(timeout=0.1)
@@ -619,31 +813,103 @@ class CPUExecutionScope:
             handle.retire()
 
     def abort(self) -> None:
-        self._stop.set()
-        for handle in tuple(self._handles):
-            handle.cancel()
-        pool = self._pool
-        self._pool = None
-        if pool is not None:
-            pool.terminate_workers()
+        self.close()
 
-    def close(self):
-        self._closed = True
-        self._stop.set()
-        for handle in tuple(self._handles):
-            handle.cancel()
-        pool = self._pool
-        self._pool = None
-        if pool is not None:
-            pool.shutdown(wait=True, cancel_futures=True)
-        for handle in tuple(self._handles):
-            handle.retire()
-        for permit in tuple(self._admissions.values()):
-            if not permit.submitted:
-                self.release_admission(permit)
-        if self._capsule_bytes:
-            self.budget.release(self._capsule_bytes)
-            self._capsule_bytes = 0
+    def close(self) -> None:
+        deadline = monotonic() + _COOPERATIVE_CLOSE_SECONDS
+        if not self._close_lock.acquire(timeout=_COOPERATIVE_CLOSE_SECONDS + _WORKER_EXIT_SECONDS):
+            _report_cleanup_failure(RuntimeError("CPU close owner did not finish before deadline"))
+            return
+        try:
+            if not self._close_finished:
+                failures: list[BaseException] = []
+                self._closed = True
+                locked = self._lock.acquire(timeout=max(0, deadline - monotonic()))
+                try:
+                    # Capture even if a scope operation is wedged: its native
+                    # pool registry was retained before any worker could start.
+                    handles = tuple(self._handles)
+                    submissions = tuple(self._submissions)
+                    pool, ownership = self._pool, self._pool_ownership
+                    if not locked:
+                        failures.append(
+                            RuntimeError("CPU scope lock did not drain before deadline")
+                        )
+                finally:
+                    if locked:
+                        self._lock.release()
+                # Parent fences do not acquire IPC locks. A worker can die
+                # holding the shared Event/Array lock, so cooperative signalling
+                # itself must not hold up forceful cleanup or its deadline.
+                for handle in handles:
+                    handle._cancelled = True
+                signalled = threading.Event()
+
+                def signal_stop():
+                    try:
+                        self._stop.set()
+                    except BaseException as error:
+                        failures.append(error)
+                    try:
+                        for handle in handles:
+                            try:
+                                handle.cancel()
+                            except BaseException as error:
+                                failures.append(error)
+                    finally:
+                        signalled.set()
+
+                signaler = threading.Thread(target=signal_stop, name="cpu-pool-stop", daemon=True)
+                signaler.start()
+                if pool is not None and ownership is not None:
+                    try:
+                        ownership.shutdown(
+                            pool,
+                            lambda: tuple(self._handles),
+                            (*submissions, signalled),
+                            (signaler,),
+                            deadline,
+                        )
+                    except BaseException as error:
+                        failures.append(error)
+                    if ownership.retired:
+                        self._physical_retired = True
+                        self._pool = None
+                else:
+                    signaler.join(max(0, deadline + _WORKER_EXIT_SECONDS - monotonic()))
+                    self._physical_retired = not signaler.is_alive()
+                    if not self._physical_retired:
+                        failures.append(
+                            RuntimeError("CPU stop signalling did not finish before deadline")
+                        )
+                if self._physical_retired and locked:
+                    # Native submissions finished before retirement was proven,
+                    # so include the handles they registered during close.
+                    for permit in self._admissions.values():
+                        permit.submitted = False
+                    # Discarding close must not call collect/check_active or
+                    # validate a result with no remaining consumer.
+                    self._handles.clear()
+                    for permit in tuple(self._admissions.values()):
+                        try:
+                            self.release_admission(permit)
+                        except BaseException as error:
+                            failures.append(error)
+                    if self._capsule_bytes:
+                        try:
+                            self.budget.release(self._capsule_bytes)
+                        except BaseException as error:
+                            failures.append(error)
+                        else:
+                            self._capsule_bytes = 0
+                if failures:
+                    self._close_error = BaseExceptionGroup("CPU cleanup failed", failures)
+                self._close_finished = True
+            error = self._close_error
+        finally:
+            self._close_lock.release()
+        if error is not None:
+            _report_cleanup_failure(error)
 
 
 def cpu_method_plan(method, units, cfg, ctx):
@@ -782,8 +1048,14 @@ def cpu_method_plan(method, units, cfg, ctx):
             )
         return tuple(results)
     finally:
+        failures = []
         for execution in owned:
-            execution.close()
+            try:
+                execution.close()
+            except BaseException as error:
+                failures.append(error)
+        if failures:
+            _report_cleanup_failure(BaseExceptionGroup("CPU method cleanup failed", failures))
 
 
 def run_cpu_method(method, units, cfg, ctx):
