@@ -422,7 +422,7 @@ def test_variant_attempts_have_matched_execution_report_and_coverage_rows(
             return (report(native_context, pack, "formula_context", []),)
 
     producer = m1_source.M1Candidates()
-    monkeypatch.setattr(producer, "_resident", lambda _: Worker())
+    monkeypatch.setattr(producer, "_resident", lambda _, **_kwargs: Worker())
     ctx = SimpleNamespace(
         reader=SimpleNamespace(prepared=release(), source_view=lambda _: view),
         check_active=lambda: None,

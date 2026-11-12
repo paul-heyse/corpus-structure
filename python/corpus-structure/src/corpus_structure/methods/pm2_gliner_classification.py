@@ -44,7 +44,7 @@ class ClassificationProfile(BaseModel):
     device: Literal["cpu", "cuda"]
     profile: GlinerProfile
     threshold: float = Field(default=0.5, ge=0, le=1)
-    runtime_identity: dict[str, Any] | None = None
+    runtime_identity: dict[str, Any] | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @field_validator("profile")
     @classmethod

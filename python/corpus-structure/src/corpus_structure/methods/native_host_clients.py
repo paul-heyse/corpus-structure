@@ -11,7 +11,7 @@ from corpus_structure.core.execution_policy import CharacterizationExecutionPoli
 from .gliner import GlinerReport
 from .gliner_worker import GlinerAdmission, GlinerWorker, validate_request
 from .native_host import NativeHostGroup, host_request_frame_size
-from .native_profiles import gliner_selection, preflight_native_runtime
+from .native_profiles import NativeProfile, NativeSelection, gliner_selection, preflight_native_runtime
 
 
 def gliner_host_payload(pack, inputs, threshold, overlap_policy, evaluation=False, prepare_only=False):
@@ -19,15 +19,21 @@ def gliner_host_payload(pack, inputs, threshold, overlap_policy, evaluation=Fals
 
 
 class HostedGliner:
-    def __init__(self, profile, *, group=None):
+    def __init__(self, profile, *, group=None, native_profile=None):
         self.profile, self._closed = profile, False
         self._owns_group = group is None
-        self.group = group or NativeHostGroup(CharacterizationExecutionPolicy(provider_threads=profile.threads))
+        from corpus_structure.settings import NemotronSettings
+        self.group = group or NativeHostGroup(CharacterizationExecutionPolicy(provider_threads=profile.threads), NemotronSettings().endpoint)
         from corpus_structure.semantic.identity import canonical_bytes
         values = asdict(profile)
         values.pop("snapshot")
         matches = [s for s in self.group._selections.values() if s.provider == "gliner" and canonical_bytes(s.native.parameters.get("gliner_profile")) == canonical_bytes(values) and s.native.artifacts == dict(profile.artifact_hashes)]
-        self.selection = matches[0] if len(matches) == 1 else gliner_selection(profile, preflight_native_runtime("gliner", profile.snapshot)["runtime_identity"])
+        if native_profile is not None:
+            self.selection = NativeSelection(NativeProfile(**native_profile), profile.snapshot)
+            if gliner_selection(profile, self.selection.native.runtime_identity).native != self.selection.native:
+                raise ValueError("requested analytical profile differs from its frozen native execution")
+        else:
+            self.selection = matches[0] if len(matches) == 1 else gliner_selection(profile, preflight_native_runtime("gliner", profile.snapshot)["runtime_identity"])
         self.group.declare((self.selection,))
 
     @property

@@ -25,6 +25,8 @@ def load(declaration, torch):
     if runtime != profile["runtime_identity"]:
         raise ValueError("shared host runtime differs from frozen profile")
     if provider in {"d1", "hanlp", "maverick", "dipo"}:
+        if profile.get("parameters") != {"adapter": "pm2-native-1"}:
+            raise ValueError("unsupported PM2 shared-host adapter recipe")
         observed = native["_verify_assets"](assets, provider)
         if observed != profile["artifacts"]:
             raise ValueError("shared host artifacts differ from frozen profile")
@@ -38,7 +40,7 @@ def load(declaration, torch):
             filename = "pm2_hanlp.py" if provider == "hanlp" else "pm2_dispatched.py"
             loader = runpy.run_path(str(Path(__file__).with_name(filename)))["load_" + provider]
         metadata, infer = loader(assets, "cuda")
-        metadata["backend"] = metadata["attention_implementation"]
+        metadata.update(backend=metadata["attention_implementation"], python=runtime["python"], packages=dict(native["_RUNTIME_PACKAGES"][provider]), torch_build=torch.__version__, cuda_build=torch.version.cuda, device_name=torch.cuda.get_device_name())
     elif provider == "gliner":
         metadata, infer = _gliner(profile, assets)
     elif provider == "spacy":
