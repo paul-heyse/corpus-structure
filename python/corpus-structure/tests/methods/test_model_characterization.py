@@ -208,7 +208,7 @@ def test_native_d1_cpu_refusal_precedes_model_or_asset_loading(tmp_path):
     with pytest.raises(ValueError, match="requires CUDA"):
         _load_d1(tmp_path / "no-assets", "cpu")
     with pytest.raises(ValueError, match="CUDA"):
-        NativeProfile(provider="d1", runtime_identity={}, artifacts={}, parameters={}, dtype="bfloat16", backend="d1", device="cpu")
+        NativeProfile(**dict[str, Any](provider="d1", runtime_identity={}, artifacts={}, parameters={}, dtype="bfloat16", backend="d1", device="cpu"))
 
 
 @pytest.mark.parametrize("threads,interop", [(2, 1), (4, 2)])

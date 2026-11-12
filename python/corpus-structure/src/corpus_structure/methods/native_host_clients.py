@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from typing import cast
 from collections.abc import Callable
 
 from pydantic import TypeAdapter
@@ -79,11 +80,13 @@ class HostedGliner:
             return TypeAdapter(tuple[GlinerAdmission, ...]).validate_python(reply["admissions"])
         return TypeAdapter(tuple[GlinerReport, ...]).validate_python(reply["reports"])
 
-    def prepare_members(self, pack, inputs, **kwargs):
-        return self._exchange(pack, inputs, prepare_only=True, **kwargs)
+    def prepare_members(self, pack, inputs, **kwargs) -> tuple[GlinerAdmission, ...]:
+        # _exchange's prepare-only branch decodes exactly this existing DTO.
+        return cast(tuple[GlinerAdmission, ...], self._exchange(pack, inputs, prepare_only=True, **kwargs))
 
-    def extract(self, pack, inputs, **kwargs):
-        return self._exchange(pack, inputs, **kwargs)
+    def extract(self, pack, inputs, **kwargs) -> tuple[GlinerReport, ...]:
+        # Ordinary extraction cannot select the admission-only wire arm.
+        return cast(tuple[GlinerReport, ...], self._exchange(pack, inputs, prepare_only=False, **kwargs))
 
     def diagnose(
         self,

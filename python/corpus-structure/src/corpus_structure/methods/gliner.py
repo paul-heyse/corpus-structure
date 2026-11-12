@@ -13,7 +13,7 @@ import math
 import platform
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from corpus_structure.semantic.source_contexts import NativeSourceContext
@@ -119,7 +119,7 @@ class GlinerProfile:
                 raise GlinerRefused("artifact identity must be SHA-256")
 
     @property
-    def device(self) -> str:
+    def device(self) -> Literal["cpu", "cuda"]:
         return "cuda" if self.version in {CUDA_WHITESPACE_PROFILE, CUDA_CODEPOINT_PROFILE} else "cpu"
 
     @property
