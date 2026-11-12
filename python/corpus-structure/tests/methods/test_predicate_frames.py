@@ -295,25 +295,42 @@ def test_complete_primary_compound_if_then_keeps_accepted_exact_witness(profile)
 
 def test_primary_coverage_failure_is_scoped_to_the_actual_block(profile):
     from dataclasses import fields
+
     from corpus_structure.ingest.annotations import AnnotationProduct
     from corpus_structure.methods.native_evidence_layers import PrimaryAnnotationProduct
-    from .primary_reading_fixture import prepared
     from corpus_structure.semantic.characterization import validate_layer
     from corpus_structure.semantic.constructions.retained_rules import PRIMARY_RULE_FAMILY
 
+    from .primary_reading_fixture import prepared
+
     text, product = retained("Manager reviews the report.", profile)
-    native = {pin:report for pin,report in product.primary_layers.items() if report.payload.get("native_runs")}
-    reading = next(report for report in product.primary_layers.values() if not report.payload.get("native_runs"))
-    for start,end,unavailable in ((0,product.block_start,False),(product.block_start,product.block_end,True)):
+    native = {
+        pin: report
+        for pin, report in product.primary_layers.items()
+        if report.payload.get("native_runs")
+    }
+    reading = next(
+        report
+        for report in product.primary_layers.values()
+        if not report.payload.get("native_runs")
+    )
+    for start, end, unavailable in (
+        (0, product.block_start, False),
+        (product.block_start, product.block_end, True),
+    ):
         body = reading.payload
         coverage = next(row for row in body["coverage"] if row["family"] == PRIMARY_RULE_FAMILY)
-        coverage.update(outcome="partial",reason="independent scoped incomplete region",unexamined=[dict(projection=product.source.projection_digest,start=start,end=end)])
-        body["outcome"] = "partial"
-        partial = validate_layer(prepared(),body,dependencies=native)
-        adjusted = PrimaryAnnotationProduct(
-            primary_layers={**native,partial.reference(202):partial},
-            **{field.name:getattr(product,field.name) for field in fields(AnnotationProduct)},
+        coverage.update(
+            outcome="partial",
+            reason="independent scoped incomplete region",
+            unexamined=[dict(projection=product.source.projection_digest, start=start, end=end)],
         )
-        result = predicate_frames(text,(adjusted,))
+        body["outcome"] = "partial"
+        partial = validate_layer(prepared(), body, dependencies=native)
+        adjusted = PrimaryAnnotationProduct(
+            primary_layers={**native, partial.reference(202): partial},
+            **{field.name: getattr(product, field.name) for field in fields(AnnotationProduct)},
+        )
+        result = predicate_frames(text, (adjusted,))
         assert bool(result.issues) is unavailable
         assert len(result.frames) == 1

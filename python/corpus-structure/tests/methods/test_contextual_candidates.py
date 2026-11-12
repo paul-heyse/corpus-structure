@@ -1005,32 +1005,61 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
         from corpus_structure.semantic.characterization import AnnotationReference, LayerReport
         from corpus_structure.semantic.identity import canonical_bytes
 
-        frame_report = LayerReport(canonical_bytes(dict(
-            base_document=source.ref.native_product.values(),
-            source_scope={"source_view_ids": [source.ref.id]},
-            operation={"produced_families": ["construction.source_readings"]},
-            occurrences=[dict(local_id="focal-occurrence", extents=[dict(
-                source_view_id=source.ref.id, projection=source.ref.projection_digest,
-                start=start, end=start+len(spelling),
-            )])],
-            terms=[
-                dict(local_id="frame", kind="predicate", family="construction.source_readings",
-                     vocabulary="source-linguistic-rules-1", occurrences=["focal-occurrence"],
-                     children=[dict(role="predicate", target="predicate")]),
-                dict(local_id="predicate", occurrences=["focal-occurrence"]),
-            ], annotations=[], memberships=[], choices=[], dependencies=[], coverage=[],
-        )))
+        frame_report = LayerReport(
+            canonical_bytes(
+                dict(
+                    base_document=source.ref.native_product.values(),
+                    source_scope={"source_view_ids": [source.ref.id]},
+                    operation={"produced_families": ["construction.source_readings"]},
+                    occurrences=[
+                        dict(
+                            local_id="focal-occurrence",
+                            extents=[
+                                dict(
+                                    source_view_id=source.ref.id,
+                                    projection=source.ref.projection_digest,
+                                    start=start,
+                                    end=start + len(spelling),
+                                )
+                            ],
+                        )
+                    ],
+                    terms=[
+                        dict(
+                            local_id="frame",
+                            kind="predicate",
+                            family="construction.source_readings",
+                            vocabulary="source-linguistic-rules-1",
+                            occurrences=["focal-occurrence"],
+                            children=[dict(role="predicate", target="predicate")],
+                        ),
+                        dict(local_id="predicate", occurrences=["focal-occurrence"]),
+                    ],
+                    annotations=[],
+                    memberships=[],
+                    choices=[],
+                    dependencies=[],
+                    coverage=[],
+                )
+            )
+        )
         frame_pin = frame_report.reference(99)
         primary_layers = {**primary_layers, frame_pin: frame_report}
-        cfg = method.Config.model_validate({
-            **cfg.model_dump(),
-            "characterization_layers": tuple(pin.values() for pin in primary_layers),
-            "query_context": {
-                "recipe": "located-frame-2",
-                "bindings": [{"occurrence_id": original["occurrence_id"],
-                              "evidence": AnnotationReference(frame_pin, "frame").values()}],
-            },
-        })
+        cfg = method.Config.model_validate(
+            {
+                **cfg.model_dump(),
+                "characterization_layers": tuple(pin.values() for pin in primary_layers),
+                "query_context": {
+                    "recipe": "located-frame-2",
+                    "bindings": [
+                        {
+                            "occurrence_id": original["occurrence_id"],
+                            "evidence": AnnotationReference(frame_pin, "frame").values(),
+                        }
+                    ],
+                },
+            }
+        )
 
     else:
         cfg = method.Config.model_validate(

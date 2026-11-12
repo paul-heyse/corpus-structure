@@ -999,7 +999,8 @@ class _FrameBlock:
             self.add_cue("modality", token.lower_, span, span, hosts, origin=origin)
         negative = set(self.lexical["negation"])
         negative.update(
-            (token.i,) for token in self.doc
+            (token.i,)
+            for token in self.doc
             if {"Polarity=Neg", "PronType=Neg"}.intersection(str(token.morph).split("|"))
         )
         for (index,) in sorted(negative):
@@ -2086,8 +2087,18 @@ def populate(
             ]
             for name, value in (
                 ("voice", frame.voice),
-                ("polarity", "unresolved" if frame.polarity == "positive" and not negation_examined else frame.polarity),
-                ("interpretation", frame.interpretation if negation_examined and modality_examined else "unresolved"),
+                (
+                    "polarity",
+                    "unresolved"
+                    if frame.polarity == "positive" and not negation_examined
+                    else frame.polarity,
+                ),
+                (
+                    "interpretation",
+                    frame.interpretation
+                    if negation_examined and modality_examined
+                    else "unresolved",
+                ),
                 ("layout", layout),
                 ("negation_examination", "complete" if negation_examined else "unavailable"),
                 ("modality_examination", "complete" if modality_examined else "unavailable"),
@@ -2147,8 +2158,11 @@ def populate(
         selector = dict(
             projection=view.ref.projection_digest, start=product.block_start, end=product.block_end
         )
-        blocking = tuple(issue for issue in result.issues
-                         if not issue.reason.startswith("optional retained columns:"))
+        blocking = tuple(
+            issue
+            for issue in result.issues
+            if not issue.reason.startswith("optional retained columns:")
+        )
         layer.record(
             family,
             selector,

@@ -1629,7 +1629,7 @@ def _exact_closure(
             .order_by(task.c.id)
         )
         budget.preflight(conn, query)
-        for origin, release, project, config in conn.execute(query).all():
+        for origin, _release, _project, config in conn.execute(query).all():
             budget.value(config)
             selection_context = retained_query_selection("retrieve.contextual", "12", config)
             if selection_context is None:

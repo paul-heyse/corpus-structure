@@ -28,8 +28,6 @@ PARSER_QUESTIONS = {
 }
 
 PARSER_PROVIDER = {
-    "linguistic.predicate_frame": "hanlp",
-    "linguistic.qualifier_cue": "hanlp",
     "linguistic.constituent": "hanlp",
     "maverick.mention": "maverick",
     "maverick.cluster": "maverick",
@@ -70,32 +68,6 @@ class ParserView(ProductView):
     unlocated_members: tuple[str, ...] = ()
 
 
-class ArgumentView(ProductView):
-    role: str
-    location: str
-
-
-class SRLView(ProductView):
-    predicate: str | None = None
-    arguments: tuple[ArgumentView, ...]
-
-
-class FrameView(ParserView):
-    sentence: int | None = None
-    predicate: str
-    focus: str | None = None
-    dependency_arguments: tuple[ArgumentView, ...]
-    srl_frames: tuple[SRLView, ...]
-
-
-class CueView(ParserView):
-    kind: str | None = None
-    location: str
-    marker: str
-    candidates: tuple[str, ...]
-    attribution_source: str | None = None
-
-
 class PhraseView(ParserView):
     sentence: int | None = None
     label: str | None = None
@@ -130,11 +102,9 @@ class TreeView(ParserView):
     splits: tuple[SplitView, ...]
 
 
-type ParserValue = FrameView | CueView | PhraseView | MentionView | ClusterView | EDUView | TreeView
+type ParserValue = PhraseView | MentionView | ClusterView | EDUView | TreeView
 
 _VIEWS: Mapping[str, type[ParserValue]] = {
-    "linguistic.predicate_frame": FrameView,
-    "linguistic.qualifier_cue": CueView,
     "linguistic.constituent": PhraseView,
     "maverick.mention": MentionView,
     "maverick.cluster": ClusterView,
@@ -152,32 +122,7 @@ def parser_view(row: Mapping[str, Any]) -> ParserValue:
 def parser_member_types(value: ParserValue) -> dict[str, str]:
     """Resolve member roles inside the original typed parser population."""
     keys: tuple[str, ...]
-    if isinstance(value, FrameView):
-        if value.focus is None or any(frame.predicate is None for frame in value.srl_frames):
-            raise ValueError("released parser frame lacks its focal member or SRL predicate")
-        keys = (
-            value.predicate,
-            value.focus,
-            *(item.location for item in value.dependency_arguments),
-            *(
-                key
-                for frame in value.srl_frames
-                for key in (frame.predicate, *(item.location for item in frame.arguments))
-                if key is not None
-            ),
-        )
-    elif isinstance(value, CueView):
-        return {
-            value.location: "source_occurrence",
-            value.marker: "source_occurrence",
-            **dict.fromkeys(value.candidates, "linguistic.predicate_frame"),
-            **(
-                {value.attribution_source: "linguistic.predicate_frame"}
-                if value.attribution_source
-                else {}
-            ),
-        }
-    elif isinstance(value, PhraseView):
+    if isinstance(value, PhraseView):
         keys = (value.location,)
     elif isinstance(value, MentionView):
         if value.first > value.last or len(value.location_keys) != 1:
@@ -232,21 +177,6 @@ def validate_parser_members(row: Mapping[str, Any], population: Mapping[str, Any
 
 def parser_value_for_contract(semantic_type: str, value: dict[str, Any]) -> dict[str, Any]:
     """Lower the native adapter's optional values into the versioned release shape."""
-    if semantic_type == "linguistic.predicate_frame":
-
-        def arguments(rows):
-            return [{key: item for key, item in row.items() if item is not None} for row in rows]
-
-        return {
-            **value,
-            "dependency_arguments": arguments(value["dependency_arguments"]),
-            "srl_frames": [
-                {**frame, "arguments": arguments(frame["arguments"])}
-                for frame in value["srl_frames"]
-            ],
-        }
-    if semantic_type == "linguistic.qualifier_cue":
-        return {key: item for key, item in value.items() if item is not None}
     if semantic_type == "dipo.tree":
         return {
             **value,

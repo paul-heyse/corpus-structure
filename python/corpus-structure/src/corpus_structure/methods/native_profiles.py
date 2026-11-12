@@ -197,7 +197,19 @@ def pm2_selection(provider, assets, runtime, artifacts, *, threads=4, interop_th
     backends = {"d1": "d1", "hanlp": "sdpa", "maverick": "eager", "dipo": "sdpa"}
     if provider not in backends:
         raise ValueError("unsupported PM2 shared-host provider")
-    return NativeSelection(NativeProfile(provider, runtime, artifacts, {"adapter": "pm2-native-1"}, "bfloat16" if provider == "d1" else "float32", backends[provider], threads, interop_threads), assets)
+    return NativeSelection(
+        NativeProfile(
+            provider,
+            runtime,
+            artifacts,
+            {"adapter": "pm2-native-1"},
+            "bfloat16" if provider == "d1" else "float32",
+            backends[provider],
+            threads,
+            interop_threads,
+        ),
+        assets,
+    )
 
 
 def gliner_selection(profile, runtime):
@@ -207,7 +219,19 @@ def gliner_selection(profile, runtime):
         raise ValueError("shared GLiNER selection requires an explicit CUDA profile")
     values = asdict(profile)
     values.pop("snapshot")
-    return NativeSelection(NativeProfile("gliner", runtime, dict(profile.artifact_hashes), {"gliner_profile": values}, "float32", "standard", profile.threads, 1), profile.snapshot)
+    return NativeSelection(
+        NativeProfile(
+            "gliner",
+            runtime,
+            dict(profile.artifact_hashes),
+            {"gliner_profile": values},
+            "float32",
+            "standard",
+            profile.threads,
+            1,
+        ),
+        profile.snapshot,
+    )
 
 
 def preflight_native_runtime(provider, assets):
@@ -216,7 +240,13 @@ def preflight_native_runtime(provider, assets):
 
     root = Path(__file__).resolve().parents[5]
     project = root
-    return preflight_pm2_runtime(python=project / ".venv/bin/python", script=Path(__file__).with_name("native_host_worker.py"), project=project, provider=provider, assets=assets)
+    return preflight_pm2_runtime(
+        python=project / ".venv/bin/python",
+        script=Path(__file__).with_name("native_host_worker.py"),
+        project=project,
+        provider=provider,
+        assets=assets,
+    )
 
 
 def spacy_selection(config, *, threads=4, interop_threads=1):
@@ -226,14 +256,29 @@ def spacy_selection(config, *, threads=4, interop_threads=1):
     assets = spacy.util.get_package_path(config.model)
     artifacts = spacy_artifacts(assets)
     runtime = preflight_native_runtime("spacy", assets)["runtime_identity"]
-    return NativeSelection(NativeProfile("spacy", runtime, artifacts, config.model_dump(mode="json"), "float32", "cupy", threads, interop_threads), assets)
+    return NativeSelection(
+        NativeProfile(
+            "spacy",
+            runtime,
+            artifacts,
+            config.model_dump(mode="json"),
+            "float32",
+            "cupy",
+            threads,
+            interop_threads,
+        ),
+        assets,
+    )
 
 
 def spacy_artifacts(assets):
     from hashlib import file_digest
+
     files = {}
     for path in sorted(assets.rglob("*")):
         if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc":
             with path.open("rb") as stream:
-                files[path.relative_to(assets).as_posix()] = file_digest(stream, "sha256").hexdigest()
+                files[path.relative_to(assets).as_posix()] = file_digest(
+                    stream, "sha256"
+                ).hexdigest()
     return {"files": files}

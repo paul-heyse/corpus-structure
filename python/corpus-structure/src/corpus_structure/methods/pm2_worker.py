@@ -1,5 +1,7 @@
 """Locked native-runtime inspection and shared protocol/process helpers."""
+
 from __future__ import annotations
+
 import json
 import math
 import os
@@ -9,11 +11,14 @@ from hashlib import file_digest
 from pathlib import Path
 from typing import Any
 
+
 class Pm2WorkerRefused(ValueError):
     """A native request was not admitted."""
 
+
 class Pm2WorkerError(RuntimeError):
     """An admitted native host or protocol failed."""
+
 
 def preflight_pm2_runtime(
     *, python: Path, script: Path, project: Path, provider: str, assets: Path

@@ -1285,9 +1285,7 @@ class ContextualCandidates:
                     registry_id,
                     profile.profile_id,
                     view.ref.projection_digest,
-                    *dict.fromkeys(
-                        signal.evidence.identity for signal in query_context.values()
-                    ),
+                    *dict.fromkeys(signal.evidence.identity for signal in query_context.values()),
                 ),
             )
             if encoder_error is not None:
@@ -1385,7 +1383,9 @@ class ContextualQueryConfig(ContextualCandidateConfig):
             from corpus_structure.semantic.product_reference import ProductReference
 
             selected = {ProductReference(**value) for value in self.characterization_layers}
-            if any(binding.evidence.layer not in selected for binding in self.query_context.bindings):
+            if any(
+                binding.evidence.layer not in selected for binding in self.query_context.bindings
+            ):
                 raise ValueError("query context requires its exact selected primary layer")
         return self
 

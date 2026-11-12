@@ -26,6 +26,15 @@ def native_thread_profile(policy):
     }
 
 
+def _provider_profiles(profiles):
+    """Recovery retains semantic provider snapshots, never preparation memo state."""
+    from typing import get_args
+
+    from corpus_structure.methods.native_profiles import Provider
+
+    return {key: value for key, value in profiles.items() if key in get_args(Provider)}
+
+
 class CharacterizationDemand(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     version: Literal[1] = 1
@@ -57,7 +66,7 @@ class CharacterizationOperation:
             requests=requests,
             freshness_seed=uuid4().hex,
             method_versions={method.name: str(method.version) for method in registry.methods()},
-            provider_profiles=dict(profiles),
+            provider_profiles=_provider_profiles(profiles),
             preparation_diagnostics=diagnostics,
             execution_native_profile=native_thread_profile(policy),
         )
@@ -143,7 +152,15 @@ def _validate_current_profiles(
     versions = {method.name: str(method.version) for method in registry.methods()}
     if versions != envelope.method_versions:
         raise OperationConflict("characterization recovery method versions changed")
-    if not envelope.provider_profiles:
+    identities = {
+        "text.native_evidence": "spacy_native_profile",
+        "text.model_characterization": "gliner_runtime",
+    }
+    if not envelope.provider_profiles and not any(
+        request.method_options.get(name, {}).get(identity_field) is not None
+        for request in envelope.requests
+        for name, identity_field in identities.items()
+    ):
         return
     # Re-authenticate auto-selected runtimes instead of trusting an expired CLI copy.
     cache = {}
@@ -161,7 +178,9 @@ def _validate_current_profiles(
             if any(provider in envelope.provider_profiles for provider in providers):
                 for key in keys:
                     options.setdefault(name, {}).pop(key, None)
-        _freeze_request(
+        for name, identity_field in identities.items():
+            options.get(name, {}).pop(identity_field, None)
+        frozen, _diagnostics = _freeze_request(
             engine,
             request.model_copy(update={"method_options": options}),
             registry,
@@ -170,7 +189,16 @@ def _validate_current_profiles(
             cache,
             execution_preparation=execution_preparation,
         )
-    if cache != envelope.provider_profiles:
+        for name, identity_field in identities.items():
+            previous = request.method_options.get(name, {}).get(identity_field)
+            if (
+                previous is not None
+                and frozen.method_options.get(name, {}).get(identity_field) != previous
+            ):
+                raise OperationConflict(
+                    "characterization recovery provider profile changed; submit a new demand"
+                )
+    if _provider_profiles(cache) != envelope.provider_profiles:
         raise OperationConflict(
             "characterization recovery provider profile changed; submit a new demand"
         )
@@ -305,6 +333,9 @@ def resume_characterization(
                         operation.recovered_views.setdefault(-1, []).append(
                             ProductReference(**product["reference"])
                         )
+        from .characterization import _declare_native_profiles
+
+        _declare_native_profiles(execution, recovered, method_settings)
         operation.envelope = envelope.model_copy(update={"requests": tuple(recovered)})
         if on_frozen is not None:
             on_frozen(anchor, envelope)

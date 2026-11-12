@@ -117,6 +117,35 @@ def _consumer_characterization_options(registry, graph, configurations):
     return {"text.constructions": {"annotation_rules": list(rules.values())}}
 
 
+def _freeze_analytical_profiles(execution, registry, graph, configurations, settings):
+    """Freeze and declare selected analytical residents before primary serving."""
+    from corpus_structure.methods.characterization_resources import freeze_analytical_profile
+
+    from .registry import MethodRegistry
+    from .semantic import _source_configurations
+
+    configs = {owner: dict(named) for owner, named in registry.file.configs.items()}
+    selections, cache = [], {}
+    for owner, resolved in _source_configurations(registry, graph, configurations).items():
+        parameters = resolved.config.model_dump(mode="json")
+        selection = freeze_analytical_profile(owner, parameters, settings, cache=cache)
+        if selection is not None:
+            configs.setdefault(owner, {})[resolved.name] = {
+                **configs.get(owner, {}).get(resolved.name, {}),
+                "native_execution_profile": parameters["native_execution_profile"],
+            }
+            selections.append(selection)
+    if not selections:
+        return registry
+    execution.providers.declare_native(tuple(selections), endpoint=settings.nemotron_endpoint)
+    return MethodRegistry(
+        registry.methods(),
+        replace(registry.file, configs=configs),
+        registry.sources,
+        prepared=registry.prepared,
+    )
+
+
 def run_source_operation(
     engine: Engine,
     request: SourceRunRequest,
@@ -437,6 +466,15 @@ def _execute_source_run(
         resolved.policy_source,
     )
     domains = pack.parent
+    if not source_only:
+        overrides = (
+            {"extract.m1_candidates": m1_configuration}
+            if extraction_policy == "m1-candidate" and m1_configuration != "default"
+            else {}
+        )
+        selected_registry = _freeze_analytical_profiles(
+            execution, selected_registry, selected_graph, overrides, method_settings
+        )
     capture, characterized = None, ()
     if (
         isinstance(request.workflow, (Phase0Analysis, M1Candidate))

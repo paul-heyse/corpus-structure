@@ -536,18 +536,6 @@ classes:
     attributes:
       effect: {equals_string: retain_private}
       assessment_event: {equals_string: local-contribution-1}
-  PM2HanLPFrameContributionV1:
-    is_a: RetainedContributionSemantics
-    attributes:
-      semantic_type: {equals_string: linguistic.predicate_frame}
-      question: {required: true, equals_string: pm2.hanlp.frames}
-      value: {range: PM2HanLPFramePayload, required: true, inlined: true}
-  PM2HanLPCueContributionV1:
-    is_a: RetainedContributionSemantics
-    attributes:
-      semantic_type: {equals_string: linguistic.qualifier_cue}
-      question: {required: true, equals_string: pm2.hanlp.frames}
-      value: {range: PM2HanLPCuePayload, required: true, inlined: true}
   PM2HanLPPhraseContributionV1:
     is_a: RetainedContributionSemantics
     attributes:
@@ -584,39 +572,6 @@ classes:
     attributes:
       location_keys: {required: true, multivalued: true}
       unlocated_members: {value_presence: PRESENT, multivalued: true, minimum_cardinality: 0}
-  PM2HanLPArgument:
-    is_a: SourceRecordProduct
-    attributes:
-      role: {required: true}
-      location: {required: true}
-      head: {range: integer, minimum_value: 0}
-  PM2HanLPSRLFrame:
-    is_a: SourceRecordProduct
-    attributes:
-      predicate: {required: true}
-      arguments: {range: PM2HanLPArgument, value_presence: PRESENT, multivalued: true, inlined: true, minimum_cardinality: 0}
-  PM2HanLPFramePayload:
-    is_a: PM2ParserPayload
-    attributes:
-      scheme: {required: true, equals_string: hanlp-ud-ptb-propbank-1}
-      sentence: {range: integer, required: true, minimum_value: 0}
-      predicate_token: {range: integer, required: true, minimum_value: 0}
-      syntactic_head: {range: integer, required: true, minimum_value: 0}
-      predicate: {required: true}
-      focus: {required: true}
-      voice: {required: true, pattern: '^(active|passive|copular|unresolved)$'}
-      dependency_arguments: {range: PM2HanLPArgument, value_presence: PRESENT, multivalued: true, inlined: true, minimum_cardinality: 0}
-      srl_frames: {range: PM2HanLPSRLFrame, value_presence: PRESENT, multivalued: true, inlined: true, minimum_cardinality: 0}
-  PM2HanLPCuePayload:
-    is_a: PM2ParserPayload
-    attributes:
-      scheme: {required: true, equals_string: hanlp-ud-cue-1}
-      sentence: {range: integer, required: true, minimum_value: 0}
-      kind: {required: true, pattern: '^(condition|exception|modality|negation|attribution)$'}
-      location: {required: true}
-      marker: {required: true}
-      candidates: {value_presence: PRESENT, multivalued: true, minimum_cardinality: 0}
-      attribution_source: {}
   PM2HanLPPhrasePayload:
     is_a: PM2ParserPayload
     attributes:

@@ -261,9 +261,14 @@ def fixture():
     )
     native_layer = native.finish(prepared())
     primary.record(PRIMARY_RULE_FAMILY, scope["selectors"][0], "complete")
-    from corpus_structure.semantic.constructions.retained_declarations import populate_declaration_readings
+    from corpus_structure.semantic.constructions.retained_declarations import (
+        populate_declaration_readings,
+    )
+
     populate_declaration_readings(primary, view, {native_layer.reference(101): native_layer})
-    primary_layer = primary.finish(prepared(), dependencies={native_layer.reference(101): native_layer})
+    primary_layer = primary.finish(
+        prepared(), dependencies={native_layer.reference(101): native_layer}
+    )
     layers = {
         native_layer.reference(101): native_layer,
         primary_layer.reference(102): primary_layer,
@@ -289,8 +294,17 @@ def test_primary_native_declaration_chain_keeps_exact_roles_without_private_pars
         lambda *_args, **_kwargs: pytest.fail("consumer reran linguistic recognition"),
     )
     from corpus_structure.semantic.constructions import retained_declarations
-    monkeypatch.setattr(retained_declarations, "_sentences", lambda *_a, **_k: pytest.fail("consumer reconstructed native sentences"))
-    monkeypatch.setattr(retained_declarations, "_facts", lambda *_a, **_k: pytest.fail("consumer recognized declaration syntax"))
+
+    monkeypatch.setattr(
+        retained_declarations,
+        "_sentences",
+        lambda *_a, **_k: pytest.fail("consumer reconstructed native sentences"),
+    )
+    monkeypatch.setattr(
+        retained_declarations,
+        "_facts",
+        lambda *_a, **_k: pytest.fail("consumer recognized declaration syntax"),
+    )
     component = primary_declaration_component(layers, view, passage)
     assert component.term.text == "samples"
     assert component.content.text == (
@@ -456,56 +470,97 @@ def test_active_method_and_detached_primary_replay_use_exact_same_evidence(monke
 @pytest.mark.parametrize("corruption", ["missing_column", "srl_support"])
 def test_declaration_sentence_failure_preserves_healthy_siblings(corruption):
     from copy import deepcopy
-    from corpus_structure.semantic.constructions.retained_declarations import DECLARATION_FAMILY, populate_declaration_readings
+
+    from corpus_structure.semantic.constructions.retained_declarations import (
+        DECLARATION_FAMILY,
+        populate_declaration_readings,
+    )
 
     view, _passage, layers = fixture()
-    native_pin, native = next((pin,report) for pin,report in layers.items() if report.payload.get("native_runs"))
+    native_pin, native = next(
+        (pin, report) for pin, report in layers.items() if report.payload.get("native_runs")
+    )
     body = deepcopy(native.payload)
     if corruption == "missing_column":
-        token = next(row for row in body["annotations"] if row.get("native_token",{}).get("sentence", "").endswith("/sentence/0"))
+        token = next(
+            row
+            for row in body["annotations"]
+            if row.get("native_token", {}).get("sentence", "").endswith("/sentence/0")
+        )
         token["native_token"].pop("lemma")
     else:
-        body["memberships"] = [row for row in body["memberships"] if not (row["role"] == "token" and "/sentence/0/" in row["group"] and row["group"].endswith("/srl/0/member/0"))]
+        body["memberships"] = [
+            row
+            for row in body["memberships"]
+            if not (
+                row["role"] == "token"
+                and "/sentence/0/" in row["group"]
+                and row["group"].endswith("/srl/0/member/0")
+            )
+        ]
     native = validate_layer(prepared(), body)
     native_pin = native.reference(201)
     original = next(report for report in layers.values() if not report.payload.get("native_runs"))
-    layer = ConstructionLayer(original.payload["base_document"], original.payload["source_scope"], original.payload["operation"],families=(PRIMARY_RULE_FAMILY,))
-    layer.record(PRIMARY_RULE_FAMILY,original.payload["source_scope"]["selectors"][0],"complete")
-    populate_declaration_readings(layer,view,{native_pin:native})
-    report = layer.finish(prepared(),dependencies={native_pin:native})
+    layer = ConstructionLayer(
+        original.payload["base_document"],
+        original.payload["source_scope"],
+        original.payload["operation"],
+        families=(PRIMARY_RULE_FAMILY,),
+    )
+    layer.record(PRIMARY_RULE_FAMILY, original.payload["source_scope"]["selectors"][0], "complete")
+    populate_declaration_readings(layer, view, {native_pin: native})
+    report = layer.finish(prepared(), dependencies={native_pin: native})
     roots = [term for term in report.payload["terms"] if term["value"] == "declaration_sentence"]
     assert len(roots) == 2
-    declaration = next(row for row in report.payload["coverage"] if row["family"] == DECLARATION_FAMILY)
-    readings = next(row for row in report.payload["coverage"] if row["family"] == PRIMARY_RULE_FAMILY)
+    declaration = next(
+        row for row in report.payload["coverage"] if row["family"] == DECLARATION_FAMILY
+    )
+    readings = next(
+        row for row in report.payload["coverage"] if row["family"] == PRIMARY_RULE_FAMILY
+    )
     assert declaration["outcome"] == "partial" and len(declaration["examined"]) == 2
     assert len(declaration["unexamined"]) == 1
     assert readings["outcome"] == "empty" and not readings["unexamined"]
 
 
 def test_healthy_declaration_chain_survives_unselected_malformed_sentence(monkeypatch):
-    from copy import deepcopy
     import sys
-    from corpus_structure.semantic.constructions.retained_declarations import populate_declaration_readings
+    from copy import deepcopy
+
+    from corpus_structure.semantic.constructions.retained_declarations import (
+        populate_declaration_readings,
+    )
 
     original_rows = _ROWS
-    monkeypatch.setattr(sys.modules[__name__], "_ROWS", (*original_rows,original_rows[0]))
+    monkeypatch.setattr(sys.modules[__name__], "_ROWS", (*original_rows, original_rows[0]))
     view, passage, layers = fixture()
     native = next(report for report in layers.values() if report.payload.get("native_runs"))
     body = deepcopy(native.payload)
-    token = next(row for row in body["annotations"] if row.get("native_token",{}).get("sentence","").endswith("/sentence/3"))
+    token = next(
+        row
+        for row in body["annotations"]
+        if row.get("native_token", {}).get("sentence", "").endswith("/sentence/3")
+    )
     token["native_token"].pop("lemma")
-    native = validate_layer(prepared(),body)
+    native = validate_layer(prepared(), body)
     pin = native.reference(301)
     original = next(report for report in layers.values() if not report.payload.get("native_runs"))
-    builder = ConstructionLayer(original.payload["base_document"],original.payload["source_scope"],original.payload["operation"],families=(PRIMARY_RULE_FAMILY,))
-    builder.record(PRIMARY_RULE_FAMILY,original.payload["source_scope"]["selectors"][0],"complete")
-    populate_declaration_readings(builder,view,{pin:native})
-    primary = builder.finish(prepared(),dependencies={pin:native})
+    builder = ConstructionLayer(
+        original.payload["base_document"],
+        original.payload["source_scope"],
+        original.payload["operation"],
+        families=(PRIMARY_RULE_FAMILY,),
+    )
+    builder.record(
+        PRIMARY_RULE_FAMILY, original.payload["source_scope"]["selectors"][0], "complete"
+    )
+    populate_declaration_readings(builder, view, {pin: native})
+    primary = builder.finish(prepared(), dependencies={pin: native})
     primary_pin = primary.reference(302)
     # This is the exact population read through the method's frozen configured pins.
-    selected = {pin:native,primary_pin:primary}
+    selected = {pin: native, primary_pin: primary}
     assert primary_pin in selected
     text = " ".join(row[0] for row in original_rows)
-    passage = passage.model_copy(update=dict(text=text,end=len(text)))
-    component = primary_declaration_component(selected,view,passage)
+    passage = passage.model_copy(update=dict(text=text, end=len(text)))
+    component = primary_declaration_component(selected, view, passage)
     assert component.term.text == "samples"

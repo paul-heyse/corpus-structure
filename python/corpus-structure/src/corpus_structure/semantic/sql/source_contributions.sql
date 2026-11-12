@@ -1809,7 +1809,7 @@ BEGIN
   RAISE EXCEPTION 'contribution report differs from immutable origin result' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT v FROM kb.source_view WHERE id=t.unit_id;
  IF (p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IS DISTINCT FROM '17')
-  OR (p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version' IS DISTINCT FROM '11')
+  OR (p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version' IS DISTINCT FROM '12')
   OR (p_envelope->>'method'='locate.definition_terms' AND p_envelope->>'operation_version' IS DISTINCT FROM '2') THEN
   RAISE EXCEPTION 'obsolete contribution producer requires regeneration under its current contract' USING ERRCODE='23514'; END IF;
  IF p_envelope->>'method'='structure.scoped_relations' THEN
@@ -2265,38 +2265,50 @@ BEGIN
      RAISE EXCEPTION 'literal-only contextual control requires exact carriers and no parser signal' USING ERRCODE='23514';
     END IF;
    ELSIF p_envelope->>'method'='retrieve.contextual' THEN
-    IF jsonb_typeof(contextual_config->'query_context') IS DISTINCT FROM 'object'
-     OR jsonb_typeof(contextual_config->'query_context'->'bindings') IS DISTINCT FROM 'array'
-     OR jsonb_array_length(contextual_config->'query_context'->'bindings') NOT BETWEEN 1 AND 32
-     OR jsonb_array_length(coalesce(contextual_config->'section_sources','[]'))<>0
-     OR EXISTS(SELECT FROM jsonb_array_elements(contextual_config->'query_context'->'bindings') b
-      WHERE b->'evidence'->>'release_id' IS DISTINCT FROM t.release_id
-       OR b->'evidence'->>'project_id' IS DISTINCT FROM (SELECT project_id FROM ops.run WHERE id=t.run_id)) THEN
-     RAISE EXCEPTION 'enriched query context differs from registered source and release' USING ERRCODE='23514';
-    END IF;
-    IF EXISTS(
-     SELECT FROM ops.resolve_retained_source_contributions(
-      (SELECT jsonb_agg(b->'evidence') FROM jsonb_array_elements(contextual_config->'query_context'->'bindings') b)) held
-     WHERE NOT EXISTS(
-      SELECT FROM jsonb_array_elements(held.contributions) r
-      WHERE r->>'contribution_id'=held.reference->>'contribution_id'
-       AND r->'pin'->>'source_view_id'=v.id::text
-       AND r->>'semantic_type'=CASE contextual_config->'query_context'->>'recipe'
-        WHEN 'located-frame-1' THEN 'linguistic.predicate_frame'
-        WHEN 'located-referent-1' THEN 'maverick.cluster'
-        WHEN 'located-discourse-neighbor-1' THEN 'dipo.tree' END)
-    ) OR EXISTS(
-     SELECT FROM jsonb_array_elements(contextual_config->'query_context'->'bindings') b
-     WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(p_envelope->'contributions') c
-      WHERE c->>'semantic_type'='contextual.located_mention'
-       AND c->>'occurrence_id'=b->>'occurrence_id')
-    ) THEN
-     RAISE EXCEPTION 'enriched query context lacks its exact parser and focal source' USING ERRCODE='23514';
-    END IF;
+    DECLARE layers_ jsonb:=ops.primary_characterization_layers(t,v,contextual_config);
+     binding_ jsonb; ref_ jsonb; node_ jsonb; body_ jsonb; extents_ jsonb; focal_ jsonb;
+     recipe_ text:=contextual_config->'query_context'->>'recipe';
+    BEGIN
+     IF recipe_ IS NULL OR recipe_ NOT IN ('located-frame-2','located-referent-2','located-discourse-neighbor-2')
+      OR jsonb_typeof(contextual_config->'query_context'->'bindings') IS DISTINCT FROM 'array'
+      OR jsonb_array_length(contextual_config->'query_context'->'bindings') NOT BETWEEN 1 AND 32
+      OR jsonb_array_length(coalesce(contextual_config->'section_sources','[]'))<>0
+      OR (SELECT count(*)<>count(DISTINCT b->>'occurrence_id') FROM jsonb_array_elements(contextual_config->'query_context'->'bindings') b) THEN
+      RAISE EXCEPTION 'invalid primary query recipe or carrier population' USING ERRCODE='23514'; END IF;
+     FOR binding_ IN SELECT value FROM jsonb_array_elements(contextual_config->'query_context'->'bindings') LOOP
+      ref_:=binding_->'evidence';
+      IF NOT coalesce(contextual_config->'characterization_layers','[]') @> jsonb_build_array(ref_->'layer') THEN
+       RAISE EXCEPTION 'query evidence is not an exact configured primary layer' USING ERRCODE='23514'; END IF;
+      node_:=ops.primary_characterization_node(layers_,ref_);
+      body_:=layers_->data.canonical_json(ref_->'layer');
+      extents_:=ops.primary_characterization_extents(layers_,ref_,node_,v);
+      IF NOT ops.primary_characterization_choices(layers_,ref_,node_,'[]')
+       OR jsonb_array_length(extents_)=0
+       OR EXISTS(SELECT FROM jsonb_array_elements(extents_) e WHERE e->>'synthetic' IS DISTINCT FROM 'false')
+       OR NOT coalesce(CASE recipe_
+        WHEN 'located-frame-2' THEN node_->>'kind'='predicate' AND node_->>'family'='construction.source_readings' AND node_->>'vocabulary'='source-linguistic-rules-1'
+        WHEN 'located-referent-2' THEN node_->>'kind'='native.coreference_cluster' AND node_->>'family'='maverick.clusters'
+        WHEN 'located-discourse-neighbor-2' THEN node_->>'kind' IN ('native.rst_node','native.rst_singleton') AND node_->>'family'='dipo.rst' END,false)
+       OR NOT coalesce(body_->'operation'->'produced_families','[]') ? (node_->>'family') THEN
+       RAISE EXCEPTION 'query evidence differs from its primary recipe or unresolved choices' USING ERRCODE='23514'; END IF;
+      SELECT c INTO STRICT focal_ FROM jsonb_array_elements(p_envelope->'contributions') c
+       WHERE c->>'semantic_type'='contextual.located_mention' AND c->>'occurrence_id'=binding_->>'occurrence_id';
+      IF jsonb_array_length(focal_->'anchors')=0 OR EXISTS(
+       SELECT FROM jsonb_array_elements(focal_->'anchors') a WHERE a->>'space' IS DISTINCT FROM 'native' OR a->>'precision' IS DISTINCT FROM 'exact'
+        OR NOT EXISTS(SELECT FROM jsonb_array_elements(extents_) e JOIN jsonb_array_elements(v.projection->'pieces') piece
+         ON piece->>'kind'='native_text' AND piece->>'item_ref'=e->>'native_pointer'
+         WHERE a->>'pointer'=piece->>'item_ref'||CASE WHEN piece->>'source_field'='cell_text' THEN '/data/table_cells/'||(piece->>'cell_index') ELSE '' END
+          AND (e->>'start')::bigint<=(piece->>'start')::bigint+(a->>'start')::bigint
+          AND (e->>'end')::bigint>=(piece->>'start')::bigint+(a->>'end')::bigint
+          AND (piece->>'end')::bigint>=(piece->>'start')::bigint+(a->>'end')::bigint))
+       OR NOT coalesce(op->'computation_dependencies','[]') ? ('annotation:'||encode(sha256(convert_to(data.canonical_json(ref_),'UTF8')),'hex')) THEN
+       RAISE EXCEPTION 'query root does not support exact focal source and dependency' USING ERRCODE='23514'; END IF;
+     END LOOP;
+    END;
    END IF;
    IF contextual_config ? 'required_occurrence_ids' THEN
     IF p_envelope->>'method' IS DISTINCT FROM 'retrieve.contextual'
-     OR p_envelope->>'operation_version' IS DISTINCT FROM '11'
+     OR p_envelope->>'operation_version' IS DISTINCT FROM '12'
      OR jsonb_typeof(contextual_config->'required_occurrence_ids') IS DISTINCT FROM 'array'
      OR jsonb_array_length(contextual_config->'required_occurrence_ids') NOT BETWEEN 1 AND 256
      OR EXISTS(SELECT FROM jsonb_array_elements_text(contextual_config->'required_occurrence_ids') r(id)
@@ -2311,7 +2323,7 @@ BEGIN
    END IF;
    IF contextual_config ? 'definition_alias_refs' THEN
     IF p_envelope->>'method' IS DISTINCT FROM 'retrieve.contextual'
-     OR p_envelope->>'operation_version' IS DISTINCT FROM '11'
+     OR p_envelope->>'operation_version' IS DISTINCT FROM '12'
      OR jsonb_array_length(contextual_config->'definition_alias_refs')>256
      OR jsonb_array_length(coalesce(contextual_config->'section_sources','[]'))>0
      OR EXISTS(SELECT FROM jsonb_array_elements(contextual_config->'definition_alias_refs') r

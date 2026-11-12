@@ -2,14 +2,15 @@
 
 from dataclasses import asdict
 
+import pytest
+
 from corpus_structure.core.work import drive_prepared_work
 from corpus_structure.ingest.annotations import AnnotationInput, AnnotationProfile
 from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
 from corpus_structure.ingest.sentences import Block, SentenceConfig, pipeline, prepare_layout
-from corpus_structure.semantic.native_annotations import annotation_work
 from corpus_structure.methods.characterization_resources import ProviderExecution
-import pytest
 from corpus_structure.semantic.cpu_execution import CPUExecutionScope
+from corpus_structure.semantic.native_annotations import annotation_work
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.source_contexts import NativeSourcePin
 from semantic.test_formal_evidence import prepared as prepared
@@ -74,10 +75,62 @@ def test_spawned_annotation_profile_refusal_retains_structured_availability(prep
     profile = AnnotationProfile(SentenceConfig(spacy_version="0.0.0"))
     try:
         from corpus_structure.ingest.sentences import SentenceConfigError
-        with pytest.raises(SentenceConfigError, match="0.0.0"):
+
+        with pytest.raises(SentenceConfigError, match=r"0\.0\.0"):
             annotation_work(execution, (), profile, lambda: None)
         assert not execution.native_group._serving
     finally:
         execution.close()
         cpu.close()
     assert execution.budget.used_bytes == 0
+
+
+def test_annotation_handle_forwards_flush_and_ownership(monkeypatch):
+    """The driver must flush queued native work before waiting for its reply."""
+    from concurrent.futures import Future
+    from time import monotonic
+    from types import SimpleNamespace
+
+    from corpus_structure.core.work import PreparedWork
+    from corpus_structure.semantic import native_annotations
+
+    events = []
+
+    class Queued:
+        future = Future()
+
+        def flush(self):
+            events.append("flush")
+            self.future.set_result(None)
+
+        def collect(self):
+            assert self.future.done()
+            return SimpleNamespace(payload={"documents": []}, startup={})
+
+        def cancel(self):
+            events.append("cancel")
+
+        def retire(self):
+            events.append("retire")
+            return True
+
+    queued = Queued()
+    nlp = SimpleNamespace(observe=lambda startup: None, decode=lambda documents: [])
+
+    def annotate(inputs, profile, *, require_complete, processed_docs):
+        assert inputs == () and processed_docs == []
+        return ("owned-result",)
+
+    monkeypatch.setattr(native_annotations, "annotate", annotate)
+    wrapped = native_annotations._AnnotationHandle(queued, (), None, nlp, False)
+    deadline = monotonic() + 2
+
+    def check_active():
+        if monotonic() >= deadline:
+            raise TimeoutError("annotation work remained queued without flush")
+
+    result = drive_prepared_work(_plan(PreparedWork(lambda: wrapped)), check_active)
+    assert result.products == ("owned-result",)
+    assert events == ["flush", "retire"]
+    wrapped.cancel()
+    assert events[-1] == "cancel"

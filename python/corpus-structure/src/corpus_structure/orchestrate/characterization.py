@@ -662,6 +662,20 @@ def _enrich_document_plan(
     )
 
 
+def _declare_native_profiles(execution, requests, settings):
+    """Declare the whole operation population before any regional job can start."""
+    from corpus_structure.methods.characterization_resources import selections_for_characterization
+
+    selections = tuple(
+        selection
+        for request in requests
+        if request.run_missing and not request.source_only
+        for selection in selections_for_characterization(request.method_options, settings)
+    )
+    if selections:
+        execution.providers.declare_native(selections, endpoint=settings.nemotron_endpoint)
+
+
 def _freeze_request(
     engine,
     request,
@@ -696,25 +710,12 @@ def _freeze_request(
 
     def native_profile(provider):
         if provider not in native_profiles:
-            from pathlib import Path
+            from corpus_structure.methods.native_profiles import preflight_native_runtime
+            from corpus_structure.methods.pm2_worker import Pm2WorkerError, Pm2WorkerRefused
 
-            import corpus_structure.methods.pm2_native as native_module
-            from corpus_structure.methods.pm2_worker import (
-                Pm2WorkerError,
-                Pm2WorkerRefused,
-                preflight_pm2_runtime,
-            )
-
-            script = Path(native_module.__file__)
-            root = script.resolve().parents[5]
-            project = root if provider == "d1" else root / f"services/pm2-{provider}"
             try:
-                native_profiles[provider] = preflight_pm2_runtime(
-                    python=project / ".venv/bin/python",
-                    script=script,
-                    project=project,
-                    provider=provider,
-                    assets=method_settings.model_cache / "pm2",
+                native_profiles[provider] = preflight_native_runtime(
+                    provider, method_settings.model_cache / "pm2"
                 )
             except (Pm2WorkerError, Pm2WorkerRefused) as error:
                 native_profiles[provider] = None
@@ -725,6 +726,16 @@ def _freeze_request(
         # Authentication precedes task/configuration identity and every reuse lookup.
         if not has_text:
             return
+        from corpus_structure.methods.characterization_resources import (
+            freeze_characterization_profiles,
+        )
+
+        freeze_characterization_profiles(
+            name,
+            parameters,
+            method_settings,
+            cache=preparation_cache.setdefault("_profile_selections", {}),
+        )
         if (
             name == "text.native_evidence"
             and parameters.get("characterization_profile", "full_native") == "full_native"
@@ -796,8 +807,8 @@ def _freeze_request(
 
             parameters.setdefault("question_manifest", question_manifest(prepared))
         device_fields = {
-            "text.native_evidence": {"hanlp_device": "cpu"},
-            "text.contextual_characterization": {"native_device": "cpu"},
+            "text.native_evidence": {"hanlp_device": "cuda"},
+            "text.contextual_characterization": {"native_device": "cuda"},
             "text.model_characterization": {"d1_device": "cuda"},
         }
         for field, device in device_fields.get(name, {}).items():
@@ -958,6 +969,7 @@ def _demand_plan(
             cache,
             execution_preparation=execution,
         )
+        _declare_native_profiles(execution, (request,), method_settings)
         characterization_operation = CharacterizationOperation.freeze(
             (request,), selected, cache, diagnostics, method_settings.execution_policy
         )
@@ -1233,6 +1245,7 @@ def _characterize_captured_run(
         frozen.append(request)
         diagnostics.extend(messages)
     requests = frozen
+    _declare_native_profiles(execution, requests, method_settings)
     operation = CharacterizationOperation.freeze(
         tuple(requests),
         selected,

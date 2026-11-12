@@ -62,6 +62,7 @@ def pipeline(config: SentenceConfig) -> Language:
             f"{config.spacy_version}"
         )
     from typing import cast
+
     from .hosted_spacy import HostedPipeline
 
     return cast(Language, HostedPipeline(config))

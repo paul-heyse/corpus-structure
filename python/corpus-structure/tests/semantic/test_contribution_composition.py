@@ -194,8 +194,8 @@ def test_interpretation_projects_exact_focus_and_candidates_without_admission():
             "native_answer": {"probabilities": {"no_match": 0.1, "a": 0.8, "b": 0.1}},
             "selected_keys": ["a"],
             "candidates": [
-                {"key": "a", "semantic_type": "linguistic.predicate_frame", "reference": ref("b")},
-                {"key": "b", "semantic_type": "linguistic.predicate_frame", "reference": ref("c")},
+                {"key": "a", "semantic_type": "linguistic.constituent", "reference": ref("b")},
+                {"key": "b", "semantic_type": "linguistic.constituent", "reference": ref("c")},
             ],
         },
     )
@@ -253,28 +253,23 @@ def test_detached_interpretation_requires_original_candidate_and_selected_member
     monkeypatch, contract_mode
 ):
     release, project, runtime = "release-a", "project-a", "runtime-a"
-    candidate = {"semantic_type": "linguistic.predicate_frame", "pin": PIN}
+    candidate = {"semantic_type": "linguistic.constituent", "pin": PIN}
     contracts = ()
     if contract_mode != "legacy":
         from .test_record_contracts import release_inputs
 
         prepared = release_inputs()[2]
-        contract = "PM2HanLPFrameContributionV1"
+        contract = "PM2HanLPPhraseContributionV1"
         candidate.update(
             contract=contract,
             kind="proposal",
             operation_key="frame-op",
             value=source_value(
                 dict(
-                    scheme="hanlp-ud-ptb-propbank-1",
+                    scheme="hanlp-ptb-constituency-1",
                     sentence=0 if contract_mode == "typed" else "0",
-                    predicate_token=0,
-                    syntactic_head=0,
-                    predicate="verb",
-                    focus="verb",
-                    voice="active",
-                    dependency_arguments=[],
-                    srl_frames=[],
+                    label="NP",
+                    location="verb",
                     location_keys=["verb"],
                     unlocated_members=["verb"],
                 )
@@ -284,7 +279,7 @@ def test_detached_interpretation_requires_original_candidate_and_selected_member
             {
                 "release_id": release,
                 "contribution_payload_contracts": {
-                    "linguistic.predicate_frame": dict(
+                    "linguistic.constituent": dict(
                         contract=contract, schema=prepared.json_schema(contract)
                     )
                 },
@@ -310,7 +305,7 @@ def test_detached_interpretation_requires_original_candidate_and_selected_member
                 "candidates": [
                     {
                         "key": "offered",
-                        "semantic_type": "linguistic.predicate_frame",
+                        "semantic_type": "linguistic.constituent",
                         "reference": ref,
                     },
                 ]
@@ -382,7 +377,7 @@ def test_detached_interpretation_requires_original_candidate_and_selected_member
         )
 
 
-def test_detached_closure_refuses_query_context_without_v11_custody(tmp_path):
+def test_detached_closure_refuses_query_context_without_current_custody(tmp_path):
     destination = tmp_path / "unverifiable"
     selection = review_bundle.ReviewSelection(
         selections=(ContributionRequest(run_id=1, selected_task_id=2),)
@@ -390,9 +385,9 @@ def test_detached_closure_refuses_query_context_without_v11_custody(tmp_path):
     report = {
         "origin_task_id": 2,
         "method": "retrieve.contextual",
-        "configuration": {"query_context": {"recipe": "located-frame-1", "bindings": []}},
+        "configuration": {"query_context": {"recipe": "located-frame-2", "bindings": []}},
         "body": {},
     }
-    with pytest.raises(ValueError, match="differs from contextual operation 11"):
+    with pytest.raises(ValueError, match="regeneration as operation 12"):
         review_bundle.write_review_bundle(selection, destination, [("reports", report)])
     assert not destination.exists()

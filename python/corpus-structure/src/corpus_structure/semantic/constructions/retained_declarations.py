@@ -3,41 +3,58 @@
 Domain chain selection remains in methods.definition_declaration. This producer owns
 all lexical, UD and SRL recognition used by that consumer.
 """
+
 from __future__ import annotations
+
 import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from itertools import pairwise
 from typing import Any
+
+from corpus_structure.methods.pm2_hanlp_products import _dependency_graph
+from corpus_structure.methods.pm2_source import MappedSource
 from corpus_structure.semantic.characterization import annotation_reference
 from corpus_structure.semantic.proposals import native_source_frame
-from corpus_structure.semantic.source_contexts import ContextRefused, NativeSourceContext, NativeSpanEvidence, SourceSlice, evidence_anchor
-from corpus_structure.methods.pm2_source import MappedSource
-from corpus_structure.methods.pm2_hanlp_products import _dependency_graph
-from .retained_rules import PRIMARY_RULE_VOCABULARY
+from corpus_structure.semantic.source_contexts import (
+    ContextRefused,
+    NativeSourceContext,
+    NativeSpanEvidence,
+    SourceSlice,
+    evidence_anchor,
+)
 
 from .forest import identity
+from .retained_rules import PRIMARY_RULE_VOCABULARY
 
 DECLARATION_FAMILY = "construction.declaration_syntax"
 
-_SCOPE_MARKERS = frozenset({"if", "unless", "although", "except", "not", "never", "reportedly", "allegedly"})
+_SCOPE_MARKERS = frozenset(
+    {"if", "unless", "although", "except", "not", "never", "reportedly", "allegedly"}
+)
 _QUOTES = frozenset({'"', "\u201c", "\u201d", "\u2018", "\u2019", "``", "''"})
+
+
 class DeclarationNotQualified(ValueError):
     pass
+
 
 def _require(value):
     if not value:
         raise DeclarationNotQualified("native roles do not establish declaration syntax")
+
 
 @dataclass(frozen=True)
 class _Argument:
     role: str
     location: str
 
+
 @dataclass(frozen=True)
 class _SRL:
     arguments: tuple[_Argument, ...]
+
 
 @dataclass(frozen=True)
 class _Frame:
@@ -45,6 +62,7 @@ class _Frame:
     predicate: str
     voice: str
     srl_frames: tuple[_SRL, ...]
+
 
 @dataclass(frozen=True)
 class _Sentence:
@@ -154,64 +172,105 @@ class _Sentence:
 def _prepare_sentences(layers, view, passage):
     """Decode and index each immutable dependency once for this characterization."""
     source = native_source_frame(view, ())
-    if (not 0 <= passage.start < passage.end <= len(view.text)
-        or view.text[passage.start:passage.end] != passage.text):
+    if (
+        not 0 <= passage.start < passage.end <= len(view.text)
+        or view.text[passage.start : passage.end] != passage.text
+    ):
         raise DeclarationNotQualified("declaration passage differs from exact source")
-    context = NativeSourceContext(source, (), (SourceSlice(view.ref.id,passage.start,passage.end),),
-        "primary declaration roles", "primary-declaration-roles-1", "exact selected passage",
-        max_chars=len(passage.text),max_pieces=1024)
+    context = NativeSourceContext(
+        source,
+        (),
+        (SourceSlice(view.ref.id, passage.start, passage.end),),
+        "primary declaration roles",
+        "primary-declaration-roles-1",
+        "exact selected passage",
+        max_chars=len(passage.text),
+        max_pieces=1024,
+    )
     prepared = {}
     for pin, report in layers.items():
         body = report.payload
-        if report.reference(pin.task_id) != pin or body["base_document"] != view.ref.native_product.values():
+        if (
+            report.reference(pin.task_id) != pin
+            or body["base_document"] != view.ref.native_product.values()
+        ):
             raise DeclarationNotQualified("declaration primary layer pin or base differs")
-        runs = {row["local_id"] for row in body.get("native_runs", ()) if row["provider"] == "hanlp"}
+        runs = {
+            row["local_id"] for row in body.get("native_runs", ()) if row["provider"] == "hanlp"
+        }
         if not runs:
             continue
-        native_annotations = {row["local_id"]:row for row in body["annotations"]}
-        occurrences = {row["local_id"]:row for row in body["occurrences"]}
+        native_annotations = {row["local_id"]: row for row in body["annotations"]}
+        occurrences = {row["local_id"]: row for row in body["occurrences"]}
         memberships = {}
         for row in body["memberships"]:
-            memberships.setdefault(row["group"],[]).append(row)
+            memberships.setdefault(row["group"], []).append(row)
         sentences, token_keys = {}, {}
         for row in native_annotations.values():
             token = row.get("native_token")
             if token is not None and token["native_run"] in runs:
-                key = (token["native_run"],token["container"],token["sentence"])
-                sentences.setdefault(key,[]).append(row)
+                key = (token["native_run"], token["container"], token["sentence"])
+                sentences.setdefault(key, []).append(row)
                 token_keys[row["local_id"]] = key
         groups = {}
         for group in native_annotations.values():
             if group["kind"] != "native.srl_group":
                 continue
-            keys = {token_keys[token["member"]]
-                    for member in memberships.get(group["local_id"],())
-                    for token in memberships.get(member["member"],())
-                    if token["role"] == "token" and token["member"] in token_keys}
+            keys = {
+                token_keys[token["member"]]
+                for member in memberships.get(group["local_id"], ())
+                for token in memberships.get(member["member"], ())
+                if token["role"] == "token" and token["member"] in token_keys
+            }
             if not keys:
                 # Native IDs locate the enclosing sentence even when its role support
                 # is missing entirely. They are used only to route a local refusal.
-                keys = {key for key in sentences if group["local_id"].startswith(key[1]+"/srl/")}
+                keys = {key for key in sentences if group["local_id"].startswith(key[1] + "/srl/")}
             for key in keys:
-                groups.setdefault(key,[]).append(group)
-        prepared[pin] = (body,native_annotations,occurrences,memberships,sentences,groups)
+                groups.setdefault(key, []).append(group)
+        prepared[pin] = (body, native_annotations, occurrences, memberships, sentences, groups)
     return context, prepared
 
 
 def _sentences(layers, view, passage, *, sentence_key=None, prepared=None):
-    context, indexed = prepared if prepared is not None else _prepare_sentences(layers,view,passage)
+    context, indexed = (
+        prepared if prepared is not None else _prepare_sentences(layers, view, passage)
+    )
     evidence, native_sentences = [], []
-    for pin, (body,native_annotations,occurrences,memberships,population,group_index) in indexed.items():
+    for pin, (
+        body,
+        native_annotations,
+        occurrences,
+        memberships,
+        population,
+        group_index,
+    ) in indexed.items():
+
         def extents(node, *, occurrences=occurrences):
-            values = [part for key in node.get("occurrences",()) for part in occurrences[key]["extents"]]
-            if not values or any(part.get("synthetic") or part["source_view_id"] != view.ref.id
+            values = [
+                part for key in node.get("occurrences", ()) for part in occurrences[key]["extents"]
+            ]
+            if not values or any(
+                part.get("synthetic")
+                or part["source_view_id"] != view.ref.id
                 or part["projection"] != view.ref.projection_digest
-                or part.get("text") != view.text[part.get("start",-1):part.get("end",-1)] for part in values):
-                raise DeclarationNotQualified("declaration native role has no exact selected source")
-            return tuple((part["start"],part["end"]) for part in values)
-        sentences = population if sentence_key is None else (
-            {sentence_key[1]: population[sentence_key[1]]}
-            if sentence_key[0] == pin and sentence_key[1] in population else {})
+                or part.get("text") != view.text[part.get("start", -1) : part.get("end", -1)]
+                for part in values
+            ):
+                raise DeclarationNotQualified(
+                    "declaration native role has no exact selected source"
+                )
+            return tuple((part["start"], part["end"]) for part in values)
+
+        sentences = (
+            population
+            if sentence_key is None
+            else (
+                {sentence_key[1]: population[sentence_key[1]]}
+                if sentence_key[0] == pin and sentence_key[1] in population
+                else {}
+            )
+        )
         for sentence, rows in sentences.items():
             rows.sort(key=lambda row: row["native_token"]["index"])
             spans = [extents(row) for row in rows]
@@ -236,10 +295,12 @@ def _sentences(layers, view, passage, *, sentence_key=None, prepared=None):
                     coverage is None
                     or coverage["availability"] != "available"
                     or coverage["outcome"] not in {"complete", "empty", "partial"}
-                    or any(selector.get("projection") == view.ref.projection_digest
-                           and selector.get("start", 0) < positions[-1][1]
-                           and selector.get("end", len(view.text)) > positions[0][0]
-                           for selector in coverage.get("unexamined", ()))
+                    or any(
+                        selector.get("projection") == view.ref.projection_digest
+                        and selector.get("start", 0) < positions[-1][1]
+                        and selector.get("end", len(view.text)) > positions[0][0]
+                        for selector in coverage.get("unexamined", ())
+                    )
                     or not any(
                         selector["projection"] == view.ref.projection_digest
                         and selector.get("start", 0) <= positions[0][0]
@@ -249,15 +310,33 @@ def _sentences(layers, view, passage, *, sentence_key=None, prepared=None):
                 ):
                     raise DeclarationNotQualified("declaration native role coverage is incomplete")
             native_sentences.append(
-                (positions[0][0], pin, body, native_annotations, sentence, rows, positions, memberships, group_index)
+                (
+                    positions[0][0],
+                    pin,
+                    body,
+                    native_annotations,
+                    sentence,
+                    rows,
+                    positions,
+                    memberships,
+                    group_index,
+                )
             )
     native_sentences.sort(key=lambda row: row[0])
     if any(left[0] == right[0] for left, right in pairwise(native_sentences)):
         raise DeclarationNotQualified("declaration requires unique exact native sentences")
     sentences = []
-    for number, (_start, pin, _body, native_annotations, _sentence, rows, positions, memberships, group_index) in enumerate(
-        native_sentences
-    ):
+    for number, (
+        _start,
+        pin,
+        _body,
+        native_annotations,
+        _sentence,
+        rows,
+        positions,
+        memberships,
+        group_index,
+    ) in enumerate(native_sentences):
         evidence_start = len(evidence)
         tokens = [row["native_token"] for row in rows]
         if any(
@@ -331,7 +410,9 @@ def _sentences(layers, view, passage, *, sentence_key=None, prepared=None):
                     )
                 ]
                 if not ids or not all(key in references for key in ids):
-                    raise DeclarationNotQualified("declaration native SRL has missing or cross-sentence token support")
+                    raise DeclarationNotQualified(
+                        "declaration native SRL has missing or cross-sentence token support"
+                    )
                 indices = tuple(references[key] for key in ids)
                 if indices != tuple(range(indices[0], indices[-1] + 1)):
                     raise DeclarationNotQualified(
@@ -364,9 +445,15 @@ def _sentences(layers, view, passage, *, sentence_key=None, prepared=None):
             frames[predicate] = _Frame(
                 syntactic_head,
                 located(predicate, predicate + 1),
-                "copular" if relations[predicate] == "cop" else "passive"
-                if any(relations[i] == "aux:pass" for i in children[predicate]) else "active",
-                tuple(_SRL(tuple(_Argument(arg["role"],arg["location"]) for arg in row["arguments"])) for row in srl),
+                "copular"
+                if relations[predicate] == "cop"
+                else "passive"
+                if any(relations[i] == "aux:pass" for i in children[predicate])
+                else "active",
+                tuple(
+                    _SRL(tuple(_Argument(arg["role"], arg["location"]) for arg in row["arguments"]))
+                    for row in srl
+                ),
             )
         evidence.extend(annotation_reference(pin, row["local_id"]) for row in rows)
         sentences.append(
@@ -399,16 +486,28 @@ def _facts(sentence):
             end -= 1
         coordinated = sentence.relations[start] == "conj"
         try:
-            copula, subject, head, allowed = sentence.intro(start, terminal=end, coordinated=coordinated)
+            copula, subject, head, allowed = sentence.intro(
+                start, terminal=end, coordinated=coordinated
+            )
             sentence.neutral_act(start, end, allowed)
-        except (DeclarationNotQualified, ValueError, IndexError):
+        except DeclarationNotQualified, ValueError, IndexError:
             continue
         parent = sentence.heads[start]
-        intro = dict(start=start, end=end, copula=copula, subject=subject, head=head,
-                     parent=parent, coordinated=coordinated,
-                     coordinate_cue=(start > 0 and sentence.words[start - 1].casefold() == "and"
-                                     and sentence.relations[start - 1] == "cc"),
-                     frame=sentence.frame_key(copula))
+        intro = dict(
+            start=start,
+            end=end,
+            copula=copula,
+            subject=subject,
+            head=head,
+            parent=parent,
+            coordinated=coordinated,
+            coordinate_cue=(
+                start > 0
+                and sentence.words[start - 1].casefold() == "and"
+                and sentence.relations[start - 1] == "cc"
+            ),
+            frame=sentence.frame_key(copula),
+        )
         relative = []
         try:
             verb = sentence.child(head, "acl:relcl")
@@ -417,11 +516,18 @@ def _facts(sentence):
             _require(any(a <= obj < b for a, b in sentence.srl(frame, "ARG1")))
             for token in range(len(sentence.words)):
                 governor = sentence.heads[token]
-                if (sentence.below(token, verb) and sentence.relations[token] == "nmod"
-                    and governor is not None and sentence.relations[governor] == "obl"):
-                    uses = [token, *(i for i in sentence.children[token] if sentence.relations[i] == "conj")]
+                if (
+                    sentence.below(token, verb)
+                    and sentence.relations[token] == "nmod"
+                    and governor is not None
+                    and sentence.relations[governor] == "obl"
+                ):
+                    uses = [
+                        token,
+                        *(i for i in sentence.children[token] if sentence.relations[i] == "conj"),
+                    ]
                     relative.append(tuple(sorted(uses)))
-        except (DeclarationNotQualified, ValueError, IndexError):
+        except DeclarationNotQualified, ValueError, IndexError:
             pass
         intro["relative_uses"] = tuple(relative)
         intros.append(intro)
@@ -438,39 +544,62 @@ def _facts(sentence):
         subj_roles, term_roles = sentence.srl(frame, "ARG1"), sentence.srl(frame, "ARG2")
         _require(len(subj_roles) == len(term_roles) == 1)
         ((subj_a, subj_b),), ((term_a, term_b),) = subj_roles, term_roles
-        _require(subj_a <= nominal < antecedent < subj_b <= predicate < term_a <= term_head < term_b
-                 and term_b == len(sentence.words) - 1
-                 and all(word.casefold() == "then" for word in sentence.words[:subj_a])
-                 and all(sentence.relations[i] == "aux:pass" for i in range(subj_b, predicate))
-                 and not any(role.role.startswith("ARGM-") and role.role != "ARGM-DIS"
-                             for role in frame.srl_frames[0].arguments))
+        _require(
+            subj_a <= nominal < antecedent < subj_b <= predicate < term_a <= term_head < term_b
+            and term_b == len(sentence.words) - 1
+            and all(word.casefold() == "then" for word in sentence.words[:subj_a])
+            and all(sentence.relations[i] == "aux:pass" for i in range(subj_b, predicate))
+            and not any(
+                role.role.startswith("ARGM-") and role.role != "ARGM-DIS"
+                for role in frame.srl_frames[0].arguments
+            )
+        )
         sentence.neutral_act(0, len(sentence.words) - 1)
         if sentence.relations[term_a] == "det" and sentence.heads[term_a] == term_head:
             term_a += 1
-        naming = dict(predicate=predicate, antecedent=antecedent, subject_end=subj_b,
-                      term_start=term_a, term_end=term_b, frame=sentence.frame_key(predicate))
-    except (DeclarationNotQualified, ValueError, IndexError):
+        naming = dict(
+            predicate=predicate,
+            antecedent=antecedent,
+            subject_end=subj_b,
+            term_start=term_a,
+            term_end=term_b,
+            frame=sentence.frame_key(predicate),
+        )
+    except DeclarationNotQualified, ValueError, IndexError:
         pass
     return dict(intros=tuple(intros), naming=naming)
 
 
-def populate_declaration_readings(layer, view, dependencies, *, check_active=lambda: None, admitted=lambda start,end: True):
+def populate_declaration_readings(
+    layer, view, dependencies, *, check_active=lambda: None, admitted=lambda start, end: True
+):
     """Retain reusable declaration syntax once, before any domain chain is selected."""
     from types import SimpleNamespace
+
     passage = SimpleNamespace(start=0, end=len(view.text), text=view.text)
-    if not any(any(run["provider"] == "hanlp" for run in report.payload.get("native_runs", ()))
-               for report in dependencies.values()):
+    if not any(
+        any(run["provider"] == "hanlp" for run in report.payload.get("native_runs", ()))
+        for report in dependencies.values()
+    ):
         return
     if DECLARATION_FAMILY not in layer.families:
         layer.families = (*layer.families, DECLARATION_FAMILY)
         layer.operation["produced_families"].append(DECLARATION_FAMILY)
     candidates = []
-    prepared = _prepare_sentences(dependencies,view,passage)
-    for pin, (_body,_annotations,occurrences,_memberships,grouped,_groups) in prepared[1].items():
+    prepared = _prepare_sentences(dependencies, view, passage)
+    for pin, (_body, _annotations, occurrences, _memberships, grouped, _groups) in prepared[
+        1
+    ].items():
         for key, rows in grouped.items():
-            spans = [part for row in rows for oid in row.get("occurrences", ())
-                     for part in occurrences.get(oid, {}).get("extents", ())
-                     if part.get("projection") == view.ref.projection_digest and "start" in part and "end" in part]
+            spans = [
+                part
+                for row in rows
+                for oid in row.get("occurrences", ())
+                for part in occurrences.get(oid, {}).get("extents", ())
+                if part.get("projection") == view.ref.projection_digest
+                and "start" in part
+                and "end" in part
+            ]
             if not spans:
                 # No located premise means no sentence can be characterized. It does not
                 # invalidate located sibling inventories or their positive coverage.
@@ -478,52 +607,83 @@ def populate_declaration_readings(layer, view, dependencies, *, check_active=lam
             start, end = min(part["start"] for part in spans), max(part["end"] for part in spans)
             if not admitted(start, end):
                 continue
-            candidates.append(((pin, key), dict(projection=view.ref.projection_digest, start=start, end=end)))
+            candidates.append(
+                ((pin, key), dict(projection=view.ref.projection_digest, start=start, end=end))
+            )
     for sentence_key, selector in candidates:
         check_active()
         try:
-            sentences, _evidence = _sentences(dependencies, view, passage, sentence_key=sentence_key, prepared=prepared)
+            sentences, _evidence = _sentences(
+                dependencies, view, passage, sentence_key=sentence_key, prepared=prepared
+            )
             if len(sentences) != 1:
                 raise DeclarationNotQualified("native sentence population is missing or ambiguous")
             (sentence,) = sentences
         except (DeclarationNotQualified, ValueError, KeyError, IndexError) as error:
-            layer.record(DECLARATION_FAMILY, selector, "unknown", "declaration syntax: " + str(error))
+            layer.record(
+                DECLARATION_FAMILY, selector, "unknown", "declaration syntax: " + str(error)
+            )
             continue
         layer.record(DECLARATION_FAMILY, selector, "complete")
         facts = _facts(sentence)
         root = identity("declaration-sentence", [view.ref.id, sentence.positions])
-        premises = [dict(layer=ref.layer.values(), local_id=ref.local_id) for ref in sentence.evidence]
+        premises = [
+            dict(layer=ref.layer.values(), local_id=ref.local_id) for ref in sentence.evidence
+        ]
 
         def emit(value, name, *, positions=(), root=root):
             key = identity("declaration-fact", [root, name])
             children = []
             if isinstance(value, dict):
                 kind, label = "operator", "{}"
-                children = [dict(role=role, target=emit(item, name + "/" + role), structural=True)
-                            for role, item in value.items()]
+                children = [
+                    dict(role=role, target=emit(item, name + "/" + role), structural=True)
+                    for role, item in value.items()
+                ]
             elif isinstance(value, (tuple, list)):
                 kind, label = "operator", "[]"
-                children = [dict(role="item", order=i, target=emit(item, name + "/" + str(i)), structural=True)
-                            for i, item in enumerate(value)]
+                children = [
+                    dict(
+                        role="item",
+                        order=i,
+                        target=emit(item, name + "/" + str(i)),
+                        structural=True,
+                    )
+                    for i, item in enumerate(value)
+                ]
             else:
                 kind, label = "participant", json.dumps(value, ensure_ascii=False)
-            layer.terms[key] = dict(local_id=key, family=DECLARATION_FAMILY, kind=kind,
-                vocabulary=PRIMARY_RULE_VOCABULARY, value=label, status="interpreted",
-                occurrences=[layer.occurrence(view, a, b) for a,b in positions],
-                children=children)
+            layer.terms[key] = dict(
+                local_id=key,
+                family=DECLARATION_FAMILY,
+                kind=kind,
+                vocabulary=PRIMARY_RULE_VOCABULARY,
+                value=label,
+                status="interpreted",
+                occurrences=[layer.occurrence(view, a, b) for a, b in positions],
+                children=children,
+            )
             return key
 
         data = dict(words=sentence.words, positions=sentence.positions, facts=facts)
-        key = emit(data, "declaration_sentence", positions=(
-            (sentence.positions[0][0], sentence.positions[-1][1]),))
+        key = emit(
+            data,
+            "declaration_sentence",
+            positions=((sentence.positions[0][0], sentence.positions[-1][1]),),
+        )
         layer.terms[key]["value"] = "declaration_sentence"
         layer.terms[key]["external_premises"] = premises
         annotation = identity("declaration-syntax", [root])
         layer.annotations[annotation] = dict(
-            local_id=annotation, family=DECLARATION_FAMILY, kind="construction",
-            vocabulary=PRIMARY_RULE_VOCABULARY, rule_id="tc.source.declaration_syntax.v1",
-            native_scheme="retained-hanlp-declaration-syntax-1", native_label="declaration_sentence",
-            status="interpreted", occurrences=layer.terms[key]["occurrences"],
+            local_id=annotation,
+            family=DECLARATION_FAMILY,
+            kind="construction",
+            vocabulary=PRIMARY_RULE_VOCABULARY,
+            rule_id="tc.source.declaration_syntax.v1",
+            native_scheme="retained-hanlp-declaration-syntax-1",
+            native_label="declaration_sentence",
+            status="interpreted",
+            occurrences=layer.terms[key]["occurrences"],
             external_premises=premises,
         )
         layer.terms[key]["premises"] = [annotation]
@@ -532,6 +692,7 @@ def populate_declaration_readings(layer, view, dependencies, *, check_active=lam
 def declaration_sentences(layers, view, passage):
     """Read only retained primary facts; no lexical, dependency or SRL recognition."""
     from types import SimpleNamespace
+
     found, evidence = [], []
     for pin, report in layers.items():
         if report.reference(pin.task_id) != pin or report.base_document != view.ref.native_product:
@@ -539,36 +700,64 @@ def declaration_sentences(layers, view, passage):
         body = report.payload
         terms = {row["local_id"]: row for row in body["terms"]}
         occurrences = {row["local_id"]: row for row in body["occurrences"]}
+
         def read(term: dict[str, Any], *, terms=terms) -> Any:
             children = term.get("children", ())
             if not children:
                 return json.loads(term["value"])
             if all(row["role"] == "item" for row in children):
-                return tuple(read(terms[row["target"]]) for row in sorted(children,key=lambda r:r["order"]))
-            return {row["role"]:read(terms[row["target"]]) for row in children}
+                return tuple(
+                    read(terms[row["target"]]) for row in sorted(children, key=lambda r: r["order"])
+                )
+            return {row["role"]: read(terms[row["target"]]) for row in children}
+
         for term in terms.values():
-            if term.get("vocabulary") != PRIMARY_RULE_VOCABULARY or term["value"] != "declaration_sentence":
+            if (
+                term.get("vocabulary") != PRIMARY_RULE_VOCABULARY
+                or term["value"] != "declaration_sentence"
+            ):
                 continue
             extents = [part for key in term["occurrences"] for part in occurrences[key]["extents"]]
-            if not extents or extents[-1]["end"] <= passage.start or extents[0]["start"] >= passage.end:
+            if (
+                not extents
+                or extents[-1]["end"] <= passage.start
+                or extents[0]["start"] >= passage.end
+            ):
                 continue
-            if (extents[0]["start"] < passage.start or extents[-1]["end"] > passage.end
-                or any(part.get("synthetic") or part["source_view_id"] != view.ref.id
-                       or part["projection"] != view.ref.projection_digest
-                       or part["text"] != view.text[part["start"]:part["end"]] for part in extents)):
+            if (
+                extents[0]["start"] < passage.start
+                or extents[-1]["end"] > passage.end
+                or any(
+                    part.get("synthetic")
+                    or part["source_view_id"] != view.ref.id
+                    or part["projection"] != view.ref.projection_digest
+                    or part["text"] != view.text[part["start"] : part["end"]]
+                    for part in extents
+                )
+            ):
                 raise DeclarationNotQualified("declaration passage cuts primary sentence")
-            coverage = next((row for row in body["coverage"] if row["family"] == DECLARATION_FAMILY), None)
-            if (coverage is None or coverage["availability"] != "available"
-                or not any(selector.get("projection") == view.ref.projection_digest
-                           and selector.get("start", 0) <= extents[0]["start"]
-                           and selector.get("end", len(view.text)) >= extents[-1]["end"]
-                           for selector in coverage.get("examined", ()))
-                or any(selector.get("projection") == view.ref.projection_digest
-                       and selector.get("start", 0) < extents[-1]["end"]
-                       and selector.get("end", len(view.text)) > extents[0]["start"]
-                       for selector in coverage.get("unexamined", ()))):
+            coverage = next(
+                (row for row in body["coverage"] if row["family"] == DECLARATION_FAMILY), None
+            )
+            if (
+                coverage is None
+                or coverage["availability"] != "available"
+                or not any(
+                    selector.get("projection") == view.ref.projection_digest
+                    and selector.get("start", 0) <= extents[0]["start"]
+                    and selector.get("end", len(view.text)) >= extents[-1]["end"]
+                    for selector in coverage.get("examined", ())
+                )
+                or any(
+                    selector.get("projection") == view.ref.projection_digest
+                    and selector.get("start", 0) < extents[-1]["end"]
+                    and selector.get("end", len(view.text)) > extents[0]["start"]
+                    for selector in coverage.get("unexamined", ())
+                )
+            ):
                 raise DeclarationNotQualified("declaration primary coverage is incomplete")
             from corpus_structure.semantic.product_reference import ProductReference
+
             for premise in term.get("external_premises", ()):
                 support = layers.get(ProductReference(**premise["layer"]))
                 if support is None or premise["local_id"] not in {
@@ -577,17 +766,23 @@ def declaration_sentences(layers, view, passage):
                     raise DeclarationNotQualified("declaration native support is unavailable")
             data = read(term)
             if not isinstance(data, dict):
-                raise DeclarationNotQualified("primary declaration sentence is not a structured mapping")
-            if (len(data["words"]) != len(data["positions"])
-                or any(not 0 <= a < b <= len(view.text) or view.text[a:b] != word
-                       for word,(a,b) in zip(data["words"],data["positions"],strict=True))
-                or any(a[1] > b[0] for a,b in pairwise(data["positions"]))):
+                raise DeclarationNotQualified(
+                    "primary declaration sentence is not a structured mapping"
+                )
+            if (
+                len(data["words"]) != len(data["positions"])
+                or any(
+                    not 0 <= a < b <= len(view.text) or view.text[a:b] != word
+                    for word, (a, b) in zip(data["words"], data["positions"], strict=True)
+                )
+                or any(a[1] > b[0] for a, b in pairwise(data["positions"]))
+            ):
                 raise DeclarationNotQualified("primary sentence differs from exact native text")
-            ref = annotation_reference(pin,term["local_id"])
+            ref = annotation_reference(pin, term["local_id"])
             data["reference"] = ref
             found.append(SimpleNamespace(**data))
             evidence.append(ref)
-    found.sort(key=lambda s:s.positions[0][0])
-    if len(found)!=3 or len({s.positions[0][0] for s in found})!=3:
+    found.sort(key=lambda s: s.positions[0][0])
+    if len(found) != 3 or len({s.positions[0][0] for s in found}) != 3:
         raise DeclarationNotQualified("declaration requires three unique characterized sentences")
     return tuple(found), tuple(evidence)

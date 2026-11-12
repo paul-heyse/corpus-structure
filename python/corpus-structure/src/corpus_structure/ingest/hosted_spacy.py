@@ -7,8 +7,8 @@ from itertools import islice
 from types import SimpleNamespace
 
 import spacy
-from spacy.tokens import Doc
 from confection import Config
+from spacy.tokens import Doc
 
 
 class HostedPipeline:
@@ -21,13 +21,22 @@ class HostedPipeline:
             raise ValueError("selected spaCy package has no unique pipeline configuration")
         original = spacy.util.load_config(paths[0])
         self._config = original.copy()
-        self.pipe_names = [name for name in original["nlp"]["pipeline"] if name not in configuration.exclude]
+        self.pipe_names = [
+            name for name in original["nlp"]["pipeline"] if name not in configuration.exclude
+        ]
         self._config["nlp"]["pipeline"] = self.pipe_names
         # Load tokenizer/vocabulary data only. No learned weights enter a parent
         # or a CPU parser process merely to prepare protected source atoms.
         self._base = spacy.load(configuration.model, exclude=original["nlp"]["pipeline"])
-        self.vocab, self.tokenizer, self.meta = self._base.vocab, self._base.tokenizer, self._base.meta
-        if spacy.__version__ != configuration.spacy_version or self.meta.get("version") != configuration.model_version:
+        self.vocab, self.tokenizer, self.meta = (
+            self._base.vocab,
+            self._base.tokenizer,
+            self._base.meta,
+        )
+        if (
+            spacy.__version__ != configuration.spacy_version
+            or self.meta.get("version") != configuration.model_version
+        ):
             raise ValueError("installed spaCy package/model differs from configured identity")
 
     @property
@@ -43,12 +52,15 @@ class HostedPipeline:
 
     def selection(self):
         from corpus_structure.methods.native_profiles import spacy_selection
+
         if self._selection is None:
             self._selection = spacy_selection(self.configuration)
         return self._selection
 
     def decode(self, values):
-        return [Doc(self.vocab).from_bytes(base64.b64decode(value, validate=True)) for value in values]
+        return [
+            Doc(self.vocab).from_bytes(base64.b64decode(value, validate=True)) for value in values
+        ]
 
     def pipe(self, inputs, *, as_tuples=False, batch_size=None, n_process=1, endpoint=None):
         from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
@@ -60,12 +72,26 @@ class HostedPipeline:
         # A direct/HTML operation owns this same host implementation only for its
         # learned phase. Exhaustion/close proves host death before returning.
         from corpus_structure.settings import NemotronSettings
-        with NativeHostGroup(CharacterizationExecutionPolicy(), endpoint or NemotronSettings().endpoint) as group:
+
+        with NativeHostGroup(
+            CharacterizationExecutionPolicy(), endpoint or NemotronSettings().endpoint
+        ) as group:
             group.declare((selection,))
             iterator = iter(inputs)
-            while population := list(islice(iterator, min(batch_size or self.configuration.batch_size, self.configuration.batch_size))):
+            while population := list(
+                islice(
+                    iterator,
+                    min(batch_size or self.configuration.batch_size, self.configuration.batch_size),
+                )
+            ):
                 docs = [item[0] if as_tuples else item for item in population]
-                payload = dict(version="spacy-host-1", documents=[dict(content=base64.b64encode(doc.to_bytes()).decode("ascii")) for doc in docs])
+                payload = dict(
+                    version="spacy-host-1",
+                    documents=[
+                        dict(content=base64.b64encode(doc.to_bytes()).decode("ascii"))
+                        for doc in docs
+                    ],
+                )
                 result = group.infer(selection, payload, lambda: None)
                 self.observe(group.startup(selection, lambda: None))
                 decoded = self.decode(result["documents"])

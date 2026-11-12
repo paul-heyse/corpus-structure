@@ -3,12 +3,9 @@ import os
 import shutil
 from dataclasses import asdict, replace
 from hashlib import sha256
-from multiprocessing.connection import Connection
-from multiprocessing.process import BaseProcess
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import Mock
 
 import pytest
 import yaml
@@ -27,7 +24,6 @@ from corpus_structure.methods.gliner import (
 )
 from corpus_structure.methods.gliner_worker import (
     GlinerWorker,
-    GlinerWorkerError,
 )
 
 
@@ -412,24 +408,30 @@ def test_new_profiles_default_to_cuda_without_changing_explicit_cpu_history(prof
 @pytest.mark.parametrize("kind", ["metadata", "frame", "input"])
 def test_hosted_gliner_refuses_invalid_request_before_native_start(profile, kind):
     from types import SimpleNamespace
+
     from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
-    from corpus_structure.methods.native_profiles import gliner_selection
-    from corpus_structure.methods.native_host_clients import HostedGliner
     from corpus_structure.methods.gliner import CUDA_WHITESPACE_PROFILE
+    from corpus_structure.methods.native_host_clients import HostedGliner
+    from corpus_structure.methods.native_profiles import gliner_selection
 
     selected = replace(profile, version=CUDA_WHITESPACE_PROFILE)
     if kind == "frame":
         selected = replace(selected, max_request_frame_bytes=128)
     frozen = gliner_selection(selected, {"runtime": "frozen-before-task"})
     calls = []
-    group = SimpleNamespace(_selections={frozen.native.fingerprint: frozen}, policy=CharacterizationExecutionPolicy(), declare=lambda values: None, infer=lambda *args, **kwargs: calls.append(True))
+    group = SimpleNamespace(
+        _selections={frozen.native.fingerprint: frozen},
+        policy=CharacterizationExecutionPolicy(),
+        declare=lambda values: None,
+        infer=lambda *args, **kwargs: calls.append(True),
+    )
     worker = HostedGliner(selected, group=group, native_profile=frozen.native.wire)
     pack = GlinerPack("release", "{}")
     item = GlinerInput("one", "a" * 64, "source")
     if kind == "metadata":
-        pack = replace(pack, release="x"*(selected.max_metadata_bytes+1))
+        pack = replace(pack, release="x" * (selected.max_metadata_bytes + 1))
     elif kind == "input":
-        item = replace(item, text="x"*(selected.max_input_bytes+1))
+        item = replace(item, text="x" * (selected.max_input_bytes + 1))
     with pytest.raises(GlinerRefused):
         worker.extract(pack, (item,))
     assert not calls and not worker.closed

@@ -138,7 +138,6 @@ class _Sentence:
         )
 
 
-
 def hanlp_products(
     mapping: PM2TokenMap, request: Mapping[str, Any], reply: Mapping[str, Any]
 ) -> ParserProducts:
@@ -183,7 +182,11 @@ def hanlp_products(
             if sum(label == "PRED" for _, label, _, _ in group) != 1:
                 raise ValueError("HanLP SRL group has an ambiguous predicate")
             for text, label, start, end in group:
-                if not label or not 0 <= start < end <= len(words) or " ".join(prepared_words[start:end]) != text:
+                if (
+                    not label
+                    or not 0 <= start < end <= len(words)
+                    or " ".join(prepared_words[start:end]) != text
+                ):
                     raise ValueError("HanLP SRL role differs from its exact prepared tokens")
         for index, (label, start, end) in enumerate(phrases):
             location = sentence.location(((start, end),))

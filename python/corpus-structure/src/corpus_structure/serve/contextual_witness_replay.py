@@ -665,7 +665,9 @@ def verify_contextual_witness_closure(root, manifest, *, retained_primary=None):
     for retained in relevant:
         body = retained["body"]
         if body["operation_version"] not in {"11", "12"}:
-            raise ValueError("contextual witness replay requires current primary contextual operation 11 or 12")
+            raise ValueError(
+                "contextual witness replay requires current primary contextual operation 11 or 12"
+            )
         if body["configuration_hash"] != config_key(
             "retrieve.contextual", body["operation_version"], retained["configuration"]
         ):

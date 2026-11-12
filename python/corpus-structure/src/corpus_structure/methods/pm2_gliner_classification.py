@@ -44,7 +44,9 @@ class ClassificationProfile(BaseModel):
     device: Literal["cpu", "cuda"]
     profile: GlinerProfile
     threshold: float = Field(default=0.5, ge=0, le=1)
-    runtime_identity: dict[str, Any] | None = Field(default=None, exclude_if=lambda value: value is None)
+    runtime_identity: dict[str, Any] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @field_validator("profile")
     @classmethod
@@ -349,6 +351,7 @@ class ClassificationWorker:
         self.startup = profile.startup
         if group is not None and profile.profile.device == "cuda":
             from .native_host_clients import HostedGliner
+
             self._worker = HostedGliner(profile.profile, group=group)
         else:
             self._worker = GlinerWorker(profile.profile)

@@ -5,7 +5,6 @@ from __future__ import annotations
 import time
 from collections.abc import Generator, Iterable, Mapping, Sequence
 from hashlib import sha256
-from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -324,8 +323,14 @@ class NativeEvidenceMethod:
     def plan(self, units, cfg: NativeEvidenceConfig, ctx):
         with provider_scope(units, policy=ctx.settings.execution_policy) as (cpu, providers):
             from .characterization_resources import selections_for_characterization
+
             if providers is not None:
-                providers.declare_native(selections_for_characterization({'text.native_evidence': cfg.model_dump(mode="json")}, ctx.settings), ctx.settings.nemotron_endpoint)
+                providers.declare_native(
+                    selections_for_characterization(
+                        {"text.native_evidence": cfg.model_dump(mode="json")}, ctx.settings
+                    ),
+                    ctx.settings.nemotron_endpoint,
+                )
             base, scope = cfg.require_selection()
             results = []
             for unit in units:
@@ -387,8 +392,19 @@ class NativeEvidenceMethod:
             sentence_cfg = cfg.sentences.model_copy(
                 update={"exclude": ("ner", "tagger", "attribute_ruler", "lemmatizer")}
             )
-        selected_spacy = next((s for s in providers.native_group._selections.values() if s.provider == "spacy" and s.native.parameters == sentence_cfg.model_dump(mode="json")), None)
-        profile = AnnotationProfile(sentence_cfg, execution_profile=None if selected_spacy is None else selected_spacy.native.fingerprint)
+        selected_spacy = next(
+            (
+                s
+                for s in providers.native_group._selections.values()
+                if s.provider == "spacy"
+                and s.native.parameters == sentence_cfg.model_dump(mode="json")
+            ),
+            None,
+        )
+        profile = AnnotationProfile(
+            sentence_cfg,
+            execution_profile=None if selected_spacy is None else selected_spacy.native.fingerprint,
+        )
         layouts, text_pins, pending, products = [], [], [], []
         nlp = None
         try:
@@ -429,10 +445,19 @@ class NativeEvidenceMethod:
                 if not inputs:
                     continue
                 batches = yield tuple(
-                    annotation_work(providers, (item,), profile, ctx.check_active, native_profile=cfg.spacy_native_profile, require_complete=False)
+                    annotation_work(
+                        providers,
+                        (item,),
+                        profile,
+                        ctx.check_active,
+                        native_profile=cfg.spacy_native_profile,
+                        require_complete=False,
+                    )
                     for item in inputs
                 )
-                for product in (product for batch in batches for product in batch.require_available()):
+                for product in (
+                    product for batch in batches for product in batch.require_available()
+                ):
                     ctx.check_active()
                     layouts.append(dict(view=view.ref.id, layout=product.layout_digest))
                     text_pins.append(dict(view=view.ref.id, text=product.text_digest))
@@ -526,10 +551,13 @@ class NativeEvidenceMethod:
                 ],
             )
             from corpus_structure.semantic.observations import source_value
+
             if selected_spacy is not None:
                 row["execution_profile"] = source_value(selected_spacy.native.wire)
                 host = providers.native_group._hosts.get(selected_spacy.native.host)
-                observed = None if host is None else host.startup.get(selected_spacy.native.fingerprint)
+                observed = (
+                    None if host is None else host.startup.get(selected_spacy.native.fingerprint)
+                )
                 if observed is not None:
                     row["startup_observation"] = source_value(observed)
             row["availability"] = _availability(builder, "spacy")
@@ -623,6 +651,7 @@ class NativeEvidenceMethod:
                 ],
             )
             from corpus_structure.semantic.observations import source_value
+
             row["execution_profile"] = source_value(worker.selection_factory().native.wire)
             row["startup_observation"] = source_value(startup)
             row["availability"] = _availability(builder, "hanlp")

@@ -73,7 +73,12 @@ class GlinerProfile:
             raise GlinerRefused(
                 "profile requires an absolute local snapshot and immutable identity"
             )
-        if self.version not in {WHITESPACE_PROFILE, CODEPOINT_PROFILE, CUDA_WHITESPACE_PROFILE, CUDA_CODEPOINT_PROFILE}:
+        if self.version not in {
+            WHITESPACE_PROFILE,
+            CODEPOINT_PROFILE,
+            CUDA_WHITESPACE_PROFILE,
+            CUDA_CODEPOINT_PROFILE,
+        }:
             raise GlinerRefused("unsupported execution profile")
         for bound in (
             self.threads,
@@ -120,7 +125,9 @@ class GlinerProfile:
 
     @property
     def device(self) -> Literal["cpu", "cuda"]:
-        return "cuda" if self.version in {CUDA_WHITESPACE_PROFILE, CUDA_CODEPOINT_PROFILE} else "cpu"
+        return (
+            "cuda" if self.version in {CUDA_WHITESPACE_PROFILE, CUDA_CODEPOINT_PROFILE} else "cpu"
+        )
 
     @property
     def codepoint_splitter(self) -> bool:
@@ -398,7 +405,9 @@ def boundary_diagnostic(
     parameter = next(model.parameters())
     # The native batch_extract route performs this transfer itself. Public
     # score_candidates/encode consume an already device-owned PreprocessedBatch.
-    batch = batch.to(parameter.device, parameter.dtype if parameter.dtype != torch.float32 else None)
+    batch = batch.to(
+        parameter.device, parameter.dtype if parameter.dtype != torch.float32 else None
+    )
     starts, ends = batch.start_mappings[0], batch.end_mappings[0]
     prefix = int(batch.text_word_counts[0]) - len(starts)
     layout = batch.query_layouts[0].queries
@@ -475,9 +484,9 @@ def boundary_diagnostic(
                 encoded.text_lengths[0]
             ) != prefix + len(starts):
                 raise GlinerRefused("native explicit scoring changed the extractive query layout")
-            indices = torch.tensor(aligned, dtype=torch.long, device=encoded.text_states.device)[None, None].expand(
-                1, len(layout), -1, -1
-            )
+            indices = torch.tensor(aligned, dtype=torch.long, device=encoded.text_states.device)[
+                None, None
+            ].expand(1, len(layout), -1, -1)
             try:
                 scored = model.score_explicit_spans(encoded, indices)[0].tolist()
             except ValueError as error:
@@ -531,9 +540,7 @@ def load_model(profile: GlinerProfile, *, configure_process: bool = True) -> tup
     model = AutoExtractor.from_pretrained(
         str(profile.snapshot),
         map_location=profile.device,
-        word_splitter=(
-            UnicodeCodepointSplitter() if profile.codepoint_splitter else "whitespace"
-        ),
+        word_splitter=(UnicodeCodepointSplitter() if profile.codepoint_splitter else "whitespace"),
         attention_backend="standard",
     )
     model.to(profile.device)
@@ -548,9 +555,7 @@ def load_model(profile: GlinerProfile, *, configure_process: bool = True) -> tup
     if any(p.device.type != profile.device or p.dtype != torch.float32 for p in model.parameters()):
         raise GlinerRefused("resident weights differ from selected FP32 device")
     expected_splitter = (
-        UnicodeCodepointSplitter
-        if profile.codepoint_splitter
-        else WhitespaceTokenSplitter
+        UnicodeCodepointSplitter if profile.codepoint_splitter else WhitespaceTokenSplitter
     )
     if type(model.processor.word_splitter) is not expected_splitter:
         raise GlinerRefused("resident splitter differs from the selected recipe")

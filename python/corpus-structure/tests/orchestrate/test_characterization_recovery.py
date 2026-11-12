@@ -365,7 +365,7 @@ def test_gliner_thread_policy_refuses_mismatched_frozen_profile_before_preflight
                 "text.model_characterization": {
                     "gliner_profile": {
                         "provider": "gliner",
-                        "device": "cpu",
+                        "device": "cuda",
                         "profile": profile,
                     }
                 }
@@ -396,3 +396,111 @@ def test_gliner_thread_policy_refuses_mismatched_frozen_profile_before_preflight
             ),
             {},
         )
+
+
+def test_recovery_compares_provider_identity_without_transient_selection_memo(monkeypatch):
+    from corpus_structure.orchestrate import characterization
+
+    policy = CharacterizationExecutionPolicy()
+    snapshot = {"runtime_identity": {"python": "3.14.10"}, "assets": {}}
+    profile = {"provider": "spacy", "identity": "frozen"}
+    request = demand().model_copy(
+        update={"method_options": {"text.native_evidence": {"spacy_native_profile": profile}}}
+    )
+    cache = {"hanlp": snapshot, "_profile_selections": {("spacy", "configuration"): object()}}
+    operation = CharacterizationOperation.freeze((request,), registry(), cache, policy=policy)
+    assert operation.envelope.provider_profiles == {"hanlp": snapshot}
+
+    def authenticate(engine, candidate, selected, prepared, settings, cache, **kwargs):
+        assert "spacy_native_profile" not in candidate.method_options["text.native_evidence"]
+        cache.update({"hanlp": snapshot, "_profile_selections": {("spacy",): object()}})
+        return request, ()
+
+    monkeypatch.setattr(characterization, "_freeze_request", authenticate)
+    settings = SimpleNamespace(execution_policy=policy)
+    _validate_current_profiles(None, operation.envelope, registry(), None, settings)
+
+    changed = request.model_copy(
+        update={
+            "method_options": {
+                "text.native_evidence": {
+                    "spacy_native_profile": {"provider": "spacy", "identity": "changed"}
+                }
+            }
+        }
+    )
+    monkeypatch.setattr(characterization, "_freeze_request", lambda *args, **kwargs: (changed, ()))
+    with pytest.raises(OperationConflict, match="provider profile changed"):
+        _validate_current_profiles(None, operation.envelope, registry(), None, settings)
+
+
+def test_resume_declares_all_regions_before_any_native_stage(monkeypatch):
+    from contextlib import nullcontext
+
+    from corpus_structure.methods import characterization_resources
+    from corpus_structure.orchestrate import characterization, characterization_recovery
+    from corpus_structure.semantic import execution_preparation, metadata, query
+
+    policy = CharacterizationExecutionPolicy()
+    first = demand().model_copy(update={"method_options": {"text.native_evidence": {}}})
+    second = demand().model_copy(update={"method_options": {"text.model_characterization": {}}})
+    operation = CharacterizationOperation.freeze((first, second), registry(), {}, policy=policy)
+    retained = [{"id": 91, "status": "finished", "options": operation.options(0, ())}]
+    connection = SimpleNamespace(
+        execute=lambda statement: SimpleNamespace(
+            mappings=lambda: SimpleNamespace(all=lambda: retained)
+        )
+    )
+    runs = Table("run", MetaData(), Column("id", Integer), Column("options", JSON))
+    monkeypatch.setattr(metadata, "table", lambda name: runs)
+    monkeypatch.setattr(query, "read_snapshot", lambda engine: nullcontext(connection))
+    monkeypatch.setattr(
+        characterization_recovery,
+        "resolve_characterization_anchor",
+        lambda conn, run: (91, operation.envelope),
+    )
+    monkeypatch.setattr(
+        characterization_recovery, "_validate_current_profiles", lambda *args, **kwargs: None
+    )
+    declared = set()
+
+    class Execution:
+        prepared = object()
+        cpu = SimpleNamespace(policy=policy)
+        providers = SimpleNamespace(
+            declare_native=lambda population, **kwargs: declared.update(population)
+        )
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    monkeypatch.setattr(
+        execution_preparation, "prepare_execution", lambda *args, **kwargs: Execution()
+    )
+    monkeypatch.setattr(
+        characterization_resources,
+        "selections_for_characterization",
+        lambda options, settings: tuple(options),
+    )
+    monkeypatch.setattr(characterization, "_inventory", lambda *args: ())
+
+    def stage(*args, **kwargs):
+        assert declared == {"text.native_evidence", "text.model_characterization"}
+        yield ()
+        return "completed"
+
+    monkeypatch.setattr(characterization, "_demand_plan", stage)
+    monkeypatch.setattr(
+        characterization,
+        "_combine_characterization_results",
+        lambda execution, engine, regional, *args, **kwargs: regional,
+    )
+    selected = SimpleNamespace(bind_release=lambda prepared: registry())
+    settings = SimpleNamespace(execution_policy=policy, nemotron_endpoint=None)
+    result = characterization_recovery.resume_characterization(
+        None, 91, settings, registry=selected
+    )
+    assert [value for request, value in result] == ["completed", "completed"]

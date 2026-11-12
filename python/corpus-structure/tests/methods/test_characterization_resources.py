@@ -1,6 +1,5 @@
 """Explicit lane admission, routing and lifecycle without mocked-provider passage claims."""
 
-from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
 from threading import Event
@@ -51,7 +50,9 @@ def runtime(monkeypatch):
         def declare(self, selections):
             for selected in selections:
                 if self._serving and selected.native.fingerprint not in self._selections:
-                    raise resources.Pm2WorkerRefused("new native profile was not declared before host serving")
+                    raise resources.Pm2WorkerRefused(
+                        "new native profile was not declared before host serving"
+                    )
                 self._selections[selected.native.fingerprint] = selected
 
         def startup(self, selected, active):
@@ -86,7 +87,18 @@ def runtime(monkeypatch):
 
 def selection(provider: Provider = "maverick", profile=None, artifacts=None):
     from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
-    return NativeSelection(NativeProfile(provider, {"runtime": "frozen"}, {"artifact": 1} if artifacts is None else artifacts, {} if profile is None else {"variant": profile.decode()}, "bfloat16" if provider == "d1" else "float32", "fixture"), Path("/fixture/assets"))
+
+    return NativeSelection(
+        NativeProfile(
+            provider,
+            {"runtime": "frozen"},
+            {"artifact": 1} if artifacts is None else artifacts,
+            {} if profile is None else {"variant": profile.decode()},
+            "bfloat16" if provider == "d1" else "float32",
+            "fixture",
+        ),
+        Path("/fixture/assets"),
+    )
 
 
 def work(key, value, *, selected=None, active=lambda: None):
@@ -295,6 +307,7 @@ def test_gliner_coalescing_refuses_bad_logical_input_before_enqueue_and_preserve
 
         def __init__(self, profile, *, group=None):
             from corpus_structure.methods.native_profiles import gliner_selection
+
             self.selection = gliner_selection(profile, {"runtime": "frozen"})
 
         def prepare_members(self, pack, inputs, **kwargs):
@@ -318,6 +331,7 @@ def test_gliner_coalescing_refuses_bad_logical_input_before_enqueue_and_preserve
             self.closed = True
 
     from corpus_structure.methods import native_host_clients
+
     monkeypatch.setattr(native_host_clients, "HostedGliner", Worker)
     execution, _, _ = runtime
     execution.coalescing_providers = frozenset({"gliner"})
@@ -448,7 +462,9 @@ def test_d1_client_defaults_to_cuda_and_cpu_requests_refuse_before_admission(run
     assert execution.budget.used_bytes == 0
 
 
-def test_native_client_cohort_and_reply_preserve_declared_question_option_and_state_order(runtime, monkeypatch):
+def test_native_client_cohort_and_reply_preserve_declared_question_option_and_state_order(
+    runtime, monkeypatch
+):
     import json
     from hashlib import sha256
     from types import SimpleNamespace
@@ -470,7 +486,16 @@ def test_native_client_cohort_and_reply_preserve_declared_question_option_and_st
     )
     session = SimpleNamespace(requests=[])
     opened.append(session)
-    monkeypatch.setattr(execution.native_group, "startup", lambda selected, active: dict(runtime_identity={"runtime": "frozen"}, assets={"artifact": 1}, device="cuda", dtype="torch.bfloat16"))
+    monkeypatch.setattr(
+        execution.native_group,
+        "startup",
+        lambda selected, active: dict(
+            runtime_identity={"runtime": "frozen"},
+            assets={"artifact": 1},
+            device="cuda",
+            dtype="torch.bfloat16",
+        ),
+    )
 
     def infer(selected, payload, active):
         active()
@@ -495,7 +520,14 @@ def test_native_client_cohort_and_reply_preserve_declared_question_option_and_st
 
     replies = drive_prepared_work(plan(), ctx.check_active)
     assert len(opened[0].requests) == 1
-    wire = json.loads(encode_host_frame(inference_frame("a"*32, "b"*32, clients[0].selection_factory(), opened[0].requests[0]), 1_048_576))["payload"]
+    wire = json.loads(
+        encode_host_frame(
+            inference_frame(
+                "a" * 32, "b" * 32, clients[0].selection_factory(), opened[0].requests[0]
+            ),
+            1_048_576,
+        )
+    )["payload"]
     for native in wire["batch"]:
         assert tuple(native["state"]) == ("z_state", "a_state")
         assert tuple(native["questions"]) == ("z_question", "a_question")
@@ -574,7 +606,14 @@ def test_pm2_coalescing_admits_exact_merged_utf8_wire_frame(runtime, provider, f
     # Independent actual wire representation, including framing, UTF-8 and newline.
     frame = (
         json.dumps(
-            dict(kind="infer", generation="0"*32, request_id="0"*32, provider=provider, profile=selected.native.fingerprint, payload=merged),
+            dict(
+                kind="infer",
+                generation="0" * 32,
+                request_id="0" * 32,
+                provider=provider,
+                profile=selected.native.fingerprint,
+                payload=merged,
+            ),
             ensure_ascii=False,
             allow_nan=False,
             separators=(",", ":"),
@@ -626,7 +665,12 @@ def test_gliner_frozen_thread_mismatch_refuses_shared_admission_before_startup(
         provider_interop_threads=interop,
     )
     from corpus_structure.methods import native_host_clients
-    monkeypatch.setattr(native_host_clients, "HostedGliner", lambda *args, **kwargs: pytest.fail("launched mismatched profile"))
+
+    monkeypatch.setattr(
+        native_host_clients,
+        "HostedGliner",
+        lambda *args, **kwargs: pytest.fail("launched mismatched profile"),
+    )
     request = resources.GLiNERWork(
         gliner_profile().profile,
         GlinerPack("release", "1", "{}"),
@@ -651,12 +695,16 @@ def test_gliner_frozen_thread_mismatch_refuses_shared_admission_before_startup(
 def test_host_frame_fits_full_multiplex_identity_at_exact_boundary(runtime):
     execution, opened, _ = runtime
     selected = selection("d1")
-    payloads = [{"batch": [{"state": "a"*2000}]}, {"batch": [{"state": "b"*2000}]}]
+    payloads = [{"batch": [{"state": "a" * 2000}]}, {"batch": [{"state": "b" * 2000}]}]
     merged = {"batch": [item for payload in payloads for item in payload["batch"]]}
     from corpus_structure.methods.native_host import host_request_frame_size
+
     size = host_request_frame_size(selected, merged, execution.policy.max_native_request_bytes)
     execution.policy = replace(execution.policy, max_native_request_bytes=size)
-    handles = [execution.try_submit(work(str(i), payload, selected=selected)) for i, payload in enumerate(payloads)]
+    handles = [
+        execution.try_submit(work(str(i), payload, selected=selected))
+        for i, payload in enumerate(payloads)
+    ]
     handles[0].flush()
-    assert [result(handle)["batch"][0]["state"] for handle in handles] == ["a"*2000, "b"*2000]
+    assert [result(handle)["batch"][0]["state"] for handle in handles] == ["a" * 2000, "b" * 2000]
     assert len(opened[0].requests) == 1

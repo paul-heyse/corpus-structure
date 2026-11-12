@@ -68,8 +68,6 @@ def _extent(
     return LiteralSpan(start + offset, end + offset, text[start:end])
 
 
-
-
 class SourceRecordCapture:
     """Reuse retained token/dependency columns and the released record field vocabulary."""
 

@@ -220,11 +220,17 @@ def test_conflicting_host_cache_declaration_refuses_atomically_before_custody():
 
 
 @pytest.mark.parametrize("provider", ["d1", "hanlp", "maverick", "dipo"])
-def test_shared_pm2_adapters_authenticate_and_delegate_without_global_retuning(provider, tmp_path, monkeypatch):
+def test_shared_pm2_adapters_authenticate_and_delegate_without_global_retuning(
+    provider, tmp_path, monkeypatch
+):
     from corpus_structure.methods import native_host_adapters
 
     calls = []
-    observed = {"device": "cuda:0", "dtype": "torch.bfloat16" if provider == "d1" else "torch.float32", "attention_implementation": "sdpa"}
+    observed = {
+        "device": "cuda:0",
+        "dtype": "torch.bfloat16" if provider == "d1" else "torch.float32",
+        "attention_implementation": "sdpa",
+    }
     runtime, artifacts = {"lock": "shared-runtime", "python": "3.14.10"}, {"checkpoint": "exact"}
 
     def loader(assets, device):
@@ -233,15 +239,33 @@ def test_shared_pm2_adapters_authenticate_and_delegate_without_global_retuning(p
 
     def run(path):
         if Path(path).name == "pm2_native.py":
-            return {"_runtime_identity": lambda selected, *, project: runtime, "_verify_assets": lambda assets, selected: artifacts, "_load_d1": loader, "_RUNTIME_PACKAGES": {provider: {"library": "selected"}}}
+            return {
+                "_runtime_identity": lambda selected, *, project: runtime,
+                "_verify_assets": lambda assets, selected: artifacts,
+                "_load_d1": loader,
+                "_RUNTIME_PACKAGES": {provider: {"library": "selected"}},
+            }
         return {"load_" + provider: loader}
 
     monkeypatch.setattr(native_host_adapters.runpy, "run_path", run)
     monkeypatch.setenv("HF_HUB_CACHE", str(tmp_path / "hub"))
-    profile = dict(provider=provider, runtime_identity=runtime, artifacts=artifacts, backend="sdpa", parameters={"adapter": "pm2-native-1"})
+    profile = dict(
+        provider=provider,
+        runtime_identity=runtime,
+        artifacts=artifacts,
+        backend="sdpa",
+        parameters={"adapter": "pm2-native-1"},
+    )
     from types import SimpleNamespace
-    torch = SimpleNamespace(__version__="selected", version=SimpleNamespace(cuda="selected"), cuda=SimpleNamespace(get_device_name=lambda: "fixture"))
-    metadata, infer = native_host_adapters.load({"profile": profile, "assets": str(tmp_path)}, torch)
+
+    torch = SimpleNamespace(
+        __version__="selected",
+        version=SimpleNamespace(cuda="selected"),
+        cuda=SimpleNamespace(get_device_name=lambda: "fixture"),
+    )
+    metadata, infer = native_host_adapters.load(
+        {"profile": profile, "assets": str(tmp_path)}, torch
+    )
     assert calls == [(provider, tmp_path, "cuda")]
     assert metadata["runtime_identity"] == runtime and metadata["assets"] == artifacts
     assert metadata["attention_implementation"] == "sdpa"
@@ -252,10 +276,14 @@ def test_shared_pm2_adapters_authenticate_and_delegate_without_global_retuning(p
     assert len(calls) == 1
 
 
-def test_direct_spacy_facade_loads_only_tokenizer_and_closes_phase_preserving_doc_constraints(monkeypatch):
+def test_direct_spacy_facade_loads_only_tokenizer_and_closes_phase_preserving_doc_constraints(
+    monkeypatch,
+):
     import base64
+
     import spacy
     from spacy.tokens import Doc
+
     from corpus_structure.ingest.hosted_spacy import HostedPipeline
     from corpus_structure.ingest.sentences import SentenceConfig
 
@@ -268,18 +296,31 @@ def test_direct_spacy_facade_loads_only_tokenizer_and_closes_phase_preserving_do
     class Group:
         def __init__(self, policy, endpoint=None):
             assert endpoint == "http://127.0.0.1:8035/v1"
+
         def __enter__(self):
             events.append("enter")
             return self
+
         def __exit__(self, *error):
             events.append("exit")
+
         def declare(self, population):
             assert population == (declared,)
+
         def startup(self, selected, active):
-            return dict(native_configuration=pipeline.config.to_str(), components=[dict(name=name, factory=pipeline.get_pipe_meta(name).factory) for name in pipeline.pipe_names])
+            return dict(
+                native_configuration=pipeline.config.to_str(),
+                components=[
+                    dict(name=name, factory=pipeline.get_pipe_meta(name).factory)
+                    for name in pipeline.pipe_names
+                ],
+            )
+
         def infer(self, selected, payload, active):
             events.append("infer")
-            doc = Doc(spacy.blank("en").vocab).from_bytes(base64.b64decode(payload["documents"][0]["content"]))
+            doc = Doc(spacy.blank("en").vocab).from_bytes(
+                base64.b64decode(payload["documents"][0]["content"])
+            )
             assert doc[1].tag_ == "NNP" and doc[1].is_sent_start is False
             return {"documents": [base64.b64encode(doc.to_bytes()).decode("ascii")]}
 
@@ -292,19 +333,45 @@ def test_direct_spacy_facade_loads_only_tokenizer_and_closes_phase_preserving_do
     assert events == ["enter", "infer", "exit"]
 
 
-def test_analytical_gliner_borrows_frozen_population_without_new_runtime_or_custody(tmp_path, monkeypatch):
+def test_analytical_gliner_borrows_frozen_population_without_new_runtime_or_custody(
+    tmp_path, monkeypatch
+):
     from types import SimpleNamespace
-    from dataclasses import asdict
-    from corpus_structure.methods.gliner import GlinerProfile
+
     from corpus_structure.methods import native_host_clients
+    from corpus_structure.methods.gliner import GlinerProfile
     from corpus_structure.methods.native_profiles import gliner_selection
 
-    profile = GlinerProfile(tmp_path, "fixture", "immutable", tuple((name, "a" * 64) for name in ("config.json", "encoder_config/config.json", "model.safetensors", "tokenizer.json", "tokenizer_config.json")))
+    profile = GlinerProfile(
+        tmp_path,
+        "fixture",
+        "immutable",
+        tuple(
+            (name, "a" * 64)
+            for name in (
+                "config.json",
+                "encoder_config/config.json",
+                "model.safetensors",
+                "tokenizer.json",
+                "tokenizer_config.json",
+            )
+        ),
+    )
     frozen = gliner_selection(profile, {"runtime": "frozen-before-task"})
     declarations, closed = [], []
-    group = SimpleNamespace(_selections={frozen.native.fingerprint: frozen}, declare=lambda values: declarations.extend(values), close=lambda: closed.append(True))
-    monkeypatch.setattr(native_host_clients, "preflight_native_runtime", lambda *_args: pytest.fail("borrower repeated frozen runtime acquisition"))
-    borrower = native_host_clients.HostedGliner(profile, group=group, native_profile=frozen.native.wire)
+    group = SimpleNamespace(
+        _selections={frozen.native.fingerprint: frozen},
+        declare=lambda values: declarations.extend(values),
+        close=lambda: closed.append(True),
+    )
+    monkeypatch.setattr(
+        native_host_clients,
+        "preflight_native_runtime",
+        lambda *_args: pytest.fail("borrower repeated frozen runtime acquisition"),
+    )
+    borrower = native_host_clients.HostedGliner(
+        profile, group=group, native_profile=frozen.native.wire
+    )
     assert borrower.selection.native == frozen.native
     borrower.close()
     assert declarations == [frozen] and closed == []
@@ -317,6 +384,7 @@ def test_analytical_gliner_borrows_frozen_population_without_new_runtime_or_cust
 
 def test_selected_domain_profile_freezes_once_and_none_preserves_old_config_shape(tmp_path):
     from types import SimpleNamespace
+
     from corpus_structure.methods.characterization_resources import freeze_analytical_profile
     from methods.test_m1_source_profile import config
 
@@ -324,15 +392,24 @@ def test_selected_domain_profile_freezes_once_and_none_preserves_old_config_shap
     parameters = value.model_dump(mode="json")
     assert "native_execution_profile" not in parameters
     cache = {("gliner-runtime", str(tmp_path.absolute())): {"runtime": "operation-snapshot"}}
-    frozen = freeze_analytical_profile("extract.m1_candidates", parameters, SimpleNamespace(), cache=cache)
+    frozen = freeze_analytical_profile(
+        "extract.m1_candidates", parameters, SimpleNamespace(), cache=cache
+    )
     assert frozen is not None
     assert parameters["native_execution_profile"] == frozen.native.wire
-    assert freeze_analytical_profile("extract.m1_candidates", parameters, SimpleNamespace(), cache=cache) == frozen
+    assert (
+        freeze_analytical_profile(
+            "extract.m1_candidates", parameters, SimpleNamespace(), cache=cache
+        )
+        == frozen
+    )
 
 
 def test_spacy_placement_permits_only_native_upper_cpu_arrays():
     from types import SimpleNamespace
+
     import numpy
+
     from corpus_structure.methods.native_host_adapters import _spacy_placement
 
     class GPUArray:
@@ -341,24 +418,45 @@ def test_spacy_placement_permits_only_native_upper_cpu_arrays():
 
     class Node:
         param_names = ("W",)
+
         def __init__(self, name, array):
             self.name, self.array = name, array
+
         def has_param(self, name):
             return True
+
         def get_param(self, name):
             return self.array
+
         def walk(self):
             return [self]
 
     lower = Node("lower", GPUArray())
     upper = Node("upper", numpy.zeros((2, 3), dtype="float32"))
-    model = SimpleNamespace(attrs={"has_upper": True}, has_ref=lambda name: name == "upper", get_ref=lambda name: upper, walk=lambda: [lower, upper])
-    nlp = SimpleNamespace(pipeline=[("parser", SimpleNamespace(model=model))], config={"components": {"parser": {"model": {"@architectures": "spacy.TransitionBasedParser.v2", "use_upper": True}}}}, get_pipe_meta=lambda name: SimpleNamespace(factory="parser"))
+    model = SimpleNamespace(
+        attrs={"has_upper": True},
+        has_ref=lambda name: name == "upper",
+        get_ref=lambda name: upper,
+        walk=lambda: [lower, upper],
+    )
+    nlp = SimpleNamespace(
+        pipeline=[("parser", SimpleNamespace(model=model))],
+        config={
+            "components": {
+                "parser": {
+                    "model": {"@architectures": "spacy.TransitionBasedParser.v2", "use_upper": True}
+                }
+            }
+        },
+        get_pipe_meta=lambda name: SimpleNamespace(factory="parser"),
+    )
     xp = SimpleNamespace(ndarray=GPUArray, float32=numpy.float32)
     count, native_cpu = _spacy_placement(nlp, xp, numpy)
-    assert count == 1 and [(row["node"], row["parameter"], row["reason"]) for row in native_cpu] == [("upper", "W", "spacy-transition-native-cpu-upper")]
+    assert count == 1 and [
+        (row["node"], row["parameter"], row["reason"]) for row in native_cpu
+    ] == [("upper", "W", "spacy-transition-native-cpu-upper")]
     lower.array = numpy.zeros((2, 3), dtype="float32")
-    with pytest.raises(RuntimeError, match="parser/lower/W.*numpy.ndarray"):
+    with pytest.raises(RuntimeError, match=r"parser/lower/W.*numpy.ndarray"):
         _spacy_placement(nlp, xp, numpy)
     lower.array = GPUArray()
     nlp.config["components"]["parser"]["model"]["use_upper"] = False
@@ -369,12 +467,27 @@ def test_spacy_placement_permits_only_native_upper_cpu_arrays():
 @pytest.fixture
 def physical_host():
     import sys
+
     peers = []
+
     def create(*population, **changes):
         policy = CharacterizationExecutionPolicy(max_native_reply_bytes=4096)
-        host = native_host.NativeHost(population or (selection(),), policy, check_active=lambda: None, startup_timeout=5, command=[sys.executable, "-I", "-u", str(Path(__file__).with_name("native_host_cases.py"))], **changes)
+        host = native_host.NativeHost(
+            population or (selection(),),
+            policy,
+            check_active=lambda: None,
+            startup_timeout=5,
+            command=[
+                sys.executable,
+                "-I",
+                "-u",
+                str(Path(__file__).with_name("native_host_cases.py")),
+            ],
+            **changes,
+        )
         peers.append(host)
         return host
+
     try:
         yield create
     finally:
@@ -388,7 +501,9 @@ def test_real_host_peer_refusal_preserves_residency_and_healthy_siblings(physica
     pid = host._process.pid
     with pytest.raises(Pm2WorkerRefused, match="controlled member refusal"):
         host.infer(selected, {"mode": "refused"}, check_active=lambda: None)
-    assert host.infer(selected, {"value": "independent"}, check_active=lambda: None) == {"value": "independent"}
+    assert host.infer(selected, {"value": "independent"}, check_active=lambda: None) == {
+        "value": "independent"
+    }
     assert not host.closed and host._process.pid == pid
 
 
@@ -403,20 +518,25 @@ def test_real_host_peer_failure_fences_and_proves_process_death(physical_host, m
 
 
 def test_real_host_cancelled_member_preserves_other_provider_result(physical_host):
-    from concurrent.futures import ThreadPoolExecutor, CancelledError
+    from concurrent.futures import CancelledError, ThreadPoolExecutor
     from threading import Event
+
     first, second = selection(), selection("maverick")
     host = physical_host(first, second)
     cancelled, submitted = Event(), Event()
+
     def active():
         submitted.set()
         if cancelled.is_set():
             raise CancelledError("member cancelled")
+
     with ThreadPoolExecutor(max_workers=1) as pool:
         future = pool.submit(host.infer, first, {"mode": "wait"}, check_active=active)
         assert submitted.wait(2)
         cancelled.set()
-        assert host.infer(second, {"value": "useful sibling"}, check_active=lambda: None) == {"value": "useful sibling"}
+        assert host.infer(second, {"value": "useful sibling"}, check_active=lambda: None) == {
+            "value": "useful sibling"
+        }
         with pytest.raises(CancelledError):
             future.result(timeout=3)
     assert not host.closed
@@ -425,11 +545,26 @@ def test_real_host_cancelled_member_preserves_other_provider_result(physical_hos
 def test_real_host_startup_cancellation_keeps_adopted_physical_owner():
     import sys
     from concurrent.futures import CancelledError
+
     adopted = []
+
     def cancelled():
         raise CancelledError("claim ended during startup")
+
     with pytest.raises(CancelledError, match="claim ended"):
-        native_host.NativeHost((selection(),), CharacterizationExecutionPolicy(), check_active=cancelled, adopt=adopted.append, command=[sys.executable, "-I", "-u", str(Path(__file__).with_name("native_host_cases.py")), "startup-hang"])
+        native_host.NativeHost(
+            (selection(),),
+            CharacterizationExecutionPolicy(),
+            check_active=cancelled,
+            adopt=adopted.append,
+            command=[
+                sys.executable,
+                "-I",
+                "-u",
+                str(Path(__file__).with_name("native_host_cases.py")),
+                "startup-hang",
+            ],
+        )
     assert len(adopted) == 1
     assert not native_host._live_group(adopted[0]._process.pid)
 

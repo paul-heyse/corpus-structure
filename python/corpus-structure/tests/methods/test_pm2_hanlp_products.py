@@ -128,13 +128,17 @@ def test_forged_yield_refuses_and_partial_atom_retains_unmapped_location():
 
 @pytest.mark.parametrize("corruption", ["dependency", "srl_bounds", "srl_text"])
 def test_native_input_protection_survives_interpretation_retirement(corruption):
-    mapping, request, reply = _scope(["X", "moves"], ["NN", "VBZ"], [[2,"nsubj"],[0,"root"]],
-                                  srl=((("ARG0",0,1),("PRED",1,2)),))
+    mapping, request, reply = _scope(
+        ["X", "moves"],
+        ["NN", "VBZ"],
+        [[2, "nsubj"], [0, "root"]],
+        srl=((("ARG0", 0, 1), ("PRED", 1, 2)),),
+    )
     if corruption == "dependency":
         reply["native"]["dep"][0][0][0] = 99
     elif corruption == "srl_bounds":
-        reply["native"]["srl"][0][0][0] = ("X","ARG0",0,99)
+        reply["native"]["srl"][0][0][0] = ("X", "ARG0", 0, 99)
     else:
-        reply["native"]["srl"][0][0][0] = ("forged","ARG0",0,1)
+        reply["native"]["srl"][0][0][0] = ("forged", "ARG0", 0, 1)
     with pytest.raises(ValueError):
-        hanlp_products(mapping,request,reply)
+        hanlp_products(mapping, request, reply)

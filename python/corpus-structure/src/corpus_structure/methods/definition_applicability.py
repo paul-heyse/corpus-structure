@@ -19,9 +19,8 @@ from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.methods.annotation_rules import AnnotationRule, AnnotationRuleMatch
 from corpus_structure.methods.gliner import GlinerInput, GlinerPack, GlinerProfile, GlinerRefused
-from corpus_structure.methods.native_host_clients import HostedGliner
-
 from corpus_structure.methods.gliner_worker import GlinerWorker, GlinerWorkerError
+from corpus_structure.methods.native_host_clients import HostedGliner
 from corpus_structure.methods.predicate_frames import (
     PREDICATE_FRAME_VERSION,
     FrameCue,
@@ -51,7 +50,9 @@ from corpus_structure.semantic.structural_products import (
 
 
 class DefinitionComponentsConfig(StructuralValue):
-    native_execution_profile: dict[str, Any] | None = Field(default=None, exclude_if=lambda value: value is None)
+    native_execution_profile: dict[str, Any] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     inputs: StructuralInput | None = None
     structural_input_digest: str | None = None
     target_ids: tuple[str, ...] = ()
@@ -936,7 +937,11 @@ class DefinitionComponentsMethod:
             if self._worker is None:
                 providers = getattr(ctx.reader, "provider_execution", None)
                 if providers is not None:
-                        self._worker = HostedGliner(cfg.profile, group=providers.native_group, native_profile=cfg.native_execution_profile)
+                    self._worker = HostedGliner(
+                        cfg.profile,
+                        group=providers.native_group,
+                        native_profile=cfg.native_execution_profile,
+                    )
                 else:
                     self._worker = GlinerWorker(cfg.profile)
             elif self._worker.profile.fingerprint != cfg.profile.fingerprint:

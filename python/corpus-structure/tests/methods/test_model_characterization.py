@@ -202,13 +202,23 @@ def test_current_d1_configuration_requires_cuda_without_cpu_fallback():
 
 
 def test_native_d1_cpu_refusal_precedes_model_or_asset_loading(tmp_path):
-    from corpus_structure.methods.pm2_native import _load_d1
     from corpus_structure.methods.native_profiles import NativeProfile
+    from corpus_structure.methods.pm2_native import _load_d1
 
     with pytest.raises(ValueError, match="requires CUDA"):
         _load_d1(tmp_path / "no-assets", "cpu")
     with pytest.raises(ValueError, match="CUDA"):
-        NativeProfile(**dict[str, Any](provider="d1", runtime_identity={}, artifacts={}, parameters={}, dtype="bfloat16", backend="d1", device="cpu"))
+        NativeProfile(
+            **dict[str, Any](
+                provider="d1",
+                runtime_identity={},
+                artifacts={},
+                parameters={},
+                dtype="bfloat16",
+                backend="d1",
+                device="cpu",
+            )
+        )
 
 
 @pytest.mark.parametrize("threads,interop", [(2, 1), (4, 2)])
@@ -219,7 +229,6 @@ def test_direct_method_rejects_frozen_gliner_policy_before_native_startup(
 
     from semantic.test_model_characterization import gliner_profile
 
-    from corpus_structure.methods import characterization_resources as resources
     from corpus_structure.methods.gliner import GlinerRefused
 
     _selected, _draft, cfg, unit, ctx = inputs(prepared)
@@ -229,7 +238,10 @@ def test_direct_method_rejects_frozen_gliner_policy_before_native_startup(
     )
     ctx = replace(ctx, settings=ctx.settings.model_copy(update={"execution_policy": policy}))
     from corpus_structure.methods import native_host_clients
-    monkeypatch.setattr(native_host_clients, "HostedGliner", lambda *args, **kwargs: pytest.fail("native startup"))
+
+    monkeypatch.setattr(
+        native_host_clients, "HostedGliner", lambda *args, **kwargs: pytest.fail("native startup")
+    )
     with pytest.raises(GlinerRefused, match="threads/inter-op differ from execution policy"):
         ModelCharacterizationMethod().run([unit], cfg, ctx)
 
@@ -278,7 +290,14 @@ def test_local_gliner_scopes_batch_at_capacity_one_and_reduce_independent_authen
     output = builder(complete)
     profile = gliner_profile()
     profile = profile.model_copy(
-        update={"device": "cuda", "profile": replace(profile.profile, max_batch_bytes=batch_bytes, version="gliner2-2.1.0-cuda-fp32-standard-whitespace-v1")}
+        update={
+            "device": "cuda",
+            "profile": replace(
+                profile.profile,
+                max_batch_bytes=batch_bytes,
+                version="gliner2-2.1.0-cuda-fp32-standard-whitespace-v1",
+            ),
+        }
     )
     _selected, _draft, cfg, _unit, ctx = inputs(prepared)
     cfg = cfg.model_copy(update={"gliner_profile": profile})
@@ -297,6 +316,7 @@ def test_local_gliner_scopes_batch_at_capacity_one_and_reduce_independent_authen
 
         def __init__(self, selected_profile, *, group=None):
             from corpus_structure.methods.native_profiles import gliner_selection
+
             assert selected_profile == profile.profile
             self.selection = gliner_selection(selected_profile, {"runtime": "fixture"})
 
@@ -358,6 +378,7 @@ def test_local_gliner_scopes_batch_at_capacity_one_and_reduce_independent_authen
             self.closed = True
 
     from corpus_structure.methods import native_host_clients
+
     monkeypatch.setattr(native_host_clients, "HostedGliner", Worker)
     policy = CharacterizationExecutionPolicy(max_provider_jobs=1)
     execution = resources.ProviderExecution(OwnedByteBudget(policy.max_owned_bytes), policy)

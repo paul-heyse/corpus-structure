@@ -181,11 +181,12 @@ class AssertionQualification:
         sentence_cues.update(unowned)
         unresolved_negation = any(
             cue.kind == "negation"
-            and (cue.status != "located" or len(cue.hosts) != 1
-                 or not _owned(cue, cue.hosts[0]))
+            and (cue.status != "located" or len(cue.hosts) != 1 or not _owned(cue, cue.hosts[0]))
             for cue in sentence_cues
         )
-        affirmative = frame.negation_examined and frame.polarity == "positive" and not unresolved_negation
+        affirmative = (
+            frame.negation_examined and frame.polarity == "positive" and not unresolved_negation
+        )
 
         fields = []
         negation = tuple(cue for cue in frame.cues if cue.kind == "negation")

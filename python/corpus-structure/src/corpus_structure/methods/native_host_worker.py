@@ -150,7 +150,9 @@ class _Resident:
                 or self.torch.get_float32_matmul_precision() != self.profile["matmul_precision"]
                 or self.torch.backends.cudnn.allow_tf32 is not self.profile["cudnn_allow_tf32"]
             ):
-                raise RuntimeError("native worker execution settings differ from frozen host policy")
+                raise RuntimeError(
+                    "native worker execution settings differ from frozen host policy"
+                )
             # Native adapters retain their own gradient contexts. In particular,
             # HanLP enables gradients for constituency CRF marginal decoding.
             result = self.infer(payload)
@@ -214,7 +216,9 @@ def serve(input_stream, output_stream, *, configure=_configure, loader=_load):
                         profile=resident.identity,
                         **message,
                     ),
-                    limit=resident.profile.get("parameters", {}).get("gliner_profile", {}).get("max_reply_frame_bytes"),
+                    limit=resident.profile.get("parameters", {})
+                    .get("gliner_profile", {})
+                    .get("max_reply_frame_bytes"),
                 )
         except BaseException as error:
             fatal(error)
@@ -326,7 +330,12 @@ if __name__ == "__main__":
                 provider, assets = sys.argv[2], Path(sys.argv[3])
                 root = Path(__file__).resolve().parents[5]
                 project = root
-                result = dict(runtime_identity=adapter["_runtime_identity"](provider, project=project), assets=adapter["_verify_assets"](assets.resolve(strict=True), provider) if provider in {"d1", "hanlp", "maverick", "dipo"} else {})
+                result = dict(
+                    runtime_identity=adapter["_runtime_identity"](provider, project=project),
+                    assets=adapter["_verify_assets"](assets.resolve(strict=True), provider)
+                    if provider in {"d1", "hanlp", "maverick", "dipo"}
+                    else {},
+                )
                 message = dict(kind="ready", payload=result)
             except Exception as error:
                 message = dict(kind="error", message=f"{type(error).__name__}: {error}"[:1800])

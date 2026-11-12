@@ -46,7 +46,11 @@ class AnnotationProfile:
             raise ValueError("unsupported linguistic annotation profile")
 
     def identity(self) -> dict:
-        identity = dict(version=self.version, recipe=self.recipe, configuration=self.configuration.model_dump(mode="json"))
+        identity = dict(
+            version=self.version,
+            recipe=self.recipe,
+            configuration=self.configuration.model_dump(mode="json"),
+        )
         if self.execution_profile is not None:
             identity["execution_profile"] = self.execution_profile
         return identity
@@ -252,6 +256,7 @@ def annotate(
     nlp: Any = pipeline(profile.configuration)
     if profile.execution_profile is None and processed_docs is None:
         from dataclasses import replace
+
         profile = replace(profile, execution_profile=nlp.selection().native.fingerprint)
     missing = tuple(name for name in _COMPONENTS if name not in nlp.pipe_names)
     if missing and require_complete:
@@ -277,7 +282,11 @@ def annotate(
         )
         for item in inputs
     )
-    processed = nlp.pipe(items, as_tuples=True, batch_size=profile.configuration.batch_size, n_process=1) if processed_docs is None else zip(processed_docs, inputs, strict=True)
+    processed = (
+        nlp.pipe(items, as_tuples=True, batch_size=profile.configuration.batch_size, n_process=1)
+        if processed_docs is None
+        else zip(processed_docs, inputs, strict=True)
+    )
     for doc, item in processed:
         pipeline_digest = sha256(nlp.config.to_str().encode()).hexdigest()
         if doc.text != item.block.text or len(doc) != len(item.layout.tokens):

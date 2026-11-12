@@ -2,14 +2,15 @@
 
 ## Selected provider execution profiles and complete settings
 
-**Proposed accepted target · 2026-11-12; not implemented or GPU-qualified.** D1 retains
+**Implemented; bounded actual compatibility Tested2026-11-12; combined qualification open.** D1 retains
 CUDA/BF16/120second inference. HanLP, GLiNER, Maverick, DiPO and spaCy learned inference target
 CUDA/FP32 with unchanged checkpoints/thresholds/attention recipes. One frozen execution profile
 owns requested device/dtype/runtime meaning; resolved placement and actual startup observations
 are separate, checked values. No automatic CPU fallback or relabelling of authentic old CPU results.
 
-Two shared GPU hosts retain the Python3.14 (D1/GLiNER/HanLP/spaCy) and Python3.12 (Maverick/DiPO)
-boundaries. Reconcile their locked dependencies before native qualification. Load models serially,
+One shared root Python3.14 GPU host serves all six selected providers. An explicit tested
+Protobuf6.33.6 override replaces the unproven interpreter/dependency split; affected runtime
+qualification remains required. Load models serially,
 configure host-global settings once, then use bounded model threads and independent streams.
 One active call per mutable instance remains; DiPO's temporary module-global patches share a gate.
 HanLP retains native local gradient-enabled CRF decoding; do not blanket-wrap it in inference_mode.
@@ -19,10 +20,29 @@ Tokenizer-only preparation remains CPU and cannot create a second full GPU model
 Complete MethodSettings and the selected profile reach every application/direct caller through
 shared admission. Device, precision, numerical policy and result-affecting threads freeze before
 registration; capacity overrides cannot silently alter them. Historical profile shape/digest/receipt
-semantics remain original. Current CUDA GLiNER profile/observation policy migration remains BEP work.
+semantics remain original. Current CUDA GLiNER profile/observation policy migration is integrated;
+full provider and numerical qualification remains BEP-09 work.
 CPU parser kernels use one native thread; provider hosts initially use four/inter-op1.
 
-> Decision: [ADR-0088](../adr/0088-gpu-default-native-hosts.md)
+> Decision: [ADR-0091](../adr/0091-gpu-native-environment-boundaries.md)
+
+## Primary language ownership and contextual query
+
+**Implemented; focused controls Tested2026-11-12; combined qualification open.** The shared
+construction layer retains source-reading predicates, roles and cues, including explicit
+negation/modality examination state. Sentence-level declaration syntax has its own
+construction.declaration_syntax family; a failed sentence does not erase healthy facts or
+unrelated spaCy source readings. Domain consumers select numbered-definition chains and
+conceptual bindings from these retained facts rather than re-reading dependencies.
+
+Contextual retrieval operation12 uses located-frame-2, located-referent-2 and
+located-discourse-neighbor-2. Bindings carry exact ProductReference plus layer-local
+AnnotationReference. Rendering reads primary predicate terms and retained contextual
+mentions/clusters/RST nodes, preserves source coordinates and bounded omissions, and performs
+no fresh NLP. Detached replay authenticates the same primary closure. Unselected analytical
+choices refuse; old enriched operation11 arms require regeneration, while literal-only historical
+operation11 remains readable. Private HanLP frame/cue production and its unused readers are
+retired; native evidence and full constituency labels remain available.
 
 ## Current D1 requires CUDA and BF16
 

@@ -4,16 +4,14 @@ from __future__ import annotations
 
 import importlib
 import json
-import os
 import platform
 import re
-import runpy
 import sys
 from collections.abc import Callable
 from hashlib import file_digest, sha256
 from importlib.metadata import distributions, version
 from pathlib import Path
-from typing import Any, BinaryIO
+from typing import Any
 
 ArtifactTable = dict[str, Any]
 Payload = dict[str, Any]

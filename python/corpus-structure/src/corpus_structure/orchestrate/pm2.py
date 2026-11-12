@@ -21,8 +21,8 @@ from corpus_structure.semantic.operations import OperationConflict, complete_uni
 
 if TYPE_CHECKING:
     from corpus_structure.core.method import Method
-    from corpus_structure.methods.pm2_gliner_classification import ClassificationWorker
     from corpus_structure.methods.native_host_clients import HostedPM2
+    from corpus_structure.methods.pm2_gliner_classification import ClassificationWorker
     from corpus_structure.semantic._operation_calls import ClaimedTask
     from corpus_structure.semantic.claim_lifetime import ClaimOwner
     from corpus_structure.semantic.operations import OperationDescriptor

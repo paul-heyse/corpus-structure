@@ -2,7 +2,7 @@
 
 ## Final characterization policy and retained recovery
 
-**Proposed accepted target · 2026-11-12; implementation incomplete.** Shared application
+**Implemented; focused controls Tested2026-11-12; combined qualification open.** Shared application
 requests explicitly select default analysis, retained-view analysis, capture/enrichment, M1 or a
 configured graph. Graph/registry injection does not select intent. Complete-input validation precedes
 engine acquisition; resolve source/release/domain and settings once, and carry one fully verified
@@ -17,11 +17,11 @@ out-of-order replies by provider/profile/request/host generation. Shared host fa
 unfinished requests; collected replies retain ordinary settlement rights.
 
 The operation owns one explicit GPU session, acquired lazily after capture. Sleep the dedicated
-Nemotron service once, borrow the lease across threads/hosts, and restore only after all owned CUDA
+Nemotron service once, borrow the lease across threads, and restore only after all owned CUDA
 children terminate. Never hold NLP custody while requesting recognition. Pure parser/source/
 validation/reduction work remains CPU. D1 stays CUDA/BF16; other selected learned NLP targets
 CUDA/FP32. Source-only/retained reads cause no fresh inference. Actual GPU/runtime/numerical and
-mixed-host lifecycle qualification remains open; the book run is explicitly deferred.
+shared-host lifecycle qualification remains open; the book run is explicitly deferred.
 
 The shared encoded owned-state budget is 2 GiB, with 256 MiB CPU inputs and 64 MiB CPU replies.
 Charge regional bodies, queued packets, completed replies, reductions and publication drafts
@@ -46,7 +46,7 @@ Implementation and qualification belong to the
 SourceView 480 native size repair before the new unselected candidate's full-book execution.
 Accepted target labels do not establish those obligations or a measured performance benefit.
 
-> Decision: [ADR-0088](../adr/0088-gpu-default-native-hosts.md)
+> Decision: [ADR-0091](../adr/0091-gpu-native-environment-boundaries.md)
 
 ## Bounded ready coordination and provider lanes
 

@@ -74,7 +74,7 @@
     "max_len": null
   },
   "batch_execution": {
-    "version": 3,
+    "version": 4,
     "native_input_order": "preserve-declared-question-option-state-field-order",
     "pm2_receipt_version": 2,
     "member_identity": "exact-request-context-source-and-inference-policy",
@@ -84,9 +84,9 @@
     "reuse": "authentic-retained-observation-not-bitwise-fresh-execution-equivalence",
     "providers": {
       "gliner": {
-        "device": "cpu",
+        "device": "cuda",
         "dtype": "float32",
-        "numerical_contract": "native-float32-batch-observation-v1"
+        "numerical_contract": "native-cuda-float32-batch-observation-v1"
       },
       "d1": {
         "device": "cuda",

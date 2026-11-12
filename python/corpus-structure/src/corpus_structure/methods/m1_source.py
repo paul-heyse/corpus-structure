@@ -17,16 +17,14 @@ from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.annotation_rules import AnnotationRule
 from corpus_structure.methods.gliner import (
     ASSERTION_LITERAL_PACK,
-    WHITESPACE_PROFILE,
     CUDA_WHITESPACE_PROFILE,
     GlinerInput,
     GlinerPack,
     GlinerProfile,
     GlinerRefused,
 )
-from corpus_structure.methods.native_host_clients import HostedGliner
-
 from corpus_structure.methods.gliner_worker import GlinerWorker, GlinerWorkerError
+from corpus_structure.methods.native_host_clients import HostedGliner
 from corpus_structure.methods.source_preparation import (
     POLICY,
     POLICY_V5,
@@ -154,7 +152,9 @@ def _structural_groups(view, selection, context):
 
 
 class M1Config(BaseModel):
-    native_execution_profile: dict[str, Any] | None = Field(default=None, exclude_if=lambda value: value is None)
+    native_execution_profile: dict[str, Any] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     characterization_layers: tuple[dict[str, Any], ...] = ()
     model_config = ConfigDict(frozen=True, extra="forbid")
     local_schema: dict[str, Any] | None = None
@@ -352,7 +352,9 @@ class M1Candidates:
     def _resident(self, profile, *, providers=None, native_profile=None):
         if self._worker is None:
             if providers is not None:
-                self._worker = HostedGliner(profile, group=providers.native_group, native_profile=native_profile)
+                self._worker = HostedGliner(
+                    profile, group=providers.native_group, native_profile=native_profile
+                )
             else:
                 self._worker = GlinerWorker(profile)
         elif self._worker.profile.fingerprint != profile.fingerprint:
@@ -797,7 +799,11 @@ class M1Candidates:
             if local_pack is not None:
                 ctx.check_active()
                 try:
-                    (local_report,) = self._resident(cfg.profile(), providers=getattr(ctx.reader, "provider_execution", None), native_profile=cfg.native_execution_profile).extract(
+                    (local_report,) = self._resident(
+                        cfg.profile(),
+                        providers=getattr(ctx.reader, "provider_execution", None),
+                        native_profile=cfg.native_execution_profile,
+                    ).extract(
                         local_pack,
                         (GlinerInput.from_context(context),),
                         threshold=cfg.threshold,
@@ -883,7 +889,11 @@ class M1Candidates:
                                 **metadata,
                             )
                         )
-                    (report,) = self._resident(cfg.profile(), providers=getattr(ctx.reader, "provider_execution", None), native_profile=cfg.native_execution_profile).extract(
+                    (report,) = self._resident(
+                        cfg.profile(),
+                        providers=getattr(ctx.reader, "provider_execution", None),
+                        native_profile=cfg.native_execution_profile,
+                    ).extract(
                         pack,
                         (GlinerInput.from_context(context),),
                         threshold=cfg.threshold,

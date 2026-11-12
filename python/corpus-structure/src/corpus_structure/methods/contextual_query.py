@@ -96,22 +96,22 @@ class _PrimaryContext:
             or source.source_view_id not in self.body["source_scope"]["source_view_ids"]
         ):
             raise ValueError("query context primary layer differs from its exact source or pin")
-        self.root = (self.terms if recipe == "located-frame-2" else self.annotations).get(
+        root = (self.terms if recipe == "located-frame-2" else self.annotations).get(
             reference.local_id
         )
+        if root is None:
+            raise ValueError("query context primary node is absent from its exact layer")
+        self.root = root
         valid = (
-            self.root is not None
-            and (
-                self.root.get("kind") == "predicate"
-                and self.root.get("family") == PRIMARY_RULE_FAMILY
-                and self.root.get("vocabulary") == PRIMARY_RULE_VOCABULARY
-                if recipe == "located-frame-2"
-                else self.root.get("kind") == "native.coreference_cluster"
-                and self.root.get("family") == "maverick.clusters"
-                if recipe == "located-referent-2"
-                else self.root.get("kind") in {"native.rst_node", "native.rst_singleton"}
-                and self.root.get("family") == "dipo.rst"
-            )
+            self.root.get("kind") == "predicate"
+            and self.root.get("family") == PRIMARY_RULE_FAMILY
+            and self.root.get("vocabulary") == PRIMARY_RULE_VOCABULARY
+            if recipe == "located-frame-2"
+            else self.root.get("kind") == "native.coreference_cluster"
+            and self.root.get("family") == "maverick.clusters"
+            if recipe == "located-referent-2"
+            else self.root.get("kind") in {"native.rst_node", "native.rst_singleton"}
+            and self.root.get("family") == "dipo.rst"
         )
         if not valid:
             raise ValueError("query context primary node differs from selected recipe")
@@ -188,14 +188,20 @@ class _PrimaryContext:
             left, right = map(visit, children)
             native = row["native_rst"]
             if [*left, *right] != [
-                native["left_start"], native["left_end"],
-                native["right_start"], native["right_end"],
+                native["left_start"],
+                native["left_end"],
+                native["right_start"],
+                native["right_end"],
             ]:
                 raise ValueError("discourse child ranges differ from retained native RST")
-            splits.append(dict(
-                left=left, right=right, nuclearity=native["nuclearity"],
-                relation=row["native_label"],
-            ))
+            splits.append(
+                dict(
+                    left=left,
+                    right=right,
+                    nuclearity=native["nuclearity"],
+                    relation=row["native_label"],
+                )
+            )
             return left[0], right[1]
 
         root = visit(self.root)
@@ -205,11 +211,21 @@ class _PrimaryContext:
         # the retained offset for receipts rather than changing native metadata.
         offset = root[0]
         local = {ordinal - offset: anchors for ordinal, anchors in located.items()}
-        normalized = [dict(row, left=[n - offset for n in row["left"]],
-                           right=[n - offset for n in row["right"]]) for row in splits]
-        return local, prepare_dipo_context(
-            dict(root=[0, len(local)], splits=normalized), located_edus=set(local), max_edus=2
-        ), offset
+        normalized = [
+            dict(
+                row,
+                left=[n - offset for n in row["left"]],
+                right=[n - offset for n in row["right"]],
+            )
+            for row in splits
+        ]
+        return (
+            local,
+            prepare_dipo_context(
+                dict(root=[0, len(local)], splits=normalized), located_edus=set(local), max_edus=2
+            ),
+            offset,
+        )
 
 
 def _covers(anchors, focal):
@@ -233,7 +249,15 @@ def _frame(context, focal):
     if not predicate:
         return (), ("frame predicate has no exact source location",)
     signals, omissions = [QuerySignal("Predicate", predicate)], []
-    metadata = {"predicate", "focus", "voice", "polarity", "interpretation", "layout", "clause_role"}
+    metadata = {
+        "predicate",
+        "focus",
+        "voice",
+        "polarity",
+        "interpretation",
+        "layout",
+        "clause_role",
+    }
     for edge in children:
         if "target" not in edge or edge["role"] in metadata:
             continue
@@ -252,12 +276,21 @@ def _frame(context, focal):
 def _referent(context, focal):
     located = []
     for member in context.members(context.root):
-        if member["kind"] not in {"native.mention", "native.unmapped_mention"} or member["family"] != "maverick.mentions":
+        if (
+            member["kind"] not in {"native.mention", "native.unmapped_mention"}
+            or member["family"] != "maverick.mentions"
+        ):
             raise ValueError("local referent cluster requires mapped retained native mentions")
         value = member["native_mention"]
         if value["mapping_status"] not in {"mapped", "unmapped"} or value["first"] > value["last"]:
             raise ValueError("local referent cluster has an invalid mention interval")
-        located.append((value["first"], value["last"], context.location(member) if value["mapping_status"] == "mapped" else ()))
+        located.append(
+            (
+                value["first"],
+                value["last"],
+                context.location(member) if value["mapping_status"] == "mapped" else (),
+            )
+        )
     matching = [(first, last) for first, last, anchors in located if _covers(anchors, focal)]
     if len(matching) != 1:
         raise ValueError("local referent context requires one located focal mention")
@@ -280,8 +313,7 @@ def _discourse(context, focal):
         raise ValueError("discourse context requires one exact focal EDU")
     chosen = index.select(matches[0], max_omitted=8)
     omissions = tuple(
-        f"EDUs {[n + offset for n in row['range']]}: {row['reason']}"
-        for row in chosen["omitted"]
+        f"EDUs {[n + offset for n in row['range']]}: {row['reason']}" for row in chosen["omitted"]
     )
     if chosen.get("additional_omitted_ranges"):
         omissions += (f"{chosen['additional_omitted_ranges']} additional EDU ranges omitted",)
@@ -308,10 +340,14 @@ def resolve_query_contexts(
     # Reuse one authenticated coordinate map across every selected node. Signal
     # bounds apply to rendering; source conversion must cover the pinned source.
     source_context = NativeSourceContext(
-        source, (), (SourceSlice(source.source_view_id, 0, len(source.text)),),
-        "retained primary retrieval signal", "primary-query-signal-2",
+        source,
+        (),
+        (SourceSlice(source.source_view_id, 0, len(source.text)),),
+        "retained primary retrieval signal",
+        "primary-query-signal-2",
         "exact retained primary selection",
-        max_chars=max(1, len(source.text)), max_pieces=max(1, len(source.text)),
+        max_chars=max(1, len(source.text)),
+        max_pieces=max(1, len(source.text)),
     )
     pin = record_source_pin(source)
     for binding in selection.bindings:
@@ -325,7 +361,12 @@ def resolve_query_contexts(
             if binding.evidence.layer not in layers:
                 raise ValueError("query context lacks its exact selected primary layer")
             roots[binding.evidence] = _PrimaryContext(
-                layers[binding.evidence.layer], binding.evidence, selection.recipe, source, layers, source_context
+                layers[binding.evidence.layer],
+                binding.evidence,
+                selection.recipe,
+                source,
+                layers,
+                source_context,
             )
         context = roots[binding.evidence]
         if not _covers(context.location(context.root), occurrence["anchors"]):

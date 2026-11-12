@@ -5,7 +5,6 @@ from __future__ import annotations
 import time
 from collections.abc import Iterable
 from dataclasses import asdict
-from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -207,8 +206,14 @@ class ModelCharacterizationMethod:
     def plan(self, units, cfg: ModelCharacterizationConfig, ctx):
         with provider_scope(units, policy=ctx.settings.execution_policy) as (_cpu, providers):
             from .characterization_resources import selections_for_characterization
+
             if providers is not None:
-                providers.declare_native(selections_for_characterization({'text.model_characterization': cfg.model_dump(mode="json")}, ctx.settings), ctx.settings.nemotron_endpoint)
+                providers.declare_native(
+                    selections_for_characterization(
+                        {"text.model_characterization": cfg.model_dump(mode="json")}, ctx.settings
+                    ),
+                    ctx.settings.nemotron_endpoint,
+                )
             base, scope, pins = cfg.require_selection()
             results = []
             for unit in units:

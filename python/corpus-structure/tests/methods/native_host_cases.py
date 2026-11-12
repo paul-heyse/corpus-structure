@@ -1,4 +1,5 @@
 """Controlled JSONL peer for real process/IPC tests; no provider or GPU execution."""
+
 import json
 import os
 import sys
@@ -23,7 +24,18 @@ def main():
     metadata = {}
     for declared in initialize["residents"]:
         profile = declared["profile"]
-        metadata[declared["fingerprint"]] = dict(provider=profile["provider"], profile=declared["fingerprint"], runtime_identity=profile["runtime_identity"], assets=profile["artifacts"], device="cuda:0", dtype="torch."+profile["dtype"], backend=profile["backend"], matmul_precision=profile["matmul_precision"], cudnn_allow_tf32=profile["cudnn_allow_tf32"], native_threads=dict(intra_op=profile["threads"], inter_op=profile["interop_threads"]))
+        metadata[declared["fingerprint"]] = dict(
+            provider=profile["provider"],
+            profile=declared["fingerprint"],
+            runtime_identity=profile["runtime_identity"],
+            assets=profile["artifacts"],
+            device="cuda:0",
+            dtype="torch." + profile["dtype"],
+            backend=profile["backend"],
+            matmul_precision=profile["matmul_precision"],
+            cudnn_allow_tf32=profile["cudnn_allow_tf32"],
+            native_threads=dict(intra_op=profile["threads"], inter_op=profile["interop_threads"]),
+        )
     send(dict(kind="ready", generation=generation, residents=metadata))
 
     def infer(request, cancelled):
@@ -31,8 +43,18 @@ def main():
         mode = payload.get("mode")
         if mode == "descendant":
             import subprocess
+
             child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
-            send(dict(kind="result", generation=generation, request_id=request["request_id"], provider=request["provider"], profile=request["profile"], payload={"child": child.pid}))
+            send(
+                dict(
+                    kind="result",
+                    generation=generation,
+                    request_id=request["request_id"],
+                    provider=request["provider"],
+                    profile=request["profile"],
+                    payload={"child": child.pid},
+                )
+            )
             os._exit(0)
         if mode == "crash":
             os._exit(7)
@@ -42,12 +64,21 @@ def main():
             time.sleep(0.2)
         kind, body = "result", {"payload": payload}
         if mode == "oversized":
-            body = {"payload": {"oversized": "x"*8192}}
+            body = {"payload": {"oversized": "x" * 8192}}
         if mode == "refused":
             kind, body = "refused", {"message": "controlled member refusal"}
         if cancelled.is_set():
             kind, body = "cancelled", {"message": "controlled member cancellation"}
-        send(dict(kind=kind, generation=generation if mode != "foreign" else "wrong", request_id=request["request_id"], provider=request["provider"], profile=request["profile"], **body))
+        send(
+            dict(
+                kind=kind,
+                generation=generation if mode != "foreign" else "wrong",
+                request_id=request["request_id"],
+                provider=request["provider"],
+                profile=request["profile"],
+                **body,
+            )
+        )
 
     for line in sys.stdin.buffer:
         request = json.loads(line)

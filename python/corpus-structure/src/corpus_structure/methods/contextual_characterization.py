@@ -369,8 +369,15 @@ class ContextualCharacterizationMethod:
     def plan(self, units, cfg, ctx):
         with provider_scope(units, policy=ctx.settings.execution_policy) as (_cpu, providers):
             from .characterization_resources import selections_for_characterization
+
             if providers is not None:
-                providers.declare_native(selections_for_characterization({'text.contextual_characterization': cfg.model_dump(mode="json")}, ctx.settings), ctx.settings.nemotron_endpoint)
+                providers.declare_native(
+                    selections_for_characterization(
+                        {"text.contextual_characterization": cfg.model_dump(mode="json")},
+                        ctx.settings,
+                    ),
+                    ctx.settings.nemotron_endpoint,
+                )
             if cfg.context_rule_digest != context_rule_digest():
                 raise ValueError("contextual rule digest changed after configuration freeze")
             base, scope = cfg.require_selection()
@@ -575,6 +582,7 @@ class ContextualCharacterizationMethod:
                 ],
             )
             from corpus_structure.semantic.observations import source_value
+
             assert selection is not None  # A startup observation requires its admitted selection.
             row["execution_profile"] = source_value(selection.native.wire)
             row["startup_observation"] = source_value(startup)

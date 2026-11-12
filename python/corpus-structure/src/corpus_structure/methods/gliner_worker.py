@@ -2,20 +2,27 @@
 
 Historical CPU profiles remain data; there is no current CPU worker dispatcher.
 """
+
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+
 from .gliner import GlinerRefused
+
 if TYPE_CHECKING:
     from .native_host_clients import HostedGliner
 
+
 class GlinerWorkerError(RuntimeError):
     """An admitted native GPU operation failed."""
+
 
 @dataclass(frozen=True)
 class _Diagnostic:
     source_map_digest: str
     supplied: tuple[tuple[int, int], ...]
+
 
 @dataclass(frozen=True)
 class GlinerAdmission:
@@ -24,6 +31,7 @@ class GlinerAdmission:
     context_digest: str
     admitted: bool
     reason: str | None = None
+
 
 def validate_request(profile, pack, inputs, *, threshold, overlap_policy, evaluation=False):
     if not isinstance(inputs, tuple) or not inputs or len(inputs) > profile.max_batch:
@@ -52,6 +60,9 @@ def validate_request(profile, pack, inputs, *, threshold, overlap_policy, evalua
 
 def GlinerWorker(profile) -> HostedGliner:
     from .native_host_clients import HostedGliner
+
     if profile.device != "cuda":
-        raise GlinerRefused("historical CPU profiles are read-only; current GLiNER execution requires CUDA")
+        raise GlinerRefused(
+            "historical CPU profiles are read-only; current GLiNER execution requires CUDA"
+        )
     return HostedGliner(profile)

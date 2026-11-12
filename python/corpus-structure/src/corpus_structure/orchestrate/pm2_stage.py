@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from collections import Counter, defaultdict, deque
 from collections.abc import Callable, Iterable
 from contextlib import closing
 from dataclasses import dataclass
 from hashlib import sha256
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
@@ -761,10 +761,15 @@ def _run_scopes(
 ) -> ParserRunReport:
     interpretation = isinstance(request, InterpretationRunRequest)
     stage = "interpretation" if interpretation else "parsers"
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
     from corpus_structure.methods.native_host import NativeHostGroup
     from corpus_structure.methods.native_host_clients import HostedPM2
-    from corpus_structure.methods.native_profiles import gliner_selection, pm2_selection, preflight_native_runtime
-    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+    from corpus_structure.methods.native_profiles import (
+        gliner_selection,
+        pm2_selection,
+        preflight_native_runtime,
+    )
+
     # Verify before deriving task identities or allowing create_task to reuse a result.
     # A GPU worker may never be opened for a reuse hit.
     verified: dict[str, dict[str, Any] | str] = {}
@@ -800,12 +805,21 @@ def _run_scopes(
             )
             continue
         if profile.device != "cuda":
-            held[position] = ScopeIntent(**intent, disposition="failed", reason="current learned provider execution requires CUDA; historical CPU profiles are read-only")
+            held[position] = ScopeIntent(
+                **intent,
+                disposition="failed",
+                reason=(
+                    "current learned provider execution requires CUDA; "
+                    "historical CPU profiles are read-only"
+                ),
+            )
             continue
         if isinstance(profile, ClassificationProfile):
             if profile.runtime_identity is None:
                 try:
-                    runtime = preflight_native_runtime("gliner", profile.profile.snapshot)["runtime_identity"]
+                    runtime = preflight_native_runtime("gliner", profile.profile.snapshot)[
+                        "runtime_identity"
+                    ]
                 except (Pm2WorkerError, Pm2WorkerRefused) as exc:
                     held[position] = ScopeIntent(**intent, disposition="failed", reason=str(exc))
                     continue
@@ -951,7 +965,10 @@ def _run_scopes(
                 for scope in scopes
                 if isinstance(scope, ParserScope) and scope.profile.provider != "dipo"
             }
-            sentence_bounds = {identity: _sentences(views[identity], endpoint=settings.nemotron.endpoint) for identity in token_views}
+            sentence_bounds = {
+                identity: _sentences(views[identity], endpoint=settings.nemotron.endpoint)
+                for identity in token_views
+            }
             work = [
                 _work(
                     scope,
@@ -1026,11 +1043,25 @@ def _run_scopes(
 
     holder = f"pm2-{stage}:{run}"
     remaining_splits = 64
-    with supervise_run(engine, run), NativeHostGroup(CharacterizationExecutionPolicy(), settings.nemotron.endpoint) as native_group:
+    with (
+        supervise_run(engine, run),
+        NativeHostGroup(
+            CharacterizationExecutionPolicy(), settings.nemotron.endpoint
+        ) as native_group,
+    ):
         selections = {}
         for item in work:
             profile = item.profile
-            selected = gliner_selection(profile.profile, profile.runtime_identity) if isinstance(profile, ClassificationProfile) else pm2_selection(profile.provider, request.assets, profile.startup["runtime_identity"], profile.startup["assets"])
+            selected = (
+                gliner_selection(profile.profile, profile.runtime_identity)
+                if isinstance(profile, ClassificationProfile)
+                else pm2_selection(
+                    profile.provider,
+                    request.assets,
+                    profile.startup["runtime_identity"],
+                    profile.startup["assets"],
+                )
+            )
             selections[profile.model_dump_json()] = selected
         native_group.declare(tuple(selections.values()))
         for (config, config_hash), items in groups.items():
@@ -1086,7 +1117,11 @@ def _run_scopes(
                             worker_context = (
                                 closing(ClassificationWorker(profile, group=native_group))
                                 if isinstance(profile, ClassificationProfile)
-                                else closing(HostedPM2(selections[profile.model_dump_json()], native_group, owner))
+                                else closing(
+                                    HostedPM2(
+                                        selections[profile.model_dump_json()], native_group, owner
+                                    )
+                                )
                             )
                             with worker_context as worker:
                                 entered = True

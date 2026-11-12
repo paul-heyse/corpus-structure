@@ -74,10 +74,20 @@ def test_alternate_domain_parser_run_retains_siblings_after_profile_refusal(
     scopes: list[dict[str, Any]] = []
     start = 0
     settings = Settings()
-    with actual_provider_population(("hanlp", "maverick", "dipo"), os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"], endpoint=settings.nemotron.endpoint) as population:
+    with actual_provider_population(
+        ("hanlp", "maverick", "dipo"),
+        os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"],
+        endpoint=settings.nemotron.endpoint,
+    ) as population:
         for provider, literal in zip(("hanlp", "maverick", "dipo"), parser_samples, strict=True):
             profile = dict(population[provider].startup)
-            scopes.append(dict(source=source.model_dump(mode="json"), extent=[start, start + len(literal)], profile=dict(provider=provider, device="cuda", startup=profile)))
+            scopes.append(
+                dict(
+                    source=source.model_dump(mode="json"),
+                    extent=[start, start + len(literal)],
+                    profile=dict(provider=provider, device="cuda", startup=profile),
+                )
+            )
             start += len(literal) + 1
     refused = dict(scopes[-1])
     refused["profile"] = {

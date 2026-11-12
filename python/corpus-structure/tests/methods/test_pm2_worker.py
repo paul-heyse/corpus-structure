@@ -1,6 +1,9 @@
 """Shared runtime identities retain transitive installed-distribution custody."""
+
 from importlib.metadata import PathDistribution
+
 from corpus_structure.methods import pm2_native
+
 
 def test_runtime_identity_tracks_transitive_distribution_reinstallation(tmp_path, monkeypatch):
     installed = list(pm2_native.distributions())

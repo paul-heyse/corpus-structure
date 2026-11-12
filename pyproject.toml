@@ -3,7 +3,15 @@ name = "corpus-structure-dev"
 version = "0.0.0"
 description = "The uv root: repo scripts, their tests and the dev tools. Product Python packages join as workspace members."
 requires-python = ">=3.14,<3.15"
-dependencies = ["corpus-evidence", "corpus-structure"]
+dependencies = [
+    "corpus-evidence",
+    "corpus-structure",
+    "dipo==0.2.1",
+    "maverick-coref==1.0.7",
+    "pytorch-lightning==2.6.6",
+    "sentencepiece==0.2.0",
+    "tensorboard==2.18.0",
+]
 
 # Add product packages as members (e.g. members = ["python/*"]) and list them in `dependencies`
 # with `[tool.uv.sources] <name> = { workspace = true }`, so the root environment tests them.
@@ -35,7 +43,8 @@ dev = [
 [tool.uv]
 # Docling Slim caps its CLI dependency below 0.28. Keep this override scoped to the
 # qualified workspace until Docling Slim declares compatibility with the selected pin.
-override-dependencies = ["typer==0.28.0"]
+# Protobuf: Maverick/DiPO CUDA paths tested with6.33.6; see ADR-0091.
+override-dependencies = ["typer==0.28.0", "protobuf==6.33.6"]
 package = false
 # `uv add` writes an exact `==` pin (AGENTS.md, Dependencies).
 add-bounds = "exact"

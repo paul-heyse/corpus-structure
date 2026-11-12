@@ -67,7 +67,9 @@ class _Pending:
 class NativeHost:
     """One supervised process, shared by a frozen declared resident population."""
 
-    def __init__(self, selections, policy, *, check_active, startup_timeout=300.0, command=None, adopt=None):
+    def __init__(
+        self, selections, policy, *, check_active, startup_timeout=300.0, command=None, adopt=None
+    ):
         self.generation = uuid4().hex
         self.policy, self.selections = policy, tuple(selections)
         self._lock, self._write_lock, self._close_lock = Lock(), Lock(), Lock()
@@ -82,7 +84,11 @@ class NativeHost:
         if adopt is not None:
             adopt(self)
         first = self.selections[0]
-        caches = {str(s.assets.absolute() / "hub") for s in self.selections if s.provider in {"d1", "hanlp", "maverick", "dipo"}}
+        caches = {
+            str(s.assets.absolute() / "hub")
+            for s in self.selections
+            if s.provider in {"d1", "hanlp", "maverick", "dipo"}
+        }
         if len(caches) > 1:
             raise Pm2WorkerRefused("shared host residents require one offline backbone cache")
         environment = dict(
@@ -171,8 +177,7 @@ class NativeHost:
         process = self._process
         return process is None or (
             process.returncode is not None
-            or os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
-            is not None
+            or os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT) is not None
         )
 
     def _write(self, message, deadline, *, limit=None):
@@ -357,7 +362,11 @@ class NativeHost:
                 raise Pm2WorkerError("native host process-group death remains unproven")
             process.wait(timeout=1)
             self._fail(Pm2WorkerError("native host generation closed"))
-            if self._reader is not None and self._reader.ident is not None and current_thread() is not self._reader:
+            if (
+                self._reader is not None
+                and self._reader.ident is not None
+                and current_thread() is not self._reader
+            ):
                 self._reader.join(timeout=1)
                 if self._reader.is_alive():
                     raise Pm2WorkerError("native host reader did not drain")
@@ -410,7 +419,9 @@ class NativeHostGroup:
             caches = {}
             for selection in proposed.values():
                 if selection.provider in {"d1", "hanlp", "maverick", "dipo"}:
-                    caches.setdefault(selection.native.host, set()).add(str(selection.assets.absolute() / "hub"))
+                    caches.setdefault(selection.native.host, set()).add(
+                        str(selection.assets.absolute() / "hub")
+                    )
             if any(len(population) > 1 for population in caches.values()):
                 raise Pm2WorkerRefused("shared host residents require one offline backbone cache")
             self._selections = proposed
@@ -450,7 +461,9 @@ class NativeHostGroup:
             for name, population in groups.items():
                 self._active()
                 self.host_factory(
-                    population, self.policy, check_active=self._active,
+                    population,
+                    self.policy,
+                    check_active=self._active,
                     adopt=lambda host, name=name: self._hosts.__setitem__(name, host),
                 )
         except BaseException as error:

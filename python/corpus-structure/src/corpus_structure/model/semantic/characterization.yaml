@@ -700,6 +700,14 @@ classes:
       runtime_version:
         range: string
         required: true
+      execution_profile:
+        range: SourceObject
+        inlined: true
+        description: Exact frozen requested execution profile; absent on historical observations.
+      startup_observation:
+        range: SourceObject
+        inlined: true
+        description: Actual detached startup values checked against the requested profile.
       configuration:
         range: string
         required: true

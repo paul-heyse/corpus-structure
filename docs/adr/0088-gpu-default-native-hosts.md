@@ -1,10 +1,10 @@
 ---
 id: ADR-0088
 title: Run GPU-default NLP in shared hosts with explicit workflow intent
-status: accepted
+status: superseded
 date: 2026-11-12
 supersedes: [ADR-0087]
-superseded-by: null
+superseded-by: ADR-0091
 design: [§B1, §B2, §B4, §B5]
 evidence: Proposed
 revisit: Common runtime qualification reveals a hard dependency conflict, or shared-host failure isolation prevents useful independent work from retaining its completion rights.

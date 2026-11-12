@@ -40,7 +40,14 @@ def load(declaration, torch):
             filename = "pm2_hanlp.py" if provider == "hanlp" else "pm2_dispatched.py"
             loader = runpy.run_path(str(Path(__file__).with_name(filename)))["load_" + provider]
         metadata, infer = loader(assets, "cuda")
-        metadata.update(backend=metadata["attention_implementation"], python=runtime["python"], packages=dict(native["_RUNTIME_PACKAGES"][provider]), torch_build=torch.__version__, cuda_build=torch.version.cuda, device_name=torch.cuda.get_device_name())
+        metadata.update(
+            backend=metadata["attention_implementation"],
+            python=runtime["python"],
+            packages=dict(native["_RUNTIME_PACKAGES"][provider]),
+            torch_build=torch.__version__,
+            cuda_build=torch.version.cuda,
+            device_name=torch.cuda.get_device_name(),
+        )
     elif provider == "gliner":
         metadata, infer = _gliner(profile, assets)
     elif provider == "spacy":
@@ -53,28 +60,28 @@ def load(declaration, torch):
 
 
 def _gliner(profile, assets):
+    import time
+
     from corpus_structure.methods.gliner import (
+        BOUNDARY_DIAGNOSTIC,
         GlinerInput,
         GlinerPack,
         GlinerProfile,
         GlinerReport,
-        BOUNDARY_DIAGNOSTIC,
-        _json,
         _digest,
+        _json,
         boundary_diagnostic,
         effective_profile_fingerprint,
         load_model,
         prepare_input,
     )
+    from corpus_structure.methods.gliner_worker import validate_request
     from corpus_structure.methods.model_observation import (
         batch_receipt,
         installed_policy,
         observation_digest,
         request_digest,
     )
-    from corpus_structure.methods.gliner_worker import validate_request
-
-    import time
 
     values = dict(profile["parameters"]["gliner_profile"])
     values["snapshot"] = assets
@@ -93,7 +100,14 @@ def _gliner(profile, assets):
         inputs = tuple(GlinerInput(**value) for value in request["inputs"])
         threshold, overlap = request["threshold"], request["overlap_policy"]
         evaluation = request.get("evaluation", False)
-        validate_request(selected, pack, inputs, threshold=threshold, overlap_policy=overlap, evaluation=evaluation)
+        validate_request(
+            selected,
+            pack,
+            inputs,
+            threshold=threshold,
+            overlap_policy=overlap,
+            evaluation=evaluation,
+        )
         schema = pack.compile()
         preparations, admissions = [], []
         for ordinal, item in enumerate(inputs):
@@ -102,10 +116,26 @@ def _gliner(profile, assets):
             except ValueError as error:
                 if not request.get("prepare_only"):
                     raise
-                admissions.append(dict(ordinal=ordinal, context_id=item.context_id, context_digest=item.context_digest, admitted=False, reason=str(error)[:1800]))
+                admissions.append(
+                    dict(
+                        ordinal=ordinal,
+                        context_id=item.context_id,
+                        context_digest=item.context_digest,
+                        admitted=False,
+                        reason=str(error)[:1800],
+                    )
+                )
             else:
                 preparations.append(preparation)
-                admissions.append(dict(ordinal=ordinal, context_id=item.context_id, context_digest=item.context_digest, admitted=True, reason=None))
+                admissions.append(
+                    dict(
+                        ordinal=ordinal,
+                        context_id=item.context_id,
+                        context_digest=item.context_digest,
+                        admitted=True,
+                        reason=None,
+                    )
+                )
         if request.get("prepare_only"):
             return {"admissions": admissions}
         if request.get("diagnostic") is not None:
@@ -114,43 +144,123 @@ def _gliner(profile, assets):
                 raise ValueError("diagnostic requires one exact source context")
             item, preparation = inputs[0], preparations[0]
             started = time.monotonic()
-            raw = boundary_diagnostic(model, schema, item, preparation, tuple(tuple(pair) for pair in diagnostic["supplied"]))
-            report = GlinerReport(item.context_id, item.context_digest, _digest(dict(operation=BOUNDARY_DIAGNOSTIC, context=item.context_digest, text=item.text, source_map=diagnostic["source_map_digest"], profile=selected.fingerprint, effective_profile=effective_profile_fingerprint(effective), pack=pack.fingerprint, supplied=diagnostic["supplied"])), selected.fingerprint, pack.fingerprint, preparation, _json({**raw, "source_map_digest": diagnostic["source_map_digest"]}), effective, time.monotonic()-started, reused, diagnostics=(("proposal_pool", "native_diagnostic"),))
+            raw = boundary_diagnostic(
+                model,
+                schema,
+                item,
+                preparation,
+                tuple(tuple(pair) for pair in diagnostic["supplied"]),
+            )
+            report = GlinerReport(
+                item.context_id,
+                item.context_digest,
+                _digest(
+                    dict(
+                        operation=BOUNDARY_DIAGNOSTIC,
+                        context=item.context_digest,
+                        text=item.text,
+                        source_map=diagnostic["source_map_digest"],
+                        profile=selected.fingerprint,
+                        effective_profile=effective_profile_fingerprint(effective),
+                        pack=pack.fingerprint,
+                        supplied=diagnostic["supplied"],
+                    )
+                ),
+                selected.fingerprint,
+                pack.fingerprint,
+                preparation,
+                _json({**raw, "source_map_digest": diagnostic["source_map_digest"]}),
+                effective,
+                time.monotonic() - started,
+                reused,
+                diagnostics=(("proposal_pool", "native_diagnostic"),),
+            )
             reused = True
             return {"reports": [asdict(report)]}
         inference = installed_policy()[0]["inference"]
         settings = {key: value for key, value in inference.items() if key != "operation"}
-        identity = request_digest(pack, asdict(selected), inputs, threshold, overlap, evaluation, inference)
-        receipt = batch_receipt(pack, asdict(selected), inputs, threshold, overlap, evaluation, inference)
+        identity = request_digest(
+            pack, asdict(selected), inputs, threshold, overlap, evaluation, inference
+        )
+        receipt = batch_receipt(
+            pack, asdict(selected), inputs, threshold, overlap, evaluation, inference
+        )
         started = time.monotonic()
-        raw = model.batch_extract([item.text for item in inputs], schema, batch_size=len(inputs), threshold=threshold, overlap_policy=overlap, **settings)
+        raw = model.batch_extract(
+            [item.text for item in inputs],
+            schema,
+            batch_size=len(inputs),
+            threshold=threshold,
+            overlap_policy=overlap,
+            **settings,
+        )
         elapsed = time.monotonic() - started
         if len(raw) != len(inputs):
             raise RuntimeError("GLiNER native result population changed")
         reports = []
-        for ordinal, (item, preparation, result) in enumerate(zip(inputs, preparations, raw, strict=True)):
-            raw_json = json.dumps(result, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
-            reports.append(dict(context_id=item.context_id, context_digest=item.context_digest, computation=identity, profile=selected.fingerprint, pack=pack.fingerprint, preparation=asdict(preparation), raw_json=raw_json, effective_profile_json=effective, inference_seconds=elapsed, resident_reused=reused, request_digest=identity, batch_receipt_json=json.dumps(receipt, ensure_ascii=False, separators=(",", ":"), allow_nan=False), member_ordinal=ordinal, observation_digest=observation_digest(identity, raw_json, effective, ordinal=ordinal, member=receipt["members"][ordinal])))
+        for ordinal, (item, preparation, result) in enumerate(
+            zip(inputs, preparations, raw, strict=True)
+        ):
+            raw_json = json.dumps(
+                result, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+            )
+            reports.append(
+                dict(
+                    context_id=item.context_id,
+                    context_digest=item.context_digest,
+                    computation=identity,
+                    profile=selected.fingerprint,
+                    pack=pack.fingerprint,
+                    preparation=asdict(preparation),
+                    raw_json=raw_json,
+                    effective_profile_json=effective,
+                    inference_seconds=elapsed,
+                    resident_reused=reused,
+                    request_digest=identity,
+                    batch_receipt_json=json.dumps(
+                        receipt, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+                    ),
+                    member_ordinal=ordinal,
+                    observation_digest=observation_digest(
+                        identity,
+                        raw_json,
+                        effective,
+                        ordinal=ordinal,
+                        member=receipt["members"][ordinal],
+                    ),
+                )
+            )
         reused = True
         return {"reports": reports}
 
-    return dict(dtype="torch.float32", device="cuda", backend="standard", effective_profile=effective_profile_fingerprint(effective)), infer
+    return dict(
+        dtype="torch.float32",
+        device="cuda",
+        backend="standard",
+        effective_profile=effective_profile_fingerprint(effective),
+    ), infer
 
 
 def _spacy(profile, assets):
+    from hashlib import sha256
+
     import spacy
     from spacy.tokens import Doc
-    from hashlib import sha256
 
     parameters = profile["parameters"]
     spacy.require_gpu(0)
     nlp = spacy.load(parameters["model"], exclude=parameters["exclude"])
     import cupy
     import numpy
+
     parameters_seen, cpu_upper_parameters = _spacy_placement(nlp, cupy, numpy)
-    if spacy.__version__ != parameters["spacy_version"] or nlp.meta["version"] != parameters["model_version"]:
+    if (
+        spacy.__version__ != parameters["spacy_version"]
+        or nlp.meta["version"] != parameters["model_version"]
+    ):
         raise ValueError("spaCy native package/model differs from frozen profile")
     from corpus_structure.methods.native_profiles import spacy_artifacts
+
     if spacy_artifacts(assets) != profile["artifacts"]:
         raise ValueError("spaCy model files differ from frozen profile")
     digest = sha256(nlp.config.to_str().encode()).hexdigest()
@@ -166,13 +276,26 @@ def _spacy(profile, assets):
             docs.append(Doc(nlp.vocab).from_bytes(base64.b64decode(item["content"], validate=True)))
         result = []
         originals = [(doc.text, len(doc)) for doc in docs]
-        for original, doc in zip(originals, nlp.pipe(docs, batch_size=parameters["batch_size"], n_process=1), strict=True):
+        for original, doc in zip(
+            originals, nlp.pipe(docs, batch_size=parameters["batch_size"], n_process=1), strict=True
+        ):
             if (doc.text, len(doc)) != original:
                 raise RuntimeError("spaCy changed prepared source layout")
             result.append(base64.b64encode(doc.to_bytes()).decode("ascii"))
         return {"documents": result}
 
-    return dict(dtype="torch.float32", device="cuda", backend="cupy", pipeline_sha256=digest, native_configuration=nlp.config.to_str(), gpu_parameter_arrays=parameters_seen, native_cpu_upper_parameters=cpu_upper_parameters, components=[dict(name=name, factory=nlp.get_pipe_meta(name).factory) for name in nlp.pipe_names]), infer
+    return dict(
+        dtype="torch.float32",
+        device="cuda",
+        backend="cupy",
+        pipeline_sha256=digest,
+        native_configuration=nlp.config.to_str(),
+        gpu_parameter_arrays=parameters_seen,
+        native_cpu_upper_parameters=cpu_upper_parameters,
+        components=[
+            dict(name=name, factory=nlp.get_pipe_meta(name).factory) for name in nlp.pipe_names
+        ],
+    ), infer
 
 
 def _spacy_placement(nlp, cupy, numpy):
@@ -192,7 +315,7 @@ def _spacy_placement(nlp, cupy, numpy):
             and model.has_ref("upper")
         ):
             # spaCy3.8.18 constructs this exact classifier under use_ops("cpu"):
-            # spacy/ml/models/parser.py:56–59,85–88. Its transition execution
+            # spacy/ml/models/parser.py:56-59,85-88. Its transition execution
             # requires CPU scores; moving it changes the reviewed native recipe.
             native_upper = {id(node) for node in model.get_ref("upper").walk()}
         for node in model.walk():
@@ -200,12 +323,30 @@ def _spacy_placement(nlp, cupy, numpy):
                 if not node.has_param(name):
                     continue
                 value = node.get_param(name)
-                if id(node) in native_upper and isinstance(value, numpy.ndarray) and value.dtype == numpy.float32:
-                    cpu_upper_parameters.append(dict(component=component_name, node=node.name, parameter=name, dtype=str(value.dtype), shape=list(value.shape), reason="spacy-transition-native-cpu-upper"))
+                if (
+                    id(node) in native_upper
+                    and isinstance(value, numpy.ndarray)
+                    and value.dtype == numpy.float32
+                ):
+                    cpu_upper_parameters.append(
+                        dict(
+                            component=component_name,
+                            node=node.name,
+                            parameter=name,
+                            dtype=str(value.dtype),
+                            shape=list(value.shape),
+                            reason="spacy-transition-native-cpu-upper",
+                        )
+                    )
                 elif isinstance(value, cupy.ndarray) and value.dtype == cupy.float32:
                     parameters_seen += 1
                 else:
-                    raise RuntimeError(f"spaCy resident parameter {component_name}/{node.name}/{name} differs from CUDA FP32: {type(value).__module__}.{type(value).__name__}, dtype={getattr(value, 'dtype', None)}, shape={getattr(value, 'shape', None)}")
+                    raise RuntimeError(
+                        f"spaCy resident parameter {component_name}/{node.name}/{name} "
+                        f"differs from CUDA FP32: {type(value).__module__}.{type(value).__name__}, "
+                        f"dtype={getattr(value, 'dtype', None)}, "
+                        f"shape={getattr(value, 'shape', None)}"
+                    )
     if not parameters_seen:
         raise ValueError("learned spaCy profile has no resident GPU parameters")
     return parameters_seen, cpu_upper_parameters

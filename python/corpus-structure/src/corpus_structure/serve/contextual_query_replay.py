@@ -116,6 +116,7 @@ def _receipt_outcome(occurrence, signal, operation, phases, rendered, vector):
 def _verify_receipts(retained, selection, layers, source):
     from corpus_structure.semantic.proposals import native_source_frame
     from corpus_structure.semantic.source_contexts import record_source_pin
+
     from .review_bundle import _retained_review_source_view
 
     frame = native_source_frame(_retained_review_source_view(source), ())
@@ -169,7 +170,9 @@ def _verify_receipts(retained, selection, layers, source):
         if canonical_bytes(receipts[occurrence]) != canonical_bytes(
             dict(signal.report(), outcome=outcome)
         ):
-            raise ValueError("detached query context receipt differs from original primary evidence")
+            raise ValueError(
+                "detached query context receipt differs from original primary evidence"
+            )
         if rendered is None or vector is None:
             continue
         text, start, end = contexts[occurrence]
@@ -209,8 +212,8 @@ def _verify_receipts(retained, selection, layers, source):
 
 
 def verify_contextual_query_closure(root, manifest, scopes, inventory, report_inventory):
-    from .review_bundle import _detached_relation
     from .primary_characterization_replay import primary_layers_for_report, retained_primary_layers
+    from .review_bundle import _detached_relation
 
     reports, duplicates = {}, set()
     for row in _detached_relation(root, manifest, "reports"):
@@ -227,7 +230,10 @@ def verify_contextual_query_closure(root, manifest, scopes, inventory, report_in
         selection = retained_query_selection(
             row.get("method"), body.get("operation_version"), config
         )
-        if row.get("method") == "retrieve.contextual" and body.get("operation_version") in {"11", "12"}:
+        if row.get("method") == "retrieve.contextual" and body.get("operation_version") in {
+            "11",
+            "12",
+        }:
             expected = set(config.get("required_occurrence_ids", ()))
             actual = {
                 c.get("occurrence_id")
