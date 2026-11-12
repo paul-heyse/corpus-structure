@@ -549,11 +549,16 @@ def author_native_candidate(
                 "SET LOCAL ROLE " + conn.dialect.identifier_preparer.quote(migration_role),
             )
             compile(python_source, "native_candidate.py", "exec")
+            desired_identities = {item.identity for item in authoring.desired}
             admission = candidate_admission_sql(
                 conn,
                 series_native_definitions(conn),
                 authoring.desired,
-                retire=frozenset(item.identity for item in native if item.after is None),
+                retire=frozenset(
+                    item.identity
+                    for item in native
+                    if item.after is None and item.identity not in desired_identities
+                ),
                 predecessor_state=predecessor_state,
                 target_metadata=target_metadata,
             )

@@ -62,13 +62,19 @@ def test_native_candidate_refuses_existing_output_before_connection(cli, tmp_pat
 
 @pytest.mark.parametrize("database", [None, "ordinary", "another_persistent_database"])
 @pytest.mark.parametrize("fail", [False, True])
-def test_native_candidate_uses_maintenance_and_rolls_back(
+def test_native_candidate_recreation_preserves_desired_admission_and_rolls_back(
     cli, tmp_path, monkeypatch, database, fail
 ):
     from alembic.operations.ops import UpgradeOps
     from sqlalchemy.engine import make_url
 
     from corpus_structure.semantic import migrations, native_candidate, runtime, storage_target
+    from corpus_structure.semantic.alembic_native import NativeTransitionOp
+    from corpus_structure.semantic.native_objects import (
+        NativeAuthoring,
+        NativeIdentity,
+        NativeObject,
+    )
     from corpus_structure.semantic.refusals import SemanticRefusal
 
     settings = Settings(
@@ -78,6 +84,15 @@ def test_native_candidate_uses_maintenance_and_rolls_back(
         }
     )
     events = []
+    retired, recreated = (
+        NativeObject(
+            NativeIdentity("view", "data", name),
+            "CLI recreation regression",
+            (f"CREATE VIEW data.{name} AS SELECT 1 AS value",),
+            "{}",
+        )
+        for name in ("old_fixture", "new_fixture")
+    )
 
     class Connection:
         dialect = SimpleNamespace(
@@ -118,7 +133,28 @@ def test_native_candidate_uses_maintenance_and_rolls_back(
         assert {item.name for item in recreate} == {"new_fixture"}
         if fail:
             raise SemanticRefusal("candidate refused")
-        return SimpleNamespace(upgrade_ops=UpgradeOps([])), SimpleNamespace(desired=())
+        return SimpleNamespace(
+            upgrade_ops=UpgradeOps(
+                [
+                    NativeTransitionOp(retired, None),
+                    NativeTransitionOp(recreated, None),
+                    NativeTransitionOp(None, recreated),
+                ]
+            )
+        ), NativeAuthoring(
+            desired=(recreated,),
+            predecessor=(retired, recreated),
+            retire=frozenset({retired.identity}),
+            recreate=frozenset({recreated.identity}),
+        )
+
+    def admission(conn, products, desired, *, retire, **kwargs):
+        # The temporary drop remains in migration operations, while admission
+        # receives only the permanently absent identity. A desired identity marked
+        # retired is rightly rejected by native_admission_sql's existing guard.
+        assert desired == (recreated,)
+        assert retire == frozenset({retired.identity})
+        return "SELECT 1;"
 
     monkeypatch.setattr(runtime, "open_runtime_engine", engine)
     monkeypatch.setattr(storage_target, "verify_declared_route", lambda *_: None)
@@ -138,7 +174,7 @@ def test_native_candidate_uses_maintenance_and_rolls_back(
     monkeypatch.setattr(migrations, "current_revision", lambda conn: "106")
     monkeypatch.setattr(native_candidate, "prepare_series_candidate", prepare)
     monkeypatch.setattr(native_candidate, "series_native_definitions", lambda conn: ())
-    monkeypatch.setattr(native_candidate, "candidate_admission_sql", lambda *a, **kw: "SELECT 1;")
+    monkeypatch.setattr(native_candidate, "candidate_admission_sql", admission)
     out = tmp_path / "candidate"
     intent = tmp_path / "intent.yaml"
     intent.write_text(
@@ -171,12 +207,21 @@ def test_native_candidate_uses_maintenance_and_rolls_back(
         assert "publish native candidate" in result.stderr
         assert report["database"] == (database or "ordinary")
         assert report["predecessor"] == "106"
+        assert report["native_operations"] == 3
         assert {item.name for item in out.iterdir()} == {
             "native_candidate.py",
             "native_operations.json",
             "native_admission.sql",
         }
         assert events == ["connect", "begin", "rollback", "closed"]
+        operations = json.loads((out / "native_operations.json").read_bytes())
+        assert [NativeObject.from_payload(item) for item in operations["desired"]] == [recreated]
+        restored = [NativeTransitionOp.from_payload(item) for item in operations["operations"]]
+        assert [(item.before, item.after) for item in restored] == [
+            (retired, None),
+            (recreated, None),
+            (None, recreated),
+        ]
 
 
 def test_native_candidate_restores_deployment_role_instead_of_authoring_login(monkeypatch):
