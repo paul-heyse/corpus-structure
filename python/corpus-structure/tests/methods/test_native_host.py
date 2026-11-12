@@ -104,7 +104,7 @@ def test_declared_group_is_lazy_and_keeps_custody_until_both_host_deaths_are_pro
         def __init__(self, selections, policy, *, check_active, adopt):
             check_active()
             self.name = selections[0].native.host
-            self.failed_once = self.name == "314"
+            self.failed_once = self.name == "primary"
             hosts.append(self)
             adopt(self)
             self.startup = {entry.native.fingerprint: {} for entry in selections}
@@ -122,15 +122,15 @@ def test_declared_group_is_lazy_and_keeps_custody_until_both_host_deaths_are_pro
     group.declare(values)
     assert not hosts and events == []
     group.ensure(lambda: None)
-    assert {host.name for host in hosts} == {"314", "312"}
+    assert {host.name for host in hosts} == {"primary", "isolated"}
     with pytest.raises(Pm2WorkerRefused, match="not declared"):
         group.declare((selection(parameters={"new": True}),))
     with pytest.raises(Pm2WorkerError, match="unproven"):
         group.close()
-    assert events == ["lease-enter", "close-314", "close-312"]
+    assert events == ["lease-enter", "close-primary", "close-isolated"]
     group.close()
     group.close()
-    assert events[-3:] == ["close-314", "close-312", "lease-exit"]
+    assert events[-3:] == ["close-primary", "close-isolated", "lease-exit"]
 
 
 def test_real_adapter_rejects_missing_profile_before_model_loading():
@@ -186,7 +186,7 @@ def test_partial_constructor_remains_owned_when_cleanup_is_unproven(monkeypatch)
     group.declare((selection(),))
     with pytest.raises(RuntimeError, match="startup failed"):
         group.ensure(lambda: None)
-    assert "314" in group._hosts
+    assert "primary" in group._hosts
     with pytest.raises(Pm2WorkerError, match="unproven"):
         group.close()
     assert events == ["lease-enter", "close"]
@@ -248,3 +248,43 @@ def test_shared_pm2_adapters_authenticate_and_delegate_without_global_retuning(p
     with pytest.raises(ValueError, match="runtime differs"):
         native_host_adapters.load({"profile": profile, "assets": str(tmp_path)}, object())
     assert len(calls) == 1
+
+
+def test_direct_spacy_facade_loads_only_tokenizer_and_closes_phase_preserving_doc_constraints(monkeypatch):
+    import base64
+    import spacy
+    from spacy.tokens import Doc
+    from corpus_structure.ingest.hosted_spacy import HostedPipeline
+    from corpus_structure.ingest.sentences import SentenceConfig
+
+    pipeline = HostedPipeline(SentenceConfig())
+    assert pipeline._base.pipe_names == []
+    declared = selection("spacy")
+    monkeypatch.setattr(pipeline, "selection", lambda: declared)
+    events = []
+
+    class Group:
+        def __init__(self, policy):
+            pass
+        def __enter__(self):
+            events.append("enter")
+            return self
+        def __exit__(self, *error):
+            events.append("exit")
+        def declare(self, population):
+            assert population == (declared,)
+        def startup(self, selected, active):
+            return dict(native_configuration=pipeline.config.to_str(), components=[dict(name=name, factory=pipeline.get_pipe_meta(name).factory) for name in pipeline.pipe_names])
+        def infer(self, selected, payload, active):
+            events.append("infer")
+            doc = Doc(spacy.blank("en").vocab).from_bytes(base64.b64decode(payload["documents"][0]["content"]))
+            assert doc[1].tag_ == "NNP" and doc[1].is_sent_start is False
+            return {"documents": [base64.b64encode(doc.to_bytes()).decode("ascii")]}
+
+    monkeypatch.setattr(native_host, "NativeHostGroup", Group)
+    doc = Doc(pipeline.vocab, words=["Let", "x+y"], spaces=[True, False])
+    doc[1].tag_ = "NNP"
+    doc[1].is_sent_start = False
+    [(restored, marker)] = list(pipeline.pipe([(doc, "exact-input")], as_tuples=True))
+    assert restored.text == "Let x+y" and marker == "exact-input"
+    assert events == ["enter", "infer", "exit"]

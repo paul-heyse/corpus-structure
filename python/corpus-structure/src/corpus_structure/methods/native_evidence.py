@@ -53,7 +53,8 @@ class NativeEvidenceConfig(BaseModel):
     grammar: str = "none"
     context: str = "source-blocks-and-canonical-sentences-1"
     max_annotation_chars: int = Field(default=32768, ge=1)
-    hanlp_device: Literal["cpu", "cuda"] = "cpu"
+    hanlp_device: Literal["cuda"] = "cuda"
+    spacy_native_profile: dict[str, Any] | None = None
     # Frozen custody selected before task creation; result-neutral paths use MethodSettings.
     hanlp_runtime: dict[str, Any] | None = None
     hanlp_artifacts: dict[str, Any] | None = None
@@ -322,6 +323,9 @@ class NativeEvidenceMethod:
 
     def plan(self, units, cfg: NativeEvidenceConfig, ctx):
         with provider_scope(units, policy=ctx.settings.execution_policy) as (cpu, providers):
+            from .characterization_resources import selections_for_characterization
+            if providers is not None:
+                providers.declare_native(selections_for_characterization({'text.native_evidence': cfg.model_dump(mode="json")}, ctx.settings), ctx.settings.nemotron_endpoint)
             base, scope = cfg.require_selection()
             results = []
             for unit in units:
@@ -383,7 +387,8 @@ class NativeEvidenceMethod:
             sentence_cfg = cfg.sentences.model_copy(
                 update={"exclude": ("ner", "tagger", "attribute_ruler", "lemmatizer")}
             )
-        profile = AnnotationProfile(sentence_cfg)
+        selected_spacy = next((s for s in providers.native_group._selections.values() if s.provider == "spacy" and s.native.parameters == sentence_cfg.model_dump(mode="json")), None)
+        profile = AnnotationProfile(sentence_cfg, execution_profile=None if selected_spacy is None else selected_spacy.native.fingerprint)
         layouts, text_pins, pending, products = [], [], [], []
         nlp = None
         try:
@@ -419,12 +424,15 @@ class NativeEvidenceMethod:
                         for s in selectors
                     )
                 )
-                from corpus_structure.semantic.cpu_annotations import annotation_work
+                from corpus_structure.semantic.native_annotations import annotation_work
 
-                (annotation_batch,) = yield (
-                    annotation_work(cpu, inputs, profile, ctx.check_active, require_complete=False),
+                if not inputs:
+                    continue
+                batches = yield tuple(
+                    annotation_work(providers, inputs[offset:offset + min(8, profile.configuration.batch_size)], profile, ctx.check_active, native_profile=cfg.spacy_native_profile, require_complete=False)
+                    for offset in range(0, len(inputs), min(8, profile.configuration.batch_size))
                 )
-                for product in annotation_batch.require_available():
+                for product in (product for batch in batches for product in batch.require_available()):
                     ctx.check_active()
                     layouts.append(dict(view=view.ref.id, layout=product.layout_digest))
                     text_pins.append(dict(view=view.ref.id, text=product.text_digest))

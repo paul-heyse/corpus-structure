@@ -99,6 +99,7 @@ class ModelCharacterizationConfig(BaseModel):
     d1_runtime: dict[str, Any] | None = None
     d1_artifacts: dict[str, Any] | None = None
     gliner_profile: ClassificationProfile | None = None
+    gliner_runtime: dict[str, Any] | None = None
     max_context_chars: int = Field(default=65536, ge=1, le=65536)
 
     @model_validator(mode="after")
@@ -205,6 +206,9 @@ class ModelCharacterizationMethod:
 
     def plan(self, units, cfg: ModelCharacterizationConfig, ctx):
         with provider_scope(units, policy=ctx.settings.execution_policy) as (_cpu, providers):
+            from .characterization_resources import selections_for_characterization
+            if providers is not None:
+                providers.declare_native(selections_for_characterization({'text.model_characterization': cfg.model_dump(mode="json")}, ctx.settings), ctx.settings.nemotron_endpoint)
             base, scope, pins = cfg.require_selection()
             results = []
             for unit in units:

@@ -19,7 +19,7 @@ def load(declaration, torch):
     provider = profile["provider"]
     assets = Path(declaration["assets"]).resolve(strict=True)
     root = Path(__file__).resolve().parents[5]
-    project = root if provider in {"d1", "hanlp", "gliner", "spacy"} else root / "services/nlp-host-312"
+    project = root if provider in {"d1", "hanlp", "gliner", "spacy"} else root / "services/nlp-host-isolated"
     native = runpy.run_path(str(Path(__file__).with_name("pm2_native.py")))
     runtime = native["_runtime_identity"](provider, project=project)
     if runtime != profile["runtime_identity"]:
@@ -42,7 +42,7 @@ def load(declaration, torch):
     elif provider == "gliner":
         metadata, infer = _gliner(profile, assets)
     elif provider == "spacy":
-        metadata, infer = _spacy(profile)
+        metadata, infer = _spacy(profile, assets)
     else:
         raise ValueError("unsupported shared native provider")
     if metadata["backend"] != profile["backend"]:
@@ -55,6 +55,11 @@ def _gliner(profile, assets):
         GlinerInput,
         GlinerPack,
         GlinerProfile,
+        GlinerReport,
+        BOUNDARY_DIAGNOSTIC,
+        _json,
+        _digest,
+        boundary_diagnostic,
         effective_profile_fingerprint,
         load_model,
         prepare_input,
@@ -101,6 +106,16 @@ def _gliner(profile, assets):
                 admissions.append(dict(ordinal=ordinal, context_id=item.context_id, context_digest=item.context_digest, admitted=True, reason=None))
         if request.get("prepare_only"):
             return {"admissions": admissions}
+        if request.get("diagnostic") is not None:
+            diagnostic = request["diagnostic"]
+            if len(inputs) != 1:
+                raise ValueError("diagnostic requires one exact source context")
+            item, preparation = inputs[0], preparations[0]
+            started = time.monotonic()
+            raw = boundary_diagnostic(model, schema, item, preparation, tuple(tuple(pair) for pair in diagnostic["supplied"]))
+            report = GlinerReport(item.context_id, item.context_digest, _digest(dict(operation=BOUNDARY_DIAGNOSTIC, context=item.context_digest, text=item.text, source_map=diagnostic["source_map_digest"], profile=selected.fingerprint, effective_profile=effective_profile_fingerprint(effective), pack=pack.fingerprint, supplied=diagnostic["supplied"])), selected.fingerprint, pack.fingerprint, preparation, _json({**raw, "source_map_digest": diagnostic["source_map_digest"]}), effective, time.monotonic()-started, reused, diagnostics=(("proposal_pool", "native_diagnostic"),))
+            reused = True
+            return {"reports": [asdict(report)]}
         inference = installed_policy()[0]["inference"]
         settings = {key: value for key, value in inference.items() if key != "operation"}
         identity = request_digest(pack, asdict(selected), inputs, threshold, overlap, evaluation, inference)
@@ -120,7 +135,7 @@ def _gliner(profile, assets):
     return dict(dtype="torch.float32", device="cuda", backend="standard", effective_profile=effective_profile_fingerprint(effective)), infer
 
 
-def _spacy(profile):
+def _spacy(profile, assets):
     import spacy
     from spacy.tokens import Doc
     from hashlib import sha256
@@ -128,11 +143,27 @@ def _spacy(profile):
     parameters = profile["parameters"]
     spacy.require_gpu(0)
     nlp = spacy.load(parameters["model"], exclude=parameters["exclude"])
+    import cupy
+    parameters_seen = 0
+    for _name, component in nlp.pipeline:
+        model = getattr(component, "model", None)
+        if model is None:
+            continue
+        for node in model.walk():
+            for name in node.param_names:
+                if node.has_param(name):
+                    value = node.get_param(name)
+                    if not isinstance(value, cupy.ndarray) or value.dtype != cupy.float32:
+                        raise RuntimeError("spaCy resident parameter differs from CUDA FP32")
+                    parameters_seen += 1
+    if not parameters_seen:
+        raise ValueError("learned spaCy profile has no resident GPU parameters")
     if spacy.__version__ != parameters["spacy_version"] or nlp.meta["version"] != parameters["model_version"]:
         raise ValueError("spaCy native package/model differs from frozen profile")
+    from corpus_structure.methods.native_profiles import spacy_artifacts
+    if spacy_artifacts(assets) != profile["artifacts"]:
+        raise ValueError("spaCy model files differ from frozen profile")
     digest = sha256(nlp.config.to_str().encode()).hexdigest()
-    if digest != profile["artifacts"]["pipeline_sha256"]:
-        raise ValueError("spaCy pipeline differs from frozen profile")
 
     def infer(request):
         if request.get("version") != "spacy-host-1":
@@ -142,15 +173,13 @@ def _spacy(profile):
             raise ValueError("spaCy native batch exceeds declared population")
         docs = []
         for item in population:
-            words, spaces = item["words"], item["spaces"]
-            if len(words) != len(spaces) or any(type(value) is not str for value in words) or any(type(value) is not bool for value in spaces):
-                raise ValueError("spaCy prepared layout is invalid")
-            docs.append(Doc(nlp.vocab, words=words, spaces=spaces))
+            docs.append(Doc(nlp.vocab).from_bytes(base64.b64decode(item["content"], validate=True)))
         result = []
-        for original, doc in zip(docs, nlp.pipe(docs, batch_size=parameters["batch_size"], n_process=1), strict=True):
-            if doc.text != original.text or len(doc) != len(original):
+        originals = [(doc.text, len(doc)) for doc in docs]
+        for original, doc in zip(originals, nlp.pipe(docs, batch_size=parameters["batch_size"], n_process=1), strict=True):
+            if (doc.text, len(doc)) != original:
                 raise RuntimeError("spaCy changed prepared source layout")
             result.append(base64.b64encode(doc.to_bytes()).decode("ascii"))
         return {"documents": result}
 
-    return dict(dtype="torch.float32", device="cuda", backend="cupy", pipeline_sha256=digest, components=[dict(name=name, factory=nlp.get_pipe_meta(name).factory) for name in nlp.pipe_names]), infer
+    return dict(dtype="torch.float32", device="cuda", backend="cupy", pipeline_sha256=digest, native_configuration=nlp.config.to_str(), components=[dict(name=name, factory=nlp.get_pipe_meta(name).factory) for name in nlp.pipe_names]), infer

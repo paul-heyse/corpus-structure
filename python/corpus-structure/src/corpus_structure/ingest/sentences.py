@@ -61,13 +61,10 @@ def pipeline(config: SentenceConfig) -> Language:
             f"spaCy {spacy.__version__} is installed; the configuration names "
             f"{config.spacy_version}"
         )
-    nlp = spacy.load(config.model, exclude=list(config.exclude))
-    if nlp.meta.get("version") != config.model_version:
-        raise SentenceConfigError(
-            f"{config.model} {nlp.meta.get('version')} is installed, the configuration names "
-            f"{config.model_version}"
-        )
-    return nlp
+    from typing import cast
+    from .hosted_spacy import HostedPipeline
+
+    return cast(Language, HostedPipeline(config))
 
 
 @dataclass(frozen=True, slots=True)

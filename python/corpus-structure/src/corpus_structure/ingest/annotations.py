@@ -39,17 +39,17 @@ class AnnotationProfile:
     configuration: SentenceConfig = field(default_factory=lambda: SentenceConfig(exclude=("ner",)))
     recipe: str = "native-linguistic-columns-1"
     version: int = 1
+    execution_profile: str | None = None
 
     def __post_init__(self) -> None:
         if self.version != 1 or self.recipe != "native-linguistic-columns-1":
             raise ValueError("unsupported linguistic annotation profile")
 
     def identity(self) -> dict:
-        return dict(
-            version=self.version,
-            recipe=self.recipe,
-            configuration=self.configuration.model_dump(mode="json"),
-        )
+        identity = dict(version=self.version, recipe=self.recipe, configuration=self.configuration.model_dump(mode="json"))
+        if self.execution_profile is not None:
+            identity["execution_profile"] = self.execution_profile
+        return identity
 
 
 @dataclass(frozen=True, slots=True)
@@ -238,6 +238,7 @@ def annotate(
     profile: AnnotationProfile | None = None,
     *,
     require_complete: bool = True,
+    processed_docs=None,
 ) -> Iterator[AnnotationProduct]:
     """Stream consumer-owned Docs through the existing resident, pinned pipeline.
 
@@ -249,6 +250,9 @@ def annotate(
     """
     profile = AnnotationProfile() if profile is None else profile
     nlp = pipeline(profile.configuration)
+    if profile.execution_profile is None and processed_docs is None:
+        from dataclasses import replace
+        profile = replace(profile, execution_profile=nlp.selection().native.fingerprint)
     missing = tuple(name for name in _COMPONENTS if name not in nlp.pipe_names)
     if missing and require_complete:
         raise AnnotationUnavailable(
@@ -273,9 +277,9 @@ def annotate(
         )
         for item in inputs
     )
-    for doc, item in nlp.pipe(
-        items, as_tuples=True, batch_size=profile.configuration.batch_size, n_process=1
-    ):
+    processed = nlp.pipe(items, as_tuples=True, batch_size=profile.configuration.batch_size, n_process=1) if processed_docs is None else zip(processed_docs, inputs, strict=True)
+    for doc, item in processed:
+        pipeline_digest = sha256(nlp.config.to_str().encode()).hexdigest()
         if doc.text != item.block.text or len(doc) != len(item.layout.tokens):
             raise ValueError("linguistic pipeline changed the prepared source layout")
         availability = tuple(

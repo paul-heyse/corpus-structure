@@ -1,4 +1,4 @@
-"""Unselected shared-host checkpoint (CPython 3.14/3.12, no database imports).
+"""Unselected shared-host checkpoint (CPython 3.14, primary/isolated environments, no database imports).
 
 The protocol/lifecycle implementation accepts an injected adapter for controlled
 checks. Real provider adapters are deliberately refused until their shared-host
@@ -170,12 +170,12 @@ def serve(input_stream, output_stream, *, configure=_configure, loader=_load):
     generation = None
     reply_limit = 8 * 1024**2
 
-    def send(message):
+    def send(message, *, limit=None):
         content = (
             json.dumps(message, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()
             + b"\n"
         )
-        if len(content) > reply_limit:
+        if len(content) > (reply_limit if limit is None else min(reply_limit, limit)):
             raise RuntimeError("native host reply exceeds frame byte bound")
         with write_lock:
             output_stream.write(content)
@@ -212,7 +212,8 @@ def serve(input_stream, output_stream, *, configure=_configure, loader=_load):
                         provider=resident.provider,
                         profile=resident.identity,
                         **message,
-                    )
+                    ),
+                    limit=resident.profile.get("parameters", {}).get("gliner_profile", {}).get("max_reply_frame_bytes"),
                 )
         except BaseException as error:
             fatal(error)
@@ -321,7 +322,10 @@ if __name__ == "__main__":
         if len(sys.argv) > 1 and sys.argv[1] == "--preflight":
             adapter = runpy.run_path(str(Path(__file__).with_name("pm2_native.py")))
             try:
-                result = adapter["_preflight"](sys.argv[2], Path(sys.argv[3]))
+                provider, assets = sys.argv[2], Path(sys.argv[3])
+                root = Path(__file__).resolve().parents[5]
+                project = root if provider in {"d1", "hanlp", "gliner", "spacy"} else root / "services/nlp-host-isolated"
+                result = dict(runtime_identity=adapter["_runtime_identity"](provider, project=project), assets=adapter["_verify_assets"](assets.resolve(strict=True), provider) if provider in {"d1", "hanlp", "maverick", "dipo"} else {})
                 message = dict(kind="ready", payload=result)
             except Exception as error:
                 message = dict(kind="error", message=f"{type(error).__name__}: {error}"[:1800])
