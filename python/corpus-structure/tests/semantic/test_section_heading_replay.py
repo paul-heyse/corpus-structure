@@ -83,8 +83,9 @@ def _source(view_id, pointer, text, label, release):
 
 
 @pytest.mark.parametrize("outside", [False, True])
+@pytest.mark.parametrize("version", ["11", "12"])
 def test_detached_section_replay_requires_complete_witnesses(
-    monkeypatch, tmp_path, outside, synthetic_source_projection
+    monkeypatch, tmp_path, outside, version, synthetic_source_projection
 ):
     work = "c" * 64
     documents = {view_id: {"content_hash": f"{view_id + 1:x}" * 64} for view_id in (7, 8, 9)}
@@ -261,7 +262,9 @@ def test_detached_section_replay_requires_complete_witnesses(
         source_result=lambda *_: scoped["body"],
         contextual_section_headings=heading_targets,
     )
-    (result,) = ContextualCandidatesWithQueryContext().run(
+    producer = ContextualCandidatesWithQueryContext()
+    producer.version = version  # Historical literal-only v11 remains independently replayable.
+    (result,) = producer.run(
         (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, source.ref.key)),),
         config,
         SimpleNamespace(reader=reader, check_active=lambda: None),
@@ -277,9 +280,9 @@ def test_detached_section_replay_requires_complete_witnesses(
                 configuration=configuration,
                 body=dict(
                     source=source.ref.key,
-                    operation_version="11",
+                    operation_version=version,
                     release_id=release,
-                    configuration_hash=config_key("retrieve.contextual", "11", configuration),
+                    configuration_hash=config_key("retrieve.contextual", version, configuration),
                     contribution_operations=result.contribution_operations,
                     contributions=result.contributions,
                 ),

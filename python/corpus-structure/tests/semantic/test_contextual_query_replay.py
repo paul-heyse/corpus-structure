@@ -1,359 +1,90 @@
-"""Detached contextual replay binds the exact retained parser and rendered signal."""
+"""Detached query adapters preserve authenticated primary selections and exact signals."""
 
+from copy import deepcopy
 from dataclasses import asdict
 from hashlib import sha256
 
 import pytest
 
 from corpus_structure.core.evidence import config_key
-from corpus_structure.methods.contextual_candidates import (
-    ContextualCandidateConfig,
-    ContextualQueryConfig,
-)
+from corpus_structure.core.method import SourceViewRef
+from corpus_structure.methods.contextual_candidates import ContextualQueryConfig
 from corpus_structure.methods.contextual_embeddings import E5, identity
-from corpus_structure.semantic.contributions import (
-    contribution_identity,
-    occurrence_identity,
-    operation_identity,
-)
+from corpus_structure.semantic.contributions import contribution_identity, occurrence_identity, operation_identity
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_value
-from corpus_structure.semantic.proposals import native_source_frame
-from corpus_structure.semantic.record_contracts import anchor_identity
 from corpus_structure.semantic.source_contexts import record_source_pin
-from corpus_structure.serve.contextual_query_replay import retained_query_selection
-from corpus_structure.serve.contributions import ContributionRequest
-from corpus_structure.serve.review_bundle import (
-    ReviewSelection,
-    verify_review_bundle,
-    write_review_bundle,
-)
+from corpus_structure.serve import contextual_query_replay, primary_characterization_replay, review_bundle
+from corpus_structure.serve.contextual_query_replay import query_context_dependency, retained_query_selection
 
-from .test_section_heading_replay import _source
-from .test_section_heading_replay import synthetic_source_projection as synthetic_source_projection
+from methods.test_contextual_query import TEXT, anchor, frame_layer, source
 
 
-@pytest.mark.parametrize("substitution", [None, "cut", "endpoint", "receipt", "render", "vector"])
-def test_detached_v11_query_receipt_uses_original_context(
-    tmp_path, synthetic_source_projection, substitution
-):
-    release, project, runtime = "release", "project", "retained-runtime"
-    pointer = "#/texts/30"
-    text = "A supervisor approves the request."
-    source, _ = _source(7, pointer, text, "text", release)
-    pin = record_source_pin(native_source_frame(source, ()))
+def fixture():
+    frame=source(); pin=record_source_pin(frame); layers,reference=frame_layer(frame=frame)
+    focal=anchor("request",frame=frame); occurrence=occurrence_identity((focal,))
+    cfg=ContextualQueryConfig.model_validate(dict(
+        source_product_digest=pin["product_digest"], source_projection_digest=pin["projection_digest"], scope="fixture",
+        characterization_layers=[reference.layer.values()],
+        relationship_constraints=[dict(constraint_id="fixture-denotation",relation_kinds=["denotes"],occurrence_role="observed_source_mention",target_role="retained_definition_component",multiplicity="one",exhaustive=False)],
+        target_components=[dict(reference=dict(product_id="fixture-product",component_id="b"*64,operation_id="structure.definition_components",operation_version="9",project_id="project",release_id="release",run_id=3,cut_id=4,result_revision=4,selected_task_id=5,origin_task_id=5,runtime_fingerprint="runtime",dependencies=["source"]),label="request",description="a document awaiting review",scope="fixture")],
+        query_context=dict(recipe="located-frame-2",bindings=[dict(occurrence_id=occurrence,evidence=reference.values())]),
+    )).model_dump(mode="json")
+    key=operation_identity("retrieve.contextual","12",cfg,pin)
+    carrier=dict(pin=pin,kind="occurrence",semantic_type="contextual.located_mention",item_key="focal",anchors=[focal],occurrence_id=occurrence,operation_key=key)
+    carrier["contribution_id"]=contribution_identity(carrier)
+    receipt=dict(recipe="located-frame-2",evidence=reference.values(),signals=[
+        dict(label="Predicate",anchor_ids=[anchor("approves",frame=frame)["anchor_id"]]),
+        dict(label="Argument direct_object",anchor_ids=[anchor("the request",frame=frame)["anchor_id"]]),
+    ],omissions=["Argument subject has no exact source location"])
+    representation=identity("located-query-context",receipt)
+    text="Mention: request\nType: unknown\nPredicate: approves\nArgument direct_object: the request\nContext: "+TEXT
+    rendered=dict(object_id=occurrence,source_binding=pin["source"],role="query",text=text,truncated=False,representation_digest=representation,final_input_digest=sha256((E5.query_prompt+text).encode()).hexdigest())
+    binding=[occurrence,pin["source"],E5.profile_id,rendered["final_input_digest"],representation]
+    vector=dict(vector_id=identity("context-vector",binding),object_id=occurrence,source_binding=pin["source"],profile_id=E5.profile_id,input_digest=rendered["final_input_digest"],representation_digest=representation,values=[1.0,*([0.0]*(E5.dimension-1))])
+    report=dict(origin_task_id=21,origin_unit_id=1,unit_type="source_view",project_id="project",method="retrieve.contextual",configuration=cfg,origin_run_id=19,runtime_fingerprint="runtime",body=dict(source=pin["source"],operation_version="12",release_id="release",configuration_hash=config_key("retrieve.contextual","12",cfg),contributions=[carrier],parse_detail=source_value(dict(query_context={occurrence:dict(receipt,outcome="rendered")},encoder_inputs=[rendered])),contribution_operations=[dict(operation_key=key,operation_version="12",outcome="succeeded",question="retained producer occurrence roles and contextual encoder products",computation_dependencies=[reference.identity],contextual_enrichment=dict(vectors=[vector]))]))
+    context=__import__('json').loads(frame.native_context)
+    ref=SourceViewRef(frame.source_view_id,frame.unit_ref,1,frame.native_product,frame.section_pointer,frame.membership,frame.projection_digest,frame.recipe_digest,frame.version)
+    captured=dict(source_view_id=1,ref=asdict(ref),text=frame.text,context=context)
+    return report,layers,captured,receipt,rendered,vector
 
-    def occurrence(literal, key, semantic_type, operation):
-        start = text.index(literal)
-        anchor = dict(
-            pin=pin,
-            pointer=pointer,
-            space="native",
-            precision="exact",
-            start=start,
-            end=start + len(literal),
-            source_piece=literal,
-        )
-        anchor["anchor_id"] = anchor_identity(anchor)
-        row = dict(
-            pin=pin,
-            kind="occurrence",
-            semantic_type=semantic_type,
-            item_key=key,
-            anchors=[anchor],
-            occurrence_id=occurrence_identity((anchor,)),
-            operation_key=operation,
-        )
-        return dict(row, contribution_id=contribution_identity(row))
 
-    predicate = occurrence("approves", "predicate", "source_occurrence", "parser-op")
-    argument = occurrence("the request", "argument", "source_occurrence", "parser-op")
-    root = dict(
-        pin=pin,
-        kind="group",
-        semantic_type="linguistic.predicate_frame",
-        item_key="frame",
-        operation_key="parser-op",
-        members=[predicate["contribution_id"], argument["contribution_id"]],
-        value=source_value(
-            dict(
-                predicate="predicate",
-                dependency_arguments=[dict(role="obj", location="argument")],
-                srl_frames=[],
-            )
-        ),
-    )
-    root["contribution_id"] = contribution_identity(root)
-    reference = dict(
-        contribution_id=root["contribution_id"],
-        project_id=project,
-        release_id=release,
-        run_id=9,
-        cut_id=10,
-        result_revision=4,
-        selected_task_id=12,
-        origin_task_id=11,
-        runtime_fingerprint=runtime,
-    )
-    carrier = occurrence("request", "focal", "contextual.located_mention", "unbound")
-    occurrence_id = carrier["occurrence_id"]
-    cfg = ContextualQueryConfig.model_validate(
-        dict(
-            source_product_digest=pin["product_digest"],
-            source_projection_digest=pin["projection_digest"],
-            scope="fixture",
-            relationship_constraints=[
-                dict(
-                    constraint_id="fixture-denotation",
-                    relation_kinds=["denotes"],
-                    occurrence_role="observed_source_mention",
-                    target_role="retained_definition_component",
-                    multiplicity="one",
-                    exhaustive=False,
-                )
-            ],
-            target_components=[
-                dict(
-                    reference=dict(
-                        product_id="fixture-product",
-                        component_id="b" * 64,
-                        operation_id="structure.definition_components",
-                        operation_version="9",
-                        project_id=project,
-                        release_id=release,
-                        run_id=3,
-                        cut_id=4,
-                        result_revision=4,
-                        selected_task_id=5,
-                        origin_task_id=5,
-                        runtime_fingerprint=runtime,
-                        dependencies=["source"],
-                    ),
-                    label="request",
-                    description="a document awaiting review",
-                    scope="fixture",
-                )
-            ],
-            query_context=dict(
-                recipe="located-frame-1",
-                bindings=[dict(occurrence_id=occurrence_id, evidence=reference)],
-            ),
-        )
-    ).model_dump(mode="json")
-    if substitution is None:
-        bounded = {k: v for k, v in cfg.items() if k != "query_context"}
-        legacy = ContextualCandidateConfig.model_validate(bounded)
-        assert "required_occurrence_ids" not in legacy.model_json_schema()["properties"]
-        with pytest.raises(ValueError, match="requires explicit exact carriers"):
-            retained_query_selection("retrieve.contextual", "11", bounded)
-        bounded["required_occurrence_ids"] = [occurrence_id]
-        assert retained_query_selection("retrieve.contextual", "11", bounded) is None
-        with pytest.raises(ValueError, match="requires distinct component query carriers"):
-            retained_query_selection(
-                "retrieve.contextual",
-                "11",
-                {**bounded, "required_occurrence_ids": [occurrence_id, occurrence_id]},
-            )
-    key = operation_identity("retrieve.contextual", "11", cfg, pin)
-    carrier = occurrence("request", "focal", "contextual.located_mention", key)
-    receipt = dict(
-        recipe="located-frame-1",
-        evidence=reference,
-        signals=[
-            dict(label="Predicate", anchor_ids=[predicate["anchors"][0]["anchor_id"]]),
-            dict(label="Dependency obj", anchor_ids=[argument["anchors"][0]["anchor_id"]]),
-        ],
-        omissions=[],
-    )
-    representation = identity("located-query-context", receipt)
-    actual_text = (
-        "Mention: request\nType: unknown\nPredicate: approves\n"
-        "Dependency obj: the request\nContext: A supervisor approves the request."
-    )
-    rendered = dict(
-        object_id=occurrence_id,
-        source_binding=pin["source"],
-        role="query",
-        text=actual_text,
-        truncated=False,
-        representation_digest=representation,
-        final_input_digest=sha256((E5.query_prompt + actual_text).encode()).hexdigest(),
-    )
-    vector_binding = [
-        occurrence_id,
-        pin["source"],
-        E5.profile_id,
-        rendered["final_input_digest"],
-        representation,
-    ]
-    vector = dict(
-        vector_id=identity("context-vector", vector_binding),
-        object_id=occurrence_id,
-        source_binding=pin["source"],
-        profile_id=E5.profile_id,
-        input_digest=rendered["final_input_digest"],
-        representation_digest=representation,
-        values=[1.0, *([0.0] * (E5.dimension - 1))],
-    )
-    parser_rows = [root, predicate, argument]
-    report = dict(
-        origin_task_id=21,
-        origin_unit_id=source.ref.id,
-        unit_type="source_view",
-        project_id=project,
-        method="retrieve.contextual",
-        configuration=cfg,
-        origin_run_id=19,
-        runtime_fingerprint=runtime,
-        body=dict(
-            source=pin["source"],
-            operation_version="11",
-            release_id=release,
-            configuration_hash=config_key("retrieve.contextual", "11", cfg),
-            contributions=[carrier],
-            parse_detail=source_value(
-                dict(
-                    query_context={occurrence_id: dict(receipt, outcome="rendered")},
-                    encoder_inputs=[rendered],
-                )
-            ),
-            contribution_operations=[
-                dict(
-                    operation_key=key,
-                    operation_version="11",
-                    outcome="succeeded",
-                    question="retained producer occurrence roles and contextual encoder products",
-                    computation_dependencies=[root["contribution_id"]],
-                    contextual_enrichment=dict(
-                        candidate_lists=[],
-                        vectors=[vector],
-                        profiles=[dict(profile_id=E5.profile_id, dimension=E5.dimension)],
-                        inventories=[dict(inventory_id="fixture", targets=[], semantic_groups=[])],
-                        neighborhood=dict(
-                            policy="mutual-exact-cosine-top5-2",
-                            inventory_id="fixture",
-                            profile_id=E5.profile_id,
-                            status="completed",
-                            directed_ranks=[],
-                            edges=[],
-                        ),
-                    ),
-                )
-            ],
-        ),
-    )
-    if substitution == "receipt":
-        receipt["signals"][1]["anchor_ids"] = receipt["signals"][0]["anchor_ids"]
-    if substitution == "render":
-        rendered["text"] = rendered["text"].replace("Dependency obj:", "Dependency nsubj:")
-        rendered["final_input_digest"] = sha256(
-            (E5.query_prompt + rendered["text"]).encode()
-        ).hexdigest()
-    if substitution == "vector":
-        vector["representation_digest"] = "foreign"
-    # Re-encode modified payloads so all JSON/Parquet and content digests remain internally valid.
-    report["body"]["parse_detail"] = source_value(
-        dict(
-            query_context={occurrence_id: dict(receipt, outcome="rendered")},
-            encoder_inputs=[rendered],
-        )
-    )
-
-    def rows():
-        binding = dict(release_id=release, data_revision=4)
-        yield (
-            "selections",
-            dict(selection_index=0, run_id=19, cut_id=20, project_id=project, binding=binding),
-        )
-        yield (
-            "selections",
-            dict(
-                selection_index=1,
-                run_id=9,
-                cut_id=99 if substitution == "cut" else 10,
-                project_id=project,
-                binding=binding,
-            ),
-        )
-        yield (
-            "inventory",
-            dict(
-                selection_index=0,
-                population="report",
-                row=dict(
-                    origin_task_id=21,
-                    selected_task_id=21,
-                    source_view_id=source.ref.id,
-                    cut_member=True,
-                    origin_run_id=19,
-                    origin_project_id=project,
-                    runtime_fingerprint=runtime,
-                ),
-            ),
-        )
-        for parser in parser_rows[:-1] if substitution == "endpoint" else parser_rows:
-            yield (
-                "inventory",
-                dict(
-                    selection_index=1,
-                    population="contribution",
-                    row=dict(
-                        contribution_id=parser["contribution_id"],
-                        source_view_id=source.ref.id,
-                        selected_task_id=12,
-                        origin_task_id=11,
-                        origin_run_id=8,
-                        origin_project_id=project,
-                        runtime_fingerprint=runtime,
-                        cut_member=True,
-                    ),
-                ),
-            )
-        yield "contracts", dict(release_id=release)
-        yield "reports", report
-        yield (
-            "reports",
-            dict(
-                origin_task_id=11,
-                origin_run_id=8,
-                origin_unit_id=source.ref.id,
-                unit_type="source_view",
-                project_id=project,
-                method="extract.pm2_hanlp",
-                runtime_fingerprint=runtime,
-                body=dict(source=pin["source"], release_id=release, contributions=parser_rows),
-            ),
-        )
-        yield (
-            "sources",
-            dict(
-                source_view_id=source.ref.id,
-                ref=asdict(source.ref),
-                text=text,
-                context=source.context(),
-            ),
-        )
-        yield (
-            "closure_dependencies",
-            dict(
-                required_by="origin-task:21", reason="declared_query_context", reference=reference
-            ),
-        )
-
-    selection = ReviewSelection(
-        selections=(ContributionRequest(run_id=19), ContributionRequest(run_id=9))
-    )
-    destination = tmp_path / "receipt"
-    errors = dict(
-        cut="exact selected raw producer custody",
-        endpoint="selected endpoint inventory missing",
-        receipt="receipt differs from original parser evidence",
-        render="rendering differs from its source and signal",
-        vector="vector differs from the retained encoder input",
-    )
+@pytest.mark.parametrize("substitution",[None,"selection","receipt","render","vector","source","dependency"])
+def test_detached_v12_query_replays_primary_signal_after_shared_authentication(monkeypatch,substitution):
+    report,layers,captured,receipt,rendered,vector=fixture()
+    occurrence=report["body"]["contributions"][0]["occurrence_id"]
+    if substitution=="selection":layers={}
+    elif substitution=="receipt":receipt["signals"][1]["anchor_ids"]=receipt["signals"][0]["anchor_ids"]
+    elif substitution=="render":
+        rendered["text"]=rendered["text"].replace("Argument direct_object:","Argument subject:")
+        rendered["final_input_digest"]=sha256((E5.query_prompt+rendered["text"]).encode()).hexdigest()
+    elif substitution=="vector":vector["representation_digest"]="foreign"
+    elif substitution=="source":captured["ref"]["projection_digest"]="e"*64
+    elif substitution=="dependency":report["body"]["contribution_operations"][0]["computation_dependencies"]=[]
+    report["body"]["parse_detail"]=source_value(dict(query_context={occurrence:dict(receipt,outcome="rendered")},encoder_inputs=[rendered]))
+    # These adapter controls begin after the shared immutable layer/archive/source
+    # authenticator. They neither fake provider passage nor replace its independent tests.
+    monkeypatch.setattr(primary_characterization_replay,"retained_primary_layers",lambda *_:(layers,{}))
+    monkeypatch.setattr(review_bundle,"_detached_relation",lambda _root,_manifest,name:iter([report] if name=="reports" else [captured] if name=="sources" else []))
+    scopes={0:dict(project_id="project",binding=dict(release_id="release"))}
+    inventory={(0,21,21):dict(cut_member=True,origin_project_id="project",origin_run_id=19,source_view_id=1,runtime_fingerprint="runtime")}
+    call=lambda:contextual_query_replay.verify_contextual_query_closure(None,{},scopes,{},inventory)
     if substitution:
-        with pytest.raises(ValueError, match=errors[substitution]):
-            write_review_bundle(selection, destination, rows())
-        assert not destination.exists()
+        with pytest.raises(ValueError):call()
     else:
-        manifest = write_review_bundle(selection, destination, rows())
-        assert verify_review_bundle(destination) == manifest
+        selection=retained_query_selection("retrieve.contextual","12",report["configuration"])
+        assert selection is not None
+        assert call()=={canonical_bytes(query_context_dependency(21,selection.bindings[0].evidence))}
+
+
+def test_obsolete_query_arms_require_regeneration_but_literal_controls_remain_readable():
+    report,*_=fixture(); cfg=report["configuration"]
+    with pytest.raises(ValueError,match="regeneration"):
+        retained_query_selection("retrieve.contextual","11",cfg)
+    literal=deepcopy(cfg);literal.pop("query_context")
+    literal["required_occurrence_ids"]=[report["body"]["contributions"][0]["occurrence_id"]]
+    assert retained_query_selection("retrieve.contextual","11",literal) is None
+    assert retained_query_selection("retrieve.contextual","12",literal) is None
+    literal["required_occurrence_ids"]*=2
+    with pytest.raises(ValueError,match="distinct"):
+        retained_query_selection("retrieve.contextual","12",literal)

@@ -199,12 +199,10 @@ def test_retained_cross_view_heading_coverage_precedes_exploration(
     from corpus_structure.semantic.structural_products import ExternalSourceRef
 
     text = "See Section 6.2."
-    source = view()
+    source = view(text)
     source = replace(
         source,
-        text=text,
-        pieces=(dict(source.pieces[0], end=len(text)),),
-        items=(source.items[0], dict(source.items[1], text=text, content_layer="body")),
+        items=(source.items[0], dict(source.items[1], content_layer="body")),
     )
     pin = record_source_pin(native_source_frame(source, ()))
     cue_ref = ExternalSourceRef(
@@ -885,12 +883,10 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
         "identifier": f'Use definition ID "{spelling}" as defined in section\t6.2.',
         "section": "Use the value as defined in Section 6.2.",
     }[subject]
-    source = view()
+    source = view(text)
     source = replace(
         source,
-        text=text,
-        pieces=(dict(source.pieces[0], end=len(text)),),
-        items=(source.items[0], dict(source.items[1], text=text, content_layer="body")),
+        items=(source.items[0], dict(source.items[1], content_layer="body")),
     )
     pin = record_source_pin(native_source_frame(source, ()))
     start = text.index(spelling)
@@ -1006,45 +1002,35 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
         unique_target_budget=1,
     )
     if rich:
-        location = dict(
-            original, semantic_type="source_occurrence", item_key="focus", operation_key="parser"
-        )
-        location["contribution_id"] = contribution_identity(location)
-        frame = dict(
-            kind="composite",
-            semantic_type="linguistic.predicate_frame",
-            operation_key="parser",
-            pin=pin,
-            members=(location["contribution_id"],),
-            value=source_value(
-                {"predicate": "focus", "dependency_arguments": [], "srl_frames": []}
-            ),
-        )
-        frame["contribution_id"] = contribution_identity(frame)
-        cfg = method.Config.model_validate(
-            {
-                **cfg.model_dump(),
-                "query_context": {
-                    "recipe": "located-frame-1",
-                    "bindings": [
-                        {
-                            "occurrence_id": original["occurrence_id"],
-                            "evidence": {
-                                "contribution_id": frame["contribution_id"],
-                                "project_id": "source",
-                                "run_id": 1,
-                                "cut_id": 2,
-                                "release_id": "release",
-                                "result_revision": 0,
-                                "selected_task_id": 1,
-                                "origin_task_id": 1,
-                                "runtime_fingerprint": "runtime",
-                            },
-                        }
-                    ],
-                },
-            }
-        )
+        from corpus_structure.semantic.characterization import AnnotationReference, LayerReport
+        from corpus_structure.semantic.identity import canonical_bytes
+
+        frame_report = LayerReport(canonical_bytes(dict(
+            base_document=source.ref.native_product.values(),
+            source_scope={"source_view_ids": [source.ref.id]},
+            operation={"produced_families": ["construction.source_readings"]},
+            occurrences=[dict(local_id="focal-occurrence", extents=[dict(
+                source_view_id=source.ref.id, projection=source.ref.projection_digest,
+                start=start, end=start+len(spelling),
+            )])],
+            terms=[
+                dict(local_id="frame", kind="predicate", family="construction.source_readings",
+                     vocabulary="source-linguistic-rules-1", occurrences=["focal-occurrence"],
+                     children=[dict(role="predicate", target="predicate")]),
+                dict(local_id="predicate", occurrences=["focal-occurrence"]),
+            ], annotations=[], memberships=[], choices=[], dependencies=[], coverage=[],
+        )))
+        frame_pin = frame_report.reference(99)
+        primary_layers = {**primary_layers, frame_pin: frame_report}
+        cfg = method.Config.model_validate({
+            **cfg.model_dump(),
+            "characterization_layers": tuple(pin.values() for pin in primary_layers),
+            "query_context": {
+                "recipe": "located-frame-2",
+                "bindings": [{"occurrence_id": original["occurrence_id"],
+                              "evidence": AnnotationReference(frame_pin, "frame").values()}],
+            },
+        })
 
     else:
         cfg = method.Config.model_validate(
@@ -1126,10 +1112,6 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
         contextual_candidates=retrieve,
         contextual_mutual_neighbors=lambda _: {"directed_ranks": [], "edges": []},
         prepared=SimpleNamespace(release_id="release"),
-        retained_source_contribution=lambda _: {
-            "contributions": (frame, location),
-            "sources": ({"pin": pin},),
-        },
     )
     monkeypatch.setattr(
         "corpus_structure.methods.contextual_candidates.verify_encoder_implementation", lambda _: ()

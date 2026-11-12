@@ -1124,16 +1124,11 @@ def _retained_report_ids(report: Mapping[str, Any]) -> set[int]:
         from .contextual_witness_replay import witness_origin_ids
 
         body, config = report.get("body") or {}, report["configuration"]
-        query_context = (
+        if body:
             retained_query_selection(report["method"], body.get("operation_version"), config)
-            if body
-            else None
-        )
-        values = witness_origin_ids(body, config) | (
-            {binding.evidence.origin_task_id for binding in query_context.bindings}
-            if query_context is not None
-            else set()
-        )
+        # Primary query nodes use the exact layer closure captured separately from
+        # source-contribution reports. Resolve here also refuses obsolete query arms.
+        values = witness_origin_ids(body, config)
     else:
         return set()
     if any(type(value) is not int or value <= 0 for value in values):
@@ -1629,23 +1624,19 @@ def _exact_closure(
             .where(
                 task.c.id.in_(dependency_origins),
                 method.c.name == "retrieve.contextual",
-                method.c.version == "11",
+                method.c.version == "12",
             )
             .order_by(task.c.id)
         )
         budget.preflight(conn, query)
         for origin, release, project, config in conn.execute(query).all():
             budget.value(config)
-            selection_context = retained_query_selection("retrieve.contextual", "11", config)
-            assert selection_context is not None
+            selection_context = retained_query_selection("retrieve.contextual", "12", config)
+            if selection_context is None:
+                continue
             references = dict.fromkeys(binding.evidence for binding in selection_context.bindings)
             for reference in references:
-                if (reference.project_id, reference.release_id) != (project, release):
-                    raise SemanticRefusal(
-                        "query context predecessor differs from its project or release"
-                    )
                 record_reason(query_context_dependency(origin, reference))
-                include_contribution(reference)
     extras = (
         ContributionRequest(
             run_id=run,

@@ -888,7 +888,7 @@ class ContextualCandidates:
             section_mentions = {}
             section_targets = defaultdict(list)
             section_aliases = {}
-            if cfg.definition_alias_refs and self.version not in {"10", "11"}:
+            if cfg.definition_alias_refs and self.version not in {"10", "11", "12"}:
                 raise ValueError("definition alias bindings require contextual operation 10")
             if any("defined-by" in c.relation_kinds for c in constraints):
                 for product in source_products:
@@ -923,25 +923,12 @@ class ContextualCandidates:
             query_context = {}
             selected_context = getattr(cfg, "query_context", None)
             if selected_context is not None:
-                if self.version != "11":
-                    raise ValueError("located query context requires contextual operation 11")
+                if self.version != "12":
+                    raise ValueError("located query context requires contextual operation 12")
                 if any(b.occurrence_id not in contexts for b in selected_context.bindings):
                     raise ValueError("query context has no single exact native encoder input")
-                references = tuple(b.evidence for b in selected_context.bindings)
-                if any(ref.release_id != ctx.reader.prepared.release_id for ref in references):
-                    raise ValueError("query context evidence is from a different release")
-                # Native source selection is project-scoped. The retained resolver checks
-                # reference custody and the context resolver checks the complete source pin.
-                held = {
-                    ref: ctx.reader.retained_source_contribution(ref)
-                    for ref in dict.fromkeys(references)
-                }
                 query_context = resolve_query_contexts(
-                    selected_context,
-                    tuple(held[ref] for ref in references),
-                    source_products,
-                    nodes,
-                    pin,
+                    selected_context, primary, source_products, frame
                 )
             inputs = []
             for occurrence, (text, start, end, mention) in contexts.items():
@@ -1061,7 +1048,7 @@ class ContextualCandidates:
                         )
                     if occurrence in section_mentions:
                         code, carriers = section_mentions[occurrence]
-                        if self.version in {"9", "10", "11"}:
+                        if self.version in {"9", "10", "11", "12"}:
                             # A section locates a population. Its designation does
                             # not identify the definition of an unrelated concept.
                             section_nominations = {
@@ -1279,7 +1266,7 @@ class ContextualCandidates:
                 ),
                 vector_reuse=tuple(item.reuse for item in cached),
             )
-            if self.version in {"9", "10", "11"}:
+            if self.version in {"9", "10", "11", "12"}:
                 neighborhood = ctx.reader.contextual_mutual_neighbors(report)
                 report["neighborhood"] = dict(
                     neighborhood,
@@ -1299,7 +1286,7 @@ class ContextualCandidates:
                     profile.profile_id,
                     view.ref.projection_digest,
                     *dict.fromkeys(
-                        signal.evidence.contribution_id for signal in query_context.values()
+                        signal.evidence.identity for signal in query_context.values()
                     ),
                 ),
             )
@@ -1394,9 +1381,15 @@ class ContextualQueryConfig(ContextualCandidateConfig):
             )
         if self.query_context is None and not self.required_occurrence_ids:
             raise ValueError("the literal-only control requires explicit exact carriers")
+        if self.query_context is not None:
+            from corpus_structure.semantic.product_reference import ProductReference
+
+            selected = {ProductReference(**value) for value in self.characterization_layers}
+            if any(binding.evidence.layer not in selected for binding in self.query_context.bindings):
+                raise ValueError("query context requires its exact selected primary layer")
         return self
 
 
 class ContextualCandidatesWithQueryContext(ContextualCandidatesWithNamedBindings):
-    version = "11"
+    version = "12"
     Config = ContextualQueryConfig
