@@ -1,8 +1,4 @@
-"""Unselected GPU-host implementation checkpoint.
-
-No production provider owner imports this module yet. Profile declaration, provider
-adapters, caller cutover and native qualification remain prerequisites for selection.
-"""
+"""Operation-owned shared CUDA host transport, admission and proven cleanup."""
 
 from __future__ import annotations
 
@@ -363,7 +359,7 @@ class NativeHost:
 
 
 class NativeHostGroup:
-    """One explicit operation lease; both hosts die before custody is restored."""
+    """One explicit operation lease; all owned hosts die before custody is restored."""
 
     def __init__(self, policy, endpoint=None, *, host_factory=NativeHost):
         self.policy, self.endpoint, self.host_factory = policy, endpoint, host_factory
@@ -463,7 +459,7 @@ class NativeHostGroup:
                     failures.append(error)
             if failures:
                 # Keep the manager and its lease alive. A signal/cancelled future
-                # is not proof that either host released its native resources.
+                # is not proof that every host released its native resources.
                 failure = Pm2WorkerError("native host group teardown remains unproven")
                 for error in failures:
                     failure.add_note(str(error))

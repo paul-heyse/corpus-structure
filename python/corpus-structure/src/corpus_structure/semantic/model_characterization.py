@@ -1018,7 +1018,7 @@ def project_gliner_cues(
         dict(pack=asdict(pack), item=asdict(item), threshold=threshold, inference=dict(inference)),
         asdict(native),
         ClassificationProfile(
-            provider="gliner", device="cpu", profile=profile, threshold=threshold
+            provider="gliner", device=profile.device, profile=profile, threshold=threshold
         ),
         overlap_policy="nested",
     )

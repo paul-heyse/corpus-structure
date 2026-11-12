@@ -895,7 +895,7 @@ class DefinitionComponentsMethod:
     resources = Resources(worker="cpu", batch_size=1, max_concurrency=1)
 
     def __init__(self):
-        self._worker: GlinerWorker | HostedGliner | None = None
+        self._worker: HostedGliner | None = None
 
     def close(self):
         if self._worker is not None:

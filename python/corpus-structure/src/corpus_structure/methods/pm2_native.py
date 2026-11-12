@@ -1,4 +1,4 @@
-"""Offline native PM2 worker entry point. Run with the profile's exact interpreter."""
+"""Verified native loaders and observed runtime/artifact identity for the shared host."""
 
 from __future__ import annotations
 
@@ -19,7 +19,6 @@ ArtifactTable = dict[str, Any]
 Payload = dict[str, Any]
 Inference = Callable[[Payload], Payload]
 
-_MAX_MESSAGE = 8_388_608
 _ARTIFACT_GROUPS = {
     "d1": ("d1",),
     "dipo": ("dipo", "ettin"),
@@ -177,7 +176,7 @@ def _load_d1(assets: Path, device: str) -> tuple[Payload, Inference]:
 def _runtime_identity(provider: str, *, project: Path | None = None) -> Payload:
     """Identify this isolated interpreter without importing any model packages."""
     python = platform.python_version()
-    expected_python = "3.14.10" if project is not None or provider in {"d1", "hanlp", "gliner", "spacy"} else "3.12.3"
+    expected_python = "3.14.10"
     if python != expected_python:
         raise ValueError(f"{provider} requires CPython {expected_python}, got {python}")
     packages = {name: version(name) for name in _RUNTIME_PACKAGES[provider]}
@@ -193,7 +192,7 @@ def _runtime_identity(provider: str, *, project: Path | None = None) -> Payload:
             raise ValueError(f"missing installed PM2 distribution record for {name}")
         inventory[name] = (installed.version, sha256(record.encode()).hexdigest())
     root = Path(__file__).resolve().parents[5]
-    project = (root if provider == "d1" else root / f"services/pm2-{provider}") if project is None else project
+    project = root if project is None else project
     with (project / "uv.lock").open("rb") as lock, Path(sys.executable).open("rb") as binary:
         return {
             "version": "pm2-runtime-1",
@@ -205,121 +204,3 @@ def _runtime_identity(provider: str, *, project: Path | None = None) -> Payload:
                 json.dumps(inventory, sort_keys=True, separators=(",", ":")).encode()
             ).hexdigest(),
         }
-
-
-def _preflight(provider: str, assets: Path) -> Payload:
-    if provider not in _ARTIFACT_GROUPS:
-        raise ValueError("unrecognized PM2 provider")
-    return {
-        "runtime_identity": _runtime_identity(provider),
-        "assets": _verify_assets(assets.resolve(strict=True), provider),
-    }
-
-
-def _load_profile(profile_path: Path) -> tuple[Payload, Inference]:
-    profile = json.loads(profile_path.read_bytes())
-    provider, device = profile["provider"], profile["device"]
-    if device not in {"cpu", "cuda"}:
-        raise ValueError("unrecognized PM2 device")
-    if provider == "d1" and device != "cuda":
-        raise ValueError("d1 execution requires CUDA; CPU execution is not selected")
-    assets = Path(profile["assets"]).resolve(strict=True)
-    checked = _preflight(provider, assets)
-    expected_runtime = profile.get("runtime_identity")
-    if expected_runtime is not None and expected_runtime != checked["runtime_identity"]:
-        raise ValueError("native PM2 runtime differs from the preflight identity")
-    os.environ.update(
-        HF_HUB_CACHE=str(assets / "hub"),
-        HF_HUB_OFFLINE="1",
-        TRANSFORMERS_OFFLINE="1",
-    )
-    if device == "cpu":
-        os.environ["CUDA_VISIBLE_DEVICES"] = ""
-    import torch
-
-    threads, interop = profile.get("threads", 4), profile.get("interop_threads", 1)
-    if any(type(value) is not int or value < 1 for value in (threads, interop)):
-        raise ValueError("native thread settings must be positive integers")
-    torch.set_num_threads(threads)
-    torch.set_num_interop_threads(interop)
-
-    if device == "cuda" and not torch.cuda.is_available():
-        raise RuntimeError("CUDA device unavailable")
-    if provider == "d1":
-        loader = _load_d1
-    else:
-        file = "pm2_hanlp.py" if provider == "hanlp" else "pm2_dispatched.py"
-        loader = runpy.run_path(str(Path(__file__).with_name(file)))[f"load_{provider}"]
-    metadata, infer = loader(assets, device)
-    from threadpoolctl import threadpool_info, threadpool_limits
-
-    limiter = threadpool_limits(limits=threads)
-    import atexit
-
-    atexit.register(limiter.restore_original_limits)
-    return {
-        "provider": provider,
-        "python": checked["runtime_identity"]["python"],
-        "packages": dict(_RUNTIME_PACKAGES[provider]),
-        "torch_build": torch.__version__,
-        "cuda_build": torch.version.cuda,
-        "device_name": torch.cuda.get_device_name() if device == "cuda" else None,
-        **checked,
-        **metadata,
-        "native_threads": {
-            "intra_op": torch.get_num_threads(),
-            "inter_op": torch.get_num_interop_threads(),
-            "supported_pools": threadpool_info(),
-        },
-    }, infer
-
-
-def _send(out: BinaryIO, message: Payload) -> None:
-    data = json.dumps(message, ensure_ascii=False, allow_nan=False).encode()
-    if len(data) >= _MAX_MESSAGE:
-        raise ValueError("native result exceeds the worker message bound")
-    out.write(data + b"\n")
-    out.flush()
-
-
-def _serve(profile_path: Path, out: BinaryIO) -> None:
-    try:
-        metadata, infer = _load_profile(profile_path)
-        _send(out, {"kind": "ready", "payload": metadata})
-    except Exception as exc:
-        _send(out, {"kind": "error", "message": f"{type(exc).__name__}: {exc}"[:4000]})
-        return
-    while line := sys.stdin.buffer.readline(_MAX_MESSAGE + 1):
-        if len(line) > _MAX_MESSAGE or not line.endswith(b"\n"):
-            raise ValueError("worker request exceeds the message bound")
-        message = json.loads(line)
-        request_id = message["request_id"]
-        try:
-            if message["kind"] != "infer" or not isinstance(message["payload"], dict):
-                raise ValueError("invalid native inference request")
-            result = infer(message["payload"])
-            _send(out, {"kind": "result", "request_id": request_id, "payload": result})
-        except Exception as exc:
-            _send(
-                out,
-                {
-                    "kind": "error",
-                    "request_id": request_id,
-                    "message": f"{type(exc).__name__}: {exc}"[:4000],
-                },
-            )
-            return
-
-
-if __name__ == "__main__":
-    # Libraries may write progress directly to fd 1. Keep the wire stream separate.
-    with os.fdopen(os.dup(sys.stdout.fileno()), "wb") as protocol:
-        os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
-        if sys.argv[1] == "--preflight":
-            try:
-                provider, assets = sys.argv[2:]
-                _send(protocol, {"kind": "ready", "payload": _preflight(provider, Path(assets))})
-            except Exception as exc:
-                _send(protocol, {"kind": "error", "message": f"{type(exc).__name__}: {exc}"[:4000]})
-        else:
-            _serve(Path(sys.argv[1]), protocol)

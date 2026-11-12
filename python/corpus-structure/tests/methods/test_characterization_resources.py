@@ -42,24 +42,39 @@ def runtime(monkeypatch):
                 )
             return payload
 
-    @contextmanager
-    def open_worker(**kwargs):
-        assert kwargs["max_request_bytes"] == execution.policy.max_native_request_bytes
-        assert kwargs["max_reply_bytes"] == execution.policy.max_native_reply_bytes
-        worker = Worker(kwargs["check_active"], kwargs["device"])
-        opened.append(worker)
-        try:
-            yield worker
-        finally:
-            worker.closed = True
-            closed.append(worker)
+    class Group:
+        def __init__(self, policy):
+            self._selections, self.workers = {}, {}
+            self._serving, self.endpoint = False, None
 
-    monkeypatch.setattr(resources, "_open_pm2_worker", open_worker)
-    monkeypatch.setattr(
-        resources,
-        "_preflight_pm2_runtime",
-        lambda **kwargs: dict(runtime_identity={"runtime": "frozen"}, assets={"artifact": 1}),
-    )
+        def declare(self, selections):
+            for selected in selections:
+                if self._serving and selected.native.fingerprint not in self._selections:
+                    raise resources.Pm2WorkerRefused("new native profile was not declared before host serving")
+                self._selections[selected.native.fingerprint] = selected
+
+        def startup(self, selected, active):
+            if selected.native.artifacts != {"artifact": 1}:
+                raise resources.Pm2WorkerRefused("native artifacts differ from frozen selection")
+            self._serving = True
+            if selected.native.fingerprint not in self.workers:
+                worker = Worker(active, selected.device)
+                worker.startup["dtype"] = "torch." + selected.native.dtype
+                self.workers[selected.native.fingerprint] = worker
+                opened.append(worker)
+            return self.workers[selected.native.fingerprint].startup
+
+        def infer(self, selected, payload, active):
+            self.startup(selected, active)
+            return self.workers[selected.native.fingerprint].infer(payload, check_active=active)
+
+        def close(self):
+            for worker in self.workers.values():
+                if not worker.closed:
+                    worker.closed = True
+                    closed.append(worker)
+
+    monkeypatch.setattr(resources, "NativeHostGroup", Group)
     policy = CharacterizationExecutionPolicy(max_provider_jobs=2)
     execution = resources.ProviderExecution(OwnedByteBudget(policy.max_owned_bytes), policy)
     try:
@@ -68,17 +83,9 @@ def runtime(monkeypatch):
         execution.close()
 
 
-def selection(provider="maverick", profile=b'{"provider":"maverick","device":"cpu"}'):
-    return resources.PM2Selection(
-        provider,
-        Path("/fixture/python"),
-        Path("/fixture/script"),
-        Path("/fixture/project"),
-        Path("/fixture/assets"),
-        profile,
-        b'{"runtime":"frozen"}',
-        b'{"artifact":1}',
-    )
+def selection(provider="maverick", profile=None, artifacts=None):
+    from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+    return NativeSelection(NativeProfile(provider, {"runtime": "frozen"}, {"artifact": 1} if artifacts is None else artifacts, {} if profile is None else {"variant": profile.decode()}, "bfloat16" if provider == "d1" else "float32", "fixture"), Path("/fixture/assets"))
 
 
 def work(key, value, *, selected=None, active=lambda: None):
@@ -174,14 +181,14 @@ def test_one_exchange_and_one_pending_backpressure_instead_of_refusing_valid_wor
     assert result(second) == {}
 
 
-def test_profile_replacement_waits_for_active_owner_then_closes_old_resident(runtime):
+def test_undeclared_profile_refuses_after_serving_without_replacing_resident(runtime):
     execution, opened, closed = runtime
     assert result(execution.try_submit(work("one", {}))) == {}
-    changed = replace(
-        selection(), profile=b'{"provider":"maverick","device":"cpu","options":"changed"}'
-    )
-    assert result(execution.try_submit(work("two", {}, selected=changed))) == {}
-    assert len(opened) == 2 and closed == [opened[0]]
+    changed = selection(profile=b"changed")
+    with pytest.raises(resources.Pm2WorkerRefused, match="not declared"):
+        result(execution.try_submit(work("two", {}, selected=changed)))
+    assert len(opened) == 1 and closed == []
+    assert result(execution.try_submit(work("three", {}))) == {}
 
 
 def test_stale_first_borrower_does_not_stop_useful_batch_member(runtime):
@@ -197,7 +204,7 @@ def test_stale_first_borrower_does_not_stop_useful_batch_member(runtime):
 
 def test_frozen_artifact_mismatch_refuses_before_starting(runtime):
     execution, opened, _ = runtime
-    changed = replace(selection(), artifacts=b'{"artifact":2}')
+    changed = selection(artifacts={"artifact": 2})
     handle = execution.try_submit(work("wrong", {}, selected=changed))
     handle.flush()
     handle.future.result(timeout=5)
@@ -209,10 +216,9 @@ def test_frozen_artifact_mismatch_refuses_before_starting(runtime):
 
 def test_close_attempts_every_native_lane_when_one_closer_fails(runtime):
     execution, _, _ = runtime
+    other = selection("d1")
+    execution.declare_native((selection(), other))
     assert result(execution.try_submit(work("one", {}))) == {}
-    other = replace(
-        selection(), provider="d1", device="cuda", profile=b'{"provider":"d1","device":"cuda"}'
-    )
     assert (
         result(execution.try_submit(work("two", {"batch": [{"state": "source"}]}, selected=other)))[
             "batch"
@@ -228,7 +234,7 @@ def test_close_attempts_every_native_lane_when_one_closer_fails(runtime):
         raise RuntimeError("teardown failed")
 
     first.close = bad
-    second = execution._lanes["cuda"]
+    second = execution._lanes["d1"]
     closer = second.close
     second.close = lambda: (closer(), completed.append("d1"))
     with pytest.raises(RuntimeError, match="teardown failed"):
@@ -240,9 +246,7 @@ def test_close_attempts_every_native_lane_when_one_closer_fails(runtime):
 def test_explicit_flush_coalesces_ready_d1_requests_and_preserves_member_commitments(runtime):
     execution, opened, _ = runtime
     execution.coalescing_providers = frozenset({"d1"})
-    selected = replace(
-        selection(), provider="d1", device="cuda", profile=b'{"provider":"d1","device":"cuda"}'
-    )
+    selected = selection("d1")
     first = execution.try_submit(work("one", {"batch": [{"state": "first"}]}, selected=selected))
     second = execution.try_submit(work("two", {"batch": [{"state": "second"}]}, selected=selected))
     assert not opened  # Admission only; no timing-based dispatch window.
@@ -288,8 +292,9 @@ def test_gliner_coalescing_refuses_bad_logical_input_before_enqueue_and_preserve
     class Worker:
         closed = False
 
-        def __init__(self, profile):
-            pass
+        def __init__(self, profile, *, group=None):
+            from corpus_structure.methods.native_profiles import gliner_selection
+            self.selection = gliner_selection(profile, {"runtime": "frozen"})
 
         def prepare_members(self, pack, inputs, **kwargs):
             calls.append(("prepare", tuple(item.context_id for item in inputs)))
@@ -311,7 +316,8 @@ def test_gliner_coalescing_refuses_bad_logical_input_before_enqueue_and_preserve
         def close(self):
             self.closed = True
 
-    monkeypatch.setattr(resources, "GlinerWorker", Worker)
+    from corpus_structure.methods import native_host_clients
+    monkeypatch.setattr(native_host_clients, "HostedGliner", Worker)
     execution, _, _ = runtime
     execution.coalescing_providers = frozenset({"gliner"})
     profile = GlinerProfile(
@@ -329,7 +335,6 @@ def test_gliner_coalescing_refuses_bad_logical_input_before_enqueue_and_preserve
             )
         ),
     )
-    profile = replace(profile, version="gliner2-2.1.0-cpu-fp32-standard-whitespace-v1")
     pack = GlinerPack("release", "1", "{}")
 
     def request(identity, text):
@@ -438,8 +443,6 @@ def test_d1_client_defaults_to_cuda_and_cpu_requests_refuse_before_admission(run
     assert client.selection_factory().device == "cuda"
     with pytest.raises(resources.Pm2WorkerRefused, match="requires CUDA"):
         resources.pm2_client(execution, ctx, **arguments, device="cpu")
-    with pytest.raises(ValueError, match="requires CUDA"):
-        replace(selection(), provider="d1", device="cpu")
     assert not opened
     assert execution.budget.used_bytes == 0
 
@@ -451,7 +454,7 @@ def test_native_client_cohort_and_reply_preserve_declared_question_option_and_st
 
     from corpus_structure.core.method import ReadyGroup, drive_prepared_work
     from corpus_structure.methods.model_observation import validate_pm2_batch_receipt
-    from corpus_structure.methods.pm2_worker import _encode_request
+    from corpus_structure.methods.native_host import encode_host_frame, inference_frame
 
     execution, opened, _ = runtime
     execution.coalescing_providers = frozenset({"d1"})
@@ -491,7 +494,7 @@ def test_native_client_cohort_and_reply_preserve_declared_question_option_and_st
 
     replies = drive_prepared_work(plan(), ctx.check_active)
     assert len(opened[0].requests) == 1
-    wire = json.loads(_encode_request(1, opened[0].requests[0], 1_048_576))["payload"]
+    wire = json.loads(encode_host_frame(inference_frame("a"*32, "b"*32, clients[0].selection_factory(), opened[0].requests[0]), 1_048_576))["payload"]
     for native in wire["batch"]:
         assert tuple(native["state"]) == ("z_state", "a_state")
         assert tuple(native["questions"]) == ("z_question", "a_question")
@@ -553,14 +556,8 @@ def test_pm2_coalescing_admits_exact_merged_utf8_wire_frame(runtime, provider, f
     import json
 
     execution, opened, _ = runtime
-    selected = replace(
-        selection(),
-        provider=provider,
-        device="cuda" if provider == "d1" else "cpu",
-        profile=canonical_bytes(
-            dict(provider=provider, device="cuda" if provider == "d1" else "cpu")
-        ),
-    )
+    selected = selection(provider)
+
     key = "batch" if provider == "d1" else "sentences"
     members = (
         ([{"state": "é" * 200}], [{"state": "界" * 200}])
@@ -576,7 +573,7 @@ def test_pm2_coalescing_admits_exact_merged_utf8_wire_frame(runtime, provider, f
     # Independent actual wire representation, including framing, UTF-8 and newline.
     frame = (
         json.dumps(
-            dict(kind="infer", request_id=1, payload=merged),
+            dict(kind="infer", generation="0"*32, request_id="0"*32, provider=provider, profile=selected.native.fingerprint, payload=merged),
             ensure_ascii=False,
             allow_nan=False,
             separators=(",", ":"),
@@ -627,9 +624,8 @@ def test_gliner_frozen_thread_mismatch_refuses_shared_admission_before_startup(
         provider_threads=threads,
         provider_interop_threads=interop,
     )
-    monkeypatch.setattr(
-        resources, "GlinerWorker", lambda *args: pytest.fail("launched mismatched profile")
-    )
+    from corpus_structure.methods import native_host_clients
+    monkeypatch.setattr(native_host_clients, "HostedGliner", lambda *args, **kwargs: pytest.fail("launched mismatched profile"))
     request = resources.GLiNERWork(
         gliner_profile().profile,
         GlinerPack("release", "1", "{}"),
@@ -651,27 +647,15 @@ def test_gliner_frozen_thread_mismatch_refuses_shared_admission_before_startup(
     assert execution.budget.used_bytes == 0
 
 
-def test_pm2_combined_frame_fit_uses_actual_next_resident_request_ordinal(runtime):
-    import json
-
+def test_host_frame_fits_full_multiplex_identity_at_exact_boundary(runtime):
     execution, opened, _ = runtime
-    selected = replace(
-        selection(), provider="d1", device="cuda", profile=b'{"provider":"d1","device":"cuda"}'
-    )
-    startup = execution.try_submit(resources.PM2Work(selected, None, "startup", (lambda: None,)))
-    assert result(startup) == {}
-    opened[0].next_request_id = 10
-    first_payload = {"batch": [{"state": "a" * 200}]}
-    second_payload = {"batch": [{"state": "b" * 200}]}
-    merged = {"batch": [*first_payload["batch"], *second_payload["batch"]]}
-    frame = (
-        json.dumps(dict(kind="infer", request_id=1, payload=merged), separators=(",", ":")).encode()
-        + b"\n"
-    )
-    execution.policy = replace(execution.policy, max_native_request_bytes=len(frame))
-    first = execution.try_submit(work("one", first_payload, selected=selected))
-    second = execution.try_submit(work("two", second_payload, selected=selected))
-    first.flush()
-    assert result(first)["batch"][0]["state"] == "a" * 200
-    assert result(second)["batch"][0]["state"] == "b" * 200
-    assert len(opened[0].requests) == 2
+    selected = selection("d1")
+    payloads = [{"batch": [{"state": "a"*2000}]}, {"batch": [{"state": "b"*2000}]}]
+    merged = {"batch": [item for payload in payloads for item in payload["batch"]]}
+    from corpus_structure.methods.native_host import host_request_frame_size
+    size = host_request_frame_size(selected, merged, execution.policy.max_native_request_bytes)
+    execution.policy = replace(execution.policy, max_native_request_bytes=size)
+    handles = [execution.try_submit(work(str(i), payload, selected=selected)) for i, payload in enumerate(payloads)]
+    handles[0].flush()
+    assert [result(handle)["batch"][0]["state"] for handle in handles] == ["a"*2000, "b"*2000]
+    assert len(opened[0].requests) == 1
