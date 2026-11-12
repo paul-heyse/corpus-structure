@@ -1,0 +1,152 @@
+# Source-language proposals only. These questions confer no scientific or record authority.
+- family: character_modal_force_v1
+  provider: d1
+  renderer: characterization-state-v1
+  context_policy: exact-focal-and-declared-source-context-v1
+  questions:
+    - key: modal_cue
+      kind: text
+      projection_role: modal_cue
+      instructions: Read one exact focal source phrase expressing modality, including its overt auxiliary. Leave absent when no unique cue is supported. Use only /source as literal evidence.
+    - key: modal_target
+      kind: text
+      projection_role: modal_target
+      literal_scope: context
+      stage: 1
+      depends_on: [modal_cue]
+      instructions: Read the exact focal source clause targeted by the frozen modal cue in prior_answers. Do not copy prior_answers as evidence. Leave absent if the target is unclear.
+    - key: modal_force
+      kind: choice
+      projection_role: modal_force
+      stage: 2
+      depends_on: [modal_cue, modal_target]
+      instructions: Propose the contextual force of the frozen cue and target. Preserve the overt auxiliary separately; a probability is not proof of necessity.
+      options:
+        - {key: epistemic, criterion: The source expresses possibility or necessity concerning what is known or believed.}
+        - {key: deontic, criterion: The source expresses permission or obligation.}
+        - {key: dynamic, criterion: The source expresses ability or circumstances enabling an event.}
+        - {key: other, criterion: A supported modal force outside the other declared types.}
+        - {key: no_modal, criterion: No modal force is supported., disposition: no_match}
+        - {key: insufficient, criterion: The source does not determine a modal force., disposition: insufficient_evidence}
+- family: character_scope_v1
+  provider: d1
+  renderer: characterization-state-v1
+  context_policy: exact-focal-and-declared-source-context-v1
+  questions:
+    - {key: quantifier_cue, kind: text, projection_role: quantifier_cue, instructions: "Read one exact focal quantifier cue from /source; leave absent when none is uniquely supported."}
+    - {key: negative_cue, kind: text, projection_role: negative_cue, instructions: "Read one exact focal negation cue from /source; leave absent when none is uniquely supported."}
+    - {key: bound_participant, kind: text, projection_role: bound_participant, literal_scope: context, stage: 1, depends_on: [quantifier_cue], instructions: "Read the exact participant bound by the frozen quantifier cue. Leave absent when unsupported; equal spelling alone does not identify a binding."}
+    - {key: restrictor, kind: text, projection_role: restrictor, literal_scope: context, stage: 1, depends_on: [quantifier_cue], instructions: "Read the exact written restrictor of the frozen quantifier cue from /source. Leave absent for an implicit or unclear restriction."}
+    - {key: quantifier_body, kind: text, projection_role: quantifier_body, literal_scope: context, stage: 1, depends_on: [quantifier_cue], instructions: "Read the exact body targeted by the frozen quantifier cue in the declared source context. Leave absent if unclear."}
+    - {key: negative_target, kind: text, projection_role: negative_target, literal_scope: context, stage: 1, depends_on: [negative_cue], instructions: "Read the exact target of the frozen negative cue in the declared source context. Leave absent if unclear."}
+    - key: relative_scope
+      kind: choice
+      projection_role: relative_scope
+      stage: 2
+      depends_on: [quantifier_cue, negative_cue]
+      instructions: Propose only the relative scope of the one frozen quantifier and negative cue. This bounded choice does not express an arbitrary scope graph. Not every and every not are different choices.
+      options:
+        - {key: negative_over_quantifier, criterion: Negation takes scope over the quantified proposition as in not every.}
+        - {key: quantifier_over_negative, criterion: The quantified body is negated as in every participant does not.}
+        - {key: independent, criterion: The two cues have separate targets without a relative scope relation.}
+        - {key: insufficient, criterion: The source does not settle the relative scope., disposition: insufficient_evidence}
+- family: character_attribution_v1
+  provider: d1
+  renderer: characterization-state-v1
+  context_policy: exact-focal-and-declared-source-context-v1
+  questions:
+    - {key: attribution_cue, kind: text, projection_role: attribution_cue, instructions: "Read one exact focal reporting or quotation cue from /source. Leave absent if no unique attribution is written."}
+    - {key: reporter, kind: text, projection_role: reporter, literal_scope: context, stage: 1, depends_on: [attribution_cue], instructions: "Read the exact source-local reporter or source mention for the frozen attribution. Do not resolve an external speaker."}
+    - {key: attributed_content, kind: text, projection_role: attributed_content, literal_scope: context, stage: 1, depends_on: [attribution_cue], instructions: "Read the exact content attributed by the frozen cue. Keep reported content separate from author endorsement."}
+    - {key: embedding_cue, kind: text, projection_role: embedding_cue, literal_scope: context, stage: 1, depends_on: [attribution_cue], instructions: "Read exact enclosing reporting or quotation support if this attribution is embedded inside another attribution. Leave absent when none is explicitly supported."}
+    - key: stance
+      kind: choice
+      projection_role: attribution_stance
+      stage: 2
+      depends_on: [attribution_cue, attributed_content]
+      instructions: Propose the stance toward the frozen attributed content, without making its scientific claims true.
+      options:
+        - {key: reports, criterion: The source reports the content without explicit endorsement or rejection.}
+        - {key: endorses, criterion: The source explicitly endorses the reported content.}
+        - {key: rejects, criterion: The source explicitly rejects or disputes the reported content.}
+        - {key: hypothetical, criterion: The attribution is presented as hypothetical.}
+        - {key: insufficient, criterion: Stance is not determined by the source., disposition: insufficient_evidence}
+- family: character_function_v1
+  provider: d1
+  renderer: characterization-state-v1
+  context_policy: exact-focal-and-declared-source-context-v1
+  questions:
+    - key: functions
+      kind: choice
+      multiple: true
+      projection_role: passage_function
+      instructions: Independently propose each function performed by the exact focal source, considering only declared context. These are overlapping passage labels and do not provide a literal witness.
+      options: &functions
+        - {key: assertion, criterion: States a proposition as holding.}
+        - {key: question, criterion: Asks for information or an answer.}
+        - {key: instruction, criterion: Directs an action.}
+        - {key: definition, criterion: Explains the meaning of a term.}
+        - {key: naming, criterion: Assigns or introduces a name.}
+        - {key: assumption, criterion: States a premise to be taken as given.}
+        - {key: example, criterion: Gives a particular illustrative case.}
+        - {key: explanation, criterion: Explains why or how something occurs.}
+        - {key: hypothesis, criterion: Poses a tentative proposition for consideration.}
+        - {key: contrast, criterion: Explicitly contrasts alternatives or statements.}
+        - {key: description, criterion: Describes characteristics or circumstances.}
+    - {key: function_support, kind: text, projection_role: function_support, stage: 1, depends_on: [functions], instructions: "Read an exact focal source phrase supporting the selected function proposals. Leave absent if no unique support is locatable. An absent witness does not become a fabricated span."}
+- family: character_host_choice_v1
+  provider: d1
+  renderer: characterization-state-v1
+  context_policy: exact-focal-and-declared-source-context-v1
+  require_focus: true
+  focus_types: [construction, operator, unknown, contextual.host_hypothesis]
+  candidate_types: [construction, predicate, operator, binder, clause_relation, contextual.host_hypothesis, compatible_host_set]
+  questions:
+    - key: host
+      kind: choice
+      candidate_options: true
+      projection_role: unresolved_host
+      instructions: Choose the one offered host or explicitly compatible host set restricted by the exact focal qualifier/operator. Preserve its frozen member IDs. Never combine independent labels into a host set or reject a never-offered host.
+      options:
+        - {key: no_host, criterion: The source supports no compatible host among the offered alternatives., disposition: no_match}
+        - {key: missing_host, criterion: A source-supported host is absent from the frozen alternatives., disposition: missing_candidate}
+        - {key: insufficient, criterion: Source support cannot determine the host., disposition: insufficient_evidence}
+- family: character_referent_choice_v1
+  provider: d1
+  renderer: characterization-state-v1
+  context_policy: exact-focal-and-declared-source-context-v1
+  require_focus: true
+  focus_types: [native.mention, contextual.referent_hypothesis]
+  candidate_types: [native.mention, native.coreference_cluster, contextual.entity, contextual.event, contextual.other]
+  questions:
+    - key: referent
+      kind: choice
+      candidate_options: true
+      projection_role: unresolved_referent
+      instructions: Choose the source-level antecedent of the exact focal unresolved mention from the frozen typed alternatives. This is linguistic reference, not cross-work conceptual identity. Do not reject an alternative that was never offered.
+      options:
+        - {key: no_referent, criterion: The source supports none of the offered alternatives., disposition: no_match}
+        - {key: missing_referent, criterion: The source indicates an antecedent absent from the frozen list., disposition: missing_candidate}
+        - {key: insufficient, criterion: The source leaves reference unresolved., disposition: insufficient_evidence}
+- family: character_gliner_cues_v1
+  provider: gliner
+  renderer: characterization-state-v1
+  context_policy: exact-focal-and-declared-source-context-v1
+  questions:
+    - {key: term, kind: text, projection_role: term_mention, instructions: "A literal technical term mention; no canonical concept identity."}
+    - {key: modal_cue, kind: text, projection_role: modal_cue, instructions: "A literal modal auxiliary or other modality cue; no decided force or target."}
+    - {key: negative_cue, kind: text, projection_role: negative_cue, instructions: "A literal word or phrase expressing negation; no decided scope."}
+    - {key: quantifier_cue, kind: text, projection_role: quantifier_cue, instructions: "A literal quantifier cue; no decided binding or scope."}
+    - {key: attribution_cue, kind: text, projection_role: attribution_cue, instructions: "A literal reporting, quotation or attribution cue; no resolved speaker."}
+    - {key: discourse_cue, kind: text, projection_role: discourse_cue, instructions: "A literal connective or discourse relation cue; no endorsed logical relation."}
+- family: character_gliner_function_v1
+  provider: gliner
+  renderer: characterization-state-v1
+  context_policy: exact-focal-and-declared-source-context-v1
+  questions:
+    - key: functions
+      kind: choice
+      multiple: true
+      projection_role: passage_function
+      instructions: Independently label the functions of this one exact source slice. The classification supplies no literal witness and no arbitrary discontinuous context.
+      options: *functions

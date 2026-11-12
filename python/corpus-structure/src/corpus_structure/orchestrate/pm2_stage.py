@@ -129,7 +129,7 @@ class InterpretationProfile(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     provider: Literal["d1"]
-    device: Literal["cpu", "cuda"]
+    device: Literal["cuda"] = "cuda"
     startup: dict[str, JsonValue]
 
     @model_validator(mode="after")
@@ -139,6 +139,8 @@ class InterpretationProfile(BaseModel):
             or str(self.startup.get("device", "")).split(":")[0] != self.device
         ):
             raise ValueError("startup identity differs from the selected provider and device")
+        if self.startup.get("dtype") != "torch.bfloat16":
+            raise ValueError("d1 execution requires the CUDA bfloat16 profile")
         return self
 
 

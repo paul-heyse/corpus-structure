@@ -62,6 +62,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0083](0083-operation-owned-characterization-execution.md) | Characterization execution owns verified preparation and bounded workers | 2026-11-11 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0084](0084-characterization-ready-coordination-and-batch-receipts.md) | Coordinate ready characterization work with exact versioned batch receipts | 2026-11-11 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0085](0085-qualified-native-batch-numerics.md) | Retain authentic native batch observations under explicit numerical semantics | 2026-11-11 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0086](0086-d1-requires-cuda-bfloat16.md) | Run current D1 characterization on CUDA with explicit BF16 provenance | 2026-11-11 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

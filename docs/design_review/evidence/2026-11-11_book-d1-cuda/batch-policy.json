@@ -1,0 +1,99 @@
+{
+  "request_version": "located-model-request-2",
+  "definition_windows": {
+    "chars": 1536,
+    "overlap": 256,
+    "limit": 64
+  },
+  "definition_witness": {
+    "scope": "definition-scope-1",
+    "term_role": "defined_term",
+    "content_role": "defining_content",
+    "rules": {
+      "defining/active_as": "59bdb69109242562c16522d420687b0b59c55dfb1dc0903317f18dde43ff199c",
+      "defining/passive_as": "bc69319d9a1be26d08641c74b0f0c29cb0d9c8bfee512deaf718423e61a15426",
+      "defining/active_to_be": "3b8ba73a85285ac88240f0c00923fdd5a234f4d7a9242eea6ebf57a272ff4235",
+      "defining/passive_to_be": "70cb69c65a28238164fee7a813d1b1b7be5a04a7dbc79ef6ba43b4819a3ca426",
+      "naming/active_called_term": "e3620b4a6e9cfdb85752f9b301d0a2b3a5e85dd9ddb7589b7b4492596c685686",
+      "naming/passive_called_term": "6c15bce628d53989145a317593b6f18ed29c6d993edba4c7fd7c29577c84c903",
+      "defining/passive_following_display": "2fd0307c72c99e8f8c1c6aa941faee51f9d68ea8e4539f17a479e515fb86d22f",
+      "defining/active_following_display": "0138630346c9296afd554fdbc61bce571e3d10258bafd756d22ba2c1d5807021",
+      "explanation/given_following_display": "04adf2c3023cb7e6570ca1e9eba3e4c71df2babef967ff725c0854cfd74bb929",
+      "definition_context/numbered_label": "d6c54c81e80e9ebd67f3896b82530fb62f8253d79040139b23014d3ac9624834",
+      "definition_context/labelled_copula_display": "91898a917bdd08178509362c2dcfcb4266f4eecb0293764d2e1cb3f9b86f7787",
+      "defining/nominal_follows": "611fdaa30363438b428fa88de65bae8600a4e749d867483240b95e00e11bbdc1",
+      "defining/constructive_copula": "b7e8fcc005c4dcc37f56cbca53621acfd940e9d52f3d3a38419b2b918036bcbb"
+    }
+  },
+  "definition": {
+    "bare": [
+      "{\"entities\":[",
+      {
+        "field": "term_entity"
+      },
+      ",",
+      {
+        "field": "content_entity"
+      },
+      "],\"entity_attributes\":{\"interpretation\":{\"labels\":[\"definition\",\"explanation\",\"unresolved\"],\"applies_to\":[",
+      {
+        "field": "term_entity"
+      },
+      "],\"qualify_labels\":true}},\"relations\":[",
+      {
+        "field": "attachment_relation"
+      },
+      "]}"
+    ],
+    "described": [
+      "{\"entities\":{",
+      {
+        "field": "term_entity"
+      },
+      ":\"The exact term or expression whose meaning is stated, distinct from neighboring examples, subjects of historical reports, and incidental symbols.\",",
+      {
+        "field": "content_entity"
+      },
+      ":\"The complete text or formula conveying that meaning, including complements and restrictions needed to state it.\"},\"entity_attributes\":{\"interpretation\":{\"labels\":[\"definition\",\"explanation\",\"unresolved\"],\"applies_to\":[",
+      {
+        "field": "term_entity"
+      },
+      "],\"qualify_labels\":true}},\"relations\":{",
+      {
+        "field": "attachment_relation"
+      },
+      ":\"Directed from the exact term occurrence to the text or formula that defines or explains that occurrence in its local scope.\"}}"
+    ]
+  },
+  "clause": "{\"classifications\":[{\"task\":\"clause_function\",\"labels\":{\"definition\":\"States the meaning of a term, expression, or object.\",\"explanation\":\"Explains why or how a fact or concept holds.\",\"assumption_restriction\":\"Introduces a premise, restriction, or conditional scope.\",\"prescribed_action\":\"Instructs a reader or actor to perform an action.\",\"described_process\":\"Describes how an action or process occurs.\",\"reference\":\"Refers to another definition, statement, source, or artifact.\",\"unresolved\":\"The clause function cannot be determined from the selected input.\"},\"multi_label\":false},{\"task\":\"presentation_context\",\"labels\":{\"example\":\"Presented as a worked example or illustration.\",\"attribution\":\"Reports or attributes a statement, assumption, or activity to another party.\",\"historical\":\"Discusses prior events or historical work.\",\"unresolved\":\"The presentation context cannot be determined from the selected input.\"},\"multi_label\":true,\"cls_threshold\":0.5}]}",
+  "inference": {
+    "operation": "batch_extract",
+    "include_spans": true,
+    "include_confidence": true,
+    "num_workers": 0,
+    "max_len": null
+  },
+  "batch_execution": {
+    "version": 3,
+    "native_input_order": "preserve-declared-question-option-state-field-order",
+    "pm2_receipt_version": 2,
+    "member_identity": "exact-request-context-source-and-inference-policy",
+    "grouping": "compatible-admitted-members-in-declared-order",
+    "native_numerical_variation": "permitted-including-threshold-and-decoder-tie-selection-changes",
+    "score_reduction": "unrounded-actual-native-confidence-with-unchanged-released-thresholds",
+    "reuse": "authentic-retained-observation-not-bitwise-fresh-execution-equivalence",
+    "providers": {
+      "gliner": {
+        "device": "cpu",
+        "dtype": "float32",
+        "numerical_contract": "native-float32-batch-observation-v1"
+      },
+      "d1": {
+        "device": "cuda",
+        "dtype": "bfloat16",
+        "cpu_allowed": false,
+        "numerical_contract": "native-cuda-bfloat16-batch-observation-v1"
+      }
+    }
+  }
+}

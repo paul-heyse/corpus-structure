@@ -1,5 +1,20 @@
 # D8 · Agent and query interfaces
 
+## D1 profile selection and retained device provenance
+
+**Proposed accepted target · 2026-11-11.** Current managed/standalone D1 interfaces default to
+and require CUDA/BF16, refusing CPU or missing GPU/BF16 prerequisites rather than falling back.
+Readers/export/replay preserve original actual device/precision and numerical-policy provenance.
+Authentic historical CPU observations remain CPU evidence under their original contracts; no
+CPU/GPU equivalence or retrospective qualification is inferred. Actual bounded D1 CUDA request/batch/source/custody evidence is retained; final captured-source
+DB/native qualification remains a BEP-04–06/required07a obligation, distinct from other07b device
+work and full-book qualification. Private proposal standing, exact pins and native source/attempt fences are unchanged.
+Current PM2 receiptv2 and retained SourceValue field positions preserve meaningful native
+question/option/state/reply order. Historical receiptv1 reads validate the original canonical
+member/cohort contract; they acquire neither ordered-wire provenance nor a new receipt version.
+
+> Decision: [ADR-0086](../adr/0086-d1-requires-cuda-bfloat16.md)
+
 ## Versioned native batch receipt reads
 
 **Proposed accepted target · 2026-11-11.** Public/book/ingest/analytics entry points use shared

@@ -712,6 +712,16 @@ class ModelCharacterizationBuilder(NativeEvidenceBuilder):
         family, scope = request.family, request.scope
         payload = request.payload
         receipt = reply.get("batch_receipt")
+        if self.operation.get("version") != "1":
+            if (
+                str(runtime.get("device", "")).split(":")[0] != "cuda"
+                or runtime.get("dtype") != "torch.bfloat16"
+            ):
+                raise ValueError("current d1 observation requires CUDA bfloat16 runtime")
+            if not isinstance(receipt, dict) or receipt.get("version") != 2:
+                raise ValueError(
+                    "current d1 observation requires its ordered version2 cohort receipt"
+                )
         if receipt is not None:
             from corpus_structure.methods.model_observation import validate_pm2_batch_receipt
 

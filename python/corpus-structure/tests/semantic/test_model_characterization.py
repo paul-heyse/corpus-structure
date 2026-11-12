@@ -730,3 +730,19 @@ def test_gliner_passage_category_never_supplies_literal_witness(prepared, declar
     assert next(
         annotation for annotation in output.annotations if annotation["kind"] == "model.question"
     )["model_answer"]["selected_keys"] == ["assertion"]
+
+
+def test_current_d1_projection_refuses_historical_cohort_or_cpu_runtime(declarations):
+    selected = scope()
+    output = builder(selected)
+    output.operation["version"] = "2"
+    request = compile_question_stage(declarations["character_modal_force_v1"], selected, 0)
+    reply = d1_reply(request, dict(modal_cue=read_answer()))
+    with pytest.raises(ValueError, match="CUDA bfloat16"):
+        output.d1(request, reply, runtime={"device": "cpu", "dtype": "torch.float32"})
+    with pytest.raises(ValueError, match="ordered version2"):
+        output.d1(
+            request,
+            {**reply, "batch_receipt": {"version": 1}},
+            runtime={"device": "cuda:0", "dtype": "torch.bfloat16"},
+        )

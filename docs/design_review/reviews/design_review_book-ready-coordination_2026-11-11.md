@@ -18,7 +18,7 @@ to the [BEP coordinator](../../plans/book-processing-efficiency-and-parallelism_
 The workload remains316 natural regions over the authentic518-page source with complete selected
 families, skewed formula/model contexts, exact retained dependency closure and one local operator.
 Do not split contexts, drop families, restart recognition or raise the layer publication limit.
-Run610's oversized native layer remains a distinct unresolved full-book limitation. CUDA/final
+Run610's oversized native layer remains a distinct unresolved full-book limitation. Current D1 CUDA/BF16 qualification is authorized immediately; other CUDA/final
 operating policy belongs to07b and full-book qualification to09.
 
 ## 2. Responsibilities and semantic fidelity
@@ -345,9 +345,163 @@ CI-G2 evidence closure and CI-G3 evaluation integrity show no remaining in-scope
 inspected source. Source membership, packed interpretation, unknown/unsupported outcomes,
 original-release closure and private-versus-knowledge standing retain their owners. The scoped
 judgment does not offset run610's independent publication-size limit or settle enclosing whole-book
-execution fit. Final operating counts/devices, CUDA and BEP-09 remain open with the coordinator.
+execution fit. Final operating counts, other device profiles and BEP-09 remain open with the coordinator;
+current D1 CUDA/BF16 is the separately authorized target below.
 
 Tests/providers executed by this reviewer: **not_run**. The root's receipts own fresh functional,
 provider/native and final-source applicability; source inspection and retained bounded evidence
 supply this review's stated strength. Preserve failed/superseded attempts and remaining native
 qualification without relabelling them passed. No TC-plan reconciliation or activation follows.
+
+<a id="required-d1-cuda-bf16-target"></a>
+
+## Required D1 CUDA/BF16 target · 2026-11-11
+
+**Accept scoped, Proposed**, the operator-directed current D1 CUDA-only/BF16 profile under
+ADR-0086. This supersedes the tentative600second CPU-deadline branch in the live review; no such
+CPU extension remains the target. The prior assembled source assessment describes the earlier
+CPU baseline, not acceptance of the new CUDA implementation or qualification. A new final-source
+fingerprint and actual CUDA evidence are required before accepting its cutover.
+
+The actual two-prose captured-source integration attempt exposed two D1 inference timeouts at
+the120second CPU default despite coherent source/stage publication. Root retains that failure in
+managed result f0766f5fa43141029e614de30b99e2e0 and the BEP owner. Those failures remain diagnostic
+history; successful publication/other families and prior exact CPU batch replies do not establish
+D1 CUDA passage. No source context or native set_size16 workload is reduced.
+
+The inspected _load_d1 route already selects torch.bfloat16 for CUDA, checks BF16 support and
+reports actual parameter device/dtype and native attention/set size. CUDA therefore changes the
+inference profile and must not be represented as transparent CPU-equivalent placement. Current
+configuration/defaults and native admission must select CUDA, reject CPU, and refuse missing
+CUDA/BF16 without fallback. Managed/standalone current D1 authoring uses the same rule; historical
+authentic CPU outputs keep original read-only meaning and are never relabelled.
+
+Bind the required CUDA/BF16 profile through exact current configuration/released provider policy,
+frozen runtime/artifacts, request/resident compatibility and executed startup/model metadata.
+Provider/device-scoped policy keeps GLiNER CPU float32 and D1 CUDA BF16 distinct, outside native
+API inference kwargs. Preserve actual unrounded outputs, unchanged thresholds and complete
+batch/member/source provenance; numerical nondeterminism includes possible threshold/tie changes.
+No universal epsilon, fresh-run byte reproducibility, CPU/GPU equivalence or CUDA accuracy claim
+follows. ADR-0085's earlier CPU evidence retains its original scope.
+
+The persistent lane owns existing device/Nemotron custody across startup, inference, cancellation
+and teardown. Missing GPU support refuses before inference. Actual D1 CUDA qualification is
+immediate within BEP-04–06/required07a: verify hardware/runtime/BF16 and actual executed metadata,
+source-aligned current questions/batches/member association, required custody/lifecycle and native
+DB integration. Claim renewal, fast active polling, finite existing deadlines and exact publication
+remain; no retry loop, CPU fallback or new scheduler is introduced. Other provider CUDA selections
+and final counts remain07b; this authorizes no broad unrelated GPU campaign.
+
+A1–A3/G1–G6/CI-G1–G3 have a coherent Proposed realization through the existing explicit loader,
+configuration, parent authority and custody boundaries. A4 has a credible selected GPU route to
+investigate after the demonstrated CPU limit; actual success remains pending. G7 forbids promoting
+the target to qualified CUDA capability from CPU receipts. G8 favors existing native/device APIs
+rather than new fallback or dispatch machinery. This current operator selection records a real
+inference-profile decision in new ADR-0086, leaving accepted ADR-0084/0085 immutable.
+
+Bounded actual D1 CUDA evidence is assessed below. Final captured-source DB/native qualification
+and final-source applicability remain with root. Tests/providers executed by this reviewer:
+**not_run**. No CPU/GPU equivalence, speedup, full-book or TC completion is claimed.
+
+### D1 native order preservation and receipt version · 2026-11-11
+
+**Implemented exact-input correction; bounded CUDA evidence assessed below.** The actual CUDA investigation
+exposed canonical_bytes sorting PM2 payload dictionaries after compile_question_stage had
+intentionally preserved declared question/option order. Sorting also crossed coalesced request
+and reply/scatter serialization. Native D1 consumes ordered questions/options and renders state
+fields; order loss is a computational-input regression, not numerical nondeterminism and not
+permitted by ADR-0085/0086. No successful native coverage may be inferred from a sorted request
+that differs from its declared ordered request.
+
+Use one ordered_native_bytes encoder for native JSON transport, preserving nested insertion order
+with finite valid JSON. Request preparation, combined payloads, native response payload retention
+and member scatter preserve that order. Canonical semantic identity and envelope-header hashing
+remain separately owned and are unchanged where order is not computational input. The native IPC
+encoder/decoder already preserves object insertion order; the new adapter layer must not erase it.
+
+Current PM2 receiptv2 hashes exact ordered native member bytes and a domain/version-tagged cohort
+commitment. The shared validator retains original receiptv1 canonical member/cohort validation
+for authentic historical reads and validates current v2 under its ordered contract. Current D1
+CUDA production requires v2 and actual CUDA/BF16 correspondence. HanLP may emit the same v2 codec;
+its sentence arrays preserve order under either historical/current encoding. No old receipt is
+rewritten, and old producer2 CPU/v1 products remain readable under their original contracts.
+
+The existing QuestionRequest content/digest already preserves declared order. Therefore the
+transport repair restores that accepted semantic contract; explicit receipt version, the newly
+released native-order policy and current CUDA-only configuration/runtime provide the necessary
+current/historical distinction. A blanket producer-version bump solely for this internal
+contract-restoring repair is unnecessary. SourceValue already represents object field positions,
+so retained ordered source values need no new top-level schema. Accepted ADR-0086 is unchanged;
+this paragraph records its exact-input realization, not a different order or inference decision.
+
+A2/G2/G6 require actual original question/option/state order, while A1/A3 favor one shared wire
+encoder and versioned receipt validator over projector-specific repairs. A4 does not excuse
+silent computational-input normalization. Root owns an independently ordered multi-question/
+option control and actual CUDA rerun after freeze. Tests/providers by this reviewer: **not_run**.
+
+<a id="final-scoped-cuda-source-and-native-evidence-acceptance"></a>
+
+## Final scoped CUDA source and native-evidence acceptance · 2026-11-11
+
+**Accept scoped, Interface-checked**, the current D1 CUDA-only/BF16 implementation and ordered
+PM2 receiptv2 contract. Final inspected33-file BEP product footprint relative to380fecc74 has
+path+NUL+bytes+NUL SHA-256
+`9d2b51c7ae7958e2bd438b416baa2195930ba96ac91ddbc12c640677cb3e714b`.
+This replaces the earlier CPU/deadline candidate footprint for current cutover. Root owns final
+maintenance, final-source/context reconciliation and DB/native coverage acceptance. Accepted
+ADR-0086 remains unchanged; these are implementation/evidence observations under its target.
+
+Current ModelCharacterizationConfig and managed InterpretationProfile require/default CUDA;
+PM2 selection/client/native admission refuses CPU, missing CUDA or missing BF16. The native loader
+and parent lane both validate executed CUDA device and torch.bfloat16 metadata. No600second CPU
+branch or CPU fallback remains. Released batch_execution version3 explicitly distinguishes D1
+CUDA bfloat16 from GLiNER CPU float32 and binds the native-order/numerical contract; that metadata
+does not leak into unsupported native API kwargs. Both preserve actual unrounded confidence and
+honest threshold/tie variation. Current model reduction requires actual CUDA/BF16 and ordered
+receiptv2 before projecting D1 results.
+
+All four PM2 serialization sites preserve ordered native JSON: parent request creation, combined
+request, native reply retention and member scatter. The existing native frame encoder preserves
+that order too. Member receipts hash actual ordered input bytes; cohort digest includes its v2
+domain tag. Shared validation retains v1's original canonical member/cohort semantics for authentic
+history. Old producer2 CPU/v1 data remains readable under original contracts; new authoring is
+CUDA-only. The repair restores declared question/option/state order rather than changing it or
+hiding an input mutation under numerical tolerance.
+
+The [actual CUDA probe/check summary](../evidence/2026-11-11_book-d1-cuda/raw/summary.json), its
+probe source, independent checker and raw replies were inspected. **Tested, bounded native panel,
+2026-11-11:** actual startup reports CUDA:0, torch.bfloat16, RTX5090, Torch2.15.0+cu132/CUDA13.2,
+set attention/set_size16 and native threads4/inter-op1. Thirteen function members over seven
+singleton/mixed/reversed/regrouped populations preserve their original question/cardinality/source
+contracts. Two independently submitted logical borrowers actually share one physical CUDA cohort
+and retain correct original ordinals. Two literal multi-question members preserve declared order
+and reconstruct the exact source field. A real stage1 function_support request consumes actual
+stage0 prior answers; missing prior refuses. Active cancellation stops the captured owned child,
+closes the owner with zero charged bytes and permits reacquiring GPU custody. These results are
+actual native execution, not mocked replies or extrapolation from CPU evidence. The probe's
+selection uses no Nemotron endpoint: GPU-slot recovery is observed, while suspension/restoration
+of a live Nemotron service is not established by this panel. That existing optional handoff
+retains its own custody evidence and applicable integration obligations.
+
+The same panel retained discrete outputs while native confidence changed by as much as
+0.01866078038429342 across GPU groupings. That is a materially larger observed variation than the
+CPU panels; it is not described as negligible. It is admissible only under the explicit released
+native BF16 observation contract: exact actual scores/decisions/provenance are retained, and
+threshold/label changes remain possible. The observed maximum is not a universal error bound or
+acceptance epsilon. Discrete agreement in these strings proves neither general selection stability
+nor linguistic correctness; CPU/GPU numerical equivalence is not claimed. The first CUDA attempt's
+ordered-literal failure and original CPU timeout attempts remain diagnostic evidence, not relabelled
+passes or erased history.
+
+A1–A3/G1–G6/CI-G1–G3 are satisfied at Interface-checked source strength through the existing explicit
+profile, ordered-input, parent-effect, historical-read and custody owners. A4 has a credible scoped
+realization supported by actual native GPU work on this panel, while final captured-prose DB/native
+coverage remains pending. G7 keeps that remaining obligation visible; G8 uses the existing native
+CUDA and lane mechanisms without a CPU fallback, extra scheduler or numerical stabilizer. No
+remaining critical source defect was identified in these inspected boundaries. The known book
+publication-size limit, other07b profiles/final counts and BEP-09 remain outside this acceptance.
+
+Provider/test execution by this reviewer: **not_run**. The evidence above is attributed to the
+root's actual retained probe/check, not a fresh reviewer run. Root owns evidence-record finalization,
+final DB/native receipts, immutable failure retention and complete applicable qualification. This
+acceptance does not close those obligations or authorize a book restart, selection or activation.

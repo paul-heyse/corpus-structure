@@ -183,3 +183,30 @@ def test_candidate_discovery_uses_active_selection_and_retains_validation_closur
     assert result.characterization_layer.payload["operation"]["required_layers"] == [
         active.values()
     ]
+
+
+def test_current_d1_configuration_requires_cuda_without_cpu_fallback():
+    from pydantic import ValidationError
+
+    from corpus_structure.orchestrate.pm2_stage import InterpretationProfile
+
+    assert ModelCharacterizationConfig().d1_device == "cuda"
+    with pytest.raises(ValidationError, match="cuda"):
+        ModelCharacterizationConfig.model_validate({"d1_device": "cpu"})
+    startup = dict(provider="d1", device="cuda:0", dtype="torch.bfloat16")
+    assert InterpretationProfile(provider="d1", startup=startup).device == "cuda"
+    with pytest.raises(ValidationError, match="cuda"):
+        InterpretationProfile.model_validate(dict(provider="d1", device="cpu", startup=startup))
+    with pytest.raises(ValidationError, match="bfloat16"):
+        InterpretationProfile(provider="d1", startup={**startup, "dtype": "torch.float32"})
+
+
+def test_native_d1_cpu_refusal_precedes_model_or_asset_loading(tmp_path):
+    from corpus_structure.methods.pm2_native import _load_d1, _load_profile
+
+    with pytest.raises(ValueError, match="requires CUDA"):
+        _load_d1(tmp_path / "no-assets", "cpu")
+    profile = tmp_path / "profile.json"
+    profile.write_text('{"provider":"d1","device":"cpu"}')
+    with pytest.raises(ValueError, match="requires CUDA"):
+        _load_profile(profile)

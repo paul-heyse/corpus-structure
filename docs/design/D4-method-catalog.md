@@ -1,5 +1,30 @@
 # D4 · Method catalog
 
+## Current D1 requires CUDA and BF16
+
+**Proposed accepted target · 2026-11-11.** Current D1 authoring/defaults and native execution
+select CUDA only, with BF16, and explicitly refuse CPU selection or unavailable CUDA/BF16 support.
+No CPU fallback or extended CPU-timeout route remains. Frozen configuration/released provider
+policy, runtime/artifacts, request/resident identity and executed startup/model metadata preserve
+the actual device/precision profile. Native set attention/set_size16, complete contexts and exact
+question/candidate meaning remain. Declared question, option and native state-field order must
+survive request preparation, coalescing, IPC and reply scatter. Ordered native JSON bytes and
+canonical semantic hashing are separate encodings. Current PM2 receiptv2 authenticates the exact
+ordered member bytes and a version-tagged ordered cohort; historical receiptv1 keeps its original
+canonical-hash read semantics. Current D1 CUDA production requires receiptv2 and actual CUDA/BF16
+metadata under the newly released native-order policy. This repairs the existing exact-input
+contract rather than changing declaration order or reinterpreting old producer2 CPU observations.
+Authentic historical CPU observations stay readable as CPU
+evidence and are never relabelled CUDA. GLiNER retains its separately qualified CPU float32 profile;
+release-owned numerical policy is provider/device scoped and does not promise CPU/GPU equivalence.
+Bounded actual D1 CUDA evidence establishes ordered question/batch/member/source mapping,
+actual prior-answer propagation and cancellation/custody recovery under CUDA/BF16. Final authentic
+captured-source DB/native qualification remains with BEP. Native BF16 confidence variation is
+retained honestly without CPU-equivalence or universal threshold-stability claims. Other07b
+devices/final counts remain separate.
+
+> Decision: [ADR-0086](../adr/0086-d1-requires-cuda-bfloat16.md)
+
 ## Qualified CPU native numerical observations
 
 **Proposed accepted target · 2026-11-11.** The released CPU batch policy permits native float32

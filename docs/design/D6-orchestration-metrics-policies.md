@@ -9,7 +9,25 @@ runs and four claims, with256MiB encoded owned state,64MiB CPU input and8MiB CPU
 Capacity-one uses the same dispatcher. One foreground DB operation preserves independent renewal;
 active dedicated supervisors remain bounded. Provider/profile owners retain one compatible
 resident, one exchange and at most one pending native batch. PM2 CPU startup applies four native/
-intra-op threads and one inter-op thread before native work. Final counts/devices remain07b.
+intra-op threads and one inter-op thread before native work. Current D1 is required to use CUDA
+with BF16: current defaults/authoring/native admission reject CPU and refuse missing CUDA/BF16
+without fallback. The tentative600second CPU correction is not selected. Existing finite native
+inference/startup deadlines, fast active checks, claim renewal and set_size16 packing remain.
+The persistent lane owns GPU/Nemotron custody through startup, inference and all teardown paths.
+D1 native request/coalescer/reply bytes preserve declared nested question/option/state order;
+canonical identity encoders cannot reorder computational inputs. Current PM2 member receipts
+bind ordered native bytes under receiptv2 and a version-tagged cohort digest; receiptv1 remains
+read-only under its original canonical semantics. This uses the existing exact-input authority,
+with no new scheduler or declaration-order policy.
+Bounded actual D1 CUDA/BF16 native evidence establishes executed runtime/profile, ordered
+question/batch/source association, actual prior-state propagation and cancellation/custody recovery.
+The [scoped review](../design_review/reviews/design_review_book-ready-coordination_2026-11-11.md#final-scoped-cuda-source-and-native-evidence-acceptance)
+distinguishes that evidence from final captured-source DB/native qualification, which remains
+pending with the BEP owner. Exact native confidence can vary across GPU groupings; retain actual
+unrounded scores without CPU-equivalence, epsilon or universal selection-stability claims. CPU
+timeout and earlier order failures stay diagnostic evidence. Other devices/final counts remain07b.
+
+> Decision: [ADR-0086](../adr/0086-d1-requires-cuda-bfloat16.md)
 
 Admission precedes hydration/serialization/queueing. CPU fixed shared slots and generations
 cooperatively cancel one request under existing parser deadlines without poisoning a useful

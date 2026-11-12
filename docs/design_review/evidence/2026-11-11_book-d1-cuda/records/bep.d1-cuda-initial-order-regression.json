@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "bep.d1-cuda-initial-order-regression",
+  "title": "Initial CUDA probe exposes ordered native transport regression",
+  "group": "book-processing-efficiency-and-parallelism",
+  "package": "BEP-06",
+  "finalized": "2026-11-11",
+  "status": "superseded",
+  "supersedes": [],
+  "superseded_by": "bep.d1-cuda-ordered-native",
+  "question": "Can D1 CUDA/BF16 complete the native released-question cohort and projection panel?",
+  "answers": [
+    "BEP-06-I3"
+  ],
+  "method": "Initial actual CUDA ProviderExecution probe completed seven function cohort calls, then its literal-question ordered population assertion failed. Canonical transport/reply encoding sorted declared question/criterion mappings. Preserve the failed command, successful partial native observations and original probe source; no CPU inference was run.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-11_book-d1-cuda/initial_probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "initial_probe.py",
+      "role": "Original failed probe source",
+      "sha256": "2a6d72a774ddb7dd3aebcc1a99cf3b5480a848b86d1e8bec62d85f0cd6e30163"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/cuda-initial-order-failure.json",
+      "role": "Thirteen initial CUDA function-member responses before failure",
+      "sha256": "169bf103cc55fd757b5de6e9062609faea3469f0656283502a04eb42165d61e1"
+    },
+    {
+      "path": "raw/probe-initial-order-failure.log",
+      "role": "Failed ordered-literal population assertion",
+      "sha256": "bbb71ba9c490995bc73235e8fb719a63a29b1bcf32c815eb56a2980d179c4267"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "The command failed after13 CUDA/BF16 function-member responses were projected; ordered literal question population did not match its exact released factory. Devicecuda:0, torch.bfloat16, RTX5090, set_size16 and threads4/1 were observed, but complete qualification was not established. Root repaired native transport ordering and introduced ordered member/cohort receiptsv2. This initial failed attempt is retained rather than relabelled passed.",
+  "consumed_by": [
+    "BEP-06-I3",
+    "BEP-07b"
+  ]
+}

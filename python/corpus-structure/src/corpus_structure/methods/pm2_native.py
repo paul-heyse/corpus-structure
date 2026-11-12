@@ -68,18 +68,23 @@ def _verify_assets(root: Path, provider: str) -> ArtifactTable:
 
 
 def _load_d1(assets: Path, device: str) -> tuple[Payload, Inference]:
+    if device != "cuda":
+        raise ValueError("d1 execution requires CUDA; CPU execution is not selected")
     import torch
     from transformers import AutoModel
 
-    if device == "cuda" and not torch.cuda.is_bf16_supported():
-        raise RuntimeError("d1 CUDA profile requires BF16 support")
-    dtype = torch.bfloat16 if device == "cuda" else torch.float32
+    if not torch.cuda.is_available() or not torch.cuda.is_bf16_supported():
+        raise RuntimeError("d1 CUDA profile requires CUDA and BF16 support")
+    dtype = torch.bfloat16
     model = AutoModel.from_pretrained(
         str(assets / "d1"),
         trust_remote_code=True,
         local_files_only=True,
         dtype=dtype,
     ).to(device)
+    parameter = next(model.parameters())
+    if parameter.device.type != "cuda" or parameter.dtype != torch.bfloat16:
+        raise RuntimeError("d1 loaded device or dtype differs from CUDA bfloat16")
     engine = model.engine
     module = type(engine).__module__.rpartition(".")[0]
     prompt = importlib.import_module(f"{module}.prompt")
@@ -214,6 +219,8 @@ def _load_profile(profile_path: Path) -> tuple[Payload, Inference]:
     provider, device = profile["provider"], profile["device"]
     if device not in {"cpu", "cuda"}:
         raise ValueError("unrecognized PM2 device")
+    if provider == "d1" and device != "cuda":
+        raise ValueError("d1 execution requires CUDA; CPU execution is not selected")
     assets = Path(profile["assets"]).resolve(strict=True)
     checked = _preflight(provider, assets)
     expected_runtime = profile.get("runtime_identity")

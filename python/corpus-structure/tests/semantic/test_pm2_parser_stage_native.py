@@ -332,8 +332,13 @@ def test_pm2_cli_refuses_invalid_extent_before_run_admission(
             "extent": extent,
             "profile": {
                 "provider": provider,
-                "device": "cpu",
-                "startup": {"provider": provider, "device": "cpu", "assets": {}},
+                "device": "cpu" if command == "parsers" else "cuda",
+                "startup": {
+                    "provider": provider,
+                    "device": "cpu" if command == "parsers" else "cuda",
+                    "dtype": "torch.float32" if command == "parsers" else "torch.bfloat16",
+                    "assets": {},
+                },
             },
         }
         if command == "interpret":

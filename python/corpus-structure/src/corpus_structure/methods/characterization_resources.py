@@ -19,6 +19,7 @@ from corpus_structure.semantic.identity import canonical_bytes
 
 from .gliner import GlinerInput, GlinerPack, GlinerProfile, GlinerRefused
 from .gliner_worker import GlinerWorker, validate_request
+from .model_observation import ordered_native_bytes, pm2_cohort_digest, pm2_member_digest
 from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused
 from .pm2_worker import open_pm2_worker as _open_pm2_worker
 from .pm2_worker import preflight_pm2_runtime as _preflight_pm2_runtime
@@ -36,6 +37,10 @@ class PM2Selection:
     artifacts: bytes
     device: Literal["cpu", "cuda"] = "cpu"
     nemotron_endpoint: str | None = None
+
+    def __post_init__(self):
+        if self.provider == "d1" and self.device != "cuda":
+            raise ValueError("d1 execution requires CUDA; CPU execution is not selected")
 
     @property
     def identity(self):
@@ -251,13 +256,18 @@ class _Lane:
                     "assets"
                 ) != json.loads(selection.artifacts):
                     raise Pm2WorkerError("executed provider differs from frozen selection")
+                if selection.provider == "d1" and (
+                    str(startup.get("device", "")).split(":")[0] != "cuda"
+                    or startup.get("dtype") != "torch.bfloat16"
+                ):
+                    raise Pm2WorkerError("executed d1 profile requires CUDA bfloat16")
                 payload = (
                     {}
                     if request.payload is None
                     else self.worker.infer(json.loads(request.payload), check_active=self.active)
                 )
                 reply = ProviderReply(
-                    request.correlation, canonical_bytes(startup), canonical_bytes(payload)
+                    request.correlation, canonical_bytes(startup), ordered_native_bytes(payload)
                 )
             else:
                 key = request.profile
@@ -358,7 +368,12 @@ class _Lane:
                         if not first.future.set_running_or_notify_cancel():
                             continue
                         group = [first]
-                        if self.name in self.owner.coalescing_providers:
+                        provider = (
+                            first.request.selection.provider
+                            if isinstance(first.request, PM2Work)
+                            else "gliner"
+                        )
+                        if provider in self.owner.coalescing_providers:
                             while self.pending and self.owner.compatible(group, self.pending[0]):
                                 following = self.pending.popleft()
                                 if following.future.set_running_or_notify_cancel():
@@ -636,7 +651,7 @@ class ProviderExecution:
                 combined_payload["admitted_row_tokens"] = [
                     value for payload in payloads for value in payload["admitted_row_tokens"]
                 ]
-            content = canonical_bytes(combined_payload)
+            content = ordered_native_bytes(combined_payload)
             combined = PM2Work(first.selection, content, digest, borrowers)
         synthetic = ProviderHandle(self, lane, combined, 0)
         reply = lane.execute(synthetic)
@@ -683,12 +698,12 @@ class ProviderExecution:
             profile=sha256(first.selection.profile).hexdigest(),
             runtime=sha256(first.selection.runtime).hexdigest(),
         )
-        members = [sha256(canonical_bytes(value)).hexdigest() for value in flattened]
+        members = [pm2_member_digest(value) for value in flattened]
         receipt = dict(
-            version=1,
+            version=2,
             header=header,
             members=members,
-            digest=sha256(canonical_bytes([header, members])).hexdigest(),
+            digest=pm2_cohort_digest(header, members),
         )
         if first.selection.provider == "d1" and (
             not isinstance(body.get("batch"), list) or len(body["batch"]) != len(flattened)
@@ -735,7 +750,7 @@ class ProviderExecution:
             }
             replies.append(
                 ProviderReply(
-                    handle.request.correlation, reply.startup_content, canonical_bytes(part)
+                    handle.request.correlation, reply.startup_content, ordered_native_bytes(part)
                 )
             )
             offset += length
@@ -855,7 +870,7 @@ class PM2Client:
         return self.execution.lazy_work(
             lambda: PM2Work(
                 self.selection_factory(),
-                None if payload is None else canonical_bytes(payload),
+                None if payload is None else ordered_native_bytes(payload),
                 correlation,
                 (self.check_active,),
             ),
@@ -885,8 +900,12 @@ def pm2_client(
     assets,
     runtime,
     artifacts,
-    device: Literal["cpu", "cuda"] = "cpu",
+    device: Literal["cpu", "cuda"] | None = None,
 ):
+    device = ("cuda" if provider == "d1" else "cpu") if device is None else device
+    if provider == "d1" and device != "cuda":
+        raise Pm2WorkerRefused("d1 execution requires CUDA; CPU execution is not selected")
+
     def selection_factory():
         profile = canonical_bytes(
             dict(

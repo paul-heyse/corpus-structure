@@ -17,10 +17,15 @@ def runtime(monkeypatch):
     opened, closed = [], []
 
     class Worker:
-        def __init__(self, active):
+        def __init__(self, active, device):
             self.active, self.closed = active, False
             self.requests = []
-            self.startup = dict(runtime_identity={"runtime": "frozen"}, assets={"artifact": 1})
+            self.startup = dict(
+                runtime_identity={"runtime": "frozen"},
+                assets={"artifact": 1},
+                device=device,
+                dtype="torch.bfloat16" if device == "cuda" else "torch.float32",
+            )
 
         def infer(self, payload, *, check_active):
             self.active()
@@ -30,7 +35,7 @@ def runtime(monkeypatch):
 
     @contextmanager
     def open_worker(**kwargs):
-        worker = Worker(kwargs["check_active"])
+        worker = Worker(kwargs["check_active"], kwargs["device"])
         opened.append(worker)
         try:
             yield worker
@@ -158,7 +163,9 @@ def test_frozen_artifact_mismatch_refuses_before_starting(runtime):
 def test_close_attempts_every_native_lane_when_one_closer_fails(runtime):
     execution, _, _ = runtime
     assert result(execution.try_submit(work("one", {}))) == {}
-    other = replace(selection(), provider="d1", profile=b'{"provider":"d1","device":"cpu"}')
+    other = replace(
+        selection(), provider="d1", device="cuda", profile=b'{"provider":"d1","device":"cuda"}'
+    )
     assert (
         result(execution.try_submit(work("two", {"batch": [{"state": "source"}]}, selected=other)))[
             "batch"
@@ -174,7 +181,7 @@ def test_close_attempts_every_native_lane_when_one_closer_fails(runtime):
         raise RuntimeError("teardown failed")
 
     first.close = bad
-    second = execution._lanes["d1"]
+    second = execution._lanes["cuda"]
     closer = second.close
     second.close = lambda: (closer(), completed.append("d1"))
     with pytest.raises(RuntimeError, match="teardown failed"):
@@ -186,7 +193,9 @@ def test_close_attempts_every_native_lane_when_one_closer_fails(runtime):
 def test_explicit_flush_coalesces_ready_d1_requests_and_preserves_member_commitments(runtime):
     execution, opened, _ = runtime
     execution.coalescing_providers = frozenset({"d1"})
-    selected = replace(selection(), provider="d1", profile=b'{"provider":"d1","device":"cpu"}')
+    selected = replace(
+        selection(), provider="d1", device="cuda", profile=b'{"provider":"d1","device":"cuda"}'
+    )
     first = execution.try_submit(work("one", {"batch": [{"state": "first"}]}, selected=selected))
     second = execution.try_submit(work("two", {"batch": [{"state": "second"}]}, selected=selected))
     assert not opened  # Admission only; no timing-based dispatch window.
@@ -362,3 +371,125 @@ def test_abandoned_lazy_intent_never_materializes_or_reserves_body(runtime):
     with pytest.raises(ValueError, match="abandoned"):
         intent.try_submit()
     assert not materialized and not opened
+
+
+def test_d1_client_defaults_to_cuda_and_cpu_requests_refuse_before_admission(runtime):
+    from types import SimpleNamespace
+
+    execution, opened, _ = runtime
+    ctx = SimpleNamespace(
+        check_active=lambda: None, settings=SimpleNamespace(nemotron_endpoint=None)
+    )
+    arguments = dict(
+        provider="d1",
+        python=Path("/fixture/python"),
+        script=Path("/fixture/script"),
+        project=Path("/fixture/project"),
+        assets=Path("/fixture/assets"),
+        runtime={"runtime": "frozen"},
+        artifacts={"artifact": 1},
+    )
+    client = resources.pm2_client(execution, ctx, **arguments)
+    assert client.selection_factory().device == "cuda"
+    with pytest.raises(resources.Pm2WorkerRefused, match="requires CUDA"):
+        resources.pm2_client(execution, ctx, **arguments, device="cpu")
+    with pytest.raises(ValueError, match="requires CUDA"):
+        replace(selection(), provider="d1", device="cpu")
+    assert not opened
+    assert execution.budget.used_bytes == 0
+
+
+def test_native_client_cohort_and_reply_preserve_declared_question_option_and_state_order(runtime):
+    import json
+    from hashlib import sha256
+    from types import SimpleNamespace
+
+    from corpus_structure.core.method import ReadyGroup, drive_prepared_work
+    from corpus_structure.methods.model_observation import validate_pm2_batch_receipt
+    from corpus_structure.methods.pm2_worker import _encode_request
+
+    execution, opened, _ = runtime
+    execution.coalescing_providers = frozenset({"d1"})
+    ctx = SimpleNamespace(
+        check_active=lambda: None, settings=SimpleNamespace(nemotron_endpoint=None)
+    )
+    arguments = dict(
+        provider="d1",
+        python=Path("/fixture/python"),
+        script=Path("/fixture/script"),
+        project=Path("/fixture/project"),
+        assets=Path("/fixture/assets"),
+        runtime={"runtime": "frozen"},
+        artifacts={"artifact": 1},
+    )
+    clients = [resources.pm2_client(execution, ctx, **arguments) for _ in range(2)]
+    member = {
+        "state": {"z_state": "first", "a_state": "second"},
+        "questions": {
+            "z_question": {
+                "type": "choice",
+                "criteria": {"z_option": "first", "a_option": "second"},
+            },
+            "a_question": {"type": "text"},
+        },
+    }
+
+    def plan():
+        return (yield ReadyGroup(tuple(client.infer({"batch": [member]}) for client in clients)))
+
+    replies = drive_prepared_work(plan(), ctx.check_active)
+    assert len(opened[0].requests) == 1
+    wire = json.loads(_encode_request(1, opened[0].requests[0], 1_048_576))["payload"]
+    for native in wire["batch"]:
+        assert tuple(native["state"]) == ("z_state", "a_state")
+        assert tuple(native["questions"]) == ("z_question", "a_question")
+        assert tuple(native["questions"]["z_question"]["criteria"]) == ("z_option", "a_option")
+    for ordinal, reply in enumerate(replies):
+        native = reply["batch"][0]
+        assert tuple(native["state"]) == ("z_state", "a_state")
+        assert tuple(native["questions"]) == ("z_question", "a_question")
+        assert tuple(native["questions"]["z_question"]["criteria"]) == ("z_option", "a_option")
+        receipt = native["batch_receipt"]
+        expected = sha256(
+            json.dumps(member, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode()
+        ).hexdigest()
+        assert receipt["version"] == 2
+        assert receipt["members"][ordinal] == expected
+        validate_pm2_batch_receipt(receipt, member, "d1")
+        reordered = {**member, "questions": dict(reversed(tuple(member["questions"].items())))}
+        with pytest.raises(ValueError, match="exact request"):
+            validate_pm2_batch_receipt(receipt, reordered, "d1")
+        reordered_options = {
+            **member,
+            "questions": {
+                **member["questions"],
+                "z_question": {
+                    **member["questions"]["z_question"],
+                    "criteria": dict(
+                        reversed(tuple(member["questions"]["z_question"]["criteria"].items()))
+                    ),
+                },
+            },
+        }
+        with pytest.raises(ValueError, match="exact request"):
+            validate_pm2_batch_receipt(receipt, reordered_options, "d1")
+
+
+def test_historical_v1_pm2_receipt_keeps_original_canonical_hash_semantics():
+    from hashlib import sha256
+
+    from corpus_structure.methods.model_observation import validate_pm2_batch_receipt
+
+    header = dict(provider="d1", profile="a" * 64, runtime="b" * 64)
+    member = {"z": 1, "a": 2}
+    members = [sha256(canonical_bytes(member)).hexdigest()]
+    receipt = dict(
+        version=1,
+        header=header,
+        members=members,
+        digest=sha256(canonical_bytes([header, members])).hexdigest(),
+        member_ordinal=0,
+    )
+    validate_pm2_batch_receipt(receipt, dict(reversed(tuple(member.items()))), "d1")
+    with pytest.raises(ValueError, match="exact request"):
+        validate_pm2_batch_receipt({**receipt, "version": True}, member, "d1")

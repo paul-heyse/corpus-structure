@@ -190,6 +190,26 @@ def report_observation_digest(report, *, request_version="located-model-request-
     )
 
 
+def ordered_native_bytes(payload) -> bytes:
+    """Native dictionaries carry declared question, option and state-field order."""
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode()
+
+
+def pm2_member_digest(payload, *, version=2):
+    if version not in {1, 2}:
+        raise ValueError("unsupported native member receipt version")
+    return sha256(
+        canonical_bytes(payload) if version == 1 else ordered_native_bytes(payload)
+    ).hexdigest()
+
+
+def pm2_cohort_digest(header, members, *, version=2):
+    if version not in {1, 2}:
+        raise ValueError("unsupported native cohort receipt version")
+    value = [header, members] if version == 1 else ["pm2-native-batch-2", header, members]
+    return sha256(canonical_bytes(value)).hexdigest()
+
+
 def validate_pm2_batch_receipt(receipt, payload, provider):
     """Verify a retained member's exact request and the admitted cohort commitment."""
     if not isinstance(receipt, dict) or set(receipt) != {
@@ -202,7 +222,8 @@ def validate_pm2_batch_receipt(receipt, payload, provider):
         raise ValueError("native batch member receipt shape differs")
     header, members, ordinal = receipt["header"], receipt["members"], receipt["member_ordinal"]
     if (
-        receipt["version"] != 1
+        type(receipt["version"]) is not int
+        or receipt["version"] not in {1, 2}
         or not isinstance(header, dict)
         or set(header) != {"provider", "profile", "runtime"}
         or header["provider"] != provider
@@ -222,7 +243,7 @@ def validate_pm2_batch_receipt(receipt, payload, provider):
         )
         or type(ordinal) is not int
         or not 0 <= ordinal < len(members)
-        or members[ordinal] != sha256(canonical_bytes(payload)).hexdigest()
-        or receipt["digest"] != sha256(canonical_bytes([header, members])).hexdigest()
+        or members[ordinal] != pm2_member_digest(payload, version=receipt["version"])
+        or receipt["digest"] != pm2_cohort_digest(header, members, version=receipt["version"])
     ):
         raise ValueError("native batch member differs from its exact request/cohort")

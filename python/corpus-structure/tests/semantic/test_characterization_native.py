@@ -2137,11 +2137,14 @@ def test_two_language_regions_complete_captured_characterization_with_actual_pro
             "text.model_characterization",
         ):
             coverage = operations[name]["coverage"]
-            assert coverage and all(
-                row["availability"] == "available"
-                and row["outcome"] in {"complete", "empty", "partial"}
+            assert coverage, (identity, name, "missing coverage")
+            unavailable = [
+                (row["family"], row["outcome"], row["availability"], row.get("reason"))
                 for row in coverage
-            ), (identity, name, coverage)
+                if row["availability"] != "available"
+                or row["outcome"] not in {"complete", "empty", "partial"}
+            ]
+            assert not unavailable, (identity, name, unavailable, result.preparation_diagnostics)
 
 
 @pytest.mark.parametrize("private_build", ["characterization_finalizable_pdf"], indirect=True)

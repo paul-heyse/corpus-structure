@@ -212,6 +212,10 @@ The [audit-closure coordinator](../plans/audit-closure_2026-11-03.md) owns remai
 
 ### §B1 Qualified assertion occurrences and semantic facts have distinct identities
 
+**Proposed accepted D1 CUDA target · 2026-11-11.** Current D1 observations retain exact CUDA/BF16 device/precision provenance; authentic old CPU outputs remain CPU evidence, with no CPU/GPU equivalence or relabelling. [D4](D4-method-catalog.md#current-d1-requires-cuda-and-bf16) owns the selected inference profile.
+
+> Decision: [ADR-0086](../adr/0086-d1-requires-cuda-bfloat16.md)
+
 **Proposed accepted numerical target · 2026-11-11.** Native probabilistic confidence remains exact as reported and source/member attributed. The qualified CPU policy permits numerical and threshold/tie-boundary selection variation without relabelling that evidence as deterministic truth; actual batch provenance remains retained.
 
 > Decision: [ADR-0085](../adr/0085-qualified-native-batch-numerics.md)
@@ -313,6 +317,10 @@ semantic decoder fallback.
 > Decision: [ADR-0070](../adr/0070-full-book-method-development.md)
 
 ### §B2 Methods write observations; only consolidation writes knowledge, per run
+
+**Proposed accepted D1 CUDA target · 2026-11-11.** Current D1 requires CUDA/BF16 and refuses CPU/missing prerequisites without fallback. GPU custody and actual scoped qualification are immediate obligations; private proposal standing and native settlement remain unchanged.
+
+> Decision: [ADR-0086](../adr/0086-d1-requires-cuda-bfloat16.md)
 
 **Proposed accepted numerical target · 2026-11-11.** Logical request reuse selects an authentic retained observation under the released native numerical policy. Private proposal standing and exact native settlement are unchanged; no fresh-run byte equality or admitted-knowledge claim follows.
 
@@ -626,6 +634,10 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Proposed accepted D1 CUDA target · 2026-11-11.** Released numerical policy distinguishes D1 CUDA BF16 from GLiNER CPU float32 and binds actual configuration/runtime/artifacts/device/precision. Current authoring requires CUDA; historical original CPU read contracts remain intact. Scoped actual D1 CUDA qualification is authorized now, without qualifying other07b GPU profiles.
+
+> Decision: [ADR-0086](../adr/0086-d1-requires-cuda-bfloat16.md)
 
 **Proposed accepted numerical target · 2026-11-11.** Released native batch policy explicitly declares CPU float32 numerical nondeterminism with unrounded scores and unchanged thresholds. Actual cue/classification pack qualification precedes coalescing cutover; historical v1 retains original meaning without retrospective equivalence. [D4](D4-method-catalog.md#qualified-cpu-native-numerical-observations) owns the inference contract.
 

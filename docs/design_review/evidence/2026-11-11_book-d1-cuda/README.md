@@ -1,0 +1,54 @@
+# D1 CUDA/BF16 native qualification
+
+**Tested2026-11-11; bounded CUDA-only panel passed.**
+[Current record](records/bep.d1-cuda-ordered-native.json) owns the result, exact commands and hashes.
+The [initial partial record](records/bep.d1-cuda-initial-order-regression.json) preserves a failed
+ordered-question assertion after seven initial function calls; it is superseded, not relabelled.
+No CPU model inference or CPU fallback ran in this investigation. Older CPU evidence remains
+historical in its original folder and is not CUDA qualification.
+
+## Actual selected route
+
+The probe runs the production ProviderExecution CUDA lane against staged build/models/pm2/d1
+with root .venv, exact preflight runtime/artifact selection, and four native threads/inter-op1.
+The real model reports cuda:0, torch.bfloat16, RTX5090, Torch2.15.0+cu132, CUDA13.2 and native
+set_size16. Its ordinary120-second inference bound remains; outer waits also cover startup.
+GPU use was exclusive by coordinator arrangement, and all native children closed before the
+coordinator's subsequent integrated GPU test selection started.
+
+Source fixtures contain the two prose passages used by the actual two-region endpoint, plus an
+equal-text third SourceView with a distinct ID. Real compile_question_stage request factories
+produce character_function_v1 and character_scope_v1 questions. Real builder.d1 projection
+consumers validate the retained native replies. Distinct source IDs are101/102/103; fixture
+source contexts exercise actual in-memory projection contracts without claiming native DB capture.
+
+## Coverage and observed numerical limits
+
+Two separately pending logical source jobs share one actual CUDA physical cohort, preserving
+ordinals0/1 and individual correlation. Seven singleton/mixed/reversed/regrouped function calls
+cover13 members, including equal text whose /source state matches but exact source pins and
+ordered cohort commitments remain distinct. Two literal members preserve declared question order,
+complete option populations and the exact rendered /source allowlist. A real proposed stage0
+answer feeds native stage1 function_support; absent prior is independently refused. Original
+source IDs, nonsynthetic extents and exact source strings are checked. Current receiptv2 binds
+ordered native JSON; every actual projection validates it.
+
+There are no discrete function-output differences in this bounded CUDA panel. Unrounded BF16
+probabilities vary by up to0.01866078038429342 across cohorts. This is retained under the explicit
+CUDA/BF16 batch-observation contract, not hidden with an epsilon or rounding. No arbitrary
+near-threshold label invariance, CPU equivalence, numerical universal bound, scientific correctness
+or model accuracy is established. The investigation is not a speedup benchmark.
+
+An actual post-send active-request cancellation returns a structured private error, stops/joins
+the owned model child, drains the lane and returns all owned bytes tozero. The GPU custody file
+lock is successfully reacquired after close. DB-backed claim/publication fencing and wider
+whole-book qualification remain coordinator-owned; no other-provider CUDA campaign ran here.
+
+## Preserved initial failure and repair boundary
+
+The initial CUDA command projected13 function members, then failed the independent literal
+question-order assertion. Canonical JSON transport/replies alphabetized native question/option
+maps. Root corrected the four production transfer points and added ordered native member/cohort
+receiptsv2 while retaining historical receipt reads. The final run uses the actual
+ordered_native_bytes helper and strict receiptv2, rather than weakening the original assertion.
+Initial raw responses, failure log and source remain unchanged in this folder.

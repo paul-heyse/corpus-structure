@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "id": "bep.d1-cuda-ordered-native",
+  "title": "D1 CUDA BF16 ordered cohorts, source projections and custody",
+  "group": "book-processing-efficiency-and-parallelism",
+  "package": "BEP-06",
+  "finalized": "2026-11-11",
+  "status": "current",
+  "supersedes": [
+    "bep.d1-cuda-initial-order-regression"
+  ],
+  "superseded_by": null,
+  "question": "Does the CUDA-only D1 path retain exact released request/order/source identities across native batches and restore GPU custody after cancellation?",
+  "answers": [
+    "BEP-06-I3",
+    "BEP-06-I4",
+    "BEP-07b"
+  ],
+  "method": "Actual ProviderExecution CUDA lane with explicit candidateD1 coalescing and selected pinned model. Two separately pending logical source jobs share one physical cohort; seven singleton/mixed/reversed/regrouped function populations include equal text with distinct source identities. Real compile_question_stage factories and builder.d1 projections cover exact question/option populations, literal /source mapping, native frozen stage0 prior for stage1, strict PM2 receiptv2 and active post-send cancellation. Native inference bound remains120s; outer waits cover startup without CPU fallback. Independent raw checks retain source extents/cardinality/unrounded numerical variation. No throughput or accuracy comparison was performed.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-11_book-d1-cuda/probe.py > docs/design_review/evidence/2026-11-11_book-d1-cuda/raw/probe.log 2>&1",
+    "uv run python docs/design_review/evidence/2026-11-11_book-d1-cuda/check.py > docs/design_review/evidence/2026-11-11_book-d1-cuda/raw/check.log 2>&1"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "Actual CUDA ProviderExecution and native projection probe",
+      "sha256": "f1941dc6affa7f28eef52ae0aeb3372020dea71d2059486887dbf8c92d53761a"
+    },
+    {
+      "path": "check.py",
+      "role": "Independent device/order/population/source/variation checks",
+      "sha256": "daeb83f0387570e11cbe48b9f307f5c1b2228327adb4645eefcc8ec34454a431"
+    },
+    {
+      "path": "question-declarations.yaml",
+      "role": "Exact source question declarations used by the factories",
+      "sha256": "0552a8b41a1dc9fcbdaf1de07384f57c0dc07dcd4715326f0a814f385c9091ec"
+    },
+    {
+      "path": "batch-policy.json",
+      "role": "Selected explicit CUDA/BF16 native observation and ordered receipt policy",
+      "sha256": "12f3c609aefb774c1937d0e10b17314349573ec891fdfdba31bad96c6f59d686"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/cuda.json",
+      "role": "Retained actual CUDA output or independent summary",
+      "sha256": "06e4d6217d785e7ff9b7c383869c4f3d66e7a181fbdcd5532c410a53fdf8a95d"
+    },
+    {
+      "path": "raw/probe.log",
+      "role": "Retained actual CUDA output or independent summary",
+      "sha256": "f985356b81e2f232668e23994962a40abc5da261c7a81f2c9b3ebee5fc3c7c17"
+    },
+    {
+      "path": "raw/summary.json",
+      "role": "Retained actual CUDA output or independent summary",
+      "sha256": "c9d1dd1f9c7fa06d67cd04f7d72ed6199f8088f1e9aa2eff29ee43339db0135e"
+    },
+    {
+      "path": "raw/check.log",
+      "role": "Retained actual CUDA output or independent summary",
+      "sha256": "bcddffe7b3219599107153392f051f410dcaa21aef6c8f820d5a107f9de3bab8"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "CUDA-only selected model reportscuda:0 torch.bfloat16 onRTX5090 with Torch2.15.0+cu132/CUDA13.2, set_size16 and native threads4/1. Two actual logical borrowers coalesce with original ordinals0/1. Thirteen function members, two literal members and one staged native prior/support member pass actual factories/projections. Question order, option population, /source fields, original extents and equal-text distinct source commitments are retained. The panel has no discrete differences but native BF16 probabilities vary by up to0.01866078038429342; retain actual unrounded observations without arbitrary near-threshold invariance or CPU-equivalence claims. Active cancellation stops/joins the child, returns private error, releases owned bytes tozero and restores the GPU custody lock. These fixture-source/native controls do not establish authentic DB capture or publication/lease fences, other-provider CUDA qualification, accuracy or a performance benefit.",
+  "consumed_by": [
+    "BEP-06-I3",
+    "BEP-07b"
+  ]
+}

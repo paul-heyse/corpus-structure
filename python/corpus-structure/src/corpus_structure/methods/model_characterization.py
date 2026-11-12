@@ -94,7 +94,7 @@ class ModelCharacterizationConfig(BaseModel):
     context: Literal["source-context-and-frozen-candidates-v1"] = (
         "source-context-and-frozen-candidates-v1"
     )
-    d1_device: Literal["cpu", "cuda"] = "cpu"
+    d1_device: Literal["cuda"] = "cuda"
     d1_runtime: dict[str, Any] | None = None
     d1_artifacts: dict[str, Any] | None = None
     gliner_profile: ClassificationProfile | None = None
