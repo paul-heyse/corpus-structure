@@ -22,7 +22,7 @@ from corpus_structure.semantic.operations import OperationConflict, complete_uni
 if TYPE_CHECKING:
     from corpus_structure.core.method import Method
     from corpus_structure.methods.pm2_gliner_classification import ClassificationWorker
-    from corpus_structure.methods.pm2_worker import Pm2Worker
+    from corpus_structure.methods.native_host_clients import HostedPM2
     from corpus_structure.semantic._operation_calls import ClaimedTask
     from corpus_structure.semantic.claim_lifetime import ClaimOwner
     from corpus_structure.semantic.operations import OperationDescriptor
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 def settle_pm2_claim(
     owner: ClaimOwner,
     claim: ClaimedTask,
-    worker: Pm2Worker | ClassificationWorker | None,
+    worker: HostedPM2 | ClassificationWorker | None,
     mapping: PM2SourceMap | PM2TokenMap,
     request: dict[str, Any],
     *,
