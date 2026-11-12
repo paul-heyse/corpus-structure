@@ -146,18 +146,36 @@ def _spacy(profile, assets):
     spacy.require_gpu(0)
     nlp = spacy.load(parameters["model"], exclude=parameters["exclude"])
     import cupy
-    parameters_seen = 0
-    for _name, component in nlp.pipeline:
+    import numpy
+    parameters_seen, cpu_upper_parameters = 0, []
+    for component_name, component in nlp.pipeline:
         model = getattr(component, "model", None)
         if model is None:
             continue
+        native_upper = set()
+        configured = nlp.config["components"][component_name].get("model", {})
+        if (
+            nlp.get_pipe_meta(component_name).factory in {"parser", "ner"}
+            and configured.get("@architectures") == "spacy.TransitionBasedParser.v2"
+            and configured.get("use_upper") is True
+            and model.attrs.get("has_upper") is True
+            and model.has_ref("upper")
+        ):
+            # spaCy3.8.18 constructs this exact classifier under use_ops("cpu"):
+            # spacy/ml/models/parser.py:56–59,85–88. Its transition execution
+            # requires CPU scores; moving it changes the reviewed native recipe.
+            native_upper = {id(node) for node in model.get_ref("upper").walk()}
         for node in model.walk():
             for name in node.param_names:
-                if node.has_param(name):
-                    value = node.get_param(name)
-                    if not isinstance(value, cupy.ndarray) or value.dtype != cupy.float32:
-                        raise RuntimeError("spaCy resident parameter differs from CUDA FP32")
+                if not node.has_param(name):
+                    continue
+                value = node.get_param(name)
+                if id(node) in native_upper and isinstance(value, numpy.ndarray) and value.dtype == numpy.float32:
+                    cpu_upper_parameters.append(dict(component=component_name, node=node.name, parameter=name, dtype=str(value.dtype), shape=list(value.shape), reason="spacy-transition-native-cpu-upper"))
+                elif isinstance(value, cupy.ndarray) and value.dtype == cupy.float32:
                     parameters_seen += 1
+                else:
+                    raise RuntimeError(f"spaCy resident parameter {component_name}/{node.name}/{name} differs from CUDA FP32: {type(value).__module__}.{type(value).__name__}, dtype={getattr(value, 'dtype', None)}, shape={getattr(value, 'shape', None)}")
     if not parameters_seen:
         raise ValueError("learned spaCy profile has no resident GPU parameters")
     if spacy.__version__ != parameters["spacy_version"] or nlp.meta["version"] != parameters["model_version"]:
@@ -184,4 +202,4 @@ def _spacy(profile, assets):
             result.append(base64.b64encode(doc.to_bytes()).decode("ascii"))
         return {"documents": result}
 
-    return dict(dtype="torch.float32", device="cuda", backend="cupy", pipeline_sha256=digest, native_configuration=nlp.config.to_str(), components=[dict(name=name, factory=nlp.get_pipe_meta(name).factory) for name in nlp.pipe_names]), infer
+    return dict(dtype="torch.float32", device="cuda", backend="cupy", pipeline_sha256=digest, native_configuration=nlp.config.to_str(), gpu_parameter_arrays=parameters_seen, native_cpu_upper_parameters=cpu_upper_parameters, components=[dict(name=name, factory=nlp.get_pipe_meta(name).factory) for name in nlp.pipe_names]), infer
