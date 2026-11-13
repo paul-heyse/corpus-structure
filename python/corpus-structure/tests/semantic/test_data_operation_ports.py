@@ -945,7 +945,8 @@ def test_generated_typeddict_ingress_preserves_original_kwargs_signature(tmp_pat
 
 @pytest.mark.parametrize("kw_only", [False, True])
 @pytest.mark.parametrize("factory", [False, True])
-def test_generated_constructor_refuses_mutated_defaults(tmp_path, monkeypatch, kw_only, factory):
+@pytest.mark.parametrize("mutate_fields", [False, True])
+def test_generated_constructor_refuses_mutated_defaults(tmp_path, monkeypatch, kw_only, factory, mutate_fields):
     metadata = copy.deepcopy(claim_source_item__data_operation__)
     metadata["roles"][0]["kind"] = "urn:test:generated-input"
     metadata["kinds"] = [
@@ -981,12 +982,16 @@ class Item:
     attribute = "__kwdefaults__" if kw_only else "__defaults__"
     replacement = {"value": changed} if kw_only else (changed,)
     monkeypatch.setattr(constructor, attribute, replacement)
-    with pytest.raises(PortRefusal, match=r"constructor .*defaults differ"):
-        port.invoke_json((RoleValue("index", kind(model, "index"), b"{}"),))
-    with pytest.raises(PortRefusal, match=r"constructor .*defaults differ"):
-        resolve_python_port(
-            model, inputs, model.operations[0].semantic_id, authorize=lambda _: None
-        )
+    if mutate_fields:
+        item = port.function.__globals__['Item']
+        monkeypatch.setattr(item.__dataclass_fields__['value'], 'default', changed)
+        monkeypatch.setattr(item, 'value', changed, raising=False)
+    message = 'default or factory' if mutate_fields else 'constructor .*defaults differ'
+    with pytest.raises(PortRefusal, match=message):
+        port.invoke_json((RoleValue('index', kind(model, 'index'), b'{}'),))
+    with pytest.raises(PortRefusal, match=message):
+        resolve_python_port(model, inputs, model.operations[0].semantic_id,
+                            authorize=lambda _: None)
 
 
 @pytest.mark.parametrize(
