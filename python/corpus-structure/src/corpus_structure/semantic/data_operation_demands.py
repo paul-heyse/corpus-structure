@@ -15,7 +15,7 @@ import networkx as nx
 from pydantic import TypeAdapter
 
 from .data_operation_compilation import project_operation_binding
-from .data_operation_model import EffectiveDataOperationModel
+from .data_operation_model import EffectiveDataOperationModel, ResolvedOperationBinding
 from .identity import canonical_bytes
 
 if TYPE_CHECKING:
@@ -186,6 +186,8 @@ class ReadyDataRequest:
     request: bytes
     admission: bytes
     native: bytes
+    binding: bytes
+    resolved: ResolvedOperationBinding
 
 
 class DemandPlanner:
@@ -285,6 +287,7 @@ class DemandPlanner:
         limit: int = 100,
         after: str | None = None,
         trust_snapshot: dict | None = None,
+        read_id: str | None = None,
     ) -> dict:
         if type(limit) is not int or not 1 <= limit <= 1000:
             raise ValueError("demand frontier limit must be between one and 1000")
@@ -295,6 +298,8 @@ class DemandPlanner:
             request["after"] = after
         if trust_snapshot is not None:
             request["trust_snapshot"] = trust_snapshot
+        if read_id is not None:
+            request["read_id"] = read_id
         snapshot = self.storage.invoke("read_demand_result", request)
         frozen = snapshot["intent"]
         if frozen["model"] != sha256(self.model.content).hexdigest():
@@ -323,13 +328,15 @@ class DemandPlanner:
         populations = tuple(
             PopulationBinding(
                 row["name"],
-                row["population_id"],
+                row["semantic_key"],
                 row["complete"],
                 tuple(
                     member["member_id"] if isinstance(member, dict) else member
                     for member in row["members"]
                 ),
-                canonical_bytes(row["evidence"]),
+                canonical_bytes(
+                    {**row["evidence"], "population_id": row["population_id"], "name": row["name"]}
+                ),
             )
             for row in snapshot["populations"]
         )
@@ -344,6 +351,9 @@ class DemandPlanner:
                 operation["operation"],
                 snapshot["trust_snapshot"],
                 self.model,
+                read_id=snapshot["read_id"],
+                subject=obligation["subject"],
+                original_source=obligation["original_source"],
             )
             compiled = compile_binding(
                 self.model,
@@ -368,13 +378,39 @@ class DemandPlanner:
             resolved = binding.resolved(
                 inference=frozen["inference"],
                 authorization=authorization,
-                trust_evidence=canonical_bytes(snapshot["trust_snapshot"]),
+                trust_evidence=canonical_bytes(
+                    {
+                        "trust": snapshot["trust_snapshot"],
+                        "read_id": snapshot["read_id"],
+                        "read_snapshot": snapshot["read_snapshot"],
+                        "frontier_at": snapshot["frontier_at"],
+                    }
+                ),
                 execution_profile=frozen["execution_profile"],
                 replicate=operation["replicate"],
             )
             request, admission = project_operation_binding(self.model, resolved)
-            inputs, support = [], []
+            inputs, support, population_refs = [], [], []
             for role in resolved.roles:
+                if role.population_witness is not None:
+                    witness = json.loads(role.population_witness)
+                    evidence = witness.get("evidence")
+                    if evidence is not None:
+                        population_refs.append(
+                            {
+                                "role": role.role,
+                                "name": evidence["name"],
+                                "population_id": evidence["population_id"],
+                            }
+                        )
+                        support.append(
+                            {
+                                "derivation_id": evidence["derivation_id"],
+                                "role": "population:" + evidence["name"],
+                                "position": 0,
+                                "admission_use_id": evidence["admission_use_id"],
+                            }
+                        )
                 for member in role.members:
                     for episode in member.support_episodes:
                         evidence = json.loads(member.support_evidence)
@@ -402,22 +438,27 @@ class DemandPlanner:
                             ),
                         }
                     )
+            wire_binding = {
+                "inputs": inputs,
+                "support": support,
+                "populations": population_refs,
+                "parameters": semantic_value(request.parameters),
+                "request_inputs": semantic_value(request.inputs),
+                "inference": frozen["inference"],
+                "read_id": snapshot["read_id"],
+            }
             native = self.storage.invoke(
                 "attach_data_request",
                 {
                     "obligation_id": obligation["obligation_id"],
                     "request_meaning": json.loads(request.identity.canonical_input),
                     "request_key": request.identity.key,
-                    "binding": {
-                        "inputs": inputs,
-                        "support": support,
-                        "parameters": semantic_value(request.parameters),
-                        "request_inputs": semantic_value(request.inputs),
-                        "inference": frozen["inference"],
-                    },
+                    "binding": wire_binding,
                     "replicate": operation["replicate"],
                 },
             )
+            if native["fate"] == "fulfilled":
+                continue
             ready.append(
                 ReadyDataRequest(
                     obligation["obligation_id"],
@@ -426,6 +467,8 @@ class DemandPlanner:
                     request.identity.canonical_input,
                     admission.identity.canonical_input,
                     canonical_bytes(native),
+                    canonical_bytes(wire_binding),
+                    resolved,
                 )
             )
         return tuple(ready)
