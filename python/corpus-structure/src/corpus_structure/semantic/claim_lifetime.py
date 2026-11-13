@@ -7,6 +7,7 @@ from collections.abc import Callable, Generator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from threading import Event, RLock, Thread
+from typing import Protocol
 
 from sqlalchemy import Connection, Engine, text
 from sqlalchemy.exc import DBAPIError
@@ -23,17 +24,32 @@ from corpus_structure.core.db.store import (
 )
 from corpus_structure.settings import DatabaseSettings
 
-from .operation_results import ClaimedTask
 from .operations import OperationConflict, renew_claim
+
+
+class OwnedClaim(Protocol):
+    """Physical fence shared by legacy tasks and native request generations."""
+
+    @property
+    def task_id(self) -> int: ...
+    @property
+    def attempt(self) -> int: ...
+    @property
+    def holder(self) -> str: ...
+    @property
+    def release_id(self) -> str: ...
+    @property
+    def deadline(self) -> datetime: ...
 
 
 class ClaimSettlementUncertain(OperationConflict):
     """Exact completion intent remains available to the caller for receipt recovery."""
 
-    def __init__(self, claim, holder, completion):
+    def __init__(self, claim, holder, completion, *, retire=True):
         self.claim = claim
         self.holder = holder
         self.completion = completion
+        self.retire = retire
         super().__init__(
             f"completion uncertain for task {claim.task_id}, attempt {claim.attempt}, "
             f"holder {holder}; replay the retained exact completion intent"
@@ -53,7 +69,15 @@ class ClaimOwner:
     def __call__(self):
         self._check_active()
 
-    def check_claim(self, claim: ClaimedTask) -> None:
+    def add_claim(self, claim: OwnedClaim) -> None:
+        with self.lock:
+            self()
+            key = (claim.task_id, claim.attempt, self.holder)
+            if claim.holder != self.holder or key in self.active:
+                raise OperationConflict("claim is already owned or belongs to another holder")
+            self.active[key] = claim
+
+    def check_claim(self, claim: OwnedClaim) -> None:
         """Check one producer without stopping useful independent siblings."""
         self()
         key = (claim.task_id, claim.attempt, self.holder)
@@ -81,7 +105,16 @@ class ClaimOwner:
                 if note not in getattr(error, "__notes__", ()):
                     error.add_note(note)
 
-    def settle(self, claim: ClaimedTask, completion: Callable[[Connection], object]):
+    def settle(self, claim: OwnedClaim, completion: Callable[[Connection], object]):
+        return self._transact(claim, completion, retire=True)
+
+    def retain(self, claim: OwnedClaim, completion: Callable[[Connection], object]):
+        """Commit exact private intent while retaining the publication fence."""
+        return self._transact(claim, completion, retire=False)
+
+    def _transact(
+        self, claim: OwnedClaim, completion: Callable[[Connection], object], *, retire: bool
+    ):
         """Serialize renewal and finite exact completion/replay, retaining per-task durability."""
         key = (claim.task_id, claim.attempt, self.holder)
         with self.lock:
@@ -89,7 +122,7 @@ class ClaimOwner:
             if key not in self.active:
                 raise OperationConflict("task is no longer active in this owner")
             prior = self.uncertain.get(key)
-            if prior is not None and completion is not prior.completion:
+            if prior is not None and (completion is not prior.completion or retire != prior.retire):
                 raise prior
             for replay in range(2):
                 phase = DatabasePhase.ACQUIRING
@@ -104,7 +137,8 @@ class ClaimOwner:
                         result = completion(conn)
                         phase = DatabasePhase.COMMITTING
                     # Never retire until commit succeeds or an exact replay commits.
-                    del self.active[key]
+                    if retire:
+                        del self.active[key]
                     self.uncertain.pop(key, None)
                     return result
                 except Exception as error:
@@ -122,7 +156,9 @@ class ClaimOwner:
                         ):
                             raise prior_uncertainty from error
                         raise
-                    uncertainty = ClaimSettlementUncertain(claim, self.holder, completion)
+                    uncertainty = ClaimSettlementUncertain(
+                        claim, self.holder, completion, retire=retire
+                    )
                     self.uncertain[key] = uncertainty
                     if replay:
                         self.uncertain[key] = uncertainty
@@ -167,7 +203,7 @@ def _retryable_renewal_timeout(error: Exception, failure: DatabaseFailure) -> bo
 
 
 def _leases_cover_retry(
-    conn: Connection, claims: Sequence[ClaimedTask], attempt_budget: timedelta
+    conn: Connection, claims: Sequence[OwnedClaim], attempt_budget: timedelta
 ) -> bool:
     return conn.scalar(
         text(
@@ -178,8 +214,8 @@ def _leases_cover_retry(
             "AND task.lease_until > clock_timestamp() + :budget"
         ),
         {
-            "tasks": [int(claim.task_id) for claim in claims],
-            "attempts": [int(claim.attempt) for claim in claims],
+            "tasks": [claim.task_id for claim in claims],
+            "attempts": [claim.attempt for claim in claims],
             "holder": claims[0].holder,
             "budget": attempt_budget,
         },
@@ -189,11 +225,12 @@ def _leases_cover_retry(
 @contextmanager
 def maintained_claims(
     engine: Engine,
-    claims: Sequence[ClaimedTask],
+    claims: Sequence[OwnedClaim],
     holder: str,
     *,
     interval: float = 30,
     database: DatabaseSettings | None = None,
+    renew: Callable[[Connection, OwnedClaim], None] | None = None,
 ) -> Generator[ClaimOwner]:
     """Renew on an owned, cancellable checkout with finite server query deadlines.
 
@@ -213,11 +250,13 @@ def maintained_claims(
             raise failures[0]
 
     owner = ClaimOwner(engine, claims, holder, database, check_active)
+    renew_owned_claim = renew
 
-    def renew() -> None:
+    def renew_loop() -> None:
         renewed = False
         retry_of: Exception | None = None
         while not stop.wait(interval if retry_of is None else 0):
+            active: tuple[OwnedClaim, ...] = ()
             phase = DatabasePhase.ACQUIRING
             effects = EffectKnowledge.NONE
             claim = claims[0] if len(claims) == 1 else None
@@ -248,12 +287,17 @@ def maintained_claims(
                                 raise retry_of
                             for claim in active:
                                 cancellation.check_active()
-                                renew_claim(
-                                    conn,
-                                    task_id=claim.task_id,
-                                    attempt=claim.attempt,
-                                    holder=holder,
-                                )
+                                if renew_owned_claim is not None:
+                                    renew_owned_claim(conn, claim)
+                                else:
+                                    from ._operation_calls import TaskAttempt, TaskId
+
+                                    renew_claim(
+                                        conn,
+                                        task_id=TaskId(claim.task_id),
+                                        attempt=TaskAttempt(claim.attempt),
+                                        holder=holder,
+                                    )
                             cancellation.check_active()
                             phase = DatabasePhase.COMMITTING
                         effects = EffectKnowledge.COMMITTED
@@ -279,7 +323,7 @@ def maintained_claims(
                 if (
                     retry_of is None
                     and _retryable_renewal_timeout(error, failure)
-                    and (renewed or all(c.deadline > datetime.now(UTC) for c in claims))
+                    and (renewed or all(c.deadline > datetime.now(UTC) for c in active))
                 ):
                     # Release the checkout and serialization lock before the retry.
                     retry_of = error
@@ -300,7 +344,7 @@ def maintained_claims(
                 failed.set()
                 return
 
-    thread = Thread(target=renew, name="corpus-claim-renewal", daemon=True)
+    thread = Thread(target=renew_loop, name="corpus-claim-renewal", daemon=True)
     thread.start()
     try:
         yield owner

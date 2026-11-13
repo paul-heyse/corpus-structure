@@ -1,6 +1,48 @@
 -- Trusted finite interpreter of the frozen shared binding AST. No candidate SQL.
 -- Subject association retains the producing member's original subject. A role
 -- may bind its declared identifier property to the consuming operation subject.
+CREATE OR REPLACE FUNCTION ops.ddo_validate_source_sets(source_sets jsonb,project text) RETURNS void
+LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+DECLARE named record; entry jsonb; reference_schema constant jsonb:='__DDO_EXTERNAL_SOURCE_SCHEMA__';
+BEGIN
+ IF jsonb_typeof(source_sets)<>'object' THEN RAISE EXCEPTION 'frozen source sets must be a named object'; END IF;
+ FOR named IN SELECT * FROM jsonb_each(source_sets) LOOP
+ IF named.key='' OR jsonb_typeof(named.value)<>'array' OR jsonb_array_length(named.value)=0 THEN RAISE EXCEPTION 'source set requires exact nonempty pins'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(named.value) value GROUP BY value->>'product',value->>'member' HAVING count(*)<>1) THEN RAISE EXCEPTION 'duplicate qualified source-set product/member'; END IF;
+ FOR entry IN SELECT value FROM jsonb_array_elements(named.value) LOOP
+ PERFORM ops.ddo_fields(entry,ARRAY['project_id','original_source','subject','analyzed_scope','product','member','source_reference','reference']);
+ IF EXISTS(SELECT FROM unnest(ARRAY['project_id','original_source','subject','product','source_reference']) field WHERE jsonb_typeof(entry->field) IS DISTINCT FROM 'string') OR jsonb_typeof(entry->'member') NOT IN ('string','null')
+ OR NOT public.json_matches_schema(reference_schema::json,(entry->'reference')::json) OR entry->>'project_id' IS DISTINCT FROM project OR entry->'reference'->>'project_id' IS DISTINCT FROM project
+ OR nullif(entry->>'original_source','') IS NULL OR nullif(entry->>'subject','') IS NULL OR nullif(entry->>'product','') IS NULL
+ OR jsonb_typeof(entry->'analyzed_scope') IS DISTINCT FROM 'object'
+ OR entry->>'source_reference' IS DISTINCT FROM ops.ddo_digest(entry->'reference')
+ OR (entry->'member'<>'null'::jsonb AND nullif(entry->>'member','') IS NULL) THEN RAISE EXCEPTION 'source-set entry differs from original qualified reference'; END IF;
+ END LOOP;
+ END LOOP;
+END $$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_binding_source(roledef jsonb,row_value jsonb,consumer_source text,source_sets jsonb) RETURNS boolean
+LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE name text:=roledef->'support'->>'source_set'; reference_field text:=roledef->'support'->>'source_reference_field';
+BEGIN
+ IF name IS NULL THEN RETURN consumer_source IS NULL OR row_value->>'original_source'=consumer_source; END IF;
+ IF reference_field IS NULL OR jsonb_typeof(source_sets->name) IS DISTINCT FROM 'array' THEN RETURN false; END IF;
+ RETURN EXISTS(SELECT FROM jsonb_array_elements(source_sets->name) entry WHERE
+ (entry->>'product',entry->>'member',entry->>'subject',entry->>'original_source') IS NOT DISTINCT FROM
+ (row_value->>'product',row_value->>'member',row_value->>'subject',row_value->>'original_source')
+ AND entry->'analyzed_scope'=row_value->'analyzed_scope'
+ AND data.ddo_field(row_value->'meaning_body',reference_field)=jsonb_build_array('string',entry->>'source_reference'));
+END $$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_binding_population_product(population jsonb,row_value jsonb) RETURNS boolean
+LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ IF NOT coalesce(population->'evidence','{}') ? 'product_id' THEN RETURN true; END IF;
+ RETURN jsonb_typeof(population->'evidence'->'product_id')='string'
+ AND nullif(population->'evidence'->>'product_id','') IS NOT NULL
+ AND population->'evidence'->>'product_id'=row_value->>'product';
+END $$;
+
 CREATE OR REPLACE FUNCTION ops.ddo_binding_subject(roledef jsonb,row_value jsonb,consumer_subject text) RETURNS boolean
 LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
 DECLARE association jsonb;
@@ -193,7 +235,7 @@ DECLARE operator text:=node->>'operator'; child jsonb; selected jsonb; role text
  total bigint; expected bigint; ordinal bigint; seen jsonb; left_identity jsonb; right_identity jsonb;
  choice text; i integer; j integer; population_names text[]:=ARRAY[]::text[];
 BEGIN
- IF operator IS NULL OR operator NOT IN ('scan','join','equal','literal','same','distinct','cardinality','collection','all','choice','optional','forall','absent','range','membership') THEN RAISE EXCEPTION 'unsupported native binding operator %',operator USING ERRCODE='23514'; END IF;
+ IF operator IS NULL OR operator NOT IN ('scan','join','equal','literal','same','distinct','cardinality','collection','all','choice','optional','forall','absent','range','membership','covers') THEN RAISE EXCEPTION 'unsupported native binding operator %',operator USING ERRCODE='23514'; END IF;
  IF operator='choice' THEN
  IF node->>'selected' IS NOT NULL AND node->>'choice_parameter' IS NOT NULL THEN RAISE EXCEPTION 'ambiguous native branch selector'; END IF;
  choice:=coalesce(node->>'selected',context->'choices'->>(node->>'choice_parameter'));
@@ -220,8 +262,8 @@ BEGIN
  IF population IS NULL OR population->>'complete' IS DISTINCT FROM 'true' THEN RAISE EXCEPTION 'native absence requires closed population'; END IF;
  IF context->'witnesses'->role IS DISTINCT FROM population THEN RAISE EXCEPTION 'native absence witness differs from named population'; END IF;
  IF jsonb_array_length(coalesce(context->'roles'->role,'[]'))<>0 THEN RETURN false; END IF;
- IF EXISTS(SELECT FROM jsonb_array_elements_text(population->'members') member WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(context->'universe') candidate WHERE candidate->>'member'=member AND ops.ddo_binding_subject((SELECT r FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role),candidate,context->>'subject') AND (context->>'original_source' IS NULL OR candidate->>'original_source'=context->>'original_source') AND candidate->>'kind_contract'=(SELECT r->>'kind_contract' FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role))) THEN RAISE EXCEPTION 'negative population lacks admitted candidate facts'; END IF;
- FOR row_value IN SELECT value FROM jsonb_array_elements(context->'universe') WHERE value->>'kind_contract'=(SELECT r->>'kind_contract' FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role) AND ops.ddo_binding_subject((SELECT r FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role),value,context->>'subject') AND (context->>'original_source' IS NULL OR value->>'original_source'=context->>'original_source') AND population->'members' ? (value->>'member') LOOP
+ IF EXISTS(SELECT FROM jsonb_array_elements_text(population->'members') member WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(context->'universe') candidate WHERE candidate->>'member'=member AND ops.ddo_binding_population_product(population,candidate) AND ops.ddo_binding_subject((SELECT r FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role),candidate,context->>'subject') AND ops.ddo_binding_source((SELECT r FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role),candidate,context->>'original_source',context->'source_sets') AND candidate->>'kind_contract'=(SELECT r->>'kind_contract' FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role))) THEN RAISE EXCEPTION 'negative population lacks admitted candidate facts'; END IF;
+ FOR row_value IN SELECT value FROM jsonb_array_elements(context->'universe') WHERE value->>'kind_contract'=(SELECT r->>'kind_contract' FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role) AND ops.ddo_binding_subject((SELECT r FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role),value,context->>'subject') AND ops.ddo_binding_source((SELECT r FROM jsonb_array_elements(context->'roledefs') r WHERE r->>'name'=role),value,context->>'original_source',context->'source_sets') AND population->'members' ? (value->>'member') AND ops.ddo_binding_population_product(population,value) LOOP
  altered:=jsonb_set(context,ARRAY['roles',role],jsonb_build_array(row_value));
  matching:=1;
  FOR child IN SELECT value FROM jsonb_array_elements(coalesce(node->'children','[]')) LOOP IF NOT ops.ddo_binding_test(child,altered) THEN matching:=0; END IF; END LOOP;
@@ -246,7 +288,7 @@ BEGIN
  population:=context->'populations'->(node->>'population');
  IF population IS NULL OR population->>'complete' IS DISTINCT FROM 'true' THEN RAISE EXCEPTION 'native universal binding requires closed population'; END IF;
  IF context->'witnesses'->role IS DISTINCT FROM population THEN RAISE EXCEPTION 'native universal witness differs from named population'; END IF;
- IF EXISTS(SELECT FROM jsonb_array_elements(context->'roles'->role) v WHERE NOT population->'members' ? (v->>'member')) OR EXISTS(SELECT FROM jsonb_array_elements_text(population->'members') m WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(context->'roles'->role) v WHERE v->>'member'=m)) THEN RETURN false; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(context->'roles'->role) v WHERE NOT population->'members' ? (v->>'member') OR NOT ops.ddo_binding_population_product(population,v)) OR EXISTS(SELECT FROM jsonb_array_elements_text(population->'members') m WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(context->'roles'->role) v WHERE v->>'member'=m AND ops.ddo_binding_population_product(population,v))) THEN RETURN false; END IF;
  END IF;
  END LOOP;
  RETURN true;
@@ -266,6 +308,14 @@ BEGIN
  IF jsonb_array_length(operands)=0 THEN
  FOR operand IN SELECT value FROM jsonb_array_elements(coalesce(node->'fields','[]')) LOOP operands:=operands||jsonb_build_array(jsonb_build_object('kind','field','field',operand)); END LOOP;
  END IF;
+ IF operator='covers' THEN
+ IF jsonb_array_length(operands)<>2 OR operands->0->>'kind'<>'field' OR operands->1->>'kind' NOT IN ('parameter','literal') THEN RAISE EXCEPTION 'invalid native coverage operands'; END IF;
+ a:=ops.ddo_binding_values(operands->0,context); b:=ops.ddo_binding_values(operands->1,context);
+ FOR operand IN SELECT value FROM jsonb_array_elements(b) LOOP
+ IF NOT EXISTS(SELECT FROM jsonb_array_elements(a) actual WHERE ops.ddo_binding_compare(actual,operand,'equal')) THEN RETURN false; END IF;
+ END LOOP;
+ RETURN true;
+ END IF;
  IF operator='literal' THEN
  IF jsonb_array_length(operands)<>1 OR node->'value'->'json' IS NULL THEN RAISE EXCEPTION 'invalid native literal predicate'; END IF;
  operands:=operands||jsonb_build_array(jsonb_build_object('kind','literal','value_type',node->'value'->'json'->>0,'value',node->'value'));
@@ -276,6 +326,7 @@ BEGIN
  IF cardinality(names)=0 THEN RAISE EXCEPTION 'population operand requires an identity-bearing input role'; END IF;
  FOREACH role IN ARRAY names LOOP
  IF context->'witnesses'->role IS DISTINCT FROM population THEN RAISE EXCEPTION 'native membership witness differs from named population'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(context->'roles'->role) member_row(value) WHERE NOT ops.ddo_binding_population_product(population,member_row.value)) THEN RETURN false; END IF;
  END LOOP;
  END LOOP;
  FOR assignment IN SELECT * FROM ops.ddo_binding_assignments(node,context) LOOP
@@ -394,7 +445,7 @@ BEGIN
  SELECT value INTO STRICT operation FROM jsonb_array_elements(archived->'operations') WHERE value->>'semantic_id'=p_operation;
  SELECT value->'expression' INTO STRICT expression FROM jsonb_array_elements(archived->'bindings') WHERE value->>'semantic_id'=operation->>'binding';
  SELECT value INTO STRICT compiled FROM jsonb_array_elements(projection->'operations') WHERE value->>'operation_id'=p_operation;
- IF EXISTS(WITH RECURSIVE nodes(n) AS (SELECT expression UNION ALL SELECT value FROM nodes parent CROSS JOIN LATERAL jsonb_array_elements(coalesce(parent.n->'children','[]'))) SELECT FROM nodes WHERE n->>'operator' IS NULL OR n->>'operator' NOT IN ('scan','join','equal','literal','same','distinct','cardinality','collection','all','choice','optional','forall','absent','range','membership')) THEN RAISE EXCEPTION 'authenticated native binding is outside the closed operator vocabulary'; END IF;
+ IF EXISTS(WITH RECURSIVE nodes(n) AS (SELECT expression UNION ALL SELECT value FROM nodes parent CROSS JOIN LATERAL jsonb_array_elements(coalesce(parent.n->'children','[]'))) SELECT FROM nodes WHERE n->>'operator' IS NULL OR n->>'operator' NOT IN ('scan','join','equal','literal','same','distinct','cardinality','collection','all','choice','optional','forall','absent','range','membership','covers')) THEN RAISE EXCEPTION 'authenticated native binding is outside the closed operator vocabulary'; END IF;
  SELECT value INTO STRICT selection FROM jsonb_array_elements(demand.selection->'operations') WHERE value->>'operation'=p_operation;
  IF compiled->'binding' IS DISTINCT FROM expression OR compiled->>'definition' IS DISTINCT FROM selection->>'definition' OR compiled->>'eligibility' IS DISTINCT FROM selection->>'eligibility'
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'identities') v WHERE v->>'owner'=p_operation AND v->>'domain'='definition' AND v->>'key'=compiled->>'definition')
@@ -407,13 +458,13 @@ BEGIN
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'identities') i WHERE i->>'owner'=authored_role->>'kind' AND i->>'domain'='kind' AND i->>'key'=roledef->>'kind_contract') THEN RAISE EXCEPTION 'native artifact role differs from effective model'; END IF;
  END LOOP;
  IF nullif(p_binding->>'read_id','') IS NULL THEN RAISE EXCEPTION 'native binding requires its authenticated read receipt'; END IF;
- SELECT coalesce(jsonb_agg(to_jsonb(v)),'[]') INTO universe FROM ops.data_binding_rows(p_demand,p_operation,p_trust,p_binding->>'read_id',p_subject,request.original_source) v WHERE v.original_source=request.original_source;
+ SELECT coalesce(jsonb_agg(to_jsonb(v)),'[]') INTO universe FROM ops.data_binding_rows(p_demand,p_operation,p_trust,p_binding->>'read_id',p_subject,request.original_source) v;
  raw:=data.ddo_json(p_binding->'request_inputs');
  FOR roledef IN SELECT value FROM jsonb_array_elements(compiled->'input_roles') LOOP
  role:=roledef->>'name'; values:='[]';
  FOR item IN SELECT value FROM jsonb_array_elements(p_binding->'inputs') WHERE value->>'role'=role LOOP
  SELECT value INTO chosen FROM jsonb_array_elements(universe) v WHERE v->>'product'=item->>'product_id' AND v->>'member' IS NOT DISTINCT FROM item->>'member_id'
- AND v->>'kind_contract'=roledef->>'kind_contract' AND ops.ddo_binding_subject(roledef,v,p_subject) AND v->>'original_source'=request.original_source
+ AND v->>'kind_contract'=roledef->>'kind_contract' AND ops.ddo_binding_subject(roledef,v,p_subject) AND ops.ddo_binding_source(roledef,v,request.original_source,coalesce(demand.selection->'source_sets','{}'))
  AND v->>'position' IS NOT DISTINCT FROM item->>'position' AND v->>'multiplicity'=item->>'multiplicity'
  AND (item->>'support_derivation_id' IS NULL OR v->'support_episodes' ? (item->>'support_derivation_id'))
  AND EXISTS(SELECT FROM jsonb_array_elements(p_binding->'support') support WHERE support->>'role'=role AND support->>'position' IS NOT DISTINCT FROM item->>'position' AND v->'support_episodes' ? (support->>'derivation_id')) LIMIT 1;
@@ -438,9 +489,11 @@ BEGIN
  IF EXISTS(SELECT FROM jsonb_array_elements_text(roledef->'identity_requirements') dimension WHERE dimension IN ('provider','alternative') AND nullif(row_value->>(dimension||'_identity'),'') IS NULL) THEN RAISE EXCEPTION 'required native support identity is unavailable'; END IF;
  END LOOP;
  END LOOP;
+ IF EXISTS(SELECT FROM jsonb_array_elements(p_binding->'populations') reference GROUP BY reference->>'name' HAVING count(DISTINCT reference->>'population_id')<>1) THEN RAISE EXCEPTION 'one named population cannot select conflicting receipt scopes'; END IF;
  FOR native_population IN SELECT * FROM ops.data_population pop
  WHERE demand_id=p_demand AND ops.ddo_population_valid(pop)
- AND (NOT (pop.evidence ? 'selection') OR (
+ AND EXISTS(SELECT FROM jsonb_array_elements(p_binding->'populations') reference WHERE reference->>'population_id'=pop.id AND reference->>'name'=pop.name)
+ AND ((NOT (pop.evidence ? 'selection') AND EXISTS(SELECT FROM ops.data_derivation producer JOIN ops.data_request produced ON produced.id=producer.request_id WHERE producer.id=pop.evidence->>'derivation_id' AND produced.subject=p_subject AND produced.original_source=request.original_source AND produced.analyzed_scope=request.analyzed_scope)) OR (
  pop.evidence->'selection'->>'subject'=p_subject
  AND pop.evidence->'selection'->>'original_source'=request.original_source
  AND pop.evidence->'selection'->>'operation_id'=p_operation
@@ -449,7 +502,7 @@ BEGIN
  populations:=jsonb_set(populations,ARRAY[native_population.name],jsonb_build_object('identity',native_population.semantic_key,'complete',native_population.complete,'members',expected,'evidence',native_population.evidence));
  END LOOP;
  context:=jsonb_build_object('model',archived,'roledefs',compiled->'input_roles','roles',roles,'states',states,'witnesses',witnesses,'universe',universe,'populations',populations,
- 'parameters',selection->'parameters','parameter_meaning',selection->'parameter_meaning','parameterdefs',operation->'parameters'->'json','choices',selection->'choices','subject',p_subject,'original_source',request.original_source);
+ 'source_sets',coalesce(demand.selection->'source_sets','{}'),'parameters',selection->'parameters','parameter_meaning',selection->'parameter_meaning','parameterdefs',operation->'parameters'->'json','choices',selection->'choices','subject',p_subject,'original_source',request.original_source);
  inactive:=ops.ddo_binding_inactive(expression,context);
  population_refs:=ops.ddo_binding_population_refs(expression,context);
  FOR item IN SELECT value FROM jsonb_array_elements(p_binding->'populations') LOOP

@@ -664,6 +664,7 @@ def test_parser_startup_pool_roster_is_observation_but_thread_count_is_a_contrac
 
 def test_real_host_result_retains_matched_physical_execution_identity(physical_host):
     from hashlib import sha256
+
     selected = selection()
     host = physical_host(selected)
     first = host.infer_result(selected, {"value": "one"}, check_active=lambda: None)

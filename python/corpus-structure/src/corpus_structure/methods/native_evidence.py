@@ -5,12 +5,9 @@ from __future__ import annotations
 import time
 from collections.abc import Generator, Iterable, Mapping, Sequence
 from hashlib import sha256
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-
-from corpus_structure.semantic.data_operation_bindings import BindingResult
-from corpus_structure.semantic.data_operation_consumers import BoundConsumerSelection
 
 from corpus_structure.core._model.shapes import Cost
 from corpus_structure.core.method import (
@@ -24,6 +21,8 @@ from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOut
 from corpus_structure.ingest.annotations import AnnotationProfile
 from corpus_structure.ingest.sentences import SentenceConfig, pipeline
 from corpus_structure.semantic.cpu_execution import CapacityExceeded
+from corpus_structure.semantic.data_operation_bindings import BindingResult
+from corpus_structure.semantic.data_operation_consumers import BoundConsumerSelection
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.product_reference import ProductReference
 
@@ -303,51 +302,77 @@ class NativeEvidenceMethod:
     Config = NativeEvidenceConfig
     resources = Resources(worker="cpu", batch_size=1, max_concurrency=1)
 
-    __selection_operation__ = {'id': 'text.native_evidence/selection',
-     'profile': 'selection',
-     'subject': 'original-document',
-     'context': ['project', 'original-source', 'frozen-selection'],
-     'roles': [{'name': 'views',
-                'kind': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding',
-                'direction': 'input',
-                'minimum': 1,
-                'maximum': None,
-                'collection': 'set',
-                'presence': 'required',
-                'support': {'provenance': 'exact',
-                            'source': 'same-original',
-                            'coverage': 'qualified-selected-population',
-                            'identity_requirements': ['episode']},
-                'subject_field': 'document_subject'}],
-     'applicability': ['admitted-selected-populations'],
-     'invariants': ['original-subject-and-source-preserved'],
-     'coverage': 'qualified-selected-population',
-     'outcomes': ['selected', 'unavailable', 'invalid'],
-     'precision': 'exact',
-     'dependencies': [],
-     'effects': [],
-     'capabilities': {'forms': ['scalar'],
-                      'preparation': 'none',
-                      'cancellation': 'call-boundary',
-                      'ownership': 'immutable-selection'},
-     'behavior': 'retained-binding-selection-v1',
-     'parameters': {'base_product': {'value_type': 'string'}},
-     'binding': {'operator': 'forall',
-                 'roles': ['views'],
-                 'population': 'selected-source-views',
-                 'children': [{'operator': 'equal',
-                               'operands': [{'kind': 'field',
-                                             'value_type': 'DdoBindingText',
-                                             'field': {'role': 'views',
-                                                       'projection': 'https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding',
-                                                       'field': 'base_product'}},
-                                            {'kind': 'parameter',
-                                             'name': 'base_product',
-                                             'value_type': 'DdoBindingText'}]}]}}
+    __selection_operation__: ClassVar[dict[str, Any]] = {
+        "id": "text.native_evidence/selection",
+        "profile": "selection",
+        "subject": "original-document",
+        "context": ["project", "original-source", "frozen-selection"],
+        "roles": [
+            {
+                "name": "views",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding",
+                "direction": "input",
+                "minimum": 1,
+                "maximum": None,
+                "collection": "set",
+                "presence": "required",
+                "support": {
+                    "provenance": "exact",
+                    "source": "same-original",
+                    "coverage": "qualified-selected-population",
+                    "identity_requirements": ["episode"],
+                },
+                "subject_field": "document_subject",
+            }
+        ],
+        "applicability": ["admitted-selected-populations"],
+        "invariants": ["original-subject-and-source-preserved"],
+        "coverage": "qualified-selected-population",
+        "outcomes": ["selected", "unavailable", "invalid"],
+        "precision": "exact",
+        "dependencies": [],
+        "effects": [],
+        "capabilities": {
+            "forms": ["scalar"],
+            "preparation": "none",
+            "cancellation": "call-boundary",
+            "ownership": "immutable-selection",
+        },
+        "behavior": "retained-binding-selection-v1",
+        "parameters": {"base_product": {"value_type": "string"}},
+        "binding": {
+            "operator": "forall",
+            "roles": ["views"],
+            "population": "selected-source-views",
+            "children": [
+                {
+                    "operator": "equal",
+                    "operands": [
+                        {
+                            "kind": "field",
+                            "value_type": "DdoBindingText",
+                            "field": {
+                                "role": "views",
+                                "projection": "https://corpus-structure.dev/semantic/data-operation-consumers/DdoSourceViewBinding",
+                                "field": "base_product",
+                            },
+                        },
+                        {
+                            "kind": "parameter",
+                            "name": "base_product",
+                            "value_type": "DdoBindingText",
+                        },
+                    ],
+                }
+            ],
+        },
+    }
 
     def select_bound(self, binding: BindingResult) -> BoundConsumerSelection:
         """Consume the target operation's retained relational selection unchanged."""
-        return BoundConsumerSelection.from_binding(binding, operation=self.__selection_operation__["id"])
+        return BoundConsumerSelection.from_binding(
+            binding, operation=self.__selection_operation__["id"]
+        )
 
     def select(self, run, cfg: NativeEvidenceConfig) -> Iterable[UnitRef]:
         return select_document_scope(run, *cfg.require_selection())

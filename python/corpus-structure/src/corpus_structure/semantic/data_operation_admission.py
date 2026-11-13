@@ -7,9 +7,8 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import TYPE_CHECKING
 
-from .data_operation_ports import PythonPortIdentity
-
 from .data_operation_model import read_effective_data_operations
+from .data_operation_ports import PythonPortIdentity
 from .identity import canonical_bytes
 from .refusals import SemanticRefusal
 
@@ -21,13 +20,14 @@ def _source_identity_bytes(identity: PythonPortIdentity) -> bytes:
     record["capabilities"] = json.loads(identity.capabilities)
     return canonical_bytes(record)
 
+
 if TYPE_CHECKING:
     from sqlalchemy import Connection
 
     from .data_operation_model import EffectiveDataOperationModel
     from .python_operation_sources import PythonSourceCollection
     from .runtime_bindings import RuntimeBinding
-    from .types import PreparedRelease
+    from .types import PreparedRelease, SourceBundle
 
 
 def bound_data_operation_model(prepared: PreparedRelease) -> EffectiveDataOperationModel:
@@ -116,6 +116,8 @@ def acquire_prepared_execution(
     sources: PythonSourceCollection,
     operation: str,
     runtime: RuntimeBinding,
+    *,
+    schema: SourceBundle | None = None,
 ) -> AcquiredPreparedExecution:
     """Acquire declared preparation, retaining source and opaque asset custody.
 
@@ -129,18 +131,32 @@ def acquire_prepared_execution(
     selected = model.operation(operation)
     if selected.capabilities.preparation == "none":
         raise SemanticRefusal("prepared execution requires declared preparation")
-    admission = acquire_python_execution(connection, prepared, sources, operation, runtime)
+    admission = acquire_python_execution(
+        connection, prepared, sources, operation, runtime, schema=schema
+    )
     archived = json.loads(runtime.archive)["inputs"]
     retained = {item["sha256"] for item in archived}
-    boundaries = (*selected.assets, *(boundary for implementation in model.implementation_slices
-        if implementation.root == selected.implementation_root for boundary in implementation.boundaries))
-    if any(boundary.content_digest is None or boundary.content_digest not in retained
-           for boundary in boundaries):
-        raise SemanticRefusal("prepared asset or implementation boundary lacks exact runtime custody")
+    boundaries = (
+        *selected.assets,
+        *(
+            boundary
+            for implementation in model.implementation_slices
+            if implementation.root == selected.implementation_root
+            for boundary in implementation.boundaries
+        ),
+    )
+    if any(
+        boundary.content_digest is None or boundary.content_digest not in retained
+        for boundary in boundaries
+    ):
+        raise SemanticRefusal(
+            "prepared asset or implementation boundary lacks exact runtime custody"
+        )
     source_record = json.loads(admission.identity)
     source_record["capabilities"] = canonical_bytes(source_record["capabilities"])
     identity = PreparedCapabilityIdentity(
-        **source_record, runtime=runtime.runtime_id,
+        **source_record,
+        runtime=runtime.runtime_id,
         assets=canonical_bytes(tuple(asdict(boundary) for boundary in boundaries)),
     )
     return AcquiredPreparedExecution(identity, admission)
@@ -152,6 +168,8 @@ def acquire_python_execution(
     sources: PythonSourceCollection,
     operation: str,
     runtime: RuntimeBinding,
+    *,
+    schema: SourceBundle | None = None,
 ) -> AcquiredPythonExecution:
     """Acquire permissions briefly; no DB connection is retained through computation."""
     from sqlalchemy import select
@@ -164,7 +182,13 @@ def acquire_python_execution(
     model = bound_data_operation_model(prepared)
     require_data_operation_native(connection, prepared)
     validate_runtime_binding(runtime, prepared)
-    identity = python_port_identity(model, sources, operation)
+    if schema is not None:
+        manifest = json.loads(prepared.manifest)
+        if schema.root != manifest["root"] or sorted(
+            (item.name, item.digest) for item in schema.sources
+        ) != [tuple(item) for item in manifest["sources"]]:
+            raise SemanticRefusal("callable schema differs from captured release inputs")
+    identity = python_port_identity(model, sources, operation, schema=schema, prepared=prepared)
     definition = table("sem.data_operation_definition")
     row = (
         connection.execute(

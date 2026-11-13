@@ -94,7 +94,7 @@ def test_exact_wire_fields_and_result_variants_are_explicit():
 
 def test_shared_wire_contract_is_detached_and_has_only_local_resolved_references():
     contracts = wire_contracts(captured())
-    assert len(contracts) == 14
+    assert len(contracts) == 15
     for directions in contracts.values():
         for schema in directions.values():
             checked_json_schema(schema)
@@ -692,21 +692,91 @@ def test_request_renewal_wire_requires_exact_fence_and_bounded_duration():
 def test_cancel_demand_wire_requires_reason_and_never_claims_physical_retirement():
     from corpus_structure.semantic.data_operation_wire import validate_native_wire
 
-    assert validate_native_wire("cancel_data_demand", "input", {
-        "demand_id": "demand:one", "reason": "operator cancelled",
-    })["reason"] == "operator cancelled"
+    assert (
+        validate_native_wire(
+            "cancel_data_demand",
+            "input",
+            {
+                "demand_id": "demand:one",
+                "reason": "operator cancelled",
+            },
+        )["reason"]
+        == "operator cancelled"
+    )
     with pytest.raises(ValueError):
-        validate_native_wire("cancel_data_demand", "input", {
-            "demand_id": "demand:one", "reason": "",
-        })
+        validate_native_wire(
+            "cancel_data_demand",
+            "input",
+            {
+                "demand_id": "demand:one",
+                "reason": "",
+            },
+        )
     result: dict[str, Any] = {
-        "demand_id": "demand:one", "state": "cancelled", "reason": "operator cancelled",
-        "requests": [{
-        "request_id": "request:one", "generation": 1, "task_id": 1,
-        "interest": "shared", "physical_retirement": "unconfirmed",
-        }],
+        "demand_id": "demand:one",
+        "state": "cancelled",
+        "reason": "operator cancelled",
+        "requests": [
+            {
+                "request_id": "request:one",
+                "generation": 1,
+                "task_id": 1,
+                "interest": "shared",
+                "physical_retirement": "unconfirmed",
+            }
+        ],
     }
     assert validate_native_wire("cancel_data_demand", "output", result) == result
     result["requests"][0]["physical_retirement"] = "retired"
     with pytest.raises(ValueError):
         validate_native_wire("cancel_data_demand", "output", result)
+
+
+def test_selected_population_wire_accepts_only_authenticated_parent_and_frozen_filter_context():
+    from corpus_structure.semantic.data_operation_wire import validate_native_wire
+
+    request = {
+        "obligation_id": "obligation:one",
+        "population_name": "selected-items",
+        "parent_population_id": "population:parent",
+        "read_id": "read:one",
+    }
+    assert validate_native_wire("select_data_population", "input", request) == request
+    for key, value in (("filter", {}), ("parameters", {}), ("members", []), ("complete", True)):
+        with pytest.raises(ValueError):
+            validate_native_wire("select_data_population", "input", {**request, key: value})
+    selection = {
+        "parent_population_id": "population:parent",
+        "read_id": "read:one",
+        "obligation_id": "obligation:one",
+        "operation_id": "urn:consumer",
+        "subject": "doc:one",
+        "original_source": "source:one",
+        "analyzed_scope": {},
+        "role": "items",
+        "definition": "definition:one",
+        "eligibility": "eligibility:one",
+        "filter": {"operator": "all", "children": []},
+        "parameter_meaning": ["mapping", []],
+        "choices": {},
+    }
+    result = {
+        "population_id": "population:selected",
+        "name": "selected-items",
+        "semantic_key": "population-value:one",
+        "members": [],
+        "complete": True,
+        "evidence": {
+            "product_id": "product:parent",
+            "derivation_id": "derivation:parent",
+            "member_role": "members",
+            "trust_snapshot": {},
+            "population_id": "population:selected",
+            "admission_use_id": "use:parent",
+            "selection": selection,
+        },
+    }
+    assert validate_native_wire("select_data_population", "output", result) == result
+    del selection["parent_population_id"]
+    with pytest.raises(ValueError):
+        validate_native_wire("select_data_population", "output", result)

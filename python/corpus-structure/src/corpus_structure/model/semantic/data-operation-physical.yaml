@@ -429,6 +429,7 @@ classes:
     attributes:
       id: {range: string, required: true}
       demand_id: {range: string, required: true}
+      selected_obligation_id: {range: string}
       semantic_key: {range: string, required: true}
       name: {range: string, required: true}
       members: {range: json_payload, required: true}
@@ -440,9 +441,10 @@ classes:
       primary_key: {unique_key_slots: [id]}
     annotations:
       ph:read_roles: '[]'
-      ph:indexes: '[["demand_id","name","created_at"]]'
+      ph:indexes: '[["demand_id","name","created_at"],["demand_id","selected_obligation_id"]]'
       ph:immutability: intrinsic
-      ph:foreign_keys: '[{"columns": ["demand_id"], "target": "ops.data_demand.id"}]'
+      ph:foreign_keys: '[{"columns": ["demand_id"], "target": "ops.data_demand.id"},{"columns":["selected_obligation_id"],"target":"ops.data_obligation.id"}]'
+      ph:checks: '["selected_obligation_id IS NOT DISTINCT FROM (evidence->''selection''->>''obligation_id'')"]'
   data_demand_read:
     in_subset: [ops]
     attributes:

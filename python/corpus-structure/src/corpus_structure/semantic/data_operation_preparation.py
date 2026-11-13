@@ -91,17 +91,24 @@ def acquire_data_operation_inputs(root: Path, manifest: str) -> AcquiredDataOper
         reserved = {"data_operation_consumers", "data_operation_consumer_target"}
         if reserved & {source.name for source in bundle.sources}:
             raise ValueError("consumer binding schemas use reserved trusted names")
-        consumer_schema = Path(__file__).resolve().parents[1] / "model/semantic/data-operation-consumers.yaml"
-        wrapper = yaml.safe_dump({
-            "id": "urn:corpus:data-operation-consumer-target",
-            "name": "data_operation_consumer_target",
-            "imports": [bundle.root, "data_operation_consumers"],
-        }).encode()
-        bundle = SourceBundle("data_operation_consumer_target", (
-            *bundle.sources,
-            SourceArtifact("data_operation_consumers", consumer_schema.read_bytes()),
-            SourceArtifact("data_operation_consumer_target", wrapper),
-        ))
+        consumer_schema = (
+            Path(__file__).resolve().parents[1] / "model/semantic/data-operation-consumers.yaml"
+        )
+        wrapper = yaml.safe_dump(
+            {
+                "id": "urn:corpus:data-operation-consumer-target",
+                "name": "data_operation_consumer_target",
+                "imports": [bundle.root, "data_operation_consumers"],
+            }
+        ).encode()
+        bundle = SourceBundle(
+            "data_operation_consumer_target",
+            (
+                *bundle.sources,
+                SourceArtifact("data_operation_consumers", consumer_schema.read_bytes()),
+                SourceArtifact("data_operation_consumer_target", wrapper),
+            ),
+        )
     python = declared.python
     sources = (
         None
@@ -121,9 +128,8 @@ def acquire_data_operation_inputs(root: Path, manifest: str) -> AcquiredDataOper
         )
     )
     from .data_operation_artifacts import capture_port_generator_sources
-    from .data_operation_storage import native_operation_declarations, native_protocol_sources
-
     from .data_operation_consumers import consumer_selection_declarations
+    from .data_operation_storage import native_operation_declarations, native_protocol_sources
 
     consumer_declarations = (
         consumer_selection_declarations(sources.sources)
@@ -134,7 +140,11 @@ def acquire_data_operation_inputs(root: Path, manifest: str) -> AcquiredDataOper
     generator = capture_port_generator_sources()
     dependencies = data_operation_dependencies(
         ResolvedDependencies((*artifacts(declared.dependencies), *native, *generator)),
-        (*artifacts(declared.declarations), *consumer_declarations, native_operation_declarations(native)),
+        (
+            *artifacts(declared.declarations),
+            *consumer_declarations,
+            native_operation_declarations(native),
+        ),
         sources,
     )
     return AcquiredDataOperationInputs(

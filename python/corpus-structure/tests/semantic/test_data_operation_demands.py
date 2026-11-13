@@ -288,3 +288,161 @@ def test_ready_request_retains_native_execution_disposition(native, expected):
         ready = request()
         assert ready.action == expected
         assert ready.retained_intent_id == native["retained_intent_id"]
+
+
+def test_frozen_source_sets_are_explicit_selected_operation_scope():
+    from dataclasses import replace
+
+    from corpus_structure.semantic.data_operation_model import InputSupport, OperationRole
+    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, SourceSetEntry
+    from corpus_structure.semantic.structural_products import ExternalSourceRef
+
+    compiled = model(operation("op:result"))
+    op = compiled.operations[0]
+    role = OperationRole(
+        "source",
+        "primitive:string",
+        "input",
+        1,
+        1,
+        "scalar",
+        "required",
+        InputSupport(
+            "exact",
+            "frozen-source-set",
+            "whole",
+            identity_requirements=("episode",),
+            source_set="inputs",
+            source_reference_field="source_ref",
+        ),
+    )
+    compiled = replace(compiled, operations=(replace(op, roles=(role,)),))
+    reference = ExternalSourceRef(
+        project_id="project",
+        run_id=1,
+        cut_id=2,
+        release_id="release",
+        result_revision=0,
+        source_view_id=3,
+        native_task_id=4,
+        native_product_key="native:key",
+        native_content_digest="a" * 64,
+        projection_digest="b" * 64,
+        recipe_digest="c" * 64,
+        coordinate_version=3,
+    )
+    entry = SourceSetEntry.from_structural_source(
+        reference,
+        original_source="source:foreign",
+        subject="view:original",
+        analyzed_scope=b'{"page":1}',
+        product="product:one",
+    )
+    scope = FrozenSourceSet("inputs", (entry,))
+    with pytest.raises(ValueError, match=r"lacks.*source set"):
+        freeze(compiled)
+    frozen = freeze(compiled, source_sets=(scope,))
+    assert frozen.record["source_sets"]["inputs"][0]["original_source"] == "source:foreign"
+    assert frozen.record["roots"] == [
+        {
+            "subject": "document:one",
+            "original_source": "source:one",
+            "analyzed_scope": {"whole": True},
+        }
+    ]
+    with pytest.raises(ValueError, match="exactly match"):
+        freeze(compiled, source_sets=(scope, FrozenSourceSet("unused", (entry,))))
+
+
+def test_population_context_matches_exact_obligation_and_explicit_original_member_associations():
+    from corpus_structure.semantic.data_operation_demands import _population_context_matches
+
+    obligation = {
+        "obligation_id": "o:one",
+        "operation_id": "op:consumer",
+        "subject": "comparison:one",
+        "original_source": "source:analysis",
+        "analyzed_scope": {"pair": 1},
+    }
+    selected = {"evidence": {"selection": dict(obligation)}, "members": []}
+    arguments = {"source_set": None, "source_sets": {}, "project": "project:one"}
+    assert _population_context_matches(selected, obligation, **arguments)
+    assert not _population_context_matches(
+        selected,
+        {**obligation, "obligation_id": "o:other"},
+        **arguments,
+    )
+    assert not _population_context_matches(
+        selected,
+        {**obligation, "analyzed_scope": {"pair": 2}},
+        **arguments,
+    )
+    base = {
+        "evidence": {
+            "product_id": "product:one",
+            "producer_context": {
+                "operation_id": "op:discover",
+                "subject": "document:one",
+                "original_source": "source:original",
+                "analyzed_scope": {"page": 1},
+            },
+        },
+        "members": [
+            {
+                "member_id": "m:one",
+                "subject": "passage:one",
+                "original_source": "source:original",
+                "analyzed_scope": {"page": 1},
+            }
+        ],
+    }
+    assert not _population_context_matches(base, obligation, **arguments)
+    assert _population_context_matches(
+        base,
+        {
+            **obligation,
+            "subject": "document:one",
+            "original_source": "source:original",
+            "analyzed_scope": {"page": 1},
+        },
+        **arguments,
+    )
+    entry = {
+        "project_id": "project:one",
+        "product": "product:one",
+        "member": "m:one",
+        "subject": "passage:one",
+        "original_source": "source:original",
+        "analyzed_scope": {"page": 1},
+    }
+    arguments = {
+        "source_set": "originals",
+        "source_sets": {"originals": [entry]},
+        "project": "project:one",
+    }
+    assert _population_context_matches(base, obligation, **arguments)
+    for field, replacement in (
+        ("project_id", "project:other"),
+        ("product", "product:other"),
+        ("member", "m:other"),
+        ("subject", "passage:other"),
+        ("original_source", "source:other"),
+        ("analyzed_scope", {}),
+    ):
+        assert not _population_context_matches(
+            base,
+            obligation,
+            **{
+                **arguments,
+                "source_sets": {"originals": [{**entry, field: replacement}]},
+            },
+        )
+    assert not _population_context_matches(
+        base,
+        obligation,
+        **{
+            **arguments,
+            "source_set": "undeclared",
+        },
+    )
+    assert not _population_context_matches({"evidence": {}, "members": []}, obligation, **arguments)
