@@ -863,11 +863,10 @@ BEGIN
  key:='receipt:'||ops.ddo_digest(jsonb_build_array(i.id,episode));
  INSERT INTO ops.data_publication_receipt VALUES(key,i.id,episode,t.id,t.attempt,snapshot);
  UPDATE ops.task SET status=CASE result_state WHEN 'success' THEN 'done' WHEN 'empty' THEN 'empty' ELSE 'failed' END,result_digest=i.payload_digest,finished_at=clock_timestamp(),lease_until=NULL,error=CASE WHEN result_state='failed' THEN jsonb_build_object('data_operation','failed') ELSE NULL END WHERE id=t.id;
- -- Every already attached obligation is fulfilled without copying execution episodes or votes.
- IF result_state<>'failed' THEN
- INSERT INTO ops.demand_use SELECT 'use:'||ops.ddo_digest(jsonb_build_array(u.obligation_id,key)),u.demand_id,u.obligation_id,'fulfilled',r.id,r.generation,episode,u.selection,snapshot,clock_timestamp(),pg_current_xact_id()::text
+ -- Every attached obligation observes the actual terminal outcome. Computational
+ -- failure is distinct from a private attempt's infrastructure failure.
+ INSERT INTO ops.demand_use SELECT 'use:'||ops.ddo_digest(jsonb_build_array(u.obligation_id,key)),u.demand_id,u.obligation_id,CASE WHEN result_state='failed' THEN 'failed' ELSE 'fulfilled' END,r.id,r.generation,episode,u.selection,snapshot,clock_timestamp(),pg_current_xact_id()::text
  FROM (SELECT DISTINCT ON(obligation_id) * FROM ops.demand_use WHERE request_id=r.id AND generation=r.generation ORDER BY obligation_id,created_at DESC,id DESC) u WHERE u.fate='attached' AND ops.ddo_demand_active(u.demand_id) ON CONFLICT DO NOTHING;
- END IF;
  RETURN jsonb_build_object('payload',jsonb_build_object('receipt_id',key,'derivation_id',episode,'replayed',false,'trust_snapshot',snapshot));
 END $$;
 
