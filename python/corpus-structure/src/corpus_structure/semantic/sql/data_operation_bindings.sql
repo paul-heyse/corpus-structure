@@ -326,7 +326,7 @@ BEGIN
  IF cardinality(names)=0 THEN RAISE EXCEPTION 'population operand requires an identity-bearing input role'; END IF;
  FOREACH role IN ARRAY names LOOP
  IF context->'witnesses'->role IS DISTINCT FROM population THEN RAISE EXCEPTION 'native membership witness differs from named population'; END IF;
- IF EXISTS(SELECT FROM jsonb_array_elements(context->'roles'->role) selected WHERE NOT ops.ddo_binding_population_product(population,selected)) THEN RETURN false; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(context->'roles'->role) member_row(value) WHERE NOT ops.ddo_binding_population_product(population,member_row.value)) THEN RETURN false; END IF;
  END LOOP;
  END LOOP;
  FOR assignment IN SELECT * FROM ops.ddo_binding_assignments(node,context) LOOP
