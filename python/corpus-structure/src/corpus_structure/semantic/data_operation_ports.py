@@ -584,9 +584,7 @@ class ResolvedPythonPort:
 
     def _complete(self, result, return_annotation) -> PortCompletion:
         contracts = dict(self.kind_contracts)
-        checked = TypeAdapter(return_annotation).validate_python(
-            _untrusted_value(result), strict=True
-        )
+        checked = _validated_python_input(return_annotation, result)
         from .data_operation_identity import semantic_value
 
         outputs = [role for role in self.operation.roles if role.direction == "output"]
@@ -603,9 +601,9 @@ class ResolvedPythonPort:
                     role.name,
                     contracts[role.kind],
                     adapter.dump_json(checked[correspondence[role.name]]),
-                    canonical_bytes(semantic_value(checked[correspondence[role.name]])),
+                    canonical_bytes(semantic_value(adapter.dump_python(checked[correspondence[role.name]], mode="python"))),
                     project_product_members(
-                        self.model, role.kind, checked[correspondence[role.name]]
+                        self.model, role.kind, adapter.dump_python(checked[correspondence[role.name]], mode="python")
                     ),
                 )
                 for role in outputs
@@ -615,7 +613,9 @@ class ResolvedPythonPort:
         if len(outputs) != 1 or outputs[0].collection != "scalar":
             raise PortRefusal("direct function result requires one declared scalar output")
         output = outputs[0]
-        encoded = TypeAdapter(return_annotation).dump_json(checked)
+        adapter = TypeAdapter(return_annotation)
+        encoded = adapter.dump_json(checked)
+        semantic = adapter.dump_python(checked, mode="python")
         return PortCompletion(
             self.operation.semantic_id,
             (
@@ -623,8 +623,8 @@ class ResolvedPythonPort:
                     output.name,
                     contracts[output.kind],
                     encoded,
-                    canonical_bytes(semantic_value(checked)),
-                    project_product_members(self.model, output.kind, checked),
+                    canonical_bytes(semantic_value(semantic)),
+                    project_product_members(self.model, output.kind, semantic),
                 ),
             ),
         )
@@ -640,14 +640,25 @@ def _validated_python_input(annotation, value):
         fields = dataclasses.fields(annotation)
         if set(vars(value)) != {field.name for field in fields}:
             raise PortRefusal("typed dataclass ingress has missing or undeclared fields")
-        annotations = inspect.get_annotations(annotation, eval_str=True)
+        annotations = typing.get_type_hints(annotation)
         for field in fields:
-            checked = TypeAdapter(annotations[field.name]).validate_python(
-                _untrusted_value(object.__getattribute__(value, field.name)), strict=True
+            checked = _validated_python_input(
+                annotations[field.name], object.__getattribute__(value, field.name)
             )
             object.__setattr__(result, field.name, copy.deepcopy(checked))
         return result
-    return TypeAdapter(annotation).validate_python(_untrusted_value(value), strict=True)
+    checked = TypeAdapter(annotation).validate_python(_untrusted_value(value), strict=True)
+    def owned(item):
+        if dataclasses.is_dataclass(item) and not isinstance(item, type):
+            return _validated_python_input(type(item), item)
+        if isinstance(item, dict):
+            return {key: owned(value) for key, value in item.items()}
+        if isinstance(item, tuple):
+            return tuple(owned(value) for value in item)
+        if isinstance(item, list):
+            return [owned(value) for value in item]
+        return item
+    return owned(checked)
 
 
 def _untrusted_value(value: Any) -> Any:

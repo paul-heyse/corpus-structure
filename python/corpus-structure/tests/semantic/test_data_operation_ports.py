@@ -418,8 +418,10 @@ def test_frozen_semantic_parameters_drive_original_callable(tmp_path, monkeypatc
         (),
     )
     values = (PythonRoleValue("index", kind(model, "index"), 7),)
+    from corpus_structure.semantic.data_operation_model import SubjectContext
     resolved = binding.resolved(
-        inference="exact", authorization=b"{}", trust_evidence=b"{}", execution_profile="cpu"
+        inference="exact", authorization=b"{}", trust_evidence=b"{}", execution_profile="cpu",
+        subject_context=SubjectContext("project:test", binding.subject, "source:test", b"{}"),
     )
     ready = ReadyDataRequest(
         "obligation:one",
@@ -861,3 +863,20 @@ def test_generated_typeddict_ingress_preserves_original_kwargs_signature(tmp_pat
         port.invoke_json((RoleValue('index', kind(model, 'index'), b'{"value":true}'),))
     with pytest.raises(PortRefusal, match='undeclared fields'):
         port.invoke_json((RoleValue('index', kind(model, 'index'), b'{"value":5,"other":1}'),))
+
+
+def test_generated_record_output_has_typed_canonical_body(tmp_path, monkeypatch):
+    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    owner = 'ddo_port_' + tmp_path.name.replace('-', '_') + '.Item'
+    metadata['kinds'] = [{'id': 'urn:test:record', 'python': owner}]
+    for role in metadata['roles']:
+        role['kind'] = 'urn:test:record'
+    model, inputs = fixture_source(
+        tmp_path, monkeypatch, 'index: Item', 'return index', metadata=metadata,
+        header='from dataclasses import dataclass\n@dataclass(kw_only=True)\nclass Item:\n    value: int',
+        returns='Item', profiles=('dataclasses-runtime',),
+    )
+    port = resolve_python_port(model, inputs, model.operations[0].semantic_id, authorize=lambda _: None)
+    result = port.invoke_json((RoleValue('index', kind(model, 'index'), b'{"value":3}'),))
+    assert result.outputs[0].value() == {'value': 3}
+    assert result.outputs[0].meaning == b'["mapping",[["value",["integer","3"]]]]'

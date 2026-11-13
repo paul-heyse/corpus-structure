@@ -184,6 +184,8 @@ def hydrate_consumer_selection(connection, model, selection, *, demand_id, read_
         subject=context.subject, original_source=context.original_source,
         analyzed_scope=json.loads(context.analyzed_scope),
     )
+    if set(binding.admission_evidence) != {projection.admission_evidence for projection in projections}:
+        raise ValueError('retained consumer binding belongs to a different native read boundary')
     by_kind = {projection.kind: projection for projection in projections}
     declaration = model.operation(binding.operation)
     result, used = [], 0
