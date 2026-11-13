@@ -99,7 +99,7 @@ class SentenceInventory:
         return tuple(
             packet["body"]
             for packet in json.loads(self.content)["members"]
-            if packet["kind"] == kind
+            if packet["body"]["record_type"] == kind
         )
 
 
@@ -125,7 +125,7 @@ def validate_sentence_inventory(
         if not 0 <= body["start"] < body["end"] <= len(selected["text"]):
             raise ValueError("sentence inventory exceeds original projection coordinates")
         if body["local_id"] != _id(
-            checked["source"], packet["kind"], body["block_id"], body["start"], body["end"]
+            checked["source"], body["record_type"], body["block_id"], body["start"], body["end"]
         ):
             raise ValueError("sentence member identity differs from original source interval")
         if packet["context"] != {
@@ -134,7 +134,7 @@ def validate_sentence_inventory(
             "analyzed_scope": {"source": selected["source"], "selectors": selected["selectors"]},
         }:
             raise ValueError("sentence member context differs from original source")
-        nominal = "DdoNativeToken" if packet["kind"] == "token" else "DdoNativeSentence"
+        nominal = "DdoNativeToken" if body["record_type"] == "token" else "DdoNativeSentence"
         if packet["kind_contract"] != next(
             identity.key
             for identity in model.identities
@@ -142,7 +142,7 @@ def validate_sentence_inventory(
             and identity.domain == "kind"
         ):
             raise ValueError("sentence member differs from its nominal contract")
-        by_id[body["local_id"]] = (packet["kind"], body)
+        by_id[body["local_id"]] = (body["record_type"], body)
     for kind, body in by_id.values():
         if kind == "sentence":
             tokens = [by_id.get(identifier) for identifier in body["token_ids"]]
@@ -450,10 +450,10 @@ class PreparedSentenceProfile:
         )
         packets = []
         for kind, body in records:
+            body = {"record_type": kind, **body}
             nominal = "DdoNativeToken" if kind == "token" else "DdoNativeSentence"
             packets.append(
                 dict(
-                    kind=kind,
                     member_id=body["local_id"],
                     kind_contract=next(
                         identity.key
@@ -462,7 +462,6 @@ class PreparedSentenceProfile:
                         and identity.domain == "kind"
                     ),
                     context=context,
-                    roles=[dict(role=kind, position=body["ordinal"], multiplicity=1)],
                     body=body,
                 )
             )
@@ -762,7 +761,6 @@ class PreparedSentencePort:
                     "member_id": packet["member_id"],
                     "kind_contract": packet["kind_contract"],
                     "context": packet["context"],
-                    "roles": packet["roles"],
                     "body": semantic_value(packet["body"]),
                 }
             )
