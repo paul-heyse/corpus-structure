@@ -16,8 +16,8 @@ from sqlalchemy import Text, bindparam, cast, func, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from .contracts import OperationCallBinding, OperationFieldBinding, OperationFieldType
-from .data_operation_model import MODEL_VERSION
 from .data_operation_json import ContextJSONB, json_bytes, wire_json_loads
+from .data_operation_model import MODEL_VERSION
 from .identity import canonical_bytes
 from .types import SourceArtifact
 
@@ -324,7 +324,9 @@ class DataOperationStorage:
             raise ValueError("unknown trusted native data operation")
         payload = validate_native_wire(name, "input", payload)
         encoded = self.connection.scalar(
-            select(cast(getattr(func.ops, name)(cast(bindparam("payload", type_=Text), JSONB)), Text)),
+            select(
+                cast(getattr(func.ops, name)(cast(bindparam("payload", type_=Text), JSONB)), Text)
+            ),
             {"payload": json_bytes(payload).decode()},
         )
         if not isinstance(encoded, str):

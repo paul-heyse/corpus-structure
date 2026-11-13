@@ -16,6 +16,7 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_identity import SemanticRequestKey, semantic_value
+from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_storage import (
     DataOperationStorage,
@@ -24,7 +25,6 @@ from corpus_structure.semantic.data_operation_storage import (
     native_protocol_sources,
     native_source_digest,
 )
-from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 
@@ -308,7 +308,9 @@ def attach(
             {},
             {"parameters": {}, "replicate": None},
             inference,
-            subject_context=SubjectContext(project_id, subject, original_source, json_bytes(root["analyzed_scope"])),
+            subject_context=SubjectContext(
+                project_id, subject, original_source, json_bytes(root["analyzed_scope"])
+            ),
         )
         wire = {
             "obligation_id": obligation["obligation_id"],
@@ -430,7 +432,8 @@ def test_precise_fractional_context_survives_native_attach_publish_and_read(kern
     publish(kernel, fence, retain(kernel, fence))
     with kernel["engine"].begin() as connection:
         result = DataOperationStorage(connection).invoke(
-            "read_demand_result", {**demand, "view": "products"},
+            "read_demand_result",
+            {**demand, "view": "products"},
         )
         assert json_bytes(result["root"][0]["analyzed_scope"]) == scope
         assert json_bytes(result["obligations"][0]["analyzed_scope"]) == scope

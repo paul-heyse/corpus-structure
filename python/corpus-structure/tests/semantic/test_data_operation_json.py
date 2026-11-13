@@ -20,32 +20,43 @@ PRECISE = b'{"coordinate":0.12345678901234567890123456789,"page":1}'
 
 
 def test_scope_json_keeps_fractional_digits_through_context_and_frozen_demand():
-    from .test_data_operation_demands import model, operation
     from corpus_structure.semantic.data_operation_demands import RootSubject, freeze_demand
+
+    from .test_data_operation_demands import model, operation
 
     scope = SubjectContext("project", "subject", "original", PRECISE)
     assert scope.analyzed_scope == PRECISE
     assert scope.record["analyzed_scope"] == {
-        "coordinate": Decimal("0.12345678901234567890123456789"), "page": 1,
+        "coordinate": Decimal("0.12345678901234567890123456789"),
+        "page": 1,
     }
     intent = freeze_demand(
-        model(operation("op:result")), roots=(RootSubject("subject", "original", PRECISE),),
-        targets=("op:result",), inference="exact", execution_profile="one",
+        model(operation("op:result")),
+        roots=(RootSubject("subject", "original", PRECISE),),
+        targets=("op:result",),
+        inference="exact",
+        execution_profile="one",
     )
     assert PRECISE in intent.content
     assert json_bytes(intent.record["roots"][0]["analyzed_scope"]) == PRECISE
-    nearby = SubjectContext("project", "subject", "original",
-                            PRECISE.replace(b"6789,", b"6790,"))
+    nearby = SubjectContext("project", "subject", "original", PRECISE.replace(b"6789,", b"6790,"))
     assert scope != nearby
-    assert SemanticRequestKey("recipe", "subject", {}, {}, "exact", subject_context=scope).identity.key != (
-        SemanticRequestKey("recipe", "subject", {}, {}, "exact", subject_context=nearby).identity.key
+    assert SemanticRequestKey(
+        "recipe", "subject", {}, {}, "exact", subject_context=scope
+    ).identity.key != (
+        SemanticRequestKey(
+            "recipe", "subject", {}, {}, "exact", subject_context=nearby
+        ).identity.key
     )
 
 
 def test_wire_snapshot_keeps_only_scope_numbers_exact_and_preserves_typed_meaning():
     payload = {
-        "demand_id": "demand:one", "operation_id": "op:one", "subject": "subject",
-        "original_source": "original", "analyzed_scope": json_loads(PRECISE),
+        "demand_id": "demand:one",
+        "operation_id": "op:one",
+        "subject": "subject",
+        "original_source": "original",
+        "analyzed_scope": json_loads(PRECISE),
         "parameters": {"untyped-display": 1.25},
     }
     checked = validate_native_wire("expand_data_obligation", "input", payload)
@@ -75,17 +86,30 @@ def test_native_jsonb_preserves_fraction_and_context_key_meaning(semantic_db_eng
         try:
             connection.exec_driver_sql(helper)
             # The production DDO column binder/result type crosses actual JSONB.
-            result = connection.scalar(select(cast(
-                bindparam("scope", type_=ContextJSONB()), ContextJSONB(),
-            )), {"scope": json_loads(PRECISE)})
+            result = connection.scalar(
+                select(
+                    cast(
+                        bindparam("scope", type_=ContextJSONB()),
+                        ContextJSONB(),
+                    )
+                ),
+                {"scope": json_loads(PRECISE)},
+            )
             assert json_bytes(result) == PRECISE
-            expected = ["mapping", [
-                ["coordinate", ["decimal", "0.12345678901234567890123456789"]],
-                ["page", ["decimal", "1"]],
-            ]]
-            assert connection.scalar(text(
-                "SELECT pg_temp.ddo_json_meaning(CAST(:scope AS jsonb))"
-            ), {"scope": json_bytes(result).decode()}) == expected
+            expected = [
+                "mapping",
+                [
+                    ["coordinate", ["decimal", "0.12345678901234567890123456789"]],
+                    ["page", ["decimal", "1"]],
+                ],
+            ]
+            assert (
+                connection.scalar(
+                    text("SELECT pg_temp.ddo_json_meaning(CAST(:scope AS jsonb))"),
+                    {"scope": json_bytes(result).decode()},
+                )
+                == expected
+            )
             context = SubjectContext("project", "subject", "original", json_bytes(result))
             assert semantic_value(context.identity_record)[1][0] == ["analyzed_scope", expected]
         finally:

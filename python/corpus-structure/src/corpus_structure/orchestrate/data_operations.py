@@ -42,6 +42,7 @@ from corpus_structure.semantic.data_operation_admission import (
 )
 from corpus_structure.semantic.data_operation_demands import DemandPlanner, ReadyDataRequest
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
 from corpus_structure.semantic.data_operation_ports import (
     PortRefusal,
     PythonBatchMember,
@@ -367,7 +368,7 @@ class NativeDemandExecutor:
             raise ClaimFenceLost(claim, result["reason"])
 
     def _hydrate(self, ready: ReadyDataRequest):
-        pins = json.loads(ready.resolved.trust_evidence)
+        pins = wire_json_loads(ready.resolved.trust_evidence)
         with self.engine.begin() as connection:
             projections = admitted_data_projection(
                 connection,
@@ -396,7 +397,7 @@ class NativeDemandExecutor:
                         relation.c.product == member.product,
                         relation.c.member.is_not_distinct_from(member.member),
                         relation.c.subject == member.subject,
-                        relation.c.support_evidence == json.loads(member.support_evidence),
+                        relation.c.support_evidence == wire_json_loads(member.support_evidence),
                         relation.c.support_episodes == list(member.support_episodes),
                         relation.c.support_references
                         == _support_records(member.support_references),
@@ -449,15 +450,15 @@ class NativeDemandExecutor:
                     "product": {
                         "kind_contract": value.kind_contract,
                         "body": json.loads(value.meaning),
-                        "members": [json.loads(member) for member in value.members],
+                        "members": [wire_json_loads(member) for member in value.members],
                     },
                 }
             )
         completion = {
             "outcome": answer.outcome,
             "outputs": outputs,
-            "inputs": json.loads(ready.binding)["inputs"],
-            "support": json.loads(ready.binding)["support"],
+            "inputs": wire_json_loads(ready.binding)["inputs"],
+            "support": wire_json_loads(ready.binding)["support"],
             "implementation_revision": port.identity.implementation,
         }
         if any(
@@ -479,7 +480,7 @@ class NativeDemandExecutor:
                 cpu_content=answer.cpu_execution_evidence,
                 pdf_content=answer.pdf_execution_evidence,
             )
-        if len(canonical_bytes(completion)) > self.policy.max_reply_bytes:
+        if len(json_bytes(completion)) > self.policy.max_reply_bytes:
             raise ValueError("completion exceeds owned draft capacity")
 
         def retain(connection):
@@ -844,7 +845,7 @@ class NativeDemandExecutor:
                                 raise PortRefusal(
                                     "execution context differs from native demand custody"
                                 )
-                            self._last_snapshot = canonical_bytes(page)
+                            self._last_snapshot = json_bytes(page)
                             if page.get("state") == "cancelled":
                                 return self._result(demand, self._last_snapshot)
                             for use in page["uses"]:
@@ -898,7 +899,7 @@ class NativeDemandExecutor:
                 final = DemandPlanner(self.model, DataOperationStorage(connection)).resume(
                     demand, limit=limit
                 )
-            result = self._result(demand, canonical_bytes(final))
+            result = self._result(demand, json_bytes(final))
             if self._member_failures:
                 raise NativeDemandExecutionError(
                     result, tuple(self._member_failures)

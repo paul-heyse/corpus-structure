@@ -14,8 +14,8 @@ from typing import TYPE_CHECKING, Any, Literal
 import networkx as nx
 from pydantic import TypeAdapter
 
-from .data_operation_json import json_bytes, json_loads, wire_json_loads
 from .data_operation_compilation import project_operation_binding
+from .data_operation_json import json_bytes, json_loads, wire_json_loads
 from .data_operation_model import (
     EffectiveDataOperationModel,
     ResolvedOperationBinding,
@@ -272,6 +272,7 @@ def _population_context_matches(
     row: dict, obligation: dict, *, source_set: str | None, source_sets: dict, project: str
 ) -> bool:
     """Use authenticated contexts, or an explicitly frozen exact member association."""
+
     def same_context(left: dict, right: dict) -> bool:
         return all(left.get(key) == right[key] for key in ("subject", "original_source")) and (
             json_context_meaning(json_bytes(left.get("analyzed_scope")))
@@ -487,8 +488,12 @@ class DemandPlanner:
                 analyzed_scope=obligation["analyzed_scope"],
             )
             binding_arguments = dict(
-                subject_context=SubjectContext(snapshot["project_id"], obligation["subject"],
-                    obligation["original_source"], json_bytes(obligation["analyzed_scope"])),
+                subject_context=SubjectContext(
+                    snapshot["project_id"],
+                    obligation["subject"],
+                    obligation["original_source"],
+                    json_bytes(obligation["analyzed_scope"]),
+                ),
                 subject=obligation["subject"],
                 parameters=decode_semantic_value(operation["parameter_meaning"]),
                 choices=operation["choices"],
@@ -662,8 +667,12 @@ class DemandPlanner:
                 )
                 continue
             resolved = binding.resolved(
-                subject_context=SubjectContext(snapshot["project_id"], obligation["subject"],
-                    obligation["original_source"], json_bytes(obligation["analyzed_scope"])),
+                subject_context=SubjectContext(
+                    snapshot["project_id"],
+                    obligation["subject"],
+                    obligation["original_source"],
+                    json_bytes(obligation["analyzed_scope"]),
+                ),
                 inference=frozen["inference"],
                 authorization=authorization,
                 trust_evidence=json_bytes(

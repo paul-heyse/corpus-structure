@@ -20,6 +20,7 @@ from sqlalchemy.sql import ColumnElement, FromClause, Select
 from sqlalchemy.sql.visitors import replacement_traverse
 
 from .data_operation_identity import decode_semantic_value, semantic_value
+from .data_operation_json import json_bytes, wire_json_loads
 from .data_operation_kind_refinements import input_kind_contracts
 from .data_operation_model import (
     BindingExpression,
@@ -32,7 +33,6 @@ from .data_operation_model import (
     SubjectContext,
 )
 from .data_operation_source_sets import FrozenSourceSet, source_sets_record
-from .data_operation_json import json_bytes, wire_json_loads
 from .identity import canonical_bytes
 
 BindingStatus = Literal[
@@ -1093,8 +1093,14 @@ def decode_binding_rows(
 
             def payload(name, selected_row=row):
                 value = selected_row[name]
-                return value if isinstance(value, bytes) else (
-                    json_bytes(value) if name in {"analyzed_scope", "support_evidence"} else canonical_bytes(value)
+                return (
+                    value
+                    if isinstance(value, bytes)
+                    else (
+                        json_bytes(value)
+                        if name in {"analyzed_scope", "support_evidence"}
+                        else canonical_bytes(value)
+                    )
                 )
 
             members.append(

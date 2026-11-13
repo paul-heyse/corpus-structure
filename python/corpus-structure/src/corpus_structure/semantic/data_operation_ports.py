@@ -1176,8 +1176,10 @@ def _verify_closed_runtime_sources(
                 ):
                     _verify_generated_typeddict(value, node, module)
                     continue
-                if ("dataclasses-runtime" in sources.generated_interfaces
-                        and dataclasses.is_dataclass(value)):
+                if (
+                    "dataclasses-runtime" in sources.generated_interfaces
+                    and dataclasses.is_dataclass(value)
+                ):
                     _verify_generated_dataclass(
                         value, node, module, qualname=path.removeprefix(source.module + ".")
                     )
@@ -1267,8 +1269,11 @@ def _verify_generated_dataclass(value, node, module, *, qualname):
     """Check the selected standard transformation without running a factory."""
     if type(value) is not type or len(node.decorator_list) != 1 or node.keywords:
         raise PortRefusal("generated dataclass requires one captured standard decorator")
-    if (value.__name__ != node.name or value.__qualname__ != qualname
-            or value.__module__ != module.__name__):
+    if (
+        value.__name__ != node.name
+        or value.__qualname__ != qualname
+        or value.__module__ != module.__name__
+    ):
         raise PortRefusal("generated dataclass source owner differs")
     decorator = node.decorator_list[0]
     function = decorator.func if isinstance(decorator, ast.Call) else decorator
@@ -1289,7 +1294,9 @@ def _verify_generated_dataclass(value, node, module, *, qualname):
         raise PortRefusal("generated dataclass requires init=True")
     actual_fields = {field.name: field for field in dataclasses.fields(value)}
     expected_names = dict.fromkeys(
-        field.name for base in reversed(value.__mro__[1:]) if dataclasses.is_dataclass(base)
+        field.name
+        for base in reversed(value.__mro__[1:])
+        if dataclasses.is_dataclass(base)
         for field in dataclasses.fields(base)
     )
     for declaration in node.body:
@@ -1358,21 +1365,28 @@ def _verify_generated_dataclass(value, node, module, *, qualname):
                 default_factory=field.default_factory, kw_only=field.kw_only
             )
         specification.append((field.name, field.type, modeled_field))
-    expected = dataclasses.make_dataclass(value.__name__, specification,
-                                        frozen=parameters.frozen,
-                                        kw_only=options.get("kw_only", False))
+    expected = dataclasses.make_dataclass(
+        value.__name__,
+        specification,
+        frozen=parameters.frozen,
+        kw_only=options.get("kw_only", False),
+    )
     expected_parameters = inspect.getattr_static(expected, "__dataclass_params__")
     if type(parameters) is not type(expected_parameters) or any(
-        not (type(getattr(parameters, name)) is type(getattr(expected_parameters, name))
-             and getattr(parameters, name) == getattr(expected_parameters, name))
+        not (
+            type(getattr(parameters, name)) is type(getattr(expected_parameters, name))
+            and getattr(parameters, name) == getattr(expected_parameters, name)
+        )
         for name in type(expected_parameters).__slots__
     ):
         raise PortRefusal("generated dataclass transformation options differ")
     for name, field in actual_fields.items():
         modeled = expected.__dataclass_fields__[name]
-        if any(type(getattr(field, attribute)) is not type(getattr(modeled, attribute))
-               or getattr(field, attribute) != getattr(modeled, attribute)
-               for attribute in ("init", "repr", "compare", "hash", "metadata")):
+        if any(
+            type(getattr(field, attribute)) is not type(getattr(modeled, attribute))
+            or getattr(field, attribute) != getattr(modeled, attribute)
+            for attribute in ("init", "repr", "compare", "hash", "metadata")
+        ):
             raise PortRefusal("generated dataclass field behavior differs")
     if value.__match_args__ != expected.__match_args__:
         raise PortRefusal("generated dataclass positional pattern fields differ")
@@ -1393,7 +1407,8 @@ def _verify_generated_dataclass(value, node, module, *, qualname):
         return actual == modeled
 
     declared_fields = {
-        declaration.target.id for declaration in node.body
+        declaration.target.id
+        for declaration in node.body
         if isinstance(declaration, ast.AnnAssign) and isinstance(declaration.target, ast.Name)
     }
     for name, field in actual_fields.items():
@@ -1418,12 +1433,18 @@ def _verify_generated_dataclass(value, node, module, *, qualname):
             isinstance(actual_keywords, dict)
             and type(actual_keywords) is dict
             and actual_keywords.keys() == expected_keywords.keys()
-            and all(same_default(actual_keywords[name], default)
-                    for name, default in expected_keywords.items())
+            and all(
+                same_default(actual_keywords[name], default)
+                for name, default in expected_keywords.items()
+            )
         )
     if not keywords_match:
         raise PortRefusal("generated dataclass constructor keyword defaults differ")
-    allowed = set(vars(expected)) | {"__firstlineno__", "__static_attributes__", "__annotate_func__"}
+    allowed = set(vars(expected)) | {
+        "__firstlineno__",
+        "__static_attributes__",
+        "__annotate_func__",
+    }
     if "__slotnames__" in vars(value):
         if vars(value)["__slotnames__"] != []:
             raise PortRefusal("generated dataclass has unexpected runtime slots")
@@ -1439,7 +1460,11 @@ def _verify_generated_dataclass(value, node, module, *, qualname):
         if isinstance(declaration, ast.AnnAssign) and isinstance(declaration.target, ast.Name)
     )
     if set(vars(value)) - allowed:
-        raise PortRefusal("generated dataclass acquired undeclared class behavior: " + repr(sorted(set(vars(value)) - allowed)))
+        raise PortRefusal(
+            "generated dataclass acquired undeclared class behavior: "
+            + repr(sorted(set(vars(value)) - allowed))
+        )
+
     def verify_method(actual: Any, modeled: Any, label: str) -> None:
         if not inspect.isfunction(actual) or actual.__code__ != modeled.__code__:
             raise PortRefusal("generated dataclass " + label + " implementation differs")
@@ -1452,8 +1477,12 @@ def _verify_generated_dataclass(value, node, module, *, qualname):
         ):
             raise PortRefusal("generated dataclass " + label + " keyword defaults differ")
         for global_name in _code_globals(modeled.__code__):
-            actual_global = actual.__globals__.get(global_name, actual.__builtins__.get(global_name))
-            expected_global = modeled.__globals__.get(global_name, modeled.__builtins__.get(global_name))
+            actual_global = actual.__globals__.get(
+                global_name, actual.__builtins__.get(global_name)
+            )
+            expected_global = modeled.__globals__.get(
+                global_name, modeled.__builtins__.get(global_name)
+            )
             if actual_global is not expected_global:
                 raise PortRefusal("generated dataclass " + label + " global differs")
         actual_cells = tuple(cell.cell_contents for cell in actual.__closure__ or ())
@@ -1491,11 +1520,17 @@ def _verify_generated_dataclass(value, node, module, *, qualname):
         # Annotation evaluation belongs to the source-field correspondence above;
         # make_dataclass's synthetic annotation function has a different origin.
         if name != "__annotate_func__" and inspect.isfunction(expected_method):
-            verify_method(vars(value).get(name), expected_method,
-                          "constructor" if name == "__init__" else "method " + name)
+            verify_method(
+                vars(value).get(name),
+                expected_method,
+                "constructor" if name == "__init__" else "method " + name,
+            )
     for name in ("__setattr__", "__delattr__", "__getattribute__", "__hash__"):
         expected_method = inspect.getattr_static(expected, name)
-        if not inspect.isfunction(expected_method) and inspect.getattr_static(value, name) is not expected_method:
+        if (
+            not inspect.isfunction(expected_method)
+            and inspect.getattr_static(value, name) is not expected_method
+        ):
             raise PortRefusal("generated dataclass field access behavior differs")
 
 

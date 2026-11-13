@@ -11,12 +11,12 @@ from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from typing import Literal
 
+from .data_operation_json import json_bytes, json_loads
 from .data_operation_support import (
     ComputationalSupportReference,
     OriginalSourceSupportReference,
     SupportReference,
 )
-from .data_operation_json import json_bytes, json_loads
 from .identity import canonical_bytes
 
 MODEL_VERSION = "data-operation-model-v2"
@@ -528,9 +528,12 @@ class SubjectContext:
 
     @property
     def record(self) -> dict:
-        return {"project_id": self.project_id, "subject": self.subject,
-                "original_source": self.original_source,
-                "analyzed_scope": json_loads(self.analyzed_scope)}
+        return {
+            "project_id": self.project_id,
+            "subject": self.subject,
+            "original_source": self.original_source,
+            "analyzed_scope": json_loads(self.analyzed_scope),
+        }
 
     @property
     def identity_content(self) -> bytes:

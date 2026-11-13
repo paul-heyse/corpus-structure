@@ -16,6 +16,7 @@ import yaml
 from linkml_runtime.dumpers import json_dumper
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 
+from .data_operation_json import json_loads, scope_identity, wire_json_loads
 from .data_operation_model import (
     ARCHIVED_MODEL_VERSION,
     MODEL_VERSION,
@@ -40,7 +41,6 @@ from .data_operation_model import (
     StateTransition,
 )
 from .data_operation_wire import checked_json_schema, json_schema_category
-from .data_operation_json import json_loads, scope_identity, wire_json_loads
 from .identity import canonical_bytes
 from .python_operation_sources import ClosedPythonSources, PythonSourceCollection
 from .types import (
@@ -1813,7 +1813,9 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
         if actual.state == "known-absent" and actual.population_witness is None:
             _fail(name, "known absence requires a closed population witness")
         witness = (
-            wire_json_loads(actual.population_witness) if actual.population_witness is not None else None
+            wire_json_loads(actual.population_witness)
+            if actual.population_witness is not None
+            else None
         )
         values[name] = {
             "value": OptionalValue(actual.state, collection if actual.state == "present" else None),
@@ -1833,8 +1835,10 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
     }
     if binding.source_sets != b"{}":
         parameters["source_sets"] = {
-            name: [{**entry, "analyzed_scope": scope_identity(entry["analyzed_scope"])}
-                   for entry in entries]
+            name: [
+                {**entry, "analyzed_scope": scope_identity(entry["analyzed_scope"])}
+                for entry in entries
+            ]
             for name, entries in wire_json_loads(binding.source_sets).items()
         }
     request = SemanticRequestKey(
