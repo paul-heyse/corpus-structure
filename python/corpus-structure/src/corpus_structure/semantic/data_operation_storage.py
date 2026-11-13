@@ -16,8 +16,8 @@ from sqlalchemy import Text, bindparam, cast, func, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from .contracts import OperationCallBinding, OperationFieldBinding, OperationFieldType
-from .data_operation_model import MODEL_VERSION
 from .data_operation_json import ContextJSONB, json_bytes, json_context_value, wire_json_loads
+from .data_operation_model import MODEL_VERSION
 from .identity import canonical_bytes
 from .types import SourceArtifact
 

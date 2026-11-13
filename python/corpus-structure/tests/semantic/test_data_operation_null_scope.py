@@ -1,7 +1,7 @@
 """Explicit JSON null context stays distinct from an unqualified SQL NULL bind."""
 
-from importlib.resources import files
 import json
+from importlib.resources import files
 
 import pytest
 from sqlalchemy import JSON, bindparam, func, literal_column, select
@@ -9,8 +9,8 @@ from sqlalchemy import JSON, bindparam, func, literal_column, select
 from corpus_structure.semantic.data_operation_json import ContextJSONB, json_context_equal
 from corpus_structure.semantic.data_operation_storage import _binding_scope_parameter
 
-from .test_data_operation_storage import kernel as kernel
 from .test_data_operation_storage import ddo_kernel_engine as ddo_kernel_engine
+from .test_data_operation_storage import kernel as kernel
 
 
 @pytest.mark.db
@@ -32,36 +32,51 @@ def test_context_bind_and_comparison_distinguish_json_null_from_sql_null(semanti
 @pytest.mark.db
 @pytest.mark.parametrize("qualified", [False, True])
 def test_native_original_scope_predicate_selects_only_the_explicit_json_null_root(
-    semantic_bare_engine, qualified,
+    semantic_bare_engine,
+    qualified,
 ):
     source = files("corpus_structure.semantic").joinpath("sql/data_operations.sql").read_text()
     assert "admission.analyzed_scope IS NOT DISTINCT FROM p_scope" in source
     # Exact native original-source branch predicate, with the production projection
     # parameter binder. These VALUES test context selection, not original admission.
-    admission = select(literal_column("'null'::jsonb", ContextJSONB()).label("analyzed_scope")).subquery("admission")
+    admission = select(
+        literal_column("'null'::jsonb", ContextJSONB()).label("analyzed_scope")
+    ).subquery("admission")
     parameter = _binding_scope_parameter(None) if qualified else _binding_scope_parameter()
-    query = select(admission.c.analyzed_scope.is_not_distinct_from(parameter),
-                   func.jsonb_typeof(parameter))
+    query = select(
+        admission.c.analyzed_scope.is_not_distinct_from(parameter), func.jsonb_typeof(parameter)
+    )
     with semantic_bare_engine.connect() as connection:
-        assert tuple(connection.execute(query).one()) == ((True, "null") if qualified else (False, None))
+        assert tuple(connection.execute(query).one()) == (
+            (True, "null") if qualified else (False, None)
+        )
 
 
 @pytest.mark.db
 def test_native_demand_retains_json_null_scope_through_product_binding(kernel):
-    from corpus_structure.semantic.data_operation_demands import DemandPlanner, RootSubject, freeze_demand
+    from corpus_structure.semantic.data_operation_demands import (
+        DemandPlanner,
+        RootSubject,
+        freeze_demand,
+    )
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 
     from .test_data_operation_storage import claim, publish, retain
 
     intent = freeze_demand(
-        kernel["model"], roots=(RootSubject("null:subject", "source:test", b"null"),),
+        kernel["model"],
+        roots=(RootSubject("null:subject", "source:test", b"null"),),
         targets=("urn:ddo-test:sample", "urn:ddo-test:consumer"),
-        inference="inference:test", execution_profile="execution:test",
+        inference="inference:test",
+        execution_profile="execution:test",
     )
     with kernel["engine"].begin() as connection:
         planner = DemandPlanner(kernel["model"], DataOperationStorage(connection))
         demand = planner.register(
-            intent, project="ddo-test", release=kernel["prepared"].release_id, runtime=kernel["runtime"],
+            intent,
+            project="ddo-test",
+            release=kernel["prepared"].release_id,
+            runtime=kernel["runtime"],
         )["demand_id"]
         ready = planner.ready(planner.resume(demand), authorization=b"{}")
         assert len(ready) == 1 and ready[0].operation == "urn:ddo-test:sample"
