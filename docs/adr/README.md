@@ -73,6 +73,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0097](0097-ddo-native-composition.md) | Declared nominal refinements and document paths preserve concrete input identity | 2026-11-13 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0098](0098-typed-release-archive.md) | Release archives use model-owned binary staging and atomic native finalization | 2026-11-13 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0099](0099-runless-pdf-source-ownership.md) | PDF capture retains original assets and sealed publication under genuine demand claims | 2026-11-13 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0100](0100-ddo-contextual-identities.md) | Qualified subject context governs DDO request and product identity | 2026-11-13 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

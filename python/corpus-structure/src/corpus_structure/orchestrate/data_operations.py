@@ -94,6 +94,22 @@ class DemandAdvance:
         return self.receipt_count > len(self.receipts)
 
 
+def _check_batch_active(owner, claims):
+    """Keep shared physical work useful without hiding individual claim loss."""
+    owner()
+    failures = []
+    for claim in claims:
+        try:
+            owner.check_claim(claim)
+        except (ClaimFenceLost, ClaimSettlementUncertain) as error:
+            failures.append(error)
+        else:
+            return
+    if not failures:
+        raise ValueError("batch activity requires at least one claim")
+    raise ExceptionGroup("no batch member has confirmed active ownership", failures)
+
+
 class NativeDemandExecutionError(RuntimeError):
     """Useful sibling receipts remain available when an execution sweep fails."""
 
@@ -668,7 +684,9 @@ class NativeDemandExecutor:
                                     PythonBatchMember(member, inputs, item.binding_result)
                                     for member, item, _, inputs, _ in pending
                                 ),
-                                check_active=owner,
+                                check_active=lambda: _check_batch_active(
+                                    owner, tuple(row[2] for row in pending)
+                                ),
                                 execution_owner=physical,
                             )
                         )

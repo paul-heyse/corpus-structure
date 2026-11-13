@@ -23,7 +23,13 @@ Raw original-asset support and existing-view support remain distinct authenticat
 branches. Sealed PDF publisher custody remains separate from a later current admission fence;
 the native completion envelope must retain both when adopting an already-published result.
 
-> Decision: [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0099](../adr/0099-runless-pdf-source-ownership.md)
+**Accepted target; integration Proposed · 2026-11-13.** Current DDO request and product
+identities include one explicit qualified subject context: project, local subject, original source
+and analyzed scope. Native authentication reconstructs that context from admitted custody. Local
+subject headers remain for display and joins; historical frozen interpretations retain their
+original identity meaning. The coordinator owns implementation and qualification.
+
+> Decision: [ADR-0100](../adr/0100-ddo-contextual-identities.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0099](../adr/0099-runless-pdf-source-ownership.md)
 
 ## Coherent characterization bounds and native demand anchors
 

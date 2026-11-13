@@ -26,7 +26,13 @@ projections with their original document without changing those projections' own
 offsets or source custody. Composition retains all selected source projections and per-source
 family coverage; a common interface does not imply common coverage or analytical agreement.
 
-> Decision: [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0096](../adr/0096-original-source-admission.md), [ADR-0097](../adr/0097-ddo-native-composition.md)
+**Accepted target; integration Proposed · 2026-11-13.** Current DDO request and product
+identities include one explicit qualified subject context: project, local subject, original source
+and analyzed scope. Native authentication reconstructs that context from admitted custody. Local
+subject headers remain for display and joins; historical frozen interpretations retain their
+original identity meaning. The coordinator owns implementation and qualification.
+
+> Decision: [ADR-0100](../adr/0100-ddo-contextual-identities.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0096](../adr/0096-original-source-admission.md), [ADR-0097](../adr/0097-ddo-native-composition.md)
 
 ## Enriched-document analysis layers
 
