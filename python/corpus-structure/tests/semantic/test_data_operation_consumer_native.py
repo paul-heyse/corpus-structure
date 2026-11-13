@@ -328,16 +328,23 @@ def _publish(kernel, demand, root, group, body):
             },
         )
     from corpus_structure.semantic.data_operation_ports import RoleValue
+
     with kernel["engine"].begin() as connection:
         port = acquire_publication_port(connection, kernel["prepared"])
-        value = RoleValue("request", port.request_kind, canonical_bytes({**fence, "intent_id": intent["intent_id"]}))
+        value = RoleValue(
+            "request",
+            port.request_kind,
+            canonical_bytes({**fence, "intent_id": intent["intent_id"]}),
+        )
         completed = port.invoke_json(value)
         receipt = completed.result.value()
         replay = port.invoke_json(value)
         assert replay.receipt_id == completed.receipt_id
         assert replay.derivation_id == completed.derivation_id
         assert replay.result.value()["replayed"] is True
-    product = contextual_product_identity(kind=contract, context=context, body=body_identity(body).key).key
+    product = contextual_product_identity(
+        kind=contract, context=context, body=body_identity(body).key
+    ).key
     with kernel["engine"].begin() as connection:
         parent = DataOperationStorage(connection).invoke(
             "close_data_population",

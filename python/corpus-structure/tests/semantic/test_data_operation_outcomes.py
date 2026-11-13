@@ -14,9 +14,11 @@ from corpus_structure.semantic.python_operation_sources import PythonSource, Pyt
 
 def actual_operation():
     path = Path(__file__).parents[2] / "src/corpus_structure/semantic/identity.py"
-    return compile_data_operations(python_sources=PythonSourceCollection((
-        PythonSource("corpus_structure.semantic.identity", path.read_bytes(), str(path)),
-    ))).operations[0]
+    return compile_data_operations(
+        python_sources=PythonSourceCollection(
+            (PythonSource("corpus_structure.semantic.identity", path.read_bytes(), str(path)),)
+        )
+    ).operations[0]
 
 
 def test_original_claim_return_selects_addressed_not_literal_success():
@@ -28,20 +30,27 @@ def test_original_claim_return_selects_addressed_not_literal_success():
 def test_legacy_explicit_success_requires_no_competing_successful_outcome():
     operation = replace(actual_operation(), outcomes=("success", "empty", "failed"), transitions=())
     assert successful_return_outcome(operation) == "success"
-    operation = replace(operation, outcomes=("success", "produced"), transitions=(
-        StateTransition("completion", "pending", "success", "produced"),
-    ))
+    operation = replace(
+        operation,
+        outcomes=("success", "produced"),
+        transitions=(StateTransition("completion", "pending", "success", "produced"),),
+    )
     with pytest.raises(PortRefusal, match="unambiguous"):
         successful_return_outcome(operation)
 
 
-@pytest.mark.parametrize("transitions", [
-    (),
-    (StateTransition("completion", "pending", "failed", "produced"),),
-    (StateTransition("completion", "pending", "success", "produced", ("publish",)),),
-    (StateTransition("completion", "pending", "success", "produced"),
-     StateTransition("completion", "pending", "empty", "produced")),
-])
+@pytest.mark.parametrize(
+    "transitions",
+    [
+        (),
+        (StateTransition("completion", "pending", "failed", "produced"),),
+        (StateTransition("completion", "pending", "success", "produced", ("publish",)),),
+        (
+            StateTransition("completion", "pending", "success", "produced"),
+            StateTransition("completion", "pending", "empty", "produced"),
+        ),
+    ],
+)
 def test_return_cannot_invent_or_disambiguate_a_terminal_mapping(transitions):
     operation = replace(actual_operation(), outcomes=("produced",), transitions=transitions)
     with pytest.raises(PortRefusal, match="unambiguous"):

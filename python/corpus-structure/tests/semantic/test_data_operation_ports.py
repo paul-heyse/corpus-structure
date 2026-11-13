@@ -970,13 +970,29 @@ def test_generated_record_output_has_typed_canonical_body(tmp_path, monkeypatch)
     assert result.outputs[0].meaning == b'["mapping",[["value",["integer","3"]]]]'
 
 
-def test_ambiguous_success_return_refuses_before_authorization_or_target_import(tmp_path, monkeypatch):
+def test_ambiguous_success_return_refuses_before_authorization_or_target_import(
+    tmp_path, monkeypatch
+):
     metadata = copy.deepcopy(claim_source_item__data_operation__)
     metadata["outcomes"].append("other-address")
-    metadata["transitions"].append({"dimension": "completion", "before": "pending",
-                                    "after": "success", "outcome": "other-address"})
-    model, inputs = fixture_source(tmp_path, monkeypatch, metadata=metadata,
-                                  header="raise RuntimeError('target must not import')")
+    metadata["transitions"].append(
+        {
+            "dimension": "completion",
+            "before": "pending",
+            "after": "success",
+            "outcome": "other-address",
+        }
+    )
+    model, inputs = fixture_source(
+        tmp_path,
+        monkeypatch,
+        metadata=metadata,
+        header="raise RuntimeError('target must not import')",
+    )
     with pytest.raises(PortRefusal, match="unambiguous"):
-        resolve_python_port(model, inputs, model.operations[0].semantic_id,
-                            authorize=lambda _: pytest.fail("ambiguous return was authorized"))
+        resolve_python_port(
+            model,
+            inputs,
+            model.operations[0].semantic_id,
+            authorize=lambda _: pytest.fail("ambiguous return was authorized"),
+        )

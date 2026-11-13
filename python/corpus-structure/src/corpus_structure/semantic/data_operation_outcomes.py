@@ -29,7 +29,5 @@ def successful_return_outcome(operation: EffectiveOperation) -> str:
             # when there is no authored mapping. Never invent this spelling.
             candidates.append(outcome)
     if len(candidates) != 1:
-        raise PortRefusal(
-            "successful return requires one unambiguous declared completion outcome"
-        )
+        raise PortRefusal("successful return requires one unambiguous declared completion outcome")
     return candidates[0]
