@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from .data_operation_model import EffectiveDataOperationModel
     from .python_operation_sources import PythonSourceCollection
     from .runtime_bindings import RuntimeBinding
-    from .types import PreparedRelease, SourceBundle
+    from .types import PreparedRelease, SourceArtifact, SourceBundle
 
 
 def bound_data_operation_model(prepared: PreparedRelease) -> EffectiveDataOperationModel:
@@ -104,6 +104,7 @@ class PreparedCapabilityIdentity(PythonPortIdentity):
 class AcquiredPreparedExecution:
     identity: PreparedCapabilityIdentity
     source_admission: AcquiredPythonExecution
+    custody: tuple[SourceArtifact, ...]
 
     def authorize(self, identity: PreparedCapabilityIdentity) -> None:
         if identity != self.identity:
@@ -159,7 +160,7 @@ def acquire_prepared_execution(
         runtime=runtime.runtime_id,
         assets=canonical_bytes(tuple(asdict(boundary) for boundary in boundaries)),
     )
-    return AcquiredPreparedExecution(identity, admission)
+    return AcquiredPreparedExecution(identity, admission, sources.boundary_contracts)
 
 
 def acquire_python_execution(
@@ -225,6 +226,15 @@ def acquire_python_execution(
     retained = {item["sha256"] for item in json.loads(runtime.manifest)["implementation_inputs"]}
     if any(sha256(source.content).hexdigest() not in retained for source in sources.sources):
         raise SemanticRefusal("Python module is absent from acquired runtime custody")
+    retained_contracts = {
+        (item["name"], item["sha256"])
+        for item in json.loads(runtime.manifest)["implementation_inputs"]
+    }
+    if any(
+        ("data-operations/contracts/" + contract.name, contract.digest) not in retained_contracts
+        for contract in sources.boundary_contracts
+    ):
+        raise SemanticRefusal("Python boundary contract differs from acquired runtime custody")
     return AcquiredPythonExecution(
         _source_identity_bytes(identity),
         prepared.release_id,

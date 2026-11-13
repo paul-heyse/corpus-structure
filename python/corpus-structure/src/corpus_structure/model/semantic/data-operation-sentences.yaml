@@ -1,0 +1,90 @@
+id: https://corpus-structure.dev/semantic/data-operation-sentences
+name: data_operation_sentences
+prefixes:
+  dss: https://corpus-structure.dev/semantic/data-operation-sentences/
+default_prefix: dss
+default_range: string
+classes:
+  DdoNativeToken:
+    annotations:
+      cs:data_universe: source
+      cs:projection_families: '["role"]'
+    is_a: SourceRecordProduct
+    description: Existing atom-preserving spaCy token with absolute original projection offsets.
+    attributes:
+      local_id: {required: true, pattern: '^[0-9a-f]{64}$'}
+      block_id: {required: true}
+      ordinal: {range: integer, required: true, minimum_value: 0}
+      start: {range: integer, required: true, minimum_value: 0}
+      end: {range: integer, required: true, minimum_value: 1}
+      space: {range: boolean, required: true}
+      role: {required: true, pattern: '^(prose|math|reference)$'}
+      sentence_ref: {}
+      piece_indices: {range: integer, multivalued: true, required: true, minimum_cardinality: 1}
+  DdoNativeSentence:
+    annotations:
+      cs:data_universe: source
+      cs:projection_families: '["role"]'
+    is_a: SourceRecordProduct
+    attributes:
+      local_id: {required: true, pattern: '^[0-9a-f]{64}$'}
+      block_id: {required: true}
+      ordinal: {range: integer, required: true, minimum_value: 0}
+      start: {range: integer, required: true, minimum_value: 0}
+      end: {range: integer, required: true, minimum_value: 1}
+      token_ids: {multivalued: true, required: true, minimum_cardinality: 1}
+  DdoSentenceCoverage:
+    is_a: SourceRecordProduct
+    attributes:
+      block_id: {required: true}
+      start: {range: integer, required: true, minimum_value: 0}
+      end: {range: integer, required: true, minimum_value: 0}
+      outcome: {required: true, pattern: '^(complete|empty|unsupported)$'}
+      reason: {}
+  DdoSentenceScope:
+    is_a: SourceRecordProduct
+    attributes:
+      source: {range: DdoNativeSourceCoordinate, inlined: true, required: true}
+      selectors: {range: CharacterizationSourceSelector, inlined: true, multivalued: true, required: true}
+  DdoSentenceContext:
+    is_a: SourceRecordProduct
+    attributes:
+      subject: {required: true}
+      original_source: {required: true}
+      analyzed_scope: {range: DdoSentenceScope, inlined: true, required: true}
+  DdoSentenceMemberRole:
+    is_a: SourceRecordProduct
+    attributes:
+      role: {required: true}
+      position: {range: integer, required: true, minimum_value: 0}
+      multiplicity: {range: integer, required: true, minimum_value: 1}
+  DdoSentencePacket:
+    is_a: SourceRecordProduct
+    abstract: true
+    attributes:
+      kind: {required: true}
+      member_id: {required: true}
+      kind_contract: {required: true}
+      context: {range: DdoSentenceContext, inlined: true, required: true}
+      roles: {range: DdoSentenceMemberRole, inlined: true, multivalued: true, required: true}
+  DdoNativeTokenPacket:
+    is_a: DdoSentencePacket
+    attributes:
+      kind: {equals_string: token, required: true}
+      body: {range: DdoNativeToken, inlined: true, required: true}
+  DdoNativeSentencePacket:
+    is_a: DdoSentencePacket
+    attributes:
+      kind: {equals_string: sentence, required: true}
+      body: {range: DdoNativeSentence, inlined: true, required: true}
+  DdoSentenceInventory:
+    annotations:
+      cs:data_universe: source
+    is_a: SourceRecordProduct
+    description: Typed original token and sentence members; execution placement and model custody remain derivation evidence.
+    attributes:
+      source: {range: DdoNativeSourceCoordinate, inlined: true, required: true}
+      selectors: {range: CharacterizationSourceSelector, inlined: true, multivalued: true, required: true}
+      outcome: {required: true, pattern: '^(complete|partial)$'}
+      coverage: {range: DdoSentenceCoverage, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      members: {range: DdoSentencePacket, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}

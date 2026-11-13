@@ -81,12 +81,21 @@ def runtime_binding_for_run(
             )
         )
         return legacy_runtime_binding(prepared, inputs)
+    return runtime_binding_for_release(conn, prepared, selected.runtime_id)
+
+
+def runtime_binding_for_release(
+    conn: Connection,
+    prepared: PreparedRelease,
+    runtime_id: str,
+) -> RuntimeBinding:
+    """Acquire exact retained release/runtime custody without a legacy run anchor."""
     stored = table("sem.runtime_binding")
     row = (
         conn.execute(
             select(stored).where(
-                stored.c.release_id == selected.release_id,
-                stored.c.runtime_id == selected.runtime_id,
+                stored.c.release_id == prepared.release_id,
+                stored.c.runtime_id == runtime_id,
             )
         )
         .mappings()

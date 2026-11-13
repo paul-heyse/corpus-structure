@@ -551,6 +551,8 @@ definitions:
         minItems: 0
       implementation_revision:
         $ref: '#/definitions/identifier'
+      execution_evidence:
+        $ref: '#/definitions/native_execution_evidence'
     required:
     - outcome
     - outputs
@@ -1336,7 +1338,73 @@ definitions:
     - holder
     - lease_seconds
     additionalProperties: false
+  data_attempt_lost_result:
+    type: object
+    properties:
+      state: {const: lost}
+      reason: {enum: [fence, cancelled, revoked, support-unavailable]}
+      request_id: {$ref: '#/definitions/identifier'}
+      generation: {$ref: '#/definitions/positive_integer'}
+      task_id: {$ref: '#/definitions/task_id'}
+      attempt: {$ref: '#/definitions/positive_integer'}
+      holder: {$ref: '#/definitions/identifier'}
+    required: [state, reason, request_id, generation, task_id, attempt, holder]
+    additionalProperties: false
+  attempt_failure:
+    type: object
+    properties:
+      code: {$ref: '#/definitions/identifier'}
+      message: {$ref: '#/definitions/identifier'}
+    required: [code, message]
+    additionalProperties: false
+  attempt_failure_observation:
+    type: object
+    properties:
+      failure_id: {$ref: '#/definitions/identifier'}
+      request_id: {$ref: '#/definitions/identifier'}
+      generation: {$ref: '#/definitions/positive_integer'}
+      task_id: {$ref: '#/definitions/task_id'}
+      attempt: {$ref: '#/definitions/positive_integer'}
+      holder: {$ref: '#/definitions/identifier'}
+      failure: {$ref: '#/definitions/attempt_failure'}
+    required: [failure_id, request_id, generation, task_id, attempt, holder, failure]
+    additionalProperties: false
   renew_data_request_result:
+    oneOf:
+    - $ref: '#/definitions/renewed_data_request_result'
+    - $ref: '#/definitions/data_attempt_lost_result'
+  release_data_attempt_request:
+    type: object
+    properties:
+      request_id: {$ref: '#/definitions/identifier'}
+      generation: {$ref: '#/definitions/positive_integer'}
+      task_id: {$ref: '#/definitions/task_id'}
+      attempt: {$ref: '#/definitions/positive_integer'}
+      holder: {$ref: '#/definitions/identifier'}
+      physical_retirement: {const: confirmed}
+      failure: {$ref: '#/definitions/attempt_failure'}
+    required: [request_id, generation, task_id, attempt, holder, physical_retirement, failure]
+    additionalProperties: false
+  release_data_attempt_result:
+    oneOf:
+    - $ref: '#/definitions/data_attempt_lost_result'
+    - type: object
+      properties:
+        state: {const: released}
+        request_id: {$ref: '#/definitions/identifier'}
+        generation: {$ref: '#/definitions/positive_integer'}
+        task_id: {$ref: '#/definitions/task_id'}
+        attempt: {$ref: '#/definitions/positive_integer'}
+        holder: {$ref: '#/definitions/identifier'}
+        failure_id: {$ref: '#/definitions/identifier'}
+        replayed: {type: boolean}
+        retained_intent_id:
+          anyOf:
+          - $ref: '#/definitions/identifier'
+          - type: 'null'
+      required: [state, request_id, generation, task_id, attempt, holder, failure_id, replayed, retained_intent_id]
+      additionalProperties: false
+  renewed_data_request_result:
     type: object
     properties:
       state:
@@ -1696,6 +1764,9 @@ definitions:
         items:
           $ref: '#/definitions/result_obligation'
         minItems: 0
+      attempt_failures:
+        type: array
+        items: {$ref: '#/definitions/attempt_failure_observation'}
       populations:
         type: array
         items:
@@ -1859,6 +1930,11 @@ operations:
   purposes:
   - write
   - evaluate
+- name: release_data_attempt
+  profile: command
+  request: release_data_attempt_request
+  result: release_data_attempt_result
+  purposes: [write]
 - name: retain_data_completion_intent
   profile: command
   request: retain_data_completion_intent_request

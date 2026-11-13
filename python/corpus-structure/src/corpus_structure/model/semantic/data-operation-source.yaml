@@ -42,6 +42,8 @@ classes:
       pointer: {required: true, pattern: '^.+$'}
       outcome: {required: true, pattern: '^.+$'}
   DdoSelectedNativeSource:
+    annotations:
+      cs:data_universe: source
     is_a: SourceRecordProduct
     description: Already selected source facts and exact examined-scope request, with no reader or ambient selection capability.
     attributes:

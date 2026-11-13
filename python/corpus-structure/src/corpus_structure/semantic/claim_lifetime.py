@@ -7,7 +7,7 @@ from collections.abc import Callable, Generator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from threading import Event, RLock, Thread
-from typing import Protocol
+from typing import Literal, Protocol
 
 from sqlalchemy import Connection, Engine, text
 from sqlalchemy.exc import DBAPIError
@@ -56,6 +56,18 @@ class ClaimSettlementUncertain(OperationConflict):
         )
 
 
+class ClaimFenceLost(OperationConflict):
+    """One native request lost its publication fence; independent claims remain useful."""
+
+    def __init__(self, claim: OwnedClaim, reason: Literal[
+        "fence", "cancelled", "revoked", "support-unavailable",
+    ]):
+        self.claim, self.reason = claim, reason
+        super().__init__(
+            f"claim fence lost for task {claim.task_id}, attempt {claim.attempt}: {reason}"
+        )
+
+
 class ClaimOwner:
     def __init__(self, engine, claims, holder, database, check_active):
         self.engine, self.holder, self.database = engine, holder, database
@@ -65,6 +77,7 @@ class ClaimOwner:
         if len(self.active) != len(claims) or any(claim.holder != holder for claim in claims):
             raise ValueError("claim owner requires unique exact task/attempt/holder bindings")
         self.uncertain = {}
+        self.lost: dict[tuple[int, int, str], ClaimFenceLost] = {}
 
     def __call__(self):
         self._check_active()
@@ -73,7 +86,7 @@ class ClaimOwner:
         with self.lock:
             self()
             key = (claim.task_id, claim.attempt, self.holder)
-            if claim.holder != self.holder or key in self.active:
+            if claim.holder != self.holder or key in self.active or key in self.lost:
                 raise OperationConflict("claim is already owned or belongs to another holder")
             self.active[key] = claim
 
@@ -81,25 +94,28 @@ class ClaimOwner:
         """Check one producer without stopping useful independent siblings."""
         self()
         key = (claim.task_id, claim.attempt, self.holder)
+        if key in self.lost:
+            raise self.lost[key]
         if key not in self.active or claim.holder != self.holder:
             raise OperationConflict("task is no longer active in this owner")
         if key in self.uncertain:
             raise self.uncertain[key]
 
     def check_settled(self) -> None:
-        """Unresolved completion custody must remain visible at owner exit."""
+        """Unresolved claim failures and completion custody remain visible at owner exit."""
+        failures: list[Exception] = []
         try:
             self()
         except Exception as error:
-            self.note_uncertainties(error)
-            raise
-        if self.uncertain:
-            error = next(iter(self.uncertain.values()))
-            self.note_uncertainties(error)
-            raise error
+            failures.append(error)
+        failures.extend((*self.lost.values(), *self.uncertain.values()))
+        if len(failures) == 1:
+            raise failures[0]
+        if failures:
+            raise ExceptionGroup("claim ownership failures", failures)
 
     def note_uncertainties(self, error: BaseException) -> None:
-        for uncertainty in self.uncertain.values():
+        for uncertainty in (*self.lost.values(), *self.uncertain.values()):
             if uncertainty is not error:
                 note = str(uncertainty)
                 if note not in getattr(error, "__notes__", ()):
@@ -119,6 +135,8 @@ class ClaimOwner:
         key = (claim.task_id, claim.attempt, self.holder)
         with self.lock:
             self()
+            if key in self.lost:
+                raise self.lost[key]
             if key not in self.active:
                 raise OperationConflict("task is no longer active in this owner")
             prior = self.uncertain.get(key)
@@ -261,52 +279,63 @@ def maintained_claims(
             effects = EffectKnowledge.NONE
             claim = claims[0] if len(claims) == 1 else None
             try:
-                with owner.lock, engine.connect() as conn, cancellation.borrow(conn):
+                with owner.lock:
                     active = tuple(
                         claim for key, claim in owner.active.items() if key not in owner.uncertain
                     )
-                    if not active:
-                        retry_of = None
-                        continue
-                    try:
-                        with conn.begin():
+                if not active:
+                    retry_of = None
+                    continue
+                with engine.connect() as conn, cancellation.borrow(conn):
+                    if retry_of is not None:
+                        with owner.lock, conn.begin():
                             phase = DatabasePhase.EXECUTING
-                            effects = EffectKnowledge.UNCERTAIN
-                            _deadlines(
-                                conn,
-                                database,
-                                statement_timeout_seconds=database.renewal_statement_timeout_seconds,
-                            )
-                            if retry_of is not None and not _leases_cover_retry(
-                                conn,
-                                active,
-                                timedelta(
-                                    seconds=database.renewal_statement_timeout_seconds * len(active)
-                                ),
-                            ):
+                            _deadlines(conn, database,
+                                statement_timeout_seconds=database.renewal_statement_timeout_seconds)
+                            if not _leases_cover_retry(conn, active, timedelta(
+                                seconds=database.renewal_statement_timeout_seconds * len(active)
+                            )):
                                 raise retry_of
-                            for claim in active:
-                                cancellation.check_active()
-                                if renew_owned_claim is not None:
-                                    renew_owned_claim(conn, claim)
-                                else:
-                                    from ._operation_calls import TaskAttempt, TaskId
+                    for claim in active:
+                        key = (claim.task_id, claim.attempt, holder)
+                        with owner.lock:
+                            if key not in owner.active or key in owner.uncertain:
+                                continue
+                            phase = DatabasePhase.ACQUIRING
+                            effects = EffectKnowledge.NONE
+                            try:
+                                with conn.begin():
+                                    phase = DatabasePhase.EXECUTING
+                                    effects = EffectKnowledge.UNCERTAIN
+                                    _deadlines(conn, database,
+                                        statement_timeout_seconds=database.renewal_statement_timeout_seconds)
+                                    cancellation.check_active()
+                                    if renew_owned_claim is not None:
+                                        renew_owned_claim(conn, claim)
+                                    else:
+                                        from ._operation_calls import TaskAttempt, TaskId
 
-                                    renew_claim(
-                                        conn,
-                                        task_id=TaskId(claim.task_id),
-                                        attempt=TaskAttempt(claim.attempt),
-                                        holder=holder,
-                                    )
-                            cancellation.check_active()
-                            phase = DatabasePhase.COMMITTING
-                        effects = EffectKnowledge.COMMITTED
-                        renewed = True
-                        retry_of = None
-                    except Exception:
-                        if phase != DatabasePhase.COMMITTING and not conn.invalidated:
-                            effects = EffectKnowledge.ROLLED_BACK
-                        raise
+                                        renew_claim(conn, task_id=TaskId(claim.task_id),
+                                            attempt=TaskAttempt(claim.attempt), holder=holder)
+                                    cancellation.check_active()
+                                    phase = DatabasePhase.COMMITTING
+                                effects = EffectKnowledge.COMMITTED
+                                renewed = True
+                            except ClaimFenceLost as loss:
+                                # A typed native refusal concerns only this exact
+                                # producer. Prior sibling renewal commits survive.
+                                if loss.claim != claim:
+                                    raise OperationConflict(
+                                        "renewal loss belongs to another claim"
+                                    ) from loss
+                                owner.lost[key] = loss
+                                del owner.active[key]
+                                effects = EffectKnowledge.ROLLED_BACK
+                            except Exception:
+                                if phase != DatabasePhase.COMMITTING and not conn.invalidated:
+                                    effects = EffectKnowledge.ROLLED_BACK
+                                raise
+                    retry_of = None
             except Exception as error:
                 failure = classify_error(
                     error,

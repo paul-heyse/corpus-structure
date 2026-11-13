@@ -437,44 +437,63 @@ the accepted target or close multi-package findings from source reviews.
 
 ### DDO-03/06 execution increment · 2026-11-13
 
-**Implemented; bounded qualification:** explicit `result_fields` maps declared output roles to
-fields of an admitted `dict[str, T]` return. Compiler checks complete/distinct correspondence and
-nominal value kinds; ports validate the whole return and exact field set before exposing outputs.
-The mapping enters recipe/definition meaning when present; archived v1/v2 absence preserves the
-previous interpretation. Generated-class/TypedDict, receiver, batch/stream and effectful profiles
-remain open. This is an atomic mapping-bundle primitive, not completion of DDO-03.
+**Implemented foundations; integrated native qualification in progress. Execution continues.**
+DDO-03–05 and DDO-06 remain partial/open; DDO-07 remains open. This checkpoint does not end
+execution of the approved remaining DDO-03–05, DDO-06 and DDO-07 scope.
 
-Claim lifetime now separates active-owner checks, exact-claim uncertainty and exit custody.
-Healthy siblings renew and settle while one claim is uncertain. Exact retained callback replay
-can reconcile that claim; a different callback cannot replace it. Normal and exceptional exits
-report unresolved siblings while preserving the primary error. This is still process-local
-settlement machinery; durable native-intent execution and demand-level cancellation remain open.
+- Direct ports now support exact closed receivers, original tuple-native batch calls and
+  atomic typed-mapping output bundles. The acquired execution boundary retains original
+  source names separately from explicit runtime locations, validates exact native/runtime
+  correspondence and carries canonical typed output meaning. Generated records, prepared
+  resources, streams and effects still need their concrete applicable capability profiles.
+- Four actual colocated consumer contracts cover shared-document source views, optional
+  exact-one M1 projection, distinct structural passage/reading associations and retained
+  contextual occurrences. Explicit subject fields preserve member identity. Frozen source
+  sets preserve exact foreign product/member/source/reference custody. Requested-ID coverage
+  is explicit. Closed membership is qualified by its product, preventing local-ID collisions.
+- Native cancellation detaches demand interest, preserves shared work and increments an
+  orphaned generation's fence; a later demand cannot revive that old attempt. Read-derived
+  populations retain exact obligation/filter/parameter/producer context and complete/partial
+  standing. The planner consumes them only through a fresh pinned read, refuses ambiguous
+  parents and exposes reuse/selection progress. Managed `ci demands create/read/cancel`
+  routes delegate to the same native service.
+- The runless execution owner connects admitted source calls to native claims, separate
+  intent retention/publication, exact reconciliation, bounded hydration and physical work.
+  It scans pinned continuation pages and replenishes from fresh native sweeps. Dynamic
+  claim admission and injected native renewal preserve independent uncertain-claim custody.
+  Actual callable-to-publication and exceptional-exit controls are being qualified; their
+  source implementation alone is not verified closure.
+- The first native source/publication qualification failed 39/62 cases, with 23 passes,
+  `2031b6142f4d4f61b8f30a746b80eb8c`. Thirty-four failures share a request-attachment
+  SQL alias ambiguity, four expose a fixture's overbroad request construction and one
+  exposes a scalar/collection declaration mismatch. The receipt is retained; source fixes
+  and the combined follow-up successor must be tested before any native closure claim.
+- Original-source handoff requires typed factual support, rather than a synthetic computational
+  derivation. [ADR-0096](../adr/0096-original-source-admission.md) accepts the target detail;
+  existing document/native/cut/view custody and frozen selectors must authenticate the source
+  before it enters the new bindings. The source receipt, support/trust branch, actual source
+  bridge and their immediate consumers are active DDO-03/04/05/07 prerequisites, not closed
+  by direct DTO or provider tests.
+- Host/provider replies now retain original host-generation/request/profile/digests and
+  logical-member correspondence. Authentic provider qualification and durable native
+  execution-evidence integration remain open. The formal and learned spaCy target families
+  are actively integrating one original-source model; parser deadlines require the existing
+  bounded CPU process owner, not ordinary worker threads.
 
-`renew_data_request` binds request/generation/task/attempt/holder, support/trust, current producer
-runtime/recipe and latest attached demand interest. It preserves the attempt and never shortens
-an existing lease. Frozen `semantic_ddo_renewal_v1` is registered after
-`semantic_ddo_recovery_v1`; [authoring receipt](../design_review/evidence/2026-11-13_ddo-request-renewal/README.md).
-The persistent database remains at `semantic_bep_located_v2`. Atomic cancellation must serialize
-interest detachment on the same request lock; renewal alone does not implement that transition.
+Frozen `semantic_ddo_population_v1` follows `semantic_ddo_renewal_v1` through the normal
+rollback-only chain; [authoring custody](../design_review/evidence/2026-11-13_ddo-population-and-cancellation/README.md).
+The persistent database remains at `semantic_bep_located_v2`, unchanged until DDO-11.
+Candidate registration is not adoption, and later source changes require fresh adoption custody.
 
-Root assembled port/compiler/identity/wire/claim-owner union **passed**, 183/183,
-`43dfffb3f3f64207a0b1ec4ab43d4497`; its
-[retained receipt](../design_review/evidence/2026-11-13_cli-43dfffb3f3f64207a0b1ec4ab43d4497/README.md)
-precedes the final exceptional-exit addition. Earlier root claim-owner 13/13
-`950644a7a8c947baa1bac06cb6215d3c` and worker port/compiler/identity 141/141
-`19b0839bd385413d9ba04425918dd6b1` are retained with their exact source/context;
-worker evidence was committed and merged before worktree removal this increment.
-Final Pyrefly **passed** `84b0ce23c0754e9492a435f72976e09e`; Ruff **passed**
-`93d141e9b1264b5f9e06863326f94e48`. Native successor/exit-custody qualification **passed**, 22/22,
-`d8b1d561275843cda53b427d28a7056c`, through
-`uv run ci test --workers 2 --json -- python/corpus-structure/tests/semantic/test_claim_owner_native.py python/corpus-structure/tests/semantic/test_data_operation_storage.py -k 'claim_owner or renewal or atomic_publication'`.
-Its [durable receipt](../design_review/evidence/2026-11-13_cli-d8b1d561275843cda53b427d28a7056c/README.md)
-includes real frozen-head runless renewal, stale/expired fences, shared demand interest and final
-exceptional-exit controls. Docs check **passed** `32a9a8717f304ed79afb3dd9bc1bde4b` (zero link errors).
-These scoped receipts do not constitute complete series qualification. DDO-03–05 remain partial, DDO-06 remains partial/open and DDO-07 remains open.
-The approved next work remains real consumer projections/bindings, admitted receiver/prepared
-batch/stream profiles, demand cancellation, the shared production execution owner and DDO-07
-family migrations. No provider or full-series qualification follows from this increment.
+Bounded checks **passed**: 33 source-port/runtime cases, root receipt
+`71134795644b4381911e4180b17b1793`; 52 port/demand/consumer/source-set cases,
+`0e8a7c76606449eeaf858641294ba77f`; 122 ClassVar/acquisition cases,
+`4116b0d1cc1a44e3936aff7f99e21c8a`; 41 Python/PostgreSQL product-local population cases,
+`dbe5a22e71eb49f883efbd0a6d8f1339`; five CLI routing cases,
+`71480333f47f4d9cbae7b124d1aaec32`. Receipts are retained with their original source/context.
+Integrated Pyrefly **passed** `b857ccb5dcb84c3ca0f26f195235428d` before the subsequent CLI/context
+merges; those changes receive their affected checks. Failed/intermediate receipts are preserved.
+Full provider/book/series qualification remains **not_run**, with functional scope still open.
 
 ### Remaining functional scope and next execution
 
