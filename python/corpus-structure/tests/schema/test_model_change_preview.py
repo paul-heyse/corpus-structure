@@ -285,7 +285,7 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     assert preview["acquired_target"] == destination_identity.model_dump(mode="json")
     assert checked == [
         (settings.database.url, development, "before"),
-        (settings.deployment.url, destination, "before"),
+        (settings.deployment.url, destination_id, "before"),
     ]
     assert physical_path.read_bytes() == before
     assert run(["candidate", preview["result_id"]], settings).exit_code == 1
