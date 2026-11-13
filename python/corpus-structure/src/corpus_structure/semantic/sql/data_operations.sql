@@ -314,6 +314,51 @@ BEGIN
  WHERE a.release_id=p->>'release_id' AND a.artifact_name='data_operation_native_definitions.json'
  AND op->>'operation_id'=selected->>'operation' AND op->>'recipe'=selected->>'recipe'
  AND op->>'definition'=selected->>'definition' AND op->>'eligibility'=selected->>'eligibility')) THEN RAISE EXCEPTION 'demand differs from authenticated effective model/selection'; END IF;
+ -- Authenticate the selected graph, not merely each node's recipe identity.
+ IF EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'operations') selected GROUP BY selected->>'operation' HAVING count(*)<>1)
+ OR EXISTS(SELECT FROM sem.artifact a
+ CROSS JOIN LATERAL jsonb_array_elements(convert_from(a.content,'UTF8')::jsonb->'operations') operation
+ JOIN LATERAL jsonb_array_elements(p->'selection'->'operations') selected ON selected->>'operation'=operation->>'semantic_id'
+ WHERE a.release_id=p->>'release_id' AND a.artifact_name='data_operations.json'
+ AND (NOT coalesce(operation->'dependencies','[]') <@ selected->'dependencies'
+ OR EXISTS(SELECT FROM jsonb_array_elements_text(selected->'dependencies') dependency
+ WHERE NOT (coalesce(operation->'dependencies','[]')||coalesce(operation->'potential_dependencies','[]')) ? dependency)
+ OR EXISTS(SELECT FROM jsonb_array_elements_text(selected->'dependencies') dependency GROUP BY dependency HAVING count(*)<>1)))
+ OR EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'operations') selected
+ CROSS JOIN LATERAL jsonb_array_elements_text(selected->'dependencies') dependency
+ WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'operations') target WHERE target->>'operation'=dependency))
+ THEN RAISE EXCEPTION 'selected dependencies differ from the authenticated declared graph'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'discovery') relation
+ WHERE NOT EXISTS(SELECT FROM sem.artifact a
+ CROSS JOIN LATERAL jsonb_array_elements(convert_from(a.content,'UTF8')::jsonb->'operations') operation
+ WHERE a.release_id=p->>'release_id' AND a.artifact_name='data_operations.json'
+ AND operation->>'semantic_id'=relation->>'producer' AND operation->>'profile'='discovery'
+ AND EXISTS(SELECT FROM jsonb_array_elements(operation->'roles') role WHERE role->>'direction'='output' AND role->>'name'=relation->>'output_role')))
+ THEN RAISE EXCEPTION 'discovery relation differs from declared producer output'; END IF;
+ IF EXISTS(WITH RECURSIVE edges(source,target) AS (
+ SELECT selected->>'operation',dependency FROM jsonb_array_elements(p->'selection'->'operations') selected
+ CROSS JOIN LATERAL jsonb_array_elements_text(selected->'dependencies') dependency),
+ reach(source,target) AS (SELECT * FROM edges UNION SELECT reach.source,edges.target FROM reach JOIN edges ON edges.source=reach.target)
+ SELECT FROM reach WHERE source=target) THEN RAISE EXCEPTION 'selected demand dependency cycle'; END IF;
+ IF EXISTS(WITH RECURSIVE roots(id) AS (
+ SELECT value FROM jsonb_array_elements_text(p->'selection'->'targets')
+ UNION SELECT relation->>'producer' FROM jsonb_array_elements(p->'selection'->'discovery') relation),
+ closure(id) AS (SELECT id FROM roots UNION SELECT dependency FROM closure
+ JOIN LATERAL jsonb_array_elements(p->'selection'->'operations') selected ON selected->>'operation'=closure.id
+ CROSS JOIN LATERAL jsonb_array_elements_text(selected->'dependencies') dependency)
+ SELECT id FROM closure FULL JOIN jsonb_array_elements_text(p->'selection'->'root_operations') declared(id) USING(id)
+ WHERE closure.id IS NULL OR declared.id IS NULL)
+ THEN RAISE EXCEPTION 'root operations differ from selected dependency closure'; END IF;
+ IF EXISTS(WITH RECURSIVE roots(id) AS (
+ SELECT value FROM jsonb_array_elements_text(p->'selection'->'targets')
+ UNION SELECT relation->>'producer' FROM jsonb_array_elements(p->'selection'->'discovery') relation
+ UNION SELECT relation->>'target' FROM jsonb_array_elements(p->'selection'->'discovery') relation),
+ closure(id) AS (SELECT id FROM roots UNION SELECT dependency FROM closure
+ JOIN LATERAL jsonb_array_elements(p->'selection'->'operations') selected ON selected->>'operation'=closure.id
+ CROSS JOIN LATERAL jsonb_array_elements_text(selected->'dependencies') dependency)
+ SELECT closure.id FROM closure FULL JOIN (SELECT selected->>'operation' id FROM jsonb_array_elements(p->'selection'->'operations') selected) declared USING(id)
+ WHERE closure.id IS NULL OR declared.id IS NULL)
+ THEN RAISE EXCEPTION 'selected operations differ from requested target/discovery closure'; END IF;
  PERFORM ops.ddo_validate_parameters(op,selected,convert_from(a.content,'UTF8')::jsonb)
  FROM sem.artifact a CROSS JOIN LATERAL jsonb_array_elements(convert_from(a.content,'UTF8')::jsonb->'operations') op
  JOIN LATERAL jsonb_array_elements(p->'selection'->'operations') selected ON selected->>'operation'=op->>'semantic_id'
