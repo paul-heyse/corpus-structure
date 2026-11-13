@@ -1364,11 +1364,37 @@ def _verify_generated_dataclass(value, node, module):
     )
     if value.__init__.__code__ != expected.__init__.__code__:
         raise PortRefusal("generated dataclass constructor implementation differs")
-    allowed = set(vars(expected)) | {
-        "__firstlineno__",
-        "__static_attributes__",
-        "__annotate_func__",
-    }
+
+    def same_default(actual: Any, modeled: Any) -> bool:
+        # Generated factory defaults use the standard singleton sentinel. Literal
+        # defaults need recursive type equality: (True,) must not match (1,).
+        if actual is modeled:
+            return True
+        if type(actual) is not type(modeled):
+            return False
+        if isinstance(modeled, tuple):
+            return len(actual) == len(modeled) and all(
+                same_default(left, right) for left, right in zip(actual, modeled, strict=True)
+            )
+        return actual == modeled
+
+    if not same_default(value.__init__.__defaults__, expected.__init__.__defaults__):
+        raise PortRefusal("generated dataclass constructor defaults differ")
+    actual_keywords = value.__init__.__kwdefaults__
+    expected_keywords = expected.__init__.__kwdefaults__
+    if expected_keywords is None:
+        keywords_match = actual_keywords is None
+    else:
+        keywords_match = (
+            isinstance(actual_keywords, dict)
+            and type(actual_keywords) is dict
+            and actual_keywords.keys() == expected_keywords.keys()
+            and all(same_default(actual_keywords[name], default)
+                    for name, default in expected_keywords.items())
+        )
+    if not keywords_match:
+        raise PortRefusal("generated dataclass constructor keyword defaults differ")
+    allowed = set(vars(expected)) | {"__firstlineno__", "__static_attributes__", "__annotate_func__"}
     if "__slotnames__" in vars(value):
         if vars(value)["__slotnames__"] != []:
             raise PortRefusal("generated dataclass has unexpected runtime slots")
