@@ -76,6 +76,25 @@ def test_finalize_then_check_detects_changed_output(root: Path):
     )
 
 
+def test_finalize_reports_invalid_record_without_rewriting(root: Path, capsys):
+    path = root / FOLDER / "records" / "probe.result.json"
+    original = json.dumps(_record(extra_field=1))
+    path.write_text(original)
+    assert main(["--root", str(root), "finalize", FOLDER, "probe.result"]) == 2
+    error = capsys.readouterr().err
+    assert "probe.result.json: invalid record" in error
+    assert "extra_field" in error
+    assert path.read_text() == original
+
+
+def test_finalize_missing_record_refuses_before_finalizing_valid_record(root: Path, capsys):
+    path = root / FOLDER / "records" / "probe.result.json"
+    original = path.read_bytes()
+    assert main(["--root", str(root), "finalize", FOLDER, "probe.result", "missing"]) == 2
+    assert "no valid evidence record" in capsys.readouterr().err
+    assert path.read_bytes() == original
+
+
 def test_references_and_supersession_are_checked(root: Path):
     f = root / FOLDER / "records"
     (f / "probe.result.json").write_text(

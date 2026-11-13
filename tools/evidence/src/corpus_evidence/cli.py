@@ -65,6 +65,18 @@ def main(argv: list[str] | None = None) -> int:
         if folder is None:
             print(f"no evidence folder {a.folder}", file=sys.stderr)
             return 2
+        problems = []
+        for rid in a.ids:
+            path = folder.record_paths.get(rid, folder.path / "records" / f"{rid}.json")
+            prefix = f"{path.relative_to(st.root)}:"
+            errors = [error for error in st.load_errors if error.startswith(prefix)]
+            problems.extend(errors)
+            if rid not in folder.records and not errors:
+                problems.append(f"no valid evidence record {folder.name}/{rid}")
+        if problems:
+            for problem in problems:
+                print(problem, file=sys.stderr)
+            return 2
         for rid in a.ids:
             store.finalize(folder, rid)
             print(f"finalized {a.folder}/{rid}")
