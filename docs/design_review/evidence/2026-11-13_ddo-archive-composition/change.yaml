@@ -1,4 +1,4 @@
-baseline: HEAD
+baseline: 8ba6634e7
 packs: [statistics]
 native_predecessor: semantic_ddo_original_v1
 native_revision: semantic_ddo_archive_v1

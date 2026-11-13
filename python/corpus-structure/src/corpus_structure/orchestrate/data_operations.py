@@ -434,7 +434,9 @@ class NativeDemandExecutor:
             "support": json.loads(ready.binding)["support"],
             "implementation_revision": port.identity.implementation,
         }
-        if answer.execution_evidence is not None or answer.cpu_execution_evidence is not None:
+        if any(evidence is not None for evidence in (
+            answer.execution_evidence, answer.cpu_execution_evidence, answer.pdf_execution_evidence
+        )):
             from corpus_structure.semantic.data_operation_execution_evidence import (
                 bind_execution_evidence,
             )
@@ -444,6 +446,7 @@ class NativeDemandExecutor:
                 fence=claim.fence,
                 runtime_id=self.runtime.runtime_id,
                 cpu_content=answer.cpu_execution_evidence,
+                pdf_content=answer.pdf_execution_evidence,
             )
         if len(canonical_bytes(completion)) > self.policy.max_reply_bytes:
             raise ValueError("completion exceeds owned draft capacity")

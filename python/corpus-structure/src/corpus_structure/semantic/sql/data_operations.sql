@@ -749,7 +749,7 @@ DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; snapshot jsonb; key 
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['request_id','generation','task_id','attempt','holder','runtime_id','completion']);
  PERFORM ops.ddo_fields(p->'completion',ARRAY['outcome','outputs','support','inputs','implementation_revision'],ARRAY['execution_evidence']);
- IF p->'completion' ? 'execution_evidence' AND (p->'completion'->'execution_evidence' - 'version' - 'host_receipts' - 'cpu_receipts') IS DISTINCT FROM (p - 'completion') THEN RAISE EXCEPTION 'execution evidence differs from native producer fence/runtime'; END IF;
+ IF p->'completion' ? 'execution_evidence' AND (p->'completion'->'execution_evidence' - 'version' - 'host_receipts' - 'cpu_receipts' - 'pdf_receipts') IS DISTINCT FROM (p - 'completion') THEN RAISE EXCEPTION 'execution evidence differs from native producer fence/runtime'; END IF;
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=p->>'request_id';
  snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,p->'completion'->'support');
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=r.id FOR UPDATE;
@@ -760,6 +760,7 @@ BEGIN
  IF r.generation<>(p->>'generation')::integer OR p->'completion'->'inputs' IS DISTINCT FROM r.binding->'inputs' OR p->'completion'->'support' IS DISTINCT FROM r.binding->'support'
  OR NOT EXISTS(SELECT FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id AND implementation_revision=p->'completion'->>'implementation_revision') THEN RAISE EXCEPTION 'completion differs from admitted request/implementation'; END IF;
  PERFORM ops.ddo_assert_support(r,p->'completion'->'support');
+ PERFORM ops.ddo_require_pdf_completion(p->'completion',t.id,t.attempt,t.claimed_by,r.release_id,r.operation_id);
  key:='intent:'||ops.ddo_digest(jsonb_build_array(r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion'));
  INSERT INTO ops.data_completion_intent VALUES(key,r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion',ops.ddo_digest(p->'completion'),clock_timestamp()) ON CONFLICT DO NOTHING;
  SELECT * INTO STRICT old FROM ops.data_completion_intent WHERE request_id=r.id AND generation=r.generation;
@@ -962,6 +963,8 @@ BEGIN
  result_state:=ops.ddo_completion_state(def,i.payload->>'outcome');
  IF i.payload->>'implementation_revision'<>def.implementation_revision OR jsonb_typeof(i.payload->'outputs')<>'array' THEN RAISE EXCEPTION 'invalid completion attestation/outcome'; END IF;
  IF result_state IN ('empty','failed') AND i.payload->'outputs'<>'[]'::jsonb THEN RAISE EXCEPTION 'non-success completion cannot publish outputs'; END IF;
+ -- Reconciliation validates the original sealed producer, not the adopter's later fence.
+ PERFORM ops.ddo_require_pdf_completion(i.payload,i.producer_task_id,i.producer_attempt,i.producer_holder,r.release_id,r.operation_id);
  episode:='derivation:'||ops.ddo_digest(jsonb_build_array(i.id,i.payload_digest));
  INSERT INTO ops.data_derivation VALUES(episode,r.id,r.generation,i.id,r.release_id,r.recipe,i.runtime_id,i.producer_task_id,i.producer_attempt,result_state,clock_timestamp());
  FOR item IN SELECT value FROM jsonb_array_elements(i.payload->'inputs') LOOP

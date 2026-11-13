@@ -13,6 +13,7 @@ from corpus_structure.methods.native_host import NativeExecutionReceipt
 
 from .cpu_receipts import CPUExecutionReceipt
 from .identity import canonical_bytes
+from .pdf_publication import PdfExecutionReceipt
 
 SOURCE = "native/data-operation-execution-evidence.schema.json"
 _Identifier = Annotated[str, Field(strict=True, min_length=1)]
@@ -31,6 +32,7 @@ class NativeExecutionEvidence(BaseModel):
     runtime_id: _Identifier
     host_receipts: tuple[NativeExecutionReceipt, ...]
     cpu_receipts: tuple[CPUExecutionReceipt, ...]
+    pdf_receipts: tuple[PdfExecutionReceipt, ...] = ()
 
 
 @cache
@@ -64,6 +66,7 @@ def bind_execution_evidence(
     fence: dict,
     runtime_id: str,
     cpu_content: bytes | None = None,
+    pdf_content: bytes | None = None,
 ) -> dict:
     """Bind the capability's original matched host receipts to its native attempt."""
     value = {
@@ -72,6 +75,7 @@ def bind_execution_evidence(
         "runtime_id": runtime_id,
         "host_receipts": json.loads(content) if content is not None else [],
         "cpu_receipts": [json.loads(cpu_content)] if cpu_content is not None else [],
+        "pdf_receipts": [json.loads(pdf_content)] if pdf_content is not None else [],
     }
     Draft7Validator(json.loads(execution_evidence_schema())).validate(value)
     checked = NativeExecutionEvidence.model_validate_json(canonical_bytes(value))
