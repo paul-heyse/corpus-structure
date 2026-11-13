@@ -209,6 +209,14 @@ class AnnotationReference:
         if type(self.local_id) is not str or not self.local_id:
             raise ValueError("annotation reference requires a local ID")
 
+    @property
+    def product(self) -> ProductReference:
+        return self.layer
+
+    @property
+    def member_id(self) -> str:
+        return self.local_id
+
     def values(self) -> dict[str, Any]:
         return {"layer": self.layer.values(), "local_id": self.local_id}
 

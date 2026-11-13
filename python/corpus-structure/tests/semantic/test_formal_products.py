@@ -201,10 +201,8 @@ def test_cooperative_cancellation_prevents_complete_product(profile):
 
 def test_immediate_construction_boundary_reuses_formal_facts_without_parser(profile, monkeypatch):
     from corpus_structure.semantic import formal_evidence
-    from corpus_structure.semantic.formal_readings import (
-        FormalSourceReadings,
-        SemanticFormalReference,
-    )
+    from corpus_structure.semantic.formal_readings import FormalSourceReadings
+    from corpus_structure.semantic.data_product_reference import DataProductMemberReference
 
     source = selected(profile, "Quantity: 2 kg")
     product = profile.run(source, FormalEvidenceOptions())
@@ -220,8 +218,8 @@ def test_immediate_construction_boundary_reuses_formal_facts_without_parser(prof
     assert complete and len(fields) == 1
     assert fields[0].normalized["value"] == "2"
     assert fields[0].normalized["unit"] == "kg"
-    assert isinstance(fields[0].reference, SemanticFormalReference)
-    assert fields[0].reference.layer.product == product.semantic_id
+    assert isinstance(fields[0].reference, DataProductMemberReference)
+    assert fields[0].reference.product.product_id == product.semantic_id
     changed = source.value
     changed["source"]["document"] = "another-original"
     with pytest.raises(ValueError, match="another original source"):
@@ -740,3 +738,39 @@ def test_physical_custody_changes_do_not_change_formal_semantic_recipe(profile, 
 
     with pytest.raises(PortRefusal, match="acquired custody"):
         port._verify()
+
+
+def test_primary_lexicon_is_consumed_without_reclassification(profile, monkeypatch):
+    from corpus_structure.semantic.constructions import forest
+    from corpus_structure.semantic.formal_readings import FormalSourceReadings
+
+    source = selected(profile, "All samples are finite.")
+    product = profile.run(source, FormalEvidenceOptions())
+    readings = FormalSourceReadings.from_products((product,), source)
+    atoms, terminals = readings.positioned(start=0, end=len(source.value["text"]))
+    assert not atoms
+    assert {(row.terminal, row.text) for row in terminals} >= {("QUANT", "All"), ("COPULA", "are"), ("WORD", "samples")}
+
+    def no_classification(*args, **kwargs):
+        pytest.fail("construction reclassified primary source language")
+
+    monkeypatch.setattr(forest, "classify", no_classification)
+    result = forest.recognize(source.value["text"], atoms, terminals=terminals)
+    assert result.reducer is not None
+    assert any(row["kind"] == "binder" for row in result.reducer.terms.values())
+    assert any(row["kind"] == "predicate" for row in result.reducer.terms.values())
+
+
+def test_primary_lexicon_protects_fields_and_rejects_forged_slices(profile):
+    from corpus_structure.semantic.formal_products import validate_formal_product
+    from corpus_structure.semantic.formal_readings import FormalSourceReadings
+
+    source = selected(profile, "All samples use Quantity: 2 kg.")
+    product = profile.run(source, FormalEvidenceOptions())
+    atoms, terminals = FormalSourceReadings.from_products((product,), source).positioned(start=0,end=len(source.value["text"]))
+    assert atoms
+    assert all(not (atom.start < row.end and row.start < atom.end) for atom in atoms for row in terminals)
+    body=product.value.model_dump(mode="json",exclude_unset=True)
+    body["lexicon"][0]["terminals"][0]["text"]="forged"
+    with pytest.raises(ValueError,match="original unprotected slice"):
+        validate_formal_product(profile.prepared,body,source,model=profile.model)

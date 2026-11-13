@@ -16,35 +16,7 @@ from .nodes import Reference, identity
 from .reuse import ReusingForestTransformer
 
 
-@dataclass(frozen=True)
-class ProtectedAtom:
-    start: int
-    end: int
-    occurrence: str
-
-
-LEXICAL = {
-    "WORD": r"[^\W\d_][\w'-]*|\d+(?:\.\d+)?",
-    "COPULA": r"(?i:am|is|are|was|were|be|being|been)",
-    "NEG": r"(?i:not|never|neither)",
-    "MODAL": r"(?i:may|might|can|could|must|should|would|shall|will)",
-    "QUANT": r"(?i:all|every|each|some|any|no|most|many|few)",
-    "IF": r"(?i:if|unless|provided)",
-    "THEN": r"(?i:then)",
-    "REL": r"(?i:which|that|who|whom|whose)",
-    "CONJ": r"(?i:and|or|nor|but)",
-    "PREP": (
-        r"(?i:with|of|by|for|in|on|from|than|before|after|because|although|except|until|while|"
-        r"without)"
-    ),
-    "REPORT": r"(?i:says?|said|reports?|reported|claims?|claimed|states?|stated)",
-    "QUOTE": r'["“”]',
-    "QUESTION": r"\?",
-    "PUNCT": r"[.!;:]",
-    "COMMA": ",",
-    "AUX": r"(?i:have|has|had|been|being|do|does|did)",
-    "FUNCTION": r"(?i:define|assume|suppose|let|consider|example|definition|prove|show)",
-}
+from .lexical import LEXICAL, PositionedTerminal, ProtectedAtom, classify
 
 
 def terminal_guard(start: int, end: int, atoms: tuple[ProtectedAtom, ...], *, atom: bool) -> None:
@@ -70,54 +42,38 @@ def _literal_pattern(value: str) -> str:
     return escaped
 
 
-def _positioned(text: str, pattern: str, atoms: tuple[ProtectedAtom, ...]) -> str:
+def _positioned_values(text: str, terminal: str, values: tuple[PositionedTerminal, ...]) -> str:
     alternatives = []
-    boundaries = [
-        0,
-        *(
-            point
-            for atom in sorted(atoms, key=lambda a: a.start)
-            for point in (atom.start, atom.end)
-        ),
-        len(text),
-    ]
-    for index in range(0, len(boundaries) - 1, 2):
-        a, b = boundaries[index : index + 2]
-        for match in re.finditer(pattern, text[a:b]):
-            # Each native regular expression is specialized at an actual original-source
-            # position. This excludes crossing and ignored-token hazards lexically.
-            alternatives.append(
-                r"(?<=\A[\s\S]{" + str(a + match.start()) + "})" + _literal_pattern(match.group())
-            )
-    return "(?:" + "|".join(alternatives) + ")" if alternatives else r"(?!)x"
+    for row in values:
+        if row.terminal not in {*LEXICAL, "WS"} or not 0 <= row.start < row.end <= len(text) or text[row.start:row.end] != row.text:
+            raise ValueError("retained lexical observation differs from exact original source")
+        if row.terminal == terminal:
+            alternatives.append(r"(?<=\A[\s\S]{"+str(row.start)+"})"+_literal_pattern(row.text))
+    return "(?:"+"|".join(alternatives)+")" if alternatives else r"(?!)x"
 
 
 def prepared_parser(
-    text: str, atoms: tuple[ProtectedAtom, ...], grammar: str | None = None
+    text: str, atoms: tuple[ProtectedAtom, ...], grammar: str | None = None,
+    *, terminals: tuple[PositionedTerminal, ...] | None = None
 ) -> Lark:
     resource = Path(__file__).with_name("grammars").joinpath("prose.lark").read_bytes()
-    return _prepared_parser(text, atoms, grammar, sha256(resource).hexdigest())
+    return _prepared_parser(text, atoms, grammar, sha256(resource).hexdigest(), terminals)
 
 
 @lru_cache(maxsize=64)
 def _prepared_parser(
-    text: str, atoms: tuple[ProtectedAtom, ...], grammar: str | None, resource_digest: str
+    text: str, atoms: tuple[ProtectedAtom, ...], grammar: str | None, resource_digest: str,
+    terminals: tuple[PositionedTerminal, ...] | None = None
 ) -> Lark:
     previous = 0
     for atom in sorted(atoms, key=lambda a: a.start):
         if not previous <= atom.start < atom.end <= len(text):
             raise ValueError("protected atoms overlap or lie outside their source region")
         previous = atom.end
-    lexical = {
-        name: _positioned(
-            text,
-            pattern
-            if name in {"QUOTE", "QUESTION", "PUNCT", "COMMA"}
-            else r"(?<!\w)(?:" + pattern + r")(?!\w)",
-            atoms,
-        )
-        for name, pattern in LEXICAL.items()
-    }
+    values = classify(text, atoms) if terminals is None else terminals
+    for row in values:
+        terminal_guard(row.start, row.end, atoms, atom=False)
+    lexical = {name: _positioned_values(text, name, values) for name in LEXICAL}
     lexical["ATOM"] = (
         "(?:"
         + "|".join(
@@ -128,7 +84,7 @@ def _prepared_parser(
         if atoms
         else r"(?!)x"
     )
-    lexical["WS"] = _positioned(text, r"\s+", atoms)
+    lexical["WS"] = _positioned_values(text, "WS", values)
     declarations = "\n".join(
         f"%override {name}: /{pattern.replace('/', r'\/')}/"
         for name, pattern in lexical.items()
@@ -640,6 +596,7 @@ def recognize(
     *,
     region: str = "region",
     offset: int = 0,
+    terminals: tuple[PositionedTerminal, ...] | None = None,
     max_chars: int = 4096,
     parse_seconds: float = 2.0,
     check_active=lambda: None,
@@ -654,7 +611,7 @@ def recognize(
     reducer = None
     try:
         with deadline(parse_seconds):
-            forest = prepared_parser(text, atoms).parse(text)
+            forest = prepared_parser(text, atoms, terminals=terminals).parse(text)
             check_active()
             reducer = PackedReducer(
                 text, atoms, region=region, offset=offset, check_active=check_active

@@ -1004,13 +1004,19 @@ def extract_formal_facts(
         if not 0 <= a <= b <= len(view.text):
             raise ValueError("formal selected source bounds exceed the actual projection")
         if selector.get("native_pointer") and not (
-            any(piece["item_ref"] == selector["native_pointer"] for piece in native_pieces)
-            or builder.items.get(selector["native_pointer"], {}).get("label") == "formula"
+            selector["native_pointer"] in builder.items
         ):
             raise ValueError("formal selector does not name a selected native source atom")
 
     def matches(piece, selector):
-        if selector.get("native_pointer") and selector["native_pointer"] != piece.get("item_ref"):
+        selected_pointer = selector.get("native_pointer")
+        pointer = piece.get("item_ref")
+        seen = set()
+        while selected_pointer and pointer != selected_pointer and pointer not in seen:
+            seen.add(pointer)
+            parent = builder.items.get(pointer, {}).get("parent")
+            pointer = parent.get("$ref") if isinstance(parent, dict) else parent
+        if selected_pointer and pointer != selected_pointer:
             return False
         if "page" in selector:
             pages = {
