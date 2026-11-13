@@ -172,10 +172,23 @@ required lookup sequence.
   how this project uses a library and which versions and features it selects. They are useful
   implementation examples, but may reflect historical choices or a small portion of the library's
   capabilities.
-- **Focused documentation questions:** Context7 is an available route to documentation and examples
-  for a specific API, configuration, concept or integration. It can help locate relevant material
-  when the documentation location is unfamiliar. Use it when useful; direct primary documentation
-  is equally appropriate. Check version relevance before applying an example.
+- **Implementation approaches and examples:** Context7 can help explore how a library is intended
+  to solve a particular problem, including documented examples, related APIs, configuration options
+  and extension points. It can be useful even when an implementation seems straightforward:
+  familiarity with an API or existing repository usage may leave worthwhile alternatives unexplored.
+
+  Consider this route when choosing how to compose library functionality, introducing an unfamiliar
+  capability, writing substantial glue around a library, selecting consequential options, or adapting
+  an example whose assumptions differ from this project. Useful questions concern the responsibility
+  being implemented—such as preparing reusable work, processing a stream, mapping errors or
+  coordinating cancellation—alongside the specific API under consideration.
+
+  Queries are most useful when they explain the intended behavior, relevant constraints and candidate
+  approach, and ask for examples or alternative native mechanisms. Resolve the appropriate library
+  ID, check version relevance, and separate unrelated questions when that improves focus. Examples
+  supply implementation ideas; consequential guarantees and edge cases may need confirmation in
+  version-matched documentation or source. Direct primary documentation remains an equally
+  appropriate route.
 - **Contracts and version changes:** Official documentation, API references, release notes and
   migration guides help establish supported behavior, compatibility and intended usage. Prefer
   references matching the selected version when the distinction matters.
@@ -185,10 +198,12 @@ required lookup sequence.
   guarantee. Issues and pull requests can explain known problems or upcoming changes; check their
   status and release applicability.
 
-Follow the uncertainty rather than consulting every source. Familiar, routine usage with adequate
-local examples may need no additional lookup. Investigate further when correctness depends on an
-uncertain detail, when sources conflict, or when a broader capability could materially improve the
-approach.
+Choose reference work according to the question and its likely value. Resolving uncertainty is one
+reason to consult documentation; discovering a simpler composition, a useful option or a more
+idiomatic implementation is another. A workable approach recalled from memory or found in the
+repository can be a starting point for that inquiry. Familiar, routine usage with adequate local
+examples may need no additional lookup. Stop when the available evidence supports the implementation
+choice; no fixed lookup sequence or additional research artifact is required.
 
 For design work, look beyond the first API that makes the current approach possible: consider native
 abstractions and related capabilities that could simplify the whole responsibility. For implementation

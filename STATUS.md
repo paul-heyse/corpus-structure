@@ -33,3 +33,9 @@ _Updated 2026-11-13. DDO audit repairs and DDO-03–05 implemented; final native
 - **Improvement review published, Proposed:** [shorter focused and full test runs](docs/plan_improvement_reviews/test-system-target-design_2026-11-13.md), I01–I11. Priorities are useful-clone/targeted verification, preparation keys, effective affinity, deferred CLI imports and reused DDO setup, with preserved binding/receipt evidence. Plans and production source remain unchanged; duration gains are unmeasured.
 - **passed, 2026-11-13, review publication:** `just turn-end`, `git diff --check` and `uv run ci docs check`, `2152cd9ac598460caa45712fe1d4454c` (1,243 canonical pages, zero link errors). **not_run:** product/native/provider tests and `uv run ci check`; documentation only.
 - **Next for test-system work:** select amendments and revise the plan from that review when instructed. The existing queue still starts with TS-00, then TS-01/03. No implementation or product qualification is claimed by this review.
+
+## Agent reference guidance · 2026-11-13
+
+AGENTS.md now describes optional Context7 use for implementation approaches, examples and options,
+with query framing and version awareness. `uv run ci docs check` **passed**, `0c4f263917dc452389bbdb682632c7d3`.
+Product tests and whole-repository checks are **not_run** for this documentation-only change.
