@@ -11,9 +11,10 @@ import importlib.metadata
 import json
 import math
 import platform
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 if TYPE_CHECKING:
     from corpus_structure.semantic.source_contexts import NativeSourceContext
@@ -49,85 +50,117 @@ class UnicodeCodepointSplitter:
                 yield character.lower() if lower else character, index, index + 1
 
 
+def gliner_profile_device(version: str) -> Literal["cpu", "cuda"]:
+    """The profile owner interprets both current CUDA and sealed CPU versions."""
+    if version in {CUDA_WHITESPACE_PROFILE, CUDA_CODEPOINT_PROFILE}:
+        return "cuda"
+    if version in {WHITESPACE_PROFILE, CODEPOINT_PROFILE}:
+        return "cpu"
+    raise GlinerRefused("unsupported execution profile")
+
+
+def normalize_gliner_profile(
+    values: Mapping[str, Any], *, snapshot: Path | None = None, json_input: bool = False
+) -> dict[str, Any]:
+    """Validate non-acquisition fields and normalize the owned artifact-map meaning.
+
+    Projection from retained JSON has no acquisition location. It validates all
+    represented invariants without inventing a path or asserting artifact availability.
+    Normal construction additionally supplies its actual snapshot for the metadata bound.
+    """
+    values = dict(values)
+    if (
+        not isinstance(values["checkpoint"], str)
+        or not values["checkpoint"]
+        or not isinstance(values["revision"], str)
+        or not values["revision"]
+    ):
+        raise GlinerRefused("profile requires an absolute local snapshot and immutable identity")
+    if json_input:
+        hashes = values["artifact_hashes"]
+        if not isinstance(hashes, list) or any(
+            not isinstance(entry, list) or len(entry) != 2 for entry in hashes
+        ):
+            raise GlinerRefused("artifact hashes require JSON pairs")
+        values["artifact_hashes"] = tuple(tuple(entry) for entry in hashes)
+    gliner_profile_device(values["version"])
+    for bound in (
+        values["threads"],
+        values["max_input_bytes"],
+        values["max_words"],
+        values["max_subwords"],
+        values["max_batch"],
+        values["max_batch_bytes"],
+        values["max_schema_bytes"],
+        values["max_metadata_bytes"],
+        values["max_request_frame_bytes"],
+        values["max_reply_frame_bytes"],
+    ):
+        if type(bound) is not int or bound < 1:
+            raise GlinerRefused("runtime bounds must be positive integers")
+    if not math.isfinite(values["timeout_seconds"]) or values["timeout_seconds"] <= 0:
+        raise GlinerRefused("timeout must be positive and finite")
+    if not isinstance(values["artifact_hashes"], tuple) or any(
+        not isinstance(entry, tuple) for entry in values["artifact_hashes"]
+    ):
+        raise GlinerRefused("artifact hashes must be immutable tuples")
+    names = {name for name, _ in values["artifact_hashes"]}
+    required = {
+        "config.json",
+        "encoder_config/config.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json",
+    }
+    if names != required or len(values["artifact_hashes"]) != len(required):
+        raise GlinerRefused("profile requires exactly the five qualified snapshot artifacts")
+    metadata = [
+        *([str(snapshot)] if snapshot is not None else []),
+        values["checkpoint"],
+        values["revision"],
+        values["version"],
+        *(part for entry in values["artifact_hashes"] for part in entry),
+    ]
+    if sum(len(value.encode()) for value in metadata) > values["max_metadata_bytes"]:
+        raise GlinerRefused("profile metadata byte bound exceeded")
+    for _, digest in values["artifact_hashes"]:
+        if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+            raise GlinerRefused("artifact identity must be SHA-256")
+    values["artifact_hashes"] = sorted(values["artifact_hashes"])
+    return values
+
+
 @dataclass(frozen=True)
 class GlinerProfile:
-    snapshot: Path
-    checkpoint: str
-    revision: str
-    artifact_hashes: tuple[tuple[str, str], ...]
-    threads: int = 4
-    max_input_bytes: int = 32768
-    max_words: int = 512
-    max_subwords: int = 2048
-    max_batch: int = 4
-    max_batch_bytes: int = 65536
-    max_schema_bytes: int = 32768
-    max_metadata_bytes: int = 8192
-    max_request_frame_bytes: int = 131072
-    max_reply_frame_bytes: int = 1048576
-    timeout_seconds: float = 120
-    version: str = CUDA_WHITESPACE_PROFILE
+    snapshot: Annotated[Path, "ddo:acquisition"]
+    checkpoint: Annotated[str, "ddo:semantic"]
+    revision: Annotated[str, "ddo:semantic"]
+    artifact_hashes: Annotated[tuple[tuple[str, str], ...], "ddo:semantic"]
+    threads: Annotated[int, "ddo:execution"] = 4
+    max_input_bytes: Annotated[int, "ddo:execution"] = 32768
+    max_words: Annotated[int, "ddo:execution"] = 512
+    max_subwords: Annotated[int, "ddo:execution"] = 2048
+    max_batch: Annotated[int, "ddo:execution"] = 4
+    max_batch_bytes: Annotated[int, "ddo:execution"] = 65536
+    max_schema_bytes: Annotated[int, "ddo:execution"] = 32768
+    max_metadata_bytes: Annotated[int, "ddo:execution"] = 8192
+    max_request_frame_bytes: Annotated[int, "ddo:execution"] = 131072
+    max_reply_frame_bytes: Annotated[int, "ddo:execution"] = 1048576
+    timeout_seconds: Annotated[float, "ddo:execution"] = 120
+    version: Annotated[str, "ddo:semantic"] = CUDA_WHITESPACE_PROFILE
 
     def __post_init__(self) -> None:
-        if not self.snapshot.is_absolute() or not self.checkpoint or not self.revision:
+        if not self.snapshot.is_absolute():
             raise GlinerRefused(
                 "profile requires an absolute local snapshot and immutable identity"
             )
-        if self.version not in {
-            WHITESPACE_PROFILE,
-            CODEPOINT_PROFILE,
-            CUDA_WHITESPACE_PROFILE,
-            CUDA_CODEPOINT_PROFILE,
-        }:
-            raise GlinerRefused("unsupported execution profile")
-        for bound in (
-            self.threads,
-            self.max_input_bytes,
-            self.max_words,
-            self.max_subwords,
-            self.max_batch,
-            self.max_batch_bytes,
-            self.max_schema_bytes,
-            self.max_metadata_bytes,
-            self.max_request_frame_bytes,
-            self.max_reply_frame_bytes,
-        ):
-            if type(bound) is not int or bound < 1:
-                raise GlinerRefused("runtime bounds must be positive integers")
-        if not math.isfinite(self.timeout_seconds) or self.timeout_seconds <= 0:
-            raise GlinerRefused("timeout must be positive and finite")
-        if not isinstance(self.artifact_hashes, tuple) or any(
-            not isinstance(entry, tuple) for entry in self.artifact_hashes
-        ):
-            raise GlinerRefused("artifact hashes must be immutable tuples")
-        names = {name for name, _ in self.artifact_hashes}
-        required = {
-            "config.json",
-            "encoder_config/config.json",
-            "model.safetensors",
-            "tokenizer.json",
-            "tokenizer_config.json",
-        }
-        if names != required or len(self.artifact_hashes) != len(required):
-            raise GlinerRefused("profile requires exactly the five qualified snapshot artifacts")
-        metadata = [
-            str(self.snapshot),
-            self.checkpoint,
-            self.revision,
-            self.version,
-            *(part for entry in self.artifact_hashes for part in entry),
-        ]
-        if sum(len(value.encode()) for value in metadata) > self.max_metadata_bytes:
-            raise GlinerRefused("profile metadata byte bound exceeded")
-        for _, digest in self.artifact_hashes:
-            if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
-                raise GlinerRefused("artifact identity must be SHA-256")
+        values = asdict(self)
+        del values["snapshot"]
+        normalize_gliner_profile(values, snapshot=self.snapshot)
 
     @property
     def device(self) -> Literal["cpu", "cuda"]:
-        return (
-            "cuda" if self.version in {CUDA_WHITESPACE_PROFILE, CUDA_CODEPOINT_PROFILE} else "cpu"
-        )
+        return gliner_profile_device(self.version)
 
     @property
     def codepoint_splitter(self) -> bool:

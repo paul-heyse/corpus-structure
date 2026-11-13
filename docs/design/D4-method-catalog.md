@@ -12,6 +12,17 @@ scope and evidence; all older implemented sections retain their stated selected/
 
 > Decision: [ADR-0092](../adr/0092-ddo-operation-authority.md)
 
+**Implemented foundation · 2026-11-12; production adoption remains DDO-07/09.**
+`NativeProfile.identity_projections(inference_policy=...)` derives inference and full execution
+identities from positive `Annotated` roles on the actual constructor and nested `GlinerProfile`
+fields. Every field requires a role; arbitrary nested additions refuse. Captured released policy
+must explicitly qualify the selected provider/device/dtype and authentic-observation numerical
+meaning before runtime/thread/resource bounds can be execution-only determinants. Current positive
+profiles are D1 and GLiNER; other providers require their supported declarations before this
+projection can be used. GLiNER uses its shared owner validation/device interpretation and unordered
+artifact-map normalization. Acquisition location remains outside model meaning. Selected legacy
+profile bytes, defaults, loading and fingerprints remain exact until the owning caller cutover.
+
 ## Selected provider execution profiles and complete settings
 
 **Implemented; bounded actual compatibility Tested2026-11-12; combined qualification open.** D1 retains

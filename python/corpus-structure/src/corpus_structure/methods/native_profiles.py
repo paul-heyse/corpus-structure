@@ -4,15 +4,93 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from hashlib import sha256
 from pathlib import Path
-from typing import Any, Literal
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    Literal,
+    cast,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 from corpus_structure.semantic.identity import canonical_bytes
 
+if TYPE_CHECKING:
+    from corpus_structure.semantic.data_operation_identity import ProfileIdentities
+
 Provider = Literal["d1", "gliner", "hanlp", "spacy", "maverick", "dipo"]
 _PROVIDERS = frozenset({"d1", "gliner", "hanlp", "spacy", "maverick", "dipo"})
+
+
+def _identity_roles(
+    owner: Any, names: set[str]
+) -> dict[str, Literal["semantic", "execution", "acquisition"]]:
+    """Read non-derivable roles from the authoritative field/port declarations."""
+    annotations = get_type_hints(owner, include_extras=True)
+    roles = {}
+    for name in names:
+        annotation = annotations.get(name)
+        metadata = get_args(annotation)[1:] if get_origin(annotation) is Annotated else ()
+        selected = [
+            role.removeprefix("ddo:")
+            for role in metadata
+            if isinstance(role, str) and role.startswith("ddo:")
+        ]
+        if len(selected) != 1 or selected[0] not in {"semantic", "execution", "acquisition"}:
+            raise ValueError("native profile field requires one declared identity role: " + name)
+        roles[name] = cast(Literal["semantic", "execution", "acquisition"], selected[0])
+    return roles
+
+
+def _observation_policy(profile: NativeProfile, policy: Mapping[str, Any]) -> dict[str, Any]:
+    """Select the supported released numerical meaning, never installed defaults.
+
+    The current model-observation owner qualifies D1 and GLiNER observations. Other
+    providers need an admitted numerical declaration before thread neutrality can
+    be claimed. This projection authenticates no policy/release or execution by itself.
+    """
+    expected = {
+        "version": 4,
+        "native_input_order": "preserve-declared-question-option-state-field-order",
+        "pm2_receipt_version": 2,
+        "member_identity": "exact-request-context-source-and-inference-policy",
+        "grouping": "compatible-admitted-members-in-declared-order",
+        "native_numerical_variation": (
+            "permitted-including-threshold-and-decoder-tie-selection-changes"
+        ),
+        "score_reduction": "unrounded-actual-native-confidence-with-unchanged-released-thresholds",
+        "reuse": "authentic-retained-observation-not-bitwise-fresh-execution-equivalence",
+    }
+    if set(policy) != {*expected, "providers"} or canonical_bytes(
+        {key: policy[key] for key in expected}
+    ) != canonical_bytes(expected):
+        raise ValueError(
+            "native profile requires its supported explicit authentic-observation inference policy"
+        )
+    providers = policy["providers"]
+    if profile.provider not in {"d1", "gliner"} or not isinstance(providers, Mapping):
+        raise ValueError("provider has no supported qualified numerical contract")
+    provider = providers.get(profile.provider)
+    declared: dict[str, Any] = {
+        "device": profile.device,
+        "dtype": profile.dtype,
+        "numerical_contract": "native-cuda-" + profile.dtype + "-batch-observation-v1",
+    }
+    if profile.provider == "d1":
+        declared["cpu_allowed"] = False
+    if not isinstance(provider, Mapping) or canonical_bytes(dict(provider)) != canonical_bytes(
+        declared
+    ):
+        raise ValueError(
+            "native profile differs from its qualified provider/device/dtype numerical contract"
+        )
+    # Other providers' declarations are outside this selected recipe closure.
+    return {**expected, "provider": dict(provider)}
 
 
 def admitted_startup_matches(observed: Mapping[str, Any], admitted: Mapping[str, Any]) -> bool:
@@ -66,18 +144,18 @@ class NativeProfile:
 
     def __init__(
         self,
-        provider: Provider,
-        runtime_identity: dict[str, Any],
-        artifacts: dict[str, Any],
-        parameters: dict[str, Any],
-        dtype: Literal["float32", "bfloat16"],
-        backend: str,
-        threads: int = 4,
-        interop_threads: int = 1,
-        device: Literal["cuda"] = "cuda",
-        matmul_precision: Literal["highest"] = "highest",
-        cudnn_allow_tf32: bool = False,
-        version: Literal["nlp-gpu-profile-1"] = "nlp-gpu-profile-1",
+        provider: Annotated[Provider, "ddo:semantic"],
+        runtime_identity: Annotated[dict[str, Any], "ddo:execution"],
+        artifacts: Annotated[dict[str, Any], "ddo:semantic"],
+        parameters: Annotated[dict[str, Any], "ddo:semantic"],
+        dtype: Annotated[Literal["float32", "bfloat16"], "ddo:semantic"],
+        backend: Annotated[str, "ddo:semantic"],
+        threads: Annotated[int, "ddo:execution"] = 4,
+        interop_threads: Annotated[int, "ddo:execution"] = 1,
+        device: Annotated[Literal["cuda"], "ddo:semantic"] = "cuda",
+        matmul_precision: Annotated[Literal["highest"], "ddo:semantic"] = "highest",
+        cudnn_allow_tf32: Annotated[bool, "ddo:semantic"] = False,
+        version: Annotated[Literal["nlp-gpu-profile-1"], "ddo:semantic"] = "nlp-gpu-profile-1",
     ):
         if provider not in _PROVIDERS or device != "cuda":
             raise ValueError("selected native profile requires a supported CUDA provider")
@@ -173,6 +251,73 @@ class NativeProfile:
     @property
     def fingerprint(self):
         return sha256(self._content).hexdigest()
+
+    def identity_projections(self, *, inference_policy: Mapping[str, Any]) -> ProfileIdentities:
+        """DDO semantic/execution identities under a supplied qualified policy.
+
+        The selected legacy wire/fingerprint remains exact. Runtime/thread fields
+        remain execution determinants; result-neutrality is available only under
+        the explicitly supported authentic-observation numerical contract. Adoption
+        by native requests/reuse is a separate DDO-07/09 responsibility.
+        """
+        from inspect import signature
+
+        from corpus_structure.semantic.data_operation_identity import (
+            ProfileField,
+            profile_identities,
+        )
+
+        values = self.wire
+        names = set(signature(type(self).__init__).parameters) - {"self"}
+        roles = _identity_roles(type(self).__init__, names)
+        if values.keys() != names or any(role == "acquisition" for role in roles.values()):
+            raise ValueError(
+                "native profile fields differ from their complete identity declarations"
+            )
+        projected = [
+            ProfileField(
+                "inference_policy", _observation_policy(self, inference_policy), "semantic"
+            )
+        ]
+        for name, role in roles.items():
+            if name == "parameters" and self.provider == "gliner":
+                from .gliner import GlinerProfile, gliner_profile_device, normalize_gliner_profile
+
+                if not isinstance(values[name], dict) or values[name].keys() != {"gliner_profile"}:
+                    raise ValueError("GLiNER identity requires its declared nested profile")
+                nested = values[name]["gliner_profile"]
+                nested_roles = _identity_roles(
+                    GlinerProfile, {item.name for item in fields(GlinerProfile)}
+                )
+                included = {
+                    key for key, meaning in nested_roles.items() if meaning != "acquisition"
+                }
+                if not isinstance(nested, dict) or nested.keys() != included:
+                    raise ValueError(
+                        "GLiNER nested profile fields differ from their complete "
+                        "identity declarations"
+                    )
+                nested = normalize_gliner_profile(nested, json_input=True)
+                if gliner_profile_device(nested["version"]) != self.device:
+                    raise ValueError(
+                        "nested GLiNER profile device differs from its qualified native profile"
+                    )
+                projected.append(
+                    ProfileField("parameters", "declared-gliner-profile-fields-v1", "semantic")
+                )
+                projected.extend(
+                    ProfileField(
+                        "parameters.gliner_profile." + key,
+                        nested[key],
+                        cast(Literal["semantic", "execution"], nested_roles[key]),
+                    )
+                    for key in included
+                )
+            else:
+                projected.append(
+                    ProfileField(name, values[name], cast(Literal["semantic", "execution"], role))
+                )
+        return profile_identities(projected)
 
     @classmethod
     def from_content(cls, content):
