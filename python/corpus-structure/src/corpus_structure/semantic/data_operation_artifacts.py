@@ -23,6 +23,7 @@ _GENERATOR_FILES = (
     "data_operation_artifacts.py",
     "operation_call_generation.py",
     "data_operation_ports.py",
+    "data_operation_cpu.py",
     "data_operation_wire.py",
 )
 

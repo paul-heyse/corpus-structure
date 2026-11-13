@@ -25,6 +25,7 @@ from .characterization import (
     validate_inventory_graph,
 )
 from .characterization_evidence import validate_evidence
+from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation
 from .formal_evidence import (
     FAMILIES,
     FormalIdentity,
@@ -32,14 +33,15 @@ from .formal_evidence import (
     extract_formal_facts,
     grammar_identity,
 )
-from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation
 from .identity import canonical_bytes
-from .types import PreparedRelease, SourceArtifact, SourceBundle
 from .source_products import (
     FrozenNativeSource as FrozenFormalSource,
+)
+from .source_products import (
     source_product_inputs,
     source_subject,
 )
+from .types import PreparedRelease, SourceArtifact, SourceBundle
 
 if TYPE_CHECKING:
     from .data_operation_admission import PreparedCapabilityIdentity
@@ -56,7 +58,9 @@ _INVENTORIES = (
 )
 
 
-def formal_product_inputs(bundle: SourceBundle, *, model_content: bytes | None = None) -> SourceBundle:
+def formal_product_inputs(
+    bundle: SourceBundle, *, model_content: bytes | None = None
+) -> SourceBundle:
     """Acquire the nominal profile alongside its reused released constituent types."""
     bundle = source_product_inputs(bundle)
     reserved = {"data_operation_characterization", "data_operation_characterization_root"}
@@ -64,15 +68,23 @@ def formal_product_inputs(bundle: SourceBundle, *, model_content: bytes | None =
         raise ValueError("formal profile schema uses reserved trusted names")
     content = _MODEL.read_bytes() if model_content is None else model_content
     root = "data_operation_characterization_root"
-    return SourceBundle(root, (
-        *bundle.sources,
-        SourceArtifact("data_operation_characterization", content),
-        SourceArtifact(root, yaml.safe_dump({
-            "id": "urn:corpus:data-operation-characterization-root",
-            "name": root,
-            "imports": [bundle.root, "data_operation_characterization"],
-        }).encode()),
-    ))
+    return SourceBundle(
+        root,
+        (
+            *bundle.sources,
+            SourceArtifact("data_operation_characterization", content),
+            SourceArtifact(
+                root,
+                yaml.safe_dump(
+                    {
+                        "id": "urn:corpus:data-operation-characterization-root",
+                        "name": root,
+                        "imports": [bundle.root, "data_operation_characterization"],
+                    }
+                ).encode(),
+            ),
+        ),
+    )
 
 
 def _values(model: BaseModel) -> dict[str, Any]:
@@ -122,15 +134,36 @@ class FormalEvidenceProduct:
 
     @property
     def semantic_id(self) -> str:
-        return "formal-product:" + sha256(self.content).hexdigest()
+        """Use the same body/kind/subject identity as native publication."""
+        from .data_operation_identity import body_identity, product_identity
+
+        definition = self.prepared.index.definitions["DdoFormalProduct"]
+        contract = next(
+            identity.key
+            for identity in self.model.identities
+            if (identity.owner, identity.domain) == (definition.iri, "kind")
+        )
+        value = self.value.model_dump(mode="python", exclude_unset=True)
+        return product_identity(
+            kind=contract,
+            subject=source_subject(value["source"]),
+            body=body_identity(value).key,
+        ).key
 
     @property
     def members(self) -> tuple[FormalMember, ...]:
         inventory = {kind: name for name, kind in _INVENTORIES}
-        return tuple(FormalMember(
-            row.member_id, row.context.subject, inventory[row.body.record_type], ordinal,
-            self.prepared.index.definitions[type(row.body).__name__].iri, row.body,
-        ) for ordinal, row in enumerate(cast(Any, self.value).members))
+        return tuple(
+            FormalMember(
+                row.member_id,
+                row.context.subject,
+                inventory[row.body.record_type],
+                ordinal,
+                self.prepared.index.definitions[type(row.body).__name__].iri,
+                row.body,
+            )
+            for ordinal, row in enumerate(cast(Any, self.value).members)
+        )
 
     def inventory(self) -> dict[str, Any]:
         """Shared read-only algorithm view; it has no legacy layer/task identity."""
@@ -142,7 +175,13 @@ class FormalEvidenceProduct:
         return {**result, "coverage": body["coverage"]}
 
 
-def validate_formal_product(prepared: PreparedRelease, value: Mapping[str, Any], source: FrozenFormalSource, *, model: EffectiveDataOperationModel) -> FormalEvidenceProduct:
+def validate_formal_product(
+    prepared: PreparedRelease,
+    value: Mapping[str, Any],
+    source: FrozenFormalSource,
+    *,
+    model: EffectiveDataOperationModel,
+) -> FormalEvidenceProduct:
     checked = _values(prepared.validate_json("DdoFormalProduct", canonical_bytes(value)))
     selected = source.value
     member_contracts = formal_member_contracts(prepared, model)
@@ -156,7 +195,15 @@ def validate_formal_product(prepared: PreparedRelease, value: Mapping[str, Any],
     for packet in checked["members"]:
         if packet["kind_contract"] != member_contracts[packet["body"]["record_type"]]:
             raise ValueError("formal packet has another admitted nominal member contract")
-        if packet["context"] != dict(subject=subject, original_source=checked["source"]["document"], analyzed_scope=dict(source=checked["source"], selectors=selected["selectors"])) or packet["member_id"] != packet["body"]["local_id"]:
+        if (
+            packet["context"]
+            != dict(
+                subject=subject,
+                original_source=checked["source"]["document"],
+                analyzed_scope=dict(source=checked["source"], selectors=selected["selectors"]),
+            )
+            or packet["member_id"] != packet["body"]["local_id"]
+        ):
             raise ValueError("formal packet differs from original semantic source/member")
         if packet["member_id"] in seen:
             raise ValueError("formal packet repeats member identity")
@@ -176,28 +223,104 @@ def validate_formal_product(prepared: PreparedRelease, value: Mapping[str, Any],
             raise ValueError("formal occurrence differs from original semantic source address")
         for extent in occurrence["extents"]:
             pointer = extent["native_pointer"]
-            original = next((item for item in selected["items"] if item["self_ref"] == pointer), None)
+            original = next(
+                (item for item in selected["items"] if item["self_ref"] == pointer), None
+            )
             if original is None:
                 raise ValueError("formal occurrence has no original native atom")
-            if "page" in extent and {row["page_no"] for row in original.get("prov", ())} != {extent["page"]}:
+            if "page" in extent and {row["page_no"] for row in original.get("prov", ())} != {
+                extent["page"]
+            }:
                 raise ValueError("formal occurrence has another original page")
             if extent["projection"] != checked["source"]["projection"]:
                 raise ValueError("formal occurrence has another original projection")
             if "start" in extent:
                 a, b = extent["start"], extent.get("end", -1)
-                if not 0 <= a < b <= len(selected["text"]) or extent.get("text") != selected["text"][a:b]:
+                if (
+                    not 0 <= a < b <= len(selected["text"])
+                    or extent.get("text") != selected["text"][a:b]
+                ):
                     raise ValueError("formal occurrence differs from original literal slice")
-                if not any(piece["kind"] == "native_text" and piece.get("item_ref") == pointer and piece["start"] <= a < b <= piece["end"] for piece in selected["pieces"]):
+                if not any(
+                    piece["kind"] == "native_text"
+                    and piece.get("item_ref") == pointer
+                    and piece["start"] <= a < b <= piece["end"]
+                    for piece in selected["pieces"]
+                ):
                     raise ValueError("formal occurrence escapes its original native piece")
-                if not any(selector.get("native_pointer", pointer) == pointer and selector.get("start", 0) <= a < b <= selector.get("end", len(selected["text"])) for selector in selected["selectors"]):
+
+                def selected_pointer(selector, pointer=pointer):
+                    wanted = selector.get("native_pointer")
+                    actual = pointer
+                    items = {
+                        row["self_ref"]: row
+                        for row in (*selected["items"], *selected.get("ancestors", ()))
+                    }
+                    seen = set()
+                    while wanted and actual != wanted and actual not in seen:
+                        seen.add(actual)
+                        parent = items.get(actual, {}).get("parent")
+                        actual = parent.get("$ref") if isinstance(parent, dict) else parent
+                    return wanted is None or actual == wanted
+
+                if not any(
+                    selected_pointer(selector)
+                    and selector.get("start", 0)
+                    <= a
+                    < b
+                    <= selector.get("end", len(selected["text"]))
+                    for selector in selected["selectors"]
+                ):
                     raise ValueError("formal occurrence escapes the selected examined scope")
+    if any(
+        not any(region["selector"] == selector for region in checked["lexicon"])
+        for selector in selected["selectors"]
+    ):
+        raise ValueError("primary lexicon does not retain every examined selector")
+    for region in checked["lexicon"]:
+        selector = region["selector"]
+        if selector not in selected["selectors"] or not selector.get("start", 0) <= region[
+            "start"
+        ] <= region["end"] <= selector.get("end", len(selected["text"])):
+            raise ValueError("primary lexicon differs from exact examined region")
+        for atom in region["atoms"]:
+            if (
+                atom["occurrence"] not in indexes["occurrences"]
+                or not region["start"] <= atom["start"] < atom["end"] <= region["end"]
+            ):
+                raise ValueError("primary lexical protection has no exact retained occurrence")
+            extents = indexes["occurrences"][atom["occurrence"]]["extents"]
+            if (
+                min(e.get("start", -1) for e in extents),
+                max(e.get("end", -1) for e in extents),
+            ) != (atom["start"], atom["end"]):
+                raise ValueError("primary lexical protection changes its retained occurrence")
+        for row in region["terminals"]:
+            if (
+                not region["start"] <= row["start"] < row["end"] <= region["end"]
+                or row["text"] != selected["text"][row["start"] : row["end"]]
+                or any(
+                    atom["start"] < row["end"] and row["start"] < atom["end"]
+                    for atom in region["atoms"]
+                )
+            ):
+                raise ValueError(
+                    "primary lexical observation differs from its original unprotected slice"
+                )
+        if region["availability"] != "available" and (region["atoms"] or region["terminals"]):
+            raise ValueError("unsupported primary lexicon cannot assert characterized terminals")
     validate_evidence(data, indexes)
     validate_inventory_graph(data, indexes, all_nodes, choices, lambda _: None)
     if [row["family"] for row in checked["coverage"]] != list(FAMILIES):
         raise ValueError("formal product must retain every examined family outcome")
-    if any(row["eligible"] != selected["selectors"] or row["examined"] != selected["selectors"] for row in checked["coverage"]):
+    if any(
+        row["eligible"] != selected["selectors"] or row["examined"] != selected["selectors"]
+        for row in checked["coverage"]
+    ):
         raise ValueError("formal coverage differs from original examined scope")
-    if checked["outcome"] == "complete" and any(row["outcome"] not in {"complete", "empty"} for row in checked["coverage"]):
+    if checked["outcome"] == "complete" and any(
+        row["outcome"] not in {"complete", "empty"} for row in checked["coverage"]
+    ):
         raise ValueError("complete formal product contains incomplete family coverage")
     return FormalEvidenceProduct(canonical_bytes(checked), prepared, model)
 
@@ -210,24 +333,39 @@ class PreparedFormalEvidence:
     grammar: str
     model: EffectiveDataOperationModel
 
-    def run(self, source: FrozenFormalSource, options: FormalEvidenceOptions, *, check_active: Callable[[], None] = lambda: None) -> FormalEvidenceProduct:
+    def run(
+        self,
+        source: FrozenFormalSource,
+        options: FormalEvidenceOptions,
+        *,
+        check_active: Callable[[], None] = lambda: None,
+    ) -> FormalEvidenceProduct:
         # Revalidate owned boundary bytes; model_construct/hand-created wrappers are not authority.
         source = FrozenFormalSource.acquire(self.prepared, source.value)
         options = FormalEvidenceOptions.model_validate(options.model_dump(mode="python"))
         if self.grammar != grammar_identity():
             raise ValueError("formal capability differs from acquired effective grammar assets")
-        value = formal_product_values(source, options, formal_member_contracts(self.prepared, self.model), check_active=check_active)
+        value = formal_product_values(
+            source,
+            options,
+            formal_member_contracts(self.prepared, self.model),
+            check_active=check_active,
+        )
         return validate_formal_product(self.prepared, value, source, model=self.model)
 
 
-def formal_member_contracts(prepared: PreparedRelease, model: EffectiveDataOperationModel) -> dict[str, str]:
+def formal_member_contracts(
+    prepared: PreparedRelease, model: EffectiveDataOperationModel
+) -> dict[str, str]:
     """Use the admitted packet variants' nominal body graph, never guessed kind names."""
     identities = {(item.owner, item.domain): item.key for item in model.identities}
     result = {}
     for definition in prepared.definitions:
         if "DdoFormalMember" not in definition.ancestors or definition.abstract:
             continue
-        discriminator = next(prop.equals_string for prop in definition.properties if prop.name == "record_type")
+        discriminator = next(
+            prop.equals_string for prop in definition.properties if prop.name == "record_type"
+        )
         if discriminator is None or discriminator in result:
             raise ValueError("formal packet variants require unique declared kind correspondence")
         result[discriminator] = identities[definition.iri, "kind"]
@@ -236,7 +374,111 @@ def formal_member_contracts(prepared: PreparedRelease, model: EffectiveDataOpera
     return result
 
 
-def formal_product_values(source: FrozenFormalSource, options: FormalEvidenceOptions, member_contracts: Mapping[str, str], *, check_active: Callable[[], None] = lambda: None) -> dict[str, Any]:
+def formal_positioned_lexicon(builder, selected):
+    """Primary categories outside whole original atoms and positioned formal fields."""
+    from .constructions.lexical import ProtectedAtom, classify
+
+    occurrences = builder.occurrences
+    protected = []
+    for annotation in builder.annotations:
+        if "formal_input" not in annotation or annotation["family"] == "formal.lexical":
+            continue
+        parent = annotation["formal_input"]["parent_occurrence"]
+        for extent in occurrences[parent]["extents"]:
+            if "start" in extent and extent["start"] < extent["end"]:
+                protected.append((extent["start"], extent["end"], parent))
+    for piece in builder.view.pieces:
+        if piece["kind"] == "native_text" and builder.items.get(piece["item_ref"], {}).get(
+            "label"
+        ) in {"formula", "reference", "reference_marker"}:
+            protected.append(
+                (
+                    piece["start"],
+                    piece["end"],
+                    builder.occurrence(piece, piece["start"], piece["end"]),
+                )
+            )
+    protected = sorted(set(protected))
+    protected = [
+        (a, b, o)
+        for a, b, o in protected
+        if not any(c <= a and b <= d and (a, b) != (c, d) for c, d, _ in protected)
+    ]
+    if any(a < c < b < d for a, b, _ in protected for c, d, _ in protected):
+        raise ValueError("primary formal protection has crossing original atoms")
+    result = []
+    for selector in selected:
+        lower, upper = selector.get("start", 0), selector.get("end", len(builder.view.text))
+        admitted = []
+        for piece in builder.view.pieces:
+            if piece["kind"] != "native_text":
+                continue
+            wanted = selector.get("native_pointer")
+            pointer = piece["item_ref"]
+            seen = set()
+            while wanted and pointer != wanted and pointer not in seen:
+                seen.add(pointer)
+                parent = builder.items.get(pointer, {}).get("parent")
+                pointer = parent.get("$ref") if isinstance(parent, dict) else parent
+            if wanted and pointer != wanted:
+                continue
+            a, b = max(lower, piece["start"]), min(upper, piece["end"])
+            if a < b:
+                if admitted and all(
+                    p["kind"] != "native_text"
+                    for p in builder.view.pieces
+                    if admitted[-1][1] < p["end"] and p["start"] < a
+                ):
+                    admitted[-1] = (admitted[-1][0], b)
+                else:
+                    admitted.append((a, b))
+        if not admitted:
+            admitted = [(lower, lower)]
+        for start, end in admitted:
+            intervals = [(a, b, o) for a, b, o in protected if start <= a < b <= end]
+            if any(a < end and start < b and not start <= a < b <= end for a, b, _ in protected):
+                result.append(
+                    dict(
+                        selector=dict(selector),
+                        start=start,
+                        end=end,
+                        availability="unsupported",
+                        reason="selected source cuts a protected original atom",
+                        atoms=[],
+                        terminals=[],
+                    )
+                )
+                continue
+            atoms = tuple(ProtectedAtom(a - start, b - start, o) for a, b, o in intervals)
+            terminals = classify(builder.view.text[start:end], atoms)
+            result.append(
+                dict(
+                    selector=dict(selector),
+                    start=start,
+                    end=end,
+                    availability="available",
+                    atoms=[dict(start=a, end=b, occurrence=o) for a, b, o in intervals],
+                    terminals=[
+                        dict(
+                            terminal=row.terminal,
+                            start=row.start + start,
+                            end=row.end + start,
+                            text=row.text,
+                        )
+                        for row in terminals
+                    ],
+                )
+            )
+    return result
+
+
+def formal_product_values(
+    source: FrozenFormalSource,
+    options: FormalEvidenceOptions,
+    member_contracts: Mapping[str, str],
+    *,
+    check_active: Callable[[], None] = lambda: None,
+) -> dict[str, Any]:
     """The one pure extraction/packet construction kernel over owned typed ingress.
 
     Private child transport is admitted by its parent; the parent validates the full
@@ -245,23 +487,80 @@ def formal_product_values(source: FrozenFormalSource, options: FormalEvidenceOpt
     selected = source.value
     coordinate = selected["source"]
     check_active()
-    view = _RecognizerSource(selected["text"], tuple(selected["pieces"]), tuple(selected["items"]), {"formula_outcomes": selected.get("recognition", [])})
-    builder = _LayerBuilder(view, {}, FormalIdentity(canonical_bytes(coordinate), coordinate["projection"], source_subject(coordinate), True))
+    view = _RecognizerSource(
+        selected["text"],
+        tuple(selected["pieces"]),
+        tuple((*selected["items"], *selected.get("ancestors", ()))),
+        {"formula_outcomes": selected.get("recognition", [])},
+    )
+    builder = _LayerBuilder(
+        view,
+        {},
+        FormalIdentity(
+            canonical_bytes(coordinate), coordinate["projection"], source_subject(coordinate), True
+        ),
+    )
     builder.macros = dict(options.macros)
-    extract_formal_facts(builder, selected["selectors"], math_start=options.math_start, parse_seconds=options.parse_seconds, max_forest_nodes=options.max_forest_nodes, max_inline_chars=options.max_inline_chars, check_active=check_active)
-    coverage = [dict(family=family, eligible=selected["selectors"], examined=selected["selectors"], availability="available", outcome="partial" if builder.problems[family] else "complete" if builder.counts[family] else "empty", **({"reason": "; ".join(dict.fromkeys(builder.problems[family]))} if builder.problems[family] else {})) for family in FAMILIES]
+    extract_formal_facts(
+        builder,
+        selected["selectors"],
+        math_start=options.math_start,
+        parse_seconds=options.parse_seconds,
+        max_forest_nodes=options.max_forest_nodes,
+        max_inline_chars=options.max_inline_chars,
+        check_active=check_active,
+    )
+    lexicon = formal_positioned_lexicon(builder, selected["selectors"])
+    coverage = [
+        dict(
+            family=family,
+            eligible=selected["selectors"],
+            examined=selected["selectors"],
+            availability="available",
+            outcome="partial"
+            if builder.problems[family]
+            else "complete"
+            if builder.counts[family]
+            else "empty",
+            **(
+                {"reason": "; ".join(dict.fromkeys(builder.problems[family]))}
+                if builder.problems[family]
+                else {}
+            ),
+        )
+        for family in FAMILIES
+    ]
     members = []
     for inventory, kind in _INVENTORIES:
         values = getattr(builder, inventory)
         rows = values.values() if isinstance(values, dict) else values
         for row in rows:
-            members.append(dict(member_id=row["local_id"], kind_contract=member_contracts[kind], context=dict(subject=source_subject(coordinate), original_source=coordinate["document"], analyzed_scope=dict(source=coordinate, selectors=selected["selectors"])), body={"record_type":kind, **row}))
+            members.append(
+                dict(
+                    member_id=row["local_id"],
+                    kind_contract=member_contracts[kind],
+                    context=dict(
+                        subject=source_subject(coordinate),
+                        original_source=coordinate["document"],
+                        analyzed_scope=dict(source=coordinate, selectors=selected["selectors"]),
+                    ),
+                    body={"record_type": kind, **row},
+                )
+            )
     check_active()
-    return dict(source=coordinate, selectors=selected["selectors"], outcome="partial" if any(builder.problems.values()) else "complete", coverage=coverage, members=members)
+    return dict(
+        source=coordinate,
+        selectors=selected["selectors"],
+        outcome="partial" if any(builder.problems.values()) else "complete",
+        coverage=coverage,
+        lexicon=lexicon,
+        members=members,
+    )
 
 
-
-def prepare_formal_evidence(prepared: PreparedRelease, model: EffectiveDataOperationModel, *, grammar: str) -> PreparedFormalEvidence:
+def prepare_formal_evidence(
+    prepared: PreparedRelease, model: EffectiveDataOperationModel, *, grammar: str
+) -> PreparedFormalEvidence:
     if grammar != grammar_identity():
         raise ValueError("formal profile requires explicitly acquired effective grammar assets")
     for name in ("DdoSelectedNativeSource", "DdoFormalProduct"):
@@ -289,9 +588,18 @@ def _semantic_nodes(content: bytes, names: tuple[str, ...]) -> tuple[tuple[str, 
         for name in path.split("."):
             if not isinstance(owner, (ast.Module, ast.ClassDef, ast.FunctionDef)):
                 raise ValueError("semantic asset slice does not name an owning definition: " + path)
-            matches = [node for node in owner.body if (
-                isinstance(node, (ast.ClassDef, ast.FunctionDef)) and node.name == name
-            ) or (isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == name for target in node.targets))]
+            matches = [
+                node
+                for node in owner.body
+                if (isinstance(node, (ast.ClassDef, ast.FunctionDef)) and node.name == name)
+                or (
+                    isinstance(node, ast.Assign)
+                    and any(
+                        isinstance(target, ast.Name) and target.id == name
+                        for target in node.targets
+                    )
+                )
+            ]
             if len(matches) != 1:
                 raise ValueError("semantic asset slice has no unique actual definition: " + path)
             owner = matches[0]
@@ -303,10 +611,15 @@ def formal_execution_custody() -> SourceArtifact:
     """Physical adapter/CPU/receipt code belongs to runtime custody, not recipe meaning."""
     root = Path(__file__).parent
     names = ("formal_products.py", "cpu_execution.py", "cpu_receipts.py")
-    return SourceArtifact("formal/execution-custody", canonical_bytes({
-        "version": "formal-execution-custody-v1",
-        "files": [(name, (root / name).read_bytes().hex()) for name in names],
-    }))
+    return SourceArtifact(
+        "formal/execution-custody",
+        canonical_bytes(
+            {
+                "version": "formal-execution-custody-v1",
+                "files": [(name, (root / name).read_bytes().hex()) for name in names],
+            }
+        ),
+    )
 
 
 def formal_profile_assets() -> SourceArtifact:
@@ -318,24 +631,57 @@ def formal_profile_assets() -> SourceArtifact:
 
     root = Path(__file__).parent
     paths = (
-        root / "formal_evidence.py", root / "formal_forest.py",
-        root / "formal_sources.py", root / "structural_parsing.py",
-        root / "characterization.py", root / "characterization_evidence.py", root / "source_products.py",
-        root / "constructions/reuse.py", root / "constructions/nodes.py",
-        Path(math_grammar.__file__), Path(transform.__file__), Path(tex.__file__),
-        math_grammar.SHIPPED, math_grammar.EXTENSION,
-        _MODEL, root.parent / "model/semantic/characterization.yaml", root.parent / "model/semantic/data-operation-source.yaml",
+        root / "formal_evidence.py",
+        root / "formal_forest.py",
+        root / "formal_sources.py",
+        root / "structural_parsing.py",
+        root / "characterization.py",
+        root / "characterization_evidence.py",
+        root / "source_products.py",
+        root / "data_product_reference.py",
+        root / "constructions/reuse.py",
+        root / "constructions/nodes.py",
+        root / "constructions/lexical.py",
+        Path(math_grammar.__file__),
+        Path(transform.__file__),
+        Path(tex.__file__),
+        math_grammar.SHIPPED,
+        math_grammar.EXTENSION,
+        _MODEL,
+        root.parent / "model/semantic/characterization.yaml",
+        root.parent / "model/semantic/data-operation-source.yaml",
     )
     # Labels are descriptive relative package addresses, never machine placement.
     payload = {
         "interpretation": "formal-semantic-assets-ast-v1",
-        "target": _semantic_nodes(Path(__file__).read_bytes(), (
-            "_INVENTORIES", "_RecognizerSource", "FormalEvidenceOptions", "FormalEvidenceProduct",
-            "_values", "formal_product_values", "formal_member_contracts",
-            "validate_formal_product", "PreparedFormalEvidence", "PreparedFormalEvidencePort._completion",
-            "execute_formal_profile", "_semantic_nodes", "formal_profile_assets",
-        )),
-        "sources": [(str(path.relative_to(root.parent)) if path.is_relative_to(root.parent) else "sympy/grammar/latex.lark", path.read_bytes().hex()) for path in paths],
+        "target": _semantic_nodes(
+            Path(__file__).read_bytes(),
+            (
+                "_INVENTORIES",
+                "_RecognizerSource",
+                "FormalEvidenceOptions",
+                "FormalEvidenceProduct",
+                "_values",
+                "formal_product_values",
+                "formal_positioned_lexicon",
+                "formal_member_contracts",
+                "validate_formal_product",
+                "PreparedFormalEvidence",
+                "PreparedFormalEvidencePort._completion",
+                "execute_formal_profile",
+                "_semantic_nodes",
+                "formal_profile_assets",
+            ),
+        ),
+        "sources": [
+            (
+                str(path.relative_to(root.parent))
+                if path.is_relative_to(root.parent)
+                else "sympy/grammar/latex.lark",
+                path.read_bytes().hex(),
+            )
+            for path in paths
+        ],
         "libraries": {name: version(name) for name in ("lark", "sympy", "pydantic")},
     }
     return SourceArtifact("formal/profile-assets", canonical_bytes(payload))
@@ -346,13 +692,22 @@ def formal_operation_sources():
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     path = Path(__file__).parents[1] / "methods/formal_evidence.py"
-    return PythonSourceCollection((PythonSource(
-        "corpus_structure.methods.formal_evidence", path.read_bytes(), str(path),
-    ),), boundary_contracts=(formal_profile_assets(), formal_execution_custody()))
+    return PythonSourceCollection(
+        (
+            PythonSource(
+                "corpus_structure.methods.formal_evidence",
+                path.read_bytes(),
+                str(path),
+            ),
+        ),
+        boundary_contracts=(formal_profile_assets(), formal_execution_custody()),
+    )
 
 
 @dataclass(frozen=True)
 class PreparedFormalEvidencePort:
+    native_selections = ()
+
     """Admitted prepared implementation of the original source-native entrypoint."""
 
     identity: PreparedCapabilityIdentity
@@ -365,7 +720,14 @@ class PreparedFormalEvidencePort:
     def logical_signature(self):
         import inspect
 
-        return inspect.Signature((inspect.Parameter("source", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=FrozenFormalSource),), return_annotation=FormalEvidenceProduct)
+        return inspect.Signature(
+            (
+                inspect.Parameter(
+                    "source", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=FrozenFormalSource
+                ),
+            ),
+            return_annotation=FormalEvidenceProduct,
+        )
 
     def _verify(self) -> None:
         from dataclasses import asdict
@@ -378,7 +740,8 @@ class PreparedFormalEvidencePort:
         if operation.implementation_root is None:
             raise PortRefusal("formal capability lacks an implementation root")
         expected = dict(
-            model_digest=sha256(model.content).hexdigest(), operation=operation.semantic_id,
+            model_digest=sha256(model.content).hexdigest(),
+            operation=operation.semantic_id,
             definition=ids[operation.semantic_id, "definition"],
             recipe=ids[operation.semantic_id, "recipe"],
             implementation=ids[operation.implementation_root, "implementation-slice"],
@@ -393,9 +756,18 @@ class PreparedFormalEvidencePort:
         for actual in (formal_profile_assets(), formal_execution_custody()):
             if retained.get(actual.name) != actual:
                 raise PortRefusal("formal runtime/parser assets differ from acquired custody")
-        expected["source_digest"] = sha256(canonical_bytes(tuple((source.module, sha256(source.content).hexdigest()) for source in sources.sources))).hexdigest()
+        expected["source_digest"] = sha256(
+            canonical_bytes(
+                tuple(
+                    (source.module, sha256(source.content).hexdigest())
+                    for source in sources.sources
+                )
+            )
+        ).hexdigest()
         if any(getattr(self.identity, name) != value for name, value in expected.items()):
-            raise PortRefusal("formal capability differs from admitted source/operation correspondence")
+            raise PortRefusal(
+                "formal capability differs from admitted source/operation correspondence"
+            )
         # Prepared opaque resources are not closed Python functions, but their
         # original endpoint and resource bridge still require actual loaded-code
         # correspondence, not only a matching on-disk file.
@@ -407,22 +779,53 @@ class PreparedFormalEvidencePort:
         def declared(content, filename, *path):
             code = compile(content, filename, "exec", dont_inherit=True)
             for name in path:
-                code = next(item for item in code.co_consts if isinstance(item, CodeType) and item.co_name == name)
+                code = next(
+                    item
+                    for item in code.co_consts
+                    if isinstance(item, CodeType) and item.co_name == name
+                )
             return code
 
         source = sources.sources[0]
         runtime = inspect.getattr_static(endpoint.FormalEvidenceOperation, "run")
-        if not inspect.isfunction(runtime) or runtime.__code__ != declared(source.content, source.filename, "FormalEvidenceOperation", "run") or runtime.__globals__ is not endpoint.__dict__:
+        if (
+            not inspect.isfunction(runtime)
+            or runtime.__code__
+            != declared(source.content, source.filename, "FormalEvidenceOperation", "run")
+            or runtime.__globals__ is not endpoint.__dict__
+        ):
             raise PortRefusal("loaded formal endpoint differs from acquired implementation")
-        if endpoint.execute_formal_profile is not execute_formal_profile or execute_formal_profile.__code__ != declared(Path(__file__).read_bytes(), __file__, "execute_formal_profile"):
+        if (
+            endpoint.execute_formal_profile is not execute_formal_profile
+            or execute_formal_profile.__code__
+            != declared(Path(__file__).read_bytes(), __file__, "execute_formal_profile")
+        ):
             raise PortRefusal("loaded formal resource bridge differs from acquired implementation")
-        if self.profile.run.__func__.__code__ != declared(Path(__file__).read_bytes(), __file__, "PreparedFormalEvidence", "run"):
-            raise PortRefusal("loaded formal resource algorithm differs from acquired implementation")
+        if self.profile.run.__func__.__code__ != declared(
+            Path(__file__).read_bytes(), __file__, "PreparedFormalEvidence", "run"
+        ):
+            raise PortRefusal(
+                "loaded formal resource algorithm differs from acquired implementation"
+            )
         contracts = {item.name: item.digest for item in self.custody}
-        boundaries = (*operation.assets, *(boundary for implementation in model.implementation_slices if implementation.root == operation.implementation_root for boundary in implementation.boundaries))
-        if not operation.assets or any(contracts.get(boundary.contract) != boundary.content_digest for boundary in boundaries):
-            raise PortRefusal("formal parser assets differ from explicitly acquired boundary custody")
-        if self.identity.assets != canonical_bytes(tuple(asdict(boundary) for boundary in boundaries)):
+        boundaries = (
+            *operation.assets,
+            *(
+                boundary
+                for implementation in model.implementation_slices
+                if implementation.root == operation.implementation_root
+                for boundary in implementation.boundaries
+            ),
+        )
+        if not operation.assets or any(
+            contracts.get(boundary.contract) != boundary.content_digest for boundary in boundaries
+        ):
+            raise PortRefusal(
+                "formal parser assets differ from explicitly acquired boundary custody"
+            )
+        if self.identity.assets != canonical_bytes(
+            tuple(asdict(boundary) for boundary in boundaries)
+        ):
             raise PortRefusal("formal capability has another acquired resource boundary")
         self.authorize(self.identity)
 
@@ -447,7 +850,8 @@ class PreparedFormalEvidencePort:
         else:
             raise PortRefusal("formal source ingress requires its explicit selected-source value")
         if binding is not None and (
-            not binding.sufficient or binding.operation != self.operation.semantic_id
+            not binding.sufficient
+            or binding.operation != self.operation.semantic_id
             or binding.subject != source_subject(source.value["source"])
             or decode_semantic_value(json.loads(binding.parameters)) != {}
         ):
@@ -462,16 +866,39 @@ class PreparedFormalEvidencePort:
         # member packets are deliberate projections of that same validated product.
         model_value = product.value.model_dump(mode="python", exclude_unset=True)
         packets = json.loads(product.content)["members"]
-        native_members = tuple(canonical_bytes({
-            "member_id": packet["member_id"], "kind_contract": packet["kind_contract"],
-            "context": packet["context"],
-            "body": semantic_value(packet["body"]),
-        }) for packet in packets)
+        native_members = tuple(
+            canonical_bytes(
+                {
+                    "member_id": packet["member_id"],
+                    "kind_contract": packet["kind_contract"],
+                    "context": packet["context"],
+                    "body": semantic_value(packet["body"]),
+                }
+            )
+            for packet in packets
+        )
         output = next(role for role in self.operation.roles if role.direction == "output")
         contracts = {(item.owner, item.domain): item.key for item in self.profile.model.identities}
-        return PortCompletion(self.operation.semantic_id, (RoleValue(output.name, contracts[output.kind, "kind"], product.content, canonical_bytes(semantic_value(model_value)), native_members),))
+        return PortCompletion(
+            self.operation.semantic_id,
+            (
+                RoleValue(
+                    output.name,
+                    contracts[output.kind, "kind"],
+                    product.content,
+                    canonical_bytes(semantic_value(model_value)),
+                    native_members,
+                ),
+            ),
+        )
 
-    def invoke_python(self, values: tuple[PythonRoleValue, ...], *, binding: BindingResult | None = None, check_active: Callable[[], None] = lambda: None) -> PortCompletion:
+    def invoke_python(
+        self,
+        values: tuple[PythonRoleValue, ...],
+        *,
+        binding: BindingResult | None = None,
+        check_active: Callable[[], None] = lambda: None,
+    ) -> PortCompletion:
         from corpus_structure.methods.formal_evidence import FormalEvidenceOperation
 
         # The actual math frontend owns process-main-thread SIGALRM deadlines.
@@ -479,7 +906,9 @@ class PreparedFormalEvidencePort:
         math_grammar.require_main_thread()
         self._verify()
         source = self._source(values, binding)
-        product = FormalEvidenceOperation(self.profile, FormalEvidenceOptions(), check_active).run(source)
+        product = FormalEvidenceOperation(self.profile, FormalEvidenceOptions(), check_active).run(
+            source
+        )
         self._verify()
         return self._completion(product)
 
@@ -500,12 +929,19 @@ class PreparedFormalEvidencePort:
             if admission is None:
                 return None
             try:
-                packet = canonical_bytes(dict(
-                    profile="formal-source-native", release_id=self.profile.prepared.release_id,
-                    member_contracts=formal_member_contracts(self.profile.prepared, self.profile.model), source=source.content.decode(),
-                    options=FormalEvidenceOptions().model_dump_json(), grammar=self.profile.grammar,
-                    assets=formal_profile_assets().digest,
-                ))
+                packet = canonical_bytes(
+                    dict(
+                        profile="formal-source-native",
+                        release_id=self.profile.prepared.release_id,
+                        member_contracts=formal_member_contracts(
+                            self.profile.prepared, self.profile.model
+                        ),
+                        source=source.content.decode(),
+                        options=FormalEvidenceOptions().model_dump_json(),
+                        grammar=self.profile.grammar,
+                        assets=formal_profile_assets().digest,
+                    )
+                )
                 return cpu.submit_formal(admission, packet, check_active)
             except BaseException:
                 if not admission.submitted:
@@ -514,12 +950,25 @@ class PreparedFormalEvidencePort:
 
         (reply,) = yield (PreparedWork(submit),)
         check_active()
-        product = validate_formal_product(self.profile.prepared, json.loads(reply.content), source, model=self.profile.model)
+        product = validate_formal_product(
+            self.profile.prepared, json.loads(reply.content), source, model=self.profile.model
+        )
         self._verify()
-        return replace(self._completion(product), cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()))
+        return replace(
+            self._completion(product),
+            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
+        )
 
 
-def resolve_formal_evidence_port(prepared: PreparedRelease, model: EffectiveDataOperationModel, operation: str, *, identity: PreparedCapabilityIdentity, authorize: Callable[[PreparedCapabilityIdentity], None], custody: tuple[SourceArtifact, ...]) -> PreparedFormalEvidencePort:
+def resolve_formal_evidence_port(
+    prepared: PreparedRelease,
+    model: EffectiveDataOperationModel,
+    operation: str,
+    *,
+    identity: PreparedCapabilityIdentity,
+    authorize: Callable[[PreparedCapabilityIdentity], None],
+    custody: tuple[SourceArtifact, ...],
+) -> PreparedFormalEvidencePort:
     from .data_operation_ports import PortRefusal
 
     selected = model.operation(operation)
@@ -531,12 +980,20 @@ def resolve_formal_evidence_port(prepared: PreparedRelease, model: EffectiveData
         or selected.capabilities.preparation != "resource"
         or selected.capabilities.cancellation != "cooperative"
         or selected.capabilities.ownership != "immutable"
-        or selected.effects or len(inputs) != 1 or len(outputs) != 1
+        or selected.effects
+        or len(inputs) != 1
+        or len(outputs) != 1
         or inputs[0].kind != expected["DdoSelectedNativeSource"].iri
         or outputs[0].kind != expected["DdoFormalProduct"].iri
         or inputs[0].parameter != "source"
     ):
         raise PortRefusal("operation does not establish the prepared formal profile")
-    port = PreparedFormalEvidencePort(identity, selected, prepare_formal_evidence(prepared, model, grammar=grammar_identity()), authorize, custody)
+    port = PreparedFormalEvidencePort(
+        identity,
+        selected,
+        prepare_formal_evidence(prepared, model, grammar=grammar_identity()),
+        authorize,
+        custody,
+    )
     port._verify()
     return port

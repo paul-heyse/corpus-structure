@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args, get_or
 
 if TYPE_CHECKING:
     from .data_operation_bindings import BindingResult
+    from .data_operation_cpu import PythonCPUDescriptor
     from .types import PreparedRelease, SourceBundle
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
@@ -180,6 +181,61 @@ class ResolvedPythonPort:
     authorize: Callable[[PythonPortIdentity], None]
     verify_runtime: Callable[[], None]
     logical_signature: inspect.Signature | None = None
+    cpu_descriptor: PythonCPUDescriptor | None = None
+
+    @property
+    def native_selections(self) -> tuple:
+        return ()
+
+    def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
+        from dataclasses import replace
+
+        from .data_operation_cpu import plan_cpu_call
+
+        if self.operation.capabilities.forms != ("scalar",):
+            raise PortRefusal("batch capability requires explicit member invocation")
+        bound = self._arguments(values, route="python", binding=binding, signature=self.signature)
+        reply = yield from plan_cpu_call(
+            self.cpu_descriptor,
+            bound,
+            self.signature,
+            verify=self.verify_runtime,
+            execution_owner=execution_owner,
+            check_active=check_active,
+        )
+        result = TypeAdapter(self.signature.return_annotation).validate_json(
+            reply.content, strict=True
+        )
+        return replace(
+            self._complete(result, self.signature.return_annotation),
+            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
+        )
+
+    def plan_batch_python(self, members, *, check_active=lambda: None, execution_owner):
+        from dataclasses import replace
+
+        from .data_operation_cpu import plan_cpu_call
+
+        bound = self._batch_arguments(members, route="python")
+        reply = yield from plan_cpu_call(
+            self.cpu_descriptor,
+            bound,
+            self.signature,
+            verify=self.verify_runtime,
+            execution_owner=execution_owner,
+            check_active=check_active,
+        )
+        checked = TypeAdapter(self.signature.return_annotation).validate_json(
+            reply.content, strict=True
+        )
+        completed = self._batch_complete(checked, members)
+        evidence = canonical_bytes(reply.execution_receipt.record())
+        return BatchPortCompletion(
+            tuple(
+                (member, replace(completion, cpu_execution_evidence=evidence))
+                for member, completion in completed.members
+            )
+        )
 
     def invoke_python(
         self, values: tuple[PythonRoleValue, ...], *, binding: BindingResult | None = None
@@ -299,8 +355,7 @@ class ResolvedPythonPort:
     def invoke_batch_json(self, members: tuple[JSONBatchMember, ...]) -> BatchPortCompletion:
         return self._invoke_batch(members, route="json")
 
-    def _invoke_batch(self, members, *, route) -> BatchPortCompletion:
-        """One original batch call; exact member order and all-or-nothing validation."""
+    def _batch_arguments(self, members, *, route):
         signature = self.logical_signature
         if self.operation.capabilities.forms != ("batch",) or signature is None:
             raise PortRefusal("operation has no admitted native batch capability")
@@ -330,9 +385,18 @@ class ResolvedPythonPort:
             for name, value in arguments.items()
             if self.signature.parameters[name].kind != inspect.Parameter.POSITIONAL_ONLY
         }
-        bound = self.signature.bind(*positional, **keywords)
+        return self.signature.bind(*positional, **keywords)
+
+    def _invoke_batch(self, members, *, route) -> BatchPortCompletion:
+        """One original batch call; exact member order and all-or-nothing validation."""
+        bound = self._batch_arguments(members, route=route)
         result = self.function(*bound.args, **bound.kwargs)
         self.verify_runtime()
+        return self._batch_complete(result, members)
+
+    def _batch_complete(self, result, members) -> BatchPortCompletion:
+        signature = self.logical_signature
+        assert signature is not None
         checked = TypeAdapter(self.signature.return_annotation).validate_python(
             _untrusted_value(result), strict=True
         )
@@ -644,6 +708,28 @@ def resolve_python_port(
         authorize,
         verify_runtime,
         logical_signature,
+        _cpu_descriptor(model, selected, sources, paths, receiver is not None),
+    )
+
+
+def _cpu_descriptor(model, selected, sources, paths, receiver):
+    from .data_operation_cpu import PythonCPUDescriptor
+
+    return PythonCPUDescriptor(
+        tuple(
+            (source.module, str(paths[source.module]), source.content) for source in sources.sources
+        ),
+        selected.callable_surfaces[0].exposed,
+        tuple(
+            sorted(
+                node.id.removeprefix("python:")
+                for implementation in model.implementation_slices
+                if implementation.root == selected.implementation_root
+                for node in implementation.nodes
+                if node.id.startswith("python:")
+            )
+        ),
+        receiver,
     )
 
 
@@ -688,6 +774,10 @@ def _verify_runtime_sources(model, operation, sources, modules, paths=None) -> N
     expected_nodes = {
         n.id.removeprefix("python:") for n in implementation.nodes if n.id.startswith("python:")
     }
+    _verify_closed_runtime_sources(sources, modules, paths, expected_nodes)
+
+
+def _verify_closed_runtime_sources(sources, modules, paths, expected_nodes) -> None:
     _verify_consumed_globals(sources, modules, expected_nodes)
     for source in sources.sources:
         module = modules[source.module]

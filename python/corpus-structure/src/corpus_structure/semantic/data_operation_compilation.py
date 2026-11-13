@@ -1039,26 +1039,44 @@ def compile_data_operations(
                     _fail(semantic_id, "input provenance substitution policy must be explicit")
                 identity_requirements = _strings(data.get("identity_requirements", []), semantic_id)
                 if not set(identity_requirements) <= {
-                    "episode", "provider", "alternative", "original-source",
+                    "episode",
+                    "provider",
+                    "alternative",
+                    "original-source",
                 }:
                     _fail(semantic_id, "unsupported input support identity dimension")
                 allowed_origins = _strings(
-                    data.get("origins", ["computation"]), semantic_id, empty=False,
+                    data.get("origins", ["computation"]),
+                    semantic_id,
+                    empty=False,
                 )
                 if not set(allowed_origins) <= {"computation", "original-source"}:
                     _fail(semantic_id, "unsupported input support origin")
-                if (data["provenance"] == "exact" and "computation" in allowed_origins
-                    and "episode" not in identity_requirements):
-                    _fail(semantic_id,
-                          "exact computation provenance requires explicit episode identity")
-                if (data["provenance"] == "exact" and "original-source" in allowed_origins
-                    and "original-source" not in identity_requirements):
-                    _fail(semantic_id,
-                          "exact original provenance requires original-source identity")
-                if ("original-source" in identity_requirements
-                    and "original-source" not in allowed_origins):
-                    _fail(semantic_id,
-                          "original-source identity requires an allowed original support origin")
+                if (
+                    data["provenance"] == "exact"
+                    and "computation" in allowed_origins
+                    and "episode" not in identity_requirements
+                ):
+                    _fail(
+                        semantic_id,
+                        "exact computation provenance requires explicit episode identity",
+                    )
+                if (
+                    data["provenance"] == "exact"
+                    and "original-source" in allowed_origins
+                    and "original-source" not in identity_requirements
+                ):
+                    _fail(
+                        semantic_id, "exact original provenance requires original-source identity"
+                    )
+                if (
+                    "original-source" in identity_requirements
+                    and "original-source" not in allowed_origins
+                ):
+                    _fail(
+                        semantic_id,
+                        "original-source identity requires an allowed original support origin",
+                    )
                 source_set = data.get("source_set")
                 source_reference_field = data.get("source_reference_field")
                 if (source_set is None) != (source_reference_field is None):
@@ -1674,17 +1692,20 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
                 support_reference_records,
             )
 
-            originals = tuple(reference for reference in member.support_references
-                              if isinstance(reference, OriginalSourceSupportReference))
+            originals = tuple(
+                reference
+                for reference in member.support_references
+                if isinstance(reference, OriginalSourceSupportReference)
+            )
             actual_origins = {reference.kind for reference in member.support_references}
             if not actual_origins <= set(role.support.origins) or (
                 not actual_origins and role.support.origins != ("computation",)
             ):
                 _fail(name, "bound support origin is outside declared admission policy")
             if "original-source" in role.support.identity_requirements and originals:
-                value["original_sources"] = tuple(sorted(
-                    {ref.source_reference for ref in originals}
-                ))
+                value["original_sources"] = tuple(
+                    sorted({ref.source_reference for ref in originals})
+                )
             if "episode" in role.support.identity_requirements and (
                 "computation" in actual_origins or not actual_origins
             ):

@@ -530,8 +530,10 @@ class _LayerBuilder:
         parent = self.occurrence(piece, start, end)
         if self.identity.semantic:
             grammar = (
-                "formal-math" if family == "formal.math"
-                else "formal-lexical" if family == "formal.lexical"
+                "formal-math"
+                if family == "formal.math"
+                else "formal-lexical"
+                if family == "formal.lexical"
                 else "formal-field"
             )
         identity = _identity(
@@ -996,19 +998,22 @@ def extract_formal_facts(
 ) -> list[dict[str, Any]]:
     """One actual nomination/parser/reducer implementation shared by both projections."""
     view = builder.view
-    native_pieces = [piece for piece in view.pieces if piece["kind"] == "native_text"]
     for selector in selected:
         a, b = selector.get("start", 0), selector.get("end", len(view.text))
         if not 0 <= a <= b <= len(view.text):
             raise ValueError("formal selected source bounds exceed the actual projection")
-        if selector.get("native_pointer") and not (
-            any(piece["item_ref"] == selector["native_pointer"] for piece in native_pieces)
-            or builder.items.get(selector["native_pointer"], {}).get("label") == "formula"
-        ):
+        if selector.get("native_pointer") and selector["native_pointer"] not in builder.items:
             raise ValueError("formal selector does not name a selected native source atom")
 
     def matches(piece, selector):
-        if selector.get("native_pointer") and selector["native_pointer"] != piece.get("item_ref"):
+        selected_pointer = selector.get("native_pointer")
+        pointer = piece.get("item_ref")
+        seen = set()
+        while selected_pointer and pointer != selected_pointer and pointer not in seen:
+            seen.add(pointer)
+            parent = builder.items.get(pointer, {}).get("parent")
+            pointer = parent.get("$ref") if isinstance(parent, dict) else parent
+        if selected_pointer and pointer != selected_pointer:
             return False
         if "page" in selector:
             pages = {
@@ -1401,9 +1406,15 @@ def build_formal_layer(
         raise ValueError("formal producer requires authoritative operation determinants")
     if math_start not in math_grammar.STARTS or parse_seconds <= 0 or max_forest_nodes < 1:
         raise ValueError("invalid formal parser request")
-    builder = _LayerBuilder(view, operation, FormalIdentity(
-        canonical_bytes(view.ref.native_product.values()), view.ref.projection_digest, view.ref.id,
-    ))
+    builder = _LayerBuilder(
+        view,
+        operation,
+        FormalIdentity(
+            canonical_bytes(view.ref.native_product.values()),
+            view.ref.projection_digest,
+            view.ref.id,
+        ),
+    )
     builder.macros = dict(macros or {})
     selected: list[dict[str, Any]]
     if source_scope is not None:
@@ -1428,8 +1439,12 @@ def build_formal_layer(
     else:
         selected = [dict(projection=view.ref.projection_digest, start=0, end=len(view.text))]
     selectors = extract_formal_facts(
-        builder, selected, math_start=math_start, parse_seconds=parse_seconds,
-        max_forest_nodes=max_forest_nodes, max_inline_chars=max_inline_chars,
+        builder,
+        selected,
+        math_start=math_start,
+        parse_seconds=parse_seconds,
+        max_forest_nodes=max_forest_nodes,
+        max_inline_chars=max_inline_chars,
         check_active=check_active,
     )
     scope = dict(

@@ -569,3 +569,53 @@ def test_existing_deadline_owner_distinguishes_expiry_and_thread_refusal():
     assert refused.outcome == "unsupported"
     assert refused.reason is not None
     assert "main thread" in refused.reason
+
+
+def test_lexical_formal_root_does_not_hide_paragraph_quantifier_or_predicate():
+    from corpus_structure.methods.construction_characterization import (
+        ConstructionCharacterizationMethod,
+    )
+    from corpus_structure.semantic.product_reference import ProductReference
+
+    text = "All samples are finite."
+    builder, view = source(text)
+    view.items = (dict(self_ref="#/texts/0", label="paragraph"),)
+    view.ancestors = ()
+    pin = ProductReference(task_id=19, product_key="formal", content_digest="d" * 64)
+    report = SimpleNamespace(
+        payload=dict(
+            source_scope=builder.scope,
+            occurrences=[
+                dict(local_id="parent", extents=[dict(source_view_id=11, start=0, end=len(text))])
+            ],
+            annotations=[
+                dict(
+                    local_id="lexical-root",
+                    kind="formal.input",
+                    family="formal.lexical",
+                    occurrences=["parent"],
+                    formal_input=dict(parent_occurrence="parent"),
+                )
+            ],
+            memberships=[],
+            roles=[],
+            terms=[],
+            choices=[],
+            coverage=[],
+        )
+    )
+    vocab = English().vocab
+    ConstructionCharacterizationMethod._view(
+        builder,
+        view,
+        {pin: report},
+        vocab,
+        PreparedConstructions(vocab),
+        SimpleNamespace(
+            max_region_chars=4096, parse_seconds=2, math_scope_binders=None, math_domain_rules=()
+        ),
+        lambda: None,
+    )
+    assert any(row["kind"] == "binder" for row in builder.terms.values())
+    assert any(row["kind"] == "predicate" for row in builder.terms.values())
+    assert not any(row.get("native_label") == "ATOM" for row in builder.annotations.values())

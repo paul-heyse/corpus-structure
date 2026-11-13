@@ -266,7 +266,7 @@ class ConstructionCharacterizationMethod:
                     atom_support.setdefault((start, end), []).append(
                         dict(layer=pin.values(), local_id=annotation["local_id"])
                     )
-                if "formal_input" in annotation:
+                if "formal_input" in annotation and annotation.get("family") != "formal.lexical":
                     parent = annotation["formal_input"].get("parent_occurrence")
                     if parent in occurrences:
                         es = occurrences[parent]["extents"]

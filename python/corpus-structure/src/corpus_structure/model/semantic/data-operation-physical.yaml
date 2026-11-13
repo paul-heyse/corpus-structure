@@ -423,7 +423,7 @@ classes:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["scope"], "target": "ops.data_trust_scope.scope"}]'
-      ph:checks: '["selector_kind IN (''derivation'',''recipe'',''runtime'',''product'')"]'
+      ph:checks: '["selector_kind IN (''derivation'',''recipe'',''runtime'',''product'',''original-source'',''original-admission'')"]'
   data_population:
     in_subset: [ops]
     attributes:
@@ -445,6 +445,51 @@ classes:
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["demand_id"], "target": "ops.data_demand.id"},{"columns":["selected_obligation_id"],"target":"ops.data_obligation.id"}]'
       ph:checks: '["selected_obligation_id IS NOT DISTINCT FROM (evidence->''selection''->>''obligation_id'')"]'
+  original_source_admission:
+    description: Authenticated original facts and their selected semantic product, never a computation.
+    in_subset: [ops]
+    attributes:
+      id: {range: string, required: true}
+      demand_id: {range: string, required: true}
+      project_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      selection_name: {range: string, required: true}
+      source_reference: {range: string, required: true}
+      reference: {range: json_payload, required: true}
+      selectors: {range: json_payload, required: true}
+      product_id: {range: string, required: true}
+      subject: {range: string, required: true}
+      original_source: {range: string, required: true}
+      analyzed_scope: {range: json_payload, required: true}
+      trust_snapshot: {range: json_payload, required: true}
+      evidence: {range: json_payload, required: true}
+      created_at: {range: timestamp, required: true}
+      created_xid: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+      selected_source: {unique_key_slots: [demand_id, selection_name]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns":["demand_id"],"target":"ops.data_demand.id"},{"columns":["release_id"],"target":"sem.release.release_id"},{"columns":["product_id"],"target":"kb.data_product.id"}]'
+      ph:indexes: '[["demand_id","original_source","subject"],["product_id"]]'
+  data_derivation_original_support:
+    in_subset: [ops]
+    attributes:
+      derivation_id: {range: string, required: true}
+      occurrence: {range: integer, required: true}
+      role: {range: string, required: true}
+      position: {range: integer, required: true}
+      admission_id: {range: string, required: true}
+      source_reference: {range: string, required: true}
+      scope: {range: string, required: true}
+      epoch: {range: integer, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [derivation_id, occurrence]}
+    annotations:
+      ph:read_roles: '[]'
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns":["derivation_id"],"target":"ops.data_derivation.id"},{"columns":["admission_id"],"target":"ops.original_source_admission.id"},{"columns":["scope"],"target":"ops.data_trust_scope.scope"}]'
   data_attempt_failure:
     in_subset: [ops]
     attributes:

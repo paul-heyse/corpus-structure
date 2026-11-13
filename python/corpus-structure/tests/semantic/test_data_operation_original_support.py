@@ -30,9 +30,13 @@ def governed(*, origins=None, exact=False):
 def original_binding(model, *, admission="admission:one", reference="a" * 64):
     resolved = resolved_binding(model)
     role = resolved.roles[0]
-    member = replace(role.members[0], support_episodes=(), support_references=(
-        OriginalSourceSupportReference(admission_id=admission, source_reference=reference),
-    ))
+    member = replace(
+        role.members[0],
+        support_episodes=(),
+        support_references=(
+            OriginalSourceSupportReference(admission_id=admission, source_reference=reference),
+        ),
+    )
     return replace(resolved, roles=(replace(role, members=(member,)),))
 
 
@@ -43,7 +47,8 @@ def test_allowed_origin_changes_eligibility_without_changing_recipe_or_same_valu
     assert identity(computational, domain="eligibility") != identity(mixed, domain="eligibility")
     assert identity(computational, domain="definition") != identity(mixed, domain="definition")
     computed, old_admission = project_operation_binding(
-        computational, resolved_binding(computational),
+        computational,
+        resolved_binding(computational),
     )
     source_value, original_admission = project_operation_binding(mixed, original_binding(mixed))
     assert computed.identity == source_value.identity
@@ -55,7 +60,8 @@ def test_repeated_original_admission_receipts_do_not_create_new_semantic_votes()
     model = governed(origins=["original-source"])
     first, first_admission = project_operation_binding(model, original_binding(model))
     second, second_admission = project_operation_binding(
-        model, original_binding(model, admission="admission:another-read"),
+        model,
+        original_binding(model, admission="admission:another-read"),
     )
     assert first.identity == second.identity
     assert first_admission.identity != second_admission.identity
@@ -79,10 +85,15 @@ def test_original_support_cannot_enter_undeclared_computational_origin():
     with pytest.raises(PreparationError, match="origin"):
         project_operation_binding(model, original_binding(model))
     with pytest.raises(ValueError):
-        read_support_references([{
-            "kind": "computation", "derivation_id": "admission:one",
-            "admission_id": "admission:one",
-        }])
+        read_support_references(
+            [
+                {
+                    "kind": "computation",
+                    "derivation_id": "admission:one",
+                    "admission_id": "admission:one",
+                }
+            ]
+        )
 
 
 def test_original_origin_and_historical_default_survive_owned_archive_roundtrip():

@@ -328,11 +328,20 @@ class EffectiveOperation:
                 "operation": self.semantic_id,
                 "applicability": self.applicability,
                 "binding": self.binding,
-                **({"support_origins": {
-                    role.name: role.support.origins for role in self.roles
-                    if role.support is not None and role.support.origins != ("computation",)
-                }} if any(role.support is not None and role.support.origins != ("computation",)
-                          for role in self.roles) else {}),
+                **(
+                    {
+                        "support_origins": {
+                            role.name: role.support.origins
+                            for role in self.roles
+                            if role.support is not None and role.support.origins != ("computation",)
+                        }
+                    }
+                    if any(
+                        role.support is not None and role.support.origins != ("computation",)
+                        for role in self.roles
+                    )
+                    else {}
+                ),
             }
         )
 
@@ -447,16 +456,32 @@ class BoundRoleMember:
         if not self.support_references and self.support_episodes:
             evidence = json.loads(self.support_evidence)
             use_id = evidence.get("use_id") if isinstance(evidence, dict) else None
-            object.__setattr__(self, "support_references", tuple(
-                ComputationalSupportReference(derivation_id=episode,
-                    admission_use_id=use_id if len(self.support_episodes) == 1 else None)
-                for episode in self.support_episodes
-            ))
-        computed = tuple(reference.derivation_id for reference in self.support_references
-                         if isinstance(reference, ComputationalSupportReference))
-        if computed != self.support_episodes or any(not isinstance(reference, (
-            ComputationalSupportReference, OriginalSourceSupportReference,
-        )) for reference in self.support_references):
+            object.__setattr__(
+                self,
+                "support_references",
+                tuple(
+                    ComputationalSupportReference(
+                        derivation_id=episode,
+                        admission_use_id=use_id if len(self.support_episodes) == 1 else None,
+                    )
+                    for episode in self.support_episodes
+                ),
+            )
+        computed = tuple(
+            reference.derivation_id
+            for reference in self.support_references
+            if isinstance(reference, ComputationalSupportReference)
+        )
+        if computed != self.support_episodes or any(
+            not isinstance(
+                reference,
+                (
+                    ComputationalSupportReference,
+                    OriginalSourceSupportReference,
+                ),
+            )
+            for reference in self.support_references
+        ):
             raise ValueError(
                 "support episodes must be exactly the computational support projection"
             )
@@ -526,8 +551,12 @@ def read_effective_data_operations(content: bytes) -> EffectiveDataOperationMode
                     raise ValueError("v1 support cannot declare a source set")
                 if archived_v1 and "origins" in value:
                     raise ValueError("v1 support cannot declare origin eligibility")
-                value = {"source_set": None, "source_reference_field": None,
-                         "origins": ["computation"], **value}
+                value = {
+                    "source_set": None,
+                    "source_reference_field": None,
+                    "origins": ["computation"],
+                    **value,
+                }
             if cls is OperationRole and isinstance(value, dict):
                 if archived_v1 and "subject_field" in value:
                     raise ValueError("v1 role cannot declare a subject association")

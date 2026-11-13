@@ -190,7 +190,10 @@ class CPUReply:
     @property
     def execution_receipt(self) -> CPUExecutionReceipt:
         return CPUExecutionReceipt(
-            self.request_digest, self.pid, self.main_thread, self.native_thread_limit,
+            self.request_digest,
+            self.pid,
+            self.main_thread,
+            self.native_thread_limit,
             canonical_bytes(self.native_pools),
         )
 
@@ -356,24 +359,37 @@ def _compute_formal(content: bytes, max_reply_bytes: int) -> CPUReply:
     """Private prepared target work, never a fabricated legacy task or Reader."""
     import os
 
-    from .formal_products import FormalEvidenceOptions, formal_product_values, formal_profile_assets
     from .formal_evidence import grammar_identity
+    from .formal_products import FormalEvidenceOptions, formal_product_values, formal_profile_assets
     from .source_products import FrozenNativeSource
 
     packet = json.loads(content)
-    if packet["profile"] != "formal-source-native" or packet["assets"] != formal_profile_assets().digest or packet["grammar"] != grammar_identity():
+    if (
+        packet["profile"] != "formal-source-native"
+        or packet["assets"] != formal_profile_assets().digest
+        or packet["grammar"] != grammar_identity()
+    ):
         raise ValueError("CPU formal packet differs from captured implementation/grammar assets")
     # This is private owned transport from an acquired parent, not external ingress.
     # Schema/source/model admission and full typed result validation stay there.
     source = FrozenNativeSource(packet["source"].encode())
     options = FormalEvidenceOptions.model_validate_json(packet["options"])
     _apply_native_thread_limits()
-    content_value = formal_product_values(source, options, packet["member_contracts"], check_active=_worker_active)
+    content_value = formal_product_values(
+        source, options, packet["member_contracts"], check_active=_worker_active
+    )
     result = canonical_bytes(content_value)
     if len(result) > max_reply_bytes:
         raise CapacityExceeded("CPU formal result exceeds admitted reply byte capacity")
     _worker_active()
-    return CPUReply(sha256(content).hexdigest(), result, os.getpid(), threading.current_thread() is threading.main_thread(), native_thread_limit=_WORKER_NATIVE_THREADS, native_pools=_WORKER_NATIVE_POOLS)
+    return CPUReply(
+        sha256(content).hexdigest(),
+        result,
+        os.getpid(),
+        threading.current_thread() is threading.main_thread(),
+        native_thread_limit=_WORKER_NATIVE_THREADS,
+        native_pools=_WORKER_NATIVE_POOLS,
+    )
 
 
 def _dispatch(
@@ -382,7 +398,7 @@ def _dispatch(
     max_reply_bytes: int,
     slot: int = -1,
     generation: int = 0,
-    profile: Literal["legacy", "formal-source-native"] = "legacy",
+    profile: Literal["legacy", "formal-source-native", "closed-python"] = "legacy",
 ) -> CPUReply:
     import os
 
@@ -392,6 +408,21 @@ def _dispatch(
         _worker_active()
         if profile == "formal-source-native":
             return _compute_formal(content, max_reply_bytes)
+        if profile == "closed-python":
+            from .data_operation_cpu import execute_python_call
+
+            _apply_native_thread_limits()
+            result = execute_python_call(content, _worker_active, _apply_native_thread_limits)
+            if len(result) > max_reply_bytes:
+                raise CapacityExceeded("CPU Python result exceeds admitted reply byte capacity")
+            return CPUReply(
+                sha256(content).hexdigest(),
+                result,
+                os.getpid(),
+                threading.current_thread() is threading.main_thread(),
+                native_thread_limit=_WORKER_NATIVE_THREADS,
+                native_pools=_WORKER_NATIVE_POOLS,
+            )
         if profile != "legacy":
             raise ValueError("CPU dispatch has no admitted source-native profile")
         return _compute(content, capsules, max_reply_bytes)
@@ -654,8 +685,12 @@ def _report_cleanup_failure(error: BaseException) -> None:
 
 class CPUExecutionScope:
     def __init__(
-        self, prepared: PreparedRelease, policy: CharacterizationExecutionPolicy | None = None,
-        *, budget: OwnedByteBudget | None = None, retain_schema: bool = True,
+        self,
+        prepared: PreparedRelease,
+        policy: CharacterizationExecutionPolicy | None = None,
+        *,
+        budget: OwnedByteBudget | None = None,
+        retain_schema: bool = True,
     ):
         self.prepared = prepared
         self.retain_schema = retain_schema
@@ -705,7 +740,22 @@ class CPUExecutionScope:
         """Retain the one schema capsule before request credits consume capacity."""
         self._executor()
 
-    def try_admit(self, check_active: Callable[[], None] = lambda: None, *, reservation: OwnedByteReservation | None = None) -> _InputAdmission | None:
+    def reservation_retired(self, reservation: OwnedByteReservation) -> bool:
+        """Submission errors do not prove that an accepted CPU request retired."""
+        with self._lock:
+            return not any(
+                permit.reservation is not None
+                and permit.reservation._state is reservation._state
+                and not permit.retired
+                for permit in self._admissions.values()
+            )
+
+    def try_admit(
+        self,
+        check_active: Callable[[], None] = lambda: None,
+        *,
+        reservation: OwnedByteReservation | None = None,
+    ) -> _InputAdmission | None:
         check_active()
         for handle in tuple(self._handles):
             if handle._cancelled:
@@ -729,7 +779,9 @@ class CPUExecutionScope:
                     return None
             else:
                 if reservation.budget is not self.budget or reservation.size < size:
-                    raise ValueError("CPU request requires its existing complete shared byte credit")
+                    raise ValueError(
+                        "CPU request requires its existing complete shared byte credit"
+                    )
                 shared = reservation.share()
             lock = self._cancellation.get_lock()
             if not lock.acquire(timeout=0.1):
@@ -788,8 +840,15 @@ class CPUExecutionScope:
     ) -> CPUHandle:
         return self._submit(admission, content, releases, check_active, "legacy")
 
-    def submit_formal(self, admission, content: bytes, check_active: Callable[[], None] = lambda: None) -> CPUHandle:
+    def submit_formal(
+        self, admission, content: bytes, check_active: Callable[[], None] = lambda: None
+    ) -> CPUHandle:
         return self._submit(admission, content, {}, check_active, "formal-source-native")
+
+    def submit_closed_python(
+        self, admission, content: bytes, check_active: Callable[[], None] = lambda: None
+    ) -> CPUHandle:
+        return self._submit(admission, content, {}, check_active, "closed-python")
 
     def _submit(self, admission, content, releases, check_active, profile) -> CPUHandle:
         check_active()

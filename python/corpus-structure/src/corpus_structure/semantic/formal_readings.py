@@ -10,26 +10,14 @@ from typing import Any
 from corpus_structure.semantic.characterization import (
     AnnotationReference,
     LayerReport,
-    annotation_reference,
 )
 from corpus_structure.semantic.product_reference import ProductReference
 
-
-@dataclass(frozen=True, slots=True)
-class SemanticFormalPin:
-    product: str
-
-    def values(self) -> dict[str, str]:
-        return {"product": self.product}
-
-
-@dataclass(frozen=True, slots=True)
-class SemanticFormalReference:
-    layer: SemanticFormalPin
-    local_id: str
-
-    def values(self) -> dict[str, Any]:
-        return {"product": self.layer.product, "local_id": self.local_id}
+from .data_product_reference import (
+    DataProductMemberReference,
+    DataProductReference,
+    member_reference,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,15 +27,13 @@ class SemanticFormalSource:
 
 
 def _reference(pin, local_id):
-    if isinstance(pin, SemanticFormalPin):
-        return SemanticFormalReference(pin, local_id)
-    return annotation_reference(pin, local_id)
+    return member_reference(pin, local_id)
 
 
 @dataclass(frozen=True, slots=True)
 class FormalFieldReading:
-    reference: AnnotationReference | SemanticFormalReference
-    input_reference: AnnotationReference | SemanticFormalReference
+    reference: AnnotationReference | DataProductMemberReference
+    input_reference: AnnotationReference | DataProductMemberReference
     start: int
     end: int
     text: str
@@ -59,7 +45,7 @@ class FormalFieldReading:
 
 @dataclass(frozen=True, slots=True)
 class ComparisonBasisReading:
-    reference: AnnotationReference | SemanticFormalReference
+    reference: AnnotationReference | DataProductMemberReference
     start: int
     end: int
     text: str
@@ -68,19 +54,24 @@ class ComparisonBasisReading:
 
 @dataclass(frozen=True, slots=True)
 class LexicalFact:
-    reference: AnnotationReference | SemanticFormalReference
+    reference: AnnotationReference | DataProductMemberReference
     start: int
     end: int
     text: str
     kind: str
     value: str
-    bindings: tuple[tuple[str, AnnotationReference | SemanticFormalReference, str], ...] = ()
+    bindings: tuple[tuple[str, AnnotationReference | DataProductMemberReference, str], ...] = ()
 
 
 class FormalSourceReadings:
     """One operation's exact source index, shared by its field and gap projections."""
 
+    _lexical: tuple[dict[str, Any], ...] | None
+    _text: str
+
     def __init__(self, layers, source):
+        self._lexical = None
+        self._text = ""
         self.source = source
         self._selected = tuple(_selected(layers, source))
 
@@ -92,21 +83,64 @@ class FormalSourceReadings:
 
         selected = source.value
         coordinate = selected["source"]
-        prepared_source = SemanticFormalSource(canonical_bytes(coordinate), coordinate["projection"])
+        prepared_source = SemanticFormalSource(
+            canonical_bytes(coordinate), coordinate["projection"]
+        )
         retained = []
+        lexical = []
         for product in products:
             # The product's retained examined scope is validated under the same original
             # source, rather than relabelling it as the consumer's requested scope.
             body = product.value.model_dump(mode="json", exclude_unset=True)
             if body["source"] != coordinate:
                 raise ValueError("formal construction input belongs to another original source")
-            original = FrozenFormalSource.acquire(product.prepared, {**selected, "selectors": body["selectors"]})
+            original = FrozenFormalSource.acquire(
+                product.prepared, {**selected, "selectors": body["selectors"]}
+            )
             checked = validate_formal_product(product.prepared, body, original, model=product.model)
-            retained.append((SemanticFormalPin(checked.semantic_id), checked.inventory()))
+            retained.append((DataProductReference(checked.semantic_id), checked.inventory()))
+            lexical.extend(body["lexicon"])
         instance = cls.__new__(cls)
         instance.source = prepared_source
         instance._selected = tuple(retained)
+        instance._lexical = tuple(lexical)
+        instance._text = selected["text"]
         return instance
+
+    def positioned(self, *, start: int, end: int):
+        """Exact primary lexical categories and atoms; never recover by classifying again."""
+        from .constructions.lexical import PositionedTerminal, ProtectedAtom, region_terminals
+
+        if self._lexical is None:
+            raise ValueError(
+                "legacy formal inputs do not declare primary construction lexical coverage"
+            )
+        eligible = [
+            row
+            for row in self._lexical
+            if row["start"] <= start <= end <= row["end"] and row["availability"] == "available"
+        ]
+        if not eligible:
+            raise ValueError("primary lexical characterization is unavailable for this region")
+        readings = []
+        for row in eligible:
+            if any(
+                a["start"] < end and start < a["end"] and not start <= a["start"] < a["end"] <= end
+                for a in row["atoms"]
+            ):
+                raise ValueError("construction region cuts a protected primary source atom")
+            atoms = tuple(
+                ProtectedAtom(a["start"] - start, a["end"] - start, a["occurrence"])
+                for a in row["atoms"]
+                if start <= a["start"] < a["end"] <= end
+            )
+            terminals = region_terminals(
+                tuple(PositionedTerminal(**v) for v in row["terminals"]), self._text, start, end
+            )
+            readings.append((atoms, terminals))
+        if any(value != readings[0] for value in readings[1:]):
+            raise ValueError("selected primary lexical characterizations disagree")
+        return readings[0]
 
     def fields(self, *, family: str, start: int, end: int):
         return formal_field_readings(self, self.source, family=family, start=start, end=end)
@@ -152,8 +186,11 @@ def _extent(row, occurrences, source):
     part = parts[0]
     if (
         part.get("synthetic")
-        or ("source_view_id" in part if isinstance(source, SemanticFormalSource)
-            else part["source_view_id"] != source.source_view_id)
+        or (
+            "source_view_id" in part
+            if isinstance(source, SemanticFormalSource)
+            else part["source_view_id"] != source.source_view_id
+        )
         or part["projection"] != source.projection_digest
         or not isinstance(part.get("text"), str)
     ):
@@ -366,4 +403,4 @@ def coordination_reading(layers, source, *, start: int, end: int) -> LexicalFact
             part = _extent(node, occurrences, source)
             if part is not None and part["start"] < end and start < part["end"]:
                 tokens.append((pin, part["start"], part["end"]))
-    return cue if tokens == [(cue.reference.layer, cue.start, cue.end)] else None
+    return cue if tokens == [(cue.reference.product, cue.start, cue.end)] else None
