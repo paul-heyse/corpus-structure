@@ -102,17 +102,70 @@ class PdfCoverageSupport(OperationResult):
     coverage_id: str
 
 
+PREPARE_RELEASE_ARCHIVE_CONTRACT_DIGEST = (
+    "e4e86288644a6131320f204b98605ff33f83fb6efe8179549d1994600683f74e"
+)
+
+
+class _prepare_release_archiveRequest(OperationResult):
+    release_id: ReleaseId
+
+
+_prepare_release_archive_function = func.sem.prepare_release_archive(
+    bindparam("release_id", type_=Text()),
+)
+_prepare_release_archive_statement = select(_prepare_release_archive_function)
+
+
+def prepare_prepare_release_archive(
+    *,
+    release_id: ReleaseId,
+    projection_context: PreparedRelease | None = None,
+) -> Select[None]:
+    _request = _prepare_release_archiveRequest(
+        release_id=release_id,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "archive",
+            "prepare_release_archive",
+            PREPARE_RELEASE_ARCHIVE_CONTRACT_DIGEST,
+        )
+    return _prepare_release_archive_statement.params(
+        **{
+            "release_id": _request.release_id,
+        }
+    )
+
+
+def prepare_release_archive(
+    conn: Connection,
+    *,
+    release_id: ReleaseId,
+    projection_context: PreparedRelease | None = None,
+) -> None:
+    _statement = prepare_prepare_release_archive(
+        release_id=release_id,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("archive", "prepare_release_archive"):
+        _native_result.scalar_one()
+    return None
+
+
 PUBLISH_RELEASE_ARCHIVE_CONTRACT_DIGEST = (
-    "2db85824e49a3adb124084714d6aa98043f31fecfc34692ec01acee0edbb4dac"
+    "720a4012ff3a37ca9014f17cf8b7d488111666d9e047aa157c1a8e8db106dc2d"
 )
 
 
 class _publish_release_archiveRequest(OperationResult):
-    payload: JsonValue
+    release_id: ReleaseId
 
 
 _publish_release_archive_function = func.sem.publish_release_archive(
-    bindparam("payload", type_=JSONB()),
+    bindparam("release_id", type_=Text()),
     type_=Text(),
 )
 _publish_release_archive_statement = select(_publish_release_archive_function)
@@ -120,11 +173,11 @@ _publish_release_archive_statement = select(_publish_release_archive_function)
 
 def prepare_publish_release_archive(
     *,
-    payload: JsonValue,
+    release_id: ReleaseId,
     projection_context: PreparedRelease | None = None,
 ) -> Select[str]:
     _request = _publish_release_archiveRequest(
-        payload=payload,
+        release_id=release_id,
     )
     if projection_context is not None:
         require_call_context(
@@ -135,7 +188,7 @@ def prepare_publish_release_archive(
         )
     return _publish_release_archive_statement.params(
         **{
-            "payload": _request.payload,
+            "release_id": _request.release_id,
         }
     )
 
@@ -152,11 +205,11 @@ def materialize_publish_release_archive(row: tuple[str]) -> ReleaseId:
 def publish_release_archive(
     conn: Connection,
     *,
-    payload: JsonValue,
+    release_id: ReleaseId,
     projection_context: PreparedRelease | None = None,
 ) -> ReleaseId:
     _statement = prepare_publish_release_archive(
-        payload=payload,
+        release_id=release_id,
         projection_context=projection_context,
     )
     _native_result = conn.execute(_statement)
@@ -8403,14 +8456,14 @@ def seal_pdf_build(
 
 
 LOOKUP_PDF_BUILD_CONTRACT_DIGEST = (
-    "6e6388109a64905f9fb14b3274e0c3b54472f877c02511796bd5bd197b793c75"
+    "1a311bed3cc0973df2ade668da7c9ab615db81db2c9130b1d339b1f3eac31b66"
 )
 
 
 class PdfStageBuild(NativeRowResult):
     build_id: str
     task_id: int
-    run_id: int
+    run_id: int | None
     release_id: str
     source_digest: str
     recipe_digest: str
@@ -8456,7 +8509,7 @@ _lookup_pdf_build_function = func.ops.lookup_pdf_build(
 class _lookup_pdf_buildColumns(Protocol):
     build_id: Column[str]
     task_id: Column[int]
-    run_id: Column[int]
+    run_id: Column[int | None]
     release_id: Column[str]
     source_digest: Column[str]
     recipe_digest: Column[str]
@@ -8484,7 +8537,7 @@ _lookup_pdf_build_statement = select(
 
 
 def _lookup_pdf_build_result(
-    row: tuple[str, int, int, str, str, str, str, str, int, str, str],
+    row: tuple[str, int, int | None, str, str, str, str, str, int, str, str],
 ) -> PdfStageBuild:
     with native_result_scope("inspect_pdf_build", "PdfStageBuild"):
         return PdfStageBuild(
@@ -8509,7 +8562,7 @@ def prepare_lookup_pdf_build(
     holder: str,
     replay_key: str,
     projection_context: PreparedRelease | None = None,
-) -> Select[str, int, int, str, str, str, str, str, int, str, PdfStageBuildState]:
+) -> Select[str, int, int | None, str, str, str, str, str, int, str, PdfStageBuildState]:
     _request = _lookup_pdf_buildRequest(
         task_id=task_id,
         attempt=attempt,
@@ -8524,7 +8577,7 @@ def prepare_lookup_pdf_build(
             LOOKUP_PDF_BUILD_CONTRACT_DIGEST,
         )
     return cast(
-        Select[str, int, int, str, str, str, str, str, int, str, PdfStageBuildState],
+        Select[str, int, int | None, str, str, str, str, str, int, str, PdfStageBuildState],
         _lookup_pdf_build_statement.params(
             **{
                 "task_id": _request.task_id,
@@ -9147,7 +9200,7 @@ def adopt_pdf_companion_batch(
     )
 
 
-BEGIN_PDF_BUILD_CONTRACT_DIGEST = "07ebb9c1c4c7a6175a57b38f5d59ce5730f6556b78db50aba7c893aa6754f0da"
+BEGIN_PDF_BUILD_CONTRACT_DIGEST = "ab7320a2ff1600ff0ff956cf91a46c1f0401c1452131b292f0f50d339f30f021"
 
 
 class _begin_pdf_buildRequest(OperationResult):
@@ -9191,7 +9244,7 @@ _begin_pdf_build_function = func.ops.begin_pdf_build(
 class _begin_pdf_buildColumns(Protocol):
     build_id: Column[str]
     task_id: Column[int]
-    run_id: Column[int]
+    run_id: Column[int | None]
     release_id: Column[str]
     source_digest: Column[str]
     recipe_digest: Column[str]
@@ -9219,7 +9272,7 @@ _begin_pdf_build_statement = select(
 
 
 def _begin_pdf_build_result(
-    row: tuple[str, int, int, str, str, str, str, str, int, str, str],
+    row: tuple[str, int, int | None, str, str, str, str, str, int, str, str],
 ) -> PdfStageBuild:
     with native_result_scope("begin_pdf_build", "PdfStageBuild"):
         return PdfStageBuild(
@@ -9247,7 +9300,7 @@ def prepare_begin_pdf_build(
     schema_digest: str,
     replay_key: str,
     projection_context: PreparedRelease | None = None,
-) -> Select[str, int, int, str, str, str, str, str, int, str, PdfStageBuildState]:
+) -> Select[str, int, int | None, str, str, str, str, str, int, str, PdfStageBuildState]:
     _request = _begin_pdf_buildRequest(
         task_id=task_id,
         attempt=attempt,
@@ -9265,7 +9318,7 @@ def prepare_begin_pdf_build(
             BEGIN_PDF_BUILD_CONTRACT_DIGEST,
         )
     return cast(
-        Select[str, int, int, str, str, str, str, str, int, str, PdfStageBuildState],
+        Select[str, int, int | None, str, str, str, str, str, int, str, PdfStageBuildState],
         _begin_pdf_build_statement.params(
             **{
                 "task_id": _request.task_id,
@@ -10732,4 +10785,4 @@ def read_characterization_inventory(
         return materialize_read_characterization_inventory(row)
 
 
-CALL_CONTRACT_DIGEST = "ccfdf713b0df89123794adeaa648e2dfb9606262a2e05b020d8ed2af688a4a46"
+CALL_CONTRACT_DIGEST = "02037e8892814fe3fbddbd2e637078942d205e53263425287f5b9113c121e593"

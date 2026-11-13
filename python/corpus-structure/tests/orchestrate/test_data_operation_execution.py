@@ -35,7 +35,7 @@ def executable(ddo_kernel_engine, tmp_path, monkeypatch):
     name = "ddo_execution_" + uuid4().hex
     metadata = _declaration()
     metadata["id"] = "urn:ddo-execution:answer"
-    metadata["roles"][0].update(collection="scalar", maximum=1)
+    metadata["roles"][0].update(collection="scalar", maximum=1, kind="primitive:integer")
     metadata["parameters"] = {"value": {"value_type": "integer", "default": 7}}
     metadata["capabilities"]["cancellation"] = "call-boundary"
     source = (

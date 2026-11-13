@@ -10,7 +10,20 @@ provenance. Preparation/identity foundations do not activate the replacement nat
 legacy readers. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns current
 scope and evidence; all older implemented sections retain their stated selected/archived boundary.
 
-> Decision: [ADR-0093](../adr/0093-ddo-products-and-support.md)
+**Accepted target; native integration Proposed · 2026-11-13.** Release archive transport uses
+the model-declared archive relation set, publisher-owned temporary typed staging and existing
+Arrow binary COPY. Native finalization verifies exact rows, closure, digests and manifests in
+one transaction before immutable publication. Binary artifacts do not pass through a whole-archive
+JSONB envelope. The existing durable archive representation and readers keep their meanings;
+runtime bindings retain their separate ownership.
+
+**Accepted target; integration Proposed · 2026-11-13.** PDF staging uses actual legacy run
+custody or genuine DDO request/claim/demand custody. It does not fabricate a run for the latter.
+Raw original-asset support and existing-view support remain distinct authenticated reference
+branches. Sealed PDF publisher custody remains separate from a later current admission fence;
+the native completion envelope must retain both when adopting an already-published result.
+
+> Decision: [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0099](../adr/0099-runless-pdf-source-ownership.md)
 
 ## Coherent characterization bounds and native demand anchors
 

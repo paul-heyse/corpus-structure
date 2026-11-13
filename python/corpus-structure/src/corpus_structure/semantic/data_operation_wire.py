@@ -88,6 +88,32 @@ def _protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
             raise ValueError("original source reference definition collides with protocol")
         document["definitions"].update(definitions)
         content = canonical_bytes(document)
+    if "original_document_selection" in document.get("definitions", {}):
+        from .data_operation_support import (
+            ORIGINAL_SUPPORT_REFERENCE_SCHEMA,
+            original_support_reference_schema,
+        )
+
+        if sources is None:
+            captured = original_support_reference_schema()
+        else:
+            values = [
+                source.content
+                for source in sources
+                if source.name == ORIGINAL_SUPPORT_REFERENCE_SCHEMA
+            ]
+            if len(values) != 1:
+                raise ValueError("original document references require their captured union schema")
+            captured = values[0]
+        extension = checked_json_schema(json.loads(captured))
+        definitions = dict(extension.get("definitions", {}))
+        definitions["original_support_reference"] = {
+            key: value for key, value in extension.items() if key not in {"definitions", "$schema"}
+        }
+        if definitions.keys() & document["definitions"].keys():
+            raise ValueError("original support reference definition collides with protocol")
+        document["definitions"].update(definitions)
+        content = canonical_bytes(document)
     return content
 
 

@@ -114,3 +114,25 @@ BEGIN
  'evidence',jsonb_build_object('reference',p_reference,'document_content_hash',document_.content_hash,'original_projection_digest',view_.projection_digest,
  'native_build_id',placement.build_id,'native_revision_id',placement.build_id,'producer_release_id',placement.release_id));
 END $$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_original_document_view(p_reference jsonb) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE document kb.document; original bytea; body jsonb; coordinate jsonb;
+BEGIN
+ PERFORM ops.ddo_fields(p_reference,ARRAY['kind','project_id','document_key','content_hash','mime']);
+ IF p_reference->>'kind' IS DISTINCT FROM 'original-document' THEN
+ RAISE EXCEPTION 'original document reference discriminator differs'; END IF;
+ SELECT * INTO STRICT document FROM kb.document d WHERE d.project_id=p_reference->>'project_id'
+ AND d.key=p_reference->>'document_key' AND d.content_hash=p_reference->>'content_hash'
+ AND d.mime=p_reference->>'mime';
+ SELECT content INTO STRICT original FROM kb.source_artifact WHERE artifact_digest=document.content_hash;
+ IF encode(sha256(original),'hex') IS DISTINCT FROM document.content_hash THEN
+ RAISE EXCEPTION 'original document retained byte digest differs'; END IF;
+ body:=jsonb_build_object('document',document.key,'content_hash',document.content_hash,'mime',document.mime);
+ coordinate:=jsonb_build_object('document',document.key);
+ RETURN jsonb_build_object('body',body,'meaning_body',data.ddo_normalize(data.record_json_meaning(body)),
+ 'subject','original-document:'||ops.ddo_digest(coordinate),
+ 'original_source',document.key,'analyzed_scope',jsonb_build_object('document',document.key,'scope','whole-document'),
+ 'evidence',jsonb_build_object('reference',p_reference,'document_id',document.id,
+ 'document_content_hash',document.content_hash,'source_uri',document.source_uri,'original_path',document.original_path));
+END $$;

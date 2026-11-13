@@ -61,6 +61,28 @@ def _context_definition(connection, sql, *, source):
 # starts owning their semantics. Their predecessor is always the frozen0065 source.
 _PDF_PAYLOAD_FUNCTIONS = frozenset(
     {
+        # Bounded historical prerequisites now owned by the genuine request/run
+        # PDF custody path. Do not collect unrelated functions from frozen0065.
+        "abandon_pdf_build",
+        "inspect_pdf_progress",
+        "prepare_pdf_stage",
+        "require_pdf_build",
+        "require_pdf_stage_owner",
+        "require_pdf_stage_scratch",
+        "retain_pdf_original",
+        "adopt_pdf_access_batch",
+        "bind_pdf_stage_recipe",
+        "lookup_pdf_build",
+        "lookup_pdf_frozen_digest",
+        "lookup_pdf_frozen_kind",
+        "lookup_pdf_published_build",
+        "pdf_companion_body",
+        "pdf_companion_field_bytes",
+        "pdf_reference_bytes_equal",
+        "read_pdf_companion_export_events",
+        "read_pdf_native_events",
+        "record_integrated_source_context",
+        "require_pdf_frozen",
         "begin_pdf_build",
         "adopt_pdf_batch",
         "prepare_pdf_build",
@@ -106,7 +128,7 @@ _PDF_PAYLOAD_FUNCTIONS = frozenset(
 )
 
 
-def _pdf_payload_definitions(connection, sql, *, source):
+def _pdf_payload_definitions(connection, sql, *, source, current_source=False):
     from .native_function_signatures import function_signature
     from .native_inventory import update_function_inventory
 
@@ -118,7 +140,14 @@ def _pdf_payload_definitions(connection, sql, *, source):
         if not isinstance(statement, ast.CreateFunctionStmt):
             continue
         name = tuple(part.sval for part in statement.funcname or ())
-        if len(name) != 2 or name[0] != "ops" or name[1] not in _PDF_PAYLOAD_FUNCTIONS:
+        if len(name) != 2 or name[0] != "ops":
+            continue
+        if current_source:
+            # Current payload sources own their complete function closure. These
+            # two independent generators are already added once by the series.
+            if name[1] in {"pdf_native_record_shape", "pdf_record_context_rows"}:
+                continue
+        elif name[1] not in _PDF_PAYLOAD_FUNCTIONS:
             continue
         descriptor = inventory[function_signature(statement)]
         definition = definition_from_sql(
@@ -286,6 +315,8 @@ def _release_guard_definitions(connection, sql, *, source):
 # recovered from frozen declarations, never adopted from a deployed catalog.
 _RETIRED_SOURCE_FUNCTIONS = frozenset(
     {
+        ("sem", "publish_release_archive"),
+        ("ops", "pdf_check_build_inventory"),
         ("kb", "check_offsets"),
         ("data", "structural_public_statement"),
         ("ops", "dossier_contribution_members"),
@@ -540,6 +571,8 @@ def series_predecessor_definitions(connection):
 
 
 def series_native_definitions(connection, *, include_selected=True):
+    from .archive_native import archive_native_definitions
+    from .pdf_completion_native import pdf_completion_native_sql
     from .pdf_integrated_native import observation_publication_sql
     from .pdf_publication_native import (
         _native_shape_guard,
@@ -565,10 +598,13 @@ def series_native_definitions(connection, *, include_selected=True):
         + source_view_sql()
         + "\n"
         + observation_publication_sql()
+        + "\n"
+        + pdf_completion_native_sql()
     )
     from .data_operation_storage import data_operation_native_definitions
 
     definitions = [
+        *archive_native_definitions(connection),
         *data_operation_native_definitions(connection),
         *_release_guard_definitions(
             connection,
@@ -588,7 +624,9 @@ def series_native_definitions(connection, *, include_selected=True):
         ),
         *companion_projection_definitions(connection),
         *published_reader_definitions(connection),
-        *_pdf_payload_definitions(connection, payload_sql, source="pdf-payloads:forward"),
+        *_pdf_payload_definitions(
+            connection, payload_sql, source="pdf-payloads:forward", current_source=True
+        ),
         *_publication_view_definitions(
             connection, payload_sql, source="pdf-published-views:forward"
         ),
@@ -670,6 +708,24 @@ def series_native_definitions(connection, *, include_selected=True):
             schema="data",
             source="direct reading support:forward",
             grants=(),
+        )
+    )
+    definitions.extend(
+        _task_call_definitions(
+            connection,
+            Path(__file__).with_name("sql").joinpath("closure.sql").read_text(),
+            name="require_runtime_principal",
+            schema="data",
+            source="runtime archive capability:forward",
+            grants=tuple(
+                (role, "EXECUTE", False)
+                for role in (
+                    "corpus_sem_writer",
+                    "corpus_sem_reader",
+                    "corpus_sem_evaluator",
+                    "corpus_sem_admitter",
+                )
+            ),
         )
     )
     # The SQL correctness overload resolves this dependency at CREATE time.

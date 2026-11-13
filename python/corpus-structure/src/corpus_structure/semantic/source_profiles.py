@@ -2,7 +2,9 @@
 
 
 def _parent(atom: dict) -> str:
-    parent = atom.get("parent", "")
+    if "parent" not in atom:
+        return ""
+    parent = atom["parent"]
     return parent["$ref"] if isinstance(parent, dict) else parent
 
 
@@ -56,7 +58,7 @@ def _selected(piece: dict, selectors: list, atoms: dict) -> list:
 
 
 def source_profile_values(source: dict) -> dict:
-    atoms = {atom["self_ref"]: atom for atom in source["items"] + source.get("ancestors", [])}
+    atoms = {atom["self_ref"]: atom for atom in source["items"] + source["ancestors"]}
     selected = [(piece, _selected(piece, source["selectors"], atoms)) for piece in source["pieces"]]
     chars = sum(end - start for _, spans in selected for start, end in spans)
     math = [

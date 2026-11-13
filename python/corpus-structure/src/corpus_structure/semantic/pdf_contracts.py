@@ -119,12 +119,14 @@ def integrated_metadata_policy(
 
 
 def pdf_context_for_task(conn: Connection, task_id: int) -> PreparedPdfContext:
+    from sqlalchemy import func
+
     from .releases import open_release
 
     tasks, runs = table("ops.task"), table("ops.run")
     release_id = conn.execute(
-        select(runs.c.release_id)
-        .join_from(tasks, runs, tasks.c.run_id == runs.c.id)
+        select(func.coalesce(tasks.c.release_id, runs.c.release_id))
+        .outerjoin_from(tasks, runs, tasks.c.run_id == runs.c.id)
         .where(tasks.c.id == task_id)
     ).scalar_one()
     prepared = open_release(conn, release_id)

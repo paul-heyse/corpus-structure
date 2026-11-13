@@ -31,6 +31,7 @@ from corpus_structure.semantic.data_operation_model import (
     InputSupport,
     OperationRole,
     RelationalBinding,
+    SemanticEdge,
     read_effective_data_operations,
 )
 from corpus_structure.semantic.identity import canonical_bytes
@@ -165,6 +166,49 @@ def storage():
 
 def field(name="value", role="items"):
     return BindingOperand("field", "integer", BindingField(role, "urn:item", name))
+
+
+def test_declared_abstract_input_accepts_transitive_concrete_kinds_without_relabeling(storage):
+    connection, table, projection = storage
+    base = model(BindingExpression("scan", roles=("items",)))
+    target = replace(
+        base,
+        kinds=(
+            replace(base.kinds[0], facts=b'{"abstract":true}'),
+            EffectiveKind("urn:middle", "Middle", "class", b'{"abstract":true}'),
+            EffectiveKind("urn:a", "A", "class", b"{}"),
+            EffectiveKind("urn:b", "B", "class", b"{}"),
+            EffectiveKind("urn:unrelated", "Unrelated", "class", b"{}"),
+        ),
+        edges=(
+            SemanticEdge("urn:middle", "urn:item", "inherits"),
+            SemanticEdge("urn:a", "urn:middle", "inherits"),
+            SemanticEdge("urn:b", "urn:item", "inherits"),
+        ),
+        identities=(
+            *base.identities,
+            *(
+                EffectiveIdentity(kind, "kind", contract, b"{}")
+                for kind, contract in (
+                    ("urn:middle", "kind:middle"),
+                    ("urn:a", "kind:a"),
+                    ("urn:b", "kind:b"),
+                    ("urn:unrelated", "kind:other"),
+                )
+            ),
+        ),
+    )
+    for value, contract in ((1, "kind:a"), (2, "kind:b"), (3, "kind:other")):
+        connection.execute(
+            table.update().where(table.c.value == value).values(kind_contract=contract)
+        )
+    compiled = compile_binding(target, "urn:op", (projection,), subject="doc")
+    result = execute_binding(connection, compiled)
+    assert result.sufficient
+    assert {member.product: member.kind_contract for member in result.roles[0].members} == {
+        "p1": "kind:a",
+        "p2": "kind:b",
+    }
 
 
 def test_sql_range_membership_defaults_and_exact_identity(storage):

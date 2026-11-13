@@ -289,3 +289,37 @@ def test_explicit_overload_owner_keeps_each_abi_and_its_grants(monkeypatch):
         == actual[0]
     )
     assert len(calls) == 1
+
+
+def test_current_pdf_payload_owns_new_helpers_without_expanding_historical_selection(monkeypatch):
+    from corpus_structure.semantic import native_candidate
+
+    calls = []
+
+    def capture(connection, declaration, **facts):
+        calls.append((declaration, facts))
+        return SimpleNamespace(sql=declaration, identity=declaration)
+
+    monkeypatch.setattr(native_candidate, "definition_from_sql", capture)
+    sql = """
+    CREATE FUNCTION ops.require_pdf_stage_owner(bigint) RETURNS text
+      LANGUAGE sql AS $$ SELECT 'owned'::text $$;
+    CREATE FUNCTION ops.new_pdf_helper(text) RETURNS text LANGUAGE sql AS $$ SELECT $1 $$;
+    CREATE FUNCTION ops.pdf_native_record_shape(text) RETURNS boolean
+      LANGUAGE sql AS $$ SELECT true $$;
+    CREATE FUNCTION ops.pdf_record_context_rows(text) RETURNS text LANGUAGE sql AS $$ SELECT $1 $$;
+    CREATE FUNCTION eval.unrelated(text) RETURNS text LANGUAGE sql AS $$ SELECT $1 $$;
+    REVOKE ALL ON FUNCTION ops.new_pdf_helper(text) FROM PUBLIC;
+    GRANT EXECUTE ON FUNCTION ops.new_pdf_helper(text) TO corpus_sem_writer;
+    """
+    current = native_candidate._pdf_payload_definitions(
+        object(), sql, source="current PDF owner", current_source=True
+    )
+    assert len(current) == 2
+    assert "require_pdf_stage_owner" in current[0].sql
+    assert "new_pdf_helper" in current[1].sql
+    assert calls[1][1]["grants"] == (("corpus_sem_writer", "EXECUTE", False),)
+    calls.clear()
+    old = native_candidate._pdf_payload_definitions(object(), sql, source="frozen0065")
+    assert len(old) == 1
+    assert "require_pdf_stage_owner" in old[0].sql

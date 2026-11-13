@@ -23,7 +23,7 @@ class SourceProfileOperation:
                 "collection": "scalar",
                 "presence": "required",
                 "support": {
-                    "origins": ["original-source"],
+                    "origins": ["computation", "original-source"],
                     "provenance": "value_substitution",
                     "identity_requirements": [],
                     "source": "original-source",

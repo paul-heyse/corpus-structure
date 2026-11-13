@@ -333,7 +333,11 @@ class DemandPlanner:
             return result
         for name, source in record.get("original_sources", {}).items():
             self.storage.invoke(
-                "admit_original_source_view",
+                (
+                    "admit_original_document_asset"
+                    if source["reference"].get("kind") == "original-document"
+                    else "admit_original_source_view"
+                ),
                 {
                     "demand_id": result["demand_id"],
                     "selection_name": name,
@@ -532,6 +536,7 @@ class DemandPlanner:
                     ]
                     if not relations:
                         continue
+                    from .data_operation_kind_refinements import input_kind_refinements
                     from .data_operation_member_contracts import derive_member_kinds
 
                     outputs = [
@@ -540,10 +545,9 @@ class DemandPlanner:
                         if output.direction == "output"
                         and output.name == row["evidence"]["member_role"]
                     ]
-                    if len(outputs) == 1 and role.kind in derive_member_kinds(
-                        self.model,
-                        outputs[0].kind,
-                    ):
+                    if len(outputs) == 1 and set(
+                        input_kind_refinements(self.model, (role.kind,))[role.kind]
+                    ).intersection(derive_member_kinds(self.model, outputs[0].kind)):
                         parents.append(row)
                 existing = [
                     row

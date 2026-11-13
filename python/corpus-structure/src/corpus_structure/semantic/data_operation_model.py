@@ -428,6 +428,11 @@ class EffectiveDataOperationModel:
 
             for operation in record["operations"]:
                 operation.pop("potential_dependencies")
+                for role in operation["roles"]:
+                    if role["support"] is not None:
+                        if tuple(role["support"]["origins"]) != ("computation",):
+                            raise ValueError("v1 support cannot declare origin eligibility")
+                        role["support"].pop("origins")
             for binding in record["bindings"]:
                 historical_expression(binding["expression"])
         return canonical_bytes(encode(record))

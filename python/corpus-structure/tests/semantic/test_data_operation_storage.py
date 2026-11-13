@@ -35,7 +35,7 @@ def test_kernel_protocol_is_captured_effective_meaning_not_an_ambient_catalog():
     assert {owner for owner, _ in calls} == {
         operation.semantic_id for operation in model.operations
     }
-    assert len(calls) == 17
+    assert len(calls) == 18
     assert all(call.parameters[0].native_parameter == "p_payload" for _, call in calls)
     assert all(call.result_fields[0].native_field == "payload" for _, call in calls)
     assert all(call.source_digest == native_source_digest(captured) for _, call in calls)

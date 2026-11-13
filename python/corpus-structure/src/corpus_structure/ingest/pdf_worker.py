@@ -12,6 +12,8 @@ from multiprocessing.process import BaseProcess
 from pathlib import Path
 from threading import Lock
 
+from corpus_structure.core.work import PhysicalRetirementUncertain
+
 from .pdf import PdfConversion, PdfConverter, PdfRecipe
 from .pdf_assets import PreparedPdfAssets
 from .pdf_enrichment import PdfEnrichmentRequest, PdfEnrichmentResult, compute_enrichment
@@ -44,6 +46,10 @@ class NativeReply:
 
 class PdfWorkerError(RuntimeError):
     """A native child refused or lost its operation; no publication was performed."""
+
+
+class PdfRetirementUncertain(PdfWorkerError, PhysicalRetirementUncertain):
+    """The actual native PDF child still borrows its source, buffers and resources."""
 
 
 def _native_child(
@@ -266,6 +272,10 @@ class PdfWorker:
                 try:
                     self._stop(graceful=False)
                 except BaseException as cleanup:
+                    if isinstance(cleanup, PhysicalRetirementUncertain):
+                        raise BaseExceptionGroup(
+                            "native PDF operation and retirement failed", [original, cleanup]
+                        ) from None
                     original.add_note("native PDF teardown failed: " + str(cleanup)[:1800])
                 raise
 
@@ -334,6 +344,24 @@ class PdfWorker:
         return value
 
     def _stop(self, *, graceful: bool) -> None:
+        try:
+            self._retire_process(graceful=graceful)
+        except PhysicalRetirementUncertain:
+            raise
+        except BaseException as error:
+            process = self._process
+            if process is not None:
+                try:
+                    unproven = process.is_alive() or process.exitcode is None
+                except BaseException:
+                    unproven = True
+                if unproven:
+                    raise PdfRetirementUncertain(
+                        "native PDF child retirement remains unproven"
+                    ) from error
+            raise
+
+    def _retire_process(self, *, graceful: bool) -> None:
         self._closed = True
         process = self._process
         connection = self._connection
@@ -355,7 +383,7 @@ class PdfWorker:
                 process.kill()
                 process.join(timeout=5)
             if process.is_alive():
-                raise PdfWorkerError(
+                raise PdfRetirementUncertain(
                     f"native PDF child {process.pid} did not exit after terminate/kill"
                 )
             process.join(timeout=0)

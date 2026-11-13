@@ -63,8 +63,7 @@ class CanonicalSentenceProjection:
         "opaque": [
             {
                 "reference": (
-                    "corpus_structure.semantic.canonical_sentences."
-                    "execute_canonical_projection"
+                    "corpus_structure.semantic.canonical_sentences.execute_canonical_projection"
                 ),
                 "contract": "canonical/profile-assets",
                 "role": "prepared-canonical-projection",

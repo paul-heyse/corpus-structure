@@ -749,7 +749,7 @@ DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; snapshot jsonb; key 
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['request_id','generation','task_id','attempt','holder','runtime_id','completion']);
  PERFORM ops.ddo_fields(p->'completion',ARRAY['outcome','outputs','support','inputs','implementation_revision'],ARRAY['execution_evidence']);
- IF p->'completion' ? 'execution_evidence' AND (p->'completion'->'execution_evidence' - 'version' - 'host_receipts' - 'cpu_receipts') IS DISTINCT FROM (p - 'completion') THEN RAISE EXCEPTION 'execution evidence differs from native producer fence/runtime'; END IF;
+ IF p->'completion' ? 'execution_evidence' AND (p->'completion'->'execution_evidence' - 'version' - 'host_receipts' - 'cpu_receipts' - 'pdf_receipts') IS DISTINCT FROM (p - 'completion') THEN RAISE EXCEPTION 'execution evidence differs from native producer fence/runtime'; END IF;
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=p->>'request_id';
  snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,p->'completion'->'support');
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=r.id FOR UPDATE;
@@ -760,6 +760,7 @@ BEGIN
  IF r.generation<>(p->>'generation')::integer OR p->'completion'->'inputs' IS DISTINCT FROM r.binding->'inputs' OR p->'completion'->'support' IS DISTINCT FROM r.binding->'support'
  OR NOT EXISTS(SELECT FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id AND implementation_revision=p->'completion'->>'implementation_revision') THEN RAISE EXCEPTION 'completion differs from admitted request/implementation'; END IF;
  PERFORM ops.ddo_assert_support(r,p->'completion'->'support');
+ PERFORM ops.ddo_require_pdf_completion(p->'completion',t.id,t.attempt,t.claimed_by,r.release_id,r.operation_id);
  key:='intent:'||ops.ddo_digest(jsonb_build_array(r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion'));
  INSERT INTO ops.data_completion_intent VALUES(key,r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion',ops.ddo_digest(p->'completion'),clock_timestamp()) ON CONFLICT DO NOTHING;
  SELECT * INTO STRICT old FROM ops.data_completion_intent WHERE request_id=r.id AND generation=r.generation;
@@ -880,17 +881,25 @@ BEGIN
  'subject',r.subject,'original_source',r.original_source,'analyzed_scope',r.analyzed_scope),o);
 END $$;
 
-CREATE OR REPLACE FUNCTION ops.admit_original_source_view(p_payload jsonb) RETURNS jsonb
+CREATE OR REPLACE FUNCTION ops.ddo_admit_original_source(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; d ops.data_demand; frozen jsonb; fact jsonb; kind text; product text; identity text;
- snapshot jsonb; key text; admitted ops.original_source_admission;
+ snapshot jsonb; kind_name text; key text; admitted ops.original_source_admission;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['demand_id','selection_name','reference','selectors']);
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=p->>'demand_id';
  frozen:=d.selection->'original_sources'->(p->>'selection_name');
  IF frozen IS NULL OR frozen IS DISTINCT FROM (p-'demand_id'-'selection_name')
  OR p->'reference'->>'project_id' IS DISTINCT FROM d.project_id THEN RAISE EXCEPTION 'original source selection differs from immutable demand'; END IF;
+ IF p->'reference'->>'kind'='original-document' THEN
+ IF p->'selectors' IS DISTINCT FROM '[{"scope":"whole-document"}]'::jsonb THEN
+ RAISE EXCEPTION 'original document scope differs from immutable whole document'; END IF;
+ fact:=ops.ddo_original_document_view(p->'reference');
+ kind_name:='https://corpus-structure.dev/semantic/data-operation-source/DdoOriginalDocument';
+ ELSE
  fact:=ops.ddo_original_source_view(p->'reference',p->'selectors');
+ kind_name:='https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource';
+ END IF;
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(d.root) root WHERE
  (root->>'subject',root->>'original_source')=(fact->>'subject',fact->>'original_source')
  AND root->'analyzed_scope'=fact->'analyzed_scope') THEN RAISE EXCEPTION 'authenticated source context is outside frozen roots'; END IF;
@@ -898,7 +907,7 @@ BEGIN
  PERFORM ops.ddo_require_active_demand(d.id);
  SELECT release.kind_contract INTO STRICT kind FROM sem.data_kind_release release
  JOIN sem.data_kind_contract contract ON contract.kind_contract=release.kind_contract
- WHERE release.release_id=d.release_id AND contract.kind='https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource';
+ WHERE release.release_id=d.release_id AND contract.kind=kind_name;
  product:=ops.ddo_install_product_context(jsonb_build_object('project_id',d.project_id,'release_id',d.release_id,
  'subject',fact->>'subject','original_source',fact->>'original_source','analyzed_scope',fact->'analyzed_scope'),
  jsonb_build_object('kind_contract',kind,'body',fact->'meaning_body','members','[]'::jsonb));
@@ -913,6 +922,20 @@ BEGIN
  RETURN jsonb_build_object('payload',jsonb_build_object('admission_id',admitted.id,'selection_name',admitted.selection_name,
  'product_id',product,'kind_contract',kind,'subject',admitted.subject,'original_source',admitted.original_source,
  'analyzed_scope',admitted.analyzed_scope,'source_reference',identity,'trust_snapshot',snapshot,'evidence',admitted.evidence));
+END $$;
+
+CREATE OR REPLACE FUNCTION ops.admit_original_source_view(p_payload jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ IF p_payload->'reference' ? 'kind' THEN RAISE EXCEPTION 'source view requires its actual external reference'; END IF;
+ RETURN ops.ddo_admit_original_source(p_payload);
+END $$;
+CREATE OR REPLACE FUNCTION ops.admit_original_document_asset(p_payload jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ IF p_payload->'reference'->>'kind' IS DISTINCT FROM 'original-document' THEN
+ RAISE EXCEPTION 'original document reference discriminator differs'; END IF;
+ RETURN ops.ddo_admit_original_source(p_payload);
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.publish_data_derivation(p_payload jsonb) RETURNS jsonb
@@ -940,6 +963,8 @@ BEGIN
  result_state:=ops.ddo_completion_state(def,i.payload->>'outcome');
  IF i.payload->>'implementation_revision'<>def.implementation_revision OR jsonb_typeof(i.payload->'outputs')<>'array' THEN RAISE EXCEPTION 'invalid completion attestation/outcome'; END IF;
  IF result_state IN ('empty','failed') AND i.payload->'outputs'<>'[]'::jsonb THEN RAISE EXCEPTION 'non-success completion cannot publish outputs'; END IF;
+ -- Reconciliation validates the original sealed producer, not the adopter's later fence.
+ PERFORM ops.ddo_require_pdf_completion(i.payload,i.producer_task_id,i.producer_attempt,i.producer_holder,r.release_id,r.operation_id);
  episode:='derivation:'||ops.ddo_digest(jsonb_build_array(i.id,i.payload_digest));
  INSERT INTO ops.data_derivation VALUES(episode,r.id,r.generation,i.id,r.release_id,r.recipe,i.runtime_id,i.producer_task_id,i.producer_attempt,result_state,clock_timestamp());
  FOR item IN SELECT value FROM jsonb_array_elements(i.payload->'inputs') LOOP
@@ -1174,7 +1199,7 @@ BEGIN
  AND relation->>'producer'=source_request.operation_id AND relation->>'output_role'=parent.evidence->>'member_role') THEN
  RAISE EXCEPTION 'selected parent is not a declared prerequisite discovery population'; END IF;
  IF NOT EXISTS(SELECT FROM kb.data_product product JOIN sem.data_kind_contract kind ON kind.kind_contract=product.kind_contract
- WHERE product.id=parent.evidence->>'product_id' AND kind.member_contracts ? (roledef->>'kind_contract')) THEN
+ WHERE product.id=parent.evidence->>'product_id' AND EXISTS(SELECT FROM jsonb_array_elements_text(roledef->'accepted_kind_contracts') accepted WHERE kind.member_contracts ? accepted)) THEN
  RAISE EXCEPTION 'selected parent does not declare the role member kind'; END IF;
  IF (source_request.subject,source_request.original_source,source_request.analyzed_scope) IS DISTINCT FROM (obligation.subject,obligation.original_source,obligation.analyzed_scope) AND NOT EXISTS(
  SELECT FROM jsonb_array_elements(coalesce(demand.selection->'source_sets'->(roledef->'support'->>'source_set'),'[]')) entry
@@ -1182,10 +1207,10 @@ BEGIN
  RAISE EXCEPTION 'selected parent source is outside the role frozen source set'; END IF;
  PERFORM ops.ddo_authorize(kind.universe) FROM sem.data_kind_contract kind WHERE kind.kind_contract=roledef->>'kind_contract';
  SELECT coalesce(jsonb_agg(to_jsonb(v)),'[]') INTO universe FROM ops.data_binding_rows(demand.id,p->>'operation_id',scope,boundary.id,p->>'subject',p->>'original_source',obligation.analyzed_scope) v
- WHERE v.product=parent.evidence->>'product_id' AND v.kind_contract=roledef->>'kind_contract'
+ WHERE v.product=parent.evidence->>'product_id' AND roledef->'accepted_kind_contracts' ? v.kind_contract
  AND v.support_episodes ? (parent.evidence->>'derivation_id') AND v.support_evidence->>'use_id'=parent.evidence->>'admission_use_id';
  FOR expected IN SELECT value FROM jsonb_array_elements(parent.members) LOOP
- SELECT to_jsonb(m) INTO row_value FROM kb.data_product_member m WHERE m.product_id=parent.evidence->>'product_id' AND m.member_id=expected->>'member_id' AND m.kind_contract=roledef->>'kind_contract';
+ SELECT to_jsonb(m) INTO row_value FROM kb.data_product_member m WHERE m.product_id=parent.evidence->>'product_id' AND m.member_id=expected->>'member_id' AND roledef->'accepted_kind_contracts' ? m.kind_contract;
  IF row_value IS NULL THEN CONTINUE; END IF;
  IF NOT coalesce(ops.ddo_binding_source(roledef,jsonb_build_object('product',parent.evidence->>'product_id','member',row_value->>'member_id','subject',row_value->>'subject','original_source',row_value->>'original_source','analyzed_scope',row_value->'analyzed_scope','meaning_body',row_value->'body'),obligation.original_source,coalesce(demand.selection->'source_sets','{}')),false) THEN CONTINUE; END IF;
  IF ops.ddo_binding_subject(roledef,jsonb_build_object('subject',row_value->>'subject','meaning_body',row_value->'body'),p->>'subject') IS NULL THEN RAISE EXCEPTION 'population subject relationship is unknown'; END IF;
@@ -1217,6 +1242,23 @@ CREATE OR REPLACE FUNCTION sem.data_operation_native_descriptor() RETURNS jsonb
 LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
  SELECT jsonb_build_object('version','data-operation-native-v1','source_digest','__DDO_SOURCE_DIGEST__')
 $$;
+CREATE OR REPLACE FUNCTION sem.ddo_input_kind_contracts(p_model jsonb,p_kind text) RETURNS jsonb
+LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+ WITH RECURSIVE family(kind) AS (
+ SELECT p_kind
+ UNION
+ SELECT edge->>'source' FROM family parent
+ CROSS JOIN LATERAL jsonb_array_elements(p_model->'edges') edge
+ WHERE edge->>'relation'='inherits' AND edge->>'target'=parent.kind
+ )
+ SELECT coalesce(jsonb_agg(identity->>'key' ORDER BY identity->>'key'),'[]'::jsonb)
+ FROM family JOIN LATERAL jsonb_array_elements(p_model->'kinds') nominal ON nominal->>'semantic_id'=family.kind
+ JOIN LATERAL jsonb_array_elements(p_model->'identities') identity
+ ON identity->>'owner'=family.kind AND identity->>'domain'='kind'
+ WHERE NOT coalesce((nominal->'facts'->'json'->>'abstract')::boolean,false)
+ AND coalesce((nominal->>'complete')::boolean,true)
+$$;
+
 CREATE OR REPLACE FUNCTION sem.admit_data_operation_definitions(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; k jsonb; o jsonb; archived jsonb; old sem.data_kind_contract; operation jsonb; expected_inputs jsonb; expected_outputs jsonb; expected_support jsonb;
@@ -1239,9 +1281,9 @@ BEGIN
  END LOOP;
  FOR o IN SELECT value FROM jsonb_array_elements(p->'operations') LOOP
  SELECT value INTO STRICT operation FROM jsonb_array_elements(archived->'operations') op WHERE op->>'semantic_id'=o->>'operation_id';
- SELECT coalesce(jsonb_agg(role||jsonb_build_object('kind_contract',(SELECT id->>'key' FROM jsonb_array_elements(archived->'identities') id WHERE id->>'owner'=role->>'kind' AND id->>'domain'='kind'),'identity_requirements',coalesce(role->'support'->'identity_requirements','[]')) ORDER BY ord),'[]') INTO expected_inputs FROM jsonb_array_elements(operation->'roles') WITH ORDINALITY entry(role,ord) WHERE role->>'direction'='input';
+ SELECT coalesce(jsonb_agg(role||jsonb_build_object('kind_contract',(SELECT id->>'key' FROM jsonb_array_elements(archived->'identities') id WHERE id->>'owner'=role->>'kind' AND id->>'domain'='kind'),'identity_requirements',coalesce(role->'support'->'identity_requirements','[]'),'accepted_kind_contracts',sem.ddo_input_kind_contracts(archived,role->>'kind')) ORDER BY ord),'[]') INTO expected_inputs FROM jsonb_array_elements(operation->'roles') WITH ORDINALITY entry(role,ord) WHERE role->>'direction'='input';
  SELECT coalesce(jsonb_agg(role||jsonb_build_object('kind_contract',(SELECT id->>'key' FROM jsonb_array_elements(archived->'identities') id WHERE id->>'owner'=role->>'kind' AND id->>'domain'='kind'),'identity_requirements',coalesce(role->'support'->'identity_requirements','[]')) ORDER BY ord),'[]') INTO expected_outputs FROM jsonb_array_elements(operation->'roles') WITH ORDINALITY entry(role,ord) WHERE role->>'direction'='output';
- expected_support:=jsonb_build_object('policy',operation->'support_policy','outcomes',operation->'outcomes','replicate_policy',operation->'replicate_policy','state_dimensions',operation->'state_dimensions','transitions',operation->'transitions','effects',operation->'effects','provenance',CASE WHEN EXISTS(SELECT FROM jsonb_array_elements(operation->'roles') role WHERE role->'support'<>'null'::jsonb AND role->'support'->>'provenance'<>'value_substitution') THEN 'exact' ELSE 'value_substitution' END);
+ expected_support:=jsonb_build_object('policy',operation->'support_policy','outcomes',operation->'outcomes','replicate_policy',operation->'replicate_policy','state_dimensions',operation->'state_dimensions','transitions',operation->'transitions','effects',operation->'effects','capabilities',operation->'capabilities','provenance',CASE WHEN EXISTS(SELECT FROM jsonb_array_elements(operation->'roles') role WHERE role->'support'<>'null'::jsonb AND role->'support'->>'provenance'<>'value_substitution') THEN 'exact' ELSE 'value_substitution' END);
  IF o->'input_roles' IS DISTINCT FROM expected_inputs OR o->'output_roles' IS DISTINCT FROM expected_outputs
  OR o->'support_contract' IS DISTINCT FROM expected_support OR o->'profile' IS DISTINCT FROM operation->'profile'
  OR o->'binding' IS DISTINCT FROM (SELECT binding->'expression' FROM jsonb_array_elements(archived->'bindings') binding WHERE binding->>'semantic_id'=operation->>'binding')
@@ -1299,7 +1341,7 @@ BEGIN
   WHERE EXISTS(SELECT FROM sem.data_operation_definition operation
    CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles) input_role(value)
    WHERE operation.release_id=d.release_id AND operation.operation_id=p_operation
-   AND input_role.value->>'kind_contract'=projected.projected_kind
+   AND input_role.value->'accepted_kind_contracts' ? projected.projected_kind
    AND coalesce(input_role.value->'support'->'origins','["computation"]'::jsonb) ? 'computation'
    AND (p_subject IS NULL OR ops.ddo_binding_subject(input_role.value,
     jsonb_build_object('subject',projected.projected_subject,'meaning_body',projected.projected_body),p_subject))
@@ -1321,7 +1363,7 @@ BEGIN
  AND EXISTS(SELECT FROM sem.data_operation_definition operation
  CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles) input_role(value)
  WHERE operation.release_id=d.release_id AND operation.operation_id=p_operation
- AND input_role.value->>'kind_contract'=product.kind_contract
+ AND input_role.value->'accepted_kind_contracts' ? product.kind_contract
  AND coalesce(input_role.value->'support'->'origins','["computation"]'::jsonb) ? 'original-source'
  AND (p_subject IS NULL OR ops.ddo_binding_subject(input_role.value,
  jsonb_build_object('subject',admission.subject,'meaning_body',product.canonical_body),p_subject))

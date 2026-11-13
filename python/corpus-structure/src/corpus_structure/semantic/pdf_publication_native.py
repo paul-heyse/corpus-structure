@@ -408,12 +408,12 @@ def publication_sql() -> str:
 CREATE OR REPLACE FUNCTION ops.bind_pdf_stage_recipe(p_task bigint,p_attempt bigint,p_holder \
 text,p_recipe bytea)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE run_ ops.run; root_ ops.source_build; digest_ text;
+DECLARE owner record; root_ ops.source_build; digest_ text;
 BEGIN
- run_:=ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
+ SELECT * INTO STRICT owner FROM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
  SELECT * INTO STRICT root_ FROM ops.source_build WHERE task_id=p_task AND \
-release_id=run_.release_id;
- PERFORM sem.require_execution_operation(run_.release_id,'retain_pdf_stage_recipe');
+release_id=owner.release_id;
+ PERFORM sem.require_execution_operation(owner.release_id,'retain_pdf_stage_recipe');
  PERFORM convert_from(p_recipe,'UTF8')::jsonb;
  IF p_recipe IS NULL OR octet_length(p_recipe)=0 THEN RAISE EXCEPTION 'empty stage recipe'; END IF;
  digest_:=encode(sha256(p_recipe),'hex');
@@ -423,7 +423,7 @@ NOTHING;
 content=p_recipe) THEN
  RAISE EXCEPTION 'stage recipe custody conflict'; END IF;
  INSERT INTO ops.pdf_stage_recipe VALUES(p_task,root_.artifact_digest,root_.recipe_digest,digest_\
-,run_.release_id) ON CONFLICT DO NOTHING;
+,owner.release_id) ON CONFLICT DO NOTHING;
  RETURN digest_;
 END $$;
 REVOKE ALL ON FUNCTION ops.bind_pdf_stage_recipe(bigint,bigint,text,bytea) FROM PUBLIC;
@@ -432,17 +432,14 @@ CREATE OR REPLACE FUNCTION ops.require_pdf_frozen(p_build text,p_task bigint,p_a
 bigint,p_holder text,p_frozen text)
 RETURNS ops.pdf_stage_build LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp \
 AS $$
-DECLARE b ops.pdf_stage_build; job ops.task; run_ ops.run;
+DECLARE b ops.pdf_stage_build; job ops.task; owner record;
 BEGIN
  -- Pure immutable-candidate inspection must not block the lease heartbeat.
- SELECT * INTO STRICT job FROM ops.task WHERE id=p_task;
- SELECT * INTO STRICT run_ FROM ops.run WHERE id=job.run_id;
- IF job.attempt IS DISTINCT FROM p_attempt OR job.claimed_by IS DISTINCT FROM p_holder
- OR job.status<>'running' OR job.lease_until IS NULL OR job.lease_until<=clock_timestamp()
- OR run_.sealed OR run_.status NOT IN ('created','running') THEN
+ SELECT * INTO STRICT owner FROM ops.pdf_task_context(p_task);
+ IF NOT ops.pdf_stage_owner_current(p_task,p_attempt,p_holder) THEN
  RAISE EXCEPTION 'stale frozen PDF owner' USING ERRCODE='P0004'; END IF;
  SELECT * INTO STRICT b FROM ops.pdf_stage_build WHERE build_id=p_build AND task_id=p_task;
- IF b.release_id IS DISTINCT FROM run_.release_id OR b.state NOT IN ('frozen','published') OR \
+ IF b.release_id IS DISTINCT FROM owner.release_id OR b.state NOT IN ('frozen','published') OR \
 b.attempt IS DISTINCT FROM p_attempt OR b.holder IS DISTINCT FROM p_holder
  OR NOT EXISTS(SELECT FROM ops.pdf_frozen_build WHERE build_id=p_build AND \
 frozen_digest=p_frozen) THEN
@@ -452,7 +449,7 @@ END $$;
 CREATE OR REPLACE FUNCTION ops.freeze_pdf_build(p_build text,p_task bigint,p_attempt \
 bigint,p_holder text,p_kind text)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE b ops.pdf_stage_build; job ops.task; run_ ops.run; f text;
+DECLARE b ops.pdf_stage_build; job ops.task; owner record; f text;
  state_ bytea:=ops.pdf_identity_fold_start('pdf-frozen-inventory-v1');
  row_ record; payload bytea; count_ bigint:=0; total_ bigint:=0;
  family_count_ bigint; inventory_ jsonb:='{}'::jsonb;
@@ -460,11 +457,8 @@ BEGIN
  IF NOT (current_setting('transaction_isolation')=ANY({pdf_projection_isolation_array})) THEN
  RAISE EXCEPTION '{pdf_freeze_isolation_message}' USING ERRCODE='25000'; END IF;
  -- Inspect before expensive work; acquire the owner fence again at freeze commit.
- SELECT * INTO STRICT job FROM ops.task WHERE id=p_task;
- SELECT * INTO STRICT run_ FROM ops.run WHERE id=job.run_id;
- IF job.attempt IS DISTINCT FROM p_attempt OR job.claimed_by IS DISTINCT FROM p_holder
- OR job.status<>'running' OR job.lease_until IS NULL OR job.lease_until<=clock_timestamp()
- OR run_.sealed OR run_.status NOT IN ('created','running') THEN
+ SELECT * INTO STRICT owner FROM ops.pdf_task_context(p_task);
+ IF NOT ops.pdf_stage_owner_current(p_task,p_attempt,p_holder) THEN
  RAISE EXCEPTION 'stale private PDF build owner' USING ERRCODE='P0004'; END IF;
  SELECT * INTO STRICT b FROM ops.pdf_stage_build WHERE build_id=p_build AND task_id=p_task;
  IF b.attempt IS DISTINCT FROM p_attempt OR b.holder IS DISTINCT FROM p_holder OR \
@@ -508,10 +502,10 @@ b.state='abandoned' THEN
  -- Stage rows are append-only through protected operations. Exact replay is
  -- neutral; changed family cardinality invalidates this candidate. Retain the
  -- ordinary task -> build lock order, after hashing payloads without either lock.
- run_:=ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
+ SELECT * INTO STRICT owner FROM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
  SELECT * INTO STRICT b FROM ops.pdf_stage_build
  WHERE build_id=p_build AND task_id=p_task FOR UPDATE;
- IF b.release_id IS DISTINCT FROM run_.release_id OR b.attempt IS DISTINCT FROM p_attempt
+ IF b.release_id IS DISTINCT FROM owner.release_id OR b.attempt IS DISTINCT FROM p_attempt
  OR b.holder IS DISTINCT FROM p_holder OR b.state='abandoned' THEN
  RAISE EXCEPTION 'PDF freeze owner differs' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM ops.pdf_frozen_build WHERE build_id=p_build) THEN
@@ -908,7 +902,7 @@ DO NOTHING;
 frozen_digest=p_frozen AND contract_digest=contract_ AND passed=p_passed) THEN
  RAISE EXCEPTION 'native callback outcome conflicts for immutable premises'; END IF;
 END $$;
-CREATE OR REPLACE FUNCTION ops.pdf_check_build_inventory(p_build text,p_source text,p_run bigint)
+CREATE OR REPLACE FUNCTION ops.pdf_check_build_inventory(p_build text,p_source text,p_project text)
 RETURNS void LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
 DECLARE bad_owner_ boolean; unreachable_ boolean;
 BEGIN
@@ -1034,11 +1028,10 @@ BEGIN
  IF EXISTS(SELECT FROM kb.pdf_record_companion c LEFT JOIN ops.pdf_product input_ ON
  input_.task_id=(c.body->>'task_id')::bigint AND input_.product_key=c.body->>'product_key' AND
  input_.content_digest=c.body->>'content_digest'
- LEFT JOIN ops.task task_ ON task_.id=input_.task_id LEFT JOIN ops.run run_ ON
- run_.id=task_.run_id
+ LEFT JOIN LATERAL ops.pdf_task_context(input_.task_id) input_context ON true
  WHERE c.product_id=p_build AND c.revision_id=p_build AND c.family='input' AND
  (input_.task_id IS NULL OR input_.artifact_digest IS DISTINCT FROM p_source OR
- run_.project_id IS DISTINCT FROM (SELECT project_id FROM ops.run WHERE id=p_run))) THEN
+ input_context.project_id IS DISTINCT FROM p_project)) THEN
  RAISE EXCEPTION 'PDF input outside exact admitted source/project custody' USING
  ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM kb.pdf_record_companion c JOIN ops.pdf_product_body o
@@ -1130,11 +1123,15 @@ BEGIN
    AND v.logical_digest=p.logical_digest AND v.native_contract_digest=contract_
    AND v.native_callbacks
   JOIN ops.task t ON t.id=p.task_id
-  JOIN ops.run r ON r.id=t.run_id AND r.sealed AND r.status IN ('consolidating','finished')
+  JOIN LATERAL ops.pdf_task_context(t.id) previous_context ON true
+  LEFT JOIN ops.run r ON r.id=t.run_id
   JOIN ops.pdf_frozen_build f ON f.build_id=p_build AND f.kind=p.kind
-  WHERE p.source_digest=b.source_digest AND p.schema_digest=b.schema_digest
+  WHERE ((r.sealed AND r.status IN ('consolidating','finished')) OR EXISTS(
+   SELECT FROM ops.data_derivation episode WHERE episode.task_id=t.id
+   AND ops.ddo_support_valid(episode.id)))
+   AND p.source_digest=b.source_digest AND p.schema_digest=b.schema_digest
    AND p.recipe_digest=b.recipe_digest AND p.release_id=b.release_id
-   AND r.project_id=(SELECT project_id FROM ops.run WHERE id=b.run_id)
+   AND previous_context.project_id=(SELECT project_id FROM ops.pdf_task_context(b.task_id))
   ORDER BY t.id DESC LIMIT 1;
  ELSE
   SELECT v.predecessor_build_id INTO prior_ FROM ops.pdf_validation_check v WHERE v.build_id=p_build
@@ -1147,7 +1144,8 @@ BEGIN
    AND v.attempt=p_attempt AND v.holder=p_holder AND v.frozen_digest=p_frozen
    AND v.contract_digest=contract_ AND v.check_name=p_check) THEN RETURN; END IF;
   CASE p_check
-   WHEN 'inventory' THEN PERFORM ops.pdf_check_build_inventory(p_build,b.source_digest,b.run_id);
+   WHEN 'inventory' THEN PERFORM ops.pdf_check_build_inventory(p_build,b.source_digest,
+   (SELECT project_id FROM ops.pdf_task_context(b.task_id)));
    WHEN 'access' THEN
     IF prior_ IS NOT NULL AND {pdf_access_rows_equal} AND {pdf_native_rows_equal}
      AND NOT EXISTS(SELECT FROM kb.pdf_record_access
@@ -1216,7 +1214,8 @@ BEGIN
  ELSE
   -- Single-transaction reference path for existing operation callers. The build lock
   -- already fences projection membership for the entire reference validation.
-  PERFORM ops.pdf_check_build_inventory(p_build,b.source_digest,b.run_id);
+  PERFORM ops.pdf_check_build_inventory(p_build,b.source_digest,
+  (SELECT project_id FROM ops.pdf_task_context(b.task_id)));
   PERFORM ops.pdf_check_access_correspondence(p_build);
   logical_:=ops.pdf_record_logical_identity(p_build,p_build);
   contract_:=ops.pdf_projection_contract(p_build,b.release_id);
@@ -1420,12 +1419,12 @@ CREATE OR REPLACE FUNCTION ops.lookup_pdf_build(p_task bigint,p_attempt bigint,p
 text,p_key text)
 RETURNS SETOF ops.pdf_stage_build LANGUAGE plpgsql SECURITY DEFINER SET \
 search_path=pg_catalog,pg_temp AS $$
-DECLARE run_ ops.run;
+DECLARE owner record;
 BEGIN
- run_:=ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
- PERFORM sem.require_execution_operation(run_.release_id,'inspect_pdf_build');
+ SELECT * INTO STRICT owner FROM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
+ PERFORM sem.require_execution_operation(owner.release_id,'inspect_pdf_build');
  RETURN QUERY SELECT * FROM ops.pdf_stage_build WHERE task_id=p_task AND replay_key=p_key AND \
-release_id=run_.release_id;
+release_id=owner.release_id;
 END $$;
 CREATE OR REPLACE FUNCTION ops.lookup_pdf_frozen_digest(p_build text,p_task bigint,p_attempt \
 bigint,p_holder text)
@@ -1509,8 +1508,50 @@ REVOKE ALL ON FUNCTION ops.pdf_record_scope_health(bigint,text,text,text[]) FROM
 GRANT EXECUTE ON FUNCTION ops.pdf_record_scope_health(bigint,text,text,text[]) TO \
 corpus_sem_writer,corpus_sem_reader;
 """
+    sql += """
+CREATE OR REPLACE FUNCTION ops.pdf_publication_projection(p_receipt jsonb,p_task bigint,
+ p_attempt bigint,p_holder text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE publication ops.pdf_published_revision; build ops.pdf_stage_build; context record;
+ health jsonb;
+BEGIN
+ SELECT * INTO STRICT publication FROM ops.pdf_published_revision
+ WHERE build_id=p_receipt->'publication'->>'build_id';
+ SELECT * INTO STRICT build FROM ops.pdf_stage_build WHERE build_id=publication.build_id;
+ SELECT * INTO STRICT context FROM ops.pdf_task_context(p_task);
+ IF p_attempt IS NULL OR p_attempt<1 OR nullif(p_holder,'') IS NULL
+ OR to_jsonb(publication) IS DISTINCT FROM p_receipt->'publication'
+ OR publication.task_id IS DISTINCT FROM p_task OR build.task_id IS DISTINCT FROM p_task
+ OR build.attempt IS DISTINCT FROM (p_receipt->>'publisher_attempt')::bigint
+ OR build.holder IS DISTINCT FROM p_receipt->>'publisher_holder'
+ OR build.attempt>p_attempt OR (build.attempt=p_attempt AND build.holder IS DISTINCT FROM p_holder)
+ OR build.state<>'published' OR (build.release_id,build.source_digest,build.schema_digest,
+ build.recipe_digest) IS DISTINCT FROM (publication.release_id,publication.source_digest,
+ publication.schema_digest,publication.recipe_digest)
+ OR (publication.release_id,publication.source_digest) IS DISTINCT FROM
+ (context.release_id,context.source_digest)
+ OR NOT EXISTS(SELECT FROM ops.pdf_frozen_build frozen JOIN ops.pdf_build_validation valid
+ ON valid.build_id=frozen.build_id AND valid.frozen_digest=frozen.frozen_digest
+ WHERE frozen.build_id=publication.build_id AND frozen.kind=publication.kind
+ AND frozen.frozen_digest=publication.frozen_digest AND valid.native_callbacks
+ AND valid.logical_digest=publication.logical_digest
+ AND valid.native_contract_digest=ops.pdf_validation_contract(publication.release_id)) THEN
+ RAISE EXCEPTION 'PDF execution receipt differs from actual sealed publisher' USING ERRCODE='23514';
+ END IF;
+ SELECT companion.body INTO STRICT health FROM kb.pdf_record_companion companion
+ WHERE companion.product_id=publication.build_id AND companion.revision_id=publication.build_id
+ AND companion.family='health' AND companion.body ? 'conversion';
+ RETURN jsonb_build_object('document',(SELECT key FROM kb.document WHERE id=context.document_id),
+ 'source_digest',publication.source_digest,
+ 'logical_digest',publication.logical_digest,'schema_digest',publication.schema_digest,
+ 'recipe_digest',publication.recipe_digest,'kind',publication.kind,'health',jsonb_build_object(
+ 'conversion',health->'conversion','display_coverage',health->'display_coverage',
+ 'inline_coverage',health->'inline_coverage','cell_coverage',health->'cell_coverage'));
+END $$;
+REVOKE ALL ON FUNCTION ops.pdf_publication_projection(jsonb,bigint,bigint,text) FROM PUBLIC;
+"""
     sql += _published_validation_sql()
-    sql += "REVOKE ALL ON FUNCTION ops.pdf_check_build_inventory(text,text,bigint) FROM PUBLIC;\n"
+    sql += "REVOKE ALL ON FUNCTION ops.pdf_check_build_inventory(text,text,text) FROM PUBLIC;\n"
     signatures = [
         "check_pdf_build(text,bigint,bigint,text,text,text)",
         "pdf_validation_contract(text)",

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal
 
 import typer
-from pydantic import BaseModel, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from rich.console import Group
 from rich.syntax import Syntax
 from rich.table import Table
@@ -76,6 +76,24 @@ class EffectGuidance(BaseModel):
     action_conditions: tuple[str, ...] = ()
 
 
+class NativeBaseInspection(BaseModel):
+    """Bound chain context; the exact file inventory stays in its retained owner."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    acquired_revision: str
+    predecessor: str
+    revisions: tuple[str, ...]
+    execution_context: str
+    file_count: int = Field(ge=0)
+
+    @classmethod
+    def from_base(cls, base: NativeMigrationBase | None) -> NativeBaseInspection | None:
+        if base is None:
+            return None
+        return cls(**base.model_dump(exclude={"files"}), file_count=len(base.files))
+
+
 class PreviewEffectsReport(EffectGuidance):
     preview_id: str
     revision: str
@@ -87,8 +105,8 @@ class PreviewEffectsReport(EffectGuidance):
     acquired_target: StorageTarget | None
     selection: ConfiguredSelection | None = None
     authoring_target: StorageTarget | None
-    native_base: NativeMigrationBase | None = None
-    deployment_base: NativeMigrationBase | None = None
+    native_base: NativeBaseInspection | None = None
+    deployment_base: NativeBaseInspection | None = None
     predecessor: str | None
     release: str | None
     release_artifacts_sha256: str | None = None
@@ -140,8 +158,8 @@ class CandidateInspection(EffectGuidance):
     acquired_target: StorageTarget | None
     selection: ConfiguredSelection | None = None
     authoring_target: StorageTarget | None
-    native_base: NativeMigrationBase | None = None
-    deployment_base: NativeMigrationBase | None = None
+    native_base: NativeBaseInspection | None = None
+    deployment_base: NativeBaseInspection | None = None
     registration: Literal["verified", "unverified", "not_applicable"]
     registration_detail: str | None
     dependency_available: bool
@@ -400,7 +418,7 @@ def _target_summary(profile: DeploymentProfile | None, target: StorageTarget | N
     return f"{profile} · acquired identity unavailable" if profile else "unbound"
 
 
-def _base_summary(base: NativeMigrationBase | None) -> str:
+def _base_summary(base: NativeMigrationBase | NativeBaseInspection | None) -> str:
     if base is None:
         return "already installed"
     return " → ".join((base.acquired_revision, *base.revisions))
@@ -711,8 +729,8 @@ def inspect_preview(
                 acquired_target=staged.target_identity,
                 selection=current_selection(ctx, staged.target_profile),
                 authoring_target=staged.authoring_identity,
-                native_base=staged.native_base,
-                deployment_base=staged.deployment_base,
+                native_base=NativeBaseInspection.from_base(staged.native_base),
+                deployment_base=NativeBaseInspection.from_base(staged.deployment_base),
                 predecessor=staged.request.native_predecessor,
                 release=staged.local_release,
                 release_artifacts_sha256=staged.release_artifacts_sha256,
@@ -990,8 +1008,8 @@ def inspect_candidate(
                 acquired_target=binding.target_identity,
                 selection=current_selection(ctx, binding.target_profile),
                 authoring_target=binding.authoring_identity,
-                native_base=binding.native_base,
-                deployment_base=binding.deployment_base,
+                native_base=NativeBaseInspection.from_base(binding.native_base),
+                deployment_base=NativeBaseInspection.from_base(binding.deployment_base),
                 registration=status,
                 registration_detail=detail,
                 dependency_available=dependency_available,

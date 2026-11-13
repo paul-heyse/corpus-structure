@@ -34,12 +34,22 @@ def native_protocol_sources() -> tuple[SourceArtifact, ...]:
     from .data_operation_binding_native import binding_native_sources
     from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
     from .data_operation_source_native import source_native_sources
-    from .data_operation_support import ORIGINAL_REFERENCE_SCHEMA, original_source_reference_schema
+    from .data_operation_support import (
+        ORIGINAL_REFERENCE_SCHEMA,
+        ORIGINAL_SUPPORT_REFERENCE_SCHEMA,
+        original_source_reference_schema,
+        original_support_reference_schema,
+    )
     from .data_operation_wire_native import wire_native_sources
+    from .pdf_completion_native import pdf_completion_native_sql
 
     return (
         SourceArtifact(SOURCE, execution_evidence_schema()),
+        SourceArtifact(
+            "native/data-operation-pdf-completion.sql", pdf_completion_native_sql().encode()
+        ),
         SourceArtifact(ORIGINAL_REFERENCE_SCHEMA, original_source_reference_schema()),
+        SourceArtifact(ORIGINAL_SUPPORT_REFERENCE_SCHEMA, original_support_reference_schema()),
         SourceArtifact(
             "native/data-operation-support.py",
             Path(__file__).with_name("data_operation_support.py").read_bytes(),
@@ -57,6 +67,14 @@ def native_protocol_sources() -> tuple[SourceArtifact, ...]:
         SourceArtifact(
             "native/data-operation-member-contracts.py",
             Path(__file__).with_name("data_operation_member_contracts.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-kind-refinements.py",
+            Path(__file__).with_name("data_operation_kind_refinements.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-subjects.py",
+            Path(__file__).with_name("data_operation_subjects.py").read_bytes(),
         ),
         SourceArtifact(
             "native/data-operation-physical.yaml",
@@ -86,6 +104,8 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-original-reference.json",
         "native/data-operation-support.py",
     }
+    if b"admit_original_document_asset" in result.get("native/data-operation-protocol.yaml", b""):
+        required.add("native/data-operation-original-support-reference.json")
     if not required <= result.keys():
         raise ValueError("target correspondence requires captured native protocol and SQL")
     return result
@@ -575,9 +595,19 @@ def data_operation_definition_projection(
     """Compile the fixed native projection for authenticated release archiving."""
     ids = {(identity.owner, identity.domain): identity.key for identity in model.identities}
     kinds = []
+    from .data_operation_kind_refinements import input_kind_contracts, input_kind_refinements
     from .data_operation_member_contracts import derive_member_kinds
 
     used = {role.kind for operation in model.operations for role in operation.roles}
+    input_roots = {
+        role.kind
+        for operation in model.operations
+        for role in operation.roles
+        if role.direction == "input"
+    }
+    refinements = input_kind_refinements(model, input_roots)
+    accepted = input_kind_contracts(model, input_roots)
+    used.update(kind for family in refinements.values() for kind in family)
     pending = list(used)
     while pending:
         for member_kind in derive_member_kinds(model, pending.pop()):
@@ -614,22 +644,27 @@ def data_operation_definition_projection(
             }
         )
     operations = []
-    exported_bindings = {
-        b["semantic_id"]: b["expression"] for b in json.loads(model.content)["bindings"]
-    }
+    archived = json.loads(model.content)
+    exported_bindings = {b["semantic_id"]: b["expression"] for b in archived["bindings"]}
+    exported_roles = {o["semantic_id"]: o["roles"] for o in archived["operations"]}
     for operation in model.operations:
         recipe = ids.get((operation.semantic_id, "recipe"))
         if recipe is None:
             raise ValueError("cannot admit an incomplete implementation recipe")
         roles = []
-        for role in operation.roles:
-            from .data_operation_model import operation_role_record
-
-            record: dict[str, Any] = operation_role_record(role)
+        for role, archived_role in zip(
+            operation.roles, exported_roles[operation.semantic_id], strict=True
+        ):
+            # Native admission independently checks the archived representation.
+            # Do not apply the result-only/historical role serializer here: its
+            # omission of default support origins changes that representation.
+            record: dict[str, Any] = dict(archived_role)
             record["kind_contract"] = ids[role.kind, "kind"]
             record["identity_requirements"] = (
                 list(role.support.identity_requirements) if role.support else []
             )
+            if role.direction == "input":
+                record["accepted_kind_contracts"] = accepted[role.kind]
             roles.append(record)
         operations.append(
             {
@@ -657,6 +692,7 @@ def data_operation_definition_projection(
                     "state_dimensions": [asdict(value) for value in operation.state_dimensions],
                     "transitions": [asdict(value) for value in operation.transitions],
                     "effects": [asdict(value) for value in operation.effects],
+                    "capabilities": asdict(operation.capabilities),
                     "provenance": (
                         "value_substitution"
                         if all(
@@ -720,6 +756,7 @@ def admitted_data_projection(
     from sqlalchemy import BigInteger, Boolean, Date, DateTime, Float, Numeric, String, cast, column
 
     from .data_operation_bindings import ProjectionBinding, ProjectionField
+    from .data_operation_kind_refinements import input_kind_contracts
 
     operation = model.operation(operation_id)
     # Acquire the exact demand now; execution of the TVF repeats its pin check.
@@ -734,8 +771,10 @@ def admitted_data_projection(
     )
     if acquired["trust_snapshot"] != trust_snapshot:
         raise ValueError("native binding snapshot differs")
-    identities = {(i.owner, i.domain): i.key for i in model.identities}
     kinds = {kind.semantic_id: kind for kind in model.kinds}
+    accepted = input_kind_contracts(
+        model, (role.kind for role in operation.roles if role.direction == "input")
+    )
     names = (
         "product",
         "kind_contract",
@@ -784,7 +823,6 @@ def admitted_data_projection(
     projections = []
     for kind_id in sorted({role.kind for role in operation.roles if role.direction == "input"}):
         kind = kinds[kind_id]
-        contract = identities[kind_id, "kind"]
         fields = [
             ProjectionField(
                 name,
@@ -855,7 +893,25 @@ def admitted_data_projection(
                 expression, value_type = relation.c.body[name], "json"
             selected.append(expression.label(label))
             fields.append(ProjectionField(name, label, value_type))
-        scoped = select(*selected).where(relation.c.kind_contract == contract).subquery()
+        from .data_operation_subjects import subject_field_kind, subject_field_path
+
+        subject_paths = {
+            role.subject_field
+            for role in operation.roles
+            if role.direction == "input"
+            and role.kind == kind_id
+            and role.subject_field is not None
+            and role.subject_field.startswith("/")
+        }
+        for path in sorted(subject_paths):
+            subject_field_kind(kinds, kind_id, path)
+            value = relation.c.meaning_body
+            for name in subject_field_path(path):
+                value = cast(func.data.ddo_field(value, name), JSONB)
+            label = "body_subject_" + str(len(fields))
+            selected.append(value[1].astext.label(label))
+            fields.append(ProjectionField(path, label, "string"))
+        scoped = select(*selected).where(relation.c.kind_contract.in_(accepted[kind_id])).subquery()
         projections.append(
             ProjectionBinding(
                 kind_id,

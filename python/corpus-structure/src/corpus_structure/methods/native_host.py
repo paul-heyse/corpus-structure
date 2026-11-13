@@ -9,20 +9,21 @@ import signal
 import subprocess
 import time
 from concurrent.futures import CancelledError, Future, TimeoutError
-from contextlib import ExitStack, suppress
+from contextlib import ExitStack, contextmanager, suppress
 from dataclasses import dataclass
 from hashlib import sha256
 from queue import Queue
-from threading import BoundedSemaphore, Event, Lock, Thread, current_thread
+from threading import BoundedSemaphore, Condition, Event, Lock, Thread, current_thread
 from uuid import uuid4
 
+from corpus_structure.core.work import PhysicalRetirementUncertain
 from corpus_structure.ingest.pdf_capacity import suspend_resident_nemotron
 
 from .native_profiles import NativeSelection
 from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused, _finite_float, _json_object, _live_group
 
 
-class NativeRetirementUncertain(Pm2WorkerError):
+class NativeRetirementUncertain(Pm2WorkerError, PhysicalRetirementUncertain):
     """The owned host has not established physical retirement after failure."""
 
 
@@ -600,3 +601,157 @@ class NativeHostGroup:
 
     def __exit__(self, *error):
         self.close()
+
+
+class NativeHostResidency:
+    """Reversible residency for independent GPU users in one demand invocation.
+
+    An external GPU borrower drains the actual host generation before acquiring
+    its own existing GPU capacity. New NLP work waits; already accepted calls
+    finish concurrently. No resource is advertised as free on uncertain death.
+    """
+
+    def __init__(self, policy, endpoint=None, *, group_factory=NativeHostGroup):
+        self.policy, self.endpoint = policy, endpoint
+        self._factory = group_factory
+        self._condition = Condition()
+        self._selections = {}
+        self._group = None
+        self._active_calls = 0
+        self._external_waiters = 0
+        self._suspended = False
+        self._served = False
+        self._closed = False
+        self._quarantine = None
+
+    def _check(self):
+        if self._quarantine is not None:
+            raise NativeRetirementUncertain(
+                "GPU residency remains quarantined"
+            ) from self._quarantine
+        if self._closed:
+            raise CancelledError("native residency admission is closed")
+
+    def declare(self, selections):
+        with self._condition:
+            self._check()
+            proposed = dict(self._selections)
+            for selection in selections:
+                key = selection.native.fingerprint
+                old = proposed.get(key)
+                if old is not None and old.identity != selection.identity:
+                    raise Pm2WorkerRefused("native profile has conflicting acquisition locations")
+                if old is None and self._served:
+                    raise Pm2WorkerRefused(
+                        "new native profile was not declared before host serving"
+                    )
+                proposed[key] = selection
+            if proposed == self._selections:
+                return
+            # Reuse the host owner's resident/policy validation before serving.
+            if self._group is None:
+                self._group = self._factory(self.policy, self.endpoint)
+            self._group.declare(tuple(proposed.values()))
+            self._selections = proposed
+
+    @contextmanager
+    def _borrow(self, check_active):
+        with self._condition:
+            while True:
+                self._check()
+                check_active()
+                if not self._suspended and not self._external_waiters:
+                    break
+                self._condition.wait(0.1)
+            if self._group is None:
+                self._group = self._factory(self.policy, self.endpoint)
+                self._group.declare(tuple(self._selections.values()))
+            self._served = True
+            self._active_calls += 1
+            group = self._group
+        try:
+            yield group
+        finally:
+            with self._condition:
+                self._active_calls -= 1
+                self._condition.notify_all()
+
+    def ensure(self, check_active):
+        with self._borrow(check_active) as group:
+            return group.ensure(check_active)
+
+    def startup(self, selection, check_active):
+        self.declare((selection,))
+        with self._borrow(check_active) as group:
+            return group.startup(selection, check_active)
+
+    def infer(self, selection, payload, check_active, *, timeout=120.0):
+        self.declare((selection,))
+        with self._borrow(check_active) as group:
+            return group.infer(selection, payload, check_active, timeout=timeout)
+
+    def infer_result(self, selection, payload, check_active, *, timeout=120.0):
+        self.declare((selection,))
+        with self._borrow(check_active) as group:
+            return group.infer_result(selection, payload, check_active, timeout=timeout)
+
+    @contextmanager
+    def external_gpu(self, check_active):
+        with self._condition:
+            self._external_waiters += 1
+            try:
+                while True:
+                    self._check()
+                    check_active()
+                    if not self._suspended and not self._active_calls:
+                        break
+                    self._condition.wait(0.1)
+                self._suspended = True
+                group = self._group
+            finally:
+                self._external_waiters -= 1
+                self._condition.notify_all()
+        try:
+            if group is not None:
+                group.close()
+                with self._condition:
+                    self._group = None
+            check_active()
+            yield
+        except BaseException as error:
+
+            def uncertain(failure):
+                return isinstance(failure, PhysicalRetirementUncertain) or (
+                    isinstance(failure, BaseExceptionGroup)
+                    and any(uncertain(child) for child in failure.exceptions)
+                )
+
+            # A failed close retains ownership even when its exception did not
+            # originate in a provider (for example, transport owner timeout).
+            with self._condition:
+                if self._group is not None or uncertain(error):
+                    self._quarantine = error
+            raise
+        finally:
+            with self._condition:
+                self._suspended = False
+                self._condition.notify_all()
+
+    def close(self):
+        with self._condition:
+            self._closed = True
+            self._condition.notify_all()
+            deadline = time.monotonic() + 330
+            while self._suspended:
+                if time.monotonic() >= deadline:
+                    raise NativeRetirementUncertain("external GPU borrower did not retire")
+                self._condition.wait(0.1)
+            group = self._group
+        if group is not None:
+            group.close()
+            with self._condition:
+                self._group = None
+        if self._quarantine is not None:
+            raise NativeRetirementUncertain(
+                "GPU residency remains quarantined"
+            ) from self._quarantine

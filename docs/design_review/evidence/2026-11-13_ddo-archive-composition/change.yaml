@@ -1,0 +1,20 @@
+baseline: 8ba6634e7
+packs: [statistics]
+native_predecessor: semantic_ddo_original_v1
+native_revision: semantic_ddo_archive_v1
+deployment: true
+deployment_profile: development
+retire:
+  - kind: function
+    schema: sem
+    name: publish_release_archive
+    arguments: [jsonb]
+  - kind: function
+    schema: ops
+    name: pdf_check_build_inventory
+    arguments: [text, text, bigint]
+recreate:
+  - kind: function
+    schema: ops
+    name: require_pdf_stage_owner
+    arguments: [bigint, bigint, text]

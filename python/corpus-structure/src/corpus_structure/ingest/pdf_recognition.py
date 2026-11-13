@@ -20,6 +20,8 @@ from pathlib import Path
 from threading import Event, Lock
 from typing import Any, Literal
 
+from corpus_structure.core.work import PhysicalRetirementUncertain
+
 from ..semantic.identity import canonical_bytes
 from .pdf_capacity import pdf_gpu_slot
 
@@ -508,13 +510,24 @@ class RecognitionWorker:
         process = self._process
         if process is None:
             return
-        if process.poll() is None:
-            os.killpg(process.pid, signal.SIGTERM)
+        try:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGTERM)
+                try:
+                    process.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.wait(timeout=5)
+        except BaseException as error:
             try:
-                process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGKILL)
-                process.wait(timeout=5)
+                unproven = process.poll() is None
+            except BaseException:
+                unproven = True
+            if unproven:
+                raise PhysicalRetirementUncertain(
+                    "recognition worker retirement remains unproven"
+                ) from error
+            raise
         self._process = None
 
     def recognize_pages(
