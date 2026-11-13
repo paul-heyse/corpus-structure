@@ -1138,11 +1138,16 @@ class ClosedPythonSources:
                         if candidate.source == QualifiedNameSource.BUILTIN:
                             kinds.add("builtin")
                             continue
-                        target = (candidate.name if candidate.source == QualifiedNameSource.IMPORT
-                                  else module_name + "." + candidate.name)
+                        target = (
+                            candidate.name
+                            if candidate.source == QualifiedNameSource.IMPORT
+                            else module_name + "." + candidate.name
+                        )
                         if ".<locals>." in target:
                             scope = module.scopes.get(expression)
-                            accesses = [a for a in scope.accesses if a.node is expression] if scope else []
+                            accesses = (
+                                [a for a in scope.accesses if a.node is expression] if scope else []
+                            )
                             referents = {r for a in accesses for r in a.referents}
                             if len(referents) != 1:
                                 kinds.add("unknown")
@@ -1154,7 +1159,10 @@ class ClosedPythonSources:
                             parent = module.parent_nodes.get(declaration)
                             if isinstance(parent, cst.AssignTarget):
                                 parent = module.parent_nodes.get(parent)
-                            if isinstance(parent, (cst.Assign, cst.AnnAssign)) and parent.value is not None:
+                            if (
+                                isinstance(parent, (cst.Assign, cst.AnnAssign))
+                                and parent.value is not None
+                            ):
                                 kind, refs = expression_binding(parent.value, active)
                                 kinds.add(kind)
                                 targets.extend(refs)
@@ -1170,7 +1178,9 @@ class ClosedPythonSources:
                             targets.append(target)
                             continue
                         definition = self.definitions.get(target)
-                        if definition is not None and isinstance(definition[1], (cst.Assign, cst.AnnAssign)):
+                        if definition is not None and isinstance(
+                            definition[1], (cst.Assign, cst.AnnAssign)
+                        ):
                             kind, refs = expression_binding(definition[1].value, active)
                             kinds.add(kind)
                             targets.extend(refs)
@@ -1180,14 +1190,23 @@ class ClosedPythonSources:
                         except PreparationError:
                             kinds.add("unknown")
                         else:
-                            kinds.add("class" if isinstance(obj, griffe.Class) else
-                                      "callable" if isinstance(obj, griffe.Function) else "value")
+                            kinds.add(
+                                "class"
+                                if isinstance(obj, griffe.Class)
+                                else "callable"
+                                if isinstance(obj, griffe.Function)
+                                else "value"
+                            )
                             targets.append(obj.path)
                     if expression.value in {"self", "cls"} and isinstance(receiver, griffe.Class):
                         return "class", (exposed,)
                     if not kinds:
-                        return ("value", ()) if expression.value in bound_inputs else ("unknown", ())
-                    return (next(iter(kinds)), tuple(targets)) if len(kinds) == 1 else ("unknown", ())
+                        return (
+                            ("value", ()) if expression.value in bound_inputs else ("unknown", ())
+                        )
+                    return (
+                        (next(iter(kinds)), tuple(targets)) if len(kinds) == 1 else ("unknown", ())
+                    )
                 if isinstance(expression, cst.Attribute):
                     kind, targets = expression_binding(expression.value, active)
                     if kind == "opaque":
@@ -1202,10 +1221,22 @@ class ClosedPythonSources:
                                 obj = self.resolve(member)
                             except PreparationError:
                                 return "unknown", ()
-                            results.append(("class" if isinstance(obj, griffe.Class) else
-                                            "callable" if isinstance(obj, griffe.Function) else "value", obj.path))
+                            results.append(
+                                (
+                                    "class"
+                                    if isinstance(obj, griffe.Class)
+                                    else "callable"
+                                    if isinstance(obj, griffe.Function)
+                                    else "value",
+                                    obj.path,
+                                )
+                            )
                         categories = {k for k, _ in results}
-                        return (next(iter(categories)), tuple(t for _, t in results)) if len(categories) == 1 else ("unknown", ())
+                        return (
+                            (next(iter(categories)), tuple(t for _, t in results))
+                            if len(categories) == 1
+                            else ("unknown", ())
+                        )
                     return ("value", ()) if kind == "value" else ("unknown", ())
                 if isinstance(expression, cst.Call):
                     kind, targets = expression_binding(expression.func, active)
@@ -1237,18 +1268,34 @@ class ClosedPythonSources:
                         )
                     if module.contexts.get(node) == ExpressionContext.LOAD:
                         kind, _ = expression_binding(node)
-                        allowed = (isinstance(parent, cst.Attribute) and parent.value is node) or (
-                            isinstance(parent, cst.Call) and parent.func is node
-                        ) or (isinstance(parent, (cst.Assign, cst.AnnAssign)) and parent.value is node)
+                        allowed = (
+                            (isinstance(parent, cst.Attribute) and parent.value is node)
+                            or (isinstance(parent, cst.Call) and parent.func is node)
+                            or (
+                                isinstance(parent, (cst.Assign, cst.AnnAssign))
+                                and parent.value is node
+                            )
+                        )
                         ancestor_for_use = parent
-                        while ancestor_for_use is not None and not isinstance(ancestor_for_use, (cst.SimpleStatementLine, cst.FunctionDef)):
+                        while ancestor_for_use is not None and not isinstance(
+                            ancestor_for_use, (cst.SimpleStatementLine, cst.FunctionDef)
+                        ):
                             if isinstance(ancestor_for_use, cst.Annotation):
                                 allowed = True
                                 break
                             ancestor_for_use = module.parent_nodes.get(ancestor_for_use)
-                        if kind in {"callable", "class", "module", "opaque"} and not allowed and not isinstance(parent, cst.Arg):
-                            unknowns.add(SourceUnknown(path, location,
-                                "callable/object escape requires an admitted use model"))
+                        if (
+                            kind in {"callable", "class", "module", "opaque"}
+                            and not allowed
+                            and not isinstance(parent, cst.Arg)
+                        ):
+                            unknowns.add(
+                                SourceUnknown(
+                                    path,
+                                    location,
+                                    "callable/object escape requires an admitted use model",
+                                )
+                            )
                     relation = "resolved_definition"
                     ancestor = parent
                     while ancestor is not None:
@@ -1276,17 +1323,30 @@ class ClosedPythonSources:
                         reference(path, target, relation, location)
 
                 def visit_Attribute(self, node: cst.Attribute) -> None:
-                    if module.contexts.get(node) in {ExpressionContext.STORE, ExpressionContext.DEL}:
+                    if module.contexts.get(node) in {
+                        ExpressionContext.STORE,
+                        ExpressionContext.DEL,
+                    }:
                         receiver_kind, _ = expression_binding(node.value)
                         if receiver_kind in {"callable", "class", "module", "opaque"}:
-                            unknowns.add(SourceUnknown(path, location,
-                                "captured object mutation requires an admitted model"))
+                            unknowns.add(
+                                SourceUnknown(
+                                    path,
+                                    location,
+                                    "captured object mutation requires an admitted model",
+                                )
+                            )
                     if module.contexts.get(node) == ExpressionContext.LOAD:
                         kind, targets = expression_binding(node)
                         if kind == "unknown":
-                            unknowns.add(SourceUnknown(path, location,
-                                "unsupported observable attribute access "
-                                + module.wrapper.module.code_for_node(node)))
+                            unknowns.add(
+                                SourceUnknown(
+                                    path,
+                                    location,
+                                    "unsupported observable attribute access "
+                                    + module.wrapper.module.code_for_node(node),
+                                )
+                            )
                         for target in targets:
                             reference(path, target, "implementation_determinant", location)
                     if (
@@ -1325,6 +1385,7 @@ class ClosedPythonSources:
                                 "callback-bearing key argument requires an admitted argument model",
                             )
                         )
+
                     class ArgumentUses(cst.CSTVisitor):
                         def visit_Call(self, value):
                             # The nested call has its own argument admission below;
@@ -1334,8 +1395,13 @@ class ClosedPythonSources:
                         def visit_Attribute(self, value):
                             kind, _ = expression_binding(value)
                             if kind in {"callable", "class", "module", "opaque"}:
-                                unknowns.add(SourceUnknown(path, location,
-                                    "callable/object escape requires an admitted argument model"))
+                                unknowns.add(
+                                    SourceUnknown(
+                                        path,
+                                        location,
+                                        "callable/object escape requires an admitted argument model",
+                                    )
+                                )
                             return False
 
                         def visit_Name(self, value):
@@ -1346,8 +1412,14 @@ class ClosedPythonSources:
                                 # Class predicates have an explicit, nonescaping type argument.
                                 if text in {"isinstance", "issubclass"} and kind == "class":
                                     return
-                                unknowns.add(SourceUnknown(path, location,
-                                    "callable/object escape requires an admitted argument model"))
+                                unknowns.add(
+                                    SourceUnknown(
+                                        path,
+                                        location,
+                                        "callable/object escape requires an admitted argument model",
+                                    )
+                                )
+
                     for argument in node.args:
                         argument.value.visit(ArgumentUses())
                     if isinstance(expression, cst.Name):
@@ -1373,7 +1445,10 @@ class ClosedPythonSources:
                                     )
                                 )
                         local_kind, local_targets = expression_binding(expression)
-                        if any(".<locals>." in candidate.name for candidate in candidates) and local_kind != "callable":
+                        if (
+                            any(".<locals>." in candidate.name for candidate in candidates)
+                            and local_kind != "callable"
+                        ):
                             unknowns.add(
                                 SourceUnknown(
                                     path,
@@ -1437,8 +1512,11 @@ class ClosedPythonSources:
                         elif first not in {"self", "cls"} and first not in bound_inputs:
                             kind, targets = expression_binding(expression)
                             if kind not in {"opaque", "callable"}:
-                                unknowns.add(SourceUnknown(path, location,
-                                    "unsupported member dispatch " + text))
+                                unknowns.add(
+                                    SourceUnknown(
+                                        path, location, "unsupported member dispatch " + text
+                                    )
+                                )
                             for target in targets:
                                 reference(path, target, "possible_call", location)
                     else:

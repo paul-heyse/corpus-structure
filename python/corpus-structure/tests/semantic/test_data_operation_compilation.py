@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from corpus_structure.semantic.data_operation_model import SubjectContext
-
 import json
 from dataclasses import replace
 from pathlib import Path
@@ -22,6 +20,7 @@ from corpus_structure.semantic.data_operation_model import (
     BoundRoleMember,
     ResolvedOperationBinding,
     ResolvedRoleBinding,
+    SubjectContext,
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.prepare import prepare_release
@@ -417,7 +416,9 @@ def resolved_binding(model, *, episodes=("episode-a",), witness=None):
         canonical_bytes({"permission": "admitted"}),
         canonical_bytes({"trust": "selected"}),
         "execution:one",
-        subject_context=SubjectContext("project:test", "subject:one", "original:one", b'{"start":1,"end":2}'),
+        subject_context=SubjectContext(
+            "project:test", "subject:one", "original:one", b'{"start":1,"end":2}'
+        ),
     )
 
 
@@ -1216,54 +1217,75 @@ def test_source_set_policy_is_owned_typed_and_part_of_definition():
     with pytest.raises(PreparationError, match="explicit owned"):
         compile_data_operations(schema_bundle(), declarations=declarations(value))
 
-@pytest.mark.parametrize('body,extra', [
-    ('return derive.__code__.co_firstlineno', ''),
-    ('alias = derive\n    return alias.__code__.co_firstlineno', ''),
-    ('return alias.__code__.co_firstlineno', 'alias=derive\n'),
-    ('return helper(x)', 'def helper(x): return derive.__code__.co_firstlineno\n'),
-    ('return str(derive)', ''),
-    ('return str(produce())', 'def produce(): return derive\n'),
-    ('alias = derive.__code__\n    return alias.co_firstlineno', ''),
-    ('return consume(derive)', 'def consume(value): return str(value)\n'),
-])
+
+@pytest.mark.parametrize(
+    "body,extra",
+    [
+        ("return derive.__code__.co_firstlineno", ""),
+        ("alias = derive\n    return alias.__code__.co_firstlineno", ""),
+        ("return alias.__code__.co_firstlineno", "alias=derive\n"),
+        ("return helper(x)", "def helper(x): return derive.__code__.co_firstlineno\n"),
+        ("return str(derive)", ""),
+        ("return str(produce())", "def produce(): return derive\n"),
+        ("alias = derive.__code__\n    return alias.co_firstlineno", ""),
+        ("return consume(derive)", "def consume(value): return str(value)\n"),
+    ],
+)
 def test_observable_captured_object_access_withholds_reusable_identity(body, extra):
     source = operation_source(body, extra=extra)
-    for prefix in ('', '\n\n'):
+    for prefix in ("", "\n\n"):
         model = compile_data_operations(python_sources=python_inputs(prefix + source))
         assert not model.implementation_slices[0].complete
-        assert not any(item.domain == 'recipe' for item in model.identities)
-        assert any('attribute access' in u.reason or 'escape' in u.reason
-                   for u in model.implementation_slices[0].unknowns)
+        assert not any(item.domain == "recipe" for item in model.identities)
+        assert any(
+            "attribute access" in u.reason or "escape" in u.reason
+            for u in model.implementation_slices[0].unknowns
+        )
 
 
 def test_closed_local_helper_alias_retains_supplying_dependency():
-    model = compile_data_operations(python_sources=python_inputs(
-        operation_source('alias = helper\n    return alias(x)')))
+    model = compile_data_operations(
+        python_sources=python_inputs(operation_source("alias = helper\n    return alias(x)"))
+    )
     assert model.implementation_slices[0].complete
-    assert 'python:example.helper' in {n.id for n in model.implementation_slices[0].nodes}
+    assert "python:example.helper" in {n.id for n in model.implementation_slices[0].nodes}
 
 
 def test_nested_boundary_argument_does_not_authorize_outer_receiver():
-    value = contract(opaque=[{'reference': 'provider', 'contract': 'provider-rule-v1',
-                              'role': 'semantic-algorithm'}])
-    code = 'import provider\n' + operation_source(
-        'return factory(provider).hidden(x)', metadata=value,
-        extra='def factory(value): return value\n')
-    model = compile_data_operations(python_sources=python_inputs(code, boundaries=(
-        SourceArtifact('provider-rule-v1', b'closed-provider'),)))
+    value = contract(
+        opaque=[
+            {"reference": "provider", "contract": "provider-rule-v1", "role": "semantic-algorithm"}
+        ]
+    )
+    code = "import provider\n" + operation_source(
+        "return factory(provider).hidden(x)",
+        metadata=value,
+        extra="def factory(value): return value\n",
+    )
+    model = compile_data_operations(
+        python_sources=python_inputs(
+            code, boundaries=(SourceArtifact("provider-rule-v1", b"closed-provider"),)
+        )
+    )
     assert not model.implementation_slices[0].complete
-    assert any('unsupported member dispatch' in u.reason or 'attribute access' in u.reason
-               for u in model.implementation_slices[0].unknowns)
+    assert any(
+        "unsupported member dispatch" in u.reason or "attribute access" in u.reason
+        for u in model.implementation_slices[0].unknowns
+    )
 
 
 def test_captured_callable_mutation_cannot_be_reusable():
-    model = compile_data_operations(python_sources=python_inputs(
-        operation_source('derive.marker = x\n    return x')))
+    model = compile_data_operations(
+        python_sources=python_inputs(operation_source("derive.marker = x\n    return x"))
+    )
     assert not model.implementation_slices[0].complete
-    assert any('captured object mutation' in u.reason for u in model.implementation_slices[0].unknowns)
+    assert any(
+        "captured object mutation" in u.reason for u in model.implementation_slices[0].unknowns
+    )
 
 
 def test_nested_closed_calls_do_not_count_as_callable_escape():
-    model = compile_data_operations(python_sources=python_inputs(
-        operation_source('return int(helper(x))')))
+    model = compile_data_operations(
+        python_sources=python_inputs(operation_source("return int(helper(x))"))
+    )
     assert model.implementation_slices[0].complete
