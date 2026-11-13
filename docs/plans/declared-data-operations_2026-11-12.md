@@ -863,27 +863,53 @@ capability triggers. Audit authorization publishes this corrected account, not t
 
 ## Audit repair execution · 2026-11-13
 
-**Implemented; integrated qualification open.** Execution of DDO-CA-01–05 and the remaining
-DDO-03–05 scope is authorized. ADR-0100 records explicit qualified subject context through
-request and product identity; the accepted tagged encoding and frozen historical meanings stay
-unchanged. The native replay/purpose/context repairs and concrete-kind attachment correction
-are integrated at `94eaa0ca6`; native qualification awaits the normal frozen successor.
+**Implemented / qualification in progress.** The current operator-selected execution closes
+DDO-CA-01–05 and remaining DDO-03–05. It does not imply completion of DDO-06–12. ADR-0100
+owns complete subject context through binding, request and product identity: project, local
+subject, original source and analyzed scope. Scope JSON numbers retain JSONB decimal value
+meaning; bool, string and null remain distinct. Typed semantic parameters and result bodies
+retain their existing tagged meanings and encoding version.
 
-DDO-CA-03 now checks exact batch-member claims during physical work, continues with authorized
-siblings and enters existing bounded retirement when none remains. Unknown completion custody
-is preserved separately. `uv run ci test --workers 2 --json --` selecting
-`test_data_operation_batch_activity.py` **passed 3/3**, `8efecb9296e1459ca10a66fdd2191bcb`,
-including actual spawned hung-call retirement. The broader CPU/activity selection **passed 9/9**,
-`515f429636594afe8aa5cf6c99b64675`; subsequent activity controls passed 3/3,
-`3d5fdbacb3de4c83b9f1a9b6fb100cd6`. Receipts are retained under their own evidence folders.
-Pyrefly **passed**, `b4c72849ba294940bb92c7c362153e9c`, after repairing the initial test-only
-narrowing diagnostic `eb039c2a1d224b0eaec44778961f253d`. Later integrated source needs its
-applicable diagnostics. No full package/finding closure follows from these local passes.
+The assembled implementation now includes:
 
-Source-analysis, native/demand and port/consumer work is isolated on three implementation
-branches. Root owns shared integration, final source qualification and rollback-only candidate
-registration. No persistent deployment or activation is performed; DDO-11 remains the adoption
-owner. Remaining scope stays in the existing package and completion-audit rows above.
+- Qualified source-reference and escape classification using captured LibCST/Astroid/Griffe
+  facts. Unsupported function/class reflection withholds a reusable recipe; known data fields
+  and explicit opaque provider bridges retain their appropriate profiles. Generated dataclass
+  invocation preserves the real signature, keyword-only/default/factory facts and strict ingress;
+  runtime acquisition must authenticate the generated constructor and its admitted methods.
+- Explicit context in resolved bindings and all migrated product families. Native request and
+  product keys use that same qualified context; discovery association uses typed JSON meaning.
+  Local subject headers and original producer/support evidence remain independently retained.
+- Native post-lock exact-receipt replay, protected-purpose checks for fate/expansion/revocation
+  and pending/zero-output reads, and complete target checks for broad revocation selectors.
+- Batch activity checks that retain useful siblings, distinguish uncertain completion custody
+  and retire/drain physical work when every claim is lost. The actual hung-process controls
+  **passed 3/3**, `8efecb9296e1459ca10a66fdd2191bcb`; broader CPU/activity **passed 9/9**,
+  `515f429636594afe8aa5cf6c99b64675`.
+- Pull-stream closure, prepared-resource ownership, receipt-bearing native command acquisition,
+  and exact native hydration for the four required immediate consumer forms. Python normal
+  returns and prepared-family completions select the declared unambiguous successful outcome;
+  `claim_source_item` keeps its actual `addressed`/`invalid-index` contract.
+- Native admitted discovery, child expansion, closed fan-in, explicit dependency selection,
+  support substitution/invalid-intent generation recovery and pinned continuation controls.
+  Runtime/native evidence is required before their package obligations close.
+
+**Intermediate assembled checks · 2026-11-13:** the focused compiler/source/port/consumer/CPU
+selection **passed 253/253**, `c225794b38e045c795ffc06652d76365`. Port/outcome checks
+**passed 45/45**, `36dd61a1360345d1acab4eae517003e1`; prepared product families **passed
+56/56**, `5d8aad0f951641ee896ed84be7fb9f7f`; typed population association **passed 13/13**,
+`04adbe5a99444fca9e8e4baa9dc47bf8`. Pyrefly **passed**,
+`dc7d241a477640be90133991f47bc23b`. Subsequent source/context refinements require affected
+reassessment; these receipts retain their original selections and are not final qualification.
+
+The never-deployed archive-v1 registration failed clean migration replay because its predecessor
+collector omitted schema-wide grants from frozen Python wrappers. The files remain unchanged
+in [authoring evidence](../design_review/evidence/2026-11-13_ddo-archive-composition/README.md),
+outside the active Alembic path. Corrected clean predecessor acquisition **passed 7/7**,
+`947ec01d14064464ac4dc1b23b9932de`. Normal rollback-only authoring targets archive-v2;
+registration then enables the actual native publication, consumer, discovery/recovery and
+production-callable journeys. The persistent development database remains at
+`semantic_bep_located_v2`; DDO-11 owns deployment/adoption/activation.
 
 ## Completion and current next action
 
