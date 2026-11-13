@@ -459,6 +459,14 @@ class ClosedPythonSources:
             if isinstance(statement, cst.SimpleStatementLine):
                 for small in statement.body:
                     if isinstance(small, cst.AnnAssign) and isinstance(small.target, cst.Name):
+                        name = small.target.value
+                        if name == "__data_operation__" or name.endswith("__data_operation__"):
+                            owner = prefix if name == "__data_operation__" else prefix + "." + name.removesuffix("__data_operation__")
+                            if owner in self.metadata or small.value is None:
+                                _fail(owner, "operation metadata requires one literal value")
+                            self.metadata[owner] = _literal(module.wrapper.module, small.value, owner)
+                            self.metadata_lines[owner] = module.positions[small].start.line
+                            continue
                         assignment_path = prefix + "." + small.target.value
                         self.definitions[assignment_path] = (module.source.module, small)
                         self.parents[assignment_path] = prefix
@@ -760,6 +768,17 @@ class ClosedPythonSources:
                 )
                 for s in surfaces
             )
+            # Asset custody uses only the same explicitly supplied immutable contracts
+            # as opaque implementation boundaries; a name is never ambient authority.
+            if "assets" in metadata:
+                metadata["assets"] = [
+                    {
+                        **asset,
+                        **({"content_digest": self.boundary_contracts[asset["contract"]].digest}
+                           if asset.get("content_digest") is None and asset.get("contract") in self.boundary_contracts else {}),
+                    }
+                    for asset in metadata["assets"]
+                ]
             boundaries = tuple(
                 OpaqueBoundary(**boundary) for boundary in metadata.get("opaque", ())
             )

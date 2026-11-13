@@ -1,0 +1,55 @@
+id: https://corpus-structure.dev/semantic/data-operation-source
+name: data_operation_source
+prefixes:
+  dsn: https://corpus-structure.dev/semantic/data-operation-source/
+  xsd: http://www.w3.org/2001/XMLSchema#
+default_prefix: dsn
+default_range: string
+classes:
+  DdoNativeSourceCoordinate:
+    is_a: SourceRecordProduct
+    description: Semantic source identity and original projection coordinates; physical run/view custody is separate.
+    attributes:
+      document: {required: true, pattern: '^.+$'}
+      section_pointer: {required: true, pattern: '^.+$'}
+      membership: {required: true, pattern: '^(direct|descendants)$'}
+      projection: {required: true, pattern: '^[0-9a-f]{64}$'}
+  DdoNativeSourcePiece:
+    is_a: SourceRecordProduct
+    attributes:
+      kind: {required: true, pattern: '^(native_text|synthetic_separator)$'}
+      start: {range: integer, required: true, minimum_value: 0}
+      end: {range: integer, required: true, minimum_value: 0}
+      item_ref: {}
+      source_field: {}
+      cell_index: {range: integer, minimum_value: 0}
+  DdoNativeSourcePage:
+    is_a: SourceRecordProduct
+    attributes:
+      page_no: {range: integer, required: true, minimum_value: 1}
+  DdoNativeSourceAtom:
+    is_a: SourceRecordProduct
+    attributes:
+      self_ref: {required: true, pattern: '^.+$'}
+      label: {required: true, pattern: '^.+$'}
+      text: {}
+      orig: {}
+      parent: {}
+      prov: {range: DdoNativeSourcePage, inlined: true, multivalued: true}
+  DdoNativeSourceRecognition:
+    is_a: SourceRecordProduct
+    attributes:
+      pointer: {required: true, pattern: '^.+$'}
+      outcome: {required: true, pattern: '^.+$'}
+  DdoSelectedNativeSource:
+    annotations:
+      cs:data_universe: source
+    is_a: SourceRecordProduct
+    description: Already selected source facts and exact examined-scope request, with no reader or ambient selection capability.
+    attributes:
+      source: {range: DdoNativeSourceCoordinate, inlined: true, required: true}
+      text: {required: true}
+      pieces: {range: DdoNativeSourcePiece, inlined: true, multivalued: true, minimum_cardinality: 0}
+      items: {range: DdoNativeSourceAtom, inlined: true, multivalued: true, minimum_cardinality: 0}
+      recognition: {range: DdoNativeSourceRecognition, inlined: true, multivalued: true}
+      selectors: {range: CharacterizationSourceSelector, inlined: true, multivalued: true, required: true, minimum_cardinality: 1}
