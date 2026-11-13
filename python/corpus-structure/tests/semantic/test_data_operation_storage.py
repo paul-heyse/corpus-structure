@@ -152,6 +152,14 @@ def _consumer_declaration() -> dict[str, Any]:
     return value
 
 
+def _value_consumer_declaration():
+    value = _consumer_declaration()
+    value["id"] = "urn:ddo-test:value-consumer"
+    value["dependencies"] = ["urn:ddo-test:sample"]
+    value["roles"][0]["support"].update(provenance="value_substitution", identity_requirements=[])
+    return value
+
+
 @pytest.fixture
 def ddo_kernel_engine(native_server, semantic_head_template):
     name = "cs_ddo_case_" + uuid4().hex[:12]
@@ -194,6 +202,7 @@ classes:
                     _declaration(),
                     _sample_declaration(),
                     _consumer_declaration(),
+                    _value_consumer_declaration(),
                     _set_declaration(),
                     _evaluator_declaration(),
                 ],
@@ -1882,3 +1891,82 @@ def test_registration_rejects_forged_selected_graph_with_authentic_node_identiti
             "project_id": "ddo-test", "release_id": kernel["prepared"].release_id,
             "runtime_id": kernel["runtime"], "root": frozen["roots"], "selection": frozen, "strength": "value",
         })
+
+
+@pytest.mark.parametrize("uncommitted_intent", [False, True])
+def test_native_planner_rebinds_equal_support_or_replaces_invalid_retained_generation(kernel, uncommitted_intent):
+    from corpus_structure.semantic.data_operation_demands import DemandPlanner
+    targets = ("urn:ddo-test:value-consumer",)
+    demand, _, _, source_request = attach(kernel, operation="urn:ddo-test:sample", targets=targets)
+    sample_kind = next(identity.key for identity in kernel["model"].identities if identity.domain == "kind" and any(kind.semantic_id == identity.owner and kind.name == "Sample" for kind in kernel["model"].kinds))
+    def sample_output(completion):
+        completion["outputs"][0]["product"].update(kind_contract=sample_kind, body=semantic_value({"value": 15}))
+    source_fence = claim(kernel, source_request)
+    original_source = publish(kernel, source_fence, retain(kernel, source_fence, mutate=sample_output))
+    with kernel["engine"].begin() as connection:
+        planner = DemandPlanner(kernel["model"], DataOperationStorage(connection))
+        # Register the declared target obligation through the ordinary planner.
+        planner.storage.invoke("expand_data_obligation", {"demand_id": demand["demand_id"], "operation_id": "urn:ddo-test:value-consumer", "subject": "subject:one", "original_source": "source:test", "analyzed_scope": {"page": 1}, "parameters": {}})
+        ready = planner.ready(planner.resume(demand["demand_id"]), authorization=b"{}")
+        assert len(ready) == 1 and ready[0].operation == "urn:ddo-test:value-consumer"
+        consumer = ready[0]
+        consumer_native = json.loads(consumer.native)
+        consumer_binding = json.loads(consumer.binding)
+    consumer_fence = claim(kernel, consumer_native)
+    def consumer_inputs(completion):
+        completion.update(inputs=consumer_binding["inputs"], support=consumer_binding["support"])
+    original_intent = retain(kernel, consumer_fence, mutate=consumer_inputs)
+    original_receipt = None if uncommitted_intent else publish(kernel, consumer_fence, original_intent)
+    with kernel["engine"].begin() as connection:
+        DataOperationStorage(connection).invoke("revoke_data_support", {"project_id": "ddo-test", "original_source": "source:test", "selector_kind": "derivation", "selector": original_source["derivation_id"], "reason": "replace an invalid upstream observation"})
+    # A new authentic upstream episode produces the exact same semantic value.
+    _, _, _, replacement_source = attach(kernel, operation="urn:ddo-test:sample", targets=targets)
+    assert replacement_source["generation"] == source_request["generation"] + 1
+    replacement_fence = claim(kernel, replacement_source)
+    replacement_receipt = publish(kernel, replacement_fence, retain(kernel, replacement_fence, mutate=sample_output))
+    with kernel["engine"].begin() as connection:
+        planner = DemandPlanner(kernel["model"], DataOperationStorage(connection))
+        snapshot = planner.resume(demand["demand_id"])
+        if uncommitted_intent:
+            with connection.begin_nested() as savepoint:
+                with pytest.raises(DBAPIError, match="active|lease|invalid"):
+                    planner.ready(snapshot, authorization=b"{}")
+                savepoint.rollback()
+            connection.execute(text("UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' WHERE id=:id"), {"id": consumer_fence["task_id"]})
+            updated = planner.ready(planner.resume(demand["demand_id"]), authorization=b"{}")
+            assert len(updated) == 1
+            new_request = json.loads(updated[0].native)
+            assert new_request["request_id"] == consumer_native["request_id"]
+            assert new_request["generation"] == consumer_native["generation"] + 1
+            assert new_request["action"] == "compute"
+            old = planner.storage.invoke("inspect_data_completion", {"request_id": consumer_native["request_id"], "generation": consumer_native["generation"], "intent_id": original_intent["intent_id"]})
+            assert old["state"] == "known-uncommitted" and old["intent_retained"]
+        else:
+            previous = next(use for use in snapshot["uses"] if use["request_id"] == consumer_native["request_id"])
+            assert previous["rebind_derivation"] == original_receipt["derivation_id"]
+            assert planner.ready(snapshot, authorization=b"{}") == ()
+            assert consumer_native["request_id"] in planner.fulfilled_request_ids
+            after = planner.resume(demand["demand_id"])
+            use = next(use for use in after["uses"] if use["request_id"] == consumer_native["request_id"])
+            assert use["fate"] == "fulfilled" and use["derivation_id"] == original_receipt["derivation_id"]
+            assert any(item.get("derivation_id") == replacement_receipt["derivation_id"] for item in use["selection"]["support"])
+            assert connection.execute(text("SELECT count(*) FROM ops.data_derivation WHERE request_id=:id"), {"id": consumer_native["request_id"]}).scalar_one() == 1
+    if uncommitted_intent:
+        with pytest.raises(DBAPIError, match="stale|fence"):
+            publish(kernel, consumer_fence, original_intent)
+
+
+def test_native_subject_context_json_meaning_has_independent_literal_vectors(ddo_kernel_engine):
+    vectors = [
+        ("null", ["null"]), ("true", ["boolean", True]),
+        ('"1"', ["string", "1"]), ("1", ["decimal", "1"]),
+        ("1.0", ["decimal", "1"]), ("1e6", ["decimal", "1000000"]),
+        ("-0.0", ["decimal", "0"]),
+        ('{"page":1,"slots":[false,"x",null]}', ["mapping", [
+            ["page", ["decimal", "1"]],
+            ["slots", ["sequence", [["boolean", False], ["string", "x"], ["null"]]]],
+        ]]),
+    ]
+    with ddo_kernel_engine.connect() as connection:
+        for value, expected in vectors:
+            assert connection.execute(text("SELECT data.ddo_json_meaning(CAST(:value AS jsonb))"), {"value": value}).scalar_one() == expected

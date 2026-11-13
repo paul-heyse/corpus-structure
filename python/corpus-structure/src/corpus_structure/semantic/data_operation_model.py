@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
+from decimal import Decimal
 from typing import Literal
 
 from .data_operation_support import (
@@ -520,6 +521,12 @@ class SubjectContext:
         return {"project_id": self.project_id, "subject": self.subject,
                 "original_source": self.original_source,
                 "analyzed_scope": json.loads(self.analyzed_scope)}
+
+    @property
+    def identity_record(self) -> dict:
+        """JSONB scope numbers have decimal value semantics, unlike typed inputs."""
+        return {**self.record, "analyzed_scope": json.loads(
+            self.analyzed_scope, parse_int=Decimal, parse_float=Decimal)}
 
 
 @dataclass(frozen=True)

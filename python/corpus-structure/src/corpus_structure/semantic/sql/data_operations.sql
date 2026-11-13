@@ -48,6 +48,28 @@ BEGIN
  END IF;
  RAISE EXCEPTION 'invalid or unsupported DDO semantic tag %',tag USING ERRCODE='23514';
 END $$;
+CREATE OR REPLACE FUNCTION data.ddo_json_meaning(value jsonb) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+DECLARE result jsonb;
+BEGIN
+ -- Only JSON-valued subject context uses this encoder. Typed operation values
+ -- continue through ddo_normalize with their explicit integer/float/etc tags.
+ CASE jsonb_typeof(value)
+ WHEN 'null' THEN RETURN jsonb_build_array('null');
+ WHEN 'boolean' THEN RETURN jsonb_build_array('boolean',value);
+ WHEN 'string' THEN RETURN jsonb_build_array('string',value);
+ WHEN 'number' THEN RETURN jsonb_build_array('decimal',data.decimal_canonical(value#>>'{}'));
+ WHEN 'array' THEN
+ SELECT coalesce(jsonb_agg(data.ddo_json_meaning(item) ORDER BY ordinal),'[]') INTO result
+ FROM jsonb_array_elements(value) WITH ORDINALITY entry(item,ordinal);
+ RETURN jsonb_build_array('sequence',result);
+ WHEN 'object' THEN
+ SELECT coalesce(jsonb_agg(jsonb_build_array(name,data.ddo_json_meaning(item)) ORDER BY name COLLATE "C"),'[]') INTO result
+ FROM jsonb_each(value) entry(name,item);
+ RETURN jsonb_build_array('mapping',result);
+ ELSE RAISE EXCEPTION 'unsupported JSON context value';
+ END CASE;
+END $$;
 CREATE OR REPLACE FUNCTION data.ddo_identity(domain text,v jsonb) RETURNS text
 LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
  SELECT domain||':'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array('ddo',domain,'1',data.ddo_normalize(v))),'UTF8')),'hex')
@@ -613,7 +635,7 @@ BEGIN
  PERFORM ops.ddo_fields(p->'binding',ARRAY['inputs','support','parameters','inference','request_inputs','populations','read_id']);
  IF data.ddo_field(p->'request_meaning','recipe') IS DISTINCT FROM jsonb_build_array('string',def.recipe)
  OR data.ddo_field(p->'request_meaning','subject') IS DISTINCT FROM jsonb_build_array('string',o.subject)
- OR data.ddo_field(p->'request_meaning','subject_context') IS DISTINCT FROM data.ddo_normalize(jsonb_build_object('project_id',d.project_id,'subject',o.subject,'original_source',o.original_source,'analyzed_scope',o.analyzed_scope))
+ OR data.ddo_field(p->'request_meaning','subject_context') IS DISTINCT FROM data.ddo_json_meaning(jsonb_build_object('project_id',d.project_id,'subject',o.subject,'original_source',o.original_source,'analyzed_scope',o.analyzed_scope))
  OR data.ddo_field(p->'request_meaning','inputs') IS DISTINCT FROM data.ddo_normalize(p->'binding'->'request_inputs')
  OR data.ddo_field(p->'request_meaning','parameters') IS DISTINCT FROM data.ddo_normalize(p->'binding'->'parameters')
  OR data.ddo_field(p->'request_meaning','inference') IS DISTINCT FROM jsonb_build_array('string',p->'binding'->>'inference') THEN RAISE EXCEPTION 'request identity differs from compiled binding'; END IF;
@@ -871,7 +893,7 @@ BEGIN
  END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(o->'members') member GROUP BY member->>'member_id' HAVING count(*)<>1) THEN RAISE EXCEPTION 'duplicate member local identity'; END IF;
  bd:=data.ddo_identity('body',b);
- key:=data.ddo_identity('product',jsonb_build_array('mapping',jsonb_build_array(jsonb_build_array('body',jsonb_build_array('string',bd)),jsonb_build_array('kind',jsonb_build_array('string',k.kind_contract)),jsonb_build_array('subject',jsonb_build_array('string',(context->>'subject'))),jsonb_build_array('subject_context',data.ddo_normalize(jsonb_build_object('project_id',context->>'project_id','subject',context->>'subject','original_source',context->>'original_source','analyzed_scope',context->'analyzed_scope'))))));
+ key:=data.ddo_identity('product',jsonb_build_array('mapping',jsonb_build_array(jsonb_build_array('body',jsonb_build_array('string',bd)),jsonb_build_array('kind',jsonb_build_array('string',k.kind_contract)),jsonb_build_array('subject',jsonb_build_array('string',(context->>'subject'))),jsonb_build_array('subject_context',data.ddo_json_meaning(jsonb_build_object('project_id',context->>'project_id','subject',context->>'subject','original_source',context->>'original_source','analyzed_scope',context->'analyzed_scope'))))));
  INSERT INTO kb.data_product VALUES(key,k.kind_contract,(context->>'project_id'),(context->>'subject'),(context->>'original_source'),(context->'analyzed_scope'),b,bd,o->>'artifact_digest') ON CONFLICT DO NOTHING;
  SELECT * INTO STRICT previous FROM kb.data_product WHERE id=key;
  IF (previous.kind_contract,previous.project_id,previous.subject,previous.original_source,previous.body_digest) IS DISTINCT FROM (k.kind_contract,(context->>'project_id'),(context->>'subject'),(context->>'original_source'),bd) OR previous.canonical_body IS DISTINCT FROM b OR previous.analyzed_scope IS DISTINCT FROM (context->'analyzed_scope') THEN RAISE EXCEPTION 'product identity/custody collision'; END IF;

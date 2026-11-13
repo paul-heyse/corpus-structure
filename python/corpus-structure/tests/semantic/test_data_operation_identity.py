@@ -406,6 +406,8 @@ def test_request_context_is_complete_and_immutable():
     assert len({key().key, key(project="other").key, key(source="other").key,
                 key(scope=b'{"page":2}').key}) == 4
     assert key(scope=b'{ "page" : 1 }') == key()
+    assert key(scope=b'{"page":1.0}') == key()
+    assert key(scope=b'{"page":true}') != key()
     context = SubjectContext("project", "local", "original", b'{"page":1}')
     detached = context.record
     detached["analyzed_scope"]["page"] = 2

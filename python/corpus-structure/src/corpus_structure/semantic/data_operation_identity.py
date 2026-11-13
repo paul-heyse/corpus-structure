@@ -473,7 +473,7 @@ def contextual_product_identity(*, kind: str, context: SubjectContext, body: str
     return canonical_identity("product", {
         "kind": _identifier(kind, "kind fingerprint"),
         "subject": context.subject,
-        "subject_context": context.record,
+        "subject_context": context.identity_record,
         "body": _identifier(body, "body digest"),
     })
 
@@ -533,7 +533,7 @@ class SemanticRequestKey:
                 {
                     "recipe": _identifier(self.recipe, "request recipe"),
                     "subject": _identifier(self.subject, "request subject"),
-                    "subject_context": self.subject_context.record,
+                    "subject_context": self.subject_context.identity_record,
                     "inputs": self.inputs,
                     "parameters": self.parameters,
                     "inference": _identifier(self.inference, "request inference policy"),
