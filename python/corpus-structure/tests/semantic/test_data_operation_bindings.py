@@ -921,3 +921,20 @@ def test_runtime_parameter_mapping_preserves_date_decimal_and_signed_zero(storag
         inference="exact", authorization=b"{}", trust_evidence=b"{}", execution_profile="native"
     )
     assert resolved.parameters == result.parameters
+
+
+def test_absence_rejects_nested_bundle_aggregate_scope(storage):
+    _, _, projection = storage
+    expression = BindingExpression(
+        "absent",
+        roles=("items",),
+        population="retained",
+        children=(BindingExpression("cardinality", roles=("items",), minimum=1),),
+    )
+    with pytest.raises(ValueError, match="absence children must be row predicates"):
+        compile_binding(
+            model(expression, minimum=0, presence="optional"),
+            "urn:op",
+            (projection,),
+            subject="doc",
+        )
