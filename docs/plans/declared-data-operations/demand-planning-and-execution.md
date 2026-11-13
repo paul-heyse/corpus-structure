@@ -9,7 +9,8 @@ The input is the [audited review](../../design_review/reviews/design_review_decl
 and its four supporting documents at `64dc6c3e6`; RC01–RC09 were explicitly accepted by the
 operator on 2026-11-12. The total governing domain model is fixed. Implementation choices below
 realize it; adapter callbacks and method-name cases cannot become alternative semantic authorities.
-Other implementation plans impose no prerequisites or scope limits on this standalone series.
+No product-plan scope limits are inherited. The coordinator records the later operator-accepted
+test-system prerequisites for future DDO-06 native tests and retirement transfer.
 
 **Evidence:** Interface-checked by source inspection, 2026-11-12, against product source
 `8c0f4f951` and the current tree at review revision `64dc6c3e6`. The following design is Proposed.

@@ -1,6 +1,6 @@
 # Typed archive and declared input composition
 
-**Registered through v5; native union qualification open · 2026-11-13.** This normal forward successor follows
+**Registered through v5; execution paused and native qualification incomplete · 2026-11-13.** This normal forward successor follows
 `semantic_ddo_original_v1`, retaining complete original-source model content while replacing
 the oversized whole-archive JSONB transport. It also integrates concrete nominal input
 refinement, owned nested subject paths and genuine runless PDF staging foundations.
@@ -178,6 +178,13 @@ to final v5 qualification. PDF guard checking/restoration **passed**, `b452c14cf
 ten repaired planner/population/graph/purpose controls **passed**, `8dc2c54a9a8f44cfa38f40302d5eec15`.
 The initial PDF test's valid drift refusal remains retained separately.
 
-The final 51-file required scope is running as `2a1fdebfd77749378ce7d4598cba5d68` against
-source `561634814`. Repository checks **passed**, `ef31917fa4ae44cca9aad5b7ae96d0f1`.
-Qualification and finding closure remain with the coordinator until that union settles.
+The final 51-file required scope ran as `2a1fdebfd77749378ce7d4598cba5d68` against
+source `561634814`. The operator requested cancellation and a pause. SIGINT to the owned pytest
+controller stopped the run; its supervisor drained and settled custody. The managed outcome is
+**failed due to interruption**: 651 selected, 452 passed, 195 not_run and 4 incomplete.
+The [retained receipt](../2026-11-13_cli-2a1fdebfd77749378ce7d4598cba5d68/README.md)
+keeps exact partial coverage. No replacement is running and no full qualification is claimed.
+Repository checks **passed**, `ef31917fa4ae44cca9aad5b7ae96d0f1`; later documentation changes
+receive their own publication check. Qualification and finding/package closure remain open in
+the coordinator. On the operator's resumption, exact retry and coverage reconciliation start
+from this held invocation; changes to source/context require affected reassessment.

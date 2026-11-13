@@ -2,7 +2,9 @@
 
 **DDO-00 metadata preparation implemented; DDO-11/12 Proposed ·2026-11-12.** Develops DDO-00 preservation preparation, DDO-11 cutover and
 DDO-12 assembled qualification. The [coordinator](../declared-data-operations_2026-11-12.md)
-owns decisions and current state. Other plans supply no prerequisites or qualification obligations.
+owns decisions and current state. It also records the operator-accepted test-system dependencies,
+including TS-21 retirement transfer and TS-22 evidence mapping at DDO-12. Older product-plan
+campaigns supply no inherited qualification credit.
 
 ## Actual preservation basis
 
