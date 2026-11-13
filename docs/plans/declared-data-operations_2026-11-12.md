@@ -206,6 +206,16 @@ Independent family adapters may proceed once shared contracts and actual native 
 available. Shared compiler/physical/native files need explicit editing ownership despite logical
 independence. The coordinator integrates contributions and reconciles revealed shared decisions.
 
+The operator-accepted [test-system target](test-system-target-design_2026-11-13.md)
+supplies the next native-test foundations: TS-05/06/17 precede new DDO-06 native tests.
+DDO-06–12 consume TS-21 when retiring their respective mechanisms; DDO-12 also consumes
+TS-22's discriminating evidence mapping and actual-provider outcomes in its own qualification
+table. These are future dependency obligations, not claims that the test-system target is
+implemented or prerequisites to the current DDO-03–05 corrections. DDO-06 owns retirement of
+stage-run admission including `max_active_stage_runs`; DDO-09 owns removal of copied
+`reused_task_id` meaning once its DDO-07/08/10 callers use semantic fulfillment, with DDO-11
+performing final physical retirement. The contracts companion incorporates test-system RC03.
+
 ## Finding and recommendation disposition
 
 Each multi-package finding remains **open**. DDO-00–02 contributions are recorded below; closure
@@ -930,8 +940,11 @@ Archive-v4 preview `ad0a9ebb043b4e2aa6f034819c87956b`, rollback-only candidate
 one independent production-preparation control), `78a4a3930af741adb9f2e40f51043418`: atomic/exact overlapping publication, precise fractional
 context, genuine JSON-null product binding, discovery/closed fan-in/pinned resume and unchanged
 production `claim_source_item` execution with settled resume. The complete native union
-`0aaa980a87bc415f8c6c682ebacd2214` is running; package and audit-finding acceptance remain open
-until that union and final disposition are reconciled. The persistent development database
+`0aaa980a87bc415f8c6c682ebacd2214` **failed**, 129 passed / 13 failed. Its trust-map,
+PDF-stage SQL, contextual uniqueness and retired-attempt defects are being corrected through
+a normal successor after frozen v4; test inputs are repaired to reach their intended guards.
+Package and audit-finding acceptance remain open until replacement qualification and final
+disposition are reconciled. The persistent development database
 remains `semantic_bep_located_v2`; plpgsql_check was not left installed there. DDO-11 owns
 persistent deployment/adoption/activation.
 
