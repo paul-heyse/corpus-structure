@@ -948,6 +948,38 @@ disposition are reconciled. The persistent development database
 remains `semantic_bep_located_v2`; plpgsql_check was not left installed there. DDO-11 owns
 persistent deployment/adoption/activation.
 
+### V5 qualification baseline
+
+**Implemented / final qualification running · 2026-11-13.** Ordinary forward archive-v5
+preview `f85b42104df544b68c292fc3e9e0c9b7`, rollback-only candidate
+`fa5eaba6351647c581bfec47520baac5` and registration `140d3537f7014c2786f42815cb9ba27e`
+**passed**. The [authoring account](../design_review/evidence/2026-11-13_ddo-archive-composition/README.md#accepted-v5-authoring)
+records all fourteen native transitions and four ordinary statements. The only physical removal
+is the obsolete product uniqueness constraint missing analyzed scope; the contextual primary key
+remains authoritative. Frozen v2–v5 artifacts are unchanged after registration.
+
+Trust-map comparison now treats explicit numeric zero as the model's absent-scope default;
+unknown/null epochs refuse and positive revocation stays exact. Attachment checks concrete locked
+support against the full stored pinned read, and Python consumes the native reader's canonical
+answer. Immutable support/publication attribution retains concrete zero epochs. The PDF owner
+guard keeps its legacy/runless locks and fences with qualified SQL aliases. Retired physical
+attempts retain their holder evidence and need a new attempt fence on the next claim.
+
+Bounded controls **passed**: trust SQL 19/19, `cdbe882e2f2547c9873dd82ab6ea6b27`;
+PDF checking/restoration 1/1, `b452c14cf5cd439f8f8e4b3afe7b1720`; repaired native
+planner/population/selected-graph/purpose inputs 10/10, `8dc2c54a9a8f44cfa38f40302d5eec15`.
+Read-only independent reviews found no material issue in the assembled trust and PDF/checker
+corrections; those reviews do not replace the actual native journeys.
+
+The required final union is all `test_data_operation_*` modules under semantic/orchestrate,
+the source frontend, five prepared-family suites, native candidate/checker controls and the PDF
+guard control: 51 files, exact argv captured by managed
+`2a1fdebfd77749378ce7d4598cba5d68`, using `uv run ci test --workers 4 --json -- …`.
+Source `561634814` is frozen for this union. `uv run ci check --json` **passed**,
+`ef31917fa4ae44cca9aad5b7ae96d0f1`, including typing, lint, docs, dependency checks and Clippy;
+Rust `rustc 1.102.0-nightly (9c5648833 2026-11-10)`. Later documentation/receipt changes receive
+their publication/evidence checks. Finding/package closure awaits the native union's actual outcome.
+
 ## Completion and current next action
 
 Complete means one target authority, all supported operations/consumers migrated, no obsolete

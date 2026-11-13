@@ -1,6 +1,6 @@
 # Typed archive and declared input composition
 
-**Registered through v4; native union qualification open · 2026-11-13.** This normal forward successor follows
+**Registered through v5; native union qualification open · 2026-11-13.** This normal forward successor follows
 `semantic_ddo_original_v1`, retaining complete original-source model content while replacing
 the oversized whole-archive JSONB transport. It also integrates concrete nominal input
 refinement, owned nested subject paths and genuine runless PDF staging foundations.
@@ -151,3 +151,33 @@ No failed migration is rewritten, and no working-database deployment is performe
 candidate also actively checks the required PDF-stage ownership guard beside the declared DDO
 function inventory. Qualification and package acceptance remain open until the correction's
 actual native journeys pass.
+
+## Accepted v5 authoring
+
+Preview `f85b42104df544b68c292fc3e9e0c9b7`, rollback-only candidate
+`fa5eaba6351647c581bfec47520baac5` and registration `140d3537f7014c2786f42815cb9ba27e`
+**passed**, bound to release
+`release:845dae4d93926abb6224d28e154698a1ac717a17b7b72a8e7e123c5fcb0e520c`.
+The fourteen native transitions contain the trust-meaning helper, affected read/attach/population
+functions, retired-attempt release/fence guard, PDF ownership guard and derived descriptors.
+Four PDF companion readers refresh only their declared projection IDs. Owners and ACLs remain
+unchanged except the newly created private helper's explicit publisher ownership.
+
+The four ordinary statements remove the obsolete context-incomplete product uniqueness
+constraint, switch to the publisher, register the new physical contract and restore the migration
+role. No table, column or product is dropped. The qualified product ID primary key remains the
+canonical uniqueness authority. The four v5 artifacts were registered unchanged and root
+`just turn-end` made no source edits afterwards.
+
+Nineteen real PostgreSQL trust-snapshot controls **passed**,
+`cdbe882e2f2547c9873dd82ab6ea6b27`; missing/explicit numeric zero are equivalent, while null,
+string, bool, negative/fractional epochs refuse and positive revocation stays exact. The Python
+projection now consumes the native reader's validated canonical pins rather than imposing a
+second dictionary equality. The actual full-read/multi-root publication/revocation case belongs
+to final v5 qualification. PDF guard checking/restoration **passed**, `b452c14cf5cd439f8f8e4b3afe7b1720`;
+ten repaired planner/population/graph/purpose controls **passed**, `8dc2c54a9a8f44cfa38f40302d5eec15`.
+The initial PDF test's valid drift refusal remains retained separately.
+
+The final 51-file required scope is running as `2a1fdebfd77749378ce7d4598cba5d68` against
+source `561634814`. Repository checks **passed**, `ef31917fa4ae44cca9aad5b7ae96d0f1`.
+Qualification and finding closure remain with the coordinator until that union settles.
