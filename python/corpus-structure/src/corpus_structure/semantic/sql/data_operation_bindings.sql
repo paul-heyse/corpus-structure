@@ -393,7 +393,7 @@ BEGIN
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'identities') i WHERE i->>'owner'=authored_role->>'kind' AND i->>'domain'='kind' AND i->>'key'=roledef->>'kind_contract') THEN RAISE EXCEPTION 'native artifact role differs from effective model'; END IF;
  END LOOP;
  IF nullif(p_binding->>'read_id','') IS NULL THEN RAISE EXCEPTION 'native binding requires its authenticated read receipt'; END IF;
- SELECT coalesce(jsonb_agg(to_jsonb(v)),'[]') INTO universe FROM ops.data_binding_rows(p_demand,p_operation,p_trust,p_binding->>'read_id') v WHERE v.subject=p_subject AND v.original_source=request.original_source;
+ SELECT coalesce(jsonb_agg(to_jsonb(v)),'[]') INTO universe FROM ops.data_binding_rows(p_demand,p_operation,p_trust,p_binding->>'read_id',p_subject,request.original_source) v WHERE v.subject=p_subject AND v.original_source=request.original_source;
  raw:=data.ddo_json(p_binding->'request_inputs');
  FOR roledef IN SELECT value FROM jsonb_array_elements(compiled->'input_roles') LOOP
  role:=roledef->>'name'; values:='[]';
