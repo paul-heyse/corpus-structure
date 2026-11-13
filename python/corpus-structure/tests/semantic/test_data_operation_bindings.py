@@ -17,6 +17,7 @@ from corpus_structure.semantic.data_operation_bindings import (
     execute_binding,
 )
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_model import (
     MODEL_VERSION,
     BindingExpression,
@@ -197,7 +198,7 @@ def test_sql_range_membership_defaults_and_exact_identity(storage):
     assert {m.product for m in result.roles[0].members} == {"p2", "p3"}
     assert result.roles[0].members[0].support_episodes
     assert result.definition == "definition:fixed"
-    assert json.loads(result.parameters) == {"allowed": [2, 3], "maximum": 3}
+    assert decode_semantic_value(json.loads(result.parameters)) == {"allowed": [2, 3], "maximum": 3}
     resolved = result.resolved(
         inference="exact", authorization=b"{}", trust_evidence=b"{}", execution_profile="native"
     )
@@ -831,3 +832,109 @@ def test_shared_roles_remain_active_in_selected_branch_and_conflicting_populatio
     )
     with pytest.raises(ValueError, match="two population scopes"):
         compile_binding(conflict, "urn:op", (projection,), subject="doc")
+
+
+def test_membership_population_identity_is_retained_and_conflicting_operand_scopes_refuse(storage):
+    connection, _, projection = storage
+    expression = BindingExpression(
+        "membership",
+        operands=(
+            BindingOperand("field", "string", BindingField("items", "urn:item", "member")),
+            BindingOperand("population", "string", name="retained"),
+        ),
+    )
+    projection = replace(
+        projection, fields=(*projection.fields, ProjectionField("member", "member", "string"))
+    )
+    product = model(expression)
+    population = PopulationBinding(
+        "retained", "population:membership", True, ("m2",), b'{"closed":true}'
+    )
+    result = execute_binding(
+        connection,
+        compile_binding(product, "urn:op", (projection,), subject="doc", populations=(population,)),
+    )
+    assert result.sufficient and result.roles[0].population_witness is not None
+    assert json.loads(result.roles[0].population_witness)["identity"] == "population:membership"
+    other = replace(
+        expression,
+        operands=(expression.operands[0], replace(expression.operands[1], name="another")),
+    )
+    conflict = replace(
+        product,
+        bindings=(
+            replace(
+                product.bindings[0],
+                expression=BindingExpression("all", children=(expression, other)),
+            ),
+        ),
+    )
+    with pytest.raises(ValueError, match="two population scopes"):
+        compile_binding(conflict, "urn:op", (projection,), subject="doc", populations=(population,))
+
+
+def test_closed_negative_population_without_candidate_facts_remains_awaiting(storage):
+    connection, _, projection = storage
+    population = PopulationBinding(
+        "retained", "population:missing-facts", True, ("not-materialized",), b'{"closed":true}'
+    )
+    expression = BindingExpression("absent", roles=("items",), population="retained")
+    result = execute_binding(
+        connection,
+        compile_binding(
+            model(expression, minimum=0, presence="optional"),
+            "urn:op",
+            (projection,),
+            subject="doc",
+            populations=(population,),
+        ),
+    )
+    assert result.status == "awaiting-inputs"
+    assert any(reason.code == "negative-candidate-facts" for reason in result.reasons)
+
+
+def test_runtime_parameter_mapping_preserves_date_decimal_and_signed_zero(storage):
+    import math
+    from datetime import date
+    from decimal import Decimal
+
+    connection, _, _ = storage
+    parameters = {"when": date(2026, 11, 13), "amount": Decimal("1.20"), "sign": -0.0}
+    product = model(
+        BindingExpression("all"),
+        names=(),
+        parameters={
+            "when": {"value_type": "date"},
+            "amount": {"value_type": "decimal"},
+            "sign": {"value_type": "float"},
+        },
+    )
+    result = execute_binding(
+        connection, compile_binding(product, "urn:op", (), subject="doc", parameters=parameters)
+    )
+    assert result.sufficient
+    decoded = decode_semantic_value(json.loads(result.parameters))
+    assert decoded["when"] == date(2026, 11, 13) and type(decoded["when"]) is date
+    assert decoded["amount"] == Decimal("1.2") and type(decoded["amount"]) is Decimal
+    assert math.copysign(1, decoded["sign"]) == -1
+    resolved = result.resolved(
+        inference="exact", authorization=b"{}", trust_evidence=b"{}", execution_profile="native"
+    )
+    assert resolved.parameters == result.parameters
+
+
+def test_absence_rejects_nested_bundle_aggregate_scope(storage):
+    _, _, projection = storage
+    expression = BindingExpression(
+        "absent",
+        roles=("items",),
+        population="retained",
+        children=(BindingExpression("cardinality", roles=("items",), minimum=1),),
+    )
+    with pytest.raises(ValueError, match="absence children must be row predicates"):
+        compile_binding(
+            model(expression, minimum=0, presence="optional"),
+            "urn:op",
+            (projection,),
+            subject="doc",
+        )

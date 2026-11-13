@@ -12,6 +12,7 @@ from hashlib import sha256
 from typing import TYPE_CHECKING, Any
 
 import networkx as nx
+from pydantic import TypeAdapter
 
 from .data_operation_compilation import project_operation_binding
 from .data_operation_model import EffectiveDataOperationModel
@@ -35,6 +36,7 @@ class OperationSelection:
     choices: bytes = b"{}"
     selected_dependencies: tuple[str, ...] = ()
     replicate: str | None = None
+    parameter_meaning: bytes | None = None
 
 
 @dataclass(frozen=True)
@@ -68,6 +70,7 @@ def freeze_demand(
 ) -> DemandIntent:
     """Freeze the selected closure, not the union of every possible producer."""
     from .data_operation_bindings import effective_binding_parameters
+    from .data_operation_identity import decode_semantic_value, semantic_value
 
     if not targets or not inference or not execution_profile:
         raise ValueError("demand requires targets, inference and an execution profile")
@@ -130,13 +133,16 @@ def freeze_demand(
         elif item.replicate is not None:
             raise ValueError("deterministic operation cannot select a replicate")
         parameters, choices = json.loads(item.parameters), json.loads(item.choices)
+        if item.parameter_meaning is not None:
+            parameters = decode_semantic_value(json.loads(item.parameter_meaning))
         if not isinstance(parameters, dict) or not isinstance(choices, dict):
             raise ValueError("operation parameters and choices must be mappings")
         parameters = effective_binding_parameters(operation, parameters)
         selected.append(
             {
                 "operation": operation_id,
-                "parameters": parameters,
+                "parameters": TypeAdapter(dict[str, Any]).dump_python(parameters, mode="json"),
+                "parameter_meaning": semantic_value(parameters),
                 "choices": choices,
                 "replicate": item.replicate,
                 "dependencies": sorted(graph.successors(operation_id)),
@@ -307,7 +313,7 @@ class DemandPlanner:
 
     def ready(self, snapshot: dict, *, authorization: bytes) -> tuple[ReadyDataRequest, ...]:
         from .data_operation_bindings import PopulationBinding, compile_binding, execute_binding
-        from .data_operation_identity import semantic_value
+        from .data_operation_identity import decode_semantic_value, semantic_value
         from .data_operation_storage import admitted_data_projection
 
         frozen = snapshot["intent"]
@@ -344,7 +350,7 @@ class DemandPlanner:
                 operation["operation"],
                 projections,
                 subject=obligation["subject"],
-                parameters=operation["parameters"],
+                parameters=decode_semantic_value(operation["parameter_meaning"]),
                 choices=operation["choices"],
                 populations=populations,
             )

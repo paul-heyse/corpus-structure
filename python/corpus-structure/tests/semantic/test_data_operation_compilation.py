@@ -14,6 +14,7 @@ from corpus_structure.semantic.data_operation_compilation import (
     compile_data_operations,
     project_operation_binding,
 )
+from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_model import (
     MODEL_VERSION,
     BoundRoleMember,
@@ -409,7 +410,7 @@ def resolved_binding(model, *, episodes=("episode-a",), witness=None):
         "urn:test:derive",
         "subject:one",
         (ResolvedRoleBinding("source", "present", (member,), witness),),
-        canonical_bytes({}),
+        canonical_bytes(semantic_value({})),
         "inference:one",
         canonical_bytes({"permission": "admitted"}),
         canonical_bytes({"trust": "selected"}),
@@ -435,7 +436,17 @@ def test_compiled_policies_project_exact_and_substitutable_support_and_witnesses
     assert key_a.identity == key_b.identity and admission_a.identity != admission_b.identity
     key_c, _ = project_operation_binding(
         substitutable,
-        resolved_binding(substitutable, witness=canonical_bytes({"members": ["one", "two"]})),
+        resolved_binding(
+            substitutable,
+            witness=canonical_bytes(
+                {
+                    "identity": "population:stable",
+                    "complete": True,
+                    "members": ["one", "two"],
+                    "evidence": {"derivation_id": "population-episode"},
+                }
+            ),
+        ),
     )
     assert key_c.identity != key_a.identity
     trusted = replace(
@@ -645,7 +656,17 @@ def test_closed_population_and_provider_identity_requirements_come_from_contract
     role = replace(binding.roles[0], members=(member,))
     with pytest.raises(PreparationError, match="population witness"):
         project_operation_binding(model, replace(binding, roles=(role,)))
-    role = replace(role, population_witness=canonical_bytes({"closed": ["one"]}))
+    role = replace(
+        role,
+        population_witness=canonical_bytes(
+            {
+                "identity": "population:stable",
+                "complete": True,
+                "members": ["one"],
+                "evidence": {"derivation_id": "population-episode"},
+            }
+        ),
+    )
     first, _ = project_operation_binding(model, replace(binding, roles=(role,)))
     changed = replace(role, members=(replace(member, provider_identity="provider:b"),))
     second, _ = project_operation_binding(model, replace(binding, roles=(changed,)))
@@ -941,3 +962,73 @@ def test_imported_builtin_alias_callback_arguments_remain_unsupported(reexport, 
     model = compile_data_operations(python_sources=PythonSourceCollection(tuple(sources)))
     assert not model.implementation_slices[0].complete
     assert not any(item.domain == "recipe" for item in model.identities)
+
+
+def test_population_receipt_and_trust_do_not_salt_value_substitutable_request_identity():
+    value = contract()
+    value["roles"][0]["support"]["provenance"] = "value_substitution"
+    value["roles"][0]["support"]["identity_requirements"] = []
+    model = compile_data_operations(declarations=declarations(value))
+    witness = {
+        "identity": "population:stable",
+        "complete": True,
+        "members": ["one"],
+        "evidence": {
+            "population_id": "receipt:a",
+            "derivation_id": "episode:a",
+            "trust_snapshot": {"scope": 1},
+        },
+    }
+    first, first_admission = project_operation_binding(
+        model, resolved_binding(model, witness=canonical_bytes(witness))
+    )
+    revised = {
+        **witness,
+        "evidence": {
+            "population_id": "receipt:b",
+            "derivation_id": "episode:b",
+            "trust_snapshot": {"scope": 2},
+        },
+    }
+    second, second_admission = project_operation_binding(
+        model, resolved_binding(model, witness=canonical_bytes(revised))
+    )
+    assert first.identity == second.identity
+    assert first_admission.identity != second_admission.identity
+    assert first.inputs["source"]["population_witness"] == {
+        "identity": "population:stable",
+        "complete": True,
+        "members": ("one",),
+    }
+    exact = compile_data_operations(declarations=declarations(contract()))
+    exact_first, _ = project_operation_binding(
+        exact, resolved_binding(exact, witness=canonical_bytes(witness))
+    )
+    exact_second, _ = project_operation_binding(
+        exact, resolved_binding(exact, witness=canonical_bytes(revised))
+    )
+    assert exact_first.identity != exact_second.identity
+
+
+def test_nonsequence_request_positions_exclude_incidental_producing_ordinals():
+    value = contract()
+    value["roles"][0]["support"]["provenance"] = "value_substitution"
+    value["roles"][0]["support"]["identity_requirements"] = []
+    for collection in ("scalar", "set", "bag", "sequence"):
+        value["roles"][0]["collection"] = collection
+        model = compile_data_operations(declarations=declarations(value))
+        binding = resolved_binding(model)
+        member = binding.roles[0].members[0]
+        first_binding = replace(
+            binding, roles=(replace(binding.roles[0], members=(replace(member, position=0),)),)
+        )
+        second_binding = replace(
+            binding, roles=(replace(binding.roles[0], members=(replace(member, position=7),)),)
+        )
+        first, first_admission = project_operation_binding(model, first_binding)
+        second, second_admission = project_operation_binding(model, second_binding)
+        if collection == "sequence":
+            assert first.identity != second.identity
+        else:
+            assert first.identity == second.identity
+        assert first_admission.identity != second_admission.identity

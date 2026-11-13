@@ -38,6 +38,7 @@ from .data_operation_model import (
     StateDimension,
     StateTransition,
 )
+from .data_operation_wire import checked_json_schema, json_schema_category
 from .identity import canonical_bytes
 from .python_operation_sources import ClosedPythonSources, PythonSourceCollection
 from .types import (
@@ -624,6 +625,29 @@ def _validate_literal(
 
     facts = json.loads(kind.facts)
     prop_facts = json.loads(property_kind.facts)
+    wire_schema = prop_facts.get("json_schema", facts.get("json_schema"))
+    if wire_schema is not None:
+        from .data_operation_wire import validate_wire_schema
+
+        def wire_json(value):
+            # The semantic sequence codec uses tuples internally; this explicit
+            # wire lowering restores JSON arrays without converting typed values.
+            if isinstance(value, tuple):
+                return [wire_json(item) for item in value]
+            if isinstance(value, dict):
+                return {name: wire_json(item) for name, item in value.items()}
+            return value
+
+        if expression.value is None:
+            _fail(owner, "typed binding literal requires an explicit value")
+        try:
+            validate_wire_schema(wire_schema, wire_json(decode(json.loads(expression.value))))
+        except (TypeError, ValueError) as exc:
+            _fail(
+                owner,
+                "typed binding literal violates its effective wire field contract: " + str(exc),
+            )
+        return
     prop = PropertyDefinition(
         **{field.name: prop_facts[field.name] for field in fields(PropertyDefinition)}
     )
@@ -736,9 +760,20 @@ def compile_data_operations(
                     "invariants",
                     "interpretation",
                     "references",
+                    "json_schema",
                 },
             )
             semantic_id = _text(record.get("id"), "kind/id")
+            if record.get("json_schema") is not None:
+                try:
+                    checked_json_schema(record["json_schema"])
+                except (ValueError, TypeError) as exc:
+                    _fail(semantic_id, "invalid closed wire schema: " + str(exc))
+                if record.get("python") or record.get("primitive"):
+                    _fail(
+                        semantic_id,
+                        "wire schema kind cannot claim a second representation authority",
+                    )
             facts = dict(record)
             if record.get("python"):
                 if frontend is None:
@@ -753,14 +788,20 @@ def compile_data_operations(
             kind = EffectiveKind(
                 semantic_id,
                 record.get("name", semantic_id),
-                "class" if record.get("python") else "primitive",
+                json_schema_category(record["json_schema"])
+                if record.get("json_schema") is not None
+                else "class"
+                if record.get("python")
+                else "primitive",
                 canonical_bytes(facts),
                 origins,
                 not unknowns,
                 unknowns,
             )
-            if semantic_id in kinds and kinds[semantic_id].facts != kind.facts:
-                _fail(semantic_id, "duplicate semantic kind ownership")
+            if semantic_id in kinds:
+                if kinds[semantic_id].facts != kind.facts:
+                    _fail(semantic_id, "duplicate semantic kind ownership")
+                continue  # document-level kind facts are shared by every operation
             kinds[semantic_id] = kind
             aliases[semantic_id] = semantic_id
             for target in record.get("references", []):
@@ -842,6 +883,7 @@ def compile_data_operations(
                     SemanticEdge(property_id, target, "range"),
                 )
             )
+    _materialize_json_schema_properties(kinds, nodes, edges)
     operations = []
     bindings = []
     for raw, surfaces, origins, implementation_root in authored:
@@ -1309,6 +1351,44 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
     return tuple(identities)
 
 
+def project_population_witness(
+    witness: dict | None, identity_requirements: tuple[str, ...]
+) -> dict | None:
+    """Separate stable population meaning from the authenticated receipt/support.
+
+    Physical demand/use IDs and trust epochs are admission evidence. A declared
+    exact episode determinant remains semantic, including a closure producer
+    episode when the role has no present members.
+    """
+    if witness is None:
+        return None
+    if witness.get("reason") == "unselected-declared-branch":
+        if (
+            set(witness) != {"complete", "members", "selection", "reason"}
+            or witness["complete"] is not True
+            or witness["members"] != []
+            or not isinstance(witness["selection"], dict)
+        ):
+            _fail("population-witness", "invalid frozen branch witness")
+        return witness
+    if (
+        set(witness) != {"identity", "complete", "members", "evidence"}
+        or not isinstance(witness["identity"], str)
+        or not witness["identity"]
+        or type(witness["complete"]) is not bool
+        or not isinstance(witness["members"], list)
+        or any(not isinstance(member, str) or not member for member in witness["members"])
+        or len(set(witness["members"])) != len(witness["members"])
+        or not isinstance(witness["evidence"], dict)
+    ):
+        _fail("population-witness", "invalid structured population witness")
+    meaning = {key: witness[key] for key in ("identity", "complete", "members")}
+    if "episode" in identity_requirements:
+        episode = _text(witness["evidence"].get("derivation_id"), "population-witness/episode")
+        meaning["support_episodes"] = [episode]
+    return meaning
+
+
 def project_operation_binding(model: EffectiveDataOperationModel, binding):
     """Construct DDO-02 request/admission identities from the compiled role policies.
 
@@ -1320,6 +1400,7 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
         CollectionValue,
         OptionalValue,
         SemanticRequestKey,
+        decode_semantic_value,
     )
 
     operation = model.operation(binding.operation)
@@ -1382,7 +1463,7 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
                 "original_source": member.original_source,
                 "analyzed_scope": json.loads(member.analyzed_scope),
                 "coverage": json.loads(member.coverage),
-                "position": member.position,
+                "position": member.position if role.collection == "sequence" else None,
                 "multiplicity": member.multiplicity,
             }
             assert role.support is not None
@@ -1401,6 +1482,7 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
                 {
                     "product": member.product,
                     "member": member.member,
+                    "position": member.position,
                     "episodes": member.support_episodes,
                     "evidence": json.loads(member.support_evidence),
                     "provider": member.provider_identity,
@@ -1421,9 +1503,19 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
 
         def requires_population(expression, role_name):
             return (
-                expression.operator in {"forall", "absent"}
-                and (not expression.roles or role_name in expression.roles)
-            ) or any(requires_population(child, role_name) for child in expression.children)
+                (
+                    expression.operator in {"forall", "absent"}
+                    and (not expression.roles or role_name in expression.roles)
+                )
+                or (
+                    any(operand.kind == "population" for operand in expression.operands)
+                    and any(
+                        operand.field is not None and operand.field.role == role_name
+                        for operand in expression.operands
+                    )
+                )
+                or any(requires_population(child, role_name) for child in expression.children)
+            )
 
         compiled_binding = next(
             item for item in model.bindings if item.semantic_id == operation.binding
@@ -1440,7 +1532,9 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
         )
         values[name] = {
             "value": OptionalValue(actual.state, collection if actual.state == "present" else None),
-            "population_witness": witness,
+            "population_witness": project_population_witness(
+                witness, role.support.identity_requirements if role.support else ()
+            ),
             "selected_alternative": actual.selected_alternative,
         }
         support[name] = {
@@ -1452,7 +1546,10 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
         recipe,
         binding.subject,
         values,
-        {"parameters": json.loads(binding.parameters), "replicate": binding.replicate},
+        {
+            "parameters": decode_semantic_value(json.loads(binding.parameters)),
+            "replicate": binding.replicate,
+        },
         binding.inference,
     )
     admission = AdmissionManifest(
@@ -1467,3 +1564,42 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
         binding.execution_profile,
     )
     return request, admission
+
+
+def _materialize_json_schema_properties(kinds, nodes, edges) -> None:
+    """Realize the same closed wire schema as typed model fields, without a shadow catalog."""
+    from .data_operation_wire import json_schema_field_type, json_schema_properties
+
+    for kind in tuple(kinds.values()):
+        schema = json.loads(kind.facts).get("json_schema")
+        if schema is None:
+            continue
+        for name, field_schema, required in json_schema_properties(schema):
+            target, multivalued = json_schema_field_type(field_schema)
+            if target not in kinds:
+                _fail(kind.semantic_id, "wire property range lacks an effective kind: " + target)
+            root = field_schema
+            prop_id = kind.semantic_id + "/property/" + name
+            prop = PropertyDefinition(
+                name,
+                prop_id,
+                target,
+                required,
+                multivalued,
+                root.get("minItems") if multivalued else None,
+                root.get("maxItems") if multivalued else None,
+                str(root["minimum"]) if "minimum" in root else None,
+                str(root["maximum"]) if "maximum" in root else None,
+                root.get("pattern"),
+                True,
+            )
+            facts = {**asdict(prop), "json_schema": field_schema}
+            kinds[prop_id] = EffectiveKind(
+                prop_id, name, "property", canonical_bytes(facts), kind.origins
+            )
+            edges.extend(
+                (
+                    SemanticEdge(kind.semantic_id, prop_id, "property", role=name),
+                    SemanticEdge(prop_id, target, "range"),
+                )
+            )

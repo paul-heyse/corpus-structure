@@ -411,7 +411,7 @@ class ResolvedOperationBinding:
     operation: str
     subject: str
     roles: tuple[ResolvedRoleBinding, ...]
-    parameters: bytes
+    parameters: bytes  # Canonical tagged semantic mapping; never a lossy JSON display.
     inference: str
     authorization: bytes
     trust_evidence: bytes
