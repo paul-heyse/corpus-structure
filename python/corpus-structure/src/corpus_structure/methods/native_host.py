@@ -22,6 +22,10 @@ from .native_profiles import NativeSelection
 from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused, _finite_float, _json_object, _live_group
 
 
+class NativeRetirementUncertain(Pm2WorkerError):
+    """The owned host has not established physical retirement after failure."""
+
+
 def encode_host_frame(message, limit):
     """Encode actual ordered UTF-8 JSONL, including complete multiplex framing."""
     frame = bytearray()
@@ -175,7 +179,9 @@ class NativeHost:
             try:
                 self.close(grace_seconds=0)
             except BaseException as cleanup:
-                error.add_note(f"native host startup cleanup remains unproven: {cleanup}")
+                raise NativeRetirementUncertain(
+                    "native host startup cleanup remains unproven"
+                ) from BaseExceptionGroup("native startup and retirement failed", [error, cleanup])
             raise
 
     @staticmethod
@@ -383,7 +389,12 @@ class NativeHost:
             # useful sibling. Genuine transport/deadline failure fences this host.
             if error is not cancelled:
                 self._fail(error)
-                self.close(grace_seconds=0)
+                try:
+                    self.close(grace_seconds=0)
+                except BaseException as cleanup:
+                    raise NativeRetirementUncertain(
+                        "native inference retirement remains unproven"
+                    ) from BaseExceptionGroup("native inference and retirement failed", [error, cleanup])
             raise
 
     def close(self, *, grace_seconds=5.0):
@@ -412,7 +423,7 @@ class NativeHost:
                 while _live_group(process.pid) and time.monotonic() < deadline:
                     time.sleep(0.025)
             if _live_group(process.pid):
-                raise Pm2WorkerError("native host process-group death remains unproven")
+                raise NativeRetirementUncertain("native host process-group death remains unproven")
             process.wait(timeout=1)
             self._fail(Pm2WorkerError("native host generation closed"))
             if (
@@ -422,7 +433,7 @@ class NativeHost:
             ):
                 self._reader.join(timeout=1)
                 if self._reader.is_alive():
-                    raise Pm2WorkerError("native host reader did not drain")
+                    raise NativeRetirementUncertain("native host reader did not drain")
             for stream in (process.stdin, process.stdout):
                 if stream is not None:
                     stream.close()
@@ -534,7 +545,7 @@ class NativeHostGroup:
             if failures:
                 # Keep the manager and its lease alive. A signal/cancelled future
                 # is not proof that every host released its native resources.
-                failure = Pm2WorkerError("native host group teardown remains unproven")
+                failure = NativeRetirementUncertain("native host group teardown remains unproven")
                 for error in failures:
                     failure.add_note(str(error))
                 closed.set_exception(failure)

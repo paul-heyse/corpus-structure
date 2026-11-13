@@ -705,6 +705,16 @@ class CPUExecutionScope:
         """Retain the one schema capsule before request credits consume capacity."""
         self._executor()
 
+    def reservation_retired(self, reservation: OwnedByteReservation) -> bool:
+        """Submission errors do not prove that an accepted CPU request retired."""
+        with self._lock:
+            return not any(
+                permit.reservation is not None
+                and permit.reservation._state is reservation._state
+                and not permit.retired
+                for permit in self._admissions.values()
+            )
+
     def try_admit(self, check_active: Callable[[], None] = lambda: None, *, reservation: OwnedByteReservation | None = None) -> _InputAdmission | None:
         check_active()
         for handle in tuple(self._handles):

@@ -8,6 +8,7 @@ from typing import Any
 import pglast
 import pytest
 from pglast import ast
+from pglast.stream import RawStream
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -198,7 +199,7 @@ def test_authenticated_original_source_read_matches_original_published_custody(
                 source_native_sql(), source="original-source-read"
             ).statements:
                 connection.exec_driver_sql(
-                    pglast.stream.RawStream()(statement), execution_options={"no_parameters": True}
+                    RawStream()(statement), execution_options={"no_parameters": True}
                 )
             acquired = acquire_original_source_selection(
                 connection, source_prepared, reference, selectors

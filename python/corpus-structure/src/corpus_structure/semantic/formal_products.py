@@ -353,6 +353,8 @@ def formal_operation_sources():
 
 @dataclass(frozen=True)
 class PreparedFormalEvidencePort:
+    native_selections = ()
+
     """Admitted prepared implementation of the original source-native entrypoint."""
 
     identity: PreparedCapabilityIdentity
