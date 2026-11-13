@@ -798,6 +798,10 @@ def test_failed_completion_is_historical_but_never_reusable_fulfillment(kernel):
     receipt = publish(kernel, fence, intent)
     with kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
+        observed = storage.invoke("read_demand_result", demand)
+        assert observed["uses"][0]["fate"] == "failed"
+        assert observed["uses"][0]["completion_state"] == "failed"
+        assert observed["uses"][0]["products"] == []
         current = storage.invoke("attach_data_request", wire)
         assert current["fate"] == "attached"
         assert current["derivation_id"] is None

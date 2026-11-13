@@ -544,7 +544,9 @@ class NativeDemandExecutor:
             owner.settle(claim, release)
         except Exception as cleanup:
             error.add_note("failed attempt release: " + str(cleanup))
-            raise ExceptionGroup("computation and exact attempt release failed", [error, cleanup]) from cleanup
+            raise ExceptionGroup(
+                "computation and exact attempt release failed", [error, cleanup]
+            ) from cleanup
 
     def _execute(self, ready, owner, pool):
         reservation = self.budget.admit(self.reservation)
