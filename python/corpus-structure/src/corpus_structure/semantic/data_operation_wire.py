@@ -47,8 +47,11 @@ def _checked_protocol(content: bytes) -> bytes:
         raise ValueError("native wire definitions and operations are required")
     names = []
     for operation in result["operations"]:
-        if not isinstance(operation, dict) or set(operation) != {"name", "profile", "request", "result"} or operation["profile"] not in {"command", "read"}:
+        if not isinstance(operation, dict) or set(operation) != {"name", "profile", "request", "result", "purposes"} or operation["profile"] not in {"command", "read"}:
             raise ValueError("invalid native wire operation")
+        purposes = operation["purposes"]
+        if not isinstance(purposes, list) or not purposes or any(not isinstance(p, str) or p not in {"read", "write", "evaluate"} for p in purposes) or len(purposes) != len(set(purposes)):
+            raise ValueError("native wire operation requires unique explicit purpose capabilities")
         names.append(operation["name"])
         for direction in ("request", "result"):
             if operation[direction] not in result["definitions"]:
@@ -141,6 +144,11 @@ def _wire_contract_bytes(content: bytes) -> bytes:
     })
 
 
+def wire_operations(sources: tuple[SourceArtifact, ...] | None = None) -> tuple[dict[str, Any], ...]:
+    """Detached operation facts, including explicit purpose capabilities, from one parser."""
+    return tuple(_protocol(sources)["operations"])
+
+
 def wire_contracts(sources: tuple[SourceArtifact, ...] | None = None) -> dict[str, Any]:
     """Return detached self-contained schemas used verbatim by SQL and Python."""
     return json.loads(_wire_contract_bytes(_protocol_content(sources)))
@@ -215,9 +223,13 @@ def json_schema_properties(schema: dict[str, Any]) -> tuple[tuple[str, dict[str,
             if name in active:
                 return []
             return variants(definitions[name], active | {name})
+        if value.get("type") == "object":
+            # The base owns common properties; oneOf/anyOf may only constrain
+            # their combinations (e.g body_state), not replace that field graph.
+            return [value]
         if "oneOf" in value or "anyOf" in value:
             return [item for branch in value.get("oneOf", value.get("anyOf", [])) for item in variants(branch, active)]
-        return [value] if value.get("type") == "object" else []
+        return []
     alternatives = variants(schema)
     names = sorted({name for variant in alternatives for name in variant.get("properties", {})})
     result = []
@@ -239,14 +251,23 @@ def json_schema_field_type(schema: dict[str, Any]) -> tuple[str, bool]:
     root = {key: value for key, value in schema.items() if key not in {"definitions", "$schema"}}
     if "$ref" in root:
         return KIND_PREFIX + root["$ref"].removeprefix("#/definitions/"), False
+    alternatives = root.get("oneOf", root.get("anyOf"))
+    if alternatives:
+        projected = {json_schema_field_type(schema_closure(item, schema.get("definitions", {}))) for item in alternatives}
+        if len(projected) == 1:
+            return projected.pop()
     if root.get("type") == "array" and isinstance(root.get("items"), dict):
         element = schema_closure(root["items"], schema.get("definitions", {}))
         return json_schema_field_type(element)[0], True
     primitive = root.get("type")
     if primitive is None:
         values = root.get("enum", [root["const"]] if "const" in root else [])
-        if values and all(isinstance(value, str) for value in values):
+        if values and all(type(value) is str for value in values):
             primitive = "string"
+        elif values and all(type(value) is bool for value in values):
+            primitive = "boolean"
+        elif values and all(type(value) is int for value in values):
+            primitive = "integer"
     return "primitive:" + {"string": "string", "integer": "integer", "boolean": "boolean", "number": "float"}.get(primitive if isinstance(primitive, str) else "", "json"), False
 
 
