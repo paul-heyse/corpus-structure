@@ -47,18 +47,24 @@ class PythonCPUDescriptor:
     verification: Literal["closed-slice", "prepared-kernel"] = "closed-slice"
 
     def packet(self, arguments, signature) -> bytes:
-        return canonical_bytes({
-            "sources": [dict(module=module, path=path, content=base64.b64encode(content).decode())
-                        for module, path, content in self.sources],
-            "entrypoint": self.entrypoint,
-            "expected_nodes": self.expected_nodes,
-            "receiver": self.receiver,
-            "verification": self.verification,
-            "arguments": {
-                name: TypeAdapter(signature.parameters[name].annotation).dump_json(value).decode()
-                for name, value in arguments.items()
-            },
-        })
+        return canonical_bytes(
+            {
+                "sources": [
+                    dict(module=module, path=path, content=base64.b64encode(content).decode())
+                    for module, path, content in self.sources
+                ],
+                "entrypoint": self.entrypoint,
+                "expected_nodes": self.expected_nodes,
+                "receiver": self.receiver,
+                "verification": self.verification,
+                "arguments": {
+                    name: TypeAdapter(signature.parameters[name].annotation)
+                    .dump_json(value)
+                    .decode()
+                    for name, value in arguments.items()
+                },
+            }
+        )
 
 
 def plan_cpu_call(descriptor, bound, signature, *, verify, execution_owner, check_active):
@@ -95,10 +101,14 @@ def _load(call):
     from .data_operation_ports import PortRefusal, _runtime_members
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
-    sources = PythonSourceCollection(tuple(
-        PythonSource(source.module, base64.b64decode(source.content, validate=True), source.path)
-        for source in call.sources
-    ))
+    sources = PythonSourceCollection(
+        tuple(
+            PythonSource(
+                source.module, base64.b64decode(source.content, validate=True), source.path
+            )
+            for source in call.sources
+        )
+    )
     paths = {source.module: Path(source.filename) for source in sources.sources}
     if len(paths) != len(sources.sources) or not paths:
         raise PortRefusal("CPU source collection must have distinct actual modules")
@@ -109,10 +119,11 @@ def _load(call):
             raise PortRefusal("CPU runtime source differs from acquired bytes")
         parts = source.module.split(".")
         expected = (
-            Path(*parts, "__init__.py") if path.name == "__init__.py"
+            Path(*parts, "__init__.py")
+            if path.name == "__init__.py"
             else Path(*parts).with_suffix(".py")
         )
-        if tuple(path.parts[-len(expected.parts):]) != expected.parts:
+        if tuple(path.parts[-len(expected.parts) :]) != expected.parts:
             raise PortRefusal("CPU module path differs from its captured import name")
         root = path
         for _ in expected.parts:
@@ -170,7 +181,8 @@ def _load(call):
             selected = next((entry for entry in members if entry[0] == call.entrypoint), None)
             actual = function.__func__ if inspect.ismethod(function) else function
             if (
-                selected is None or actual is not selected[2]
+                selected is None
+                or actual is not selected[2]
                 or actual.__code__ != selected[3]
                 or actual.__globals__ is not modules[module_name].__dict__
             ):
@@ -193,10 +205,16 @@ def execute_python_call(content: bytes, check_active, prepare_runtime=lambda: No
         name: TypeAdapter(signature.parameters[name].annotation).validate_json(value, strict=True)
         for name, value in call.arguments.items()
     }
-    positional = tuple(arguments[p.name] for p in signature.parameters.values()
-                       if p.kind == inspect.Parameter.POSITIONAL_ONLY)
-    keywords = {name: value for name, value in arguments.items()
-                if signature.parameters[name].kind != inspect.Parameter.POSITIONAL_ONLY}
+    positional = tuple(
+        arguments[p.name]
+        for p in signature.parameters.values()
+        if p.kind == inspect.Parameter.POSITIONAL_ONLY
+    )
+    keywords = {
+        name: value
+        for name, value in arguments.items()
+        if signature.parameters[name].kind != inspect.Parameter.POSITIONAL_ONLY
+    }
     bound = signature.bind(*positional, **keywords)
     prepare_runtime()
     check_active()

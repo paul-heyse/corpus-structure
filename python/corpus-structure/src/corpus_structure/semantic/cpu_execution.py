@@ -416,9 +416,12 @@ def _dispatch(
             if len(result) > max_reply_bytes:
                 raise CapacityExceeded("CPU Python result exceeds admitted reply byte capacity")
             return CPUReply(
-                sha256(content).hexdigest(), result, os.getpid(),
+                sha256(content).hexdigest(),
+                result,
+                os.getpid(),
                 threading.current_thread() is threading.main_thread(),
-                native_thread_limit=_WORKER_NATIVE_THREADS, native_pools=_WORKER_NATIVE_POOLS,
+                native_thread_limit=_WORKER_NATIVE_THREADS,
+                native_pools=_WORKER_NATIVE_POOLS,
             )
         if profile != "legacy":
             raise ValueError("CPU dispatch has no admitted source-native profile")

@@ -12,7 +12,12 @@ from corpus_structure.semantic.characterization import (
     LayerReport,
 )
 from corpus_structure.semantic.product_reference import ProductReference
-from .data_product_reference import DataProductReference, DataProductMemberReference, member_reference
+
+from .data_product_reference import (
+    DataProductMemberReference,
+    DataProductReference,
+    member_reference,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,10 +26,8 @@ class SemanticFormalSource:
     projection_digest: str
 
 
-
-
-def _reference(pin,local_id):
-    return member_reference(pin,local_id)
+def _reference(pin, local_id):
+    return member_reference(pin, local_id)
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,18 +112,33 @@ class FormalSourceReadings:
         from .constructions.lexical import PositionedTerminal, ProtectedAtom, region_terminals
 
         if self._lexical is None:
-            raise ValueError("legacy formal inputs do not declare primary construction lexical coverage")
-        eligible = [row for row in self._lexical if row["start"]<=start<=end<=row["end"] and row["availability"]=="available"]
+            raise ValueError(
+                "legacy formal inputs do not declare primary construction lexical coverage"
+            )
+        eligible = [
+            row
+            for row in self._lexical
+            if row["start"] <= start <= end <= row["end"] and row["availability"] == "available"
+        ]
         if not eligible:
             raise ValueError("primary lexical characterization is unavailable for this region")
         readings = []
         for row in eligible:
-            if any(a["start"]<end and start<a["end"] and not start<=a["start"]<a["end"]<=end for a in row["atoms"]):
+            if any(
+                a["start"] < end and start < a["end"] and not start <= a["start"] < a["end"] <= end
+                for a in row["atoms"]
+            ):
                 raise ValueError("construction region cuts a protected primary source atom")
-            atoms = tuple(ProtectedAtom(a["start"]-start,a["end"]-start,a["occurrence"]) for a in row["atoms"] if start<=a["start"]<a["end"]<=end)
-            terminals=region_terminals(tuple(PositionedTerminal(**v) for v in row["terminals"]),self._text,start,end)
-            readings.append((atoms,terminals))
-        if any(value!=readings[0] for value in readings[1:]):
+            atoms = tuple(
+                ProtectedAtom(a["start"] - start, a["end"] - start, a["occurrence"])
+                for a in row["atoms"]
+                if start <= a["start"] < a["end"] <= end
+            )
+            terminals = region_terminals(
+                tuple(PositionedTerminal(**v) for v in row["terminals"]), self._text, start, end
+            )
+            readings.append((atoms, terminals))
+        if any(value != readings[0] for value in readings[1:]):
             raise ValueError("selected primary lexical characterizations disagree")
         return readings[0]
 

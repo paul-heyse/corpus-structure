@@ -998,14 +998,11 @@ def extract_formal_facts(
 ) -> list[dict[str, Any]]:
     """One actual nomination/parser/reducer implementation shared by both projections."""
     view = builder.view
-    native_pieces = [piece for piece in view.pieces if piece["kind"] == "native_text"]
     for selector in selected:
         a, b = selector.get("start", 0), selector.get("end", len(view.text))
         if not 0 <= a <= b <= len(view.text):
             raise ValueError("formal selected source bounds exceed the actual projection")
-        if selector.get("native_pointer") and not (
-            selector["native_pointer"] in builder.items
-        ):
+        if selector.get("native_pointer") and selector["native_pointer"] not in builder.items:
             raise ValueError("formal selector does not name a selected native source atom")
 
     def matches(piece, selector):

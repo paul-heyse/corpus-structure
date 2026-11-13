@@ -12,11 +12,9 @@ from typing import Any
 from lark import Lark, UnexpectedInput
 
 from .declarations import DECLARATIONS, MODAL_FORCES, REVISION
+from .lexical import LEXICAL, PositionedTerminal, ProtectedAtom, classify
 from .nodes import Reference, identity
 from .reuse import ReusingForestTransformer
-
-
-from .lexical import LEXICAL, PositionedTerminal, ProtectedAtom, classify
 
 
 def terminal_guard(start: int, end: int, atoms: tuple[ProtectedAtom, ...], *, atom: bool) -> None:
@@ -45,16 +43,25 @@ def _literal_pattern(value: str) -> str:
 def _positioned_values(text: str, terminal: str, values: tuple[PositionedTerminal, ...]) -> str:
     alternatives = []
     for row in values:
-        if row.terminal not in {*LEXICAL, "WS"} or not 0 <= row.start < row.end <= len(text) or text[row.start:row.end] != row.text:
+        if (
+            row.terminal not in {*LEXICAL, "WS"}
+            or not 0 <= row.start < row.end <= len(text)
+            or text[row.start : row.end] != row.text
+        ):
             raise ValueError("retained lexical observation differs from exact original source")
         if row.terminal == terminal:
-            alternatives.append(r"(?<=\A[\s\S]{"+str(row.start)+"})"+_literal_pattern(row.text))
-    return "(?:"+"|".join(alternatives)+")" if alternatives else r"(?!)x"
+            alternatives.append(
+                r"(?<=\A[\s\S]{" + str(row.start) + "})" + _literal_pattern(row.text)
+            )
+    return "(?:" + "|".join(alternatives) + ")" if alternatives else r"(?!)x"
 
 
 def prepared_parser(
-    text: str, atoms: tuple[ProtectedAtom, ...], grammar: str | None = None,
-    *, terminals: tuple[PositionedTerminal, ...] | None = None
+    text: str,
+    atoms: tuple[ProtectedAtom, ...],
+    grammar: str | None = None,
+    *,
+    terminals: tuple[PositionedTerminal, ...] | None = None,
 ) -> Lark:
     resource = Path(__file__).with_name("grammars").joinpath("prose.lark").read_bytes()
     return _prepared_parser(text, atoms, grammar, sha256(resource).hexdigest(), terminals)
@@ -62,8 +69,11 @@ def prepared_parser(
 
 @lru_cache(maxsize=64)
 def _prepared_parser(
-    text: str, atoms: tuple[ProtectedAtom, ...], grammar: str | None, resource_digest: str,
-    terminals: tuple[PositionedTerminal, ...] | None = None
+    text: str,
+    atoms: tuple[ProtectedAtom, ...],
+    grammar: str | None,
+    resource_digest: str,
+    terminals: tuple[PositionedTerminal, ...] | None = None,
 ) -> Lark:
     previous = 0
     for atom in sorted(atoms, key=lambda a: a.start):

@@ -196,8 +196,12 @@ class ResolvedPythonPort:
             raise PortRefusal("batch capability requires explicit member invocation")
         bound = self._arguments(values, route="python", binding=binding, signature=self.signature)
         reply = yield from plan_cpu_call(
-            self.cpu_descriptor, bound, self.signature, verify=self.verify_runtime,
-            execution_owner=execution_owner, check_active=check_active,
+            self.cpu_descriptor,
+            bound,
+            self.signature,
+            verify=self.verify_runtime,
+            execution_owner=execution_owner,
+            check_active=check_active,
         )
         result = TypeAdapter(self.signature.return_annotation).validate_json(
             reply.content, strict=True
@@ -214,18 +218,24 @@ class ResolvedPythonPort:
 
         bound = self._batch_arguments(members, route="python")
         reply = yield from plan_cpu_call(
-            self.cpu_descriptor, bound, self.signature, verify=self.verify_runtime,
-            execution_owner=execution_owner, check_active=check_active,
+            self.cpu_descriptor,
+            bound,
+            self.signature,
+            verify=self.verify_runtime,
+            execution_owner=execution_owner,
+            check_active=check_active,
         )
         checked = TypeAdapter(self.signature.return_annotation).validate_json(
             reply.content, strict=True
         )
         completed = self._batch_complete(checked, members)
         evidence = canonical_bytes(reply.execution_receipt.record())
-        return BatchPortCompletion(tuple(
-            (member, replace(completion, cpu_execution_evidence=evidence))
-            for member, completion in completed.members
-        ))
+        return BatchPortCompletion(
+            tuple(
+                (member, replace(completion, cpu_execution_evidence=evidence))
+                for member, completion in completed.members
+            )
+        )
 
     def invoke_python(
         self, values: tuple[PythonRoleValue, ...], *, binding: BindingResult | None = None
@@ -702,7 +712,6 @@ def resolve_python_port(
     )
 
 
-
 def _cpu_descriptor(model, selected, sources, paths, receiver):
     from .data_operation_cpu import PythonCPUDescriptor
 
@@ -711,14 +720,18 @@ def _cpu_descriptor(model, selected, sources, paths, receiver):
             (source.module, str(paths[source.module]), source.content) for source in sources.sources
         ),
         selected.callable_surfaces[0].exposed,
-        tuple(sorted(
-            node.id.removeprefix("python:")
-            for implementation in model.implementation_slices
-            if implementation.root == selected.implementation_root
-            for node in implementation.nodes if node.id.startswith("python:")
-        )),
+        tuple(
+            sorted(
+                node.id.removeprefix("python:")
+                for implementation in model.implementation_slices
+                if implementation.root == selected.implementation_root
+                for node in implementation.nodes
+                if node.id.startswith("python:")
+            )
+        ),
         receiver,
     )
+
 
 def _source_reference(node, module):
     if isinstance(node, ast.Name):

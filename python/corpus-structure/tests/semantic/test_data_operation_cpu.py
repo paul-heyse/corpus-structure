@@ -31,14 +31,19 @@ from .test_data_operation_ports import fixture_source, kind
 def scope():
     return CPUExecutionScope(
         cast(PreparedRelease, SimpleNamespace(release_id="test:no-schema-capsule")),
-        CharacterizationExecutionPolicy(workers=1, max_submissions=1), retain_schema=False,
+        CharacterizationExecutionPolicy(workers=1, max_submissions=1),
+        retain_schema=False,
     )
 
 
 def run(port, cpu, values):
-    return drive_prepared_work(port.plan_python(
-        values, execution_owner=SimpleNamespace(cpu=cpu, reservation=None),
-    ), lambda: None)
+    return drive_prepared_work(
+        port.plan_python(
+            values,
+            execution_owner=SimpleNamespace(cpu=cpu, reservation=None),
+        ),
+        lambda: None,
+    )
 
 
 def test_spawned_original_function_retains_exact_type_result_and_physical_receipt(
@@ -46,17 +51,20 @@ def test_spawned_original_function_retains_exact_type_result_and_physical_receip
 ):
     model, sources = fixture_source(tmp_path, monkeypatch, "index: int", "return str(index + 1)")
     permissions = []
-    port = resolve_python_port(model, sources, model.operations[0].semantic_id,
-                               authorize=permissions.append)
+    port = resolve_python_port(
+        model, sources, model.operations[0].semantic_id, authorize=permissions.append
+    )
     assert port.native_selections == ()
     assert port.cpu_descriptor is not None
     # Exact source + owning node IDs; no complete model or PreparedRelease packet.
     packet = port.cpu_descriptor.packet({"index": 7}, port.signature)
     assert "model" not in json.loads(packet) and "schema" not in json.loads(packet)
     assert set(json.loads(packet)["expected_nodes"]) == {
-        node.id.removeprefix("python:") for implementation in model.implementation_slices
+        node.id.removeprefix("python:")
+        for implementation in model.implementation_slices
         if implementation.root == port.operation.implementation_root
-        for node in implementation.nodes if node.id.startswith("python:")
+        for node in implementation.nodes
+        if node.id.startswith("python:")
     }
     cpu = scope()
     try:
@@ -92,8 +100,9 @@ def test_spawned_stateless_inherited_receiver_uses_actual_class_and_captured_con
     monkeypatch.syspath_prepend(str(tmp_path))
     sources = PythonSourceCollection((PythonSource(name, source.encode(), str(path)),))
     model = compile_data_operations(python_sources=sources)
-    port = resolve_python_port(model, sources, model.operations[0].semantic_id,
-                               authorize=lambda _: None)
+    port = resolve_python_port(
+        model, sources, model.operations[0].semantic_id, authorize=lambda _: None
+    )
     cpu = scope()
     try:
         result = run(port, cpu, (PythonRoleValue("index", kind(model, "index"), 3),))
@@ -108,22 +117,32 @@ def test_spawned_original_batch_retains_exact_logical_order_and_one_cpu_receipt(
     metadata = copy.deepcopy(claim_source_item__data_operation__)
     metadata["capabilities"]["forms"] = ["batch"]
     model, sources = fixture_source(
-        tmp_path, monkeypatch, "index: tuple[int, ...]",
-        "return tuple(str(value) for value in index)", metadata=metadata, returns="tuple[str, ...]",
+        tmp_path,
+        monkeypatch,
+        "index: tuple[int, ...]",
+        "return tuple(str(value) for value in index)",
+        metadata=metadata,
+        returns="tuple[str, ...]",
     )
-    port = resolve_python_port(model, sources, model.operations[0].semantic_id,
-                               authorize=lambda _: None)
+    port = resolve_python_port(
+        model, sources, model.operations[0].semantic_id, authorize=lambda _: None
+    )
     members = tuple(
         PythonBatchMember(name, (PythonRoleValue("index", kind(model, "index"), value),))
         for name, value in (("second", 2), ("first", 1))
     )
     cpu = scope()
     try:
-        result = drive_prepared_work(port.plan_batch_python(
-            members, execution_owner=SimpleNamespace(cpu=cpu, reservation=None),
-        ), lambda: None)
+        result = drive_prepared_work(
+            port.plan_batch_python(
+                members,
+                execution_owner=SimpleNamespace(cpu=cpu, reservation=None),
+            ),
+            lambda: None,
+        )
         assert [(name, completion.outputs[0].value()) for name, completion in result.members] == [
-            ("second", "2"), ("first", "1"),
+            ("second", "2"),
+            ("first", "1"),
         ]
         assert len({completion.cpu_execution_evidence for _, completion in result.members}) == 1
     finally:
@@ -132,8 +151,9 @@ def test_spawned_original_batch_retains_exact_logical_order_and_one_cpu_receipt(
 
 def test_parent_and_child_refuse_changed_captured_source(tmp_path, monkeypatch):
     model, sources = fixture_source(tmp_path, monkeypatch)
-    port = resolve_python_port(model, sources, model.operations[0].semantic_id,
-                               authorize=lambda _: None)
+    port = resolve_python_port(
+        model, sources, model.operations[0].semantic_id, authorize=lambda _: None
+    )
     assert port.cpu_descriptor is not None
     packet = port.cpu_descriptor.packet({"index": 7}, port.signature)
     path = tmp_path / (sources.sources[0].module + ".py")
@@ -158,11 +178,14 @@ def test_hung_original_call_cancellation_drains_actual_cpu_process(tmp_path, mon
     from corpus_structure.semantic import cpu_execution
 
     model, sources = fixture_source(
-        tmp_path, monkeypatch, "index: int",
+        tmp_path,
+        monkeypatch,
+        "index: int",
         "while index:\n        index += 1\n    return str(index)",
     )
-    port = resolve_python_port(model, sources, model.operations[0].semantic_id,
-                               authorize=lambda _: None)
+    port = resolve_python_port(
+        model, sources, model.operations[0].semantic_id, authorize=lambda _: None
+    )
     assert port.cpu_descriptor is not None
     cpu = scope()
     monkeypatch.setattr(cpu_execution, "_COOPERATIVE_CLOSE_SECONDS", 0.1)
@@ -192,8 +215,9 @@ def test_prepared_kernel_profile_reuses_exact_same_cpu_owner_and_parent_validati
     from corpus_structure.semantic.data_operation_cpu import plan_cpu_call
 
     model, sources = fixture_source(tmp_path, monkeypatch, "index: int", "return str(index * 2)")
-    port = resolve_python_port(model, sources, model.operations[0].semantic_id,
-                               authorize=lambda _: None)
+    port = resolve_python_port(
+        model, sources, model.operations[0].semantic_id, authorize=lambda _: None
+    )
     assert port.cpu_descriptor is not None
     descriptor = replace(port.cpu_descriptor, verification="prepared-kernel", expected_nodes=())
     verified = []
@@ -204,10 +228,17 @@ def test_prepared_kernel_profile_reuses_exact_same_cpu_owner_and_parent_validati
 
     cpu = scope()
     try:
-        reply = drive_prepared_work(plan_cpu_call(
-            descriptor, port.signature.bind(index=9), port.signature, verify=verify,
-            execution_owner=SimpleNamespace(cpu=cpu, reservation=None), check_active=lambda: None,
-        ), lambda: None)
+        reply = drive_prepared_work(
+            plan_cpu_call(
+                descriptor,
+                port.signature.bind(index=9),
+                port.signature,
+                verify=verify,
+                execution_owner=SimpleNamespace(cpu=cpu, reservation=None),
+                check_active=lambda: None,
+            ),
+            lambda: None,
+        )
         assert reply.content == b'"18"' and reply.pid != os.getpid()
         assert len(verified) == 3
         assert cpu._capsule_bytes == 0

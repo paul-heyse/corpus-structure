@@ -551,8 +551,10 @@ class NativeDemandExecutor:
                 inputs = self._hydrate(ready)
                 answer = yield from physical.relay(
                     port.plan_python(
-                        inputs, binding=ready.binding_result,
-                        check_active=lambda: owner.check_claim(claim), execution_owner=physical,
+                        inputs,
+                        binding=ready.binding_result,
+                        check_active=lambda: owner.check_claim(claim),
+                        execution_owner=physical,
                     )
                 )
                 phase = "settlement"
@@ -610,7 +612,6 @@ class NativeDemandExecutor:
                     error.add_note("native obligation: " + item.obligation)
                     failures.append(error)
             if pending:
-
                 active, rejected = [], []
                 for row in pending:
                     try:
@@ -628,11 +629,16 @@ class NativeDemandExecutor:
                     if pending:
                         # One original batch remains useful while any member has
                         # authority. Each logical result settles under its own fence.
-                        answer = yield from physical.relay(pending[0][4].plan_batch_python(
-                            tuple(PythonBatchMember(member, inputs, item.binding_result)
-                                  for member, item, _, inputs, _ in pending),
-                            check_active=owner, execution_owner=physical,
-                        ))
+                        answer = yield from physical.relay(
+                            pending[0][4].plan_batch_python(
+                                tuple(
+                                    PythonBatchMember(member, inputs, item.binding_result)
+                                    for member, item, _, inputs, _ in pending
+                                ),
+                                check_active=owner,
+                                execution_owner=physical,
+                            )
+                        )
                     if answer is not None and tuple(
                         member for member, _ in answer.members
                     ) != tuple(row[0] for row in pending):
@@ -691,9 +697,7 @@ class NativeDemandExecutor:
                     groups.setdefault(item.operation, []).append(item)
                 else:
                     plans.append(self._execute(item, owner))
-            plans.extend(
-                self._execute_batch(tuple(items), owner) for items in groups.values()
-            )
+            plans.extend(self._execute_batch(tuple(items), owner) for items in groups.values())
             results = yield ReadyGroup(tuple(plans), max_active=self.capacity)
             for result in results:
                 receipts.extend(result.receipts)
